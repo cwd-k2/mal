@@ -1,7 +1,10 @@
 use malc::ast;
 use malc::parser::parse;
 use malc::resolve;
-use malc::resolve::ast::{self as resolved, FALSE_VALUE, TopItem, ValueOwner};
+use malc::resolve::ast::{
+    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, TopItem,
+    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
+};
 use malc::source::{FileId, SourceFile};
 
 fn source(text: &str) -> SourceFile {
@@ -87,6 +90,38 @@ fn type_and_external_declarations_are_visible_across_the_unit() {
             ..
         })
     ));
+}
+
+#[test]
+fn resolves_every_predefined_fixed_width_integer_type() {
+    let program =
+        resolve_ok("Types :: [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64];");
+    let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
+        panic!("expected alias");
+    };
+    let resolved::TypeExpression::Sum(members) = &value.kind else {
+        panic!("expected sum");
+    };
+    let ids = members
+        .iter()
+        .map(|member| match &member.kind {
+            resolved::TypeExpression::Named(reference) => reference.id,
+            _ => panic!("expected named integer type"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        vec![
+            INT8_TYPE,
+            INT16_TYPE,
+            INT32_TYPE,
+            INT64_TYPE,
+            UINT8_TYPE,
+            UINT16_TYPE,
+            UINT32_TYPE,
+            UINT64_TYPE,
+        ]
+    );
 }
 
 #[test]

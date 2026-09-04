@@ -15,8 +15,15 @@ pub struct ExternalOperationId(pub u32);
 pub struct LambdaId(pub u32);
 
 pub const UNIT_TYPE: TypeId = TypeId(0);
-pub const INT32_TYPE: TypeId = TypeId(1);
-pub const BOOL_TYPE: TypeId = TypeId(2);
+pub const INT8_TYPE: TypeId = TypeId(1);
+pub const INT16_TYPE: TypeId = TypeId(2);
+pub const INT32_TYPE: TypeId = TypeId(3);
+pub const INT64_TYPE: TypeId = TypeId(4);
+pub const UINT8_TYPE: TypeId = TypeId(5);
+pub const UINT16_TYPE: TypeId = TypeId(6);
+pub const UINT32_TYPE: TypeId = TypeId(7);
+pub const UINT64_TYPE: TypeId = TypeId(8);
+pub const BOOL_TYPE: TypeId = TypeId(9);
 pub const FALSE_VALUE: ValueId = ValueId(0);
 pub const TRUE_VALUE: ValueId = ValueId(1);
 

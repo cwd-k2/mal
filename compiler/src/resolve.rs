@@ -7,8 +7,9 @@ pub mod ast;
 mod expression;
 
 use self::ast::{
-    BOOL_TYPE, ExternalOperationId, FALSE_VALUE, INT32_TYPE, LambdaId, Program, TRUE_VALUE,
-    TypeBinding, TypeId, TypeReference, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
+    BOOL_TYPE, ExternalOperationId, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
+    LambdaId, Program, TRUE_VALUE, TypeBinding, TypeId, TypeReference, UINT8_TYPE, UINT16_TYPE,
+    UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
 };
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
@@ -44,14 +45,21 @@ impl Resolver {
             externals: HashMap::new(),
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
-            next_type: 3,
+            next_type: 10,
             next_value: 2,
             next_external: 0,
             next_lambda: 0,
             synthetic_span,
         };
         resolver.add_predefined_type("Unit", UNIT_TYPE);
+        resolver.add_predefined_type("Int8", INT8_TYPE);
+        resolver.add_predefined_type("Int16", INT16_TYPE);
         resolver.add_predefined_type("Int32", INT32_TYPE);
+        resolver.add_predefined_type("Int64", INT64_TYPE);
+        resolver.add_predefined_type("UInt8", UINT8_TYPE);
+        resolver.add_predefined_type("UInt16", UINT16_TYPE);
+        resolver.add_predefined_type("UInt32", UINT32_TYPE);
+        resolver.add_predefined_type("UInt64", UINT64_TYPE);
         resolver.add_predefined_type("Bool", BOOL_TYPE);
         resolver.add_predefined_value("false", FALSE_VALUE);
         resolver.add_predefined_value("true", TRUE_VALUE);

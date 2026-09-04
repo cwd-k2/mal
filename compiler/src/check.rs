@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::ast::{Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, BOOL_TYPE, FALSE_VALUE, INT32_TYPE, TRUE_VALUE, TypeId, UNIT_TYPE, ValueId,
+    self as resolved, BOOL_TYPE, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
+    TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueId,
 };
 use crate::source::Span;
 
@@ -184,6 +185,13 @@ impl Checker {
             UNIT_TYPE => return Ok(Type::Unit),
             INT32_TYPE => return Ok(Type::Int32),
             BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
+            INT8_TYPE | INT16_TYPE | INT64_TYPE | UINT8_TYPE | UINT16_TYPE | UINT32_TYPE
+            | UINT64_TYPE => {
+                return Err(self.unsupported(
+                    use_span,
+                    "fixed-width integer types other than Int32 are not implemented yet",
+                ));
+            }
             _ => {}
         }
         if let Some(expanded) = self.expanded_aliases.get(&id) {
