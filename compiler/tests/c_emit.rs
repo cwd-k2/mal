@@ -91,6 +91,7 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
     (void)context;
     printf("%" PRIu64 "\n", value);
 }
+
 "#,
     );
     assert!(output.status.success());
@@ -98,6 +99,34 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
         String::from_utf8(output.stdout).unwrap(),
         "18446744073709551615\n"
     );
+}
+
+#[test]
+fn emits_every_fixed_width_scalar_in_the_generated_header() {
+    let generated = emit(
+        "extern i8 :: Int8 -> Int8;\n\
+         extern i16 :: Int16 -> Int16;\n\
+         extern i32 :: Int32 -> Int32;\n\
+         extern i64 :: Int64 -> Int64;\n\
+         extern u8 :: UInt8 -> UInt8;\n\
+         extern u16 :: UInt16 -> UInt16;\n\
+         extern u32 :: UInt32 -> UInt32;\n\
+         extern u64 :: UInt64 -> UInt64;\n\
+         main :: Unit -> Int32 := \\() { return 0; };",
+    )
+    .expect("emit C");
+    for declaration in [
+        "int8_t mal_ext_i8(MalContext *context, int8_t value);",
+        "int16_t mal_ext_i16(MalContext *context, int16_t value);",
+        "int32_t mal_ext_i32(MalContext *context, int32_t value);",
+        "int64_t mal_ext_i64(MalContext *context, int64_t value);",
+        "uint8_t mal_ext_u8(MalContext *context, uint8_t value);",
+        "uint16_t mal_ext_u16(MalContext *context, uint16_t value);",
+        "uint32_t mal_ext_u32(MalContext *context, uint32_t value);",
+        "uint64_t mal_ext_u64(MalContext *context, uint64_t value);",
+    ] {
+        assert!(generated.header.contains(declaration), "{declaration}");
+    }
 }
 
 #[test]
@@ -205,7 +234,20 @@ fn executes_modulo_integer_conversions() {
 
 #[test]
 fn traps_out_of_range_shift_counts() {
-    for expression in ["1Int8 << 8Int8", "1Int16 >> -1Int16", "1UInt64 << 64UInt64"] {
+    for expression in [
+        "1Int8 << 8Int8",
+        "1Int16 << 16Int16",
+        "1Int32 << 32Int32",
+        "1Int64 << 64Int64",
+        "1UInt8 << 8UInt8",
+        "1UInt16 << 16UInt16",
+        "1UInt32 << 32UInt32",
+        "1UInt64 << 64UInt64",
+        "1Int8 >> -1Int8",
+        "1Int16 >> -1Int16",
+        "1Int32 >> -1Int32",
+        "1Int64 >> -1Int64",
+    ] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
             "",
@@ -237,15 +279,34 @@ fn executes_sum_injection_and_case() {
 }
 
 #[test]
-fn traps_invalid_int32_division_and_remainder() {
-    for (expression, message) in [
-        ("1 / 0", "division by zero"),
-        ("-2147483648 / -1", "signed division overflow"),
-        ("1 % 0", "remainder by zero"),
-        ("-2147483648 % -1", "signed remainder overflow"),
+fn traps_invalid_division_and_remainder_at_every_width() {
+    let mut cases = Vec::new();
+    for (ty, minimum) in [
+        ("Int8", Some("-128")),
+        ("Int16", Some("-32768")),
+        ("Int32", Some("-2147483648")),
+        ("Int64", Some("-9223372036854775808")),
+        ("UInt8", None),
+        ("UInt16", None),
+        ("UInt32", None),
+        ("UInt64", None),
     ] {
+        cases.push((format!("1{ty} / 0{ty}"), "division by zero"));
+        cases.push((format!("1{ty} % 0{ty}"), "remainder by zero"));
+        if let Some(minimum) = minimum {
+            cases.push((
+                format!("{minimum}{ty} / -1{ty}"),
+                "signed division overflow",
+            ));
+            cases.push((
+                format!("{minimum}{ty} % -1{ty}"),
+                "signed remainder overflow",
+            ));
+        }
+    }
+    for (expression, message) in cases {
         let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ return {expression}; }};"),
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
             "",
         );
         assert!(!output.status.success(), "expression: {expression}");
