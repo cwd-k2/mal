@@ -2,7 +2,7 @@
 
 Rust reference compiler for mal v0.4.
 
-The compiler currently provides source loading, span-based diagnostics, the M0 lexer, a source-oriented parser, name/capture resolution, M0 type checking, typed-core and ANF lowering, closure conversion, and C/header emission. Implementation proceeds according to [`docs/implementation/m0.md`](../docs/implementation/m0.md); unsupported CLI commands fail explicitly rather than accepting source incompletely.
+The compiler implements the complete M0 pipeline: source loading, diagnostics, lexing, parsing, name/capture resolution, type checking, typed-core and ANF lowering, closure conversion, C/header emission, and native C compilation/linking. The `check`, `emit-c`, and `build` commands follow [`docs/implementation/m0.md`](../docs/implementation/m0.md).
 
 From this directory:
 

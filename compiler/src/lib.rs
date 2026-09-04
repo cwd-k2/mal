@@ -8,6 +8,7 @@ pub mod cli;
 pub mod closure;
 pub mod core;
 pub mod diagnostic;
+pub mod driver;
 pub mod lexer;
 pub mod parser;
 pub mod resolve;
