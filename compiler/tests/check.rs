@@ -382,7 +382,7 @@ fn validates_extern_signatures_recursively() {
 }
 
 #[test]
-fn rejects_features_outside_the_m0_type_slice() {
+fn rejects_features_outside_the_current_type_slice() {
     let cases = [
         ("Pair :: (Int32, Int32);", "product types"),
         ("extern Handle;", "external opaque types"),

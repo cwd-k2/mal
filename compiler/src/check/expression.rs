@@ -44,10 +44,9 @@ impl Checker {
                 }
             }
             resolved::Expression::Product(_) => {
-                return Err(self.unsupported(
-                    expression.span,
-                    "product expressions are not supported in M0",
-                ));
+                return Err(
+                    self.unsupported(expression.span, "product expressions are not supported")
+                );
             }
             resolved::Expression::Lambda(lambda) => {
                 self.check_lambda(lambda, expression.span, expected)?
@@ -128,7 +127,7 @@ impl Checker {
         if lambda.parameters.len() > 1 {
             return Err(self.unsupported(
                 span,
-                "multiple lambda parameters require product types, which are not supported in M0",
+                "multiple lambda parameters require product types, which are not supported",
             ));
         }
         let expected_function = match expected {
@@ -259,7 +258,7 @@ impl Checker {
             [argument] => self.check_expression(argument, Some(parameter)),
             _ => Err(self.unsupported(
                 span,
-                "multiple arguments require product types, which are not supported in M0",
+                "multiple arguments require product types, which are not supported",
             )),
         }
     }

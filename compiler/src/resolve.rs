@@ -278,7 +278,7 @@ impl Resolver {
 
     fn local_owner(&self, span: Span) -> Result<ValueOwner, Diagnostic> {
         self.current_lambda.map(ValueOwner::Lambda).ok_or_else(|| {
-            Diagnostic::error("local binding outside a lambda is not supported in M0")
+            Diagnostic::error("local binding outside a lambda is not supported")
                 .with_primary(span, "this binding has no owning lambda")
         })
     }

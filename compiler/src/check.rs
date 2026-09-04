@@ -68,7 +68,7 @@ impl Checker {
                 resolved::TopItem::ExternalType { binding } => {
                     return Err(self.unsupported(
                         binding.name.span,
-                        "external opaque types are not supported in M0",
+                        "external opaque types are not supported",
                     ));
                 }
                 resolved::TopItem::ExternalOperation { id, name, .. } => {
@@ -112,7 +112,7 @@ impl Checker {
                 resolved::TopItem::ExternalType { binding } => {
                     return Err(self.unsupported(
                         binding.name.span,
-                        "external opaque types are not supported in M0",
+                        "external opaque types are not supported",
                     ));
                 }
                 _ => {}
@@ -142,10 +142,7 @@ impl Checker {
                     "external operation `{}` uses a function value",
                     name.text
                 ))
-                .with_primary(
-                    ty.span,
-                    "function types cannot cross the M0 extern boundary",
-                ));
+                .with_primary(ty.span, "function types cannot cross the extern boundary"));
             }
             self.externals.insert(
                 *id,
@@ -166,7 +163,7 @@ impl Checker {
             resolved::TypeExpression::Unit => Ok(Type::Unit),
             resolved::TypeExpression::Parenthesized(inner) => self.expand_type(inner),
             resolved::TypeExpression::Product(_) => {
-                Err(self.unsupported(ty.span, "product types are not supported in M0"))
+                Err(self.unsupported(ty.span, "product types are not supported"))
             }
             resolved::TypeExpression::Sum(members) => Ok(Type::Sum(
                 members
@@ -252,7 +249,7 @@ impl Checker {
                 span: pattern.span,
             }),
             resolved::Pattern::Product(_) => {
-                Err(self.unsupported(pattern.span, "product patterns are not supported in M0"))
+                Err(self.unsupported(pattern.span, "product patterns are not supported"))
             }
         }
     }
@@ -320,14 +317,14 @@ impl Checker {
             Err(
                 Diagnostic::error("unsupported top-level initializer").with_primary(
                     expression.span,
-                    "M0 top-level values must be closed literals, sums, or lambdas",
+                    "top-level values must be closed literals, sums, or lambdas",
                 ),
             )
         }
     }
 
     fn unsupported(&self, span: Span, message: &str) -> Diagnostic {
-        Diagnostic::error(message).with_primary(span, "not supported by the M0 compiler")
+        Diagnostic::error(message).with_primary(span, "not supported by the current compiler")
     }
 }
 

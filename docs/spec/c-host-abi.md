@@ -1,6 +1,6 @@
 # C host ABI
 
-Status: Initial implementation profile
+Status: Current v0.4 profile
 
 この文書はmalのbackend非依存な意味論ではなく、v0.4 reference compilerが最初に実装するhost interfaceを定める。別backendはsource-level semanticsを保つ限り別のABIを使用できる。
 
@@ -100,6 +100,6 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 
 回復可能なhost failureは明示的なsum resultとしてAPIに表す。ABI共通のhidden error channel、`errno` mapping、exception translationは持たない。回復不能なcontract violationは`mal_trap`を呼べる。
 
-## M0 subset
+## 実装済みsubset
 
-最初のend-to-end sliceでは`Unit`、`Int32`、`MalContext *`、`mal_ext_` symbolだけを実装すればよい。String、opaque handle、aggregate ABIは後続milestoneで、この文書に対するC conformance testとともに追加する。
+reference compilerは現在、`Unit`、全fixed-width integer scalar、`MalContext *`、`mal_ext_` symbolを実装する。String、opaque handle、aggregate ABIは後続milestoneで、この文書に対するC conformance testとともに追加する。
