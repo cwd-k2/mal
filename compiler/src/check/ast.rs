@@ -7,7 +7,14 @@ use crate::source::Span;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Type {
     Unit,
+    Int8,
+    Int16,
     Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
     Sum(Vec<Type>),
     Function {
         parameter: Box<Type>,
@@ -60,7 +67,7 @@ pub struct Expression {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind {
     Reference(ValueReference),
-    Integer(i32),
+    Integer(i128),
     Unit,
     Parenthesized(Box<Expression>),
     Lambda(Lambda),

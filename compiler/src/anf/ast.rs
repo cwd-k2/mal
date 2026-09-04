@@ -68,7 +68,7 @@ pub struct Atom {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AtomKind {
     Reference(ValueId),
-    Integer(i32),
+    Integer(i128),
     Unit,
 }
 

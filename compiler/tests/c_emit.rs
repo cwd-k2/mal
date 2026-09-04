@@ -73,6 +73,34 @@ fn executes_escaping_capturing_closures() {
 }
 
 #[test]
+fn emits_uint64_literals_and_scalar_extern_abi() {
+    let output = compile_and_run(
+        "extern printUInt64 :: UInt64 -> Unit;\n\
+         capture :: UInt64 -> (Unit -> UInt64) := \\(value :: UInt64) {\n\
+           return \\<value>() { return value; };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           extern printUInt64(capture(18446744073709551615UInt64)());\n\
+           return 0;\n\
+         };",
+        r#"#include "program.mal.h"
+#include <inttypes.h>
+#include <stdio.h>
+
+void mal_ext_printUInt64(MalContext *context, uint64_t value) {
+    (void)context;
+    printf("%" PRIu64 "\n", value);
+}
+"#,
+    );
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "18446744073709551615\n"
+    );
+}
+
+#[test]
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
         "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\

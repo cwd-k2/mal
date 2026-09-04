@@ -49,16 +49,14 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
 fn validate_externals(program: &Program) -> Result<(), Diagnostic> {
     for external in &program.externals {
-        if !matches!(external.parameter, Type::Unit | Type::Int32)
-            || !matches!(external.result, Type::Unit | Type::Int32)
-        {
+        if !is_m1_scalar(&external.parameter) || !is_m1_scalar(&external.result) {
             return Err(Diagnostic::error(format!(
                 "external operation `{}` is outside the M0 C ABI",
                 external.name
             ))
             .with_primary(
                 external.span,
-                "only Unit and Int32 extern parameters and results are supported",
+                "only Unit and fixed-width integer extern parameters and results are supported",
             ));
         }
     }
@@ -98,7 +96,14 @@ fn emit_header(program: &Program) -> String {
     for external in &program.externals {
         let result = match external.result {
             Type::Unit => "void",
+            Type::Int8 => "int8_t",
+            Type::Int16 => "int16_t",
             Type::Int32 => "int32_t",
+            Type::Int64 => "int64_t",
+            Type::UInt8 => "uint8_t",
+            Type::UInt16 => "uint16_t",
+            Type::UInt32 => "uint32_t",
+            Type::UInt64 => "uint64_t",
             _ => unreachable!("extern ABI is validated before header emission"),
         };
         write!(
@@ -107,13 +112,42 @@ fn emit_header(program: &Program) -> String {
             external.name
         )
         .unwrap();
-        if external.parameter == Type::Int32 {
-            output.push_str(", int32_t value");
+        if external.parameter != Type::Unit {
+            write!(output, ", {} value", c_scalar_type(&external.parameter)).unwrap();
         }
         output.push_str(");\n");
     }
     output.push_str("\n#endif\n");
     output
+}
+
+fn is_m1_scalar(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Unit
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
+}
+
+fn c_scalar_type(ty: &Type) -> &'static str {
+    match ty {
+        Type::Int8 => "int8_t",
+        Type::Int16 => "int16_t",
+        Type::Int32 => "int32_t",
+        Type::Int64 => "int64_t",
+        Type::UInt8 => "uint8_t",
+        Type::UInt16 => "uint16_t",
+        Type::UInt32 => "uint32_t",
+        Type::UInt64 => "uint64_t",
+        _ => unreachable!("called only for integer scalar types"),
+    }
 }
 
 fn runtime(needs: &body::RuntimeNeeds) -> String {

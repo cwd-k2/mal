@@ -183,15 +183,15 @@ impl Checker {
     fn expand_type_id(&mut self, id: TypeId, use_span: Span) -> Result<Type, Diagnostic> {
         match id {
             UNIT_TYPE => return Ok(Type::Unit),
+            INT8_TYPE => return Ok(Type::Int8),
+            INT16_TYPE => return Ok(Type::Int16),
             INT32_TYPE => return Ok(Type::Int32),
+            INT64_TYPE => return Ok(Type::Int64),
+            UINT8_TYPE => return Ok(Type::UInt8),
+            UINT16_TYPE => return Ok(Type::UInt16),
+            UINT32_TYPE => return Ok(Type::UInt32),
+            UINT64_TYPE => return Ok(Type::UInt64),
             BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
-            INT8_TYPE | INT16_TYPE | INT64_TYPE | UINT8_TYPE | UINT16_TYPE | UINT32_TYPE
-            | UINT64_TYPE => {
-                return Err(self.unsupported(
-                    use_span,
-                    "fixed-width integer types other than Int32 are not implemented yet",
-                ));
-            }
             _ => {}
         }
         if let Some(expanded) = self.expanded_aliases.get(&id) {
@@ -331,6 +331,14 @@ fn contains_function(ty: &Type) -> bool {
     match ty {
         Type::Function { .. } => true,
         Type::Sum(members) => members.iter().any(contains_function),
-        Type::Unit | Type::Int32 => false,
+        Type::Unit
+        | Type::Int8
+        | Type::Int16
+        | Type::Int32
+        | Type::Int64
+        | Type::UInt8
+        | Type::UInt16
+        | Type::UInt32
+        | Type::UInt64 => false,
     }
 }

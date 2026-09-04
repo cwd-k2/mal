@@ -116,10 +116,21 @@ impl BodyEmitter<'_> {
                 format!("mal_environment_fields->field_{index}")
             }
             AtomKind::Integer(value) => {
-                if value == i32::MIN {
-                    "INT32_MIN".into()
+                let (constant, minimum) = match atom.ty {
+                    Type::Int8 => ("INT8_C", Some(i128::from(i8::MIN))),
+                    Type::Int16 => ("INT16_C", Some(i128::from(i16::MIN))),
+                    Type::Int32 => ("INT32_C", Some(i128::from(i32::MIN))),
+                    Type::Int64 => ("INT64_C", Some(i128::from(i64::MIN))),
+                    Type::UInt8 => ("UINT8_C", None),
+                    Type::UInt16 => ("UINT16_C", None),
+                    Type::UInt32 => ("UINT32_C", None),
+                    Type::UInt64 => ("UINT64_C", None),
+                    _ => unreachable!("integer atoms have integer types"),
+                };
+                if minimum == Some(value) {
+                    format!("{}_MIN", &constant[..constant.len() - 2])
                 } else {
-                    format!("INT32_C({value})")
+                    format!("{constant}({value})")
                 }
             }
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),

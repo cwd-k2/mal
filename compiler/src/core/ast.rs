@@ -60,7 +60,7 @@ pub struct Expression {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind {
     Reference(ValueId),
-    Integer(i32),
+    Integer(i128),
     Unit,
     Let {
         binding: Box<Binding>,

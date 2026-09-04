@@ -30,7 +30,14 @@ impl TypeRegistry {
     pub(super) fn c_type(&self, ty: &Type) -> String {
         match ty {
             Type::Unit => "MalUnit".into(),
+            Type::Int8 => "int8_t".into(),
+            Type::Int16 => "int16_t".into(),
             Type::Int32 => "int32_t".into(),
+            Type::Int64 => "int64_t".into(),
+            Type::UInt8 => "uint8_t".into(),
+            Type::UInt16 => "uint16_t".into(),
+            Type::UInt32 => "uint32_t".into(),
+            Type::UInt64 => "uint64_t".into(),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
             Type::Function { .. } => format!("MalClosure_{}", self.index(ty)),
         }
@@ -42,7 +49,15 @@ impl TypeRegistry {
             let kind = match ty {
                 Type::Sum(_) => "MalSum",
                 Type::Function { .. } => "MalClosure",
-                Type::Unit | Type::Int32 => unreachable!(),
+                Type::Unit
+                | Type::Int8
+                | Type::Int16
+                | Type::Int32
+                | Type::Int64
+                | Type::UInt8
+                | Type::UInt16
+                | Type::UInt32
+                | Type::UInt64 => unreachable!(),
             };
             writeln!(output, "typedef struct {kind}_{index} {kind}_{index};").unwrap();
         }
@@ -75,7 +90,15 @@ impl TypeRegistry {
                     .unwrap();
                     output.push_str("    const void *environment;\n};\n\n");
                 }
-                Type::Unit | Type::Int32 => unreachable!(),
+                Type::Unit
+                | Type::Int8
+                | Type::Int16
+                | Type::Int32
+                | Type::Int64
+                | Type::UInt8
+                | Type::UInt16
+                | Type::UInt32
+                | Type::UInt64 => unreachable!(),
             }
         }
         output
@@ -92,7 +115,15 @@ impl TypeRegistry {
                 self.collect(parameter);
                 self.collect(result);
             }
-            Type::Unit | Type::Int32 => return,
+            Type::Unit
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64 => return,
         }
         if !self.aggregates.contains(ty) {
             self.aggregates.push(ty.clone());

@@ -85,16 +85,16 @@ fn checks_int32_literal_context_and_boundaries() {
     );
     assert!(matches!(
         top_binding(&program, 0).value.kind,
-        ExpressionKind::Integer(i32::MIN)
+        ExpressionKind::Integer(value) if value == i128::from(i32::MIN)
     ));
     assert!(matches!(
         top_binding(&program, 1).value.kind,
-        ExpressionKind::Integer(i32::MAX)
+        ExpressionKind::Integer(value) if value == i128::from(i32::MAX)
     ));
 
     assert_eq!(
-        check_error("value := 1;").message,
-        "integer literal requires an M0 type context"
+        top_binding(&check_ok("value := 1;"), 0).value.ty,
+        Type::Int64
     );
     for text in [
         "value :: Int32 := 2147483648;",
@@ -103,6 +103,76 @@ fn checks_int32_literal_context_and_boundaries() {
         assert!(
             check_error(text).message.contains("out of range"),
             "input: {text}"
+        );
+    }
+}
+
+#[test]
+fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
+    let cases = [
+        ("127Int8", Type::Int8, 127_i128),
+        ("32767Int16", Type::Int16, 32_767),
+        ("2147483647Int32", Type::Int32, 2_147_483_647),
+        (
+            "9223372036854775807Int64",
+            Type::Int64,
+            9_223_372_036_854_775_807,
+        ),
+        ("255UInt8", Type::UInt8, 255),
+        ("65535UInt16", Type::UInt16, 65_535),
+        ("4294967295UInt32", Type::UInt32, 4_294_967_295),
+        (
+            "18446744073709551615UInt64",
+            Type::UInt64,
+            18_446_744_073_709_551_615,
+        ),
+    ];
+    for (literal, ty, value) in cases {
+        let program = check_ok(&format!("value := {literal};"));
+        let expression = &top_binding(&program, 0).value;
+        assert_eq!(expression.ty, ty, "literal: {literal}");
+        assert!(
+            matches!(expression.kind, ExpressionKind::Integer(actual) if actual == value),
+            "literal: {literal}"
+        );
+    }
+
+    let byte = check_ok(r"value := b'\xff';");
+    assert_eq!(top_binding(&byte, 0).value.ty, Type::UInt8);
+    assert!(matches!(
+        top_binding(&byte, 0).value.kind,
+        ExpressionKind::Integer(255)
+    ));
+
+    for (literal, value) in [
+        ("-128Int8", -128_i128),
+        ("-32768Int16", -32_768),
+        ("-2147483648Int32", -2_147_483_648),
+        ("-9223372036854775808Int64", -9_223_372_036_854_775_808),
+    ] {
+        let program = check_ok(&format!("value := {literal};"));
+        assert!(
+            matches!(top_binding(&program, 0).value.kind, ExpressionKind::Integer(actual) if actual == value),
+            "literal: {literal}"
+        );
+    }
+
+    for literal in [
+        "128Int8",
+        "32768Int16",
+        "2147483648Int32",
+        "9223372036854775808Int64",
+        "256UInt8",
+        "65536UInt16",
+        "4294967296UInt32",
+        "18446744073709551616UInt64",
+        "-129Int8",
+    ] {
+        assert!(
+            check_error(&format!("value := {literal};"))
+                .message
+                .contains("out of range"),
+            "literal: {literal}"
         );
     }
 }

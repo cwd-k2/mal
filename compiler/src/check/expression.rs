@@ -1,6 +1,6 @@
 use crate::ast::{BinaryOperator, Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
-use crate::lexer::IntegerLiteral;
+use crate::lexer::{IntegerLiteral, IntegerSuffix};
 use crate::resolve::ast as resolved;
 
 use super::Checker;
@@ -21,12 +21,11 @@ impl Checker {
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?
             }
-            resolved::Expression::Byte(_) => {
-                return Err(self.unsupported(
-                    expression.span,
-                    "byte literals require UInt8, which is not implemented yet",
-                ));
-            }
+            resolved::Expression::Byte(value) => Expression {
+                kind: ExpressionKind::Integer(i128::from(*value)),
+                ty: Type::UInt8,
+                span: expression.span,
+            },
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
                 ty: Type::Unit,
@@ -76,7 +75,7 @@ impl Checker {
                 self.check_case(scrutinee, arms, expression.span, expected)?
             }
             resolved::Expression::Unary { operator, operand } => {
-                self.check_unary(operator, operand, expression.span)?
+                self.check_unary(operator, operand, expression.span, expected)?
             }
             resolved::Expression::Binary {
                 operator,
@@ -96,34 +95,25 @@ impl Checker {
         span: crate::source::Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if !matches!(
-            literal.suffix,
-            None | Some(crate::lexer::IntegerSuffix::Int32)
-        ) {
-            return Err(self.unsupported(
-                span,
-                "fixed-width integer types other than Int32 are not implemented yet",
-            ));
-        }
-        if literal.suffix.is_none() && expected.is_none() {
+        let ty = literal_type(literal.suffix).unwrap_or_else(|| {
+            expected
+                .filter(|ty| is_integer(ty))
+                .cloned()
+                .unwrap_or(Type::Int64)
+        });
+        let magnitude = parse_magnitude(literal, span)?;
+        let maximum = integer_positive_maximum(&ty);
+        if magnitude > maximum {
             return Err(
-                Diagnostic::error("integer literal requires an M0 type context").with_primary(
-                    span,
-                    "the language default is Int64, which is not supported in M0",
-                ),
+                Diagnostic::error(format!("{} literal is out of range", type_name(&ty)))
+                    .with_primary(span, format!("expected a value from 0 through {maximum}")),
             );
         }
-        if let Some(expected) = expected {
-            self.require_type(&Type::Int32, expected, span)?;
-        }
-        let magnitude = parse_magnitude(literal, span)?;
-        let value = i32::try_from(magnitude).map_err(|_| {
-            Diagnostic::error("Int32 literal is out of range")
-                .with_primary(span, "expected a value from 0 through 2147483647")
-        })?;
         Ok(Expression {
-            kind: ExpressionKind::Integer(value),
-            ty: Type::Int32,
+            kind: ExpressionKind::Integer(
+                i128::try_from(magnitude).expect("valid integer literals fit in i128"),
+            ),
+            ty,
             span,
         })
     }
@@ -313,15 +303,24 @@ impl Checker {
         operator: &Node<UnaryOperator>,
         operand: &Node<resolved::Expression>,
         span: crate::source::Span,
+        expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
         if operator.kind == UnaryOperator::Negate
             && let Some(literal) = unparenthesized_integer(operand)
         {
+            let ty = literal_type(literal.suffix).unwrap_or_else(|| {
+                expected
+                    .filter(|ty| is_integer(ty))
+                    .cloned()
+                    .unwrap_or(Type::Int64)
+            });
             let magnitude = parse_magnitude(literal, operand.span)?;
-            if magnitude == i32::MAX as u64 + 1 {
+            if integer_is_signed(&ty) && magnitude == integer_negative_magnitude(&ty) {
                 return Ok(Expression {
-                    kind: ExpressionKind::Integer(i32::MIN),
-                    ty: Type::Int32,
+                    kind: ExpressionKind::Integer(
+                        -i128::try_from(magnitude).expect("signed literal magnitudes fit in i128"),
+                    ),
+                    ty,
                     span,
                 });
             }
@@ -448,11 +447,14 @@ impl Checker {
     }
 }
 
-fn parse_magnitude(literal: &IntegerLiteral, span: crate::source::Span) -> Result<u64, Diagnostic> {
-    u64::from_str_radix(&literal.digits, literal.radix.value()).map_err(|_| {
+fn parse_magnitude(
+    literal: &IntegerLiteral,
+    span: crate::source::Span,
+) -> Result<u128, Diagnostic> {
+    u128::from_str_radix(&literal.digits, literal.radix.value()).map_err(|_| {
         Diagnostic::error("integer literal is too large").with_primary(
             span,
-            "the value does not fit in the M0 integer representation",
+            "the value is too large for a fixed-width integer literal",
         )
     })
 }
@@ -496,7 +498,14 @@ fn function_placeholder() -> Type {
 pub(super) fn type_name(ty: &Type) -> String {
     match ty {
         Type::Unit => "Unit".into(),
+        Type::Int8 => "Int8".into(),
+        Type::Int16 => "Int16".into(),
         Type::Int32 => "Int32".into(),
+        Type::Int64 => "Int64".into(),
+        Type::UInt8 => "UInt8".into(),
+        Type::UInt16 => "UInt16".into(),
+        Type::UInt32 => "UInt32".into(),
+        Type::UInt64 => "UInt64".into(),
         Type::Sum(members) if *members == vec![Type::Unit, Type::Unit] => "Bool".into(),
         Type::Sum(members) => format!(
             "[{}]",
@@ -505,5 +514,58 @@ pub(super) fn type_name(ty: &Type) -> String {
         Type::Function { parameter, result } => {
             format!("{} -> {}", type_name(parameter), type_name(result))
         }
+    }
+}
+
+fn literal_type(suffix: Option<IntegerSuffix>) -> Option<Type> {
+    suffix.map(|suffix| match suffix {
+        IntegerSuffix::Int8 => Type::Int8,
+        IntegerSuffix::Int16 => Type::Int16,
+        IntegerSuffix::Int32 => Type::Int32,
+        IntegerSuffix::Int64 => Type::Int64,
+        IntegerSuffix::UInt8 => Type::UInt8,
+        IntegerSuffix::UInt16 => Type::UInt16,
+        IntegerSuffix::UInt32 => Type::UInt32,
+        IntegerSuffix::UInt64 => Type::UInt64,
+    })
+}
+
+pub(super) fn is_integer(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
+}
+
+fn integer_is_signed(ty: &Type) -> bool {
+    matches!(ty, Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64)
+}
+
+fn integer_bits(ty: &Type) -> u32 {
+    match ty {
+        Type::Int8 | Type::UInt8 => 8,
+        Type::Int16 | Type::UInt16 => 16,
+        Type::Int32 | Type::UInt32 => 32,
+        Type::Int64 | Type::UInt64 => 64,
+        _ => unreachable!("called only for integer types"),
+    }
+}
+
+fn integer_negative_magnitude(ty: &Type) -> u128 {
+    1_u128 << (integer_bits(ty) - 1)
+}
+
+fn integer_positive_maximum(ty: &Type) -> u128 {
+    if integer_is_signed(ty) {
+        integer_negative_magnitude(ty) - 1
+    } else {
+        (1_u128 << integer_bits(ty)) - 1
     }
 }
