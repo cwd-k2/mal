@@ -2,7 +2,7 @@
 
 Rust reference compiler for mal v0.4.
 
-The compiler implements the complete M0 pipeline: source loading, diagnostics, lexing, parsing, name/capture resolution, type checking, typed-core and ANF lowering, closure conversion, C/header emission, and native C compilation/linking. The `check`, `emit-c`, and `build` commands follow [`docs/implementation/m0.md`](../docs/implementation/m0.md).
+The compiler implements the pipeline from source loading through native C compilation and linking. The implemented language slice includes closures, sums, fixed-width integers, byte literals, integer conversions, and the scalar C host ABI. The active milestone and acceptance criteria live in the [`implementation roadmap`](../docs/implementation/roadmap.md); [`m0.md`](../docs/implementation/m0.md) records the original vertical slice.
 
 From this directory:
 

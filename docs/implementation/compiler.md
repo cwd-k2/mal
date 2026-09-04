@@ -13,6 +13,7 @@ source
   -> type checking
   -> desugaring to typed core
   -> ANF
+  -> closure conversion
   -> C emitter
   -> host C compiler
 ```
