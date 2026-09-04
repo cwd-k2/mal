@@ -19,7 +19,7 @@ source
 
 reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
-最初のvertical sliceの作業順と受入条件は[M0 implementation plan](m0.md)に置く。
+active milestone、vertical sliceの進め方、受入条件は[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation plan](m0.md)に残す。
 
 初期実装は Rust standard library を中心に構成する。外部 crate は、標準 library だけで実装する場合より明確に単純になるものを必要に応じて追加し、特定の parser framework や compiler framework を前提にしない。
 
@@ -103,14 +103,7 @@ floatからintegerへのC castは、NaN、infinity、範囲外を先に検査し
 
 ## milestone
 
-1. M0: Unit、n-ary sum、injection、case、predefined Bool、Int32、literal、lexical closure、application、return、surface if、extern、main
-2. M1: 全整数幅、byte literal、bit operation、trap tests
-3. M2: product、product pattern
-4. M3: String literal、byte primitives、extern lifetime tests
-5. M4: self recursion、tail-call lowering
-6. M5: Float32/64、literalのcorrect rounding、conversion guard、strict-FP tests
-
-各 milestone は parser test、type error test、interpreter または core evaluator test、C backend execution test を同じ機能について揃える。
+実装順と各gateの完了条件は[implementation roadmap](roadmap.md)を正とする。この文書の初期conformance caseは、該当するmilestoneのtest選定時に参照する。
 
 ## 初期 conformance cases
 

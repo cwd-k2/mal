@@ -7,8 +7,8 @@ Read the authority relevant to a change before editing:
 - [`docs/spec/`](docs/spec/) owns language and host-interface behavior.
 - [`docs/implementation/responsibilities.md`](docs/implementation/responsibilities.md) owns compiler
   code responsibilities and translation boundaries.
-- [`docs/implementation/m0.md`](docs/implementation/m0.md) owns the active milestone order and
-  acceptance criteria.
+- [`docs/implementation/roadmap.md`](docs/implementation/roadmap.md) owns the active milestone order
+  and acceptance criteria; completed M0 details remain in [`m0.md`](docs/implementation/m0.md).
 - [`docs/development/testing.md`](docs/development/testing.md) owns verification policy and commands.
 
 If implementation exposes a missing or conflicting language rule, resolve or record the specification

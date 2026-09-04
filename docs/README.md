@@ -21,7 +21,7 @@
 9. [プログラム構造](spec/programs.md)
 10. [字句・文法](spec/grammar.md)
 
-実装者はまず[M0 implementation plan](implementation/m0.md)、[compiler implementation notes](implementation/compiler.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。設計を詰める際には[決定記録](design/decisions.md)、[未決事項](design/open-questions.md)、[関連調査](research/prior-art.md)を参照する。
+実装者はまず[v0.4 implementation roadmap](implementation/roadmap.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。M0の完了条件は[M0 implementation plan](implementation/m0.md)、各stageの背景は[compiler implementation notes](implementation/compiler.md)に残す。設計を詰める際には[決定記録](design/decisions.md)、[未決事項](design/open-questions.md)、[関連調査](research/prior-art.md)を参照する。
 
 ## 文書の役割
 
