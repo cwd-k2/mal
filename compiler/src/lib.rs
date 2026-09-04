@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod anf;
 pub mod ast;
 pub mod check;
 pub mod cli;
