@@ -90,6 +90,15 @@ impl Checker {
         span: crate::source::Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
+        if !matches!(
+            literal.suffix,
+            None | Some(crate::lexer::IntegerSuffix::Int32)
+        ) {
+            return Err(self.unsupported(
+                span,
+                "fixed-width integer types other than Int32 are not implemented yet",
+            ));
+        }
         if literal.suffix.is_none() && expected.is_none() {
             return Err(
                 Diagnostic::error("integer literal requires an M0 type context").with_primary(

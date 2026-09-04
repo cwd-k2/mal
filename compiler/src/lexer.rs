@@ -27,7 +27,14 @@ pub struct IntegerLiteral {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntegerSuffix {
+    Int8,
+    Int16,
     Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,6 +42,7 @@ pub enum TokenKind {
     TypeIdentifier,
     ValueIdentifier,
     Integer(IntegerLiteral),
+    Byte(u8),
     Extern,
     If,
     Then,
@@ -113,7 +121,9 @@ impl<'a> Lexer<'a> {
 
             let start = self.offset;
             let byte = self.bytes[start];
-            if byte.is_ascii_alphabetic() {
+            if byte == b'b' && self.peek_next() == Some(b'\'') {
+                self.lex_byte(start)?;
+            } else if byte.is_ascii_alphabetic() {
                 self.lex_identifier(start)?;
             } else if byte.is_ascii_digit() {
                 self.lex_integer(start)?;
@@ -219,12 +229,23 @@ impl<'a> Lexer<'a> {
         }
 
         let digits_end = self.offset;
-        let suffix = if self.starts_with(b"Int32") {
-            self.offset += "Int32".len();
-            Some(IntegerSuffix::Int32)
-        } else {
-            None
-        };
+        let suffixes = [
+            ("UInt16", IntegerSuffix::UInt16),
+            ("UInt32", IntegerSuffix::UInt32),
+            ("UInt64", IntegerSuffix::UInt64),
+            ("Int16", IntegerSuffix::Int16),
+            ("Int32", IntegerSuffix::Int32),
+            ("Int64", IntegerSuffix::Int64),
+            ("UInt8", IntegerSuffix::UInt8),
+            ("Int8", IntegerSuffix::Int8),
+        ];
+        let suffix = suffixes
+            .into_iter()
+            .find(|(text, _)| self.starts_with(text.as_bytes()))
+            .map(|(text, suffix)| {
+                self.offset += text.len();
+                suffix
+            });
 
         if self
             .peek()
@@ -235,7 +256,7 @@ impl<'a> Lexer<'a> {
                 start,
                 self.offset,
                 "invalid integer literal",
-                "only the `Int32` suffix is supported in M0",
+                "expected a fixed-width integer suffix",
             ));
         }
 
@@ -249,6 +270,54 @@ impl<'a> Lexer<'a> {
             start,
         );
         Ok(())
+    }
+
+    fn lex_byte(&mut self, start: usize) -> Result<(), Diagnostic> {
+        self.offset += 2;
+        let value = match self.peek() {
+            Some(b'\\') => {
+                self.offset += 1;
+                match self.peek() {
+                    Some(b'\\') => b'\\',
+                    Some(b'\'') => b'\'',
+                    Some(b'n') => b'\n',
+                    Some(b'r') => b'\r',
+                    Some(b't') => b'\t',
+                    Some(b'0') => b'\0',
+                    Some(b'x') => {
+                        self.offset += 1;
+                        let Some(high) = self.peek().and_then(hex_value) else {
+                            return Err(self.invalid_byte(start, "expected two hexadecimal digits"));
+                        };
+                        self.offset += 1;
+                        let Some(low) = self.peek().and_then(hex_value) else {
+                            return Err(self.invalid_byte(start, "expected two hexadecimal digits"));
+                        };
+                        high * 16 + low
+                    }
+                    _ => return Err(self.invalid_byte(start, "unknown byte escape")),
+                }
+            }
+            Some(byte @ 0x20..=0x7e) if !matches!(byte, b'\'' | b'\\') => byte,
+            _ => return Err(self.invalid_byte(start, "expected one printable ASCII byte")),
+        };
+        self.offset += 1;
+        if self.peek() != Some(b'\'') {
+            return Err(self.invalid_byte(start, "byte literal must contain exactly one byte"));
+        }
+        self.offset += 1;
+        self.push(TokenKind::Byte(value), start);
+        Ok(())
+    }
+
+    fn invalid_byte(&mut self, start: usize, label: &str) -> Diagnostic {
+        while let Some(byte) = self.peek() {
+            self.offset += 1;
+            if byte == b'\'' || matches!(byte, b'\n' | b'\r') {
+                break;
+            }
+        }
+        self.error(start, self.offset, "invalid byte literal", label)
     }
 
     fn lex_symbol(&mut self, start: usize) -> Result<(), Diagnostic> {
@@ -381,5 +450,14 @@ fn is_digit_for_radix(byte: u8, radix: Radix) -> bool {
         Radix::Binary => matches!(byte, b'0' | b'1'),
         Radix::Decimal => byte.is_ascii_digit(),
         Radix::Hexadecimal => byte.is_ascii_hexdigit(),
+    }
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }

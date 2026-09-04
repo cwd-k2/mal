@@ -86,7 +86,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 }
 
 #[test]
-fn lexes_integer_radices_separators_and_the_m0_suffix() {
+fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
     assert_eq!(
         kinds("1_000 0xff_ffInt32 0b1010_0001"),
         vec![
@@ -108,6 +108,62 @@ fn lexes_integer_radices_separators_and_the_m0_suffix() {
             TokenKind::Eof,
         ]
     );
+    let suffixes = kinds("0Int8 0Int16 0Int32 0Int64 0UInt8 0UInt16 0UInt32 0UInt64");
+    assert_eq!(
+        suffixes,
+        [
+            IntegerSuffix::Int8,
+            IntegerSuffix::Int16,
+            IntegerSuffix::Int32,
+            IntegerSuffix::Int64,
+            IntegerSuffix::UInt8,
+            IntegerSuffix::UInt16,
+            IntegerSuffix::UInt32,
+            IntegerSuffix::UInt64,
+        ]
+        .into_iter()
+        .map(|suffix| TokenKind::Integer(IntegerLiteral {
+            radix: Radix::Decimal,
+            digits: "0".into(),
+            suffix: Some(suffix),
+        }))
+        .chain([TokenKind::Eof])
+        .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn lexes_byte_literals_and_every_escape() {
+    assert_eq!(
+        kinds(r"b'a' b'\\' b'\'' b'\n' b'\r' b'\t' b'\0' b'\x00' b'\xff'"),
+        vec![
+            TokenKind::Byte(b'a'),
+            TokenKind::Byte(b'\\'),
+            TokenKind::Byte(b'\''),
+            TokenKind::Byte(b'\n'),
+            TokenKind::Byte(b'\r'),
+            TokenKind::Byte(b'\t'),
+            TokenKind::Byte(b'\0'),
+            TokenKind::Byte(0),
+            TokenKind::Byte(255),
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn rejects_malformed_byte_literals_at_the_lexer_boundary() {
+    for text in [
+        "b''", "b'ab'", "b'あ'", r"b'\q'", r"b'\x0'", r"b'\xgg'", "b'a",
+    ] {
+        let error = lex(&source(text)).expect_err("byte literal should be rejected");
+        assert_eq!(error.message, "invalid byte literal", "input: {text}");
+        assert_eq!(
+            error.primary.expect("primary label").span,
+            Span::new(FileId::new(7), 0, text.len()),
+            "input: {text}"
+        );
+    }
 }
 
 #[test]
@@ -178,7 +234,7 @@ fn rejects_bad_numeric_separators_with_the_literal_span() {
 
 #[test]
 fn rejects_invalid_radix_digits_and_unsupported_suffixes() {
-    for text in ["0x", "0b2", "12UInt8", "12Int32x"] {
+    for text in ["0x", "0b2", "12Byte", "12Int32x"] {
         let error = lex(&source(text)).expect_err("literal should be rejected");
         assert_eq!(error.message, "invalid integer literal", "input: {text}");
     }
