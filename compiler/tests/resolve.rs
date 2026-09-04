@@ -48,6 +48,15 @@ fn resolves_predefined_and_source_ordered_top_level_values() {
 }
 
 #[test]
+fn preserves_byte_literals_during_name_resolution() {
+    let program = resolve_ok(r"value := b'\x7f';");
+    assert!(matches!(
+        top_binding(&program.items[0]).value.kind,
+        resolved::Expression::Byte(127)
+    ));
+}
+
+#[test]
 fn type_and_external_declarations_are_visible_across_the_unit() {
     let program = resolve_ok(
         "Alias :: Later;\n\

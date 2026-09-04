@@ -116,6 +116,11 @@ fn calls_bind_more_tightly_than_unary_operators() {
 }
 
 #[test]
+fn parses_a_byte_literal_as_an_atomic_expression() {
+    assert_eq!(binding_value(r"value := b'\xff';"), Expression::Byte(255));
+}
+
+#[test]
 fn parses_captures_parameters_and_lambda_body_items() {
     let expression = binding_value(
         "make := \\<outer>(x :: Int32, y :: Int32) {\n\

@@ -112,6 +112,7 @@ pub enum Pattern {
 pub enum Expression {
     Reference(ValueReference),
     Integer(IntegerLiteral),
+    Byte(u8),
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

@@ -281,7 +281,9 @@ impl Checker {
         expression: &Node<resolved::Expression>,
     ) -> Result<(), Diagnostic> {
         let allowed = match &expression.kind {
-            resolved::Expression::Integer(_) | resolved::Expression::Unit => true,
+            resolved::Expression::Integer(_)
+            | resolved::Expression::Byte(_)
+            | resolved::Expression::Unit => true,
             resolved::Expression::Reference(reference) => {
                 matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
             }

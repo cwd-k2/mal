@@ -21,6 +21,12 @@ impl Checker {
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?
             }
+            resolved::Expression::Byte(_) => {
+                return Err(self.unsupported(
+                    expression.span,
+                    "byte literals require UInt8, which is not implemented yet",
+                ));
+            }
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
                 ty: Type::Unit,

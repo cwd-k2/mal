@@ -19,6 +19,7 @@ impl Resolver {
                 Expression::Reference(self.resolve_value_reference(name)?)
             }
             ast::Expression::Integer(value) => Expression::Integer(value.clone()),
+            ast::Expression::Byte(value) => Expression::Byte(*value),
             ast::Expression::Unit => Expression::Unit,
             ast::Expression::Parenthesized(inner) => {
                 Expression::Parenthesized(Box::new(self.resolve_expression(inner)?))
