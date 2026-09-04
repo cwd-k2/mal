@@ -58,10 +58,45 @@ transcript.
 - Keep the compiler dependency-free unless an external crate makes the implementation materially
   simpler and its cost is justified.
 - Preserve `#![forbid(unsafe_code)]` in compiler crate roots.
-- Prefer behavior-oriented tests at compiler-stage boundaries over tests coupled to internal data
-  structures.
 - Keep deterministic language semantics independent of incidental host Rust or C behavior, especially
   evaluation order, integer overflow, traps, floating-point conversion, and generated ABI details.
+
+## Code responsibilities and boundaries
+
+Classify code by the vocabulary and policy it implements, not by its package, dependency, or whether
+it is expressed through an interface. A wrapper does not create a useful boundary when its contract
+still exposes the representation or failure vocabulary that should have stopped there.
+
+- Give each module one stable responsibility. Keep a hand-written source file at or below 200 lines
+  when a natural responsibility boundary permits it, and split it before 500 lines. Do not create
+  numbered or arbitrary fragments to satisfy a line count; split by owned behavior or vocabulary.
+- Let each compiler stage own admission and translation from the preceding representation. Its input
+  may use the preceding stage's vocabulary; its successful output must use its own validated,
+  stage-specific vocabulary.
+- Do not use one type with optional fields or flags to represent both unvalidated input and admitted
+  output. Distinct semantic states that permit different operations need distinct types.
+- Keep raw bytes, paths, OS errors, process status, C toolchain arguments, and other external
+  representations in `source`, CLI, or driver boundaries. Translate them into source files,
+  diagnostics, or typed compiler outcomes before core passes consume them.
+- Place a pure function with the stage whose vocabulary and policy it implements. Purity alone does
+  not make a function shared foundation code.
+- Keep executable bootstrap limited to input selection, dependency composition, and output delivery.
+  Language policy and representation translation belong to their owning stage or boundary.
+- Allow only explicit cross-stage concepts, such as source identity and spans, to traverse the
+  pipeline. Do not let a later stage reinterpret raw input that an earlier stage was responsible for
+  validating.
+
+## Testing policy
+
+- Test at the smallest deterministic boundary that exposes the rule as behavior, not private call
+  order or incidental internal structure.
+- Give each new rule focused positive and negative coverage. Add a regression test for every fixed
+  defect that could recur.
+- When a change crosses compiler-stage or external-tool boundaries, test the affected stages directly
+  and add one representative cross-boundary path. Keep end-to-end cases few and specification-led.
+- Use the real representation converter at a format boundary. In particular, backend contract tests
+  compile generated C rather than validating only C-shaped strings.
+- Own and clean every temporary file, directory, process, and generated artifact created by a test.
 
 ## Development and verification
 
@@ -76,5 +111,4 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Run `nix flake check` when changing the Nix development environment or flake inputs. Add focused
-positive and negative tests for every newly accepted or rejected language behavior.
+Run `nix flake check` when changing the Nix development environment or flake inputs.
