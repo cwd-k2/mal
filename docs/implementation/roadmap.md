@@ -9,8 +9,8 @@ Status: Current
 | Gate | Status | Outcome |
 |---|---|---|
 | M0 | Complete | `Unit`、`Int32`、sum、Bool、closure、externをnative executableまで通す |
-| S0 | Active | M0をchecked-in exampleと再利用可能なfixture経路で安定させる |
-| M1 | Planned | 固定幅integer familyとbyte literal |
+| S0 | Complete | M0をchecked-in exampleと再利用可能なfixture経路で安定させる |
+| M1 | Active | 固定幅integer familyとbyte literal |
 | M2 | Planned | product、destructuring、opaque handle、aggregate ABI |
 | M3 | Planned | immutable byte `String`とextern copy contract |
 | M4 | Planned | annotated self recursionとdirect tail-call lowering |
@@ -51,13 +51,6 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 - exampleとtestが別々のmal programやhost contractを複製していない。
 - capture-free/capturing closure、左から右のextern作用、wrap、division trap、allocation failureがnative boundaryで観測される。
 - generated C/header/executableをrepositoryへ追跡しない。
-
-### First queue
-
-checked-in example、public `build` smoke test、共通native fixture runner、allocation/driver failure fixtureは利用可能である。
-残る作業は次のとおりである。
-
-1. example経路をclean checkout相当で再実行してS0をComplete、M1をActiveにする。
 
 ## M1: fixed-width integers and byte literal
 
