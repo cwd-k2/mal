@@ -81,7 +81,7 @@ impl Checker {
                 operator,
                 left,
                 right,
-            } => self.check_binary(operator, left, right, expression.span)?,
+            } => self.check_binary(operator, left, right, expression.span, expected)?,
         };
         if let Some(expected) = expected {
             self.require_type(&checked.ty, expected, checked.span)?;
@@ -325,15 +325,31 @@ impl Checker {
                 });
             }
         }
-        let operand_type = match operator.kind {
-            UnaryOperator::Negate => Type::Int32,
-            UnaryOperator::LogicalNot => bool_type(),
-            UnaryOperator::BitwiseNot => {
+        if matches!(
+            operator.kind,
+            UnaryOperator::Negate | UnaryOperator::BitwiseNot
+        ) {
+            let operand =
+                self.check_expression(operand, expected.filter(|expected| is_integer(expected)))?;
+            if !is_integer(&operand.ty) {
                 return Err(
-                    self.unsupported(operator.span, "bitwise operators are not supported in M0")
+                    Diagnostic::error("integer unary operator requires an integer").with_primary(
+                        operand.span,
+                        format!("this has type `{}`", type_name(&operand.ty)),
+                    ),
                 );
             }
-        };
+            let operand_type = operand.ty.clone();
+            return Ok(Expression {
+                kind: ExpressionKind::Unary {
+                    operator: operator.clone(),
+                    operand: Box::new(operand),
+                },
+                ty: operand_type,
+                span,
+            });
+        }
+        let operand_type = bool_type();
         let operand = self.check_expression(operand, Some(&operand_type))?;
         Ok(Expression {
             kind: ExpressionKind::Unary {
@@ -351,25 +367,26 @@ impl Checker {
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
         span: crate::source::Span,
+        expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
+        let expected_integer = expected.filter(|expected| is_integer(expected));
         let (left, right, result) = match operator.kind {
             BinaryOperator::Multiply
             | BinaryOperator::Divide
             | BinaryOperator::Remainder
             | BinaryOperator::Add
-            | BinaryOperator::Subtract => (
-                self.check_expression(left, Some(&Type::Int32))?,
-                self.check_expression(right, Some(&Type::Int32))?,
-                Type::Int32,
-            ),
+            | BinaryOperator::Subtract => {
+                let (left, right) = self.check_integer_operands(left, right, expected_integer)?;
+                let result = left.ty.clone();
+                (left, right, result)
+            }
             BinaryOperator::Less
             | BinaryOperator::LessEqual
             | BinaryOperator::Greater
-            | BinaryOperator::GreaterEqual => (
-                self.check_expression(left, Some(&Type::Int32))?,
-                self.check_expression(right, Some(&Type::Int32))?,
-                bool_type(),
-            ),
+            | BinaryOperator::GreaterEqual => {
+                let (left, right) = self.check_integer_operands(left, right, None)?;
+                (left, right, bool_type())
+            }
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
                 let (left, right) = if is_contextual_integer(left) && !is_contextual_integer(right)
                 {
@@ -381,7 +398,7 @@ impl Checker {
                     let right = self.check_expression(right, Some(&left.ty))?;
                     (left, right)
                 };
-                if left.ty != Type::Int32 && left.ty != bool_type() {
+                if !is_integer(&left.ty) && left.ty != bool_type() {
                     return Err(Diagnostic::error("equality is not defined for this type")
                         .with_primary(
                             left.span,
@@ -400,10 +417,9 @@ impl Checker {
             | BinaryOperator::BitwiseAnd
             | BinaryOperator::BitwiseXor
             | BinaryOperator::BitwiseOr => {
-                return Err(self.unsupported(
-                    operator.span,
-                    "bit and shift operators are not supported in M0",
-                ));
+                let (left, right) = self.check_integer_operands(left, right, expected_integer)?;
+                let result = left.ty.clone();
+                (left, right, result)
             }
         };
         Ok(Expression {
@@ -415,6 +431,37 @@ impl Checker {
             ty: result,
             span,
         })
+    }
+
+    fn check_integer_operands(
+        &mut self,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        expected: Option<&Type>,
+    ) -> Result<(Expression, Expression), Diagnostic> {
+        let (left, right) = if let Some(expected) = expected {
+            (
+                self.check_expression(left, Some(expected))?,
+                self.check_expression(right, Some(expected))?,
+            )
+        } else if is_contextual_integer(left) && !is_contextual_integer(right) {
+            let right = self.check_expression(right, None)?;
+            let left = self.check_expression(left, Some(&right.ty))?;
+            (left, right)
+        } else {
+            let left = self.check_expression(left, None)?;
+            let right = self.check_expression(right, Some(&left.ty))?;
+            (left, right)
+        };
+        if !is_integer(&left.ty) {
+            return Err(
+                Diagnostic::error("integer operator requires integer operands").with_primary(
+                    left.span,
+                    format!("this has type `{}`", type_name(&left.ty)),
+                ),
+            );
+        }
+        Ok((left, right))
     }
 
     fn require_type(

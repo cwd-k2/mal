@@ -36,15 +36,17 @@ impl BodyEmitter<'_> {
                 self.types.c_type(result),
                 self.emit_atom(value)
             ),
-            Operation::PrimitiveUnary { operator, operand } => match operator {
-                UnaryPrimitive::Int32Negate => {
-                    self.needs.wrap = true;
-                    format!(
-                        "mal_i32_from_u32(UINT32_C(0) - (uint32_t)({}))",
-                        self.emit_atom(operand)
-                    )
-                }
-            },
+            Operation::PrimitiveUnary { operator, operand } => {
+                let operand_text = self.emit_atom(operand);
+                let (_, unsigned, _, _) = integer_info(&operand.ty);
+                let expression = match operator {
+                    UnaryPrimitive::Negate => {
+                        format!("({unsigned})0 - ({unsigned})({operand_text})")
+                    }
+                    UnaryPrimitive::BitwiseNot => format!("~({unsigned})({operand_text})"),
+                };
+                self.wrap_integer(&operand.ty, &expression)
+            }
             Operation::PrimitiveBinary {
                 operator,
                 left,
@@ -63,42 +65,74 @@ impl BodyEmitter<'_> {
         right: &Atom,
         result: &Type,
     ) -> String {
+        let operand_type = left.ty.clone();
         let left = self.emit_atom(left);
         let right = self.emit_atom(right);
         match operator {
-            BinaryPrimitive::Int32Multiply
-            | BinaryPrimitive::Int32Add
-            | BinaryPrimitive::Int32Subtract => {
-                self.needs.wrap = true;
+            BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract => {
+                let (_, unsigned, carrier, _) = integer_info(&operand_type);
                 let symbol = match operator {
-                    BinaryPrimitive::Int32Multiply => "*",
-                    BinaryPrimitive::Int32Add => "+",
-                    BinaryPrimitive::Int32Subtract => "-",
+                    BinaryPrimitive::Multiply => "*",
+                    BinaryPrimitive::Add => "+",
+                    BinaryPrimitive::Subtract => "-",
                     _ => unreachable!(),
                 };
-                format!("mal_i32_from_u32((uint32_t)({left}) {symbol} (uint32_t)({right}))")
+                let expression = format!(
+                    "({carrier})({unsigned})({left}) {symbol} ({carrier})({unsigned})({right})"
+                );
+                self.wrap_integer(&operand_type, &expression)
             }
-            BinaryPrimitive::Int32Divide => {
-                self.needs.divide = true;
-                format!("mal_i32_divide(mal_context, {left}, {right})")
+            BinaryPrimitive::Divide => {
+                self.needs.divide |= integer_mask(&operand_type);
+                let (name, _, _, _) = integer_info(&operand_type);
+                format!("mal_{name}_divide(mal_context, {left}, {right})")
             }
-            BinaryPrimitive::Int32Remainder => {
-                self.needs.remainder = true;
-                format!("mal_i32_remainder(mal_context, {left}, {right})")
+            BinaryPrimitive::Remainder => {
+                self.needs.remainder |= integer_mask(&operand_type);
+                let (name, _, _, _) = integer_info(&operand_type);
+                format!("mal_{name}_remainder(mal_context, {left}, {right})")
             }
-            BinaryPrimitive::Int32Less
-            | BinaryPrimitive::Int32LessEqual
-            | BinaryPrimitive::Int32Greater
-            | BinaryPrimitive::Int32GreaterEqual
-            | BinaryPrimitive::Int32Equal
-            | BinaryPrimitive::Int32NotEqual => {
+            BinaryPrimitive::ShiftLeft | BinaryPrimitive::ShiftRight => {
+                if operator == BinaryPrimitive::ShiftLeft {
+                    self.needs.shift_left |= integer_mask(&operand_type);
+                } else {
+                    self.needs.shift_right |= integer_mask(&operand_type);
+                }
+                self.needs.wrap |= integer_mask(&operand_type);
+                let (name, _, _, _) = integer_info(&operand_type);
+                let direction = if operator == BinaryPrimitive::ShiftLeft {
+                    "shift_left"
+                } else {
+                    "shift_right"
+                };
+                format!("mal_{name}_{direction}(mal_context, {left}, {right})")
+            }
+            BinaryPrimitive::BitwiseAnd
+            | BinaryPrimitive::BitwiseXor
+            | BinaryPrimitive::BitwiseOr => {
+                let (_, unsigned, _, _) = integer_info(&operand_type);
                 let symbol = match operator {
-                    BinaryPrimitive::Int32Less => "<",
-                    BinaryPrimitive::Int32LessEqual => "<=",
-                    BinaryPrimitive::Int32Greater => ">",
-                    BinaryPrimitive::Int32GreaterEqual => ">=",
-                    BinaryPrimitive::Int32Equal => "==",
-                    BinaryPrimitive::Int32NotEqual => "!=",
+                    BinaryPrimitive::BitwiseAnd => "&",
+                    BinaryPrimitive::BitwiseXor => "^",
+                    BinaryPrimitive::BitwiseOr => "|",
+                    _ => unreachable!(),
+                };
+                let expression = format!("({unsigned})({left}) {symbol} ({unsigned})({right})");
+                self.wrap_integer(&operand_type, &expression)
+            }
+            BinaryPrimitive::Less
+            | BinaryPrimitive::LessEqual
+            | BinaryPrimitive::Greater
+            | BinaryPrimitive::GreaterEqual
+            | BinaryPrimitive::Equal
+            | BinaryPrimitive::NotEqual => {
+                let symbol = match operator {
+                    BinaryPrimitive::Less => "<",
+                    BinaryPrimitive::LessEqual => "<=",
+                    BinaryPrimitive::Greater => ">",
+                    BinaryPrimitive::GreaterEqual => ">=",
+                    BinaryPrimitive::Equal => "==",
+                    BinaryPrimitive::NotEqual => "!=",
                     _ => unreachable!(),
                 };
                 format!(
@@ -106,6 +140,16 @@ impl BodyEmitter<'_> {
                     self.types.c_type(result)
                 )
             }
+        }
+    }
+
+    fn wrap_integer(&mut self, ty: &Type, expression: &str) -> String {
+        let (name, unsigned, _, signed) = integer_info(ty);
+        if signed {
+            self.needs.wrap |= integer_mask(ty);
+            format!("mal_{name}_from_{unsigned}(({unsigned})({expression}))")
+        } else {
+            format!("({unsigned})({expression})")
         }
     }
 
@@ -135,5 +179,33 @@ impl BodyEmitter<'_> {
             }
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
         }
+    }
+}
+
+fn integer_info(ty: &Type) -> (&'static str, &'static str, &'static str, bool) {
+    match ty {
+        Type::Int8 => ("i8", "uint8_t", "uint32_t", true),
+        Type::Int16 => ("i16", "uint16_t", "uint32_t", true),
+        Type::Int32 => ("i32", "uint32_t", "uint32_t", true),
+        Type::Int64 => ("i64", "uint64_t", "uint64_t", true),
+        Type::UInt8 => ("u8", "uint8_t", "uint32_t", false),
+        Type::UInt16 => ("u16", "uint16_t", "uint32_t", false),
+        Type::UInt32 => ("u32", "uint32_t", "uint32_t", false),
+        Type::UInt64 => ("u64", "uint64_t", "uint64_t", false),
+        _ => unreachable!("called only for integer types"),
+    }
+}
+
+fn integer_mask(ty: &Type) -> u16 {
+    match ty {
+        Type::Int8 => 1 << 0,
+        Type::Int16 => 1 << 1,
+        Type::Int32 => 1 << 2,
+        Type::Int64 => 1 << 3,
+        Type::UInt8 => 1 << 4,
+        Type::UInt16 => 1 << 5,
+        Type::UInt32 => 1 << 6,
+        Type::UInt64 => 1 << 7,
+        _ => unreachable!("called only for integer types"),
     }
 }

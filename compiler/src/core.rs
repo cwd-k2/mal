@@ -146,8 +146,9 @@ impl Lowerer {
                 }
                 ExpressionKind::PrimitiveUnary {
                     operator: match operator.kind {
-                        UnaryOperator::Negate => UnaryPrimitive::Int32Negate,
-                        UnaryOperator::LogicalNot | UnaryOperator::BitwiseNot => {
+                        UnaryOperator::Negate => UnaryPrimitive::Negate,
+                        UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
+                        UnaryOperator::LogicalNot => {
                             unreachable!("type checking rejects non-numeric core primitives")
                         }
                     },
@@ -442,25 +443,24 @@ fn bool_type() -> checked::Type {
 
 fn lower_binary_primitive(operator: BinaryOperator) -> BinaryPrimitive {
     match operator {
-        BinaryOperator::Multiply => BinaryPrimitive::Int32Multiply,
-        BinaryOperator::Divide => BinaryPrimitive::Int32Divide,
-        BinaryOperator::Remainder => BinaryPrimitive::Int32Remainder,
-        BinaryOperator::Add => BinaryPrimitive::Int32Add,
-        BinaryOperator::Subtract => BinaryPrimitive::Int32Subtract,
-        BinaryOperator::Less => BinaryPrimitive::Int32Less,
-        BinaryOperator::LessEqual => BinaryPrimitive::Int32LessEqual,
-        BinaryOperator::Greater => BinaryPrimitive::Int32Greater,
-        BinaryOperator::GreaterEqual => BinaryPrimitive::Int32GreaterEqual,
-        BinaryOperator::Equal => BinaryPrimitive::Int32Equal,
-        BinaryOperator::NotEqual => BinaryPrimitive::Int32NotEqual,
-        BinaryOperator::ShiftLeft
-        | BinaryOperator::ShiftRight
-        | BinaryOperator::BitwiseAnd
-        | BinaryOperator::BitwiseXor
-        | BinaryOperator::BitwiseOr
-        | BinaryOperator::LogicalAnd
-        | BinaryOperator::LogicalOr => {
-            unreachable!("type checking rejects or lowering removes this operator")
+        BinaryOperator::Multiply => BinaryPrimitive::Multiply,
+        BinaryOperator::Divide => BinaryPrimitive::Divide,
+        BinaryOperator::Remainder => BinaryPrimitive::Remainder,
+        BinaryOperator::Add => BinaryPrimitive::Add,
+        BinaryOperator::Subtract => BinaryPrimitive::Subtract,
+        BinaryOperator::ShiftLeft => BinaryPrimitive::ShiftLeft,
+        BinaryOperator::ShiftRight => BinaryPrimitive::ShiftRight,
+        BinaryOperator::Less => BinaryPrimitive::Less,
+        BinaryOperator::LessEqual => BinaryPrimitive::LessEqual,
+        BinaryOperator::Greater => BinaryPrimitive::Greater,
+        BinaryOperator::GreaterEqual => BinaryPrimitive::GreaterEqual,
+        BinaryOperator::Equal => BinaryPrimitive::Equal,
+        BinaryOperator::NotEqual => BinaryPrimitive::NotEqual,
+        BinaryOperator::BitwiseAnd => BinaryPrimitive::BitwiseAnd,
+        BinaryOperator::BitwiseXor => BinaryPrimitive::BitwiseXor,
+        BinaryOperator::BitwiseOr => BinaryPrimitive::BitwiseOr,
+        BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
+            unreachable!("logical operators are lowered separately")
         }
     }
 }

@@ -14,9 +14,11 @@ mod expression;
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
     pub(super) allocation: bool,
-    pub(super) wrap: bool,
-    pub(super) divide: bool,
-    pub(super) remainder: bool,
+    pub(super) wrap: u16,
+    pub(super) divide: u16,
+    pub(super) remainder: u16,
+    pub(super) shift_left: u16,
+    pub(super) shift_right: u16,
 }
 
 pub(super) struct BodyOutput {

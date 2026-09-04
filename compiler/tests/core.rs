@@ -116,7 +116,7 @@ fn removes_logical_not_but_retains_typed_numeric_primitives() {
     assert!(!injected_bool(&arms[1].value));
 
     let ExpressionKind::PrimitiveBinary {
-        operator: BinaryPrimitive::Int32Less,
+        operator: BinaryPrimitive::Less,
         left,
         ..
     } = &comparison.kind
@@ -126,7 +126,7 @@ fn removes_logical_not_but_retains_typed_numeric_primitives() {
     assert!(matches!(
         left.kind,
         ExpressionKind::PrimitiveBinary {
-            operator: BinaryPrimitive::Int32Add,
+            operator: BinaryPrimitive::Add,
             ..
         }
     ));

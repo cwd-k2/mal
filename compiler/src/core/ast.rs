@@ -96,22 +96,28 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnaryPrimitive {
-    Int32Negate,
+    Negate,
+    BitwiseNot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryPrimitive {
-    Int32Multiply,
-    Int32Divide,
-    Int32Remainder,
-    Int32Add,
-    Int32Subtract,
-    Int32Less,
-    Int32LessEqual,
-    Int32Greater,
-    Int32GreaterEqual,
-    Int32Equal,
-    Int32NotEqual,
+    Multiply,
+    Divide,
+    Remainder,
+    Add,
+    Subtract,
+    ShiftLeft,
+    ShiftRight,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Equal,
+    NotEqual,
+    BitwiseAnd,
+    BitwiseXor,
+    BitwiseOr,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

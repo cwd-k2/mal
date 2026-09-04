@@ -312,6 +312,32 @@ fn checks_int32_and_bool_operator_families() {
 }
 
 #[test]
+fn checks_integer_operators_for_every_fixed_width_type() {
+    for name in [
+        "Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
+    ] {
+        check_ok(&format!(
+            "compute :: {name} -> {name} := \\(x :: {name}) {{\n\
+               return ((~x + 1) * 2 - 1) / 1 % 1 << 0 >> 0 & x | x ^ x;\n\
+             }};\n\
+             compare :: {name} -> Bool := \\(x :: {name}) {{\n\
+               return x < x || x <= x || x > x || x >= x || x == x || x != x;\n\
+             }};"
+        ));
+    }
+
+    assert_eq!(
+        check_error("bad := 1Int8 + 1UInt8;").message,
+        "type mismatch"
+    );
+    assert!(
+        check_error("bad := ~();")
+            .message
+            .contains("requires an integer")
+    );
+}
+
+#[test]
 fn validates_extern_signatures_recursively() {
     assert_eq!(
         check_error("extern callback :: (Int32 -> Unit) -> Unit;").message,
@@ -341,10 +367,6 @@ fn rejects_features_outside_the_m0_type_slice() {
             "function :: Int32 -> Int32 := \\(x :: Int32) { return x; };\n\
              main :: Unit -> Int32 := \\() { return function(1, 2); };",
             "multiple arguments",
-        ),
-        (
-            "function :: Int32 -> Int32 := \\(x :: Int32) { return x << 1; };",
-            "bit and shift operators",
         ),
     ];
     for (text, expected) in cases {

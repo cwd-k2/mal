@@ -159,6 +159,45 @@ fn implements_wrapping_int32_arithmetic_without_signed_overflow() {
 }
 
 #[test]
+fn executes_all_fixed_width_integer_operator_families() {
+    let output = compile_and_run(
+        "main :: Unit -> Int32 := \\() {\n\
+           ok :: Bool :=\n\
+             (-128Int8 - 1Int8 == 127Int8) &&\n\
+             (32767Int16 * 2Int16 == -2Int16) &&\n\
+             (-2Int32 >> 1Int32 == -1Int32) &&\n\
+             (-9223372036854775808Int64 / 1Int64 == -9223372036854775808Int64) &&\n\
+             (~0UInt8 == 255UInt8) &&\n\
+             ((65535UInt16 & 255UInt16) == 255UInt16) &&\n\
+             (1UInt32 << 31UInt32 == 2147483648UInt32) &&\
+             (18446744073709551615UInt64 + 1UInt64 == 0UInt64);\n\
+           return if (ok) then { 0 } else { 1 };\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_out_of_range_shift_counts() {
+    for expression in ["1Int8 << 8Int8", "1Int16 >> -1Int16", "1UInt64 << 64UInt64"] {
+        let output = compile_and_run(
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            "",
+        );
+        assert!(!output.status.success(), "expression: {expression}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("shift count out of range"),
+            "expression: {expression}"
+        );
+    }
+}
+
+#[test]
 fn executes_sum_injection_and_case() {
     let output = compile_and_run(
         "Maybe :: [Unit, Int32];\n\

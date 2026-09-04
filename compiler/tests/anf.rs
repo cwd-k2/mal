@@ -54,7 +54,7 @@ fn orders_primitive_operands_left_to_right() {
         Operation::ExternalCall { id, .. } if id == program.externals[1].id
     ));
     let Operation::PrimitiveBinary {
-        operator: BinaryPrimitive::Int32Add,
+        operator: BinaryPrimitive::Add,
         left,
         right,
     } = &bindings[2].operation
