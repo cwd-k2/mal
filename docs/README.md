@@ -21,7 +21,7 @@
 9. [プログラム構造](spec/programs.md)
 10. [字句・文法](spec/grammar.md)
 
-実装者はまず[M0 implementation plan](implementation/m0.md)と[compiler implementation notes](implementation/compiler.md)を参照する。設計を詰める際には[決定記録](design/decisions.md)、[未決事項](design/open-questions.md)、[関連調査](research/prior-art.md)を参照する。
+実装者はまず[M0 implementation plan](implementation/m0.md)、[compiler implementation notes](implementation/compiler.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。設計を詰める際には[決定記録](design/decisions.md)、[未決事項](design/open-questions.md)、[関連調査](research/prior-art.md)を参照する。
 
 ## 文書の役割
 
@@ -30,6 +30,7 @@
 | `spec/` | 利用者と実装者が従う規範的仕様 |
 | `design/` | 採否を議論中の判断、理由、選択肢 |
 | `implementation/` | compiler/backend の非規範的な実装案 |
+| `development/` | repositoryを変更・検証する現在の手順とpolicy |
 | `research/` | 外部仕様・先行事例から得た根拠 |
 
 仕様と実装案が衝突した場合は `spec/` を優先する。ただし、[未決事項](design/open-questions.md) に載っている項目は確定仕様ではない。
