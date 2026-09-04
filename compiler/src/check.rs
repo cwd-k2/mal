@@ -11,6 +11,7 @@ use crate::source::Span;
 pub mod ast;
 mod control;
 mod expression;
+mod integer;
 
 use self::ast::{Binding, BodyItem, Pattern, Program, TopItem, Type};
 

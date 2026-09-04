@@ -1,10 +1,14 @@
 use crate::ast::{BinaryOperator, Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
-use crate::lexer::{IntegerLiteral, IntegerSuffix};
+use crate::lexer::IntegerLiteral;
 use crate::resolve::ast as resolved;
 
 use super::Checker;
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Parameter, Type};
+use super::integer::{
+    integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
+    parse_index, parse_magnitude, unparenthesized_integer,
+};
 
 impl Checker {
     pub(super) fn check_expression(
@@ -113,35 +117,6 @@ impl Checker {
             self.require_type(&checked.ty, expected, checked.span)?;
         }
         Ok(checked)
-    }
-
-    fn check_integer(
-        &self,
-        literal: &IntegerLiteral,
-        span: crate::source::Span,
-        expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
-        let ty = literal_type(literal.suffix).unwrap_or_else(|| {
-            expected
-                .filter(|ty| is_integer(ty))
-                .cloned()
-                .unwrap_or(Type::Int64)
-        });
-        let magnitude = parse_magnitude(literal, span)?;
-        let maximum = integer_positive_maximum(&ty);
-        if magnitude > maximum {
-            return Err(
-                Diagnostic::error(format!("{} literal is out of range", type_name(&ty)))
-                    .with_primary(span, format!("expected a value from 0 through {maximum}")),
-            );
-        }
-        Ok(Expression {
-            kind: ExpressionKind::Integer(
-                i128::try_from(magnitude).expect("valid integer literals fit in i128"),
-            ),
-            ty,
-            span,
-        })
     }
 
     fn check_lambda(
@@ -459,37 +434,6 @@ impl Checker {
         })
     }
 
-    fn check_integer_operands(
-        &mut self,
-        left: &Node<resolved::Expression>,
-        right: &Node<resolved::Expression>,
-        expected: Option<&Type>,
-    ) -> Result<(Expression, Expression), Diagnostic> {
-        let (left, right) = if let Some(expected) = expected {
-            (
-                self.check_expression(left, Some(expected))?,
-                self.check_expression(right, Some(expected))?,
-            )
-        } else if is_contextual_integer(left) && !is_contextual_integer(right) {
-            let right = self.check_expression(right, None)?;
-            let left = self.check_expression(left, Some(&right.ty))?;
-            (left, right)
-        } else {
-            let left = self.check_expression(left, None)?;
-            let right = self.check_expression(right, Some(&left.ty))?;
-            (left, right)
-        };
-        if !is_integer(&left.ty) {
-            return Err(
-                Diagnostic::error("integer operator requires integer operands").with_primary(
-                    left.span,
-                    format!("this has type `{}`", type_name(&left.ty)),
-                ),
-            );
-        }
-        Ok((left, right))
-    }
-
     fn require_type(
         &self,
         actual: &Type,
@@ -518,43 +462,6 @@ impl Checker {
             ),
         )
     }
-}
-
-fn parse_magnitude(
-    literal: &IntegerLiteral,
-    span: crate::source::Span,
-) -> Result<u128, Diagnostic> {
-    u128::from_str_radix(&literal.digits, literal.radix.value()).map_err(|_| {
-        Diagnostic::error("integer literal is too large").with_primary(
-            span,
-            "the value is too large for a fixed-width integer literal",
-        )
-    })
-}
-
-pub(super) fn parse_index(
-    literal: &IntegerLiteral,
-    span: crate::source::Span,
-) -> Result<usize, Diagnostic> {
-    let value = parse_magnitude(literal, span)?;
-    usize::try_from(value).map_err(|_| {
-        Diagnostic::error("variant index is too large").with_primary(
-            span,
-            "the index cannot be represented on this compiler host",
-        )
-    })
-}
-
-fn unparenthesized_integer(expression: &Node<resolved::Expression>) -> Option<&IntegerLiteral> {
-    match &expression.kind {
-        resolved::Expression::Integer(literal) => Some(literal),
-        resolved::Expression::Parenthesized(inner) => unparenthesized_integer(inner),
-        _ => None,
-    }
-}
-
-fn is_contextual_integer(expression: &Node<resolved::Expression>) -> bool {
-    unparenthesized_integer(expression).is_some_and(|literal| literal.suffix.is_none())
 }
 
 pub(super) fn bool_type() -> Type {
@@ -587,58 +494,5 @@ pub(super) fn type_name(ty: &Type) -> String {
         Type::Function { parameter, result } => {
             format!("{} -> {}", type_name(parameter), type_name(result))
         }
-    }
-}
-
-fn literal_type(suffix: Option<IntegerSuffix>) -> Option<Type> {
-    suffix.map(|suffix| match suffix {
-        IntegerSuffix::Int8 => Type::Int8,
-        IntegerSuffix::Int16 => Type::Int16,
-        IntegerSuffix::Int32 => Type::Int32,
-        IntegerSuffix::Int64 => Type::Int64,
-        IntegerSuffix::UInt8 => Type::UInt8,
-        IntegerSuffix::UInt16 => Type::UInt16,
-        IntegerSuffix::UInt32 => Type::UInt32,
-        IntegerSuffix::UInt64 => Type::UInt64,
-    })
-}
-
-pub(super) fn is_integer(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Int8
-            | Type::Int16
-            | Type::Int32
-            | Type::Int64
-            | Type::UInt8
-            | Type::UInt16
-            | Type::UInt32
-            | Type::UInt64
-    )
-}
-
-fn integer_is_signed(ty: &Type) -> bool {
-    matches!(ty, Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64)
-}
-
-fn integer_bits(ty: &Type) -> u32 {
-    match ty {
-        Type::Int8 | Type::UInt8 => 8,
-        Type::Int16 | Type::UInt16 => 16,
-        Type::Int32 | Type::UInt32 => 32,
-        Type::Int64 | Type::UInt64 => 64,
-        _ => unreachable!("called only for integer types"),
-    }
-}
-
-fn integer_negative_magnitude(ty: &Type) -> u128 {
-    1_u128 << (integer_bits(ty) - 1)
-}
-
-fn integer_positive_maximum(ty: &Type) -> u128 {
-    if integer_is_signed(ty) {
-        integer_negative_magnitude(ty) - 1
-    } else {
-        (1_u128 << integer_bits(ty)) - 1
     }
 }

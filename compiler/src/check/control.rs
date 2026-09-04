@@ -6,7 +6,8 @@ use crate::resolve::ast as resolved;
 
 use super::Checker;
 use super::ast::{CaseArm, Expression, ExpressionBlock, ExpressionKind, Type};
-use super::expression::{bool_type, parse_index, type_name};
+use super::expression::{bool_type, type_name};
+use super::integer::parse_index;
 
 impl Checker {
     pub(super) fn check_if(
