@@ -1,0 +1,143 @@
+use malc::anf;
+use malc::check;
+use malc::closure;
+use malc::closure::ast::{AtomKind, Function, Operation, Reference};
+use malc::core;
+use malc::parser;
+use malc::resolve;
+use malc::source::{FileId, SourceFile};
+
+fn convert_ok(text: &str) -> closure::ast::Program {
+    let source = SourceFile::new(FileId::new(67), "closure-test.mal", text.into());
+    let parsed = parser::parse(&source).unwrap_or_else(|error| panic!("{}", error.render(&source)));
+    let resolved =
+        resolve::resolve(&parsed).unwrap_or_else(|error| panic!("{}", error.render(&source)));
+    let checked =
+        check::check(&resolved).unwrap_or_else(|error| panic!("{}", error.render(&source)));
+    let core = core::lower(&checked);
+    let anf = anf::lower(&core);
+    closure::convert(&anf)
+}
+
+fn closure_function_id(operation: &Operation) -> malc::resolve::ast::LambdaId {
+    let Operation::MakeClosure { function, .. } = operation else {
+        panic!("expected closure construction, found {operation:#?}");
+    };
+    *function
+}
+
+fn function(program: &closure::ast::Program, id: malc::resolve::ast::LambdaId) -> &Function {
+    program
+        .functions
+        .iter()
+        .find(|function| function.id == id)
+        .expect("closure construction must name a lifted function")
+}
+
+#[test]
+fn lifts_capturing_lambdas_and_materializes_their_environment() {
+    let program = convert_ok(
+        "makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
+           return \\<x>(y :: Int32) { return x + y; };\n\
+         };",
+    );
+    let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
+    let outer = function(&program, outer_id);
+    assert!(outer.environment.is_empty());
+
+    let Operation::MakeClosure {
+        function: inner_id,
+        captures,
+    } = &outer.body.bindings[0].operation
+    else {
+        panic!("outer function should construct the returned closure");
+    };
+    assert_eq!(captures.len(), 1);
+    assert!(matches!(
+        captures[0].kind,
+        AtomKind::Reference(Reference::Binding(id))
+            if Some(id) == outer.parameter.binding
+    ));
+
+    let inner = function(&program, *inner_id);
+    assert_eq!(inner.environment.len(), 1);
+    let Operation::PrimitiveBinary { left, right, .. } = &inner.body.bindings[0].operation else {
+        panic!("expected the inner addition");
+    };
+    assert!(matches!(
+        left.kind,
+        AtomKind::Reference(Reference::EnvironmentField(0))
+    ));
+    assert!(matches!(
+        right.kind,
+        AtomKind::Reference(Reference::Binding(id))
+            if Some(id) == inner.parameter.binding
+    ));
+}
+
+#[test]
+fn forwards_a_capture_explicitly_through_every_lifted_function() {
+    let program = convert_ok(
+        "outer :: Int32 -> (Unit -> (Unit -> Int32)) := \\(x :: Int32) {\n\
+           return \\<x>() {\n\
+             return \\<x>() { return x; };\n\
+           };\n\
+         };",
+    );
+    let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
+    let outer = function(&program, outer_id);
+    let Operation::MakeClosure {
+        function: middle_id,
+        captures: middle_captures,
+    } = &outer.body.bindings[0].operation
+    else {
+        panic!("expected middle closure");
+    };
+    assert!(matches!(
+        middle_captures[0].kind,
+        AtomKind::Reference(Reference::Binding(id))
+            if Some(id) == outer.parameter.binding
+    ));
+
+    let middle = function(&program, *middle_id);
+    assert_eq!(middle.environment.len(), 1);
+    let Operation::MakeClosure {
+        function: inner_id,
+        captures: inner_captures,
+    } = &middle.body.bindings[0].operation
+    else {
+        panic!("expected inner closure");
+    };
+    assert!(matches!(
+        inner_captures[0].kind,
+        AtomKind::Reference(Reference::EnvironmentField(0))
+    ));
+
+    let inner = function(&program, *inner_id);
+    assert_eq!(inner.environment.len(), 1);
+    assert!(matches!(
+        inner.body.result.kind,
+        AtomKind::Reference(Reference::EnvironmentField(0))
+    ));
+}
+
+#[test]
+fn represents_capture_free_closures_without_environment_fields() {
+    let program = convert_ok(
+        "identity :: Int32 -> Int32 := \\(value :: Int32) { return value; };\n\
+         main :: Unit -> Int32 := \\() { return identity(5); };",
+    );
+    assert_eq!(program.functions.len(), 2);
+    for binding in &program.bindings {
+        let Operation::MakeClosure { captures, .. } = &binding.value.bindings[0].operation else {
+            panic!("top-level lambda should become a closure");
+        };
+        assert!(captures.is_empty());
+    }
+    assert!(
+        program
+            .functions
+            .iter()
+            .all(|function| function.environment.is_empty())
+    );
+}
