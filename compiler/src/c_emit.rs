@@ -52,7 +52,7 @@ fn validate_externals(program: &Program) -> Result<(), Diagnostic> {
     for external in &program.externals {
         if !is_m1_scalar(&external.parameter) || !is_m1_scalar(&external.result) {
             return Err(Diagnostic::error(format!(
-                "external operation `{}` is outside the M0 C ABI",
+                "external operation `{}` is outside the scalar C ABI",
                 external.name
             ))
             .with_primary(

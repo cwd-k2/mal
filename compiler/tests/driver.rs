@@ -131,6 +131,52 @@ fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
 }
 
 #[test]
+fn checked_in_m1_example_reproduces_host_results_and_a_trap() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m1/integer-and-byte");
+
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "255\n0\n18446744073709551615\n"
+    );
+
+    let trap = directory.join("trap");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("trap.mal").as_os_str(),
+        OsStr::new("--output"),
+        trap.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = directory.run(trap);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: shift count out of range"));
+}
+
+#[test]
 fn reports_source_and_output_filesystem_failures() {
     let directory = NativeFixture::new("driver-failure");
     let missing = directory.join("missing.mal");

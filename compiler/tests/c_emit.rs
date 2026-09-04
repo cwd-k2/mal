@@ -318,7 +318,7 @@ fn traps_invalid_division_and_remainder_at_every_width() {
 }
 
 #[test]
-fn rejects_programs_outside_the_m0_c_boundary() {
+fn rejects_programs_outside_the_scalar_c_boundary() {
     assert!(
         emit(
             "extern choose :: [Unit, Unit] -> Int32;\n\
@@ -326,7 +326,7 @@ fn rejects_programs_outside_the_m0_c_boundary() {
         )
         .unwrap_err()
         .message
-        .contains("outside the M0 C ABI")
+        .contains("outside the scalar C ABI")
     );
     assert!(
         emit("value :: Int32 := 1Int32;")
