@@ -1,7 +1,12 @@
 #![forbid(unsafe_code)]
 
+pub mod ast;
+pub mod check;
 pub mod cli;
 pub mod diagnostic;
+pub mod lexer;
+pub mod parser;
+pub mod resolve;
 pub mod source;
 
 pub const LANGUAGE_NAME: &str = "mal";
