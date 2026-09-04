@@ -133,3 +133,36 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
             .success()
     );
 }
+
+#[test]
+fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
+    let directory = TestDirectory::new();
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m0/print-and-closure");
+    let executable = directory.join("example");
+    let program = example.join("program.mal");
+    let host = example.join("host.c");
+    let output = malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        host.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = Command::new(executable)
+        .output()
+        .expect("run checked-in example");
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "1\n15\n-2147483648\n"
+    );
+}

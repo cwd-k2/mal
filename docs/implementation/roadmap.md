@@ -54,10 +54,11 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### First queue
 
-1. `examples/m0/print-and-closure/`を追加し、現在のhost exampleとescaping closureを一つのprogramで実行する。
-2. `compiler/tests/support/`へnative fixture runnerを抽出し、`c_emit`と`driver` testから共有する。
-3. allocation failure fixtureとdriver failure fixtureを追加する。
-4. example経路を実行してS0をComplete、M1をActiveにする。
+checked-in exampleとpublic `build` smoke testは利用可能である。残りを次の順で進める。
+
+1. `compiler/tests/support/`へnative fixture runnerを抽出し、`c_emit`と`driver` testから共有する。
+2. allocation failure fixtureとdriver failure fixtureを追加する。
+3. example経路をclean checkout相当で再実行してS0をComplete、M1をActiveにする。
 
 ## M1: fixed-width integers and byte literal
 
