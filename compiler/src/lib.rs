@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+pub mod cli;
+pub mod diagnostic;
+pub mod source;
+
 pub const LANGUAGE_NAME: &str = "mal";
 pub const LANGUAGE_VERSION: &str = "0.4";
 
