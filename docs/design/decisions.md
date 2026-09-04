@@ -1,0 +1,373 @@
+# 設計決定記録
+
+仕様上の判断と、その理由を記録する。後から変更する場合も古い理由を消さず、status と後継 decision を記載する。
+
+## D001. v0.4 では local capture を禁止する
+
+- Status: Superseded by D003
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+この decision は履歴として残している。現在の仕様には適用せず、後継の [D003](#d003-v04-は-lexical-closure-を持つ) に従う。
+
+### 決定
+
+ラムダは、外側のラムダの parameter または外側の local binding を参照できない。参照した program は compile-time error になる。
+
+ラムダ自身の parameter、ラムダ body 内の先行 binding、top-level value binding、compiler primitive は参照できる。external operation は `extern symbol(...)` の形で呼び出せる。
+
+capture しない関数は first-class value であり、引数として渡したり戻り値として返したりできる。
+
+### 理由
+
+capture 付き関数は、一般に code と environment の組を必要とする。関数が定義 scope の外へ出る場合は environment の lifetime と storage を定めなければならない。
+
+mal v0.4 は GC、ownership、borrow、allocator を持たない。capture を禁止すると、environment allocation、closure conversion、escape analysis、および backend ごとの closure ABI を仕様と初期 compiler から外せる。
+
+### 却下した選択肢
+
+non-escaping lambda だけに capture を許す案は採用しない。escape 判定が必要になり、compiler によって同じ source の受理可否が変わり得るためである。
+
+capture 付き lambda を完全に実装する案も v0.4 では採用しない。将来導入する場合は、environment representation、lifetime、allocation、function ABI を一つの機能として設計する。
+
+### 影響
+
+partial application、local state を覚える callback、関数を生成する `makeAdder` のような pattern は直接書けない。必要な environment は通常の引数または専用 product として明示的に渡す。
+
+この書き換えは環境型ごとに行う必要がある。v0.4 は polymorphism と existential type を持たないため、任意の environment を持つ closure の汎用 encoding は提供しない。
+
+## D002. reference compiler は Rust で実装する
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: reference compiler
+
+### 決定
+
+最初の reference compiler は Rust で実装する。handwritten lexer、recursive-descent parser、Pratt expression parser、typed intermediate representation、C emitter という構成を基本とする。
+
+初期実装は Rust standard library を中心とし、外部 crate の採用は個別に判断する。parser generator や大規模な compiler framework は前提にしない。
+
+### 理由
+
+Rust は固定幅整数、明示的な data representation、algebraic data type、arena と ID を用いる compiler 内部表現を直接記述できる。単一 native executable にしやすく、将来 C ABI や QBE backend と接続する場合にも適している。
+
+mal の言語としての最小性は、compiler の実装言語まで最小であることを要求しない。reference implementation では変更容易性だけでなく、型検査器と lowering の保守性を優先する。
+
+### 位置づけ
+
+これは mal program の意味論を定める言語仕様ではなく、reference implementation の選択である。他言語で互換 compiler を実装することを妨げない。
+
+## D003. v0.4 は lexical closure を持つ
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4 and reference compiler
+- Supersedes: D001
+- Refined by: D007
+
+### 決定
+
+ラムダは lexical scope の local value を capture できる。ラムダ式の評価は、code と immutable environment からなる closure を生成する。closure は定義 scope の外へ escape してよい。
+
+言語意味論は environment の配置と回収方式を観察可能にしない。reference compiler は capture を持つ environment を program-lifetime arena に配置し、v0.4 では個別に回収しない。allocation failure は trap とする。
+
+### 理由
+
+lexical capture は単純型付きラムダ計算の通常の意味に沿う。capture を禁止すると runtime は小さくなるが、name resolution に mal 固有の制限が加わり、higher-order function、partial application、関数を生成する処理が不自然になる。
+
+binding が immutable なので、environment は定義時の値を保持すればよく、mutable cell の共有、capture-by-reference、更新順序を定義する必要がない。
+
+program-lifetime arena は GC、reference counting、source-level ownership を必要としない。長時間実行中に closure を生成し続ける program では memory を回収できないが、v0.4 ではこの制約を受け入れる。
+
+### 最適化
+
+compiler は意味を保存する限り、capture 除去、lambda lifting、stack allocation、direct call 化を行ってよい。最適化の成否によって source program の受理可否を変えてはならない。
+
+### extern との関係
+
+external opaque value の binding は immutable でも、handle の指す resource が immutable または有効であるとは限らない。closure に capture された handle の lifetime safety は v0.4 では保証せず、extern implementation と program の責務に置く。
+
+## D004. 直和型を `[A, B, C]` と書く
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+順序付き n 項の直和型は `[A, B, C]` と書く。項は二つ以上必要で、`[]` と `[A]` は不正かつ予約済みの構文とする。
+
+```mal
+MaybeInt32 :: [Unit, Int32];
+
+none := MaybeInt32[0](());
+some := MaybeInt32[1](42);
+```
+
+n-ary sum は primitive であり、nested sum と同一視しない。
+
+```mal
+Flat :: [A, B, C];
+Nested :: [A, [B, C]];
+```
+
+### 理由
+
+型の項順 `[A, B, C]`、injection の `T[0](value)`、case arm の `[0](pattern)` が同じ index notation で対応する。
+
+array を組み込み構文として持たないため、角括弧を直和のために使用できる。また `|` は expression の bitwise OR だけになり、型文脈との使い分けと `->` に対する precedence 規則が不要になる。
+
+### 影響
+
+将来 array literal または array type を組み込み機能として追加する場合、`[]` は利用できない。v0.4 は array を library/extern storage 上に実装する方針なので、この制約を受け入れる。
+
+## D005. `Bool` と `if` を直和と `case` から導出する
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+`Bool` は primitive type ではなく、predefined transparent alias と immutable binding である。
+
+```mal
+Bool :: [Unit, Unit];
+false :: Bool := Bool[0](());
+true :: Bool := Bool[1](());
+```
+
+surface conditional は次の構文とする。
+
+```mal
+if (condition) then {
+    whenTrue
+} else {
+    whenFalse
+}
+```
+
+これは condition を一度評価する `case` へ desugar する。`then` は index 1、`else` は index 0 に対応する。condition の括弧、`then`、`else` は必須とする。
+
+`&&`、`||`、`!`、Bool equality も `case` へ desugar する。`&&` と `||` は short-circuit を維持する。数値およびStringの比較primitiveは同じBool表現を返す。
+
+### 理由
+
+Boolは二択の直和として既存の型とtermだけで表現できる。`if`をcoreに残さず、exhaustive `case`へ意味を一本化できる。
+
+一方、すべての二分岐をindex付きcaseで書くと意図が読みにくいため、surfaceには`if`を残す。これはcoreの意味論を増やさない。
+
+### 字句上の扱い
+
+`Bool`、`false`、`true`は専用literal tokenではなく、predefined scopeにある通常のidentifierとして扱う。ただしtop-levelで同名を再定義してはならない。`if`、`then`、`else`、`case`はkeywordである。
+
+## D006. byte literal は `b'…' :: UInt8` とする
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+`Byte`型と`Char`型は追加しない。single byteは既存の`UInt8`で表し、読みやすさのため次のsurface literalを持つ。
+
+```mal
+b'a'
+b'\n'
+b'\xff'
+```
+
+byte literalは常に`UInt8`型であり、同じ値の明示型付きinteger literalへdesugarする。decode後にちょうど1 byteでなければcompile-time errorとする。
+
+raw characterはprintable ASCIIからsingle quoteとbackslashを除いたものに限定する。escapeは`\\`、`\'`、`\n`、`\r`、`\t`、`\0`、`\xNN`を認める。
+
+### 理由
+
+malの`String`はUnicode stringではなくimmutable byte sequenceで、`byteAt`も`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
+
+`Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0aUInt8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
+
+## D007. capture listを明示する
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+- Refines: D003
+
+### 決定
+
+lambdaはparameter listの前にoptionalなcapture listを持つ。
+
+```mal
+makeAdder := \(x :: Int32) {
+    return \<x>(y :: Int32) {
+        return x + y;
+    };
+};
+```
+
+capture listを省略したlambdaはcapture-freeである。compilerがbodyのfree variableからcaptureを暗黙に追加してはならない。
+
+captureはすべてby-value。listは1個以上の外側local value identifierを持ち、空list、duplicate、parameterとの同名、scope外の名前、top-level/predefined名の明示captureを禁止する。unlistedの外側local valueをbodyから参照した場合はcompile-time errorとする。
+
+nested lambdaが複数のlambda境界を越えて値を使う場合、各境界のcapture listで明示的に受け渡す。
+
+### 記号
+
+意味論でclosureはしばしばcodeとenvironmentのpair `⟨λx.e, ρ⟩` として表される。ASCIIの`<...>`をenvironmentの列挙に対応させる。
+
+`[]`は直和型とvariant indexに使用済みである。`<`と`>`は式中では比較演算子だが、backslash直後の構文位置ではcapture listとして一意にparseできる。
+
+### 理由
+
+capture listはclosureが保持する値とallocation sizeに影響する依存をsource上に示す。利用者がcompilerのfree-variable推論やimplicit capture規則を調べずに済み、意図しないcaptureを防げる。
+
+malのbindingはimmutableなので、C++のreference capture、default capture、mutable closure、init captureは必要ない。またparametric polymorphismを持たず、すべてのlambdaを同じ構造的function typeとして扱うため、lambdaごとの匿名型をsourceへ導入しない。
+
+capture listはenvironmentの内容を明示するが、配置と回収方法は変更しない。D003のprogram-lifetime arena方針に従う。
+
+## D008. minimalismには利用者のcontrolと調査面積を含める
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: language and ecosystem design
+
+### 決定
+
+malのminimalismはprimitive数、compiler規模、runtime規模だけでは評価しない。利用者がprogramの挙動・cost・外部依存を理解するために調べる必要がある仕様とAPIの面積も含めて評価する。
+
+言語はmechanismを提供し、allocation strategy、I/O、resource policyなどを可能な限り利用者またはhostのcontrol下に置く。外部policyは少数の明示的な`extern`またはruntime contractとして境界を示す。
+
+### 判定基準
+
+- sourceからdependency、evaluation order、保持されるstateを追えるか。
+- implicit allocation、conversion、retain/release、effectがあるなら短く完全に列挙できるか。
+- standard APIの便利さと引き換えに、名前・選択肢・規約の探索を要求していないか。
+- 機能を削った結果、危険な慣習やbackendごとの未記述contractへ責務を移していないか。
+- 利用者がpolicyを交換するために、新たな型systemや大規模frameworkを理解する必要がないか。
+
+### surface sugar
+
+surface sugarは一律にminimalismへ反するものではない。既存coreへの局所的でeffect-preservingな変換を説明でき、意図を明瞭にする場合は採用できる。`if`とbyte literalはこの基準で採用する。
+
+### memory management
+
+implicit reference countingはruntime codeが小さくても、retain/releaseの挿入位置とcost modelを隠すため、v0.4では採用しない。source-level manual freeもaliasとlifetimeの負担を未記述のまま利用者へ移すなら最小とはみなさない。
+
+v0.4のclosure environmentとruntime生成Stringは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
+
+## D009. Floatは IEEE 754-2019 の固定profileとする
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4 and reference compiler
+
+### 決定
+
+`Float32`と`Float64`は、それぞれIEEE 754-2019のbinary32とbinary64である。normal、subnormal、正負のzero、正負のinfinity、NaNを持つ。
+
+演算と変換のrounding modeは常にround-to-nearest, ties-to-evenとする。利用者がrounding modeを変更する機能、floating-point exception flagを観測・変更する機能、浮動小数点例外をtrapへ変える機能は持たない。
+
+各primitive演算はoperand型の精度で個別に丸める。compilerは式の再結合、より広い精度での中間値保持、または暗黙のfused multiply-addにより結果を変えてはならない。subnormalをflush-to-zeroしてはならない。
+
+floatのzero除算、overflow、invalid operationはtrapしない。IEEE 754に従ってinfinityまたはNaNを生成する。`+0.0 == -0.0`はtrueであり、大小比較でも等しい。NaNとの`==`はfalse、`!=`はtrue、`< <= > >=`はすべてfalseとする。
+
+quiet NaNとsignaling NaNの違い、およびfloating-point exceptionはmalから観測できない。primitive演算によるNaNのsignとpayload、および変換時のpayload伝播は未指定とする。malはbit reinterpretationを持たず、NaN payloadの同一性を保証しない。
+
+### literalと変換
+
+decimal float literalは数学的な十進値として読み、contextまたはsuffixで決まる型へties-to-evenで正しく丸める。型が決まらなければ`Float64`とする。有限範囲をoverflowするliteralはcompile-time errorとする。v0.4はinfinity、NaN、hexadecimal floatのsource literalを持たない。
+
+`Float32`から`Float64`への変換は正確である。`Float64`から`Float32`へはties-to-evenで丸める。整数からfloatへもties-to-evenで丸める。floatから整数へは小数部をzero方向へ捨て、NaN、infinity、または切り捨て後の値が目的型の範囲外ならtrapする。
+
+整数型同士のconversion規則はこのdecisionに含めず、[Q7](open-questions.md#q7-整数型間の数値変換)に残す。
+
+### 理由
+
+IEEE 754という名前だけではrounding mode、exception handling、NaN payload、conversion失敗、演算融合が決まらない。WebAssemblyと同様に固定roundingとnon-stop executionへ限定すると、動的なfloating environmentを言語とruntimeへ追加せず、backend間で比較できる意味を定義できる。
+
+NaN payloadをsource semanticsに含めると、演算ごとのpropagationとbackend差を規定する必要がある。bit reinterpretationを持たないv0.4ではpayloadを抽象化する方が小さい。
+
+## D010. `String`は mal-ownedなprogram-lifetime bytesとする
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4, extern contract, and reference compiler
+
+### 決定
+
+`String`はimmutableな有限byte sequenceである。String値はcopyableなdescriptorとして振る舞い、そのbytesはmal program終了まで有効で変更されない。source-levelの個別解放操作はない。
+
+String literalのbytesは静的storageに置いてよい。実行時に新しくmalへ入るStringのbytesはmal-owned storageへcopyする。reference compilerはこれをprogram-lifetime arenaへ配置し、個別に回収しない。allocation sizeを表現できない場合とallocation failureはtrapする。
+
+`extern`境界では次を固定する。
+
+- malからhostへ渡すStringはcall中だけborrowされる。hostはreturn後にpointerを保持してはならない。
+- hostからStringを返すsource-level operationは、callが完了する前にbytesをmal-owned storageへcopyした結果を返す。
+- host側bufferの具体的な取得、copy後の解放、calling conventionはbackend adapter contractが定める。hostの後続変更や解放が、返されたmal Stringへ影響してはならない。
+
+compilerは観測可能な意味を変えず、hostに期限切れ参照を残さないと証明できる場合にstorage allocationやcopyを省略してよい。
+
+### mutable bytesとの分離
+
+mutable byte arrayまたはbufferは組み込み型にしない。必要なprogramは`ByteBuffer`などのexternal opaque typeと、用途に応じた明示的な`extern` operationを宣言する。bufferからStringを返すoperationにも上記のcopy規則が適用される。
+
+`ByteBuffer`という名前、operation集合、allocation/free policyはpredefined APIではない。opaque handleは通常のmal値としてcopyableなため、そのresource safetyは従来どおりhost contractとprogramの責務である。
+
+### 理由
+
+Goの`string`と`[]byte`はimmutabilityとmutabilityを分離するが、backing storageのlifetime自体はGCが支える。GCもownership typeもないmalでは、二つのsurface typeを追加するだけではlifetimeは決まらない。
+
+externから返すbufferをhostがprogram終了まで保持する規則は、すべてのhost APIへ長いlifetimeを要求する。境界で必ずcopyすれば、Stringのlifetimeをclosure environmentと同じprogram-lifetime modelへ閉じ、hostが提供する一時bufferのpolicyから切り離せる。長時間programではstorageを回収できない制約をv0.4では受け入れる。
+
+## D011. numeric separatorを認める
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+数値literalの各digit sequenceでは、二つの有効なdigitの間に一つのunderscore `_`をseparatorとして書ける。separatorは値と型に影響せず、lexerが検証後に除去する。
+
+```mal
+1_000
+0xff_ffUInt32
+0b1010_0001
+1_000.25Float64
+```
+
+underscoreはdigit sequenceの先頭・末尾、連続位置、radix prefix直後、小数点の直前・直後、型suffixの直前には置けない。
+
+```text
+_1       invalid
+1_       invalid
+1__000   invalid
+0x_ff    invalid
+1_.0     invalid
+1._0     invalid
+1_Float32 invalid
+```
+
+### 理由
+
+長い整数、bit mask、protocol constantの桁構造を明示できる。digit間だけという局所規則ならidentifierやwildcardとの曖昧性を増やさず、literal semanticsにも新しい値を追加しない。
+
+## D012. 初期extern implementationはC adapterをlinkする
+
+- Status: Accepted direction; ABI profile is implementation-draft
+- Date: 2026-09-04
+- Scope: v0.4 reference compiler
+
+### 決定
+
+reference compilerはprogramが要求するextern symbolのC headerを生成する。利用者はそのheaderに対するC implementationまたは既存libraryへのadapterを用意し、生成Cと同じtarget ABIでlinkする。
+
+C source、object、static archive、shared objectをlinker inputにできる。shared objectはplatform linker/loaderでprocess開始時に解決し、mal runtimeは`dlopen`、symbol discovery、plugin lifecycleを提供しない。
+
+extern declarationを任意の既存C function declarationと同一視しない。symbol prefix、runtime context、scalar/String/opaque/aggregate mappingはprogram固有のgenerated headerと[C host ABI profile](../spec/c-host-abi.md)が定める。
+
+### 理由
+
+C backendを使う以上、同じtoolchainでcompileする小さなC adapterは最短のhost boundaryになる。C header parser、dynamic FFI、runtime loaderをcompilerへ組み込まず、既存library固有のownershipやerror policyをadapter内に明示できる。

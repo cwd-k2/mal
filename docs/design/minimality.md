@@ -1,0 +1,119 @@
+# 「最小」とは何か
+
+Status: Discussion
+
+「機能の一覧が短い」だけでは最小言語にならない。省いた概念が複雑な静的解析、暗黙の runtime、または未記述の host contract に移動しただけなら、system 全体は小さくなっていない。
+
+mal では次の合計を小さくする。
+
+```text
+language surface
++ static semantics
++ dynamic semantics
++ runtime representation
++ compiler/backend
++ host contract
++ implicit behavior and cost
++ specification/API discovery surface
+```
+
+## 利用者から見た最小性
+
+malのminimalismは、実装の行数だけでなく、利用者がprogramの挙動を把握するために調べる範囲を小さくする。
+
+- 隠れたcapture、allocation、retain/release、暗黙変換を増やさない。
+- policyを言語や巨大なstandard APIへ固定せず、可能な限り利用者が選べるmechanismまたは小さな`extern` contractに置く。
+- sourceから依存と評価順を追えるようにする。
+- surface sugarは、既存coreへの局所的で完全なdesugaringを短く説明できる場合に限る。
+- 仕様から外した責務を未記述の慣習へ追い出しただけなら、最小化とは数えない。
+
+便利な標準APIを多数用意すると、実装量だけでなく「どのAPIを選び、どの暗黙規約に従うか」という探索costが増える。malはmechanismを少数提供し、用途別policyをprogramまたはhost側へ残す。
+
+一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions.md#d008-minimalismには利用者のcontrolと調査面積を含める)
+
+## 三つの最小
+
+### 1. 意味論上の核
+
+言語の性質を説明するための最小集合。
+
+```text
+variable, lambda, application
+Unit
+product, sum, case
+primitive scalar
+```
+
+`Bool` は `[Unit, Unit]`、`if` は `case`、`binding` と terminal `return` は lambda/application へ消去できる。`fix`/自己再帰を足すと停止性を失い、`extern` を足すと host との観測可能な作用が生まれるため、純粋な核とは分けて考える。
+
+product と sum は数学的にさらに encoding できる場合があるが、mal には parametric polymorphism がない。利用者が型ごとの encoding を繰り返さず data を表現するには、両方を primitive として残す価値がある。
+
+### 2. compiler の vertical slice
+
+parser から native executable まで一度通すための最小集合。
+
+```text
+Unit, predefined Bool, Int32
+typed lexical closure, application
+immutable binding, terminal return
+surface if
+one extern call
+main
+```
+
+これは言語の完成版ではなく milestone M0 である。predefined Boolを構成するためsum/injection/caseはM0に含めるが、general product、全整数幅、float、Stringは最初のend-to-end testに必須ではない。
+
+### 3. v0.4 として使える最小
+
+言語の主張である「小さな部品から data と処理を直接書ける」を試せる集合。
+
+```text
+M0
++ fixed-width integer family and bit operations
++ String as immutable bytes
++ product and destructuring
++ ordered n-ary sum, injection, exhaustive case
++ self recursion
++ external opaque type
+```
+
+Float32/64は汎用性に有用であり、v0.4に残す。NaN、conversion、rounding、backend再現性をIEEE 754-2019の固定profileとして明文化し、実装milestoneでは後段に置く。[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)
+
+## v0.4 の cut
+
+v0.4 では次を採用する。未決の項目は [未決事項](open-questions.md) に示す。
+
+- ラムダはlexical closureを持つが、captureするlocal valueは`\<a, b>(...)`で明示する。reference compilerはimmutable environmentをprogram-lifetime arenaに配置する。[D003](decisions.md#d003-v04-は-lexical-closure-を持つ)、[D007](decisions.md#d007-capture-listを明示する)
+- `Bool` は `[Unit, Unit]` の predefined alias、`if` は `case` への surface sugar とする。[D005](decisions.md#d005-bool-と-if-を-直和と-case-から導出する)
+- product と sum は残す。ここが mal の data modeling の中心だからである。
+- `String`はmal-ownedなimmutable bytesとし、実行時にexternから得るbytesをprogram-lifetime arenaへcopyする。mutable bufferはexternal opaque typeに置く。[D010](decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)
+- opaque type は unrestricted handle と明記し、ownership safety を約束しない。
+- self recursion は残し、mutual recursion と general `fix` syntax は持たない。
+- C ABI 互換を言語仕様にせず、backend adapter contract とする。
+- Float32/64は固定rounding、non-stop、NaN payload未指定のIEEE 754 profileとする。[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)
+- standard library、allocator、collection、module system は v0.4 に入れない。
+
+## 機能を加える判定基準
+
+新機能は、次のすべてに答えられる場合だけ候補にする。
+
+1. 既存の lambda、application、product、sum、primitive、extern の組合せでは何が不自然か。
+2. surface syntax だけでなく型規則と評価規則を一段落で説明できるか。
+3. C と QBE の両 backend で representation を説明できるか。
+4. hidden allocation、GC、lifetime analysis を要求しないか。要求するなら、それを言語の責務として認めるか。
+5. 一つ以上の conformance test で境界を固定できるか。
+
+「頻繁に使う」「短く書ける」だけでは追加理由にしない。一方、仕様から外した結果、すべての利用者が危険な独自 ABI を発明するなら、外したコストも数える。
+
+## 最小性の acceptance criterion
+
+v0.4 の各機能について、次が揃った時点を「仕様に存在する」とする。
+
+- parse できる concrete syntax
+- name resolution と型規則
+- value/evaluation/trap の規則
+- extern を跨ぐ場合の contract
+- reference backend での lowering 方針
+- valid/invalid/edge case の test
+
+この定義なら、文法に一行だけ存在する未実装機能を「小さい」と数えずに済む。

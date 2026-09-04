@@ -1,0 +1,19 @@
+[package]
+name = "malc"
+version = "0.0.0"
+edition = "2024"
+description = "Reference compiler for the mal language"
+license = "UNLICENSED"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "malc"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

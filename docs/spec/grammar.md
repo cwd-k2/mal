@@ -1,0 +1,122 @@
+# 字句と文法
+
+Status: Draft
+
+## source と identifier
+
+source encoding は UTF-8。keyword と identifier の認識は ASCII に限定する。
+
+```text
+TYPE_IDENT  ::= [A-Z][A-Za-z0-9]*
+VALUE_IDENT ::= [a-z][A-Za-z0-9]*
+```
+
+型名は PascalCase、値・parameter・external symbol・primitive は lowerCamelCase とする。`_` は wildcard 専用で identifier ではない。
+
+comment、空白、keyword の完全な字句規則はまだ未決である。
+
+## numeric separator
+
+数値literalを構成する各digit sequenceでは、有効なdigitの間に一つの`_`を置ける。
+
+```text
+DEC_DIGITS ::= DEC_DIGIT ("_"? DEC_DIGIT)*
+HEX_DIGITS ::= HEX_DIGIT ("_"? HEX_DIGIT)*
+BIN_DIGITS ::= BIN_DIGIT ("_"? BIN_DIGIT)*
+```
+
+```mal
+1_000
+0xff_ffUInt32
+0b1010_0001
+1_000.25Float64
+```
+
+`_`はdigit sequenceの先頭・末尾、連続位置、radix prefix直後、小数点の直前・直後、型suffixの直前には置けない。したがって`_1`、`1_`、`1__0`、`0x_ff`、`1_.0`、`1._0`、`1_Float32`はlexical errorである。separatorを除去したliteralと同じ値・型を持つ。
+
+## 文法概要
+
+```text
+program     ::= topItem*
+
+topItem     ::= typeAlias ";"
+              | externType ";"
+              | externDecl ";"
+              | binding ";"
+
+typeAlias   ::= TYPE_IDENT "::" type
+externType  ::= "extern" TYPE_IDENT
+externDecl  ::= "extern" VALUE_IDENT "::" type
+binding     ::= pattern ("::" type)? ":=" expression
+
+type        ::= functionType
+functionType ::= atomicType ("->" functionType)?
+atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
+              | "(" type "," type ("," type)* ")"
+              | sumType
+sumType     ::= "[" type "," type ("," type)* "]"
+
+lambda      ::= "\\" captureList? "(" parameterList? ")" lambdaBody
+captureList ::= "<" VALUE_IDENT ("," VALUE_IDENT)* ">"
+parameter   ::= VALUE_IDENT "::" type
+lambdaBody  ::= "{" bodyItem* "return" expression ";" "}"
+bodyItem    ::= binding ";" | expression ";"
+
+pattern     ::= VALUE_IDENT | "_" | productPattern
+productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
+
+call        ::= expression "(" argumentList? ")"
+externCall  ::= "extern" VALUE_IDENT "(" argumentList? ")"
+product     ::= "(" expression "," expression
+                ("," expression)* ")"
+sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
+
+byteLiteral ::= "b'" byteUnit "'"
+byteUnit    ::= printableAsciiExceptQuoteOrBackslash
+              | "\\\\" | "\\'" | "\\n" | "\\r" | "\\t" | "\\0"
+              | "\\x" HEX_DIGIT HEX_DIGIT
+
+ifExpr      ::= "if" "(" expression ")"
+                "then" expressionBlock
+                "else" expressionBlock
+expressionBlock ::= "{" bodyItem* expression "}"
+
+caseExpr    ::= "case" expression "{" caseArm+ "}"
+caseArm     ::= "[" INTEGER "]" "(" pattern ")"
+                "=>" expression ";"
+```
+
+この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
+
+capture listを省略するとcapture-freeになる。bodyが参照する外側のlocal valueはcapture listに存在しなければならず、compilerが暗黙に追加してはならない。詳細は[closure規則](execution.md#scope-と-closure)を参照する。
+
+## operator precedence
+
+高い順に次の通り。
+
+| level | operator | associativity |
+|---|---|---|
+| call | `f(...)` | left |
+| unary | `- ! ~` | right |
+| multiplicative | `* / %` | left |
+| additive | `+ -` | left |
+| shift | `<< >>` | left |
+| relational | `< <= > >=` | non-associative |
+| equality | `== !=` | non-associative |
+| bit AND | `&` | left |
+| bit XOR | `^` | left |
+| bit OR | `|` | left |
+| logical AND | `&&` | left |
+| logical OR | `||` | left |
+
+`|` は式中の bitwise OR だけに使用する。直和型は `[]` で区切るため、型と式で `|` の意味を切り替えない。assignment operator はない。
+
+`[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
+
+`Bool` は predefined `TYPE_IDENT`、`false` と `true` は predefined `VALUE_IDENT` として通常の identifier 規則で token 化する。`then` は `if` syntax の keyword である。
+
+byte literal の raw character は ASCII `0x20` から `0x7e` のうち single quote と backslash を除く範囲とする。非ASCII source characterは、UTF-8 encoded lengthにかかわらずbyte literal内では認めない。
+
+## 存在しない構文
+
+v0.4 は `let`、`var`、`mut`、`const`、`fn`、implicit/early return、loop、`break`、`continue`、record、class、method、enum constructor、pointer、reference、generic、trait、interface、macro、exception を持たない。

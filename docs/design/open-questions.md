@@ -1,0 +1,69 @@
+# 未決事項
+
+Status: Discussion
+
+優先度順。各項目の「暫定案」は docs を矛盾なく読めるように置いた仮決定で、合意後に `spec/` へ確定する。
+
+capture付きlambdaについては解決済み。[D003](decisions.md#d003-v04-は-lexical-closure-を持つ)と[D007](decisions.md#d007-capture-listを明示する)を参照する。
+
+floatの実行意味論については解決済み。[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)を参照する。
+
+`String`のlifetimeについては解決済み。[D010](decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)を参照する。
+
+## Q3. opaque resource の安全性
+
+**問い:** `extern File` を自由に duplicate/discard できてよいか。
+
+**暫定案:** よい。opaque value は copyable handle で、close/free protocol は host API の責務。mal v0.4 は memory-safe/resource-safe を標榜しない。将来 linear type を入れる前提にはしない。
+
+## Q4. `extern` ABI
+
+**問い:** declaration は C ABI を直接表すのか、mal 独自 ABI を表すのか。
+
+**暫定案:** source language は typed external operation だけを表す。C backend は固定した mal C representation と adapter を使う。C の struct-by-value と mal product を暗黙に同一視しない。
+
+v0.4ではさらに、function型を直接または再帰的に含む型をextern declarationのparameter/resultに認めない。これによりcallback ABI、closure environmentをhostが保持できる期間、hostから返すclosureのallocationをv0.4のcontractから除外する。closureはmal code内ではfirst-classのままである。
+
+## Q5. top-level initialization
+
+**問い:** top-level RHS に任意の式や `extern` call を許すか。許す場合、file 間を含む実行順は何か。
+
+**暫定案:** closed constant expression と lambda に制限し、`extern` は禁止。value は source order で scope に入り、annotated lambda の自己参照だけ例外とする。
+
+## Q6. trap の観測
+
+**問い:** trap を process exit、backend trap、host callback のどれにするか。
+
+**暫定案:** 言語上は捕捉不能な異常終了だけを定義し、具体的な終了方法は embedding contract に置く。完了済み extern effect は巻き戻さない。
+
+## Q7. 整数型間の数値変換
+
+**問い:** signed/unsigned間およびnarrowingで表現範囲外となる値を、modulo変換、trap、またはcompile-time errorのどれにするか。
+
+**暫定案:** wideningを含め、個別規則を定めるまでは整数型間のconversion formを未確定扱いにする。floatとの相互変換は[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)で確定済みである。
+
+## Q8. shift count
+
+**問い:** RHS は LHS と同じ整数型か、`UInt64` 固定か。negative count を構文・型・runtime のどこで拒否するか。
+
+**暫定案:** RHS は LHS と同じ型。unsigned value として width 以上なら trap。signed negative も unsigned interpretation で width 以上となり trap。ただし ergonomics は要検討。
+
+n-ary sum の記法と canonical form は解決済み。[D004](decisions.md#d004-直和型を-a-b-c-と書く) を参照する。
+
+## Q10. `String` という名前
+
+**問い:** arbitrary bytes なのに `String` と呼ぶか、`Bytes` と呼ぶか。
+
+**暫定案:** 原案との連続性のため `String`。ただし利用者が UTF-8 invariant を期待する誤解は強い。v0.4 確定前なら `Bytes` への変更コストは低い。
+
+## Q11. `return` は必要か
+
+terminal にしか置けず core から消えるため、lambda body の最後の式だけでも意味は同じになる。
+
+**暫定案:** 明示的な関数境界、statement と expression block の視認性を重視して残す。最小 token 数ではなく、読み手が意味を一意に把握するコストを優先する。
+
+## Q12. lexical detail
+
+line/block comment、Unicode identifier、trailing comma、keyword boundary、文字列中の不正 UTF-8 source の扱いが未定。numeric separatorは[D011](decisions.md#d011-numeric-separatorを認める)で解決済みである。
+
+**暫定案:** identifier は ASCII、`//` line comment のみ、trailing comma はなし。機能追加前に lexer conformance test を作る。
