@@ -10,6 +10,9 @@ floatの実行意味論については解決済み。[D009](decisions.md#d009-fl
 
 `String`のlifetimeについては解決済み。[D010](decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)を参照する。
 
+整数型間の変換とshift countについては解決済み。[D013](decisions.md#d013-整数型間の変換はdestination-widthでmoduloとする)と
+[D014](decisions.md#d014-shift-countはleft-operandと同じ型とする)を参照する。
+
 ## Q3. opaque resource の安全性
 
 **問い:** `extern File` を自由に duplicate/discard できてよいか。
@@ -36,18 +39,6 @@ v0.4ではさらに、function型を直接または再帰的に含む型をexter
 
 **暫定案:** 言語上は捕捉不能な異常終了だけを定義し、具体的な終了方法は embedding contract に置く。完了済み extern effect は巻き戻さない。
 
-## Q7. 整数型間の数値変換
-
-**問い:** signed/unsigned間およびnarrowingで表現範囲外となる値を、modulo変換、trap、またはcompile-time errorのどれにするか。
-
-**暫定案:** wideningを含め、個別規則を定めるまでは整数型間のconversion formを未確定扱いにする。floatとの相互変換は[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)で確定済みである。
-
-## Q8. shift count
-
-**問い:** RHS は LHS と同じ整数型か、`UInt64` 固定か。negative count を構文・型・runtime のどこで拒否するか。
-
-**暫定案:** RHS は LHS と同じ型。unsigned value として width 以上なら trap。signed negative も unsigned interpretation で width 以上となり trap。ただし ergonomics は要検討。
-
 n-ary sum の記法と canonical form は解決済み。[D004](decisions.md#d004-直和型を-a-b-c-と書く) を参照する。
 
 ## Q10. `String` という名前
@@ -64,6 +55,8 @@ terminal にしか置けず core から消えるため、lambda body の最後�
 
 ## Q12. lexical detail
 
-line/block comment、Unicode identifier、trailing comma、keyword boundary、文字列中の不正 UTF-8 source の扱いが未定。numeric separatorは[D011](decisions.md#d011-numeric-separatorを認める)で解決済みである。
+line/block comment、Unicode identifier、trailing comma、keyword boundary、文字列中の不正 UTF-8 source の扱いが未定。
+byte literalは[D006](decisions.md#d006-byte-literal-は-b--uint8-とする)、numeric separatorは
+[D011](decisions.md#d011-numeric-separatorを認める)で解決済みである。
 
 **暫定案:** identifier は ASCII、`//` line comment のみ、trailing comma はなし。機能追加前に lexer conformance test を作る。

@@ -228,7 +228,10 @@ z := Float64(y);
 - integerからfloatへもround-to-nearest, ties-to-evenで丸める。
 - floatからintegerへは小数部をzero方向へ捨てる。NaN、infinity、または切り捨て後の値が目的型の範囲外ならtrapする。
 
-integer型同士の変換規則は[未決事項 Q7](../design/open-questions.md#q7-整数型間の数値変換)とする。
+integer型からbit widthが`n`のinteger型への変換では、source値を数学的な整数`x`として`r = x mod 2^n`を
+`0 <= r < 2^n`となるように求める。destinationがunsignedなら結果は`r`、signedなら`r < 2^(n-1)`のとき`r`、
+それ以外では`r - 2^n`とする。widening、narrowing、signed/unsignedの全組み合わせでこの規則を使い、変換自体はtrapしない。
+詳細な理由は[D013](../design/decisions.md#d013-整数型間の変換はdestination-widthでmoduloとする)に記録する。
 
 product、一般の sum、function、opaque type に `==` は自動導出されない。`Bool` と構造的に同じ `[Unit, Unit]` は、上記の Bool equality の対象になる。
 

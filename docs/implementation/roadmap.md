@@ -56,8 +56,10 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### Specification gate
 
-- [Q7 integer conversion](../design/open-questions.md#q7-整数型間の数値変換)と[Q8 shift count](../design/open-questions.md#q8-shift-count)をdecisionへ移し、整数の変換・shift規則を`spec/`で確定する。
-- byte literalとnumeric separatorのlexical ruleに不足があれば、[Q12](../design/open-questions.md#q12-lexical-detail)の該当部分を先に解決する。
+- integer conversionは[D013](../design/decisions.md#d013-整数型間の変換はdestination-widthでmoduloとする)、shift countは
+  [D014](../design/decisions.md#d014-shift-countはleft-operandと同じ型とする)に従う。
+- byte literalは[D006](../design/decisions.md#d006-byte-literal-は-b--uint8-とする)、numeric separatorは
+  [D011](../design/decisions.md#d011-numeric-separatorを認める)と[grammar](../spec/grammar.md#numeric-separator)に従う。
 
 ### Scope
 

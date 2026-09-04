@@ -83,10 +83,13 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 
 - integer division または remainder の divisor が 0
 - 最小 signed integer を `-1` で割る、または remainder を求める
-- shift count が operand の bit width 以上
+- shift count が負、またはleft operandのbit width以上
 - `byteAt` の index が範囲外
 
-unsigned `>>` は logical shift、signed `>>` は arithmetic shift。shift count の型を含む詳細は未決である。
+`<<`と`>>`のright operandはleft operandと同じ整数型で、結果も同じ型である。`<<`は数学的な`2^count`倍を
+operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する
+arithmetic shiftとする。backendはCの範囲外shiftやsigned shiftの偶発的な挙動へ依存してはならない。
+設計理由は[D014](../design/decisions.md#d014-shift-countはleft-operandと同じ型とする)に記録する。
 
 ## 浮動小数点
 

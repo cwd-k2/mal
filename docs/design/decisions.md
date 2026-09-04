@@ -281,7 +281,7 @@ decimal float literalは数学的な十進値として読み、contextまたはs
 
 `Float32`から`Float64`への変換は正確である。`Float64`から`Float32`へはties-to-evenで丸める。整数からfloatへもties-to-evenで丸める。floatから整数へは小数部をzero方向へ捨て、NaN、infinity、または切り捨て後の値が目的型の範囲外ならtrapする。
 
-整数型同士のconversion規則はこのdecisionに含めず、[Q7](open-questions.md#q7-整数型間の数値変換)に残す。
+整数型同士のconversion規則はこのdecisionに含めず、[D013](#d013-整数型間の変換はdestination-widthでmoduloとする)に定める。
 
 ### 理由
 
@@ -371,3 +371,63 @@ extern declarationを任意の既存C function declarationと同一視しない�
 ### 理由
 
 C backendを使う以上、同じtoolchainでcompileする小さなC adapterは最短のhost boundaryになる。C header parser、dynamic FFI、runtime loaderをcompilerへ組み込まず、既存library固有のownershipやerror policyをadapter内に明示できる。
+
+## D013. 整数型間の変換はdestination widthでmoduloとする
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+整数型から整数型への明示的な変換は、source値が表す数学的整数をdestination型のbit widthでmodulo変換する。
+destination widthを`n`、source値を`x`とすると、まず`r = x mod 2^n`を`0 <= r < 2^n`となる剰余として求める。
+
+- destinationがunsignedなら結果は`r`である。
+- destinationがsignedなら、`r < 2^(n-1)`では`r`、それ以外では`r - 2^n`である。
+
+この変換はwidening、narrowing、signed/unsignedの全組み合わせに適用し、範囲外でもtrapまたはcompile-time errorにしない。
+source式は一度だけ評価する。これはsourceの数学的な値から定義する数値変換であり、host representationのcastや
+bit reinterpretationの偶発的な挙動には依存しない。
+
+```mal
+UInt8(-1Int8)     // 255UInt8
+Int8(255UInt16)   // -1Int8
+UInt16(-1Int8)    // 65535UInt16
+Int16(255UInt8)   // 255Int16
+```
+
+### 理由
+
+整数演算が各widthでwrapする言語において、変換もdestination widthの剰余としてtotalに定義すると、runtime failureを
+追加せず全組み合わせを一つの規則で扱える。host Cの範囲外castはimplementation-definedになり得るため、backendは
+unsigned arithmetic、明示的なbit copy、または同値な操作でこの結果を構成する。
+
+範囲検査してtrapする案は、値が収まることを要求する別のoperationとしては有用だが、v0.4の唯一のconversion formには
+採用しない。constantだけをcompile-time errorにする案は、同じ値がconstantかruntime valueかで意味が変わるため採用しない。
+
+## D014. shift countはleft operandと同じ型とする
+
+- Status: Accepted
+- Date: 2026-09-04
+- Scope: mal v0.4
+
+### 決定
+
+`<<`と`>>`のright operandはleft operandと同じ整数型でなければならず、結果もその型を持つ。暗黙変換は行わない。
+left operandのbit widthを`n`、right operandの数学的な値を`count`とすると、`count < 0`または`count >= n`ならtrapする。
+この検査はsigned/unsignedの両方に適用する。
+
+有効な`count`に対する`x << count`は、`x * 2^count`をleft operandのwidthでwrapしたbit patternを持つ。
+unsignedの`x >> count`はlogical shift、signedの`x >> count`はsign bitを複製するarithmetic shiftとする。
+backendはCの範囲外shift、negative signed valueのleft shift、negative signed valueのimplementation-definedなright shiftへ
+この意味を依存させてはならない。
+
+### 理由
+
+両operandを同じ型にすると、他のinteger binary operatorと同じ型検査規則を維持でき、count専用の型や暗黙変換を
+追加せずに済む。negative countをunsigned interpretationとして説明するのではなく数学的な範囲検査として定義することで、
+signed representationやhost shiftの挙動から独立する。
+
+`UInt64`固定のcountはnegative valueを型で除外できる一方、すべてのshiftだけに特別なliteral contextと変換を要求するため
+採用しない。型が正しくても値域は実行時にしか決まらないので、範囲外countは一律にtrapとする。
