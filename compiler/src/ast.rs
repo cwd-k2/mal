@@ -85,6 +85,10 @@ pub enum Expression {
         name: Name,
         arguments: Vec<Node<Expression>>,
     },
+    Conversion {
+        type_name: Name,
+        value: Box<Node<Expression>>,
+    },
     SumInjection {
         type_name: Name,
         index: Node<IntegerLiteral>,

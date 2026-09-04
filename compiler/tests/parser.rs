@@ -121,6 +121,18 @@ fn parses_a_byte_literal_as_an_atomic_expression() {
 }
 
 #[test]
+fn distinguishes_numeric_conversion_from_sum_injection() {
+    assert!(matches!(
+        binding_value("value := UInt8(1Int8);"),
+        Expression::Conversion { .. }
+    ));
+    assert!(matches!(
+        binding_value("value := Maybe[1](1);"),
+        Expression::SumInjection { .. }
+    ));
+}
+
+#[test]
 fn parses_captures_parameters_and_lambda_body_items() {
     let expression = binding_value(
         "make := \\<outer>(x :: Int32, y :: Int32) {\n\

@@ -106,6 +106,10 @@ impl Lowerer {
                     Operation::ExternalCall { id: *id, argument },
                 )
             }
+            core::ExpressionKind::IntegerConversion { value } => {
+                let (builder, operand) = self.lower_operand(value);
+                builder.finish(self, expression, Operation::IntegerConversion { operand })
+            }
             core::ExpressionKind::SumInjection { index, value } => {
                 let (builder, value) = self.lower_operand(value);
                 builder.finish(

@@ -90,7 +90,7 @@ impl Parser<'_> {
             return self.parse_external_call();
         }
         if self.at(&TokenKind::TypeIdentifier) {
-            return self.parse_sum_injection();
+            return self.parse_type_constructor();
         }
         if self.at(&TokenKind::If) {
             return self.parse_if();
@@ -164,9 +164,20 @@ impl Parser<'_> {
         ))
     }
 
-    fn parse_sum_injection(&mut self) -> Result<Node<Expression>, Diagnostic> {
+    fn parse_type_constructor(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a sum type name")?;
         let start = type_name.span.start();
+        if self.take(&TokenKind::LeftParen).is_some() {
+            let value = self.parse_expression()?;
+            let right = self.expect(&TokenKind::RightParen, "`)`")?;
+            return Ok(Node::new(
+                Expression::Conversion {
+                    type_name,
+                    value: Box::new(value),
+                },
+                self.span(start, right.span.end()),
+            ));
+        }
         self.expect(&TokenKind::LeftBracket, "`[` after a sum type name")?;
         let index = self.parse_integer("a sum variant index")?;
         self.expect(&TokenKind::RightBracket, "`]`")?;

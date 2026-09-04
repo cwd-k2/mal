@@ -84,6 +84,9 @@ pub enum Operation {
         id: ExternalOperationId,
         argument: Atom,
     },
+    IntegerConversion {
+        operand: Atom,
+    },
     SumInjection {
         index: usize,
         value: Atom,

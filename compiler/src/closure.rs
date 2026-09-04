@@ -130,6 +130,9 @@ impl Converter {
                 id: *id,
                 argument: self.convert_atom(argument, environment),
             },
+            anf::Operation::IntegerConversion { operand } => Operation::IntegerConversion {
+                operand: self.convert_atom(operand, environment),
+            },
             anf::Operation::SumInjection { index, value } => Operation::SumInjection {
                 index: *index,
                 value: self.convert_atom(value, environment),

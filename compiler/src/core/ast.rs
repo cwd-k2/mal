@@ -75,6 +75,9 @@ pub enum ExpressionKind {
         id: ExternalOperationId,
         argument: Box<Expression>,
     },
+    IntegerConversion {
+        value: Box<Expression>,
+    },
     SumInjection {
         index: usize,
         value: Box<Expression>,

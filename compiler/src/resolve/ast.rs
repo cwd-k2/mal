@@ -132,6 +132,10 @@ pub enum Expression {
         operation: ExternalOperationReference,
         arguments: Vec<Node<Expression>>,
     },
+    Conversion {
+        type_ref: TypeReference,
+        value: Box<Node<Expression>>,
+    },
     SumInjection {
         type_ref: TypeReference,
         index: Node<IntegerLiteral>,

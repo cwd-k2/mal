@@ -169,6 +169,7 @@ impl TypeRegistry {
                 self.collect_atom(argument);
             }
             Operation::ExternalCall { argument, .. }
+            | Operation::IntegerConversion { operand: argument }
             | Operation::SumInjection {
                 value: argument, ..
             }

@@ -55,6 +55,32 @@ impl Checker {
                 operation,
                 arguments,
             } => self.check_external_call(operation, arguments, expression.span)?,
+            resolved::Expression::Conversion { type_ref, value } => {
+                let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
+                if !is_integer(&target) {
+                    return Err(
+                        Diagnostic::error("numeric conversion requires an integer type")
+                            .with_primary(type_ref.name.span, "this is not an integer type"),
+                    );
+                }
+                let value = self.check_expression(value, None)?;
+                if !is_integer(&value.ty) {
+                    return Err(
+                        Diagnostic::error("integer conversion requires an integer value")
+                            .with_primary(
+                                value.span,
+                                format!("this has type `{}`", type_name(&value.ty)),
+                            ),
+                    );
+                }
+                Expression {
+                    kind: ExpressionKind::IntegerConversion {
+                        value: Box::new(value),
+                    },
+                    ty: target,
+                    span: expression.span,
+                }
+            }
             resolved::Expression::SumInjection {
                 type_ref,
                 index,

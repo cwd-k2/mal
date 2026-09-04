@@ -117,6 +117,11 @@ impl Lowerer {
                     argument: Box::new(self.lower_expression(argument)),
                 }
             }
+            checked::ExpressionKind::IntegerConversion { value } => {
+                ExpressionKind::IntegerConversion {
+                    value: Box::new(self.lower_expression(value)),
+                }
+            }
             checked::ExpressionKind::SumInjection { index, value } => {
                 ExpressionKind::SumInjection {
                     index: *index,

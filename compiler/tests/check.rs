@@ -338,6 +338,34 @@ fn checks_integer_operators_for_every_fixed_width_type() {
 }
 
 #[test]
+fn checks_modulo_integer_conversions() {
+    for (expression, expected) in [
+        ("UInt8(-1Int8)", Type::UInt8),
+        ("Int8(255UInt16)", Type::Int8),
+        ("UInt16(-1Int8)", Type::UInt16),
+        ("Int16(255UInt8)", Type::Int16),
+    ] {
+        let program = check_ok(&format!("value := {expression};"));
+        assert_eq!(top_binding(&program, 0).value.ty, expected);
+        assert!(matches!(
+            top_binding(&program, 0).value.kind,
+            ExpressionKind::IntegerConversion { .. }
+        ));
+    }
+
+    assert!(
+        check_error("value := Int8(());")
+            .message
+            .contains("requires an integer value")
+    );
+    assert!(
+        check_error("value := Bool(1Int8);")
+            .message
+            .contains("requires an integer type")
+    );
+}
+
+#[test]
 fn validates_extern_signatures_recursively() {
     assert_eq!(
         check_error("extern callback :: (Int32 -> Unit) -> Unit;").message,

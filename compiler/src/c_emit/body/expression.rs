@@ -31,6 +31,11 @@ impl BodyEmitter<'_> {
                     )
                 }
             }
+            Operation::IntegerConversion { operand } => {
+                let operand = self.emit_atom(operand);
+                let (_, unsigned, _, _) = integer_info(result);
+                self.wrap_integer(result, &format!("({unsigned})({operand})"))
+            }
             Operation::SumInjection { index, value } => format!(
                 "({}){{ .tag = UINT32_C({index}), .payload.variant_{index} = {} }}",
                 self.types.c_type(result),

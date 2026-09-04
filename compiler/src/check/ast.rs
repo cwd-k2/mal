@@ -80,6 +80,9 @@ pub enum ExpressionKind {
         name: Name,
         argument: Box<Expression>,
     },
+    IntegerConversion {
+        value: Box<Expression>,
+    },
     SumInjection {
         index: usize,
         value: Box<Expression>,

@@ -301,6 +301,9 @@ impl Checker {
             resolved::Expression::SumInjection { value, .. } => {
                 self.check_top_level_initializer(value).is_ok()
             }
+            resolved::Expression::Conversion { value, .. } => {
+                self.check_top_level_initializer(value).is_ok()
+            }
             resolved::Expression::Lambda(_) => true,
             resolved::Expression::Unary {
                 operator, operand, ..

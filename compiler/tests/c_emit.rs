@@ -183,6 +183,27 @@ fn executes_all_fixed_width_integer_operator_families() {
 }
 
 #[test]
+fn executes_modulo_integer_conversions() {
+    let output = compile_and_run(
+        "main :: Unit -> Int32 := \\() {\n\
+           ok :: Bool :=\n\
+             (UInt8(-1Int8) == 255UInt8) &&\n\
+             (Int8(255UInt16) == -1Int8) &&\n\
+             (UInt16(-1Int8) == 65535UInt16) &&\
+             (Int16(255UInt8) == 255Int16) &&\n\
+             (UInt64(-1Int8) == 18446744073709551615UInt64);\n\
+           return if (ok) then { 0 } else { 1 };\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn traps_out_of_range_shift_counts() {
     for expression in ["1Int8 << 8Int8", "1Int16 >> -1Int16", "1UInt64 << 64UInt64"] {
         let output = compile_and_run(

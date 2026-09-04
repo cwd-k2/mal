@@ -45,6 +45,10 @@ impl Resolver {
                     .map(|argument| self.resolve_expression(argument))
                     .collect::<Result<_, _>>()?,
             },
+            ast::Expression::Conversion { type_name, value } => Expression::Conversion {
+                type_ref: self.type_reference(type_name)?,
+                value: Box::new(self.resolve_expression(value)?),
+            },
             ast::Expression::SumInjection {
                 type_name,
                 index,
