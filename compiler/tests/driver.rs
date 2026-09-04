@@ -1,64 +1,37 @@
 use std::ffi::OsStr;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
-static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+mod support;
 
-struct TestDirectory(PathBuf);
-
-impl TestDirectory {
-    fn new() -> Self {
-        let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("mal-driver-test-{}-{sequence}", std::process::id()));
-        fs::create_dir(&path).expect("create test directory");
-        Self(path)
-    }
-
-    fn join(&self, path: impl AsRef<Path>) -> PathBuf {
-        self.0.join(path)
-    }
-}
-
-impl Drop for TestDirectory {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove test directory");
-    }
-}
-
-fn malc(arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_malc"))
-        .args(arguments)
-        .output()
-        .expect("run malc")
-}
+use support::NativeFixture;
 
 #[test]
 fn check_reports_frontend_success_and_failure_through_exit_status() {
-    let directory = TestDirectory::new();
+    let directory = NativeFixture::new("driver");
     let valid = directory.join("valid.mal");
-    fs::write(&valid, "value :: Int32 := 1;").expect("write valid source");
-    let output = malc([OsStr::new("check"), valid.as_os_str()]);
+    directory.write("valid.mal", "value :: Int32 := 1;");
+    let output = directory.malc([OsStr::new("check"), valid.as_os_str()]);
     assert!(output.status.success());
     assert!(output.stdout.is_empty());
     assert!(output.stderr.is_empty());
 
     let invalid = directory.join("invalid.mal");
-    fs::write(&invalid, "value :: Unit := 1;").expect("write invalid source");
-    let output = malc([OsStr::new("check"), invalid.as_os_str()]);
+    directory.write("invalid.mal", "value :: Unit := 1;");
+    let output = directory.malc([OsStr::new("check"), invalid.as_os_str()]);
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("type mismatch"));
 }
 
 #[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
-    let directory = TestDirectory::new();
+    let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
     let output_path = directory.join("generated/program.c");
-    fs::write(&source, "main :: Unit -> Int32 := \\() { return 0; };").expect("write source");
-    let output = malc([
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := \\() { return 0; };",
+    );
+    let output = directory.malc([
         OsStr::new("emit-c"),
         source.as_os_str(),
         OsStr::new("--output"),
@@ -70,12 +43,12 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
-        fs::read_to_string(output_path)
+        std::fs::read_to_string(output_path)
             .unwrap()
             .contains("int main(void)")
     );
     assert!(
-        fs::read_to_string(directory.join("generated/program.mal.h"))
+        std::fs::read_to_string(directory.join("generated/program.mal.h"))
             .unwrap()
             .contains("MAL_C_ABI_VERSION")
     );
@@ -83,35 +56,32 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
 
 #[test]
 fn build_links_multiple_host_inputs_and_produces_an_executable() {
-    let directory = TestDirectory::new();
+    let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
     let host = directory.join("host.c");
     let helper = directory.join("helper.c");
     let executable = directory.join("out/program");
-    fs::write(
-        &source,
+    directory.write(
+        "program.mal",
         "extern adjust :: Int32 -> Int32;\n\
          main :: Unit -> Int32 := \\() { return extern adjust(40) - 42; };",
-    )
-    .expect("write source");
-    fs::write(
-        &host,
+    );
+    directory.write(
+        "host.c",
         "#include \"program.mal.h\"\n\
          int32_t host_increment(int32_t value);\n\
          int32_t mal_ext_adjust(MalContext *context, int32_t value) {\n\
              (void)context;\n\
              return host_increment(value);\n\
          }\n",
-    )
-    .expect("write host");
-    fs::write(
-        &helper,
+    );
+    directory.write(
+        "helper.c",
         "#include <stdint.h>\n\
          int32_t host_increment(int32_t value) { return value + 2; }\n",
-    )
-    .expect("write helper");
+    );
 
-    let output = malc([
+    let output = directory.malc([
         OsStr::new("build"),
         source.as_os_str(),
         OsStr::new("--output"),
@@ -126,17 +96,12 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        Command::new(executable)
-            .status()
-            .expect("run executable")
-            .success()
-    );
+    assert!(directory.run(executable).status.success());
 }
 
 #[test]
 fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
-    let directory = TestDirectory::new();
+    let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
@@ -144,7 +109,7 @@ fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
     let executable = directory.join("example");
     let program = example.join("program.mal");
     let host = example.join("host.c");
-    let output = malc([
+    let output = directory.malc([
         OsStr::new("build"),
         program.as_os_str(),
         OsStr::new("--output"),
@@ -157,9 +122,7 @@ fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let output = Command::new(executable)
-        .output()
-        .expect("run checked-in example");
+    let output = directory.run(executable);
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),

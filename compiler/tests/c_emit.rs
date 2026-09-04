@@ -1,8 +1,3 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use malc::anf;
 use malc::c_emit;
 use malc::check;
@@ -12,7 +7,9 @@ use malc::parser;
 use malc::resolve;
 use malc::source::{FileId, SourceFile};
 
-static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+mod support;
+
+use support::NativeFixture;
 
 fn emit(text: &str) -> Result<c_emit::Output, malc::diagnostic::Diagnostic> {
     let source = SourceFile::new(FileId::new(79), "c-emit-test.mal", text.into());
@@ -27,64 +24,11 @@ fn emit(text: &str) -> Result<c_emit::Output, malc::diagnostic::Diagnostic> {
     c_emit::emit(&closure)
 }
 
-struct TestDirectory(PathBuf);
-
-impl TestDirectory {
-    fn new() -> Self {
-        let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("mal-c-emit-test-{}-{sequence}", std::process::id()));
-        fs::create_dir(&path).expect("create test directory");
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDirectory {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove test directory");
-    }
-}
-
-fn compile_and_run(source: &str, host: &str) -> Output {
+fn compile_and_run(source: &str, host: &str) -> std::process::Output {
     let generated = emit(source).expect("emit C");
-    let directory = TestDirectory::new();
-    fs::write(
-        directory.path().join(c_emit::GENERATED_HEADER_NAME),
-        generated.header,
-    )
-    .expect("write header");
-    fs::write(directory.path().join("program.c"), generated.source).expect("write C source");
-    let executable = directory.path().join("program");
-    let mut compiler = Command::new("clang");
-    compiler.current_dir(directory.path()).args([
-        "-std=c11",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-pedantic",
-        "program.c",
-    ]);
-    if !host.is_empty() {
-        fs::write(directory.path().join("host.c"), host).expect("write host source");
-        compiler.arg("host.c");
-    }
-    let compilation = compiler
-        .arg("-o")
-        .arg(&executable)
-        .output()
-        .expect("run Clang");
-    assert!(
-        compilation.status.success(),
-        "Clang failed:\n{}",
-        String::from_utf8_lossy(&compilation.stderr)
-    );
-    Command::new(executable)
-        .output()
-        .expect("run generated program")
+    let fixture = NativeFixture::new("c-emit");
+    let executable = fixture.compile_generated(generated, host);
+    fixture.run(executable)
 }
 
 const PRINT_HOST: &str = r#"#include "program.mal.h"
