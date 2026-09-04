@@ -39,6 +39,15 @@ impl NativeFixture {
     }
 
     pub fn compile_generated(&self, generated: c_emit::Output, host: &str) -> PathBuf {
+        self.compile_generated_with_options(generated, host, &[])
+    }
+
+    pub fn compile_generated_with_options(
+        &self,
+        generated: c_emit::Output,
+        host: &str,
+        compiler_options: &[&str],
+    ) -> PathBuf {
         self.write(c_emit::GENERATED_HEADER_NAME, generated.header);
         self.write("program.c", generated.source);
         let executable = self.join("program");
@@ -51,6 +60,7 @@ impl NativeFixture {
             "-pedantic",
             "program.c",
         ]);
+        compiler.args(compiler_options);
         if !host.is_empty() {
             self.write("host.c", host);
             compiler.arg("host.c");
@@ -71,6 +81,19 @@ impl NativeFixture {
     pub fn malc(&self, arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
         Command::new(env!("CARGO_BIN_EXE_malc"))
             .args(arguments)
+            .output()
+            .expect("run malc")
+    }
+
+    pub fn malc_with_env(
+        &self,
+        arguments: impl IntoIterator<Item = impl AsRef<OsStr>>,
+        key: impl AsRef<OsStr>,
+        value: impl AsRef<OsStr>,
+    ) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_malc"))
+            .args(arguments)
+            .env(key, value)
             .output()
             .expect("run malc")
     }

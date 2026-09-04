@@ -54,10 +54,10 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### First queue
 
-checked-in example、public `build` smoke test、共通native fixture runnerは利用可能である。残りを次の順で進める。
+checked-in example、public `build` smoke test、共通native fixture runner、allocation/driver failure fixtureは利用可能である。
+残る作業は次のとおりである。
 
-1. allocation failure fixtureとdriver failure fixtureを追加する。
-2. example経路をclean checkout相当で再実行してS0をComplete、M1をActiveにする。
+1. example経路をclean checkout相当で再実行してS0をComplete、M1をActiveにする。
 
 ## M1: fixed-width integers and byte literal
 

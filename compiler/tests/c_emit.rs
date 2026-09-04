@@ -73,6 +73,26 @@ fn executes_escaping_capturing_closures() {
 }
 
 #[test]
+fn traps_when_a_closure_environment_cannot_be_allocated() {
+    let generated = emit(
+        "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\
+           return \\<value>() { return value; };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return makeClosure(7)(); };",
+    )
+    .expect("emit C");
+    let fixture = NativeFixture::new("allocation-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
 fn preserves_short_circuit_and_eager_bool_equality_order() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
