@@ -11,11 +11,11 @@ pub use token::{
 };
 
 pub fn lex(source: &SourceFile) -> Result<Vec<Token>, Diagnostic> {
-    lex_lossless(source).map(|lexed| lexed.tokens)
+    Lexer::new(source, false).lex().map(|lexed| lexed.tokens)
 }
 
 pub fn lex_lossless(source: &SourceFile) -> Result<Lexed, Diagnostic> {
-    Lexer::new(source).lex()
+    Lexer::new(source, true).lex()
 }
 
 struct Lexer<'a> {
@@ -24,16 +24,18 @@ struct Lexer<'a> {
     offset: usize,
     tokens: Vec<Token>,
     lexemes: Vec<Lexeme>,
+    track_lexemes: bool,
 }
 
 impl<'a> Lexer<'a> {
-    fn new(source: &'a SourceFile) -> Self {
+    fn new(source: &'a SourceFile, track_lexemes: bool) -> Self {
         Self {
             source,
             bytes: source.text().as_bytes(),
             offset: 0,
             tokens: Vec::new(),
             lexemes: Vec::new(),
+            track_lexemes,
         }
     }
 
@@ -271,17 +273,21 @@ impl<'a> Lexer<'a> {
     fn push(&mut self, kind: TokenKind, start: usize) {
         let span = self.span(start, self.offset);
         self.tokens.push(Token { kind, span });
-        self.lexemes.push(Lexeme {
-            kind: LexemeKind::Token,
-            span,
-        });
+        if self.track_lexemes {
+            self.lexemes.push(Lexeme {
+                kind: LexemeKind::Token,
+                span,
+            });
+        }
     }
 
     fn push_lexeme(&mut self, kind: LexemeKind, start: usize, end: usize) {
-        self.lexemes.push(Lexeme {
-            kind,
-            span: self.span(start, end),
-        });
+        if self.track_lexemes {
+            self.lexemes.push(Lexeme {
+                kind,
+                span: self.span(start, end),
+            });
+        }
     }
 
     fn error(

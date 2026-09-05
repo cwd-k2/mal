@@ -41,7 +41,7 @@ struct RenameParams {
 }
 
 impl Server {
-    pub(super) fn hover(&self, id: Value, params: Value) -> Value {
+    pub(super) fn hover(&mut self, id: Value, params: Value) -> Value {
         let Some((source, semantic, offset)) = self.position_request(&params) else {
             return error(id, -32602, "invalid position or document is not open");
         };
@@ -57,7 +57,7 @@ impl Server {
         )
     }
 
-    pub(super) fn definition(&self, id: Value, params: Value) -> Value {
+    pub(super) fn definition(&mut self, id: Value, params: Value) -> Value {
         let Some((source, semantic, offset)) = self.position_request(&params) else {
             return error(id, -32602, "invalid position or document is not open");
         };
@@ -74,7 +74,7 @@ impl Server {
         )
     }
 
-    pub(super) fn references(&self, id: Value, params: Value) -> Value {
+    pub(super) fn references(&mut self, id: Value, params: Value) -> Value {
         let Ok(request) = serde_json::from_value::<ReferenceParams>(params) else {
             return error(id, -32602, "invalid reference parameters");
         };
@@ -96,7 +96,7 @@ impl Server {
         success(id, json!(locations))
     }
 
-    pub(super) fn rename(&self, id: Value, params: Value) -> Value {
+    pub(super) fn rename(&mut self, id: Value, params: Value) -> Value {
         let Ok(request) = serde_json::from_value::<RenameParams>(params) else {
             return error(id, -32602, "invalid rename parameters");
         };
@@ -115,7 +115,7 @@ impl Server {
         success(id, json!({"changes": {request.text_document.uri: edits}}))
     }
 
-    pub(super) fn document_symbols(&self, id: Value, params: Value) -> Value {
+    pub(super) fn document_symbols(&mut self, id: Value, params: Value) -> Value {
         let Some((source, semantic)) = self.document_request(&params) else {
             return error(id, -32602, "invalid parameters or document is not open");
         };
@@ -136,7 +136,7 @@ impl Server {
         success(id, json!(symbols))
     }
 
-    pub(super) fn completion(&self, id: Value, params: Value) -> Value {
+    pub(super) fn completion(&mut self, id: Value, params: Value) -> Value {
         let Some((_, semantic)) = self.document_request(&params) else {
             return error(id, -32602, "invalid parameters or document is not open");
         };
@@ -154,7 +154,7 @@ impl Server {
         success(id, json!(items))
     }
 
-    pub(super) fn semantic_tokens(&self, id: Value, params: Value) -> Value {
+    pub(super) fn semantic_tokens(&mut self, id: Value, params: Value) -> Value {
         let Some((source, semantic)) = self.document_request(&params) else {
             return error(id, -32602, "invalid parameters or document is not open");
         };
@@ -191,31 +191,41 @@ impl Server {
         success(id, json!({"data": data}))
     }
 
-    fn position_request(&self, params: &Value) -> Option<(SourceFile, SemanticDocument, usize)> {
+    fn position_request(
+        &mut self,
+        params: &Value,
+    ) -> Option<(SourceFile, &SemanticDocument, usize)> {
         let request = serde_json::from_value::<PositionParams>(params.clone()).ok()?;
         self.semantic_at(&request.text_document.uri, request.position)
     }
 
     fn semantic_at(
-        &self,
+        &mut self,
         uri: &str,
         position: Position,
-    ) -> Option<(SourceFile, SemanticDocument, usize)> {
-        let document = self.documents.get(uri)?;
+    ) -> Option<(SourceFile, &SemanticDocument, usize)> {
+        let document = self.documents.get_mut(uri)?;
         let source = document.source(uri);
         let offset = source.byte_offset_utf16(Utf16Position {
             line: position.line,
             character: position.character,
         })?;
-        let semantic = malc::editor::analyze(&source).ok()?;
+        if document.semantic.is_none() {
+            document.semantic = malc::editor::analyze(&source).ok();
+        }
+        let semantic = document.semantic.as_ref()?;
         Some((source, semantic, offset))
     }
 
-    fn document_request(&self, params: &Value) -> Option<(SourceFile, SemanticDocument)> {
+    fn document_request(&mut self, params: &Value) -> Option<(SourceFile, &SemanticDocument)> {
         let identifier = serde_json::from_value::<DocumentRequest>(params.clone()).ok()?;
         let uri = identifier.text_document.uri;
-        let source = self.documents.get(&uri)?.source(&uri);
-        let semantic = malc::editor::analyze(&source).ok()?;
+        let document = self.documents.get_mut(&uri)?;
+        let source = document.source(&uri);
+        if document.semantic.is_none() {
+            document.semantic = malc::editor::analyze(&source).ok();
+        }
+        let semantic = document.semantic.as_ref()?;
         Some((source, semantic))
     }
 }

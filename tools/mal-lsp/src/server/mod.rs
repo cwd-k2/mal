@@ -21,6 +21,7 @@ struct Document {
     id: FileId,
     version: i64,
     text: String,
+    semantic: Option<malc::editor::SemanticDocument>,
 }
 
 #[derive(Deserialize)]
@@ -156,6 +157,7 @@ impl Server {
                             id,
                             version: item.version,
                             text: item.text,
+                            semantic: None,
                         },
                     );
                     messages.push(self.diagnostics(&item.uri));
@@ -168,6 +170,7 @@ impl Server {
                 {
                     document.version = params.text_document.version;
                     document.text.clone_from(&text.text);
+                    document.semantic = None;
                     messages.push(self.diagnostics(&params.text_document.uri));
                 }
             }

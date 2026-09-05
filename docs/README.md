@@ -28,7 +28,8 @@
 [compilerの責務境界](implementation/responsibilities.md)、[compiler implementation notes](implementation/compiler.md)、
 [test方針](development/testing.md)を参照する。active milestoneがある場合は
 [implementation roadmap](implementation/roadmap.md)に順序と完了条件を置く。
-M7の測定と採否判断は[generated C performance記録](development/performance.md)、仕様とtestの対応は
+M7の測定と採否判断は[generated C performance記録](development/performance.md)、compiler自身の測定は
+[compiler compile-time記録](development/compiler-performance.md)、仕様とtestの対応は
 [conformance matrix](development/conformance.md)に集約する。M0の履歴は
 [M0 implementation record](implementation/m0.md)に残す。設計理由は[決定記録](design/decisions.md)を参照する。
 
