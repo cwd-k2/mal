@@ -45,3 +45,20 @@ test("keeps a closing parenthesis inside ')' in a string token", async () => {
   assert.ok(!closingParentheses[1].scopes.includes('string.quoted.single.mal'));
   assert.ok(closingParentheses[1].scopes.includes('punctuation.definition.mal'));
 });
+
+test('highlights the storage-size sigil and its type separately', async () => {
+  const grammar = await loadGrammar();
+  const line = 'size := @String + @UInt8;';
+  const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
+    text: line.slice(token.startIndex, token.endIndex),
+    scopes: token.scopes,
+  }));
+
+  for (const token of tokens.filter((candidate) => candidate.text === '@')) {
+    assert.ok(token.scopes.includes('keyword.operator.mal'));
+  }
+  for (const name of ['String', 'UInt8']) {
+    const token = tokens.find((candidate) => candidate.text === name);
+    assert.ok(token.scopes.includes('entity.name.type.mal'));
+  }
+});

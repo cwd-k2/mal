@@ -16,6 +16,8 @@ closingParen :: UInt8 := ')';
 
 message :: String := "mal\n";
 
+stringStorageSize :: UInt64 := @String;
+
 choose :: Bool -> Choice := \(condition :: Bool) {
     if (condition && !false)
         then { Choice[0](42) }

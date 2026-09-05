@@ -43,6 +43,26 @@ fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
 }
 
 #[test]
+fn storage_size_types_support_hover_and_definition() {
+    let text = "Byte :: UInt8;\nsize :: UInt64 := @Byte;";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let reference_offset = text.rfind("Byte").unwrap();
+    let declaration_offset = text.find("Byte").unwrap();
+
+    let hover = document.hover_at(reference_offset).expect("type hover");
+    assert_eq!(hover.ty, "UInt8");
+    assert_eq!(hover.occurrence.unwrap().name, "Byte");
+
+    let reference = document.occurrence_at(reference_offset).unwrap();
+    assert_eq!(reference.kind, SymbolKind::Type);
+    assert_eq!(reference.role, OccurrenceRole::Reference);
+    assert_eq!(
+        document.definition(reference.id).unwrap().span.start(),
+        declaration_offset
+    );
+}
+
+#[test]
 fn definition_references_and_rename_follow_capture_identity() {
     let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\<x>() { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");

@@ -185,6 +185,34 @@ fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
 }
 
 #[test]
+fn serves_hover_and_definition_for_a_storage_size_type() {
+    let text = "Byte :: UInt8;\nsize :: UInt64 := @Byte;";
+    let uri = "file:///storage-size.mal";
+    let mut server = open_document(uri, text);
+    let reference = text.rfind("Byte").unwrap();
+    let declaration = text.find("Byte").unwrap();
+
+    let hover = request_at(&mut server, 21, "textDocument/hover", uri, text, reference);
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```mal\nByte :: UInt8\n```\n\ntype"
+    );
+
+    let definition = request_at(
+        &mut server,
+        22,
+        "textDocument/definition",
+        uri,
+        text,
+        reference,
+    );
+    assert_eq!(
+        definition["result"]["range"]["start"],
+        text_position(text, declaration)
+    );
+}
+
+#[test]
 fn serves_symbols_completion_and_semantic_tokens() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
     let uri = "file:///symbols.mal";
