@@ -80,7 +80,8 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### Specification gate
 
-- [Q3 opaque resource safety](../design/open-questions.md#q3-opaque-resource-の安全性)と[Q4 extern ABI](../design/open-questions.md#q4-extern-abi)をv0.4 decisionとして確定する。
+- opaque resource safetyは[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)、extern ABIは
+  [D016](../design/decisions.md#d016-externはmal-c-abiとadapterを介する)に従う。
 
 ### Scope
 

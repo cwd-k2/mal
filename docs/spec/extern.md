@@ -21,9 +21,9 @@ extern print("hello");
 
 external symbol は first-class value ではない。`f := extern print;` は不正である。
 
-## 暫定 extern-safe type
+## extern-safe type
 
-v0.4の暫定制約として、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
+v0.4では、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
 
 ```text
 externSafe(Unit)         = true
@@ -48,7 +48,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.4から除外するための暫定案であり、最終的なABI方針は[未決事項 Q4](../design/open-questions.md#q4-extern-abi)に置く。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.4から除外する。決定理由は[D016](../design/decisions.md#d016-externはmal-c-abiとadapterを介する)に記録する。
 
 ## source-level semantics
 
@@ -88,6 +88,7 @@ v0.4のString lifetime contractは次とする。
 host側bufferの具体的な取得、copy完了までの有効期間、copy後の解放はbackend adapter contractが定める。hostの後続変更や解放がmal Stringへ影響してはならない。決定理由は[D010](../design/decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)に記録する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
+決定理由は[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)に記録する。
 
 ## ABI と adapter
 

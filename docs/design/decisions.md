@@ -356,7 +356,7 @@ _1       invalid
 
 ## D012. 初期extern implementationはC adapterをlinkする
 
-- Status: Accepted direction; ABI profile is implementation-draft
+- Status: Accepted; refined by D016
 - Date: 2026-09-04
 - Scope: v0.4 reference compiler
 
@@ -431,3 +431,52 @@ signed representationやhost shiftの挙動から独立する。
 
 `UInt64`固定のcountはnegative valueを型で除外できる一方、すべてのshiftだけに特別なliteral contextと変換を要求するため
 採用しない。型が正しくても値域は実行時にしか決まらないので、範囲外countは一律にtrapとする。
+
+## D015. opaque valueはcopyable handleとする
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4 and extern contract
+
+### 決定
+
+external opaque typeの値は、通常のmal値と同様にbinding、copy、discardできる。値のcopyやscope終了に伴う暗黙の
+retain、release、close、freeは行わない。reference compilerのC ABIでは一machine wordのhandleとして表す。
+
+handleが指すresourceの有効期間、一意性、close/free protocol、zero bit patternの意味は個々のhost contractとmal
+programの責務とする。v0.4はopaque resourceに対するlinear type、ownership、borrow、drop hookを持たない。
+
+### 理由
+
+opaque valueだけに暗黙のresource lifetimeを与えるには、copyの意味、closure capture、sum/productへの格納、discard、
+host failureを横断するownership規則が必要になる。単純型付きのcopyable valueとして扱えば、言語runtimeへ特定のresource
+policyを埋め込まず、必要なprotocolをtyped external operationとして明示できる。
+
+one-wordに収まらないhost stateはhost側でboxする。正しく型付けされたmal programでも、期限切れhandleや二重closeを
+防ぐことは保証しない。
+
+## D016. externはmal C ABIとadapterを介する
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4 extern contract and reference compiler
+- Refines: D012
+
+### 決定
+
+sourceの`extern` declarationはmal型を持つexternal operationを宣言し、任意のC function declarationを直接記述しない。
+reference compilerはprogram固有のheaderに固定したmal C representationとsymbolを生成し、host implementationまたは
+adapterを同じheaderに対してcompile/linkする。generated headerをfield order、tag、paddingを含むprogram ABIのauthorityとする。
+
+top-level product parameterは直下の要素をsource orderでC parameterへflattenする。nested productとsumはgenerated aggregate
+型、aggregate resultはgenerated型のby-value resultとする。opaque valueはD015のone-word wrapperで表す。これらを既存C
+libraryのstructやcalling conventionと暗黙に同一視しない。
+
+v0.4ではparameterまたはresultにfunction型を直接・再帰的に含むextern declarationを拒否する。callback calling convention、
+hostによるclosure保持、hostから返るclosureのallocationは定義しない。この制約はmal内部のfirst-class closureへ影響しない。
+
+### 理由
+
+mal型とC型を直接同一視すると、aggregate layout、target calling convention、String lifetime、opaque resource policyがsource
+declarationから判別できない。小さなadapter境界とgenerated headerへ集約すれば、C parserやdynamic FFIをcompilerへ追加せず、
+target toolchainが実際に使用するABIとhost固有contractを明示できる。

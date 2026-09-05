@@ -13,19 +13,8 @@ floatの実行意味論については解決済み。[D009](decisions.md#d009-fl
 整数型間の変換とshift countについては解決済み。[D013](decisions.md#d013-整数型間の変換はdestination-widthでmoduloとする)と
 [D014](decisions.md#d014-shift-countはleft-operandと同じ型とする)を参照する。
 
-## Q3. opaque resource の安全性
-
-**問い:** `extern File` を自由に duplicate/discard できてよいか。
-
-**暫定案:** よい。opaque value は copyable handle で、close/free protocol は host API の責務。mal v0.4 は memory-safe/resource-safe を標榜しない。将来 linear type を入れる前提にはしない。
-
-## Q4. `extern` ABI
-
-**問い:** declaration は C ABI を直接表すのか、mal 独自 ABI を表すのか。
-
-**暫定案:** source language は typed external operation だけを表す。C backend は固定した mal C representation と adapter を使う。C の struct-by-value と mal product を暗黙に同一視しない。
-
-v0.4ではさらに、function型を直接または再帰的に含む型をextern declarationのparameter/resultに認めない。これによりcallback ABI、closure environmentをhostが保持できる期間、hostから返すclosureのallocationをv0.4のcontractから除外する。closureはmal code内ではfirst-classのままである。
+opaque resource safetyと`extern` ABIについては解決済み。[D015](decisions.md#d015-opaque-valueはcopyable-handleとする)と
+[D016](decisions.md#d016-externはmal-c-abiとadapterを介する)を参照する。
 
 ## Q5. top-level initialization
 
