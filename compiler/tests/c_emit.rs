@@ -464,6 +464,41 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
 }
 
 #[test]
+fn executes_unaligned_ptr_scalar_access_through_the_host_abi() {
+    let source = "extern memory :: Unit -> Ptr;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           base := extern memory();\n\
+           slot := offset(base, 1u64);\n\
+           storeInt64(slot, 41i64);\n\
+           byte := offset(slot, 8u64);\n\
+           storeUInt8(byte, 1u8);\n\
+           return Int32(loadInt64(slot) + Int64(loadUInt8(byte)) - 42i64);\n\
+         };";
+    let generated = emit(source).expect("emit Ptr operations");
+    assert!(
+        generated
+            .header
+            .contains("typedef struct { uint8_t *address; } MalPtr;")
+    );
+    assert!(
+        generated
+            .header
+            .contains("MalPtr mal_ext_memory(MalContext *context);")
+    );
+    let host = r#"#include "program.mal.h"
+
+MalPtr mal_ext_memory(MalContext *context) {
+    static uint8_t bytes[10];
+    (void)context;
+    return (MalPtr){ .address = bytes };
+}
+"#;
+    let fixture = NativeFixture::new("ptr-memory");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     let source = "Request :: (Int32, (UInt8, Int32));\n\
          Response :: [Unit, (Int32, Int32)];\n\

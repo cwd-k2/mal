@@ -1,4 +1,4 @@
-use crate::check::ast::Type;
+use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{Atom, AtomKind, Operation, Reference};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 
@@ -28,6 +28,26 @@ impl BodyEmitter<'_> {
                 self.needs.string_at = true;
                 let argument = self.emit_atom(argument);
                 format!("mal_string_at(mal_context, {argument}.field_0, {argument}.field_1)")
+            }
+            Operation::Memory {
+                primitive,
+                argument,
+            } => {
+                self.needs.memory = true;
+                let argument = self.emit_atom(argument);
+                match primitive {
+                    MemoryPrimitive::Offset => format!(
+                        "mal_ptr_offset(mal_context, {argument}.field_0, {argument}.field_1)"
+                    ),
+                    MemoryPrimitive::LoadInt64 => format!("mal_load_int64({argument})"),
+                    MemoryPrimitive::StoreInt64 => {
+                        format!("mal_store_int64({argument}.field_0, {argument}.field_1)")
+                    }
+                    MemoryPrimitive::LoadUInt8 => format!("mal_load_uint8({argument})"),
+                    MemoryPrimitive::StoreUInt8 => {
+                        format!("mal_store_uint8({argument}.field_0, {argument}.field_1)")
+                    }
+                }
             }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
             Operation::NumericConversion { operand } => {

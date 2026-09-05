@@ -158,6 +158,20 @@ impl Lowerer {
                 let (builder, argument) = self.lower_operand(argument);
                 builder.finish(self, expression, Operation::StringAt { argument })
             }
+            core::ExpressionKind::Memory {
+                primitive,
+                argument,
+            } => {
+                let (builder, argument) = self.lower_operand(argument);
+                builder.finish(
+                    self,
+                    expression,
+                    Operation::Memory {
+                        primitive: *primitive,
+                        argument,
+                    },
+                )
+            }
             core::ExpressionKind::ExternalCall { id, argument } => {
                 let (builder, argument) = self.lower_operand(argument);
                 builder.finish(

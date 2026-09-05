@@ -1,10 +1,10 @@
 # プログラム構造
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## compilation unit
 
-v0.4 は単一 compilation unit を基本とする。package manager、import、module、dependency resolution は言語仕様に含めない。
+v0.5は単一compilation unitを基本とする。package manager、import、module、dependency resolutionは言語仕様に含めない。
 
 compiler が複数 source file を受け取る場合も、一つの top-level scope を構成する入力として扱う。file 間の順序規則は compiler CLI が明示しなければならない。
 
@@ -47,4 +47,4 @@ main :: Unit -> Int32 := \() {
 };
 ```
 
-backend は `main()` の結果を process exit status へ渡す。library compilation や他の entry point は v0.4 の言語仕様外である。
+backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointはv0.5の言語仕様外である。

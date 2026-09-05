@@ -93,6 +93,12 @@ v0.4 では次を採用する。未決の項目は [未決事項](open-questions
 - Float32/64は固定rounding、non-stop、NaN payload未指定のIEEE 754 profileとする。[D009](decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)
 - standard library、allocator、collection、module system は v0.4 に入れない。
 
+## v0.5の追加
+
+競技programでopaque storageを評価した結果、indexed accessごとのhost operationだけでなく、DFS workspaceや
+DP transitionなどalgorithm上の処理までhostへ移ることを確認した。v0.5はcollection policyを導入せず、
+型なし`Ptr`とbyte offset、`Int64`/`UInt8` load/storeだけを共通mechanismとして追加する。[D022](decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)
+
 ## 機能を加える判定基準
 
 新機能は、次のすべてに答えられる場合だけ候補にする。
@@ -107,7 +113,7 @@ v0.4 では次を採用する。未決の項目は [未決事項](open-questions
 
 ## 最小性の acceptance criterion
 
-v0.4 の各機能について、次が揃った時点を「仕様に存在する」とする。
+各profileの機能について、次が揃った時点を「仕様に存在する」とする。
 
 - parse できる concrete syntax
 - name resolution と型規則

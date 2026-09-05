@@ -27,10 +27,16 @@ pub const BOOL_TYPE: TypeId = TypeId(9);
 pub const STRING_TYPE: TypeId = TypeId(10);
 pub const FLOAT32_TYPE: TypeId = TypeId(11);
 pub const FLOAT64_TYPE: TypeId = TypeId(12);
+pub const PTR_TYPE: TypeId = TypeId(13);
 pub const FALSE_VALUE: ValueId = ValueId(0);
 pub const TRUE_VALUE: ValueId = ValueId(1);
 pub const BYTE_LENGTH_VALUE: ValueId = ValueId(2);
 pub const BYTE_AT_VALUE: ValueId = ValueId(3);
+pub const OFFSET_VALUE: ValueId = ValueId(4);
+pub const LOAD_INT64_VALUE: ValueId = ValueId(5);
+pub const STORE_INT64_VALUE: ValueId = ValueId(6);
+pub const LOAD_UINT8_VALUE: ValueId = ValueId(7);
+pub const STORE_UINT8_VALUE: ValueId = ValueId(8);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueOwner {

@@ -1,4 +1,4 @@
-# v0.4 implementation roadmap
+# implementation roadmap
 
 Status: Current
 
@@ -17,6 +17,24 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 | M4 | Complete | annotated self recursionとdirect tail-call lowering |
 | M5 | Complete | strict `Float32` / `Float64` profile |
 | R0 | Complete | v0.4 conformanceとrelease readiness |
+| M6 | Complete | v0.5の型なし`Ptr`と最小scalar memory primitive |
+
+## M6: memory primitive
+
+indexed storageの共通mechanismをhostの用途別opaque operationからmalへ戻す。
+
+### 完了済み
+
+- predefined `Ptr`、byte単位の`offset`、`Int64`/`UInt8` load/storeを全stageへ実装した。
+- `Ptr`をextern-safeとし、generated C headerへ`MalPtr`を公開した。
+- unaligned accessを含むfocused type/ABI/native testとchecked-in M6 exampleを追加した。
+- Typical 90 023のprofile列挙、CSR構築、row transition、集計をmalへ移し、公式sampleと24×24 caseを検証した。
+
+### Done
+
+- allocation、bounds、collection policyを言語へ追加せず、algorithm上のindexed storageをmalから操作できる。
+- memory semantics、host contract、C ABI、invalid accessの境界が`spec/`に記述されている。
+- frontend focused testとgenerated Cのnative testが成功する。
 
 完了済みgateの詳細はtest、example、decision、およびGit履歴に残す。M0当時の境界だけは
 [M0 implementation record](m0.md)に要約する。

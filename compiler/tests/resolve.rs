@@ -3,8 +3,9 @@ use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
     self as resolved, BYTE_AT_VALUE, BYTE_LENGTH_VALUE, FALSE_VALUE, INT8_TYPE, INT16_TYPE,
-    INT32_TYPE, INT64_TYPE, STRING_TYPE, TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
-    UINT64_TYPE, ValueOwner,
+    INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE, PTR_TYPE,
+    STORE_INT64_VALUE, STORE_UINT8_VALUE, STRING_TYPE, TopItem, UINT8_TYPE, UINT16_TYPE,
+    UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
 
@@ -83,6 +84,56 @@ fn resolves_string_primitives_as_predefined_values() {
         let resolved::Expression::Call { callee, .. } =
             &top_binding(&program.items[index]).value.kind
         else {
+            panic!("expected primitive call");
+        };
+        let resolved::Expression::Reference(reference) = &callee.kind else {
+            panic!("expected primitive reference");
+        };
+        assert_eq!(reference.id, expected);
+    }
+}
+
+#[test]
+fn resolves_memory_primitives_and_the_ptr_type() {
+    let program = resolve_ok(
+        "extern memory :: Unit -> Ptr;\n\
+         useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
+           next := offset(pointer, 8u64);\n\
+           value := loadInt64(next);\n\
+           storeInt64(next, value);\n\
+           byte := loadUInt8(next);\n\
+           storeUInt8(next, byte);\n\
+           return ();\n\
+         };",
+    );
+    let TopItem::ExternalOperation { ty, .. } = &program.items[0].kind else {
+        panic!("expected external operation");
+    };
+    let resolved::TypeExpression::Function { result, .. } = &ty.kind else {
+        panic!("expected function type");
+    };
+    let resolved::TypeExpression::Named(reference) = &result.kind else {
+        panic!("expected Ptr result");
+    };
+    assert_eq!(reference.id, PTR_TYPE);
+
+    let binding = top_binding(&program.items[1]);
+    let resolved::Expression::Lambda(lambda) = &binding.value.kind else {
+        panic!("expected lambda");
+    };
+    let expected = [
+        OFFSET_VALUE,
+        LOAD_INT64_VALUE,
+        STORE_INT64_VALUE,
+        LOAD_UINT8_VALUE,
+        STORE_UINT8_VALUE,
+    ];
+    for (item, expected) in lambda.body.items.iter().zip(expected) {
+        let expression = match item {
+            resolved::BodyItem::Binding(binding) => &binding.kind.value,
+            resolved::BodyItem::Expression(expression) => expression,
+        };
+        let resolved::Expression::Call { callee, .. } = &expression.kind else {
             panic!("expected primitive call");
         };
         let resolved::Expression::Reference(reference) = &callee.kind else {

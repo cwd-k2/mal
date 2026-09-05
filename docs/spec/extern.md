@@ -1,6 +1,6 @@
 # `extern` 境界
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## 目的
 
@@ -23,12 +23,13 @@ external symbol は first-class value ではない。`f := extern print;` は不
 
 ## extern-safe type
 
-v0.4では、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
+v0.5では、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
 
 ```text
 externSafe(Unit)         = true
 externSafe(scalar)       = true
 externSafe(String)       = true
+externSafe(Ptr)          = true
 externSafe(ExternalType) = true
 externSafe((T...))       = all externSafe(T)
 externSafe([T...])       = all externSafe(T)
@@ -48,7 +49,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.4から除外する。決定理由は[D016](../design/decisions.md#d016-externはmal-c-abiとadapterを介する)に記録する。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.5から除外する。決定理由は[D016](../design/decisions.md#d016-externはmal-c-abiとadapterを介する)に記録する。
 
 ## source-level semantics
 
@@ -78,7 +79,7 @@ printValue :: Int32 -> Unit := \(x :: Int32) {
 
 ## Stringのlifetime
 
-v0.4のString lifetime contractは次とする。
+v0.5のString lifetime contractは次とする。
 
 - mal から host へ渡す `String` は call 中だけ borrow され、host は return 後に参照を保持しない。
 - hostからStringを返すsource-level operationは、callが完了する前にbytesをmal-owned storageへcopyする。返されたmal Stringはhost側bufferを参照しない。
@@ -89,6 +90,9 @@ host側bufferの具体的な取得、copy完了までの有効期間、copy後�
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)に記録する。
+
+`Ptr`を返すoperationは、pointerが指すlive region、permission、lifetimeをhost contractに定める。`Ptr`の複製は
+storageを複製せず、lifetimeを延長しない。詳細は[memory primitive](memory.md)に定める。
 
 ## ABI と adapter
 

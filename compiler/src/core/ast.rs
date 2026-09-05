@@ -1,4 +1,4 @@
-use crate::check::ast::Type;
+use crate::check::ast::{MemoryPrimitive, Type};
 use crate::resolve::ast::{ExternalOperationId, LambdaId, ValueId as SourceValueId};
 use crate::source::Span;
 
@@ -107,6 +107,10 @@ pub enum ExpressionKind {
         value: Box<Expression>,
     },
     StringAt {
+        argument: Box<Expression>,
+    },
+    Memory {
+        primitive: MemoryPrimitive,
         argument: Box<Expression>,
     },
     ExternalCall {

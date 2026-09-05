@@ -73,7 +73,7 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
     assert!(generated_c.contains("int main(void)"));
     let generated_header =
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
-    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000400u"));
+    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
     assert!(generated_header.contains("MalString mal_string_copy("));
 }
@@ -314,6 +314,30 @@ fn checked_in_m4_example_executes_large_direct_tail_recursion() {
         example.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
+fn checked_in_m6_example_accesses_unaligned_ptr_memory() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m6/ptr-memory");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),

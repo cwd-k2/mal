@@ -1,5 +1,5 @@
 {
-  description = "mal v0.4 compiler development environment";
+  description = "mal v0.5 compiler development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 

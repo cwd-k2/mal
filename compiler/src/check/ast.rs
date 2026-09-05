@@ -18,6 +18,7 @@ pub enum Type {
     Float32,
     Float64,
     String,
+    Ptr,
     External {
         id: TypeId,
         name: String,
@@ -106,6 +107,10 @@ pub enum ExpressionKind {
     StringAt {
         argument: Box<Expression>,
     },
+    Memory {
+        primitive: MemoryPrimitive,
+        argument: Box<Expression>,
+    },
     ExternalCall {
         id: ExternalOperationId,
         name: Name,
@@ -136,6 +141,15 @@ pub enum ExpressionKind {
         left: Box<Expression>,
         right: Box<Expression>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MemoryPrimitive {
+    Offset,
+    LoadInt64,
+    StoreInt64,
+    LoadUInt8,
+    StoreUInt8,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

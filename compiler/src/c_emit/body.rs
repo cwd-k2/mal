@@ -20,6 +20,7 @@ pub(super) struct RuntimeNeeds {
     pub(super) shift_right: u16,
     pub(super) string_equality: bool,
     pub(super) string_at: bool,
+    pub(super) memory: bool,
     pub(super) float_to_integer: u32,
 }
 

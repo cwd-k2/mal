@@ -1,6 +1,6 @@
 # 実行意味論
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## 評価戦略
 
@@ -51,7 +51,7 @@ inner lambdaのcapture listに現れる`x`はmiddle lambda内での参照でも�
 
 closure は定義した scope の外へ返したり、他の関数へ渡したりしてよい。function equality は存在せず、program から code と environment を分解・観察することはできない。
 
-言語意味論は environment の物理的な配置や回収方式を規定しない。reference compiler は capture を持つ closure environment を program-lifetime arena に配置し、v0.4 では個別に回収しない。environment allocation に失敗した場合は trap する。
+言語意味論は environment の物理的な配置や回収方式を規定しない。reference compiler は capture を持つ closure environment を program-lifetime arena に配置し、v0.5 では個別に回収しない。environment allocation に失敗した場合は trap する。
 
 compiler は観測可能な動作を変えない限り、capture 除去、lambda lifting、stack allocation などにより environment allocation を省略してよい。
 
@@ -113,6 +113,9 @@ trap は現在の mal program の評価を即座に異常終了する。mal code
 
 reference compilerのC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
 host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
+
+pointer accessのregion、permission、lifetime違反はtrapではなくhost contract違反であり、特定の実行結果を
+保証しない。pointer offsetがtargetで表現できない場合だけはtrapする。詳細は[memory](memory.md)に定める。
 
 ## core calculus
 

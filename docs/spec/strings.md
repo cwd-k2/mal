@@ -1,6 +1,6 @@
 # String
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## 値とstorage
 
@@ -53,7 +53,8 @@ indexは0-basedで、範囲外の`byteAt`はtrapする。
 
 ## mutable bytesとの分離
 
-StringはGoの`string`に似たimmutable viewを提供するが、v0.4はGoの`[]byte`に相当する組み込みarray/sliceを持たない。mutable storageが必要なら`ByteBuffer`などのexternal opaque typeとprogram固有のoperationを宣言する。
+StringはGoの`string`に似たimmutable viewを提供するが、v0.5はGoの`[]byte`に相当する組み込みarray/sliceを
+持たない。mutable storageが必要なら`Ptr`とlength、または`ByteBuffer`などのexternal opaque typeを使う。
 
 ```mal
 extern ByteBuffer;

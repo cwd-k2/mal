@@ -1,5 +1,5 @@
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
+use crate::check::ast::{MemoryPrimitive, Type};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
@@ -141,6 +141,10 @@ pub enum Operation {
         value: Atom,
     },
     StringAt {
+        argument: Atom,
+    },
+    Memory {
+        primitive: MemoryPrimitive,
         argument: Atom,
     },
     ExternalCall {

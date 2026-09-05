@@ -15,7 +15,7 @@ pub mod resolve;
 pub mod source;
 
 pub const LANGUAGE_NAME: &str = "mal";
-pub const LANGUAGE_VERSION: &str = "0.4";
+pub const LANGUAGE_VERSION: &str = "0.5";
 
 pub fn version_line() -> String {
     format!(
@@ -30,9 +30,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn version_targets_v04() {
-        assert_eq!(LANGUAGE_VERSION, "0.4");
-        assert!(version_line().contains("language v0.4"));
+    fn version_targets_v05() {
+        assert_eq!(LANGUAGE_VERSION, "0.5");
+        assert!(version_line().contains("language v0.5"));
         assert_eq!(
             env!("CARGO_PKG_VERSION"),
             include_str!("../../VERSION").trim()

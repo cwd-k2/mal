@@ -1,6 +1,6 @@
 # reference compiler利用contract
 
-Status: Current v0.4 release contract
+Status: Current v0.5 development contract
 
 この文書は`malc`のcommand、対応toolchain、生成物を利用者向けに定める。言語の意味は[`spec/`](../spec/)、
 Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository内の検証手順は[test policy](testing.md)を
@@ -8,13 +8,13 @@ Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository�
 
 ## 対応環境
 
-v0.4 releaseで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
+v0.5 development profileで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
 generated CとheaderはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
 subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないtargetをcompile-timeに拒否する。
-他のOS、architecture、C compilerはv0.4 releaseの検証対象外である。
+他のOS、architecture、C compilerはv0.5 development profileの検証対象外である。
 
 ## Command
 
@@ -47,7 +47,7 @@ with-env { CC: /path/to/clang } {
 
 `CC`は一つの実行ファイルを表し、optionを含むshell commandとして分割・評価しない。代替compilerは`malc`が
 渡すC11、warning、strict floating-point optionを受理し、Clangと同じtarget ABIで全linker inputを扱う必要が
-ある。v0.4にはcompiler optionを追加するCLIはない。
+ある。v0.5にはcompiler optionを追加するCLIはない。
 
 C compilerを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
@@ -60,6 +60,8 @@ host C sourceは対象programが生成した`program.mal.h`をincludeし、gener
 shared objectは`--link`で通常のlinker inputとして渡す。`malc` runtimeは`dlopen`、実行時symbol discovery、
 plugin lifecycle、loader search pathを提供しない。必要なsoname、rpath、`LD_LIBRARY_PATH`、install locationは
 target platformと利用者のbuild/deploymentが管理する。shared objectも対象programのheaderに対してbuildする。
+`Ptr`を受け渡すadapterは、live region、permission、lifetimeを
+[memory contract](../spec/memory.md)に従って定める。
 
 ## 生成物policy
 

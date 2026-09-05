@@ -25,6 +25,7 @@ pub(super) fn type_name(ty: &Type) -> String {
         Type::Float32 => "Float32".into(),
         Type::Float64 => "Float64".into(),
         Type::String => "String".into(),
+        Type::Ptr => "Ptr".into(),
         Type::External { name, .. } => name.clone(),
         Type::Product(elements) => format!(
             "({})",

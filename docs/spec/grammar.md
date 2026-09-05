@@ -1,6 +1,6 @@
 # 字句と文法
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## source と identifier
 
@@ -129,4 +129,4 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 
 ## 存在しない構文
 
-v0.4 は `let`、`var`、`mut`、`const`、`fn`、implicit/early return、loop、`break`、`continue`、record、class、method、enum constructor、pointer、reference、generic、trait、interface、macro、exception を持たない。
+v0.5 は `let`、`var`、`mut`、`const`、`fn`、implicit/early return、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。`Ptr`とmemory primitiveは通常のtype/value identifierとして既存grammar内に収まる。

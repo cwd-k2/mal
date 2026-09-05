@@ -1,6 +1,6 @@
 # 式と binding
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## binding
 
@@ -80,6 +80,10 @@ makeFunction()(x)
 
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
+`byteLength`、`byteAt`、`offset`、`loadInt64`、`storeInt64`、`loadUInt8`、`storeUInt8`は
+direct-call-only primitiveである。通常のidentifierと同じ形でcallするが、値としてbindingしたり引数として
+渡したりできない。memory primitiveの型と作用は[memory](memory.md#primitive)に定める。
+
 ## if
 
 `if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。
@@ -141,7 +145,7 @@ scrutinee は直和型でなければならない。arm の pattern は該当 in
 `u8`、`u16`、`u32`、`u64`とする。suffix のない整数は周辺型から決め、決まらなければ `Int64`。
 浮動小数は周辺型から決め、決まらなければ `Float64` とする。
 
-decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.4はinfinity、NaN、hexadecimal floatのliteralを持たない。
+decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.5はinfinity、NaN、hexadecimal floatのliteralを持たない。
 
 decimal pointを使う形は整数部と小数部の両方を必須とする。`e`または`E`による10進exponentと
 optionalな符号を認める。decimal point、exponent、`f32`/`f64` suffixのいずれかがあるliteralを

@@ -50,7 +50,7 @@ lexer は byte literal を token 化するときに escape を decodeし、exact
 
 numeric separatorは各radixの有効なdigitに挟まれたsingle underscoreだけを受理する。検証後にunderscoreを除去してからinteger valueの計算またはdecimal floatのcorrect roundingを行う。
 
-extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はv0.4のextern-safe制約により拒否する。
+extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はextern-safe制約により拒否する。
 
 ## desugaring と ANF
 
@@ -91,6 +91,11 @@ typedef struct {
 String literalのdataは生成物のstatic storageへ置ける。hostからStringを受け取るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferをMalStringへ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
+
+`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalPtr`へlowerする。`offset`はbyte addressを進め、targetの
+`size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
+runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
+[`memory` contract](../spec/memory.md)として保持する。
 
 reference runtime は closure environment とruntime String bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
 

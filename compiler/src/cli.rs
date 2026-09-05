@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::version_line;
 
-pub const HELP: &str = "malc — reference compiler for mal v0.4
+pub const HELP: &str = "malc — reference compiler for mal v0.5
 
 Usage:
   malc --help
@@ -164,7 +164,7 @@ mod tests {
     fn version_uses_the_version_contract() {
         let outcome = execute(args(&["--version"]));
         assert_eq!(outcome.status, ExitStatus::Success);
-        assert_eq!(outcome.stdout, "malc 0.4.0-rc.1 (language v0.4)\n");
+        assert_eq!(outcome.stdout, "malc 0.5.0-dev (language v0.5)\n");
     }
 
     #[test]

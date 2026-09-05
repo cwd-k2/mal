@@ -169,6 +169,13 @@ impl Converter {
             anf::Operation::StringAt { argument } => Operation::StringAt {
                 argument: self.convert_atom(argument, environment),
             },
+            anf::Operation::Memory {
+                primitive,
+                argument,
+            } => Operation::Memory {
+                primitive: *primitive,
+                argument: self.convert_atom(argument, environment),
+            },
             anf::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
                 id: *id,
                 argument: self.convert_atom(argument, environment),

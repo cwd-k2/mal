@@ -1,6 +1,6 @@
 # 型
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
 ## 型の構成
 
@@ -11,6 +11,7 @@ T ::=
   | UInt8 | UInt16 | UInt32 | UInt64
   | Float32 | Float64
   | String
+  | Ptr
   | (T, T, ...)
   | [T, T, ...]
   | T -> T
@@ -30,7 +31,13 @@ T ::=
 
 String literalは静的storageに置いてよい。`extern`から得るStringはmal-owned storageへcopyされる。literal、primitive、storageの完全な規則は[String](strings.md)に定める。
 
-mutable byte bufferはStringではなく、必要に応じてexternal opaque typeとして宣言する。v0.4は組み込みのarray、slice、`ByteBuffer`型を持たない。
+mutable byte bufferはStringではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
+組み込みのarray、slice、`ByteBuffer`型を持たない。
+
+## Ptr
+
+`Ptr`は型なしのdata address型である。要素型、length、ownershipは持たず、memory accessにはpredefinedな
+scalar operationを使う。完全な規則は[memory primitive](memory.md)に定める。
 
 ## Unit
 
@@ -75,7 +82,7 @@ b := Choice[1](42);
 
 `a` と `b` は異なる variant である。injection index は compile-time integer literal でなければならず、範囲外は compile-time error になる。
 
-直和は二項以上でなければならない。`[]` と `[A]` は v0.4 では不正であり、将来のために予約する。
+直和は二項以上でなければならない。`[]`と`[A]`はv0.5では不正であり、将来のために予約する。
 
 n-ary sum と nested sum は異なる型である。
 

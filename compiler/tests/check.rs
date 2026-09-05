@@ -302,6 +302,49 @@ fn rejects_unsupported_or_mistyped_string_operations() {
 }
 
 #[test]
+fn checks_ptr_extern_signatures_and_memory_primitives() {
+    let program = check_ok(
+        "extern memory :: Unit -> Ptr;\n\
+         useMemory :: Ptr -> UInt8 := \\(pointer :: Ptr) {\n\
+           slot := offset(pointer, 8u64);\n\
+           storeInt64(slot, 42i64);\n\
+           value := loadInt64(slot);\n\
+           storeUInt8(slot, UInt8(value));\n\
+           return loadUInt8(slot);\n\
+         };",
+    );
+    let TopItem::ExternalOperation {
+        parameter, result, ..
+    } = &program.items[0].kind
+    else {
+        panic!("expected external operation");
+    };
+    assert_eq!(*parameter, Type::Unit);
+    assert_eq!(*result, Type::Ptr);
+    let ExpressionKind::Lambda(function) = &top_binding(&program, 1).value.kind else {
+        panic!("expected lambda");
+    };
+    assert_eq!(function.body.result.ty, Type::UInt8);
+    assert!(matches!(
+        function.body.result.kind,
+        ExpressionKind::Memory { .. }
+    ));
+}
+
+#[test]
+fn rejects_mistyped_or_first_class_memory_primitives() {
+    for text in [
+        "extern memory :: Unit -> Ptr; bad := \\() { return offset(extern memory(), 1i64); };",
+        "bad := \\() { return loadInt64(0u64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); return (); };",
+        "bad := offset;",
+    ] {
+        let error = check_error(text);
+        assert!(error.primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn rejects_binding_and_return_type_mismatches() {
     assert_eq!(check_error("value :: Unit := 0;").message, "type mismatch");
     assert_eq!(

@@ -1,3 +1,4 @@
 /compiler/target/
+/.scratch/
 /.direnv/
 /result

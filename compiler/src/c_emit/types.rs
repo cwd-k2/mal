@@ -49,6 +49,7 @@ impl TypeRegistry {
             Type::Float32 => "float".into(),
             Type::Float64 => "double".into(),
             Type::String => "MalString".into(),
+            Type::Ptr => "MalPtr".into(),
             Type::External { name, .. } => format!("MalOpaque_{name}"),
             Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
@@ -110,7 +111,8 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::String => unreachable!(),
+                | Type::String
+                | Type::Ptr => unreachable!(),
             };
             c_line!(
                 &mut output,
@@ -174,7 +176,8 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::String => unreachable!(),
+                | Type::String
+                | Type::Ptr => unreachable!(),
             }
         }
         output
@@ -236,7 +239,8 @@ impl TypeRegistry {
             | Type::UInt64
             | Type::Float32
             | Type::Float64
-            | Type::String => return,
+            | Type::String
+            | Type::Ptr => return,
         }
         if !self.aggregates.contains(ty) {
             self.aggregates.push(ty.clone());
@@ -291,6 +295,7 @@ impl TypeRegistry {
             }
             Operation::StringLength { value } => self.collect_atom(value),
             Operation::StringAt { argument } => self.collect_atom(argument),
+            Operation::Memory { argument, .. } => self.collect_atom(argument),
             Operation::ExternalCall { argument, .. }
             | Operation::NumericConversion { operand: argument }
             | Operation::SumInjection {

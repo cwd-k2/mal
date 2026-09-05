@@ -1,27 +1,27 @@
 # C host ABI
 
-Status: Current v0.4 profile
+Status: Current v0.5 profile
 
-この文書はmalのbackend非依存な意味論ではなく、v0.4 reference compilerが最初に実装するhost interfaceを定める。別backendはsource-level semanticsを保つ限り別のABIを使用できる。
+この文書はmalのbackend非依存な意味論ではなく、v0.5 reference compilerのhost interfaceを定める。別backendはsource-level semanticsを保つ限り別のABIを使用できる。
 
 ## build model
 
 reference compilerはmal sourceからC translation unitと、そのprogramが要求するextern symbolを宣言したC headerを生成する。利用者はheaderに対するC implementationまたはadapterを用意し、生成Cと同じtarget ABIでcompileする。
 
-linker inputにはC source、object file、static archive、shared objectを指定できる。shared objectは通常のplatform linker/loaderでprocess開始時に解決し、v0.4 runtimeは`dlopen`、symbol discovery、plugin lifecycleを提供しない。
+linker inputにはC source、object file、static archive、shared objectを指定できる。shared objectは通常のplatform linker/loaderでprocess開始時に解決し、v0.5 runtimeは`dlopen`、symbol discovery、plugin lifecycleを提供しない。
 
 既存libraryのfunctionを任意の宣言で直接呼ぶことは保証しない。型やownershipが合わない場合は利用者が薄いC adapterを書く。
 
 ## generated header
 
-headerは少なくともC11でcompileでき、同じprogramについて生成したC translation unitと対になる。v0.4は異なるcompiler versionが生成したheader間のbinary compatibilityを保証しない。shared objectは対象programのheaderに対してbuildする。
+headerは少なくともC11でcompileでき、同じprogramについて生成したC translation unitと対になる。v0.5は異なるcompiler versionが生成したheader間のbinary compatibilityを保証しない。shared objectは対象programのheaderに対してbuildする。
 
 共通部分は概念上次を含む。
 
 ```c
 #include <stdint.h>
 
-#define MAL_C_ABI_VERSION 0x000400u
+#define MAL_C_ABI_VERSION 0x000500u
 
 typedef struct MalContext MalContext;
 
@@ -33,6 +33,10 @@ typedef struct {
     const uint8_t *data;
     uint64_t length;
 } MalString;
+
+typedef struct {
+    uint8_t *address;
+} MalPtr;
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 
@@ -100,6 +104,10 @@ host resourceが一wordに収まらない場合はhost側でboxする。zero bit
 
 String parameterは`MalString`で渡し、hostはcall終了後に`data`を保持しない。String resultを返すhost implementationは`mal_string_copy`で作った`MalString`を返す。
 
+`Ptr`は`MalPtr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
+operation固有のcontractとして定める。reference runtimeのscalar accessは`memcpy`相当であり、alignmentを
+要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
+
 product/sumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。sum tagは0-based `uint32_t`である。
 
 ## closure exclusion
@@ -112,5 +120,5 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 
 ## 実装済みsubset
 
-reference compilerは`Unit`、全fixed-width numeric scalar、product/sum aggregate、opaque handle、`String`、
+reference compilerは`Unit`、全fixed-width numeric scalar、product/sum aggregate、opaque handle、`String`、`Ptr`、
 `MalContext *`、`mal_trap`、`mal_string_copy`、`mal_ext_` symbolを実装する。

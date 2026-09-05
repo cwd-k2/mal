@@ -113,6 +113,13 @@ impl Lowerer {
             checked::ExpressionKind::StringAt { argument } => ExpressionKind::StringAt {
                 argument: Box::new(self.lower_expression(argument)),
             },
+            checked::ExpressionKind::Memory {
+                primitive,
+                argument,
+            } => ExpressionKind::Memory {
+                primitive: *primitive,
+                argument: Box::new(self.lower_expression(argument)),
+            },
             checked::ExpressionKind::ExternalCall { id, argument, .. } => {
                 ExpressionKind::ExternalCall {
                     id: *id,
