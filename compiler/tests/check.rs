@@ -332,12 +332,41 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
 }
 
 #[test]
+fn checks_memory_primitives_for_every_numeric_scalar() {
+    let program = check_ok(
+        "useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
+           storeInt8(pointer, loadInt8(pointer));\n\
+           storeInt16(pointer, loadInt16(pointer));\n\
+           storeInt32(pointer, loadInt32(pointer));\n\
+           storeInt64(pointer, loadInt64(pointer));\n\
+           storeUInt8(pointer, loadUInt8(pointer));\n\
+           storeUInt16(pointer, loadUInt16(pointer));\n\
+           storeUInt32(pointer, loadUInt32(pointer));\n\
+           storeUInt64(pointer, loadUInt64(pointer));\n\
+           storeFloat32(pointer, loadFloat32(pointer));\n\
+           storeFloat64(pointer, loadFloat64(pointer));\n\
+           return ();\n\
+         };",
+    );
+    let ExpressionKind::Lambda(function) = &top_binding(&program, 0).value.kind else {
+        panic!("expected lambda");
+    };
+    assert_eq!(function.body.items.len(), 10);
+    assert!(function
+        .body
+        .items
+        .iter()
+        .all(|item| matches!(item, malc::check::ast::BodyItem::Expression(expression) if expression.ty == Type::Unit)));
+}
+
+#[test]
 fn rejects_mistyped_or_first_class_memory_primitives() {
     for text in [
         "extern memory :: Unit -> Ptr; bad := \\() { return offset(extern memory(), 1i64); };",
         "bad := \\() { return loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); return (); };",
         "bad := offset;",
+        "bad := loadFloat64;",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

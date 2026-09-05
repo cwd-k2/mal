@@ -80,9 +80,8 @@ makeFunction()(x)
 
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
-`byteLength`、`byteAt`、`offset`、`loadInt64`、`storeInt64`、`loadUInt8`、`storeUInt8`は
-direct-call-only primitiveである。通常のidentifierと同じ形でcallするが、値としてbindingしたり引数として
-渡したりできない。memory primitiveの型と作用は[memory](memory.md#primitive)に定める。
+`byteLength`、`byteAt`、および[memory](memory.md#primitive)に列挙するoperationはdirect-call-only primitiveである。
+通常のidentifierと同じ形でcallするが、値としてbindingしたり引数として渡したりできない。
 
 ## if
 

@@ -619,8 +619,9 @@ trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異�
 
 ### 決定
 
-要素型を持たないcopyableなdata address型`Ptr`を追加する。最初のoperation集合はbyte単位の`offset`と、
-`Int64`および`UInt8`の型別load/storeとする。operationはpredefinedかつdirect-call-onlyである。
+要素型を持たないcopyableなdata address型`Ptr`を追加する。operation集合はbyte単位の`offset`と、全fixed-width
+integerおよび`Float32`/`Float64`の型別load/storeとする。operationはpredefinedかつdirect-call-onlyである。
+型ごとの名前を使うことでoverloadやexpected type依存の型規則を追加せず、numeric scalar間の任意の例外も作らない。
 
 `Ptr`はextern-safeとし、mal program内のpointerは`extern` resultまたは`offset`から得る。allocation、
 deallocation、length、bounds、ownershipは組み込まず、programとhost contractが所有する。null、equality、
@@ -636,7 +637,7 @@ Typical 90の30問をv0.4で実装した結果、collection-orientedな問題で
 iterative DFSと023のrow-profile DP遷移などalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
 保つ代わりにtrusted host APIと利用者の調査面積を増やしていた。
 
-023をこの最小operation集合で再実装すると、hostはinput、zero-initialized allocation、outputだけを担当し、
+023を`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostはinput、zero-initialized allocation、outputだけを担当し、
 valid profile列挙、compatible pairのCSR構築、row transition、集計をmalへ戻せた。公式5 sampleと全白24×24を
 完走したため、型なしscalar accessで当初の境界問題を解消できることを確認した。
 

@@ -464,15 +464,26 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
 }
 
 #[test]
-fn executes_unaligned_ptr_scalar_access_through_the_host_abi() {
+fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     let source = "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
            base := extern memory();\n\
-           slot := offset(base, 1u64);\n\
-           storeInt64(slot, 41i64);\n\
-           byte := offset(slot, 8u64);\n\
-           storeUInt8(byte, 1u8);\n\
-           return Int32(loadInt64(slot) + Int64(loadUInt8(byte)) - 42i64);\n\
+           p0 := offset(base, 1u64); storeInt8(p0, -8i8);\n\
+           p1 := offset(base, 3u64); storeInt16(p1, -16i16);\n\
+           p2 := offset(base, 6u64); storeInt32(p2, -32i32);\n\
+           p3 := offset(base, 11u64); storeInt64(p3, -64i64);\n\
+           p4 := offset(base, 20u64); storeUInt8(p4, 8u8);\n\
+           p5 := offset(base, 22u64); storeUInt16(p5, 16u16);\n\
+           p6 := offset(base, 25u64); storeUInt32(p6, 32u32);\n\
+           p7 := offset(base, 30u64); storeUInt64(p7, 64u64);\n\
+           p8 := offset(base, 39u64); storeFloat32(p8, 1.5f32);\n\
+           p9 := offset(base, 44u64); storeFloat64(p9, -2.5f64);\n\
+           ok := (loadInt8(p0) == -8i8) && (loadInt16(p1) == -16i16) &&\n\
+                 (loadInt32(p2) == -32i32) && (loadInt64(p3) == -64i64) &&\n\
+                 (loadUInt8(p4) == 8u8) && (loadUInt16(p5) == 16u16) &&\n\
+                 (loadUInt32(p6) == 32u32) && (loadUInt64(p7) == 64u64) &&\n\
+                 (loadFloat32(p8) == 1.5f32) && (loadFloat64(p9) == -2.5f64);\n\
+           return if (ok) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit Ptr operations");
     assert!(
@@ -488,7 +499,7 @@ fn executes_unaligned_ptr_scalar_access_through_the_host_abi() {
     let host = r#"#include "program.mal.h"
 
 MalPtr mal_ext_memory(MalContext *context) {
-    static uint8_t bytes[10];
+    static uint8_t bytes[52];
     (void)context;
     return (MalPtr){ .address = bytes };
 }

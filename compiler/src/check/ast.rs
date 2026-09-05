@@ -146,10 +146,22 @@ pub enum ExpressionKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MemoryPrimitive {
     Offset,
-    LoadInt64,
-    StoreInt64,
-    LoadUInt8,
-    StoreUInt8,
+    Load(MemoryScalar),
+    Store(MemoryScalar),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MemoryScalar {
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -64,7 +64,7 @@ mal は `Some` や field name に特別な意味を与えない。
 
 ## memory と mutable data
 
-source languageは型なし`Ptr`と、byte offsetおよび`Int64`/`UInt8`のscalar load/storeを持つ。allocation、
+source languageは型なし`Ptr`と、byte offsetおよび全numeric scalarのload/storeを持つ。allocation、
 deallocation、length、bounds、ownershipは組み込まず、program固有の`extern` contractに置く。完全な規則は
 [memory primitive](memory.md)に定める。
 

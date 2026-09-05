@@ -97,7 +97,7 @@ v0.4 では次を採用する。未決の項目は [未決事項](open-questions
 
 競技programでopaque storageを評価した結果、indexed accessごとのhost operationだけでなく、DFS workspaceや
 DP transitionなどalgorithm上の処理までhostへ移ることを確認した。v0.5はcollection policyを導入せず、
-型なし`Ptr`とbyte offset、`Int64`/`UInt8` load/storeだけを共通mechanismとして追加する。[D022](decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)
+型なし`Ptr`とbyte offset、型別numeric scalar load/storeを共通mechanismとして追加する。[D022](decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)
 
 ## 機能を加える判定基準
 

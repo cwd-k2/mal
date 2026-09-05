@@ -17,7 +17,7 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 | M4 | Complete | annotated self recursionとdirect tail-call lowering |
 | M5 | Complete | strict `Float32` / `Float64` profile |
 | R0 | Complete | v0.4 conformanceとrelease readiness |
-| M6 | Complete | v0.5の型なし`Ptr`と最小scalar memory primitive |
+| M6 | Complete | v0.5の型なし`Ptr`とnumeric scalar memory primitive |
 
 ## M6: memory primitive
 
@@ -25,7 +25,7 @@ indexed storageの共通mechanismをhostの用途別opaque operationからmalへ
 
 ### 完了済み
 
-- predefined `Ptr`、byte単位の`offset`、`Int64`/`UInt8` load/storeを全stageへ実装した。
+- predefined `Ptr`、byte単位の`offset`、全numeric scalarの型別load/storeを全stageへ実装した。
 - `Ptr`をextern-safeとし、generated C headerへ`MalPtr`を公開した。
 - unaligned accessを含むfocused type/ABI/native testとchecked-in M6 exampleを追加した。
 - Typical 90 023のprofile列挙、CSR構築、row transition、集計をmalへ移し、公式sampleと24×24 caseを検証した。

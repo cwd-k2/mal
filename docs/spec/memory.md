@@ -14,14 +14,30 @@ live region、読み書きの可否、lifetime、およびstorageを無効にす
 
 ## primitive
 
-v0.5の最小operation集合は次である。
+v0.5のoperation集合はbyte offsetと、全numeric scalarに対する型別load/storeである。
 
 ```text
 offset      :: (Ptr, UInt64) -> Ptr
+loadInt8    :: Ptr -> Int8
+storeInt8   :: (Ptr, Int8) -> Unit
+loadInt16   :: Ptr -> Int16
+storeInt16  :: (Ptr, Int16) -> Unit
+loadInt32   :: Ptr -> Int32
+storeInt32  :: (Ptr, Int32) -> Unit
 loadInt64   :: Ptr -> Int64
 storeInt64  :: (Ptr, Int64) -> Unit
 loadUInt8   :: Ptr -> UInt8
 storeUInt8  :: (Ptr, UInt8) -> Unit
+loadUInt16  :: Ptr -> UInt16
+storeUInt16 :: (Ptr, UInt16) -> Unit
+loadUInt32  :: Ptr -> UInt32
+storeUInt32 :: (Ptr, UInt32) -> Unit
+loadUInt64  :: Ptr -> UInt64
+storeUInt64 :: (Ptr, UInt64) -> Unit
+loadFloat32 :: Ptr -> Float32
+storeFloat32 :: (Ptr, Float32) -> Unit
+loadFloat64 :: Ptr -> Float64
+storeFloat64 :: (Ptr, Float64) -> Unit
 ```
 
 これらはpredefined scopeにあるdirect-call-only primitiveであり、first-class function valueとして参照できない。
@@ -32,7 +48,7 @@ storeUInt8  :: (Ptr, UInt8) -> Unit
 移動するoffsetはcontract違反である。
 
 load/storeは指定scalarの全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
-`loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。`UInt8`にも同じ規則を適用する。
+`loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。
 異なるscalar operationで同じbytesを観測した場合のbyte orderとrepresentationはbackend host ABIが定める。
 
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
