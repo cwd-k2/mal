@@ -120,6 +120,26 @@ fn emits_direct_calls_for_known_top_level_and_self_functions() {
 }
 
 #[test]
+fn labels_generated_functions_with_top_level_source_bindings() {
+    let generated = emit(
+        "double :: Int64 -> Int64 := \\(value :: Int64) { return value * 2i64; };\n\
+         main :: Unit -> Int32 := \\() { return Int32(double(21i64) - 42i64); };",
+    )
+    .expect("emit labeled functions");
+
+    assert!(
+        generated
+            .source
+            .contains("/* mal source binding: double */\nstatic int64_t mal_function_0(")
+    );
+    assert!(
+        generated
+            .source
+            .contains("/* mal source binding: main */\nstatic int32_t mal_function_1(")
+    );
+}
+
+#[test]
 fn destructures_product_atoms_without_copying_the_product() {
     let generated = emit(
         "Pair :: (Int64, Int64);\n\

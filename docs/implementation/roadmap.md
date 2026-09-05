@@ -35,6 +35,10 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
    materializationとcall boundaryを一つずつ調査する。
 5. 各変更後にgenerated Cの構造、native behavior、代表benchmarkを再検証する。
 
+### 進捗
+
+- top-level functionのgenerated C宣言・定義へsource binding名のcommentを残し、profile結果を追跡可能にした。
+
 ### Done
 
 - 言語仕様、extern ABI、strict integer/float semanticsを変更せず、public buildのC最適化contractが

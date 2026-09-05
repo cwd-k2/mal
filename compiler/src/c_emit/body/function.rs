@@ -42,6 +42,9 @@ impl BodyEmitter<'_> {
     pub(super) fn emit_function_declarations(&self) -> String {
         let mut output = String::new();
         for function in &self.program.functions {
+            if let Some(name) = self.top_level_function_name(function.id) {
+                c_line!(&mut output, 0, "/* mal source binding: {name} */");
+            }
             c_line!(&mut output, 0, "{};", self.function_signature(function));
         }
         if !output.is_empty() {
@@ -53,6 +56,9 @@ impl BodyEmitter<'_> {
     pub(super) fn emit_function_definitions(&mut self) -> String {
         let mut output = String::new();
         for function in &self.program.functions {
+            if let Some(name) = self.top_level_function_name(function.id) {
+                c_line!(&mut output, 0, "/* mal source binding: {name} */");
+            }
             c_line!(&mut output, 0, "{} {{", self.function_signature(function));
             c_line!(&mut output, 1, "(void)mal_context;");
             if function.environment.is_empty() {

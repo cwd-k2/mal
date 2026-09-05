@@ -59,6 +59,8 @@ regressionとして追跡する必要が生じた場合は、名称、設定、s
 
 self tail callは`mal_tail_entry`と`goto`へlowerされ、C stackを消費する再帰callにはなっていない。regular loopが
 `-O2`後にdirect Cの約1.03倍まで近づくことは、このloweringが有効な根拠である。
+top-level functionのC宣言・定義にはsource binding名のcommentがあり、numericなinternal symbolとsource上の責務を
+対応付けられる。local lambdaはtop-level binding名を持たないため、このcommentの対象外である。
 
 一方、未最適化のgenerated Cには次が明示的に現れる。
 

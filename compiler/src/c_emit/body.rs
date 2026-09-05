@@ -117,6 +117,32 @@ impl<'a> BodyEmitter<'a> {
         }
     }
 
+    fn top_level_function_name(&self, function: LambdaId) -> Option<&str> {
+        self.program.bindings.iter().find_map(|binding| {
+            let closure::TopLevelPattern::Binding { name, .. } = &binding.pattern else {
+                return None;
+            };
+            let closure::AtomKind::Reference(closure::Reference::Binding(result_id)) =
+                binding.value.result.kind
+            else {
+                return None;
+            };
+            binding.value.bindings.iter().find_map(|value| {
+                let closure::Pattern::Binding { id, .. } = value.pattern else {
+                    return None;
+                };
+                matches!(
+                    value.operation,
+                    closure::Operation::MakeClosure {
+                        function: candidate,
+                        ..
+                    } if id == result_id && candidate == function
+                )
+                .then_some(name.as_str())
+            })
+        })
+    }
+
     fn result_target(&mut self, pattern: &Pattern) -> String {
         match pattern {
             Pattern::Binding { id, .. } => value_name(*id),
