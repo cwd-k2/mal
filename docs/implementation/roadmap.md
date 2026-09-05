@@ -34,11 +34,11 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 - [`spec/`とtestのconformance matrix](../development/conformance.md)を作成した。
 - public CLI、generated header、trap、toolchain failureのcontractをdriver testで監査した。
 - [対応toolchainと生成物の利用contract](../development/compiler-usage.md)を公開した。
+- packageとrelease文書を`0.4.0-rc.1`へ揃えた。
 
 ### 次セッションの作業順
 
-1. package versionとrelease文書をv0.4 release candidateとして揃える。
-2. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
+1. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
 
 ### Done
 

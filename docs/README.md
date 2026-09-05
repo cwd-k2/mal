@@ -2,7 +2,7 @@
 
 このディレクトリは `mal language specification v0.4` を、参照しやすさと議論のしやすさを優先して再構成したものである。
 
-現時点の status は **v0.4 release preparation**。規範項目は `docs/spec/`、残るrelease作業は
+現時点の status は **v0.4 release candidate 1**。規範項目は `docs/spec/`、残るrelease作業は
 [implementation roadmap](implementation/roadmap.md)で管理する。
 
 v0.4の要約は[release profile](releases/v0.4.md)にまとめる。

@@ -164,7 +164,7 @@ mod tests {
     fn version_uses_the_version_contract() {
         let outcome = execute(args(&["--version"]));
         assert_eq!(outcome.status, ExitStatus::Success);
-        assert_eq!(outcome.stdout, "malc 0.0.0 (language v0.4)\n");
+        assert_eq!(outcome.stdout, "malc 0.4.0-rc.1 (language v0.4)\n");
     }
 
     #[test]

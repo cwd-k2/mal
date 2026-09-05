@@ -33,5 +33,9 @@ mod tests {
     fn version_targets_v04() {
         assert_eq!(LANGUAGE_VERSION, "0.4");
         assert!(version_line().contains("language v0.4"));
+        assert_eq!(
+            env!("CARGO_PKG_VERSION"),
+            include_str!("../../VERSION").trim()
+        );
     }
 }
