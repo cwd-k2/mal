@@ -103,6 +103,11 @@ calling conventionは変えない。同一測定内でbranch-heavy heapはdirect
 transformは約1.04だった。hot functionはinline cost 385、threshold 225のままcall boundaryが残ったため、前者の改善は
 主にaggregateをC call ABIから外した効果と判断する。
 
+direct entryではnested productもleafまで展開すると、最外層だけを展開した版からbranch-heavy heapが同一測定内で約5%短縮し、
+regular numeric transformにも退行はなかった。C targetのparameter数へ無制限に依存しないようleaf数は16個までとし、超える
+productは従来のaggregate calling conventionへfallbackする。明示的なnested product値とfunction-value用entryは引き続き
+元のproduct表現を使う。
+
 ## 次の担当者が行う順序
 
 ### 1. local fixtureを固定する

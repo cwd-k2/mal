@@ -1,7 +1,8 @@
 use crate::closure::ast::{self as closure, TopLevelPattern};
 
 use super::{
-    BodyEmitter, direct_function_name, environment_name, function_name, has_direct_tail_call,
+    BodyEmitter, direct_function_name, environment_name, flattened_product_types,
+    flattened_product_values, function_name, has_direct_product_entry, has_direct_tail_call,
     value_name,
 };
 
@@ -48,7 +49,7 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 c_line!(&mut output, 0, "/* mal source binding: {name} */");
             }
-            if matches!(function.parameter.ty, crate::check::ast::Type::Product(_)) {
+            if has_direct_product_entry(&function.parameter.ty) {
                 c_line!(
                     &mut output,
                     0,
@@ -70,7 +71,7 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 c_line!(&mut output, 0, "/* mal source binding: {name} */");
             }
-            if let crate::check::ast::Type::Product(elements) = &function.parameter.ty {
+            if has_direct_product_entry(&function.parameter.ty) {
                 c_line!(
                     &mut output,
                     0,
@@ -81,26 +82,22 @@ impl BodyEmitter<'_> {
                     .parameter
                     .binding
                     .map_or_else(|| "mal_parameter".into(), value_name);
-                let fields = elements
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| format!(".field_{index} = mal_direct_parameter_{index}"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let mut next_parameter = 0;
+                let value =
+                    self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
                 c_line!(
                     &mut output,
                     1,
-                    "{} {parameter_name} = ({0}){{ {fields} }};",
-                    self.types.c_type(&function.parameter.ty)
+                    "{} {parameter_name} = {value};",
+                    self.types.c_type(&function.parameter.ty),
                 );
                 self.emit_function_body(&mut output, function);
                 output.push_str("}\n\n");
 
                 c_line!(&mut output, 0, "{} {{", self.function_signature(function));
-                let arguments = elements
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| format!(", {parameter_name}.field_{index}"))
+                let arguments = flattened_product_values(&function.parameter.ty, &parameter_name)
+                    .into_iter()
+                    .map(|value| format!(", {value}"))
                     .collect::<String>();
                 c_line!(
                     &mut output,
@@ -180,11 +177,11 @@ impl BodyEmitter<'_> {
 
     fn direct_function_signature(&self, function: &closure::Function) -> String {
         let result = self.types.c_type(&function.body.result.ty);
-        let crate::check::ast::Type::Product(elements) = &function.parameter.ty else {
+        let crate::check::ast::Type::Product(_) = &function.parameter.ty else {
             unreachable!("only product parameters have direct entry points")
         };
-        let parameters = elements
-            .iter()
+        let parameters = flattened_product_types(&function.parameter.ty)
+            .into_iter()
             .enumerate()
             .map(|(index, ty)| format!("{} mal_direct_parameter_{index}", self.types.c_type(ty)))
             .collect::<Vec<_>>()
@@ -193,6 +190,30 @@ impl BodyEmitter<'_> {
             "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameters})",
             direct_function_name(function.id)
         )
+    }
+
+    fn direct_parameter_value(
+        &self,
+        ty: &crate::check::ast::Type,
+        next_parameter: &mut usize,
+    ) -> String {
+        if let crate::check::ast::Type::Product(elements) = ty {
+            let fields = elements
+                .iter()
+                .enumerate()
+                .map(|(index, element)| {
+                    format!(
+                        ".field_{index} = {}",
+                        self.direct_parameter_value(element, next_parameter)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            return format!("({}){{ {fields} }}", self.types.c_type(ty));
+        }
+        let parameter = format!("mal_direct_parameter_{next_parameter}");
+        *next_parameter += 1;
+        parameter
     }
 
     fn emit_function_body(&mut self, output: &mut String, function: &closure::Function) {

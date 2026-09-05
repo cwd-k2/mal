@@ -1,4 +1,5 @@
 use crate::anf;
+use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Binding, Block, Operation, Pattern};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 
@@ -183,6 +184,32 @@ fn function_name(id: LambdaId) -> String {
 
 fn direct_function_name(id: LambdaId) -> String {
     format!("mal_direct_function_{}", id.0)
+}
+
+const MAX_DIRECT_PARAMETERS: usize = 16;
+
+fn has_direct_product_entry(ty: &Type) -> bool {
+    matches!(ty, Type::Product(_)) && flattened_product_types(ty).len() <= MAX_DIRECT_PARAMETERS
+}
+
+fn flattened_product_types(ty: &Type) -> Vec<&Type> {
+    match ty {
+        Type::Product(elements) => elements.iter().flat_map(flattened_product_types).collect(),
+        _ => vec![ty],
+    }
+}
+
+fn flattened_product_values(ty: &Type, value: &str) -> Vec<String> {
+    match ty {
+        Type::Product(elements) => elements
+            .iter()
+            .enumerate()
+            .flat_map(|(index, element)| {
+                flattened_product_values(element, &format!("{value}.field_{index}"))
+            })
+            .collect(),
+        _ => vec![value.into()],
+    }
 }
 
 fn environment_name(id: LambdaId) -> String {

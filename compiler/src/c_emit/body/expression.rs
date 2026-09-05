@@ -6,7 +6,10 @@ use crate::c_emit::runtime::memory::{scalar_mask, scalar_name};
 use crate::c_emit::scalar::integer_type;
 use crate::c_emit::types::is_bool;
 
-use super::{BodyEmitter, direct_function_name, function_name, value_name};
+use super::{
+    BodyEmitter, direct_function_name, flattened_product_values, function_name,
+    has_direct_product_entry, value_name,
+};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_operation_expression(
@@ -19,11 +22,11 @@ impl BodyEmitter<'_> {
             Operation::Call { callee, argument } => {
                 if let Some((function, environment)) = self.direct_function(callee) {
                     let argument = self.emit_atom(argument);
-                    if let Type::Product(elements) = &self.function(function).parameter.ty {
-                        let arguments = elements
-                            .iter()
-                            .enumerate()
-                            .map(|(index, _)| format!(", {argument}.field_{index}"))
+                    let parameter = &self.function(function).parameter.ty;
+                    if has_direct_product_entry(parameter) {
+                        let arguments = flattened_product_values(parameter, &argument)
+                            .into_iter()
+                            .map(|value| format!(", {value}"))
                             .collect::<String>();
                         return format!(
                             "{}(mal_context, {environment}{arguments})",

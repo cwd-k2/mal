@@ -236,6 +236,58 @@ fn passes_known_product_arguments_through_a_direct_entry() {
 }
 
 #[test]
+fn flattens_nested_products_only_at_known_call_entries() {
+    let generated = emit(
+        "combine :: ((Int64, Int64), Int64) -> Int64 := \\(pair :: (Int64, Int64), extra :: Int64) {\n\
+           (left, right) := pair;\n\
+           return left + right + extra;\n\
+         };\n\
+         apply :: (((Int64, Int64), Int64) -> Int64) -> Int64 := \\(operation :: ((Int64, Int64), Int64) -> Int64) {\n\
+           return operation((20i64, 21i64), 1i64);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           return Int32(combine((20i64, 21i64), 1i64) + apply(combine) - 84i64);\n\
+         };",
+    )
+    .expect("emit nested direct product fields");
+
+    assert!(generated.source.contains(
+        "int64_t mal_direct_parameter_0, int64_t mal_direct_parameter_1, \
+         int64_t mal_direct_parameter_2)"
+    ));
+    assert!(generated.source.contains(".field_0.field_0"));
+    assert!(generated.source.contains(".field_0.field_1"));
+
+    let fixture = NativeFixture::new("nested-known-product-entry");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn keeps_large_product_calls_on_the_aggregate_fallback() {
+    let types = std::iter::repeat_n("Int64", 17)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let parameters = (0..17)
+        .map(|index| format!("value{index} :: Int64"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let arguments = std::iter::repeat_n("0i64", 17)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let source = format!(
+        "select :: ({types}) -> Int64 := \\({parameters}) {{ return value0; }};\n\
+         main :: Unit -> Int32 := \\() {{ return Int32(select({arguments})); }};"
+    );
+    let generated = emit(&source).expect("emit aggregate fallback");
+
+    assert!(!generated.source.contains("mal_direct_function_0"));
+    let fixture = NativeFixture::new("large-product-fallback");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
     let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
            return if (remaining == 0) then { total } else {\n\
