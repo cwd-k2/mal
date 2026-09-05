@@ -14,7 +14,7 @@ live region、読み書きの可否、lifetime、およびstorageを無効にす
 
 ## primitive
 
-v0.5のoperation集合はbyte offsetと、全numeric scalarに対する型別load/storeである。
+v0.5のoperation集合はbyte offsetと、全numeric scalarおよび`Ptr`に対する型別load/storeである。
 
 ```text
 offset      :: (Ptr, UInt64) -> Ptr
@@ -38,6 +38,8 @@ loadFloat32 :: Ptr -> Float32
 storeFloat32 :: (Ptr, Float32) -> Unit
 loadFloat64 :: Ptr -> Float64
 storeFloat64 :: (Ptr, Float64) -> Unit
+loadPtr      :: Ptr -> Ptr
+storePtr     :: (Ptr, Ptr) -> Unit
 ```
 
 これらはpredefined scopeにあるdirect-call-only primitiveであり、first-class function valueとして参照できない。
@@ -47,18 +49,23 @@ storeFloat64 :: (Ptr, Float64) -> Unit
 作れるがload/storeには使えない。targetのaddress計算で`bytes`を表現できなければtrapする。regionの外へ
 移動するoffsetはcontract違反である。
 
-load/storeは指定scalarの全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
+load/storeは指定型の全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
 `loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。
 異なるscalar operationで同じbytesを観測した場合のbyte orderとrepresentationはbackend host ABIが定める。
+
+`storePtr`はdata addressのobject representationをstorageへcopyし、`loadPtr`はそれを`Ptr`として復元する。
+`storePtr`の後に同じaddressから`loadPtr`すると、間に同じbytesへのwriteがなければ同じstorageを指す値を得る。
+pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
+`storePtr`またはhostが有効な`MalPtr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
 
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
 lifetime終了後にaccessするprogramはcontract違反であり、trapを含む特定の結果を保証しない。boundsを
 deterministically検査するには、programがlengthを別のscalarとして保持し、access前に検査する。
 
-product、sum、String、external opaque type、function、`Ptr`自体を直接load/storeするprimitiveはない。
-aggregateはscalar fieldを個別に読み、既存のconstructorでmal valueとして組み立てる。
+product、sum、String、external opaque type、functionを直接load/storeするprimitiveはない。
+aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、既存のconstructorでmal valueとして組み立てる。
 
 ## minimality
 
-この機能はcollection、allocator、bounds policyを追加せず、indexed storageに共通するmechanismだけを提供する。
+この機能はcollection、allocator、bounds policyを追加せず、indexed storageとpointer graphに共通するmechanismだけを提供する。
 採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。

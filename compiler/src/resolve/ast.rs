@@ -53,6 +53,8 @@ pub const LOAD_FLOAT32_VALUE: ValueId = ValueId(21);
 pub const STORE_FLOAT32_VALUE: ValueId = ValueId(22);
 pub const LOAD_FLOAT64_VALUE: ValueId = ValueId(23);
 pub const STORE_FLOAT64_VALUE: ValueId = ValueId(24);
+pub const LOAD_PTR_VALUE: ValueId = ValueId(25);
+pub const STORE_PTR_VALUE: ValueId = ValueId(26);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueOwner {

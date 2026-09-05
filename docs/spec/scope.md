@@ -15,7 +15,7 @@ surface if and exhaustive case
 self recursion
 fixed-width numeric, logical, and bit operations
 immutable byte string
-typed scalar access through untyped Ptr
+typed numeric scalar and pointer access through untyped Ptr
 extern boundary
 ```
 
@@ -62,7 +62,7 @@ mal は `Some` や field name に特別な意味を与えない。
 
 ## memory と mutable data
 
-source languageは型なし`Ptr`と、byte offsetおよび全numeric scalarのload/storeを持つ。allocation、
+source languageは型なし`Ptr`と、byte offsetおよび全numeric scalarと`Ptr`のload/storeを持つ。allocation、
 deallocation、length、bounds、ownershipは組み込まず、program固有の`extern` contractに置く。完全な規則は
 [memory primitive](memory.md)に定める。
 

@@ -126,8 +126,9 @@ generated headerは各opaque typeについて`mal_<Type>_from_bits`と`mal_<Type
 String parameterは`MalString`で渡し、hostはcall終了後に`data`を保持しない。String resultを返すhost implementationは`mal_string_copy`で作った`MalString`を返す。
 
 `Ptr`は`MalPtr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
-operation固有のcontractとして定める。reference runtimeのscalar accessは`memcpy`相当であり、alignmentを
-要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
+operation固有のcontractとして定める。reference runtimeのnumeric scalarおよびpointer accessは`memcpy`相当であり、
+alignmentを要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
+pointer accessは`MalPtr`のobject representationをcopyし、必要なstorage sizeとrepresentationはtarget ABIに従う。
 hostは`mal_ptr_from_address`と`mal_ptr_address`で`MalPtr`を構成・参照できる。このhelperはregion、permission、lifetimeを
 検査または延長しない。
 

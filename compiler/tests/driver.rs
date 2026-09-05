@@ -208,6 +208,7 @@ fn checked_in_example_headers_match_the_compiler() {
     let examples = [
         "integer-and-byte",
         "opaque-aggregate",
+        "pointer-tree",
         "print-and-closure",
         "ptr-memory",
         "strict-float",
@@ -489,6 +490,30 @@ fn ptr_memory_example_accesses_unaligned_storage() {
         .parent()
         .expect("compiler has a repository parent")
         .join("examples/ptr-memory");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
+fn pointer_tree_example_builds_and_traverses_a_tree() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/pointer-tree");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),

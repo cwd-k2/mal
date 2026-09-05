@@ -719,6 +719,39 @@ MalPtr mal_ext_memory(MalContext *context) {
 }
 
 #[test]
+fn executes_unaligned_ptr_value_access() {
+    let source = "extern pointerSlot :: Unit -> Ptr;\n\
+         extern target :: Unit -> Ptr;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           slot := offset(extern pointerSlot(), 1u64);\n\
+           storePtr(slot, extern target());\n\
+           stored := loadPtr(slot);\n\
+           storeInt32(stored, 42i32);\n\
+           loadInt32(extern target()) - 42;\n\
+         };";
+    let generated = emit(source).expect("emit Ptr value access");
+    assert!(generated.source.contains("mal_load_ptr"));
+    assert!(generated.source.contains("mal_store_ptr"));
+    let host = r#"#include "program.mal.h"
+
+MalPtr mal_ext_pointerSlot(MalContext *context) {
+    static uint8_t bytes[sizeof(MalPtr) + 1];
+    (void)context;
+    return mal_ptr_from_address(bytes);
+}
+
+MalPtr mal_ext_target(MalContext *context) {
+    static uint8_t bytes[sizeof(int32_t)];
+    (void)context;
+    return mal_ptr_from_address(bytes);
+}
+"#;
+    let fixture = NativeFixture::new("ptr-value-memory");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     let generated = emit(
         "extern memory :: Unit -> Ptr;\n\

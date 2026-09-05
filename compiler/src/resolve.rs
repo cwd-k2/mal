@@ -10,12 +10,12 @@ use self::ast::{
     BOOL_TYPE, BYTE_AT_VALUE, BYTE_LENGTH_VALUE, ExternalOperationId, FALSE_VALUE, FLOAT32_TYPE,
     FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, LOAD_FLOAT32_VALUE,
     LOAD_FLOAT64_VALUE, LOAD_INT8_VALUE, LOAD_INT16_VALUE, LOAD_INT32_VALUE, LOAD_INT64_VALUE,
-    LOAD_UINT8_VALUE, LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, LambdaId,
-    OFFSET_VALUE, PTR_TYPE, Program, STORE_FLOAT32_VALUE, STORE_FLOAT64_VALUE, STORE_INT8_VALUE,
-    STORE_INT16_VALUE, STORE_INT32_VALUE, STORE_INT64_VALUE, STORE_UINT8_VALUE, STORE_UINT16_VALUE,
-    STORE_UINT32_VALUE, STORE_UINT64_VALUE, STRING_TYPE, TRUE_VALUE, TypeBinding, TypeId,
-    TypeReference, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueBinding,
-    ValueId, ValueOwner,
+    LOAD_PTR_VALUE, LOAD_UINT8_VALUE, LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE,
+    LambdaId, OFFSET_VALUE, PTR_TYPE, Program, STORE_FLOAT32_VALUE, STORE_FLOAT64_VALUE,
+    STORE_INT8_VALUE, STORE_INT16_VALUE, STORE_INT32_VALUE, STORE_INT64_VALUE, STORE_PTR_VALUE,
+    STORE_UINT8_VALUE, STORE_UINT16_VALUE, STORE_UINT32_VALUE, STORE_UINT64_VALUE, STRING_TYPE,
+    TRUE_VALUE, TypeBinding, TypeId, TypeReference, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+    UINT64_TYPE, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
 };
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
@@ -65,6 +65,8 @@ pub const PREDEFINED_VALUES: &[(&str, ValueId)] = &[
     ("storeFloat32", STORE_FLOAT32_VALUE),
     ("loadFloat64", LOAD_FLOAT64_VALUE),
     ("storeFloat64", STORE_FLOAT64_VALUE),
+    ("loadPtr", LOAD_PTR_VALUE),
+    ("storePtr", STORE_PTR_VALUE),
 ];
 
 #[derive(Clone)]
@@ -99,7 +101,7 @@ impl Resolver {
             current_lambda: None,
             recursive_lambda: None,
             next_type: 14,
-            next_value: 25,
+            next_value: 27,
             next_external: 0,
             next_lambda: 0,
             synthetic_span,

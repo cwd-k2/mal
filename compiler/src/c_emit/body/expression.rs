@@ -75,6 +75,14 @@ impl BodyEmitter<'_> {
                             scalar_name(*scalar)
                         )
                     }
+                    MemoryPrimitive::LoadPtr => {
+                        self.needs.memory_load_ptr = true;
+                        format!("mal_load_ptr({argument})")
+                    }
+                    MemoryPrimitive::StorePtr => {
+                        self.needs.memory_store_ptr = true;
+                        format!("mal_store_ptr({argument}.field_0, {argument}.field_1)")
+                    }
                 }
             }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),

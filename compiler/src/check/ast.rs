@@ -150,6 +150,8 @@ pub enum MemoryPrimitive {
     Offset,
     Load(MemoryScalar),
     Store(MemoryScalar),
+    LoadPtr,
+    StorePtr,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -612,7 +612,7 @@ trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異�
 
 ## D022. 型なし`Ptr`をmemory primitiveのbaselineとする
 
-- Status: Accepted
+- Status: Accepted; refined by D024
 - Date: 2026-09-05
 - Scope: mal v0.5 and reference compiler
 
@@ -673,3 +673,26 @@ armのpattern bindingとblock内のbindingはarmごとの同じscopeに属する
 括弧がscrutineeの境界を、各blockがarmの処理と値の境界をそれぞれ表す。これは`if (condition)`の後に
 `then`と`else`のexpression blockを並べる構造と対応し、case全体を囲むbraceやpatternと結果の間の
 追加separatorを不要にする。arm内でも`if` branchと同じbinding、statement、末尾式を使用できる。
+
+## D024. `Ptr`をmemoryへload/storeできる
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+- Refines: D022
+
+### 決定
+
+predefinedなdirect-call-only primitiveとして`loadPtr :: Ptr -> Ptr`と
+`storePtr :: (Ptr, Ptr) -> Unit`を追加する。pointerは整数へ変換せず、target ABIのdata address object
+representationとしてalignmentを要求せずcopyする。格納されたpointerの複製はstorageのlifetimeを延長しない。
+
+product、sum、String、external opaque type、functionのaggregate accessは引き続き追加しない。pointerを含む
+node layoutのsize、allocation、deallocation、bounds、lifetimeはprogram固有のextern contractが所有する。
+
+### 理由
+
+D022のnumeric scalar accessだけでもarena内のindexやrelative offsetを使うdata structureは記述できるが、
+pointer graphではedgeの保存と復元がhost operationへ流出する。`Ptr` accessを同じ明示的なmemory mechanismへ
+加えると、hostの責務をstorage提供とlifetimeへ限定したまま、list、tree、graphのlink操作をmalへ戻せる。
+pointerを`UInt64`として扱わないため、pointer幅、integer conversion、null、equalityをsource semanticsへ追加しない。

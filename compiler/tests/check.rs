@@ -332,7 +332,7 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
 }
 
 #[test]
-fn checks_memory_primitives_for_every_numeric_scalar() {
+fn checks_memory_primitives_for_every_supported_value_type() {
     let program = check_ok(
         "useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
            storeInt8(pointer, loadInt8(pointer));\n\
@@ -345,13 +345,14 @@ fn checks_memory_primitives_for_every_numeric_scalar() {
            storeUInt64(pointer, loadUInt64(pointer));\n\
            storeFloat32(pointer, loadFloat32(pointer));\n\
            storeFloat64(pointer, loadFloat64(pointer));\n\
+           storePtr(pointer, loadPtr(pointer));\n\
            ();\n\
          };",
     );
     let ExpressionKind::Lambda(function) = &top_binding(&program, 0).value.kind else {
         panic!("expected lambda");
     };
-    assert_eq!(function.body.items.len(), 10);
+    assert_eq!(function.body.items.len(), 11);
     assert!(function
         .body
         .items
@@ -365,8 +366,10 @@ fn rejects_mistyped_or_first_class_memory_primitives() {
         "extern memory :: Unit -> Ptr; bad := \\() { offset(extern memory(), 1i64); };",
         "bad := \\() { loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storePtr(extern memory(), 1u64); (); };",
         "bad := offset;",
         "bad := loadFloat64;",
+        "bad := loadPtr;",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

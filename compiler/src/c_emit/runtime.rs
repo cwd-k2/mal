@@ -37,11 +37,18 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.string_at {
         output.push_str(RUNTIME_STRING_AT);
     }
-    if needs.memory_offset || needs.memory_load != 0 || needs.memory_store != 0 {
+    if needs.memory_offset
+        || needs.memory_load != 0
+        || needs.memory_store != 0
+        || needs.memory_load_ptr
+        || needs.memory_store_ptr
+    {
         output.push_str(&memory::emit(
             needs.memory_offset,
             needs.memory_load,
             needs.memory_store,
+            needs.memory_load_ptr,
+            needs.memory_store_ptr,
         ));
     }
     if needs.float_to_integer != 0 {

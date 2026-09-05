@@ -21,7 +21,13 @@ pub(crate) fn scalar_name(scalar: MemoryScalar) -> &'static str {
     SCALARS[scalar_index(scalar)].1
 }
 
-pub(super) fn emit(offset: bool, loads: u16, stores: u16) -> String {
+pub(super) fn emit(
+    offset: bool,
+    loads: u16,
+    stores: u16,
+    load_ptr: bool,
+    store_ptr: bool,
+) -> String {
     let mut output = String::new();
     if offset {
         c_line!(
@@ -74,6 +80,35 @@ pub(super) fn emit(offset: bool, loads: u16, stores: u16) -> String {
             c_line!(&mut output, 1, "return (MalUnit){{ UINT8_C(0) }};");
             c_line!(&mut output, 0, "}}\n");
         }
+    }
+    if load_ptr {
+        c_line!(
+            &mut output,
+            0,
+            "static inline MalPtr mal_load_ptr(MalPtr pointer) {{"
+        );
+        c_line!(&mut output, 1, "MalPtr value;");
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(&value, pointer.address, sizeof(value));"
+        );
+        c_line!(&mut output, 1, "return value;");
+        c_line!(&mut output, 0, "}}\n");
+    }
+    if store_ptr {
+        c_line!(
+            &mut output,
+            0,
+            "static inline MalUnit mal_store_ptr(MalPtr pointer, MalPtr value) {{"
+        );
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(pointer.address, &value, sizeof(value));"
+        );
+        c_line!(&mut output, 1, "return (MalUnit){{ UINT8_C(0) }};");
+        c_line!(&mut output, 0, "}}\n");
     }
     output
 }
