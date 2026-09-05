@@ -19,6 +19,7 @@ impl Resolver {
                 Expression::Reference(self.resolve_value_reference(name)?)
             }
             ast::Expression::Integer(value) => Expression::Integer(value.clone()),
+            ast::Expression::Float(value) => Expression::Float(value.clone()),
             ast::Expression::Byte(value) => Expression::Byte(*value),
             ast::Expression::String(value) => Expression::String(value.clone()),
             ast::Expression::Unit => Expression::Unit,

@@ -1,4 +1,6 @@
-use malc::lexer::{IntegerLiteral, IntegerSuffix, Radix, TokenKind, lex};
+use malc::lexer::{
+    DecimalFloatLiteral, FloatSuffix, IntegerLiteral, IntegerSuffix, Radix, TokenKind, lex,
+};
 use malc::source::{FileId, SourceFile, Span};
 
 fn source(text: &str) -> SourceFile {
@@ -130,6 +132,63 @@ fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
         .chain([TokenKind::Eof])
         .collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn lexes_decimal_float_forms_and_separators() {
+    assert_eq!(
+        kinds("1.5 1_000.25f32 2e3 4E-2f64 6f32"),
+        vec![
+            TokenKind::Float(DecimalFloatLiteral {
+                digits: "15".into(),
+                fractional_digits: 1,
+                exponent_negative: false,
+                exponent_digits: String::new(),
+                suffix: None,
+            }),
+            TokenKind::Float(DecimalFloatLiteral {
+                digits: "100025".into(),
+                fractional_digits: 2,
+                exponent_negative: false,
+                exponent_digits: String::new(),
+                suffix: Some(FloatSuffix::Float32),
+            }),
+            TokenKind::Float(DecimalFloatLiteral {
+                digits: "2".into(),
+                fractional_digits: 0,
+                exponent_negative: false,
+                exponent_digits: "3".into(),
+                suffix: None,
+            }),
+            TokenKind::Float(DecimalFloatLiteral {
+                digits: "4".into(),
+                fractional_digits: 0,
+                exponent_negative: true,
+                exponent_digits: "2".into(),
+                suffix: Some(FloatSuffix::Float64),
+            }),
+            TokenKind::Float(DecimalFloatLiteral {
+                digits: "6".into(),
+                fractional_digits: 0,
+                exponent_negative: false,
+                exponent_digits: String::new(),
+                suffix: Some(FloatSuffix::Float32),
+            }),
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn rejects_malformed_decimal_float_literals() {
+    for text in ["1.", "1e", "1e+", "1.0Int32", "1.0f32x"] {
+        let error = lex(&source(text)).expect_err("float literal should be rejected");
+        assert_eq!(error.message, "invalid float literal", "input: {text}");
+    }
+    for text in ["1._0", "1.0_", "1e_2", "1e2_"] {
+        let error = lex(&source(text)).expect_err("separator should be rejected");
+        assert_eq!(error.message, "invalid numeric separator", "input: {text}");
+    }
 }
 
 #[test]
@@ -267,7 +326,7 @@ fn rejects_bad_numeric_separators_with_the_literal_span() {
 
 #[test]
 fn rejects_invalid_radix_digits_and_unsupported_suffixes() {
-    for text in ["0x", "0b2", "12Byte", "12Int32x"] {
+    for text in ["0x", "0b2", "12Byte", "12Int32x", "1Float32"] {
         let error = lex(&source(text)).expect_err("literal should be rejected");
         assert_eq!(error.message, "invalid integer literal", "input: {text}");
     }

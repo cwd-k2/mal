@@ -73,6 +73,13 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Integer(value), token.span));
         }
+        if matches!(self.current().kind, TokenKind::Float(_)) {
+            let token = self.advance().clone();
+            let TokenKind::Float(value) = token.kind else {
+                unreachable!();
+            };
+            return Ok(Node::new(Expression::Float(value), token.span));
+        }
         if matches!(self.current().kind, TokenKind::Byte(_)) {
             let token = self.advance().clone();
             let TokenKind::Byte(value) = token.kind else {

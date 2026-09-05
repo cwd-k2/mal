@@ -335,7 +335,7 @@ externから返すbufferをhostがprogram終了まで保持する規則は、す
 1_000
 0xff_ffUInt32
 0b1010_0001
-1_000.25Float64
+1_000.25f64
 ```
 
 underscoreはdigit sequenceの先頭・末尾、連続位置、radix prefix直後、小数点の直前・直後、型suffixの直前には置けない。
@@ -347,7 +347,7 @@ _1       invalid
 0x_ff    invalid
 1_.0     invalid
 1._0     invalid
-1_Float32 invalid
+1_f32 invalid
 ```
 
 ### 理由
@@ -547,7 +547,7 @@ DEC_DIGITS FLOAT_SUFFIX
 ```
 
 `EXPONENT`は`e`または`E`、optionalな`+`または`-`、1桁以上のdecimal digit sequenceからなる。
-`FLOAT_SUFFIX`は`Float32`または`Float64`である。数値separatorは整数部、小数部、exponentの各digit sequence内でのみ認める。
+`FLOAT_SUFFIX`は`f32`または`f64`である。数値separatorは整数部、小数部、exponentの各digit sequence内でのみ認める。
 
 `.5`、`1.`、hexadecimal floatは認めない。decimal point、exponent、float suffixのいずれもないliteralは
 integer literalである。exponentを含むliteralはsuffixがなくてもfloatである。

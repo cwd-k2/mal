@@ -27,6 +27,21 @@ pub struct IntegerLiteral {
     pub suffix: Option<IntegerSuffix>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecimalFloatLiteral {
+    pub digits: String,
+    pub fractional_digits: usize,
+    pub exponent_negative: bool,
+    pub exponent_digits: String,
+    pub suffix: Option<FloatSuffix>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FloatSuffix {
+    Float32,
+    Float64,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntegerSuffix {
     Int8,
@@ -44,6 +59,7 @@ pub enum TokenKind {
     TypeIdentifier,
     ValueIdentifier,
     Integer(IntegerLiteral),
+    Float(DecimalFloatLiteral),
     Byte(u8),
     String(Vec<u8>),
     Extern,
@@ -131,7 +147,7 @@ impl<'a> Lexer<'a> {
             } else if byte.is_ascii_alphabetic() {
                 self.lex_identifier(start)?;
             } else if byte.is_ascii_digit() {
-                self.lex_integer(start)?;
+                self.lex_number(start)?;
             } else {
                 self.lex_symbol(start)?;
             }
@@ -188,7 +204,7 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
-    fn lex_integer(&mut self, start: usize) -> Result<(), Diagnostic> {
+    fn lex_number(&mut self, start: usize) -> Result<(), Diagnostic> {
         let radix = if self.starts_with(b"0x") {
             self.offset += 2;
             Radix::Hexadecimal
@@ -199,6 +215,105 @@ impl<'a> Lexer<'a> {
             Radix::Decimal
         };
         let digits_start = self.offset;
+        self.lex_digit_sequence(start, radix)?;
+        let digits_end = self.offset;
+
+        if radix != Radix::Decimal {
+            return self.finish_integer(start, radix, digits_start, digits_end);
+        }
+
+        let mut fractional_digits = 0;
+        let mut is_float = false;
+        let mut digits = self.source.text()[digits_start..digits_end].replace('_', "");
+        if self.peek() == Some(b'.') {
+            is_float = true;
+            self.offset += 1;
+            let fraction_start = self.offset;
+            if self.peek() == Some(b'_') {
+                self.consume_number_like();
+                return Err(self.invalid_separator(start));
+            }
+            if !self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.consume_number_like();
+                return Err(self.error(
+                    start,
+                    self.offset,
+                    "invalid float literal",
+                    "expected digits after the decimal point",
+                ));
+            }
+            let count = self.lex_digit_sequence(start, Radix::Decimal)?;
+            fractional_digits = count;
+            digits.push_str(&self.source.text()[fraction_start..self.offset].replace('_', ""));
+        }
+
+        let mut exponent_negative = false;
+        let mut exponent_digits = String::new();
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            is_float = true;
+            self.offset += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                exponent_negative = self.peek() == Some(b'-');
+                self.offset += 1;
+            }
+            let exponent_start = self.offset;
+            if self.peek() == Some(b'_') {
+                self.consume_number_like();
+                return Err(self.invalid_separator(start));
+            }
+            if !self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.consume_number_like();
+                return Err(self.error(
+                    start,
+                    self.offset,
+                    "invalid float literal",
+                    "expected decimal exponent digits",
+                ));
+            }
+            self.lex_digit_sequence(start, Radix::Decimal)?;
+            exponent_digits = self.source.text()[exponent_start..self.offset].replace('_', "");
+        }
+
+        let float_suffixes = [("f32", FloatSuffix::Float32), ("f64", FloatSuffix::Float64)];
+        let float_suffix = float_suffixes
+            .into_iter()
+            .find(|(text, _)| self.starts_with(text.as_bytes()))
+            .map(|(text, suffix)| {
+                self.offset += text.len();
+                suffix
+            });
+        is_float |= float_suffix.is_some();
+
+        if is_float {
+            if self
+                .peek()
+                .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            {
+                self.consume_number_like();
+                return Err(self.error(
+                    start,
+                    self.offset,
+                    "invalid float literal",
+                    "expected `f32`, `f64`, or the end of the literal",
+                ));
+            }
+            self.push(
+                TokenKind::Float(DecimalFloatLiteral {
+                    digits,
+                    fractional_digits,
+                    exponent_negative,
+                    exponent_digits,
+                    suffix: float_suffix,
+                }),
+                start,
+            );
+            return Ok(());
+        }
+
+        self.finish_integer(start, radix, digits_start, digits_end)
+    }
+
+    fn lex_digit_sequence(&mut self, start: usize, radix: Radix) -> Result<usize, Diagnostic> {
         let mut previous_was_digit = false;
         let mut digit_count = 0;
 
@@ -233,7 +348,16 @@ impl<'a> Lexer<'a> {
             ));
         }
 
-        let digits_end = self.offset;
+        Ok(digit_count)
+    }
+
+    fn finish_integer(
+        &mut self,
+        start: usize,
+        radix: Radix,
+        digits_start: usize,
+        digits_end: usize,
+    ) -> Result<(), Diagnostic> {
         let suffixes = [
             ("UInt16", IntegerSuffix::UInt16),
             ("UInt32", IntegerSuffix::UInt32),

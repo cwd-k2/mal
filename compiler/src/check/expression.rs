@@ -35,6 +35,10 @@ impl Checker {
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?
             }
+            resolved::Expression::Float(_) => {
+                return Err(Diagnostic::error("float literals are not implemented")
+                    .with_primary(expression.span, "Float support is not available yet"));
+            }
             resolved::Expression::Byte(value) => Expression {
                 kind: ExpressionKind::Integer(i128::from(*value)),
                 ty: Type::UInt8,

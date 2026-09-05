@@ -1,4 +1,4 @@
-use crate::lexer::IntegerLiteral;
+use crate::lexer::{DecimalFloatLiteral, IntegerLiteral};
 use crate::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +72,7 @@ pub enum Pattern {
 pub enum Expression {
     Name(Name),
     Integer(IntegerLiteral),
+    Float(DecimalFloatLiteral),
     Byte(u8),
     String(Vec<u8>),
     Unit,

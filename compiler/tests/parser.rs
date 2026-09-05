@@ -121,6 +121,15 @@ fn parses_a_byte_literal_as_an_atomic_expression() {
 }
 
 #[test]
+fn parses_a_decimal_float_as_an_atomic_expression() {
+    let program = parse_ok("value := 1.25e-2f32;");
+    let TopItem::Binding(binding) = &program.items[0].kind else {
+        panic!("expected binding");
+    };
+    assert!(matches!(binding.value.kind, Expression::Float(_)));
+}
+
+#[test]
 fn parses_a_string_literal_as_bytes() {
     assert_eq!(
         binding_value(r#"value := "a\0\xff";"#),

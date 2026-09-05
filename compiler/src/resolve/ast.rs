@@ -1,5 +1,5 @@
 use crate::ast::{BinaryOperator, Name, Node, UnaryOperator};
-use crate::lexer::IntegerLiteral;
+use crate::lexer::{DecimalFloatLiteral, IntegerLiteral};
 use crate::source::Span;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -122,6 +122,7 @@ pub enum Pattern {
 pub enum Expression {
     Reference(ValueReference),
     Integer(IntegerLiteral),
+    Float(DecimalFloatLiteral),
     Byte(u8),
     String(Vec<u8>),
     Unit,

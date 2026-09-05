@@ -24,17 +24,17 @@ DEC_DIGITS ::= DEC_DIGIT ("_"? DEC_DIGIT)*
 HEX_DIGITS ::= HEX_DIGIT ("_"? HEX_DIGIT)*
 BIN_DIGITS ::= BIN_DIGIT ("_"? BIN_DIGIT)*
 EXPONENT   ::= ("e" | "E") ("+" | "-")? DEC_DIGITS
-FLOAT_SUFFIX ::= "Float32" | "Float64"
+FLOAT_SUFFIX ::= "f32" | "f64"
 ```
 
 ```mal
 1_000
 0xff_ffUInt32
 0b1010_0001
-1_000.25Float64
+1_000.25f64
 ```
 
-`_`はdigit sequenceの先頭・末尾、連続位置、radix prefix直後、小数点の直前・直後、型suffixの直前には置けない。したがって`_1`、`1_`、`1__0`、`0x_ff`、`1_.0`、`1._0`、`1_Float32`はlexical errorである。separatorを除去したliteralと同じ値・型を持つ。
+`_`はdigit sequenceの先頭・末尾、連続位置、radix prefix直後、小数点の直前・直後、型suffixの直前には置けない。したがって`_1`、`1_`、`1__0`、`0x_ff`、`1_.0`、`1._0`、`1_f32`はlexical errorである。separatorを除去したliteralと同じ値・型を持つ。
 
 ## 文法概要
 

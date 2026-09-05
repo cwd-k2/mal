@@ -130,11 +130,11 @@ scrutinee は直和型でなければならない。arm の pattern は該当 in
 0b101010
 123Int32
 255UInt8
-1.5Float32
-2.0Float64
+1.5f32
+2.0f64
 1_000
 0xff_ffUInt32
-1_000.25Float64
+1_000.25f64
 ```
 
 負号は literal token の一部ではなく unary `-` として扱う。suffix のない整数は周辺型から決め、決まらなければ `Int64`。浮動小数は周辺型から決め、決まらなければ `Float64` とする。
@@ -142,7 +142,7 @@ scrutinee は直和型でなければならない。arm の pattern は該当 in
 decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.4はinfinity、NaN、hexadecimal floatのliteralを持たない。
 
 decimal pointを使う形は整数部と小数部の両方を必須とする。`e`または`E`による10進exponentと
-optionalな符号を認める。decimal point、exponent、`Float32`/`Float64` suffixのいずれかがあるliteralを
+optionalな符号を認める。decimal point、exponent、`f32`/`f64` suffixのいずれかがあるliteralを
 float literalとする。完全な形は[grammar](grammar.md#numeric-separator)に定める。
 
 numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
