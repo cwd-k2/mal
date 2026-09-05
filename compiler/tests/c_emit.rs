@@ -239,6 +239,39 @@ uint64_t mal_ext_combinedLength(
 }
 
 #[test]
+fn preserves_duplicate_sum_members_by_tag() {
+    let output = compile_and_run(
+        "Pair :: (Int32, Int32);\n\
+         Choice :: [Pair, Pair];\n\
+         extern choose :: Unit -> Choice;\n\
+         difference :: Pair -> Int32 := \\(pair :: Pair) {\n\
+           (left, right) := pair;\n\
+           return left - right;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           return case extern choose() {\n\
+             [0](pair) => difference(pair) + 1Int32;\n\
+             [1](pair) => difference(pair);\n\
+           };\n\
+         };",
+        r#"#include "program.mal.h"
+
+MalSum_1 mal_ext_choose(MalContext *context) {
+    (void)context;
+    return (MalSum_1){
+        .tag = UINT32_C(1),
+        .payload.variant_1 = {
+            .field_0 = INT32_C(42),
+            .field_1 = INT32_C(42),
+        },
+    };
+}
+"#,
+    );
+    assert!(output.status.success());
+}
+
+#[test]
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
         "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\

@@ -177,6 +177,32 @@ fn checked_in_m1_example_reproduces_host_results_and_a_trap() {
 }
 
 #[test]
+fn checked_in_m2_example_round_trips_an_opaque_aggregate() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m2/opaque-aggregate");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "42\n");
+}
+
+#[test]
 fn reports_source_and_output_filesystem_failures() {
     let directory = NativeFixture::new("driver-failure");
     let missing = directory.join("missing.mal");
