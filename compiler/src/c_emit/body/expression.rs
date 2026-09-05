@@ -181,8 +181,8 @@ impl BodyEmitter<'_> {
     }
 
     pub(super) fn emit_atom(&self, atom: &Atom) -> String {
-        match atom.kind {
-            AtomKind::Reference(Reference::Binding(id)) => value_name(id),
+        match &atom.kind {
+            AtomKind::Reference(Reference::Binding(id)) => value_name(*id),
             AtomKind::Reference(Reference::EnvironmentField(index)) => {
                 format!("mal_environment_fields->field_{index}")
             }
@@ -198,11 +198,21 @@ impl BodyEmitter<'_> {
                     Type::UInt64 => ("UINT64_C", None),
                     _ => unreachable!("integer atoms have integer types"),
                 };
-                if minimum == Some(value) {
+                if minimum == Some(*value) {
                     format!("{}_MIN", &constant[..constant.len() - 2])
                 } else {
                     format!("{constant}({value})")
                 }
+            }
+            AtomKind::String(value) => {
+                let bytes = value
+                    .iter()
+                    .map(|byte| format!("\\x{byte:02x}"))
+                    .collect::<String>();
+                format!(
+                    "(MalString){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
+                    value.len()
+                )
             }
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
         }

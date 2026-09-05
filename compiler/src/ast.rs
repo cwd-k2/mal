@@ -73,6 +73,7 @@ pub enum Expression {
     Name(Name),
     Integer(IntegerLiteral),
     Byte(u8),
+    String(Vec<u8>),
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

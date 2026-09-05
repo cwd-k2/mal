@@ -121,6 +121,14 @@ fn parses_a_byte_literal_as_an_atomic_expression() {
 }
 
 #[test]
+fn parses_a_string_literal_as_bytes() {
+    assert_eq!(
+        binding_value(r#"value := "a\0\xff";"#),
+        Expression::String(vec![b'a', 0, 255])
+    );
+}
+
+#[test]
 fn distinguishes_numeric_conversion_from_sum_injection() {
     assert!(matches!(
         binding_value("value := UInt8(1Int8);"),

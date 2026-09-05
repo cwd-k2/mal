@@ -8,8 +8,8 @@ mod expression;
 
 use self::ast::{
     BOOL_TYPE, ExternalOperationId, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
-    LambdaId, Program, TRUE_VALUE, TypeBinding, TypeId, TypeReference, UINT8_TYPE, UINT16_TYPE,
-    UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
+    LambdaId, Program, STRING_TYPE, TRUE_VALUE, TypeBinding, TypeId, TypeReference, UINT8_TYPE,
+    UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
 };
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
@@ -45,7 +45,7 @@ impl Resolver {
             externals: HashMap::new(),
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
-            next_type: 10,
+            next_type: 11,
             next_value: 2,
             next_external: 0,
             next_lambda: 0,
@@ -61,6 +61,7 @@ impl Resolver {
         resolver.add_predefined_type("UInt32", UINT32_TYPE);
         resolver.add_predefined_type("UInt64", UINT64_TYPE);
         resolver.add_predefined_type("Bool", BOOL_TYPE);
+        resolver.add_predefined_type("String", STRING_TYPE);
         resolver.add_predefined_value("false", FALSE_VALUE);
         resolver.add_predefined_value("true", TRUE_VALUE);
         resolver

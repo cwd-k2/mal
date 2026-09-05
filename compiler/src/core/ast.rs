@@ -90,6 +90,7 @@ pub struct Expression {
 pub enum ExpressionKind {
     Reference(ValueId),
     Integer(i128),
+    String(Vec<u8>),
     Unit,
     Product(Vec<Expression>),
     Let {

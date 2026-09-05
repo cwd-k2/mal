@@ -46,6 +46,7 @@ impl TypeRegistry {
             Type::UInt16 => "uint16_t".into(),
             Type::UInt32 => "uint32_t".into(),
             Type::UInt64 => "uint64_t".into(),
+            Type::String => "MalString".into(),
             Type::External { name, .. } => format!("MalOpaque_{name}"),
             Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
@@ -92,7 +93,8 @@ impl TypeRegistry {
                 | Type::UInt8
                 | Type::UInt16
                 | Type::UInt32
-                | Type::UInt64 => unreachable!(),
+                | Type::UInt64
+                | Type::String => unreachable!(),
             };
             writeln!(output, "typedef struct {kind}_{index} {kind}_{index};").unwrap();
         }
@@ -149,7 +151,8 @@ impl TypeRegistry {
                 | Type::UInt8
                 | Type::UInt16
                 | Type::UInt32
-                | Type::UInt64 => unreachable!(),
+                | Type::UInt64
+                | Type::String => unreachable!(),
             }
         }
         output
@@ -197,7 +200,8 @@ impl TypeRegistry {
             | Type::UInt8
             | Type::UInt16
             | Type::UInt32
-            | Type::UInt64 => return,
+            | Type::UInt64
+            | Type::String => return,
         }
         if !self.aggregates.contains(ty) {
             self.aggregates.push(ty.clone());

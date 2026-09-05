@@ -22,6 +22,7 @@ pub(super) fn type_name(ty: &Type) -> String {
         Type::UInt16 => "UInt16".into(),
         Type::UInt32 => "UInt32".into(),
         Type::UInt64 => "UInt64".into(),
+        Type::String => "String".into(),
         Type::External { name, .. } => name.clone(),
         Type::Product(elements) => format!(
             "({})",

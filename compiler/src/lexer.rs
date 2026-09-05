@@ -43,6 +43,7 @@ pub enum TokenKind {
     ValueIdentifier,
     Integer(IntegerLiteral),
     Byte(u8),
+    String(Vec<u8>),
     Extern,
     If,
     Then,
@@ -123,6 +124,8 @@ impl<'a> Lexer<'a> {
             let byte = self.bytes[start];
             if byte == b'b' && self.peek_next() == Some(b'\'') {
                 self.lex_byte(start)?;
+            } else if byte == b'"' {
+                self.lex_string(start)?;
             } else if byte.is_ascii_alphabetic() {
                 self.lex_identifier(start)?;
             } else if byte.is_ascii_digit() {
@@ -318,6 +321,65 @@ impl<'a> Lexer<'a> {
             }
         }
         self.error(start, self.offset, "invalid byte literal", label)
+    }
+
+    fn lex_string(&mut self, start: usize) -> Result<(), Diagnostic> {
+        self.offset += 1;
+        let mut value = Vec::new();
+        loop {
+            match self.peek() {
+                Some(b'"') => {
+                    self.offset += 1;
+                    self.push(TokenKind::String(value), start);
+                    return Ok(());
+                }
+                Some(b'\\') => {
+                    self.offset += 1;
+                    let escaped =
+                        match self.peek() {
+                            Some(b'\\') => b'\\',
+                            Some(b'"') => b'"',
+                            Some(b'n') => b'\n',
+                            Some(b'r') => b'\r',
+                            Some(b't') => b'\t',
+                            Some(b'0') => b'\0',
+                            Some(b'x') => {
+                                self.offset += 1;
+                                let Some(high) = self.peek().and_then(hex_value) else {
+                                    return Err(self
+                                        .invalid_string(start, "expected two hexadecimal digits"));
+                                };
+                                self.offset += 1;
+                                let Some(low) = self.peek().and_then(hex_value) else {
+                                    return Err(self
+                                        .invalid_string(start, "expected two hexadecimal digits"));
+                                };
+                                high * 16 + low
+                            }
+                            _ => return Err(self.invalid_string(start, "unknown string escape")),
+                        };
+                    value.push(escaped);
+                    self.offset += 1;
+                }
+                Some(b'\r' | b'\n') | None => {
+                    return Err(self.invalid_string(start, "expected a closing double quote"));
+                }
+                Some(byte) => {
+                    value.push(byte);
+                    self.offset += 1;
+                }
+            }
+        }
+    }
+
+    fn invalid_string(&mut self, start: usize, label: &str) -> Diagnostic {
+        while let Some(byte) = self.peek() {
+            self.offset += 1;
+            if byte == b'"' || matches!(byte, b'\n' | b'\r') {
+                break;
+            }
+        }
+        self.error(start, self.offset, "invalid string literal", label)
     }
 
     fn lex_symbol(&mut self, start: usize) -> Result<(), Diagnostic> {

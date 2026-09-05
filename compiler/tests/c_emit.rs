@@ -91,13 +91,47 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
     (void)context;
     printf("%" PRIu64 "\n", value);
 }
-
 "#,
     );
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         "18446744073709551615\n"
+    );
+}
+
+#[test]
+fn emits_static_string_bytes_that_survive_closure_escape() {
+    let output = compile_and_run(
+        r#"extern inspect :: String -> Unit;
+make :: String -> (Unit -> String) := \(value :: String) {
+  return \<value>() { return value; };
+};
+main :: Unit -> Int32 := \() {
+  extern inspect("あ\0\xff");
+  held := make("scope");
+  extern inspect(held());
+  extern inspect("");
+  return 0;
+};"#,
+        r#"#include "program.mal.h"
+#include <inttypes.h>
+#include <stdio.h>
+
+void mal_ext_inspect(MalContext *context, MalString value) {
+    (void)context;
+    printf("%" PRIu64 ":", value.length);
+    for (uint64_t index = 0; index < value.length; index += UINT64_C(1)) {
+        printf("%02x", value.data[index]);
+    }
+    putchar('\n');
+}
+"#,
+    );
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "5:e3818200ff\n5:73636f7065\n0:\n"
     );
 }
 

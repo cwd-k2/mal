@@ -167,6 +167,39 @@ fn rejects_malformed_byte_literals_at_the_lexer_boundary() {
 }
 
 #[test]
+fn lexes_string_bytes_and_every_escape() {
+    assert_eq!(
+        kinds(r#""" "hello" "あ" "\\\"\n\r\t\0\x00\xff""#),
+        vec![
+            TokenKind::String(Vec::new()),
+            TokenKind::String(b"hello".to_vec()),
+            TokenKind::String("あ".as_bytes().to_vec()),
+            TokenKind::String(vec![b'\\', b'"', b'\n', b'\r', b'\t', 0, 0, 255]),
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn rejects_malformed_string_literals_at_the_lexer_boundary() {
+    for text in [
+        r#""\q""#,
+        r#""\x0""#,
+        r#""\xgg""#,
+        "\"unterminated",
+        "\"line\nbreak\"",
+    ] {
+        let error = lex(&source(text)).expect_err("string literal should be rejected");
+        assert_eq!(error.message, "invalid string literal", "input: {text:?}");
+        assert_eq!(
+            error.primary.expect("primary label").span.start(),
+            0,
+            "input: {text:?}"
+        );
+    }
+}
+
+#[test]
 fn lexes_every_m0_operator_and_delimiter() {
     assert_eq!(
         kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> => \\ + - * / % ! != == ~ & && | || ^ << >>"),

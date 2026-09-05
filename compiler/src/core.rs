@@ -88,6 +88,7 @@ impl Lowerer {
                 id => ExpressionKind::Reference(ValueId::Source(id)),
             },
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
+            checked::ExpressionKind::String(value) => ExpressionKind::String(value.clone()),
             checked::ExpressionKind::Unit => ExpressionKind::Unit,
             checked::ExpressionKind::Product(elements) => ExpressionKind::Product(
                 elements

@@ -2,8 +2,8 @@ use malc::ast;
 use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
-    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, TopItem,
-    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
+    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, STRING_TYPE,
+    TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
 
@@ -57,6 +57,22 @@ fn preserves_byte_literals_during_name_resolution() {
         top_binding(&program.items[0]).value.kind,
         resolved::Expression::Byte(127)
     ));
+}
+
+#[test]
+fn preserves_string_literals_and_resolves_the_predefined_type() {
+    let program = resolve_ok(r#"value :: String := "a\0";"#);
+    let binding = top_binding(&program.items[0]);
+    assert!(matches!(
+        binding.value.kind,
+        resolved::Expression::String(ref value) if value == b"a\0"
+    ));
+    let resolved::TypeExpression::Named(reference) =
+        &binding.annotation.as_ref().expect("annotation").kind
+    else {
+        panic!("expected named type");
+    };
+    assert_eq!(reference.id, STRING_TYPE);
 }
 
 #[test]

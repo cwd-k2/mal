@@ -24,6 +24,7 @@ pub const UINT16_TYPE: TypeId = TypeId(6);
 pub const UINT32_TYPE: TypeId = TypeId(7);
 pub const UINT64_TYPE: TypeId = TypeId(8);
 pub const BOOL_TYPE: TypeId = TypeId(9);
+pub const STRING_TYPE: TypeId = TypeId(10);
 pub const FALSE_VALUE: ValueId = ValueId(0);
 pub const TRUE_VALUE: ValueId = ValueId(1);
 
@@ -120,6 +121,7 @@ pub enum Expression {
     Reference(ValueReference),
     Integer(IntegerLiteral),
     Byte(u8),
+    String(Vec<u8>),
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

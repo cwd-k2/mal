@@ -80,6 +80,13 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Byte(value), token.span));
         }
+        if matches!(self.current().kind, TokenKind::String(_)) {
+            let token = self.advance().clone();
+            let TokenKind::String(value) = token.kind else {
+                unreachable!();
+            };
+            return Ok(Node::new(Expression::String(value), token.span));
+        }
         if self.at(&TokenKind::LeftParen) {
             return self.parse_parenthesized_expression();
         }

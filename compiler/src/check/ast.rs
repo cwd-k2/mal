@@ -15,6 +15,7 @@ pub enum Type {
     UInt16,
     UInt32,
     UInt64,
+    String,
     External {
         id: TypeId,
         name: String,
@@ -87,6 +88,7 @@ pub struct Expression {
 pub enum ExpressionKind {
     Reference(ValueReference),
     Integer(i128),
+    String(Vec<u8>),
     Unit,
     Product(Vec<Expression>),
     Parenthesized(Box<Expression>),

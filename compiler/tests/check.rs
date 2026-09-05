@@ -178,6 +178,16 @@ fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
 }
 
 #[test]
+fn checks_string_literals_as_immutable_bytes() {
+    let program = check_ok(r#"empty :: String := ""; bytes := "あ\0\xff";"#);
+    assert_eq!(top_binding(&program, 0).value.ty, Type::String);
+    assert!(matches!(
+        top_binding(&program, 1).value.kind,
+        ExpressionKind::String(ref value) if value == &[0xe3, 0x81, 0x82, 0, 255]
+    ));
+}
+
+#[test]
 fn rejects_binding_and_return_type_mismatches() {
     assert_eq!(check_error("value :: Unit := 0;").message, "type mismatch");
     assert_eq!(

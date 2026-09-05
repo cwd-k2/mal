@@ -31,6 +31,11 @@ impl Checker {
                 ty: Type::UInt8,
                 span: expression.span,
             },
+            resolved::Expression::String(value) => Expression {
+                kind: ExpressionKind::String(value.clone()),
+                ty: Type::String,
+                span: expression.span,
+            },
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
                 ty: Type::Unit,

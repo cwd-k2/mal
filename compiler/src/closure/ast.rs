@@ -114,6 +114,7 @@ pub struct Atom {
 pub enum AtomKind {
     Reference(Reference),
     Integer(i128),
+    String(Vec<u8>),
     Unit,
 }
 

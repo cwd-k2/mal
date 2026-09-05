@@ -264,9 +264,10 @@ impl Converter {
     }
 
     fn convert_atom(&self, atom: &anf::Atom, environment: &HashMap<anf::ValueId, usize>) -> Atom {
-        let kind = match atom.kind {
-            anf::AtomKind::Reference(id) => self.reference_kind(id, environment),
-            anf::AtomKind::Integer(value) => AtomKind::Integer(value),
+        let kind = match &atom.kind {
+            anf::AtomKind::Reference(id) => self.reference_kind(*id, environment),
+            anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
+            anf::AtomKind::String(value) => AtomKind::String(value.clone()),
             anf::AtomKind::Unit => AtomKind::Unit,
         };
         Atom {
