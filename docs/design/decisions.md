@@ -635,12 +635,13 @@ address計算で表現できない場合はtrapする。
 
 ### 根拠
 
-Typical 90の30問をv0.4で実装した結果、collection-orientedな問題では用途別opaque operationが増え、021の
-iterative DFSと023のrow-profile DP遷移などalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
+競技programmingのlocal corpusをv0.4で実装した結果、collection-orientedなworkloadでは用途別opaque operationが増え、
+iterative DFSとrow-profile DP遷移などalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
 保つ代わりにtrusted host APIと利用者の調査面積を増やしていた。
 
-023を`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostはinput、zero-initialized allocation、outputだけを担当し、
-valid profile列挙、compatible pairのCSR構築、row transition、集計をmalへ戻せた。公式5 sampleと全白24×24を
+representativeなprofile DPを`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostはinput、
+zero-initialized allocation、outputだけを担当し、valid profile列挙、compatible pairのCSR構築、row transition、
+集計をmalへ戻せた。small behavior caseとmaximum-order caseを
 完走したため、型なしscalar accessで当初の境界問題を解消できることを確認した。
 
 組み込み`Array<T>`はlength、index、alias、allocation、bounds、resize、viewのpolicyを同時に持ち込み、

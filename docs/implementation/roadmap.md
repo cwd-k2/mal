@@ -18,6 +18,32 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 | M5 | Complete | strict `Float32` / `Float64` profile |
 | R0 | Complete | v0.4 conformanceとrelease readiness |
 | M6 | Complete | v0.5の型なし`Ptr`とnumeric scalar memory primitive |
+| M7 | Active | generated Cのcost削減とpublic buildの最適化contract |
+
+## M7: generated-C performance
+
+言語機能とhost interfaceを増やさず、既知関数、Bool control flow、product引数、scalar memory accessが
+generated Cへ持ち込むcostを測定して削減する。調査の根拠、local baseline、作業順は
+[performance evaluation](../development/performance.md)を正とする。
+
+### 作業順
+
+1. branch-heavyなshortest-path workloadを関数単位でprofileし、`-O2`後にも残るcostを推測でなく測定する。
+2. strict float optionを維持した`-O2` buildを全native testとexampleで検証し、public `build`の既定にするか決定する。
+3. source-level top-level bindingをgenerated C上で追跡できる名前またはcommentを残す。
+4. Boolをcontrol flowとしてだけ使う箇所、known direct call、product引数、small scalar memory accessorの順に、
+   materializationとcall boundaryを一つずつ調査する。
+5. 各変更後にgenerated Cの構造、native behavior、代表benchmarkを再検証する。
+
+### Done
+
+- 言語仕様、extern ABI、strict integer/float semanticsを変更せず、public buildのC最適化contractが
+  [compiler usage](../development/compiler-usage.md)に記述されている。
+- format、Clippy、全compiler test、checked-in example、local corpusのbehavior testとmaximum-order smokeが成功する。
+- 同一環境の反復測定で、regular numeric transformはdirect Cの1.1倍以内、branch-heavyなheap workloadは
+  1.4倍以内を目安にする。
+- 採用したoptimizationごとに、除去するgenerated-C構造を直接検査するfocused testがある。
+- array、collection、loop、moduleなど、performance測定が要求していない言語機能を追加していない。
 
 ## M6: memory primitive
 
@@ -28,7 +54,8 @@ indexed storageの共通mechanismをhostの用途別opaque operationからmalへ
 - predefined `Ptr`、byte単位の`offset`、全numeric scalarの型別load/storeを全stageへ実装した。
 - `Ptr`をextern-safeとし、generated C headerへ`MalPtr`を公開した。
 - unaligned accessを含むfocused type/ABI/native testとchecked-in M6 exampleを追加した。
-- Typical 90 023のprofile列挙、CSR構築、row transition、集計をmalへ移し、公式sampleと24×24 caseを検証した。
+- representativeなprofile DPの列挙、CSR構築、row transition、集計をmalへ移し、small behavior caseと
+  maximum-order caseを検証した。
 
 ### Done
 

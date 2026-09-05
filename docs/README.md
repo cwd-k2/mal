@@ -23,7 +23,16 @@
 10. [プログラム構造](spec/programs.md)
 11. [字句・文法](spec/grammar.md)
 
-利用者向けのcompiler command、対応環境、toolchain、生成物は[reference compiler利用contract](development/compiler-usage.md)にまとめる。実装者はまず[implementation roadmap](implementation/roadmap.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。仕様とtestの対応は[conformance matrix](development/conformance.md)に集約する。M0の履歴は[M0 implementation record](implementation/m0.md)、各stageの背景は[compiler implementation notes](implementation/compiler.md)に残す。設計理由は[決定記録](design/decisions.md)、意図的な未指定事項は[未決事項](design/open-questions.md)を参照する。
+利用者向けのcompiler command、対応環境、toolchain、生成物は
+[reference compiler利用contract](development/compiler-usage.md)にまとめる。実装者はまず
+[implementation roadmap](implementation/roadmap.md)、
+[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。
+M7の測定根拠と引き継ぎ順は[generated C performance評価](development/performance.md)、仕様とtestの対応は
+[conformance matrix](development/conformance.md)に集約する。M0の履歴は
+[M0 implementation record](implementation/m0.md)、各stageの背景は
+[compiler implementation notes](implementation/compiler.md)に残す。設計理由は
+[決定記録](design/decisions.md)、意図的な未指定事項は
+[未決事項](design/open-questions.md)を参照する。
 
 ## 文書の役割
 
