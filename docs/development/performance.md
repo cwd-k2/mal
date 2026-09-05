@@ -140,6 +140,27 @@ optimizerへ渡せる。malの`Ptr`はunaligned accessとaliasを許し、extern
 memory側を進めるなら、まずalias/alignmentを表現する新しいlanguage/extern contractが必要かを仕様変更として判断し、C emitter
 だけで事実を仮定しない。
 
+### 間接callとproduct result
+
+代表workloadの未最適化Cにはprogram entryの間接callと、productを返すknown callが各1箇所ある。`-O2`後はentryが
+main functionへのdirect callになり、productを返すcalleeもcallerへinlineされるため、どちらの境界も残らない。独立した
+synthetic programでも、top-level functionのlocal aliasと、直前に構築して呼ぶcapturing closureはcode pointer、environment、
+environment allocationを含めて除去された。
+
+runtimeの条件で複数のfunction valueから選択するsynthetic programでは、最適化後もcode/environment pairと間接callが残った。
+このcallをdirect化するには、選択分岐の各armへcallを複製するか、function argumentを受けるcalleeを候補ごとにcloneする
+defunctionalizationが必要になる。現在のIRは候補集合、call frequency、specialization budgetを持たず、代表workloadのhot pathにも
+間接callはない。一律の分岐複製はcode sizeとinstruction cacheを悪化させ得るため採用しない。
+
+product resultはtarget C ABIへ委ねた場合、小さい2-scalar productはcalleeをinlineしない設定でもLLVM上の2 register valueになった。
+一方、inline thresholdを超える12-scalar productは96-byteのcaller-owned `sret`領域へcalleeが直接書き込んだ。後者へfield別の
+out parameter entryを追加しても、全fieldを使うcallではwriteを減らせない。使用fieldだけを返すspecializationはcallee内のeffectを
+維持したresult-use analysisとfunction cloningを必要とし、単なるproduct ABIの改善ではない。
+
+将来これらを再検討する条件は、最適化後のprofileで間接callまたはlarge `sret`がhotであること、独立設計のsynthetic regressionで
+構造を固定できること、closure共通entryをfallbackとして残しつつclone数を制限できることの三点とする。それまではoptimizerが
+既に除去するalias追跡を中間表現へ追加せず、product result用entryも増やさない。
+
 ## 検証
 
 通常のcompiler変更はrepository rootからpinned environmentで次を実行する。

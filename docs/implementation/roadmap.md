@@ -18,7 +18,7 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 | M5 | Complete | strict `Float32` / `Float64` profile |
 | R0 | Complete | v0.4 conformanceとrelease readiness |
 | M6 | Complete | v0.5の型なし`Ptr`とnumeric scalar memory primitive |
-| M7 | Active | generated Cのcost削減とpublic buildの最適化contract |
+| M7 | Complete | generated Cのcost削減とpublic buildの最適化contract |
 
 ## M7: generated-C performance
 
@@ -35,7 +35,7 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
    materializationとcall boundaryを一つずつ調査する。
 5. 各変更後にgenerated Cの構造、native behavior、代表benchmarkを再検証する。
 
-### 進捗
+### 完了済み
 
 - top-level functionのgenerated C宣言・定義へsource binding名のcommentを残し、profile結果を追跡可能にした。
 - memory runtimeを使用したoffset/load/store helperだけに限定し、strict optionと`-O2`の併用を妨げる
@@ -51,6 +51,9 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
 - generated Cを型とoperationごとに横断監査し、`-O2`後の代表hot pathでは`Unit`、`Ptr`、ANF temporary、known-call
   productの物理表現が除去されることを確認した。一般sumのtag、動的closureの間接call、unalignedかつalias可能な`Ptr`
   accessは意味またはABI contractに必要なため、一律のscalar化や不正なalias/alignment annotationは行わない。
+- 間接callとproduct resultを追加監査し、local aliasと非escaping closure、代表workloadのproduct resultはC optimizerが
+  除去することを確認した。runtimeに選択されるclosureとlarge product resultのspecializationはfunction cloningを必要とし、
+  現在のprofileにhotな該当箇所がないためM7では導入しない。
 
 ### Done
 
