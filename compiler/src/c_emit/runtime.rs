@@ -1,5 +1,6 @@
 use super::body::RuntimeNeeds;
 
+pub(super) mod memory;
 mod numeric;
 
 use self::numeric::{
@@ -36,8 +37,12 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.string_at {
         output.push_str(RUNTIME_STRING_AT);
     }
-    if needs.memory {
-        output.push_str(RUNTIME_MEMORY);
+    if needs.memory_offset || needs.memory_load != 0 || needs.memory_store != 0 {
+        output.push_str(&memory::emit(
+            needs.memory_offset,
+            needs.memory_load,
+            needs.memory_store,
+        ));
     }
     if needs.float_to_integer != 0 {
         output.push_str(&emit_float_to_integer(needs.float_to_integer));
@@ -48,4 +53,3 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
 const RUNTIME_CORE: &str = include_str!("runtime/core.c");
 const RUNTIME_STRING_EQUALITY: &str = include_str!("runtime/string_equal.c");
 const RUNTIME_STRING_AT: &str = include_str!("runtime/string_at.c");
-const RUNTIME_MEMORY: &str = include_str!("runtime/memory.c");

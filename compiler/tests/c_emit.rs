@@ -573,6 +573,40 @@ MalPtr mal_ext_memory(MalContext *context) {
 }
 
 #[test]
+fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
+    let generated = emit(
+        "extern memory :: Unit -> Ptr;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           pointer := extern memory();\n\
+           storeInt64(pointer, 42i64);\n\
+           return Int32(loadInt64(pointer) - 42i64);\n\
+         };",
+    )
+    .expect("emit selective memory helpers");
+
+    assert!(generated.source.contains("mal_load_int64"));
+    assert!(generated.source.contains("mal_store_int64"));
+    assert!(!generated.source.contains("mal_ptr_offset"));
+    assert!(!generated.source.contains("mal_load_int8"));
+    assert!(!generated.source.contains("mal_store_float64"));
+
+    let fixture = NativeFixture::new("selective-memory-runtime");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+
+MalPtr mal_ext_memory(MalContext *context) {
+    static uint8_t bytes[8];
+    (void)context;
+    return (MalPtr){ .address = bytes };
+}
+"#,
+        &["-O2"],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     let source = "Request :: (Int32, (UInt8, Int32));\n\
          Response :: [Unit, (Int32, Int32)];\n\

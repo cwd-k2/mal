@@ -1,7 +1,8 @@
-use crate::check::ast::{MemoryPrimitive, MemoryScalar, Type};
+use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{Atom, AtomKind, Operation, Reference};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 
+use crate::c_emit::runtime::memory::{scalar_mask, scalar_name};
 use crate::c_emit::scalar::integer_type;
 
 use super::{BodyEmitter, function_name, value_name};
@@ -40,19 +41,25 @@ impl BodyEmitter<'_> {
                 primitive,
                 argument,
             } => {
-                self.needs.memory = true;
                 let argument = self.emit_atom(argument);
                 match primitive {
-                    MemoryPrimitive::Offset => format!(
-                        "mal_ptr_offset(mal_context, {argument}.field_0, {argument}.field_1)"
-                    ),
-                    MemoryPrimitive::Load(scalar) => {
-                        format!("mal_load_{}({argument})", memory_scalar_name(*scalar))
+                    MemoryPrimitive::Offset => {
+                        self.needs.memory_offset = true;
+                        format!(
+                            "mal_ptr_offset(mal_context, {argument}.field_0, {argument}.field_1)"
+                        )
                     }
-                    MemoryPrimitive::Store(scalar) => format!(
-                        "mal_store_{}({argument}.field_0, {argument}.field_1)",
-                        memory_scalar_name(*scalar)
-                    ),
+                    MemoryPrimitive::Load(scalar) => {
+                        self.needs.memory_load |= scalar_mask(*scalar);
+                        format!("mal_load_{}({argument})", scalar_name(*scalar))
+                    }
+                    MemoryPrimitive::Store(scalar) => {
+                        self.needs.memory_store |= scalar_mask(*scalar);
+                        format!(
+                            "mal_store_{}({argument}.field_0, {argument}.field_1)",
+                            scalar_name(*scalar)
+                        )
+                    }
                 }
             }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
@@ -312,21 +319,6 @@ impl BodyEmitter<'_> {
             }
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
         }
-    }
-}
-
-fn memory_scalar_name(scalar: MemoryScalar) -> &'static str {
-    match scalar {
-        MemoryScalar::Int8 => "int8",
-        MemoryScalar::Int16 => "int16",
-        MemoryScalar::Int32 => "int32",
-        MemoryScalar::Int64 => "int64",
-        MemoryScalar::UInt8 => "uint8",
-        MemoryScalar::UInt16 => "uint16",
-        MemoryScalar::UInt32 => "uint32",
-        MemoryScalar::UInt64 => "uint64",
-        MemoryScalar::Float32 => "float32",
-        MemoryScalar::Float64 => "float64",
     }
 }
 

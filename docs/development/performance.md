@@ -74,6 +74,12 @@ branch-heavyなheap workloadは
 `-O2`後もdirect Cの約1.64倍であり、branch、heap entry、accessorが組み合わさるhot pathにはlowering上の差が残る。
 short DPの`-O2`前後が同程度であることだけから、特定のoptimizationが無効だとは判断しない。
 
+`-O2 -pg`の関数別計測では、directionごとのrelaxationが約79%、それを呼ぶshortest-path loop本体が約19%を占め、
+inputとallocationはsampling粒度未満だった。Clangのoptimization reportではscalar memory helperとwrap helperはhot functionへ
+inlineされており、relaxation function自体はinline costがthresholdを超えてcall boundaryが残った。memory runtimeはその後、
+使用したoffset/load/store helperだけを生成するようにし、strict warning optionと`-O2`を同時に使えることをfocused testで
+確認した。
+
 ## 次の担当者が行う順序
 
 ### 1. local fixtureを固定する
