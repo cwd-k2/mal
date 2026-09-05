@@ -525,6 +525,34 @@ fn rejects_effectful_top_level_initializers() {
 }
 
 #[test]
+fn checks_top_level_and_local_self_recursion_against_the_annotation() {
+    let program = check_ok(
+        "count :: Int64 -> Int64 := \\(n :: Int64) {\n\
+           return if (n == 0) then { 0 } else { count(n - 1) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
+             return if (n == 0) then { 0 } else { local(n - 1) };\n\
+           };\n\
+           return local(10);\n\
+         };",
+    );
+
+    for index in [0, 1] {
+        let ExpressionKind::Lambda(lambda) = &top_binding(&program, index).value.kind else {
+            panic!("expected lambda");
+        };
+        assert!(lambda.self_binding.is_some());
+    }
+}
+
+#[test]
+fn rejects_recursive_lambda_that_disagrees_with_its_annotation() {
+    let error = check_error("looping :: Int32 -> Int32 := \\(n :: Int64) { return looping(n); };");
+    assert_eq!(error.message, "type mismatch");
+}
+
+#[test]
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
         "make :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\

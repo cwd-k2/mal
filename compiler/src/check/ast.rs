@@ -138,6 +138,7 @@ pub enum ExpressionKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub id: LambdaId,
+    pub self_binding: Option<ValueBinding>,
     pub captures: Vec<Capture>,
     pub parameters: Vec<Parameter>,
     pub body: LambdaBody,

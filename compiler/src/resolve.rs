@@ -27,6 +27,7 @@ struct Resolver {
     externals: HashMap<String, ExternalBinding>,
     value_scopes: Vec<HashMap<String, ValueBinding>>,
     current_lambda: Option<LambdaId>,
+    recursive_lambda: Option<(LambdaId, ValueId)>,
     next_type: u32,
     next_value: u32,
     next_external: u32,
@@ -46,6 +47,7 @@ impl Resolver {
             externals: HashMap::new(),
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
+            recursive_lambda: None,
             next_type: 11,
             next_value: 4,
             next_external: 0,
@@ -189,6 +191,27 @@ impl Resolver {
             .as_ref()
             .map(|ty| self.resolve_type(ty))
             .transpose()?;
+
+        if annotation.is_some()
+            && let crate::ast::Pattern::Name(name) = &binding.pattern.kind
+            && let crate::ast::Expression::Lambda(lambda) = &binding.value.kind
+        {
+            let declared = self.declare_value(name, owner)?;
+            let value = crate::ast::Node::new(
+                ast::Expression::Lambda(
+                    self.resolve_lambda_with_self(lambda, Some(declared.clone()))?,
+                ),
+                binding.value.span,
+            );
+            let pattern =
+                crate::ast::Node::new(ast::Pattern::Binding(declared), binding.pattern.span);
+            return Ok(ast::Binding {
+                pattern,
+                annotation,
+                value,
+            });
+        }
+
         let value = self.resolve_expression(&binding.value)?;
         let pattern = self.declare_pattern(&binding.pattern, owner)?;
         Ok(ast::Binding {

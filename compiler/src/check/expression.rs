@@ -199,6 +199,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Lambda(Lambda {
                 id: lambda.id,
+                self_binding: lambda.self_binding.clone(),
                 captures,
                 parameters,
                 body: LambdaBody {

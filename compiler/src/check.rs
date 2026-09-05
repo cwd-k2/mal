@@ -231,6 +231,15 @@ impl Checker {
             .as_ref()
             .map(|ty| self.expand_type(ty))
             .transpose()?;
+        if let (
+            Some(annotation),
+            resolved::Pattern::Binding(pattern_binding),
+            resolved::Expression::Lambda(lambda),
+        ) = (&annotation, &binding.pattern.kind, &binding.value.kind)
+            && lambda.self_binding.as_ref().map(|binding| binding.id) == Some(pattern_binding.id)
+        {
+            self.values.insert(pattern_binding.id, annotation.clone());
+        }
         let value = self.check_expression(&binding.value, annotation.as_ref())?;
         let pattern = self.check_pattern(&binding.pattern, &value.ty)?;
         Ok(Binding {

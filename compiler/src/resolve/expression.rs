@@ -93,6 +93,14 @@ impl Resolver {
     }
 
     fn resolve_lambda(&mut self, lambda: &ast::Lambda) -> Result<Lambda, Diagnostic> {
+        self.resolve_lambda_with_self(lambda, None)
+    }
+
+    pub(super) fn resolve_lambda_with_self(
+        &mut self,
+        lambda: &ast::Lambda,
+        self_binding: Option<super::ast::ValueBinding>,
+    ) -> Result<Lambda, Diagnostic> {
         let mut seen = HashSet::new();
         let mut sources = Vec::with_capacity(lambda.captures.len());
         for capture in &lambda.captures {
@@ -130,7 +138,9 @@ impl Resolver {
 
         let id = self.allocate_lambda();
         let outer_lambda = self.current_lambda;
+        let outer_recursive_lambda = self.recursive_lambda;
         self.current_lambda = Some(id);
+        self.recursive_lambda = self_binding.as_ref().map(|binding| (id, binding.id));
         self.push_scope();
         let result = (|| {
             let mut captures = Vec::with_capacity(sources.len());
@@ -158,6 +168,7 @@ impl Resolver {
             let body = self.resolve_lambda_body(&lambda.body)?;
             Ok(Lambda {
                 id,
+                self_binding,
                 captures,
                 parameters,
                 body,
@@ -165,6 +176,7 @@ impl Resolver {
         })();
         self.pop_scope();
         self.current_lambda = outer_lambda;
+        self.recursive_lambda = outer_recursive_lambda;
         result
     }
 
@@ -236,6 +248,7 @@ impl Resolver {
             .ok_or_else(|| self.unknown(name, "value"))?;
         if let ValueOwner::Lambda(owner) = binding.owner
             && Some(owner) != self.current_lambda
+            && self.recursive_lambda != self.current_lambda.map(|lambda| (lambda, binding.id))
         {
             return Err(
                 Diagnostic::error(format!("value `{}` is not captured", name.text))

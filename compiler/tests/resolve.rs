@@ -221,6 +221,74 @@ fn local_bindings_enter_scope_only_after_their_initializer() {
 }
 
 #[test]
+fn resolves_annotated_direct_lambda_self_references() {
+    let program = resolve_ok(
+        "top :: Int64 -> Int64 := \\(n :: Int64) { return top(n); };\n\
+         main := \\() {\n\
+           local :: Int64 -> Int64 := \\(n :: Int64) { return local(n); };\n\
+           return 0Int32;\n\
+         };",
+    );
+
+    let top = top_binding(&program.items[0]);
+    let resolved::Pattern::Binding(top_value_binding) = &top.pattern.kind else {
+        panic!("expected top-level name pattern");
+    };
+    let resolved::Expression::Lambda(top_lambda) = &top.value.kind else {
+        panic!("expected top-level lambda");
+    };
+    assert_eq!(
+        top_lambda.self_binding.as_ref().map(|binding| binding.id),
+        Some(top_value_binding.id)
+    );
+
+    let main = top_binding(&program.items[1]);
+    let resolved::Expression::Lambda(main_lambda) = &main.value.kind else {
+        panic!("expected main lambda");
+    };
+    let resolved::BodyItem::Binding(local) = &main_lambda.body.items[0] else {
+        panic!("expected local binding");
+    };
+    let resolved::Pattern::Binding(local_binding) = &local.kind.pattern.kind else {
+        panic!("expected local name pattern");
+    };
+    let resolved::Expression::Lambda(local_lambda) = &local.kind.value.kind else {
+        panic!("expected local lambda");
+    };
+    assert_eq!(
+        local_lambda.self_binding.as_ref().map(|binding| binding.id),
+        Some(local_binding.id)
+    );
+}
+
+#[test]
+fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
+    let cases = [
+        ("value := \\() { return value(); };", "value"),
+        (
+            "value :: Unit -> Unit := (\\() { return value(); });",
+            "value",
+        ),
+        ("value :: Unit := value;", "value"),
+        (
+            "(first, second) :: (Unit -> Unit, Unit) := (\\() { return first(); }, ());",
+            "first",
+        ),
+        (
+            "main := \\() { local := \\() { return local(); }; return 0Int32; };",
+            "local",
+        ),
+    ];
+    for (text, name) in cases {
+        assert_eq!(
+            resolve_error(text).message,
+            format!("unknown value `{name}`"),
+            "input: {text}"
+        );
+    }
+}
+
+#[test]
 fn rejects_an_unlisted_outer_local_reference() {
     let error = resolve_error(
         "outer := \\(x :: Int32) {\n\
