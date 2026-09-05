@@ -14,6 +14,7 @@ mod control;
 mod expression;
 mod float;
 mod integer;
+mod operator;
 mod product;
 mod string;
 mod types;
