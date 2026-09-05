@@ -40,6 +40,7 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
 - top-level functionのgenerated C宣言・定義へsource binding名のcommentを残し、profile結果を追跡可能にした。
 - memory runtimeを使用したoffset/load/store helperだけに限定し、strict optionと`-O2`の併用を妨げる
   unused-function errorを除去した。
+- strict float optionを維持した`-O2`をpublic `build`の既定にし、全native testとchecked-in exampleで検証した。
 
 ### Done
 

@@ -9,6 +9,19 @@ use crate::source::{FileId, SourceFile};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
+const C_COMPILER_OPTIONS: &[&str] = &[
+    "-std=c11",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-frounding-math",
+    "-fexcess-precision=standard",
+];
+
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
     checked_program(&source).map(|_| ())
@@ -44,17 +57,7 @@ pub fn build(
 
     let compiler = std::env::var_os("CC").unwrap_or_else(|| OsString::from("clang"));
     let result = Command::new(&compiler)
-        .args([
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Werror",
-            "-pedantic",
-            "-fno-fast-math",
-            "-ffp-contract=off",
-            "-frounding-math",
-            "-fexcess-precision=standard",
-        ])
+        .args(C_COMPILER_OPTIONS)
         .arg("-I")
         .arg(temporary.path())
         .arg(&generated_path)
@@ -178,3 +181,27 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+#[cfg(test)]
+mod tests {
+    use super::C_COMPILER_OPTIONS;
+
+    #[test]
+    fn public_build_uses_optimization_with_the_strict_float_profile() {
+        assert_eq!(
+            C_COMPILER_OPTIONS,
+            [
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-pedantic",
+                "-O2",
+                "-fno-fast-math",
+                "-ffp-contract=off",
+                "-frounding-math",
+                "-fexcess-precision=standard",
+            ]
+        );
+    }
+}

@@ -29,7 +29,7 @@ Hyperfineをshellなし、2回以上のwarmup、10回以上の反復で実行し
 
 | Variant | 内容 |
 |---|---|
-| `solution` | public `malc build`。現在のdriverはC optimization optionを渡さない |
+| `solution-before` | 調査開始時のpublic `malc build`。driverはC optimization optionを渡していなかった |
 | `generated-o2` | `malc emit-c`の出力を`clang -std=c11 -O2`でcompile |
 | `baseline` | mal版と同じalgorithmの単純なC実装を`clang -O2`でcompile |
 
@@ -37,7 +37,7 @@ Hyperfineをshellなし、2回以上のwarmup、10回以上の反復で実行し
 対象の3 workloadはfloatを使わない。public buildへ`-O2`を採用する判断には、別途strict float optionを同時に指定した
 native testが必要である。
 
-| Workload | Maximum-order shape | `solution` | `generated-o2` | `baseline` |
+| Workload | Maximum-order shape | `solution-before` | `generated-o2` | `baseline` |
 |---|---|---:|---:|---:|
 | short DP | monotonic queueを使うbounded DP | 4.3 ms | 4.3 ms | 3.0 ms |
 | branch-heavy heap | direction-state shortest pathのlocal maximum-order input | 875.2 ms | 390.1 ms | 238.5 ms |
@@ -49,6 +49,10 @@ short DPは実行時間が短くprocess起動とinputの比率が大きいため
 `-O2` executableのtext sectionはshort DPが6215 bytes対2915 bytes、branch-heavy heapが7523 bytes対3978 bytes、
 numeric transformが7866 bytes対4653 bytesで、いずれも左がgenerated C、右がdirect Cである。code sizeだけを
 原因とはみなさないが、runtime check、tagged control flow、specialized product typeが残る量の補助指標にはなる。
+
+public `build`へstrict float optionと同時に`-O2`を採用した後、`CC=clang`を明示して同じmaximum-order inputを
+warmup 3回、10回反復で再測定した。public build対direct Cの比率はbranch-heavy heapが約1.62、numeric transformが
+約1.03だった。絶対時間はmachineの状態で変動したため、初回tableと混ぜず比率だけを現在の比較値とする。
 
 localのsource、input、expected output、direct C、generated C、Hyperfine JSONは`.scratch/`に置き、Git管理しない。
 競技programming由来の問題文、固有名、source、sample、input、expected outputをrepositoryへ昇格しない。compiler

@@ -46,8 +46,13 @@ with-env { CC: /path/to/clang } {
 ```
 
 `CC`は一つの実行ファイルを表し、optionを含むshell commandとして分割・評価しない。代替compilerは`malc`が
-渡すC11、warning、strict floating-point optionを受理し、Clangと同じtarget ABIで全linker inputを扱う必要が
+渡すC11、warning、`-O2`、strict floating-point optionを受理し、Clangと同じtarget ABIで全linker inputを扱う必要が
 ある。v0.5にはcompiler optionを追加するCLIはない。
+
+`build`はgenerated CとC source形式のlinker inputを`-O2`でcompileする。これはpublic buildの生成物policyであり、
+言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
+`-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
+`emit-c`はC sourceだけを生成するため、利用者がcompileするときに同じstrict floating-point profileを保つ必要がある。
 
 C compilerを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
