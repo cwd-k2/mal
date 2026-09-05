@@ -19,6 +19,7 @@ macro_rules! c_line {
 
 mod body;
 mod header;
+mod host_signature;
 mod runtime;
 mod scalar;
 mod text;
@@ -76,7 +77,9 @@ pub fn emit_header(program: &Program) -> String {
 }
 
 pub fn emit_host(program: &Program) -> String {
-    header::emit_host(program)
+    let mut types = TypeRegistry::default();
+    types.collect_program(program);
+    header::emit_host(program, &types)
 }
 
 const FLOAT_TARGET_PROFILE: &str = "#if defined(__clang__)\n#pragma STDC FENV_ACCESS ON\n#pragma STDC FP_CONTRACT OFF\n#endif\n\n_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\");\n_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\");\n_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\");\n_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\");\n#if defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1\n#error \"mal requires float subnormals\"\n#endif\n#if defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1\n#error \"mal requires double subnormals\"\n#endif\n\n";

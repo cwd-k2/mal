@@ -43,6 +43,10 @@ fn compile_and_run(source: &str, host: &str) -> std::process::Output {
 const PRINT_HOST: &str = r#"#include "program.mal.h"
 #include <stdio.h>
 
+#if MAL_HAS_EXTERN_printInt32 != 1
+#error "missing printInt32 capability"
+#endif
+
 MAL_DEFINE_printInt32(context, value) {
     printf("%d\n", value);
 }

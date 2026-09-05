@@ -49,10 +49,19 @@ MalString mal_string_copy(
 
 `MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_string_copy`はreference runtimeが提供する。
 
-generated headerは各external operationに`MAL_DEFINE_<name>` macroも生成する。このmacroは先頭にcontextの
-identifier、続いてsource-level parameterに対応するidentifierを受け取り、正しいC function definition headerへ展開する。
-context parameterにはgenerated headerの`MAL_MAYBE_UNUSED`を付けるため、implementationがruntime serviceを使わない場合に
-unused castを必要としない。macroを使わず、宣言された`mal_ext_<name>`を直接定義してもよい。
+generated headerは各external operationに`MAL_HAS_EXTERN_<name>`を値`1`で定義し、`MAL_DEFINE_<name>` macroも生成する。
+前者は複数programで共有するhost adapterが、そのprogramにoperationが存在するかをpreprocessorで判定するために使う。
+後者は先頭にcontextのidentifier、続いてsource-level parameterに対応するidentifierを受け取り、正しいC function
+definition headerへ展開する。context parameterにはgenerated headerの`MAL_MAYBE_UNUSED`を付けるため、implementationが
+runtime serviceを使わない場合にunused castを必要としない。macroを使わず、宣言された`mal_ext_<name>`を直接定義してもよい。
+
+```c
+#ifdef MAL_HAS_EXTERN_printInt32
+MAL_DEFINE_printInt32(context, value) {
+    /* ... */
+}
+#endif
+```
 
 `MalUnit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 

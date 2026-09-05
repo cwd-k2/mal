@@ -118,7 +118,9 @@ fn emit_header_writes_a_standalone_host_interface() {
     );
     let header = std::fs::read_to_string(output_path).unwrap();
     assert!(header.contains("typedef uint64_t MalType_Count;"));
+    assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(context, value)"));
+    assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(!directory.join("generated/program.c").exists());
 }
 

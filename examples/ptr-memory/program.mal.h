@@ -28,6 +28,7 @@ static inline MalPtr mal_ptr_from_address(uint8_t *address) {
 static inline uint8_t *mal_ptr_address(MalPtr value) {
     return value.address;
 }
+
 /* External operations */
 
 MalPtr mal_ext_memory(
@@ -36,6 +37,7 @@ MalPtr mal_ext_memory(
 
 /* External definition helpers */
 
+#define MAL_HAS_EXTERN_memory 1
 #define MAL_DEFINE_memory(context) \
     MalPtr mal_ext_memory( \
         MalContext *context MAL_MAYBE_UNUSED \

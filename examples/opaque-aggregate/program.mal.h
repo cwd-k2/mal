@@ -133,17 +133,22 @@ uint64_t mal_ext_handleBits(
 
 /* External definition helpers */
 
+#define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(context, value) \
     MalOpaque_Mem mal_ext_allocate( \
         MalContext *context MAL_MAYBE_UNUSED, \
         uint64_t value \
     )
+
+#define MAL_HAS_EXTERN_resize 1
 #define MAL_DEFINE_resize(context, argument_0, argument_1) \
     MalType_Response mal_ext_resize( \
         MalContext *context MAL_MAYBE_UNUSED, \
         MalOpaque_Mem argument_0, \
         uint64_t argument_1 \
     )
+
+#define MAL_HAS_EXTERN_handleBits 1
 #define MAL_DEFINE_handleBits(context, value) \
     uint64_t mal_ext_handleBits( \
         MalContext *context MAL_MAYBE_UNUSED, \
