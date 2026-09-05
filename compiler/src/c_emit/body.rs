@@ -569,5 +569,5 @@ fn tail_binding(block: &Block) -> Option<&Binding> {
 }
 
 fn line(output: &mut String, indent: usize, text: &str) {
-    writeln!(output, "{}{text}", "    ".repeat(indent)).unwrap();
+    c_line!(output, indent, "{text}");
 }

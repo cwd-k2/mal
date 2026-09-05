@@ -1,11 +1,25 @@
-use std::fmt::Write;
-
 use crate::check::ast::Type;
 use crate::closure::ast::{Program, TopLevelPattern};
 use crate::diagnostic::Diagnostic;
 
+macro_rules! c_write {
+    ($output:expr, $($arguments:tt)*) => {{
+        use std::fmt::Write as _;
+        write!($output, $($arguments)*).expect("writing generated C to a String cannot fail");
+    }};
+}
+
+macro_rules! c_line {
+    ($output:expr, $indent:expr, $($arguments:tt)*) => {{
+        crate::c_emit::text::indent($output, $indent);
+        c_write!($output, $($arguments)*);
+        $output.push('\n');
+    }};
+}
+
 mod body;
 mod runtime;
+mod text;
 mod types;
 
 use self::body::BodyEmitter;
@@ -27,7 +41,7 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     let body = emitter.emit(main);
 
     let mut source = String::new();
-    writeln!(source, "#include \"{GENERATED_HEADER_NAME}\"").unwrap();
+    c_line!(&mut source, 0, "#include \"{GENERATED_HEADER_NAME}\"");
     source.push_str("#include <float.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n");
     if types.uses_float() {
         source.push_str(FLOAT_TARGET_PROFILE);
@@ -92,20 +106,19 @@ fn emit_header(program: &Program, types: &TypeRegistry) -> String {
         } else {
             types.c_type(&external.result)
         };
-        write!(
+        c_write!(
             output,
             "{result} mal_ext_{}(MalContext *context",
             external.name
-        )
-        .unwrap();
+        );
         match &external.parameter {
             Type::Unit => {}
             Type::Product(elements) => {
                 for (index, element) in elements.iter().enumerate() {
-                    write!(output, ", {} argument_{index}", types.c_type(element)).unwrap();
+                    c_write!(output, ", {} argument_{index}", types.c_type(element));
                 }
             }
-            parameter => write!(output, ", {} value", types.c_type(parameter)).unwrap(),
+            parameter => c_write!(output, ", {} value", types.c_type(parameter)),
         }
         output.push_str(");\n");
     }

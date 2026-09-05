@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
 
@@ -77,11 +75,11 @@ impl TypeRegistry {
     pub(super) fn header_declarations(&self) -> String {
         let mut output = String::new();
         for name in &self.opaque_names {
-            writeln!(
-                output,
+            c_line!(
+                &mut output,
+                0,
                 "typedef struct {{ uintptr_t bits; }} MalOpaque_{name};"
-            )
-            .unwrap();
+            );
         }
         if !self.opaque_names.is_empty() {
             output.push('\n');
@@ -114,7 +112,11 @@ impl TypeRegistry {
                 | Type::Float64
                 | Type::String => unreachable!(),
             };
-            writeln!(output, "typedef struct {kind}_{index} {kind}_{index};").unwrap();
+            c_line!(
+                &mut output,
+                0,
+                "typedef struct {kind}_{index} {kind}_{index};"
+            );
         }
         if !output.is_empty() {
             output.push('\n');
@@ -125,39 +127,39 @@ impl TypeRegistry {
             }
             match ty {
                 Type::Product(elements) => {
-                    writeln!(output, "struct MalProduct_{index} {{").unwrap();
+                    c_line!(&mut output, 0, "struct MalProduct_{index} {{");
                     for (element_index, element) in elements.iter().enumerate() {
-                        writeln!(
-                            output,
-                            "    {} field_{element_index};",
+                        c_line!(
+                            &mut output,
+                            1,
+                            "{} field_{element_index};",
                             self.c_type(element)
-                        )
-                        .unwrap();
+                        );
                     }
                     output.push_str("};\n\n");
                 }
                 Type::Sum(members) => {
-                    writeln!(output, "struct MalSum_{index} {{").unwrap();
+                    c_line!(&mut output, 0, "struct MalSum_{index} {{");
                     output.push_str("    uint32_t tag;\n    union {\n");
                     for (member_index, member) in members.iter().enumerate() {
-                        writeln!(
-                            output,
-                            "        {} variant_{member_index};",
+                        c_line!(
+                            &mut output,
+                            2,
+                            "{} variant_{member_index};",
                             self.c_type(member)
-                        )
-                        .unwrap();
+                        );
                     }
                     output.push_str("    } payload;\n};\n\n");
                 }
                 Type::Function { parameter, result } => {
-                    writeln!(output, "struct MalClosure_{index} {{").unwrap();
-                    writeln!(
-                        output,
-                        "    {} (*call)(MalContext *, const void *, {});",
+                    c_line!(&mut output, 0, "struct MalClosure_{index} {{");
+                    c_line!(
+                        &mut output,
+                        1,
+                        "{} (*call)(MalContext *, const void *, {});",
                         self.c_type(result),
                         self.c_type(parameter)
-                    )
-                    .unwrap();
+                    );
                     output.push_str("    const void *environment;\n};\n\n");
                 }
                 Type::External { .. }
