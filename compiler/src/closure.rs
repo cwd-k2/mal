@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomKind, Binding, Block, EnvironmentField, ExternalOperation, ExternalType, Function,
-    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern, TypeAlias,
+    Atom, AtomKind, Binding, Block, EnvironmentField, Function, Operation, Parameter, Pattern,
+    Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -26,41 +26,13 @@ impl Converter {
 
     fn convert_program(mut self, program: &anf::Program) -> Program {
         let empty_environment = HashMap::new();
-        let externals = program
-            .externals
-            .iter()
-            .map(|external| ExternalOperation {
-                id: external.id,
-                name: external.name.clone(),
-                parameter: external.parameter.clone(),
-                parameter_aliases: external.parameter_aliases.clone(),
-                result: external.result.clone(),
-                result_alias: external.result_alias.clone(),
-                span: external.span,
-            })
-            .collect();
         let bindings = program
             .bindings
             .iter()
             .map(|binding| self.convert_top_level_binding(binding, &empty_environment))
             .collect();
         Program {
-            type_aliases: program
-                .type_aliases
-                .iter()
-                .map(|alias| TypeAlias {
-                    name: alias.name.clone(),
-                    ty: alias.ty.clone(),
-                })
-                .collect(),
-            external_types: program
-                .external_types
-                .iter()
-                .map(|external| ExternalType {
-                    name: external.name.clone(),
-                })
-                .collect(),
-            externals,
+            interface: program.interface.clone(),
             bindings,
             functions: self.functions,
             span: program.span,

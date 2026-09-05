@@ -33,3 +33,23 @@ fn emits_c_from_in_memory_source() {
     assert!(output.source.contains("int main(void)"));
     assert!(output.header.contains("MAL_C_ABI_VERSION"));
 }
+
+#[test]
+fn emits_host_stubs_with_a_validated_header_name() {
+    let source = SourceFile::new(
+        FileId::new(104),
+        "memory.mal",
+        "extern print :: String -> Unit;".into(),
+    );
+
+    let output = malc::pipeline::emit_host(&source, "custom.h").expect("host output");
+    assert!(output.starts_with("#include \"custom.h\"\n"));
+
+    let diagnostic =
+        malc::pipeline::emit_host(&source, "invalid\"name.h").expect_err("invalid quoted include");
+    assert!(
+        diagnostic
+            .message
+            .contains("not valid in a quoted C include")
+    );
+}

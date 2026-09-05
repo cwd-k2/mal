@@ -47,11 +47,11 @@ fn orders_primitive_operands_left_to_right() {
     assert_eq!(bindings.len(), 3);
     assert!(matches!(
         bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[0].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
     ));
     assert!(matches!(
         bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[1].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
     ));
     let Operation::PrimitiveBinary {
         operator: BinaryPrimitive::Add,
@@ -136,18 +136,18 @@ fn orders_primitive_branch_operands_before_selected_arm_effects() {
     assert_eq!(bindings.len(), 3);
     assert!(matches!(
         bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[0].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
     ));
     assert!(matches!(
         bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[1].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
     ));
     let Operation::PrimitiveBranch { then, .. } = &bindings[2].operation else {
         panic!("expected primitive branch");
     };
     assert!(matches!(
         then.bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[2].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[2].id
     ));
 }
 
@@ -197,11 +197,11 @@ fn evaluates_product_elements_left_to_right_before_construction() {
     let bindings = &top_lambda(&program, 0).body.bindings;
     assert!(matches!(
         bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[0].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
     ));
     assert!(matches!(
         bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.externals[1].id
+        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
     ));
     let Operation::Product(elements) = &bindings[2].operation else {
         panic!("expected product construction after its elements");

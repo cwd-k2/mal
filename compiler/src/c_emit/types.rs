@@ -16,11 +16,12 @@ impl TypeRegistry {
     pub(super) fn collect_program(&mut self, program: &closure::Program) {
         self.opaque_names.extend(
             program
+                .interface
                 .external_types
                 .iter()
                 .map(|external| external.name.clone()),
         );
-        for external in &program.externals {
+        for external in &program.interface.externals {
             self.collect_public_parameter(&external.parameter);
             self.collect_public(&external.result);
         }

@@ -1,38 +1,14 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
+use crate::core::ast::{BinaryPrimitive, ProgramInterface, UnaryPrimitive};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
-    pub type_aliases: Vec<TypeAlias>,
-    pub external_types: Vec<ExternalType>,
-    pub externals: Vec<ExternalOperation>,
+    pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
-    pub span: Span,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypeAlias {
-    pub name: String,
-    pub ty: Type,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ExternalType {
-    pub name: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ExternalOperation {
-    pub id: ExternalOperationId,
-    pub name: String,
-    pub parameter: Type,
-    pub parameter_aliases: Vec<Option<String>>,
-    pub result: Type,
-    pub result_alias: Option<String>,
     pub span: Span,
 }
 

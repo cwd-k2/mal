@@ -76,10 +76,22 @@ pub fn emit_header(program: &Program) -> String {
     header::emit(program, &types)
 }
 
-pub fn emit_host(program: &Program) -> String {
+pub fn emit_host(program: &Program, header_name: &str) -> Result<String, Diagnostic> {
+    if !is_valid_header_name(header_name) {
+        return Err(Diagnostic::error(
+            "generated host header name is not valid in a quoted C include",
+        ));
+    }
     let mut types = TypeRegistry::default();
     types.collect_program(program);
-    header::emit_host(program, &types)
+    Ok(header::emit_host(program, &types, header_name))
+}
+
+pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
+    !header_name.is_empty()
+        && !header_name
+            .chars()
+            .any(|character| character.is_control() || matches!(character, '"' | '\\'))
 }
 
 const FLOAT_TARGET_PROFILE: &str = "#if defined(__clang__)\n#pragma STDC FENV_ACCESS ON\n#pragma STDC FP_CONTRACT OFF\n#endif\n\n_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\");\n_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\");\n_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\");\n_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\");\n#if defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1\n#error \"mal requires float subnormals\"\n#endif\n#if defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1\n#error \"mal requires double subnormals\"\n#endif\n\n";

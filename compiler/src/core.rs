@@ -13,7 +13,8 @@ use self::primitive::lower_binary_primitive;
 
 use self::ast::{
     Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation, ExternalType, Lambda,
-    Parameter, Pattern, Program, TopLevelBinding, TypeAlias, UnaryPrimitive, ValueId,
+    Parameter, Pattern, Program, ProgramInterface, TopLevelBinding, TypeAlias, UnaryPrimitive,
+    ValueId,
 };
 
 pub fn lower(program: &checked::Program) -> Program {
@@ -66,9 +67,11 @@ impl Lowerer {
             }
         }
         Program {
-            type_aliases,
-            external_types,
-            externals,
+            interface: ProgramInterface {
+                type_aliases,
+                external_types,
+                externals,
+            },
             bindings,
             span: program.span,
         }

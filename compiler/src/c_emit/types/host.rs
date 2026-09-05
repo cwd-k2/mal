@@ -1,5 +1,5 @@
 use crate::check::ast::Type;
-use crate::closure::ast as closure;
+use crate::core::ast::TypeAlias;
 
 use super::{TypeRegistry, is_bool};
 
@@ -20,10 +20,7 @@ impl TypeRegistry {
         output
     }
 
-    pub(in crate::c_emit) fn header_alias_declarations(
-        &self,
-        aliases: &[closure::TypeAlias],
-    ) -> String {
+    pub(in crate::c_emit) fn header_alias_declarations(&self, aliases: &[TypeAlias]) -> String {
         let mut output = String::new();
         for alias in aliases {
             if self.is_host_type(&alias.ty) {
@@ -67,7 +64,7 @@ impl TypeRegistry {
         output
     }
 
-    pub(in crate::c_emit) fn header_alias_helpers(&self, aliases: &[closure::TypeAlias]) -> String {
+    pub(in crate::c_emit) fn header_alias_helpers(&self, aliases: &[TypeAlias]) -> String {
         let mut output = String::new();
         for alias in aliases {
             if !self.is_host_type(&alias.ty) {
@@ -98,12 +95,7 @@ impl TypeRegistry {
         }
     }
 
-    fn emit_product_constructor(
-        &self,
-        output: &mut String,
-        alias: &closure::TypeAlias,
-        elements: &[Type],
-    ) {
+    fn emit_product_constructor(&self, output: &mut String, alias: &TypeAlias, elements: &[Type]) {
         c_line!(
             output,
             0,
@@ -120,12 +112,7 @@ impl TypeRegistry {
         output.push_str("    };\n}\n\n");
     }
 
-    fn emit_product_accessors(
-        &self,
-        output: &mut String,
-        alias: &closure::TypeAlias,
-        elements: &[Type],
-    ) {
+    fn emit_product_accessors(&self, output: &mut String, alias: &TypeAlias, elements: &[Type]) {
         for (index, element) in elements.iter().enumerate() {
             c_line!(
                 output,
@@ -140,7 +127,7 @@ impl TypeRegistry {
         }
     }
 
-    fn emit_sum_helpers(&self, output: &mut String, alias: &closure::TypeAlias, members: &[Type]) {
+    fn emit_sum_helpers(&self, output: &mut String, alias: &TypeAlias, members: &[Type]) {
         for index in 0..members.len() {
             c_line!(
                 output,
@@ -181,7 +168,7 @@ impl TypeRegistry {
     fn emit_sum_constructor(
         &self,
         output: &mut String,
-        alias: &closure::TypeAlias,
+        alias: &TypeAlias,
         index: usize,
         member: &Type,
     ) {
@@ -218,7 +205,7 @@ impl TypeRegistry {
     fn emit_sum_accessors(
         &self,
         output: &mut String,
-        alias: &closure::TypeAlias,
+        alias: &TypeAlias,
         index: usize,
         member: &Type,
     ) {

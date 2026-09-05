@@ -47,10 +47,10 @@ fn preserves_type_alias_names_as_backend_metadata() {
          main :: Unit -> Int32 := \\() { 0; };",
     );
 
-    assert_eq!(program.type_aliases.len(), 1);
-    assert_eq!(program.type_aliases[0].name, "Flag");
-    assert_eq!(program.externals.len(), 1);
-    assert_eq!(program.externals[0].name, "choose");
+    assert_eq!(program.interface.type_aliases.len(), 1);
+    assert_eq!(program.interface.type_aliases[0].name, "Flag");
+    assert_eq!(program.interface.externals.len(), 1);
+    assert_eq!(program.interface.externals[0].name, "choose");
     assert_eq!(program.bindings.len(), 1);
     let TopLevelPattern::Binding { name, .. } = &program.bindings[0].pattern else {
         panic!("expected named top-level binding");
@@ -175,7 +175,7 @@ fn binds_both_bool_equality_operands_once_before_branching() {
     };
     assert!(matches!(
         first.value.kind,
-        ExpressionKind::ExternalCall { id, .. } if id == program.externals[0].id
+        ExpressionKind::ExternalCall { id, .. } if id == program.interface.externals[0].id
     ));
     let Pattern::Binding { id: first_id, .. } = first.pattern else {
         panic!("expected a synthetic left binding");
@@ -190,7 +190,7 @@ fn binds_both_bool_equality_operands_once_before_branching() {
     };
     assert!(matches!(
         second.value.kind,
-        ExpressionKind::ExternalCall { id, .. } if id == program.externals[1].id
+        ExpressionKind::ExternalCall { id, .. } if id == program.interface.externals[1].id
     ));
     let Pattern::Binding { id: second_id, .. } = second.pattern else {
         panic!("expected a synthetic right binding");

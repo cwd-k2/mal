@@ -145,6 +145,7 @@ fn emit_header_defaults_to_the_source_directory() {
 fn emit_host_prints_compilable_external_operation_stubs() {
     let directory = NativeFixture::new("driver-host");
     let source = directory.join("program.mal");
+    let header = directory.join("custom.h");
     directory.write(
         "program.mal",
         "Count :: UInt64;\n\
@@ -152,14 +153,32 @@ fn emit_host_prints_compilable_external_operation_stubs() {
          main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
     );
 
-    let header_output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
+    let header_output = directory.malc([
+        OsStr::new("emit-header"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        header.as_os_str(),
+    ]);
     assert!(header_output.status.success());
-    let output = directory.malc([OsStr::new("emit-host"), source.as_os_str()]);
+    let default_output = directory.malc([OsStr::new("emit-host"), source.as_os_str()]);
+    assert!(default_output.status.success());
+    assert!(
+        default_output
+            .stdout
+            .starts_with(b"#include \"program.mal.h\"\n")
+    );
+
+    let output = directory.malc([
+        OsStr::new("emit-host"),
+        source.as_os_str(),
+        OsStr::new("--header"),
+        OsStr::new("custom.h"),
+    ]);
 
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let host = String::from_utf8(output.stdout).unwrap();
-    assert!(host.starts_with("#include \"program.mal.h\"\n"));
+    assert!(host.starts_with("#include \"custom.h\"\n"));
     assert!(host.contains("MAL_DEFINE_increment(context, value)"));
     assert!(host.contains("(void)value;"));
     assert!(host.contains("external operation `increment` is not implemented"));

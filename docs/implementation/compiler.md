@@ -56,6 +56,9 @@ numeric separatorは各radixの有効なdigitに挟まれたsingle underscoreだ
 
 extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はextern-safe制約により拒否する。
 
+typed coreで確定したtype alias、external type、external operationからなる`ProgramInterface`は、ANFとclosure
+conversionで意味も表現も変えず共有する。各loweringは実行表現だけを変換し、host interfaceを複製または再解釈しない。
+
 ## desugaring と ANF
 
 複数parameter/argumentはproduct parameter/application、0 parameter/argumentは`Unit`へlowerする。blockの末尾式はbody resultへ、sequential bindingはnested letまたはlambda applicationへ落とせる。

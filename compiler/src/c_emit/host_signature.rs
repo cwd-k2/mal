@@ -1,5 +1,5 @@
 use crate::check::ast::Type;
-use crate::closure::ast::ExternalOperation;
+use crate::core::ast::ExternalOperation;
 
 use super::TypeRegistry;
 

@@ -1,6 +1,7 @@
 use crate::anf;
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Binding, Block, Operation, Pattern};
+use crate::core::ast::ExternalOperation;
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 
 use super::types::TypeRegistry;
@@ -72,8 +73,9 @@ impl<'a> BodyEmitter<'a> {
         }
     }
 
-    fn external(&self, id: ExternalOperationId) -> &closure::ExternalOperation {
+    fn external(&self, id: ExternalOperationId) -> &ExternalOperation {
         self.program
+            .interface
             .externals
             .iter()
             .find(|external| external.id == id)

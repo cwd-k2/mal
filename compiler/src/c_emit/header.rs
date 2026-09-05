@@ -4,6 +4,7 @@ use super::{TypeRegistry, host_signature::HostSignature};
 
 pub(super) fn emit(program: &Program, types: &TypeRegistry) -> String {
     let signatures: Vec<_> = program
+        .interface
         .externals
         .iter()
         .map(|external| HostSignature::new(external, types))
@@ -12,20 +13,20 @@ pub(super) fn emit(program: &Program, types: &TypeRegistry) -> String {
         "#ifndef MAL_PROGRAM_MAL_H\n#define MAL_PROGRAM_MAL_H\n\n#include <stdint.h>\n\n#define MAL_C_ABI_VERSION 0x000500u\n\n#if defined(__clang__) || defined(__GNUC__)\n#define MAL_MAYBE_UNUSED __attribute__((unused))\n#else\n#define MAL_MAYBE_UNUSED\n#endif\n\n/* Runtime API */\n\ntypedef struct MalContext MalContext;\ntypedef struct { uint8_t unused; } MalUnit;\ntypedef struct { const uint8_t *data; uint64_t length; } MalString;\ntypedef struct { uint8_t *address; } MalPtr;\n\n_Noreturn void mal_trap(MalContext *context, const char *message);\nMalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length);\n\nstatic inline MalPtr mal_ptr_from_address(uint8_t *address) {\n    return (MalPtr){ .address = address };\n}\n\nstatic inline uint8_t *mal_ptr_address(MalPtr value) {\n    return value.address;\n}\n",
     );
     let mut declarations = types.header_declarations();
-    declarations.push_str(&types.header_alias_declarations(&program.type_aliases));
+    declarations.push_str(&types.header_alias_declarations(&program.interface.type_aliases));
     if !declarations.is_empty() {
         begin_section(&mut output, "Host-visible types");
         output.push_str(&declarations);
     }
 
     let mut helpers = types.header_opaque_helpers();
-    helpers.push_str(&types.header_alias_helpers(&program.type_aliases));
+    helpers.push_str(&types.header_alias_helpers(&program.interface.type_aliases));
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.push_str(&helpers);
     }
 
-    if !program.externals.is_empty() {
+    if !program.interface.externals.is_empty() {
         begin_section(&mut output, "External operations");
         for signature in &signatures {
             emit_external_declaration(&mut output, signature);
@@ -47,9 +48,9 @@ fn begin_section(output: &mut String, title: &str) {
     output.push('\n');
 }
 
-pub(super) fn emit_host(program: &Program, types: &TypeRegistry) -> String {
-    let mut output = String::from("#include \"program.mal.h\"\n");
-    for external in &program.externals {
+pub(super) fn emit_host(program: &Program, types: &TypeRegistry, header_name: &str) -> String {
+    let mut output = format!("#include \"{header_name}\"\n");
+    for external in &program.interface.externals {
         let signature = HostSignature::new(external, types);
         output.push('\n');
         emit_macro_invocation(&mut output, &signature);

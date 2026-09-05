@@ -11,7 +11,7 @@ Usage:
   malc check <source.mal>
   malc format <source.mal>
   malc emit-header <source.mal> [--output <program.mal.h>]
-  malc emit-host <source.mal>
+  malc emit-host <source.mal> [--header <header-name>]
   malc emit-c <source.mal> --output <program.c>
   malc build <source.mal> --output <program> [--link <input>]...
 ";
@@ -90,15 +90,36 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
             }
         }
         [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
-        [command, source] if command == OsStr::new("emit-host") => {
-            match crate::driver::emit_host(PathBuf::from(source).as_path()) {
-                Ok(host) => Outcome::success(host),
-                Err(error) => Outcome::compile_error(error),
-            }
-        }
+        [command, rest @ ..] if command == OsStr::new("emit-host") => execute_emit_host(rest),
         [command, rest @ ..] if command == OsStr::new("emit-c") => execute_emit_c(rest),
         [command, rest @ ..] if command == OsStr::new("build") => execute_build(rest),
         _ => usage_error("unknown command or invalid arguments"),
+    }
+}
+
+fn execute_emit_host(arguments: &[OsString]) -> Outcome {
+    let (source, header_name) = match arguments {
+        [source] => (source, crate::c_emit::GENERATED_HEADER_NAME),
+        [source, option, header_name] if option == OsStr::new("--header") => {
+            let Some(header_name) = header_name.to_str() else {
+                return usage_error("emit-host header name must be valid UTF-8");
+            };
+            if !crate::c_emit::is_valid_header_name(header_name) {
+                return usage_error("emit-host header name is not valid in a quoted C include");
+            }
+            (source, header_name)
+        }
+        [_, option, _] => {
+            return usage_error(&format!(
+                "unknown emit-host option '{}'",
+                option.to_string_lossy()
+            ));
+        }
+        _ => return usage_error("emit-host requires a source path"),
+    };
+    match crate::driver::emit_host(PathBuf::from(source).as_path(), header_name) {
+        Ok(host) => Outcome::success(host),
+        Err(error) => Outcome::compile_error(error),
     }
 }
 
@@ -230,5 +251,17 @@ mod tests {
         ]));
         assert_eq!(outcome.status, ExitStatus::UsageError);
         assert!(outcome.stderr.contains("only be specified once"));
+    }
+
+    #[test]
+    fn rejects_header_names_that_cannot_be_quoted() {
+        let outcome = execute(args(&[
+            "emit-host",
+            "sample.mal",
+            "--header",
+            "invalid\"name.h",
+        ]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(outcome.stderr.contains("not valid in a quoted C include"));
     }
 }
