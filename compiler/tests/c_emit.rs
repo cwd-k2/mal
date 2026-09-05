@@ -95,6 +95,31 @@ fn executes_top_level_and_local_recursive_closures() {
 }
 
 #[test]
+fn emits_direct_calls_for_known_top_level_and_self_functions() {
+    let generated = emit(
+        "square :: Int64 -> Int64 := \\(value :: Int64) { return value * value; };\n\
+         factorial :: Int64 -> Int64 := \\(value :: Int64) {\n\
+           return if (value == 0i64) then { 1i64 } else { value * factorial(value - 1i64) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return Int32(square(factorial(3i64)) - 36i64); };",
+    )
+    .expect("emit direct calls");
+    assert!(
+        generated
+            .source
+            .contains("mal_function_0(mal_context, NULL,")
+    );
+    assert!(
+        generated
+            .source
+            .contains("mal_function_1(mal_context, mal_environment,")
+    );
+    let fixture = NativeFixture::new("direct-known-calls");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
     let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
            return if (remaining == 0) then { total } else {\n\

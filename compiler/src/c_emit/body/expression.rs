@@ -15,6 +15,13 @@ impl BodyEmitter<'_> {
         match operation {
             Operation::Atom(atom) => self.emit_atom(atom),
             Operation::Call { callee, argument } => {
+                if let Some((function, environment)) = self.direct_function(callee) {
+                    return format!(
+                        "{}(mal_context, {environment}, {})",
+                        function_name(function),
+                        self.emit_atom(argument)
+                    );
+                }
                 let callee = self.emit_atom(callee);
                 format!(
                     "{callee}.call(mal_context, {callee}.environment, {})",

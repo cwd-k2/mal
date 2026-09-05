@@ -77,6 +77,46 @@ impl<'a> BodyEmitter<'a> {
             .expect("closure conversion preserves external declarations")
     }
 
+    fn direct_function(&self, callee: &closure::Atom) -> Option<(LambdaId, &'static str)> {
+        match callee.kind {
+            closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
+                Some((function, "mal_environment"))
+            }
+            closure::AtomKind::Reference(closure::Reference::Binding(id)) => {
+                self.program.bindings.iter().find_map(|binding| {
+                    let closure::TopLevelPattern::Binding {
+                        id: top_level_id, ..
+                    } = binding.pattern
+                    else {
+                        return None;
+                    };
+                    if top_level_id != id {
+                        return None;
+                    }
+                    let closure::AtomKind::Reference(closure::Reference::Binding(result_id)) =
+                        binding.value.result.kind
+                    else {
+                        return None;
+                    };
+                    binding.value.bindings.iter().find_map(|value| {
+                        let closure::Pattern::Binding { id, .. } = value.pattern else {
+                            return None;
+                        };
+                        match &value.operation {
+                            closure::Operation::MakeClosure { function, captures }
+                                if id == result_id && captures.is_empty() =>
+                            {
+                                Some((*function, "NULL"))
+                            }
+                            _ => None,
+                        }
+                    })
+                })
+            }
+            _ => None,
+        }
+    }
+
     fn result_target(&mut self, pattern: &Pattern) -> String {
         match pattern {
             Pattern::Binding { id, .. } => value_name(*id),

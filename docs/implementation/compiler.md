@@ -92,6 +92,10 @@ String literalのdataは生成物のstatic storageへ置ける。hostからStrin
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
 
+call siteのcalleeがimmutableなtop-level lambdaまたは現在のself closureと静的に分かる場合、C backendは
+closureのfunction pointerを経由せず生成functionを直接callする。関数値として受け取ったcalleeとlocal closureは
+共通calling conventionを使う。この区別はsourceから観測できず、既知関数の細粒度call costを減らす。
+
 `Ptr`はC backendで`uint8_t *`をfieldに持つ`MalPtr`へlowerする。`offset`はbyte addressを進め、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
 runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
