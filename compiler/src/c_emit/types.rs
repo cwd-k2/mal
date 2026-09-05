@@ -290,7 +290,7 @@ impl TypeRegistry {
             Operation::StringLength { value } => self.collect_atom(value),
             Operation::StringAt { argument } => self.collect_atom(argument),
             Operation::ExternalCall { argument, .. }
-            | Operation::IntegerConversion { operand: argument }
+            | Operation::NumericConversion { operand: argument }
             | Operation::SumInjection {
                 value: argument, ..
             }

@@ -34,6 +34,9 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.string_at {
         output.push_str(RUNTIME_STRING_AT);
     }
+    if needs.float_to_integer != 0 {
+        output.push_str(&float_to_integer_runtime(needs.float_to_integer));
+    }
     output
 }
 
@@ -46,6 +49,55 @@ const RUNTIME_STRING_COPY: &str = "MalString mal_string_copy(MalContext *context
 const RUNTIME_STRING_EQUALITY: &str = "static uint8_t mal_string_equal(MalString left, MalString right) {\n    if (left.length != right.length) { return UINT8_C(0); }\n    for (uint64_t index = UINT64_C(0); index < left.length; index += UINT64_C(1)) {\n        if (left.data[index] != right.data[index]) { return UINT8_C(0); }\n    }\n    return UINT8_C(1);\n}\n\n";
 
 const RUNTIME_STRING_AT: &str = "static uint8_t mal_string_at(MalContext *context, MalString value, uint64_t index) {\n    if (index >= value.length) { mal_trap(context, \"string index out of range\"); }\n    return value.data[index];\n}\n\n";
+
+fn float_to_integer_runtime(needs: u32) -> String {
+    let mut output = String::new();
+    for source_index in 0..2 {
+        let (source_name, source_type, precision, literal_suffix) = if source_index == 0 {
+            ("f32", "float", 24, "f")
+        } else {
+            ("f64", "double", 53, "")
+        };
+        for (target_index, (target_name, target_type, _, signed)) in
+            integer_runtime_types().into_iter().enumerate()
+        {
+            if needs & (1_u32 << (source_index * 8 + target_index)) == 0 {
+                continue;
+            }
+            let bits = match target_index {
+                0 | 4 => 8,
+                1 | 5 => 16,
+                2 | 6 => 32,
+                3 | 7 => 64,
+                _ => unreachable!(),
+            };
+            let upper_exponent = if signed { bits - 1 } else { bits };
+            let upper = format!("0x1p{upper_exponent}{literal_suffix}");
+            let lower = if signed && bits <= precision {
+                format!(
+                    "value > (-0x1p{}{literal_suffix} - 1.0{literal_suffix})",
+                    bits - 1
+                )
+            } else if signed {
+                format!("value >= -0x1p{}{literal_suffix}", bits - 1)
+            } else {
+                format!("value > -1.0{literal_suffix}")
+            };
+            writeln!(
+                output,
+                "static inline {target_type} mal_{source_name}_to_{target_name}(MalContext *context, {source_type} value) {{"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "    if (!({lower} && value < {upper})) {{ mal_trap(context, \"float-to-integer conversion out of range\"); }}"
+            )
+            .unwrap();
+            writeln!(output, "    return ({target_type})value;\n}}\n").unwrap();
+        }
+    }
+    output
+}
 
 fn integer_wrap_runtime(needs: u16) -> String {
     let mut output = String::new();

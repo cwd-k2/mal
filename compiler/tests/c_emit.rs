@@ -235,6 +235,51 @@ fn executes_strict_float_arithmetic_and_ieee_comparisons() {
 }
 
 #[test]
+fn executes_ties_to_even_numeric_float_conversions() {
+    let output = compile_and_run(
+        "main :: Unit -> Int32 := \\() {\n\
+           lowerEven := Float32(16777217UInt64);\n\
+           upperEven := Float32(16777219UInt64);\n\
+           widened := Float64(0.1f32);\n\
+           narrowed := Float32(widened);\n\
+           valid := lowerEven == 16777216.0f32 &&\n\
+                    upperEven == 16777220.0f32 &&\n\
+                    narrowed == 0.1f32 &&\n\
+                    Int8(-128.75f64) == -128Int8 &&\n\
+                    UInt8(-0.5f32) == 0UInt8;\n\
+           return if (valid) then { 0 } else { 1 };\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_invalid_float_to_integer_conversions_before_the_c_cast() {
+    for expression in [
+        "UInt8(0.0f32 / 0.0f32)",
+        "Int64(1.0f64 / 0.0f64)",
+        "UInt8(-1.0f32)",
+        "Int8(128.0f64)",
+    ] {
+        let output = compile_and_run(
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            "",
+        );
+        assert!(!output.status.success(), "expression: {expression}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains("float-to-integer conversion out of range"),
+            "expression: {expression}"
+        );
+    }
+}
+
+#[test]
 fn emits_static_string_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
         r#"extern inspect :: String -> Unit;

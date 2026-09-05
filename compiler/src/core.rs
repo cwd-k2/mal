@@ -117,8 +117,8 @@ impl Lowerer {
                     argument: Box::new(self.lower_expression(argument)),
                 }
             }
-            checked::ExpressionKind::IntegerConversion { value } => {
-                ExpressionKind::IntegerConversion {
+            checked::ExpressionKind::NumericConversion { value } => {
+                ExpressionKind::NumericConversion {
                     value: Box::new(self.lower_expression(value)),
                 }
             }

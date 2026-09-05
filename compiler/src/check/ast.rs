@@ -111,7 +111,7 @@ pub enum ExpressionKind {
         name: Name,
         argument: Box<Expression>,
     },
-    IntegerConversion {
+    NumericConversion {
         value: Box<Expression>,
     },
     SumInjection {

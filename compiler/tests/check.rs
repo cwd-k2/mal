@@ -185,7 +185,10 @@ fn rounds_decimal_float_literals_to_exact_binary_bits() {
          contextual :: Float32 := 1.000000059604644775390625;\n\
          nextEven := 1.000000178813934326171875f32;\n\
          minimumSubnormal := 1.40129846e-45f32;\n\
-         maximum := 340282346638528859811704183484516925440f32;",
+         maximum := 340282346638528859811704183484516925440f32;\n\
+         doubleHalfEven := 1.00000000000000011102230246251565404236316680908203125f64;\n\
+         doubleNextEven := 1.00000000000000033306690738754696212708950042724609375f64;\n\
+         doubleMinimumSubnormal := 4.9406564584124654e-324f64;",
     );
     let expected = [
         (Type::Float64, 0x3fb9_9999_9999_999a),
@@ -194,6 +197,9 @@ fn rounds_decimal_float_literals_to_exact_binary_bits() {
         (Type::Float32, 0x3f80_0002),
         (Type::Float32, 0x0000_0001),
         (Type::Float32, 0x7f7f_ffff),
+        (Type::Float64, 0x3ff0_0000_0000_0000),
+        (Type::Float64, 0x3ff0_0000_0000_0002),
+        (Type::Float64, 0x0000_0000_0000_0001),
     ];
     for (index, (ty, bits)) in expected.into_iter().enumerate() {
         let binding = top_binding(&program, index);
@@ -467,19 +473,50 @@ fn checks_modulo_integer_conversions() {
         assert_eq!(top_binding(&program, 0).value.ty, expected);
         assert!(matches!(
             top_binding(&program, 0).value.kind,
-            ExpressionKind::IntegerConversion { .. }
+            ExpressionKind::NumericConversion { .. }
         ));
     }
 
     assert!(
         check_error("value := Int8(());")
             .message
-            .contains("requires an integer value")
+            .contains("requires a numeric value")
     );
     assert!(
         check_error("value := Bool(1Int8);")
             .message
-            .contains("requires an integer type")
+            .contains("requires a numeric type")
+    );
+}
+
+#[test]
+fn checks_conversions_between_integer_and_float_types() {
+    let program = check_ok(
+        "single := Float32(16777217UInt64);\n\
+         double := Float64(0.1f32);\n\
+         narrowed := Float32(0.1f64);\n\
+         signed := Int32(-1.75f64);\n\
+         unsigned := UInt64(1.75f32);",
+    );
+    let expected = [
+        Type::Float32,
+        Type::Float64,
+        Type::Float32,
+        Type::Int32,
+        Type::UInt64,
+    ];
+    for (index, ty) in expected.into_iter().enumerate() {
+        let binding = top_binding(&program, index);
+        assert_eq!(binding.value.ty, ty);
+        assert!(matches!(
+            binding.value.kind,
+            ExpressionKind::NumericConversion { .. }
+        ));
+    }
+
+    assert_eq!(
+        check_error("value := Float32(());").message,
+        "numeric conversion requires a numeric value"
     );
 }
 

@@ -44,7 +44,17 @@ pub fn build(
 
     let compiler = std::env::var_os("CC").unwrap_or_else(|| OsString::from("clang"));
     let result = Command::new(&compiler)
-        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic"])
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-pedantic",
+            "-fno-fast-math",
+            "-ffp-contract=off",
+            "-frounding-math",
+            "-fexcess-precision=standard",
+        ])
         .arg("-I")
         .arg(temporary.path())
         .arg(&generated_path)

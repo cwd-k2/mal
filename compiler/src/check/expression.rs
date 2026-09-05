@@ -77,16 +77,16 @@ impl Checker {
             } => self.check_external_call(operation, arguments, expression.span)?,
             resolved::Expression::Conversion { type_ref, value } => {
                 let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
-                if !is_integer(&target) {
+                if !is_integer(&target) && !is_float(&target) {
                     return Err(
-                        Diagnostic::error("numeric conversion requires an integer type")
-                            .with_primary(type_ref.name.span, "this is not an integer type"),
+                        Diagnostic::error("numeric conversion requires a numeric type")
+                            .with_primary(type_ref.name.span, "this is not a numeric type"),
                     );
                 }
                 let value = self.check_expression(value, None)?;
-                if !is_integer(&value.ty) {
+                if !is_integer(&value.ty) && !is_float(&value.ty) {
                     return Err(
-                        Diagnostic::error("integer conversion requires an integer value")
+                        Diagnostic::error("numeric conversion requires a numeric value")
                             .with_primary(
                                 value.span,
                                 format!("this has type `{}`", type_name(&value.ty)),
@@ -94,7 +94,7 @@ impl Checker {
                     );
                 }
                 Expression {
-                    kind: ExpressionKind::IntegerConversion {
+                    kind: ExpressionKind::NumericConversion {
                         value: Box::new(value),
                     },
                     ty: target,

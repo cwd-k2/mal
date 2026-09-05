@@ -173,7 +173,7 @@ impl Converter {
                 id: *id,
                 argument: self.convert_atom(argument, environment),
             },
-            anf::Operation::IntegerConversion { operand } => Operation::IntegerConversion {
+            anf::Operation::NumericConversion { operand } => Operation::NumericConversion {
                 operand: self.convert_atom(operand, environment),
             },
             anf::Operation::Product(elements) => Operation::Product(

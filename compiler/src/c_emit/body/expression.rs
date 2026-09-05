@@ -28,10 +28,28 @@ impl BodyEmitter<'_> {
                 format!("mal_string_at(mal_context, {argument}.field_0, {argument}.field_1)")
             }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
-            Operation::IntegerConversion { operand } => {
+            Operation::NumericConversion { operand } => {
+                let source = &operand.ty;
                 let operand = self.emit_atom(operand);
-                let (_, unsigned, _, _) = integer_info(result);
-                self.wrap_integer(result, &format!("({unsigned})({operand})"))
+                if is_integer_type(source) && is_integer_type(result) {
+                    let (_, unsigned, _, _) = integer_info(result);
+                    self.wrap_integer(result, &format!("({unsigned})({operand})"))
+                } else if is_float_type(source) && is_integer_type(result) {
+                    let source_index = usize::from(*source == Type::Float64);
+                    let target_index = integer_index(result);
+                    self.needs.float_to_integer |= 1_u32 << (source_index * 8 + target_index);
+                    let (target_name, _, _, _) = integer_info(result);
+                    let source_name = if *source == Type::Float32 {
+                        "f32"
+                    } else {
+                        "f64"
+                    };
+                    format!("mal_{source_name}_to_{target_name}(mal_context, {operand})")
+                } else if is_float_type(result) {
+                    format!("({})({operand})", self.types.c_type(result))
+                } else {
+                    unreachable!("type checking admits only numeric conversions")
+                }
             }
             Operation::Product(elements) => format!(
                 "({}){{ {} }}",
@@ -296,4 +314,36 @@ fn integer_mask(ty: &Type) -> u16 {
         Type::UInt64 => 1 << 7,
         _ => unreachable!("called only for integer types"),
     }
+}
+
+fn integer_index(ty: &Type) -> usize {
+    match ty {
+        Type::Int8 => 0,
+        Type::Int16 => 1,
+        Type::Int32 => 2,
+        Type::Int64 => 3,
+        Type::UInt8 => 4,
+        Type::UInt16 => 5,
+        Type::UInt32 => 6,
+        Type::UInt64 => 7,
+        _ => unreachable!("called only for integer types"),
+    }
+}
+
+fn is_integer_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+    )
+}
+
+fn is_float_type(ty: &Type) -> bool {
+    matches!(ty, Type::Float32 | Type::Float64)
 }

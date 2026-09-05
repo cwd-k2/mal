@@ -147,7 +147,7 @@ pub enum Operation {
         id: ExternalOperationId,
         argument: Atom,
     },
-    IntegerConversion {
+    NumericConversion {
         operand: Atom,
     },
     Product(Vec<Atom>),

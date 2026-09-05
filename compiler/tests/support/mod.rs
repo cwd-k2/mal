@@ -58,6 +58,10 @@ impl NativeFixture {
             "-Wextra",
             "-Werror",
             "-pedantic",
+            "-fno-fast-math",
+            "-ffp-contract=off",
+            "-frounding-math",
+            "-fexcess-precision=standard",
             "program.c",
         ]);
         compiler.args(compiler_options);
