@@ -32,7 +32,10 @@ test('starts the prepared server and stops it during deactivation', async () => 
     },
   };
   const languageClient = { LanguageClient, TransportKind: { stdio: 'stdio' } };
-  const context = { subscriptions: [] };
+  const context = {
+    subscriptions: [],
+    asAbsolutePath: (path) => `/extension/${path}`,
+  };
 
   const client = extension.activateWith(vscode, languageClient, context, {
     MAL_LSP_PATH: '/prepared/mal-lsp',
@@ -46,4 +49,37 @@ test('starts the prepared server and stops it during deactivation', async () => 
 
   await extension.deactivate();
   assert.deepEqual(stops, [true]);
+});
+
+test('uses the server bundled in an installed VSIX by default', async () => {
+  let command;
+  class LanguageClient {
+    constructor(_id, _name, serverOptions) {
+      command = serverOptions.run.command;
+    }
+
+    start() {}
+
+    stop() {
+      return Promise.resolve();
+    }
+  }
+  const vscode = {
+    workspace: {
+      getConfiguration: () => ({ get: () => '' }),
+    },
+  };
+  const context = {
+    subscriptions: [],
+    asAbsolutePath: (path) => `/installed-extension/${path}`,
+  };
+
+  extension.activateWith(
+    vscode,
+    { LanguageClient, TransportKind: { stdio: 'stdio' } },
+    context,
+    {},
+  );
+  assert.equal(command, '/installed-extension/server/mal-lsp');
+  await extension.deactivate();
 });

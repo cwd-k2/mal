@@ -9,7 +9,7 @@ Status: Current v0.5 development tooling
 
 `editors/vscode/`は`.mal`のlanguage registration、TextMate grammar、commentとbracketの設定に加え、
 `mal-lsp` processのlifecycleを扱う。repository rootから次の一commandでpinned Nix environmentへの移行、
-server build、extension dependencyのinstall、Extension Development Hostの起動を行う。
+server build、extension dependencyのinstall、利用可能なVS Code環境に応じた起動またはinstallを行う。
 
 ```nu
 nu scripts/vscode-dev.nu
@@ -21,19 +21,31 @@ buildとdependency準備だけを確認するときは`--prepare-only`を指定�
 nu scripts/vscode-dev.nu --prepare-only
 ```
 
+scriptはextension development optionを実際にprobeする。通常のdesktop CLIではExtension Development Hostを起動する。
+WSLの`remote-cli`ではこのoptionを利用できないため、server binaryを同梱したVSIXを生成してremote hostへinstallし、
+repositoryを開く。`code`、`code-insiders`、WSL上のWindows user/system installationから自動検出できない配置では
+`--code-command`でexecutableを指定する。
+
+```nu
+nu scripts/vscode-dev.nu --code-command /path/to/code
+```
+
+GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
+
 手動で準備する場合は次を実行する。
 
 ```nu
-cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked
+cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked --release
 cd editors/vscode
 npm install
 ```
 
-`mal-lsp`が`PATH`にない場合はVS Codeの`mal.server.path`へexecutable pathを指定する。repository rootから
-開発用extensionを起動できる。
+packageに同梱された`mal-lsp`以外を使う場合はVS Codeの`mal.server.path`へexecutable pathを指定する。desktop CLIでは
+repository rootから次の形で開発用extensionを起動できる。`remote-cli`ではこのcommandを使わず、上のscriptを使う。
 
 ```nu
-code --extensionDevelopmentPath (pwd | path join editors/vscode) .
+let extension_path = (pwd | path join editors/vscode)
+run-external code $"--extensionDevelopmentPath=($extension_path)" .
 ```
 
 ## language server

@@ -3,6 +3,7 @@
   "displayName": "mal Language Support",
   "description": "Language support and semantic tooling for mal",
   "version": "0.1.0",
+  "publisher": "mal-project",
   "private": true,
   "engines": {
     "vscode": "^1.82.0"
@@ -10,6 +11,9 @@
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:mal"
+  ],
+  "extensionKind": [
+    "workspace"
   ],
   "categories": [
     "Programming Languages"
@@ -39,8 +43,8 @@
       "properties": {
         "mal.server.path": {
           "type": "string",
-          "default": "mal-lsp",
-          "description": "Path to the mal language server executable."
+          "default": "",
+          "description": "Path to the mal language server executable. Empty uses the server bundled with the extension."
         }
       }
     }
@@ -50,5 +54,8 @@
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.9.2"
   }
 }

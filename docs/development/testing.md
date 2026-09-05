@@ -52,9 +52,12 @@ cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- 
 cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
 ```
 
-`editors/vscode/`のclient lifecycleを変更した場合はdependencyをinstallした上で次を実行する。
+`editors/vscode/`のclient lifecycleを変更した場合はdependencyをinstallした上で次を実行する。VSIX生成経路を
+変更した場合は、serverを同梱したpackageも生成できることを確認する。
 
 ```nu
+nu scripts/vscode-dev.nu --prepare-only
 cd editors/vscode
 npm test
+npm exec -- vsce package --out /tmp/mal-language-support-test.vsix --allow-missing-repository
 ```
