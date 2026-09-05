@@ -12,8 +12,8 @@ Status: Current
 | S0 | Complete | M0をchecked-in exampleと再利用可能なfixture経路で安定させる |
 | M1 | Complete | 固定幅integer familyとbyte literal |
 | M2 | Complete | product、destructuring、opaque handle、aggregate ABI |
-| M3 | Active | immutable byte `String`とextern copy contract |
-| M4 | Planned | annotated self recursionとdirect tail-call lowering |
+| M3 | Complete | immutable byte `String`とextern copy contract |
+| M4 | Active | annotated self recursionとdirect tail-call lowering |
 | M5 | Planned | strict `Float32`/`Float64` profile |
 | R0 | Planned | v0.4 conformanceとrelease readiness |
 
