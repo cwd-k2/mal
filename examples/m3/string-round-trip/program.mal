@@ -10,5 +10,7 @@ main :: Unit -> Int32 := \() {
         byteAt(value, 7u64) == 255u8 &&
         value == "malあ\0\xff";
     extern send(value);
-    return if (valid) then { 0 } else { 1 };
+    return if (valid)
+        then { 0 }
+        else { 1 };
 };

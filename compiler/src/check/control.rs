@@ -83,12 +83,12 @@ impl Checker {
                 );
             }
             let pattern = self.check_pattern(&arm.pattern, member)?;
-            let value = self.check_expression(&arm.value, result_type.as_ref())?;
-            result_type.get_or_insert_with(|| value.ty.clone());
+            let body = self.check_expression_block(&arm.body, result_type.as_ref())?;
+            result_type.get_or_insert_with(|| body.result.ty.clone());
             checked_arms.push(CaseArm {
                 index,
                 pattern,
-                value,
+                body,
                 span: arm.span,
             });
         }

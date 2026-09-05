@@ -141,11 +141,13 @@ true :: Bool := Bool[1](());
 surface conditional は次の構文とする。
 
 ```mal
-if (condition) then {
-    whenTrue
-} else {
-    whenFalse
-}
+if (condition)
+    then {
+        whenTrue
+    }
+    else {
+        whenFalse
+    }
 ```
 
 これは condition を一度評価する `case` へ desugar する。`then` は index 1、`else` は index 0 に対応する。condition の括弧、`then`、`else` は必須とする。
@@ -644,3 +646,33 @@ valid profile列挙、compatible pairのCSR構築、row transition、集計をma
 組み込み`Array<T>`はlength、index、alias、allocation、bounds、resize、viewのpolicyを同時に持ち込み、
 `Ptr<T>`はaddressable type、aggregate layout、cast規則を追加する。scalar operationの合成で必要なprogramを
 記述できる間は、この追加costを負わない。
+
+## D023. `case`は括弧付きscrutineeとarm blockを持つ
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+
+### 決定
+
+`case`は括弧で囲んだscrutineeの後に、一つ以上のindex付きarmを並べる。
+各armのpattern直後にはexpression blockを置き、`=>`とarm固有の`;`は使用しない。
+
+```mal
+case (value)
+    [0](_) {
+        fallback
+    }
+    [1](item) {
+        normalized := normalize(item);
+        normalized
+    }
+```
+
+armのpattern bindingとblock内のbindingはarmごとの同じscopeに属する。blockの最後の式がarmの値になる。
+
+### 理由
+
+括弧がscrutineeの境界を、各blockがarmの処理と値の境界をそれぞれ表す。これは`if (condition)`の後に
+`then`と`else`のexpression blockを並べる構造と対応し、case全体を囲むbraceやpatternと結果の間の
+追加separatorを不要にする。arm内でも`if` branchと同じbinding、statement、末尾式を使用できる。

@@ -213,19 +213,24 @@ impl Resolver {
         block: &ast::ExpressionBlock,
     ) -> Result<ExpressionBlock, Diagnostic> {
         self.push_scope();
-        let result = (|| {
-            let mut items = Vec::with_capacity(block.items.len());
-            for item in &block.items {
-                items.push(self.resolve_body_item(item)?);
-            }
-            Ok(ExpressionBlock {
-                items,
-                result: Box::new(self.resolve_expression(&block.result)?),
-                span: block.span,
-            })
-        })();
+        let result = self.resolve_expression_block_contents(block);
         self.pop_scope();
         result
+    }
+
+    fn resolve_expression_block_contents(
+        &mut self,
+        block: &ast::ExpressionBlock,
+    ) -> Result<ExpressionBlock, Diagnostic> {
+        let mut items = Vec::with_capacity(block.items.len());
+        for item in &block.items {
+            items.push(self.resolve_body_item(item)?);
+        }
+        Ok(ExpressionBlock {
+            items,
+            result: Box::new(self.resolve_expression(&block.result)?),
+            span: block.span,
+        })
     }
 
     fn resolve_case_arm(&mut self, arm: &ast::CaseArm) -> Result<CaseArm, Diagnostic> {
@@ -235,7 +240,7 @@ impl Resolver {
             Ok(CaseArm {
                 index: arm.index.clone(),
                 pattern: self.declare_pattern(&arm.pattern, owner)?,
-                value: self.resolve_expression(&arm.value)?,
+                body: self.resolve_expression_block_contents(&arm.body)?,
                 span: arm.span,
             })
         })();

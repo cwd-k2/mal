@@ -435,6 +435,36 @@ fn branch_bindings_do_not_escape_their_expression_block() {
 }
 
 #[test]
+fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
+    resolve_ok(
+        "Choice :: [Unit, Int32];\n\
+         main := \\(value :: Choice) {\n\
+           return case (value)\n\
+             [0](_) { 0 }\n\
+             [1](item) { local := item; local };\n\
+         };",
+    );
+
+    let duplicate = resolve_error(
+        "Choice :: [Unit, Int32];\n\
+         main := \\(value :: Choice) {\n\
+           return case (value)\n\
+             [0](_) { 0 }\n\
+             [1](item) { item := 1; item };\n\
+         };",
+    );
+    assert!(duplicate.message.starts_with("duplicate value"));
+
+    let escaped = resolve_error(
+        "main := \\() {\n\
+           case (true) [0](_) { local := 1; local } [1](_) { 0 };\n\
+           return local;\n\
+         };",
+    );
+    assert_eq!(escaped.message, "unknown value `local`");
+}
+
+#[test]
 fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     let cases = [
         ("value :: Missing := 0;", "unknown type `Missing`"),

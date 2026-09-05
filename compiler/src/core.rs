@@ -309,7 +309,7 @@ impl Lowerer {
         CaseArm {
             index: arm.index,
             pattern: self.lower_pattern(&arm.pattern),
-            value: self.lower_expression(&arm.value),
+            value: self.lower_body(&arm.body.items, &arm.body.result),
             span: arm.span,
         }
     }

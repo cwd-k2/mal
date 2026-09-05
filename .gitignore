@@ -1,4 +1,5 @@
 /compiler/target/
 /.scratch/
 /.direnv/
+/.vscode/
 /result

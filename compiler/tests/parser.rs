@@ -194,10 +194,12 @@ fn parses_if_blocks_with_local_bindings() {
 #[test]
 fn parses_sum_injection_and_case_arms() {
     let expression = binding_value(
-        "value := case MaybeInt32[1](42) {\n\
-           [0](_) => 0;\n\
-           [1](x) => x;\n\
-         };",
+        "value := case (MaybeInt32[1](42))\n\
+           [0](_) { 0 }\n\
+           [1](x) {\n\
+             y := x;\n\
+             y\n\
+           };",
     );
     let Expression::Case { scrutinee, arms } = expression else {
         panic!("expected case expression");
@@ -206,6 +208,19 @@ fn parses_sum_injection_and_case_arms() {
     assert_eq!(arms.len(), 2);
     assert!(matches!(arms[0].pattern.kind, Pattern::Wildcard));
     assert!(matches!(arms[1].pattern.kind, Pattern::Name(_)));
+    assert!(arms[0].body.items.is_empty());
+    assert_eq!(arms[1].body.items.len(), 1);
+    assert!(matches!(arms[1].body.result.kind, Expression::Name(_)));
+}
+
+#[test]
+fn rejects_the_old_case_syntax() {
+    for text in [
+        "value := case (value) [0](_) => 0;;",
+        "value := case value { [0](_) { 0 } };",
+    ] {
+        assert!(parse(&source(text)).is_err(), "input should fail: {text}");
+    }
 }
 
 #[test]

@@ -63,11 +63,13 @@ compiler は観測可能な動作を変えない限り、capture 除去、lambda
 
 ```mal
 sum :: Int64 -> Int64 := \(n :: Int64) {
-    return if (n == 0) then {
-        0
-    } else {
-        n + sum(n - 1)
-    };
+    return if (n == 0)
+        then {
+            0
+        }
+        else {
+            n + sum(n - 1)
+        };
 };
 ```
 

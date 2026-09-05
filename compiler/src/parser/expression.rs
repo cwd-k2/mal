@@ -305,8 +305,9 @@ impl Parser<'_> {
 
     fn parse_case(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let start = self.expect(&TokenKind::Case, "`case`")?.span.start();
+        self.expect(&TokenKind::LeftParen, "`(`")?;
         let scrutinee = self.parse_expression()?;
-        self.expect(&TokenKind::LeftBrace, "`{`")?;
+        self.expect(&TokenKind::RightParen, "`)`")?;
         let mut arms = Vec::new();
         while self.at(&TokenKind::LeftBracket) {
             arms.push(self.parse_case_arm()?);
@@ -314,13 +315,13 @@ impl Parser<'_> {
         if arms.is_empty() {
             return Err(self.expected("at least one case arm"));
         }
-        let right = self.expect(&TokenKind::RightBrace, "`}`")?;
+        let end = arms.last().expect("case has at least one arm").span.end();
         Ok(Node::new(
             Expression::Case {
                 scrutinee: Box::new(scrutinee),
                 arms,
             },
-            self.span(start, right.span.end()),
+            self.span(start, end),
         ))
     }
 
@@ -331,14 +332,12 @@ impl Parser<'_> {
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let pattern = self.parse_pattern()?;
         self.expect(&TokenKind::RightParen, "`)`")?;
-        self.expect(&TokenKind::FatArrow, "`=>`")?;
-        let value = self.parse_expression()?;
-        let semicolon = self.expect(&TokenKind::Semicolon, "`;`")?;
+        let body = self.parse_expression_block()?;
         Ok(CaseArm {
             index,
             pattern,
-            value,
-            span: self.span(start, semicolon.span.end()),
+            span: self.span(start, body.span.end()),
+            body,
         })
     }
 

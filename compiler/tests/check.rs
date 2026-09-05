@@ -437,25 +437,27 @@ fn checks_case_exhaustiveness_uniqueness_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
          get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
-           return case value { [0](_) => 0; [1](x) => x; };\n\
+           return case (value)\n\
+             [0](_) { 0 }\n\
+             [1](x) { y := x; y };\n\
          };",
     );
 
     let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value :: Maybe) { return ";
     assert_eq!(
-        check_error(&format!("{prefix}case value {{ [0](_) => 0; }}; }};")).message,
+        check_error(&format!("{prefix}case (value) [0](_) {{ 0 }}; }};")).message,
         "non-exhaustive case expression"
     );
     assert!(
         check_error(&format!(
-            "{prefix}case value {{ [0](_) => 0; [0](_) => 1; [1](x) => x; }}; }};"
+            "{prefix}case (value) [0](_) {{ 0 }} [0](_) {{ 1 }} [1](x) {{ x }}; }};"
         ))
         .message
         .starts_with("duplicate case arm")
     );
     assert_eq!(
         check_error(&format!(
-            "{prefix}case value {{ [0](_) => (); [1](x) => x; }}; }};"
+            "{prefix}case (value) [0](_) {{ () }} [1](x) {{ x }}; }};"
         ))
         .message,
         "type mismatch"

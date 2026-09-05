@@ -211,6 +211,6 @@ pub enum BodyItem {
 pub struct CaseArm {
     pub index: usize,
     pub pattern: Pattern,
-    pub value: Expression,
+    pub body: ExpressionBlock,
     pub span: Span,
 }

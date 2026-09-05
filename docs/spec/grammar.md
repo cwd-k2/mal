@@ -87,9 +87,8 @@ ifExpr      ::= "if" "(" expression ")"
                 "else" expressionBlock
 expressionBlock ::= "{" bodyItem* expression "}"
 
-caseExpr    ::= "case" expression "{" caseArm+ "}"
-caseArm     ::= "[" INTEGER "]" "(" pattern ")"
-                "=>" expression ";"
+caseExpr    ::= "case" "(" expression ")" caseArm+
+caseArm     ::= "[" INTEGER "]" "(" pattern ")" expressionBlock
 ```
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。

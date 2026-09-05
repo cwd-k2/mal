@@ -562,10 +562,9 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            response := extern exchange(20i32, (2u8, 22i32));\n\
-           return case response {\n\
-             [0](_) => 1;\n\
-             [1](pair) => total(pair);\n\
-           };\n\
+           return case (response)\n\
+             [0](_) { 1 }\n\
+             [1](pair) { total(pair) };\n\
          };";
     let generated = emit(source).expect("emit aggregate ABI");
     assert!(generated.header.contains(
@@ -672,10 +671,9 @@ fn preserves_duplicate_sum_members_by_tag() {
            return left - right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return case extern choose() {\n\
-             [0](pair) => difference(pair) + 1i32;\n\
-             [1](pair) => difference(pair);\n\
-           };\n\
+           return case (extern choose())\n\
+             [0](pair) { difference(pair) + 1i32 }\n\
+             [1](pair) { difference(pair) };\n\
          };",
         r#"#include "program.mal.h"
 
@@ -884,7 +882,9 @@ fn executes_sum_injection_and_case() {
         "Maybe :: [Unit, Int32];\n\
          extern printInt32 :: Int32 -> Unit;\n\
          get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
-           return case value { [0](_) => 0; [1](item) => item; };\n\
+           return case (value)\n\
+             [0](_) { extern printInt32(100); 0 }\n\
+             [1](item) { doubled := item + item; extern printInt32(doubled); doubled };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(get(Maybe[1](9)));\n\
@@ -893,7 +893,7 @@ fn executes_sum_injection_and_case() {
         PRINT_HOST,
     );
     assert!(output.status.success());
-    assert_eq!(String::from_utf8(output.stdout).unwrap(), "9\n");
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "18\n18\n");
 }
 
 #[test]

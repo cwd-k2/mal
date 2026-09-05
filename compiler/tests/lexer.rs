@@ -259,9 +259,9 @@ fn rejects_malformed_string_literals_at_the_lexer_boundary() {
 }
 
 #[test]
-fn lexes_every_m0_operator_and_delimiter() {
+fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> => \\ + - * / % ! != == ~ & && | || ^ << >>"),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -279,7 +279,6 @@ fn lexes_every_m0_operator_and_delimiter() {
             TokenKind::DoubleColon,
             TokenKind::Bind,
             TokenKind::Arrow,
-            TokenKind::FatArrow,
             TokenKind::Backslash,
             TokenKind::Plus,
             TokenKind::Minus,
@@ -300,6 +299,12 @@ fn lexes_every_m0_operator_and_delimiter() {
             TokenKind::Eof,
         ]
     );
+}
+
+#[test]
+fn rejects_the_removed_case_arrow() {
+    let error = lex(&source("=>")).expect_err("the removed case arrow should be rejected");
+    assert_eq!(error.message, "invalid token");
 }
 
 #[test]

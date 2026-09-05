@@ -85,15 +85,17 @@ makeFunction()(x)
 
 ## if
 
-`if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。
+`if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
 
 ```mal
 absolute := \(x :: Int32) {
-    return if (x < 0) then {
-        -x
-    } else {
-        x
-    };
+    return if (x < 0)
+        then {
+            -x
+        }
+        else {
+            x
+        };
 };
 ```
 
@@ -102,10 +104,9 @@ condition は `Bool`、すなわち構造的に `[Unit, Unit]` と等しい型�
 上の形は次へ desugar する。condition は一度だけ、branch より先に評価する。
 
 ```mal
-case x < 0 {
-    [0](_) => x;
-    [1](_) => -x;
-}
+case (x < 0)
+    [0](_) { x }
+    [1](_) { -x }
 ```
 
 `then` は `Bool` の index 1、`else` は index 0 に対応する。`else if` 専用構文はなく、必要なら `else` block の結果に別の `if` を置く。
@@ -115,14 +116,15 @@ case x < 0 {
 ```mal
 getOrZero :: MaybeInt32 -> Int32 :=
     \(value :: MaybeInt32) {
-        return case value {
-            [0](_) => 0;
-            [1](x) => x;
-        };
+        return case (value)
+            [0](_) { 0 }
+            [1](x) { x };
     };
 ```
 
-scrutinee は直和型でなければならない。arm の pattern は該当 index の項型に対して検査する。arm は exhaustive、index は重複なし、全結果型は同一でなければならない。
+scrutinee の括弧は必須であり、直和型でなければならない。arm の pattern は該当 index の項型に対して検査する。arm は exhaustive、index は重複なし、全 block の結果型は同一でなければならない。
+
+arm の block は `if` の branch と同じ expression block であり、0 個以上の binding または expression statement と最後の結果式からなる。pattern binding と block 内の binding は arm ごとの同じ scope に属し、その arm の外から参照できない。
 
 ## literal
 
@@ -204,10 +206,9 @@ a && b
 ```
 
 ```mal
-case a {
-    [0](_) => false;
-    [1](_) => b;
-}
+case (a)
+    [0](_) { false }
+    [1](_) { b }
 ```
 
 ```mal
@@ -215,10 +216,9 @@ a || b
 ```
 
 ```mal
-case a {
-    [0](_) => b;
-    [1](_) => true;
-}
+case (a)
+    [0](_) { b }
+    [1](_) { true }
 ```
 
 `!`、Bool の `==` と `!=` も同様に、一つまたは二つの exhaustive `case` へ desugarできる。Bool equality の両 operand は通常の operator と同じく、case 分岐より前に左から右へ必ず評価する。これらの演算子は評価を省略または重複させてはならない。

@@ -236,6 +236,6 @@ pub enum BodyItem {
 pub struct CaseArm {
     pub index: Node<IntegerLiteral>,
     pub pattern: Node<Pattern>,
-    pub value: Node<Expression>,
+    pub body: ExpressionBlock,
     pub span: Span,
 }
