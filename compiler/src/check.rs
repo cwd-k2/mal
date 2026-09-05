@@ -3,15 +3,16 @@ use std::collections::HashMap;
 use crate::ast::{Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, BOOL_TYPE, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
-    STRING_TYPE, TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
-    ValueId,
+    self as resolved, BOOL_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE,
+    INT32_TYPE, INT64_TYPE, STRING_TYPE, TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+    UINT64_TYPE, UNIT_TYPE, ValueId,
 };
 use crate::source::Span;
 
 pub mod ast;
 mod control;
 mod expression;
+mod float;
 mod integer;
 mod product;
 mod string;
@@ -192,6 +193,8 @@ impl Checker {
             UINT16_TYPE => return Ok(Type::UInt16),
             UINT32_TYPE => return Ok(Type::UInt32),
             UINT64_TYPE => return Ok(Type::UInt64),
+            FLOAT32_TYPE => return Ok(Type::Float32),
+            FLOAT64_TYPE => return Ok(Type::Float64),
             BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
             STRING_TYPE => return Ok(Type::String),
             _ => {}
@@ -334,6 +337,7 @@ impl Checker {
     ) -> Result<(), Diagnostic> {
         let allowed = match &expression.kind {
             resolved::Expression::Integer(_)
+            | resolved::Expression::Float(_)
             | resolved::Expression::Byte(_)
             | resolved::Expression::String(_)
             | resolved::Expression::Unit => true,
@@ -357,7 +361,10 @@ impl Checker {
                 operator, operand, ..
             } => {
                 operator.kind == UnaryOperator::Negate
-                    && matches!(operand.kind, resolved::Expression::Integer(_))
+                    && matches!(
+                        operand.kind,
+                        resolved::Expression::Integer(_) | resolved::Expression::Float(_)
+                    )
             }
             _ => false,
         };
@@ -389,6 +396,7 @@ fn contains_function(ty: &Type) -> bool {
         | Type::UInt16
         | Type::UInt32
         | Type::UInt64 => false,
+        Type::Float32 | Type::Float64 => false,
         Type::String => false,
     }
 }

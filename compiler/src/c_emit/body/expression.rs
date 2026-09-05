@@ -52,6 +52,14 @@ impl BodyEmitter<'_> {
             ),
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand_text = self.emit_atom(operand);
+                if matches!(operand.ty, Type::Float32 | Type::Float64) {
+                    return match operator {
+                        UnaryPrimitive::Negate => format!("-({operand_text})"),
+                        UnaryPrimitive::BitwiseNot => {
+                            unreachable!("bitwise not is not defined for Float")
+                        }
+                    };
+                }
                 let (_, unsigned, _, _) = integer_info(&operand.ty);
                 let expression = match operator {
                     UnaryPrimitive::Negate => {
@@ -105,6 +113,15 @@ impl BodyEmitter<'_> {
         let right = self.emit_atom(right);
         match operator {
             BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract => {
+                if matches!(operand_type, Type::Float32 | Type::Float64) {
+                    let symbol = match operator {
+                        BinaryPrimitive::Multiply => "*",
+                        BinaryPrimitive::Add => "+",
+                        BinaryPrimitive::Subtract => "-",
+                        _ => unreachable!(),
+                    };
+                    return format!("({left} {symbol} {right})");
+                }
                 let (_, unsigned, carrier, _) = integer_info(&operand_type);
                 let symbol = match operator {
                     BinaryPrimitive::Multiply => "*",
@@ -118,6 +135,9 @@ impl BodyEmitter<'_> {
                 self.wrap_integer(&operand_type, &expression)
             }
             BinaryPrimitive::Divide => {
+                if matches!(operand_type, Type::Float32 | Type::Float64) {
+                    return format!("({left} / {right})");
+                }
                 self.needs.divide |= integer_mask(&operand_type);
                 let (name, _, _, _) = integer_info(&operand_type);
                 format!("mal_{name}_divide(mal_context, {left}, {right})")
@@ -230,6 +250,11 @@ impl BodyEmitter<'_> {
                     format!("{constant}({value})")
                 }
             }
+            AtomKind::Float(bits) => match atom.ty {
+                Type::Float32 => format!("mal_float32_from_bits(UINT32_C({bits}))"),
+                Type::Float64 => format!("mal_float64_from_bits(UINT64_C({bits}))"),
+                _ => unreachable!("float atoms have Float32 or Float64 type"),
+            },
             AtomKind::String(value) => {
                 let bytes = value
                     .iter()

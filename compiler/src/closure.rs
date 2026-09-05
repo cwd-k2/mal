@@ -280,6 +280,7 @@ impl Converter {
         let kind = match &atom.kind {
             anf::AtomKind::Reference(id) => self.reference_kind(*id, environment),
             anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
+            anf::AtomKind::Float(bits) => AtomKind::Float(*bits),
             anf::AtomKind::String(value) => AtomKind::String(value.clone()),
             anf::AtomKind::Unit => AtomKind::Unit,
         };

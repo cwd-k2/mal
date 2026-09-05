@@ -105,6 +105,9 @@ impl Lowerer {
             core::ExpressionKind::Integer(value) => {
                 self.atom_block(expression, AtomKind::Integer(*value))
             }
+            core::ExpressionKind::Float(bits) => {
+                self.atom_block(expression, AtomKind::Float(*bits))
+            }
             core::ExpressionKind::String(value) => {
                 self.atom_block(expression, AtomKind::String(value.clone()))
             }

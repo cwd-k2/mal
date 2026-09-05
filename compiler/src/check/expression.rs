@@ -6,6 +6,7 @@ use crate::resolve::ast::{BYTE_AT_VALUE, BYTE_LENGTH_VALUE};
 
 use super::Checker;
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Parameter, Type};
+use super::float::{is_contextual_float, is_float};
 use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
     parse_index, parse_magnitude, unparenthesized_integer,
@@ -35,9 +36,8 @@ impl Checker {
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?
             }
-            resolved::Expression::Float(_) => {
-                return Err(Diagnostic::error("float literals are not implemented")
-                    .with_primary(expression.span, "Float support is not available yet"));
+            resolved::Expression::Float(literal) => {
+                self.check_float(literal, expression.span, expected)?
             }
             resolved::Expression::Byte(value) => Expression {
                 kind: ExpressionKind::Integer(i128::from(*value)),
@@ -349,10 +349,30 @@ impl Checker {
                 });
             }
         }
-        if matches!(
-            operator.kind,
-            UnaryOperator::Negate | UnaryOperator::BitwiseNot
-        ) {
+        if operator.kind == UnaryOperator::Negate {
+            let operand = self.check_expression(
+                operand,
+                expected.filter(|expected| is_integer(expected) || is_float(expected)),
+            )?;
+            if !is_integer(&operand.ty) && !is_float(&operand.ty) {
+                return Err(
+                    Diagnostic::error("numeric negation requires a numeric value").with_primary(
+                        operand.span,
+                        format!("this has type `{}`", type_name(&operand.ty)),
+                    ),
+                );
+            }
+            let operand_type = operand.ty.clone();
+            return Ok(Expression {
+                kind: ExpressionKind::Unary {
+                    operator: operator.clone(),
+                    operand: Box::new(operand),
+                },
+                ty: operand_type,
+                span,
+            });
+        }
+        if operator.kind == UnaryOperator::BitwiseNot {
             let operand =
                 self.check_expression(operand, expected.filter(|expected| is_integer(expected)))?;
             if !is_integer(&operand.ty) {
@@ -394,12 +414,18 @@ impl Checker {
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
         let expected_integer = expected.filter(|expected| is_integer(expected));
+        let expected_numeric =
+            expected.filter(|expected| is_integer(expected) || is_float(expected));
         let (left, right, result) = match operator.kind {
             BinaryOperator::Multiply
             | BinaryOperator::Divide
-            | BinaryOperator::Remainder
             | BinaryOperator::Add
             | BinaryOperator::Subtract => {
+                let (left, right) = self.check_numeric_operands(left, right, expected_numeric)?;
+                let result = left.ty.clone();
+                (left, right, result)
+            }
+            BinaryOperator::Remainder => {
                 let (left, right) = self.check_integer_operands(left, right, expected_integer)?;
                 let result = left.ty.clone();
                 (left, right, result)
@@ -408,12 +434,13 @@ impl Checker {
             | BinaryOperator::LessEqual
             | BinaryOperator::Greater
             | BinaryOperator::GreaterEqual => {
-                let (left, right) = self.check_integer_operands(left, right, None)?;
+                let (left, right) = self.check_numeric_operands(left, right, None)?;
                 (left, right, bool_type())
             }
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
-                let (left, right) = if is_contextual_integer(left) && !is_contextual_integer(right)
-                {
+                let left_contextual = is_contextual_integer(left) || is_contextual_float(left);
+                let right_contextual = is_contextual_integer(right) || is_contextual_float(right);
+                let (left, right) = if left_contextual && !right_contextual {
                     let right = self.check_expression(right, None)?;
                     let left = self.check_expression(left, Some(&right.ty))?;
                     (left, right)
@@ -422,7 +449,11 @@ impl Checker {
                     let right = self.check_expression(right, Some(&left.ty))?;
                     (left, right)
                 };
-                if !is_integer(&left.ty) && left.ty != bool_type() && left.ty != Type::String {
+                if !is_integer(&left.ty)
+                    && !is_float(&left.ty)
+                    && left.ty != bool_type()
+                    && left.ty != Type::String
+                {
                     return Err(Diagnostic::error("equality is not defined for this type")
                         .with_primary(
                             left.span,
@@ -455,6 +486,39 @@ impl Checker {
             ty: result,
             span,
         })
+    }
+
+    fn check_numeric_operands(
+        &mut self,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        expected: Option<&Type>,
+    ) -> Result<(Expression, Expression), Diagnostic> {
+        let left_contextual = is_contextual_integer(left) || is_contextual_float(left);
+        let right_contextual = is_contextual_integer(right) || is_contextual_float(right);
+        let (left, right) = if let Some(expected) = expected {
+            (
+                self.check_expression(left, Some(expected))?,
+                self.check_expression(right, Some(expected))?,
+            )
+        } else if left_contextual && !right_contextual {
+            let right = self.check_expression(right, None)?;
+            let left = self.check_expression(left, Some(&right.ty))?;
+            (left, right)
+        } else {
+            let left = self.check_expression(left, None)?;
+            let right = self.check_expression(right, Some(&left.ty))?;
+            (left, right)
+        };
+        if !is_integer(&left.ty) && !is_float(&left.ty) {
+            return Err(
+                Diagnostic::error("numeric operator requires numeric operands").with_primary(
+                    left.span,
+                    format!("this has type `{}`", type_name(&left.ty)),
+                ),
+            );
+        }
+        Ok((left, right))
     }
 
     fn require_type(

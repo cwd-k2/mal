@@ -8,6 +8,8 @@ pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
     public: Vec<Type>,
     opaque_names: Vec<String>,
+    uses_float32: bool,
+    uses_float64: bool,
 }
 
 impl TypeRegistry {
@@ -46,12 +48,26 @@ impl TypeRegistry {
             Type::UInt16 => "uint16_t".into(),
             Type::UInt32 => "uint32_t".into(),
             Type::UInt64 => "uint64_t".into(),
+            Type::Float32 => "float".into(),
+            Type::Float64 => "double".into(),
             Type::String => "MalString".into(),
             Type::External { name, .. } => format!("MalOpaque_{name}"),
             Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
             Type::Function { .. } => format!("MalClosure_{}", self.index(ty)),
         }
+    }
+
+    pub(super) fn uses_float(&self) -> bool {
+        self.uses_float32 || self.uses_float64
+    }
+
+    pub(super) fn uses_float32(&self) -> bool {
+        self.uses_float32
+    }
+
+    pub(super) fn uses_float64(&self) -> bool {
+        self.uses_float64
     }
 
     pub(super) fn source_declarations(&self) -> String {
@@ -94,6 +110,8 @@ impl TypeRegistry {
                 | Type::UInt16
                 | Type::UInt32
                 | Type::UInt64
+                | Type::Float32
+                | Type::Float64
                 | Type::String => unreachable!(),
             };
             writeln!(output, "typedef struct {kind}_{index} {kind}_{index};").unwrap();
@@ -152,6 +170,8 @@ impl TypeRegistry {
                 | Type::UInt16
                 | Type::UInt32
                 | Type::UInt64
+                | Type::Float32
+                | Type::Float64
                 | Type::String => unreachable!(),
             }
         }
@@ -182,6 +202,17 @@ impl TypeRegistry {
 
     fn collect(&mut self, ty: &Type) {
         match ty {
+            Type::Float32 => {
+                self.uses_float32 = true;
+                return;
+            }
+            Type::Float64 => {
+                self.uses_float64 = true;
+                return;
+            }
+            _ => {}
+        }
+        match ty {
             Type::Product(elements) | Type::Sum(elements) => {
                 for element in elements {
                     self.collect(element);
@@ -201,6 +232,8 @@ impl TypeRegistry {
             | Type::UInt16
             | Type::UInt32
             | Type::UInt64
+            | Type::Float32
+            | Type::Float64
             | Type::String => return,
         }
         if !self.aggregates.contains(ty) {

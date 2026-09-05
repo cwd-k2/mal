@@ -178,6 +178,68 @@ fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
 }
 
 #[test]
+fn rounds_decimal_float_literals_to_exact_binary_bits() {
+    let program = check_ok(
+        "default := 0.1;\n\
+         single := 0.1f32;\n\
+         contextual :: Float32 := 1.000000059604644775390625;\n\
+         nextEven := 1.000000178813934326171875f32;\n\
+         minimumSubnormal := 1.40129846e-45f32;\n\
+         maximum := 340282346638528859811704183484516925440f32;",
+    );
+    let expected = [
+        (Type::Float64, 0x3fb9_9999_9999_999a),
+        (Type::Float32, 0x3dcc_cccd),
+        (Type::Float32, 0x3f80_0000),
+        (Type::Float32, 0x3f80_0002),
+        (Type::Float32, 0x0000_0001),
+        (Type::Float32, 0x7f7f_ffff),
+    ];
+    for (index, (ty, bits)) in expected.into_iter().enumerate() {
+        let binding = top_binding(&program, index);
+        assert_eq!(binding.value.ty, ty);
+        assert!(matches!(binding.value.kind, ExpressionKind::Float(actual) if actual == bits));
+    }
+}
+
+#[test]
+fn rejects_decimal_float_literals_above_the_finite_range() {
+    for text in [
+        "value := 340282346638528859811704183484516925441f32;",
+        "value := 1e309f64;",
+    ] {
+        assert!(
+            check_error(text)
+                .message
+                .contains("literal is out of range"),
+            "input: {text}"
+        );
+    }
+}
+
+#[test]
+fn checks_float_arithmetic_comparison_and_negation() {
+    let program = check_ok(
+        "calculate :: Float32 -> Bool := \\(value :: Float32) {\n\
+           negative := -value;\n\
+           result := (negative + 2.0f32) * 3.0f32 / 4.0f32;\n\
+           return result >= 0.0f32 && result != value;\n\
+         };",
+    );
+    assert_eq!(
+        top_binding(&program, 0).value.ty,
+        Type::Function {
+            parameter: Box::new(Type::Float32),
+            result: Box::new(Type::Sum(vec![Type::Unit, Type::Unit])),
+        }
+    );
+    assert_eq!(
+        check_error("value := 1.0f32 % 1.0f32;").message,
+        "integer operator requires integer operands"
+    );
+}
+
+#[test]
 fn checks_string_literals_as_immutable_bytes() {
     let program = check_ok(r#"empty :: String := ""; bytes := "あ\0\xff";"#);
     assert_eq!(top_binding(&program, 0).value.ty, Type::String);

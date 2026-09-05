@@ -176,6 +176,65 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
 }
 
 #[test]
+fn emits_exact_float_bits_and_scalar_extern_abi() {
+    let generated = emit(
+        "extern inspect :: (Float32, Float64) -> Int32;\n\
+         main :: Unit -> Int32 := \\() { return extern inspect(0.1f32, -0.0f64); };",
+    )
+    .expect("emit Float ABI");
+    assert!(generated.header.contains(
+        "int32_t mal_ext_inspect(MalContext *context, float argument_0, double argument_1);"
+    ));
+    assert!(generated.source.contains("#pragma STDC FP_CONTRACT OFF"));
+    let fixture = NativeFixture::new("float-bits");
+    let executable = fixture.compile_generated(
+        generated,
+        r#"#include "program.mal.h"
+#include <string.h>
+
+int32_t mal_ext_inspect(MalContext *context, float single, double negative_zero) {
+    (void)context;
+    uint32_t single_bits;
+    uint64_t double_bits;
+    memcpy(&single_bits, &single, sizeof(single_bits));
+    memcpy(&double_bits, &negative_zero, sizeof(double_bits));
+    return single_bits == UINT32_C(0x3dcccccd) &&
+           double_bits == UINT64_C(0x8000000000000000) ? INT32_C(0) : INT32_C(1);
+}
+"#,
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn executes_strict_float_arithmetic_and_ieee_comparisons() {
+    let output = compile_and_run(
+        "main :: Unit -> Int32 := \\() {\n\
+           infinity := 1.0f32 / 0.0f32;\n\
+           nan := 0.0f32 / 0.0f32;\n\
+           rounded := (16777216.0f32 + 1.0f32) - 16777216.0f32;\n\
+           subnormal := 1.40129846e-45f32;\n\
+           valid := infinity > 1.0f32 &&\n\
+                    nan != nan && !(nan == nan) &&\n\
+                    0.0f32 == -0.0f32 &&\n\
+                    rounded == 0.0f32 && subnormal > 0.0f32;\n\
+           return if (valid) then { 0 } else { 1 };\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn emits_static_string_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
         r#"extern inspect :: String -> Unit;
