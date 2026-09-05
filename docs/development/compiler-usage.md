@@ -1,0 +1,71 @@
+# reference compiler利用contract
+
+Status: Current v0.4 release contract
+
+この文書は`malc`のcommand、対応toolchain、生成物を利用者向けに定める。言語の意味は[`spec/`](../spec/)、
+Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository内の検証手順は[test policy](testing.md)を
+正とする。
+
+## 対応環境
+
+v0.4 releaseで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
+environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
+Cargo、Clangへ入れる。
+
+generated CとheaderはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
+subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないtargetをcompile-timeに拒否する。
+他のOS、architecture、C compilerはv0.4 releaseの検証対象外である。
+
+## Command
+
+```nu
+malc check source.mal
+malc emit-c source.mal --output generated/program.c
+malc build source.mal --output program --link host.c
+```
+
+- `check`はsourceを型検査し、成功時には生成物を作らない。
+- `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
+- `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
+- `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。
+
+親directoryは必要に応じて作成し、同名の出力は置き換える。二つの`emit-c`出力を同じdirectoryへ置くと
+`program.mal.h`が衝突するため、programごとにdirectoryを分ける。Cとheaderは一組として扱い、一方だけを
+別の生成結果と組み合わせない。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
+既存・生成済みartifactが残る場合がある。
+
+## C compilerと`CC`
+
+`build`は`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、なければ`clang`を使う。
+Nushellで一回だけ切り替える例は次のとおり。
+
+```nu
+with-env { CC: /path/to/clang } {
+    malc build source.mal --output program --link host.c
+}
+```
+
+`CC`は一つの実行ファイルを表し、optionを含むshell commandとして分割・評価しない。代替compilerは`malc`が
+渡すC11、warning、strict floating-point optionを受理し、Clangと同じtarget ABIで全linker inputを扱う必要が
+ある。v0.4にはcompiler optionを追加するCLIはない。
+
+C compilerを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
+stderrへ出す。後者ではtoolchainのstderrも保持する。
+
+## Host adapterとshared object
+
+host C sourceは対象programが生成した`program.mal.h`をincludeし、generated Cと同じtarget ABIでcompileする。
+`build`はtemporary header directoryをinclude pathへ加えるため、`--link host.c`はそのheaderを直接includeできる。
+
+shared objectは`--link`で通常のlinker inputとして渡す。`malc` runtimeは`dlopen`、実行時symbol discovery、
+plugin lifecycle、loader search pathを提供しない。必要なsoname、rpath、`LD_LIBRARY_PATH`、install locationは
+target platformと利用者のbuild/deploymentが管理する。shared objectも対象programのheaderに対してbuildする。
+
+## 生成物policy
+
+generated C/headerのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。
+配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
+再生成する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
+
+CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。
+mal programのtrapはstderrへ理由を出して異常終了するが、portableなprocess exit codeは定めない。

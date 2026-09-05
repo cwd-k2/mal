@@ -33,12 +33,12 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 - M0〜M5のchecked-in exampleをnative driver testから実行している。
 - [`spec/`とtestのconformance matrix](../development/conformance.md)を作成した。
 - public CLI、generated header、trap、toolchain failureのcontractをdriver testで監査した。
+- [対応toolchainと生成物の利用contract](../development/compiler-usage.md)を公開した。
 
 ### 次セッションの作業順
 
-1. supported target/toolchain、`CC`、shared library loader、generated artifact policyを利用者向け文書へ集約する。
-2. package versionとrelease文書をv0.4 release candidateとして揃える。
-3. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
+1. package versionとrelease文書をv0.4 release candidateとして揃える。
+2. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
 
 ### Done
 
