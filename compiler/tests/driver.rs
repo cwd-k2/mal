@@ -203,6 +203,55 @@ fn checked_in_m2_example_round_trips_an_opaque_aggregate() {
 }
 
 #[test]
+fn checked_in_m3_example_round_trips_copied_string_bytes() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m3/string-round-trip");
+    let program = example.join("program.mal");
+
+    let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
+    assert!(
+        checked.status.success(),
+        "{}",
+        String::from_utf8_lossy(&checked.stderr)
+    );
+
+    let emitted = directory.join("generated/program.c");
+    let output = directory.malc([
+        OsStr::new("emit-c"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        emitted.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(emitted.is_file());
+
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "8 bytes\n");
+}
+
+#[test]
 fn reports_source_and_output_filesystem_failures() {
     let directory = NativeFixture::new("driver-failure");
     let missing = directory.join("missing.mal");

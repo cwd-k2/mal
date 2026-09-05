@@ -1,0 +1,14 @@
+extern receive :: Unit -> String;
+extern send :: String -> Unit;
+
+main :: Unit -> Int32 := \() {
+    value := extern receive();
+    valid :=
+        byteLength(value) == 8UInt64 &&
+        byteAt(value, 3UInt64) == 227UInt8 &&
+        byteAt(value, 6UInt64) == 0UInt8 &&
+        byteAt(value, 7UInt64) == 255UInt8 &&
+        value == "malあ\0\xff";
+    extern send(value);
+    return if (valid) then { 0 } else { 1 };
+};
