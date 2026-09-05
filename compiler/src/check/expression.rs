@@ -218,31 +218,10 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: crate::source::Span,
     ) -> Result<Expression, Diagnostic> {
-        if let resolved::Expression::Reference(reference) = &callee.kind {
-            match reference.id {
-                BYTE_LENGTH_VALUE => {
-                    let value = self.check_argument(arguments, &Type::String, span)?;
-                    return Ok(Expression {
-                        kind: ExpressionKind::StringLength {
-                            value: Box::new(value),
-                        },
-                        ty: Type::UInt64,
-                        span,
-                    });
-                }
-                BYTE_AT_VALUE => {
-                    let parameter = Type::Product(vec![Type::String, Type::UInt64]);
-                    let argument = self.check_argument(arguments, &parameter, span)?;
-                    return Ok(Expression {
-                        kind: ExpressionKind::StringAt {
-                            argument: Box::new(argument),
-                        },
-                        ty: Type::UInt8,
-                        span,
-                    });
-                }
-                _ => {}
-            }
+        if let resolved::Expression::Reference(reference) = &callee.kind
+            && let Some(result) = self.check_string_call(reference.id, arguments, span)
+        {
+            return result;
         }
         let callee = self.check_expression(callee, None)?;
         let Type::Function { parameter, result } = &callee.ty else {
@@ -283,7 +262,7 @@ impl Checker {
         })
     }
 
-    fn check_argument(
+    pub(super) fn check_argument(
         &mut self,
         arguments: &[Node<resolved::Expression>],
         parameter: &Type,

@@ -1,6 +1,8 @@
 use crate::diagnostic::Diagnostic;
 use crate::source::{SourceFile, Span};
 
+mod string;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Radix {
     Binary,
@@ -324,62 +326,17 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_string(&mut self, start: usize) -> Result<(), Diagnostic> {
-        self.offset += 1;
-        let mut value = Vec::new();
-        loop {
-            match self.peek() {
-                Some(b'"') => {
-                    self.offset += 1;
-                    self.push(TokenKind::String(value), start);
-                    return Ok(());
-                }
-                Some(b'\\') => {
-                    self.offset += 1;
-                    let escaped =
-                        match self.peek() {
-                            Some(b'\\') => b'\\',
-                            Some(b'"') => b'"',
-                            Some(b'n') => b'\n',
-                            Some(b'r') => b'\r',
-                            Some(b't') => b'\t',
-                            Some(b'0') => b'\0',
-                            Some(b'x') => {
-                                self.offset += 1;
-                                let Some(high) = self.peek().and_then(hex_value) else {
-                                    return Err(self
-                                        .invalid_string(start, "expected two hexadecimal digits"));
-                                };
-                                self.offset += 1;
-                                let Some(low) = self.peek().and_then(hex_value) else {
-                                    return Err(self
-                                        .invalid_string(start, "expected two hexadecimal digits"));
-                                };
-                                high * 16 + low
-                            }
-                            _ => return Err(self.invalid_string(start, "unknown string escape")),
-                        };
-                    value.push(escaped);
-                    self.offset += 1;
-                }
-                Some(b'\r' | b'\n') | None => {
-                    return Err(self.invalid_string(start, "expected a closing double quote"));
-                }
-                Some(byte) => {
-                    value.push(byte);
-                    self.offset += 1;
-                }
+        match string::decode(self.bytes, start) {
+            Ok(decoded) => {
+                self.offset = decoded.end;
+                self.push(TokenKind::String(decoded.value), start);
+                Ok(())
+            }
+            Err(error) => {
+                self.offset = error.end;
+                Err(self.error(start, error.end, "invalid string literal", error.label))
             }
         }
-    }
-
-    fn invalid_string(&mut self, start: usize, label: &str) -> Diagnostic {
-        while let Some(byte) = self.peek() {
-            self.offset += 1;
-            if byte == b'"' || matches!(byte, b'\n' | b'\r') {
-                break;
-            }
-        }
-        self.error(start, self.offset, "invalid string literal", label)
     }
 
     fn lex_symbol(&mut self, start: usize) -> Result<(), Diagnostic> {

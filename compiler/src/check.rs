@@ -14,6 +14,7 @@ mod control;
 mod expression;
 mod integer;
 mod product;
+mod string;
 mod types;
 
 use self::ast::{Binding, BodyItem, Pattern, Program, TopItem, Type};
