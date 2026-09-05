@@ -403,6 +403,47 @@ fn checks_products_destructuring_and_multiple_parameters() {
 }
 
 #[test]
+fn checks_nominal_external_opaque_types() {
+    let program = check_ok(
+        "extern Mem;\n\
+         extern File;\n\
+         extern allocate :: UInt64 -> Mem;\n\
+         extern length :: Mem -> UInt64;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           mem := extern allocate(4UInt64);\n\
+           return Int32(extern length(mem));\n\
+         };",
+    );
+    assert!(matches!(
+        program.items[0].kind,
+        TopItem::ExternalType { .. }
+    ));
+    let TopItem::ExternalOperation {
+        result: Type::External { name, .. },
+        ..
+    } = &program.items[2].kind
+    else {
+        panic!("allocate should return an external type");
+    };
+    assert_eq!(name, "Mem");
+
+    assert_eq!(
+        check_error(
+            "extern Mem;\n\
+             extern File;\n\
+             extern getFile :: Unit -> File;\n\
+             extern useMem :: Mem -> Unit;\n\
+             main :: Unit -> Int32 := \\() {\n\
+               extern useMem(extern getFile());\n\
+               return 0;\n\
+             };"
+        )
+        .message,
+        "type mismatch"
+    );
+}
+
+#[test]
 fn validates_extern_signatures_recursively() {
     assert_eq!(
         check_error("extern callback :: (Int32 -> Unit) -> Unit;").message,
@@ -416,17 +457,6 @@ fn validates_extern_signatures_recursively() {
         check_error("extern constant :: Int32;").message,
         "external operation `constant` must have a function type"
     );
-}
-
-#[test]
-fn rejects_features_outside_the_current_type_slice() {
-    let cases = [("extern Handle;", "external opaque types")];
-    for (text, expected) in cases {
-        assert!(
-            check_error(text).message.contains(expected),
-            "input: {text}"
-        );
-    }
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use crate::ast::{BinaryOperator, Name, Node, UnaryOperator};
 use crate::resolve::ast::{
-    ExternalOperationId, LambdaId, TypeBinding, ValueBinding, ValueReference,
+    ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueReference,
 };
 use crate::source::Span;
 
@@ -15,6 +15,10 @@ pub enum Type {
     UInt16,
     UInt32,
     UInt64,
+    External {
+        id: TypeId,
+        name: String,
+    },
     Product(Vec<Type>),
     Sum(Vec<Type>),
     Function {
@@ -34,6 +38,9 @@ pub enum TopItem {
     TypeAlias {
         binding: TypeBinding,
         ty: Type,
+    },
+    ExternalType {
+        binding: TypeBinding,
     },
     ExternalOperation {
         id: ExternalOperationId,

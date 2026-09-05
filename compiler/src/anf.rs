@@ -3,8 +3,8 @@ use crate::core::ast as core;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomKind, Binding, Block, Capture, CaseArm, ExternalOperation, Lambda, Operation,
-    Parameter, Pattern, Program, TopLevelBinding, TopLevelPattern, ValueId,
+    Atom, AtomKind, Binding, Block, Capture, CaseArm, ExternalOperation, ExternalType, Lambda,
+    Operation, Parameter, Pattern, Program, TopLevelBinding, TopLevelPattern, ValueId,
 };
 
 pub fn lower(program: &core::Program) -> Program {
@@ -22,6 +22,13 @@ impl Lowerer {
 
     fn lower_program(&mut self, program: &core::Program) -> Program {
         Program {
+            external_types: program
+                .external_types
+                .iter()
+                .map(|external| ExternalType {
+                    name: external.name.clone(),
+                })
+                .collect(),
             externals: program
                 .externals
                 .iter()

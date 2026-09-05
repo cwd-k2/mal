@@ -6,10 +6,16 @@ use crate::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
+    pub external_types: Vec<ExternalType>,
     pub externals: Vec<ExternalOperation>,
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
     pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExternalType {
+    pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

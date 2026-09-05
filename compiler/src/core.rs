@@ -10,8 +10,8 @@ mod primitive;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation, Lambda, Parameter,
-    Pattern, Program, TopLevelBinding, UnaryPrimitive, ValueId,
+    Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation, ExternalType, Lambda,
+    Parameter, Pattern, Program, TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub fn lower(program: &checked::Program) -> Program {
@@ -29,10 +29,14 @@ impl Lowerer {
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
         let mut externals = Vec::new();
+        let mut external_types = Vec::new();
         let mut bindings = Vec::new();
         for item in &program.items {
             match &item.kind {
                 checked::TopItem::TypeAlias { .. } => {}
+                checked::TopItem::ExternalType { binding } => external_types.push(ExternalType {
+                    name: binding.name.text.clone(),
+                }),
                 checked::TopItem::ExternalOperation {
                     id,
                     name,
@@ -52,6 +56,7 @@ impl Lowerer {
             }
         }
         Program {
+            external_types,
             externals,
             bindings,
             span: program.span,

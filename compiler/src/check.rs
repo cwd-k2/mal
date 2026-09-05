@@ -35,6 +35,7 @@ struct ExternalSignature {
 
 struct Checker {
     aliases: HashMap<TypeId, AliasDefinition>,
+    external_types: HashMap<TypeId, resolved::TypeBinding>,
     expanded_aliases: HashMap<TypeId, Type>,
     expanding: Vec<TypeId>,
     values: HashMap<ValueId, Type>,
@@ -46,6 +47,7 @@ impl Checker {
         let bool_type = Type::Sum(vec![Type::Unit, Type::Unit]);
         Self {
             aliases: HashMap::new(),
+            external_types: HashMap::new(),
             expanded_aliases: HashMap::new(),
             expanding: Vec::new(),
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
@@ -67,12 +69,9 @@ impl Checker {
                     binding: binding.clone(),
                     ty: self.expand_type_id(binding.id, binding.name.span)?,
                 },
-                resolved::TopItem::ExternalType { binding } => {
-                    return Err(self.unsupported(
-                        binding.name.span,
-                        "external opaque types are not supported",
-                    ));
-                }
+                resolved::TopItem::ExternalType { binding } => TopItem::ExternalType {
+                    binding: binding.clone(),
+                },
                 resolved::TopItem::ExternalOperation { id, name, .. } => {
                     let signature = self
                         .externals
@@ -112,10 +111,7 @@ impl Checker {
                     );
                 }
                 resolved::TopItem::ExternalType { binding } => {
-                    return Err(self.unsupported(
-                        binding.name.span,
-                        "external opaque types are not supported",
-                    ));
+                    self.external_types.insert(binding.id, binding.clone());
                 }
                 _ => {}
             }
@@ -196,6 +192,12 @@ impl Checker {
             UINT64_TYPE => return Ok(Type::UInt64),
             BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
             _ => {}
+        }
+        if let Some(binding) = self.external_types.get(&id) {
+            return Ok(Type::External {
+                id,
+                name: binding.name.text.clone(),
+            });
         }
         if let Some(expanded) = self.expanded_aliases.get(&id) {
             return Ok(expanded.clone());
@@ -357,10 +359,6 @@ impl Checker {
             )
         }
     }
-
-    fn unsupported(&self, span: Span, message: &str) -> Diagnostic {
-        Diagnostic::error(message).with_primary(span, "not supported by the current compiler")
-    }
 }
 
 fn contains_function(ty: &Type) -> bool {
@@ -368,7 +366,8 @@ fn contains_function(ty: &Type) -> bool {
         Type::Function { .. } => true,
         Type::Product(elements) => elements.iter().any(contains_function),
         Type::Sum(members) => members.iter().any(contains_function),
-        Type::Unit
+        Type::External { .. }
+        | Type::Unit
         | Type::Int8
         | Type::Int16
         | Type::Int32

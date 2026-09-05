@@ -172,6 +172,7 @@ MalSum_3 mal_ext_exchange(
         },
     };
 }
+
 "#;
     let fixture = NativeFixture::new("aggregate-abi");
     let executable = fixture.compile_generated(generated.clone(), host);
@@ -195,6 +196,46 @@ MalSum_3 mal_ext_exchange(
     let output = fixture.run(executable);
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: invalid sum tag"));
+}
+
+#[test]
+fn exposes_copyable_opaque_handles_to_the_host() {
+    let source = "extern Mem;\n\
+         extern allocate :: UInt64 -> Mem;\n\
+         extern combinedLength :: (Mem, Mem) -> UInt64;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           mem := extern allocate(21UInt64);\n\
+           return Int32(extern combinedLength(mem, mem) - 42UInt64);\n\
+         };";
+    let generated = emit(source).expect("emit opaque ABI");
+    assert!(
+        generated
+            .header
+            .contains("typedef struct { uintptr_t bits; } MalOpaque_Mem;")
+    );
+    assert!(generated.header.contains(
+        "uint64_t mal_ext_combinedLength(MalContext *context, \
+         MalOpaque_Mem argument_0, MalOpaque_Mem argument_1);"
+    ));
+    let host = r#"#include "program.mal.h"
+
+MalOpaque_Mem mal_ext_allocate(MalContext *context, uint64_t value) {
+    (void)context;
+    return (MalOpaque_Mem){ .bits = (uintptr_t)value };
+}
+
+uint64_t mal_ext_combinedLength(
+    MalContext *context,
+    MalOpaque_Mem first,
+    MalOpaque_Mem second
+) {
+    (void)context;
+    return (uint64_t)first.bits + (uint64_t)second.bits;
+}
+"#;
+    let fixture = NativeFixture::new("opaque-abi");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]

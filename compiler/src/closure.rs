@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomKind, Binding, Block, EnvironmentField, ExternalOperation, Function, Operation,
-    Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Atom, AtomKind, Binding, Block, EnvironmentField, ExternalOperation, ExternalType, Function,
+    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -43,6 +43,13 @@ impl Converter {
             .map(|binding| self.convert_top_level_binding(binding, &empty_environment))
             .collect();
         Program {
+            external_types: program
+                .external_types
+                .iter()
+                .map(|external| ExternalType {
+                    name: external.name.clone(),
+                })
+                .collect(),
             externals,
             bindings,
             functions: self.functions,

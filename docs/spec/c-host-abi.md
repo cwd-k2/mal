@@ -108,4 +108,4 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 
 ## 実装済みsubset
 
-reference compilerは現在、`Unit`、全fixed-width integer scalar、product/sum aggregate、`MalContext *`、`mal_ext_` symbolを実装する。Stringとopaque handleは後続の実装で、この文書に対するC conformance testとともに追加する。
+reference compilerは現在、`Unit`、全fixed-width integer scalar、product/sum aggregate、opaque handle、`MalContext *`、`mal_ext_` symbolを実装する。Stringは後続の実装で、この文書に対するC conformance testとともに追加する。

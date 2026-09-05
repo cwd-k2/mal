@@ -7,10 +7,17 @@ use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPat
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
     public: Vec<Type>,
+    opaque_names: Vec<String>,
 }
 
 impl TypeRegistry {
     pub(super) fn collect_program(&mut self, program: &closure::Program) {
+        self.opaque_names.extend(
+            program
+                .external_types
+                .iter()
+                .map(|external| external.name.clone()),
+        );
         for external in &program.externals {
             self.collect_public(&external.parameter);
             self.collect_public(&external.result);
@@ -39,6 +46,7 @@ impl TypeRegistry {
             Type::UInt16 => "uint16_t".into(),
             Type::UInt32 => "uint32_t".into(),
             Type::UInt64 => "uint64_t".into(),
+            Type::External { name, .. } => format!("MalOpaque_{name}"),
             Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
             Type::Function { .. } => format!("MalClosure_{}", self.index(ty)),
@@ -50,7 +58,19 @@ impl TypeRegistry {
     }
 
     pub(super) fn header_declarations(&self) -> String {
-        self.declarations(true)
+        let mut output = String::new();
+        for name in &self.opaque_names {
+            writeln!(
+                output,
+                "typedef struct {{ uintptr_t bits; }} MalOpaque_{name};"
+            )
+            .unwrap();
+        }
+        if !self.opaque_names.is_empty() {
+            output.push('\n');
+        }
+        output.push_str(&self.declarations(true));
+        output
     }
 
     fn declarations(&self, public: bool) -> String {
@@ -63,7 +83,8 @@ impl TypeRegistry {
                 Type::Product(_) => "MalProduct",
                 Type::Sum(_) => "MalSum",
                 Type::Function { .. } => "MalClosure",
-                Type::Unit
+                Type::External { .. }
+                | Type::Unit
                 | Type::Int8
                 | Type::Int16
                 | Type::Int32
@@ -119,7 +140,8 @@ impl TypeRegistry {
                     .unwrap();
                     output.push_str("    const void *environment;\n};\n\n");
                 }
-                Type::Unit
+                Type::External { .. }
+                | Type::Unit
                 | Type::Int8
                 | Type::Int16
                 | Type::Int32
@@ -166,7 +188,8 @@ impl TypeRegistry {
                 self.collect(parameter);
                 self.collect(result);
             }
-            Type::Unit
+            Type::External { .. }
+            | Type::Unit
             | Type::Int8
             | Type::Int16
             | Type::Int32
