@@ -589,3 +589,24 @@ suffixとして認めない。suffixのないinteger literalのdefaultは`Int64`
 
 literalでは値と型指定の境界が明瞭であり、固定幅を小文字の短い表記へ揃えることで頻出する定数を簡潔に書ける。
 未releaseのv0.4内の変更なので、旧形式の互換syntaxや専用のmigration diagnosticは設けない。
+
+## D021. v0.4のlexical detailとtrap mappingを固定する
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4 and reference compiler
+
+### 決定
+
+sourceはUTF-8とし、identifierとkeywordはASCIIで認識する。空白はASCII space、tab、CR、LF、commentは
+`//`から行末までのline commentだけを認める。block comment、Unicode identifier、trailing commaは認めない。
+
+lambda bodyは最後に`return expression;`を必須とし、implicit return、early return、値のない`return`は認めない。
+
+言語上のtrapは捕捉不能な異常終了とする。C backendのruntimeは理由をstderrへ出力して`abort()`し、hostからの
+回復不能なcontract violationにもgenerated headerの`mal_trap`を使う。portableなprocess exit codeは規定しない。
+
+### 理由
+
+実装済みの最小構文をrelease profileとして固定し、字句や終了方法が実装の偶然に見える状態を解消する。
+trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異常終了として確実に観測できるcontractを保つ。

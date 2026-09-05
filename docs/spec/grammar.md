@@ -13,7 +13,9 @@ VALUE_IDENT ::= [a-z][A-Za-z0-9]*
 
 型名は PascalCase、値・parameter・external symbol・primitive は lowerCamelCase とする。`_` は wildcard 専用で identifier ではない。
 
-comment、空白、keyword の完全な字句規則はまだ未決である。
+空白はASCII space、tab、CR、LFとする。commentは`//`からCR、LF、またはsource末尾までであり、block commentはない。
+keywordはidentifier全体が`extern`、`if`、`then`、`else`、`case`、`return`のいずれかと一致するときだけ認識する。
+Unicode identifierとtrailing commaは認めない。
 
 ## numeric separator
 

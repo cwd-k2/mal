@@ -111,7 +111,8 @@ zero除算、有限値のoverflow、invalid operationはIEEE 754に従ってinfi
 
 trap は現在の mal program の評価を即座に異常終了する。mal code から捕捉・回復する構文はない。trap までに完了した `extern` の作用は巻き戻さない。
 
-host process の終了方法や exit status への写像は backend contract が定める。
+reference compilerのC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
+host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
 
 ## core calculus
 
