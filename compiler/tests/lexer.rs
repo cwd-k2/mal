@@ -194,9 +194,10 @@ fn rejects_malformed_decimal_float_literals() {
 #[test]
 fn lexes_byte_literals_and_every_escape() {
     assert_eq!(
-        kinds(r"b'a' b'\\' b'\'' b'\n' b'\r' b'\t' b'\0' b'\x00' b'\xff'"),
+        kinds(r"b'a' b')' b'\\' b'\'' b'\n' b'\r' b'\t' b'\0' b'\x00' b'\xff'"),
         vec![
             TokenKind::Byte(b'a'),
+            TokenKind::Byte(b')'),
             TokenKind::Byte(b'\\'),
             TokenKind::Byte(b'\''),
             TokenKind::Byte(b'\n'),

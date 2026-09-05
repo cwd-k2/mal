@@ -44,6 +44,13 @@ pub struct Symbol {
     pub span: Option<Span>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Hover<'a> {
+    pub span: Span,
+    pub ty: &'a str,
+    pub occurrence: Option<&'a Occurrence>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SemanticDocument {
     occurrences: Vec<Occurrence>,
@@ -69,18 +76,25 @@ impl SemanticDocument {
             .min_by_key(|occurrence| occurrence.span.end() - occurrence.span.start())
     }
 
-    pub fn hover_at(&self, byte_offset: usize) -> Option<&str> {
-        if let Some(detail) = self
-            .occurrence_at(byte_offset)
-            .and_then(|occurrence| occurrence.detail.as_deref())
+    pub fn hover_at(&self, byte_offset: usize) -> Option<Hover<'_>> {
+        if let Some(occurrence) = self.occurrence_at(byte_offset)
+            && let Some(ty) = occurrence.detail.as_deref()
         {
-            return Some(detail);
+            return Some(Hover {
+                span: occurrence.span,
+                ty,
+                occurrence: Some(occurrence),
+            });
         }
         self.typed_regions
             .iter()
             .filter(|(span, _)| contains(*span, byte_offset))
             .min_by_key(|(span, _)| span.end() - span.start())
-            .map(|(_, ty)| ty.as_str())
+            .map(|(span, ty)| Hover {
+                span: *span,
+                ty,
+                occurrence: None,
+            })
     }
 
     pub fn definition(&self, id: SymbolId) -> Option<&Occurrence> {

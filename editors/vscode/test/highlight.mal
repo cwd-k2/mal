@@ -8,6 +8,7 @@ hexadecimal :: UInt32 := 0xff_ffu32;
 binary :: UInt8 := 0b1010_0001u8;
 fraction :: Float64 := 1_000.25e-2f64;
 letter :: UInt8 := b'\x41';
+closingParen :: UInt8 := b')';
 message :: String := "mal\n";
 
 choose :: Bool -> Choice := \(condition :: Bool) {

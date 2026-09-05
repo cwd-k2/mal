@@ -45,9 +45,20 @@
     "bytes": {
       "patterns": [
         {
-          "name": "constant.character.mal",
+          "name": "string.quoted.single.mal",
+          "contentName": "constant.character.mal",
           "begin": "\\bb'",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.mal"
+            }
+          },
           "end": "'|(?=\\r?$)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.mal"
+            }
+          },
           "patterns": [
             {
               "name": "constant.character.escape.mal",

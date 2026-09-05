@@ -11,6 +11,10 @@ Status: Current v0.5 development tooling
 `mal-lsp` processのlifecycleを扱う。repository rootから次の一commandでpinned Nix environmentへの移行、
 server build、extension dependencyのinstall、利用可能なVS Code環境に応じた起動またはinstallを行う。
 
+semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表示する。literalなど名前を持たないtyped expressionでは
+source expressionと型を表示し、hover rangeをそのexpressionへ限定する。
+byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
+
 ```nu
 nu scripts/vscode-dev.nu
 ```

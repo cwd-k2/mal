@@ -10,14 +10,12 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
-    assert_eq!(
-        document.hover_at(text.find("value").unwrap()),
-        Some("Int32")
-    );
-    assert_eq!(
-        document.hover_at(text.rfind("Count").unwrap()),
-        Some("Int32")
-    );
+    let value_hover = document.hover_at(text.find("value").unwrap()).unwrap();
+    assert_eq!(value_hover.ty, "Int32");
+    assert_eq!(value_hover.occurrence.unwrap().name, "value");
+    let alias_hover = document.hover_at(text.rfind("Count").unwrap()).unwrap();
+    assert_eq!(alias_hover.ty, "Int32");
+    assert_eq!(alias_hover.occurrence.unwrap().name, "Count");
     assert!(
         document
             .document_symbols()
@@ -30,6 +28,18 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
             .iter()
             .any(|symbol| { symbol.name == "byteLength" && symbol.kind == SymbolKind::Function })
     );
+}
+
+#[test]
+fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
+    let text = "closingParen :: UInt8 := b')';";
+    let literal = text.find("b')'").unwrap();
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let hover = document.hover_at(literal + 2).expect("byte literal hover");
+
+    assert_eq!(hover.ty, "UInt8");
+    assert_eq!(&text[hover.span.start()..hover.span.end()], "b')'");
+    assert!(hover.occurrence.is_none());
 }
 
 #[test]

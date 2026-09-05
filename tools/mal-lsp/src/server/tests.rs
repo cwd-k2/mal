@@ -110,7 +110,15 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
     let parameter = text.find("x ::").unwrap();
 
     let hover = request_at(&mut server, 10, "textDocument/hover", uri, text, reference);
-    assert_eq!(hover["result"]["contents"]["value"], "Int32");
+    assert_eq!(hover["result"]["contents"]["kind"], "markdown");
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```mal\nx :: Int32\n```\n\nparameter"
+    );
+    assert_eq!(
+        hover["result"]["range"]["start"],
+        text_position(text, reference)
+    );
 
     let definition = request_at(
         &mut server,
@@ -145,6 +153,34 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
             .unwrap()
             .len(),
         3
+    );
+}
+
+#[test]
+fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
+    let text = "closingParen :: UInt8 := b')';";
+    let uri = "file:///byte-hover.mal";
+    let mut server = open_document(uri, text);
+    let literal = text.find("b')'").unwrap();
+    let hover = request_at(
+        &mut server,
+        20,
+        "textDocument/hover",
+        uri,
+        text,
+        literal + 2,
+    );
+
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```mal\nb')' :: UInt8\n```"
+    );
+    assert_eq!(
+        hover["result"]["range"],
+        json!({
+            "start": text_position(text, literal),
+            "end": text_position(text, literal + "b')'".len())
+        })
     );
 }
 

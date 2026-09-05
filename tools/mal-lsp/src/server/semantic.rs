@@ -1,4 +1,4 @@
-use malc::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
+use malc::editor::{Hover, OccurrenceRole, SemanticDocument, SymbolId, SymbolKind};
 use malc::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -45,15 +45,15 @@ impl Server {
         let Some((source, semantic, offset)) = self.position_request(&params) else {
             return error(id, -32602, "invalid position or document is not open");
         };
-        let Some(detail) = semantic.hover_at(offset) else {
+        let Some(hover) = semantic.hover_at(offset) else {
             return success(id, Value::Null);
         };
-        let range = semantic
-            .occurrence_at(offset)
-            .map(|occurrence| span_range(&source, occurrence.span));
         success(
             id,
-            json!({"contents": {"kind": "plaintext", "value": detail}, "range": range}),
+            json!({
+                "contents": {"kind": "markdown", "value": hover_contents(&source, hover)},
+                "range": span_range(&source, hover.span)
+            }),
         )
     }
 
@@ -228,6 +228,33 @@ impl Server {
         let semantic = document.semantic.as_ref()?;
         Some((source, semantic))
     }
+}
+
+fn hover_contents(source: &SourceFile, hover: Hover<'_>) -> String {
+    let (declaration, label) = if let Some(occurrence) = hover.occurrence {
+        let declaration = if occurrence.kind == SymbolKind::Type && occurrence.name == hover.ty {
+            occurrence.name.clone()
+        } else {
+            format!("{} :: {}", occurrence.name, hover.ty)
+        };
+        let label = match (occurrence.id, occurrence.kind) {
+            (SymbolId::ExternalOperation(_), _) => "external function",
+            (_, SymbolKind::Type) => "type",
+            (_, SymbolKind::Function) => "function",
+            (_, SymbolKind::Parameter) => "parameter",
+            (_, SymbolKind::Value) => "value",
+        };
+        (declaration, Some(label))
+    } else {
+        let expression = &source.text()[hover.span.start()..hover.span.end()];
+        (format!("{expression} :: {}", hover.ty), None)
+    };
+    let mut contents = format!("```mal\n{declaration}\n```");
+    if let Some(label) = label {
+        contents.push_str("\n\n");
+        contents.push_str(label);
+    }
+    contents
 }
 
 #[derive(Deserialize)]

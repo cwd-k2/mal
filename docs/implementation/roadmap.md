@@ -8,7 +8,7 @@ Status: Current; no active milestone
 
 ## 現在位置
 
-M13まで完了している。新しい実装作業を始める前に、解決する問題、変更する責務境界、範囲外、
+M14まで完了している。新しい実装作業を始める前に、解決する問題、変更する責務境界、範囲外、
 検証可能な完了条件をこの文書へ追加する。候補だけの機能や将来向けframeworkはmilestoneにしない。
 
 | Gate | Outcome |
@@ -27,6 +27,7 @@ M13まで完了している。新しい実装作業を始める前に、解決�
 | M11 | stdio language serverのdiagnostic、full sync、document formatting |
 | M12 | semantic editor query、LSP semantic request、VS Code language client |
 | M13 | reference compilerのstage別compile-time baselineとlossless lexing costの分離 |
+| M14 | range付きMarkdown hover、byte literal内のbracketを隔離するTextMate scopeとeditor regression |
 
 M0当時の境界は[M0 implementation record](m0.md)、M7の測定と採否判断は
 [performance record](../development/performance.md)に残す。それ以外の完了内容は現在の仕様、test、example、Git履歴を正とし、

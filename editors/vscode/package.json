@@ -50,12 +50,14 @@
     }
   },
   "scripts": {
-    "test": "node --test test/extension.test.js"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@vscode/vsce": "3.9.2"
+    "@vscode/vsce": "3.9.2",
+    "vscode-oniguruma": "1.7.0",
+    "vscode-textmate": "9.3.2"
   }
 }
