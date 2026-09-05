@@ -12,6 +12,8 @@ pub mod ast;
 mod control;
 mod expression;
 mod integer;
+mod product;
+mod types;
 
 use self::ast::{Binding, BodyItem, Pattern, Program, TopItem, Type};
 
@@ -256,10 +258,7 @@ impl Checker {
                     return Err(
                         Diagnostic::error("product pattern requires a product value").with_primary(
                             pattern.span,
-                            format!(
-                                "this value has type `{}`",
-                                crate::check::expression::type_name(ty)
-                            ),
+                            format!("this value has type `{}`", types::type_name(ty)),
                         ),
                     );
                 };

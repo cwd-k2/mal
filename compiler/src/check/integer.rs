@@ -6,7 +6,7 @@ use crate::source::Span;
 
 use super::Checker;
 use super::ast::{Expression, ExpressionKind, Type};
-use super::expression::type_name;
+use super::types::type_name;
 
 impl Checker {
     pub(super) fn check_integer(

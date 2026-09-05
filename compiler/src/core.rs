@@ -4,10 +4,14 @@ use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
 use crate::source::Span;
 
 pub mod ast;
+mod pattern;
+mod primitive;
+
+use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    BinaryPrimitive, Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation,
-    Lambda, Parameter, Pattern, Program, TopLevelBinding, TopLevelPattern, UnaryPrimitive, ValueId,
+    Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation, Lambda, Parameter,
+    Pattern, Program, TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub fn lower(program: &checked::Program) -> Program {
@@ -63,54 +67,11 @@ impl Lowerer {
         }
     }
 
-    fn lower_top_level_pattern(&self, pattern: &checked::Pattern) -> TopLevelPattern {
-        match pattern {
-            checked::Pattern::Binding { binding, ty } => TopLevelPattern::Binding {
-                id: ValueId::Source(binding.id),
-                name: binding.name.text.clone(),
-                ty: ty.clone(),
-            },
-            checked::Pattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
-                ty: ty.clone(),
-                span: *span,
-            },
-            checked::Pattern::Product { elements, ty, span } => TopLevelPattern::Product {
-                elements: elements
-                    .iter()
-                    .map(|element| self.lower_top_level_pattern(element))
-                    .collect(),
-                ty: ty.clone(),
-                span: *span,
-            },
-        }
-    }
-
     fn lower_binding(&mut self, binding: &checked::Binding) -> Binding {
         Binding {
             pattern: self.lower_pattern(&binding.pattern),
             value: self.lower_expression(&binding.value),
             span: binding.span,
-        }
-    }
-
-    fn lower_pattern(&self, pattern: &checked::Pattern) -> Pattern {
-        match pattern {
-            checked::Pattern::Binding { binding, ty } => Pattern::Binding {
-                id: ValueId::Source(binding.id),
-                ty: ty.clone(),
-            },
-            checked::Pattern::Wildcard { ty, span } => Pattern::Wildcard {
-                ty: ty.clone(),
-                span: *span,
-            },
-            checked::Pattern::Product { elements, ty, span } => Pattern::Product {
-                elements: elements
-                    .iter()
-                    .map(|element| self.lower_pattern(element))
-                    .collect(),
-                ty: ty.clone(),
-                span: *span,
-            },
         }
     }
 
@@ -516,28 +477,4 @@ impl Lowerer {
 
 fn bool_type() -> checked::Type {
     checked::Type::Sum(vec![checked::Type::Unit, checked::Type::Unit])
-}
-
-fn lower_binary_primitive(operator: BinaryOperator) -> BinaryPrimitive {
-    match operator {
-        BinaryOperator::Multiply => BinaryPrimitive::Multiply,
-        BinaryOperator::Divide => BinaryPrimitive::Divide,
-        BinaryOperator::Remainder => BinaryPrimitive::Remainder,
-        BinaryOperator::Add => BinaryPrimitive::Add,
-        BinaryOperator::Subtract => BinaryPrimitive::Subtract,
-        BinaryOperator::ShiftLeft => BinaryPrimitive::ShiftLeft,
-        BinaryOperator::ShiftRight => BinaryPrimitive::ShiftRight,
-        BinaryOperator::Less => BinaryPrimitive::Less,
-        BinaryOperator::LessEqual => BinaryPrimitive::LessEqual,
-        BinaryOperator::Greater => BinaryPrimitive::Greater,
-        BinaryOperator::GreaterEqual => BinaryPrimitive::GreaterEqual,
-        BinaryOperator::Equal => BinaryPrimitive::Equal,
-        BinaryOperator::NotEqual => BinaryPrimitive::NotEqual,
-        BinaryOperator::BitwiseAnd => BinaryPrimitive::BitwiseAnd,
-        BinaryOperator::BitwiseXor => BinaryPrimitive::BitwiseXor,
-        BinaryOperator::BitwiseOr => BinaryPrimitive::BitwiseOr,
-        BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
-            unreachable!("logical operators are lowered separately")
-        }
-    }
 }

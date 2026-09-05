@@ -10,6 +10,9 @@ use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use super::types::TypeRegistry;
 
 mod expression;
+mod pattern;
+
+use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
@@ -102,26 +105,6 @@ impl<'a> BodyEmitter<'a> {
         output
     }
 
-    fn emit_top_level_globals(&self, output: &mut String, pattern: &TopLevelPattern) {
-        match pattern {
-            TopLevelPattern::Binding { id, ty, .. } => {
-                writeln!(
-                    output,
-                    "static {} {};",
-                    self.types.c_type(ty),
-                    value_name(*id)
-                )
-                .unwrap();
-            }
-            TopLevelPattern::Wildcard { .. } => {}
-            TopLevelPattern::Product { elements, .. } => {
-                for element in elements {
-                    self.emit_top_level_globals(output, element);
-                }
-            }
-        }
-    }
-
     fn emit_function_declarations(&self) -> String {
         let mut output = String::new();
         for function in &self.program.functions {
@@ -200,32 +183,6 @@ impl<'a> BodyEmitter<'a> {
         }
         output.push_str("}\n\n");
         output
-    }
-
-    fn emit_top_level_pattern(
-        &self,
-        output: &mut String,
-        pattern: &TopLevelPattern,
-        value: &str,
-        indent: usize,
-    ) {
-        match pattern {
-            TopLevelPattern::Binding { id, .. } => {
-                line(output, indent, &format!("{} = {value};", value_name(*id)));
-                line(output, indent, &format!("(void){};", value_name(*id)));
-            }
-            TopLevelPattern::Wildcard { .. } => {}
-            TopLevelPattern::Product { elements, .. } => {
-                for (index, element) in elements.iter().enumerate() {
-                    self.emit_top_level_pattern(
-                        output,
-                        element,
-                        &format!("{value}.field_{index}"),
-                        indent,
-                    );
-                }
-            }
-        }
     }
 
     fn emit_main(&self, main: &crate::closure::ast::TopLevelBinding) -> String {
@@ -465,45 +422,6 @@ impl<'a> BodyEmitter<'a> {
                 name
             }
         }
-    }
-
-    fn emit_pattern_bindings(
-        &self,
-        output: &mut String,
-        pattern: &Pattern,
-        value: &str,
-        indent: usize,
-    ) {
-        match pattern {
-            Pattern::Binding { id, ty } => {
-                let name = value_name(*id);
-                line(
-                    output,
-                    indent,
-                    &format!("{} {name} = {value};", self.types.c_type(ty)),
-                );
-                line(output, indent, &format!("(void){name};"));
-            }
-            Pattern::Wildcard { .. } => {}
-            Pattern::Product { elements, .. } => {
-                for (index, element) in elements.iter().enumerate() {
-                    self.emit_pattern_bindings(
-                        output,
-                        element,
-                        &format!("{value}.field_{index}"),
-                        indent,
-                    );
-                }
-            }
-        }
-    }
-}
-
-fn pattern_type(pattern: &Pattern) -> &Type {
-    match pattern {
-        Pattern::Binding { ty, .. }
-        | Pattern::Wildcard { ty, .. }
-        | Pattern::Product { ty, .. } => ty,
     }
 }
 

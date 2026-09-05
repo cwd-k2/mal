@@ -9,6 +9,7 @@ use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
     parse_index, parse_magnitude, unparenthesized_integer,
 };
+use super::types::{bool_type, function_placeholder, type_name};
 
 impl Checker {
     pub(super) fn check_expression(
@@ -262,35 +263,6 @@ impl Checker {
         }
     }
 
-    fn check_product(
-        &mut self,
-        elements: &[Node<resolved::Expression>],
-        span: crate::source::Span,
-        expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
-        let expected_elements = match expected {
-            Some(Type::Product(expected_elements)) if elements.len() == expected_elements.len() => {
-                Some(expected_elements)
-            }
-            _ => None,
-        };
-        let elements = elements
-            .iter()
-            .enumerate()
-            .map(|(index, element)| {
-                self.check_expression(
-                    element,
-                    expected_elements.and_then(|elements| elements.get(index)),
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Expression {
-            ty: Type::Product(elements.iter().map(|element| element.ty.clone()).collect()),
-            kind: ExpressionKind::Product(elements),
-            span,
-        })
-    }
-
     fn check_sum_injection(
         &mut self,
         type_ref: &resolved::TypeReference,
@@ -488,46 +460,5 @@ impl Checker {
                 type_name(actual)
             ),
         )
-    }
-}
-
-pub(super) fn bool_type() -> Type {
-    Type::Sum(vec![Type::Unit, Type::Unit])
-}
-
-fn function_placeholder() -> Type {
-    Type::Function {
-        parameter: Box::new(Type::Unit),
-        result: Box::new(Type::Unit),
-    }
-}
-
-pub(super) fn type_name(ty: &Type) -> String {
-    match ty {
-        Type::Unit => "Unit".into(),
-        Type::Int8 => "Int8".into(),
-        Type::Int16 => "Int16".into(),
-        Type::Int32 => "Int32".into(),
-        Type::Int64 => "Int64".into(),
-        Type::UInt8 => "UInt8".into(),
-        Type::UInt16 => "UInt16".into(),
-        Type::UInt32 => "UInt32".into(),
-        Type::UInt64 => "UInt64".into(),
-        Type::Product(elements) => format!(
-            "({})",
-            elements
-                .iter()
-                .map(type_name)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        Type::Sum(members) if *members == vec![Type::Unit, Type::Unit] => "Bool".into(),
-        Type::Sum(members) => format!(
-            "[{}]",
-            members.iter().map(type_name).collect::<Vec<_>>().join(", ")
-        ),
-        Type::Function { parameter, result } => {
-            format!("{} -> {}", type_name(parameter), type_name(result))
-        }
     }
 }
