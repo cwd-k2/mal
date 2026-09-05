@@ -284,6 +284,7 @@ impl Converter {
             anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
             anf::AtomKind::Float(bits) => AtomKind::Float(*bits),
             anf::AtomKind::String(value) => AtomKind::String(value.clone()),
+            anf::AtomKind::StorageSize(ty) => AtomKind::StorageSize(ty.clone()),
             anf::AtomKind::Unit => AtomKind::Unit,
         };
         Atom {

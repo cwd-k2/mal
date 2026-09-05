@@ -1,6 +1,5 @@
 extern allocate :: UInt64 -> Ptr;
 extern release :: Ptr -> Unit;
-extern pointerSize :: Unit -> UInt64;
 
 leaf :: Int32 -> Ptr := \(value :: Int32) {
     node := extern allocate(5u64);
@@ -10,12 +9,11 @@ leaf :: Int32 -> Ptr := \(value :: Int32) {
 };
 
 branch :: (Int32, Ptr, Ptr) -> Ptr := \(value :: Int32, left :: Ptr, right :: Ptr) {
-    pointerSize := extern pointerSize();
-    node := extern allocate(5u64 + pointerSize * 2u64);
+    node := extern allocate(5u64 + @Ptr * 2u64);
     storeInt32(node, value);
     storeUInt8(offset(node, 4u64), 1u8);
     storePtr(offset(node, 5u64), left);
-    storePtr(offset(node, 5u64 + pointerSize), right);
+    storePtr(offset(node, 5u64 + @Ptr), right);
     node;
 };
 
@@ -25,9 +23,8 @@ sumTree :: Ptr -> Int32 := \(node :: Ptr) {
     if (isBranch == 0u8)
         then { value }
         else {
-            pointerSize := extern pointerSize();
             left := loadPtr(offset(node, 5u64));
-            right := loadPtr(offset(node, 5u64 + pointerSize));
+            right := loadPtr(offset(node, 5u64 + @Ptr));
             value + sumTree(left) + sumTree(right);
         };
 };
@@ -37,9 +34,8 @@ destroyTree :: Ptr -> Unit := \(node :: Ptr) {
     if (isBranch == 0u8)
         then { extern release(node) }
         else {
-            pointerSize := extern pointerSize();
             left := loadPtr(offset(node, 5u64));
-            right := loadPtr(offset(node, 5u64 + pointerSize));
+            right := loadPtr(offset(node, 5u64 + @Ptr));
             destroyTree(left);
             destroyTree(right);
             extern release(node);

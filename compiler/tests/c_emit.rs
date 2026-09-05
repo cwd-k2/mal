@@ -752,6 +752,79 @@ MalPtr mal_ext_target(MalContext *context) {
 }
 
 #[test]
+fn executes_target_storage_size_expressions() {
+    let output = compile_and_run(
+        "extern expectedSize :: Unit -> UInt64;\n\
+         pointerSize :: UInt64 := @Ptr;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           actual := @Int8 + @Int16 + @Int32 + @Int64\n\
+             + @UInt8 + @UInt16 + @UInt32 + @UInt64\n\
+             + @Float32 + @Float64 + pointerSize + @String;\n\
+           if (actual == extern expectedSize()) then { 0 } else { 1 };\n\
+         };",
+        r#"#include "program.mal.h"
+
+uint64_t mal_ext_expectedSize(MalContext *context) {
+    (void)context;
+    return UINT64_C(50) + (uint64_t)(sizeof(MalPtr) * 2);
+}
+"#,
+    );
+    assert!(output.status.success());
+}
+
+#[test]
+fn executes_unaligned_string_descriptor_access() {
+    let source = "extern stringSlot :: Unit -> Ptr;\n\
+         extern inspectStringSlot :: Unit -> Unit;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           slot := offset(extern stringSlot(), 1u64);\n\
+           initial := loadString(slot);\n\
+           storeString(slot, \"held\\0\\xff\");\n\
+           extern inspectStringSlot();\n\
+           stored := loadString(slot);\n\
+           if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (byteAt(stored, 5u64) == 255u8)) then {\n\
+             0\n\
+           } else {\n\
+             1\n\
+           };\n\
+         };";
+    let generated = emit(source).expect("emit String descriptor access");
+    assert!(generated.source.contains("mal_load_string"));
+    assert!(generated.source.contains("mal_store_string"));
+    let host = r#"#include "program.mal.h"
+#include <string.h>
+
+static uint8_t slot[sizeof(MalPtr) + sizeof(uint64_t) + 1];
+
+MalPtr mal_ext_stringSlot(MalContext *context) {
+    static const uint8_t seed[] = { 's', 'e', 'e', 'd' };
+    MalString initial = mal_string_copy(context, seed, UINT64_C(4));
+    MalPtr data = mal_ptr_from_address((uint8_t *)initial.data);
+    uint64_t length = initial.length;
+    memcpy(slot + 1, &data, sizeof(data));
+    memcpy(slot + 1 + sizeof(data), &length, sizeof(length));
+    return mal_ptr_from_address(slot);
+}
+
+void mal_ext_inspectStringSlot(MalContext *context) {
+    MalPtr data;
+    uint64_t length;
+    static const uint8_t expected[] = { 'h', 'e', 'l', 'd', 0, 255 };
+    memcpy(&data, slot + 1, sizeof(data));
+    memcpy(&length, slot + 1 + sizeof(data), sizeof(length));
+    if (length != UINT64_C(6)
+        || memcmp(mal_ptr_address(data), expected, sizeof(expected)) != 0) {
+        mal_trap(context, "unexpected stored String descriptor");
+    }
+}
+"#;
+    let fixture = NativeFixture::new("string-value-memory");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     let generated = emit(
         "extern memory :: Unit -> Ptr;\n\
@@ -768,6 +841,8 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     assert!(!generated.source.contains("mal_ptr_offset"));
     assert!(!generated.source.contains("mal_load_int8"));
     assert!(!generated.source.contains("mal_store_float64"));
+    assert!(!generated.source.contains("mal_load_string"));
+    assert!(!generated.source.contains("mal_store_string"));
 
     let fixture = NativeFixture::new("selective-memory-runtime");
     let executable = fixture.compile_generated_with_options(

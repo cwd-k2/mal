@@ -83,6 +83,14 @@ impl BodyEmitter<'_> {
                         self.needs.memory_store_ptr = true;
                         format!("mal_store_ptr({argument}.field_0, {argument}.field_1)")
                     }
+                    MemoryPrimitive::LoadString => {
+                        self.needs.memory_load_string = true;
+                        format!("mal_load_string({argument})")
+                    }
+                    MemoryPrimitive::StoreString => {
+                        self.needs.memory_store_string = true;
+                        format!("mal_store_string({argument}.field_0, {argument}.field_1)")
+                    }
                 }
             }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
@@ -368,6 +376,15 @@ impl BodyEmitter<'_> {
                     value.len()
                 )
             }
+            AtomKind::StorageSize(ty) => match ty {
+                Type::Int8 | Type::UInt8 => "UINT64_C(1)".into(),
+                Type::Int16 | Type::UInt16 => "UINT64_C(2)".into(),
+                Type::Int32 | Type::UInt32 | Type::Float32 => "UINT64_C(4)".into(),
+                Type::Int64 | Type::UInt64 | Type::Float64 => "UINT64_C(8)".into(),
+                Type::Ptr => "((uint64_t)sizeof(MalPtr))".into(),
+                Type::String => "((uint64_t)(sizeof(MalPtr) + sizeof(uint64_t)))".into(),
+                _ => unreachable!("only memory-storable types have storage-size atoms"),
+            },
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
         }
     }

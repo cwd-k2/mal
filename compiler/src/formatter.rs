@@ -344,6 +344,10 @@ impl<'a> Formatter<'a> {
                 self.write(text);
                 self.previous = Previous::Unary;
             }
+            TokenKind::At => {
+                self.write(text);
+                self.previous = Previous::Unary;
+            }
             TokenKind::DoubleColon
             | TokenKind::Bind
             | TokenKind::Arrow

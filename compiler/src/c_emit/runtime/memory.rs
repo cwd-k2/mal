@@ -27,6 +27,8 @@ pub(super) fn emit(
     stores: u16,
     load_ptr: bool,
     store_ptr: bool,
+    load_string: bool,
+    store_string: bool,
 ) -> String {
     let mut output = String::new();
     if offset {
@@ -106,6 +108,51 @@ pub(super) fn emit(
             &mut output,
             1,
             "memcpy(pointer.address, &value, sizeof(value));"
+        );
+        c_line!(&mut output, 1, "return (MalUnit){{ UINT8_C(0) }};");
+        c_line!(&mut output, 0, "}}\n");
+    }
+    if load_string {
+        c_line!(
+            &mut output,
+            0,
+            "static inline MalString mal_load_string(MalPtr pointer) {{"
+        );
+        c_line!(&mut output, 1, "MalPtr data;");
+        c_line!(&mut output, 1, "uint64_t length;");
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(&data, pointer.address, sizeof(data));"
+        );
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(&length, pointer.address + sizeof(data), sizeof(length));"
+        );
+        c_line!(
+            &mut output,
+            1,
+            "return (MalString){{ (const uint8_t *)data.address, length }};"
+        );
+        c_line!(&mut output, 0, "}}\n");
+    }
+    if store_string {
+        c_line!(
+            &mut output,
+            0,
+            "static inline MalUnit mal_store_string(MalPtr pointer, MalString value) {{"
+        );
+        c_line!(&mut output, 1, "MalPtr data = {{ (uint8_t *)value.data }};");
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(pointer.address, &data, sizeof(data));"
+        );
+        c_line!(
+            &mut output,
+            1,
+            "memcpy(pointer.address + sizeof(data), &value.length, sizeof(value.length));"
         );
         c_line!(&mut output, 1, "return (MalUnit){{ UINT8_C(0) }};");
         c_line!(&mut output, 0, "}}\n");

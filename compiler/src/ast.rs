@@ -75,6 +75,7 @@ pub enum Expression {
     Float(DecimalFloatLiteral),
     Byte(u8),
     String(Vec<u8>),
+    StorageSize(Node<TypeExpression>),
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

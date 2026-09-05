@@ -15,7 +15,3 @@ MAL_DEFINE_allocate(context, size) {
 MAL_DEFINE_release(context, pointer) {
     free(mal_ptr_address(pointer));
 }
-
-MAL_DEFINE_pointerSize(context) {
-    return (uint64_t)sizeof(MalPtr);
-}

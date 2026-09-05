@@ -94,6 +94,9 @@ impl Lowerer {
             core::ExpressionKind::String(value) => {
                 self.atom_block(expression, AtomKind::String(value.clone()))
             }
+            core::ExpressionKind::StorageSize(ty) => {
+                self.atom_block(expression, AtomKind::StorageSize(ty.clone()))
+            }
             core::ExpressionKind::Unit => self.atom_block(expression, AtomKind::Unit),
             core::ExpressionKind::Product(elements) => {
                 let mut builder = ExpressionBuilder::default();

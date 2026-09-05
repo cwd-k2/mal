@@ -76,6 +76,7 @@ externCall  ::= "extern" VALUE_IDENT "(" argumentList? ")"
 product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
+storageSize ::= "@" type
 
 byteLiteral ::= "'" byteUnit "'"
 byteUnit    ::= printableAsciiExceptQuoteOrBackslash
@@ -101,6 +102,7 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 | level | operator | associativity |
 |---|---|---|
 | call | `f(...)` | left |
+| storage size | `@T` | — |
 | unary | `- ! ~` | right |
 | multiplicative | `* / %` | left |
 | additive | `+ -` | left |
@@ -114,6 +116,9 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 | logical OR | `||` | left |
 
 `|` は式中の bitwise OR だけに使用する。直和型は `[]` で区切るため、型と式で `|` の意味を切り替えない。assignment operator はない。
+
+`@`の直後はexpressionではなく`type`としてparseする。したがって`@String`は一つのatomic expressionであり、
+空白の有無は意味を変えない。標準の表記では`@`と型の間に空白を置かない。
 
 `[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
 

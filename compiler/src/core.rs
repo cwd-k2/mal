@@ -104,6 +104,7 @@ impl Lowerer {
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
             checked::ExpressionKind::Float(bits) => ExpressionKind::Float(*bits),
             checked::ExpressionKind::String(value) => ExpressionKind::String(value.clone()),
+            checked::ExpressionKind::StorageSize(ty) => ExpressionKind::StorageSize(ty.clone()),
             checked::ExpressionKind::Unit => ExpressionKind::Unit,
             checked::ExpressionKind::Product(elements) => ExpressionKind::Product(
                 elements

@@ -346,18 +346,58 @@ fn checks_memory_primitives_for_every_supported_value_type() {
            storeFloat32(pointer, loadFloat32(pointer));\n\
            storeFloat64(pointer, loadFloat64(pointer));\n\
            storePtr(pointer, loadPtr(pointer));\n\
+           storeString(pointer, loadString(pointer));\n\
            ();\n\
          };",
     );
     let ExpressionKind::Lambda(function) = &top_binding(&program, 0).value.kind else {
         panic!("expected lambda");
     };
-    assert_eq!(function.body.items.len(), 11);
+    assert_eq!(function.body.items.len(), 12);
     assert!(function
         .body
         .items
         .iter()
         .all(|item| matches!(item, malc::check::ast::BodyItem::Expression(expression) if expression.ty == Type::Unit)));
+}
+
+#[test]
+fn checks_storage_sizes_for_scalar_ptr_and_string_types() {
+    let program = check_ok(
+        "Byte :: UInt8;\n\
+         byteSize :: UInt64 := @Byte;\n\
+         sizes :: Unit -> UInt64 := \\() {\n\
+           @Int8 + @Int16 + @Int32 + @Int64 + byteSize\n\
+             + @UInt16 + @UInt32 + @UInt64 + @Float32 + @Float64 + @Ptr + @String;\n\
+         };",
+    );
+    assert_eq!(top_binding(&program, 1).value.ty, Type::UInt64);
+    assert!(matches!(
+        top_binding(&program, 1).value.kind,
+        ExpressionKind::StorageSize(Type::UInt8)
+    ));
+    let ExpressionKind::Lambda(function) = &top_binding(&program, 2).value.kind else {
+        panic!("expected lambda");
+    };
+    assert_eq!(function.body.result.ty, Type::UInt64);
+}
+
+#[test]
+fn rejects_storage_sizes_without_a_memory_representation() {
+    for text in [
+        "value := @Unit;",
+        "value := @(UInt8, String);",
+        "value := @[UInt8, String];",
+        "extern Resource; value := @Resource;",
+        "value := @(Int32 -> Int32);",
+    ] {
+        let error = check_error(text);
+        assert_eq!(
+            error.message, "type has no defined memory storage representation",
+            "input: {text}"
+        );
+        assert!(error.primary.is_some(), "input: {text}");
+    }
 }
 
 #[test]
@@ -367,9 +407,12 @@ fn rejects_mistyped_or_first_class_memory_primitives() {
         "bad := \\() { loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storePtr(extern memory(), 1u64); (); };",
+        "bad := \\() { loadString(0u64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storeString(extern memory(), 1u64); (); };",
         "bad := offset;",
         "bad := loadFloat64;",
         "bad := loadPtr;",
+        "bad := storeString;",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

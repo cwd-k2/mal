@@ -3,9 +3,10 @@ use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
     self as resolved, BYTE_AT_VALUE, BYTE_LENGTH_VALUE, FALSE_VALUE, INT8_TYPE, INT16_TYPE,
-    INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE,
-    PTR_TYPE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_UINT8_VALUE, STRING_TYPE, TopItem,
-    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
+    INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_STRING_VALUE, LOAD_UINT8_VALUE,
+    OFFSET_VALUE, PTR_TYPE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_STRING_VALUE,
+    STORE_UINT8_VALUE, STRING_TYPE, TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
+    ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
 
@@ -105,6 +106,8 @@ fn resolves_memory_primitives_and_the_ptr_type() {
            storeUInt8(next, byte);\n\
            target := loadPtr(next);\n\
            storePtr(next, target);\n\
+           text := loadString(next);\n\
+           storeString(next, text);\n\
            ();\n\
          };",
     );
@@ -131,6 +134,8 @@ fn resolves_memory_primitives_and_the_ptr_type() {
         STORE_UINT8_VALUE,
         LOAD_PTR_VALUE,
         STORE_PTR_VALUE,
+        LOAD_STRING_VALUE,
+        STORE_STRING_VALUE,
     ];
     for (item, expected) in lambda.body.items.iter().zip(expected) {
         let expression = match item {
@@ -210,6 +215,21 @@ fn resolves_every_predefined_fixed_width_integer_type() {
             UINT64_TYPE,
         ]
     );
+}
+
+#[test]
+fn resolves_the_type_in_a_storage_size_expression() {
+    let program = resolve_ok("Byte :: UInt8; size := @Byte;");
+    let resolved::Expression::StorageSize(ty) = &top_binding(&program.items[1]).value.kind else {
+        panic!("expected storage-size expression");
+    };
+    let resolved::TypeExpression::Named(reference) = &ty.kind else {
+        panic!("expected named type");
+    };
+    let TopItem::TypeAlias { binding, .. } = &program.items[0].kind else {
+        panic!("expected type alias");
+    };
+    assert_eq!(reference.id, binding.id);
 }
 
 #[test]

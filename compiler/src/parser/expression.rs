@@ -94,6 +94,12 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::String(value), token.span));
         }
+        if self.at(&TokenKind::At) {
+            let at = self.advance().clone();
+            let ty = self.parse_type()?;
+            let span = self.span(at.span.start(), ty.span.end());
+            return Ok(Node::new(Expression::StorageSize(ty), span));
+        }
         if self.at(&TokenKind::LeftParen) {
             return self.parse_parenthesized_expression();
         }

@@ -100,6 +100,15 @@ typedef struct {
 
 String literalのdataは生成物のstatic storageへ置ける。hostからStringを受け取るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferをMalStringへ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
 
+Stringのmemory load/storeはC structのpaddingをstorageへ含めない。`MalPtr`のobject representationと
+`uint64_t`のlengthをこの順で個別に`memcpy`し、必要byte数をpointer格納byte数と8の和に固定する。
+descriptorだけを複製し、参照先のString bytesは複製しない。
+
+storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
+C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalPtr)`へ、`@String`を
+`sizeof(MalPtr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalString`自体の
+`sizeof`には依存しない。
+
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
 
 call siteのcalleeがimmutableなtop-level lambdaまたは現在のself closureと静的に分かる場合、C backendは

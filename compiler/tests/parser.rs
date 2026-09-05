@@ -147,6 +147,14 @@ fn parses_a_string_literal_as_bytes() {
 }
 
 #[test]
+fn parses_storage_size_as_a_type_prefix_expression() {
+    let Expression::StorageSize(ty) = binding_value("value := @String;") else {
+        panic!("expected storage-size expression");
+    };
+    assert!(matches!(ty.kind, TypeExpression::Named(_)));
+}
+
+#[test]
 fn distinguishes_numeric_conversion_from_sum_injection() {
     assert!(matches!(
         binding_value("value := UInt8(1i8);"),

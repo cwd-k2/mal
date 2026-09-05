@@ -116,6 +116,7 @@ impl Index<'_> {
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::String(_)
+            | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
         }
     }

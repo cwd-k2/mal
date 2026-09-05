@@ -715,3 +715,59 @@ raw character、escape、exactly one byteの規則はD006から変更しない�
 malは`Char`型を持たず、single-quoted literalをbyte以外の意味に使わないため、`b` prefixは構文上も
 型選択上も曖昧性を解消していなかった。literalの唯一の型をsyntaxに重ねて書かず、短いspellingへ一本化する。
 Unicode characterを将来追加する場合は、byte literalの意味を変更せず別のsyntaxとして設計する。
+
+## D026. String descriptorをmemoryへload/storeできる
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+- Refines: D010, D022, D024
+
+### 決定
+
+predefinedなdirect-call-only primitiveとして`loadString :: Ptr -> String`と
+`storeString :: (Ptr, String) -> Unit`を追加する。operationはString descriptorだけをalignmentを要求せずcopyし、
+参照先のbytesはcopyしない。String bytesのprogram-lifetimeとimmutabilityは変更しない。
+
+memory上のdescriptorは、`storePtr`と同じpointer表現、その直後の`storeUInt64`と同じlength表現の順で
+paddingなしに配置する。必要byte数はtarget ABIのpointer格納byte数と8の和であり、Cの`MalString` structに
+含まれ得るpaddingには依存しない。
+
+### 理由
+
+String fieldを持つmemory上のnodeをdescriptor primitiveなしで構築すると、program-lifetimeですでに安定している
+bytesを別領域へcopyし、pointerとlengthへ分解して管理する処理が必要になる。しかしStringのdata pointerは
+immutabilityを保つためsource-levelに公開しておらず、復元にもhost operationが必要になる。
+
+Stringは一般のproductと異なり、組み込みのdescriptor表現とprogram-lifetime invariantを持つ。そのdescriptorを
+scalarや`Ptr`と同じmemory mechanismでround-trip可能にすれば、bytesのownershipを変えずにString fieldの操作を
+malへ戻せる。storage layoutをpointerとfixed-width lengthの連結として定めることで、target依存のstruct paddingを
+programのoffset計算へ持ち込まない。
+
+## D027. `@T`でmemory storage幅を表す
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+- Refines: D022, D024, D026
+
+### 決定
+
+`@T :: UInt64`を、型`T`のcanonical memory storage表現が占めるbyte数を返すtarget constantとして追加する。
+`@Ptr`はtarget ABIのpointer格納幅、`@String`は`@Ptr + 8`である。numeric scalarにも対応し、transparent
+aliasは展開する。`Unit`、product、sum、external opaque type、functionはv0.5では拒否する。
+
+`@`は値に対する通常のunary operatorでも、型をfirst-class valueへ変えるsyntaxでもない。後続のtypeを
+storage幅へ写す専用の構文であり、host `extern`を必要としない。
+
+### 理由
+
+`offset`がbyte単位である以上、target依存のpointer幅を含むlayoutをsourceだけで記述するには、型からbyte幅を
+得る手段が必要になる。bare type nameを数値として扱うとtype/value namespaceの境界が不明瞭になり、通常の
+functionとしての`sizeof(T)`は型を値引数に見せる。専用sigilはlayout queryであることを短く明示する。
+
+`<T>`も同じ短さを持つが、`<`と`>`は比較演算子およびlambda capture listですでに使用している。`@T`なら
+それらのtoken列との境界を増やさず、field offsetの式でも`@String + @UInt8`と読める。
+
+productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory表現と対応するload/store戦略を
+別途決定してから対象へ加える。これにより現在のbackend layoutを将来のsource contractとして固定しない。

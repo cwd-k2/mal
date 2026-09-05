@@ -39,9 +39,6 @@ void mal_ext_release(
     MalContext *context,
     MalPtr value
 );
-uint64_t mal_ext_pointerSize(
-    MalContext *context
-);
 
 /* External definition helpers */
 
@@ -57,12 +54,6 @@ uint64_t mal_ext_pointerSize(
     void mal_ext_release( \
         MalContext *context MAL_MAYBE_UNUSED, \
         MalPtr value \
-    )
-
-#define MAL_HAS_EXTERN_pointerSize 1
-#define MAL_DEFINE_pointerSize(context) \
-    uint64_t mal_ext_pointerSize( \
-        MalContext *context MAL_MAYBE_UNUSED \
     )
 
 #endif

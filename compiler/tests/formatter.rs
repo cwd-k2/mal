@@ -36,6 +36,14 @@ fn preserves_comments_and_literal_spelling() {
 }
 
 #[test]
+fn keeps_storage_size_attached_to_its_type() {
+    assert_eq!(
+        format("size::UInt64:=@ String+@Ptr;"),
+        "size :: UInt64 := @String + @Ptr;\n"
+    );
+}
+
+#[test]
 fn groups_declarations_and_separates_top_level_bindings() {
     let formatted = format(
         "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\

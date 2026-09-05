@@ -42,6 +42,8 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         || needs.memory_store != 0
         || needs.memory_load_ptr
         || needs.memory_store_ptr
+        || needs.memory_load_string
+        || needs.memory_store_string
     {
         output.push_str(&memory::emit(
             needs.memory_offset,
@@ -49,6 +51,8 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
             needs.memory_store,
             needs.memory_load_ptr,
             needs.memory_store_ptr,
+            needs.memory_load_string,
+            needs.memory_store_string,
         ));
     }
     if needs.float_to_integer != 0 {

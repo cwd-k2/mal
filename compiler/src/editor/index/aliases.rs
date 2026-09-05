@@ -64,6 +64,7 @@ impl Index<'_> {
             | Expression::Float(_)
             | Expression::Byte(_)
             | Expression::String(_)
+            | Expression::StorageSize(_)
             | Expression::Unit => {}
         }
     }

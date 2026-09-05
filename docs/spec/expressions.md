@@ -73,6 +73,17 @@ makeFunction()(x)
 `byteLength`、`byteAt`、および[memory](memory.md#primitive)に列挙するoperationはdirect-call-only primitiveである。
 通常のidentifierと同じ形でcallするが、値としてbindingしたり引数として渡したりできない。
 
+## storage size
+
+`@T`は型`T`のcanonical memory storage幅をbyte数で表す`UInt64`のtarget constantである。これは通常の
+function callではなく、host operationも実行しない。定義対象となる型と各幅は
+[memoryのstorage幅](memory.md#storage-幅)に定める。
+
+```mal
+pointerBytes :: UInt64 := @Ptr;
+stringFieldBytes := @String + @UInt8;
+```
+
 ## if
 
 `if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。

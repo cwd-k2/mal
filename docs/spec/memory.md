@@ -12,9 +12,30 @@ Status: Current v0.5 profile
 live region、読み書きの可否、lifetime、およびstorageを無効にするoperationを定める。同じpointerのaliasは
 同じstorageを観測する。allocationとdeallocationはpredefined primitiveではない。
 
+## storage 幅
+
+`@T`は、型`T`の値をこの文書のload/store表現でmemoryへ置くために必要なbyte数を`UInt64`で返す。
+host callを伴わないtarget constantであり、transparent aliasは展開して測る。
+
+| `T` | `@T` |
+|---|---:|
+| `Int8`, `UInt8` | 1 |
+| `Int16`, `UInt16` | 2 |
+| `Int32`, `UInt32`, `Float32` | 4 |
+| `Int64`, `UInt64`, `Float64` | 8 |
+| `Ptr` | target ABIの`MalPtr` object representationのbyte数 |
+| `String` | `@Ptr + 8` |
+
+この値はmemory上のcanonical表現だけを測り、Stringが参照するbytes、allocation metadata、C backend内部の
+struct paddingは含めない。`offset`の単位もbyteであるため、field offsetは`@T`の和として記述できる。
+
+v0.5では`Unit`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
+`@`をcompile-time errorとする。特にproductとsumはC ABI上の表現を持っていても、そのpaddingやbackend内部の
+layoutをsource-level memory contractにはしない。
+
 ## primitive
 
-v0.5のoperation集合はbyte offsetと、全numeric scalarおよび`Ptr`に対する型別load/storeである。
+v0.5のoperation集合はbyte offsetと、全numeric scalar、`Ptr`、およびString descriptorに対する型別load/storeである。
 
 ```text
 offset      :: (Ptr, UInt64) -> Ptr
@@ -40,6 +61,8 @@ loadFloat64 :: Ptr -> Float64
 storeFloat64 :: (Ptr, Float64) -> Unit
 loadPtr      :: Ptr -> Ptr
 storePtr     :: (Ptr, Ptr) -> Unit
+loadString   :: Ptr -> String
+storeString  :: (Ptr, String) -> Unit
 ```
 
 これらはpredefined scopeにあるdirect-call-only primitiveであり、first-class function valueとして参照できない。
@@ -58,14 +81,24 @@ load/storeは指定型の全byteを対象とし、alignmentを要求しない。
 pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
 `storePtr`またはhostが有効な`MalPtr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
 
+`storeString`はString descriptorをstorageへcopyし、Stringのbytes自体はcopyしない。storage表現は、
+`storePtr`が用いるpointer表現、その直後の`storeUInt64`が用いるlength表現の順でpaddingなしに並べる。
+したがって必要byte数はtarget ABIのpointer格納byte数に8を加えた値である。`storeString`の後に同じaddressから
+`loadString`すると、間に同じbytesへのwriteがなければ同じbyte sequenceを持つStringを得る。descriptorの
+複製はString bytesのprogram-lifetimeを変更せず、bytesをmutableにしない。
+
+`storeString`またはhostが既存の有効なmal Stringから上記storage表現で書いたものではないbytesを`loadString`する
+programはcontract違反である。特にpointerはprogram終了まで有効で変更されないmal-ownedまたはliteralのString bytesを
+指し、lengthはそのlive region内に収まらなければならない。
+
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
 lifetime終了後にaccessするprogramはcontract違反であり、trapを含む特定の結果を保証しない。boundsを
 deterministically検査するには、programがlengthを別のscalarとして保持し、access前に検査する。
 
-product、sum、String、external opaque type、functionを直接load/storeするprimitiveはない。
+product、sum、external opaque type、functionを直接load/storeするprimitiveはない。
 aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、既存のconstructorでmal valueとして組み立てる。
 
 ## minimality
 
-この機能はcollection、allocator、bounds policyを追加せず、indexed storageとpointer graphに共通するmechanismだけを提供する。
+この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、String fieldに共通するmechanismだけを提供する。
 採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。

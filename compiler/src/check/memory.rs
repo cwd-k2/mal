@@ -2,10 +2,11 @@ use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
     self as resolved, LOAD_FLOAT32_VALUE, LOAD_FLOAT64_VALUE, LOAD_INT8_VALUE, LOAD_INT16_VALUE,
-    LOAD_INT32_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE, LOAD_UINT16_VALUE,
-    LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, OFFSET_VALUE, STORE_FLOAT32_VALUE, STORE_FLOAT64_VALUE,
-    STORE_INT8_VALUE, STORE_INT16_VALUE, STORE_INT32_VALUE, STORE_INT64_VALUE, STORE_PTR_VALUE,
-    STORE_UINT8_VALUE, STORE_UINT16_VALUE, STORE_UINT32_VALUE, STORE_UINT64_VALUE, ValueId,
+    LOAD_INT32_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_STRING_VALUE, LOAD_UINT8_VALUE,
+    LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, OFFSET_VALUE, STORE_FLOAT32_VALUE,
+    STORE_FLOAT64_VALUE, STORE_INT8_VALUE, STORE_INT16_VALUE, STORE_INT32_VALUE, STORE_INT64_VALUE,
+    STORE_PTR_VALUE, STORE_STRING_VALUE, STORE_UINT8_VALUE, STORE_UINT16_VALUE, STORE_UINT32_VALUE,
+    STORE_UINT64_VALUE, ValueId,
 };
 use crate::source::Span;
 
@@ -38,6 +39,8 @@ pub(super) fn is_memory_primitive(value: ValueId) -> bool {
             | STORE_FLOAT64_VALUE
             | LOAD_PTR_VALUE
             | STORE_PTR_VALUE
+            | LOAD_STRING_VALUE
+            | STORE_STRING_VALUE
     )
 }
 
@@ -78,6 +81,12 @@ impl Checker {
             STORE_PTR_VALUE => (
                 MemoryPrimitive::StorePtr,
                 Type::Product(vec![Type::Ptr, Type::Ptr]),
+                Type::Unit,
+            ),
+            LOAD_STRING_VALUE => (MemoryPrimitive::LoadString, Type::Ptr, Type::String),
+            STORE_STRING_VALUE => (
+                MemoryPrimitive::StoreString,
+                Type::Product(vec![Type::Ptr, Type::String]),
                 Type::Unit,
             ),
             _ => return None,

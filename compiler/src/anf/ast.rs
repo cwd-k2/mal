@@ -85,6 +85,7 @@ pub enum AtomKind {
     Integer(i128),
     Float(u64),
     String(Vec<u8>),
+    StorageSize(Type),
     Unit,
 }
 

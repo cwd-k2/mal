@@ -106,6 +106,7 @@ pub enum ExpressionKind {
     Integer(i128),
     Float(u64),
     String(Vec<u8>),
+    StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
     Let {

@@ -37,7 +37,7 @@ mutable byte bufferはStringではなく、`Ptr`とlength、または必要に�
 ## Ptr
 
 `Ptr`は型なしのdata address型である。要素型、length、ownershipは持たず、memory accessにはpredefinedな
-numeric scalarおよびpointer operationを使う。完全な規則は[memory primitive](memory.md)に定める。
+numeric scalar、pointer、およびString descriptor operationを使う。完全な規則は[memory primitive](memory.md)に定める。
 
 ## Unit
 

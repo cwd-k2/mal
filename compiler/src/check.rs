@@ -424,7 +424,7 @@ impl Checker {
             Err(
                 Diagnostic::error("unsupported top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, sums, or lambdas",
+                    "top-level values must be closed literals, storage sizes, sums, or lambdas",
                 ),
             )
         }
@@ -437,6 +437,7 @@ fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
         | resolved::Expression::Float(_)
         | resolved::Expression::Byte(_)
         | resolved::Expression::String(_)
+        | resolved::Expression::StorageSize(_)
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)

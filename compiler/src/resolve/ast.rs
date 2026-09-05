@@ -55,6 +55,8 @@ pub const LOAD_FLOAT64_VALUE: ValueId = ValueId(23);
 pub const STORE_FLOAT64_VALUE: ValueId = ValueId(24);
 pub const LOAD_PTR_VALUE: ValueId = ValueId(25);
 pub const STORE_PTR_VALUE: ValueId = ValueId(26);
+pub const LOAD_STRING_VALUE: ValueId = ValueId(27);
+pub const STORE_STRING_VALUE: ValueId = ValueId(28);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueOwner {
@@ -151,6 +153,7 @@ pub enum Expression {
     Float(DecimalFloatLiteral),
     Byte(u8),
     String(Vec<u8>),
+    StorageSize(Node<TypeExpression>),
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

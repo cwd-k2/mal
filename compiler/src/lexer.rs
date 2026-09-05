@@ -231,6 +231,7 @@ impl<'a> Lexer<'a> {
             (Some(b'&'), _) => (TokenKind::Ampersand, 1),
             (Some(b'|'), _) => (TokenKind::Pipe, 1),
             (Some(b'^'), _) => (TokenKind::Caret, 1),
+            (Some(b'@'), _) => (TokenKind::At, 1),
             _ => {
                 let character = self.source.text()[start..]
                     .chars()

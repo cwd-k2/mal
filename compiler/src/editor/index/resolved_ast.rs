@@ -90,6 +90,7 @@ impl Index<'_> {
                 OccurrenceRole::Reference,
             ),
             Expression::Parenthesized(inner) => self.collect_resolved_expression(inner),
+            Expression::StorageSize(ty) => self.collect_resolved_type(ty),
             Expression::Product(elements) => {
                 for element in elements {
                     self.collect_resolved_expression(element);

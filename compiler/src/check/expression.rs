@@ -48,6 +48,23 @@ impl Checker {
                 ty: Type::String,
                 span: expression.span,
             },
+            resolved::Expression::StorageSize(source) => {
+                let measured = self.expand_type(source)?;
+                if !is_integer(&measured)
+                    && !is_float(&measured)
+                    && !matches!(measured, Type::Ptr | Type::String)
+                {
+                    return Err(Diagnostic::error(
+                        "type has no defined memory storage representation",
+                    )
+                    .with_primary(source.span, "storage size is not defined for this type"));
+                }
+                Expression {
+                    kind: ExpressionKind::StorageSize(measured),
+                    ty: Type::UInt64,
+                    span: expression.span,
+                }
+            }
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
                 ty: Type::Unit,

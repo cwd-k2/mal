@@ -27,6 +27,8 @@ pub(super) struct RuntimeNeeds {
     pub(super) memory_store: u16,
     pub(super) memory_load_ptr: bool,
     pub(super) memory_store_ptr: bool,
+    pub(super) memory_load_string: bool,
+    pub(super) memory_store_string: bool,
     pub(super) float_to_integer: u32,
 }
 
