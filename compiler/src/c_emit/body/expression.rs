@@ -2,7 +2,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Operation, Reference};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 
-use super::{BodyEmitter, value_name};
+use super::{BodyEmitter, function_name, value_name};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_operation_expression(
@@ -207,6 +207,11 @@ impl BodyEmitter<'_> {
             AtomKind::Reference(Reference::EnvironmentField(index)) => {
                 format!("mal_environment_fields->field_{index}")
             }
+            AtomKind::Reference(Reference::SelfClosure(function)) => format!(
+                "({}){{ .call = {}, .environment = mal_environment }}",
+                self.types.c_type(&atom.ty),
+                function_name(*function)
+            ),
             AtomKind::Integer(value) => {
                 let (constant, minimum) = match atom.ty {
                     Type::Int8 => ("INT8_C", Some(i128::from(i8::MIN))),

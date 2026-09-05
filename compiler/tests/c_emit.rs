@@ -73,6 +73,28 @@ fn executes_escaping_capturing_closures() {
 }
 
 #[test]
+fn executes_top_level_and_local_recursive_closures() {
+    let output = compile_and_run(
+        "factorial :: Int32 -> Int32 := \\(n :: Int32) {\n\
+           return if (n == 0) then { 1 } else { n * factorial(n - 1) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 120;\n\
+           local :: Int32 -> Int32 := \\<base>(n :: Int32) {\n\
+             return if (n == 0) then { base } else { local(n - 1) };\n\
+           };\n\
+           return local(3) - factorial(5);\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn emits_uint64_literals_and_scalar_extern_abi() {
     let output = compile_and_run(
         "extern printUInt64 :: UInt64 -> Unit;\n\

@@ -123,6 +123,7 @@ impl Lowerer {
             core::ExpressionKind::Lambda(lambda) => {
                 let lambda = Lambda {
                     id: lambda.id,
+                    self_binding: lambda.self_binding.map(|id| self.core_id(id)),
                     captures: lambda
                         .captures
                         .iter()

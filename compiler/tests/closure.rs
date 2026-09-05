@@ -143,6 +143,42 @@ fn represents_capture_free_closures_without_environment_fields() {
 }
 
 #[test]
+fn represents_local_self_references_with_the_current_closure() {
+    let program = convert_ok(
+        "main :: Unit -> Int32 := \\() {\n\
+           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
+             return if (n == 0) then { 0 } else { local(n - 1) };\n\
+           };\n\
+           return local(3);\n\
+         };",
+    );
+    let main_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
+    let main = function(&program, main_id);
+    let Operation::MakeClosure {
+        function: local_id, ..
+    } = &main.body.bindings[0].operation
+    else {
+        panic!("expected local recursive closure");
+    };
+    let local = function(&program, *local_id);
+    let Operation::Case { arms, .. } = &local.body.bindings[1].operation else {
+        panic!("expected recursive conditional");
+    };
+    let recursive_call = arms
+        .iter()
+        .flat_map(|arm| &arm.value.bindings)
+        .find_map(|binding| match &binding.operation {
+            Operation::Call { callee, .. } => Some(callee),
+            _ => None,
+        })
+        .expect("one branch should call itself");
+    assert!(matches!(
+        recursive_call.kind,
+        AtomKind::Reference(Reference::SelfClosure(id)) if id == *local_id
+    ));
+}
+
+#[test]
 fn preserves_captured_products_and_destructuring_patterns() {
     let program = convert_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\

@@ -60,7 +60,7 @@ impl Converter {
     fn convert_top_level_binding(
         &mut self,
         binding: &anf::TopLevelBinding,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> TopLevelBinding {
         TopLevelBinding {
             pattern: match &binding.pattern {
@@ -112,7 +112,7 @@ impl Converter {
     fn convert_block(
         &mut self,
         block: &anf::Block,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> Block {
         Block {
             bindings: block
@@ -128,7 +128,7 @@ impl Converter {
     fn convert_binding(
         &mut self,
         binding: &anf::Binding,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> Binding {
         Binding {
             pattern: self.convert_pattern(&binding.pattern),
@@ -141,7 +141,7 @@ impl Converter {
         &mut self,
         operation: &anf::Operation,
         span: crate::source::Span,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> Operation {
         match operation {
             anf::Operation::Atom(atom) => Operation::Atom(self.convert_atom(atom, environment)),
@@ -210,12 +210,15 @@ impl Converter {
     }
 
     fn lift_function(&mut self, lambda: &anf::Lambda) {
-        let environment = lambda
+        let mut environment = lambda
             .captures
             .iter()
             .enumerate()
-            .map(|(index, capture)| (capture.binding, index))
+            .map(|(index, capture)| (capture.binding, Reference::EnvironmentField(index)))
             .collect::<HashMap<_, _>>();
+        if let Some(self_binding) = lambda.self_binding {
+            environment.insert(self_binding, Reference::SelfClosure(lambda.id));
+        }
         let body = self.convert_block(&lambda.body, &environment);
         self.functions.push(Function {
             id: lambda.id,
@@ -238,7 +241,7 @@ impl Converter {
     fn convert_case_arm(
         &mut self,
         arm: &anf::CaseArm,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> ast::CaseArm {
         ast::CaseArm {
             index: arm.index,
@@ -269,7 +272,11 @@ impl Converter {
         }
     }
 
-    fn convert_atom(&self, atom: &anf::Atom, environment: &HashMap<anf::ValueId, usize>) -> Atom {
+    fn convert_atom(
+        &self,
+        atom: &anf::Atom,
+        environment: &HashMap<anf::ValueId, Reference>,
+    ) -> Atom {
         let kind = match &atom.kind {
             anf::AtomKind::Reference(id) => self.reference_kind(*id, environment),
             anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
@@ -288,7 +295,7 @@ impl Converter {
         id: anf::ValueId,
         ty: crate::check::ast::Type,
         span: crate::source::Span,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> Atom {
         Atom {
             kind: self.reference_kind(id, environment),
@@ -300,10 +307,10 @@ impl Converter {
     fn reference_kind(
         &self,
         id: anf::ValueId,
-        environment: &HashMap<anf::ValueId, usize>,
+        environment: &HashMap<anf::ValueId, Reference>,
     ) -> AtomKind {
         match environment.get(&id) {
-            Some(index) => AtomKind::Reference(Reference::EnvironmentField(*index)),
+            Some(reference) => AtomKind::Reference(*reference),
             None => AtomKind::Reference(Reference::Binding(id)),
         }
     }

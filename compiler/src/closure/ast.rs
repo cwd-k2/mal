@@ -122,6 +122,7 @@ pub enum AtomKind {
 pub enum Reference {
     Binding(ValueId),
     EnvironmentField(usize),
+    SelfClosure(LambdaId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

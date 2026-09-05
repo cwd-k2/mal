@@ -163,6 +163,7 @@ pub enum BinaryPrimitive {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub id: LambdaId,
+    pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Box<Expression>,
