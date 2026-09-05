@@ -707,7 +707,7 @@ pointerを`UInt64`として扱わないため、pointer幅、integer conversion�
 ### 決定
 
 byte literalは`'a'`、`'\n'`、`'\xff'`のようにsingle quoteだけで書き、常に`UInt8`型を持つ。
-旧`b'a'` spellingは認めない。raw character、escape、exactly one byteの規則はD006から変更しない。
+raw character、escape、exactly one byteの規則はD006から変更しない。
 したがって非ASCII source characterを含む`'あ'`はcompile-time errorである。
 
 ### 理由

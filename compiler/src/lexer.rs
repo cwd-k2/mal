@@ -47,10 +47,7 @@ impl<'a> Lexer<'a> {
 
             let start = self.offset;
             let byte = self.bytes[start];
-            if byte == b'b' && self.peek_next() == Some(b'\'') {
-                self.offset += 2;
-                return Err(self.invalid_byte(start, "byte literals do not use a `b` prefix"));
-            } else if byte == b'\'' {
+            if byte == b'\'' {
                 self.lex_byte(start)?;
             } else if byte == b'"' {
                 self.lex_string(start)?;

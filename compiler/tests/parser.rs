@@ -122,6 +122,14 @@ fn parses_a_byte_literal_as_an_atomic_expression() {
 }
 
 #[test]
+fn rejects_an_identifier_adjacent_to_a_byte_literal() {
+    for text in ["value := b'a';", "value := c'a';"] {
+        let error = parse(&source(text)).expect_err("adjacent expressions should be rejected");
+        assert_eq!(error.message, "expected `;`", "input: {text}");
+    }
+}
+
+#[test]
 fn parses_a_decimal_float_as_an_atomic_expression() {
     let program = parse_ok("value := 1.25e-2f32;");
     let TopItem::Binding(binding) = &program.items[0].kind else {

@@ -212,9 +212,7 @@ fn lexes_byte_literals_and_every_escape() {
 
 #[test]
 fn rejects_malformed_byte_literals_at_the_lexer_boundary() {
-    for text in [
-        "''", "'ab'", "'あ'", r"'\q'", r"'\x0'", r"'\xgg'", "'a", "b'a'",
-    ] {
+    for text in ["''", "'ab'", "'あ'", r"'\q'", r"'\x0'", r"'\xgg'", "'a"] {
         let error = lex(&source(text)).expect_err("byte literal should be rejected");
         assert_eq!(error.message, "invalid byte literal", "input: {text}");
         assert_eq!(
