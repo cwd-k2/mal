@@ -36,6 +36,9 @@ impl TypeRegistry {
     }
 
     pub(super) fn c_type(&self, ty: &Type) -> String {
+        if is_bool(ty) {
+            return "uint8_t".into();
+        }
         match ty {
             Type::Unit => "MalUnit".into(),
             Type::Int8 => "int8_t".into(),
@@ -184,6 +187,9 @@ impl TypeRegistry {
     }
 
     fn collect_public(&mut self, ty: &Type) {
+        if is_bool(ty) {
+            return;
+        }
         match ty {
             Type::Product(elements) | Type::Sum(elements) => {
                 for element in elements {
@@ -206,6 +212,9 @@ impl TypeRegistry {
     }
 
     fn collect(&mut self, ty: &Type) {
+        if is_bool(ty) {
+            return;
+        }
         match ty {
             Type::Float32 => {
                 self.uses_float32 = true;
@@ -336,4 +345,8 @@ impl TypeRegistry {
             .position(|candidate| candidate == ty)
             .expect("all emitted types are collected before rendering")
     }
+}
+
+pub(super) fn is_bool(ty: &Type) -> bool {
+    matches!(ty, Type::Sum(members) if members == &[Type::Unit, Type::Unit])
 }

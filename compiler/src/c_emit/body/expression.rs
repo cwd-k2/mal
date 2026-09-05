@@ -4,6 +4,7 @@ use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 
 use crate::c_emit::runtime::memory::{scalar_mask, scalar_name};
 use crate::c_emit::scalar::integer_type;
+use crate::c_emit::types::is_bool;
 
 use super::{BodyEmitter, function_name, value_name};
 
@@ -99,11 +100,18 @@ impl BodyEmitter<'_> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Operation::SumInjection { index, value } => format!(
-                "({}){{ .tag = UINT32_C({index}), .payload.variant_{index} = {} }}",
-                self.types.c_type(result),
-                self.emit_atom(value)
-            ),
+            Operation::SumInjection { index, value } => {
+                if is_bool(result) {
+                    debug_assert_eq!(value.ty, Type::Unit);
+                    format!("UINT8_C({index})")
+                } else {
+                    format!(
+                        "({}){{ .tag = UINT32_C({index}), .payload.variant_{index} = {} }}",
+                        self.types.c_type(result),
+                        self.emit_atom(value)
+                    )
+                }
+            }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand_text = self.emit_atom(operand);
                 if matches!(operand.ty, Type::Float32 | Type::Float64) {
@@ -243,10 +251,8 @@ impl BodyEmitter<'_> {
             | BinaryPrimitive::Equal
             | BinaryPrimitive::NotEqual => {
                 let condition = self.comparison_text(operator, &operand_type, &left, &right);
-                format!(
-                    "({}){{ .tag = ({condition}) ? UINT32_C(1) : UINT32_C(0) }}",
-                    self.types.c_type(result)
-                )
+                debug_assert!(is_bool(result));
+                format!("({condition}) ? UINT8_C(1) : UINT8_C(0)")
             }
         }
     }

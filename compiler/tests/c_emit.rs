@@ -55,6 +55,49 @@ fn emits_the_m0_host_abi_and_executes_the_host_example() {
 }
 
 #[test]
+fn represents_bool_as_zero_or_one_across_the_c_abi() {
+    let generated = emit(
+        "Envelope :: (Bool, (Bool, Int32));\n\
+         extern exchange :: Envelope -> Bool;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           accepted := extern exchange(true, (false, 42));\n\
+           return if (accepted) then { 0 } else { 1 };\n\
+         };",
+    )
+    .expect("emit scalar Bool ABI");
+
+    assert!(generated.header.contains(
+        "uint8_t mal_ext_exchange(MalContext *context, uint8_t argument_0, \
+         MalProduct_0 argument_1);"
+    ));
+    assert!(
+        generated
+            .header
+            .contains("struct MalProduct_0 {\n    uint8_t field_0;\n    int32_t field_1;\n};")
+    );
+    assert!(!generated.header.contains("MalSum_"));
+    assert!(!generated.source.contains(".tag"));
+
+    let fixture = NativeFixture::new("scalar-bool-abi");
+    let executable = fixture.compile_generated(
+        generated,
+        r#"#include "program.mal.h"
+
+uint8_t mal_ext_exchange(
+    MalContext *context,
+    uint8_t outer,
+    MalProduct_0 inner
+) {
+    (void)context;
+    return (outer == UINT8_C(1) && inner.field_0 == UINT8_C(0) &&
+            inner.field_1 == INT32_C(42)) ? UINT8_C(1) : UINT8_C(0);
+}
+"#,
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn executes_escaping_capturing_closures() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\

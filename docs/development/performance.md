@@ -91,8 +91,11 @@ numeric transformをdirect C比約1.16へ悪化させ、tail pathと別の再帰
 
 primitive比較を直ちに`if`条件として消費する経路は、Boolのtagged sumを作らずCの条件式へ直接loweringするようにした。
 focused testではsum valueと`switch`の除去を確認したが、代表workloadの実行時間とbinary sizeに有意な変化はなかった。
-hot pathで残るBool control flowはlocal bindingやshort-circuit loweringを経由しているため、次は値の単一使用を識別できる
-範囲を調査する。
+さらにC backend全体で`Bool`を0/1の`uint8_t`としてspecializeし、local binding、short-circuit、closure capture、product、
+extern ABIを含む経路からpayloadのないsum structを除去した。source-levelでは引き続きtransparentな`[Unit, Unit]`であり、
+一般のsum表現は変更しない。同一のClang buildを交互に測定すると、branch-heavy heapは直前のgenerated Cから約13%短縮し、
+regular numeric transformはdirect C比約1.01だった。最適化後のtext sizeは前者で不変、後者で約0.2%増であり、改善を
+code size削減とは解釈しない。
 
 ## 次の担当者が行う順序
 

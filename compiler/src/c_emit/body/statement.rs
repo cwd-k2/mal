@@ -3,6 +3,7 @@ use crate::closure::ast::{self as closure, Atom, Binding, Block, Operation, Patt
 use crate::resolve::ast::LambdaId;
 
 use super::{BodyEmitter, environment_name, function_name, pattern_type, value_name};
+use crate::c_emit::types::is_bool;
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_block_bindings(
@@ -92,10 +93,19 @@ impl BodyEmitter<'_> {
         indent: usize,
     ) {
         let scrutinee_text = self.emit_atom(scrutinee);
-        c_line!(output, indent, "switch ({scrutinee_text}.tag) {{");
+        let tag = if is_bool(&scrutinee.ty) {
+            scrutinee_text.clone()
+        } else {
+            format!("{scrutinee_text}.tag")
+        };
+        c_line!(output, indent, "switch ({tag}) {{");
         for arm in arms {
             c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
-            let payload = format!("{scrutinee_text}.payload.variant_{}", arm.index);
+            let payload = if is_bool(&scrutinee.ty) {
+                "(MalUnit){ UINT8_C(0) }".into()
+            } else {
+                format!("{scrutinee_text}.payload.variant_{}", arm.index)
+            };
             self.emit_simple_result(
                 output,
                 &arm.pattern,
@@ -240,17 +250,27 @@ impl BodyEmitter<'_> {
         let target = self.result_target(pattern);
         c_line!(output, indent, "{} {target};", self.types.c_type(ty));
         let scrutinee_text = self.emit_atom(scrutinee);
-        c_line!(output, indent, "switch ({scrutinee_text}.tag) {{");
+        let bool_scrutinee = is_bool(&scrutinee.ty);
+        let tag = if bool_scrutinee {
+            scrutinee_text.clone()
+        } else {
+            format!("{scrutinee_text}.tag")
+        };
+        c_line!(output, indent, "switch ({tag}) {{");
         for arm in arms {
             c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
             if let Pattern::Binding { id, ty } = &arm.pattern {
                 let name = value_name(*id);
+                let payload = if bool_scrutinee {
+                    "(MalUnit){ UINT8_C(0) }".into()
+                } else {
+                    format!("{scrutinee_text}.payload.variant_{}", arm.index)
+                };
                 c_line!(
                     output,
                     indent + 2,
-                    "{} {name} = {scrutinee_text}.payload.variant_{};",
-                    self.types.c_type(ty),
-                    arm.index
+                    "{} {name} = {payload};",
+                    self.types.c_type(ty)
                 );
                 c_line!(output, indent + 2, "(void){name};");
             }

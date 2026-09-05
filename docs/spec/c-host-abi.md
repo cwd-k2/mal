@@ -71,6 +71,11 @@ void mal_ext_printInt32(MalContext *context, int32_t value);
 
 numeric scalarは対応する`intN_t`、`uintN_t`、binary32 `float`、binary64 `double`でby-valueに渡す。targetが要求representationを満たさなければそのtargetにFloat32/64を提供しない。
 
+`Bool`と構造的に同じ`[Unit, Unit]`は`uint8_t`でby-valueに渡し、index 0を`UINT8_C(0)`、index 1を
+`UINT8_C(1)`で表す。generated Cが作る値はこの2値に限定する。host implementationもBool resultとして0または1だけを
+返さなければならず、それ以外の値はextern contract違反である。このspecializationはtransparent aliasとしての
+source-level semanticsを変えない。
+
 Floatを使うprogramのC adapterはround-to-nearest, ties-to-evenのfloating-point environmentを保持し、
 flush-to-zeroまたはdenormals-are-zeroを有効にしたままreturnしてはならない。完全なtarget条件は
 [D019](../design/decisions.md#d019-decimal-float-syntaxとc-target-profileを固定する)に定める。
@@ -108,7 +113,8 @@ String parameterは`MalString`で渡し、hostはcall終了後に`data`を保持
 operation固有のcontractとして定める。reference runtimeのscalar accessは`memcpy`相当であり、alignmentを
 要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
 
-product/sumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。sum tagは0-based `uint32_t`である。
+productと一般のsumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。一般のsumのtagは
+0-based `uint32_t`である。`[Unit, Unit]`には前述のBool specializationを適用し、sum structを生成しない。
 
 ## closure exclusion
 
