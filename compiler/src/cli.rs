@@ -11,6 +11,7 @@ Usage:
   malc check <source.mal>
   malc format <source.mal>
   malc emit-header <source.mal> [--output <program.mal.h>]
+  malc emit-host <source.mal>
   malc emit-c <source.mal> --output <program.c>
   malc build <source.mal> --output <program> [--link <input>]...
 ";
@@ -89,6 +90,12 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
             }
         }
         [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
+        [command, source] if command == OsStr::new("emit-host") => {
+            match crate::driver::emit_host(PathBuf::from(source).as_path()) {
+                Ok(host) => Outcome::success(host),
+                Err(error) => Outcome::compile_error(error),
+            }
+        }
         [command, rest @ ..] if command == OsStr::new("emit-c") => execute_emit_c(rest),
         [command, rest @ ..] if command == OsStr::new("build") => execute_build(rest),
         _ => usage_error("unknown command or invalid arguments"),

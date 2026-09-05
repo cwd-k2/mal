@@ -24,6 +24,15 @@ fn emit(text: &str) -> Result<c_emit::Output, malc::diagnostic::Diagnostic> {
     c_emit::emit(&closure)
 }
 
+fn contains_ignoring_whitespace(haystack: &str, needle: &str) -> bool {
+    let compact = |text: &str| {
+        text.chars()
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>()
+    };
+    compact(haystack).contains(&compact(needle))
+}
+
 fn compile_and_run(source: &str, host: &str) -> std::process::Output {
     let generated = emit(source).expect("emit C");
     let fixture = NativeFixture::new("c-emit");
@@ -65,7 +74,8 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
     )
     .expect("emit scalar Bool ABI");
 
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "uint8_t mal_ext_exchange(MalContext *context, uint8_t argument_0, \
          MalProduct_0 argument_1);"
     ));
@@ -374,7 +384,8 @@ fn emits_exact_float_bits_and_scalar_extern_abi() {
          main :: Unit -> Int32 := \\() { extern inspect(0.1f32, -0.0f64); };",
     )
     .expect("emit Float ABI");
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "int32_t mal_ext_inspect(MalContext *context, float argument_0, double argument_1);"
     ));
     assert!(generated.source.contains("#pragma STDC FP_CONTRACT OFF"));
@@ -557,11 +568,10 @@ main :: Unit -> Int32 := \() {
     assert!(generated.header.contains(
         "MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length);"
     ));
-    assert!(
-        generated
-            .header
-            .contains("MalString mal_ext_fetch(MalContext *context);")
-    );
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
+        "MalString mal_ext_fetch(MalContext *context);"
+    ));
     let fixture = NativeFixture::new("string-copy");
     let executable = fixture.compile_generated(
         generated,
@@ -652,7 +662,10 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
         "uint32_t mal_ext_u32(MalContext *context, uint32_t value);",
         "uint64_t mal_ext_u64(MalContext *context, uint64_t value);",
     ] {
-        assert!(generated.header.contains(declaration), "{declaration}");
+        assert!(
+            contains_ignoring_whitespace(&generated.header, declaration),
+            "{declaration}"
+        );
     }
 }
 
@@ -684,11 +697,10 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
             .header
             .contains("typedef struct { uint8_t *address; } MalPtr;")
     );
-    assert!(
-        generated
-            .header
-            .contains("MalPtr mal_ext_memory(MalContext *context);")
-    );
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
+        "MalPtr mal_ext_memory(MalContext *context);"
+    ));
     let host = r#"#include "program.mal.h"
 
 MalPtr mal_ext_memory(MalContext *context) {
@@ -751,31 +763,39 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
              [1](pair) { total(pair) };\n\
          };";
     let generated = emit(source).expect("emit aggregate ABI");
+    assert!(!generated.header.contains("MalType_Request"));
     assert!(
         generated
             .header
-            .contains("typedef MalProduct_1 MalType_Request;")
+            .contains("typedef MalSum_2 MalType_Response;")
     );
-    assert!(
-        generated
-            .header
-            .contains("typedef MalSum_3 MalType_Response;")
-    );
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "MalType_Response mal_ext_exchange(MalContext *context, int32_t argument_0, \
          MalProduct_0 argument_1);"
     ));
-    assert!(generated.header.contains(
-        "#define MAL_DEFINE_exchange(context, argument_0, argument_1) \
-         MalType_Response mal_ext_exchange(MalContext *context MAL_MAYBE_UNUSED, \
-         int32_t argument_0, MalProduct_0 argument_1)"
-    ));
+    assert!(
+        generated
+            .header
+            .contains("#define MAL_DEFINE_exchange(context, argument_0, argument_1) \\")
+    );
+    assert!(
+        generated
+            .header
+            .contains("MalType_Response mal_ext_exchange( \\")
+    );
+    assert!(
+        generated
+            .header
+            .contains("MalContext *context MAL_MAYBE_UNUSED, \\")
+    );
+    assert!(generated.header.contains("MalProduct_0 argument_1 \\"));
     assert!(
         generated
             .header
             .contains("struct MalProduct_0 {\n    uint8_t field_0;\n    int32_t field_1;\n};")
     );
-    assert!(generated.header.contains("MalProduct_2 variant_1;"));
+    assert!(generated.header.contains("MalProduct_1 variant_1;"));
 
     let host = r#"#include "program.mal.h"
 
@@ -818,11 +838,10 @@ fn exposes_scalar_alias_names_in_the_host_header() {
     .expect("emit scalar alias ABI");
 
     assert!(generated.header.contains("typedef uint64_t MalType_Count;"));
-    assert!(
-        generated
-            .header
-            .contains("MalType_Count mal_ext_increment(MalContext *context, MalType_Count value);")
-    );
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
+        "MalType_Count mal_ext_increment(MalContext *context, MalType_Count value);"
+    ));
 
     let host = r#"#include "program.mal.h"
 
@@ -836,14 +855,14 @@ MAL_DEFINE_increment(context, value) {
 }
 
 #[test]
-fn does_not_choose_between_transparent_aliases_for_a_host_declaration() {
+fn preserves_the_aliases_spelled_in_an_extern_declaration() {
     let generated = emit(
         "FirstCount :: UInt64;\n\
          SecondCount :: UInt64;\n\
          extern increment :: FirstCount -> SecondCount;\n\
          main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
     )
-    .expect("emit ambiguous scalar aliases");
+    .expect("emit explicitly named scalar aliases");
 
     assert!(
         generated
@@ -855,11 +874,29 @@ fn does_not_choose_between_transparent_aliases_for_a_host_declaration() {
             .header
             .contains("typedef uint64_t MalType_SecondCount;")
     );
-    assert!(
-        generated
-            .header
-            .contains("uint64_t mal_ext_increment(MalContext *context, uint64_t value);")
-    );
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
+        "MalType_SecondCount mal_ext_increment(MalContext *context, MalType_FirstCount value);"
+    ));
+}
+
+#[test]
+fn preserves_aliases_inside_a_flattened_parameter_alias() {
+    let generated = emit(
+        "Count :: UInt64;\n\
+         Payload :: (UInt8, Int32);\n\
+         Request :: (Count, Payload);\n\
+         extern exchange :: Request -> Count;\n\
+         main :: Unit -> Int32 := \\() { 0; };",
+    )
+    .expect("emit aliases from a flattened parameter");
+
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
+        "MalType_Count mal_ext_exchange(MalContext *context, MalType_Count argument_0, \
+         MalType_Payload argument_1);"
+    ));
+    assert!(!generated.header.contains("MalType_Request"));
 }
 
 #[test]
@@ -874,10 +911,12 @@ fn generated_sum_helpers_construct_and_inspect_named_variants() {
     )
     .expect("emit named sum helpers");
 
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "static inline MalType_Choice mal_make_Choice_1(int32_t value_0, int32_t value_1)"
     ));
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "static inline int32_t mal_get_Choice_1_0(MalContext *context, MalType_Choice value)"
     ));
 
@@ -911,7 +950,8 @@ fn exposes_copyable_opaque_handles_to_the_host() {
             .header
             .contains("typedef struct { uintptr_t bits; } MalOpaque_Mem;")
     );
-    assert!(generated.header.contains(
+    assert!(contains_ignoring_whitespace(
+        &generated.header,
         "uint64_t mal_ext_combinedLength(MalContext *context, \
          MalOpaque_Mem argument_0, MalOpaque_Mem argument_1);"
     ));

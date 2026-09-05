@@ -85,6 +85,6 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 
 ## Public path
 
-`compiler/tests/driver.rs`はpublic `malc` executableを通してhelp、version、usage error、`check`、`emit-header`、`emit-c`、
+`compiler/tests/driver.rs`はpublic `malc` executableを通してhelp、version、usage error、`check`、`emit-header`、`emit-host`、`emit-c`、
 `build`、filesystem error、C compiler起動失敗、C compiler non-zero exit、および`examples/`のchecked-in programを
 検証する。これにより上表のstage-focused testが利用者向け経路にも接続されていることを確認する。

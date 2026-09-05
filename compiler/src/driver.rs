@@ -50,6 +50,11 @@ pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> 
         .map_err(|error| Error::io("write generated header", output_path, error))
 }
 
+pub fn emit_host(source_path: &Path) -> Result<String, Error> {
+    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
+    crate::pipeline::emit_host(&source).map_err(|error| Error::diagnostic(error, &source))
+}
+
 pub fn build(
     source_path: &Path,
     output_path: &Path,

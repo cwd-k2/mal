@@ -18,6 +18,7 @@ macro_rules! c_line {
 }
 
 mod body;
+mod header;
 mod runtime;
 mod scalar;
 mod text;
@@ -64,14 +65,18 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
     Ok(Output {
         source,
-        header: render_header(program, &types),
+        header: header::emit(program, &types),
     })
 }
 
 pub fn emit_header(program: &Program) -> String {
     let mut types = TypeRegistry::default();
     types.collect_program(program);
-    render_header(program, &types)
+    header::emit(program, &types)
+}
+
+pub fn emit_host(program: &Program) -> String {
+    header::emit_host(program)
 }
 
 const FLOAT_TARGET_PROFILE: &str = "#if defined(__clang__)\n#pragma STDC FENV_ACCESS ON\n#pragma STDC FP_CONTRACT OFF\n#endif\n\n_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\");\n_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\");\n_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\");\n_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\");\n#if defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1\n#error \"mal requires float subnormals\"\n#endif\n#if defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1\n#error \"mal requires double subnormals\"\n#endif\n\n";
@@ -100,91 +105,4 @@ fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding,
             .with_primary(main.span, "expected `Unit -> Int32`"));
     }
     Ok(main)
-}
-
-fn render_header(program: &Program, types: &TypeRegistry) -> String {
-    let mut output = String::from(
-        "#ifndef MAL_PROGRAM_MAL_H\n#define MAL_PROGRAM_MAL_H\n\n#include <stdint.h>\n\n#define MAL_C_ABI_VERSION 0x000500u\n\n#if defined(__clang__) || defined(__GNUC__)\n#define MAL_MAYBE_UNUSED __attribute__((unused))\n#else\n#define MAL_MAYBE_UNUSED\n#endif\n\ntypedef struct MalContext MalContext;\ntypedef struct { uint8_t unused; } MalUnit;\ntypedef struct { const uint8_t *data; uint64_t length; } MalString;\ntypedef struct { uint8_t *address; } MalPtr;\n\n_Noreturn void mal_trap(MalContext *context, const char *message);\nMalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length);\n\nstatic inline MalPtr mal_ptr_from_address(uint8_t *address) { return (MalPtr){ .address = address }; }\nstatic inline uint8_t *mal_ptr_address(MalPtr value) { return value.address; }\n\n",
-    );
-    output.push_str(&types.header_declarations());
-    output.push_str(&types.header_opaque_helpers());
-    output.push_str(&types.header_alias_declarations(&program.type_aliases));
-    output.push_str(&types.header_alias_helpers(&program.type_aliases));
-    for external in &program.externals {
-        let result = external_result_type(external, types, &program.type_aliases);
-        c_write!(
-            output,
-            "{result} mal_ext_{}(MalContext *context",
-            external.name
-        );
-        match &external.parameter {
-            Type::Unit => {}
-            Type::Product(elements) => {
-                for (index, element) in elements.iter().enumerate() {
-                    c_write!(
-                        output,
-                        ", {} argument_{index}",
-                        types.header_c_type(element, &program.type_aliases)
-                    );
-                }
-            }
-            parameter => c_write!(
-                output,
-                ", {} value",
-                types.header_c_type(parameter, &program.type_aliases)
-            ),
-        }
-        output.push_str(");\n");
-    }
-    output.push('\n');
-    for external in &program.externals {
-        let result = external_result_type(external, types, &program.type_aliases);
-        c_write!(output, "#define MAL_DEFINE_{}(context", external.name);
-        match &external.parameter {
-            Type::Unit => {}
-            Type::Product(elements) => {
-                for index in 0..elements.len() {
-                    c_write!(output, ", argument_{index}");
-                }
-            }
-            _ => output.push_str(", value"),
-        }
-        c_write!(
-            output,
-            ") {result} mal_ext_{}(MalContext *context MAL_MAYBE_UNUSED",
-            external.name
-        );
-        match &external.parameter {
-            Type::Unit => {}
-            Type::Product(elements) => {
-                for (index, element) in elements.iter().enumerate() {
-                    c_write!(
-                        output,
-                        ", {} argument_{index}",
-                        types.header_c_type(element, &program.type_aliases)
-                    );
-                }
-            }
-            parameter => c_write!(
-                output,
-                ", {} value",
-                types.header_c_type(parameter, &program.type_aliases)
-            ),
-        }
-        output.push_str(")\n");
-    }
-    output.push_str("\n#endif\n");
-    output
-}
-
-fn external_result_type(
-    external: &crate::closure::ast::ExternalOperation,
-    types: &TypeRegistry,
-    aliases: &[crate::closure::ast::TypeAlias],
-) -> String {
-    if external.result == Type::Unit {
-        "void".into()
-    } else {
-        types.header_c_type(&external.result, aliases)
-    }
 }

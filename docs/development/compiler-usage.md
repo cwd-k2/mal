@@ -22,6 +22,7 @@ subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないta
 malc check source.mal
 malc format source.mal
 malc emit-header source.mal
+malc emit-host source.mal
 malc emit-c source.mal --output generated/program.c
 malc build source.mal --output program --link host.c
 ```
@@ -31,6 +32,9 @@ malc build source.mal --output program --link host.c
   入力fileは書き換えない。
 - `emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。
   `--output path`で出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
+- `emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは
+  `program.mal.h`をincludeし、未実装のoperationを`mal_trap`させるため、そのまま保存して実装の開始点にできる。
+  `emit-header`と同様に`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
 - `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
 - `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。
@@ -66,6 +70,8 @@ stderrへ出す。後者ではtoolchainのstderrも保持する。
 ## Host adapterとshared object
 
 host C sourceは対象programが生成した`program.mal.h`をincludeし、generated Cと同じtarget ABIでcompileする。
+新しいadapterは`malc emit-host source.mal | save host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
+編集済みの`host.c`に対して再実行してはならない。
 `build`はtemporary header directoryをinclude pathへ加えるため、`--link host.c`はそのheaderを直接includeできる。
 
 shared objectは`--link`で通常のlinker inputとして渡す。`malc` runtimeは`dlopen`、実行時symbol discovery、

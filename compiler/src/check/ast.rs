@@ -50,7 +50,9 @@ pub enum TopItem {
         id: ExternalOperationId,
         name: Name,
         parameter: Type,
+        parameter_aliases: Vec<Option<String>>,
         result: Type,
+        result_alias: Option<String>,
     },
     Binding(Box<Binding>),
 }

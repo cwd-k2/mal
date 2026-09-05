@@ -33,7 +33,9 @@ impl Converter {
                 id: external.id,
                 name: external.name.clone(),
                 parameter: external.parameter.clone(),
+                parameter_aliases: external.parameter_aliases.clone(),
                 result: external.result.clone(),
+                result_alias: external.result_alias.clone(),
                 span: external.span,
             })
             .collect();

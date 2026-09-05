@@ -48,16 +48,21 @@ impl TypeRegistry {
             c_line!(
                 &mut output,
                 0,
-                "static inline MalOpaque_{name} mal_{name}_from_bits(uintptr_t bits) {{ return (MalOpaque_{name}){{ .bits = bits }}; }}"
+                "static inline MalOpaque_{name} mal_{name}_from_bits(uintptr_t bits) {{"
             );
             c_line!(
                 &mut output,
-                0,
-                "static inline uintptr_t mal_{name}_bits(MalOpaque_{name} value) {{ return value.bits; }}"
+                1,
+                "return (MalOpaque_{name}){{ .bits = bits }};"
             );
-        }
-        if !output.is_empty() {
-            output.push('\n');
+            output.push_str("}\n\n");
+            c_line!(
+                &mut output,
+                0,
+                "static inline uintptr_t mal_{name}_bits(MalOpaque_{name} value) {{"
+            );
+            c_line!(&mut output, 1, "return value.bits;");
+            output.push_str("}\n\n");
         }
         output
     }
@@ -85,21 +90,12 @@ impl TypeRegistry {
         output
     }
 
-    pub(in crate::c_emit) fn header_c_type(
-        &self,
-        ty: &Type,
-        aliases: &[closure::TypeAlias],
-    ) -> String {
-        let mut matching = aliases
-            .iter()
-            .filter(|alias| alias.ty == *ty && self.is_host_type(&alias.ty));
-        let Some(alias) = matching.next() else {
-            return self.c_type(ty);
-        };
-        if matching.next().is_some() {
-            return self.c_type(ty);
+    pub(in crate::c_emit) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> String {
+        if let Some(alias) = alias {
+            format!("MalType_{alias}")
+        } else {
+            self.c_type(ty)
         }
-        format!("MalType_{}", alias.name)
     }
 
     fn emit_product_constructor(
@@ -108,18 +104,20 @@ impl TypeRegistry {
         alias: &closure::TypeAlias,
         elements: &[Type],
     ) {
-        c_write!(
+        c_line!(
             output,
+            0,
             "static inline MalType_{} mal_make_{}(",
             alias.name,
             alias.name
         );
-        self.emit_parameters(output, elements);
-        c_write!(output, ") {{ return (MalType_{}){{", alias.name);
+        self.emit_parameter_lines(output, elements);
+        output.push_str(") {\n");
+        c_line!(output, 1, "return (MalType_{}){{", alias.name);
         for index in 0..elements.len() {
-            c_write!(output, " .field_{index} = value_{index},");
+            c_line!(output, 2, ".field_{index} = value_{index},");
         }
-        output.push_str(" }; }\n");
+        output.push_str("    };\n}\n\n");
     }
 
     fn emit_product_accessors(
@@ -132,11 +130,13 @@ impl TypeRegistry {
             c_line!(
                 output,
                 0,
-                "static inline {} mal_get_{}_{index}(MalType_{} value) {{ return value.field_{index}; }}",
+                "static inline {} mal_get_{}_{index}(MalType_{} value) {{",
                 self.c_type(element),
                 alias.name,
                 alias.name
             );
+            c_line!(output, 1, "return value.field_{index};");
+            output.push_str("}\n\n");
         }
     }
 
@@ -152,19 +152,27 @@ impl TypeRegistry {
         c_line!(
             output,
             0,
-            "static inline uint32_t mal_tag_{}(MalType_{} value) {{ return value.tag; }}",
+            "static inline uint32_t mal_tag_{}(MalType_{} value) {{",
             alias.name,
             alias.name
         );
+        c_line!(output, 1, "return value.tag;");
+        output.push_str("}\n\n");
         for (index, member) in members.iter().enumerate() {
             c_line!(
                 output,
                 0,
-                "static inline uint8_t mal_is_{}_{index}(MalType_{} value) {{ return value.tag == MAL_TAG_{}_{index}; }}",
-                alias.name,
+                "static inline uint8_t mal_is_{}_{index}(MalType_{} value) {{",
                 alias.name,
                 alias.name
             );
+            c_line!(
+                output,
+                1,
+                "return value.tag == MAL_TAG_{}_{index};",
+                alias.name
+            );
+            output.push_str("}\n\n");
             self.emit_sum_constructor(output, alias, index, member);
             self.emit_sum_accessors(output, alias, index, member);
         }
@@ -177,35 +185,34 @@ impl TypeRegistry {
         index: usize,
         member: &Type,
     ) {
-        c_write!(
+        c_line!(
             output,
+            0,
             "static inline MalType_{} mal_make_{}_{index}(",
             alias.name,
             alias.name
         );
         match member {
-            Type::Unit => output.push_str("void"),
-            Type::Product(elements) => self.emit_parameters(output, elements),
-            _ => c_write!(output, "{} value", self.c_type(member)),
+            Type::Unit => c_line!(output, 1, "void"),
+            Type::Product(elements) => self.emit_parameter_lines(output, elements),
+            _ => c_line!(output, 1, "{} value", self.c_type(member)),
         }
-        c_write!(
-            output,
-            ") {{ return (MalType_{}){{ .tag = MAL_TAG_{}_{index}, .payload.variant_{index} = ",
-            alias.name,
-            alias.name
-        );
+        output.push_str(") {\n");
+        c_line!(output, 1, "return (MalType_{}){{", alias.name);
+        c_line!(output, 2, ".tag = MAL_TAG_{}_{index},", alias.name);
+        c_write!(output, "        .payload.variant_{index} = ",);
         match member {
-            Type::Unit => output.push_str("{ .unused = UINT8_C(0) }"),
+            Type::Unit => output.push_str("{ .unused = UINT8_C(0) },\n"),
             Type::Product(elements) => {
-                output.push('{');
+                output.push_str("{\n");
                 for element_index in 0..elements.len() {
-                    c_write!(output, " .field_{element_index} = value_{element_index},");
+                    c_line!(output, 3, ".field_{element_index} = value_{element_index},");
                 }
-                output.push_str(" }");
+                output.push_str("        },\n");
             }
-            _ => output.push_str("value"),
+            _ => output.push_str("value,\n"),
         }
-        output.push_str(" }; }\n");
+        output.push_str("    };\n}\n\n");
     }
 
     fn emit_sum_accessors(
@@ -222,34 +229,56 @@ impl TypeRegistry {
                     c_line!(
                         output,
                         0,
-                        "static inline {} mal_get_{}_{index}_{element_index}(MalContext *context, MalType_{} value) {{ if (!mal_is_{}_{index}(value)) mal_trap(context, \"expected {} variant {index}\"); return value.payload.variant_{index}.field_{element_index}; }}",
+                        "static inline {} mal_get_{}_{index}_{element_index}(",
                         self.c_type(element),
-                        alias.name,
-                        alias.name,
-                        alias.name,
                         alias.name
                     );
+                    output.push_str("    MalContext *context,\n");
+                    c_line!(output, 1, "MalType_{} value", alias.name);
+                    output.push_str(") {\n");
+                    c_line!(output, 1, "if (!mal_is_{}_{index}(value))", alias.name);
+                    c_line!(
+                        output,
+                        2,
+                        "mal_trap(context, \"expected {} variant {index}\");",
+                        alias.name
+                    );
+                    c_line!(
+                        output,
+                        1,
+                        "return value.payload.variant_{index}.field_{element_index};"
+                    );
+                    output.push_str("}\n\n");
                 }
             }
-            _ => c_line!(
-                output,
-                0,
-                "static inline {} mal_get_{}_{index}(MalContext *context, MalType_{} value) {{ if (!mal_is_{}_{index}(value)) mal_trap(context, \"expected {} variant {index}\"); return value.payload.variant_{index}; }}",
-                self.c_type(member),
-                alias.name,
-                alias.name,
-                alias.name,
-                alias.name
-            ),
+            _ => {
+                c_line!(
+                    output,
+                    0,
+                    "static inline {} mal_get_{}_{index}(",
+                    self.c_type(member),
+                    alias.name
+                );
+                output.push_str("    MalContext *context,\n");
+                c_line!(output, 1, "MalType_{} value", alias.name);
+                output.push_str(") {\n");
+                c_line!(output, 1, "if (!mal_is_{}_{index}(value))", alias.name);
+                c_line!(
+                    output,
+                    2,
+                    "mal_trap(context, \"expected {} variant {index}\");",
+                    alias.name
+                );
+                c_line!(output, 1, "return value.payload.variant_{index};");
+                output.push_str("}\n\n");
+            }
         }
     }
 
-    fn emit_parameters(&self, output: &mut String, elements: &[Type]) {
+    fn emit_parameter_lines(&self, output: &mut String, elements: &[Type]) {
         for (index, element) in elements.iter().enumerate() {
-            if index != 0 {
-                output.push_str(", ");
-            }
-            c_write!(output, "{} value_{index}", self.c_type(element));
+            let comma = if index + 1 == elements.len() { "" } else { "," };
+            c_line!(output, 1, "{} value_{index}{comma}", self.c_type(element));
         }
     }
 }

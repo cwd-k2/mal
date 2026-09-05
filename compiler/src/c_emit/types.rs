@@ -21,7 +21,7 @@ impl TypeRegistry {
                 .map(|external| external.name.clone()),
         );
         for external in &program.externals {
-            self.collect_public(&external.parameter);
+            self.collect_public_parameter(&external.parameter);
             self.collect_public(&external.result);
         }
         for binding in &program.bindings {
@@ -190,6 +190,16 @@ impl TypeRegistry {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => {}
+        }
+    }
+
+    fn collect_public_parameter(&mut self, ty: &Type) {
+        if let Type::Product(elements) = ty {
+            for element in elements {
+                self.collect_public(element);
+            }
+        } else {
+            self.collect_public(ty);
         }
     }
 

@@ -34,7 +34,9 @@ pub struct ExternalOperation {
     pub id: ExternalOperationId,
     pub name: String,
     pub parameter: Type,
+    pub parameter_aliases: Vec<Option<String>>,
     pub result: Type,
+    pub result_alias: Option<String>,
     pub span: Span,
 }
 

@@ -47,13 +47,17 @@ impl Lowerer {
                     id,
                     name,
                     parameter,
+                    parameter_aliases,
                     result,
+                    result_alias,
                     ..
                 } => externals.push(ExternalOperation {
                     id: *id,
                     name: name.text.clone(),
                     parameter: parameter.clone(),
+                    parameter_aliases: parameter_aliases.clone(),
                     result: result.clone(),
+                    result_alias: result_alias.clone(),
                     span: item.span,
                 }),
                 checked::TopItem::Binding(binding) => {

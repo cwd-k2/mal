@@ -32,3 +32,11 @@ pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
     let closure = crate::closure::convert(&anf);
     Ok(crate::c_emit::emit_header(&closure))
 }
+
+pub fn emit_host(source: &SourceFile) -> Result<String, Diagnostic> {
+    let checked = check(source)?;
+    let core = crate::core::lower(&checked);
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    Ok(crate::c_emit::emit_host(&closure))
+}

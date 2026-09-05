@@ -39,7 +39,9 @@ struct AliasDefinition {
 #[derive(Clone)]
 struct ExternalSignature {
     parameter: Type,
+    parameter_aliases: Vec<Option<String>>,
     result: Type,
+    result_alias: Option<String>,
 }
 
 struct Checker {
@@ -90,7 +92,9 @@ impl Checker {
                         id: *id,
                         name: name.clone(),
                         parameter: signature.parameter.clone(),
+                        parameter_aliases: signature.parameter_aliases.clone(),
                         result: signature.result.clone(),
+                        result_alias: signature.result_alias.clone(),
                     }
                 }
                 resolved::TopItem::Binding(binding) => {
@@ -150,15 +154,88 @@ impl Checker {
                 ))
                 .with_primary(ty.span, "function types cannot cross the extern boundary"));
             }
+            let (source_parameter, source_result) = self
+                .external_function_parts(ty)
+                .expect("expanded external function types retain source components");
+            let parameter_aliases = self.parameter_aliases(source_parameter, &parameter);
+            let result_alias = self.alias_name(source_result);
             self.externals.insert(
                 *id,
                 ExternalSignature {
                     parameter: *parameter,
+                    parameter_aliases,
                     result: *result,
+                    result_alias,
                 },
             );
         }
         Ok(())
+    }
+
+    fn external_function_parts<'a>(
+        &'a self,
+        ty: &'a Node<resolved::TypeExpression>,
+    ) -> Option<(
+        &'a Node<resolved::TypeExpression>,
+        &'a Node<resolved::TypeExpression>,
+    )> {
+        match &ty.kind {
+            resolved::TypeExpression::Function { parameter, result } => Some((parameter, result)),
+            resolved::TypeExpression::Parenthesized(inner) => self.external_function_parts(inner),
+            resolved::TypeExpression::Named(reference) => self
+                .aliases
+                .get(&reference.id)
+                .and_then(|definition| self.external_function_parts(&definition.value)),
+            _ => None,
+        }
+    }
+
+    fn parameter_aliases(
+        &self,
+        source: &Node<resolved::TypeExpression>,
+        parameter: &Type,
+    ) -> Vec<Option<String>> {
+        match parameter {
+            Type::Unit => Vec::new(),
+            Type::Product(elements) => self
+                .product_element_sources(source)
+                .map(|sources| {
+                    sources
+                        .iter()
+                        .map(|source| self.alias_name(source))
+                        .collect()
+                })
+                .filter(|aliases: &Vec<_>| aliases.len() == elements.len())
+                .unwrap_or_else(|| vec![None; elements.len()]),
+            _ => vec![self.alias_name(source)],
+        }
+    }
+
+    fn product_element_sources<'a>(
+        &'a self,
+        ty: &'a Node<resolved::TypeExpression>,
+    ) -> Option<&'a [Node<resolved::TypeExpression>]> {
+        match &ty.kind {
+            resolved::TypeExpression::Product(elements) => Some(elements),
+            resolved::TypeExpression::Parenthesized(inner) => self.product_element_sources(inner),
+            resolved::TypeExpression::Named(reference) => self
+                .aliases
+                .get(&reference.id)
+                .and_then(|definition| self.product_element_sources(&definition.value)),
+            _ => None,
+        }
+    }
+
+    fn alias_name(&self, ty: &Node<resolved::TypeExpression>) -> Option<String> {
+        match &ty.kind {
+            resolved::TypeExpression::Named(reference)
+                if self.aliases.contains_key(&reference.id) =>
+            {
+                Some(reference.name.text.clone())
+            }
+            resolved::TypeExpression::Parenthesized(inner) => self.alias_name(inner),
+            _ => None,
+        }
     }
 
     fn expand_type(&mut self, ty: &Node<resolved::TypeExpression>) -> Result<Type, Diagnostic> {

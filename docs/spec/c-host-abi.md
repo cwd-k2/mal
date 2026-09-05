@@ -125,10 +125,12 @@ hostは`mal_ptr_from_address`と`mal_ptr_address`で`MalPtr`を構成・参照�
 productと一般のsumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。一般のsumのtagは
 0-based `uint32_t`である。`[Unit, Unit]`には前述のBool specializationを適用し、sum structを生成しない。
 
-extern signatureに現れる型と同じ型を表すsource-level aliasには、generated headerで`MalType_<Alias>`という
-`typedef`を生成する。対応するaliasが一意ならextern function declarationにもその名前を使用する。複数のtransparent
-aliasが同じ型を表す場合は特定のaliasを優先せず、declarationにはunderlying C typeを使用する。どの`typedef`も
-新しいnominal identityやruntime representationを作らない。
+extern signatureのABI表現に現れるsource-level aliasには、generated headerで`MalType_<Alias>`という`typedef`を生成する。
+extern declarationはsourceの対応位置に明記されたaliasを`MalType_<Alias>`として保持する。同じunderlying typeを表す
+aliasが複数あっても、構造的一致から別のaliasを推測しない。top-level product parameterをflattenするときは、そのproduct
+aliasの定義に明記された直下要素のaliasを各C parameterに保持する。flattenによってC declarationに現れない外側のproduct
+aliasと、そのためだけのproduct structはheaderへ生成しない。どの`typedef`も新しいnominal identityやruntime
+representationを作らない。
 
 extern境界から到達できるproduct aliasには`mal_make_<Alias>`と位置ごとの`mal_get_<Alias>_<index>`を生成する。
 一般のsum aliasには`MAL_TAG_<Alias>_<index>`、`mal_tag_<Alias>`、`mal_is_<Alias>_<index>`、

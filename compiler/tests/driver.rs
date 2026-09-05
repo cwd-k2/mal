@@ -140,6 +140,45 @@ fn emit_header_defaults_to_the_source_directory() {
 }
 
 #[test]
+fn emit_host_prints_compilable_external_operation_stubs() {
+    let directory = NativeFixture::new("driver-host");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "Count :: UInt64;\n\
+         extern increment :: Count -> Count;\n\
+         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+    );
+
+    let header_output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
+    assert!(header_output.status.success());
+    let output = directory.malc([OsStr::new("emit-host"), source.as_os_str()]);
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let host = String::from_utf8(output.stdout).unwrap();
+    assert!(host.starts_with("#include \"program.mal.h\"\n"));
+    assert!(host.contains("MAL_DEFINE_increment(context, value)"));
+    assert!(host.contains("(void)value;"));
+    assert!(host.contains("external operation `increment` is not implemented"));
+
+    directory.write("host.c", &host);
+    let object = directory.join("host.o");
+    let compilation = std::process::Command::new("clang")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c"])
+        .arg(directory.join("host.c"))
+        .arg("-o")
+        .arg(object)
+        .output()
+        .expect("run clang");
+    assert!(
+        compilation.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilation.stderr)
+    );
+}
+
+#[test]
 fn checked_in_example_headers_match_the_compiler() {
     let fixture = NativeFixture::new("example-headers");
     let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
