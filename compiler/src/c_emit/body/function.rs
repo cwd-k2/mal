@@ -1,6 +1,9 @@
 use crate::closure::ast::{self as closure, TopLevelPattern};
 
-use super::{BodyEmitter, environment_name, function_name, has_direct_tail_call, value_name};
+use super::{
+    BodyEmitter, direct_function_name, environment_name, function_name, has_direct_tail_call,
+    value_name,
+};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_environments(&self) -> String {
@@ -45,6 +48,14 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 c_line!(&mut output, 0, "/* mal source binding: {name} */");
             }
+            if matches!(function.parameter.ty, crate::check::ast::Type::Product(_)) {
+                c_line!(
+                    &mut output,
+                    0,
+                    "{};",
+                    self.direct_function_signature(function)
+                );
+            }
             c_line!(&mut output, 0, "{};", self.function_signature(function));
         }
         if !output.is_empty() {
@@ -59,40 +70,49 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 c_line!(&mut output, 0, "/* mal source binding: {name} */");
             }
-            c_line!(&mut output, 0, "{} {{", self.function_signature(function));
-            c_line!(&mut output, 1, "(void)mal_context;");
-            if function.environment.is_empty() {
-                c_line!(&mut output, 1, "(void)mal_environment;");
-            } else {
+            if let crate::check::ast::Type::Product(elements) = &function.parameter.ty {
                 c_line!(
                     &mut output,
-                    1,
-                    "const {} *mal_environment_fields = (const {} *)mal_environment;",
-                    environment_name(function.id),
-                    environment_name(function.id)
+                    0,
+                    "{} {{",
+                    self.direct_function_signature(function)
                 );
-            }
-            if function.parameter.binding.is_none() {
-                c_line!(&mut output, 1, "(void)mal_parameter;");
-            }
-            if has_direct_tail_call(&function.body, function.id) {
-                c_line!(&mut output, 1, "mal_tail_entry:");
-                c_line!(&mut output, 1, "{{");
                 let parameter_name = function
                     .parameter
                     .binding
                     .map_or_else(|| "mal_parameter".into(), value_name);
-                self.emit_tail_block(&mut output, &function.body, function.id, &parameter_name, 2);
-                c_line!(&mut output, 1, "}}");
-            } else {
-                self.emit_block_bindings(&mut output, &function.body, 1);
+                let fields = elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| format!(".field_{index} = mal_direct_parameter_{index}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 c_line!(
                     &mut output,
                     1,
-                    "return {};",
-                    self.emit_atom(&function.body.result)
+                    "{} {parameter_name} = ({0}){{ {fields} }};",
+                    self.types.c_type(&function.parameter.ty)
                 );
+                self.emit_function_body(&mut output, function);
+                output.push_str("}\n\n");
+
+                c_line!(&mut output, 0, "{} {{", self.function_signature(function));
+                let arguments = elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| format!(", {parameter_name}.field_{index}"))
+                    .collect::<String>();
+                c_line!(
+                    &mut output,
+                    1,
+                    "return {}(mal_context, mal_environment{arguments});",
+                    direct_function_name(function.id)
+                );
+                output.push_str("}\n\n");
+                continue;
             }
+            c_line!(&mut output, 0, "{} {{", self.function_signature(function));
+            self.emit_function_body(&mut output, function);
             output.push_str("}\n\n");
         }
         output
@@ -156,5 +176,58 @@ impl BodyEmitter<'_> {
             "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameter_type} {parameter_name})",
             function_name(function.id)
         )
+    }
+
+    fn direct_function_signature(&self, function: &closure::Function) -> String {
+        let result = self.types.c_type(&function.body.result.ty);
+        let crate::check::ast::Type::Product(elements) = &function.parameter.ty else {
+            unreachable!("only product parameters have direct entry points")
+        };
+        let parameters = elements
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| format!("{} mal_direct_parameter_{index}", self.types.c_type(ty)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameters})",
+            direct_function_name(function.id)
+        )
+    }
+
+    fn emit_function_body(&mut self, output: &mut String, function: &closure::Function) {
+        c_line!(output, 1, "(void)mal_context;");
+        if function.environment.is_empty() {
+            c_line!(output, 1, "(void)mal_environment;");
+        } else {
+            c_line!(
+                output,
+                1,
+                "const {} *mal_environment_fields = (const {} *)mal_environment;",
+                environment_name(function.id),
+                environment_name(function.id)
+            );
+        }
+        if function.parameter.binding.is_none() {
+            c_line!(output, 1, "(void)mal_parameter;");
+        }
+        if has_direct_tail_call(&function.body, function.id) {
+            c_line!(output, 1, "mal_tail_entry:");
+            c_line!(output, 1, "{{");
+            let parameter_name = function
+                .parameter
+                .binding
+                .map_or_else(|| "mal_parameter".into(), value_name);
+            self.emit_tail_block(output, &function.body, function.id, &parameter_name, 2);
+            c_line!(output, 1, "}}");
+        } else {
+            self.emit_block_bindings(output, &function.body, 1);
+            c_line!(
+                output,
+                1,
+                "return {};",
+                self.emit_atom(&function.body.result)
+            );
+        }
     }
 }

@@ -97,6 +97,12 @@ extern ABIを含む経路からpayloadのないsum structを除去した。sourc
 regular numeric transformはdirect C比約1.01だった。最適化後のtext sizeは前者で不変、後者で約0.2%増であり、改善を
 code size削減とは解釈しない。
 
+product parameterを持つfunctionは、fieldを個別に受けるknown-call用direct entryと、aggregate parameterを受ける
+function-value用closure entryへ分けた。closure entryはdirect entryへのthunkとして残るため、first-class functionの
+calling conventionは変えない。同一測定内でbranch-heavy heapはdirect C比約2.07から約1.28へ改善し、regular numeric
+transformは約1.04だった。hot functionはinline cost 385、threshold 225のままcall boundaryが残ったため、前者の改善は
+主にaggregateをC call ABIから外した効果と判断する。
+
 ## 次の担当者が行う順序
 
 ### 1. local fixtureを固定する

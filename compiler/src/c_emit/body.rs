@@ -79,6 +79,14 @@ impl<'a> BodyEmitter<'a> {
             .expect("closure conversion preserves external declarations")
     }
 
+    fn function(&self, id: LambdaId) -> &closure::Function {
+        self.program
+            .functions
+            .iter()
+            .find(|function| function.id == id)
+            .expect("closure conversion preserves function identities")
+    }
+
     fn direct_function(&self, callee: &closure::Atom) -> Option<(LambdaId, &'static str)> {
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
@@ -171,6 +179,10 @@ fn value_name(id: anf::ast::ValueId) -> String {
 
 fn function_name(id: LambdaId) -> String {
     format!("mal_function_{}", id.0)
+}
+
+fn direct_function_name(id: LambdaId) -> String {
+    format!("mal_direct_function_{}", id.0)
 }
 
 fn environment_name(id: LambdaId) -> String {

@@ -201,6 +201,41 @@ fn destructures_product_atoms_without_copying_the_product() {
 }
 
 #[test]
+fn passes_known_product_arguments_through_a_direct_entry() {
+    let generated = emit(
+        "combine :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) {\n\
+           return left + right;\n\
+         };\n\
+         apply :: ((Int64, Int64) -> Int64) -> Int64 := \\(operation :: (Int64, Int64) -> Int64) {\n\
+           return operation(20i64, 22i64);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           return Int32(combine(20i64, 22i64) + apply(combine) - 84i64);\n\
+         };",
+    )
+    .expect("emit a direct product entry");
+
+    assert!(generated.source.contains(
+        "static int64_t mal_direct_function_0(MalContext *mal_context, \
+         const void *mal_environment, int64_t mal_direct_parameter_0, \
+         int64_t mal_direct_parameter_1)"
+    ));
+    assert!(generated.source.contains(
+        "return mal_direct_function_0(mal_context, mal_environment, \
+         mal_value_core_0.field_0, mal_value_core_0.field_1);"
+    ));
+    assert!(
+        generated
+            .source
+            .contains("mal_direct_function_0(mal_context, NULL,")
+    );
+
+    let fixture = NativeFixture::new("known-product-entry");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
     let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
            return if (remaining == 0) then { total } else {\n\

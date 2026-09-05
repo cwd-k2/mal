@@ -45,6 +45,8 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
   直接loweringする。operandの左から右への評価順とbranch内のeffectを各中間表現のtestで固定した。
 - C backendでは`Bool`と構造的に同じ`[Unit, Unit]`を0/1の`uint8_t`で表し、定数、比較結果、closure、product、
   extern ABIを含むすべての保存・受け渡しからpayloadのないsum structを除去した。
+- product parameterを持つfunctionにはfieldごとのknown-call用direct entryと、function value用の共通closure entryを
+  分けて生成する。direct callはproductをCのcall ABIでby-valueに渡さず、closureの意味と末尾再帰loweringは維持する。
 
 ### Done
 
