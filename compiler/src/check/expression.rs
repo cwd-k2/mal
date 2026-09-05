@@ -43,10 +43,8 @@ impl Checker {
                     span: expression.span,
                 }
             }
-            resolved::Expression::Product(_) => {
-                return Err(
-                    self.unsupported(expression.span, "product expressions are not supported")
-                );
+            resolved::Expression::Product(elements) => {
+                self.check_product(elements, expression.span, expected)?
             }
             resolved::Expression::Lambda(lambda) => {
                 self.check_lambda(lambda, expression.span, expected)?
@@ -124,12 +122,6 @@ impl Checker {
         span: crate::source::Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if lambda.parameters.len() > 1 {
-            return Err(self.unsupported(
-                span,
-                "multiple lambda parameters require product types, which are not supported",
-            ));
-        }
         let expected_function = match expected {
             Some(Type::Function { parameter, result }) => {
                 Some((parameter.as_ref().clone(), result.as_ref().clone()))
@@ -164,6 +156,16 @@ impl Checker {
         let parameter_type = parameters
             .first()
             .map_or(Type::Unit, |parameter| parameter.ty.clone());
+        let parameter_type = if parameters.len() > 1 {
+            Type::Product(
+                parameters
+                    .iter()
+                    .map(|parameter| parameter.ty.clone())
+                    .collect(),
+            )
+        } else {
+            parameter_type
+        };
         if let Some((expected_parameter, _)) = &expected_function {
             self.require_type(&parameter_type, expected_parameter, span)?;
         }
@@ -256,11 +258,37 @@ impl Checker {
                 })
             }
             [argument] => self.check_expression(argument, Some(parameter)),
-            _ => Err(self.unsupported(
-                span,
-                "multiple arguments require product types, which are not supported",
-            )),
+            _ => self.check_product(arguments, span, Some(parameter)),
         }
+    }
+
+    fn check_product(
+        &mut self,
+        elements: &[Node<resolved::Expression>],
+        span: crate::source::Span,
+        expected: Option<&Type>,
+    ) -> Result<Expression, Diagnostic> {
+        let expected_elements = match expected {
+            Some(Type::Product(expected_elements)) if elements.len() == expected_elements.len() => {
+                Some(expected_elements)
+            }
+            _ => None,
+        };
+        let elements = elements
+            .iter()
+            .enumerate()
+            .map(|(index, element)| {
+                self.check_expression(
+                    element,
+                    expected_elements.and_then(|elements| elements.get(index)),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Expression {
+            ty: Type::Product(elements.iter().map(|element| element.ty.clone()).collect()),
+            kind: ExpressionKind::Product(elements),
+            span,
+        })
     }
 
     fn check_sum_injection(
@@ -485,6 +513,14 @@ pub(super) fn type_name(ty: &Type) -> String {
         Type::UInt16 => "UInt16".into(),
         Type::UInt32 => "UInt32".into(),
         Type::UInt64 => "UInt64".into(),
+        Type::Product(elements) => format!(
+            "({})",
+            elements
+                .iter()
+                .map(type_name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
         Type::Sum(members) if *members == vec![Type::Unit, Type::Unit] => "Bool".into(),
         Type::Sum(members) => format!(
             "[{}]",

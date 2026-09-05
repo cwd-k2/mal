@@ -15,6 +15,7 @@ pub enum Type {
     UInt16,
     UInt32,
     UInt64,
+    Product(Vec<Type>),
     Sum(Vec<Type>),
     Function {
         parameter: Box<Type>,
@@ -53,8 +54,19 @@ pub struct Binding {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Pattern {
-    Binding { binding: ValueBinding, ty: Type },
-    Wildcard { ty: Type, span: Span },
+    Binding {
+        binding: ValueBinding,
+        ty: Type,
+    },
+    Wildcard {
+        ty: Type,
+        span: Span,
+    },
+    Product {
+        elements: Vec<Pattern>,
+        ty: Type,
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,6 +81,7 @@ pub enum ExpressionKind {
     Reference(ValueReference),
     Integer(i128),
     Unit,
+    Product(Vec<Expression>),
     Parenthesized(Box<Expression>),
     Lambda(Lambda),
     Call {

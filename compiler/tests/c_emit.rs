@@ -238,6 +238,54 @@ fn executes_modulo_integer_conversions() {
 }
 
 #[test]
+fn executes_nested_products_destructuring_and_multiple_arguments() {
+    let output = compile_and_run(
+        "extern mark :: Int32 -> Int32;\n\
+         pair :: (Int32, Int32) := (20Int32, 22Int32);\n\
+         add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+           return left + right;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           (first, second) := pair;\n\
+           nested := ((extern mark(first), ()), extern mark(second));\n\
+           ((value, _), extra) := nested;\n\
+           return add(value, extra) - 42Int32;\n\
+         };",
+        r#"#include "program.mal.h"
+#include <stdio.h>
+
+int32_t mal_ext_mark(MalContext *context, int32_t value) {
+    (void)context;
+    printf("%d\n", value);
+    return value;
+}
+"#,
+    );
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "20\n22\n");
+}
+
+#[test]
+fn executes_a_product_captured_by_an_escaping_closure() {
+    let output = compile_and_run(
+        "make :: Unit -> (Unit -> Int32) := \\() {\n\
+           pair := (20Int32, 22Int32);\n\
+           return \\<pair>() {\n\
+             (left, right) := pair;\n\
+             return left + right;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return make()() - 42Int32; };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn traps_out_of_range_shift_counts() {
     for expression in [
         "1Int8 << 8Int8",

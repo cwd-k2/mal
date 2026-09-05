@@ -227,3 +227,33 @@ fn lowers_lambda_statements_and_terminal_return_to_lets_and_a_result() {
         ExpressionKind::Reference(result_id) if result_id == id
     ));
 }
+
+#[test]
+fn lowers_multiple_parameters_to_product_destructuring() {
+    let program = lower_ok(
+        "add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+           return left + right;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return add(20, 22); };",
+    );
+    let ExpressionKind::Lambda(add) = &program.bindings[0].value.kind else {
+        panic!("expected add lambda");
+    };
+    assert_eq!(
+        add.parameter.ty,
+        malc::check::ast::Type::Product(vec![
+            malc::check::ast::Type::Int32,
+            malc::check::ast::Type::Int32,
+        ])
+    );
+    let ExpressionKind::Let { binding, .. } = &add.body.kind else {
+        panic!("multiple parameters should be destructured at function entry");
+    };
+    assert!(matches!(binding.pattern, Pattern::Product { .. }));
+
+    let main = lambda_body(&program.bindings[1].value);
+    let ExpressionKind::Call { argument, .. } = &main.kind else {
+        panic!("expected add call");
+    };
+    assert!(matches!(argument.kind, ExpressionKind::Product(_)));
+}

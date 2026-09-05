@@ -54,9 +54,39 @@ impl Lowerer {
                     ty: ty.clone(),
                     span: *span,
                 },
+                core::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
+                    elements: elements
+                        .iter()
+                        .map(|element| self.lower_top_level_pattern(element))
+                        .collect(),
+                    ty: ty.clone(),
+                    span: *span,
+                },
             },
             value: self.lower_expression(&binding.value),
             span: binding.span,
+        }
+    }
+
+    fn lower_top_level_pattern(&self, pattern: &core::TopLevelPattern) -> TopLevelPattern {
+        match pattern {
+            core::TopLevelPattern::Binding { id, name, ty } => TopLevelPattern::Binding {
+                id: self.core_id(*id),
+                name: name.clone(),
+                ty: ty.clone(),
+            },
+            core::TopLevelPattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
+                ty: ty.clone(),
+                span: *span,
+            },
+            core::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_top_level_pattern(element))
+                    .collect(),
+                ty: ty.clone(),
+                span: *span,
+            },
         }
     }
 
@@ -69,6 +99,14 @@ impl Lowerer {
                 self.atom_block(expression, AtomKind::Integer(*value))
             }
             core::ExpressionKind::Unit => self.atom_block(expression, AtomKind::Unit),
+            core::ExpressionKind::Product(elements) => {
+                let mut builder = ExpressionBuilder::default();
+                let elements = elements
+                    .iter()
+                    .map(|element| builder.append(self, element))
+                    .collect();
+                builder.finish(self, expression, Operation::Product(elements))
+            }
             core::ExpressionKind::Let { binding, body } => {
                 self.lower_let(binding, body, expression)
             }
@@ -194,6 +232,14 @@ impl Lowerer {
                 ty: ty.clone(),
             },
             core::Pattern::Wildcard { ty, span } => Pattern::Wildcard {
+                ty: ty.clone(),
+                span: *span,
+            },
+            core::Pattern::Product { elements, ty, span } => Pattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_pattern(element))
+                    .collect(),
                 ty: ty.clone(),
                 span: *span,
             },

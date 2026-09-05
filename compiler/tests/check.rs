@@ -366,6 +366,43 @@ fn checks_modulo_integer_conversions() {
 }
 
 #[test]
+fn checks_products_destructuring_and_multiple_parameters() {
+    let program = check_ok(
+        "Pair :: (Int32, UInt8);\n\
+         pair :: Pair := (1, 2);\n\
+         add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+           return left + right;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           (first, _) := pair;\n\
+           nested := ((first, 2Int32), 39Int32);\n\
+           ((left, right), extra) := nested;\n\
+           return add(left + right, extra);\n\
+         };",
+    );
+    assert_eq!(
+        top_binding(&program, 1).value.ty,
+        Type::Product(vec![Type::Int32, Type::UInt8])
+    );
+    assert_eq!(
+        top_binding(&program, 2).value.ty,
+        Type::Function {
+            parameter: Box::new(Type::Product(vec![Type::Int32, Type::Int32])),
+            result: Box::new(Type::Int32),
+        }
+    );
+
+    assert_eq!(
+        check_error("pair := (1, 2); (first, second, third) := pair;").message,
+        "product pattern has the wrong arity"
+    );
+    assert_eq!(
+        check_error("value := 1; (first, second) := value;").message,
+        "product pattern requires a product value"
+    );
+}
+
+#[test]
 fn validates_extern_signatures_recursively() {
     assert_eq!(
         check_error("extern callback :: (Int32 -> Unit) -> Unit;").message,
@@ -383,20 +420,7 @@ fn validates_extern_signatures_recursively() {
 
 #[test]
 fn rejects_features_outside_the_current_type_slice() {
-    let cases = [
-        ("Pair :: (Int32, Int32);", "product types"),
-        ("extern Handle;", "external opaque types"),
-        ("pair := (1Int32, 2Int32);", "product expressions"),
-        (
-            "function := \\(x :: Int32, y :: Int32) { return x; };",
-            "multiple lambda parameters",
-        ),
-        (
-            "function :: Int32 -> Int32 := \\(x :: Int32) { return x; };\n\
-             main :: Unit -> Int32 := \\() { return function(1, 2); };",
-            "multiple arguments",
-        ),
-    ];
+    let cases = [("extern Handle;", "external opaque types")];
     for (text, expected) in cases {
         assert!(
             check_error(text).message.contains(expected),

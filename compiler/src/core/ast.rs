@@ -24,8 +24,20 @@ pub struct TopLevelBinding {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TopLevelPattern {
-    Binding { id: ValueId, name: String, ty: Type },
-    Wildcard { ty: Type, span: Span },
+    Binding {
+        id: ValueId,
+        name: String,
+        ty: Type,
+    },
+    Wildcard {
+        ty: Type,
+        span: Span,
+    },
+    Product {
+        elements: Vec<TopLevelPattern>,
+        ty: Type,
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -46,8 +58,19 @@ pub struct Binding {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Pattern {
-    Binding { id: ValueId, ty: Type },
-    Wildcard { ty: Type, span: Span },
+    Binding {
+        id: ValueId,
+        ty: Type,
+    },
+    Wildcard {
+        ty: Type,
+        span: Span,
+    },
+    Product {
+        elements: Vec<Pattern>,
+        ty: Type,
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,6 +85,7 @@ pub enum ExpressionKind {
     Reference(ValueId),
     Integer(i128),
     Unit,
+    Product(Vec<Expression>),
     Let {
         binding: Box<Binding>,
         body: Box<Expression>,

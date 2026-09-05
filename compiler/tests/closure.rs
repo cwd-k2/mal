@@ -141,3 +141,36 @@ fn represents_capture_free_closures_without_environment_fields() {
             .all(|function| function.environment.is_empty())
     );
 }
+
+#[test]
+fn preserves_captured_products_and_destructuring_patterns() {
+    let program = convert_ok(
+        "make :: Unit -> (Unit -> Int32) := \\() {\n\
+           pair := (20Int32, 22Int32);\n\
+           return \\<pair>() {\n\
+             (left, right) := pair;\n\
+             return left + right;\n\
+           };\n\
+         };",
+    );
+    let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
+    let outer = function(&program, outer_id);
+    let Operation::MakeClosure {
+        function: inner_id, ..
+    } = &outer.body.bindings[2].operation
+    else {
+        panic!("expected inner closure construction");
+    };
+    let inner = function(&program, *inner_id);
+    assert_eq!(
+        inner.environment[0].ty,
+        malc::check::ast::Type::Product(vec![
+            malc::check::ast::Type::Int32,
+            malc::check::ast::Type::Int32,
+        ])
+    );
+    assert!(matches!(
+        inner.body.bindings[0].pattern,
+        malc::closure::ast::Pattern::Product { .. }
+    ));
+}

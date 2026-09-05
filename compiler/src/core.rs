@@ -55,7 +55,16 @@ impl Lowerer {
     }
 
     fn lower_top_level_binding(&mut self, binding: &checked::Binding) -> TopLevelBinding {
-        let pattern = match &binding.pattern {
+        let pattern = self.lower_top_level_pattern(&binding.pattern);
+        TopLevelBinding {
+            pattern,
+            value: self.lower_expression(&binding.value),
+            span: binding.span,
+        }
+    }
+
+    fn lower_top_level_pattern(&self, pattern: &checked::Pattern) -> TopLevelPattern {
+        match pattern {
             checked::Pattern::Binding { binding, ty } => TopLevelPattern::Binding {
                 id: ValueId::Source(binding.id),
                 name: binding.name.text.clone(),
@@ -65,11 +74,14 @@ impl Lowerer {
                 ty: ty.clone(),
                 span: *span,
             },
-        };
-        TopLevelBinding {
-            pattern,
-            value: self.lower_expression(&binding.value),
-            span: binding.span,
+            checked::Pattern::Product { elements, ty, span } => TopLevelPattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_top_level_pattern(element))
+                    .collect(),
+                ty: ty.clone(),
+                span: *span,
+            },
         }
     }
 
@@ -91,6 +103,14 @@ impl Lowerer {
                 ty: ty.clone(),
                 span: *span,
             },
+            checked::Pattern::Product { elements, ty, span } => Pattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_pattern(element))
+                    .collect(),
+                ty: ty.clone(),
+                span: *span,
+            },
         }
     }
 
@@ -103,6 +123,12 @@ impl Lowerer {
             },
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
             checked::ExpressionKind::Unit => ExpressionKind::Unit,
+            checked::ExpressionKind::Product(elements) => ExpressionKind::Product(
+                elements
+                    .iter()
+                    .map(|element| self.lower_expression(element))
+                    .collect(),
+            ),
             checked::ExpressionKind::Parenthesized(inner) => return self.lower_expression(inner),
             checked::ExpressionKind::Lambda(lambda) => {
                 ExpressionKind::Lambda(self.lower_lambda(lambda))
@@ -192,7 +218,50 @@ impl Lowerer {
     }
 
     fn lower_lambda(&mut self, lambda: &checked::Lambda) -> Lambda {
-        let parameter = lambda.parameters.first();
+        let parameter_type = match lambda.parameters.as_slice() {
+            [] => checked::Type::Unit,
+            [parameter] => parameter.ty.clone(),
+            parameters => checked::Type::Product(
+                parameters
+                    .iter()
+                    .map(|parameter| parameter.ty.clone())
+                    .collect(),
+            ),
+        };
+        let parameter_binding = match lambda.parameters.as_slice() {
+            [] => None,
+            [parameter] => Some(ValueId::Source(parameter.binding.id)),
+            _ => Some(self.temporary()),
+        };
+        let mut body = self.lower_body(&lambda.body.items, &lambda.body.result);
+        if lambda.parameters.len() > 1 {
+            let parameter_id = parameter_binding.expect("multiple parameters use a product value");
+            let destructuring = Binding {
+                pattern: Pattern::Product {
+                    elements: lambda
+                        .parameters
+                        .iter()
+                        .map(|parameter| Pattern::Binding {
+                            id: ValueId::Source(parameter.binding.id),
+                            ty: parameter.ty.clone(),
+                        })
+                        .collect(),
+                    ty: parameter_type.clone(),
+                    span: lambda.body.span,
+                },
+                value: self.reference(parameter_id, parameter_type.clone(), lambda.body.span),
+                span: lambda.body.span,
+            };
+            let result_type = body.ty.clone();
+            body = Expression {
+                kind: ExpressionKind::Let {
+                    binding: Box::new(destructuring),
+                    body: Box::new(body),
+                },
+                ty: result_type,
+                span: lambda.body.span,
+            };
+        }
         Lambda {
             id: lambda.id,
             captures: lambda
@@ -205,11 +274,14 @@ impl Lowerer {
                 })
                 .collect(),
             parameter: Parameter {
-                binding: parameter.map(|parameter| ValueId::Source(parameter.binding.id)),
-                ty: parameter.map_or(checked::Type::Unit, |parameter| parameter.ty.clone()),
-                span: parameter.map_or(lambda.body.span, |parameter| parameter.span),
+                binding: parameter_binding,
+                ty: parameter_type,
+                span: lambda
+                    .parameters
+                    .first()
+                    .map_or(lambda.body.span, |parameter| parameter.span),
             },
-            body: Box::new(self.lower_body(&lambda.body.items, &lambda.body.result)),
+            body: Box::new(body),
         }
     }
 

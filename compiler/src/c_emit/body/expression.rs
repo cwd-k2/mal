@@ -36,6 +36,18 @@ impl BodyEmitter<'_> {
                 let (_, unsigned, _, _) = integer_info(result);
                 self.wrap_integer(result, &format!("({unsigned})({operand})"))
             }
+            Operation::Product(elements) => format!(
+                "({}){{ {} }}",
+                self.types.c_type(result),
+                elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, element)| {
+                        format!(".field_{index} = {}", self.emit_atom(element))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Operation::SumInjection { index, value } => format!(
                 "({}){{ .tag = UINT32_C({index}), .payload.variant_{index} = {} }}",
                 self.types.c_type(result),

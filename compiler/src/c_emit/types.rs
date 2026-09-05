@@ -38,6 +38,7 @@ impl TypeRegistry {
             Type::UInt16 => "uint16_t".into(),
             Type::UInt32 => "uint32_t".into(),
             Type::UInt64 => "uint64_t".into(),
+            Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
             Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
             Type::Function { .. } => format!("MalClosure_{}", self.index(ty)),
         }
@@ -47,6 +48,7 @@ impl TypeRegistry {
         let mut output = String::new();
         for (index, ty) in self.aggregates.iter().enumerate() {
             let kind = match ty {
+                Type::Product(_) => "MalProduct",
                 Type::Sum(_) => "MalSum",
                 Type::Function { .. } => "MalClosure",
                 Type::Unit
@@ -66,6 +68,18 @@ impl TypeRegistry {
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
             match ty {
+                Type::Product(elements) => {
+                    writeln!(output, "struct MalProduct_{index} {{").unwrap();
+                    for (element_index, element) in elements.iter().enumerate() {
+                        writeln!(
+                            output,
+                            "    {} field_{element_index};",
+                            self.c_type(element)
+                        )
+                        .unwrap();
+                    }
+                    output.push_str("};\n\n");
+                }
                 Type::Sum(members) => {
                     writeln!(output, "struct MalSum_{index} {{").unwrap();
                     output.push_str("    uint32_t tag;\n    union {\n");
@@ -106,9 +120,9 @@ impl TypeRegistry {
 
     fn collect(&mut self, ty: &Type) {
         match ty {
-            Type::Sum(members) => {
-                for member in members {
-                    self.collect(member);
+            Type::Product(elements) | Type::Sum(elements) => {
+                for element in elements {
+                    self.collect(element);
                 }
             }
             Type::Function { parameter, result } => {
@@ -135,12 +149,15 @@ impl TypeRegistry {
             TopLevelPattern::Binding { ty, .. } | TopLevelPattern::Wildcard { ty, .. } => {
                 self.collect(ty);
             }
+            TopLevelPattern::Product { ty, .. } => self.collect(ty),
         }
     }
 
     fn collect_pattern(&mut self, pattern: &Pattern) {
         match pattern {
-            Pattern::Binding { ty, .. } | Pattern::Wildcard { ty, .. } => self.collect(ty),
+            Pattern::Binding { ty, .. }
+            | Pattern::Wildcard { ty, .. }
+            | Pattern::Product { ty, .. } => self.collect(ty),
         }
     }
 
@@ -159,6 +176,11 @@ impl TypeRegistry {
     fn collect_operation(&mut self, operation: &Operation) {
         match operation {
             Operation::Atom(atom) => self.collect_atom(atom),
+            Operation::Product(elements) => {
+                for element in elements {
+                    self.collect_atom(element);
+                }
+            }
             Operation::MakeClosure { captures, .. } => {
                 for capture in captures {
                     self.collect_atom(capture);

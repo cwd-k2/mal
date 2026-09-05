@@ -66,9 +66,39 @@ impl Converter {
                     ty: ty.clone(),
                     span: *span,
                 },
+                anf::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
+                    elements: elements
+                        .iter()
+                        .map(|element| self.convert_top_level_pattern(element))
+                        .collect(),
+                    ty: ty.clone(),
+                    span: *span,
+                },
             },
             value: self.convert_block(&binding.value, environment),
             span: binding.span,
+        }
+    }
+
+    fn convert_top_level_pattern(&self, pattern: &anf::TopLevelPattern) -> TopLevelPattern {
+        match pattern {
+            anf::TopLevelPattern::Binding { id, name, ty } => TopLevelPattern::Binding {
+                id: *id,
+                name: name.clone(),
+                ty: ty.clone(),
+            },
+            anf::TopLevelPattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
+                ty: ty.clone(),
+                span: *span,
+            },
+            anf::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.convert_top_level_pattern(element))
+                    .collect(),
+                ty: ty.clone(),
+                span: *span,
+            },
         }
     }
 
@@ -133,6 +163,12 @@ impl Converter {
             anf::Operation::IntegerConversion { operand } => Operation::IntegerConversion {
                 operand: self.convert_atom(operand, environment),
             },
+            anf::Operation::Product(elements) => Operation::Product(
+                elements
+                    .iter()
+                    .map(|element| self.convert_atom(element, environment))
+                    .collect(),
+            ),
             anf::Operation::SumInjection { index, value } => Operation::SumInjection {
                 index: *index,
                 value: self.convert_atom(value, environment),
@@ -206,6 +242,14 @@ impl Converter {
                 ty: ty.clone(),
             },
             anf::Pattern::Wildcard { ty, span } => Pattern::Wildcard {
+                ty: ty.clone(),
+                span: *span,
+            },
+            anf::Pattern::Product { elements, ty, span } => Pattern::Product {
+                elements: elements
+                    .iter()
+                    .map(|element| self.convert_pattern(element))
+                    .collect(),
                 ty: ty.clone(),
                 span: *span,
             },

@@ -94,7 +94,17 @@ impl<'a> BodyEmitter<'a> {
     fn emit_globals(&self) -> String {
         let mut output = String::new();
         for binding in &self.program.bindings {
-            if let TopLevelPattern::Binding { id, ty, .. } = &binding.pattern {
+            self.emit_top_level_globals(&mut output, &binding.pattern);
+        }
+        if !output.is_empty() {
+            output.push('\n');
+        }
+        output
+    }
+
+    fn emit_top_level_globals(&self, output: &mut String, pattern: &TopLevelPattern) {
+        match pattern {
+            TopLevelPattern::Binding { id, ty, .. } => {
                 writeln!(
                     output,
                     "static {} {};",
@@ -103,11 +113,13 @@ impl<'a> BodyEmitter<'a> {
                 )
                 .unwrap();
             }
+            TopLevelPattern::Wildcard { .. } => {}
+            TopLevelPattern::Product { elements, .. } => {
+                for element in elements {
+                    self.emit_top_level_globals(output, element);
+                }
+            }
         }
-        if !output.is_empty() {
-            output.push('\n');
-        }
-        output
     }
 
     fn emit_function_declarations(&self) -> String {
@@ -178,10 +190,42 @@ impl<'a> BodyEmitter<'a> {
                     )
                     .unwrap();
                 }
+                TopLevelPattern::Product { .. } => self.emit_top_level_pattern(
+                    &mut output,
+                    &binding.pattern,
+                    &self.emit_atom(&binding.value.result),
+                    1,
+                ),
             }
         }
         output.push_str("}\n\n");
         output
+    }
+
+    fn emit_top_level_pattern(
+        &self,
+        output: &mut String,
+        pattern: &TopLevelPattern,
+        value: &str,
+        indent: usize,
+    ) {
+        match pattern {
+            TopLevelPattern::Binding { id, .. } => {
+                line(output, indent, &format!("{} = {value};", value_name(*id)));
+                line(output, indent, &format!("(void){};", value_name(*id)));
+            }
+            TopLevelPattern::Wildcard { .. } => {}
+            TopLevelPattern::Product { elements, .. } => {
+                for (index, element) in elements.iter().enumerate() {
+                    self.emit_top_level_pattern(
+                        output,
+                        element,
+                        &format!("{value}.field_{index}"),
+                        indent,
+                    );
+                }
+            }
+        }
     }
 
     fn emit_main(&self, main: &crate::closure::ast::TopLevelBinding) -> String {
@@ -264,18 +308,34 @@ impl<'a> BodyEmitter<'a> {
             Pattern::Wildcard { .. } => {
                 line(output, indent, &format!("(void)({expression});"));
             }
+            Pattern::Product { .. } => {
+                let target = self.result_target(pattern);
+                line(
+                    output,
+                    indent,
+                    &format!("{} {target} = {expression};", self.types.c_type(ty)),
+                );
+                line(output, indent, &format!("(void){target};"));
+                self.emit_pattern_bindings(output, pattern, &target, indent);
+            }
         }
     }
 
     fn emit_unit_result(&self, output: &mut String, pattern: &Pattern, indent: usize) {
-        if let Pattern::Binding { id, .. } = pattern {
-            let name = value_name(*id);
-            line(
-                output,
-                indent,
-                &format!("MalUnit {name} = {{ UINT8_C(0) }};"),
-            );
-            line(output, indent, &format!("(void){name};"));
+        match pattern {
+            Pattern::Binding { id, .. } => {
+                let name = value_name(*id);
+                line(
+                    output,
+                    indent,
+                    &format!("MalUnit {name} = {{ UINT8_C(0) }};"),
+                );
+                line(output, indent, &format!("(void){name};"));
+            }
+            Pattern::Wildcard { .. } => {}
+            Pattern::Product { .. } => {
+                unreachable!("a product pattern cannot match a Unit operation")
+            }
         }
     }
 
@@ -332,6 +392,9 @@ impl<'a> BodyEmitter<'a> {
         );
         line(output, indent, "}");
         line(output, indent, &format!("(void){target};"));
+        if matches!(pattern, Pattern::Product { .. }) {
+            self.emit_pattern_bindings(output, pattern, &target, indent);
+        }
     }
 
     fn emit_make_closure(
@@ -396,10 +459,41 @@ impl<'a> BodyEmitter<'a> {
     fn result_target(&mut self, pattern: &Pattern) -> String {
         match pattern {
             Pattern::Binding { id, .. } => value_name(*id),
-            Pattern::Wildcard { .. } => {
+            Pattern::Wildcard { .. } | Pattern::Product { .. } => {
                 let name = format!("mal_discard_{}", self.next_discard);
                 self.next_discard += 1;
                 name
+            }
+        }
+    }
+
+    fn emit_pattern_bindings(
+        &self,
+        output: &mut String,
+        pattern: &Pattern,
+        value: &str,
+        indent: usize,
+    ) {
+        match pattern {
+            Pattern::Binding { id, ty } => {
+                let name = value_name(*id);
+                line(
+                    output,
+                    indent,
+                    &format!("{} {name} = {value};", self.types.c_type(ty)),
+                );
+                line(output, indent, &format!("(void){name};"));
+            }
+            Pattern::Wildcard { .. } => {}
+            Pattern::Product { elements, .. } => {
+                for (index, element) in elements.iter().enumerate() {
+                    self.emit_pattern_bindings(
+                        output,
+                        element,
+                        &format!("{value}.field_{index}"),
+                        indent,
+                    );
+                }
             }
         }
     }
@@ -407,7 +501,9 @@ impl<'a> BodyEmitter<'a> {
 
 fn pattern_type(pattern: &Pattern) -> &Type {
     match pattern {
-        Pattern::Binding { ty, .. } | Pattern::Wildcard { ty, .. } => ty,
+        Pattern::Binding { ty, .. }
+        | Pattern::Wildcard { ty, .. }
+        | Pattern::Product { ty, .. } => ty,
     }
 }
 

@@ -162,9 +162,12 @@ impl Checker {
             }
             resolved::TypeExpression::Unit => Ok(Type::Unit),
             resolved::TypeExpression::Parenthesized(inner) => self.expand_type(inner),
-            resolved::TypeExpression::Product(_) => {
-                Err(self.unsupported(ty.span, "product types are not supported"))
-            }
+            resolved::TypeExpression::Product(elements) => Ok(Type::Product(
+                elements
+                    .iter()
+                    .map(|element| self.expand_type(element))
+                    .collect::<Result<_, _>>()?,
+            )),
             resolved::TypeExpression::Sum(members) => Ok(Type::Sum(
                 members
                     .iter()
@@ -248,8 +251,38 @@ impl Checker {
                 ty: ty.clone(),
                 span: pattern.span,
             }),
-            resolved::Pattern::Product(_) => {
-                Err(self.unsupported(pattern.span, "product patterns are not supported"))
+            resolved::Pattern::Product(elements) => {
+                let Type::Product(element_types) = ty else {
+                    return Err(
+                        Diagnostic::error("product pattern requires a product value").with_primary(
+                            pattern.span,
+                            format!(
+                                "this value has type `{}`",
+                                crate::check::expression::type_name(ty)
+                            ),
+                        ),
+                    );
+                };
+                if elements.len() != element_types.len() {
+                    return Err(Diagnostic::error("product pattern has the wrong arity")
+                        .with_primary(
+                            pattern.span,
+                            format!(
+                                "expected {} elements, found {}",
+                                element_types.len(),
+                                elements.len()
+                            ),
+                        ));
+                }
+                Ok(Pattern::Product {
+                    elements: elements
+                        .iter()
+                        .zip(element_types)
+                        .map(|(element, ty)| self.check_pattern(element, ty))
+                        .collect::<Result<_, _>>()?,
+                    ty: ty.clone(),
+                    span: pattern.span,
+                })
             }
         }
     }
@@ -296,6 +329,9 @@ impl Checker {
             resolved::Expression::Parenthesized(inner) => {
                 self.check_top_level_initializer(inner).is_ok()
             }
+            resolved::Expression::Product(elements) => elements
+                .iter()
+                .all(|element| self.check_top_level_initializer(element).is_ok()),
             resolved::Expression::SumInjection { value, .. } => {
                 self.check_top_level_initializer(value).is_ok()
             }
@@ -331,6 +367,7 @@ impl Checker {
 fn contains_function(ty: &Type) -> bool {
     match ty {
         Type::Function { .. } => true,
+        Type::Product(elements) => elements.iter().any(contains_function),
         Type::Sum(members) => members.iter().any(contains_function),
         Type::Unit
         | Type::Int8

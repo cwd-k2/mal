@@ -151,3 +151,36 @@ fn flattens_core_lets_without_losing_statement_order() {
         AtomKind::Reference(id) if id == binding_id(&bindings[2])
     ));
 }
+
+#[test]
+fn evaluates_product_elements_left_to_right_before_construction() {
+    let program = lower_ok(
+        "extern first :: Unit -> Int32;\n\
+         extern second :: Unit -> Int32;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           pair := (extern first(), extern second());\n\
+           (left, right) := pair;\n\
+           return left + right;\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, 0).body.bindings;
+    assert!(matches!(
+        bindings[0].operation,
+        Operation::ExternalCall { id, .. } if id == program.externals[0].id
+    ));
+    assert!(matches!(
+        bindings[1].operation,
+        Operation::ExternalCall { id, .. } if id == program.externals[1].id
+    ));
+    let Operation::Product(elements) = &bindings[2].operation else {
+        panic!("expected product construction after its elements");
+    };
+    assert!(matches!(
+        elements[0].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[0])
+    ));
+    assert!(matches!(
+        elements[1].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[1])
+    ));
+}
