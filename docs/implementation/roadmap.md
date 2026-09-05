@@ -2,7 +2,7 @@
 
 Status: Current
 
-この文書はreference compilerのactive gateと残作業を定める。言語とhost interfaceは[`spec/`](../spec/)、
+この文書はreference compilerのgateと完了条件を定める。言語とhost interfaceは[`spec/`](../spec/)、
 stageの責務は[responsibilities](responsibilities.md)、検証方法は[test policy](../development/testing.md)を正とする。
 
 ## 現在位置
@@ -16,7 +16,7 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 | M3 | Complete | immutable byte `String`とextern copy contract |
 | M4 | Complete | annotated self recursionとdirect tail-call lowering |
 | M5 | Complete | strict `Float32` / `Float64` profile |
-| R0 | Active | v0.4 conformanceとrelease readiness |
+| R0 | Complete | v0.4 conformanceとrelease readiness |
 
 完了済みgateの詳細はtest、example、decision、およびGit履歴に残す。M0当時の境界だけは
 [M0 implementation record](m0.md)に要約する。
@@ -35,10 +35,7 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 - public CLI、generated header、trap、toolchain failureのcontractをdriver testで監査した。
 - [対応toolchainと生成物の利用contract](../development/compiler-usage.md)を公開した。
 - packageとrelease文書を`0.4.0-rc.1`へ揃えた。
-
-### 次セッションの作業順
-
-1. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
+- clean checkoutのpinned environmentでformat、Clippy、全test、M0〜M5 example、release buildを再検証した。
 
 ### Done
 

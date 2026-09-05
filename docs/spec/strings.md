@@ -1,6 +1,6 @@
 # String
 
-Status: Draft
+Status: Current v0.4 profile
 
 ## 値とstorage
 

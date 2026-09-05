@@ -1,6 +1,6 @@
 # 言語の範囲
 
-Status: Draft
+Status: Current v0.4 profile
 
 ## mal が持つもの
 

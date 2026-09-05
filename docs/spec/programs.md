@@ -1,6 +1,6 @@
 # プログラム構造
 
-Status: Draft
+Status: Current v0.4 profile
 
 ## compilation unit
 

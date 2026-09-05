@@ -1,6 +1,6 @@
 # 実行意味論
 
-Status: Draft
+Status: Current v0.4 profile
 
 ## 評価戦略
 

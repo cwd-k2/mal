@@ -1,6 +1,6 @@
 # 字句と文法
 
-Status: Draft
+Status: Current v0.4 profile
 
 ## source と identifier
 

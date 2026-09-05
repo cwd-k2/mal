@@ -1,6 +1,6 @@
 # v0.4 conformance matrix
 
-Status: Current release gate
+Status: Current v0.4 evidence
 
 この文書は[`spec/`](../spec/)の規範とreference compilerの検証先を対応付ける。規則そのものは
 `spec/`、test layerと実行commandは[test policy](testing.md)を正とする。
