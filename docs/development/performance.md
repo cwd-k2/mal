@@ -1,8 +1,8 @@
 # generated C performance評価
 
-Status: Current M7 handoff
+Status: Current M7 record
 
-この文書はreference compilerの性能調査方法、2026-09-05時点のbaseline、M7で次に確認する順序を定める。
+この文書はreference compilerの性能調査方法、2026-09-05時点のbaseline、M7で得た結果と判断を定める。
 言語の意味は[`spec/`](../spec/)、active gateと完了条件は
 [implementation roadmap](../implementation/roadmap.md)、通常の検証commandは[test policy](testing.md)を正とする。
 
@@ -78,16 +78,17 @@ branch-heavyなheap workloadは
 `-O2`後もdirect Cの約1.64倍であり、branch、heap entry、accessorが組み合わさるhot pathにはlowering上の差が残る。
 short DPの`-O2`前後が同程度であることだけから、特定のoptimizationが無効だとは判断しない。
 
-`-O2 -pg`の関数別計測では、directionごとのrelaxationが約79%、それを呼ぶshortest-path loop本体が約19%を占め、
+`-O2 -pg`の関数別計測では、directionごとのtransitionが約72%、それを呼ぶloop本体が約22%を占め、
 inputとallocationはsampling粒度未満だった。Clangのoptimization reportではscalar memory helperとwrap helperはhot functionへ
-inlineされており、relaxation function自体はinline costがthresholdを超えてcall boundaryが残った。memory runtimeはその後、
+inlineされており、transition function自体はinline costがthresholdを超えてcall boundaryが残った。memory runtimeはその後、
 使用したoffset/load/store helperだけを生成するようにし、strict warning optionと`-O2`を同時に使えることをfocused testで
 確認した。
 
-local実験でClangのinline thresholdをhot functionのcostより少し上げると、branch-heavy heapはdirect C比約1.15まで
-改善したため、このcall boundaryの除去には実益がある。一方、全direct tail-recursive functionへの`always_inline`はregular
-numeric transformをdirect C比約1.16へ悪化させ、tail pathと別の再帰pathを併せ持つ関数をGCCがcompileできなかったため
-採用しない。問題固有のinline指定も行わず、まずBool control flowなどcallee自体のgenerated-C costを減らす。
+product parameterのdirect entryを導入する前は、local実験でClangのinline thresholdをhot functionのcostより少し上げると
+branch-heavy heapが改善した。しかしnested fieldまでdirect entryへ渡す現在の生成物では、同じ方法が通常thresholdより約5%
+遅くなった。call boundaryを越すaggregate costが既に減り、code duplicationのcostが上回ったと判断し、inline hintは採用しない。
+全direct tail-recursive functionへの`always_inline`もregular numeric transformを悪化させ、tail pathと別の再帰pathを併せ持つ
+関数をGCCがcompileできなかった。
 
 primitive比較を直ちに`if`条件として消費する経路は、Boolのtagged sumを作らずCの条件式へ直接loweringするようにした。
 focused testではsum valueと`switch`の除去を確認したが、代表workloadの実行時間とbinary sizeに有意な変化はなかった。
@@ -108,44 +109,36 @@ regular numeric transformにも退行はなかった。C targetのparameter数�
 productは従来のaggregate calling conventionへfallbackする。明示的なnested product値とfunction-value用entryは引き続き
 元のproduct表現を使う。
 
-## 次の担当者が行う順序
+## C表現の横断監査
 
-### 1. local fixtureを固定する
+current generated C、Clang `-O2`後のLLVM IR、extern境界と動的closureを個別に含む独立設計のsynthetic programを比較した。
+source、生成物、計測dataは`.scratch/`だけに置いた。
 
-branch-heavy heapとnumeric transformのalgorithm、input generator、direct C baseline、stdout検査を`.scratch/`内の
-local fixtureとして保つ。benchmark commandは通常のtestから分離し、maximum-order測定は明示的なcommandで起動する。
-tracked testへ移すのは、特定の問題に由来しない最小のsynthetic regressionだけとする。
+| 対象 | C source上の表現 | `-O2`後の結果 | 判断 |
+|---|---|---|---|
+| ANF binding | local variableと`(void)` | dead valueとcopyは除去 | 読みやすさ上は冗長だがhot-path costではない |
+| `Unit` | 1-byte struct | parameter/resultが不要なら除去され、store helper resultは`void`化 | scalar化の性能根拠なし |
+| `Ptr` | addressだけを持つstruct | function parameterはLLVM `ptr`、accessorはinline | struct自体の性能根拠なし |
+| known-call product | aggregate構築とdirect entry | 代表hot pathからproduct型が消える | 現在のfield direct entryで対処済み |
+| 一般sum | tagとpayload union | extern resultではaggregate return、tag branch、invalid-tag pathが残る | public ABIとvariant選択に必要 |
+| `Bool` case | `uint8_t`の`switch` | internalな既知値では消え、extern resultではvalidation branchが残る | host contract境界のcheckとして維持 |
+| function value | code pointerとenvironment pointer | 動的選択ではpairとindirect callが残る | first-class closureの意味に必要 |
+| numeric/memory helper | helper callと`memcpy` | helperはinlineされscalar load/storeになる | wrap、trap、unaligned accessの意味に必要 |
+| `String`とruntime arena | descriptor、copy、allocation list | 使用経路またはpublic runtime symbolとして残る | lifetimeとhost ABIのcontractに必要 |
 
-### 2. branch-heavy heap workloadをprofileする
+代表generated Cではproduct型名が243箇所、unused warning抑制が424箇所、`switch`が7箇所あったが、最適化後のIRでは
+product型と`switch`は0箇所、stack allocationは`MalContext`用の1箇所だった。C sourceの大きさをそのまま実行時costと
+みなせないことを確認した。
 
-まず現在の`generated-o2`をsampling profilerとcompiler optimization reportで調べる。少なくとも次を分離する。
+残った差で目立つのは意味論の過剰なmaterializationではなく、memory contractの違いである。generated codeのscalar accessは
+alignment 1で、異なる`Ptr`がaliasしないとは仮定できない。direct Cはtyped、aligned storageとallocation由来のalias情報を
+optimizerへ渡せる。malの`Ptr`はunaligned accessとaliasを許し、externが返すregion間の非alias性を規定しないため、現行仕様の
+まま`restrict`や強いalignmentを付けるのは誤りである。
 
-- inputとallocationに費やす時間
-- heap `push` / `pop`
-- directionごとのrelaxation
-- `loadInt64` / `storeInt64`相当のhelper
-- integer wrap helperとBool tag branch
-
-generated functionが番号だけで追跡しにくい場合は、optimizationより先にtop-level binding名をC名またはcommentへ残す。
-profiling結果を得る前にBoolやproductの大規模な表現変更を始めない。
-
-### 3. public buildの`-O2`を検証する
-
-`compiler/src/driver.rs`が渡すstrict float optionを削らず、`-O2`を加えた実験を行う。Cのundefined behaviorを利用して
-速くなった結果は受け入れない。全numeric wrap、division、shift、float rounding、trap、ABI native testを通した後、
-既定buildへ採用するか決定する。採用時は[compiler usage](compiler-usage.md)とdriver testを同じ変更で更新する。
-
-### 4. loweringを一項目ずつ改善する
-
-profileが支持する場合、次の順で小さく検討する。
-
-1. Boolをcontrol flowとして消費するだけの経路で、sum valueと`switch`のmaterializationを避ける。
-2. immutable top-level/self callとして既知のcallで、argument productの一時値を避ける。
-3. closure共通calling conventionを保ったまま、direct entryとfunction-value用thunkを分離する。
-4. small scalar memory helperが`-O2`後にも残る場合だけ、inlineしやすいemissionへ変える。
-
-各項目は`core`、`ANF`、closure conversion、C emitterのどこがその表現を所有するかを
-[responsibilities](../implementation/responsibilities.md)に従って決める。C emitterで前段の意味を再解析する形にしない。
+したがって現在のbranch-heavy workloadについて、`Unit`、`Ptr`、一般sum、closureを一律scalar化する次の変更は行わない。
+次に調査する場合は、最適化後にも残る個別のproduct resultまたは間接callをsynthetic programで再現できた場合に限る。
+memory側を進めるなら、まずalias/alignmentを表現する新しいlanguage/extern contractが必要かを仕様変更として判断し、C emitter
+だけで事実を仮定しない。
 
 ## 検証
 

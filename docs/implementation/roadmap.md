@@ -48,6 +48,9 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
 - product parameterを持つfunctionにはleaf fieldごとのknown-call用direct entryと、function value用の共通closure entryを
   分けて生成する。direct callはproductをCのcall ABIでby-valueに渡さず、closureの意味と末尾再帰loweringは維持する。
   C parameterの過剰な増加を避けるためleafは16個を上限とし、それを超えるfunctionはaggregate entryだけを生成する。
+- generated Cを型とoperationごとに横断監査し、`-O2`後の代表hot pathでは`Unit`、`Ptr`、ANF temporary、known-call
+  productの物理表現が除去されることを確認した。一般sumのtag、動的closureの間接call、unalignedかつalias可能な`Ptr`
+  accessは意味またはABI contractに必要なため、一律のscalar化や不正なalias/alignment annotationは行わない。
 
 ### Done
 
