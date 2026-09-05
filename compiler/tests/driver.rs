@@ -6,6 +6,32 @@ mod support;
 use support::NativeFixture;
 
 #[test]
+fn public_cli_reports_help_version_and_usage_status() {
+    let directory = NativeFixture::new("driver-cli");
+
+    let output = directory.malc(std::iter::empty::<&OsStr>());
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), malc::cli::HELP);
+    assert!(output.stderr.is_empty());
+
+    let output = directory.malc([OsStr::new("--version")]);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!("{}\n", malc::version_line())
+    );
+    assert!(output.stderr.is_empty());
+
+    let output = directory.malc([OsStr::new("unknown")]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "malc: unknown command or invalid arguments\nTry 'malc --help' for usage.\n"
+    );
+}
+
+#[test]
 fn check_reports_frontend_success_and_failure_through_exit_status() {
     let directory = NativeFixture::new("driver");
     let valid = directory.join("valid.mal");
@@ -42,16 +68,14 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        std::fs::read_to_string(output_path)
-            .unwrap()
-            .contains("int main(void)")
-    );
-    assert!(
-        std::fs::read_to_string(directory.join("generated/program.mal.h"))
-            .unwrap()
-            .contains("MAL_C_ABI_VERSION")
-    );
+    let generated_c = std::fs::read_to_string(output_path).unwrap();
+    assert!(generated_c.starts_with("#include \"program.mal.h\"\n"));
+    assert!(generated_c.contains("int main(void)"));
+    let generated_header =
+        std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
+    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000400u"));
+    assert!(generated_header.contains("_Noreturn void mal_trap("));
+    assert!(generated_header.contains("MalString mal_string_copy("));
 }
 
 #[test]
