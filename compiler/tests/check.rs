@@ -188,6 +188,52 @@ fn checks_string_literals_as_immutable_bytes() {
 }
 
 #[test]
+fn checks_string_primitives_and_byte_wise_equality() {
+    let program = check_ok(
+        r#"length :: String -> UInt64 := \(value :: String) { return byteLength(value); };
+item :: (String, UInt64) -> UInt8 := \(value :: String, index :: UInt64) {
+  return byteAt(value, index);
+};
+same :: Unit -> Bool := \() { return "a\0" == "a\x00"; };
+different :: Unit -> Bool := \() { return "a" != "b"; };"#,
+    );
+    let ExpressionKind::Lambda(length) = &top_binding(&program, 0).value.kind else {
+        panic!("expected lambda");
+    };
+    assert!(matches!(
+        length.body.result.kind,
+        ExpressionKind::StringLength { .. }
+    ));
+    let ExpressionKind::Lambda(item) = &top_binding(&program, 1).value.kind else {
+        panic!("expected lambda");
+    };
+    assert!(matches!(
+        item.body.result.kind,
+        ExpressionKind::StringAt { .. }
+    ));
+    for index in 2..=3 {
+        let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {
+            panic!("expected function type");
+        };
+        assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
+    }
+}
+
+#[test]
+fn rejects_unsupported_or_mistyped_string_operations() {
+    for text in [
+        r#"bad := "a" + "b";"#,
+        r#"bad := "a" < "b";"#,
+        r#"bad := byteLength(1);"#,
+        r#"bad := byteAt("a", 0UInt8);"#,
+        "bad := byteLength;",
+    ] {
+        let error = check_error(text);
+        assert!(error.primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn rejects_binding_and_return_type_mismatches() {
     assert_eq!(check_error("value :: Unit := 0;").message, "type mismatch");
     assert_eq!(

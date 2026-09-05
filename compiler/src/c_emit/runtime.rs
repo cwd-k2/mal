@@ -29,12 +29,22 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.shift_left != 0 || needs.shift_right != 0 {
         output.push_str(&integer_shift_runtime(needs.shift_left, needs.shift_right));
     }
+    if needs.string_equality {
+        output.push_str(RUNTIME_STRING_EQUALITY);
+    }
+    if needs.string_at {
+        output.push_str(RUNTIME_STRING_AT);
+    }
     output
 }
 
 const RUNTIME_BASE: &str = "typedef struct MalAllocation {\n    struct MalAllocation *next;\n} MalAllocation;\n\nstruct MalContext {\n    MalAllocation *allocations;\n};\n\n_Noreturn void mal_trap(MalContext *context, const char *message) {\n    (void)context;\n    fputs(\"mal trap: \", stderr);\n    fputs(message, stderr);\n    fputc('\\n', stderr);\n    abort();\n}\n\nstatic void mal_context_destroy(MalContext *context) {\n    MalAllocation *allocation = context->allocations;\n    while (allocation != NULL) {\n        MalAllocation *next = allocation->next;\n        free(allocation);\n        allocation = next;\n    }\n}\n\n";
 
 const RUNTIME_ALLOCATION: &str = "static void *mal_allocate(MalContext *context, size_t size) {\n    if (size > SIZE_MAX - sizeof(MalAllocation)) {\n        mal_trap(context, \"allocation size overflow\");\n    }\n#ifdef MAL_TEST_FORCE_ALLOCATION_FAILURE\n    MalAllocation *allocation = NULL;\n#else\n    MalAllocation *allocation = malloc(sizeof(MalAllocation) + size);\n#endif\n    if (allocation == NULL) {\n        mal_trap(context, \"allocation failed\");\n    }\n    allocation->next = context->allocations;\n    context->allocations = allocation;\n    return allocation + 1;\n}\n\n";
+
+const RUNTIME_STRING_EQUALITY: &str = "static uint8_t mal_string_equal(MalString left, MalString right) {\n    if (left.length != right.length) { return UINT8_C(0); }\n    for (uint64_t index = UINT64_C(0); index < left.length; index += UINT64_C(1)) {\n        if (left.data[index] != right.data[index]) { return UINT8_C(0); }\n    }\n    return UINT8_C(1);\n}\n\n";
+
+const RUNTIME_STRING_AT: &str = "static uint8_t mal_string_at(MalContext *context, MalString value, uint64_t index) {\n    if (index >= value.length) { mal_trap(context, \"string index out of range\"); }\n    return value.data[index];\n}\n\n";
 
 fn integer_wrap_runtime(needs: u16) -> String {
     let mut output = String::new();

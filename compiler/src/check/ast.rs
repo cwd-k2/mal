@@ -97,6 +97,12 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
+    StringLength {
+        value: Box<Expression>,
+    },
+    StringAt {
+        argument: Box<Expression>,
+    },
     ExternalCall {
         id: ExternalOperationId,
         name: Name,

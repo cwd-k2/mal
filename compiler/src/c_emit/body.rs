@@ -22,6 +22,8 @@ pub(super) struct RuntimeNeeds {
     pub(super) remainder: u16,
     pub(super) shift_left: u16,
     pub(super) shift_right: u16,
+    pub(super) string_equality: bool,
+    pub(super) string_at: bool,
 }
 
 pub(super) struct BodyOutput {

@@ -135,6 +135,12 @@ pub enum Operation {
         callee: Atom,
         argument: Atom,
     },
+    StringLength {
+        value: Atom,
+    },
+    StringAt {
+        argument: Atom,
+    },
     ExternalCall {
         id: ExternalOperationId,
         argument: Atom,

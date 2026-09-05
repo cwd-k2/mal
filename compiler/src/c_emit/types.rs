@@ -254,6 +254,8 @@ impl TypeRegistry {
                 self.collect_atom(callee);
                 self.collect_atom(argument);
             }
+            Operation::StringLength { value } => self.collect_atom(value),
+            Operation::StringAt { argument } => self.collect_atom(argument),
             Operation::ExternalCall { argument, .. }
             | Operation::IntegerConversion { operand: argument }
             | Operation::SumInjection {

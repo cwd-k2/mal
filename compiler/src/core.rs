@@ -104,6 +104,12 @@ impl Lowerer {
                 callee: Box::new(self.lower_expression(callee)),
                 argument: Box::new(self.lower_expression(argument)),
             },
+            checked::ExpressionKind::StringLength { value } => ExpressionKind::StringLength {
+                value: Box::new(self.lower_expression(value)),
+            },
+            checked::ExpressionKind::StringAt { argument } => ExpressionKind::StringAt {
+                argument: Box::new(self.lower_expression(argument)),
+            },
             checked::ExpressionKind::ExternalCall { id, argument, .. } => {
                 ExpressionKind::ExternalCall {
                     id: *id,

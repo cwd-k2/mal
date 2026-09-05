@@ -19,6 +19,14 @@ impl BodyEmitter<'_> {
                     self.emit_atom(argument)
                 )
             }
+            Operation::StringLength { value } => {
+                format!("({}).length", self.emit_atom(value))
+            }
+            Operation::StringAt { argument } => {
+                self.needs.string_at = true;
+                let argument = self.emit_atom(argument);
+                format!("mal_string_at(mal_context, {argument}.field_0, {argument}.field_1)")
+            }
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
             Operation::IntegerConversion { operand } => {
                 let operand = self.emit_atom(operand);
@@ -153,6 +161,19 @@ impl BodyEmitter<'_> {
             | BinaryPrimitive::GreaterEqual
             | BinaryPrimitive::Equal
             | BinaryPrimitive::NotEqual => {
+                if operand_type == Type::String {
+                    self.needs.string_equality = true;
+                    let equality = format!("mal_string_equal({left}, {right})");
+                    let condition = if operator == BinaryPrimitive::Equal {
+                        equality
+                    } else {
+                        format!("!{equality}")
+                    };
+                    return format!(
+                        "({}){{ .tag = ({condition}) ? UINT32_C(1) : UINT32_C(0) }}",
+                        self.types.c_type(result)
+                    );
+                }
                 let symbol = match operator {
                     BinaryPrimitive::Less => "<",
                     BinaryPrimitive::LessEqual => "<=",

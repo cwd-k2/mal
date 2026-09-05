@@ -136,6 +136,43 @@ void mal_ext_inspect(MalContext *context, MalString value) {
 }
 
 #[test]
+fn executes_string_primitives_and_byte_wise_equality() {
+    let output = compile_and_run(
+        r#"main :: Unit -> Int32 := \() {
+  value := "あ\0\xff";
+  ok := (byteLength(value) == 5UInt64) &&
+        (byteAt(value, 0UInt64) == 227UInt8) &&
+        (byteAt(value, 4UInt64) == 255UInt8) &&
+        (value == "\xe3\x81\x82\x00\xff") &&
+        (value != "あ\0\xfe") &&
+        ("" == "");
+  return if (ok) then { 0 } else { 1 };
+};"#,
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_out_of_range_string_byte_access() {
+    for expression in [r#"byteAt("", 0UInt64)"#, r#"byteAt("a", 1UInt64)"#] {
+        let output = compile_and_run(
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            "",
+        );
+        assert!(!output.status.success(), "expression: {expression}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("string index out of range"),
+            "expression: {expression}"
+        );
+    }
+}
+
+#[test]
 fn emits_every_fixed_width_scalar_in_the_generated_header() {
     let generated = emit(
         "extern i8 :: Int8 -> Int8;\n\

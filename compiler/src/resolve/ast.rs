@@ -27,6 +27,8 @@ pub const BOOL_TYPE: TypeId = TypeId(9);
 pub const STRING_TYPE: TypeId = TypeId(10);
 pub const FALSE_VALUE: ValueId = ValueId(0);
 pub const TRUE_VALUE: ValueId = ValueId(1);
+pub const BYTE_LENGTH_VALUE: ValueId = ValueId(2);
+pub const BYTE_AT_VALUE: ValueId = ValueId(3);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueOwner {

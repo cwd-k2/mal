@@ -7,9 +7,10 @@ pub mod ast;
 mod expression;
 
 use self::ast::{
-    BOOL_TYPE, ExternalOperationId, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
-    LambdaId, Program, STRING_TYPE, TRUE_VALUE, TypeBinding, TypeId, TypeReference, UINT8_TYPE,
-    UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueBinding, ValueId, ValueOwner,
+    BOOL_TYPE, BYTE_AT_VALUE, BYTE_LENGTH_VALUE, ExternalOperationId, FALSE_VALUE, INT8_TYPE,
+    INT16_TYPE, INT32_TYPE, INT64_TYPE, LambdaId, Program, STRING_TYPE, TRUE_VALUE, TypeBinding,
+    TypeId, TypeReference, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    ValueBinding, ValueId, ValueOwner,
 };
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
@@ -46,7 +47,7 @@ impl Resolver {
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
             next_type: 11,
-            next_value: 2,
+            next_value: 4,
             next_external: 0,
             next_lambda: 0,
             synthetic_span,
@@ -64,6 +65,8 @@ impl Resolver {
         resolver.add_predefined_type("String", STRING_TYPE);
         resolver.add_predefined_value("false", FALSE_VALUE);
         resolver.add_predefined_value("true", TRUE_VALUE);
+        resolver.add_predefined_value("byteLength", BYTE_LENGTH_VALUE);
+        resolver.add_predefined_value("byteAt", BYTE_AT_VALUE);
         resolver
     }
 
@@ -96,7 +99,7 @@ impl Resolver {
                 }
                 crate::ast::TopItem::ExternalOperation { name, .. } => {
                     if self.externals.contains_key(&name.text)
-                        || matches!(name.text.as_str(), "false" | "true")
+                        || self.value_scopes[0].contains_key(&name.text)
                     {
                         return Err(self.duplicate(name, "top-level value"));
                     }

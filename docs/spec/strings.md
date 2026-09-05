@@ -32,6 +32,9 @@ byteLength :: String -> UInt64;
 byteAt :: (String, UInt64) -> UInt8;
 ```
 
+`byteLength`と`byteAt`はcompiler primitiveであり、名前をfirst-class function値として取り出せない。上記の
+direct callで使用する。両名はtop-levelでは予約され、local scopeでは通常のvalue bindingでshadowできる。
+
 indexは0-basedで、範囲外の`byteAt`はtrapする。
 
 `==`と`!=`はbyte-wise equalityとする。orderingとconcatenationは定義しない。

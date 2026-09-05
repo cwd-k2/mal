@@ -2,6 +2,7 @@ use crate::ast::{BinaryOperator, Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::IntegerLiteral;
 use crate::resolve::ast as resolved;
+use crate::resolve::ast::{BYTE_AT_VALUE, BYTE_LENGTH_VALUE};
 
 use super::Checker;
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Parameter, Type};
@@ -19,7 +20,15 @@ impl Checker {
     ) -> Result<Expression, Diagnostic> {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
-                kind: ExpressionKind::Reference(reference.clone()),
+                kind: if matches!(reference.id, BYTE_LENGTH_VALUE | BYTE_AT_VALUE) {
+                    return Err(Diagnostic::error(format!(
+                        "primitive `{}` must be called directly",
+                        reference.name.text
+                    ))
+                    .with_primary(expression.span, "expected a call at this reference"));
+                } else {
+                    ExpressionKind::Reference(reference.clone())
+                },
                 ty: self.value_type(reference)?,
                 span: expression.span,
             },
@@ -209,6 +218,32 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: crate::source::Span,
     ) -> Result<Expression, Diagnostic> {
+        if let resolved::Expression::Reference(reference) = &callee.kind {
+            match reference.id {
+                BYTE_LENGTH_VALUE => {
+                    let value = self.check_argument(arguments, &Type::String, span)?;
+                    return Ok(Expression {
+                        kind: ExpressionKind::StringLength {
+                            value: Box::new(value),
+                        },
+                        ty: Type::UInt64,
+                        span,
+                    });
+                }
+                BYTE_AT_VALUE => {
+                    let parameter = Type::Product(vec![Type::String, Type::UInt64]);
+                    let argument = self.check_argument(arguments, &parameter, span)?;
+                    return Ok(Expression {
+                        kind: ExpressionKind::StringAt {
+                            argument: Box::new(argument),
+                        },
+                        ty: Type::UInt8,
+                        span,
+                    });
+                }
+                _ => {}
+            }
+        }
         let callee = self.check_expression(callee, None)?;
         let Type::Function { parameter, result } = &callee.ty else {
             return Err(
@@ -403,7 +438,7 @@ impl Checker {
                     let right = self.check_expression(right, Some(&left.ty))?;
                     (left, right)
                 };
-                if !is_integer(&left.ty) && left.ty != bool_type() {
+                if !is_integer(&left.ty) && left.ty != bool_type() && left.ty != Type::String {
                     return Err(Diagnostic::error("equality is not defined for this type")
                         .with_primary(
                             left.span,

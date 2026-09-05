@@ -163,6 +163,12 @@ impl Converter {
                 callee: self.convert_atom(callee, environment),
                 argument: self.convert_atom(argument, environment),
             },
+            anf::Operation::StringLength { value } => Operation::StringLength {
+                value: self.convert_atom(value, environment),
+            },
+            anf::Operation::StringAt { argument } => Operation::StringAt {
+                argument: self.convert_atom(argument, environment),
+            },
             anf::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
                 id: *id,
                 argument: self.convert_atom(argument, environment),
