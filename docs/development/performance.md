@@ -84,6 +84,11 @@ inlineされており、relaxation function自体はinline costがthresholdを�
 使用したoffset/load/store helperだけを生成するようにし、strict warning optionと`-O2`を同時に使えることをfocused testで
 確認した。
 
+local実験でClangのinline thresholdをhot functionのcostより少し上げると、branch-heavy heapはdirect C比約1.15まで
+改善したため、このcall boundaryの除去には実益がある。一方、全direct tail-recursive functionへの`always_inline`はregular
+numeric transformをdirect C比約1.16へ悪化させ、tail pathと別の再帰pathを併せ持つ関数をGCCがcompileできなかったため
+採用しない。問題固有のinline指定も行わず、まずBool control flowなどcallee自体のgenerated-C costを減らす。
+
 ## 次の担当者が行う順序
 
 ### 1. local fixtureを固定する
