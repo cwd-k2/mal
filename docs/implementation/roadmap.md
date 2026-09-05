@@ -185,4 +185,4 @@ M4の完了を妨げない後続taskとして、integer literalの型suffixを`2
 
 - `spec/`、lexer、diagnostic、test、exampleの表記を同じchangeで更新する。
 - numeric separatorとradix prefixを含むcaseを検査し、suffixのないliteralの`Int64` defaultは変更しない。
-- 旧形式の型名suffixを互換syntaxとして残さず、lexer boundaryで利用者向けerrorにする。
+- 旧形式の型名suffixは互換syntaxとして残さず、特別なmigration diagnosticも追加せず通常の不正suffixとして扱う。
