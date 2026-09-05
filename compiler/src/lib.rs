@@ -9,8 +9,11 @@ pub mod closure;
 pub mod core;
 pub mod diagnostic;
 pub mod driver;
+pub mod editor;
+pub mod formatter;
 pub mod lexer;
 pub mod parser;
+pub mod pipeline;
 pub mod resolve;
 pub mod source;
 

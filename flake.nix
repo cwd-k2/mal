@@ -17,6 +17,7 @@
           clippy
           clang
           lld
+          nodejs
         ];
       };
     };

@@ -20,6 +20,10 @@ mod product;
 mod string;
 mod types;
 
+pub fn type_name(ty: &ast::Type) -> String {
+    types::type_name(ty)
+}
+
 use self::ast::{Binding, BodyItem, Pattern, Program, TopItem, Type};
 
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
@@ -61,7 +65,7 @@ impl Checker {
     }
 
     fn check_program(mut self, program: &resolved::Program) -> Result<Program, Diagnostic> {
-        self.collect_aliases(program)?;
+        self.collect_aliases(program);
         for definition in self.aliases.values().cloned().collect::<Vec<_>>() {
             self.expand_type_id(definition.binding.id, definition.binding.name.span)?;
         }
@@ -103,7 +107,7 @@ impl Checker {
         })
     }
 
-    fn collect_aliases(&mut self, program: &resolved::Program) -> Result<(), Diagnostic> {
+    fn collect_aliases(&mut self, program: &resolved::Program) {
         for item in &program.items {
             match &item.kind {
                 resolved::TopItem::TypeAlias { binding, value } => {
@@ -121,7 +125,6 @@ impl Checker {
                 _ => {}
             }
         }
-        Ok(())
     }
 
     fn collect_external_signatures(
@@ -338,40 +341,7 @@ impl Checker {
         &self,
         expression: &Node<resolved::Expression>,
     ) -> Result<(), Diagnostic> {
-        let allowed = match &expression.kind {
-            resolved::Expression::Integer(_)
-            | resolved::Expression::Float(_)
-            | resolved::Expression::Byte(_)
-            | resolved::Expression::String(_)
-            | resolved::Expression::Unit => true,
-            resolved::Expression::Reference(reference) => {
-                matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
-            }
-            resolved::Expression::Parenthesized(inner) => {
-                self.check_top_level_initializer(inner).is_ok()
-            }
-            resolved::Expression::Product(elements) => elements
-                .iter()
-                .all(|element| self.check_top_level_initializer(element).is_ok()),
-            resolved::Expression::SumInjection { value, .. } => {
-                self.check_top_level_initializer(value).is_ok()
-            }
-            resolved::Expression::Conversion { value, .. } => {
-                self.check_top_level_initializer(value).is_ok()
-            }
-            resolved::Expression::Lambda(_) => true,
-            resolved::Expression::Unary {
-                operator, operand, ..
-            } => {
-                operator.kind == UnaryOperator::Negate
-                    && matches!(
-                        operand.kind,
-                        resolved::Expression::Integer(_) | resolved::Expression::Float(_)
-                    )
-            }
-            _ => false,
-        };
-        if allowed {
+        if is_top_level_initializer(expression) {
             Ok(())
         } else {
             Err(
@@ -381,6 +351,34 @@ impl Checker {
                 ),
             )
         }
+    }
+}
+
+fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
+    match &expression.kind {
+        resolved::Expression::Integer(_)
+        | resolved::Expression::Float(_)
+        | resolved::Expression::Byte(_)
+        | resolved::Expression::String(_)
+        | resolved::Expression::Unit => true,
+        resolved::Expression::Reference(reference) => {
+            matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
+        }
+        resolved::Expression::Parenthesized(inner) => is_top_level_initializer(inner),
+        resolved::Expression::Product(elements) => elements.iter().all(is_top_level_initializer),
+        resolved::Expression::SumInjection { value, .. }
+        | resolved::Expression::Conversion { value, .. } => is_top_level_initializer(value),
+        resolved::Expression::Lambda(_) => true,
+        resolved::Expression::Unary {
+            operator, operand, ..
+        } => {
+            operator.kind == UnaryOperator::Negate
+                && matches!(
+                    operand.kind,
+                    resolved::Expression::Integer(_) | resolved::Expression::Float(_)
+                )
+        }
+        _ => false,
     }
 }
 

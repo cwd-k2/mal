@@ -52,6 +52,12 @@ pub struct Location {
     pub column: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Utf16Position {
+    pub line: usize,
+    pub character: usize,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SourceLine<'a> {
     pub number: usize,
@@ -70,11 +76,21 @@ pub struct SourceFile {
 impl SourceFile {
     pub fn new(id: FileId, path: impl Into<PathBuf>, text: String) -> Self {
         let mut line_starts = vec![0];
-        line_starts.extend(
-            text.bytes()
-                .enumerate()
-                .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1)),
-        );
+        let bytes = text.as_bytes();
+        let mut index = 0;
+        while index < bytes.len() {
+            match bytes[index] {
+                b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
+                    index += 2;
+                    line_starts.push(index);
+                }
+                b'\r' | b'\n' => {
+                    index += 1;
+                    line_starts.push(index);
+                }
+                _ => index += 1,
+            }
+        }
         Self {
             id,
             path: path.into(),
@@ -121,6 +137,40 @@ impl SourceFile {
             line: line_index + 1,
             column,
         })
+    }
+
+    pub fn utf16_position(&self, byte_offset: usize) -> Option<Utf16Position> {
+        if byte_offset > self.text.len() || !self.text.is_char_boundary(byte_offset) {
+            return None;
+        }
+        let line_index = self
+            .line_starts
+            .partition_point(|start| *start <= byte_offset)
+            - 1;
+        let line = self.line(line_index + 1)?;
+        if byte_offset > line.start + line.text.len() {
+            return None;
+        }
+        let character = self.text[line.start..byte_offset].encode_utf16().count();
+        Some(Utf16Position {
+            line: line_index,
+            character,
+        })
+    }
+
+    pub fn byte_offset_utf16(&self, position: Utf16Position) -> Option<usize> {
+        let line = self.line(position.line.checked_add(1)?)?;
+        let mut utf16_offset = 0;
+        for (byte_offset, character) in line.text.char_indices() {
+            if utf16_offset == position.character {
+                return Some(line.start + byte_offset);
+            }
+            utf16_offset += character.len_utf16();
+            if utf16_offset > position.character {
+                return None;
+            }
+        }
+        (utf16_offset == position.character).then_some(line.start + line.text.len())
     }
 
     pub fn line(&self, one_based_line: usize) -> Option<SourceLine<'_>> {
@@ -195,12 +245,18 @@ mod tests {
 
     #[test]
     fn lines_exclude_line_endings() {
-        let source = SourceFile::new(FileId::new(0), "sample.mal", "first\r\nsecond\n".into());
+        let source = SourceFile::new(
+            FileId::new(0),
+            "sample.mal",
+            "first\r\nsecond\nthird\rfourth".into(),
+        );
 
         assert_eq!(source.line(1).expect("first line").text, "first");
         assert_eq!(source.line(2).expect("second line").text, "second");
-        assert_eq!(source.line(3).expect("trailing empty line").text, "");
-        assert!(source.line(4).is_none());
+        assert_eq!(source.line(3).expect("third line").text, "third");
+        assert_eq!(source.line(4).expect("fourth line").text, "fourth");
+        assert!(source.line(5).is_none());
+        assert_eq!(source.location(20), Some(Location { line: 4, column: 1 }));
     }
 
     #[test]
@@ -210,5 +266,61 @@ mod tests {
         assert!(source.contains(Span::new(FileId::new(1), 0, 2)));
         assert!(!source.contains(Span::new(FileId::new(2), 0, 2)));
         assert!(!source.contains(Span::new(FileId::new(1), 0, 1)));
+    }
+
+    #[test]
+    fn converts_between_byte_offsets_and_zero_based_utf16_positions() {
+        let source = SourceFile::new(FileId::new(0), "sample.mal", "a😀\r\né\n".into());
+
+        assert_eq!(
+            source.utf16_position(5),
+            Some(Utf16Position {
+                line: 0,
+                character: 3,
+            })
+        );
+        assert_eq!(
+            source.utf16_position(7),
+            Some(Utf16Position {
+                line: 1,
+                character: 0,
+            })
+        );
+        assert_eq!(
+            source.byte_offset_utf16(Utf16Position {
+                line: 0,
+                character: 3,
+            }),
+            Some(5)
+        );
+        assert_eq!(
+            source.byte_offset_utf16(Utf16Position {
+                line: 1,
+                character: 1,
+            }),
+            Some(9)
+        );
+    }
+
+    #[test]
+    fn rejects_positions_inside_utf8_or_utf16_characters_and_line_endings() {
+        let source = SourceFile::new(FileId::new(0), "sample.mal", "a😀\r\n".into());
+
+        assert_eq!(source.utf16_position(2), None);
+        assert_eq!(source.utf16_position(6), None);
+        assert_eq!(
+            source.byte_offset_utf16(Utf16Position {
+                line: 0,
+                character: 2,
+            }),
+            None
+        );
+        assert_eq!(
+            source.byte_offset_utf16(Utf16Position {
+                line: 3,
+                character: 0,
+            }),
+            None
+        );
     }
 }

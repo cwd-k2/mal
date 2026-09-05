@@ -3,115 +3,18 @@ use crate::source::{SourceFile, Span};
 
 mod number;
 mod string;
+mod token;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Radix {
-    Binary,
-    Decimal,
-    Hexadecimal,
-}
-
-impl Radix {
-    pub const fn value(self) -> u32 {
-        match self {
-            Self::Binary => 2,
-            Self::Decimal => 10,
-            Self::Hexadecimal => 16,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct IntegerLiteral {
-    pub radix: Radix,
-    pub digits: String,
-    pub suffix: Option<IntegerSuffix>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecimalFloatLiteral {
-    pub digits: String,
-    pub fractional_digits: usize,
-    pub exponent_negative: bool,
-    pub exponent_digits: String,
-    pub suffix: Option<FloatSuffix>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum FloatSuffix {
-    Float32,
-    Float64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum IntegerSuffix {
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TokenKind {
-    TypeIdentifier,
-    ValueIdentifier,
-    Integer(IntegerLiteral),
-    Float(DecimalFloatLiteral),
-    Byte(u8),
-    String(Vec<u8>),
-    Extern,
-    If,
-    Then,
-    Else,
-    Case,
-    Return,
-    Underscore,
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    LeftBracket,
-    RightBracket,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    Comma,
-    Semicolon,
-    DoubleColon,
-    Bind,
-    Arrow,
-    Backslash,
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Percent,
-    Bang,
-    BangEqual,
-    EqualEqual,
-    Tilde,
-    Ampersand,
-    AmpersandAmpersand,
-    Pipe,
-    PipePipe,
-    Caret,
-    ShiftLeft,
-    ShiftRight,
-    Eof,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub span: Span,
-}
+pub use token::{
+    DecimalFloatLiteral, FloatSuffix, IntegerLiteral, IntegerSuffix, Lexed, Lexeme, LexemeKind,
+    Radix, Token, TokenKind,
+};
 
 pub fn lex(source: &SourceFile) -> Result<Vec<Token>, Diagnostic> {
+    lex_lossless(source).map(|lexed| lexed.tokens)
+}
+
+pub fn lex_lossless(source: &SourceFile) -> Result<Lexed, Diagnostic> {
     Lexer::new(source).lex()
 }
 
@@ -120,6 +23,7 @@ struct Lexer<'a> {
     bytes: &'a [u8],
     offset: usize,
     tokens: Vec<Token>,
+    lexemes: Vec<Lexeme>,
 }
 
 impl<'a> Lexer<'a> {
@@ -129,10 +33,11 @@ impl<'a> Lexer<'a> {
             bytes: source.text().as_bytes(),
             offset: 0,
             tokens: Vec::new(),
+            lexemes: Vec::new(),
         }
     }
 
-    fn lex(mut self) -> Result<Vec<Token>, Diagnostic> {
+    fn lex(mut self) -> Result<Lexed, Diagnostic> {
         while self.offset < self.bytes.len() {
             if self.skip_trivia() {
                 continue;
@@ -157,7 +62,10 @@ impl<'a> Lexer<'a> {
             kind: TokenKind::Eof,
             span: self.span(self.offset, self.offset),
         });
-        Ok(self.tokens)
+        Ok(Lexed {
+            tokens: self.tokens,
+            lexemes: self.lexemes,
+        })
     }
 
     fn skip_trivia(&mut self) -> bool {
@@ -165,11 +73,16 @@ impl<'a> Lexer<'a> {
         while matches!(self.peek(), Some(b' ' | b'\t' | b'\r' | b'\n')) {
             self.offset += 1;
         }
+        if self.offset != start {
+            self.push_lexeme(LexemeKind::Whitespace, start, self.offset);
+        }
         if self.peek() == Some(b'/') && self.peek_next() == Some(b'/') {
+            let comment_start = self.offset;
             self.offset += 2;
             while !matches!(self.peek(), None | Some(b'\r' | b'\n')) {
                 self.offset += 1;
             }
+            self.push_lexeme(LexemeKind::LineComment, comment_start, self.offset);
         }
         self.offset != start
     }
@@ -356,9 +269,18 @@ impl<'a> Lexer<'a> {
     }
 
     fn push(&mut self, kind: TokenKind, start: usize) {
-        self.tokens.push(Token {
+        let span = self.span(start, self.offset);
+        self.tokens.push(Token { kind, span });
+        self.lexemes.push(Lexeme {
+            kind: LexemeKind::Token,
+            span,
+        });
+    }
+
+    fn push_lexeme(&mut self, kind: LexemeKind, start: usize, end: usize) {
+        self.lexemes.push(Lexeme {
             kind,
-            span: self.span(start, self.offset),
+            span: self.span(start, end),
         });
     }
 

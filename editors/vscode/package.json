@@ -1,0 +1,54 @@
+{
+  "name": "mal-language-support",
+  "displayName": "mal Language Support",
+  "description": "Language support and semantic tooling for mal",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:mal"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "mal",
+        "aliases": [
+          "mal"
+        ],
+        "extensions": [
+          ".mal"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mal",
+        "scopeName": "source.mal",
+        "path": "./syntaxes/mal.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "mal",
+      "properties": {
+        "mal.server.path": {
+          "type": "string",
+          "default": "mal-lsp",
+          "description": "Path to the mal language server executable."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/extension.test.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

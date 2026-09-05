@@ -9,6 +9,7 @@ Usage:
   malc --help
   malc --version
   malc check <source.mal>
+  malc format <source.mal>
   malc emit-c <source.mal> --output <program.c>
   malc build <source.mal> --output <program> [--link <input>]...
 ";
@@ -77,6 +78,12 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
         [command, source] if command == OsStr::new("check") => {
             match crate::driver::check(PathBuf::from(source).as_path()) {
                 Ok(()) => Outcome::success(String::new()),
+                Err(error) => Outcome::compile_error(error),
+            }
+        }
+        [command, source] if command == OsStr::new("format") => {
+            match crate::driver::format(PathBuf::from(source).as_path()) {
+                Ok(formatted) => Outcome::success(formatted),
                 Err(error) => Outcome::compile_error(error),
             }
         }

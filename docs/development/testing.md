@@ -43,3 +43,18 @@ cargo test
 
 rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定する。Nix development environmentまたは
 flake inputを変更した場合は、rootで`nix flake check`も実行する。
+
+`tools/mal-lsp/`を変更した場合はrepository rootで次も実行する。
+
+```nu
+cargo fmt --manifest-path tools/mal-lsp/Cargo.toml --check
+cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- -D warnings
+cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
+```
+
+`editors/vscode/`のclient lifecycleを変更した場合はdependencyをinstallした上で次を実行する。
+
+```nu
+cd editors/vscode
+npm test
+```

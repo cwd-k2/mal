@@ -22,6 +22,51 @@ pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
     Resolver::new(program.span).resolve_program(program)
 }
 
+pub const PREDEFINED_TYPES: &[(&str, TypeId)] = &[
+    ("Unit", UNIT_TYPE),
+    ("Int8", INT8_TYPE),
+    ("Int16", INT16_TYPE),
+    ("Int32", INT32_TYPE),
+    ("Int64", INT64_TYPE),
+    ("UInt8", UINT8_TYPE),
+    ("UInt16", UINT16_TYPE),
+    ("UInt32", UINT32_TYPE),
+    ("UInt64", UINT64_TYPE),
+    ("Bool", BOOL_TYPE),
+    ("String", STRING_TYPE),
+    ("Float32", FLOAT32_TYPE),
+    ("Float64", FLOAT64_TYPE),
+    ("Ptr", PTR_TYPE),
+];
+
+pub const PREDEFINED_VALUES: &[(&str, ValueId)] = &[
+    ("false", FALSE_VALUE),
+    ("true", TRUE_VALUE),
+    ("byteLength", BYTE_LENGTH_VALUE),
+    ("byteAt", BYTE_AT_VALUE),
+    ("offset", OFFSET_VALUE),
+    ("loadInt64", LOAD_INT64_VALUE),
+    ("storeInt64", STORE_INT64_VALUE),
+    ("loadUInt8", LOAD_UINT8_VALUE),
+    ("storeUInt8", STORE_UINT8_VALUE),
+    ("loadInt8", LOAD_INT8_VALUE),
+    ("storeInt8", STORE_INT8_VALUE),
+    ("loadInt16", LOAD_INT16_VALUE),
+    ("storeInt16", STORE_INT16_VALUE),
+    ("loadInt32", LOAD_INT32_VALUE),
+    ("storeInt32", STORE_INT32_VALUE),
+    ("loadUInt16", LOAD_UINT16_VALUE),
+    ("storeUInt16", STORE_UINT16_VALUE),
+    ("loadUInt32", LOAD_UINT32_VALUE),
+    ("storeUInt32", STORE_UINT32_VALUE),
+    ("loadUInt64", LOAD_UINT64_VALUE),
+    ("storeUInt64", STORE_UINT64_VALUE),
+    ("loadFloat32", LOAD_FLOAT32_VALUE),
+    ("storeFloat32", STORE_FLOAT32_VALUE),
+    ("loadFloat64", LOAD_FLOAT64_VALUE),
+    ("storeFloat64", STORE_FLOAT64_VALUE),
+];
+
 #[derive(Clone)]
 struct ExternalBinding {
     id: ExternalOperationId,
@@ -59,45 +104,12 @@ impl Resolver {
             next_lambda: 0,
             synthetic_span,
         };
-        resolver.add_predefined_type("Unit", UNIT_TYPE);
-        resolver.add_predefined_type("Int8", INT8_TYPE);
-        resolver.add_predefined_type("Int16", INT16_TYPE);
-        resolver.add_predefined_type("Int32", INT32_TYPE);
-        resolver.add_predefined_type("Int64", INT64_TYPE);
-        resolver.add_predefined_type("UInt8", UINT8_TYPE);
-        resolver.add_predefined_type("UInt16", UINT16_TYPE);
-        resolver.add_predefined_type("UInt32", UINT32_TYPE);
-        resolver.add_predefined_type("UInt64", UINT64_TYPE);
-        resolver.add_predefined_type("Bool", BOOL_TYPE);
-        resolver.add_predefined_type("String", STRING_TYPE);
-        resolver.add_predefined_type("Float32", FLOAT32_TYPE);
-        resolver.add_predefined_type("Float64", FLOAT64_TYPE);
-        resolver.add_predefined_type("Ptr", PTR_TYPE);
-        resolver.add_predefined_value("false", FALSE_VALUE);
-        resolver.add_predefined_value("true", TRUE_VALUE);
-        resolver.add_predefined_value("byteLength", BYTE_LENGTH_VALUE);
-        resolver.add_predefined_value("byteAt", BYTE_AT_VALUE);
-        resolver.add_predefined_value("offset", OFFSET_VALUE);
-        resolver.add_predefined_value("loadInt64", LOAD_INT64_VALUE);
-        resolver.add_predefined_value("storeInt64", STORE_INT64_VALUE);
-        resolver.add_predefined_value("loadUInt8", LOAD_UINT8_VALUE);
-        resolver.add_predefined_value("storeUInt8", STORE_UINT8_VALUE);
-        resolver.add_predefined_value("loadInt8", LOAD_INT8_VALUE);
-        resolver.add_predefined_value("storeInt8", STORE_INT8_VALUE);
-        resolver.add_predefined_value("loadInt16", LOAD_INT16_VALUE);
-        resolver.add_predefined_value("storeInt16", STORE_INT16_VALUE);
-        resolver.add_predefined_value("loadInt32", LOAD_INT32_VALUE);
-        resolver.add_predefined_value("storeInt32", STORE_INT32_VALUE);
-        resolver.add_predefined_value("loadUInt16", LOAD_UINT16_VALUE);
-        resolver.add_predefined_value("storeUInt16", STORE_UINT16_VALUE);
-        resolver.add_predefined_value("loadUInt32", LOAD_UINT32_VALUE);
-        resolver.add_predefined_value("storeUInt32", STORE_UINT32_VALUE);
-        resolver.add_predefined_value("loadUInt64", LOAD_UINT64_VALUE);
-        resolver.add_predefined_value("storeUInt64", STORE_UINT64_VALUE);
-        resolver.add_predefined_value("loadFloat32", LOAD_FLOAT32_VALUE);
-        resolver.add_predefined_value("storeFloat32", STORE_FLOAT32_VALUE);
-        resolver.add_predefined_value("loadFloat64", LOAD_FLOAT64_VALUE);
-        resolver.add_predefined_value("storeFloat64", STORE_FLOAT64_VALUE);
+        for &(name, id) in PREDEFINED_TYPES {
+            resolver.add_predefined_type(name, id);
+        }
+        for &(name, id) in PREDEFINED_VALUES {
+            resolver.add_predefined_value(name, id);
+        }
         resolver
     }
 

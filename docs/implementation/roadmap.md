@@ -8,8 +8,8 @@ Status: Current; no active milestone
 
 ## 現在位置
 
-active milestoneはない。新しい実装作業を始める前に、解決する問題、変更する責務境界、範囲外、検証可能な完了条件を
-この文書へ追加する。候補だけの機能や将来向けframeworkはmilestoneにしない。
+M12まで完了している。新しい実装作業を始める前に、解決する問題、変更する責務境界、範囲外、
+検証可能な完了条件をこの文書へ追加する。候補だけの機能や将来向けframeworkはmilestoneにしない。
 
 | Gate | Outcome |
 |---|---|
@@ -21,6 +21,11 @@ active milestoneはない。新しい実装作業を始める前に、解決す�
 | M5 / R0 | strict `Float32` / `Float64` profileとv0.4 release readiness |
 | M6 | v0.5の型なし`Ptr`とnumeric scalar memory primitive |
 | M7 | public buildの最適化contractとgenerated Cのcost削減 |
+| M8 | compiler責務の監査とin-memory tooling boundary |
+| M9 | VS Codeのlanguage registration、lexical highlighting、editing configuration |
+| M10 | lossless lexical sourceとcanonical formatter |
+| M11 | stdio language serverのdiagnostic、full sync、document formatting |
+| M12 | semantic editor query、LSP semantic request、VS Code language client |
 
 M0当時の境界は[M0 implementation record](m0.md)、M7の測定と採否判断は
 [performance record](../development/performance.md)に残す。それ以外の完了内容は現在の仕様、test、example、Git履歴を正とし、

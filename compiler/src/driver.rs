@@ -24,19 +24,21 @@ const C_COMPILER_OPTIONS: &[&str] = &[
 
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    checked_program(&source).map(|_| ())
+    crate::pipeline::check(&source)
+        .map(|_| ())
+        .map_err(|error| Error::diagnostic(error, &source))
+}
+
+pub fn format(source_path: &Path) -> Result<String, Error> {
+    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
+    crate::formatter::format(&source).map_err(|error| Error::diagnostic(error, &source))
 }
 
 pub fn emit_c(source_path: &Path, output_path: &Path) -> Result<PathBuf, Error> {
     let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    let generated = generated_c(&source)?;
-    create_parent(output_path)?;
-    fs::write(output_path, generated.source)
-        .map_err(|error| Error::io("write generated C", output_path, error))?;
-    let header_path = output_path.with_file_name(crate::c_emit::GENERATED_HEADER_NAME);
-    fs::write(&header_path, generated.header)
-        .map_err(|error| Error::io("write generated header", &header_path, error))?;
-    Ok(header_path)
+    let generated =
+        crate::pipeline::emit_c(&source).map_err(|error| Error::diagnostic(error, &source))?;
+    write_generated(output_path, generated)
 }
 
 pub fn build(
@@ -45,14 +47,11 @@ pub fn build(
     linker_inputs: &[PathBuf],
 ) -> Result<(), Error> {
     let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    let generated = generated_c(&source)?;
+    let generated =
+        crate::pipeline::emit_c(&source).map_err(|error| Error::diagnostic(error, &source))?;
     let temporary = TemporaryDirectory::new()?;
     let generated_path = temporary.path().join("program.c");
-    let header_path = temporary.path().join(crate::c_emit::GENERATED_HEADER_NAME);
-    fs::write(&generated_path, generated.source)
-        .map_err(|error| Error::io("write temporary C", &generated_path, error))?;
-    fs::write(&header_path, generated.header)
-        .map_err(|error| Error::io("write temporary header", &header_path, error))?;
+    write_generated(&generated_path, generated)?;
     create_parent(output_path)?;
 
     let compiler = std::env::var_os("CC").unwrap_or_else(|| OsString::from("clang"));
@@ -76,19 +75,14 @@ pub fn build(
     Ok(())
 }
 
-fn checked_program(source: &SourceFile) -> Result<crate::check::ast::Program, Error> {
-    let parsed = crate::parser::parse(source).map_err(|error| Error::diagnostic(error, source))?;
-    let resolved =
-        crate::resolve::resolve(&parsed).map_err(|error| Error::diagnostic(error, source))?;
-    crate::check::check(&resolved).map_err(|error| Error::diagnostic(error, source))
-}
-
-fn generated_c(source: &SourceFile) -> Result<crate::c_emit::Output, Error> {
-    let checked = checked_program(source)?;
-    let core = crate::core::lower(&checked);
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    crate::c_emit::emit(&closure).map_err(|error| Error::diagnostic(error, source))
+fn write_generated(output_path: &Path, generated: crate::c_emit::Output) -> Result<PathBuf, Error> {
+    create_parent(output_path)?;
+    fs::write(output_path, generated.source)
+        .map_err(|error| Error::io("write generated C", output_path, error))?;
+    let header_path = output_path.with_file_name(crate::c_emit::GENERATED_HEADER_NAME);
+    fs::write(&header_path, generated.header)
+        .map_err(|error| Error::io("write generated header", &header_path, error))?;
+    Ok(header_path)
 }
 
 fn create_parent(path: &Path) -> Result<(), Error> {

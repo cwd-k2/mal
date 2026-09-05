@@ -317,6 +317,44 @@ fn skips_ascii_whitespace_and_line_comments() {
 }
 
 #[test]
+fn lossless_lexing_covers_tokens_whitespace_and_comments_in_source_order() {
+    use malc::lexer::LexemeKind;
+
+    let source = source("  value// note\r\n :: Int32 := 0xffu32;\n");
+    let lexed = malc::lexer::lex_lossless(&source).unwrap();
+    let mut restored = String::new();
+    let mut end = 0;
+    for lexeme in &lexed.lexemes {
+        assert_eq!(lexeme.span.start(), end);
+        restored.push_str(&source.text()[lexeme.span.start()..lexeme.span.end()]);
+        end = lexeme.span.end();
+    }
+
+    assert_eq!(end, source.text().len());
+    assert_eq!(restored, source.text());
+    assert_eq!(
+        lexed
+            .lexemes
+            .iter()
+            .filter(|lexeme| lexeme.kind == LexemeKind::Token)
+            .count(),
+        lexed.tokens.len() - 1
+    );
+    assert!(
+        lexed
+            .lexemes
+            .iter()
+            .any(|lexeme| lexeme.kind == LexemeKind::Whitespace)
+    );
+    assert!(
+        lexed
+            .lexemes
+            .iter()
+            .any(|lexeme| lexeme.kind == LexemeKind::LineComment)
+    );
+}
+
+#[test]
 fn rejects_bad_numeric_separators_with_the_literal_span() {
     for text in ["1_", "1__0", "0x_ff", "0b1_"] {
         let error = lex(&source(text)).expect_err("separator should be rejected");

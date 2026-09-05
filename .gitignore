@@ -1,4 +1,5 @@
 /compiler/target/
+/tools/mal-lsp/target/
 /.scratch/
 /.direnv/
 /.vscode/

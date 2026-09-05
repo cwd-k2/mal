@@ -3,7 +3,7 @@
 このディレクトリは `mal language specification v0.5` を、参照しやすさと議論しやすさを優先して構成したものである。
 
 現時点のstatusは **v0.5 development**。規範項目は`docs/spec/`、実装gateは
-[implementation roadmap](implementation/roadmap.md)で管理する。現在activeなmilestoneはない。
+[implementation roadmap](implementation/roadmap.md)で管理する。現在active milestoneはない。
 
 ## 読む順序
 
@@ -22,7 +22,9 @@
 11. [字句・文法](spec/grammar.md)
 
 利用者向けのcompiler command、対応環境、toolchain、生成物は
-[reference compiler利用contract](development/compiler-usage.md)にまとめる。実装者はまず
+[reference compiler利用contract](development/compiler-usage.md)、formatterのlayoutは
+[formatting policy](development/formatting.md)、editorとlanguage serverの起動は
+[editor tooling](development/editor-tooling.md)にまとめる。実装者はまず
 [compilerの責務境界](implementation/responsibilities.md)、[compiler implementation notes](implementation/compiler.md)、
 [test方針](development/testing.md)を参照する。active milestoneがある場合は
 [implementation roadmap](implementation/roadmap.md)に順序と完了条件を置く。

@@ -20,11 +20,14 @@ subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないta
 
 ```nu
 malc check source.mal
+malc format source.mal
 malc emit-c source.mal --output generated/program.c
 malc build source.mal --output program --link host.c
 ```
 
 - `check`はsourceを型検査し、成功時には生成物を作らない。
+- `format`はsyntaxを検査し、commentとliteral spellingを保持したcanonical sourceをstdoutへ出す。
+  入力fileは書き換えない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
 - `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
 - `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。

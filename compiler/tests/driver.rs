@@ -49,6 +49,24 @@ fn check_reports_frontend_success_and_failure_through_exit_status() {
 }
 
 #[test]
+fn format_prints_canonical_source_without_modifying_the_input() {
+    let directory = NativeFixture::new("driver-format");
+    let source = directory.join("program.mal");
+    let original = "value::Int32:=40+2;// answer\n";
+    directory.write("program.mal", original);
+
+    let output = directory.malc([OsStr::new("format"), source.as_os_str()]);
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "value :: Int32 := 40 + 2; // answer\n"
+    );
+    assert_eq!(std::fs::read_to_string(source).unwrap(), original);
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

@@ -37,6 +37,8 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` | desugaring、evaluation order、closure representation |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
+| `pipeline` | admitted済みin-memory sourceに対するcompiler stageの構成とstructured outcomeの返却 |
+| `editor` | resolved identity、source上のdeclaration/reference、checked typeをeditor queryへ構成 |
 | `driver` | source file、temporary path、C compiler process、linker inputのownership |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
