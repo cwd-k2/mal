@@ -96,6 +96,10 @@ call siteのcalleeがimmutableなtop-level lambdaまたは現在のself closure�
 closureのfunction pointerを経由せず生成functionを直接callする。関数値として受け取ったcalleeとlocal closureは
 共通calling conventionを使う。この区別はsourceから観測できず、既知関数の細粒度call costを減らす。
 
+product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、
+元の値のfieldから直接bindingを生成する。product型の関数引数は引き続きCのaggregate値として渡すため、
+この局所的なcopy除去と引数のcalling conventionは区別する。
+
 `Ptr`はC backendで`uint8_t *`をfieldに持つ`MalPtr`へlowerする。`offset`はbyte addressを進め、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
 runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの

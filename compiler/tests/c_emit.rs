@@ -120,6 +120,24 @@ fn emits_direct_calls_for_known_top_level_and_self_functions() {
 }
 
 #[test]
+fn destructures_product_atoms_without_copying_the_product() {
+    let generated = emit(
+        "Pair :: (Int64, Int64);\n\
+         sum :: Pair -> Int64 := \\(pair :: Pair) {\n\
+           (left, right) := pair;\n\
+           return left + right;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return Int32(sum((20i64, 22i64)) - 42i64); };",
+    )
+    .expect("emit product destructuring");
+    assert!(!generated.source.contains("mal_discard_"));
+
+    let fixture = NativeFixture::new("direct-product-destructure");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
     let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
            return if (remaining == 0) then { total } else {\n\

@@ -101,6 +101,10 @@ impl BodyEmitter<'_> {
     fn emit_binding(&mut self, output: &mut String, binding: &Binding, indent: usize) {
         let ty = pattern_type(&binding.pattern);
         match &binding.operation {
+            Operation::Atom(atom) if matches!(binding.pattern, Pattern::Product { .. }) => {
+                let value = self.emit_atom(atom);
+                self.emit_pattern_bindings(output, &binding.pattern, &value, indent);
+            }
             Operation::Case { scrutinee, arms } => {
                 self.emit_case(output, &binding.pattern, ty, scrutinee, arms, indent);
             }
