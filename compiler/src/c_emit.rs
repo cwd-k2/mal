@@ -19,6 +19,7 @@ macro_rules! c_line {
 
 mod body;
 mod runtime;
+mod scalar;
 mod text;
 mod types;
 

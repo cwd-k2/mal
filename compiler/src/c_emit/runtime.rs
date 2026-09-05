@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use super::body::RuntimeNeeds;
+use super::scalar::INTEGER_TYPES;
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     let mut output = String::from(RUNTIME_BASE);
@@ -58,12 +59,14 @@ fn float_to_integer_runtime(needs: u32) -> String {
         } else {
             ("f64", "double", 53, "")
         };
-        for (target_index, (target_name, target_type, _, signed)) in
-            integer_runtime_types().into_iter().enumerate()
-        {
+        for target in INTEGER_TYPES {
+            let target_index = target.index;
             if needs & (1_u32 << (source_index * 8 + target_index)) == 0 {
                 continue;
             }
+            let target_name = target.name;
+            let target_type = target.c_type;
+            let signed = target.signed();
             let bits = match target_index {
                 0 | 4 => 8,
                 1 | 5 => 16,
@@ -101,9 +104,11 @@ fn float_to_integer_runtime(needs: u32) -> String {
 
 fn integer_wrap_runtime(needs: u16) -> String {
     let mut output = String::new();
-    for (index, (name, c_type, _, signed)) in integer_runtime_types().into_iter().enumerate() {
-        if signed && needs & (1 << index) != 0 {
-            let unsigned = c_type.replacen("int", "uint", 1);
+    for integer in INTEGER_TYPES {
+        if integer.signed() && needs & integer.mask() != 0 {
+            let name = integer.name;
+            let c_type = integer.c_type;
+            let unsigned = integer.unsigned;
             writeln!(output, "static {c_type} mal_{name}_from_{unsigned}({unsigned} bits) {{ {c_type} value; memcpy(&value, &bits, sizeof(value)); return value; }}").unwrap();
         }
     }
@@ -123,11 +128,12 @@ fn integer_checked_runtime(
     } else {
         operation
     };
-    for (index, (name, c_type, minimum, signed)) in integer_runtime_types().into_iter().enumerate()
-    {
-        if needs & (1 << index) == 0 {
+    for integer in INTEGER_TYPES {
+        if needs & integer.mask() == 0 {
             continue;
         }
+        let name = integer.name;
+        let c_type = integer.c_type;
         writeln!(
             output,
             "static inline {c_type} mal_{name}_{operation}(MalContext *context, {c_type} dividend, {c_type} divisor) {{"
@@ -138,7 +144,7 @@ fn integer_checked_runtime(
             "    if (divisor == ({c_type})0) {{ mal_trap(context, \"{zero_message}\"); }}"
         )
         .unwrap();
-        if signed {
+        if let Some(minimum) = integer.minimum {
             writeln!(output, "    if (dividend == {minimum} && divisor == ({c_type})-1) {{ mal_trap(context, \"signed {overflow_operation} overflow\"); }}").unwrap();
         }
         writeln!(output, "    return dividend {symbol} divisor;\n}}\n").unwrap();
@@ -148,18 +154,18 @@ fn integer_checked_runtime(
 
 fn integer_shift_runtime(left_needs: u16, right_needs: u16) -> String {
     let mut output = String::new();
-    for (index, (name, c_type, _, signed)) in integer_runtime_types().into_iter().enumerate() {
-        let mask = 1 << index;
+    for integer in INTEGER_TYPES {
+        let mask = integer.mask();
         if (left_needs | right_needs) & mask == 0 {
             continue;
         }
-        let (unsigned, carrier, width, maximum) = match name {
-            "i8" | "u8" => ("uint8_t", "uint32_t", 8, "UINT8_MAX"),
-            "i16" | "u16" => ("uint16_t", "uint32_t", 16, "UINT16_MAX"),
-            "i32" | "u32" => ("uint32_t", "uint32_t", 32, "UINT32_MAX"),
-            "i64" | "u64" => ("uint64_t", "uint64_t", 64, "UINT64_MAX"),
-            _ => unreachable!(),
-        };
+        let name = integer.name;
+        let c_type = integer.c_type;
+        let signed = integer.signed();
+        let unsigned = integer.unsigned;
+        let carrier = integer.carrier;
+        let width = integer.width;
+        let maximum = integer.maximum;
         let negative_check = if signed { "count < 0 || " } else { "" };
         let result = if signed {
             format!("mal_{name}_from_{unsigned}(({unsigned})shifted)")
@@ -176,17 +182,4 @@ fn integer_shift_runtime(left_needs: u16, right_needs: u16) -> String {
         }
     }
     output
-}
-
-fn integer_runtime_types() -> [(&'static str, &'static str, &'static str, bool); 8] {
-    [
-        ("i8", "int8_t", "INT8_MIN", true),
-        ("i16", "int16_t", "INT16_MIN", true),
-        ("i32", "int32_t", "INT32_MIN", true),
-        ("i64", "int64_t", "INT64_MIN", true),
-        ("u8", "uint8_t", "", false),
-        ("u16", "uint16_t", "", false),
-        ("u32", "uint32_t", "", false),
-        ("u64", "uint64_t", "", false),
-    ]
 }

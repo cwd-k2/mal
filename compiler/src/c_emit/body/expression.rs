@@ -2,6 +2,8 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Operation, Reference};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 
+use crate::c_emit::scalar::integer_type;
+
 use super::{BodyEmitter, function_name, value_name};
 
 impl BodyEmitter<'_> {
@@ -31,14 +33,15 @@ impl BodyEmitter<'_> {
             Operation::NumericConversion { operand } => {
                 let source = &operand.ty;
                 let operand = self.emit_atom(operand);
-                if is_integer_type(source) && is_integer_type(result) {
-                    let (_, unsigned, _, _) = integer_info(result);
+                if integer_type(source).is_some() && integer_type(result).is_some() {
+                    let unsigned = integer_type(result).unwrap().unsigned;
                     self.wrap_integer(result, &format!("({unsigned})({operand})"))
-                } else if is_float_type(source) && is_integer_type(result) {
+                } else if is_float_type(source) && integer_type(result).is_some() {
                     let source_index = usize::from(*source == Type::Float64);
-                    let target_index = integer_index(result);
+                    let target = integer_type(result).unwrap();
+                    let target_index = target.index;
                     self.needs.float_to_integer |= 1_u32 << (source_index * 8 + target_index);
-                    let (target_name, _, _, _) = integer_info(result);
+                    let target_name = target.name;
                     let source_name = if *source == Type::Float32 {
                         "f32"
                     } else {
@@ -78,7 +81,7 @@ impl BodyEmitter<'_> {
                         }
                     };
                 }
-                let (_, unsigned, _, _) = integer_info(&operand.ty);
+                let unsigned = integer_type(&operand.ty).unwrap().unsigned;
                 let expression = match operator {
                     UnaryPrimitive::Negate => {
                         format!("({unsigned})0 - ({unsigned})({operand_text})")
@@ -140,7 +143,9 @@ impl BodyEmitter<'_> {
                     };
                     return format!("({left} {symbol} {right})");
                 }
-                let (_, unsigned, carrier, _) = integer_info(&operand_type);
+                let integer = integer_type(&operand_type).unwrap();
+                let unsigned = integer.unsigned;
+                let carrier = integer.carrier;
                 let symbol = match operator {
                     BinaryPrimitive::Multiply => "*",
                     BinaryPrimitive::Add => "+",
@@ -156,23 +161,26 @@ impl BodyEmitter<'_> {
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
                     return format!("({left} / {right})");
                 }
-                self.needs.divide |= integer_mask(&operand_type);
-                let (name, _, _, _) = integer_info(&operand_type);
+                let integer = integer_type(&operand_type).unwrap();
+                self.needs.divide |= integer.mask();
+                let name = integer.name;
                 format!("mal_{name}_divide(mal_context, {left}, {right})")
             }
             BinaryPrimitive::Remainder => {
-                self.needs.remainder |= integer_mask(&operand_type);
-                let (name, _, _, _) = integer_info(&operand_type);
+                let integer = integer_type(&operand_type).unwrap();
+                self.needs.remainder |= integer.mask();
+                let name = integer.name;
                 format!("mal_{name}_remainder(mal_context, {left}, {right})")
             }
             BinaryPrimitive::ShiftLeft | BinaryPrimitive::ShiftRight => {
                 if operator == BinaryPrimitive::ShiftLeft {
-                    self.needs.shift_left |= integer_mask(&operand_type);
+                    self.needs.shift_left |= integer_type(&operand_type).unwrap().mask();
                 } else {
-                    self.needs.shift_right |= integer_mask(&operand_type);
+                    self.needs.shift_right |= integer_type(&operand_type).unwrap().mask();
                 }
-                self.needs.wrap |= integer_mask(&operand_type);
-                let (name, _, _, _) = integer_info(&operand_type);
+                let integer = integer_type(&operand_type).unwrap();
+                self.needs.wrap |= integer.mask();
+                let name = integer.name;
                 let direction = if operator == BinaryPrimitive::ShiftLeft {
                     "shift_left"
                 } else {
@@ -183,7 +191,7 @@ impl BodyEmitter<'_> {
             BinaryPrimitive::BitwiseAnd
             | BinaryPrimitive::BitwiseXor
             | BinaryPrimitive::BitwiseOr => {
-                let (_, unsigned, _, _) = integer_info(&operand_type);
+                let unsigned = integer_type(&operand_type).unwrap().unsigned;
                 let symbol = match operator {
                     BinaryPrimitive::BitwiseAnd => "&",
                     BinaryPrimitive::BitwiseXor => "^",
@@ -230,9 +238,11 @@ impl BodyEmitter<'_> {
     }
 
     fn wrap_integer(&mut self, ty: &Type, expression: &str) -> String {
-        let (name, unsigned, _, signed) = integer_info(ty);
-        if signed {
-            self.needs.wrap |= integer_mask(ty);
+        let integer = integer_type(ty).unwrap();
+        let name = integer.name;
+        let unsigned = integer.unsigned;
+        if integer.signed() {
+            self.needs.wrap |= integer.mask();
             format!("mal_{name}_from_{unsigned}(({unsigned})({expression}))")
         } else {
             format!("({unsigned})({expression})")
@@ -251,20 +261,11 @@ impl BodyEmitter<'_> {
                 function_name(*function)
             ),
             AtomKind::Integer(value) => {
-                let (constant, minimum) = match atom.ty {
-                    Type::Int8 => ("INT8_C", Some(i128::from(i8::MIN))),
-                    Type::Int16 => ("INT16_C", Some(i128::from(i16::MIN))),
-                    Type::Int32 => ("INT32_C", Some(i128::from(i32::MIN))),
-                    Type::Int64 => ("INT64_C", Some(i128::from(i64::MIN))),
-                    Type::UInt8 => ("UINT8_C", None),
-                    Type::UInt16 => ("UINT16_C", None),
-                    Type::UInt32 => ("UINT32_C", None),
-                    Type::UInt64 => ("UINT64_C", None),
-                    _ => unreachable!("integer atoms have integer types"),
-                };
-                if minimum == Some(*value) {
-                    format!("{}_MIN", &constant[..constant.len() - 2])
+                let integer = integer_type(&atom.ty).expect("integer atoms have integer types");
+                if integer.minimum_value == Some(*value) {
+                    integer.minimum.unwrap().into()
                 } else {
+                    let constant = integer.constant;
                     format!("{constant}({value})")
                 }
             }
@@ -286,62 +287,6 @@ impl BodyEmitter<'_> {
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
         }
     }
-}
-
-fn integer_info(ty: &Type) -> (&'static str, &'static str, &'static str, bool) {
-    match ty {
-        Type::Int8 => ("i8", "uint8_t", "uint32_t", true),
-        Type::Int16 => ("i16", "uint16_t", "uint32_t", true),
-        Type::Int32 => ("i32", "uint32_t", "uint32_t", true),
-        Type::Int64 => ("i64", "uint64_t", "uint64_t", true),
-        Type::UInt8 => ("u8", "uint8_t", "uint32_t", false),
-        Type::UInt16 => ("u16", "uint16_t", "uint32_t", false),
-        Type::UInt32 => ("u32", "uint32_t", "uint32_t", false),
-        Type::UInt64 => ("u64", "uint64_t", "uint64_t", false),
-        _ => unreachable!("called only for integer types"),
-    }
-}
-
-fn integer_mask(ty: &Type) -> u16 {
-    match ty {
-        Type::Int8 => 1 << 0,
-        Type::Int16 => 1 << 1,
-        Type::Int32 => 1 << 2,
-        Type::Int64 => 1 << 3,
-        Type::UInt8 => 1 << 4,
-        Type::UInt16 => 1 << 5,
-        Type::UInt32 => 1 << 6,
-        Type::UInt64 => 1 << 7,
-        _ => unreachable!("called only for integer types"),
-    }
-}
-
-fn integer_index(ty: &Type) -> usize {
-    match ty {
-        Type::Int8 => 0,
-        Type::Int16 => 1,
-        Type::Int32 => 2,
-        Type::Int64 => 3,
-        Type::UInt8 => 4,
-        Type::UInt16 => 5,
-        Type::UInt32 => 6,
-        Type::UInt64 => 7,
-        _ => unreachable!("called only for integer types"),
-    }
-}
-
-fn is_integer_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Int8
-            | Type::Int16
-            | Type::Int32
-            | Type::Int64
-            | Type::UInt8
-            | Type::UInt16
-            | Type::UInt32
-            | Type::UInt64
-    )
 }
 
 fn is_float_type(ty: &Type) -> bool {
