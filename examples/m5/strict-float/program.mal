@@ -1,4 +1,5 @@
 extern inspect :: (Float32, Float32, Float64, Int64) -> Int32;
+
 main :: Unit -> Int32 := \() {
     halfway := 1.000000059604644775390625f32;
     minimumSubnormal := 1.40129846e-45f32;

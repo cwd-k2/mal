@@ -1,4 +1,5 @@
 extern memory :: Unit -> Ptr;
+
 main :: Unit -> Int32 := \() {
     base := extern memory();
     slot := offset(base, 1u64);

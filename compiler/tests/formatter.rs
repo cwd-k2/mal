@@ -36,6 +36,31 @@ fn preserves_comments_and_literal_spelling() {
 }
 
 #[test]
+fn groups_declarations_and_separates_top_level_bindings() {
+    let formatted = format(
+        "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\
+         // first binding\nfirst:=\\(){1;};// result\n\
+         // second binding\nsecond:=\\(){2;};",
+    );
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "Pair :: (Int32, Int32);\n",
+            "extern Handle;\n",
+            "extern use :: Handle -> Unit;\n",
+            "\n",
+            "// first binding\n",
+            "first := \\() { 1 }; // result\n",
+            "\n",
+            "// second binding\n",
+            "second := \\() { 2 };\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn formatting_is_idempotent_and_preserves_checked_behavior() {
     let input = "main::Unit->Int32:=\\(){(40+2);};";
     let first = format(input);

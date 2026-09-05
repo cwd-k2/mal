@@ -1,11 +1,12 @@
+use crate::ast::{Program, TopItem};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{Lexed, LexemeKind, TokenKind};
 use crate::source::SourceFile;
 
 pub fn format(source: &SourceFile) -> Result<String, Diagnostic> {
     let lexed = crate::lexer::lex_lossless(source)?;
-    crate::parser::parse_tokens(source, &lexed.tokens)?;
-    Ok(Formatter::new(source, &lexed).finish())
+    let program = crate::parser::parse_tokens(source, &lexed.tokens)?;
+    Ok(Formatter::new(source, &lexed, &program).finish())
 }
 
 #[derive(Clone, Copy)]
@@ -68,6 +69,8 @@ struct Formatter<'a> {
     paren_depth: usize,
     cases: Vec<CaseStage>,
     blocks: BlockLayout,
+    top_level_breaks: Vec<usize>,
+    next_top_level_break: usize,
 }
 
 struct BlockLayout {
@@ -154,8 +157,50 @@ impl BlockLayout {
     }
 }
 
+fn top_level_breaks(source: &SourceFile, lexed: &Lexed, program: &Program) -> Vec<usize> {
+    let mut breaks = Vec::new();
+    let mut lexeme_index = 0;
+    for items in program.items.windows(2) {
+        let previous = &items[0];
+        let next = &items[1];
+        while lexed
+            .lexemes
+            .get(lexeme_index)
+            .is_some_and(|lexeme| lexeme.span.end() <= previous.span.end())
+        {
+            lexeme_index += 1;
+        }
+        if !(is_declaration(&previous.kind) && is_declaration(&next.kind)) {
+            let previous_line = source
+                .location(previous.span.end())
+                .expect("parsed item span belongs to the source")
+                .line;
+            let anchor = lexed
+                .lexemes
+                .iter()
+                .skip(lexeme_index)
+                .take_while(|lexeme| lexeme.span.start() < next.span.start())
+                .find(|lexeme| {
+                    matches!(lexeme.kind, LexemeKind::LineComment)
+                        && source
+                            .location(lexeme.span.start())
+                            .expect("lexeme span belongs to the source")
+                            .line
+                            > previous_line
+                })
+                .map_or(next.span.start(), |comment| comment.span.start());
+            breaks.push(anchor);
+        }
+    }
+    breaks
+}
+
+fn is_declaration(item: &TopItem) -> bool {
+    !matches!(item, TopItem::Binding(_))
+}
+
 impl<'a> Formatter<'a> {
-    fn new(source: &'a SourceFile, lexed: &'a Lexed) -> Self {
+    fn new(source: &'a SourceFile, lexed: &'a Lexed, program: &Program) -> Self {
         Self {
             source,
             lexed,
@@ -171,11 +216,14 @@ impl<'a> Formatter<'a> {
             paren_depth: 0,
             cases: Vec::new(),
             blocks: BlockLayout::new(lexed),
+            top_level_breaks: top_level_breaks(source, lexed, program),
+            next_top_level_break: 0,
         }
     }
 
     fn finish(mut self) -> String {
         for lexeme in &self.lexed.lexemes {
+            self.write_top_level_break(lexeme.span.start());
             let text = &self.source.text()[lexeme.span.start()..lexeme.span.end()];
             match lexeme.kind {
                 LexemeKind::Whitespace => {
@@ -196,6 +244,21 @@ impl<'a> Formatter<'a> {
         }
         self.output.push('\n');
         self.output
+    }
+
+    fn write_top_level_break(&mut self, offset: usize) {
+        if self
+            .top_level_breaks
+            .get(self.next_top_level_break)
+            .is_some_and(|anchor| offset >= *anchor)
+        {
+            self.pending_newline = false;
+            self.newline();
+            if !self.output.is_empty() && !self.output.ends_with("\n\n") {
+                self.output.push('\n');
+            }
+            self.next_top_level_break += 1;
+        }
     }
 
     fn write_comment(&mut self, text: &str) {

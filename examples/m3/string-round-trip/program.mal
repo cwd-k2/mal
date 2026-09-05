@@ -1,5 +1,6 @@
 extern receive :: Unit -> String;
 extern send :: String -> Unit;
+
 main :: Unit -> Int32 := \() {
     value := extern receive();
     valid := byteLength(value) == 8u64 && byteAt(value, 3u64) == 227u8 && byteAt(value, 6u64) == 0u8 && byteAt(value, 7u64) == 255u8 && value == "malあ\0\xff";

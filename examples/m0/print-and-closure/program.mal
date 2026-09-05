@@ -1,7 +1,9 @@
 extern printInt32 :: Int32 -> Unit;
+
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
     \<x>(y :: Int32) { x + y };
 };
+
 main :: Unit -> Int32 := \() {
     extern printInt32(1);
     addTen := makeAdder(10);

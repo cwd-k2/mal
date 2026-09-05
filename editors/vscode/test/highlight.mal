@@ -3,17 +3,25 @@ extern Handle;
 extern write :: (Handle, String) -> Unit;
 Pair :: (Int32, UInt8);
 Choice :: [Int32, UInt8];
+
 hexadecimal :: UInt32 := 0xff_ffu32;
+
 binary :: UInt8 := 0b1010_0001u8;
+
 fraction :: Float64 := 1_000.25e-2f64;
+
 letter :: UInt8 := b'\x41';
+
 closingParen :: UInt8 := b')';
+
 message :: String := "mal\n";
+
 choose :: Bool -> Choice := \(condition :: Bool) {
     if (condition && !false)
         then { Choice[0](42) }
         else { Choice[1](letter) };
 };
+
 select :: Choice -> Int32 := \(value :: Choice) {
     case (value)
         [0](integer) { integer }

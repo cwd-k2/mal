@@ -1,4 +1,5 @@
 extern printUInt64 :: UInt64 -> Unit;
+
 main :: Unit -> Int32 := \() {
     extern printUInt64(UInt64(b'\xff'));
     extern printUInt64(UInt64(255u8 + 1u8));
