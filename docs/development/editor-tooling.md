@@ -8,7 +8,20 @@ Status: Current v0.5 development tooling
 ## VS Code syntax
 
 `editors/vscode/`は`.mal`のlanguage registration、TextMate grammar、commentとbracketの設定に加え、
-`mal-lsp` processのlifecycleを扱う。最初にserverをbuildし、extension dependencyをinstallする。
+`mal-lsp` processのlifecycleを扱う。repository rootから次の一commandでpinned Nix environmentへの移行、
+server build、extension dependencyのinstall、Extension Development Hostの起動を行う。
+
+```nu
+nu scripts/vscode-dev.nu
+```
+
+buildとdependency準備だけを確認するときは`--prepare-only`を指定する。
+
+```nu
+nu scripts/vscode-dev.nu --prepare-only
+```
+
+手動で準備する場合は次を実行する。
 
 ```nu
 cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked

@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const extension = require('../extension');
 
-test('starts the configured server and stops it during deactivation', async () => {
+test('starts the prepared server and stops it during deactivation', async () => {
   const starts = [];
   const stops = [];
   const clients = [];
@@ -34,8 +34,10 @@ test('starts the configured server and stops it during deactivation', async () =
   const languageClient = { LanguageClient, TransportKind: { stdio: 'stdio' } };
   const context = { subscriptions: [] };
 
-  const client = extension.activateWith(vscode, languageClient, context);
-  assert.equal(clients[0].serverOptions.run.command, '/configured/mal-lsp');
+  const client = extension.activateWith(vscode, languageClient, context, {
+    MAL_LSP_PATH: '/prepared/mal-lsp',
+  });
+  assert.equal(clients[0].serverOptions.run.command, '/prepared/mal-lsp');
   assert.deepEqual(clients[0].clientOptions.documentSelector, [
     { scheme: 'file', language: 'mal' },
   ]);

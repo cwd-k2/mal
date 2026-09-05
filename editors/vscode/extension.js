@@ -2,10 +2,11 @@
 
 let activeClient;
 
-function activateWith(vscode, languageClient, context) {
-  const command = vscode.workspace
+function activateWith(vscode, languageClient, context, environment = process.env) {
+  const configuredCommand = vscode.workspace
     .getConfiguration('mal')
     .get('server.path', 'mal-lsp');
+  const command = environment.MAL_LSP_PATH || configuredCommand;
   const serverOptions = {
     run: { command, transport: languageClient.TransportKind.stdio },
     debug: { command, transport: languageClient.TransportKind.stdio },

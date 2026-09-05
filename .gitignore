@@ -1,5 +1,6 @@
 /compiler/target/
 /tools/mal-lsp/target/
+/editors/vscode/node_modules/
 /.scratch/
 /.direnv/
 /.vscode/

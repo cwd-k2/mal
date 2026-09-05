@@ -1,9 +1,15 @@
 # mal Language Support
 
 This VS Code extension registers `.mal` files, provides lexical syntax highlighting and editing
-configuration, and starts `mal-lsp` for diagnostics, formatting, and semantic editor features.
+configuration, and starts `mal-lsp` for diagnostics, formatting, and semantic editor features. From
+the repository root, the complete development setup and launch is:
 
-Build the server and install the extension dependencies before starting the extension host:
+```nu
+nu scripts/vscode-dev.nu
+```
+
+The script enters the pinned Nix environment when necessary, builds the server, installs locked
+extension dependencies, and starts the Extension Development Host. The equivalent manual setup is:
 
 ```nu
 cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked
