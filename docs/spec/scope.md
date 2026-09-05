@@ -92,7 +92,7 @@ Int32Array :: (Mem, UInt64);
 arrayGet :: (Int32Array, UInt64) -> Int32 :=
     \(array :: Int32Array, index :: UInt64) {
         (mem, _) := array;
-        return extern readInt32(mem, index * 4UInt64);
+        return extern readInt32(mem, index * 4u64);
     };
 ```
 

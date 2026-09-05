@@ -128,16 +128,18 @@ scrutinee は直和型でなければならない。arm の pattern は該当 in
 -123
 0xff
 0b101010
-123Int32
-255UInt8
+123i32
+255u8
 1.5f32
 2.0f64
 1_000
-0xff_ffUInt32
+0xff_ffu32
 1_000.25f64
 ```
 
-負号は literal token の一部ではなく unary `-` として扱う。suffix のない整数は周辺型から決め、決まらなければ `Int64`。浮動小数は周辺型から決め、決まらなければ `Float64` とする。
+負号は literal token の一部ではなく unary `-` として扱う。整数の型suffixは`i8`、`i16`、`i32`、`i64`、
+`u8`、`u16`、`u32`、`u64`とする。suffix のない整数は周辺型から決め、決まらなければ `Int64`。
+浮動小数は周辺型から決め、決まらなければ `Float64` とする。
 
 decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.4はinfinity、NaN、hexadecimal floatのliteralを持たない。
 
@@ -175,8 +177,8 @@ b'あ'
 はいずれも compile-time error である。byte literal は core では同じ値を持つ明示型付き UInt8 literal へ desugar する。
 
 ```text
-b'A'    => 65UInt8
-b'\xff' => 255UInt8
+b'A'    => 65u8
+b'\xff' => 255u8
 ```
 
 ## primitive operator

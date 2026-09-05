@@ -186,7 +186,7 @@ raw characterはprintable ASCIIからsingle quoteとbackslashを除いたもの�
 
 malの`String`はUnicode stringではなくimmutable byte sequenceで、`byteAt`も`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
 
-`Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0aUInt8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
+`Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0au8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
 
 ## D007. capture listを明示する
 
@@ -333,7 +333,7 @@ externから返すbufferをhostがprogram終了まで保持する規則は、す
 
 ```mal
 1_000
-0xff_ffUInt32
+0xff_ffu32
 0b1010_0001
 1_000.25f64
 ```
@@ -391,10 +391,10 @@ source式は一度だけ評価する。これはsourceの数学的な値から�
 bit reinterpretationの偶発的な挙動には依存しない。
 
 ```mal
-UInt8(-1Int8)     // 255UInt8
-Int8(255UInt16)   // -1Int8
-UInt16(-1Int8)    // 65535UInt16
-Int16(255UInt8)   // 255Int16
+UInt8(-1i8)    // 255u8
+Int8(255u16)   // -1i8
+UInt16(-1i8)   // 65535u16
+Int16(255u8)   // 255i16
 ```
 
 ### 理由
@@ -572,3 +572,20 @@ decimal point形はlexerの境界を明確に保ち、integer literalとの分�
 
 Cの`float`と`double`のwidthだけでは、subnormal、excess precision、contraction、rounding modeは保証されない。
 backend、build driver、adapterが所有する条件を分けて明示し、保証できないtargetで別の意味になることを避ける。
+
+## D020. numeric literalの型suffixは短縮名とする
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4
+
+### 決定
+
+integer literalの型suffixは`i8`、`i16`、`i32`、`i64`、`u8`、`u16`、`u32`、`u64`とする。
+float literalの型suffixは`f32`、`f64`とする。型名をそのまま付ける`Int32`、`UInt8`、`Float64`形式は
+suffixとして認めない。suffixのないinteger literalのdefaultは`Int64`、float literalのdefaultは`Float64`のままとする。
+
+### 理由
+
+literalでは値と型指定の境界が明瞭であり、固定幅を小文字の短い表記へ揃えることで頻出する定数を簡潔に書ける。
+未releaseのv0.4内の変更なので、旧形式の互換syntaxや専用のmigration diagnosticは設けない。
