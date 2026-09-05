@@ -26,7 +26,7 @@ fn emits_c_from_in_memory_source() {
     let source = SourceFile::new(
         FileId::new(103),
         "memory.mal",
-        "main :: Unit -> Int32 := \\() { return 0; };".into(),
+        "main :: Unit -> Int32 := \\() { 0; };".into(),
     );
 
     let output = malc::pipeline::emit_c(&source).expect("C output");

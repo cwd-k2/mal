@@ -11,19 +11,15 @@ fn format(text: &str) -> String {
 #[test]
 fn formats_spacing_and_blocks_canonically() {
     let formatted =
-        format("choose::Bool->Int32:=\\(condition::Bool){return if(condition)then{1}else{2};};");
+        format("choose::Bool->Int32:=\\(condition::Bool){if(condition)then{1}else{2};};");
 
     assert_eq!(
         formatted,
         concat!(
             "choose :: Bool -> Int32 := \\(condition :: Bool) {\n",
-            "    return if (condition)\n",
-            "        then {\n",
-            "            1\n",
-            "        }\n",
-            "        else {\n",
-            "            2\n",
-            "        };\n",
+            "    if (condition)\n",
+            "        then { 1 }\n",
+            "        else { 2 };\n",
             "};\n",
         )
     );
@@ -41,7 +37,7 @@ fn preserves_comments_and_literal_spelling() {
 
 #[test]
 fn formatting_is_idempotent_and_preserves_checked_behavior() {
-    let input = "main::Unit->Int32:=\\(){return(40+2);};";
+    let input = "main::Unit->Int32:=\\(){(40+2);};";
     let first = format(input);
     let second = format(&first);
 
@@ -53,19 +49,36 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 #[test]
 fn aligns_case_arms_at_the_continuation_indent() {
     let formatted = format(
-        "pick::[Int32,UInt8]->Int32:=\\(value::[Int32,UInt8]){return case(value)[0](x){x}[1](x){Int32(x)};};",
+        "pick::[Int32,UInt8]->Int32:=\\(value::[Int32,UInt8]){case(value)[0](x){x}[1](x){Int32(x)};};",
     );
 
     assert!(formatted.contains(concat!(
-        "    return case (value)\n",
-        "        [0](x) {\n",
-        "            x\n",
-        "        }\n",
-        "        [1](x) {\n",
-        "            Int32(x)\n",
-        "        };\n",
+        "    case (value)\n",
+        "        [0](x) { x }\n",
+        "        [1](x) { Int32(x) };\n",
     )));
     assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn omits_compact_result_semicolons_and_terminates_expanded_results() {
+    assert_eq!(
+        format("identity:=\\(x::Int32){x;};"),
+        "identity := \\(x :: Int32) { x };\n"
+    );
+    assert_eq!(
+        format("run:=\\(){extern first();extern second()};"),
+        concat!(
+            "run := \\() {\n",
+            "    extern first();\n",
+            "    extern second();\n",
+            "};\n",
+        )
+    );
+    assert_eq!(
+        format("run:=\\(){extern first()// result\n};"),
+        concat!("run := \\() {\n", "    extern first(); // result\n", "};\n",)
+    );
 }
 
 #[test]

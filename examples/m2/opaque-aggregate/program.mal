@@ -1,28 +1,17 @@
 extern Mem;
-
 Response :: [Unit, (Mem, UInt64)];
-
 extern allocate :: UInt64 -> Mem;
 extern resize :: (Mem, UInt64) -> Response;
 extern handleBits :: Mem -> UInt64;
-
 validate :: (Mem, UInt64) -> Int32 := \(mem :: Mem, length :: UInt64) {
-    return if (
-        extern handleBits(mem) == 42u64 &&
-        length == 2u64
-    )
-        then {
-            0
-        }
-        else {
-            1
-        };
+    if (extern handleBits(mem) == 42u64 && length == 2u64)
+        then { 0 }
+        else { 1 };
 };
-
 main :: Unit -> Int32 := \() {
     mem := extern allocate(40u64);
     response := extern resize(mem, 2u64);
-    return case (response)
+    case (response)
         [0](_) { 1 }
         [1](result) { validate(result) };
 };

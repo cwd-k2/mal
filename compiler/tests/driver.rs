@@ -71,10 +71,7 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
     let output_path = directory.join("generated/program.c");
-    directory.write(
-        "program.mal",
-        "main :: Unit -> Int32 := \\() { return 0; };",
-    );
+    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     let output = directory.malc([
         OsStr::new("emit-c"),
         source.as_os_str(),
@@ -106,7 +103,7 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
     directory.write(
         "program.mal",
         "extern adjust :: Int32 -> Int32;\n\
-         main :: Unit -> Int32 := \\() { return extern adjust(40) - 42; };",
+         main :: Unit -> Int32 := \\() { extern adjust(40) - 42; };",
     );
     directory.write(
         "host.c",
@@ -424,10 +421,7 @@ fn reports_source_and_output_filesystem_failures() {
     assert!(stderr.contains("malc: cannot read"));
     assert!(stderr.contains(missing.to_string_lossy().as_ref()));
 
-    let source = directory.write(
-        "program.mal",
-        "main :: Unit -> Int32 := \\() { return 0; };",
-    );
+    let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     directory.write("blocked", "not a directory");
     let generated = directory.join("blocked/program.c");
     let output = directory.malc([
@@ -445,10 +439,7 @@ fn reports_source_and_output_filesystem_failures() {
 #[test]
 fn reports_linker_input_and_c_compiler_failures() {
     let directory = NativeFixture::new("driver-failure");
-    let source = directory.write(
-        "program.mal",
-        "main :: Unit -> Int32 := \\() { return 0; };",
-    );
+    let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     let executable = directory.join("program");
     let missing_linker_input = directory.join("missing-host.c");
     let arguments = [

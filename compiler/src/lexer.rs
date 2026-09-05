@@ -111,7 +111,6 @@ impl<'a> Lexer<'a> {
             "then" => TokenKind::Then,
             "else" => TokenKind::Else,
             "case" => TokenKind::Case,
-            "return" => TokenKind::Return,
             _ if self.bytes[start].is_ascii_uppercase() => TokenKind::TypeIdentifier,
             _ => TokenKind::ValueIdentifier,
         };

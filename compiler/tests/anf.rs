@@ -40,7 +40,7 @@ fn orders_primitive_operands_left_to_right() {
         "extern left :: Unit -> Int32;\n\
          extern right :: Unit -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           return extern left() + extern right();\n\
+           extern left() + extern right();\n\
          };",
     );
     let bindings = &top_lambda(&program, 0).body.bindings;
@@ -75,11 +75,11 @@ fn orders_primitive_operands_left_to_right() {
 fn evaluates_a_callee_before_its_argument_and_application() {
     let program = lower_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
-           return \\() { return 4; };\n\
+           \\() { 4; };\n\
          };\n\
-         argument :: Unit -> Unit := \\() { return (); };\n\
+         argument :: Unit -> Unit := \\() { (); };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return make()(argument());\n\
+           make()(argument());\n\
          };",
     );
     let bindings = &top_lambda(&program, 2).body.bindings;
@@ -104,7 +104,7 @@ fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\
          choose :: Bool -> Int32 := \\(flag :: Bool) {\n\
-           return if (flag) then { extern mark() } else { 0 };\n\
+           if (flag) then { extern mark() } else { 0 };\n\
          };",
     );
     let body = &top_lambda(&program, 0).body;
@@ -127,7 +127,7 @@ fn orders_primitive_branch_operands_before_selected_arm_effects() {
          extern right :: Unit -> Int32;\n\
          extern selected :: Unit -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           return if (extern left() < extern right())\n\
+           if (extern left() < extern right())\n\
              then { extern selected() }\n\
              else { 0 };\n\
          };",
@@ -158,7 +158,7 @@ fn flattens_core_lets_without_losing_statement_order() {
          main :: Unit -> Int32 := \\() {\n\
            extern mark();\n\
            value :: Int32 := 7;\n\
-           return value;\n\
+           value;\n\
          };",
     );
     let Block {
@@ -191,7 +191,7 @@ fn evaluates_product_elements_left_to_right_before_construction() {
          main :: Unit -> Int32 := \\() {\n\
            pair := (extern first(), extern second());\n\
            (left, right) := pair;\n\
-           return left + right;\n\
+           left + right;\n\
          };",
     );
     let bindings = &top_lambda(&program, 0).body.bindings;

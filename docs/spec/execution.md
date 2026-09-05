@@ -20,9 +20,7 @@ f(a(), b(), c())
 
 ```mal
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    return \<x>(y :: Int32) {
-        return x + y;
-    };
+    \<x>(y :: Int32) { x + y };
 };
 
 addTen := makeAdder(10);
@@ -38,12 +36,10 @@ unlistedの外側local valueはlexical scope内に見えていても参照でき
 ```mal
 outer := \(x :: Int32) {
     middle := \<x>() {
-        return \<x>() {
-            return x;
-        };
+        \<x>() { x };
     };
 
-    return middle;
+    middle;
 };
 ```
 
@@ -63,13 +59,9 @@ compiler は観測可能な動作を変えない限り、capture 除去、lambda
 
 ```mal
 sum :: Int64 -> Int64 := \(n :: Int64) {
-    return if (n == 0)
-        then {
-            0
-        }
-        else {
-            n + sum(n - 1)
-        };
+    if (n == 0)
+        then { 0 }
+        else { n + sum(n - 1) };
 };
 ```
 
@@ -129,4 +121,4 @@ e ::= variable | literal | lambda | application
     | primitive | externCall | fix
 ```
 
-`Bool` は `[Unit, Unit]`、`if` と論理演算は `case` へ消去できる。`::` は型情報、`:=` は lambda application、terminal `return` は lambda の結果へ消去できる。これは実装を強制する定義ではなく、表面機能を追加するときの意味論上の基準である。
+`Bool` は `[Unit, Unit]`、`if` と論理演算は `case` へ消去できる。`::` は型情報、`:=` はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する定義ではなく、表面機能を追加するときの意味論上の基準である。

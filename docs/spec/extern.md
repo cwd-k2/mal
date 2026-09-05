@@ -60,7 +60,7 @@ mal は effect system を持たず、通常の関数型は pure/impure を区別
 ```mal
 printValue :: Int32 -> Unit := \(x :: Int32) {
     extern printInt32(x);
-    return ();
+    ();
 };
 ```
 

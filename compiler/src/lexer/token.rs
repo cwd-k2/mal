@@ -64,7 +64,6 @@ pub enum TokenKind {
     Then,
     Else,
     Case,
-    Return,
     Underscore,
     LeftParen,
     RightParen,

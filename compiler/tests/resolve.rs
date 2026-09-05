@@ -103,7 +103,7 @@ fn resolves_memory_primitives_and_the_ptr_type() {
            storeInt64(next, value);\n\
            byte := loadUInt8(next);\n\
            storeUInt8(next, byte);\n\
-           return ();\n\
+           ();\n\
          };",
     );
     let TopItem::ExternalOperation { ty, .. } = &program.items[0].kind else {
@@ -150,7 +150,7 @@ fn type_and_external_declarations_are_visible_across_the_unit() {
          useLater :: Alias := 0;\n\
          extern run :: Alias -> Unit;\n\
          Later :: Int32;\n\
-         invoke := \\() { extern run(useLater); return (); };",
+         invoke := \\() { extern run(useLater); (); };",
     );
     let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
         panic!("expected alias");
@@ -212,7 +212,7 @@ fn resolves_every_predefined_fixed_width_integer_type() {
 fn capture_sources_and_environment_bindings_have_distinct_identities() {
     let program = resolve_ok(
         "make := \\(x :: Int32) {\n\
-           return \\<x>(y :: Int32) { return x + y; };\n\
+           \\<x>(y :: Int32) { x + y; };\n\
          };",
     );
     let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
@@ -242,8 +242,8 @@ fn capture_sources_and_environment_bindings_have_distinct_identities() {
 fn nested_capture_is_forwarded_at_every_lambda_boundary() {
     let program = resolve_ok(
         "outer := \\(x :: Int32) {\n\
-           return \\<x>() {\n\
-             return \\<x>() { return x; };\n\
+           \\<x>() {\n\
+             \\<x>() { x; };\n\
            };\n\
          };",
     );
@@ -264,7 +264,7 @@ fn nested_capture_is_forwarded_at_every_lambda_boundary() {
 fn local_bindings_enter_scope_only_after_their_initializer() {
     for text in [
         "first := second; second := 2;",
-        "main := \\() { x := x; return x; };",
+        "main := \\() { x := x; x; };",
     ] {
         let error = resolve_error(text);
         assert!(error.message.starts_with("unknown value"), "input: {text}");
@@ -274,10 +274,10 @@ fn local_bindings_enter_scope_only_after_their_initializer() {
 #[test]
 fn resolves_annotated_direct_lambda_self_references() {
     let program = resolve_ok(
-        "top :: Int64 -> Int64 := \\(n :: Int64) { return top(n); };\n\
+        "top :: Int64 -> Int64 := \\(n :: Int64) { top(n); };\n\
          main := \\() {\n\
-           local :: Int64 -> Int64 := \\(n :: Int64) { return local(n); };\n\
-           return 0i32;\n\
+           local :: Int64 -> Int64 := \\(n :: Int64) { local(n); };\n\
+           0i32;\n\
          };",
     );
 
@@ -309,18 +309,15 @@ fn resolves_annotated_direct_lambda_self_references() {
 #[test]
 fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
     let cases = [
-        ("value := \\() { return value(); };", "value"),
-        (
-            "value :: Unit -> Unit := (\\() { return value(); });",
-            "value",
-        ),
+        ("value := \\() { value(); };", "value"),
+        ("value :: Unit -> Unit := (\\() { value(); });", "value"),
         ("value :: Unit := value;", "value"),
         (
-            "(first, second) :: (Unit -> Unit, Unit) := (\\() { return first(); }, ());",
+            "(first, second) :: (Unit -> Unit, Unit) := (\\() { first(); }, ());",
             "first",
         ),
         (
-            "main := \\() { local := \\() { return local(); }; return 0i32; };",
+            "main := \\() { local := \\() { local(); }; 0i32; };",
             "local",
         ),
     ];
@@ -336,8 +333,8 @@ fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
 #[test]
 fn rejects_mutual_recursion_as_a_forward_reference() {
     let error = resolve_error(
-        "first :: Unit -> Unit := \\() { return second(); };\n\
-         second :: Unit -> Unit := \\() { return first(); };",
+        "first :: Unit -> Unit := \\() { second(); };\n\
+         second :: Unit -> Unit := \\() { first(); };",
     );
     assert_eq!(error.message, "unknown value `second`");
 }
@@ -346,7 +343,7 @@ fn rejects_mutual_recursion_as_a_forward_reference() {
 fn rejects_an_unlisted_outer_local_reference() {
     let error = resolve_error(
         "outer := \\(x :: Int32) {\n\
-           return \\() { return x; };\n\
+           \\() { x; };\n\
          };",
     );
     assert_eq!(error.message, "value `x` is not captured");
@@ -356,8 +353,8 @@ fn rejects_an_unlisted_outer_local_reference() {
 fn rejects_capture_that_skips_an_enclosing_lambda() {
     let error = resolve_error(
         "outer := \\(x :: Int32) {\n\
-           return \\() {\n\
-             return \\<x>() { return x; };\n\
+           \\() {\n\
+             \\<x>() { x; };\n\
            };\n\
          };",
     );
@@ -368,19 +365,19 @@ fn rejects_capture_that_skips_an_enclosing_lambda() {
 fn rejects_duplicate_invalid_and_non_local_captures() {
     let cases = [
         (
-            "outer := \\(x :: Int32) { return \\<x, x>() { return x; }; };",
+            "outer := \\(x :: Int32) { \\<x, x>() { x; }; };",
             "duplicate capture `x`",
         ),
         (
-            "outer := \\(x :: Int32) { return \\<missing>() { return x; }; };",
+            "outer := \\(x :: Int32) { \\<missing>() { x; }; };",
             "unknown captured value `missing`",
         ),
         (
-            "top := 1; closure := \\<top>() { return top; };",
+            "top := 1; closure := \\<top>() { top; };",
             "cannot capture non-local value `top`",
         ),
         (
-            "closure := \\<false>() { return false; };",
+            "closure := \\<false>() { false; };",
             "cannot capture non-local value `false`",
         ),
     ];
@@ -392,10 +389,10 @@ fn rejects_duplicate_invalid_and_non_local_captures() {
 #[test]
 fn rejects_capture_parameter_and_same_scope_binding_collisions() {
     let cases = [
-        "outer := \\(x :: Int32) { return \\<x>(x :: Int32) { return x; }; };",
-        "main := \\(x :: Int32, x :: Int32) { return x; };",
-        "main := \\() { x := 1; x := 2; return x; };",
-        "main := \\() { (x, x) := (1, 2); return x; };",
+        "outer := \\(x :: Int32) { \\<x>(x :: Int32) { x; }; };",
+        "main := \\(x :: Int32, x :: Int32) { x; };",
+        "main := \\() { x := 1; x := 2; x; };",
+        "main := \\() { (x, x) := (1, 2); x; };",
     ];
     for text in cases {
         assert!(
@@ -414,7 +411,7 @@ fn local_scope_can_shadow_predefined_and_outer_names() {
              false := x;\n\
              false\n\
            } else { x };\n\
-           return result;\n\
+           result;\n\
          };",
     );
     let resolved::Expression::Lambda(main) = &top_binding(&program.items[0]).value.kind else {
@@ -428,7 +425,7 @@ fn branch_bindings_do_not_escape_their_expression_block() {
     let error = resolve_error(
         "main := \\() {\n\
            if (true) then { local := 1; local } else { 0 };\n\
-           return local;\n\
+           local;\n\
          };",
     );
     assert_eq!(error.message, "unknown value `local`");
@@ -439,7 +436,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     resolve_ok(
         "Choice :: [Unit, Int32];\n\
          main := \\(value :: Choice) {\n\
-           return case (value)\n\
+           case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { local := item; local };\n\
          };",
@@ -448,7 +445,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     let duplicate = resolve_error(
         "Choice :: [Unit, Int32];\n\
          main := \\(value :: Choice) {\n\
-           return case (value)\n\
+           case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { item := 1; item };\n\
          };",
@@ -458,7 +455,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     let escaped = resolve_error(
         "main := \\() {\n\
            case (true) [0](_) { local := 1; local } [1](_) { 0 };\n\
-           return local;\n\
+           local;\n\
          };",
     );
     assert_eq!(escaped.message, "unknown value `local`");
@@ -469,7 +466,7 @@ fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     let cases = [
         ("value :: Missing := 0;", "unknown type `Missing`"),
         (
-            "main := \\() { extern missing(); return (); };",
+            "main := \\() { extern missing(); (); };",
             "unknown external operation `missing`",
         ),
         ("Bool :: Int32;", "duplicate type `Bool`"),

@@ -44,11 +44,11 @@ fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
 
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
-    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\<x>() { return x; };\n  return inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\<x>() { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let parameter_offset = text.find("x ::").unwrap();
     let captured_offset = text.find("<x>").unwrap() + 1;
-    let inner_reference_offset = text.find("return x").unwrap() + "return ".len();
+    let inner_reference_offset = text.find("{ x;").unwrap() + 2;
 
     let parameter = document.occurrence_at(parameter_offset).unwrap();
     assert_eq!(parameter.kind, SymbolKind::Parameter);
@@ -74,7 +74,7 @@ fn definition_references_and_rename_follow_capture_identity() {
 
 #[test]
 fn resolved_identity_keeps_shadowed_names_separate() {
-    let text = "first :: Int32 -> Int32 := \\(x :: Int32) { return x; };\nsecond :: Int32 -> Int32 := \\(x :: Int32) { return x; };\n";
+    let text = "first :: Int32 -> Int32 := \\(x :: Int32) { x; };\nsecond :: Int32 -> Int32 := \\(x :: Int32) { x; };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let first = document.occurrence_at(text.find("x ::").unwrap()).unwrap();
     let second = document.occurrence_at(text.rfind("x ::").unwrap()).unwrap();

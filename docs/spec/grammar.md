@@ -14,7 +14,7 @@ VALUE_IDENT ::= [a-z][A-Za-z0-9]*
 型名は PascalCase、値・parameter・external symbol・primitive は lowerCamelCase とする。`_` は wildcard 専用で identifier ではない。
 
 空白はASCII space、tab、CR、LFとする。commentは`//`からCR、LF、またはsource末尾までであり、block commentはない。
-keywordはidentifier全体が`extern`、`if`、`then`、`else`、`case`、`return`のいずれかと一致するときだけ認識する。
+keywordはidentifier全体が`extern`、`if`、`then`、`else`、`case`のいずれかと一致するときだけ認識する。
 Unicode identifierとtrailing commaは認めない。
 
 ## numeric separator
@@ -62,11 +62,11 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | sumType
 sumType     ::= "[" type "," type ("," type)* "]"
 
-lambda      ::= "\\" captureList? "(" parameterList? ")" lambdaBody
+lambda      ::= "\\" captureList? "(" parameterList? ")" block
 captureList ::= "<" VALUE_IDENT ("," VALUE_IDENT)* ">"
 parameter   ::= VALUE_IDENT "::" type
-lambdaBody  ::= "{" bodyItem* "return" expression ";" "}"
 bodyItem    ::= binding ";" | expression ";"
+block       ::= "{" bodyItem* expression ";"? "}"
 
 pattern     ::= VALUE_IDENT | "_" | productPattern
 productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
@@ -83,12 +83,11 @@ byteUnit    ::= printableAsciiExceptQuoteOrBackslash
               | "\\x" HEX_DIGIT HEX_DIGIT
 
 ifExpr      ::= "if" "(" expression ")"
-                "then" expressionBlock
-                "else" expressionBlock
-expressionBlock ::= "{" bodyItem* expression "}"
+                "then" block
+                "else" block
 
 caseExpr    ::= "case" "(" expression ")" caseArm+
-caseArm     ::= "[" INTEGER "]" "(" pattern ")" expressionBlock
+caseArm     ::= "[" INTEGER "]" "(" pattern ")" block
 ```
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
@@ -128,4 +127,4 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 
 ## 存在しない構文
 
-v0.5 は `let`、`var`、`mut`、`const`、`fn`、implicit/early return、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。`Ptr`とmemory primitiveは通常のtype/value identifierとして既存grammar内に収まる。
+v0.5 は `let`、`var`、`mut`、`const`、`fn`、return statement、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。`Ptr`とmemory primitiveは通常のtype/value identifierとして既存grammar内に収まる。

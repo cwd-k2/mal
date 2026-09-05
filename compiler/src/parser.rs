@@ -1,8 +1,6 @@
 use std::mem::discriminant;
 
-use crate::ast::{
-    Binding, BodyItem, LambdaBody, Name, Node, Pattern, Program, TopItem, TypeExpression,
-};
+use crate::ast::{Binding, LambdaBody, Name, Node, Pattern, Program, TopItem, TypeExpression};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{Token, TokenKind, lex};
 use crate::source::{SourceFile, Span};
@@ -198,38 +196,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_lambda_body(&mut self) -> Result<LambdaBody, Diagnostic> {
-        let left = self.expect(&TokenKind::LeftBrace, "`{`")?;
-        let mut items = Vec::new();
-        while !self.at(&TokenKind::Return) {
-            if self.at(&TokenKind::RightBrace) || self.at(&TokenKind::Eof) {
-                return Err(self.expected("a terminal `return`"));
-            }
-            items.push(self.parse_body_item()?);
-        }
-        self.advance();
-        let result = self.parse_expression()?;
-        self.expect(&TokenKind::Semicolon, "`;` after the return expression")?;
-        let right = self.expect(&TokenKind::RightBrace, "`}`")?;
-        Ok(LambdaBody {
-            items,
-            result: Box::new(result),
-            span: self.join(left.span, right.span),
-        })
-    }
-
-    fn parse_body_item(&mut self) -> Result<BodyItem, Diagnostic> {
-        if self.at_binding() {
-            let binding = self.parse_binding()?;
-            let start = binding.pattern.span.start();
-            let semicolon = self.expect(&TokenKind::Semicolon, "`;`")?;
-            return Ok(BodyItem::Binding(Node::new(
-                binding,
-                self.span(start, semicolon.span.end()),
-            )));
-        }
-        let expression = self.parse_expression()?;
-        self.expect(&TokenKind::Semicolon, "`;`")?;
-        Ok(BodyItem::Expression(expression))
+        self.parse_expression_block()
     }
 
     fn parse_name(&mut self, kind: &TokenKind, expected: &str) -> Result<Name, Diagnostic> {

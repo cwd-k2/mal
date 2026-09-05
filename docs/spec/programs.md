@@ -26,7 +26,7 @@ distance :: (Point, Point) -> Float64 :=
     \(a :: Point, b :: Point) {
         (ax, ay) := a;
         (bx, by) := b;
-        return extern sqrt(
+        extern sqrt(
             (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
         );
     };
@@ -41,9 +41,7 @@ top-level value の RHS は、literal、product/sum、integer conversion、lambd
 実行可能 program は次の binding を一つ持つ。
 
 ```mal
-main :: Unit -> Int32 := \() {
-    return 0;
-};
+main :: Unit -> Int32 := \() { 0 };
 ```
 
 backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointはv0.5の言語仕様外である。

@@ -67,6 +67,91 @@ struct Formatter<'a> {
     ifs: Vec<IfStage>,
     paren_depth: usize,
     cases: Vec<CaseStage>,
+    blocks: BlockLayout,
+}
+
+struct BlockLayout {
+    compact: Vec<bool>,
+    omit: Vec<bool>,
+    terminate: Vec<bool>,
+}
+
+impl BlockLayout {
+    fn new(lexed: &Lexed) -> Self {
+        let mut matching = vec![None; lexed.tokens.len()];
+        let mut stack = Vec::new();
+        for (index, token) in lexed.tokens.iter().enumerate() {
+            match token.kind {
+                TokenKind::LeftBrace => stack.push(index),
+                TokenKind::RightBrace => {
+                    if let Some(left) = stack.pop() {
+                        matching[left] = Some(index);
+                        matching[index] = Some(left);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut compact = vec![false; lexed.tokens.len()];
+        let mut omit = vec![false; lexed.tokens.len()];
+        let mut terminate = vec![false; lexed.tokens.len()];
+        for left in 0..lexed.tokens.len() {
+            let Some(right) = matching[left] else {
+                continue;
+            };
+            if left > right {
+                continue;
+            }
+            let has_nested_block = lexed.tokens[left + 1..right]
+                .iter()
+                .any(|token| matches!(token.kind, TokenKind::LeftBrace));
+            let has_comment = lexed.lexemes.iter().any(|lexeme| {
+                matches!(lexeme.kind, LexemeKind::LineComment)
+                    && lexeme.span.start() > lexed.tokens[left].span.end()
+                    && lexeme.span.end() < lexed.tokens[right].span.start()
+            });
+            let mut depth = 0_usize;
+            let semicolons = lexed.tokens[left + 1..right]
+                .iter()
+                .enumerate()
+                .filter_map(|(offset, token)| match token.kind {
+                    TokenKind::LeftBrace => {
+                        depth += 1;
+                        None
+                    }
+                    TokenKind::RightBrace => {
+                        depth = depth.saturating_sub(1);
+                        None
+                    }
+                    TokenKind::Semicolon if depth == 0 => Some(left + 1 + offset),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            let last = right.checked_sub(1);
+            let is_compact = !has_nested_block
+                && !has_comment
+                && (semicolons.is_empty()
+                    || semicolons.len() == 1 && semicolons.first().copied() == last);
+            compact[left] = is_compact;
+            compact[right] = is_compact;
+            if is_compact {
+                if let Some(index) = semicolons.first() {
+                    omit[*index] = true;
+                }
+            } else if last
+                .is_some_and(|index| !matches!(lexed.tokens[index].kind, TokenKind::Semicolon))
+            {
+                terminate[right] = true;
+            }
+        }
+
+        Self {
+            compact,
+            omit,
+            terminate,
+        }
+    }
 }
 
 impl<'a> Formatter<'a> {
@@ -85,6 +170,7 @@ impl<'a> Formatter<'a> {
             ifs: Vec::new(),
             paren_depth: 0,
             cases: Vec::new(),
+            blocks: BlockLayout::new(lexed),
         }
     }
 
@@ -97,9 +183,10 @@ impl<'a> Formatter<'a> {
                 }
                 LexemeKind::LineComment => self.write_comment(text),
                 LexemeKind::Token => {
+                    let token_index = self.token_index;
                     let kind = &self.lexed.tokens[self.token_index].kind;
                     self.token_index += 1;
-                    self.write_token(kind, text);
+                    self.write_token(token_index, kind, text);
                     self.source_break = false;
                 }
             }
@@ -112,6 +199,16 @@ impl<'a> Formatter<'a> {
     }
 
     fn write_comment(&mut self, text: &str) {
+        if self
+            .blocks
+            .terminate
+            .get(self.token_index)
+            .is_some_and(|terminate| *terminate)
+        {
+            self.trim_space();
+            self.write(";");
+            self.blocks.terminate[self.token_index] = false;
+        }
         if self.source_break {
             self.newline();
         } else if !self.line_start {
@@ -123,7 +220,10 @@ impl<'a> Formatter<'a> {
         self.pending_newline = false;
     }
 
-    fn write_token(&mut self, kind: &TokenKind, text: &str) {
+    fn write_token(&mut self, token_index: usize, kind: &TokenKind, text: &str) {
+        if self.blocks.omit[token_index] {
+            return;
+        }
         if let Some(CaseStage::AwaitArmOrEnd(arms_indent)) = self.cases.last() {
             if matches!(kind, TokenKind::LeftBracket) {
                 let arms_indent = *arms_indent;
@@ -145,6 +245,18 @@ impl<'a> Formatter<'a> {
             TokenKind::LeftBrace => {
                 self.space();
                 self.write(text);
+                if self.blocks.compact[token_index] {
+                    if let Some(stage) = self.ifs.last_mut() {
+                        match stage {
+                            IfStage::ThenKeyword => *stage = IfStage::ThenBranch(self.indent),
+                            IfStage::ElseKeyword => *stage = IfStage::ElseBranch(self.indent),
+                            _ => {}
+                        }
+                    }
+                    self.space();
+                    self.previous = Previous::LeftBrace;
+                    return;
+                }
                 self.indent += 1;
                 if let Some(stage) = self.ifs.last_mut() {
                     match stage {
@@ -157,6 +269,34 @@ impl<'a> Formatter<'a> {
                 self.previous = Previous::LeftBrace;
             }
             TokenKind::RightBrace => {
+                if self.blocks.compact[token_index] {
+                    self.space();
+                    self.write(text);
+                    if let Some(stage) = self.ifs.last_mut() {
+                        match stage {
+                            IfStage::ThenBranch(branch_indent) if *branch_indent == self.indent => {
+                                *stage = IfStage::AwaitElse;
+                            }
+                            IfStage::ElseBranch(branch_indent) if *branch_indent == self.indent => {
+                                *stage = IfStage::Finished;
+                            }
+                            _ => {}
+                        }
+                    }
+                    if let Some(CaseStage::Arms(arms_indent)) = self.cases.last()
+                        && self.indent == *arms_indent
+                    {
+                        let arms_indent = *arms_indent;
+                        *self.cases.last_mut().expect("matched case arms") =
+                            CaseStage::AwaitArmOrEnd(arms_indent);
+                    }
+                    self.previous = Previous::RightBrace;
+                    return;
+                }
+                if self.blocks.terminate[token_index] {
+                    self.trim_space();
+                    self.write(";");
+                }
                 let closing_indent = self.indent;
                 self.indent = self.indent.saturating_sub(1);
                 self.newline();
@@ -332,7 +472,7 @@ impl<'a> Formatter<'a> {
                 self.cases.push(CaseStage::Keyword);
                 self.previous = Previous::Keyword;
             }
-            TokenKind::Extern | TokenKind::Then | TokenKind::Else | TokenKind::Return => {
+            TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
                 if matches!(
                     self.previous,
                     Previous::Word

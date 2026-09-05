@@ -44,7 +44,7 @@ fn removes_type_aliases_and_preserves_backend_names() {
     let program = lower_ok(
         "Flag :: [Unit, Unit];\n\
          extern choose :: Flag -> Int32;\n\
-         main :: Unit -> Int32 := \\() { return 0; };",
+         main :: Unit -> Int32 := \\() { 0; };",
     );
 
     assert_eq!(program.externals.len(), 1);
@@ -60,7 +60,7 @@ fn removes_type_aliases_and_preserves_backend_names() {
 fn lowers_if_to_false_then_true_case_arms() {
     let program = lower_ok(
         "choose :: Bool -> Int32 := \\(flag :: Bool) {\n\
-           return if (flag) then { value :: Int32 := 1; value } else { 0 };\n\
+           if (flag) then { value :: Int32 := 1; value } else { 0 };\n\
          };",
     );
     let body = lambda_body(&program.bindings[0].value);
@@ -75,7 +75,7 @@ fn lowers_if_to_false_then_true_case_arms() {
 fn lowers_direct_comparison_conditions_without_materializing_bool() {
     let program = lower_ok(
         "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
-           return if (value < 10) then { 1 } else { 2 };\n\
+           if (value < 10) then { 1 } else { 2 };\n\
          };",
     );
     let body = lambda_body(&program.bindings[0].value);
@@ -98,7 +98,7 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
     let and_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
          test :: Bool -> Bool := \\(flag :: Bool) {\n\
-           return flag && extern observe(flag);\n\
+           flag && extern observe(flag);\n\
          };",
     );
     let body = lambda_body(&and_program.bindings[0].value);
@@ -112,7 +112,7 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
     let or_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
          test :: Bool -> Bool := \\(flag :: Bool) {\n\
-           return flag || extern observe(flag);\n\
+           flag || extern observe(flag);\n\
          };",
     );
     let body = lambda_body(&or_program.bindings[0].value);
@@ -128,7 +128,7 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
 fn removes_logical_not_but_retains_typed_numeric_primitives() {
     let program = lower_ok(
         "test :: Int32 -> Bool := \\(value :: Int32) {\n\
-           return !(value + 1 < 3);\n\
+           !(value + 1 < 3);\n\
          };",
     );
     let body = lambda_body(&program.bindings[0].value);
@@ -160,7 +160,7 @@ fn binds_both_bool_equality_operands_once_before_branching() {
         "extern first :: Unit -> Bool;\n\
          extern second :: Unit -> Bool;\n\
          test :: Unit -> Bool := \\() {\n\
-           return extern first() == extern second();\n\
+           extern first() == extern second();\n\
          };",
     );
     let first_let = lambda_body(&program.bindings[0].value);
@@ -211,13 +211,13 @@ fn binds_both_bool_equality_operands_once_before_branching() {
 }
 
 #[test]
-fn lowers_lambda_statements_and_terminal_return_to_lets_and_a_result() {
+fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
            extern mark();\n\
            value :: Int32 := 7;\n\
-           return (value);\n\
+           (value);\n\
          };",
     );
     let first_let = lambda_body(&program.bindings[0].value);
@@ -254,9 +254,9 @@ fn lowers_lambda_statements_and_terminal_return_to_lets_and_a_result() {
 fn lowers_multiple_parameters_to_product_destructuring() {
     let program = lower_ok(
         "add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
-           return left + right;\n\
+           left + right;\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return add(20, 22); };",
+         main :: Unit -> Int32 := \\() { add(20, 22); };",
     );
     let ExpressionKind::Lambda(add) = &program.bindings[0].value.kind else {
         panic!("expected add lambda");

@@ -58,7 +58,7 @@ extern declarationの型検査ではaliasを展開し、parameter/resultの全su
 
 ## desugaring と ANF
 
-複数 parameter/argument は product parameter/application、0 parameter/argument は `Unit` へ lower する。terminal `return` は body result へ、sequential binding は nested let または lambda application へ落とせる。
+複数parameter/argumentはproduct parameter/application、0 parameter/argumentは`Unit`へlowerする。blockの末尾式はbody resultへ、sequential bindingはnested letまたはlambda applicationへ落とせる。
 
 surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
 desugarする。直ちにbranchとして消費する数値・String comparisonはtyped core以降で専用のprimitive branchとして保持し、

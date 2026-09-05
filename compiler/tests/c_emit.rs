@@ -46,7 +46,7 @@ fn emits_the_m0_host_abi_and_executes_the_host_example() {
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(42);\n\
-           return 0;\n\
+           0;\n\
          };",
         PRINT_HOST,
     );
@@ -61,7 +61,7 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
          extern exchange :: Envelope -> Bool;\n\
          main :: Unit -> Int32 := \\() {\n\
            accepted := extern exchange(true, (false, 42));\n\
-           return if (accepted) then { 0 } else { 1 };\n\
+           if (accepted) then { 0 } else { 1 };\n\
          };",
     )
     .expect("emit scalar Bool ABI");
@@ -102,12 +102,12 @@ fn executes_escaping_capturing_closures() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           return \\<x>(y :: Int32) { return x + y; };\n\
+           \\<x>(y :: Int32) { x + y; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            addTen := makeAdder(10);\n\
            extern printInt32(addTen(5));\n\
-           return 0;\n\
+           0;\n\
          };",
         PRINT_HOST,
     );
@@ -119,14 +119,14 @@ fn executes_escaping_capturing_closures() {
 fn executes_top_level_and_local_recursive_closures() {
     let output = compile_and_run(
         "factorial :: Int32 -> Int32 := \\(n :: Int32) {\n\
-           return if (n == 0) then { 1 } else { n * factorial(n - 1) };\n\
+           if (n == 0) then { 1 } else { n * factorial(n - 1) };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 120;\n\
            local :: Int32 -> Int32 := \\<base>(n :: Int32) {\n\
-             return if (n == 0) then { base } else { local(n - 1) };\n\
+             if (n == 0) then { base } else { local(n - 1) };\n\
            };\n\
-           return local(3) - factorial(5);\n\
+           local(3) - factorial(5);\n\
          };",
         "",
     );
@@ -140,11 +140,11 @@ fn executes_top_level_and_local_recursive_closures() {
 #[test]
 fn emits_direct_calls_for_known_top_level_and_self_functions() {
     let generated = emit(
-        "square :: Int64 -> Int64 := \\(value :: Int64) { return value * value; };\n\
+        "square :: Int64 -> Int64 := \\(value :: Int64) { value * value; };\n\
          factorial :: Int64 -> Int64 := \\(value :: Int64) {\n\
-           return if (value == 0i64) then { 1i64 } else { value * factorial(value - 1i64) };\n\
+           if (value == 0i64) then { 1i64 } else { value * factorial(value - 1i64) };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return Int32(square(factorial(3i64)) - 36i64); };",
+         main :: Unit -> Int32 := \\() { Int32(square(factorial(3i64)) - 36i64); };",
     )
     .expect("emit direct calls");
     assert!(
@@ -165,8 +165,8 @@ fn emits_direct_calls_for_known_top_level_and_self_functions() {
 #[test]
 fn labels_generated_functions_with_top_level_source_bindings() {
     let generated = emit(
-        "double :: Int64 -> Int64 := \\(value :: Int64) { return value * 2i64; };\n\
-         main :: Unit -> Int32 := \\() { return Int32(double(21i64) - 42i64); };",
+        "double :: Int64 -> Int64 := \\(value :: Int64) { value * 2i64; };\n\
+         main :: Unit -> Int32 := \\() { Int32(double(21i64) - 42i64); };",
     )
     .expect("emit labeled functions");
 
@@ -188,9 +188,9 @@ fn destructures_product_atoms_without_copying_the_product() {
         "Pair :: (Int64, Int64);\n\
          sum :: Pair -> Int64 := \\(pair :: Pair) {\n\
            (left, right) := pair;\n\
-           return left + right;\n\
+           left + right;\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return Int32(sum((20i64, 22i64)) - 42i64); };",
+         main :: Unit -> Int32 := \\() { Int32(sum((20i64, 22i64)) - 42i64); };",
     )
     .expect("emit product destructuring");
     assert!(!generated.source.contains("mal_discard_"));
@@ -204,13 +204,13 @@ fn destructures_product_atoms_without_copying_the_product() {
 fn passes_known_product_arguments_through_a_direct_entry() {
     let generated = emit(
         "combine :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) {\n\
-           return left + right;\n\
+           left + right;\n\
          };\n\
          apply :: ((Int64, Int64) -> Int64) -> Int64 := \\(operation :: (Int64, Int64) -> Int64) {\n\
-           return operation(20i64, 22i64);\n\
+           operation(20i64, 22i64);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return Int32(combine(20i64, 22i64) + apply(combine) - 84i64);\n\
+           Int32(combine(20i64, 22i64) + apply(combine) - 84i64);\n\
          };",
     )
     .expect("emit a direct product entry");
@@ -240,13 +240,13 @@ fn flattens_nested_products_only_at_known_call_entries() {
     let generated = emit(
         "combine :: ((Int64, Int64), Int64) -> Int64 := \\(pair :: (Int64, Int64), extra :: Int64) {\n\
            (left, right) := pair;\n\
-           return left + right + extra;\n\
+           left + right + extra;\n\
          };\n\
          apply :: (((Int64, Int64), Int64) -> Int64) -> Int64 := \\(operation :: ((Int64, Int64), Int64) -> Int64) {\n\
-           return operation((20i64, 21i64), 1i64);\n\
+           operation((20i64, 21i64), 1i64);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return Int32(combine((20i64, 21i64), 1i64) + apply(combine) - 84i64);\n\
+           Int32(combine((20i64, 21i64), 1i64) + apply(combine) - 84i64);\n\
          };",
     )
     .expect("emit nested direct product fields");
@@ -276,8 +276,8 @@ fn keeps_large_product_calls_on_the_aggregate_fallback() {
         .collect::<Vec<_>>()
         .join(", ");
     let source = format!(
-        "select :: ({types}) -> Int64 := \\({parameters}) {{ return value0; }};\n\
-         main :: Unit -> Int32 := \\() {{ return Int32(select({arguments})); }};"
+        "select :: ({types}) -> Int64 := \\({parameters}) {{ value0; }};\n\
+         main :: Unit -> Int32 := \\() {{ Int32(select({arguments})); }};"
     );
     let generated = emit(&source).expect("emit aggregate fallback");
 
@@ -290,12 +290,12 @@ fn keeps_large_product_calls_on_the_aggregate_fallback() {
 #[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
     let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
-           return if (remaining == 0) then { total } else {\n\
+           if (remaining == 0) then { total } else {\n\
              count(remaining - 1, total + 1)\n\
            };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return if (count(1000000i64, 0) == 1000000i64) then { 0 } else { 1 };\n\
+           if (count(1000000i64, 0) == 1000000i64) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit tail-recursive C");
     assert!(generated.source.contains("goto mal_tail_entry;"));
@@ -315,11 +315,11 @@ fn preserves_effect_order_before_a_direct_tail_call() {
     let output = compile_and_run(
         "extern step :: Int32 -> Int32;\n\
          walk :: (Int32, Int32) -> Int32 := \\(remaining :: Int32, total :: Int32) {\n\
-           return if (remaining == 0) then { total } else {\n\
+           if (remaining == 0) then { total } else {\n\
              walk(extern step(remaining), total + 1)\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return walk(4, 0) - 4; };",
+         main :: Unit -> Int32 := \\() { walk(4, 0) - 4; };",
         r#"#include "program.mal.h"
 
 static int32_t expected = INT32_C(4);
@@ -345,11 +345,11 @@ fn emits_uint64_literals_and_scalar_extern_abi() {
     let output = compile_and_run(
         "extern printUInt64 :: UInt64 -> Unit;\n\
          capture :: UInt64 -> (Unit -> UInt64) := \\(value :: UInt64) {\n\
-           return \\<value>() { return value; };\n\
+           \\<value>() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printUInt64(capture(18446744073709551615u64)());\n\
-           return 0;\n\
+           0;\n\
          };",
         r#"#include "program.mal.h"
 #include <inttypes.h>
@@ -372,7 +372,7 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
 fn emits_exact_float_bits_and_scalar_extern_abi() {
     let generated = emit(
         "extern inspect :: (Float32, Float64) -> Int32;\n\
-         main :: Unit -> Int32 := \\() { return extern inspect(0.1f32, -0.0f64); };",
+         main :: Unit -> Int32 := \\() { extern inspect(0.1f32, -0.0f64); };",
     )
     .expect("emit Float ABI");
     assert!(generated.header.contains(
@@ -416,7 +416,7 @@ fn executes_strict_float_arithmetic_and_ieee_comparisons() {
                     nan != nan && !(nan == nan) &&\n\
                     0.0f32 == -0.0f32 &&\n\
                     rounded == 0.0f32 && subnormal > 0.0f32;\n\
-           return if (valid) then { 0 } else { 1 };\n\
+           if (valid) then { 0 } else { 1 };\n\
          };",
         "",
     );
@@ -440,7 +440,7 @@ fn executes_ties_to_even_numeric_float_conversions() {
                     narrowed == 0.1f32 &&\n\
                     Int8(-128.75f64) == -128i8 &&\n\
                     UInt8(-0.5f32) == 0u8;\n\
-           return if (valid) then { 0 } else { 1 };\n\
+           if (valid) then { 0 } else { 1 };\n\
          };",
         "",
     );
@@ -460,7 +460,7 @@ fn traps_invalid_float_to_integer_conversions_before_the_c_cast() {
         "Int8(128.0f64)",
     ] {
         let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
         assert!(!output.status.success(), "expression: {expression}");
@@ -477,14 +477,14 @@ fn emits_static_string_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
         r#"extern inspect :: String -> Unit;
 make :: String -> (Unit -> String) := \(value :: String) {
-  return \<value>() { return value; };
+  \<value>() { value; };
 };
 main :: Unit -> Int32 := \() {
   extern inspect("あ\0\xff");
   held := make("scope");
   extern inspect(held());
   extern inspect("");
-  return 0;
+  0;
 };"#,
         r#"#include "program.mal.h"
 #include <inttypes.h>
@@ -518,7 +518,7 @@ fn executes_string_primitives_and_byte_wise_equality() {
         (value == "\xe3\x81\x82\x00\xff") &&
         (value != "あ\0\xfe") &&
         ("" == "");
-  return if (ok) then { 0 } else { 1 };
+  if (ok) then { 0 } else { 1 };
 };"#,
         "",
     );
@@ -533,7 +533,7 @@ fn executes_string_primitives_and_byte_wise_equality() {
 fn traps_out_of_range_string_byte_access() {
     for expression in [r#"byteAt("", 0u64)"#, r#"byteAt("a", 1u64)"#] {
         let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
         assert!(!output.status.success(), "expression: {expression}");
@@ -551,7 +551,7 @@ fn copies_host_string_results_into_program_lifetime_storage() {
 main :: Unit -> Int32 := \() {
   value := extern fetch();
   ok := (value == "host\0\xff") && (byteAt(value, 5u64) == 255u8);
-  return if (ok) then { 0 } else { 1 };
+  if (ok) then { 0 } else { 1 };
 };"#,
     )
     .expect("emit String ABI");
@@ -594,7 +594,8 @@ MalString mal_ext_fetch(MalContext *context) {
 
 #[test]
 fn traps_string_copy_allocation_failure_and_length_overflow() {
-    let source = "extern fetch :: Unit -> String; main :: Unit -> Int32 := \\() { extern fetch(); return 0; };";
+    let source =
+        "extern fetch :: Unit -> String; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
 
     let failure_fixture = NativeFixture::new("string-copy-failure");
     let failure_executable = failure_fixture.compile_generated_with_options(
@@ -639,7 +640,7 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
          extern u16 :: UInt16 -> UInt16;\n\
          extern u32 :: UInt32 -> UInt32;\n\
          extern u64 :: UInt64 -> UInt64;\n\
-         main :: Unit -> Int32 := \\() { return 0; };",
+         main :: Unit -> Int32 := \\() { 0; };",
     )
     .expect("emit C");
     for declaration in [
@@ -676,7 +677,7 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
                  (loadUInt8(p4) == 8u8) && (loadUInt16(p5) == 16u16) &&\n\
                  (loadUInt32(p6) == 32u32) && (loadUInt64(p7) == 64u64) &&\n\
                  (loadFloat32(p8) == 1.5f32) && (loadFloat64(p9) == -2.5f64);\n\
-           return if (ok) then { 0 } else { 1 };\n\
+           if (ok) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit Ptr operations");
     assert!(
@@ -709,7 +710,7 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
          main :: Unit -> Int32 := \\() {\n\
            pointer := extern memory();\n\
            storeInt64(pointer, 42i64);\n\
-           return Int32(loadInt64(pointer) - 42i64);\n\
+           Int32(loadInt64(pointer) - 42i64);\n\
          };",
     )
     .expect("emit selective memory helpers");
@@ -742,11 +743,11 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
          Response :: [Unit, (Int32, Int32)];\n\
          extern exchange :: Request -> Response;\n\
          total :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
-           return left + right - 42i32;\n\
+           left + right - 42i32;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            response := extern exchange(20i32, (2u8, 22i32));\n\
-           return case (response)\n\
+           case (response)\n\
              [0](_) { 1 }\n\
              [1](pair) { total(pair) };\n\
          };";
@@ -811,7 +812,7 @@ fn exposes_copyable_opaque_handles_to_the_host() {
          extern combinedLength :: (Mem, Mem) -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
            mem := extern allocate(21u64);\n\
-           return Int32(extern combinedLength(mem, mem) - 42u64);\n\
+           Int32(extern combinedLength(mem, mem) - 42u64);\n\
          };";
     let generated = emit(source).expect("emit opaque ABI");
     assert!(
@@ -852,10 +853,10 @@ fn preserves_duplicate_sum_members_by_tag() {
          extern choose :: Unit -> Choice;\n\
          difference :: Pair -> Int32 := \\(pair :: Pair) {\n\
            (left, right) := pair;\n\
-           return left - right;\n\
+           left - right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return case (extern choose())\n\
+           case (extern choose())\n\
              [0](pair) { difference(pair) + 1i32 }\n\
              [1](pair) { difference(pair) };\n\
          };",
@@ -880,9 +881,9 @@ MalSum_1 mal_ext_choose(MalContext *context) {
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
         "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\
-           return \\<value>() { return value; };\n\
+           \\<value>() { value; };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return makeClosure(7)(); };",
+         main :: Unit -> Int32 := \\() { makeClosure(7)(); };",
     )
     .expect("emit C");
     let fixture = NativeFixture::new("allocation-failure");
@@ -902,13 +903,13 @@ fn preserves_short_circuit_and_eager_bool_equality_order() {
         "extern printInt32 :: Int32 -> Unit;\n\
          marked :: Int32 -> Bool := \\(value :: Int32) {\n\
            extern printInt32(value);\n\
-           return value == 1;\n\
+           value == 1;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            false && marked(2);\n\
            true || marked(3);\n\
            marked(4) == marked(5);\n\
-           return 0;\n\
+           0;\n\
          };",
         PRINT_HOST,
     );
@@ -920,9 +921,9 @@ fn preserves_short_circuit_and_eager_bool_equality_order() {
 fn emits_direct_comparison_conditions_without_tagged_bool_values() {
     let generated = emit(
         "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
-           return if (value < 10) then { 42 } else { value };\n\
+           if (value < 10) then { 42 } else { value };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return choose(9) - 42; };",
+         main :: Unit -> Int32 := \\() { choose(9) - 42; };",
     )
     .expect("emit primitive branch");
 
@@ -941,7 +942,7 @@ fn implements_wrapping_int32_arithmetic_without_signed_overflow() {
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(2147483647 + 1);\n\
            extern printInt32(-2147483648 * -1);\n\
-           return 0;\n\
+           0;\n\
          };",
         PRINT_HOST,
     );
@@ -967,7 +968,7 @@ fn executes_all_fixed_width_integer_operator_families() {
              (18446744073709551615u64 + 1u64 == 0u64) &&\n\
              (-2i32 >> 1i32 == -1i32) &&\n\
              (-9223372036854775808i64 / 1i64 == -9223372036854775808i64);\n\
-           return if (ok) then { 0 } else { 1 };\n\
+           if (ok) then { 0 } else { 1 };\n\
          };",
         "",
     );
@@ -991,7 +992,7 @@ fn executes_modulo_integer_conversions() {
              (Int32(4294967295u32) == -1i32) &&\n\
              (Int64(18446744073709551615u64) == -1i64) &&\n\
              (UInt64(-1i8) == 18446744073709551615u64);\n\
-           return if (ok) then { 0 } else { 1 };\n\
+           if (ok) then { 0 } else { 1 };\n\
          };",
         "",
     );
@@ -1008,13 +1009,13 @@ fn executes_nested_products_destructuring_and_multiple_arguments() {
         "extern mark :: Int32 -> Int32;\n\
          pair :: (Int32, Int32) := (20i32, 22i32);\n\
          add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
-           return left + right;\n\
+           left + right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            (first, second) := pair;\n\
            nested := ((extern mark(first), ()), extern mark(second));\n\
            ((value, _), extra) := nested;\n\
-           return add(value, extra) - 42i32;\n\
+           add(value, extra) - 42i32;\n\
          };",
         r#"#include "program.mal.h"
 #include <stdio.h>
@@ -1035,12 +1036,12 @@ fn executes_a_product_captured_by_an_escaping_closure() {
     let output = compile_and_run(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
            pair := (20i32, 22i32);\n\
-           return \\<pair>() {\n\
+           \\<pair>() {\n\
              (left, right) := pair;\n\
-             return left + right;\n\
+             left + right;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return make()() - 42i32; };",
+         main :: Unit -> Int32 := \\() { make()() - 42i32; };",
         "",
     );
     assert!(
@@ -1067,7 +1068,7 @@ fn traps_out_of_range_shift_counts() {
         "1i64 >> -1i64",
     ] {
         let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
         assert!(!output.status.success(), "expression: {expression}");
@@ -1084,13 +1085,13 @@ fn executes_sum_injection_and_case() {
         "Maybe :: [Unit, Int32];\n\
          extern printInt32 :: Int32 -> Unit;\n\
          get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
-           return case (value)\n\
+           case (value)\n\
              [0](_) { extern printInt32(100); 0 }\n\
              [1](item) { doubled := item + item; extern printInt32(doubled); doubled };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(get(Maybe[1](9)));\n\
-           return 0;\n\
+           0;\n\
          };",
         PRINT_HOST,
     );
@@ -1126,7 +1127,7 @@ fn traps_invalid_division_and_remainder_at_every_width() {
     }
     for (expression, message) in cases {
         let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
+            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
         assert!(!output.status.success(), "expression: {expression}");
@@ -1146,7 +1147,7 @@ fn rejects_invalid_executable_programs() {
             .contains("has no")
     );
     assert!(
-        emit("main :: Int32 -> Int32 := \\(value :: Int32) { return value; };")
+        emit("main :: Int32 -> Int32 := \\(value :: Int32) { value; };")
             .unwrap_err()
             .message
             .contains("wrong type")

@@ -38,7 +38,7 @@ fn function(program: &closure::ast::Program, id: malc::resolve::ast::LambdaId) -
 fn lifts_capturing_lambdas_and_materializes_their_environment() {
     let program = convert_ok(
         "makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           return \\<x>(y :: Int32) { return x + y; };\n\
+           \\<x>(y :: Int32) { x + y; };\n\
          };",
     );
     let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
@@ -79,8 +79,8 @@ fn lifts_capturing_lambdas_and_materializes_their_environment() {
 fn forwards_a_capture_explicitly_through_every_lifted_function() {
     let program = convert_ok(
         "outer :: Int32 -> (Unit -> (Unit -> Int32)) := \\(x :: Int32) {\n\
-           return \\<x>() {\n\
-             return \\<x>() { return x; };\n\
+           \\<x>() {\n\
+             \\<x>() { x; };\n\
            };\n\
          };",
     );
@@ -124,8 +124,8 @@ fn forwards_a_capture_explicitly_through_every_lifted_function() {
 #[test]
 fn represents_capture_free_closures_without_environment_fields() {
     let program = convert_ok(
-        "identity :: Int32 -> Int32 := \\(value :: Int32) { return value; };\n\
-         main :: Unit -> Int32 := \\() { return identity(5); };",
+        "identity :: Int32 -> Int32 := \\(value :: Int32) { value; };\n\
+         main :: Unit -> Int32 := \\() { identity(5); };",
     );
     assert_eq!(program.functions.len(), 2);
     for binding in &program.bindings {
@@ -146,7 +146,7 @@ fn represents_capture_free_closures_without_environment_fields() {
 fn preserves_primitive_branches_while_lifting_functions() {
     let program = convert_ok(
         "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
-           return if (value >= 0) then { value } else { 0 - value };\n\
+           if (value >= 0) then { value } else { 0 - value };\n\
          };",
     );
     let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
@@ -162,9 +162,9 @@ fn represents_local_self_references_with_the_current_closure() {
     let program = convert_ok(
         "main :: Unit -> Int32 := \\() {\n\
            local :: Int32 -> Int32 := \\(n :: Int32) {\n\
-             return if (n == 0) then { 0 } else { local(n - 1) };\n\
+             if (n == 0) then { 0 } else { local(n - 1) };\n\
            };\n\
-           return local(3);\n\
+           local(3);\n\
          };",
     );
     let main_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
@@ -198,9 +198,9 @@ fn preserves_captured_products_and_destructuring_patterns() {
     let program = convert_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
            pair := (20i32, 22i32);\n\
-           return \\<pair>() {\n\
+           \\<pair>() {\n\
              (left, right) := pair;\n\
-             return left + right;\n\
+             left + right;\n\
            };\n\
          };",
     );

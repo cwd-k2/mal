@@ -92,7 +92,7 @@
       "patterns": [
         {
           "name": "keyword.control.mal",
-          "match": "\\b(?:if|then|else|case|return)\\b"
+          "match": "\\b(?:if|then|else|case)\\b"
         },
         {
           "name": "keyword.other.extern.mal",

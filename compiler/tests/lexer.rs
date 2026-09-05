@@ -22,7 +22,7 @@ fn lexes_the_m0_host_example() {
             "extern printInt32 :: Int32 -> Unit;\n\
              main :: Unit -> Int32 := \\() {\n\
                extern printInt32(42);\n\
-               return 0;\n\
+               0;\n\
              };",
         ),
         vec![
@@ -53,7 +53,6 @@ fn lexes_the_m0_host_example() {
             }),
             TokenKind::RightParen,
             TokenKind::Semicolon,
-            TokenKind::Return,
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Decimal,
                 digits: "0".into(),
@@ -80,7 +79,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
             TokenKind::Then,
             TokenKind::Else,
             TokenKind::Case,
-            TokenKind::Return,
+            TokenKind::ValueIdentifier,
             TokenKind::Extern,
             TokenKind::Eof,
         ]
@@ -314,7 +313,7 @@ fn skips_ascii_whitespace_and_line_comments() {
         .expect("comments and whitespace should lex");
     assert_eq!(tokens[0].kind, TokenKind::ValueIdentifier);
     assert_eq!(tokens[0].span, Span::new(FileId::new(7), 0, 4));
-    assert_eq!(tokens[1].kind, TokenKind::Return);
+    assert_eq!(tokens[1].kind, TokenKind::ValueIdentifier);
 }
 
 #[test]

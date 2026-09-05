@@ -55,9 +55,7 @@ MaybeInt32 :: [Unit, Int32];
 constructor 名が欲しければ通常の関数を binding する。
 
 ```mal
-some :: Int32 -> MaybeInt32 := \(value :: Int32) {
-    return MaybeInt32[1](value);
-};
+some :: Int32 -> MaybeInt32 := \(value :: Int32) { MaybeInt32[1](value) };
 ```
 
 mal は `Some` や field name に特別な意味を与えない。
@@ -71,9 +69,8 @@ deallocation、length、bounds、ownershipは組み込まず、program固有の`
 ```mal
 extern alloc :: UInt64 -> Ptr;
 
-readInt64 :: (Ptr, UInt64) -> Int64 := \(base :: Ptr, index :: UInt64) {
-    return loadInt64(offset(base, index * 8u64));
-};
+readInt64 :: (Ptr, UInt64) -> Int64 :=
+    \(base :: Ptr, index :: UInt64) { loadInt64(offset(base, index * 8u64)) };
 ```
 
 mutable bytesが必要な場合も同じ境界を使う。次はpredefined APIではなく、program固有のhost contractの例である。
@@ -96,7 +93,7 @@ Int64Array :: (Ptr, UInt64);
 arrayGet :: (Int64Array, UInt64) -> Int64 :=
     \(array :: Int64Array, index :: UInt64) {
         (memory, _) := array;
-        return loadInt64(offset(memory, index * 8u64));
+        loadInt64(offset(memory, index * 8u64));
     };
 ```
 

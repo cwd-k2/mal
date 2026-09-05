@@ -203,8 +203,8 @@ lambdaはparameter listの前にoptionalなcapture listを持つ。
 
 ```mal
 makeAdder := \(x :: Int32) {
-    return \<x>(y :: Int32) {
-        return x + y;
+    \<x>(y :: Int32) {
+        x + y;
     };
 };
 ```
@@ -600,14 +600,14 @@ literalでは値と型指定の境界が明瞭であり、固定幅を小文字�
 sourceはUTF-8とし、identifierとkeywordはASCIIで認識する。空白はASCII space、tab、CR、LF、commentは
 `//`から行末までのline commentだけを認める。block comment、Unicode identifier、trailing commaは認めない。
 
-lambda bodyは最後に`return expression;`を必須とし、implicit return、early return、値のない`return`は認めない。
+lambda、`if` branch、`case` armのblockは最後にresult expressionを必須とする。その直後の`;`はoptionalであり、改行はsyntaxに影響しない。return statementは設けず、`return`は通常のvalue identifierとして扱う。
 
 言語上のtrapは捕捉不能な異常終了とする。C backendのruntimeは理由をstderrへ出力して`abort()`し、hostからの
 回復不能なcontract violationにもgenerated headerの`mal_trap`を使う。portableなprocess exit codeは規定しない。
 
 ### 理由
 
-実装済みの最小構文をrelease profileとして固定し、字句や終了方法が実装の偶然に見える状態を解消する。
+最小構文をrelease profileとして固定し、block間でresult規則を統一して字句や終了方法が実装の偶然に見える状態を解消する。
 trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異常終了として確実に観測できるcontractを保つ。
 
 ## D022. 型なし`Ptr`をmemory primitiveのbaselineとする

@@ -72,13 +72,13 @@ fn large_source() -> String {
     for index in 0..250 {
         writeln!(
             source,
-            "function{index} :: Int32 -> Int32 := \\(value :: Int32) {{ local := value + constant{index}; return local; }};"
+            "function{index} :: Int32 -> Int32 := \\(value :: Int32) {{ local := value + constant{index}; local; }};"
         )
         .unwrap();
     }
     writeln!(
         source,
-        "main :: Unit -> Int32 := \\() {{ return function249(constant499); }};"
+        "main :: Unit -> Int32 := \\() {{ function249(constant499); }};"
     )
     .unwrap();
     source

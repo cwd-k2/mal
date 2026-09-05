@@ -109,19 +109,19 @@ mod tests {
     #[test]
     fn renders_a_primary_source_label() {
         let file = FileId::new(0);
-        let source = SourceFile::new(file, "sample.mal", "first\nreturn 12;\n".into());
+        let source = SourceFile::new(file, "sample.mal", "first\nvalue := 12;\n".into());
         let diagnostic = Diagnostic::error("unexpected integer")
-            .with_primary(Span::new(file, 13, 15), "expected Unit")
+            .with_primary(Span::new(file, 15, 17), "expected Unit")
             .with_note("a lambda body has one result type");
 
         assert_eq!(
             diagnostic.render(&source),
             concat!(
                 "error: unexpected integer\n",
-                " --> sample.mal:2:8\n",
+                " --> sample.mal:2:10\n",
                 "  |\n",
-                "2 | return 12;\n",
-                "  |        ^^ expected Unit\n",
+                "2 | value := 12;\n",
+                "  |          ^^ expected Unit\n",
                 "note: a lambda body has one result type\n",
             )
         );

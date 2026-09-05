@@ -37,7 +37,7 @@ fn checks_the_m0_host_example_end_to_end_through_typed_ast() {
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(42);\n\
-           return 0;\n\
+           0;\n\
          };",
     );
     let TopItem::ExternalOperation {
@@ -62,7 +62,7 @@ fn expands_aliases_and_compares_types_structurally() {
     let program = check_ok(
         "Flag :: [Unit, Unit];\n\
          choose :: Flag -> Int32 := \\(flag :: Bool) {\n\
-           return if (flag) then { 1 } else { 0 };\n\
+           if (flag) then { 1 } else { 0 };\n\
          };",
     );
     let TopItem::TypeAlias { ty, .. } = &program.items[0].kind else {
@@ -229,7 +229,7 @@ fn checks_float_arithmetic_comparison_and_negation() {
         "calculate :: Float32 -> Bool := \\(value :: Float32) {\n\
            negative := -value;\n\
            result := (negative + 2.0f32) * 3.0f32 / 4.0f32;\n\
-           return result >= 0.0f32 && result != value;\n\
+           result >= 0.0f32 && result != value;\n\
          };",
     );
     assert_eq!(
@@ -258,12 +258,12 @@ fn checks_string_literals_as_immutable_bytes() {
 #[test]
 fn checks_string_primitives_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: String -> UInt64 := \(value :: String) { return byteLength(value); };
+        r#"length :: String -> UInt64 := \(value :: String) { byteLength(value); };
 item :: (String, UInt64) -> UInt8 := \(value :: String, index :: UInt64) {
-  return byteAt(value, index);
+  byteAt(value, index);
 };
-same :: Unit -> Bool := \() { return "a\0" == "a\x00"; };
-different :: Unit -> Bool := \() { return "a" != "b"; };"#,
+same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
+different :: Unit -> Bool := \() { "a" != "b"; };"#,
     );
     let ExpressionKind::Lambda(length) = &top_binding(&program, 0).value.kind else {
         panic!("expected lambda");
@@ -310,7 +310,7 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
            storeInt64(slot, 42i64);\n\
            value := loadInt64(slot);\n\
            storeUInt8(slot, UInt8(value));\n\
-           return loadUInt8(slot);\n\
+           loadUInt8(slot);\n\
          };",
     );
     let TopItem::ExternalOperation {
@@ -345,7 +345,7 @@ fn checks_memory_primitives_for_every_numeric_scalar() {
            storeUInt64(pointer, loadUInt64(pointer));\n\
            storeFloat32(pointer, loadFloat32(pointer));\n\
            storeFloat64(pointer, loadFloat64(pointer));\n\
-           return ();\n\
+           ();\n\
          };",
     );
     let ExpressionKind::Lambda(function) = &top_binding(&program, 0).value.kind else {
@@ -362,9 +362,9 @@ fn checks_memory_primitives_for_every_numeric_scalar() {
 #[test]
 fn rejects_mistyped_or_first_class_memory_primitives() {
     for text in [
-        "extern memory :: Unit -> Ptr; bad := \\() { return offset(extern memory(), 1i64); };",
-        "bad := \\() { return loadInt64(0u64); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); return (); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { offset(extern memory(), 1i64); };",
+        "bad := \\() { loadInt64(0u64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
         "bad := offset;",
         "bad := loadFloat64;",
     ] {
@@ -374,10 +374,10 @@ fn rejects_mistyped_or_first_class_memory_primitives() {
 }
 
 #[test]
-fn rejects_binding_and_return_type_mismatches() {
+fn rejects_binding_and_block_result_type_mismatches() {
     assert_eq!(check_error("value :: Unit := 0;").message, "type mismatch");
     assert_eq!(
-        check_error("main :: Unit -> Unit := \\() { return 0; };").message,
+        check_error("main :: Unit -> Unit := \\() { 0; };").message,
         "type mismatch"
     );
 }
@@ -385,9 +385,9 @@ fn rejects_binding_and_return_type_mismatches() {
 #[test]
 fn checks_function_application_and_zero_argument_unit_lowering() {
     let program = check_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { return x; };\n\
-         thunk :: Unit -> Int32 := \\() { return identity(4); };\n\
-         caller :: Unit -> Int32 := \\() { return thunk(); };",
+        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
+         thunk :: Unit -> Int32 := \\() { identity(4); };\n\
+         caller :: Unit -> Int32 := \\() { thunk(); };",
     );
     assert_eq!(
         top_binding(&program, 2).value.ty,
@@ -399,7 +399,7 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
 
     assert_eq!(
         check_error(
-            "identity :: Int32 -> Int32 := \\(x :: Int32) { return x; };\n\
+            "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
              bad :: Int32 := identity();"
         )
         .message,
@@ -409,6 +409,11 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
         check_error("value :: Int32 := 1i32();").message,
         "cannot call a non-function value"
     );
+}
+
+#[test]
+fn checks_return_as_an_ordinary_local_name() {
+    check_ok("value :: Unit -> Int64 := \\() { return := 1; return; };");
 }
 
 #[test]
@@ -437,13 +442,13 @@ fn checks_case_exhaustiveness_uniqueness_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
          get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
-           return case (value)\n\
+           case (value)\n\
              [0](_) { 0 }\n\
              [1](x) { y := x; y };\n\
          };",
     );
 
-    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value :: Maybe) { return ";
+    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value :: Maybe) { ";
     assert_eq!(
         check_error(&format!("{prefix}case (value) [0](_) {{ 0 }}; }};")).message,
         "non-exhaustive case expression"
@@ -468,13 +473,13 @@ fn checks_case_exhaustiveness_uniqueness_and_result_types() {
 fn checks_if_condition_and_branch_types() {
     check_ok(
         "choose :: Bool -> Int32 := \\(condition :: Bool) {\n\
-           return if (condition) then { 1 } else { 2 };\n\
+           if (condition) then { 1 } else { 2 };\n\
          };",
     );
     assert_eq!(
         check_error(
             "bad :: Int32 -> Int32 := \\(condition :: Int32) {\n\
-               return if (condition) then { 1 } else { 2 };\n\
+               if (condition) then { 1 } else { 2 };\n\
              };"
         )
         .message,
@@ -483,7 +488,7 @@ fn checks_if_condition_and_branch_types() {
     assert_eq!(
         check_error(
             "bad :: Bool -> Int32 := \\(condition :: Bool) {\n\
-               return if (condition) then { 1 } else { () };\n\
+               if (condition) then { 1 } else { () };\n\
              };"
         )
         .message,
@@ -495,7 +500,7 @@ fn checks_if_condition_and_branch_types() {
 fn checks_int32_and_bool_operator_families() {
     let program = check_ok(
         "predicate :: Int32 -> Bool := \\(x :: Int32) {\n\
-           return !(x + 1 < 2) || false && (x == 0);\n\
+           !(x + 1 < 2) || false && (x == 0);\n\
          };",
     );
     let Type::Function { result, .. } = &top_binding(&program, 0).value.ty else {
@@ -504,7 +509,7 @@ fn checks_int32_and_bool_operator_families() {
     assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
 
     assert_eq!(
-        check_error("bad :: Int32 -> Int32 := \\(x :: Int32) { return x + true; };").message,
+        check_error("bad :: Int32 -> Int32 := \\(x :: Int32) { x + true; };").message,
         "type mismatch"
     );
 }
@@ -516,10 +521,10 @@ fn checks_integer_operators_for_every_fixed_width_type() {
     ] {
         check_ok(&format!(
             "compute :: {name} -> {name} := \\(x :: {name}) {{\n\
-               return ((~x + 1) * 2 - 1) / 1 % 1 << 0 >> 0 & x | x ^ x;\n\
+               ((~x + 1) * 2 - 1) / 1 % 1 << 0 >> 0 & x | x ^ x;\n\
              }};\n\
              compare :: {name} -> Bool := \\(x :: {name}) {{\n\
-               return x < x || x <= x || x > x || x >= x || x == x || x != x;\n\
+               x < x || x <= x || x > x || x >= x || x == x || x != x;\n\
              }};"
         ));
     }
@@ -597,13 +602,13 @@ fn checks_products_destructuring_and_multiple_parameters() {
         "Pair :: (Int32, UInt8);\n\
          pair :: Pair := (1, 2);\n\
          add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
-           return left + right;\n\
+           left + right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            (first, _) := pair;\n\
            nested := ((first, 2i32), 39i32);\n\
            ((left, right), extra) := nested;\n\
-           return add(left + right, extra);\n\
+           add(left + right, extra);\n\
          };",
     );
     assert_eq!(
@@ -637,7 +642,7 @@ fn checks_nominal_external_opaque_types() {
          extern length :: Mem -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
            mem := extern allocate(4u64);\n\
-           return Int32(extern length(mem));\n\
+           Int32(extern length(mem));\n\
          };",
     );
     assert!(matches!(
@@ -661,7 +666,7 @@ fn checks_nominal_external_opaque_types() {
              extern useMem :: Mem -> Unit;\n\
              main :: Unit -> Int32 := \\() {\n\
                extern useMem(extern getFile());\n\
-               return 0;\n\
+               0;\n\
              };"
         )
         .message,
@@ -698,13 +703,13 @@ fn rejects_effectful_top_level_initializers() {
 fn checks_top_level_and_local_self_recursion_against_the_annotation() {
     let program = check_ok(
         "count :: Int64 -> Int64 := \\(n :: Int64) {\n\
-           return if (n == 0) then { 0 } else { count(n - 1) };\n\
+           if (n == 0) then { 0 } else { count(n - 1) };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            local :: Int32 -> Int32 := \\(n :: Int32) {\n\
-             return if (n == 0) then { 0 } else { local(n - 1) };\n\
+             if (n == 0) then { 0 } else { local(n - 1) };\n\
            };\n\
-           return local(10);\n\
+           local(10);\n\
          };",
     );
 
@@ -718,7 +723,7 @@ fn checks_top_level_and_local_self_recursion_against_the_annotation() {
 
 #[test]
 fn rejects_recursive_lambda_that_disagrees_with_its_annotation() {
-    let error = check_error("looping :: Int32 -> Int32 := \\(n :: Int64) { return looping(n); };");
+    let error = check_error("looping :: Int32 -> Int32 := \\(n :: Int64) { looping(n); };");
     assert_eq!(error.message, "type mismatch");
 }
 
@@ -726,7 +731,7 @@ fn rejects_recursive_lambda_that_disagrees_with_its_annotation() {
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
         "make :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           return \\<x>(y :: Int32) { return x + y; };\n\
+           \\<x>(y :: Int32) { x + y; };\n\
          };",
     );
     let ExpressionKind::Lambda(outer) = &top_binding(&program, 0).value.kind else {

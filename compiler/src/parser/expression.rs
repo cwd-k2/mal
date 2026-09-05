@@ -272,7 +272,7 @@ impl Parser<'_> {
         ))
     }
 
-    fn parse_expression_block(&mut self) -> Result<ExpressionBlock, Diagnostic> {
+    pub(super) fn parse_expression_block(&mut self) -> Result<ExpressionBlock, Diagnostic> {
         let left = self.expect(&TokenKind::LeftBrace, "`{`")?;
         let mut items = Vec::new();
         loop {
@@ -291,6 +291,14 @@ impl Parser<'_> {
             }
             let expression = self.parse_expression()?;
             if self.take(&TokenKind::Semicolon).is_some() {
+                if self.at(&TokenKind::RightBrace) {
+                    let right = self.advance();
+                    return Ok(ExpressionBlock {
+                        items,
+                        result: Box::new(expression),
+                        span: self.join(left.span, right.span),
+                    });
+                }
                 items.push(BodyItem::Expression(expression));
                 continue;
             }

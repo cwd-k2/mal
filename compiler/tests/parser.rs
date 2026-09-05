@@ -26,7 +26,7 @@ fn parses_the_m0_host_example() {
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printInt32(42);\n\
-           return 0;\n\
+           0;\n\
          };",
     );
 
@@ -156,7 +156,7 @@ fn parses_captures_parameters_and_lambda_body_items() {
         "make := \\<outer>(x :: Int32, y :: Int32) {\n\
            sum :: Int32 := x + y;\n\
            extern observe(sum);\n\
-           return outer(sum);\n\
+           outer(sum);\n\
          };",
     );
     let Expression::Lambda(lambda) = expression else {
@@ -239,19 +239,37 @@ fn rejects_single_member_sums_and_trailing_commas() {
         "Only :: [Unit];",
         "Pair :: [Unit, Int32,];",
         "value := f(1,);",
-        "value := \\<>() { return 0; };",
+        "value := \\<>() { 0; };",
     ] {
         assert!(parse(&source(text)).is_err(), "input should fail: {text}");
     }
 }
 
 #[test]
-fn rejects_lambda_without_terminal_return() {
-    let source = source("value := \\() { extern run(); };");
-    let error = parse(&source).expect_err("terminal return is required");
+fn accepts_block_results_with_or_without_a_terminal_semicolon() {
+    for text in [
+        "value := \\() { 0 };",
+        "value := \\() { 0; };",
+        "value := \\() { if (true) then { 0; } else { 1 }; };",
+        "value := \\() { case (Bool[0](())) [0](_) { 0 } [1](_) { 1; }; };",
+    ] {
+        assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
+    }
+}
 
-    assert_eq!(error.message, "expected a terminal `return`");
-    assert!(error.render(&source).contains("parser-test.mal:1:30"));
+#[test]
+fn rejects_a_lambda_without_a_result_expression() {
+    for text in ["value := \\() {};", "value := \\() { item := 0; };"] {
+        let source = source(text);
+        let error = parse(&source).expect_err("a result expression is required");
+        assert_eq!(error.message, "expected a block result expression");
+    }
+}
+
+#[test]
+fn treats_the_removed_return_spelling_as_an_ordinary_identifier() {
+    assert!(parse(&source("value := \\() { return := 1; return; };")).is_ok());
+    assert!(parse(&source("value := \\() { return 1; };")).is_err());
 }
 
 #[test]

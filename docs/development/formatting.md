@@ -11,7 +11,8 @@ Status: Current v0.5 tooling policy
 - outputの改行はLFとし、file末に1つのLFを置く。
 - `::`、`:=`、`->`とbinary operatorの両側、commaの後にspaceを置く。
 - call、conversion、sum injection、delimiterの内側にspaceを置かない。
-- blockのbraceと内容は別の行に置く。
+- body itemを持たず、nested blockとcommentも持たないblockは一行に置き、result直後の`;`を省く。
+- それ以外のblockはbraceと内容を別の行に置き、resultを含む各行を`;`で終える。
 - `if`のconditionの後で改行し、`then`と`else`を同じcontinuation indentに置く。
 - `case`のscrutineeの後で改行し、すべてのarmを同じcontinuation indentに置く。
 

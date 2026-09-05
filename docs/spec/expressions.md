@@ -26,29 +26,23 @@ pattern は identifier、`_`、product pattern からなる。pattern 内で同�
 
 ```mal
 add :: (Int32, Int32) -> Int32 :=
-    \(a :: Int32, b :: Int32) {
-        return a + b;
-    };
+    \(a :: Int32, b :: Int32) { a + b };
 ```
 
-parameter の型は必須。ラムダ自身に戻り型を書く構文はなく、terminal `return` の式と、あれば binding annotation から検査する。
+parameter の型は必須。ラムダ自身に戻り型を書く構文はなく、bodyのresult expressionと、あればbinding annotationから検査する。
 
 ラムダは optional な capture list をparameter listの前に書ける。
 
 ```mal
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    return \<x>(y :: Int32) {
-        return x + y;
-    };
+    \<x>(y :: Int32) { x + y };
 };
 ```
 
 `<x>`は外側のlocal binding `x`をby-value captureする。capture listを省略したラムダは何もcaptureしない。
 
 ```mal
-double := \(x :: Int32) {
-    return x * 2;
-};
+double := \(x :: Int32) { x * 2 };
 ```
 
 capture listにない外側のlocal valueをbodyから参照するとcompile-time errorになる。top-level binding、predefined binding、compiler primitiveはcaptureせず直接参照するため、listに書かない。
@@ -57,14 +51,10 @@ capture listは1個以上の異なるvalue identifierを持つ。空の`<>`、du
 
 captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#scope-と-closure)に従う。
 
-body は 0 個以上の binding または expression statement と、最後の `return expression;` からなる。implicit return、early return、`return;` はない。
+lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: String -> Unit :=
-    \(message :: String) {
-        extern print(message);
-        return ();
-    };
+log :: String -> Unit := \(message :: String) { extern print(message) };
 ```
 
 ## 関数適用
@@ -89,13 +79,9 @@ makeFunction()(x)
 
 ```mal
 absolute := \(x :: Int32) {
-    return if (x < 0)
-        then {
-            -x
-        }
-        else {
-            x
-        };
+    if (x < 0)
+        then { -x }
+        else { x };
 };
 ```
 
@@ -116,7 +102,7 @@ case (x < 0)
 ```mal
 getOrZero :: MaybeInt32 -> Int32 :=
     \(value :: MaybeInt32) {
-        return case (value)
+        case (value)
             [0](_) { 0 }
             [1](x) { x };
     };

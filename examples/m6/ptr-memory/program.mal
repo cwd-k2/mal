@@ -1,10 +1,9 @@
 extern memory :: Unit -> Ptr;
-
 main :: Unit -> Int32 := \() {
     base := extern memory();
     slot := offset(base, 1u64);
     storeInt64(slot, 41i64);
     byte := offset(slot, 8u64);
     storeUInt8(byte, 1u8);
-    return Int32(loadInt64(slot) + Int64(loadUInt8(byte)) - 42i64);
+    Int32(loadInt64(slot) + Int64(loadUInt8(byte)) - 42i64);
 };

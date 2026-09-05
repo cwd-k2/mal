@@ -131,18 +131,13 @@ pub struct Parameter {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LambdaBody {
-    pub items: Vec<BodyItem>,
-    pub result: Box<Node<Expression>>,
-    pub span: Span,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpressionBlock {
     pub items: Vec<BodyItem>,
     pub result: Box<Node<Expression>>,
     pub span: Span,
 }
+
+pub type LambdaBody = ExpressionBlock;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BodyItem {
