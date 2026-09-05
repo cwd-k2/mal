@@ -283,6 +283,15 @@ fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
 }
 
 #[test]
+fn rejects_mutual_recursion_as_a_forward_reference() {
+    let error = resolve_error(
+        "first :: Unit -> Unit := \\() { return second(); };\n\
+         second :: Unit -> Unit := \\() { return first(); };",
+    );
+    assert_eq!(error.message, "unknown value `second`");
+}
+
+#[test]
 fn rejects_an_unlisted_outer_local_reference() {
     let error = resolve_error(
         "outer := \\(x :: Int32) {\n\

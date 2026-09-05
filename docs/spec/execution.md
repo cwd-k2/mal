@@ -71,7 +71,7 @@ sum :: Int64 -> Int64 := \(n :: Int64) {
 };
 ```
 
-型 annotation を持ち、RHS が直接 lambda である value binding は、その lambda body から自分自身を参照できる。これは通常の sequential binding に対する唯一の自己参照例外である。mutual recursion はない。
+単一のvalue name pattern、型annotation、直接のlambda RHSを持つbindingは、そのlambda bodyから自分自身を参照できる。これは通常のsequential bindingに対する唯一の自己参照例外である。product pattern、annotationのないbinding、lambdaを括弧などの別の式で包んだRHSには適用しない。forward referenceとmutual recursionはない。
 
 direct tail recursion を loop へ lower してよいが、program から観測できる評価順序を変えてはならない。
 

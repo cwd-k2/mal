@@ -252,6 +252,54 @@ fn checked_in_m3_example_round_trips_copied_string_bytes() {
 }
 
 #[test]
+fn checked_in_m4_example_executes_large_direct_tail_recursion() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m4/tail-recursion/program.mal");
+
+    let checked = directory.malc([OsStr::new("check"), example.as_os_str()]);
+    assert!(
+        checked.status.success(),
+        "{}",
+        String::from_utf8_lossy(&checked.stderr)
+    );
+
+    let emitted = directory.join("generated/program.c");
+    let output = directory.malc([
+        OsStr::new("emit-c"),
+        example.as_os_str(),
+        OsStr::new("--output"),
+        emitted.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        std::fs::read_to_string(&emitted)
+            .expect("read generated C")
+            .contains("goto mal_tail_entry;")
+    );
+
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
 fn reports_source_and_output_filesystem_failures() {
     let directory = NativeFixture::new("driver-failure");
     let missing = directory.join("missing.mal");
