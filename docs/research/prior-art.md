@@ -62,16 +62,6 @@ mal への含意:
 - opaque resource を unrestricted value とするなら、resource safety を保証しないことを明記する必要がある。
 - v0.4のStringはextern return時にmal-ownedなprogram-lifetime storageへcopyし、mutable bytesはexternal opaque bufferへ分離する。これによりhostへprogram-lifetime bufferを要求しない。
 
-## backend
-
-[QBE IL documentation](https://c9x.me/compile/doc/il-v1.2.html) は少数の scalar type と aggregate type を持ち、C ABI のため aggregate 引数を pointer 経由で渡す場合がある。[QBE ABI subset](https://c9x.me/compile/doc/abi.html) は aggregate の size/layout により register class と memory class が変わることを示す。
-
-mal への含意:
-
-- QBE は小さい backend として方向性が合う。
-- 一方、mal product/sum の source semantics と C/QBE ABI representation は別 layer にすべきである。
-- C backend を reference implementation として先に固定し、同じ conformance test を QBE backend に通す構成が扱いやすい。
-
 ## 調査からの結論
 
 mal の差別化は「理論上もっとも少ない primitive」ではなく、次の境界を短く、完全に説明できることに置くのがよい。

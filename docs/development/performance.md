@@ -1,23 +1,19 @@
 # generated C performance評価
 
-Status: Current M7 record
+Status: Archived M7 evidence
 
 この文書はreference compilerの性能調査方法、2026-09-05時点のbaseline、M7で得た結果と判断を定める。
-言語の意味は[`spec/`](../spec/)、active gateと完了条件は
-[implementation roadmap](../implementation/roadmap.md)、通常の検証commandは[test policy](testing.md)を正とする。
+言語の意味は[`spec/`](../spec/)、現在のmilestone状態は[implementation roadmap](../implementation/roadmap.md)、
+通常の検証commandは[test policy](testing.md)を正とする。
 
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。
 
 ## 調査の発端
 
-競技programmingのlocal corpusを、indexed storageとalgorithmをmal側に置いて実装した。behavior caseと
-maximum-order smokeがpublic `malc build`経路で成功した。新しいcollection primitiveは必要なく、
-`Ptr`、byte `offset`、numeric scalar load/storeで次を表現できた。
-
-- CSR、binary lifting、residual network、Union-Find
-- monotonic queue、binary heap、subset DP
-- convex hull、NTT
+localのalgorithm corpusを、indexed storageとalgorithmをmal側に置いて実装した。behavior caseと
+maximum-order smokeがpublic `malc build`経路で成功した。新しいcollection primitiveは必要なく、`Ptr`、byte `offset`、
+numeric scalar load/storeでgraph storage、priority queue、state transition、規則的なnumeric transformを表現できた。
 
 この結果はmemory mechanismの不足よりgenerated codeのcostを次に調べる根拠になる。branch-heavyなheap操作と
 規則的なnumeric loopはC optimizerへの反応が異なるため、両方を代表workloadにする。
@@ -39,14 +35,14 @@ native testが必要である。
 
 | Workload | Maximum-order shape | `solution-before` | `generated-o2` | `baseline` |
 |---|---|---:|---:|---:|
-| short DP | monotonic queueを使うbounded DP | 4.3 ms | 4.3 ms | 3.0 ms |
-| branch-heavy heap | direction-state shortest pathのlocal maximum-order input | 875.2 ms | 390.1 ms | 238.5 ms |
-| numeric transform | NTTのlocal maximum-order input | 465.9 ms | 395.1 ms | 382.1 ms |
+| short state transition | 小さいqueue-based workload | 4.3 ms | 4.3 ms | 3.0 ms |
+| branch-heavy heap | 大きいpriority-queue workload | 875.2 ms | 390.1 ms | 238.5 ms |
+| numeric transform | 大きい規則的なnumeric loop | 465.9 ms | 395.1 ms | 382.1 ms |
 
-short DPは実行時間が短くprocess起動とinputの比率が大きいため、厳密なoptimization gateには使わない。残る二つの
+short state transitionは実行時間が短くprocess起動とinputの比率が大きいため、厳密なoptimization gateには使わない。残る二つの
 比率を主な比較に使い、絶対時間はmachine間で比較しない。
 
-`-O2` executableのtext sectionはshort DPが6215 bytes対2915 bytes、branch-heavy heapが7523 bytes対3978 bytes、
+`-O2` executableのtext sectionはshort state transitionが6215 bytes対2915 bytes、branch-heavy heapが7523 bytes対3978 bytes、
 numeric transformが7866 bytes対4653 bytesで、いずれも左がgenerated C、右がdirect Cである。code sizeだけを
 原因とはみなさないが、runtime check、tagged control flow、specialized product typeが残る量の補助指標にはなる。
 
@@ -54,10 +50,8 @@ public `build`へstrict float optionと同時に`-O2`を採用した後、`CC=cl
 warmup 3回、10回反復で再測定した。public build対direct Cの比率はbranch-heavy heapが約1.62、numeric transformが
 約1.03だった。絶対時間はmachineの状態で変動したため、初回tableと混ぜず比率だけを現在の比較値とする。
 
-localのsource、input、expected output、direct C、generated C、Hyperfine JSONは`.scratch/`に置き、Git管理しない。
-競技programming由来の問題文、固有名、source、sample、input、expected outputをrepositoryへ昇格しない。compiler
-regressionとして追跡する必要が生じた場合は、名称、設定、source、入出力を独立に設計したsynthetic programで、
-観測したgenerated-C構造だけを再現する。元問題の縮小やdataの置換はsyntheticとはみなさない。
+source、input、expected output、direct C、generated C、Hyperfine JSONなどのraw artifactはlocalの`.scratch/`にあり、
+tracked repositoryには含まれない。
 
 ## generated Cで確認済みの事実
 
@@ -76,9 +70,9 @@ top-level functionのC宣言・定義にはsource binding名のcommentがあり�
 Clang `-O2`はこれらの多くをinline、scalar replacement、dead-code eliminationできる。numeric transformの残差は小さいが、
 branch-heavyなheap workloadは
 `-O2`後もdirect Cの約1.64倍であり、branch、heap entry、accessorが組み合わさるhot pathにはlowering上の差が残る。
-short DPの`-O2`前後が同程度であることだけから、特定のoptimizationが無効だとは判断しない。
+short state transitionの`-O2`前後が同程度であることだけから、特定のoptimizationが無効だとは判断しない。
 
-`-O2 -pg`の関数別計測では、directionごとのtransitionが約72%、それを呼ぶloop本体が約22%を占め、
+`-O2 -pg`の関数別計測では、hot transitionが約72%、それを呼ぶloop本体が約22%を占め、
 inputとallocationはsampling粒度未満だった。Clangのoptimization reportではscalar memory helperとwrap helperはhot functionへ
 inlineされており、transition function自体はinline costがthresholdを超えてcall boundaryが残った。memory runtimeはその後、
 使用したoffset/load/store helperだけを生成するようにし、strict warning optionと`-O2`を同時に使えることをfocused testで
@@ -161,18 +155,11 @@ out parameter entryを追加しても、全fieldを使うcallではwriteを減�
 構造を固定できること、closure共通entryをfallbackとして残しつつclone数を制限できることの三点とする。それまではoptimizerが
 既に除去するalias追跡を中間表現へ追加せず、product result用entryも増やさない。
 
-## 検証
+## 測定の再現条件
 
-通常のcompiler変更はrepository rootからpinned environmentで次を実行する。
+通常のcompiler検証は[test policy](testing.md)に従う。
 
-```nu
-cargo fmt --manifest-path compiler/Cargo.toml --check
-cargo clippy --manifest-path compiler/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path compiler/Cargo.toml
-```
-
-local corpusの検証commandは`.scratch/`内のREADMEを正とし、tracked documentから特定のcontestや問題に依存するpathを
-contractにしない。
+local corpusの具体的な検証commandはraw artifactと同じ場所で管理する。
 
 performance comparisonでは各variantを同じinput、同じstdout検査、同じoptimization optionで準備し、shell起動costを
 除いて反復する。例は次の形とする。
@@ -187,9 +174,8 @@ performance comparisonでは各variantを同じinput、同じstdout検査、同�
 
 測定結果を更新するときは、日付、toolchain、workload、warmup/run数、stdout検証の有無を一緒に記録する。
 
-## M7で行わないこと
+## 維持する制約
 
-- performanceだけを理由にarray、collection、loop、moduleを言語へ追加しない。
 - closureとして渡される関数のcalling conventionを、direct callだけの測定から削除しない。
 - strict float option、integer wrap helper、trap checkをbenchmarkのために無効化しない。
 - absolute timeを異なるmachine間の合否判定に使わない。

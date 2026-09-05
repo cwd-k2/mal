@@ -50,7 +50,7 @@ partial application、local state を覚える callback、関数を生成する 
 
 ### 理由
 
-Rust は固定幅整数、明示的な data representation、algebraic data type、arena と ID を用いる compiler 内部表現を直接記述できる。単一 native executable にしやすく、将来 C ABI や QBE backend と接続する場合にも適している。
+Rust は固定幅整数、明示的な data representation、algebraic data type、arena と ID を用いる compiler 内部表現を直接記述できる。単一 native executable にしやすく、C ABI や追加backendとの接続にも適している。
 
 mal の言語としての最小性は、compiler の実装言語まで最小であることを要求しない。reference implementation では変更容易性だけでなく、型検査器と lowering の保守性を優先する。
 
@@ -255,9 +255,9 @@ surface sugarは一律にminimalismへ反するものではない。既存core�
 
 ### memory management
 
-implicit reference countingはruntime codeが小さくても、retain/releaseの挿入位置とcost modelを隠すため、v0.4では採用しない。source-level manual freeもaliasとlifetimeの負担を未記述のまま利用者へ移すなら最小とはみなさない。
+implicit reference countingはruntime codeが小さくても、retain/releaseの挿入位置とcost modelを隠すため採用しない。source-level manual freeもaliasとlifetimeの負担を未記述のまま利用者へ移すなら最小とはみなさない。
 
-v0.4のclosure environmentとruntime生成Stringは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
+closure environmentとruntime生成Stringは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
 
 ## D009. Floatは IEEE 754-2019 の固定profileとする
 
@@ -522,9 +522,6 @@ predefined constantの`false`と`true`はclosed valueとして参照できる。
 bindingは、そのlambda body内から自分自身を参照できる。product pattern、annotationのないbinding、lambdaを別の式で
 包んだRHSには例外を適用しない。forward referenceとmutual recursionは認めない。local bindingにも同じ自己参照例外を適用する。
 
-compilerが将来複数source fileを受け入れる場合、CLIが決めたfile順と各file内のsource orderを連結した順序を
-compilation unitのsource orderとする。
-
 ### 理由
 
 top-levelのeffectとfile間初期化順を導入せず、現在のstatic valueとclosureの生成だけでprogram initializationを閉じられる。
@@ -635,14 +632,13 @@ address計算で表現できない場合はtrapする。
 
 ### 根拠
 
-競技programmingのlocal corpusをv0.4で実装した結果、collection-orientedなworkloadでは用途別opaque operationが増え、
-iterative DFSとrow-profile DP遷移などalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
+localのalgorithm corpusをv0.4で実装した結果、collection-orientedなworkloadでは用途別opaque operationが増え、
+storageを使うalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
 保つ代わりにtrusted host APIと利用者の調査面積を増やしていた。
 
-representativeなprofile DPを`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostはinput、
-zero-initialized allocation、outputだけを担当し、valid profile列挙、compatible pairのCSR構築、row transition、
-集計をmalへ戻せた。small behavior caseとmaximum-order caseを
-完走したため、型なしscalar accessで当初の境界問題を解消できることを確認した。
+representativeなindexed workloadを`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostの責務をI/Oとallocationへ
+限定し、data構築、transition、集計をmalへ戻せた。behavior caseとmaximum-order caseを完走したため、型なしscalar accessで
+当初の境界問題を解消できることを確認した。
 
 組み込み`Array<T>`はlength、index、alias、allocation、bounds、resize、viewのpolicyを同時に持ち込み、
 `Ptr<T>`はaddressable type、aggregate layout、cast規則を追加する。scalar operationの合成で必要なprogramを

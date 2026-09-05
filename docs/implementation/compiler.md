@@ -1,6 +1,6 @@
 # Compiler implementation notes
 
-Status: Non-normative draft
+Status: Current non-normative overview
 
 ## pipeline
 
@@ -20,9 +20,11 @@ source
 
 reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
-active gateと受入条件は[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation record](m0.md)に残す。
+stageごとのownershipは[compilerの責務境界](responsibilities.md)、active gateと受入条件は
+[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation record](m0.md)に残す。
 
-初期実装は Rust standard library を中心に構成する。外部 crate は、標準 library だけで実装する場合より明確に単純になるものを必要に応じて追加し、特定の parser framework や compiler framework を前提にしない。
+実装はRust standard libraryを中心に構成する。外部crateは、標準libraryだけで実装する場合より明確に単純になるものを
+必要に応じて追加し、特定のparser frameworkやcompiler frameworkを前提にしない。
 
 lexer は handwritten、parser は recursive descent と Pratt parsing を組み合わせる。C compiler の起動、temporary file、diagnostic、target 設定は core compiler logic から分離する。
 
@@ -36,7 +38,9 @@ values  : ValueIdentifier -> Type
 externs : ValueIdentifier -> FunctionType
 ```
 
-初期環境には `Bool :: [Unit, Unit]`、`false :: Bool`、`true :: Bool` を入れ、top-level duplicate declaration を拒否する。alias は cycle を検出して展開し、構造的に比較する。parameter は明示型、binding は RHS から推論できる。overload resolution は operator と operand type の組で閉じる。
+predefined環境には`Bool :: [Unit, Unit]`、`false :: Bool`、`true :: Bool`を入れ、top-level duplicate declarationを
+拒否する。aliasはcycleを検出して展開し、構造的に比較する。parameterは明示型、bindingはRHSから推論できる。
+overload resolutionはoperatorとoperand typeの組で閉じる。
 
 name resolverは各value bindingにtop-levelまたは所属lambdaのidentityを記録する。capture listの各名前が外側のlocal valueへ解決されることを確認し、environment fieldをlist順に作る。bodyから別lambda所属のlocal bindingへの参照を見つけた場合、その名前がcapture listになければerrorとする。
 
@@ -56,7 +60,10 @@ extern declarationの型検査ではaliasを展開し、parameter/resultの全su
 
 複数 parameter/argument は product parameter/application、0 parameter/argument は `Unit` へ lower する。terminal `return` は body result へ、sequential binding は nested let または lambda application へ落とせる。
 
-surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ desugar する。数値・String comparison の backend result は、C の truth valueをそのまま mal value とみなさず、tag 0/1 の `Bool` representation へ変換する。
+surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
+desugarする。直ちにbranchとして消費する数値・String comparisonはtyped core以降で専用のprimitive branchとして保持し、
+C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
+`uint8_t`へ写像する。
 
 ```mal
 f(g(x), h(y))
@@ -75,7 +82,7 @@ c
 
 scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、対応する unsigned 型で演算して bit pattern を signed 型へ戻すなど、C の signed overflow に依存しない実装にする。
 
-extern symbol、generated header、linker input、runtime contextの初期contractは[C host ABI](../spec/c-host-abi.md)に従う。
+extern symbol、generated header、linker input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 
 product は compiler-generated struct、sum は tag と payload union、String は概念上 pointer と length に lower できる。
 
@@ -96,9 +103,10 @@ call siteのcalleeがimmutableなtop-level lambdaまたは現在のself closure�
 closureのfunction pointerを経由せず生成functionを直接callする。関数値として受け取ったcalleeとlocal closureは
 共通calling conventionを使う。この区別はsourceから観測できず、既知関数の細粒度call costを減らす。
 
-product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、
-元の値のfieldから直接bindingを生成する。product型の関数引数は引き続きCのaggregate値として渡すため、
-この局所的なcopy除去と引数のcalling conventionは区別する。
+product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、元の値のfieldから
+直接bindingを生成する。product parameterを持つ既知関数にはleaf fieldを個別に受けるdirect entryを生成し、共通closure
+entryはaggregateを受けるthunkとして残す。direct entryのleaf数は16個までとし、それを超える場合はaggregate entryへ
+fallbackする。product resultとfirst-class function callはtarget C ABIへ委ねる。
 
 `Ptr`はC backendで`uint8_t *`をfieldに持つ`MalPtr`へlowerする。`offset`はbyte addressを進め、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
@@ -109,34 +117,7 @@ reference runtime は closure environment とruntime String bytes 用の program
 
 Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
 
-floatからintegerへのC castは、NaN、infinity、範囲外を先に検査してmal trapへ分岐した後だけ実行する。integerからfloat、およびFloat64からFloat32への変換も、C implementation任せでties-to-evenを保証できないtargetではhelperまたは別のloweringを用いる。
-
-## QBE backend
-
-仕様安定後は typed core/ANF から QBE IL を生成できる。QBE は scalar と aggregate を区別し、aggregate argument は ABI 上 pointer 経由になる場合があるため、source-level product と単純に同一視せず lowering layer を置く。
-
-## milestone
-
-実装順と各gateの完了条件は[implementation roadmap](roadmap.md)を正とする。この文書の初期conformance caseは、該当するmilestoneのtest選定時に参照する。
-
-## 初期 conformance cases
-
-- left-to-right evaluation を extern log で観測する
-- signed add/multiply の wrap
-- zero division、signed min / -1、overshift、`byteAt` bounds の trap
-- sum index の範囲外、case の欠落・重複・arm type mismatch
-- duplicate type を持つ sum の tag preservation
-- byte literal の全escape、空・複数byte・非ASCII・不完全な`\xNN`のrejection
-- numeric separatorのdecimal/hex/binary/floatでの受理と、先頭・末尾・連続・prefix/decimal point/suffix隣接のrejection
-- `false`/`true` に対する `if` の branch 選択と condition の一回評価
-- `&&`/`||` の short-circuit と Bool equality の eager left-to-right 評価
-- capture 時点の値、nested capture、escaping closure、higher-order application
-- unlisted/duplicate/out-of-scope/top-level captureのrejectionとlambda境界ごとのexplicit forwarding
-- capture-free closure と capturing closure の共通 calling convention
-- functionを直接またはproduct/sum内に含むextern declarationのrejection
-- closure arena の allocation failure trap
-- floatのsigned zero、infinity、NaN comparison、subnormal、各演算の型精度へのrounding
-- decimal float literalの境界・ties-to-even・overflow rejection
-- Float32/64間およびintegerとの変換、float-to-integerのNaN/infinity/範囲外trap
-- extern String inputのcall中borrow、output copy、host scratch buffer変更後の独立性、allocation failure trap
-- top-level forward reference と effectful initializer の rejection
+floatからintegerへのC castは、NaN、infinity、範囲外を先に検査してmal trapへ分岐した後だけ実行する。
+integerからfloat、およびFloat64からFloat32への変換も、C implementation任せでties-to-evenを保証できないtargetではhelperまたは
+別のloweringを用いる。現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書には
+test一覧を重複させない。

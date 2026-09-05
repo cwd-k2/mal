@@ -4,9 +4,8 @@ Status: Current v0.5 profile
 
 ## compilation unit
 
-v0.5は単一compilation unitを基本とする。package manager、import、module、dependency resolutionは言語仕様に含めない。
-
-compiler が複数 source file を受け取る場合も、一つの top-level scope を構成する入力として扱う。file 間の順序規則は compiler CLI が明示しなければならない。
+v0.5は一つのsource fileからなる単一compilation unitを扱う。package manager、import、module、dependency resolutionは
+言語仕様に含めない。
 
 ## top-level item
 

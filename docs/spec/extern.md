@@ -71,7 +71,7 @@ printValue :: Int32 -> Unit := \(x :: Int32) {
 型の宣言だけでは ABI、ownership、lifetime、failure を定義できない。各 backend または embedding は少なくとも次を別途定義しなければならない。
 
 - symbol の名前解決と calling convention
-- scalar、product、sum、function、`String` の表現
+- scalar、product、sum、`String` の表現
 - opaque value の size、alignment、copy/drop の意味
 - host 側の一時 `String` buffer の取得方法と copy 後の解放
 - host failure を trap、process termination、戻り値のどれへ写像するか
@@ -98,9 +98,12 @@ storageを複製せず、lifetimeを延長しない。詳細は[memory primitive
 
 `extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`String` は target ABI によって引数・戻り値の渡し方が異なる。
 
-初期 C backend は mal 用の一貫した C representation を生成し、必要に応じて手書きまたは生成した小さな C adapter を介して host API を呼ぶ。C header parser や C type system は mal に導入しない。
+reference C backendはmal用の一貫したC representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
+host APIを呼ぶ。C header parserやC type systemはmalに導入しない。
 
-reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC source、object、static archive、shared objectをlinker inputとして渡す。symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。初期の正確なmappingは[C host ABI](c-host-abi.md)に定める。
+reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC source、object、static archive、shared objectを
+linker inputとして渡す。symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
+[C host ABI](c-host-abi.md)に定める。
 
 ## 安全性の境界
 

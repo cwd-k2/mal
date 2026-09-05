@@ -123,8 +123,3 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 ## failure
 
 回復可能なhost failureは明示的なsum resultとしてAPIに表す。ABI共通のhidden error channel、`errno` mapping、exception translationは持たない。回復不能なcontract violationは`mal_trap`を呼べる。
-
-## 実装済みsubset
-
-reference compilerは`Unit`、全fixed-width numeric scalar、product/sum aggregate、opaque handle、`String`、`Ptr`、
-`MalContext *`、`mal_trap`、`mal_string_copy`、`mal_ext_` symbolを実装する。

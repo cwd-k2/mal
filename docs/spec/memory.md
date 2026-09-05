@@ -61,4 +61,4 @@ aggregateはscalar fieldを個別に読み、既存のconstructorでmal valueと
 ## minimality
 
 この機能はcollection、allocator、bounds policyを追加せず、indexed storageに共通するmechanismだけを提供する。
-採択理由と競技programによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。
+採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。

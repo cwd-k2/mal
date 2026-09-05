@@ -13,7 +13,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 
 | 規範 | P / N / E | X |
 |---|---|---|
-| [`scope`: malが持つもの](../spec/scope.md#mal-が持つもの) | 各機能は以下の対応行で検証 | M0〜M5のchecked-in example（`compiler/tests/driver.rs`） |
+| [`scope`: malが持つもの](../spec/scope.md#mal-が持つもの) | 各機能は以下の対応行で検証 | M0〜M6のchecked-in example（`compiler/tests/driver.rs`） |
 | [`scope`: 持たないもの](../spec/scope.md#mal-が持たないもの) | `rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`）、`rejects_non_associative_operator_chains`（`compiler/tests/parser.rs`） | — |
 | [`scope`: named data](../spec/scope.md#named-data) | P/E: `expands_aliases_and_compares_types_structurally`、`checks_sum_injection_payload_and_index`（`compiler/tests/check.rs`） | `executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
 | [`scope`: memoryとmutable data](../spec/scope.md#memory-と-mutable-data) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `exposes_copyable_opaque_handles_to_the_host`（`compiler/tests/c_emit.rs`） |
@@ -23,9 +23,9 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`types`: String](../spec/types.md#string) | P/N: `checks_string_literals_as_immutable_bytes`、`rejects_unsupported_or_mistyped_string_operations`（`compiler/tests/check.rs`） | `emits_static_string_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
 | [`memory`: Ptrとprimitive](../spec/memory.md) | P/N/E: `resolves_memory_primitives_and_the_ptr_type`（`compiler/tests/resolve.rs`）、`checks_ptr_extern_signatures_and_memory_primitives`、`checks_memory_primitives_for_every_numeric_scalar`、`rejects_mistyped_or_first_class_memory_primitives`（`compiler/tests/check.rs`） | `executes_unaligned_ptr_access_for_every_numeric_scalar`（`compiler/tests/c_emit.rs`） |
 | [`types`: Unit](../spec/types.md#unit) | P/E: `checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `emits_the_m0_host_abi_and_executes_the_host_example`（`compiler/tests/c_emit.rs`） |
-| [`types`: 直積](../spec/types.md#直積) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`） | `executes_nested_products_destructuring_and_multiple_arguments`（`compiler/tests/c_emit.rs`） |
+| [`types`: 直積](../spec/types.md#直積) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`） | `executes_nested_products_destructuring_and_multiple_arguments`、`passes_known_product_arguments_through_a_direct_entry`、`flattens_nested_products_only_at_known_call_entries`（`compiler/tests/c_emit.rs`） |
 | [`types`: 直和](../spec/types.md#直和) | P/N/E: `checks_sum_injection_payload_and_index`、`checks_case_exhaustiveness_uniqueness_and_result_types`（`compiler/tests/check.rs`）、`rejects_single_member_sums_and_trailing_commas`（`compiler/tests/parser.rs`） | `preserves_duplicate_sum_members_by_tag`、`executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
-| [`types`: predefined Bool](../spec/types.md#predefined-bool) | P/N/E: `checks_int32_and_bool_operator_families`（`compiler/tests/check.rs`）、`local_scope_can_shadow_predefined_and_outer_names`、`rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`） | `preserves_short_circuit_and_eager_bool_equality_order`（`compiler/tests/c_emit.rs`） |
+| [`types`: predefined Bool](../spec/types.md#predefined-bool) | P/N/E: `checks_int32_and_bool_operator_families`（`compiler/tests/check.rs`）、`local_scope_can_shadow_predefined_and_outer_names`、`rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`） | `preserves_short_circuit_and_eager_bool_equality_order`、`represents_bool_as_zero_or_one_across_the_c_abi`（`compiler/tests/c_emit.rs`） |
 | [`types`: transparent alias](../spec/types.md#transparent-alias) | P/N/E: `expands_aliases_and_compares_types_structurally`、`rejects_recursive_aliases_even_when_unused`（`compiler/tests/check.rs`） | `removes_type_aliases_and_preserves_backend_names`（`compiler/tests/core.rs`） |
 | [`types`: 関数型](../spec/types.md#関数型) | P/E: `function_types_are_right_associative`（`compiler/tests/parser.rs`）、`checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `executes_escaping_capturing_closures`（`compiler/tests/c_emit.rs`） |
 | [`types`: external opaque type](../spec/types.md#external-opaque-type) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `exposes_copyable_opaque_handles_to_the_host`（`compiler/tests/c_emit.rs`） |
@@ -75,7 +75,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | 規範 | P / N / E | X |
 |---|---|---|
 | [`programs`: compilation unit](../spec/programs.md#compilation-unit) | 単一sourceのprogram parseとCLI grammar（`compiler/tests/parser.rs`、`compiler/src/cli.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
-| [`programs`: top-level item](../spec/programs.md#top-level-item) | P/N/E: `type_and_external_declarations_are_visible_across_the_unit`（`compiler/tests/resolve.rs`）、`rejects_effectful_top_level_initializers`（`compiler/tests/check.rs`） | M0〜M5 example（`compiler/tests/driver.rs`） |
+| [`programs`: top-level item](../spec/programs.md#top-level-item) | P/N/E: `type_and_external_declarations_are_visible_across_the_unit`（`compiler/tests/resolve.rs`）、`rejects_effectful_top_level_initializers`（`compiler/tests/check.rs`） | M0〜M6 example（`compiler/tests/driver.rs`） |
 | [`programs`: entry point](../spec/programs.md#entry-point) | P/N: `rejects_invalid_executable_programs`（`compiler/tests/c_emit.rs`） | public `build` example tests（`compiler/tests/driver.rs`） |
 | [`grammar`: sourceとidentifier](../spec/grammar.md#source-と-identifier) | P/N/E: keyword、whitespace/comment、identifier、UTF-8 diagnostic tests（`compiler/tests/lexer.rs`、`compiler/src/source.rs`） | frontendを通る全native test |
 | [`grammar`: numeric separator](../spec/grammar.md#numeric-separator) | P/N/E: numeric separator tests（`compiler/tests/lexer.rs`） | M1/M5 examples（`compiler/tests/driver.rs`） |

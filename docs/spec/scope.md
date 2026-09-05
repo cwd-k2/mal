@@ -109,7 +109,7 @@ hash table、list、set も組み込み型ではない。必要な element type 
 
 v0.5はArray、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeはcompilation unitに含めるかhostが`extern`として提供する。
 
-複数 file を一つの compilation unit にすることは compiler CLI の機能としてよいが、module/import/dependency resolution にはしない。詳細は [プログラム構造](programs.md) に置く。
+compilation unitとfileの規則は[プログラム構造](programs.md)に置く。
 
 ## 設計原則
 
