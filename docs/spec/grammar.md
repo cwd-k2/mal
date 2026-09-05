@@ -77,6 +77,8 @@ product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
 storageSize ::= "@" type
+stringLength ::= "#" expression
+stringByteAccess ::= expression "#" expression
 
 byteLiteral ::= "'" byteUnit "'"
 byteUnit    ::= printableAsciiExceptQuoteOrBackslash
@@ -103,6 +105,8 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 |---|---|---|
 | call | `f(...)` | left |
 | storage size | `@T` | — |
+| String length | `#value` | right |
+| String byte access | `value # index` | non-associative |
 | unary | `- ! ~` | right |
 | multiplicative | `* / %` | left |
 | additive | `+ -` | left |
@@ -119,6 +123,9 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 
 `@`の直後はexpressionではなく`type`としてparseする。したがって`@String`は一つのatomic expressionであり、
 空白の有無は意味を変えない。標準の表記では`@`と型の間に空白を置かない。
+
+`#`はoperand数でString lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
+`value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。
 
 `[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
 

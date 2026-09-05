@@ -348,6 +348,10 @@ impl<'a> Formatter<'a> {
                 self.write(text);
                 self.previous = Previous::Unary;
             }
+            TokenKind::Hash if !self.previous.ends_expression() => {
+                self.write(text);
+                self.previous = Previous::Unary;
+            }
             TokenKind::DoubleColon
             | TokenKind::Bind
             | TokenKind::Arrow
@@ -367,6 +371,7 @@ impl<'a> Formatter<'a> {
             | TokenKind::Pipe
             | TokenKind::PipePipe
             | TokenKind::Caret
+            | TokenKind::Hash
             | TokenKind::ShiftLeft
             | TokenKind::ShiftRight => {
                 self.space();

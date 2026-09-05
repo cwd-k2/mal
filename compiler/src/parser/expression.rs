@@ -51,7 +51,12 @@ impl Parser<'_> {
     fn parse_prefix(&mut self) -> Result<Node<Expression>, Diagnostic> {
         if let Some(operator) = self.unary_operator() {
             let token = self.advance().clone();
-            let operand = self.parse_expression_bp(21)?;
+            let minimum = if operator == UnaryOperator::StringLength {
+                22
+            } else {
+                21
+            };
+            let operand = self.parse_expression_bp(minimum)?;
             let span = self.span(token.span.start(), operand.span.end());
             return Ok(Node::new(
                 Expression::Unary {
@@ -385,6 +390,7 @@ impl Parser<'_> {
             TokenKind::Star => (BinaryOperator::Multiply, 19, false),
             TokenKind::Slash => (BinaryOperator::Divide, 19, false),
             TokenKind::Percent => (BinaryOperator::Remainder, 19, false),
+            TokenKind::Hash => (BinaryOperator::StringAt, 21, true),
             _ => return None,
         })
     }
@@ -394,6 +400,7 @@ impl Parser<'_> {
             TokenKind::Minus => Some(UnaryOperator::Negate),
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
+            TokenKind::Hash => Some(UnaryOperator::StringLength),
             _ => None,
         }
     }

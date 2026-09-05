@@ -186,7 +186,7 @@ raw characterはprintable ASCIIからsingle quoteとbackslashを除いたもの�
 
 ### 理由
 
-malの`String`はUnicode stringではなくimmutable byte sequenceで、`byteAt`も`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
+malの`String`はUnicode stringではなくimmutable byte sequenceで、byte accessも`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
 
 `Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0au8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
 
@@ -771,3 +771,25 @@ functionとしての`sizeof(T)`は型を値引数に見せる。専用sigilはla
 
 productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory表現と対応するload/store戦略を
 別途決定してから対象へ加える。これにより現在のbackend layoutを将来のsource contractとして固定しない。
+
+## D028. Stringのlengthとbyte accessを`#` operatorで表す
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+
+### 決定
+
+Stringのbyte lengthを`#value :: UInt64`、0-based byte accessを
+`value # index :: UInt8`として表す。binary `#`のindexは`UInt64`で、範囲外はtrapし、operatorは
+non-associativeとする。`byteLength`と`byteAt`はpredefined valueから削除し、互換aliasを残さない。
+
+### 理由
+
+これらは通常のfunction valueではなく、すべてのString valueに常在する基本的な観測である。名前だけを
+predefined scopeへ置きながらfirst-class useを禁止するより、numeric scalarの算術や比較と同じく型付きoperator
+として表す方が、値が元から持つprimitive operationとambient nameの境界を明確にできる。
+
+unary `#`によるString byte lengthにはLuaなどの前例がある。binary `#`を同じoperator familyのbyte accessへ
+割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、StringがUnicode characterではなく
+immutable byte sequenceである現在の意味を保つ。

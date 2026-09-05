@@ -20,6 +20,16 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
+        if operator.kind == UnaryOperator::StringLength {
+            let value = self.check_expression(operand, Some(&Type::String))?;
+            return Ok(Expression {
+                kind: ExpressionKind::StringLength {
+                    value: Box::new(value),
+                },
+                ty: Type::UInt64,
+                span,
+            });
+        }
         if operator.kind == UnaryOperator::Negate
             && let Some(literal) = unparenthesized_integer(operand)
         {
@@ -104,6 +114,21 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
+        if operator.kind == BinaryOperator::StringAt {
+            let left = self.check_expression(left, Some(&Type::String))?;
+            let right = self.check_expression(right, Some(&Type::UInt64))?;
+            return Ok(Expression {
+                kind: ExpressionKind::StringAt {
+                    argument: Box::new(Expression {
+                        kind: ExpressionKind::Product(vec![left, right]),
+                        ty: Type::Product(vec![Type::String, Type::UInt64]),
+                        span,
+                    }),
+                },
+                ty: Type::UInt8,
+                span,
+            });
+        }
         let expected_integer = expected.filter(|expected| is_integer(expected));
         let expected_numeric =
             expected.filter(|expected| is_integer(expected) || is_float(expected));
@@ -167,6 +192,7 @@ impl Checker {
                 let result = left.ty.clone();
                 (left, right, result)
             }
+            BinaryOperator::StringAt => unreachable!("String access is checked separately"),
         };
         Ok(Expression {
             kind: ExpressionKind::Binary {

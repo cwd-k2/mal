@@ -2,7 +2,6 @@ use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::lexer::IntegerLiteral;
 use crate::resolve::ast as resolved;
-use crate::resolve::ast::{BYTE_AT_VALUE, BYTE_LENGTH_VALUE};
 
 use super::Checker;
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Parameter, Type};
@@ -18,9 +17,7 @@ impl Checker {
     ) -> Result<Expression, Diagnostic> {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
-                kind: if matches!(reference.id, BYTE_LENGTH_VALUE | BYTE_AT_VALUE)
-                    || super::memory::is_memory_primitive(reference.id)
-                {
+                kind: if super::memory::is_memory_primitive(reference.id) {
                     return Err(Diagnostic::error(format!(
                         "primitive `{}` must be called directly",
                         reference.name.text
@@ -239,11 +236,6 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: crate::source::Span,
     ) -> Result<Expression, Diagnostic> {
-        if let resolved::Expression::Reference(reference) = &callee.kind
-            && let Some(result) = self.check_string_call(reference.id, arguments, span)
-        {
-            return result;
-        }
         if let resolved::Expression::Reference(reference) = &callee.kind
             && let Some(result) = self.check_memory_call(reference.id, arguments, span)
         {

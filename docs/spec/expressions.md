@@ -70,8 +70,9 @@ makeFunction()(x)
 
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
-`byteLength`、`byteAt`、および[memory](memory.md#primitive)に列挙するoperationはdirect-call-only primitiveである。
-通常のidentifierと同じ形でcallするが、値としてbindingしたり引数として渡したりできない。
+[memory](memory.md#primitive)に列挙するoperationはdirect-call-only primitiveである。通常のidentifierと同じ形で
+callするが、値としてbindingしたり引数として渡したりできない。Stringのlengthとbyte accessは名前付きprimitive
+ではなく、[`#` operator](strings.md#operator)で表す。
 
 ## storage size
 

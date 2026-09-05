@@ -48,7 +48,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`execution`: 再帰](../spec/execution.md#再帰) | P/N/E: recursion acceptance/rejection群（`compiler/tests/resolve.rs`、`compiler/tests/check.rs`） | `executes_top_level_and_local_recursive_closures`、direct-tail-call tests（`compiler/tests/c_emit.rs`） |
 | [`execution`: 整数](../spec/execution.md#整数) | P/N/E: `checks_integer_operators_for_every_fixed_width_type`（`compiler/tests/check.rs`） | wrapping、shift、division/remainder tests（`compiler/tests/c_emit.rs`） |
 | [`execution`: 浮動小数点](../spec/execution.md#浮動小数点) | P/N/E: float literal/operator/conversion tests（`compiler/tests/check.rs`） | strict arithmetic、comparison、conversion tests（`compiler/tests/c_emit.rs`）、`strict-float` example（`compiler/tests/driver.rs`） |
-| [`execution`: trap](../spec/execution.md#trap) | trapを生じる各規則のfocused test | shift、division/remainder、`byteAt`、allocation、float conversion trap（`compiler/tests/c_emit.rs`） |
+| [`execution`: trap](../spec/execution.md#trap) | trapを生じる各規則のfocused test | shift、division/remainder、String byte access、allocation、float conversion trap（`compiler/tests/c_emit.rs`） |
 | [`execution`: core calculus](../spec/execution.md#core-calculus) | surface消去（`compiler/tests/core.rs`）、評価順序のANF化（`compiler/tests/anf.rs`） | 代表経路は各native test |
 
 ## String、extern、C ABI
@@ -57,7 +57,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 |---|---|---|
 | [`strings`: 値とstorage](../spec/strings.md#値とstorage) | P/E: `checks_string_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests（`compiler/tests/c_emit.rs`） |
 | [`strings`: literal](../spec/strings.md#literal) | P/N/E: string lexer tests（`compiler/tests/lexer.rs`） | `emits_static_string_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
-| [`strings`: primitive](../spec/strings.md#primitive) | P/N/E: string primitive tests（`compiler/tests/check.rs`） | equality、`byteAt`、bounds trap tests（`compiler/tests/c_emit.rs`） |
+| [`strings`: operator](../spec/strings.md#operator) | P/N/E: `parses_string_length_and_byte_access_with_access_precedence`、`rejects_chained_string_byte_access`（`compiler/tests/parser.rs`）、`checks_string_operators_and_byte_wise_equality`、`rejects_unsupported_or_mistyped_string_operations`（`compiler/tests/check.rs`） | `executes_string_operators_and_byte_wise_equality`、`traps_out_of_range_string_byte_access`（`compiler/tests/c_emit.rs`） |
 | [`strings`: mutable bytesとの分離](../spec/strings.md#mutable-bytesとの分離) | P/N: opaque typeとunsupported operation tests（`compiler/tests/check.rs`） | `string-round-trip` example（`compiler/tests/driver.rs`） |
 | [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | host adapterを持つchecked-in example（`compiler/tests/driver.rs`） |
 | [`extern`: extern-safe type](../spec/extern.md#extern-safe-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/c_emit.rs`） |

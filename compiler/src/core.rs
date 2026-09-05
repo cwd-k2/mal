@@ -175,7 +175,7 @@ impl Lowerer {
                     operator: match operator.kind {
                         UnaryOperator::Negate => UnaryPrimitive::Negate,
                         UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
-                        UnaryOperator::LogicalNot => {
+                        UnaryOperator::LogicalNot | UnaryOperator::StringLength => {
                             unreachable!("type checking rejects non-numeric core primitives")
                         }
                     },
@@ -191,6 +191,9 @@ impl Lowerer {
                     || operator.kind == BinaryOperator::LogicalOr
                 {
                     return self.lower_short_circuit(operator.kind, left, right, expression.span);
+                }
+                if operator.kind == BinaryOperator::StringAt {
+                    unreachable!("String access is lowered before generic binary operators");
                 }
                 if matches!(
                     operator.kind,

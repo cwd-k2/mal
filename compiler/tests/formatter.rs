@@ -44,6 +44,14 @@ fn keeps_storage_size_attached_to_its_type() {
 }
 
 #[test]
+fn formats_unary_and_binary_string_operators() {
+    assert_eq!(
+        format("inspect:=\\(value::String){# value+value#1u64;};"),
+        "inspect := \\(value :: String) { #value + value # 1u64 };\n"
+    );
+}
+
+#[test]
 fn groups_declarations_and_separates_top_level_bindings() {
     let formatted = format(
         "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\

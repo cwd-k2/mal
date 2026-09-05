@@ -522,13 +522,13 @@ void mal_ext_inspect(MalContext *context, MalString value) {
 }
 
 #[test]
-fn executes_string_primitives_and_byte_wise_equality() {
+fn executes_string_operators_and_byte_wise_equality() {
     let output = compile_and_run(
         r#"main :: Unit -> Int32 := \() {
   value := "あ\0\xff";
-  ok := (byteLength(value) == 5u64) &&
-        (byteAt(value, 0u64) == 227u8) &&
-        (byteAt(value, 4u64) == 255u8) &&
+  ok := (#value == 5u64) &&
+        (value # 0u64 == 227u8) &&
+        (value # 4u64 == 255u8) &&
         (value == "\xe3\x81\x82\x00\xff") &&
         (value != "あ\0\xfe") &&
         ("" == "");
@@ -545,7 +545,7 @@ fn executes_string_primitives_and_byte_wise_equality() {
 
 #[test]
 fn traps_out_of_range_string_byte_access() {
-    for expression in [r#"byteAt("", 0u64)"#, r#"byteAt("a", 1u64)"#] {
+    for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
@@ -564,7 +564,7 @@ fn copies_host_string_results_into_program_lifetime_storage() {
         r#"extern fetch :: Unit -> String;
 main :: Unit -> Int32 := \() {
   value := extern fetch();
-  ok := (value == "host\0\xff") && (byteAt(value, 5u64) == 255u8);
+  ok := (value == "host\0\xff") && (value # 5u64 == 255u8);
   if (ok) then { 0 } else { 1 };
 };"#,
     )
@@ -783,7 +783,7 @@ fn executes_unaligned_string_descriptor_access() {
            storeString(slot, \"held\\0\\xff\");\n\
            extern inspectStringSlot();\n\
            stored := loadString(slot);\n\
-           if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (byteAt(stored, 5u64) == 255u8)) then {\n\
+           if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
              0\n\
            } else {\n\
              1\n\

@@ -256,14 +256,15 @@ fn checks_string_literals_as_immutable_bytes() {
 }
 
 #[test]
-fn checks_string_primitives_and_byte_wise_equality() {
+fn checks_string_operators_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: String -> UInt64 := \(value :: String) { byteLength(value); };
+        r#"length :: String -> UInt64 := \(value :: String) { #value; };
 item :: (String, UInt64) -> UInt8 := \(value :: String, index :: UInt64) {
-  byteAt(value, index);
+  value # index;
 };
 same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
-different :: Unit -> Bool := \() { "a" != "b"; };"#,
+different :: Unit -> Bool := \() { "a" != "b"; };
+literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };"#,
     );
     let ExpressionKind::Lambda(length) = &top_binding(&program, 0).value.kind else {
         panic!("expected lambda");
@@ -285,6 +286,10 @@ different :: Unit -> Bool := \() { "a" != "b"; };"#,
         };
         assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
     }
+    let Type::Function { result, .. } = &top_binding(&program, 4).value.ty else {
+        panic!("expected function type");
+    };
+    assert_eq!(result.as_ref(), &Type::UInt64);
 }
 
 #[test]
@@ -292,9 +297,9 @@ fn rejects_unsupported_or_mistyped_string_operations() {
     for text in [
         r#"bad := "a" + "b";"#,
         r#"bad := "a" < "b";"#,
-        r#"bad := byteLength(1);"#,
-        r#"bad := byteAt("a", 0u8);"#,
-        "bad := byteLength;",
+        r#"bad := #1;"#,
+        r#"bad := "a" # 0u8;"#,
+        r#"bad := 1 # 0u64;"#,
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

@@ -1,6 +1,6 @@
 # String round-trip example
 
-This example receives arbitrary bytes from a host scratch buffer, validates them with String primitives, and returns the borrowed String to the host. The host copies its result with `mal_string_copy`, then overwrites and frees the scratch buffer before mal observes the value.
+This example receives arbitrary bytes from a host scratch buffer, validates them with String operators, and returns the borrowed String to the host. The host copies its result with `mal_string_copy`, then overwrites and frees the scratch buffer before mal observes the value.
 
 From the repository root in Nushell:
 

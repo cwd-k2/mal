@@ -23,19 +23,20 @@ mal sourceはUTF-8である。raw source characterはUTF-8 bytesとしてliteral
 
 escapeは最低限`\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN`を認める。`\xNN`はちょうど2桁のhexadecimal digitで任意の1 byteを表す。
 
-## primitive
+## operator
 
-Stringに組み込むoperationは次だけである。
+Stringに組み込む観測operatorは次である。
 
 ```mal
-byteLength :: String -> UInt64;
-byteAt :: (String, UInt64) -> UInt8;
+#value
+value # index
 ```
 
-`byteLength`と`byteAt`はcompiler primitiveであり、名前をfirst-class function値として取り出せない。上記の
-direct callで使用する。両名はtop-levelでは予約され、local scopeでは通常のvalue bindingでshadowできる。
+`#value`はbyte lengthを`UInt64`で返す。`value # index`は`UInt64`のindexにあるbyteを`UInt8`で返す。
+いずれもString descriptorを観測する組み込みoperatorであり、function valueとしては存在しない。
+`byteLength`と`byteAt`はpredefined nameではない。
 
-indexは0-basedで、範囲外の`byteAt`はtrapする。
+indexは0-basedで、範囲外の`#` accessはtrapする。binary `#`はnon-associativeである。
 
 `==`と`!=`はbyte-wise equalityとする。orderingとconcatenationは定義しない。
 

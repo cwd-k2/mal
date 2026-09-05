@@ -2,11 +2,10 @@ use malc::ast;
 use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
-    self as resolved, BYTE_AT_VALUE, BYTE_LENGTH_VALUE, FALSE_VALUE, INT8_TYPE, INT16_TYPE,
-    INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_STRING_VALUE, LOAD_UINT8_VALUE,
-    OFFSET_VALUE, PTR_TYPE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_STRING_VALUE,
-    STORE_UINT8_VALUE, STRING_TYPE, TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
-    ValueOwner,
+    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE,
+    LOAD_PTR_VALUE, LOAD_STRING_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE, PTR_TYPE, STORE_INT64_VALUE,
+    STORE_PTR_VALUE, STORE_STRING_VALUE, STORE_UINT8_VALUE, STRING_TYPE, TopItem, UINT8_TYPE,
+    UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
 
@@ -76,22 +75,6 @@ fn preserves_string_literals_and_resolves_the_predefined_type() {
         panic!("expected named type");
     };
     assert_eq!(reference.id, STRING_TYPE);
-}
-
-#[test]
-fn resolves_string_primitives_as_predefined_values() {
-    let program = resolve_ok(r#"length := byteLength("abc"); item := byteAt("abc", 1u64);"#);
-    for (index, expected) in [(0, BYTE_LENGTH_VALUE), (1, BYTE_AT_VALUE)] {
-        let resolved::Expression::Call { callee, .. } =
-            &top_binding(&program.items[index]).value.kind
-        else {
-            panic!("expected primitive call");
-        };
-        let resolved::Expression::Reference(reference) = &callee.kind else {
-            panic!("expected primitive reference");
-        };
-        assert_eq!(reference.id, expected);
-    }
 }
 
 #[test]
@@ -495,11 +478,6 @@ fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
         ),
         ("Bool :: Int32;", "duplicate type `Bool`"),
         ("false := 0;", "duplicate value `false`"),
-        ("byteLength := 0;", "duplicate value `byteLength`"),
-        (
-            "extern byteAt :: Unit -> Unit;",
-            "duplicate top-level value `byteAt`",
-        ),
         (
             "extern run :: Unit -> Unit; run := 0;",
             "duplicate value `run`",
@@ -508,6 +486,15 @@ fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     for (text, expected) in cases {
         assert_eq!(resolve_error(text).message, expected, "input: {text}");
     }
+}
+
+#[test]
+fn removed_string_primitive_names_are_ordinary_names() {
+    resolve_ok("byteLength := 0; byteAt := 1;");
+    assert_eq!(
+        resolve_error("value := byteLength(\"abc\");").message,
+        "unknown value `byteLength`"
+    );
 }
 
 #[test]

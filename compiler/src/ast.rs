@@ -159,10 +159,12 @@ pub enum UnaryOperator {
     Negate,
     LogicalNot,
     BitwiseNot,
+    StringLength,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
+    StringAt,
     Multiply,
     Divide,
     Remainder,

@@ -68,6 +68,9 @@ desugarする。直ちにbranchとして消費する数値・String comparison�
 C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
 `uint8_t`へ写像する。
 
+String operatorの`#value`と`value # index`は型検査後にそれぞれString lengthとbounds-checked byte accessの
+専用core operationへlowerする。predefined value lookupや通常のfunction callは経由しない。
+
 ```mal
 f(g(x), h(y))
 ```

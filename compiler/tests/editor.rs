@@ -26,7 +26,13 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
         document
             .completions()
             .iter()
-            .any(|symbol| { symbol.name == "byteLength" && symbol.kind == SymbolKind::Function })
+            .any(|symbol| { symbol.name == "offset" && symbol.kind == SymbolKind::Function })
+    );
+    assert!(
+        !document
+            .completions()
+            .iter()
+            .any(|symbol| symbol.name == "byteLength" || symbol.name == "byteAt")
     );
 }
 
@@ -60,6 +66,18 @@ fn storage_size_types_support_hover_and_definition() {
         document.definition(reference.id).unwrap().span.start(),
         declaration_offset
     );
+}
+
+#[test]
+fn string_operators_report_their_result_types() {
+    let text =
+        "inspect :: String -> UInt64 := \\(value :: String) { #value + UInt64(value # 0); };";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let length_operator = text.find('#').unwrap();
+    let access_operator = text.rfind('#').unwrap();
+
+    assert_eq!(document.hover_at(length_operator).unwrap().ty, "UInt64");
+    assert_eq!(document.hover_at(access_operator).unwrap().ty, "UInt8");
 }
 
 #[test]

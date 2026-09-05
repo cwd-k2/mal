@@ -78,7 +78,7 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 - integer division または remainder の divisor が 0
 - 最小 signed integer を `-1` で割る、または remainder を求める
 - shift count が負、またはleft operandのbit width以上
-- `byteAt` の index が範囲外
+- String byte access `value # index` のindexが範囲外
 
 `<<`と`>>`のright operandはleft operandと同じ整数型で、結果も同じ型である。`<<`は数学的な`2^count`倍を
 operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する

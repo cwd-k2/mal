@@ -116,6 +116,43 @@ fn calls_bind_more_tightly_than_unary_operators() {
 }
 
 #[test]
+fn parses_string_length_and_byte_access_with_access_precedence() {
+    let Expression::Unary { operator, operand } = binding_value(r#"value := #make();"#) else {
+        panic!("expected String length");
+    };
+    assert_eq!(operator.kind, UnaryOperator::StringLength);
+    assert!(matches!(operand.kind, Expression::Call { .. }));
+
+    let Expression::Binary {
+        operator,
+        left,
+        right,
+    } = binding_value(r#"value := "abc" # 1u64 + 2u8;"#)
+    else {
+        panic!("expected addition");
+    };
+    assert_eq!(operator.kind, BinaryOperator::Add);
+    assert!(matches!(
+        left.kind,
+        Expression::Binary {
+            operator: malc::ast::Node {
+                kind: BinaryOperator::StringAt,
+                ..
+            },
+            ..
+        }
+    ));
+    assert!(matches!(right.kind, Expression::Integer(_)));
+}
+
+#[test]
+fn rejects_chained_string_byte_access() {
+    let source = source(r#"value := "abc" # 0u64 # 1u64;"#);
+    let error = parse(&source).expect_err("String byte access must be non-associative");
+    assert_eq!(error.message, "non-associative operator chain");
+}
+
+#[test]
 fn parses_a_byte_literal_as_an_atomic_expression() {
     assert_eq!(binding_value("value := ')';"), Expression::Byte(b')'));
     assert_eq!(binding_value(r"value := '\xff';"), Expression::Byte(255));

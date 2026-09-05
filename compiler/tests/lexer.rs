@@ -259,7 +259,7 @@ fn rejects_malformed_string_literals_at_the_lexer_boundary() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ @ << >>"),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ @ # << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -293,6 +293,7 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::PipePipe,
             TokenKind::Caret,
             TokenKind::At,
+            TokenKind::Hash,
             TokenKind::ShiftLeft,
             TokenKind::ShiftRight,
             TokenKind::Eof,

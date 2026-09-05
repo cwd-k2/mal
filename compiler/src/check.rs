@@ -17,7 +17,6 @@ mod integer;
 mod memory;
 mod operator;
 mod product;
-mod string;
 mod types;
 
 pub fn type_name(ty: &ast::Type) -> String {

@@ -237,7 +237,14 @@ fn serves_symbols_completion_and_semantic_tokens() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|item| item["label"] == "byteLength" && item["kind"] == 3)
+            .any(|item| item["label"] == "offset" && item["kind"] == 3)
+    );
+    assert!(
+        !completion["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| { item["label"] == "byteLength" || item["label"] == "byteAt" })
     );
 
     let tokens = server.handle(json!({

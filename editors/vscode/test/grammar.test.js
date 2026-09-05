@@ -62,3 +62,16 @@ test('highlights the storage-size sigil and its type separately', async () => {
     assert.ok(token.scopes.includes('entity.name.type.mal'));
   }
 });
+
+test('highlights unary and binary String operators', async () => {
+  const grammar = await loadGrammar();
+  const line = 'length := #value; byte := value # 1u64;';
+  const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
+    text: line.slice(token.startIndex, token.endIndex),
+    scopes: token.scopes,
+  }));
+
+  const hashes = tokens.filter((token) => token.text === '#');
+  assert.equal(hashes.length, 2);
+  assert.ok(hashes.every((token) => token.scopes.includes('keyword.operator.mal')));
+});
