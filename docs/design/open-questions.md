@@ -18,11 +18,7 @@ immutable byte sequenceの名称については解決済み。[D017](decisions.m
 opaque resource safetyと`extern` ABIについては解決済み。[D015](decisions.md#d015-opaque-valueはcopyable-handleとする)と
 [D016](decisions.md#d016-externはmal-c-abiとadapterを介する)を参照する。
 
-## Q5. top-level initialization
-
-**問い:** top-level RHS に任意の式や `extern` call を許すか。許す場合、file 間を含む実行順は何か。
-
-**暫定案:** closed constant expression と lambda に制限し、`extern` は禁止。value は source order で scope に入り、annotated lambda の自己参照だけ例外とする。
+top-level initializationの制限と自己参照例外は解決済み。[D018](decisions.md#d018-top-level-initializationは作用のないclosed-valueに限定する)を参照する。
 
 ## Q6. trap の観測
 

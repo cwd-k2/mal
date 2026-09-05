@@ -123,7 +123,7 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### Specification gate
 
-- [Q5 top-level initialization](../design/open-questions.md#q5-top-level-initialization)のsource-orderと自己参照例外を確定する。
+- top-level initializationのsource orderと自己参照例外は[D018](../design/decisions.md#d018-top-level-initializationは作用のないclosed-valueに限定する)に従う。
 
 ### Scope
 
@@ -176,3 +176,13 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 - `spec/`、generated ABI、compiler behavior、exampleに既知の矛盾がない。
 - 全milestoneのpublic exampleとconformance suiteがpinned environmentで成功する。
 - v0.4で意図的に提供しない機能がactive planning textではなくscopeとして記述されている。
+
+## Deferred: compact numeric suffixes
+
+M4の完了を妨げない後続taskとして、integer literalの型suffixを`2UInt8`、`1000Int64`の型名形式から
+`2u8`、`1000i64`の短い形式へ変更する。八つの固定幅integer型に`i8`、`i16`、`i32`、`i64`、`u8`、`u16`、`u32`、`u64`を
+対応させる。
+
+- `spec/`、lexer、diagnostic、test、exampleの表記を同じchangeで更新する。
+- numeric separatorとradix prefixを含むcaseを検査し、suffixのないliteralの`Int64` defaultは変更しない。
+- 旧形式の型名suffixを互換syntaxとして残さず、lexer boundaryで利用者向けerrorにする。

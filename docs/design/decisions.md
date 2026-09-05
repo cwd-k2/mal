@@ -503,3 +503,28 @@ UTF-8を保証しない点は型名だけでは伝わらないため、型とlit
 
 `Bytes`への改名はencoding上の誤解を減らせる一方、値の意味や安全性を変えず、既存文書とprogramを一斉に変更する移行コストが
 生じるため採用しない。mutable byte storageは引き続きexternal opaque typeで表し、`String`へmutable semanticsを追加しない。
+
+## D018. top-level initializationは作用のないclosed valueに限定する
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4
+
+### 決定
+
+top-level value bindingはsource orderでscopeに入る。RHSはliteral、product、sum injection、integer conversion、および
+lambdaからなる作用のないclosed expressionに限定し、`extern` callと他のtop-level valueへの参照は認めない。
+predefined constantの`false`と`true`はclosed valueとして参照できる。
+
+通常のsequential bindingに対する唯一の例外として、単一のvalue name pattern、型annotation、直接のlambda RHSを持つ
+bindingは、そのlambda body内から自分自身を参照できる。product pattern、annotationのないbinding、lambdaを別の式で
+包んだRHSには例外を適用しない。forward referenceとmutual recursionは認めない。local bindingにも同じ自己参照例外を適用する。
+
+compilerが将来複数source fileを受け入れる場合、CLIが決めたfile順と各file内のsource orderを連結した順序を
+compilation unitのsource orderとする。
+
+### 理由
+
+top-levelのeffectとfile間初期化順を導入せず、現在のstatic valueとclosureの生成だけでprogram initializationを閉じられる。
+自己再帰の対象を構文的に限定することで、一般的なrecursive value、初期化中のcycle、暗黙のfixed-point semanticsを追加せずに
+反復に必要な関数再帰を提供できる。
