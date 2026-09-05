@@ -26,6 +26,10 @@ headerは少なくともC11でcompileでき、同じprogramについて生成し
 typedef struct MalContext MalContext;
 
 typedef struct {
+    uint8_t unused;
+} MalUnit;
+
+typedef struct {
     const uint8_t *data;
     uint64_t length;
 } MalString;
@@ -40,6 +44,8 @@ MalString mal_string_copy(
 ```
 
 `MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_string_copy`はreference runtimeが提供する。
+
+`MalUnit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
 `mal_string_copy`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたStringはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
 
@@ -102,4 +108,4 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 
 ## 実装済みsubset
 
-reference compilerは現在、`Unit`、全fixed-width integer scalar、`MalContext *`、`mal_ext_` symbolを実装する。String、opaque handle、aggregate ABIは後続milestoneで、この文書に対するC conformance testとともに追加する。
+reference compilerは現在、`Unit`、全fixed-width integer scalar、product/sum aggregate、`MalContext *`、`mal_ext_` symbolを実装する。Stringとopaque handleは後続の実装で、この文書に対するC conformance testとともに追加する。

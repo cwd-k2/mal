@@ -20,7 +20,6 @@ pub struct Output {
 }
 
 pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
-    validate_externals(program)?;
     let main = find_main(program)?;
     let mut types = TypeRegistry::default();
     types.collect_program(program);
@@ -32,8 +31,7 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     source.push_str(
         "#include <stddef.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n",
     );
-    source.push_str("typedef struct { uint8_t unused; } MalUnit;\n\n");
-    source.push_str(&types.declarations());
+    source.push_str(&types.source_declarations());
     source.push_str(&body.environment_declarations);
     source.push_str(&runtime::emit(&body.needs));
     source.push_str(&body.globals);
@@ -44,24 +42,8 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
     Ok(Output {
         source,
-        header: emit_header(program),
+        header: emit_header(program, &types),
     })
-}
-
-fn validate_externals(program: &Program) -> Result<(), Diagnostic> {
-    for external in &program.externals {
-        if !is_m1_scalar(&external.parameter) || !is_m1_scalar(&external.result) {
-            return Err(Diagnostic::error(format!(
-                "external operation `{}` is outside the scalar C ABI",
-                external.name
-            ))
-            .with_primary(
-                external.span,
-                "only Unit and fixed-width integer extern parameters and results are supported",
-            ));
-        }
-    }
-    Ok(())
 }
 
 fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding, Diagnostic> {
@@ -90,22 +72,16 @@ fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding,
     Ok(main)
 }
 
-fn emit_header(program: &Program) -> String {
+fn emit_header(program: &Program, types: &TypeRegistry) -> String {
     let mut output = String::from(
-        "#ifndef MAL_PROGRAM_MAL_H\n#define MAL_PROGRAM_MAL_H\n\n#include <stdint.h>\n\n#define MAL_C_ABI_VERSION 0x000400u\n\ntypedef struct MalContext MalContext;\n\n_Noreturn void mal_trap(MalContext *context, const char *message);\n\n",
+        "#ifndef MAL_PROGRAM_MAL_H\n#define MAL_PROGRAM_MAL_H\n\n#include <stdint.h>\n\n#define MAL_C_ABI_VERSION 0x000400u\n\ntypedef struct MalContext MalContext;\ntypedef struct { uint8_t unused; } MalUnit;\n\n_Noreturn void mal_trap(MalContext *context, const char *message);\n\n",
     );
+    output.push_str(&types.header_declarations());
     for external in &program.externals {
-        let result = match external.result {
-            Type::Unit => "void",
-            Type::Int8 => "int8_t",
-            Type::Int16 => "int16_t",
-            Type::Int32 => "int32_t",
-            Type::Int64 => "int64_t",
-            Type::UInt8 => "uint8_t",
-            Type::UInt16 => "uint16_t",
-            Type::UInt32 => "uint32_t",
-            Type::UInt64 => "uint64_t",
-            _ => unreachable!("extern ABI is validated before header emission"),
+        let result = if external.result == Type::Unit {
+            "void".into()
+        } else {
+            types.c_type(&external.result)
         };
         write!(
             output,
@@ -113,40 +89,17 @@ fn emit_header(program: &Program) -> String {
             external.name
         )
         .unwrap();
-        if external.parameter != Type::Unit {
-            write!(output, ", {} value", c_scalar_type(&external.parameter)).unwrap();
+        match &external.parameter {
+            Type::Unit => {}
+            Type::Product(elements) => {
+                for (index, element) in elements.iter().enumerate() {
+                    write!(output, ", {} argument_{index}", types.c_type(element)).unwrap();
+                }
+            }
+            parameter => write!(output, ", {} value", types.c_type(parameter)).unwrap(),
         }
         output.push_str(");\n");
     }
     output.push_str("\n#endif\n");
     output
-}
-
-fn is_m1_scalar(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Unit
-            | Type::Int8
-            | Type::Int16
-            | Type::Int32
-            | Type::Int64
-            | Type::UInt8
-            | Type::UInt16
-            | Type::UInt32
-            | Type::UInt64
-    )
-}
-
-fn c_scalar_type(ty: &Type) -> &'static str {
-    match ty {
-        Type::Int8 => "int8_t",
-        Type::Int16 => "int16_t",
-        Type::Int32 => "int32_t",
-        Type::Int64 => "int64_t",
-        Type::UInt8 => "uint8_t",
-        Type::UInt16 => "uint16_t",
-        Type::UInt32 => "uint32_t",
-        Type::UInt64 => "uint64_t",
-        _ => unreachable!("called only for integer scalar types"),
-    }
 }

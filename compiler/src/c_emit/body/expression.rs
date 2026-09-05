@@ -19,18 +19,7 @@ impl BodyEmitter<'_> {
                     self.emit_atom(argument)
                 )
             }
-            Operation::ExternalCall { id, argument } => {
-                let external = self.external(*id);
-                if external.parameter == Type::Unit {
-                    format!("mal_ext_{}(mal_context)", external.name)
-                } else {
-                    format!(
-                        "mal_ext_{}(mal_context, {})",
-                        external.name,
-                        self.emit_atom(argument)
-                    )
-                }
-            }
+            Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
             Operation::IntegerConversion { operand } => {
                 let operand = self.emit_atom(operand);
                 let (_, unsigned, _, _) = integer_info(result);
@@ -73,6 +62,27 @@ impl BodyEmitter<'_> {
                 unreachable!("structured operations are emitted as statements")
             }
         }
+    }
+
+    pub(super) fn emit_external_call(
+        &self,
+        id: crate::resolve::ast::ExternalOperationId,
+        argument: &Atom,
+    ) -> String {
+        let external = self.external(id);
+        let arguments = match &external.parameter {
+            Type::Unit => String::new(),
+            Type::Product(elements) => {
+                let argument = self.emit_atom(argument);
+                elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| format!(", {argument}.field_{index}"))
+                    .collect()
+            }
+            _ => format!(", {}", self.emit_atom(argument)),
+        };
+        format!("mal_ext_{}(mal_context{arguments})", external.name)
     }
 
     fn emit_binary(

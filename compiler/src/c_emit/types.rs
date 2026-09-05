@@ -6,13 +6,14 @@ use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPat
 #[derive(Default)]
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
+    public: Vec<Type>,
 }
 
 impl TypeRegistry {
     pub(super) fn collect_program(&mut self, program: &closure::Program) {
         for external in &program.externals {
-            self.collect(&external.parameter);
-            self.collect(&external.result);
+            self.collect_public(&external.parameter);
+            self.collect_public(&external.result);
         }
         for binding in &program.bindings {
             self.collect_top_pattern(&binding.pattern);
@@ -44,9 +45,20 @@ impl TypeRegistry {
         }
     }
 
-    pub(super) fn declarations(&self) -> String {
+    pub(super) fn source_declarations(&self) -> String {
+        self.declarations(false)
+    }
+
+    pub(super) fn header_declarations(&self) -> String {
+        self.declarations(true)
+    }
+
+    fn declarations(&self, public: bool) -> String {
         let mut output = String::new();
         for (index, ty) in self.aggregates.iter().enumerate() {
+            if self.is_public(ty) != public {
+                continue;
+            }
             let kind = match ty {
                 Type::Product(_) => "MalProduct",
                 Type::Sum(_) => "MalSum",
@@ -63,10 +75,13 @@ impl TypeRegistry {
             };
             writeln!(output, "typedef struct {kind}_{index} {kind}_{index};").unwrap();
         }
-        if !self.aggregates.is_empty() {
+        if !output.is_empty() {
             output.push('\n');
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
+            if self.is_public(ty) != public {
+                continue;
+            }
             match ty {
                 Type::Product(elements) => {
                     writeln!(output, "struct MalProduct_{index} {{").unwrap();
@@ -116,6 +131,28 @@ impl TypeRegistry {
             }
         }
         output
+    }
+
+    fn collect_public(&mut self, ty: &Type) {
+        match ty {
+            Type::Product(elements) | Type::Sum(elements) => {
+                for element in elements {
+                    self.collect_public(element);
+                }
+                self.collect(ty);
+                if !self.public.contains(ty) {
+                    self.public.push(ty.clone());
+                }
+            }
+            Type::Function { .. } => {
+                unreachable!("type checking excludes functions from extern signatures")
+            }
+            _ => {}
+        }
+    }
+
+    fn is_public(&self, ty: &Type) -> bool {
+        self.public.contains(ty)
     }
 
     fn collect(&mut self, ty: &Type) {

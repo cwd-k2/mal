@@ -224,16 +224,7 @@ impl<'a> BodyEmitter<'a> {
                 self.emit_make_closure(output, &binding.pattern, ty, *function, captures, indent);
             }
             Operation::ExternalCall { id, argument } if *ty == Type::Unit => {
-                let external = self.external(*id);
-                let call = if external.parameter == Type::Unit {
-                    format!("mal_ext_{}(mal_context)", external.name)
-                } else {
-                    format!(
-                        "mal_ext_{}(mal_context, {})",
-                        external.name,
-                        self.emit_atom(argument)
-                    )
-                };
+                let call = self.emit_external_call(*id, argument);
                 line(output, indent, &format!("{call};"));
                 self.emit_unit_result(output, &binding.pattern, indent);
             }

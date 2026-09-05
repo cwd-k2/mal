@@ -130,6 +130,74 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
 }
 
 #[test]
+fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
+    let source = "Request :: (Int32, (UInt8, Int32));\n\
+         Response :: [Unit, (Int32, Int32)];\n\
+         extern exchange :: Request -> Response;\n\
+         total :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+           return left + right - 42Int32;\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           response := extern exchange(20Int32, (2UInt8, 22Int32));\n\
+           return case response {\n\
+             [0](_) => 1;\n\
+             [1](pair) => total(pair);\n\
+           };\n\
+         };";
+    let generated = emit(source).expect("emit aggregate ABI");
+    assert!(generated.header.contains(
+        "MalSum_3 mal_ext_exchange(MalContext *context, int32_t argument_0, \
+         MalProduct_0 argument_1);"
+    ));
+    assert!(
+        generated
+            .header
+            .contains("struct MalProduct_0 {\n    uint8_t field_0;\n    int32_t field_1;\n};")
+    );
+    assert!(generated.header.contains("MalProduct_2 variant_1;"));
+
+    let host = r#"#include "program.mal.h"
+
+MalSum_3 mal_ext_exchange(
+    MalContext *context,
+    int32_t argument_0,
+    MalProduct_0 argument_1
+) {
+    (void)context;
+    return (MalSum_3){
+        .tag = UINT32_C(1),
+        .payload.variant_1 = {
+            .field_0 = argument_0,
+            .field_1 = argument_1.field_1,
+        },
+    };
+}
+"#;
+    let fixture = NativeFixture::new("aggregate-abi");
+    let executable = fixture.compile_generated(generated.clone(), host);
+    assert!(fixture.run(executable).status.success());
+
+    let invalid_host = r#"#include "program.mal.h"
+
+MalSum_3 mal_ext_exchange(
+    MalContext *context,
+    int32_t argument_0,
+    MalProduct_0 argument_1
+) {
+    (void)context;
+    (void)argument_0;
+    (void)argument_1;
+    return (MalSum_3){ .tag = UINT32_C(99) };
+}
+"#;
+    let fixture = NativeFixture::new("aggregate-invalid-tag");
+    let executable = fixture.compile_generated(generated, invalid_host);
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: invalid sum tag"));
+}
+
+#[test]
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
         "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\
@@ -371,16 +439,7 @@ fn traps_invalid_division_and_remainder_at_every_width() {
 }
 
 #[test]
-fn rejects_programs_outside_the_scalar_c_boundary() {
-    assert!(
-        emit(
-            "extern choose :: [Unit, Unit] -> Int32;\n\
-         main :: Unit -> Int32 := \\() { return 0; };"
-        )
-        .unwrap_err()
-        .message
-        .contains("outside the scalar C ABI")
-    );
+fn rejects_invalid_executable_programs() {
     assert!(
         emit("value :: Int32 := 1Int32;")
             .unwrap_err()
