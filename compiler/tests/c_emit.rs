@@ -41,7 +41,7 @@ void mal_ext_printInt32(MalContext *context, int32_t value) {
 "#;
 
 #[test]
-fn emits_the_m0_host_abi_and_executes_the_host_example() {
+fn emits_the_basic_host_abi_and_executes_the_host_example() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\

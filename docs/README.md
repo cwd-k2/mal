@@ -2,8 +2,8 @@
 
 このディレクトリは `mal language specification v0.5` を、参照しやすさと議論しやすさを優先して構成したものである。
 
-現時点のstatusは **v0.5 development**。規範項目は`docs/spec/`、実装gateは
-[implementation roadmap](implementation/roadmap.md)で管理する。現在active milestoneはない。
+現時点のstatusは **v0.5 development**。規範項目は`docs/spec/`、compilerの現在の構成と責務は
+`docs/implementation/`で管理する。
 
 ## 読む順序
 
@@ -26,12 +26,10 @@
 [formatting policy](development/formatting.md)、editorとlanguage serverの起動は
 [editor tooling](development/editor-tooling.md)にまとめる。実装者はまず
 [compilerの責務境界](implementation/responsibilities.md)、[compiler implementation notes](implementation/compiler.md)、
-[test方針](development/testing.md)を参照する。active milestoneがある場合は
-[implementation roadmap](implementation/roadmap.md)に順序と完了条件を置く。
-M7の測定と採否判断は[generated C performance記録](development/performance.md)、compiler自身の測定は
+[test方針](development/testing.md)を参照する。generated Cの測定と採否判断は
+[generated C performance記録](development/performance.md)、compiler自身の測定は
 [compiler compile-time記録](development/compiler-performance.md)、仕様とtestの対応は
-[conformance matrix](development/conformance.md)に集約する。M0の履歴は
-[M0 implementation record](implementation/m0.md)に残す。設計理由は[決定記録](design/decisions.md)を参照する。
+[conformance matrix](development/conformance.md)に集約する。設計理由は[決定記録](design/decisions.md)、実装の変更履歴はGitを参照する。
 
 ## 文書の役割
 
@@ -39,7 +37,7 @@ M7の測定と採否判断は[generated C performance記録](development/perform
 |---|---|
 | `spec/` | 利用者と実装者が従う規範的仕様 |
 | `design/` | 採択済み判断の理由と、変更時に残す選択肢 |
-| `implementation/` | compiler/backend の現在の責務、構成、active plan |
+| `implementation/` | compiler/backend の現在の責務と構成 |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
 | `research/` | 外部仕様・先行事例から得た根拠 |
 

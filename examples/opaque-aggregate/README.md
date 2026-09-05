@@ -1,13 +1,13 @@
-# M2 opaque aggregate example
+# Opaque aggregate example
 
 This example passes a copyable opaque handle and an integer through flattened product parameters and returns them inside a sum aggregate. The host adapter is compiled against the generated program header.
 
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/m2/opaque-aggregate/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/m2/opaque-aggregate/program.mal --output /tmp/mal-m2-example --link examples/m2/opaque-aggregate/host.c
-/tmp/mal-m2-example
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/opaque-aggregate/program.mal
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/opaque-aggregate/program.mal --output /tmp/mal-opaque-aggregate --link examples/opaque-aggregate/host.c
+/tmp/mal-opaque-aggregate
 ```
 
 Expected output:

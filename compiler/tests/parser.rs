@@ -21,7 +21,7 @@ fn binding_value(text: &str) -> Expression {
 }
 
 #[test]
-fn parses_the_m0_host_example() {
+fn parses_the_basic_host_example() {
     let program = parse_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\

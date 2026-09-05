@@ -1,10 +1,9 @@
 # generated C performance評価
 
-Status: Archived M7 evidence
+Status: Current measurement record
 
-この文書はreference compilerの性能調査方法、2026-09-05時点のbaseline、M7で得た結果と判断を定める。
-言語の意味は[`spec/`](../spec/)、現在のmilestone状態は[implementation roadmap](../implementation/roadmap.md)、
-通常の検証commandは[test policy](testing.md)を正とする。
+この文書はgenerated Cの性能調査方法、2026-09-05時点のbaseline、得られた結果と採否判断を定める。
+言語の意味は[`spec/`](../spec/)、通常の検証commandは[test policy](testing.md)を正とする。
 
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。

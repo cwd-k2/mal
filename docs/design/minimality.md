@@ -46,8 +46,7 @@ primitive scalar
 
 product と sum は数学的にさらに encoding できる場合があるが、mal には parametric polymorphism がない。利用者が型ごとの encoding を繰り返さず data を表現するには、両方を primitive として残す価値がある。
 
-現在のprofileに含む具体的な型とoperationは[言語の範囲](../spec/scope.md)だけに列挙する。最初の実装sliceは
-[M0 record](../implementation/m0.md)、その後の変更履歴はGitを参照する。
+現在のprofileに含む具体的な型とoperationは[言語の範囲](../spec/scope.md)だけに列挙する。実装の変更履歴はGitを参照する。
 
 ## 機能を加える判定基準
 

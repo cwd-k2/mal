@@ -19,7 +19,7 @@ typed scalar access through untyped Ptr
 extern boundary
 ```
 
-この集合は「実装 milestone M0」と同じではない。何をもって最小とするかは [最小性の方針](../design/minimality.md) で分けている。
+何をもって最小とするかは[最小性の方針](../design/minimality.md)で定める。
 
 ## mal が持たないもの
 

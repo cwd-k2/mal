@@ -20,8 +20,8 @@ source
 
 reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
-stageごとのownershipは[compilerの責務境界](responsibilities.md)、active gateと受入条件は
-[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation record](m0.md)に残す。
+stageごとのownershipは[compilerの責務境界](responsibilities.md)に置く。実装の変更履歴はGitを正とし、
+この文書には現在のpipelineとlowering方針だけを記載する。
 
 実装はRust standard libraryを中心に構成する。外部crateは、標準libraryだけで実装する場合より明確に単純になるものを
 必要に応じて追加し、特定のparser frameworkやcompiler frameworkを前提にしない。

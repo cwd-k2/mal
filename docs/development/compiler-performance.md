@@ -18,9 +18,9 @@ cargo bench --manifest-path compiler/Cargo.toml --bench pipeline
 絶対時間をCIの合否条件にしない。同じoptimized binary、同じworkload、同じmachineで変更前後を比較し、結果と
 language behaviorのtestを分けて扱う。
 
-## 2026-09-05 M13結果
+## 2026-09-05 lossless lexing調査
 
-環境はx86_64 NixOS development environment、Rust 1.97.1。M10実装後の`lex`はformatter用の`lex_lossless`へ
+環境はx86_64 NixOS development environment、Rust 1.97.1。調査前の`lex`はformatter用の`lex_lossless`へ
 委譲していたため、通常のcompile pathでもtoken、whitespace、line commentの全lexemeを構築してから捨てていた。
 同一benchmark runnerでこの経路と、通常`lex`ではlossless記録を行わない経路を交互に測定した。
 
@@ -42,5 +42,5 @@ LSPは最初のsemantic requestで得たanalysisをopen documentのversionと共
 必要とするchangeでは追加のsemantic indexを構築せず、invalid sourceではsemantic resultを保持しない。これはincremental
 compilationではなく、同一versionのimmutable resultの再利用である。
 
-parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側はM7の再検討条件を満たす新しいhotspotが
-ないため変更しない。
+parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側は
+[generated C performance記録](performance.md)の再検討条件を満たす新しいhotspotがないため変更しない。

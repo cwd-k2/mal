@@ -32,7 +32,7 @@ fn top_binding(program: &check::ast::Program, index: usize) -> &check::ast::Bind
 }
 
 #[test]
-fn checks_the_m0_host_example_end_to_end_through_typed_ast() {
+fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
     let program = check_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\

@@ -139,12 +139,12 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
 }
 
 #[test]
-fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
+fn print_and_closure_example_builds_and_runs_through_the_public_cli() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m0/print-and-closure");
+        .join("examples/print-and-closure");
     let executable = directory.join("example");
     let program = example.join("program.mal");
     let host = example.join("host.c");
@@ -170,12 +170,12 @@ fn checked_in_m0_example_builds_and_runs_through_the_public_cli() {
 }
 
 #[test]
-fn checked_in_m1_example_reproduces_host_results_and_a_trap() {
+fn integer_and_byte_example_reproduces_host_results_and_a_trap() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m1/integer-and-byte");
+        .join("examples/integer-and-byte");
 
     let executable = directory.join("example");
     let output = directory.malc([
@@ -216,12 +216,12 @@ fn checked_in_m1_example_reproduces_host_results_and_a_trap() {
 }
 
 #[test]
-fn checked_in_m2_example_round_trips_an_opaque_aggregate() {
+fn opaque_aggregate_example_round_trips_through_the_host() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m2/opaque-aggregate");
+        .join("examples/opaque-aggregate");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
@@ -242,12 +242,12 @@ fn checked_in_m2_example_round_trips_an_opaque_aggregate() {
 }
 
 #[test]
-fn checked_in_m3_example_round_trips_copied_string_bytes() {
+fn string_round_trip_example_copies_host_bytes() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m3/string-round-trip");
+        .join("examples/string-round-trip");
     let program = example.join("program.mal");
 
     let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
@@ -291,12 +291,12 @@ fn checked_in_m3_example_round_trips_copied_string_bytes() {
 }
 
 #[test]
-fn checked_in_m4_example_executes_large_direct_tail_recursion() {
+fn tail_recursion_example_executes_a_large_direct_tail_call() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m4/tail-recursion/program.mal");
+        .join("examples/tail-recursion/program.mal");
 
     let checked = directory.malc([OsStr::new("check"), example.as_os_str()]);
     assert!(
@@ -339,12 +339,12 @@ fn checked_in_m4_example_executes_large_direct_tail_recursion() {
 }
 
 #[test]
-fn checked_in_m6_example_accesses_unaligned_ptr_memory() {
+fn ptr_memory_example_accesses_unaligned_storage() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m6/ptr-memory");
+        .join("examples/ptr-memory");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
@@ -363,12 +363,12 @@ fn checked_in_m6_example_accesses_unaligned_ptr_memory() {
 }
 
 #[test]
-fn checked_in_m5_example_preserves_strict_float_bits_across_the_host_abi() {
+fn strict_float_example_preserves_bits_across_the_host_abi() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/m5/strict-float");
+        .join("examples/strict-float");
     let program = example.join("program.mal");
 
     let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);

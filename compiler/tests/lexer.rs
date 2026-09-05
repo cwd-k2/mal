@@ -16,7 +16,7 @@ fn kinds(text: &str) -> Vec<TokenKind> {
 }
 
 #[test]
-fn lexes_the_m0_host_example() {
+fn lexes_the_basic_host_example() {
     assert_eq!(
         kinds(
             "extern printInt32 :: Int32 -> Unit;\n\
