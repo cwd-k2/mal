@@ -16,7 +16,6 @@ use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
-    pub(super) allocation: bool,
     pub(super) wrap: u16,
     pub(super) divide: u16,
     pub(super) remainder: u16,
@@ -360,7 +359,6 @@ impl<'a> BodyEmitter<'a> {
         let environment = if captures.is_empty() {
             "NULL".into()
         } else {
-            self.needs.allocation = true;
             let allocation = format!("mal_new_environment_{target}");
             line(
                 output,

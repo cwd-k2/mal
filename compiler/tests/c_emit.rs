@@ -173,6 +173,90 @@ fn traps_out_of_range_string_byte_access() {
 }
 
 #[test]
+fn copies_host_string_results_into_program_lifetime_storage() {
+    let generated = emit(
+        r#"extern fetch :: Unit -> String;
+main :: Unit -> Int32 := \() {
+  value := extern fetch();
+  ok := (value == "host\0\xff") && (byteAt(value, 5UInt64) == 255UInt8);
+  return if (ok) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit String ABI");
+    assert!(generated.header.contains(
+        "MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length);"
+    ));
+    assert!(
+        generated
+            .header
+            .contains("MalString mal_ext_fetch(MalContext *context);")
+    );
+    let fixture = NativeFixture::new("string-copy");
+    let executable = fixture.compile_generated(
+        generated,
+        r#"#include "program.mal.h"
+#include <stdlib.h>
+#include <string.h>
+
+MalString mal_ext_fetch(MalContext *context) {
+    uint8_t *scratch = (uint8_t *)malloc(6);
+    if (scratch == NULL) {
+        mal_trap(context, "host allocation failed");
+    }
+    const uint8_t original[6] = { 'h', 'o', 's', 't', 0, 255 };
+    memcpy(scratch, original, 6);
+    MalString result = mal_string_copy(context, scratch, UINT64_C(6));
+    memset(scratch, 0, 6);
+    free(scratch);
+    return result;
+}
+"#,
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_string_copy_allocation_failure_and_length_overflow() {
+    let source = "extern fetch :: Unit -> String; main :: Unit -> Int32 := \\() { extern fetch(); return 0; };";
+
+    let failure_fixture = NativeFixture::new("string-copy-failure");
+    let failure_executable = failure_fixture.compile_generated_with_options(
+        emit(source).expect("emit String ABI"),
+        r#"#include "program.mal.h"
+MalString mal_ext_fetch(MalContext *context) {
+    const uint8_t value = 1;
+    return mal_string_copy(context, &value, UINT64_C(1));
+}
+"#,
+        &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
+    );
+    let failure = failure_fixture.run(failure_executable);
+    assert!(!failure.status.success());
+    assert!(String::from_utf8_lossy(&failure.stderr).contains("mal trap: allocation failed"));
+
+    let overflow_fixture = NativeFixture::new("string-copy-overflow");
+    let overflow_executable = overflow_fixture.compile_generated(
+        emit(source).expect("emit String ABI"),
+        r#"#include "program.mal.h"
+MalString mal_ext_fetch(MalContext *context) {
+    const uint8_t value = 1;
+    return mal_string_copy(context, &value, UINT64_MAX);
+}
+"#,
+    );
+    let overflow = overflow_fixture.run(overflow_executable);
+    assert!(!overflow.status.success());
+    assert!(
+        String::from_utf8_lossy(&overflow.stderr).contains("mal trap: allocation size overflow")
+    );
+}
+
+#[test]
 fn emits_every_fixed_width_scalar_in_the_generated_header() {
     let generated = emit(
         "extern i8 :: Int8 -> Int8;\n\
