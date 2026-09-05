@@ -47,7 +47,7 @@
         {
           "name": "string.quoted.single.mal",
           "contentName": "constant.character.mal",
-          "begin": "\\bb'",
+          "begin": "'",
           "beginCaptures": {
             "0": {
               "name": "punctuation.definition.string.begin.mal"

@@ -158,28 +158,28 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 
 #[test]
 fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
-    let text = "closingParen :: UInt8 := b')';";
+    let text = "closingParen :: UInt8 := ')';";
     let uri = "file:///byte-hover.mal";
     let mut server = open_document(uri, text);
-    let literal = text.find("b')'").unwrap();
+    let literal = text.find("')'").unwrap();
     let hover = request_at(
         &mut server,
         20,
         "textDocument/hover",
         uri,
         text,
-        literal + 2,
+        literal + 1,
     );
 
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nb')' :: UInt8\n```"
+        "```mal\n')' :: UInt8\n```"
     );
     assert_eq!(
         hover["result"]["range"],
         json!({
             "start": text_position(text, literal),
-            "end": text_position(text, literal + "b')'".len())
+            "end": text_position(text, literal + "')'".len())
         })
     );
 }

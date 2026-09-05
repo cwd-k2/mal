@@ -10,9 +10,9 @@ binary :: UInt8 := 0b1010_0001u8;
 
 fraction :: Float64 := 1_000.25e-2f64;
 
-letter :: UInt8 := b'\x41';
+letter :: UInt8 := '\x41';
 
-closingParen :: UInt8 := b')';
+closingParen :: UInt8 := ')';
 
 message :: String := "mal\n";
 

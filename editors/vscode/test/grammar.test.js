@@ -30,9 +30,9 @@ async function loadGrammar() {
   return registry.loadGrammar('source.mal');
 }
 
-test("keeps a closing parenthesis inside b')' in a string token", async () => {
+test("keeps a closing parenthesis inside ')' in a string token", async () => {
   const grammar = await loadGrammar();
-  const line = "call(b')');";
+  const line = "call(')');";
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
