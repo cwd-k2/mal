@@ -144,15 +144,15 @@ string literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を
 
 ### byte literal
 
-single quote と `b` prefix を使う byte literal は常に `UInt8` 型を持つ。
+single quoteを使うbyte literalは常に`UInt8`型を持つ。prefixは付けない。
 
 ```mal
-b'a'
-b'\n'
-b'\x00'
-b'\xff'
-b'\''
-b'\\'
+'a'
+'\n'
+'\x00'
+'\xff'
+'\''
+'\\'
 ```
 
 byte literal は decode 後にちょうど 1 byte でなければならない。raw character は 1 byte の printable ASCII に限定し、`'` と `\` は escape する。
@@ -160,16 +160,16 @@ byte literal は decode 後にちょうど 1 byte でなければならない。
 認める escape は `\\`、`\'`、`\n`、`\r`、`\t`、`\0`、`\xNN` である。`NN` はちょうど2桁の hexadecimal digit とする。
 
 ```mal
-b''
-b'ab'
-b'あ'
+''
+'ab'
+'あ'
 ```
 
 はいずれも compile-time error である。byte literal は core では同じ値を持つ明示型付き UInt8 literal へ desugar する。
 
 ```text
-b'A'    => 65u8
-b'\xff' => 255u8
+'A'    => 65u8
+'\xff' => 255u8
 ```
 
 ## primitive operator

@@ -137,7 +137,7 @@ fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
         );
     }
 
-    let byte = check_ok(r"value := b'\xff';");
+    let byte = check_ok(r"value := '\xff';");
     assert_eq!(top_binding(&byte, 0).value.ty, Type::UInt8);
     assert!(matches!(
         top_binding(&byte, 0).value.kind,

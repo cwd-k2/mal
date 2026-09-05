@@ -32,13 +32,13 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
 
 #[test]
 fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
-    let text = "closingParen :: UInt8 := b')';";
-    let literal = text.find("b')'").unwrap();
+    let text = "closingParen :: UInt8 := ')';";
+    let literal = text.find("')'").unwrap();
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let hover = document.hover_at(literal + 2).expect("byte literal hover");
+    let hover = document.hover_at(literal + 1).expect("byte literal hover");
 
     assert_eq!(hover.ty, "UInt8");
-    assert_eq!(&text[hover.span.start()..hover.span.end()], "b')'");
+    assert_eq!(&text[hover.span.start()..hover.span.end()], "')'");
     assert!(hover.occurrence.is_none());
 }
 

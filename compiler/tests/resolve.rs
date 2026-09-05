@@ -54,7 +54,7 @@ fn resolves_predefined_and_source_ordered_top_level_values() {
 
 #[test]
 fn preserves_byte_literals_during_name_resolution() {
-    let program = resolve_ok(r"value := b'\x7f';");
+    let program = resolve_ok(r"value := '\x7f';");
     assert!(matches!(
         top_binding(&program.items[0]).value.kind,
         resolved::Expression::Byte(127)

@@ -77,7 +77,7 @@ product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
 
-byteLiteral ::= "b'" byteUnit "'"
+byteLiteral ::= "'" byteUnit "'"
 byteUnit    ::= printableAsciiExceptQuoteOrBackslash
               | "\\\\" | "\\'" | "\\n" | "\\r" | "\\t" | "\\0"
               | "\\x" HEX_DIGIT HEX_DIGIT

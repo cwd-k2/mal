@@ -117,8 +117,8 @@ fn calls_bind_more_tightly_than_unary_operators() {
 
 #[test]
 fn parses_a_byte_literal_as_an_atomic_expression() {
-    assert_eq!(binding_value("value := b')';"), Expression::Byte(b')'));
-    assert_eq!(binding_value(r"value := b'\xff';"), Expression::Byte(255));
+    assert_eq!(binding_value("value := ')';"), Expression::Byte(b')'));
+    assert_eq!(binding_value(r"value := '\xff';"), Expression::Byte(255));
 }
 
 #[test]

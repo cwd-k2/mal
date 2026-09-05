@@ -193,7 +193,7 @@ fn rejects_malformed_decimal_float_literals() {
 #[test]
 fn lexes_byte_literals_and_every_escape() {
     assert_eq!(
-        kinds(r"b'a' b')' b'\\' b'\'' b'\n' b'\r' b'\t' b'\0' b'\x00' b'\xff'"),
+        kinds(r"'a' ')' '\\' '\'' '\n' '\r' '\t' '\0' '\x00' '\xff'"),
         vec![
             TokenKind::Byte(b'a'),
             TokenKind::Byte(b')'),
@@ -213,7 +213,7 @@ fn lexes_byte_literals_and_every_escape() {
 #[test]
 fn rejects_malformed_byte_literals_at_the_lexer_boundary() {
     for text in [
-        "b''", "b'ab'", "b'あ'", r"b'\q'", r"b'\x0'", r"b'\xgg'", "b'a",
+        "''", "'ab'", "'あ'", r"'\q'", r"'\x0'", r"'\xgg'", "'a", "b'a'",
     ] {
         let error = lex(&source(text)).expect_err("byte literal should be rejected");
         assert_eq!(error.message, "invalid byte literal", "input: {text}");

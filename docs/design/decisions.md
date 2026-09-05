@@ -166,7 +166,7 @@ Boolは二択の直和として既存の型とtermだけで表現できる。`if
 
 ## D006. byte literal は `b'…' :: UInt8` とする
 
-- Status: Accepted
+- Status: Superseded by D025
 - Date: 2026-09-04
 - Scope: mal v0.4
 
@@ -696,3 +696,22 @@ D022のnumeric scalar accessだけでもarena内のindexやrelative offsetを使
 pointer graphではedgeの保存と復元がhost operationへ流出する。`Ptr` accessを同じ明示的なmemory mechanismへ
 加えると、hostの責務をstorage提供とlifetimeへ限定したまま、list、tree、graphのlink操作をmalへ戻せる。
 pointerを`UInt64`として扱わないため、pointer幅、integer conversion、null、equalityをsource semanticsへ追加しない。
+
+## D025. byte literalはsingle quoteだけで書く
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.5 and reference compiler
+- Supersedes: D006
+
+### 決定
+
+byte literalは`'a'`、`'\n'`、`'\xff'`のようにsingle quoteだけで書き、常に`UInt8`型を持つ。
+旧`b'a'` spellingは認めない。raw character、escape、exactly one byteの規則はD006から変更しない。
+したがって非ASCII source characterを含む`'あ'`はcompile-time errorである。
+
+### 理由
+
+malは`Char`型を持たず、single-quoted literalをbyte以外の意味に使わないため、`b` prefixは構文上も
+型選択上も曖昧性を解消していなかった。literalの唯一の型をsyntaxに重ねて書かず、短いspellingへ一本化する。
+Unicode characterを将来追加する場合は、byte literalの意味を変更せず別のsyntaxとして設計する。
