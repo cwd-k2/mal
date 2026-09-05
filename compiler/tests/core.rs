@@ -40,13 +40,15 @@ fn injected_bool(expression: &Expression) -> bool {
 }
 
 #[test]
-fn removes_type_aliases_and_preserves_backend_names() {
+fn preserves_type_alias_names_as_backend_metadata() {
     let program = lower_ok(
         "Flag :: [Unit, Unit];\n\
          extern choose :: Flag -> Int32;\n\
          main :: Unit -> Int32 := \\() { 0; };",
     );
 
+    assert_eq!(program.type_aliases.len(), 1);
+    assert_eq!(program.type_aliases[0].name, "Flag");
     assert_eq!(program.externals.len(), 1);
     assert_eq!(program.externals[0].name, "choose");
     assert_eq!(program.bindings.len(), 1);

@@ -49,6 +49,11 @@ MalString mal_string_copy(
 
 `MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_string_copy`はreference runtimeが提供する。
 
+generated headerは各external operationに`MAL_DEFINE_<name>` macroも生成する。このmacroは先頭にcontextの
+identifier、続いてsource-level parameterに対応するidentifierを受け取り、正しいC function definition headerへ展開する。
+context parameterにはgenerated headerの`MAL_MAYBE_UNUSED`を付けるため、implementationがruntime serviceを使わない場合に
+unused castを必要としない。macroを使わず、宣言された`mal_ext_<name>`を直接定義してもよい。
+
 `MalUnit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
 `mal_string_copy`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたStringはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
@@ -106,15 +111,30 @@ typedef struct {
 ```
 
 host resourceが一wordに収まらない場合はhost側でboxする。zero bit pattern、copy、dropには言語組み込みの意味を与えず、個々のhost contractが定める。
+generated headerは各opaque typeについて`mal_<Type>_from_bits`と`mal_<Type>_bits`を生成する。このhelperは
+`.bits` fieldと同じbit patternを構成・取得するだけであり、resource contractやownershipを追加しない。
 
 String parameterは`MalString`で渡し、hostはcall終了後に`data`を保持しない。String resultを返すhost implementationは`mal_string_copy`で作った`MalString`を返す。
 
 `Ptr`は`MalPtr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
 operation固有のcontractとして定める。reference runtimeのscalar accessは`memcpy`相当であり、alignmentを
 要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
+hostは`mal_ptr_from_address`と`mal_ptr_address`で`MalPtr`を構成・参照できる。このhelperはregion、permission、lifetimeを
+検査または延長しない。
 
 productと一般のsumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。一般のsumのtagは
 0-based `uint32_t`である。`[Unit, Unit]`には前述のBool specializationを適用し、sum structを生成しない。
+
+extern signatureに現れる型と同じ型を表すsource-level aliasには、generated headerで`MalType_<Alias>`という
+`typedef`を生成する。対応するaliasが一意ならextern function declarationにもその名前を使用する。複数のtransparent
+aliasが同じ型を表す場合は特定のaliasを優先せず、declarationにはunderlying C typeを使用する。どの`typedef`も
+新しいnominal identityやruntime representationを作らない。
+
+extern境界から到達できるproduct aliasには`mal_make_<Alias>`と位置ごとの`mal_get_<Alias>_<index>`を生成する。
+一般のsum aliasには`MAL_TAG_<Alias>_<index>`、`mal_tag_<Alias>`、`mal_is_<Alias>_<index>`、
+`mal_make_<Alias>_<index>`を生成する。payload取得helperはvariantが一致しなければ`mal_trap`を呼ぶ。product payloadの
+取得helperは`mal_get_<Alias>_<variant>_<field>`とする。これらはC記述用のconvenience APIであり、source-levelの
+positional product/sum semanticsを変更しない。
 
 ## closure exclusion
 

@@ -41,6 +41,15 @@ pub fn emit_c(source_path: &Path, output_path: &Path) -> Result<PathBuf, Error> 
     write_generated(output_path, generated)
 }
 
+pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
+    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
+    let header =
+        crate::pipeline::emit_header(&source).map_err(|error| Error::diagnostic(error, &source))?;
+    create_parent(output_path)?;
+    fs::write(output_path, header)
+        .map_err(|error| Error::io("write generated header", output_path, error))
+}
+
 pub fn build(
     source_path: &Path,
     output_path: &Path,

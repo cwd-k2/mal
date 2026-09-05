@@ -4,7 +4,7 @@ pub mod ast;
 
 use self::ast::{
     Atom, AtomKind, Binding, Block, Capture, CaseArm, ExternalOperation, ExternalType, Lambda,
-    Operation, Parameter, Pattern, Program, TopLevelBinding, TopLevelPattern, ValueId,
+    Operation, Parameter, Pattern, Program, TopLevelBinding, TopLevelPattern, TypeAlias, ValueId,
 };
 
 pub fn lower(program: &core::Program) -> Program {
@@ -22,6 +22,14 @@ impl Lowerer {
 
     fn lower_program(&mut self, program: &core::Program) -> Program {
         Program {
+            type_aliases: program
+                .type_aliases
+                .iter()
+                .map(|alias| TypeAlias {
+                    name: alias.name.clone(),
+                    ty: alias.ty.clone(),
+                })
+                .collect(),
             external_types: program
                 .external_types
                 .iter()

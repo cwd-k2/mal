@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 
-void mal_ext_printInt32(MalContext *context, int32_t value) {
-    (void)context;
+MAL_DEFINE_printInt32(context, value) {
     printf("%d\n", value);
 }

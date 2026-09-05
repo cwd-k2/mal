@@ -6,7 +6,7 @@ pub mod ast;
 
 use self::ast::{
     Atom, AtomKind, Binding, Block, EnvironmentField, ExternalOperation, ExternalType, Function,
-    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern, TypeAlias,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -43,6 +43,14 @@ impl Converter {
             .map(|binding| self.convert_top_level_binding(binding, &empty_environment))
             .collect();
         Program {
+            type_aliases: program
+                .type_aliases
+                .iter()
+                .map(|alias| TypeAlias {
+                    name: alias.name.clone(),
+                    ty: alias.ty.clone(),
+                })
+                .collect(),
             external_types: program
                 .external_types
                 .iter()

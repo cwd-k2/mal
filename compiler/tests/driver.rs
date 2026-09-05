@@ -94,6 +94,90 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
 }
 
 #[test]
+fn emit_header_writes_a_standalone_host_interface() {
+    let directory = NativeFixture::new("driver-header");
+    let source = directory.join("program.mal");
+    let output_path = directory.join("generated/custom.h");
+    directory.write(
+        "program.mal",
+        "Count :: UInt64;\n\
+         extern increment :: Count -> Count;",
+    );
+
+    let output = directory.malc([
+        OsStr::new("emit-header"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        output_path.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let header = std::fs::read_to_string(output_path).unwrap();
+    assert!(header.contains("typedef uint64_t MalType_Count;"));
+    assert!(header.contains("#define MAL_DEFINE_increment(context, value)"));
+    assert!(!directory.join("generated/program.c").exists());
+}
+
+#[test]
+fn emit_header_defaults_to_the_source_directory() {
+    let directory = NativeFixture::new("driver-default-header");
+    let source = directory.join("source/program.mal");
+    directory.write("source/program.mal", "extern print :: String -> Unit;");
+
+    let output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let header = std::fs::read_to_string(directory.join("source/program.mal.h")).unwrap();
+    assert!(header.contains("#define MAL_DEFINE_print(context, value)"));
+}
+
+#[test]
+fn checked_in_example_headers_match_the_compiler() {
+    let fixture = NativeFixture::new("example-headers");
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler directory has a repository parent");
+    let examples = [
+        "integer-and-byte",
+        "opaque-aggregate",
+        "print-and-closure",
+        "ptr-memory",
+        "strict-float",
+        "string-round-trip",
+        "tail-recursion",
+    ];
+
+    for example in examples {
+        let directory = repository.join("examples").join(example);
+        let generated = fixture.join(format!("{example}.h"));
+        let output = fixture.malc([
+            OsStr::new("emit-header"),
+            directory.join("program.mal").as_os_str(),
+            OsStr::new("--output"),
+            generated.as_os_str(),
+        ]);
+        assert!(
+            output.status.success(),
+            "failed to generate {example}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            std::fs::read_to_string(generated).unwrap(),
+            std::fs::read_to_string(directory.join("program.mal.h")).unwrap(),
+            "checked-in header is stale for {example}"
+        );
+    }
+}
+
+#[test]
 fn build_links_multiple_host_inputs_and_produces_an_executable() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

@@ -34,8 +34,7 @@ fn compile_and_run(source: &str, host: &str) -> std::process::Output {
 const PRINT_HOST: &str = r#"#include "program.mal.h"
 #include <stdio.h>
 
-void mal_ext_printInt32(MalContext *context, int32_t value) {
-    (void)context;
+MAL_DEFINE_printInt32(context, value) {
     printf("%d\n", value);
 }
 "#;
@@ -752,9 +751,24 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
              [1](pair) { total(pair) };\n\
          };";
     let generated = emit(source).expect("emit aggregate ABI");
+    assert!(
+        generated
+            .header
+            .contains("typedef MalProduct_1 MalType_Request;")
+    );
+    assert!(
+        generated
+            .header
+            .contains("typedef MalSum_3 MalType_Response;")
+    );
     assert!(generated.header.contains(
-        "MalSum_3 mal_ext_exchange(MalContext *context, int32_t argument_0, \
+        "MalType_Response mal_ext_exchange(MalContext *context, int32_t argument_0, \
          MalProduct_0 argument_1);"
+    ));
+    assert!(generated.header.contains(
+        "#define MAL_DEFINE_exchange(context, argument_0, argument_1) \
+         MalType_Response mal_ext_exchange(MalContext *context MAL_MAYBE_UNUSED, \
+         int32_t argument_0, MalProduct_0 argument_1)"
     ));
     assert!(
         generated
@@ -765,19 +779,8 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
 
     let host = r#"#include "program.mal.h"
 
-MalSum_3 mal_ext_exchange(
-    MalContext *context,
-    int32_t argument_0,
-    MalProduct_0 argument_1
-) {
-    (void)context;
-    return (MalSum_3){
-        .tag = UINT32_C(1),
-        .payload.variant_1 = {
-            .field_0 = argument_0,
-            .field_1 = argument_1.field_1,
-        },
-    };
+MAL_DEFINE_exchange(context, argument_0, argument_1) {
+    return mal_make_Response_1(argument_0, argument_1.field_1);
 }
 
 "#;
@@ -787,7 +790,7 @@ MalSum_3 mal_ext_exchange(
 
     let invalid_host = r#"#include "program.mal.h"
 
-MalSum_3 mal_ext_exchange(
+MalType_Response mal_ext_exchange(
     MalContext *context,
     int32_t argument_0,
     MalProduct_0 argument_1
@@ -795,7 +798,7 @@ MalSum_3 mal_ext_exchange(
     (void)context;
     (void)argument_0;
     (void)argument_1;
-    return (MalSum_3){ .tag = UINT32_C(99) };
+    return (MalType_Response){ .tag = UINT32_C(99) };
 }
 "#;
     let fixture = NativeFixture::new("aggregate-invalid-tag");
@@ -803,6 +806,94 @@ MalSum_3 mal_ext_exchange(
     let output = fixture.run(executable);
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: invalid sum tag"));
+}
+
+#[test]
+fn exposes_scalar_alias_names_in_the_host_header() {
+    let generated = emit(
+        "Count :: UInt64;\n\
+         extern increment :: Count -> Count;\n\
+         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+    )
+    .expect("emit scalar alias ABI");
+
+    assert!(generated.header.contains("typedef uint64_t MalType_Count;"));
+    assert!(
+        generated
+            .header
+            .contains("MalType_Count mal_ext_increment(MalContext *context, MalType_Count value);")
+    );
+
+    let host = r#"#include "program.mal.h"
+
+MAL_DEFINE_increment(context, value) {
+    return value + UINT64_C(1);
+}
+"#;
+    let fixture = NativeFixture::new("scalar-alias-abi");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn does_not_choose_between_transparent_aliases_for_a_host_declaration() {
+    let generated = emit(
+        "FirstCount :: UInt64;\n\
+         SecondCount :: UInt64;\n\
+         extern increment :: FirstCount -> SecondCount;\n\
+         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+    )
+    .expect("emit ambiguous scalar aliases");
+
+    assert!(
+        generated
+            .header
+            .contains("typedef uint64_t MalType_FirstCount;")
+    );
+    assert!(
+        generated
+            .header
+            .contains("typedef uint64_t MalType_SecondCount;")
+    );
+    assert!(
+        generated
+            .header
+            .contains("uint64_t mal_ext_increment(MalContext *context, uint64_t value);")
+    );
+}
+
+#[test]
+fn generated_sum_helpers_construct_and_inspect_named_variants() {
+    let generated = emit(
+        "Pair :: (Int32, Int32);\n\
+         Choice :: [Unit, Pair];\n\
+         extern inspect :: Choice -> Int32;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           extern inspect(Choice[1]((20i32, 22i32))) - 42i32;\n\
+         };",
+    )
+    .expect("emit named sum helpers");
+
+    assert!(generated.header.contains(
+        "static inline MalType_Choice mal_make_Choice_1(int32_t value_0, int32_t value_1)"
+    ));
+    assert!(generated.header.contains(
+        "static inline int32_t mal_get_Choice_1_0(MalContext *context, MalType_Choice value)"
+    ));
+
+    let host = r#"#include "program.mal.h"
+
+MAL_DEFINE_inspect(context, value) {
+    if (!mal_is_Choice_1(value)) {
+        mal_trap(context, "expected pair");
+    }
+    return mal_get_Choice_1_0(context, value) +
+           mal_get_Choice_1_1(context, value);
+}
+"#;
+    let fixture = NativeFixture::new("named-sum-helpers");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]

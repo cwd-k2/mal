@@ -1,7 +1,6 @@
 #include "program.mal.h"
 
-MalPtr mal_ext_memory(MalContext *context) {
+MAL_DEFINE_memory(context) {
     static uint8_t bytes[10];
-    (void)context;
-    return (MalPtr){ .address = bytes };
+    return mal_ptr_from_address(bytes);
 }

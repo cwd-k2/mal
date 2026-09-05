@@ -3,7 +3,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-void mal_ext_printUInt64(MalContext *context, uint64_t value) {
-    (void)context;
+MAL_DEFINE_printUInt64(context, value) {
     printf("%" PRIu64 "\n", value);
 }

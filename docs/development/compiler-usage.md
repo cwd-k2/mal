@@ -21,6 +21,7 @@ subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないta
 ```nu
 malc check source.mal
 malc format source.mal
+malc emit-header source.mal
 malc emit-c source.mal --output generated/program.c
 malc build source.mal --output program --link host.c
 ```
@@ -28,6 +29,8 @@ malc build source.mal --output program --link host.c
 - `check`はsourceを型検査し、成功時には生成物を作らない。
 - `format`はsyntaxを検査し、commentとliteral spellingを保持したcanonical sourceをstdoutへ出す。
   入力fileは書き換えない。
+- `emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。
+  `--output path`で出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
 - `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
 - `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。
@@ -75,7 +78,8 @@ target platformと利用者のbuild/deploymentが管理する。shared objectも
 
 generated C/headerのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。
 配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
-再生成する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
+再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
+compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。
 mal programのtrapはstderrへ理由を出して異常終了するが、portableなprocess exit codeは定めない。

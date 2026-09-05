@@ -10,6 +10,7 @@ Usage:
   malc --version
   malc check <source.mal>
   malc format <source.mal>
+  malc emit-header <source.mal> [--output <program.mal.h>]
   malc emit-c <source.mal> --output <program.c>
   malc build <source.mal> --output <program> [--link <input>]...
 ";
@@ -87,9 +88,33 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
                 Err(error) => Outcome::compile_error(error),
             }
         }
+        [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
         [command, rest @ ..] if command == OsStr::new("emit-c") => execute_emit_c(rest),
         [command, rest @ ..] if command == OsStr::new("build") => execute_build(rest),
         _ => usage_error("unknown command or invalid arguments"),
+    }
+}
+
+fn execute_emit_header(arguments: &[OsString]) -> Outcome {
+    let (source, output) = match arguments {
+        [source] => {
+            let output = PathBuf::from(source).with_file_name(crate::c_emit::GENERATED_HEADER_NAME);
+            (source, output)
+        }
+        [source, option, output] if option == OsStr::new("--output") => {
+            (source, PathBuf::from(output))
+        }
+        [_, option, _] => {
+            return usage_error(&format!(
+                "unknown emit-header option '{}'",
+                option.to_string_lossy()
+            ));
+        }
+        _ => return usage_error("emit-header requires a source path"),
+    };
+    match crate::driver::emit_header(PathBuf::from(source).as_path(), &output) {
+        Ok(()) => Outcome::success(String::new()),
+        Err(error) => Outcome::compile_error(error),
     }
 }
 

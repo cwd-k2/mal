@@ -1,6 +1,8 @@
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
 
+mod host;
+
 #[derive(Default)]
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
@@ -74,22 +76,6 @@ impl TypeRegistry {
 
     pub(super) fn source_declarations(&self) -> String {
         self.declarations(false)
-    }
-
-    pub(super) fn header_declarations(&self) -> String {
-        let mut output = String::new();
-        for name in &self.opaque_names {
-            c_line!(
-                &mut output,
-                0,
-                "typedef struct {{ uintptr_t bits; }} MalOpaque_{name};"
-            );
-        }
-        if !self.opaque_names.is_empty() {
-            output.push('\n');
-        }
-        output.push_str(&self.declarations(true));
-        output
     }
 
     fn declarations(&self, public: bool) -> String {
@@ -187,6 +173,9 @@ impl TypeRegistry {
     }
 
     fn collect_public(&mut self, ty: &Type) {
+        if !self.public.contains(ty) {
+            self.public.push(ty.clone());
+        }
         if is_bool(ty) {
             return;
         }
@@ -196,9 +185,6 @@ impl TypeRegistry {
                     self.collect_public(element);
                 }
                 self.collect(ty);
-                if !self.public.contains(ty) {
-                    self.public.push(ty.clone());
-                }
             }
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
@@ -208,6 +194,10 @@ impl TypeRegistry {
     }
 
     fn is_public(&self, ty: &Type) -> bool {
+        self.public.contains(ty)
+    }
+
+    fn is_host_type(&self, ty: &Type) -> bool {
         self.public.contains(ty)
     }
 

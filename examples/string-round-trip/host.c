@@ -9,7 +9,7 @@ static const uint8_t expected[8] = {
     'm', 'a', 'l', 0xe3, 0x81, 0x82, 0x00, 0xff,
 };
 
-MalString mal_ext_receive(MalContext *context) {
+MAL_DEFINE_receive(context) {
     uint8_t *scratch = (uint8_t *)malloc(sizeof(expected));
     if (scratch == NULL) {
         mal_trap(context, "host allocation failed");
@@ -21,7 +21,7 @@ MalString mal_ext_receive(MalContext *context) {
     return result;
 }
 
-void mal_ext_send(MalContext *context, MalString value) {
+MAL_DEFINE_send(context, value) {
     if (value.length != UINT64_C(8)
         || memcmp(value.data, expected, sizeof(expected)) != 0) {
         mal_trap(context, "unexpected String bytes");

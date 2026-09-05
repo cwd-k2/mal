@@ -3,29 +3,16 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-MalOpaque_Mem mal_ext_allocate(MalContext *context, uint64_t value) {
-    (void)context;
-    return (MalOpaque_Mem){ .bits = (uintptr_t)value };
+MAL_DEFINE_allocate(context, value) {
+    return mal_Mem_from_bits((uintptr_t)value);
 }
 
-MalSum_1 mal_ext_resize(
-    MalContext *context,
-    MalOpaque_Mem memory,
-    uint64_t amount
-) {
-    (void)context;
-    memory.bits += (uintptr_t)amount;
-    printf("%" PRIuPTR "\n", memory.bits);
-    return (MalSum_1){
-        .tag = UINT32_C(1),
-        .payload.variant_1 = {
-            .field_0 = memory,
-            .field_1 = amount,
-        },
-    };
+MAL_DEFINE_resize(context, memory, amount) {
+    uintptr_t bits = mal_Mem_bits(memory) + (uintptr_t)amount;
+    printf("%" PRIuPTR "\n", bits);
+    return mal_make_Response_1(mal_Mem_from_bits(bits), amount);
 }
 
-uint64_t mal_ext_handleBits(MalContext *context, MalOpaque_Mem memory) {
-    (void)context;
-    return (uint64_t)memory.bits;
+MAL_DEFINE_handleBits(context, memory) {
+    return (uint64_t)mal_Mem_bits(memory);
 }

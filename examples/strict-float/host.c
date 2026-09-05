@@ -2,14 +2,13 @@
 
 #include <string.h>
 
-int32_t mal_ext_inspect(
-    MalContext *context,
-    float halfway,
-    float minimum_subnormal,
-    double negative_zero,
-    int64_t converted
+MAL_DEFINE_inspect(
+    context,
+    halfway,
+    minimum_subnormal,
+    negative_zero,
+    converted
 ) {
-    (void)context;
     uint32_t halfway_bits;
     uint32_t subnormal_bits;
     uint64_t zero_bits;
