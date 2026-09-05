@@ -300,6 +300,55 @@ fn checked_in_m4_example_executes_large_direct_tail_recursion() {
 }
 
 #[test]
+fn checked_in_m5_example_preserves_strict_float_bits_across_the_host_abi() {
+    let directory = NativeFixture::new("driver");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/m5/strict-float");
+    let program = example.join("program.mal");
+
+    let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
+    assert!(
+        checked.status.success(),
+        "{}",
+        String::from_utf8_lossy(&checked.stderr)
+    );
+
+    let emitted = directory.join("generated/program.c");
+    let output = directory.malc([
+        OsStr::new("emit-c"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        emitted.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let generated = std::fs::read_to_string(&emitted).expect("read generated C");
+    assert!(generated.contains("_Static_assert(FLT_RADIX == 2"));
+    assert!(generated.contains("#pragma STDC FP_CONTRACT OFF"));
+
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
 fn reports_source_and_output_filesystem_failures() {
     let directory = NativeFixture::new("driver-failure");
     let missing = directory.join("missing.mal");

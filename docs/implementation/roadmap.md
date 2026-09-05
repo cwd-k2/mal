@@ -14,8 +14,8 @@ Status: Current
 | M2 | Complete | product、destructuring、opaque handle、aggregate ABI |
 | M3 | Complete | immutable byte `String`とextern copy contract |
 | M4 | Complete | annotated self recursionとdirect tail-call lowering |
-| M5 | Active | strict `Float32`/`Float64` profile |
-| R0 | Planned | v0.4 conformanceとrelease readiness |
+| M5 | Complete | strict `Float32`/`Float64` profile |
+| R0 | Active | v0.4 conformanceとrelease readiness |
 
 一度にactiveにするgateは一つだけとする。active gateの完了条件を満たしてstatusを更新してから次へ進む。
 

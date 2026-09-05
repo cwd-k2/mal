@@ -558,9 +558,9 @@ reference compilerのC backendは、`float`がbinary32、`double`がbinary64で�
 `FLT_EVAL_METHOD == 0`のtargetでのみFloat機能を提供する。generated Cは`<float.h>`の定数と`sizeof`を
 compile-timeに検査し、条件を満たさないtargetを拒否する。
 
-generated Cは`#pragma STDC FENV_ACCESS ON`と`#pragma STDC FP_CONTRACT OFF`を指定する。`malc build`は
-fast-math、reassociation、FP contraction、型より広い中間精度を無効にするtoolchain optionを付ける。
-`emit-c`の利用者が別途compileする場合も同じprofileを保つ必要がある。
+generated Cはtoolchainが対応する場合に`#pragma STDC FENV_ACCESS ON`と`#pragma STDC FP_CONTRACT OFF`を指定する。
+`malc build`はfast-math、reassociation、FP contraction、型より広い中間精度を無効にするtoolchain optionを付ける。
+`emit-c`の利用者が別途compileする場合も、pragmaまたは対応するtoolchain optionで同じprofileを保つ必要がある。
 
 malから呼ぶC adapterはround-to-nearest, ties-to-evenの浮動小数点environmentを保持し、flush-to-zeroや
 denormals-are-zeroを有効にしてreturnしてはならない。これはmal値のABIと同様にadapter contractの一部とする。
