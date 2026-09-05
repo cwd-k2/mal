@@ -1,15 +1,12 @@
-use std::fmt::Write;
-
 use crate::anf;
 use crate::check::ast::Type;
-use crate::closure::ast::{
-    self as closure, Atom, Binding, Block, Operation, Pattern, TopLevelPattern,
-};
+use crate::closure::ast::{self as closure, Atom, Binding, Block, Operation, Pattern};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 
 use super::types::TypeRegistry;
 
 mod expression;
+mod function;
 mod pattern;
 
 use self::pattern::pattern_type;
@@ -71,155 +68,6 @@ impl<'a> BodyEmitter<'a> {
         }
     }
 
-    fn emit_environments(&self) -> String {
-        let mut output = String::new();
-        for function in &self.program.functions {
-            if function.environment.is_empty() {
-                continue;
-            }
-            writeln!(
-                output,
-                "typedef struct {} {{",
-                environment_name(function.id)
-            )
-            .unwrap();
-            for (index, field) in function.environment.iter().enumerate() {
-                writeln!(
-                    output,
-                    "    {} field_{index};",
-                    self.types.c_type(&field.ty)
-                )
-                .unwrap();
-            }
-            writeln!(output, "}} {};\n", environment_name(function.id)).unwrap();
-        }
-        output
-    }
-
-    fn emit_globals(&self) -> String {
-        let mut output = String::new();
-        for binding in &self.program.bindings {
-            self.emit_top_level_globals(&mut output, &binding.pattern);
-        }
-        if !output.is_empty() {
-            output.push('\n');
-        }
-        output
-    }
-
-    fn emit_function_declarations(&self) -> String {
-        let mut output = String::new();
-        for function in &self.program.functions {
-            writeln!(output, "{};", self.function_signature(function)).unwrap();
-        }
-        if !output.is_empty() {
-            output.push('\n');
-        }
-        output
-    }
-
-    fn emit_function_definitions(&mut self) -> String {
-        let mut output = String::new();
-        for function in &self.program.functions {
-            writeln!(output, "{} {{", self.function_signature(function)).unwrap();
-            line(&mut output, 1, "(void)mal_context;");
-            match function.environment.is_empty() {
-                true => line(&mut output, 1, "(void)mal_environment;"),
-                false => {
-                    writeln!(
-                        output,
-                        "    const {} *mal_environment_fields = (const {} *)mal_environment;",
-                        environment_name(function.id),
-                        environment_name(function.id)
-                    )
-                    .unwrap();
-                }
-            }
-            if function.parameter.binding.is_none() {
-                line(&mut output, 1, "(void)mal_parameter;");
-            }
-            if has_direct_tail_call(&function.body, function.id) {
-                line(&mut output, 1, "mal_tail_entry:");
-                line(&mut output, 1, "{");
-                let parameter_name = function
-                    .parameter
-                    .binding
-                    .map_or_else(|| "mal_parameter".into(), value_name);
-                self.emit_tail_block(&mut output, &function.body, function.id, &parameter_name, 2);
-                line(&mut output, 1, "}");
-            } else {
-                self.emit_block_bindings(&mut output, &function.body, 1);
-                line(
-                    &mut output,
-                    1,
-                    &format!("return {};", self.emit_atom(&function.body.result)),
-                );
-            }
-            output.push_str("}\n\n");
-        }
-        output
-    }
-
-    fn emit_initializer(&mut self) -> String {
-        let mut output =
-            String::from("static void mal_program_initialize(MalContext *mal_context) {\n");
-        line(&mut output, 1, "(void)mal_context;");
-        for binding in &self.program.bindings {
-            self.emit_block_bindings(&mut output, &binding.value, 1);
-            match &binding.pattern {
-                TopLevelPattern::Binding { id, .. } => {
-                    writeln!(
-                        output,
-                        "    {} = {};",
-                        value_name(*id),
-                        self.emit_atom(&binding.value.result)
-                    )
-                    .unwrap();
-                    writeln!(output, "    (void){};", value_name(*id)).unwrap();
-                }
-                TopLevelPattern::Wildcard { .. } => {
-                    writeln!(
-                        output,
-                        "    (void)({});",
-                        self.emit_atom(&binding.value.result)
-                    )
-                    .unwrap();
-                }
-                TopLevelPattern::Product { .. } => self.emit_top_level_pattern(
-                    &mut output,
-                    &binding.pattern,
-                    &self.emit_atom(&binding.value.result),
-                    1,
-                ),
-            }
-        }
-        output.push_str("}\n\n");
-        output
-    }
-
-    fn emit_main(&self, main: &crate::closure::ast::TopLevelBinding) -> String {
-        let TopLevelPattern::Binding { id, .. } = main.pattern else {
-            unreachable!()
-        };
-        let name = value_name(id);
-        format!(
-            "int main(void) {{\n    MalContext mal_context = {{ NULL }};\n    MalUnit mal_unit = {{ UINT8_C(0) }};\n    mal_program_initialize(&mal_context);\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_unit);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
-        )
-    }
-
-    fn function_signature(&self, function: &closure::Function) -> String {
-        let result = self.types.c_type(&function.body.result.ty);
-        let parameter_type = self.types.c_type(&function.parameter.ty);
-        let parameter_name = function
-            .parameter
-            .binding
-            .map_or_else(|| "mal_parameter".into(), value_name);
-        format!(
-            "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameter_type} {parameter_name})",
-            function_name(function.id)
-        )
-    }
-
     fn emit_block_bindings(&mut self, output: &mut String, block: &Block, indent: usize) {
         for binding in &block.bindings {
             self.emit_binding(output, binding, indent);
@@ -256,29 +104,22 @@ impl<'a> BodyEmitter<'a> {
                         if id == function
                 ) =>
             {
-                line(
+                c_line!(
                     output,
                     indent,
-                    &format!("{parameter_name} = {};", self.emit_atom(argument)),
+                    "{parameter_name} = {};",
+                    self.emit_atom(argument)
                 );
-                line(output, indent, "goto mal_tail_entry;");
+                c_line!(output, indent, "goto mal_tail_entry;");
             }
             Some(Operation::Case { scrutinee, arms }) => {
                 self.emit_tail_case(output, scrutinee, arms, function, parameter_name, indent)
             }
             Some(_) => {
                 self.emit_binding(output, block.bindings.last().expect("tail binding"), indent);
-                line(
-                    output,
-                    indent,
-                    &format!("return {};", self.emit_atom(&block.result)),
-                );
+                c_line!(output, indent, "return {};", self.emit_atom(&block.result));
             }
-            None => line(
-                output,
-                indent,
-                &format!("return {};", self.emit_atom(&block.result)),
-            ),
+            None => c_line!(output, indent, "return {};", self.emit_atom(&block.result)),
         }
     }
 
@@ -292,13 +133,9 @@ impl<'a> BodyEmitter<'a> {
         indent: usize,
     ) {
         let scrutinee_text = self.emit_atom(scrutinee);
-        line(output, indent, &format!("switch ({scrutinee_text}.tag) {{"));
+        c_line!(output, indent, "switch ({scrutinee_text}.tag) {{");
         for arm in arms {
-            line(
-                output,
-                indent + 1,
-                &format!("case UINT32_C({}): {{", arm.index),
-            );
+            c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
             let payload = format!("{scrutinee_text}.payload.variant_{}", arm.index);
             self.emit_simple_result(
                 output,
@@ -308,15 +145,15 @@ impl<'a> BodyEmitter<'a> {
                 indent + 2,
             );
             self.emit_tail_block(output, &arm.value, function, parameter_name, indent + 2);
-            line(output, indent + 1, "}");
+            c_line!(output, indent + 1, "}}");
         }
-        line(output, indent + 1, "default:");
-        line(
+        c_line!(output, indent + 1, "default:");
+        c_line!(
             output,
             indent + 2,
-            "mal_trap(mal_context, \"invalid sum tag\");",
+            "mal_trap(mal_context, \"invalid sum tag\");"
         );
-        line(output, indent, "}");
+        c_line!(output, indent, "}}");
     }
 
     fn emit_binding(&mut self, output: &mut String, binding: &Binding, indent: usize) {
@@ -330,7 +167,7 @@ impl<'a> BodyEmitter<'a> {
             }
             Operation::ExternalCall { id, argument } if *ty == Type::Unit => {
                 let call = self.emit_external_call(*id, argument);
-                line(output, indent, &format!("{call};"));
+                c_line!(output, indent, "{call};");
                 self.emit_unit_result(output, &binding.pattern, indent);
             }
             operation => {
@@ -351,24 +188,26 @@ impl<'a> BodyEmitter<'a> {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                line(
+                c_line!(
                     output,
                     indent,
-                    &format!("{} {name} = {expression};", self.types.c_type(ty)),
+                    "{} {name} = {expression};",
+                    self.types.c_type(ty)
                 );
-                line(output, indent, &format!("(void){name};"));
+                c_line!(output, indent, "(void){name};");
             }
             Pattern::Wildcard { .. } => {
-                line(output, indent, &format!("(void)({expression});"));
+                c_line!(output, indent, "(void)({expression});");
             }
             Pattern::Product { .. } => {
                 let target = self.result_target(pattern);
-                line(
+                c_line!(
                     output,
                     indent,
-                    &format!("{} {target} = {expression};", self.types.c_type(ty)),
+                    "{} {target} = {expression};",
+                    self.types.c_type(ty)
                 );
-                line(output, indent, &format!("(void){target};"));
+                c_line!(output, indent, "(void){target};");
                 self.emit_pattern_bindings(output, pattern, &target, indent);
             }
         }
@@ -378,12 +217,8 @@ impl<'a> BodyEmitter<'a> {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                line(
-                    output,
-                    indent,
-                    &format!("MalUnit {name} = {{ UINT8_C(0) }};"),
-                );
-                line(output, indent, &format!("(void){name};"));
+                c_line!(output, indent, "MalUnit {name} = {{ UINT8_C(0) }};");
+                c_line!(output, indent, "(void){name};");
             }
             Pattern::Wildcard { .. } => {}
             Pattern::Product { .. } => {
@@ -402,49 +237,40 @@ impl<'a> BodyEmitter<'a> {
         indent: usize,
     ) {
         let target = self.result_target(pattern);
-        line(
-            output,
-            indent,
-            &format!("{} {target};", self.types.c_type(ty)),
-        );
+        c_line!(output, indent, "{} {target};", self.types.c_type(ty));
         let scrutinee_text = self.emit_atom(scrutinee);
-        line(output, indent, &format!("switch ({scrutinee_text}.tag) {{"));
+        c_line!(output, indent, "switch ({scrutinee_text}.tag) {{");
         for arm in arms {
-            line(
-                output,
-                indent + 1,
-                &format!("case UINT32_C({}): {{", arm.index),
-            );
+            c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
             if let Pattern::Binding { id, ty } = &arm.pattern {
                 let name = value_name(*id);
-                line(
+                c_line!(
                     output,
                     indent + 2,
-                    &format!(
-                        "{} {name} = {scrutinee_text}.payload.variant_{};",
-                        self.types.c_type(ty),
-                        arm.index
-                    ),
+                    "{} {name} = {scrutinee_text}.payload.variant_{};",
+                    self.types.c_type(ty),
+                    arm.index
                 );
-                line(output, indent + 2, &format!("(void){name};"));
+                c_line!(output, indent + 2, "(void){name};");
             }
             self.emit_block_bindings(output, &arm.value, indent + 2);
-            line(
+            c_line!(
                 output,
                 indent + 2,
-                &format!("{target} = {};", self.emit_atom(&arm.value.result)),
+                "{target} = {};",
+                self.emit_atom(&arm.value.result)
             );
-            line(output, indent + 2, "break;");
-            line(output, indent + 1, "}");
+            c_line!(output, indent + 2, "break;");
+            c_line!(output, indent + 1, "}}");
         }
-        line(output, indent + 1, "default:");
-        line(
+        c_line!(output, indent + 1, "default:");
+        c_line!(
             output,
             indent + 2,
-            "mal_trap(mal_context, \"invalid sum tag\");",
+            "mal_trap(mal_context, \"invalid sum tag\");"
         );
-        line(output, indent, "}");
-        line(output, indent, &format!("(void){target};"));
+        c_line!(output, indent, "}}");
+        c_line!(output, indent, "(void){target};");
         if matches!(pattern, Pattern::Product { .. }) {
             self.emit_pattern_bindings(output, pattern, &target, indent);
         }
@@ -464,13 +290,11 @@ impl<'a> BodyEmitter<'a> {
             "NULL".into()
         } else {
             let allocation = format!("mal_new_environment_{target}");
-            line(
+            c_line!(
                 output,
                 indent,
-                &format!(
-                    "{} *{allocation} = ({0} *)mal_allocate(mal_context, sizeof({0}));",
-                    environment_name(function)
-                ),
+                "{} *{allocation} = ({0} *)mal_allocate(mal_context, sizeof({0}));",
+                environment_name(function)
             );
             let fields = captures
                 .iter()
@@ -478,26 +302,22 @@ impl<'a> BodyEmitter<'a> {
                 .map(|(index, atom)| format!(".field_{index} = {}", self.emit_atom(atom)))
                 .collect::<Vec<_>>()
                 .join(", ");
-            line(
+            c_line!(
                 output,
                 indent,
-                &format!(
-                    "*{allocation} = ({}){{ {fields} }};",
-                    environment_name(function)
-                ),
+                "*{allocation} = ({}){{ {fields} }};",
+                environment_name(function)
             );
             allocation
         };
-        line(
+        c_line!(
             output,
             indent,
-            &format!(
-                "{} {target} = {{ {}, {environment} }};",
-                self.types.c_type(ty),
-                function_name(function)
-            ),
+            "{} {target} = {{ {}, {environment} }};",
+            self.types.c_type(ty),
+            function_name(function)
         );
-        line(output, indent, &format!("(void){target};"));
+        c_line!(output, indent, "(void){target};");
     }
 
     fn external(&self, id: ExternalOperationId) -> &closure::ExternalOperation {
@@ -566,8 +386,4 @@ fn tail_binding(block: &Block) -> Option<&Binding> {
             ) if result == id
         )
     })
-}
-
-fn line(output: &mut String, indent: usize, text: &str) {
-    c_line!(output, indent, "{text}");
 }

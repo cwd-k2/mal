@@ -1,21 +1,19 @@
-use std::fmt::Write;
-
 use crate::check::ast::Type;
 use crate::closure::ast::{Pattern, TopLevelPattern};
 
-use super::{BodyEmitter, line, value_name};
+use super::{BodyEmitter, value_name};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_top_level_globals(&self, output: &mut String, pattern: &TopLevelPattern) {
         match pattern {
             TopLevelPattern::Binding { id, ty, .. } => {
-                writeln!(
+                c_line!(
                     output,
+                    0,
                     "static {} {};",
                     self.types.c_type(ty),
                     value_name(*id)
-                )
-                .unwrap();
+                );
             }
             TopLevelPattern::Wildcard { .. } => {}
             TopLevelPattern::Product { elements, .. } => {
@@ -35,8 +33,8 @@ impl BodyEmitter<'_> {
     ) {
         match pattern {
             TopLevelPattern::Binding { id, .. } => {
-                line(output, indent, &format!("{} = {value};", value_name(*id)));
-                line(output, indent, &format!("(void){};", value_name(*id)));
+                c_line!(output, indent, "{} = {value};", value_name(*id));
+                c_line!(output, indent, "(void){};", value_name(*id));
             }
             TopLevelPattern::Wildcard { .. } => {}
             TopLevelPattern::Product { elements, .. } => {
@@ -62,12 +60,13 @@ impl BodyEmitter<'_> {
         match pattern {
             Pattern::Binding { id, ty } => {
                 let name = value_name(*id);
-                line(
+                c_line!(
                     output,
                     indent,
-                    &format!("{} {name} = {value};", self.types.c_type(ty)),
+                    "{} {name} = {value};",
+                    self.types.c_type(ty)
                 );
-                line(output, indent, &format!("(void){name};"));
+                c_line!(output, indent, "(void){name};");
             }
             Pattern::Wildcard { .. } => {}
             Pattern::Product { elements, .. } => {
