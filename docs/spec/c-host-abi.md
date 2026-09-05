@@ -14,7 +14,7 @@ linker inputにはC source、object file、static archive、shared objectを指�
 
 ## generated header
 
-headerは少なくともC11でcompileでき、同じprogramについて生成したC translation unitと対になる。初期実装中は異なるcompiler versionが生成したheader間のbinary compatibilityを保証しない。shared objectは対象programのheaderに対してbuildする。
+headerは少なくともC11でcompileでき、同じprogramについて生成したC translation unitと対になる。v0.4は異なるcompiler versionが生成したheader間のbinary compatibilityを保証しない。shared objectは対象programのheaderに対してbuildする。
 
 共通部分は概念上次を含む。
 
@@ -112,5 +112,5 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 
 ## 実装済みsubset
 
-reference compilerは現在、`Unit`、全fixed-width integer scalar、product/sum aggregate、opaque handle、`String`、
+reference compilerは`Unit`、全fixed-width numeric scalar、product/sum aggregate、opaque handle、`String`、
 `MalContext *`、`mal_trap`、`mal_string_copy`、`mal_ext_` symbolを実装する。

@@ -2,9 +2,10 @@
 
 このディレクトリは `mal language specification v0.4` を、参照しやすさと議論のしやすさを優先して再構成したものである。
 
-現時点の status は **Implementation Draft**。規範項目の整理と今後の更新は `docs/spec/` で行う。
+現時点の status は **v0.4 release preparation**。規範項目は `docs/spec/`、残るrelease作業は
+[implementation roadmap](implementation/roadmap.md)で管理する。
 
-今回のbaselineと実装へ持ち越した項目は[v0.4 implementation draft](releases/v0.4.md)にまとめる。
+v0.4の要約は[release profile](releases/v0.4.md)にまとめる。
 
 ## 読む順序
 
@@ -17,11 +18,11 @@
 5. [式と binding](spec/expressions.md)
 6. [実行意味論](spec/execution.md)
 7. [`extern` 境界](spec/extern.md)
-8. [初期 C host ABI](spec/c-host-abi.md)
+8. [C host ABI](spec/c-host-abi.md)
 9. [プログラム構造](spec/programs.md)
 10. [字句・文法](spec/grammar.md)
 
-実装者はまず[v0.4 implementation roadmap](implementation/roadmap.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。M0の完了条件は[M0 implementation plan](implementation/m0.md)、各stageの背景は[compiler implementation notes](implementation/compiler.md)に残す。設計を詰める際には[決定記録](design/decisions.md)、[未決事項](design/open-questions.md)、[関連調査](research/prior-art.md)を参照する。
+実装者はまず[v0.4 implementation roadmap](implementation/roadmap.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md)を参照する。M0の履歴は[M0 implementation record](implementation/m0.md)、各stageの背景は[compiler implementation notes](implementation/compiler.md)に残す。設計理由は[決定記録](design/decisions.md)、意図的な未指定事項は[未決事項](design/open-questions.md)を参照する。
 
 ## 文書の役割
 

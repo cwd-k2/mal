@@ -20,7 +20,7 @@ source
 
 reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
-active milestone、vertical sliceの進め方、受入条件は[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation plan](m0.md)に残す。
+active gateと受入条件は[implementation roadmap](roadmap.md)に置く。最初のvertical sliceの記録は[M0 implementation record](m0.md)に残す。
 
 初期実装は Rust standard library を中心に構成する。外部 crate は、標準 library だけで実装する場合より明確に単純になるものを必要に応じて追加し、特定の parser framework や compiler framework を前提にしない。
 
@@ -50,7 +50,7 @@ lexer は byte literal を token 化するときに escape を decodeし、exact
 
 numeric separatorは各radixの有効なdigitに挟まれたsingle underscoreだけを受理する。検証後にunderscoreを除去してからinteger valueの計算またはdecimal floatのcorrect roundingを行う。
 
-extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はv0.4の暫定extern-safe制約により拒否する。
+extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はv0.4のextern-safe制約により拒否する。
 
 ## desugaring と ANF
 
