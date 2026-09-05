@@ -480,3 +480,26 @@ hostによるclosure保持、hostから返るclosureのallocationは定義しな
 mal型とC型を直接同一視すると、aggregate layout、target calling convention、String lifetime、opaque resource policyがsource
 declarationから判別できない。小さなadapter境界とgenerated headerへ集約すれば、C parserやdynamic FFIをcompilerへ追加せず、
 target toolchainが実際に使用するABIとhost固有contractを明示できる。
+
+## D017. immutable byte sequenceの型名は`String`とする
+
+- Status: Accepted
+- Date: 2026-09-05
+- Scope: mal v0.4
+- Refines: D010
+
+### 決定
+
+immutableな有限byte sequenceの組み込み型名は`String`とする。この名称はtext encodingやUnicodeの保証を伴わない。
+値は任意のbyte列を保持でき、valid UTF-8、Unicode scalar、code point、grapheme、normalizationのinvariantを持たない。
+
+source上のraw characterはsource encodingであるUTF-8のbytesとしてliteralへ入り、`\xNN` escapeは任意の1 byteを表す。
+byte列としてのoperationとlifetimeは[String仕様](../spec/strings.md)に従う。
+
+### 理由
+
+既存のsyntax、型一覧、extern例との連続性を保ち、immutableな値であることをmutable buffer型と区別するため`String`を維持する。
+UTF-8を保証しない点は型名だけでは伝わらないため、型とliteralのauthorityで明記する。
+
+`Bytes`への改名はencoding上の誤解を減らせる一方、値の意味や安全性を変えず、既存文書とprogramを一斉に変更する移行コストが
+生じるため採用しない。mutable byte storageは引き続きexternal opaque typeで表し、`String`へmutable semanticsを追加しない。

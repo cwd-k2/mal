@@ -102,7 +102,7 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### Specification gate
 
-- [Q10 String name](../design/open-questions.md#q10-string-という名前)を確定し、採用名を全仕様で統一する。
+- immutable byte sequenceの型名は[D017](../design/decisions.md#d017-immutable-byte-sequenceの型名はstringとする)に従う。
 - host buffer取得・copy完了・解放のadapter contractに未確定部分があれば[extern contract](../spec/extern.md)と[C host ABI](../spec/c-host-abi.md)を先に更新する。
 
 ### Scope

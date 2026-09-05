@@ -130,21 +130,6 @@ A -> B -> C
 
 関数型の値は lexical closure である。同じ関数型を持つ capture-free な関数と capture を持つ関数は、型として区別しない。closure の code や environment を観察する操作と、関数値の equality は存在しない。
 
-## String
-
-`String` は immutable な有限 byte sequence である。名前に反して、valid UTF-8、Unicode scalar、code point、grapheme、normalization を保証しない。
-
-mal source file と通常の文字を含む string literal は UTF-8 で符号化する。`\xNN` により任意 byte を含められる。
-
-`String` の primitive は次の二つだけである。
-
-```mal
-byteLength :: String -> UInt64;
-byteAt :: (String, UInt64) -> UInt8;
-```
-
-`byteAt` の範囲外 access は trap する。`==` と `!=` は byte-wise equality。ordering と concatenation は組み込まない。
-
 ## external opaque type
 
 ```mal

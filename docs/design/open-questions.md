@@ -10,6 +10,8 @@ floatの実行意味論については解決済み。[D009](decisions.md#d009-fl
 
 `String`のlifetimeについては解決済み。[D010](decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)を参照する。
 
+immutable byte sequenceの名称については解決済み。[D017](decisions.md#d017-immutable-byte-sequenceの型名はstringとする)を参照する。
+
 整数型間の変換とshift countについては解決済み。[D013](decisions.md#d013-整数型間の変換はdestination-widthでmoduloとする)と
 [D014](decisions.md#d014-shift-countはleft-operandと同じ型とする)を参照する。
 
@@ -29,12 +31,6 @@ opaque resource safetyと`extern` ABIについては解決済み。[D015](decisi
 **暫定案:** 言語上は捕捉不能な異常終了だけを定義し、具体的な終了方法は embedding contract に置く。完了済み extern effect は巻き戻さない。
 
 n-ary sum の記法と canonical form は解決済み。[D004](decisions.md#d004-直和型を-a-b-c-と書く) を参照する。
-
-## Q10. `String` という名前
-
-**問い:** arbitrary bytes なのに `String` と呼ぶか、`Bytes` と呼ぶか。
-
-**暫定案:** 原案との連続性のため `String`。ただし利用者が UTF-8 invariant を期待する誤解は強い。v0.4 確定前なら `Bytes` への変更コストは低い。
 
 ## Q11. `return` は必要か
 

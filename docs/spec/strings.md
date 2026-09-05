@@ -4,7 +4,7 @@ Status: Draft
 
 ## 値とstorage
 
-`String`はimmutableな有限byte sequenceである。Unicode character、code point、grapheme、normalizationの概念を持たず、valid UTF-8も保証しない。
+`String`はimmutableな有限byte sequenceである。型名は[D017](../design/decisions.md#d017-immutable-byte-sequenceの型名はstringとする)に従う。名前からtext encodingを推論してはならず、Unicode character、code point、grapheme、normalizationの概念を持たず、valid UTF-8も保証しない。
 
 String値はcopyableなdescriptorとして振る舞う。値を複製してもbytes自体を複製する必要はない。bytesはmal program終了まで有効で変更されず、source-levelの個別解放操作は存在しない。
 
