@@ -140,7 +140,7 @@ fn parses_a_string_literal_as_bytes() {
 #[test]
 fn distinguishes_numeric_conversion_from_sum_injection() {
     assert!(matches!(
-        binding_value("value := UInt8(1Int8);"),
+        binding_value("value := UInt8(1i8);"),
         Expression::Conversion { .. }
     ));
     assert!(matches!(

@@ -78,7 +78,7 @@ fn preserves_string_literals_and_resolves_the_predefined_type() {
 
 #[test]
 fn resolves_string_primitives_as_predefined_values() {
-    let program = resolve_ok(r#"length := byteLength("abc"); item := byteAt("abc", 1UInt64);"#);
+    let program = resolve_ok(r#"length := byteLength("abc"); item := byteAt("abc", 1u64);"#);
     for (index, expected) in [(0, BYTE_LENGTH_VALUE), (1, BYTE_AT_VALUE)] {
         let resolved::Expression::Call { callee, .. } =
             &top_binding(&program.items[index]).value.kind
@@ -226,7 +226,7 @@ fn resolves_annotated_direct_lambda_self_references() {
         "top :: Int64 -> Int64 := \\(n :: Int64) { return top(n); };\n\
          main := \\() {\n\
            local :: Int64 -> Int64 := \\(n :: Int64) { return local(n); };\n\
-           return 0Int32;\n\
+           return 0i32;\n\
          };",
     );
 
@@ -269,7 +269,7 @@ fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
             "first",
         ),
         (
-            "main := \\() { local := \\() { return local(); }; return 0Int32; };",
+            "main := \\() { local := \\() { return local(); }; return 0i32; };",
             "local",
         ),
     ];

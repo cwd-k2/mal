@@ -1,4 +1,4 @@
 main :: Unit -> Int32 := \() {
-    1UInt8 << 8UInt8;
+    1u8 << 8u8;
     return 0;
 };

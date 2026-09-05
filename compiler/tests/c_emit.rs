@@ -102,7 +102,7 @@ fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
            };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           return if (count(1000000Int64, 0) == 1000000Int64) then { 0 } else { 1 };\n\
+           return if (count(1000000i64, 0) == 1000000i64) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit tail-recursive C");
     assert!(generated.source.contains("goto mal_tail_entry;"));
@@ -155,7 +155,7 @@ fn emits_uint64_literals_and_scalar_extern_abi() {
            return \\<value>() { return value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printUInt64(capture(18446744073709551615UInt64)());\n\
+           extern printUInt64(capture(18446744073709551615u64)());\n\
            return 0;\n\
          };",
         r#"#include "program.mal.h"
@@ -238,15 +238,15 @@ fn executes_strict_float_arithmetic_and_ieee_comparisons() {
 fn executes_ties_to_even_numeric_float_conversions() {
     let output = compile_and_run(
         "main :: Unit -> Int32 := \\() {\n\
-           lowerEven := Float32(16777217UInt64);\n\
-           upperEven := Float32(16777219UInt64);\n\
+           lowerEven := Float32(16777217u64);\n\
+           upperEven := Float32(16777219u64);\n\
            widened := Float64(0.1f32);\n\
            narrowed := Float32(widened);\n\
            valid := lowerEven == 16777216.0f32 &&\n\
                     upperEven == 16777220.0f32 &&\n\
                     narrowed == 0.1f32 &&\n\
-                    Int8(-128.75f64) == -128Int8 &&\n\
-                    UInt8(-0.5f32) == 0UInt8;\n\
+                    Int8(-128.75f64) == -128i8 &&\n\
+                    UInt8(-0.5f32) == 0u8;\n\
            return if (valid) then { 0 } else { 1 };\n\
          };",
         "",
@@ -319,9 +319,9 @@ fn executes_string_primitives_and_byte_wise_equality() {
     let output = compile_and_run(
         r#"main :: Unit -> Int32 := \() {
   value := "あ\0\xff";
-  ok := (byteLength(value) == 5UInt64) &&
-        (byteAt(value, 0UInt64) == 227UInt8) &&
-        (byteAt(value, 4UInt64) == 255UInt8) &&
+  ok := (byteLength(value) == 5u64) &&
+        (byteAt(value, 0u64) == 227u8) &&
+        (byteAt(value, 4u64) == 255u8) &&
         (value == "\xe3\x81\x82\x00\xff") &&
         (value != "あ\0\xfe") &&
         ("" == "");
@@ -338,7 +338,7 @@ fn executes_string_primitives_and_byte_wise_equality() {
 
 #[test]
 fn traps_out_of_range_string_byte_access() {
-    for expression in [r#"byteAt("", 0UInt64)"#, r#"byteAt("a", 1UInt64)"#] {
+    for expression in [r#"byteAt("", 0u64)"#, r#"byteAt("a", 1u64)"#] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
             "",
@@ -357,7 +357,7 @@ fn copies_host_string_results_into_program_lifetime_storage() {
         r#"extern fetch :: Unit -> String;
 main :: Unit -> Int32 := \() {
   value := extern fetch();
-  ok := (value == "host\0\xff") && (byteAt(value, 5UInt64) == 255UInt8);
+  ok := (value == "host\0\xff") && (byteAt(value, 5u64) == 255u8);
   return if (ok) then { 0 } else { 1 };
 };"#,
     )
@@ -469,10 +469,10 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
          Response :: [Unit, (Int32, Int32)];\n\
          extern exchange :: Request -> Response;\n\
          total :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
-           return left + right - 42Int32;\n\
+           return left + right - 42i32;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           response := extern exchange(20Int32, (2UInt8, 22Int32));\n\
+           response := extern exchange(20i32, (2u8, 22i32));\n\
            return case response {\n\
              [0](_) => 1;\n\
              [1](pair) => total(pair);\n\
@@ -538,8 +538,8 @@ fn exposes_copyable_opaque_handles_to_the_host() {
          extern allocate :: UInt64 -> Mem;\n\
          extern combinedLength :: (Mem, Mem) -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
-           mem := extern allocate(21UInt64);\n\
-           return Int32(extern combinedLength(mem, mem) - 42UInt64);\n\
+           mem := extern allocate(21u64);\n\
+           return Int32(extern combinedLength(mem, mem) - 42u64);\n\
          };";
     let generated = emit(source).expect("emit opaque ABI");
     assert!(
@@ -584,7 +584,7 @@ fn preserves_duplicate_sum_members_by_tag() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            return case extern choose() {\n\
-             [0](pair) => difference(pair) + 1Int32;\n\
+             [0](pair) => difference(pair) + 1i32;\n\
              [1](pair) => difference(pair);\n\
            };\n\
          };",
@@ -668,16 +668,16 @@ fn executes_all_fixed_width_integer_operator_families() {
     let output = compile_and_run(
         "main :: Unit -> Int32 := \\() {\n\
            ok :: Bool :=\n\
-             (-128Int8 - 1Int8 == 127Int8) &&\n\
-             (32767Int16 * 2Int16 == -2Int16) &&\n\
-             (2147483647Int32 + 1Int32 == -2147483648Int32) &&\n\
-             (9223372036854775807Int64 + 1Int64 == -9223372036854775808Int64) &&\n\
-             (-1UInt8 == 255UInt8) &&\n\
-             ((65535UInt16 & 255UInt16) == 255UInt16) &&\n\
-             (1UInt32 << 31UInt32 == 2147483648UInt32) &&\
-             (18446744073709551615UInt64 + 1UInt64 == 0UInt64) &&\n\
-             (-2Int32 >> 1Int32 == -1Int32) &&\n\
-             (-9223372036854775808Int64 / 1Int64 == -9223372036854775808Int64);\n\
+             (-128i8 - 1i8 == 127i8) &&\n\
+             (32767i16 * 2i16 == -2i16) &&\n\
+             (2147483647i32 + 1i32 == -2147483648i32) &&\n\
+             (9223372036854775807i64 + 1i64 == -9223372036854775808i64) &&\n\
+             (-1u8 == 255u8) &&\n\
+             ((65535u16 & 255u16) == 255u16) &&\n\
+             (1u32 << 31u32 == 2147483648u32) &&\
+             (18446744073709551615u64 + 1u64 == 0u64) &&\n\
+             (-2i32 >> 1i32 == -1i32) &&\n\
+             (-9223372036854775808i64 / 1i64 == -9223372036854775808i64);\n\
            return if (ok) then { 0 } else { 1 };\n\
          };",
         "",
@@ -694,14 +694,14 @@ fn executes_modulo_integer_conversions() {
     let output = compile_and_run(
         "main :: Unit -> Int32 := \\() {\n\
            ok :: Bool :=\n\
-             (UInt8(-1Int8) == 255UInt8) &&\n\
-             (Int8(255UInt16) == -1Int8) &&\n\
-             (UInt16(-1Int8) == 65535UInt16) &&\
-             (Int16(255UInt8) == 255Int16) &&\n\
-             (UInt32(-1Int8) == 4294967295UInt32) &&\n\
-             (Int32(4294967295UInt32) == -1Int32) &&\n\
-             (Int64(18446744073709551615UInt64) == -1Int64) &&\n\
-             (UInt64(-1Int8) == 18446744073709551615UInt64);\n\
+             (UInt8(-1i8) == 255u8) &&\n\
+             (Int8(255u16) == -1i8) &&\n\
+             (UInt16(-1i8) == 65535u16) &&\
+             (Int16(255u8) == 255i16) &&\n\
+             (UInt32(-1i8) == 4294967295u32) &&\n\
+             (Int32(4294967295u32) == -1i32) &&\n\
+             (Int64(18446744073709551615u64) == -1i64) &&\n\
+             (UInt64(-1i8) == 18446744073709551615u64);\n\
            return if (ok) then { 0 } else { 1 };\n\
          };",
         "",
@@ -717,7 +717,7 @@ fn executes_modulo_integer_conversions() {
 fn executes_nested_products_destructuring_and_multiple_arguments() {
     let output = compile_and_run(
         "extern mark :: Int32 -> Int32;\n\
-         pair :: (Int32, Int32) := (20Int32, 22Int32);\n\
+         pair :: (Int32, Int32) := (20i32, 22i32);\n\
          add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
            return left + right;\n\
          };\n\
@@ -725,7 +725,7 @@ fn executes_nested_products_destructuring_and_multiple_arguments() {
            (first, second) := pair;\n\
            nested := ((extern mark(first), ()), extern mark(second));\n\
            ((value, _), extra) := nested;\n\
-           return add(value, extra) - 42Int32;\n\
+           return add(value, extra) - 42i32;\n\
          };",
         r#"#include "program.mal.h"
 #include <stdio.h>
@@ -745,13 +745,13 @@ int32_t mal_ext_mark(MalContext *context, int32_t value) {
 fn executes_a_product_captured_by_an_escaping_closure() {
     let output = compile_and_run(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
-           pair := (20Int32, 22Int32);\n\
+           pair := (20i32, 22i32);\n\
            return \\<pair>() {\n\
              (left, right) := pair;\n\
              return left + right;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { return make()() - 42Int32; };",
+         main :: Unit -> Int32 := \\() { return make()() - 42i32; };",
         "",
     );
     assert!(
@@ -764,18 +764,18 @@ fn executes_a_product_captured_by_an_escaping_closure() {
 #[test]
 fn traps_out_of_range_shift_counts() {
     for expression in [
-        "1Int8 << 8Int8",
-        "1Int16 << 16Int16",
-        "1Int32 << 32Int32",
-        "1Int64 << 64Int64",
-        "1UInt8 << 8UInt8",
-        "1UInt16 << 16UInt16",
-        "1UInt32 << 32UInt32",
-        "1UInt64 << 64UInt64",
-        "1Int8 >> -1Int8",
-        "1Int16 >> -1Int16",
-        "1Int32 >> -1Int32",
-        "1Int64 >> -1Int64",
+        "1i8 << 8i8",
+        "1i16 << 16i16",
+        "1i32 << 32i32",
+        "1i64 << 64i64",
+        "1u8 << 8u8",
+        "1u16 << 16u16",
+        "1u32 << 32u32",
+        "1u64 << 64u64",
+        "1i8 >> -1i8",
+        "1i16 >> -1i16",
+        "1i32 >> -1i32",
+        "1i64 >> -1i64",
     ] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; return 0; }};"),
@@ -810,25 +810,25 @@ fn executes_sum_injection_and_case() {
 #[test]
 fn traps_invalid_division_and_remainder_at_every_width() {
     let mut cases = Vec::new();
-    for (ty, minimum) in [
-        ("Int8", Some("-128")),
-        ("Int16", Some("-32768")),
-        ("Int32", Some("-2147483648")),
-        ("Int64", Some("-9223372036854775808")),
-        ("UInt8", None),
-        ("UInt16", None),
-        ("UInt32", None),
-        ("UInt64", None),
+    for (suffix, minimum) in [
+        ("i8", Some("-128")),
+        ("i16", Some("-32768")),
+        ("i32", Some("-2147483648")),
+        ("i64", Some("-9223372036854775808")),
+        ("u8", None),
+        ("u16", None),
+        ("u32", None),
+        ("u64", None),
     ] {
-        cases.push((format!("1{ty} / 0{ty}"), "division by zero"));
-        cases.push((format!("1{ty} % 0{ty}"), "remainder by zero"));
+        cases.push((format!("1{suffix} / 0{suffix}"), "division by zero"));
+        cases.push((format!("1{suffix} % 0{suffix}"), "remainder by zero"));
         if let Some(minimum) = minimum {
             cases.push((
-                format!("{minimum}{ty} / -1{ty}"),
+                format!("{minimum}{suffix} / -1{suffix}"),
                 "signed division overflow",
             ));
             cases.push((
-                format!("{minimum}{ty} % -1{ty}"),
+                format!("{minimum}{suffix} % -1{suffix}"),
                 "signed remainder overflow",
             ));
         }
@@ -849,7 +849,7 @@ fn traps_invalid_division_and_remainder_at_every_width() {
 #[test]
 fn rejects_invalid_executable_programs() {
     assert!(
-        emit("value :: Int32 := 1Int32;")
+        emit("value :: Int32 := 1i32;")
             .unwrap_err()
             .message
             .contains("has no")

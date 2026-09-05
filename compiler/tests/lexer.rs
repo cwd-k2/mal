@@ -90,7 +90,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
     assert_eq!(
-        kinds("1_000 0xff_ffInt32 0b1010_0001"),
+        kinds("1_000 0xff_ffu32 0b1010_0001u8"),
         vec![
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Decimal,
@@ -100,17 +100,17 @@ fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Hexadecimal,
                 digits: "ffff".into(),
-                suffix: Some(IntegerSuffix::Int32),
+                suffix: Some(IntegerSuffix::UInt32),
             }),
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Binary,
                 digits: "10100001".into(),
-                suffix: None,
+                suffix: Some(IntegerSuffix::UInt8),
             }),
             TokenKind::Eof,
         ]
     );
-    let suffixes = kinds("0Int8 0Int16 0Int32 0Int64 0UInt8 0UInt16 0UInt32 0UInt64");
+    let suffixes = kinds("0i8 0i16 0i32 0i64 0u8 0u16 0u32 0u64");
     assert_eq!(
         suffixes,
         [
@@ -181,7 +181,7 @@ fn lexes_decimal_float_forms_and_separators() {
 
 #[test]
 fn rejects_malformed_decimal_float_literals() {
-    for text in ["1.", "1e", "1e+", "1.0Int32", "1.0f32x"] {
+    for text in ["1.", "1e", "1e+", "1.0i32", "1.0f32x"] {
         let error = lex(&source(text)).expect_err("float literal should be rejected");
         assert_eq!(error.message, "invalid float literal", "input: {text}");
     }
@@ -326,7 +326,9 @@ fn rejects_bad_numeric_separators_with_the_literal_span() {
 
 #[test]
 fn rejects_invalid_radix_digits_and_unsupported_suffixes() {
-    for text in ["0x", "0b2", "12Byte", "12Int32x", "1Float32"] {
+    for text in [
+        "0x", "0b2", "12Byte", "12Int32", "12UInt8", "12i32x", "1Float32",
+    ] {
         let error = lex(&source(text)).expect_err("literal should be rejected");
         assert_eq!(error.message, "invalid integer literal", "input: {text}");
     }

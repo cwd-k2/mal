@@ -7,6 +7,6 @@ sumTo :: (Int64, Int64) -> Int64 := \(remaining :: Int64, total :: Int64) {
 };
 
 main :: Unit -> Int32 := \() {
-    result := sumTo(1_000_000Int64, 0);
-    return if (result == 500_000_500_000Int64) then { 0 } else { 1 };
+    result := sumTo(1_000_000i64, 0);
+    return if (result == 500_000_500_000i64) then { 0 } else { 1 };
 };

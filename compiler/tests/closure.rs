@@ -182,7 +182,7 @@ fn represents_local_self_references_with_the_current_closure() {
 fn preserves_captured_products_and_destructuring_patterns() {
     let program = convert_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
-           pair := (20Int32, 22Int32);\n\
+           pair := (20i32, 22i32);\n\
            return \\<pair>() {\n\
              (left, right) := pair;\n\
              return left + right;\n\

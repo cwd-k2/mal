@@ -81,7 +81,7 @@ fn rejects_recursive_aliases_even_when_unused() {
 fn checks_int32_literal_context_and_boundaries() {
     let program = check_ok(
         "minimum :: Int32 := -2147483648;\n\
-         maximum := 2147483647Int32;",
+         maximum := 2147483647i32;",
     );
     assert!(matches!(
         top_binding(&program, 0).value.kind,
@@ -110,19 +110,19 @@ fn checks_int32_literal_context_and_boundaries() {
 #[test]
 fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
     let cases = [
-        ("127Int8", Type::Int8, 127_i128),
-        ("32767Int16", Type::Int16, 32_767),
-        ("2147483647Int32", Type::Int32, 2_147_483_647),
+        ("127i8", Type::Int8, 127_i128),
+        ("32767i16", Type::Int16, 32_767),
+        ("2147483647i32", Type::Int32, 2_147_483_647),
         (
-            "9223372036854775807Int64",
+            "9223372036854775807i64",
             Type::Int64,
             9_223_372_036_854_775_807,
         ),
-        ("255UInt8", Type::UInt8, 255),
-        ("65535UInt16", Type::UInt16, 65_535),
-        ("4294967295UInt32", Type::UInt32, 4_294_967_295),
+        ("255u8", Type::UInt8, 255),
+        ("65535u16", Type::UInt16, 65_535),
+        ("4294967295u32", Type::UInt32, 4_294_967_295),
         (
-            "18446744073709551615UInt64",
+            "18446744073709551615u64",
             Type::UInt64,
             18_446_744_073_709_551_615,
         ),
@@ -145,10 +145,10 @@ fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
     ));
 
     for (literal, value) in [
-        ("-128Int8", -128_i128),
-        ("-32768Int16", -32_768),
-        ("-2147483648Int32", -2_147_483_648),
-        ("-9223372036854775808Int64", -9_223_372_036_854_775_808),
+        ("-128i8", -128_i128),
+        ("-32768i16", -32_768),
+        ("-2147483648i32", -2_147_483_648),
+        ("-9223372036854775808i64", -9_223_372_036_854_775_808),
     ] {
         let program = check_ok(&format!("value := {literal};"));
         assert!(
@@ -158,15 +158,15 @@ fn checks_all_fixed_width_literal_boundaries_and_byte_literals() {
     }
 
     for literal in [
-        "128Int8",
-        "32768Int16",
-        "2147483648Int32",
-        "9223372036854775808Int64",
-        "256UInt8",
-        "65536UInt16",
-        "4294967296UInt32",
-        "18446744073709551616UInt64",
-        "-129Int8",
+        "128i8",
+        "32768i16",
+        "2147483648i32",
+        "9223372036854775808i64",
+        "256u8",
+        "65536u16",
+        "4294967296u32",
+        "18446744073709551616u64",
+        "-129i8",
     ] {
         assert!(
             check_error(&format!("value := {literal};"))
@@ -293,7 +293,7 @@ fn rejects_unsupported_or_mistyped_string_operations() {
         r#"bad := "a" + "b";"#,
         r#"bad := "a" < "b";"#,
         r#"bad := byteLength(1);"#,
-        r#"bad := byteAt("a", 0UInt8);"#,
+        r#"bad := byteAt("a", 0u8);"#,
         "bad := byteLength;",
     ] {
         let error = check_error(text);
@@ -334,7 +334,7 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
         "type mismatch"
     );
     assert_eq!(
-        check_error("value :: Int32 := 1Int32();").message,
+        check_error("value :: Int32 := 1i32();").message,
         "cannot call a non-function value"
     );
 }
@@ -450,10 +450,7 @@ fn checks_integer_operators_for_every_fixed_width_type() {
         ));
     }
 
-    assert_eq!(
-        check_error("bad := 1Int8 + 1UInt8;").message,
-        "type mismatch"
-    );
+    assert_eq!(check_error("bad := 1i8 + 1u8;").message, "type mismatch");
     assert!(
         check_error("bad := ~();")
             .message
@@ -464,10 +461,10 @@ fn checks_integer_operators_for_every_fixed_width_type() {
 #[test]
 fn checks_modulo_integer_conversions() {
     for (expression, expected) in [
-        ("UInt8(-1Int8)", Type::UInt8),
-        ("Int8(255UInt16)", Type::Int8),
-        ("UInt16(-1Int8)", Type::UInt16),
-        ("Int16(255UInt8)", Type::Int16),
+        ("UInt8(-1i8)", Type::UInt8),
+        ("Int8(255u16)", Type::Int8),
+        ("UInt16(-1i8)", Type::UInt16),
+        ("Int16(255u8)", Type::Int16),
     ] {
         let program = check_ok(&format!("value := {expression};"));
         assert_eq!(top_binding(&program, 0).value.ty, expected);
@@ -483,7 +480,7 @@ fn checks_modulo_integer_conversions() {
             .contains("requires a numeric value")
     );
     assert!(
-        check_error("value := Bool(1Int8);")
+        check_error("value := Bool(1i8);")
             .message
             .contains("requires a numeric type")
     );
@@ -492,7 +489,7 @@ fn checks_modulo_integer_conversions() {
 #[test]
 fn checks_conversions_between_integer_and_float_types() {
     let program = check_ok(
-        "single := Float32(16777217UInt64);\n\
+        "single := Float32(16777217u64);\n\
          double := Float64(0.1f32);\n\
          narrowed := Float32(0.1f64);\n\
          signed := Int32(-1.75f64);\n\
@@ -530,7 +527,7 @@ fn checks_products_destructuring_and_multiple_parameters() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            (first, _) := pair;\n\
-           nested := ((first, 2Int32), 39Int32);\n\
+           nested := ((first, 2i32), 39i32);\n\
            ((left, right), extra) := nested;\n\
            return add(left + right, extra);\n\
          };",
@@ -565,7 +562,7 @@ fn checks_nominal_external_opaque_types() {
          extern allocate :: UInt64 -> Mem;\n\
          extern length :: Mem -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
-           mem := extern allocate(4UInt64);\n\
+           mem := extern allocate(4u64);\n\
            return Int32(extern length(mem));\n\
          };",
     );

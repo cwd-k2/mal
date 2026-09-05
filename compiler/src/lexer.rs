@@ -359,14 +359,14 @@ impl<'a> Lexer<'a> {
         digits_end: usize,
     ) -> Result<(), Diagnostic> {
         let suffixes = [
-            ("UInt16", IntegerSuffix::UInt16),
-            ("UInt32", IntegerSuffix::UInt32),
-            ("UInt64", IntegerSuffix::UInt64),
-            ("Int16", IntegerSuffix::Int16),
-            ("Int32", IntegerSuffix::Int32),
-            ("Int64", IntegerSuffix::Int64),
-            ("UInt8", IntegerSuffix::UInt8),
-            ("Int8", IntegerSuffix::Int8),
+            ("i8", IntegerSuffix::Int8),
+            ("i16", IntegerSuffix::Int16),
+            ("i32", IntegerSuffix::Int32),
+            ("i64", IntegerSuffix::Int64),
+            ("u8", IntegerSuffix::UInt8),
+            ("u16", IntegerSuffix::UInt16),
+            ("u32", IntegerSuffix::UInt32),
+            ("u64", IntegerSuffix::UInt64),
         ];
         let suffix = suffixes
             .into_iter()
