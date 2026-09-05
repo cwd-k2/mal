@@ -1,6 +1,6 @@
 use crate::ast::{BinaryOperator, Name, Node, UnaryOperator};
 use crate::resolve::ast::{
-    ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueReference,
+    ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
 use crate::source::Span;
 
@@ -138,7 +138,7 @@ pub enum ExpressionKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub id: LambdaId,
-    pub self_binding: Option<ValueBinding>,
+    pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
     pub parameters: Vec<Parameter>,
     pub body: LambdaBody,

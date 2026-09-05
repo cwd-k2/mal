@@ -137,13 +137,23 @@ impl<'a> BodyEmitter<'a> {
             if function.parameter.binding.is_none() {
                 line(&mut output, 1, "(void)mal_parameter;");
             }
-            self.emit_block_bindings(&mut output, &function.body, 1);
-            writeln!(
-                output,
-                "    return {};",
-                self.emit_atom(&function.body.result)
-            )
-            .unwrap();
+            if has_direct_tail_call(&function.body, function.id) {
+                line(&mut output, 1, "mal_tail_entry:");
+                line(&mut output, 1, "{");
+                let parameter_name = function
+                    .parameter
+                    .binding
+                    .map_or_else(|| "mal_parameter".into(), value_name);
+                self.emit_tail_block(&mut output, &function.body, function.id, &parameter_name, 2);
+                line(&mut output, 1, "}");
+            } else {
+                self.emit_block_bindings(&mut output, &function.body, 1);
+                line(
+                    &mut output,
+                    1,
+                    &format!("return {};", self.emit_atom(&function.body.result)),
+                );
+            }
             output.push_str("}\n\n");
         }
         output
@@ -213,6 +223,99 @@ impl<'a> BodyEmitter<'a> {
         for binding in &block.bindings {
             self.emit_binding(output, binding, indent);
         }
+    }
+
+    fn emit_tail_block(
+        &mut self,
+        output: &mut String,
+        block: &Block,
+        function: LambdaId,
+        parameter_name: &str,
+        indent: usize,
+    ) {
+        let tail = block.bindings.last().filter(|binding| {
+            matches!(
+                (&block.result.kind, &binding.pattern),
+                (
+                    closure::AtomKind::Reference(closure::Reference::Binding(result)),
+                    Pattern::Binding { id, .. }
+                ) if result == id
+            )
+        });
+        let ordinary_count = block.bindings.len() - usize::from(tail.is_some());
+        for binding in &block.bindings[..ordinary_count] {
+            self.emit_binding(output, binding, indent);
+        }
+
+        match tail.map(|binding| &binding.operation) {
+            Some(Operation::Call { callee, argument })
+                if matches!(
+                    callee.kind,
+                    closure::AtomKind::Reference(closure::Reference::SelfClosure(id))
+                        if id == function
+                ) =>
+            {
+                line(
+                    output,
+                    indent,
+                    &format!("{parameter_name} = {};", self.emit_atom(argument)),
+                );
+                line(output, indent, "goto mal_tail_entry;");
+            }
+            Some(Operation::Case { scrutinee, arms }) => {
+                self.emit_tail_case(output, scrutinee, arms, function, parameter_name, indent)
+            }
+            Some(_) => {
+                self.emit_binding(output, block.bindings.last().expect("tail binding"), indent);
+                line(
+                    output,
+                    indent,
+                    &format!("return {};", self.emit_atom(&block.result)),
+                );
+            }
+            None => line(
+                output,
+                indent,
+                &format!("return {};", self.emit_atom(&block.result)),
+            ),
+        }
+    }
+
+    fn emit_tail_case(
+        &mut self,
+        output: &mut String,
+        scrutinee: &Atom,
+        arms: &[closure::CaseArm],
+        function: LambdaId,
+        parameter_name: &str,
+        indent: usize,
+    ) {
+        let scrutinee_text = self.emit_atom(scrutinee);
+        line(output, indent, &format!("switch ({scrutinee_text}.tag) {{"));
+        for arm in arms {
+            line(
+                output,
+                indent + 1,
+                &format!("case UINT32_C({}): {{", arm.index),
+            );
+            let payload = format!("{scrutinee_text}.payload.variant_{}", arm.index);
+            self.emit_simple_result(
+                output,
+                &arm.pattern,
+                pattern_type(&arm.pattern),
+                &payload,
+                indent + 2,
+            );
+            self.emit_tail_block(output, &arm.value, function, parameter_name, indent + 2);
+            line(output, indent + 1, "}");
+        }
+        line(output, indent + 1, "default:");
+        line(
+            output,
+            indent + 2,
+            "mal_trap(mal_context, \"invalid sum tag\");",
+        );
+        line(output, indent, "}");
     }
 
     fn emit_binding(&mut self, output: &mut String, binding: &Binding, indent: usize) {
@@ -434,6 +537,34 @@ fn function_name(id: LambdaId) -> String {
 
 fn environment_name(id: LambdaId) -> String {
     format!("MalEnvironment_{}", id.0)
+}
+
+fn has_direct_tail_call(block: &Block, function: LambdaId) -> bool {
+    let Some(binding) = tail_binding(block) else {
+        return false;
+    };
+    match &binding.operation {
+        Operation::Call { callee, .. } => matches!(
+            callee.kind,
+            closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
+        ),
+        Operation::Case { arms, .. } => arms
+            .iter()
+            .any(|arm| has_direct_tail_call(&arm.value, function)),
+        _ => false,
+    }
+}
+
+fn tail_binding(block: &Block) -> Option<&Binding> {
+    block.bindings.last().filter(|binding| {
+        matches!(
+            (&block.result.kind, &binding.pattern),
+            (
+                closure::AtomKind::Reference(closure::Reference::Binding(result)),
+                Pattern::Binding { id, .. }
+            ) if result == id
+        )
+    })
 }
 
 fn line(output: &mut String, indent: usize, text: &str) {

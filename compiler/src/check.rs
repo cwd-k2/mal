@@ -236,7 +236,7 @@ impl Checker {
             resolved::Pattern::Binding(pattern_binding),
             resolved::Expression::Lambda(lambda),
         ) = (&annotation, &binding.pattern.kind, &binding.value.kind)
-            && lambda.self_binding.as_ref().map(|binding| binding.id) == Some(pattern_binding.id)
+            && lambda.self_binding == Some(pattern_binding.id)
         {
             self.values.insert(pattern_binding.id, annotation.clone());
         }

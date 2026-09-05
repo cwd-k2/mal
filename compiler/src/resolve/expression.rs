@@ -168,7 +168,7 @@ impl Resolver {
             let body = self.resolve_lambda_body(&lambda.body)?;
             Ok(Lambda {
                 id,
-                self_binding,
+                self_binding: self_binding.map(|binding| binding.id),
                 captures,
                 parameters,
                 body,

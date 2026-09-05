@@ -237,10 +237,7 @@ fn resolves_annotated_direct_lambda_self_references() {
     let resolved::Expression::Lambda(top_lambda) = &top.value.kind else {
         panic!("expected top-level lambda");
     };
-    assert_eq!(
-        top_lambda.self_binding.as_ref().map(|binding| binding.id),
-        Some(top_value_binding.id)
-    );
+    assert_eq!(top_lambda.self_binding, Some(top_value_binding.id));
 
     let main = top_binding(&program.items[1]);
     let resolved::Expression::Lambda(main_lambda) = &main.value.kind else {
@@ -255,10 +252,7 @@ fn resolves_annotated_direct_lambda_self_references() {
     let resolved::Expression::Lambda(local_lambda) = &local.kind.value.kind else {
         panic!("expected local lambda");
     };
-    assert_eq!(
-        local_lambda.self_binding.as_ref().map(|binding| binding.id),
-        Some(local_binding.id)
-    );
+    assert_eq!(local_lambda.self_binding, Some(local_binding.id));
 }
 
 #[test]

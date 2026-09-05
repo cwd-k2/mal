@@ -95,6 +95,59 @@ fn executes_top_level_and_local_recursive_closures() {
 }
 
 #[test]
+fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
+    let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
+           return if (remaining == 0) then { total } else {\n\
+             count(remaining - 1, total + 1)\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           return if (count(1000000Int64, 0) == 1000000Int64) then { 0 } else { 1 };\n\
+         };";
+    let generated = emit(source).expect("emit tail-recursive C");
+    assert!(generated.source.contains("goto mal_tail_entry;"));
+
+    let fixture = NativeFixture::new("direct-tail-recursion");
+    let executable = fixture.compile_generated(generated, "");
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn preserves_effect_order_before_a_direct_tail_call() {
+    let output = compile_and_run(
+        "extern step :: Int32 -> Int32;\n\
+         walk :: (Int32, Int32) -> Int32 := \\(remaining :: Int32, total :: Int32) {\n\
+           return if (remaining == 0) then { total } else {\n\
+             walk(extern step(remaining), total + 1)\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return walk(4, 0) - 4; };",
+        r#"#include "program.mal.h"
+
+static int32_t expected = INT32_C(4);
+
+int32_t mal_ext_step(MalContext *context, int32_t value) {
+    if (value != expected) {
+        mal_trap(context, "tail-call effect order changed");
+    }
+    expected -= INT32_C(1);
+    return value - INT32_C(1);
+}
+"#,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn emits_uint64_literals_and_scalar_extern_abi() {
     let output = compile_and_run(
         "extern printUInt64 :: UInt64 -> Unit;\n\

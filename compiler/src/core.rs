@@ -237,10 +237,7 @@ impl Lowerer {
         }
         Lambda {
             id: lambda.id,
-            self_binding: lambda
-                .self_binding
-                .as_ref()
-                .map(|binding| ValueId::Source(binding.id)),
+            self_binding: lambda.self_binding.map(ValueId::Source),
             captures: lambda
                 .captures
                 .iter()
