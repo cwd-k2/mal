@@ -4,9 +4,7 @@ use super::body::RuntimeNeeds;
 use super::scalar::INTEGER_TYPES;
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> String {
-    let mut output = String::from(RUNTIME_BASE);
-    output.push_str(RUNTIME_ALLOCATION);
-    output.push_str(RUNTIME_STRING_COPY);
+    let mut output = String::from(RUNTIME_CORE);
     if needs.wrap != 0 {
         output.push_str(&integer_wrap_runtime(needs.wrap));
     }
@@ -41,15 +39,9 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     output
 }
 
-const RUNTIME_BASE: &str = "typedef struct MalAllocation {\n    struct MalAllocation *next;\n} MalAllocation;\n\nstruct MalContext {\n    MalAllocation *allocations;\n};\n\n_Noreturn void mal_trap(MalContext *context, const char *message) {\n    (void)context;\n    fputs(\"mal trap: \", stderr);\n    fputs(message, stderr);\n    fputc('\\n', stderr);\n    abort();\n}\n\nstatic void mal_context_destroy(MalContext *context) {\n    MalAllocation *allocation = context->allocations;\n    while (allocation != NULL) {\n        MalAllocation *next = allocation->next;\n        free(allocation);\n        allocation = next;\n    }\n}\n\n";
-
-const RUNTIME_ALLOCATION: &str = "static void *mal_allocate(MalContext *context, size_t size) {\n    if (size > SIZE_MAX - sizeof(MalAllocation)) {\n        mal_trap(context, \"allocation size overflow\");\n    }\n#ifdef MAL_TEST_FORCE_ALLOCATION_FAILURE\n    MalAllocation *allocation = NULL;\n#else\n    MalAllocation *allocation = malloc(sizeof(MalAllocation) + size);\n#endif\n    if (allocation == NULL) {\n        mal_trap(context, \"allocation failed\");\n    }\n    allocation->next = context->allocations;\n    context->allocations = allocation;\n    return allocation + 1;\n}\n\n";
-
-const RUNTIME_STRING_COPY: &str = "MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length) {\n    if (length == UINT64_C(0)) { return (MalString){ NULL, UINT64_C(0) }; }\n    if (data == NULL) { mal_trap(context, \"null string data\"); }\n    size_t size = (size_t)length;\n    if ((uint64_t)size != length) { mal_trap(context, \"allocation size overflow\"); }\n    uint8_t *copy = (uint8_t *)mal_allocate(context, size);\n    memcpy(copy, data, size);\n    return (MalString){ copy, length };\n}\n\n";
-
-const RUNTIME_STRING_EQUALITY: &str = "static uint8_t mal_string_equal(MalString left, MalString right) {\n    if (left.length != right.length) { return UINT8_C(0); }\n    for (uint64_t index = UINT64_C(0); index < left.length; index += UINT64_C(1)) {\n        if (left.data[index] != right.data[index]) { return UINT8_C(0); }\n    }\n    return UINT8_C(1);\n}\n\n";
-
-const RUNTIME_STRING_AT: &str = "static uint8_t mal_string_at(MalContext *context, MalString value, uint64_t index) {\n    if (index >= value.length) { mal_trap(context, \"string index out of range\"); }\n    return value.data[index];\n}\n\n";
+const RUNTIME_CORE: &str = include_str!("runtime/core.c");
+const RUNTIME_STRING_EQUALITY: &str = include_str!("runtime/string_equal.c");
+const RUNTIME_STRING_AT: &str = include_str!("runtime/string_at.c");
 
 fn float_to_integer_runtime(needs: u32) -> String {
     let mut output = String::new();
