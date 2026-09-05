@@ -200,6 +200,29 @@ impl Lowerer {
                 let arms = arms.iter().map(|arm| self.lower_case_arm(arm)).collect();
                 builder.finish(self, expression, Operation::Case { scrutinee, arms })
             }
+            core::ExpressionKind::PrimitiveBranch {
+                operator,
+                left,
+                right,
+                otherwise,
+                then,
+            } => {
+                let (mut builder, left) = self.lower_operand(left);
+                let right = builder.append(self, right);
+                let otherwise = self.lower_expression(otherwise);
+                let then = self.lower_expression(then);
+                builder.finish(
+                    self,
+                    expression,
+                    Operation::PrimitiveBranch {
+                        operator: *operator,
+                        left,
+                        right,
+                        otherwise: Box::new(otherwise),
+                        then: Box::new(then),
+                    },
+                )
+            }
             core::ExpressionKind::PrimitiveUnary { operator, operand } => {
                 let (builder, operand) = self.lower_operand(operand);
                 builder.finish(

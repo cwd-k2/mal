@@ -72,6 +72,28 @@ fn lowers_if_to_false_then_true_case_arms() {
 }
 
 #[test]
+fn lowers_direct_comparison_conditions_without_materializing_bool() {
+    let program = lower_ok(
+        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           return if (value < 10) then { 1 } else { 2 };\n\
+         };",
+    );
+    let body = lambda_body(&program.bindings[0].value);
+    let ExpressionKind::PrimitiveBranch {
+        operator,
+        otherwise,
+        then,
+        ..
+    } = &body.kind
+    else {
+        panic!("expected a primitive branch, found {:#?}", body.kind);
+    };
+    assert_eq!(*operator, BinaryPrimitive::Less);
+    assert!(matches!(otherwise.kind, ExpressionKind::Integer(2)));
+    assert!(matches!(then.kind, ExpressionKind::Integer(1)));
+}
+
+#[test]
 fn lowers_short_circuit_operators_without_eager_right_evaluation() {
     let and_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\

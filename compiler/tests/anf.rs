@@ -121,6 +121,37 @@ fn keeps_case_arm_effects_inside_the_selected_arm() {
 }
 
 #[test]
+fn orders_primitive_branch_operands_before_selected_arm_effects() {
+    let program = lower_ok(
+        "extern left :: Unit -> Int32;\n\
+         extern right :: Unit -> Int32;\n\
+         extern selected :: Unit -> Int32;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           return if (extern left() < extern right())\n\
+             then { extern selected() }\n\
+             else { 0 };\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, 0).body.bindings;
+    assert_eq!(bindings.len(), 3);
+    assert!(matches!(
+        bindings[0].operation,
+        Operation::ExternalCall { id, .. } if id == program.externals[0].id
+    ));
+    assert!(matches!(
+        bindings[1].operation,
+        Operation::ExternalCall { id, .. } if id == program.externals[1].id
+    ));
+    let Operation::PrimitiveBranch { then, .. } = &bindings[2].operation else {
+        panic!("expected primitive branch");
+    };
+    assert!(matches!(
+        then.bindings[0].operation,
+        Operation::ExternalCall { id, .. } if id == program.externals[2].id
+    ));
+}
+
+#[test]
 fn flattens_core_lets_without_losing_statement_order() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\

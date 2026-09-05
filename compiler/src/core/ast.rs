@@ -128,6 +128,13 @@ pub enum ExpressionKind {
         scrutinee: Box<Expression>,
         arms: Vec<CaseArm>,
     },
+    PrimitiveBranch {
+        operator: BinaryPrimitive,
+        left: Box<Expression>,
+        right: Box<Expression>,
+        otherwise: Box<Expression>,
+        then: Box<Expression>,
+    },
     PrimitiveUnary {
         operator: UnaryPrimitive,
         operand: Box<Expression>,

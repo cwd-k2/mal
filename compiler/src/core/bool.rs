@@ -16,6 +16,26 @@ impl Lowerer {
     ) -> Expression {
         let otherwise = self.lower_body(&else_branch.items, &else_branch.result);
         let then = self.lower_body(&then_branch.items, &then_branch.result);
+        if let checked::ExpressionKind::Binary {
+            operator,
+            left,
+            right,
+        } = &condition.kind
+            && is_comparison(operator.kind)
+            && left.ty != bool_type()
+        {
+            return Expression {
+                kind: ExpressionKind::PrimitiveBranch {
+                    operator: super::primitive::lower_binary_primitive(operator.kind),
+                    left: Box::new(self.lower_expression(left)),
+                    right: Box::new(self.lower_expression(right)),
+                    otherwise: Box::new(otherwise),
+                    then: Box::new(then),
+                },
+                ty: result_type.clone(),
+                span,
+            };
+        }
         let condition = self.lower_expression(condition);
         self.case(
             condition,
@@ -149,6 +169,18 @@ impl Lowerer {
             span,
         }
     }
+}
+
+fn is_comparison(operator: BinaryOperator) -> bool {
+    matches!(
+        operator,
+        BinaryOperator::Less
+            | BinaryOperator::LessEqual
+            | BinaryOperator::Greater
+            | BinaryOperator::GreaterEqual
+            | BinaryOperator::Equal
+            | BinaryOperator::NotEqual
+    )
 }
 
 pub(super) fn bool_type() -> checked::Type {

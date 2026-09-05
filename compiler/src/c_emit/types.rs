@@ -311,6 +311,18 @@ impl TypeRegistry {
                     self.collect_block(&arm.value);
                 }
             }
+            Operation::PrimitiveBranch {
+                left,
+                right,
+                otherwise,
+                then,
+                ..
+            } => {
+                self.collect_atom(left);
+                self.collect_atom(right);
+                self.collect_block(otherwise);
+                self.collect_block(then);
+            }
             Operation::PrimitiveBinary { left, right, .. } => {
                 self.collect_atom(left);
                 self.collect_atom(right);

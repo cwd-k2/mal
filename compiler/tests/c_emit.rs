@@ -787,6 +787,24 @@ fn preserves_short_circuit_and_eager_bool_equality_order() {
 }
 
 #[test]
+fn emits_direct_comparison_conditions_without_tagged_bool_values() {
+    let generated = emit(
+        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           return if (value < 10) then { 42 } else { value };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { return choose(9) - 42; };",
+    )
+    .expect("emit primitive branch");
+
+    assert!(!generated.source.contains("switch ("));
+    assert!(!generated.source.contains(".tag ="));
+    assert!(generated.source.contains("if (mal_value_source_"));
+    let fixture = NativeFixture::new("primitive-branch");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn implements_wrapping_int32_arithmetic_without_signed_overflow() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\

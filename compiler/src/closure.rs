@@ -200,6 +200,19 @@ impl Converter {
                     .map(|arm| self.convert_case_arm(arm, environment))
                     .collect(),
             },
+            anf::Operation::PrimitiveBranch {
+                operator,
+                left,
+                right,
+                otherwise,
+                then,
+            } => Operation::PrimitiveBranch {
+                operator: *operator,
+                left: self.convert_atom(left, environment),
+                right: self.convert_atom(right, environment),
+                otherwise: Box::new(self.convert_block(otherwise, environment)),
+                then: Box::new(self.convert_block(then, environment)),
+            },
             anf::Operation::PrimitiveUnary { operator, operand } => Operation::PrimitiveUnary {
                 operator: *operator,
                 operand: self.convert_atom(operand, environment),

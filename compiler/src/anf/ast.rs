@@ -137,6 +137,13 @@ pub enum Operation {
         scrutinee: Atom,
         arms: Vec<CaseArm>,
     },
+    PrimitiveBranch {
+        operator: BinaryPrimitive,
+        left: Atom,
+        right: Atom,
+        otherwise: Box<Block>,
+        then: Box<Block>,
+    },
     PrimitiveUnary {
         operator: UnaryPrimitive,
         operand: Atom,

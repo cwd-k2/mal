@@ -128,7 +128,9 @@ impl BodyEmitter<'_> {
                 left,
                 right,
             } => self.emit_binary(*operator, left, right, result),
-            Operation::MakeClosure { .. } | Operation::Case { .. } => {
+            Operation::MakeClosure { .. }
+            | Operation::Case { .. }
+            | Operation::PrimitiveBranch { .. } => {
                 unreachable!("structured operations are emitted as statements")
             }
         }
@@ -240,34 +242,55 @@ impl BodyEmitter<'_> {
             | BinaryPrimitive::GreaterEqual
             | BinaryPrimitive::Equal
             | BinaryPrimitive::NotEqual => {
-                if operand_type == Type::String {
-                    self.needs.string_equality = true;
-                    let equality = format!("mal_string_equal({left}, {right})");
-                    let condition = if operator == BinaryPrimitive::Equal {
-                        equality
-                    } else {
-                        format!("!{equality}")
-                    };
-                    return format!(
-                        "({}){{ .tag = ({condition}) ? UINT32_C(1) : UINT32_C(0) }}",
-                        self.types.c_type(result)
-                    );
-                }
-                let symbol = match operator {
-                    BinaryPrimitive::Less => "<",
-                    BinaryPrimitive::LessEqual => "<=",
-                    BinaryPrimitive::Greater => ">",
-                    BinaryPrimitive::GreaterEqual => ">=",
-                    BinaryPrimitive::Equal => "==",
-                    BinaryPrimitive::NotEqual => "!=",
-                    _ => unreachable!(),
-                };
+                let condition = self.comparison_text(operator, &operand_type, &left, &right);
                 format!(
-                    "({}){{ .tag = ({left} {symbol} {right}) ? UINT32_C(1) : UINT32_C(0) }}",
+                    "({}){{ .tag = ({condition}) ? UINT32_C(1) : UINT32_C(0) }}",
                     self.types.c_type(result)
                 )
             }
         }
+    }
+
+    pub(super) fn emit_primitive_condition(
+        &mut self,
+        operator: BinaryPrimitive,
+        left: &Atom,
+        right: &Atom,
+    ) -> String {
+        self.comparison_text(
+            operator,
+            &left.ty,
+            &self.emit_atom(left),
+            &self.emit_atom(right),
+        )
+    }
+
+    fn comparison_text(
+        &mut self,
+        operator: BinaryPrimitive,
+        operand_type: &Type,
+        left: &str,
+        right: &str,
+    ) -> String {
+        if *operand_type == Type::String {
+            self.needs.string_equality = true;
+            let equality = format!("mal_string_equal({left}, {right})");
+            return if operator == BinaryPrimitive::Equal {
+                equality
+            } else {
+                format!("!{equality}")
+            };
+        }
+        let symbol = match operator {
+            BinaryPrimitive::Less => "<",
+            BinaryPrimitive::LessEqual => "<=",
+            BinaryPrimitive::Greater => ">",
+            BinaryPrimitive::GreaterEqual => ">=",
+            BinaryPrimitive::Equal => "==",
+            BinaryPrimitive::NotEqual => "!=",
+            _ => unreachable!("primitive branches contain only comparison operators"),
+        };
+        format!("{left} {symbol} {right}")
     }
 
     fn wrap_integer(&mut self, ty: &Type, expression: &str) -> String {

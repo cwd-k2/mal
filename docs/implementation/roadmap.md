@@ -41,6 +41,8 @@ generated Cへ持ち込むcostを測定して削減する。調査の根拠、lo
 - memory runtimeを使用したoffset/load/store helperだけに限定し、strict optionと`-O2`の併用を妨げる
   unused-function errorを除去した。
 - strict float optionを維持した`-O2`をpublic `build`の既定にし、全native testとchecked-in exampleで検証した。
+- primitive比較を直ちに`if`条件として消費する経路では、Boolのsum valueと`switch`を生成せずCの条件分岐へ
+  直接loweringする。operandの左から右への評価順とbranch内のeffectを各中間表現のtestで固定した。
 
 ### Done
 

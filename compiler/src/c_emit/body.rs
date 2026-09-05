@@ -189,6 +189,9 @@ fn has_direct_tail_call(block: &Block, function: LambdaId) -> bool {
         Operation::Case { arms, .. } => arms
             .iter()
             .any(|arm| has_direct_tail_call(&arm.value, function)),
+        Operation::PrimitiveBranch {
+            otherwise, then, ..
+        } => has_direct_tail_call(otherwise, function) || has_direct_tail_call(then, function),
         _ => false,
     }
 }

@@ -143,6 +143,21 @@ fn represents_capture_free_closures_without_environment_fields() {
 }
 
 #[test]
+fn preserves_primitive_branches_while_lifting_functions() {
+    let program = convert_ok(
+        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           return if (value >= 0) then { value } else { 0 - value };\n\
+         };",
+    );
+    let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
+    let outer = function(&program, outer_id);
+    assert!(matches!(
+        outer.body.bindings[0].operation,
+        Operation::PrimitiveBranch { .. }
+    ));
+}
+
+#[test]
 fn represents_local_self_references_with_the_current_closure() {
     let program = convert_ok(
         "main :: Unit -> Int32 := \\() {\n\
@@ -161,12 +176,12 @@ fn represents_local_self_references_with_the_current_closure() {
         panic!("expected local recursive closure");
     };
     let local = function(&program, *local_id);
-    let Operation::Case { arms, .. } = &local.body.bindings[1].operation else {
+    let Operation::PrimitiveBranch { otherwise, .. } = &local.body.bindings[0].operation else {
         panic!("expected recursive conditional");
     };
-    let recursive_call = arms
+    let recursive_call = otherwise
+        .bindings
         .iter()
-        .flat_map(|arm| &arm.value.bindings)
         .find_map(|binding| match &binding.operation {
             Operation::Call { callee, .. } => Some(callee),
             _ => None,

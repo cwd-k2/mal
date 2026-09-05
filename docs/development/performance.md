@@ -89,6 +89,11 @@ local実験でClangのinline thresholdをhot functionのcostより少し上げ�
 numeric transformをdirect C比約1.16へ悪化させ、tail pathと別の再帰pathを併せ持つ関数をGCCがcompileできなかったため
 採用しない。問題固有のinline指定も行わず、まずBool control flowなどcallee自体のgenerated-C costを減らす。
 
+primitive比較を直ちに`if`条件として消費する経路は、Boolのtagged sumを作らずCの条件式へ直接loweringするようにした。
+focused testではsum valueと`switch`の除去を確認したが、代表workloadの実行時間とbinary sizeに有意な変化はなかった。
+hot pathで残るBool control flowはlocal bindingやshort-circuit loweringを経由しているため、次は値の単一使用を識別できる
+範囲を調査する。
+
 ## 次の担当者が行う順序
 
 ### 1. local fixtureを固定する

@@ -57,6 +57,23 @@ impl BodyEmitter<'_> {
             Some(Operation::Case { scrutinee, arms }) => {
                 self.emit_tail_case(output, scrutinee, arms, function, parameter_name, indent)
             }
+            Some(Operation::PrimitiveBranch {
+                operator,
+                left,
+                right,
+                otherwise,
+                then,
+            }) => self.emit_tail_primitive_branch(
+                output,
+                *operator,
+                left,
+                right,
+                otherwise,
+                then,
+                function,
+                parameter_name,
+                indent,
+            ),
             Some(_) => {
                 self.emit_binding(output, block.bindings.last().expect("tail binding"), indent);
                 c_line!(output, indent, "return {};", self.emit_atom(&block.result));
@@ -98,6 +115,27 @@ impl BodyEmitter<'_> {
         c_line!(output, indent, "}}");
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn emit_tail_primitive_branch(
+        &mut self,
+        output: &mut String,
+        operator: crate::core::ast::BinaryPrimitive,
+        left: &Atom,
+        right: &Atom,
+        otherwise: &Block,
+        then: &Block,
+        function: LambdaId,
+        parameter_name: &str,
+        indent: usize,
+    ) {
+        let condition = self.emit_primitive_condition(operator, left, right);
+        c_line!(output, indent, "if ({condition}) {{");
+        self.emit_tail_block(output, then, function, parameter_name, indent + 1);
+        c_line!(output, indent, "}} else {{");
+        self.emit_tail_block(output, otherwise, function, parameter_name, indent + 1);
+        c_line!(output, indent, "}}");
+    }
+
     fn emit_binding(&mut self, output: &mut String, binding: &Binding, indent: usize) {
         let ty = pattern_type(&binding.pattern);
         match &binding.operation {
@@ -108,6 +146,23 @@ impl BodyEmitter<'_> {
             Operation::Case { scrutinee, arms } => {
                 self.emit_case(output, &binding.pattern, ty, scrutinee, arms, indent);
             }
+            Operation::PrimitiveBranch {
+                operator,
+                left,
+                right,
+                otherwise,
+                then,
+            } => self.emit_primitive_branch(
+                output,
+                &binding.pattern,
+                ty,
+                *operator,
+                left,
+                right,
+                otherwise,
+                then,
+                indent,
+            ),
             Operation::MakeClosure { function, captures } => {
                 self.emit_make_closure(output, &binding.pattern, ty, *function, captures, indent);
             }
@@ -214,6 +269,45 @@ impl BodyEmitter<'_> {
             output,
             indent + 2,
             "mal_trap(mal_context, \"invalid sum tag\");"
+        );
+        c_line!(output, indent, "}}");
+        c_line!(output, indent, "(void){target};");
+        if matches!(pattern, Pattern::Product { .. }) {
+            self.emit_pattern_bindings(output, pattern, &target, indent);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_primitive_branch(
+        &mut self,
+        output: &mut String,
+        pattern: &Pattern,
+        ty: &Type,
+        operator: crate::core::ast::BinaryPrimitive,
+        left: &Atom,
+        right: &Atom,
+        otherwise: &Block,
+        then: &Block,
+        indent: usize,
+    ) {
+        let target = self.result_target(pattern);
+        c_line!(output, indent, "{} {target};", self.types.c_type(ty));
+        let condition = self.emit_primitive_condition(operator, left, right);
+        c_line!(output, indent, "if ({condition}) {{");
+        self.emit_block_bindings(output, then, indent + 1);
+        c_line!(
+            output,
+            indent + 1,
+            "{target} = {};",
+            self.emit_atom(&then.result)
+        );
+        c_line!(output, indent, "}} else {{");
+        self.emit_block_bindings(output, otherwise, indent + 1);
+        c_line!(
+            output,
+            indent + 1,
+            "{target} = {};",
+            self.emit_atom(&otherwise.result)
         );
         c_line!(output, indent, "}}");
         c_line!(output, indent, "(void){target};");
