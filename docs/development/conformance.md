@@ -1,0 +1,89 @@
+# v0.4 conformance matrix
+
+Status: Current release gate
+
+この文書は[`spec/`](../spec/)の規範とreference compilerの検証先を対応付ける。規則そのものは
+`spec/`、test layerと実行commandは[test policy](testing.md)を正とする。
+
+表の`P`はpositive、`N`はnegative、`E`はedge、`X`はgenerated Cをcompileして実行するnative testを表す。
+`—`は、その節が言語外の範囲や文書上の責務を定め、該当する実行時挙動を持たないことを表す。
+test名はRustのtest function名であり、同じ行のfileに属する。
+
+## 言語の範囲と型
+
+| 規範 | P / N / E | X |
+|---|---|---|
+| [`scope`: malが持つもの](../spec/scope.md#mal-が持つもの) | 各機能は以下の対応行で検証 | M0〜M5のchecked-in example（`compiler/tests/driver.rs`） |
+| [`scope`: 持たないもの](../spec/scope.md#mal-が持たないもの) | `rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`）、`rejects_non_associative_operator_chains`（`compiler/tests/parser.rs`） | — |
+| [`scope`: named data](../spec/scope.md#named-data) | P/E: `expands_aliases_and_compares_types_structurally`、`checks_sum_injection_payload_and_index`（`compiler/tests/check.rs`） | `executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
+| [`scope`: memoryとmutable data](../spec/scope.md#memory-と-mutable-data) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `exposes_copyable_opaque_handles_to_the_host`（`compiler/tests/c_emit.rs`） |
+| [`scope`: standard libraryとfile](../spec/scope.md#standard-library-と-file) | 単一sourceだけを受けるCLI grammar（`compiler/src/cli.rs`） | `build_links_multiple_host_inputs_and_produces_an_executable`（`compiler/tests/driver.rs`） |
+| [`scope`: 設計原則](../spec/scope.md#設計原則) | 以下の型・`extern` ABI対応行で検証 | 以下のABI testで検証 |
+| [`types`: scalarと型の構成](../spec/types.md#型の構成) | P/N/E: `checks_all_fixed_width_literal_boundaries_and_byte_literals`、`checks_float_arithmetic_comparison_and_negation`（`compiler/tests/check.rs`） | `emits_every_fixed_width_scalar_in_the_generated_header`（`compiler/tests/c_emit.rs`） |
+| [`types`: String](../spec/types.md#string) | P/N: `checks_string_literals_as_immutable_bytes`、`rejects_unsupported_or_mistyped_string_operations`（`compiler/tests/check.rs`） | `emits_static_string_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
+| [`types`: Unit](../spec/types.md#unit) | P/E: `checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `emits_the_m0_host_abi_and_executes_the_host_example`（`compiler/tests/c_emit.rs`） |
+| [`types`: 直積](../spec/types.md#直積) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`） | `executes_nested_products_destructuring_and_multiple_arguments`（`compiler/tests/c_emit.rs`） |
+| [`types`: 直和](../spec/types.md#直和) | P/N/E: `checks_sum_injection_payload_and_index`、`checks_case_exhaustiveness_uniqueness_and_result_types`（`compiler/tests/check.rs`）、`rejects_single_member_sums_and_trailing_commas`（`compiler/tests/parser.rs`） | `preserves_duplicate_sum_members_by_tag`、`executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
+| [`types`: predefined Bool](../spec/types.md#predefined-bool) | P/N/E: `checks_int32_and_bool_operator_families`（`compiler/tests/check.rs`）、`local_scope_can_shadow_predefined_and_outer_names`、`rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`） | `preserves_short_circuit_and_eager_bool_equality_order`（`compiler/tests/c_emit.rs`） |
+| [`types`: transparent alias](../spec/types.md#transparent-alias) | P/N/E: `expands_aliases_and_compares_types_structurally`、`rejects_recursive_aliases_even_when_unused`（`compiler/tests/check.rs`） | `removes_type_aliases_and_preserves_backend_names`（`compiler/tests/core.rs`） |
+| [`types`: 関数型](../spec/types.md#関数型) | P/E: `function_types_are_right_associative`（`compiler/tests/parser.rs`）、`checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `executes_escaping_capturing_closures`（`compiler/tests/c_emit.rs`） |
+| [`types`: external opaque type](../spec/types.md#external-opaque-type) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `exposes_copyable_opaque_handles_to_the_host`（`compiler/tests/c_emit.rs`） |
+
+## 式と実行意味論
+
+| 規範 | P / N / E | X |
+|---|---|---|
+| [`expressions`: binding](../spec/expressions.md#binding) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`）、`local_bindings_enter_scope_only_after_their_initializer`（`compiler/tests/resolve.rs`） | `executes_nested_products_destructuring_and_multiple_arguments`（`compiler/tests/c_emit.rs`） |
+| [`expressions`: ラムダ](../spec/expressions.md#ラムダ) | P/N/E: `parses_captures_parameters_and_lambda_body_items`、`rejects_lambda_without_terminal_return`（`compiler/tests/parser.rs`）、capture rejection群（`compiler/tests/resolve.rs`） | `executes_escaping_capturing_closures`、`traps_when_a_closure_environment_cannot_be_allocated`（`compiler/tests/c_emit.rs`） |
+| [`expressions`: 関数適用](../spec/expressions.md#関数適用) | P/E: `checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`）、`evaluates_a_callee_before_its_argument_and_application`（`compiler/tests/anf.rs`） | M0 example（`compiler/tests/driver.rs`） |
+| [`expressions`: if](../spec/expressions.md#if) | P/N/E: `checks_if_condition_and_branch_types`（`compiler/tests/check.rs`）、`lowers_if_to_false_then_true_case_arms`（`compiler/tests/core.rs`） | `preserves_short_circuit_and_eager_bool_equality_order`（`compiler/tests/c_emit.rs`） |
+| [`expressions`: case](../spec/expressions.md#case) | P/N/E: `checks_case_exhaustiveness_uniqueness_and_result_types`（`compiler/tests/check.rs`）、`keeps_case_arm_effects_inside_the_selected_arm`（`compiler/tests/anf.rs`） | `executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
+| [`expressions`: numeric literal](../spec/expressions.md#literal) | P/N/E: numeric lexer tests（`compiler/tests/lexer.rs`）、integer/float boundary tests（`compiler/tests/check.rs`） | `emits_uint64_literals_and_scalar_extern_abi`、`emits_exact_float_bits_and_scalar_extern_abi`（`compiler/tests/c_emit.rs`） |
+| [`expressions`: byte literal](../spec/expressions.md#byte-literal) | P/N/E: `lexes_byte_literals_and_every_escape`、`rejects_malformed_byte_literals_at_the_lexer_boundary`（`compiler/tests/lexer.rs`） | M1 example（`compiler/tests/driver.rs`） |
+| [`expressions`: primitive operator](../spec/expressions.md#primitive-operator) | P/N/E: integer、float、Bool、conversion tests（`compiler/tests/check.rs`） | integer、float、Bool、conversion、trap tests（`compiler/tests/c_emit.rs`） |
+| [`expressions`: expression statement](../spec/expressions.md#expression-statement) | P/E: `lowers_lambda_statements_and_terminal_return_to_lets_and_a_result`（`compiler/tests/core.rs`）、`flattens_core_lets_without_losing_statement_order`（`compiler/tests/anf.rs`） | `preserves_effect_order_before_a_direct_tail_call`（`compiler/tests/c_emit.rs`） |
+| [`execution`: 評価戦略](../spec/execution.md#評価戦略) | P/E: operand、callee、case、statement、product順序（`compiler/tests/anf.rs`） | `preserves_effect_order_before_a_direct_tail_call`（`compiler/tests/c_emit.rs`） |
+| [`execution`: scopeとclosure](../spec/execution.md#scope-と-closure) | P/N/E: capture resolution群（`compiler/tests/resolve.rs`）、closure conversion群（`compiler/tests/closure.rs`） | `executes_escaping_capturing_closures`、allocation trap（`compiler/tests/c_emit.rs`） |
+| [`execution`: 再帰](../spec/execution.md#再帰) | P/N/E: recursion acceptance/rejection群（`compiler/tests/resolve.rs`、`compiler/tests/check.rs`） | `executes_top_level_and_local_recursive_closures`、direct-tail-call tests（`compiler/tests/c_emit.rs`） |
+| [`execution`: 整数](../spec/execution.md#整数) | P/N/E: `checks_integer_operators_for_every_fixed_width_type`（`compiler/tests/check.rs`） | wrapping、shift、division/remainder tests（`compiler/tests/c_emit.rs`） |
+| [`execution`: 浮動小数点](../spec/execution.md#浮動小数点) | P/N/E: float literal/operator/conversion tests（`compiler/tests/check.rs`） | strict arithmetic、comparison、conversion tests（`compiler/tests/c_emit.rs`）、M5 example（`compiler/tests/driver.rs`） |
+| [`execution`: trap](../spec/execution.md#trap) | trapを生じる各規則のfocused test | shift、division/remainder、`byteAt`、allocation、float conversion trap（`compiler/tests/c_emit.rs`） |
+| [`execution`: core calculus](../spec/execution.md#core-calculus) | surface消去（`compiler/tests/core.rs`）、評価順序のANF化（`compiler/tests/anf.rs`） | 代表経路は各native test |
+
+## String、extern、C ABI
+
+| 規範 | P / N / E | X |
+|---|---|---|
+| [`strings`: 値とstorage](../spec/strings.md#値とstorage) | P/E: `checks_string_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests（`compiler/tests/c_emit.rs`） |
+| [`strings`: literal](../spec/strings.md#literal) | P/N/E: string lexer tests（`compiler/tests/lexer.rs`） | `emits_static_string_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
+| [`strings`: primitive](../spec/strings.md#primitive) | P/N/E: string primitive tests（`compiler/tests/check.rs`） | equality、`byteAt`、bounds trap tests（`compiler/tests/c_emit.rs`） |
+| [`strings`: mutable bytesとの分離](../spec/strings.md#mutable-bytesとの分離) | P/N: opaque typeとunsupported operation tests（`compiler/tests/check.rs`） | M3 example（`compiler/tests/driver.rs`） |
+| [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | M0/M2/M3/M5 examples（`compiler/tests/driver.rs`） |
+| [`extern`: extern-safe type](../spec/extern.md#extern-safe-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/c_emit.rs`） |
+| [`extern`: host contractと安全性](../spec/extern.md#host-contract) | trusted host側の規範であり、mal compilerのadmission対象外 | generated headerを使用する全host fixture |
+| [`extern`: String lifetime](../spec/extern.md#stringのlifetime) | P/E: String型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/c_emit.rs`） |
+| [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | M0/M2/M3/M5 host adapter（`compiler/tests/driver.rs`） |
+| [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
+| [`c-host-abi`: generated headerとsymbol](../spec/c-host-abi.md#generated-header) | P/E: header assertion群（`compiler/tests/c_emit.rs`） | headerをincludeするhost fixture群 |
+| [`c-host-abi`: type mapping](../spec/c-host-abi.md#type-mapping) | P/E: scalar/aggregate/opaque/String header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test（`compiler/tests/c_emit.rs`） |
+| [`c-host-abi`: closure exclusion](../spec/c-host-abi.md#closure-exclusion) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
+| [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/c_emit.rs`） | `mal_trap`を含むnative trap tests |
+
+## Programと字句・文法
+
+| 規範 | P / N / E | X |
+|---|---|---|
+| [`programs`: compilation unit](../spec/programs.md#compilation-unit) | 単一sourceのprogram parseとCLI grammar（`compiler/tests/parser.rs`、`compiler/src/cli.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
+| [`programs`: top-level item](../spec/programs.md#top-level-item) | P/N/E: `type_and_external_declarations_are_visible_across_the_unit`（`compiler/tests/resolve.rs`）、`rejects_effectful_top_level_initializers`（`compiler/tests/check.rs`） | M0〜M5 example（`compiler/tests/driver.rs`） |
+| [`programs`: entry point](../spec/programs.md#entry-point) | P/N: `rejects_invalid_executable_programs`（`compiler/tests/c_emit.rs`） | public `build` example tests（`compiler/tests/driver.rs`） |
+| [`grammar`: sourceとidentifier](../spec/grammar.md#source-と-identifier) | P/N/E: keyword、whitespace/comment、identifier、UTF-8 diagnostic tests（`compiler/tests/lexer.rs`、`compiler/src/source.rs`） | frontendを通る全native test |
+| [`grammar`: numeric separator](../spec/grammar.md#numeric-separator) | P/N/E: numeric separator tests（`compiler/tests/lexer.rs`） | M1/M5 examples（`compiler/tests/driver.rs`） |
+| [`grammar`: 文法概要](../spec/grammar.md#文法概要) | P/N/E: parser suite（`compiler/tests/parser.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
+| [`grammar`: operator precedence](../spec/grammar.md#operator-precedence) | P/N/E: precedence、call binding、non-associative rejection（`compiler/tests/parser.rs`） | integer/float/Bool operator native tests（`compiler/tests/c_emit.rs`） |
+| [`grammar`: 存在しない構文](../spec/grammar.md#存在しない構文) | N: unknown token/nameとsyntax rejection（`compiler/tests/lexer.rs`、`compiler/tests/parser.rs`、`compiler/tests/resolve.rs`） | — |
+
+## Public path
+
+`compiler/tests/driver.rs`はpublic `malc` executableを通して`check`、`emit-c`、`build`、filesystem error、
+C compiler起動失敗、C compiler non-zero exit、およびM0〜M5のchecked-in exampleを検証する。これにより上表の
+stage-focused testが利用者向け経路にも接続されていることを確認する。

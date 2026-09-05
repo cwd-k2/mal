@@ -31,14 +31,14 @@ stageの責務は[responsibilities](responsibilities.md)、検証方法は[test 
 - numeric suffixをintegerの`i8`〜`u64`とfloatの`f32` / `f64`へ統一した。
 - v0.4の実装挙動に影響する未決事項をdecisionと`spec/`へ反映した。
 - M0〜M5のchecked-in exampleをnative driver testから実行している。
+- [`spec/`とtestのconformance matrix](../development/conformance.md)を作成した。
 
 ### 次セッションの作業順
 
-1. `spec/`の各節をpositive、negative、edge、native testへ対応付けるconformance matrixを作る。
-2. `check`、`emit-c`、`build`、generated header、trap、toolchain failureの利用者向けcontractを監査し、欠けるtestを追加する。
-3. supported target/toolchain、`CC`、shared library loader、generated artifact policyを利用者向け文書へ集約する。
-4. package versionとrelease文書をv0.4 release candidateとして揃える。
-5. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
+1. `check`、`emit-c`、`build`、generated header、trap、toolchain failureの利用者向けcontractを監査し、欠けるtestを追加する。
+2. supported target/toolchain、`CC`、shared library loader、generated artifact policyを利用者向け文書へ集約する。
+3. package versionとrelease文書をv0.4 release candidateとして揃える。
+4. clean checkoutのpinned environmentでrelease build、全test、M0〜M5 exampleを再検証する。
 
 ### Done
 
