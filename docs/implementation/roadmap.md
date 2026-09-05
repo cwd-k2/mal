@@ -143,8 +143,8 @@ M0の機能追加は行わず、実際に使う入口を次のmilestone群の共
 
 ### Specification gate
 
-- [D009](../design/decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)とtarget C toolchainの対応を照合し、保証できないtargetを拒否する条件を決める。
-- integer/float conversionとdecimal literalの規則が`spec/`内で閉じていることを確認する。
+- Float semanticsは[D009](../design/decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)、decimal syntaxとtarget C profileは
+  [D019](../design/decisions.md#d019-decimal-float-syntaxとc-target-profileを固定する)に従う。
 
 ### Scope
 

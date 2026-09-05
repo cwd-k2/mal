@@ -23,6 +23,8 @@ comment、空白、keyword の完全な字句規則はまだ未決である。
 DEC_DIGITS ::= DEC_DIGIT ("_"? DEC_DIGIT)*
 HEX_DIGITS ::= HEX_DIGIT ("_"? HEX_DIGIT)*
 BIN_DIGITS ::= BIN_DIGIT ("_"? BIN_DIGIT)*
+EXPONENT   ::= ("e" | "E") ("+" | "-")? DEC_DIGITS
+FLOAT_SUFFIX ::= "Float32" | "Float64"
 ```
 
 ```mal
@@ -112,6 +114,10 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 `|` は式中の bitwise OR だけに使用する。直和型は `[]` で区切るため、型と式で `|` の意味を切り替えない。assignment operator はない。
 
 `[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
+
+decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
+`DEC_DIGITS EXPONENT FLOAT_SUFFIX?`、または`DEC_DIGITS FLOAT_SUFFIX`のいずれかである。
+`.5`と`1.`は認めない。exponentの数値separatorも他のdigit sequenceと同じ規則に従う。
 
 `Bool` は predefined `TYPE_IDENT`、`false` と `true` は predefined `VALUE_IDENT` として通常の identifier 規則で token 化する。`then` は `if` syntax の keyword である。
 

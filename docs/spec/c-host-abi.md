@@ -67,6 +67,10 @@ void mal_ext_printInt32(MalContext *context, int32_t value);
 
 numeric scalarは対応する`intN_t`、`uintN_t`、binary32 `float`、binary64 `double`でby-valueに渡す。targetが要求representationを満たさなければそのtargetにFloat32/64を提供しない。
 
+Floatを使うprogramのC adapterはround-to-nearest, ties-to-evenのfloating-point environmentを保持し、
+flush-to-zeroまたはdenormals-are-zeroを有効にしたままreturnしてはならない。完全なtarget条件は
+[D019](../design/decisions.md#d019-decimal-float-syntaxとc-target-profileを固定する)に定める。
+
 top-level parameter型が`Unit`ならC側parameterを追加しない。top-level result型が`Unit`ならC resultは`void`とする。top-level parameter型がproductなら、その直下の要素をsource orderでC parameterへflattenする。nested productとsumにはgenerated header内のprogram固有structを用いる。aggregate resultはgenerated structをby-valueで返す。
 
 ```mal

@@ -141,6 +141,10 @@ scrutinee は直和型でなければならない。arm の pattern は該当 in
 
 decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.4はinfinity、NaN、hexadecimal floatのliteralを持たない。
 
+decimal pointを使う形は整数部と小数部の両方を必須とする。`e`または`E`による10進exponentと
+optionalな符号を認める。decimal point、exponent、`Float32`/`Float64` suffixのいずれかがあるliteralを
+float literalとする。完全な形は[grammar](grammar.md#numeric-separator)に定める。
+
 numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
 
 string literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[String](strings.md#literal)に定める。
