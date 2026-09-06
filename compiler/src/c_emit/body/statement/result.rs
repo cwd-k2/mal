@@ -1,3 +1,4 @@
+use crate::c_emit::syntax::{Block, Expr, Initializer, Statement};
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId, Pattern};
 
@@ -6,44 +7,59 @@ use super::super::{BodyEmitter, environment_name, function_name, value_name};
 impl BodyEmitter<'_> {
     pub(super) fn emit_simple_result(
         &mut self,
-        output: &mut String,
+        block: &mut Block,
         pattern: &Pattern,
         ty: &Type,
-        expression: &str,
-        indent: usize,
+        expression: Expr,
     ) {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                c_line!(
-                    output,
-                    indent,
-                    "{} {name} = {expression};",
-                    self.types.c_type(ty)
-                );
-                c_line!(output, indent, "(void){name};");
+                block.push(Statement::declaration(
+                    format!("{} {name}", self.types.c_type(ty)),
+                    Some(expression),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(name),
+                )));
             }
-            Pattern::Wildcard { .. } => c_line!(output, indent, "(void)({expression});"),
+            Pattern::Wildcard { .. } => {
+                block.push(Statement::expression(Expr::cast("void", expression)))
+            }
             Pattern::Product { .. } => {
                 let target = self.result_target(pattern);
-                c_line!(
-                    output,
-                    indent,
-                    "{} {target} = {expression};",
-                    self.types.c_type(ty)
-                );
-                c_line!(output, indent, "(void){target};");
-                self.emit_pattern_bindings(output, pattern, &target, indent);
+                block.push(Statement::declaration(
+                    format!("{} {target}", self.types.c_type(ty)),
+                    Some(expression),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(target.clone()),
+                )));
+                self.emit_pattern_bindings(block, pattern, Expr::identifier(target));
             }
         }
     }
 
-    pub(super) fn emit_unit_result(&self, output: &mut String, pattern: &Pattern, indent: usize) {
+    pub(super) fn emit_unit_result(&self, block: &mut Block, pattern: &Pattern) {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                c_line!(output, indent, "MalType_Unit {name} = {{ UINT8_C(0) }};");
-                c_line!(output, indent, "(void){name};");
+                block.push(Statement::declaration(
+                    format!("MalType_Unit {name}"),
+                    Some(Expr::compound_literal(
+                        "MalType_Unit",
+                        [Initializer::positional(Expr::named_call(
+                            "UINT8_C",
+                            [Expr::literal("0")],
+                        ))],
+                    )),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(name),
+                )));
             }
             Pattern::Wildcard { .. } => {}
             Pattern::Product { .. } => {
@@ -54,45 +70,53 @@ impl BodyEmitter<'_> {
 
     pub(super) fn emit_make_closure(
         &mut self,
-        output: &mut String,
+        block: &mut Block,
         pattern: &Pattern,
         ty: &Type,
         function: FunctionId,
         captures: &[Atom],
-        indent: usize,
     ) {
         let target = self.result_target(pattern);
         let environment = if captures.is_empty() {
-            "NULL".into()
+            Expr::identifier("NULL")
         } else {
             let allocation = format!("mal_new_environment_{target}");
-            c_line!(
-                output,
-                indent,
-                "{} *{allocation} = ({0} *)mal_allocate(mal_context, sizeof({0}));",
-                environment_name(function)
-            );
-            let fields = captures
-                .iter()
-                .enumerate()
-                .map(|(index, atom)| format!(".field_{index} = {}", self.emit_atom(atom)))
-                .collect::<Vec<_>>()
-                .join(", ");
-            c_line!(
-                output,
-                indent,
-                "*{allocation} = ({}){{ {fields} }};",
-                environment_name(function)
-            );
-            allocation
+            let environment_type = environment_name(function);
+            block.push(Statement::declaration(
+                format!("{environment_type} *{allocation}"),
+                Some(Expr::cast(
+                    format!("{environment_type} *"),
+                    Expr::named_call(
+                        "mal_allocate",
+                        [
+                            Expr::identifier("mal_context"),
+                            Expr::sizeof_type(environment_type.clone()),
+                        ],
+                    ),
+                )),
+            ));
+            let fields = captures.iter().enumerate().map(|(index, atom)| {
+                Initializer::designated(format!("field_{index}"), self.emit_atom(atom))
+            });
+            block.push(Statement::assignment(
+                Expr::unary("*", Expr::identifier(allocation.clone())),
+                Expr::compound_literal(environment_type, fields),
+            ));
+            Expr::identifier(allocation)
         };
-        c_line!(
-            output,
-            indent,
-            "{} {target} = {{ {}, {environment} }};",
-            self.types.c_type(ty),
-            function_name(function)
-        );
-        c_line!(output, indent, "(void){target};");
+        block.push(Statement::declaration(
+            format!("{} {target}", self.types.c_type(ty)),
+            Some(Expr::compound_literal(
+                self.types.c_type(ty),
+                [
+                    Initializer::positional(Expr::identifier(function_name(function))),
+                    Initializer::positional(environment),
+                ],
+            )),
+        ));
+        block.push(Statement::expression(Expr::cast(
+            "void",
+            Expr::identifier(target),
+        )));
     }
 }

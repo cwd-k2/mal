@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -98,88 +97,60 @@ static inline MalType_Bool mal_Response_is_0(MalType_Response value) {
     return value.tag == MAL_Response_TAG_0;
 }
 
-static inline MalType_Response mal_Response_make_0(
-    void
-) {
-    return (MalType_Response){
-        .tag = MAL_Response_TAG_0,
-        .payload.variant_0 = { .unused = UINT8_C(0) },
-    };
+static inline MalType_Response mal_Response_make_0(void) {
+    return (MalType_Response){ .tag = MAL_Response_TAG_0, .payload.variant_0 = (MalType_Unit){ .unused = UINT8_C(0) } };
 }
 
 static inline MalType_Bool mal_Response_is_1(MalType_Response value) {
     return value.tag == MAL_Response_TAG_1;
 }
 
-static inline MalType_Response mal_Response_make_1(
-    MalType_Mem value_0,
-    MalType_UInt64 value_1
-) {
-    return (MalType_Response){
-        .tag = MAL_Response_TAG_1,
-        .payload.variant_1 = {
-            .field_0 = value_0,
-            .field_1 = value_1,
-        },
-    };
+static inline MalType_Response mal_Response_make_1(MalType_Mem value_0, MalType_UInt64 value_1) {
+    return (MalType_Response){ .tag = MAL_Response_TAG_1, .payload.variant_1 = (MalRepr_Product_0){ .field_0 = value_0, .field_1 = value_1 } };
 }
 
-static inline MalType_Mem mal_Response_expect_1_0(
-    MalContext *context,
-    MalType_Response value
-) {
-    if (!mal_Response_is_1(value))
+static inline MalType_Mem mal_Response_expect_1_0(MalContext *context, MalType_Response value) {
+    if (!mal_Response_is_1(value)) {
         mal_trap(context, "expected Response variant 1");
+    }
     return value.payload.variant_1.field_0;
 }
 
-static inline MalType_UInt64 mal_Response_expect_1_1(
-    MalContext *context,
-    MalType_Response value
-) {
-    if (!mal_Response_is_1(value))
+static inline MalType_UInt64 mal_Response_expect_1_1(MalContext *context, MalType_Response value) {
+    if (!mal_Response_is_1(value)) {
         mal_trap(context, "expected Response variant 1");
+    }
     return value.payload.variant_1.field_1;
 }
 
 /* External operations */
 
-MalType_Mem mal_ext_allocate(
-    MalContext *context,
-    MalType_UInt64 value
-);
-MalType_Response mal_ext_resize(
-    MalContext *context,
-    MalType_Mem argument_0,
-    MalType_UInt64 argument_1
-);
-MalType_UInt64 mal_ext_handleBits(
-    MalContext *context,
-    MalType_Mem value
-);
+MalType_Mem mal_ext_allocate(MalContext *context, MalType_UInt64 value);
+MalType_Response mal_ext_resize(MalContext *context, MalType_Mem argument_0, MalType_UInt64 argument_1);
+MalType_UInt64 mal_ext_handleBits(MalContext *context, MalType_Mem value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(context, value) \
     MalType_Mem mal_ext_allocate( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_UInt64 value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_UInt64 value \
     )
 
 #define MAL_HAS_EXTERN_resize 1
 #define MAL_DEFINE_resize(context, argument_0, argument_1) \
     MalType_Response mal_ext_resize( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Mem argument_0, \
-        MalType_UInt64 argument_1 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Mem argument_0, \
+    MalType_UInt64 argument_1 \
     )
 
 #define MAL_HAS_EXTERN_handleBits 1
 #define MAL_DEFINE_handleBits(context, value) \
     MalType_UInt64 mal_ext_handleBits( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Mem value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Mem value \
     )
 
 #endif

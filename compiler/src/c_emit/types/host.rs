@@ -1,3 +1,6 @@
+use crate::c_emit::syntax::{
+    Block, Declaration, Directive, Expr, FunctionDefinition, Initializer, Statement,
+};
 use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
 
@@ -7,10 +10,11 @@ impl TypeRegistry {
     pub(in crate::c_emit) fn header_declarations(&self, host: &HostTypes) -> String {
         let mut output = String::new();
         for name in &host.opaque_names {
-            c_line!(
-                &mut output,
-                0,
-                "typedef struct {{ uintptr_t bits; }} MalType_{name};"
+            output.push_str(
+                &Declaration::new(format!(
+                    "typedef struct {{ uintptr_t bits; }} MalType_{name}"
+                ))
+                .render(),
             );
         }
         if !host.opaque_names.is_empty() {
@@ -28,12 +32,13 @@ impl TypeRegistry {
         let mut output = String::new();
         for alias in aliases {
             if host.contains(&alias.ty) {
-                c_line!(
-                    &mut output,
-                    0,
-                    "typedef {} MalType_{};",
-                    self.c_type(&alias.ty),
-                    alias.name
+                output.push_str(
+                    &Declaration::new(format!(
+                        "typedef {} MalType_{}",
+                        self.c_type(&alias.ty),
+                        alias.name
+                    ))
+                    .render(),
                 );
             }
         }
@@ -46,20 +51,21 @@ impl TypeRegistry {
     pub(in crate::c_emit) fn header_opaque_helpers(&self, host: &HostTypes) -> String {
         let mut output = String::new();
         for name in &host.opaque_names {
-            c_line!(
+            append_function(
                 &mut output,
-                0,
-                "static inline MalType_{name} mal_{name}_from_bits(uintptr_t bits) {{"
+                format!("static inline MalType_{name} mal_{name}_from_bits(uintptr_t bits)"),
+                Block::new([Statement::return_value(Expr::compound_literal(
+                    format!("MalType_{name}"),
+                    [Initializer::designated("bits", Expr::identifier("bits"))],
+                ))]),
             );
-            c_line!(&mut output, 1, "return (MalType_{name}){{ .bits = bits }};");
-            output.push_str("}\n\n");
-            c_line!(
+            append_function(
                 &mut output,
-                0,
-                "static inline uintptr_t mal_{name}_bits(MalType_{name} value) {{"
+                format!("static inline uintptr_t mal_{name}_bits(MalType_{name} value)"),
+                Block::new([Statement::return_value(
+                    Expr::identifier("value").field("bits"),
+                )]),
             );
-            c_line!(&mut output, 1, "return value.bits;");
-            output.push_str("}\n\n");
         }
         output
     }
@@ -84,86 +90,85 @@ impl TypeRegistry {
                 }
                 _ => {}
             }
-            if !output.is_empty() && !output.ends_with("\n\n") {
-                output.push('\n');
-            }
         }
         output
     }
 
     pub(in crate::c_emit) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> String {
-        if let Some(alias) = alias {
-            format!("MalType_{alias}")
-        } else {
-            self.c_type(ty)
-        }
+        alias.map_or_else(|| self.c_type(ty), |alias| format!("MalType_{alias}"))
     }
 
     fn emit_product_constructor(&self, output: &mut String, alias: &TypeAlias, elements: &[Type]) {
-        c_line!(
+        let parameters = self.parameters(elements);
+        let fields = elements.iter().enumerate().map(|(index, _)| {
+            Initializer::designated(
+                format!("field_{index}"),
+                Expr::identifier(format!("value_{index}")),
+            )
+        });
+        append_function(
             output,
-            0,
-            "static inline MalType_{} mal_{}_make(",
-            alias.name,
-            alias.name
+            format!(
+                "static inline MalType_{} mal_{}_make({parameters})",
+                alias.name, alias.name
+            ),
+            Block::new([Statement::return_value(Expr::compound_literal(
+                format!("MalType_{}", alias.name),
+                fields,
+            ))]),
         );
-        self.emit_parameter_lines(output, elements);
-        output.push_str(") {\n");
-        c_line!(output, 1, "return (MalType_{}){{", alias.name);
-        for index in 0..elements.len() {
-            c_line!(output, 2, ".field_{index} = value_{index},");
-        }
-        output.push_str("    };\n}\n\n");
     }
 
     fn emit_product_accessors(&self, output: &mut String, alias: &TypeAlias, elements: &[Type]) {
         for (index, element) in elements.iter().enumerate() {
-            c_line!(
+            append_function(
                 output,
-                0,
-                "static inline {} mal_{}_get_{index}(MalType_{} value) {{",
-                self.c_type(element),
-                alias.name,
-                alias.name
+                format!(
+                    "static inline {} mal_{}_get_{index}(MalType_{} value)",
+                    self.c_type(element),
+                    alias.name,
+                    alias.name
+                ),
+                Block::new([Statement::return_value(
+                    Expr::identifier("value").field(format!("field_{index}")),
+                )]),
             );
-            c_line!(output, 1, "return value.field_{index};");
-            output.push_str("}\n\n");
         }
     }
 
     fn emit_sum_helpers(&self, output: &mut String, alias: &TypeAlias, members: &[Type]) {
         for index in 0..members.len() {
-            c_line!(
-                output,
-                0,
-                "#define MAL_{}_TAG_{index} UINT32_C({index})",
-                alias.name
+            output.push_str(
+                &Directive::define(
+                    format!("MAL_{}_TAG_{index}", alias.name),
+                    format!("UINT32_C({index})"),
+                )
+                .render(),
             );
         }
-        c_line!(
+        append_function(
             output,
-            0,
-            "static inline uint32_t mal_{}_tag(MalType_{} value) {{",
-            alias.name,
-            alias.name
+            format!(
+                "static inline uint32_t mal_{}_tag(MalType_{} value)",
+                alias.name, alias.name
+            ),
+            Block::new([Statement::return_value(
+                Expr::identifier("value").field("tag"),
+            )]),
         );
-        c_line!(output, 1, "return value.tag;");
-        output.push_str("}\n\n");
         for (index, member) in members.iter().enumerate() {
-            c_line!(
+            append_function(
                 output,
-                0,
-                "static inline MalType_Bool mal_{}_is_{index}(MalType_{} value) {{",
-                alias.name,
-                alias.name
+                format!(
+                    "static inline MalType_Bool mal_{}_is_{index}(MalType_{} value)",
+                    alias.name, alias.name
+                ),
+                Block::new([Statement::return_value(Expr::binary(
+                    "==",
+                    Expr::identifier("value").field("tag"),
+                    Expr::identifier(format!("MAL_{}_TAG_{index}", alias.name)),
+                ))]),
             );
-            c_line!(
-                output,
-                1,
-                "return value.tag == MAL_{}_TAG_{index};",
-                alias.name
-            );
-            output.push_str("}\n\n");
             self.emit_sum_constructor(output, alias, index, member);
             self.emit_sum_accessors(output, alias, index, member);
         }
@@ -176,34 +181,42 @@ impl TypeRegistry {
         index: usize,
         member: &Type,
     ) {
-        c_line!(
-            output,
-            0,
-            "static inline MalType_{} mal_{}_make_{index}(",
-            alias.name,
-            alias.name
-        );
-        match member {
-            Type::Unit => c_line!(output, 1, "void"),
-            Type::Product(elements) => self.emit_parameter_lines(output, elements),
-            _ => c_line!(output, 1, "{} value", self.c_type(member)),
-        }
-        output.push_str(") {\n");
-        c_line!(output, 1, "return (MalType_{}){{", alias.name);
-        c_line!(output, 2, ".tag = MAL_{}_TAG_{index},", alias.name);
-        c_write!(output, "        .payload.variant_{index} = ",);
-        match member {
-            Type::Unit => output.push_str("{ .unused = UINT8_C(0) },\n"),
+        let (parameters, payload) = match member {
+            Type::Unit => ("void".into(), unit()),
             Type::Product(elements) => {
-                output.push_str("{\n");
-                for element_index in 0..elements.len() {
-                    c_line!(output, 3, ".field_{element_index} = value_{element_index},");
-                }
-                output.push_str("        },\n");
+                let fields = elements.iter().enumerate().map(|(element_index, _)| {
+                    Initializer::designated(
+                        format!("field_{element_index}"),
+                        Expr::identifier(format!("value_{element_index}")),
+                    )
+                });
+                (
+                    self.parameters(elements),
+                    Expr::compound_literal(self.c_type(member), fields),
+                )
             }
-            _ => output.push_str("value,\n"),
-        }
-        output.push_str("    };\n}\n\n");
+            _ => (
+                format!("{} value", self.c_type(member)),
+                Expr::identifier("value"),
+            ),
+        };
+        append_function(
+            output,
+            format!(
+                "static inline MalType_{} mal_{}_make_{index}({parameters})",
+                alias.name, alias.name
+            ),
+            Block::new([Statement::return_value(Expr::compound_literal(
+                format!("MalType_{}", alias.name),
+                [
+                    Initializer::designated(
+                        "tag",
+                        Expr::identifier(format!("MAL_{}_TAG_{index}", alias.name)),
+                    ),
+                    Initializer::designated(format!("payload.variant_{index}"), payload),
+                ],
+            ))]),
+        );
     }
 
     fn emit_sum_accessors(
@@ -213,63 +226,85 @@ impl TypeRegistry {
         index: usize,
         member: &Type,
     ) {
-        match member {
-            Type::Unit => {}
-            Type::Product(elements) => {
-                for (element_index, element) in elements.iter().enumerate() {
-                    c_line!(
-                        output,
-                        0,
-                        "static inline {} mal_{}_expect_{index}_{element_index}(",
-                        self.c_type(element),
-                        alias.name
-                    );
-                    output.push_str("    MalContext *context,\n");
-                    c_line!(output, 1, "MalType_{} value", alias.name);
-                    output.push_str(") {\n");
-                    c_line!(output, 1, "if (!mal_{}_is_{index}(value))", alias.name);
-                    c_line!(
-                        output,
-                        2,
-                        "mal_trap(context, \"expected {} variant {index}\");",
-                        alias.name
-                    );
-                    c_line!(
-                        output,
-                        1,
-                        "return value.payload.variant_{index}.field_{element_index};"
-                    );
-                    output.push_str("}\n\n");
-                }
-            }
-            _ => {
-                c_line!(
-                    output,
-                    0,
-                    "static inline {} mal_{}_expect_{index}(",
-                    self.c_type(member),
+        let elements: Vec<(Option<usize>, &Type)> = match member {
+            Type::Unit => return,
+            Type::Product(elements) => elements
+                .iter()
+                .enumerate()
+                .map(|(i, ty)| (Some(i), ty))
+                .collect(),
+            ty => vec![(None, ty)],
+        };
+        for (element_index, element) in elements {
+            let suffix = element_index.map_or_else(String::new, |i| format!("_{i}"));
+            let result = element_index.map_or_else(
+                || {
+                    Expr::identifier("value")
+                        .field("payload")
+                        .field(format!("variant_{index}"))
+                },
+                |i| {
+                    Expr::identifier("value")
+                        .field("payload")
+                        .field(format!("variant_{index}"))
+                        .field(format!("field_{i}"))
+                },
+            );
+            append_function(
+                output,
+                format!(
+                    "static inline {} mal_{}_expect_{index}{suffix}(MalContext *context, MalType_{} value)",
+                    self.c_type(element),
+                    alias.name,
                     alias.name
-                );
-                output.push_str("    MalContext *context,\n");
-                c_line!(output, 1, "MalType_{} value", alias.name);
-                output.push_str(") {\n");
-                c_line!(output, 1, "if (!mal_{}_is_{index}(value))", alias.name);
-                c_line!(
-                    output,
-                    2,
-                    "mal_trap(context, \"expected {} variant {index}\");",
-                    alias.name
-                );
-                c_line!(output, 1, "return value.payload.variant_{index};");
-                output.push_str("}\n\n");
-            }
+                ),
+                Block::new([
+                    Statement::if_then(
+                        Expr::unary(
+                            "!",
+                            Expr::named_call(
+                                format!("mal_{}_is_{index}", alias.name),
+                                [Expr::identifier("value")],
+                            ),
+                        ),
+                        Block::new([Statement::expression(Expr::named_call(
+                            "mal_trap",
+                            [
+                                Expr::identifier("context"),
+                                Expr::literal(format!(
+                                    "\"expected {} variant {index}\"",
+                                    alias.name
+                                )),
+                            ],
+                        ))]),
+                    ),
+                    Statement::return_value(result),
+                ]),
+            );
         }
     }
 
-    fn emit_parameter_lines(&self, output: &mut String, elements: &[Type]) {
-        for (index, element) in elements.iter().enumerate() {
-            let comma = if index + 1 == elements.len() { "" } else { "," };
-            c_line!(output, 1, "{} value_{index}{comma}", self.c_type(element));
-        }
+    fn parameters(&self, elements: &[Type]) -> String {
+        elements
+            .iter()
+            .enumerate()
+            .map(|(index, element)| format!("{} value_{index}", self.c_type(element)))
+            .collect::<Vec<_>>()
+            .join(", ")
     }
+}
+
+fn unit() -> Expr {
+    Expr::compound_literal(
+        "MalType_Unit",
+        [Initializer::designated(
+            "unused",
+            Expr::named_call("UINT8_C", [Expr::literal("0")]),
+        )],
+    )
+}
+
+fn append_function(output: &mut String, signature: impl Into<String>, body: Block) {
+    output.push_str(&FunctionDefinition::new(signature, body).render());
+    output.push('\n');
 }

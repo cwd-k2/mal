@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -86,129 +85,93 @@ static inline uintptr_t mal_Database_bits(MalType_Database value) {
 
 /* External operations */
 
-MalType_Ptr mal_ext_allocate(
-    MalContext *context,
-    MalType_UInt64 value
-);
-void mal_ext_release(
-    MalContext *context,
-    MalType_Ptr value
-);
-MalType_Database mal_ext_openDatabase(
-    MalContext *context,
-    MalType_Symbol value
-);
-MalType_UInt64 mal_ext_readDatabase(
-    MalContext *context,
-    MalType_Database argument_0,
-    MalType_Ptr argument_1,
-    MalType_UInt64 argument_2
-);
-void mal_ext_writeDatabase(
-    MalContext *context,
-    MalType_Database argument_0,
-    MalType_Ptr argument_1,
-    MalType_UInt64 argument_2
-);
-void mal_ext_closeDatabase(
-    MalContext *context,
-    MalType_Database value
-);
-MalType_UInt64 mal_ext_readLine(
-    MalContext *context,
-    MalType_Ptr argument_0,
-    MalType_UInt64 argument_1
-);
-void mal_ext_writeSymbol(
-    MalContext *context,
-    MalType_Symbol value
-);
-void mal_ext_writeMemory(
-    MalContext *context,
-    MalType_Ptr argument_0,
-    MalType_UInt64 argument_1
-);
-void mal_ext_fail(
-    MalContext *context,
-    MalType_Symbol value
-);
+MalType_Ptr mal_ext_allocate(MalContext *context, MalType_UInt64 value);
+void mal_ext_release(MalContext *context, MalType_Ptr value);
+MalType_Database mal_ext_openDatabase(MalContext *context, MalType_Symbol value);
+MalType_UInt64 mal_ext_readDatabase(MalContext *context, MalType_Database argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
+void mal_ext_writeDatabase(MalContext *context, MalType_Database argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
+void mal_ext_closeDatabase(MalContext *context, MalType_Database value);
+MalType_UInt64 mal_ext_readLine(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
+void mal_ext_writeSymbol(MalContext *context, MalType_Symbol value);
+void mal_ext_writeMemory(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
+void mal_ext_fail(MalContext *context, MalType_Symbol value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(context, value) \
     MalType_Ptr mal_ext_allocate( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_UInt64 value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_UInt64 value \
     )
 
 #define MAL_HAS_EXTERN_release 1
 #define MAL_DEFINE_release(context, value) \
     void mal_ext_release( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Ptr value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Ptr value \
     )
 
 #define MAL_HAS_EXTERN_openDatabase 1
 #define MAL_DEFINE_openDatabase(context, value) \
     MalType_Database mal_ext_openDatabase( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Symbol value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Symbol value \
     )
 
 #define MAL_HAS_EXTERN_readDatabase 1
 #define MAL_DEFINE_readDatabase(context, argument_0, argument_1, argument_2) \
     MalType_UInt64 mal_ext_readDatabase( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Database argument_0, \
-        MalType_Ptr argument_1, \
-        MalType_UInt64 argument_2 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Database argument_0, \
+    MalType_Ptr argument_1, \
+    MalType_UInt64 argument_2 \
     )
 
 #define MAL_HAS_EXTERN_writeDatabase 1
 #define MAL_DEFINE_writeDatabase(context, argument_0, argument_1, argument_2) \
     void mal_ext_writeDatabase( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Database argument_0, \
-        MalType_Ptr argument_1, \
-        MalType_UInt64 argument_2 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Database argument_0, \
+    MalType_Ptr argument_1, \
+    MalType_UInt64 argument_2 \
     )
 
 #define MAL_HAS_EXTERN_closeDatabase 1
 #define MAL_DEFINE_closeDatabase(context, value) \
     void mal_ext_closeDatabase( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Database value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Database value \
     )
 
 #define MAL_HAS_EXTERN_readLine 1
 #define MAL_DEFINE_readLine(context, argument_0, argument_1) \
     MalType_UInt64 mal_ext_readLine( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Ptr argument_0, \
-        MalType_UInt64 argument_1 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Ptr argument_0, \
+    MalType_UInt64 argument_1 \
     )
 
 #define MAL_HAS_EXTERN_writeSymbol 1
 #define MAL_DEFINE_writeSymbol(context, value) \
     void mal_ext_writeSymbol( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Symbol value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Symbol value \
     )
 
 #define MAL_HAS_EXTERN_writeMemory 1
 #define MAL_DEFINE_writeMemory(context, argument_0, argument_1) \
     void mal_ext_writeMemory( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Ptr argument_0, \
-        MalType_UInt64 argument_1 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Ptr argument_0, \
+    MalType_UInt64 argument_1 \
     )
 
 #define MAL_HAS_EXTERN_fail 1
 #define MAL_DEFINE_fail(context, value) \
     void mal_ext_fail( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Symbol value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Symbol value \
     )
 
 #endif

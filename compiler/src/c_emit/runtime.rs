@@ -1,4 +1,5 @@
 use super::body::RuntimeNeeds;
+use super::syntax::RawTranslationUnit;
 
 pub(super) mod memory;
 mod numeric;
@@ -8,7 +9,7 @@ use self::numeric::{
 };
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> String {
-    let mut output = String::from(RUNTIME_CORE);
+    let mut output = String::from(RawTranslationUnit::new(RUNTIME_CORE).render());
     if needs.wrap != 0 {
         output.push_str(&emit_integer_wrap(needs.wrap));
     }
@@ -32,13 +33,13 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         output.push_str(&emit_integer_shift(needs.shift_left, needs.shift_right));
     }
     if needs.symbol_equality {
-        output.push_str(RUNTIME_SYMBOL_EQUALITY);
+        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_EQUALITY).render());
     }
     if needs.symbol_at {
-        output.push_str(RUNTIME_SYMBOL_AT);
+        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_AT).render());
     }
     if needs.symbol_concatenate {
-        output.push_str(RUNTIME_SYMBOL_CONCATENATE);
+        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_CONCATENATE).render());
     }
     if needs.memory_offset_forward
         || needs.memory_offset_backward

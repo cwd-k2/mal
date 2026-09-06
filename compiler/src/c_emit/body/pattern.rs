@@ -1,3 +1,4 @@
+use crate::c_emit::syntax::{Block, Expr, Statement};
 use crate::check::ast::Type;
 use crate::closure::ast::{Pattern, TopLevelPattern};
 
@@ -7,13 +8,11 @@ impl BodyEmitter<'_> {
     pub(super) fn emit_top_level_globals(&self, output: &mut String, pattern: &TopLevelPattern) {
         match pattern {
             TopLevelPattern::Binding { id, ty, .. } => {
-                c_line!(
-                    output,
-                    0,
-                    "static {} {};",
-                    self.types.c_type(ty),
-                    value_name(*id)
-                );
+                Statement::declaration(
+                    format!("static {} {}", self.types.c_type(ty), value_name(*id)),
+                    None,
+                )
+                .render(output, 0);
             }
             TopLevelPattern::Wildcard { .. } => {}
             TopLevelPattern::Product { elements, .. } => {
@@ -26,56 +25,54 @@ impl BodyEmitter<'_> {
 
     pub(super) fn emit_top_level_pattern(
         &self,
-        output: &mut String,
+        block: &mut Block,
         pattern: &TopLevelPattern,
-        value: &str,
-        indent: usize,
+        value: Expr,
     ) {
         match pattern {
             TopLevelPattern::Binding { id, .. } => {
-                c_line!(output, indent, "{} = {value};", value_name(*id));
-                c_line!(output, indent, "(void){};", value_name(*id));
+                block.push(Statement::assignment(
+                    Expr::identifier(value_name(*id)),
+                    value,
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(value_name(*id)),
+                )));
             }
             TopLevelPattern::Wildcard { .. } => {}
             TopLevelPattern::Product { elements, .. } => {
                 for (index, element) in elements.iter().enumerate() {
                     self.emit_top_level_pattern(
-                        output,
+                        block,
                         element,
-                        &format!("{value}.field_{index}"),
-                        indent,
+                        value.clone().field(format!("field_{index}")),
                     );
                 }
             }
         }
     }
 
-    pub(super) fn emit_pattern_bindings(
-        &self,
-        output: &mut String,
-        pattern: &Pattern,
-        value: &str,
-        indent: usize,
-    ) {
+    pub(super) fn emit_pattern_bindings(&self, block: &mut Block, pattern: &Pattern, value: Expr) {
         match pattern {
             Pattern::Binding { id, ty } => {
                 let name = value_name(*id);
-                c_line!(
-                    output,
-                    indent,
-                    "{} {name} = {value};",
-                    self.types.c_type(ty)
-                );
-                c_line!(output, indent, "(void){name};");
+                block.push(Statement::declaration(
+                    format!("{} {name}", self.types.c_type(ty)),
+                    Some(value),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(name),
+                )));
             }
             Pattern::Wildcard { .. } => {}
             Pattern::Product { elements, .. } => {
                 for (index, element) in elements.iter().enumerate() {
                     self.emit_pattern_bindings(
-                        output,
+                        block,
                         element,
-                        &format!("{value}.field_{index}"),
-                        indent,
+                        value.clone().field(format!("field_{index}")),
                     );
                 }
             }

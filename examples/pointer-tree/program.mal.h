@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -58,29 +57,23 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* External operations */
 
-MalType_Ptr mal_ext_allocate(
-    MalContext *context,
-    MalType_UInt64 value
-);
-void mal_ext_release(
-    MalContext *context,
-    MalType_Ptr value
-);
+MalType_Ptr mal_ext_allocate(MalContext *context, MalType_UInt64 value);
+void mal_ext_release(MalContext *context, MalType_Ptr value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(context, value) \
     MalType_Ptr mal_ext_allocate( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_UInt64 value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_UInt64 value \
     )
 
 #define MAL_HAS_EXTERN_release 1
 #define MAL_DEFINE_release(context, value) \
     void mal_ext_release( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Ptr value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Ptr value \
     )
 
 #endif

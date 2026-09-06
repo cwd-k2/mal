@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -55,4 +54,5 @@ static inline MalType_Ptr mal_Ptr_from_address(uint8_t *address) {
 static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
     return value.address;
 }
+
 #endif

@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -69,24 +68,18 @@ struct MalRepr_Product_0 {
 
 /* External operations */
 
-MalType_Int32 mal_ext_inspect(
-    MalContext *context,
-    MalType_Float32 argument_0,
-    MalType_Float32 argument_1,
-    MalType_Float64 argument_2,
-    MalType_Int64 argument_3
-);
+MalType_Int32 mal_ext_inspect(MalContext *context, MalType_Float32 argument_0, MalType_Float32 argument_1, MalType_Float64 argument_2, MalType_Int64 argument_3);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_inspect 1
 #define MAL_DEFINE_inspect(context, argument_0, argument_1, argument_2, argument_3) \
     MalType_Int32 mal_ext_inspect( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Float32 argument_0, \
-        MalType_Float32 argument_1, \
-        MalType_Float64 argument_2, \
-        MalType_Int64 argument_3 \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Float32 argument_0, \
+    MalType_Float32 argument_1, \
+    MalType_Float64 argument_2, \
+    MalType_Int64 argument_3 \
     )
 
 #endif

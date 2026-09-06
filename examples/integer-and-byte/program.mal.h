@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -58,18 +57,15 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* External operations */
 
-void mal_ext_printUInt64(
-    MalContext *context,
-    MalType_UInt64 value
-);
+void mal_ext_printUInt64(MalContext *context, MalType_UInt64 value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_printUInt64 1
 #define MAL_DEFINE_printUInt64(context, value) \
     void mal_ext_printUInt64( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_UInt64 value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_UInt64 value \
     )
 
 #endif

@@ -3,6 +3,7 @@ use crate::closure::ast::Atom;
 use crate::core::ast::BinaryPrimitive;
 
 use crate::c_emit::scalar::integer_type;
+use crate::c_emit::syntax::Expr;
 use crate::c_emit::types::is_bool;
 
 use super::super::BodyEmitter;
@@ -14,7 +15,7 @@ impl BodyEmitter<'_> {
         left: &Atom,
         right: &Atom,
         result: &Type,
-    ) -> String {
+    ) -> Expr {
         let operand_type = left.ty.clone();
         let left = self.emit_atom(left);
         let right = self.emit_atom(right);
@@ -22,7 +23,10 @@ impl BodyEmitter<'_> {
             BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract => {
                 if operator == BinaryPrimitive::Add && operand_type == Type::Symbol {
                     self.needs.symbol_concatenate = true;
-                    return format!("mal_symbol_concatenate(mal_context, {left}, {right})");
+                    return Expr::named_call(
+                        "mal_symbol_concatenate",
+                        [Expr::identifier("mal_context"), left, right],
+                    );
                 }
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
                     let symbol = match operator {
@@ -31,7 +35,7 @@ impl BodyEmitter<'_> {
                         BinaryPrimitive::Subtract => "-",
                         _ => unreachable!(),
                     };
-                    return format!("({left} {symbol} {right})");
+                    return Expr::binary(symbol, left, right);
                 }
                 let integer = integer_type(&operand_type).unwrap();
                 let unsigned = integer.unsigned;
@@ -42,25 +46,33 @@ impl BodyEmitter<'_> {
                     BinaryPrimitive::Subtract => "-",
                     _ => unreachable!(),
                 };
-                let expression = format!(
-                    "({carrier})({unsigned})({left}) {symbol} ({carrier})({unsigned})({right})"
+                let expression = Expr::binary(
+                    symbol,
+                    Expr::cast(carrier, Expr::cast(unsigned, left)),
+                    Expr::cast(carrier, Expr::cast(unsigned, right)),
                 );
-                self.wrap_integer(&operand_type, &expression)
+                self.wrap_integer(&operand_type, expression)
             }
             BinaryPrimitive::Divide => {
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
-                    return format!("({left} / {right})");
+                    return Expr::binary("/", left, right);
                 }
                 let integer = integer_type(&operand_type).unwrap();
                 self.needs.divide |= integer.mask();
                 let name = integer.name;
-                format!("mal_{name}_divide(mal_context, {left}, {right})")
+                Expr::named_call(
+                    format!("mal_{name}_divide"),
+                    [Expr::identifier("mal_context"), left, right],
+                )
             }
             BinaryPrimitive::Remainder => {
                 let integer = integer_type(&operand_type).unwrap();
                 self.needs.remainder |= integer.mask();
                 let name = integer.name;
-                format!("mal_{name}_remainder(mal_context, {left}, {right})")
+                Expr::named_call(
+                    format!("mal_{name}_remainder"),
+                    [Expr::identifier("mal_context"), left, right],
+                )
             }
             BinaryPrimitive::ShiftLeft | BinaryPrimitive::ShiftRight => {
                 if operator == BinaryPrimitive::ShiftLeft {
@@ -76,7 +88,10 @@ impl BodyEmitter<'_> {
                 } else {
                     "shift_right"
                 };
-                format!("mal_{name}_{direction}(mal_context, {left}, {right})")
+                Expr::named_call(
+                    format!("mal_{name}_{direction}"),
+                    [Expr::identifier("mal_context"), left, right],
+                )
             }
             BinaryPrimitive::BitwiseAnd
             | BinaryPrimitive::BitwiseXor
@@ -88,8 +103,12 @@ impl BodyEmitter<'_> {
                     BinaryPrimitive::BitwiseOr => "|",
                     _ => unreachable!(),
                 };
-                let expression = format!("({unsigned})({left}) {symbol} ({unsigned})({right})");
-                self.wrap_integer(&operand_type, &expression)
+                let expression = Expr::binary(
+                    symbol,
+                    Expr::cast(unsigned, left),
+                    Expr::cast(unsigned, right),
+                );
+                self.wrap_integer(&operand_type, expression)
             }
             BinaryPrimitive::Less
             | BinaryPrimitive::LessEqual
@@ -97,9 +116,13 @@ impl BodyEmitter<'_> {
             | BinaryPrimitive::GreaterEqual
             | BinaryPrimitive::Equal
             | BinaryPrimitive::NotEqual => {
-                let condition = self.comparison_text(operator, &operand_type, &left, &right);
+                let condition = self.comparison_text(operator, &operand_type, left, right);
                 debug_assert!(is_bool(result));
-                format!("({condition}) ? UINT8_C(1) : UINT8_C(0)")
+                Expr::conditional(
+                    condition,
+                    Expr::named_call("UINT8_C", [Expr::literal("1")]),
+                    Expr::named_call("UINT8_C", [Expr::literal("0")]),
+                )
             }
         }
     }
@@ -109,12 +132,12 @@ impl BodyEmitter<'_> {
         operator: BinaryPrimitive,
         left: &Atom,
         right: &Atom,
-    ) -> String {
+    ) -> Expr {
         self.comparison_text(
             operator,
             &left.ty,
-            &self.emit_atom(left),
-            &self.emit_atom(right),
+            self.emit_atom(left),
+            self.emit_atom(right),
         )
     }
 
@@ -122,16 +145,16 @@ impl BodyEmitter<'_> {
         &mut self,
         operator: BinaryPrimitive,
         operand_type: &Type,
-        left: &str,
-        right: &str,
-    ) -> String {
+        left: Expr,
+        right: Expr,
+    ) -> Expr {
         if *operand_type == Type::Symbol {
             self.needs.symbol_equality = true;
-            let equality = format!("mal_symbol_equal({left}, {right})");
+            let equality = Expr::named_call("mal_symbol_equal", [left, right]);
             return if operator == BinaryPrimitive::Equal {
                 equality
             } else {
-                format!("!{equality}")
+                Expr::unary("!", equality)
             };
         }
         let symbol = match operator {
@@ -143,18 +166,21 @@ impl BodyEmitter<'_> {
             BinaryPrimitive::NotEqual => "!=",
             _ => unreachable!("primitive branches contain only comparison operators"),
         };
-        format!("{left} {symbol} {right}")
+        Expr::binary(symbol, left, right)
     }
 
-    pub(super) fn wrap_integer(&mut self, ty: &Type, expression: &str) -> String {
+    pub(super) fn wrap_integer(&mut self, ty: &Type, expression: Expr) -> Expr {
         let integer = integer_type(ty).unwrap();
         let name = integer.name;
         let unsigned = integer.unsigned;
         if integer.signed() {
             self.needs.wrap |= integer.mask();
-            format!("mal_{name}_from_{unsigned}(({unsigned})({expression}))")
+            Expr::named_call(
+                format!("mal_{name}_from_{unsigned}"),
+                [Expr::cast(unsigned, expression)],
+            )
         } else {
-            format!("({unsigned})({expression})")
+            Expr::cast(unsigned, expression)
         }
     }
 }

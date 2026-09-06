@@ -1,3 +1,4 @@
+use crate::c_emit::syntax::{AggregateDefinition, AggregateField, Declaration};
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
 use crate::core::ast::ProgramInterface;
@@ -98,10 +99,8 @@ impl TypeRegistry {
                 | Type::Symbol
                 | Type::Ptr => unreachable!(),
             };
-            c_line!(
-                &mut output,
-                0,
-                "typedef struct {kind}_{index} {kind}_{index};"
+            output.push_str(
+                &Declaration::new(format!("typedef struct {kind}_{index} {kind}_{index}")).render(),
             );
         }
         if !output.is_empty() {
@@ -113,40 +112,59 @@ impl TypeRegistry {
             }
             match ty {
                 Type::Product(elements) => {
-                    c_line!(&mut output, 0, "struct MalRepr_Product_{index} {{");
-                    for (element_index, element) in elements.iter().enumerate() {
-                        c_line!(
-                            &mut output,
-                            1,
-                            "{} field_{element_index};",
+                    let fields = elements.iter().enumerate().map(|(element_index, element)| {
+                        AggregateField::declaration(format!(
+                            "{} field_{element_index}",
                             self.c_type(element)
-                        );
-                    }
-                    output.push_str("};\n\n");
+                        ))
+                    });
+                    output.push_str(
+                        &AggregateDefinition::new(
+                            format!("struct MalRepr_Product_{index}"),
+                            fields,
+                            None,
+                        )
+                        .render(),
+                    );
+                    output.push('\n');
                 }
                 Type::Sum(members) => {
-                    c_line!(&mut output, 0, "struct MalRepr_Sum_{index} {{");
-                    output.push_str("    uint32_t tag;\n    union {\n");
-                    for (member_index, member) in members.iter().enumerate() {
-                        c_line!(
-                            &mut output,
-                            2,
-                            "{} variant_{member_index};",
+                    let variants = members.iter().enumerate().map(|(member_index, member)| {
+                        AggregateField::declaration(format!(
+                            "{} variant_{member_index}",
                             self.c_type(member)
-                        );
-                    }
-                    output.push_str("    } payload;\n};\n\n");
+                        ))
+                    });
+                    output.push_str(
+                        &AggregateDefinition::new(
+                            format!("struct MalRepr_Sum_{index}"),
+                            [
+                                AggregateField::declaration("uint32_t tag"),
+                                AggregateField::aggregate("union", variants, "payload"),
+                            ],
+                            None,
+                        )
+                        .render(),
+                    );
+                    output.push('\n');
                 }
                 Type::Function { parameter, result } => {
-                    c_line!(&mut output, 0, "struct MalRepr_Closure_{index} {{");
-                    c_line!(
-                        &mut output,
-                        1,
-                        "{} (*call)(MalContext *, const void *, {});",
-                        self.c_type(result),
-                        self.c_type(parameter)
+                    output.push_str(
+                        &AggregateDefinition::new(
+                            format!("struct MalRepr_Closure_{index}"),
+                            [
+                                AggregateField::declaration(format!(
+                                    "{} (*call)(MalContext *, const void *, {})",
+                                    self.c_type(result),
+                                    self.c_type(parameter)
+                                )),
+                                AggregateField::declaration("const void *environment"),
+                            ],
+                            None,
+                        )
+                        .render(),
                     );
-                    output.push_str("    const void *environment;\n};\n\n");
+                    output.push('\n');
                 }
                 Type::External { .. }
                 | Type::Unit

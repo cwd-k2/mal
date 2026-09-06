@@ -1,18 +1,18 @@
+use crate::c_emit::syntax::{Block, Expr, Statement, SwitchCase};
+use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
 use crate::closure::ast::FunctionId;
-use crate::closure::ast::{self as closure, Atom, Block, Pattern};
+use crate::closure::ast::{self as closure, Atom, Block as ClosureBlock, Pattern};
 
 use super::super::{BodyEmitter, pattern_type, value_name};
-use crate::c_emit::types::is_bool;
 
 impl BodyEmitter<'_> {
     pub(in crate::c_emit::body) fn emit_tail_block(
         &mut self,
-        output: &mut String,
-        block: &Block,
+        output: &mut Block,
+        block: &ClosureBlock,
         function: FunctionId,
         parameter_name: &str,
-        indent: usize,
     ) {
         let tail = block.bindings.last().filter(|binding| {
             matches!(
@@ -25,7 +25,7 @@ impl BodyEmitter<'_> {
         });
         let ordinary_count = block.bindings.len() - usize::from(tail.is_some());
         for binding in &block.bindings[..ordinary_count] {
-            self.emit_binding(output, binding, indent);
+            self.emit_binding(output, binding);
         }
 
         match tail.map(|binding| &binding.operation) {
@@ -35,16 +35,14 @@ impl BodyEmitter<'_> {
                     closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
                 ) =>
             {
-                c_line!(
-                    output,
-                    indent,
-                    "{parameter_name} = {};",
-                    self.emit_atom(argument)
-                );
-                c_line!(output, indent, "goto mal_tail_entry;");
+                output.push(Statement::assignment(
+                    Expr::identifier(parameter_name),
+                    self.emit_atom(argument),
+                ));
+                output.push(Statement::goto("mal_tail_entry"));
             }
             Some(closure::Operation::Case { scrutinee, arms }) => {
-                self.emit_tail_case(output, scrutinee, arms, function, parameter_name, indent)
+                self.emit_tail_case(output, scrutinee, arms, function, parameter_name)
             }
             Some(closure::Operation::PrimitiveBranch {
                 operator,
@@ -61,173 +59,178 @@ impl BodyEmitter<'_> {
                 then,
                 function,
                 parameter_name,
-                indent,
             ),
             Some(_) => {
-                self.emit_binding(output, block.bindings.last().expect("tail binding"), indent);
-                c_line!(output, indent, "return {};", self.emit_atom(&block.result));
+                self.emit_binding(output, block.bindings.last().expect("tail binding"));
+                output.push(Statement::return_value(self.emit_atom(&block.result)));
             }
-            None => c_line!(output, indent, "return {};", self.emit_atom(&block.result)),
+            None => output.push(Statement::return_value(self.emit_atom(&block.result))),
         }
     }
 
     fn emit_tail_case(
         &mut self,
-        output: &mut String,
+        output: &mut Block,
         scrutinee: &Atom,
         arms: &[closure::CaseArm],
         function: FunctionId,
         parameter_name: &str,
-        indent: usize,
     ) {
-        let scrutinee_text = self.emit_atom(scrutinee);
-        let tag = if is_bool(&scrutinee.ty) {
-            scrutinee_text.clone()
+        let bool_scrutinee = is_bool(&scrutinee.ty);
+        let scrutinee = self.emit_atom(scrutinee);
+        let tag = if bool_scrutinee {
+            scrutinee.clone()
         } else {
-            format!("{scrutinee_text}.tag")
+            scrutinee.clone().field("tag")
         };
-        c_line!(output, indent, "switch ({tag}) {{");
+        let mut cases = Vec::new();
         for arm in arms {
-            c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
-            let payload = if is_bool(&scrutinee.ty) {
-                "(MalType_Unit){ UINT8_C(0) }".into()
-            } else {
-                format!("{scrutinee_text}.payload.variant_{}", arm.index)
-            };
-            self.emit_simple_result(
-                output,
-                &arm.pattern,
-                pattern_type(&arm.pattern),
-                &payload,
-                indent + 2,
-            );
-            self.emit_tail_block(output, &arm.value, function, parameter_name, indent + 2);
-            c_line!(output, indent + 1, "}}");
+            let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
+            let mut body = Block::default();
+            self.emit_simple_result(&mut body, &arm.pattern, pattern_type(&arm.pattern), payload);
+            self.emit_tail_block(&mut body, &arm.value, function, parameter_name);
+            cases.push(SwitchCase::case(uint32(arm.index), body));
         }
-        self.emit_invalid_sum_default(output, indent);
-        c_line!(output, indent, "}}");
+        cases.push(invalid_sum_default());
+        output.push(Statement::switch(tag, cases));
     }
 
     #[allow(clippy::too_many_arguments)]
     fn emit_tail_primitive_branch(
         &mut self,
-        output: &mut String,
+        output: &mut Block,
         operator: crate::core::ast::BinaryPrimitive,
         left: &Atom,
         right: &Atom,
-        otherwise: &Block,
-        then: &Block,
+        otherwise: &ClosureBlock,
+        then: &ClosureBlock,
         function: FunctionId,
         parameter_name: &str,
-        indent: usize,
     ) {
         let condition = self.emit_primitive_condition(operator, left, right);
-        c_line!(output, indent, "if ({condition}) {{");
-        self.emit_tail_block(output, then, function, parameter_name, indent + 1);
-        c_line!(output, indent, "}} else {{");
-        self.emit_tail_block(output, otherwise, function, parameter_name, indent + 1);
-        c_line!(output, indent, "}}");
+        let mut then_body = Block::default();
+        self.emit_tail_block(&mut then_body, then, function, parameter_name);
+        let mut otherwise_body = Block::default();
+        self.emit_tail_block(&mut otherwise_body, otherwise, function, parameter_name);
+        output.push(Statement::if_else(condition, then_body, otherwise_body));
     }
 
     pub(super) fn emit_case(
         &mut self,
-        output: &mut String,
+        output: &mut Block,
         pattern: &Pattern,
         ty: &Type,
         scrutinee: &Atom,
         arms: &[closure::CaseArm],
-        indent: usize,
     ) {
         let target = self.result_target(pattern);
-        c_line!(output, indent, "{} {target};", self.types.c_type(ty));
-        let scrutinee_text = self.emit_atom(scrutinee);
+        output.push(Statement::declaration(
+            format!("{} {target}", self.types.c_type(ty)),
+            None,
+        ));
         let bool_scrutinee = is_bool(&scrutinee.ty);
+        let scrutinee = self.emit_atom(scrutinee);
         let tag = if bool_scrutinee {
-            scrutinee_text.clone()
+            scrutinee.clone()
         } else {
-            format!("{scrutinee_text}.tag")
+            scrutinee.clone().field("tag")
         };
-        c_line!(output, indent, "switch ({tag}) {{");
+        let mut cases = Vec::new();
         for arm in arms {
-            c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
+            let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
+            let mut body = Block::default();
             if let Pattern::Binding { id, ty } = &arm.pattern {
                 let name = value_name(*id);
-                let payload = if bool_scrutinee {
-                    "(MalType_Unit){ UINT8_C(0) }".into()
-                } else {
-                    format!("{scrutinee_text}.payload.variant_{}", arm.index)
-                };
-                c_line!(
-                    output,
-                    indent + 2,
-                    "{} {name} = {payload};",
-                    self.types.c_type(ty)
-                );
-                c_line!(output, indent + 2, "(void){name};");
+                body.push(Statement::declaration(
+                    format!("{} {name}", self.types.c_type(ty)),
+                    Some(payload),
+                ));
+                body.push(discard(Expr::identifier(name)));
             }
-            self.emit_block_bindings(output, &arm.value, indent + 2);
-            c_line!(
-                output,
-                indent + 2,
-                "{target} = {};",
-                self.emit_atom(&arm.value.result)
-            );
-            c_line!(output, indent + 2, "break;");
-            c_line!(output, indent + 1, "}}");
+            self.emit_block_bindings(&mut body, &arm.value);
+            body.push(Statement::assignment(
+                Expr::identifier(target.clone()),
+                self.emit_atom(&arm.value.result),
+            ));
+            body.push(Statement::Break);
+            cases.push(SwitchCase::case(uint32(arm.index), body));
         }
-        self.emit_invalid_sum_default(output, indent);
-        c_line!(output, indent, "}}");
-        c_line!(output, indent, "(void){target};");
+        cases.push(invalid_sum_default());
+        output.push(Statement::switch(tag, cases));
+        output.push(discard(Expr::identifier(target.clone())));
         if matches!(pattern, Pattern::Product { .. }) {
-            self.emit_pattern_bindings(output, pattern, &target, indent);
+            self.emit_pattern_bindings(output, pattern, Expr::identifier(target));
         }
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn emit_primitive_branch(
         &mut self,
-        output: &mut String,
+        output: &mut Block,
         pattern: &Pattern,
         ty: &Type,
         operator: crate::core::ast::BinaryPrimitive,
         left: &Atom,
         right: &Atom,
-        otherwise: &Block,
-        then: &Block,
-        indent: usize,
+        otherwise: &ClosureBlock,
+        then: &ClosureBlock,
     ) {
         let target = self.result_target(pattern);
-        c_line!(output, indent, "{} {target};", self.types.c_type(ty));
+        output.push(Statement::declaration(
+            format!("{} {target}", self.types.c_type(ty)),
+            None,
+        ));
         let condition = self.emit_primitive_condition(operator, left, right);
-        c_line!(output, indent, "if ({condition}) {{");
-        self.emit_block_bindings(output, then, indent + 1);
-        c_line!(
-            output,
-            indent + 1,
-            "{target} = {};",
-            self.emit_atom(&then.result)
-        );
-        c_line!(output, indent, "}} else {{");
-        self.emit_block_bindings(output, otherwise, indent + 1);
-        c_line!(
-            output,
-            indent + 1,
-            "{target} = {};",
-            self.emit_atom(&otherwise.result)
-        );
-        c_line!(output, indent, "}}");
-        c_line!(output, indent, "(void){target};");
+        let mut then_body = Block::default();
+        self.emit_block_bindings(&mut then_body, then);
+        then_body.push(Statement::assignment(
+            Expr::identifier(target.clone()),
+            self.emit_atom(&then.result),
+        ));
+        let mut otherwise_body = Block::default();
+        self.emit_block_bindings(&mut otherwise_body, otherwise);
+        otherwise_body.push(Statement::assignment(
+            Expr::identifier(target.clone()),
+            self.emit_atom(&otherwise.result),
+        ));
+        output.push(Statement::if_else(condition, then_body, otherwise_body));
+        output.push(discard(Expr::identifier(target.clone())));
         if matches!(pattern, Pattern::Product { .. }) {
-            self.emit_pattern_bindings(output, pattern, &target, indent);
+            self.emit_pattern_bindings(output, pattern, Expr::identifier(target));
         }
     }
+}
 
-    fn emit_invalid_sum_default(&self, output: &mut String, indent: usize) {
-        c_line!(output, indent + 1, "default:");
-        c_line!(
-            output,
-            indent + 2,
-            "mal_trap(mal_context, \"invalid sum tag\");"
-        );
+fn case_payload(scrutinee: &Expr, index: usize, bool_scrutinee: bool) -> Expr {
+    if bool_scrutinee {
+        Expr::compound_literal(
+            "MalType_Unit",
+            [crate::c_emit::syntax::Initializer::positional(
+                Expr::named_call("UINT8_C", [Expr::literal("0")]),
+            )],
+        )
+    } else {
+        scrutinee
+            .clone()
+            .field("payload")
+            .field(format!("variant_{index}"))
     }
+}
+
+fn uint32(value: usize) -> Expr {
+    Expr::named_call("UINT32_C", [Expr::literal(value.to_string())])
+}
+
+fn discard(value: Expr) -> Statement {
+    Statement::expression(Expr::cast("void", value))
+}
+
+fn invalid_sum_default() -> SwitchCase {
+    SwitchCase::default(Block::new([Statement::expression(Expr::named_call(
+        "mal_trap",
+        [
+            Expr::identifier("mal_context"),
+            Expr::literal("\"invalid sum tag\""),
+        ],
+    ))]))
 }

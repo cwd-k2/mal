@@ -3,27 +3,12 @@ use crate::closure::ast::{Program, TopLevelPattern};
 use crate::core::ast::ProgramInterface;
 use crate::diagnostic::Diagnostic;
 
-macro_rules! c_write {
-    ($output:expr, $($arguments:tt)*) => {{
-        use std::fmt::Write as _;
-        write!($output, $($arguments)*).expect("writing generated C to a String cannot fail");
-    }};
-}
-
-macro_rules! c_line {
-    ($output:expr, $indent:expr, $($arguments:tt)*) => {{
-        crate::c_emit::text::indent($output, $indent);
-        c_write!($output, $($arguments)*);
-        $output.push('\n');
-    }};
-}
-
 mod body;
 mod header;
 mod host_signature;
 mod runtime;
 mod scalar;
-mod text;
+mod syntax;
 mod types;
 
 use self::body::BodyEmitter;
@@ -46,15 +31,20 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     let body = emitter.emit(main);
 
     let mut source = String::new();
-    c_line!(&mut source, 0, "#include \"{GENERATED_HEADER_NAME}\"");
-    source.push_str("#include <float.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n");
+    source.push_str(&syntax::Directive::IncludeQuoted(GENERATED_HEADER_NAME.into()).render());
+    for header in [
+        "float.h", "stddef.h", "stdint.h", "stdio.h", "stdlib.h", "string.h",
+    ] {
+        source.push_str(&syntax::Directive::IncludeSystem(header.into()).render());
+    }
+    source.push('\n');
     if types.uses_float() {
-        source.push_str(FLOAT_TARGET_PROFILE);
+        source.push_str(&float_target_profile());
         if types.uses_float32() {
-            source.push_str("static inline float mal_float32_from_bits(uint32_t bits) { float value; memcpy(&value, &bits, sizeof(value)); return value; }\n\n");
+            source.push_str(&float_from_bits_definition("float", "float32", "uint32_t"));
         }
         if types.uses_float64() {
-            source.push_str("static inline double mal_float64_from_bits(uint64_t bits) { double value; memcpy(&value, &bits, sizeof(value)); return value; }\n\n");
+            source.push_str(&float_from_bits_definition("double", "float64", "uint64_t"));
         }
     }
     source.push_str(&types.source_declarations(&host));
@@ -96,7 +86,63 @@ pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
             .any(|character| character.is_control() || matches!(character, '"' | '\\'))
 }
 
-const FLOAT_TARGET_PROFILE: &str = "#if defined(__clang__)\n#pragma STDC FENV_ACCESS ON\n#pragma STDC FP_CONTRACT OFF\n#endif\n\n_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\");\n_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\");\n_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\");\n_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\");\n#if defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1\n#error \"mal requires float subnormals\"\n#endif\n#if defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1\n#error \"mal requires double subnormals\"\n#endif\n\n";
+fn float_target_profile() -> String {
+    use self::syntax::{Declaration, Directive};
+
+    let mut output = Directive::If("defined(__clang__)".into()).render();
+    output.push_str(&Directive::Pragma("STDC FENV_ACCESS ON".into()).render());
+    output.push_str(&Directive::Pragma("STDC FP_CONTRACT OFF".into()).render());
+    output.push_str(&Directive::Endif.render());
+    output.push('\n');
+    for assertion in [
+        "_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\")",
+        "_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\")",
+        "_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\")",
+        "_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\")",
+    ] {
+        output.push_str(&Declaration::new(assertion).render());
+    }
+    for (condition, message) in [
+        (
+            "defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1",
+            "\"mal requires float subnormals\"",
+        ),
+        (
+            "defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1",
+            "\"mal requires double subnormals\"",
+        ),
+    ] {
+        output.push_str(&Directive::If(condition.into()).render());
+        output.push_str(&Directive::Error(message.into()).render());
+        output.push_str(&Directive::Endif.render());
+    }
+    output.push('\n');
+    output
+}
+
+fn float_from_bits_definition(c_type: &str, name: &str, bits_type: &str) -> String {
+    use self::syntax::{Block, Expr, FunctionDefinition, Statement};
+
+    let body = Block::new([
+        Statement::declaration(format!("{c_type} value"), None),
+        Statement::expression(Expr::named_call(
+            "memcpy",
+            [
+                Expr::unary("&", Expr::identifier("value")),
+                Expr::unary("&", Expr::identifier("bits")),
+                Expr::sizeof_type("value"),
+            ],
+        )),
+        Statement::return_value(Expr::identifier("value")),
+    ]);
+    let mut output = FunctionDefinition::new(
+        format!("static inline {c_type} mal_{name}_from_bits({bits_type} bits)"),
+        body,
+    )
+    .render();
+    output.push('\n');
+    output
+}
 
 fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding, Diagnostic> {
     let main = program.bindings.iter().find(|binding| {

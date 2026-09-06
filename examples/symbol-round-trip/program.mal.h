@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define MAL_C_ABI_VERSION 0x000500u
-
 #define MAL_TYPE(name) MalType_##name
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
@@ -58,27 +57,22 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* External operations */
 
-MalType_Symbol mal_ext_receive(
-    MalContext *context
-);
-void mal_ext_send(
-    MalContext *context,
-    MalType_Symbol value
-);
+MalType_Symbol mal_ext_receive(MalContext *context);
+void mal_ext_send(MalContext *context, MalType_Symbol value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_receive 1
 #define MAL_DEFINE_receive(context) \
     MalType_Symbol mal_ext_receive( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED \
     )
 
 #define MAL_HAS_EXTERN_send 1
 #define MAL_DEFINE_send(context, value) \
     void mal_ext_send( \
-        MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Symbol value \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Symbol value \
     )
 
 #endif

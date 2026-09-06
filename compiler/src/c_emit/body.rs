@@ -224,16 +224,19 @@ fn flattened_product_types(ty: &Type) -> Vec<&Type> {
     }
 }
 
-fn flattened_product_values(ty: &Type, value: &str) -> Vec<String> {
+fn flattened_product_values(
+    ty: &Type,
+    value: crate::c_emit::syntax::Expr,
+) -> Vec<crate::c_emit::syntax::Expr> {
     match ty {
         Type::Product(elements) => elements
             .iter()
             .enumerate()
             .flat_map(|(index, element)| {
-                flattened_product_values(element, &format!("{value}.field_{index}"))
+                flattened_product_values(element, value.clone().field(format!("field_{index}")))
             })
             .collect(),
-        _ => vec![value.into()],
+        _ => vec![value],
     }
 }
 
