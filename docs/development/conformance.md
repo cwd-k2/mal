@@ -55,13 +55,13 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 
 | 規範 | P / N / E | X |
 |---|---|---|
-| [`engrams`: authorityと境界](../spec/engrams.md) | P/N: extern-safe type、`@Symbol` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission tests（`compiler/tests/c_emit.rs`） |
+| [`engrams`: authorityと境界](../spec/engrams.md) | P/N: transportable type、`@Symbol` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission tests（`compiler/tests/c_emit.rs`） |
 | [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests（`compiler/tests/c_emit.rs`） |
 | [`symbols`: literal](../spec/symbols.md#literal) | P/N/E: Symbol literal lexer tests（`compiler/tests/lexer.rs`） | `emits_static_symbol_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
 | [`symbols`: operator](../spec/symbols.md#operator) | P/N/E: `parses_symbol_length_and_byte_access_with_access_precedence`、`rejects_chained_symbol_byte_access`（`compiler/tests/parser.rs`）、`checks_symbol_operators_and_byte_wise_equality`、`rejects_unsupported_or_mistyped_symbol_operations`（`compiler/tests/check.rs`） | `executes_symbol_operators_and_byte_wise_equality`、`concatenates_symbols_as_immutable_bytes`、Symbol access/concatenation trap tests（`compiler/tests/c_emit.rs`） |
 | [`symbols`: mutable bytesとの分離](../spec/symbols.md#mutable-bytesとの分離) | P/N: opaque typeとunsupported operation tests（`compiler/tests/check.rs`） | `symbol-round-trip` example（`compiler/tests/driver.rs`） |
 | [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | host adapterを持つchecked-in example（`compiler/tests/driver.rs`） |
-| [`extern`: extern-safe type](../spec/extern.md#extern-safe-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/c_emit.rs`） |
+| [`extern`: transportable type](../spec/extern.md#transportable-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/c_emit.rs`） |
 | [`extern`: host contractと安全性](../spec/extern.md#host-contract) | trusted host側の規範であり、mal compilerのadmission対象外 | generated headerを使用する全host fixture |
 | [`extern`: boundary transport](../spec/extern.md#boundary-transport) | P/E: Symbol型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/c_emit.rs`） |
 | [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | checked-in host adapter（`compiler/tests/driver.rs`） |

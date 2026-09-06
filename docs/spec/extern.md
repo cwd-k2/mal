@@ -21,21 +21,22 @@ extern print("hello");
 
 external symbol は first-class value ではない。`f := extern print;` は不正である。
 
-## extern-safe type
+## transportable type
 
 v0.5では、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
-`externSafe`は境界を運べる型shapeだけを表す。各leafがadmission、observation、capability transferのどれになるかは
+`externTransportable`は境界を運べる型shapeだけを表し、memory safetyやresource safetyを意味しない。
+各leafがadmission、observation、capability transferのどれになるかは
 [EngramとExtern](engrams.md#境界のoperation)に従う。
 
 ```text
-externSafe(Unit)         = true
-externSafe(scalar)       = true
-externSafe(Symbol)       = true
-externSafe(Ptr)          = true
-externSafe(ExternalType) = true
-externSafe((T...))       = all externSafe(T)
-externSafe([T...])       = all externSafe(T)
-externSafe(A -> B)       = false
+externTransportable(Unit)         = true
+externTransportable(scalar)       = true
+externTransportable(Symbol)       = true
+externTransportable(Ptr)          = true
+externTransportable(ExternalType) = true
+externTransportable((T...))       = all externTransportable(T)
+externTransportable([T...])       = all externTransportable(T)
+externTransportable(A -> B)       = false
 ```
 
 ```mal

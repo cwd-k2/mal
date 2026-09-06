@@ -54,7 +54,8 @@ lexer は byte literal を token 化するときに escape を decodeし、exact
 
 numeric separatorは各radixの有効なdigitに挟まれたsingle underscoreだけを受理する。検証後にunderscoreを除去してからinteger valueの計算またはdecimal floatのcorrect roundingを行う。
 
-extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合はextern-safe制約により拒否する。
+extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合は
+extern transport制約により拒否する。
 
 typed coreで確定したtype alias、external type、external operationからなる`ProgramInterface`は、ANFとclosure
 conversionで意味も表現も変えず共有する。各loweringは実行表現だけを変換し、host interfaceを複製または再解釈しない。
