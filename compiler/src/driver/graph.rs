@@ -75,10 +75,16 @@ impl Builder {
             {
                 Some("mal") => {
                     let dependency = self.load_mal(&canonical, Some(required.kind.path_span))?;
-                    self.requirements[id.index() as usize].push(SourceRequirement {
-                        target: dependency,
-                        span: required.kind.path_span,
-                    });
+                    let requirements = &mut self.requirements[id.index() as usize];
+                    if !requirements
+                        .iter()
+                        .any(|requirement| requirement.target == dependency)
+                    {
+                        requirements.push(SourceRequirement {
+                            target: dependency,
+                            span: required.kind.path_span,
+                        });
+                    }
                 }
                 Some("c") => {
                     if self.seen_c_sources.insert(canonical.clone()) {

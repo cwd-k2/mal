@@ -243,11 +243,11 @@ mod tests {
             "sample.mal",
             "--output",
             "program",
-            "--unknown",
-            "value",
+            "--link",
+            "host.c",
         ]));
         assert_eq!(outcome.status, ExitStatus::UsageError);
-        assert!(outcome.stderr.contains("unknown build option"));
+        assert!(outcome.stderr.contains("unknown build option '--link'"));
 
         let outcome = execute(args(&[
             "build",

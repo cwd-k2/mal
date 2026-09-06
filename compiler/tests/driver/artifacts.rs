@@ -184,6 +184,7 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
+         require \"./host.c\";\n\
          require \"./helper.c\";\n\
          extern adjust :: Int32 -> Int32;\n\
          main :: Unit -> Int32 := \\() { extern adjust(40) - 42; };",
@@ -223,6 +224,7 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
     let source = directory.write(
         "program.mal",
         "require \"./left.mal\";\n\
+         require \"./left.mal\";\n\
          require \"./right.mal\";\n\
          main :: Unit -> Int32 := \\() { left(39) + right(1) - 42 };",
     );
