@@ -115,10 +115,14 @@ impl<'a> Builder<'a> {
                     return Err(Error::diagnostic(diagnostic, &self.files));
                 }
             };
-            let canonical = canonicalize_requirement(&required_path, required.kind.path_span)
-                .map_err(|error| Error::diagnostic(error, &self.files))?;
             match kind {
                 RequirementKind::Mal => {
+                    let canonical = canonicalize_mal_requirement(
+                        &required_path,
+                        required.kind.path_span,
+                        self.overlays,
+                    )
+                    .map_err(|error| Error::diagnostic(error, &self.files))?;
                     let dependency = self.load_mal(&canonical, Some(required.kind.path_span))?;
                     let requirements = &mut self.requirements[id.index() as usize];
                     if !requirements
@@ -132,6 +136,9 @@ impl<'a> Builder<'a> {
                     }
                 }
                 RequirementKind::C => {
+                    let canonical =
+                        canonicalize_requirement(&required_path, required.kind.path_span)
+                            .map_err(|error| Error::diagnostic(error, &self.files))?;
                     if self.seen_c_sources.insert(canonical.clone()) {
                         self.c_sources.push(canonical);
                     }
@@ -190,4 +197,16 @@ fn canonicalize_requirement(path: &Path, span: crate::source::Span) -> Result<Pa
             .with_primary(span, format!("cannot read `{}`", path.display()))
             .with_note(error.to_string())
     })
+}
+
+fn canonicalize_mal_requirement(
+    path: &Path,
+    span: crate::source::Span,
+    overlays: &HashMap<PathBuf, &str>,
+) -> Result<PathBuf, Diagnostic> {
+    match std::fs::canonicalize(path) {
+        Ok(path) => Ok(path),
+        Err(_) if overlays.contains_key(path) => Ok(path.to_owned()),
+        Err(_) => canonicalize_requirement(path, span),
+    }
 }

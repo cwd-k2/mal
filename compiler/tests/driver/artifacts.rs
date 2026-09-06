@@ -259,7 +259,7 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
 fn source_graph_overlays_open_mal_buffers() {
     let directory = NativeFixture::new("driver-overlays");
     let source = directory.write("program.mal", "not the open buffer");
-    let dependency = directory.write("library.mal", "not the open buffer");
+    let dependency = directory.join("library.mal");
     let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := \\() { value - 42; };";
     let dependency_text = "value :: Int32 := 42;";
     let overlays =
