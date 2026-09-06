@@ -8,7 +8,13 @@ Status: Current v0.5 profile
 
 reference compilerはmal sourceからC translation unitと、そのprogramが要求するextern symbolを宣言したC headerを生成する。利用者はheaderに対するC implementationまたはadapterを用意し、生成Cと同じtarget ABIでcompileする。
 
-linker inputにはC source、object file、static archive、shared objectを指定できる。shared objectは通常のplatform linker/loaderでprocess開始時に解決し、v0.5 runtimeは`dlopen`、symbol discovery、plugin lifecycleを提供しない。
+`.mal` sourceはC implementationまたはadapterを`.c` requirementとして宣言できる。`build`はrootから推移的に到達する
+C sourceを、program固有のgenerated headerをincludeできる状態でcompileしてlinkする。require pathは宣言元`.mal` fileから
+解決し、同じcanonical pathは一度だけ入力に加える。C source内のinclude、追加library、object、archive、shared object、
+compiler optionの探索や宣言はmalのrequire graphに含めない。
+
+shared objectは通常のplatform linker/loaderでprocess開始時に解決し、v0.5 runtimeは`dlopen`、symbol discovery、plugin
+lifecycleを提供しない。
 
 既存libraryのfunctionを任意の宣言で直接呼ぶことは保証しない。型やownershipが合わない場合は利用者が薄いC adapterを書く。
 

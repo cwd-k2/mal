@@ -25,7 +25,7 @@ malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
 malc emit-c source.mal --output generated/program.c
-malc build source.mal --output program --link host.c
+malc build source.mal --output program
 ```
 
 - `check`はsourceを型検査し、成功時には生成物を作らない。
@@ -39,7 +39,7 @@ malc build source.mal --output program --link host.c
   `emit-header`と同様に`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
 - `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
-- `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。
+- `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
 `Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
@@ -57,15 +57,15 @@ Nushellで一回だけ切り替える例は次のとおり。
 
 ```nu
 with-env { CC: /path/to/clang } {
-    malc build source.mal --output program --link host.c
+    malc build source.mal --output program
 }
 ```
 
 `CC`は一つの実行ファイルを表し、optionを含むshell commandとして分割・評価しない。代替compilerは`malc`が
-渡すC11、warning、`-O2`、strict floating-point optionを受理し、Clangと同じtarget ABIで全linker inputを扱う必要が
+渡すC11、warning、`-O2`、strict floating-point optionを受理し、Clangと同じtarget ABIでrequireされたC sourceを扱う必要が
 ある。v0.5にはcompiler optionを追加するCLIはない。
 
-`build`はgenerated CとC source形式のlinker inputを`-O2`でcompileする。これはpublic buildの生成物policyであり、
+`build`はgenerated CとrequireされたC sourceを`-O2`でcompileする。これはpublic buildの生成物policyであり、
 言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
 `-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
 `emit-c`はC sourceだけを生成するため、利用者がcompileするときに同じstrict floating-point profileを保つ必要がある。
@@ -75,14 +75,13 @@ stderrへ出す。後者ではtoolchainのstderrも保持する。
 
 ## Host adapterとshared object
 
-host C sourceは対象programが生成した`program.mal.h`をincludeし、generated Cと同じtarget ABIでcompileする。
+host C sourceは対象programが生成した`program.mal.h`をincludeし、generated Cと同じtarget ABIでcompileする。対応する
+`.mal` fileからhost C sourceをrequireする。
 新しいadapterは`malc emit-host source.mal | save host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
 編集済みの`host.c`に対して再実行してはならない。
-`build`はtemporary header directoryをinclude pathへ加えるため、`--link host.c`はそのheaderを直接includeできる。
+`build`はtemporary header directoryをinclude pathへ加えるため、requireされたhost C sourceはそのheaderを直接includeできる。
 
-shared objectは`--link`で通常のlinker inputとして渡す。`malc` runtimeは`dlopen`、実行時symbol discovery、
-plugin lifecycle、loader search pathを提供しない。必要なsoname、rpath、`LD_LIBRARY_PATH`、install locationは
-target platformと利用者のbuild/deploymentが管理する。shared objectも対象programのheaderに対してbuildする。
+shared objectの入力、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
 `Ptr`を受け渡すadapterは、live region、permission、lifetimeを
 [memory contract](../spec/memory.md)に従って定める。
 

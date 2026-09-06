@@ -7,14 +7,16 @@ Status: Current v0.5 profile
 source encoding は UTF-8。keyword と identifier の認識は ASCII に限定する。
 
 ```text
-TYPE_IDENT  ::= [A-Z][A-Za-z0-9]*
-VALUE_IDENT ::= [a-z][A-Za-z0-9]*
+TYPE_IDENT  ::= "_"? [A-Z][A-Za-z0-9]*
+VALUE_IDENT ::= "_"? [a-z][A-Za-z0-9]*
 ```
 
-型名は PascalCase、値・parameter・external symbol・primitive は lowerCamelCase とする。`_` は wildcard 専用で identifier ではない。
+型名は PascalCase、値・parameter・external symbol・primitive は lowerCamelCase とする。先頭の`_`はtop-level declarationの
+file-private visibilityを表せる。local identifierでも同じspellingを認めるがvisibilityの意味は持たない。単独の`_`は
+wildcard専用でidentifierではない。
 
 空白はASCII space、tab、CR、LFとする。commentは`//`からCR、LF、またはsource末尾までであり、block commentはない。
-keywordはidentifier全体が`extern`、`if`、`then`、`else`、`case`のいずれかと一致するときだけ認識する。
+keywordはidentifier全体が`require`、`extern`、`if`、`then`、`else`、`case`のいずれかと一致するときだけ認識する。
 Unicode identifierとtrailing commaは認めない。
 
 ## numeric separator
@@ -43,7 +45,9 @@ FLOAT_SUFFIX ::= "f32" | "f64"
 ## 文法概要
 
 ```text
-program     ::= topItem*
+program     ::= requireDecl* topItem*
+
+requireDecl ::= "require" symbolLiteral ";"
 
 topItem     ::= typeAlias ";"
               | externType ";"

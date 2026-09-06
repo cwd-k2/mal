@@ -30,14 +30,14 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 |---|---|
 | `main` | argument sourceとI/Oの接続、exit statusの配送 |
 | `cli` | command grammar、利用エラー、use caseの選択 |
-| `source` | file bytes、UTF-8 admission、file identity、byte span、位置計算 |
+| `source` | file bytes、UTF-8 admission、file identity、require graph、byte span、位置計算 |
 | `lexer` | 文字列からtokenへのadmissionとlexical error |
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
 | `resolve` | name identity、scope、capture listのvalidation |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` | desugaring、evaluation order、closure representation |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
-| `pipeline` | admitted済みin-memory sourceに対するcompiler stageの構成とstructured outcomeの返却 |
+| `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/reference、checked typeをeditor queryへ構成 |
 | `driver` | source file、temporary path、C compiler process、linker inputのownership |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
@@ -73,8 +73,8 @@ source-level metadataを持ち、ANFとclosure conversionは内容を変更し�
 value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。C translation unitを生成する経路では同じ
 `ProgramInterface`をlowered executable bodyと一緒に運ぶ。
 
-`pipeline`はin-memory `SourceFile`から上記stageを構成し、filesystemやprocessを扱わない。`driver`はfileを
-`SourceFile`へadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
+`pipeline`はin-memory source graphから上記stageを構成し、filesystemやprocessを扱わない。`driver`はrequire pathを解決して
+source graphへadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
 ## 現在のmodule境界

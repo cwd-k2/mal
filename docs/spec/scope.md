@@ -40,7 +40,7 @@ operator overloading
 
 array and standard collections
 standard library and allocator
-module and package manager
+package manager
 ```
 
 この一覧は「実装がまだない」のではなく、v0.5 programが依存できないという規範的な範囲である。
@@ -106,7 +106,8 @@ hash table、list、set も組み込み型ではない。必要な element type 
 
 ## standard library と file
 
-v0.5はArray、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeはcompilation unitに含めるかhostが`extern`として提供する。
+v0.5はArray、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeは`.mal` fileから
+requireするかhostが`extern`として提供する。
 
 compilation unitとfileの規則は[プログラム構造](programs.md)に置く。
 

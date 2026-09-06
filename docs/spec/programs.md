@@ -2,10 +2,32 @@
 
 Status: Current v0.5 profile
 
-## compilation unit
+## program と source file
 
-v0.5は一つのsource fileからなる単一compilation unitを扱う。package manager、import、module、dependency resolutionは
-言語仕様に含めない。
+programは一つのroot `.mal` fileと、そこから`require`で到達できるsource fileからなる。各`.mal` fileは独立した
+top-level scopeを持ち、先頭に0個以上のrequire declarationを置ける。
+
+```mal
+require "./geometry.mal";
+require "./geometry.c";
+```
+
+pathは宣言を持つfileのdirectoryから解決する相対pathで、空であってはならない。`.mal` requirementは対象file自身が
+定義したpublicなtop-level名を宣言元fileへ導入する。requireしたfileから導入された名前を自動的に再公開しない。
+同じcanonical pathへ複数経路から到達しても一つのsource fileとして扱い、`.mal` requirementのcycleはcompile-time
+errorとする。
+
+`.c` requirementは名前を導入せず、reference C backendのbuild inputへ推移的に追加する。同じcanonical pathのC sourceは
+一度だけcompileする。`.c` requirementの意味は[C host ABI](c-host-abi.md#build-model)に定める。package名、探索path、remote
+dependency、namespace、qualified name、require alias、selective importは持たない。
+
+直接requireした複数fileのpublic名同士、または導入したpublic名と宣言元fileのtop-level名が同じnamespaceで重複すれば
+compile-time errorである。private名はfile identityごとに区別し、別fileの同名private declarationとは衝突しない。
+
+top-levelのtype identifierまたはvalue identifierは、先頭が`_`ならそのfileだけから参照できるprivate名、それ以外なら
+require元へ導入できるpublic名である。このvisibilityはmal source間のname lookupだけに作用し、必要なextern declarationや
+host-visible typeをgenerated headerから除去しない。private型の値は、名前を参照できないfileでもpublic operationの引数や
+結果として受け渡せる。
 
 ## top-level item
 
@@ -38,7 +60,7 @@ top-level value の RHS は、literal、product/sum、integer conversion、lambd
 
 ## entry point
 
-実行可能 program は次の binding を一つ持つ。
+実行可能 program のroot fileは次のbindingを一つ持つ。requireされるfileに`main`を宣言してはならない。
 
 ```mal
 main :: Unit -> Int32 := \() { 0 };

@@ -17,6 +17,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | literalとscalar operation | [D011](decisions/D011.md)、[D013](decisions/D013.md)、[D014](decisions/D014.md)、[D020](decisions/D020.md)、[D021](decisions/D021.md)、[D025](decisions/D025.md) |
 | externとopaque value | [D012](decisions/D012.md)、[D015](decisions/D015.md)、[D016](decisions/D016.md) |
 | top-level initialization | [D018](decisions/D018.md) |
+| source file requirement | [D032](decisions/D032.md) |
 | `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md) |
 | EngramとExternのauthority | [D031](decisions/D031.md) |
 
