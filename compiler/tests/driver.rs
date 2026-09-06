@@ -214,6 +214,7 @@ fn checked_in_example_headers_match_the_compiler() {
         "pointer-tree",
         "print-and-closure",
         "ptr-memory",
+        "recoverable-file",
         "strict-float",
         "symbol-round-trip",
         "tail-recursion",
@@ -436,6 +437,49 @@ fn symbol_round_trip_example_copies_and_concatenates_bytes() {
     let output = directory.run(executable);
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap(), "9 bytes\n");
+}
+
+#[test]
+fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
+    let directory = NativeFixture::new("recoverable-file");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/recoverable-file");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let contents = (0..9000)
+        .map(|value| (value % 251) as u8)
+        .collect::<Vec<_>>();
+    let input = directory.write("input.bin", &contents);
+    let output = Command::new(&executable)
+        .arg(input)
+        .output()
+        .expect("copy recoverable file");
+    assert!(output.status.success());
+    assert_eq!(output.stdout, contents);
+    assert!(output.stderr.is_empty());
+
+    let output = Command::new(&executable)
+        .arg(directory.join("missing.bin"))
+        .output()
+        .expect("report missing recoverable file");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).starts_with("file error: "));
 }
 
 #[test]
