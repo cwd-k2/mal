@@ -1,10 +1,14 @@
 // Every lexical category in the v0.5 profile appears in this fixture.
+require "./support.mal";
+
 extern Handle;
 extern write :: (Handle, Symbol) -> Unit;
 Pair :: (Int32, UInt8);
 Choice :: [Int32, UInt8];
 
 hexadecimal :: UInt32 := 0xff_ffu32;
+
+_private :: _Private := value;
 
 binary :: UInt8 := 0b1010_0001u8;
 

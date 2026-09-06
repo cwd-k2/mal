@@ -97,6 +97,10 @@
         {
           "name": "keyword.other.extern.mal",
           "match": "\\bextern\\b"
+        },
+        {
+          "name": "keyword.other.require.mal",
+          "match": "\\brequire\\b"
         }
       ]
     },
@@ -112,7 +116,7 @@
       "patterns": [
         {
           "name": "entity.name.type.mal",
-          "match": "\\b[A-Z][A-Za-z0-9]*\\b"
+          "match": "\\b_?[A-Z][A-Za-z0-9]*\\b"
         }
       ]
     },
@@ -148,7 +152,7 @@
       "patterns": [
         {
           "name": "variable.other.mal",
-          "match": "\\b[a-z][A-Za-z0-9]*\\b"
+          "match": "\\b_?[a-z][A-Za-z0-9]*\\b"
         }
       ]
     }

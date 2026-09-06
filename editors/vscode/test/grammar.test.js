@@ -75,3 +75,28 @@ test('highlights unary and binary Symbol operators', async () => {
   assert.equal(hashes.length, 2);
   assert.ok(hashes.every((token) => token.scopes.includes('keyword.operator.mal')));
 });
+
+test('highlights requirements and private identifiers', async () => {
+  const grammar = await loadGrammar();
+  const line = 'require "./support.mal"; _value :: _Type := value;';
+  const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
+    text: line.slice(token.startIndex, token.endIndex),
+    scopes: token.scopes,
+  }));
+
+  assert.ok(
+    tokens
+      .find((token) => token.text === 'require')
+      .scopes.includes('keyword.other.require.mal'),
+  );
+  assert.ok(
+    tokens
+      .find((token) => token.text === '_value')
+      .scopes.includes('variable.other.mal'),
+  );
+  assert.ok(
+    tokens
+      .find((token) => token.text === '_Type')
+      .scopes.includes('entity.name.type.mal'),
+  );
+});
