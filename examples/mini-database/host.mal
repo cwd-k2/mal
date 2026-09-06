@@ -1,0 +1,29 @@
+require "./host.c";
+
+Buffer :: (Ptr, UInt64, UInt64);
+Bytes :: (Ptr, UInt64);
+Region :: (Ptr, UInt64);
+
+extern Allocator;
+extern File;
+
+Reader :: (File, Buffer, UInt64);
+ByteRead :: [Reader, (Reader, UInt8)];
+LineState :: (Reader, Buffer);
+LineRead :: [Reader, LineState];
+
+extern createAllocator :: Unit -> Allocator;
+extern allocateBuffer :: (Allocator, UInt64) -> Buffer;
+extern destroyAllocator :: Allocator -> Unit;
+extern openReadWriteCreate :: Symbol -> File;
+extern standardInput :: Unit -> File;
+extern readFile :: (File, Region) -> UInt64;
+extern writeFile :: (File, Bytes) -> UInt64;
+extern rewindFile :: File -> Unit;
+extern flushFile :: File -> Unit;
+extern closeFile :: File -> Unit;
+extern writeSymbol :: Symbol -> Unit;
+extern writeBytes :: Bytes -> Unit;
+extern fail :: Symbol -> Unit;
+
+Arguments :: (UInt64, Ptr);

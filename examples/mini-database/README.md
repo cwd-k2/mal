@@ -4,6 +4,12 @@ This example implements a persistent fixed-capacity key-value database. The mal 
 binary layout, validation, query parser, lookup, updates, complete-file transfer, and line framing.
 Its C adapter supplies only allocation, thin file operations, and byte output.
 
+The source is split by responsibility. `program.mal` owns the process entry point, `database.mal`
+owns database and query behavior, and `host.mal` owns the aliases and extern declarations shared at
+the C boundary. `host.mal` requires `host.c`, so building the root source discovers the adapter
+transitively. Database helpers use leading `_` names and only `executeDatabase` is exposed to the
+entry file.
+
 The shared-memory interface uses three representations with separate responsibilities:
 
 - `Allocator` is an opaque C-owned arena handle. All allocations remain live until the arena is
