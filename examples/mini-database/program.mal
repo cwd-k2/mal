@@ -1,11 +1,13 @@
 extern allocate :: UInt64 -> Ptr;
 extern release :: Ptr -> Unit;
-extern Database;
-extern openDatabase :: Symbol -> Database;
-extern readDatabase :: (Database, Ptr, UInt64) -> UInt64;
-extern writeDatabase :: (Database, Ptr, UInt64) -> Unit;
-extern closeDatabase :: Database -> Unit;
-extern readLine :: (Ptr, UInt64) -> UInt64;
+extern File;
+extern openReadWriteCreate :: Symbol -> File;
+extern standardInput :: Unit -> File;
+extern readFile :: (File, Ptr, UInt64) -> UInt64;
+extern writeFile :: (File, Ptr, UInt64) -> UInt64;
+extern rewindFile :: File -> Unit;
+extern flushFile :: File -> Unit;
+extern closeFile :: File -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 extern writeMemory :: (Ptr, UInt64) -> Unit;
 extern fail :: Symbol -> Unit;
@@ -13,12 +15,74 @@ extern fail :: Symbol -> Unit;
 Arguments :: (UInt64, Ptr);
 
 databaseSize :: UInt64 := 4112u64;
+databaseReadCapacity :: UInt64 := 4113u64;
 headerSize :: UInt64 := 16u64;
 recordSize :: UInt64 := 64u64;
 recordCount :: UInt64 := 64u64;
 keyCapacity :: UInt64 := 16u64;
 valueCapacity :: UInt64 := 40u64;
 queryCapacity :: UInt64 := 256u64;
+queryStorageSize :: UInt64 := 257u64;
+
+readFileToCapacity :: (File, Ptr, UInt64, UInt64) -> UInt64 :=
+    \(file :: File, memory :: Ptr, capacity :: UInt64, used :: UInt64) {
+        if (used == capacity)
+            then { used }
+            else {
+                length := extern readFile(file, memory + used, capacity - used);
+                if (length == 0u64)
+                    then { used }
+                    else { readFileToCapacity(file, memory, capacity, used + length) };
+            };
+    };
+
+writeFileFully :: (File, Ptr, UInt64, UInt64) -> Unit :=
+    \(file :: File, memory :: Ptr, length :: UInt64, written :: UInt64) {
+        if (written == length)
+            then { () }
+            else {
+                transferred := extern writeFile(file, memory + written, length - written);
+                if (transferred == 0u64)
+                    then {
+                        extern fail("file write made no progress");
+                        ();
+                    }
+                    else { writeFileFully(file, memory, length, written + transferred) };
+            };
+    };
+
+saveDatabase :: (File, Ptr) -> Unit := \(file :: File, database :: Ptr) {
+    extern rewindFile(file);
+    writeFileFully(file, database, databaseSize, 0u64);
+    extern flushFile(file);
+};
+
+readLineAt :: (File, Ptr, UInt64) -> UInt64 := \(input :: File, line :: Ptr, length :: UInt64) {
+    received := extern readFile(input, line + length, 1u64);
+    if (received == 0u64)
+        then { length }
+        else {
+            byte := loadUInt8(line + length);
+            if (byte == '\n')
+                then {
+                    if (length > 0u64 && loadUInt8(line + length - 1u64) == '\r')
+                        then { length - 1u64 }
+                        else { length };
+                }
+                else {
+                    if (length == queryCapacity)
+                        then {
+                            extern fail("query line exceeds its buffer");
+                            0u64;
+                        }
+                        else { readLineAt(input, line, length + 1u64) };
+                };
+        };
+};
+
+readLine :: (File, Ptr) -> UInt64 := \(input :: File, line :: Ptr) {
+    readLineAt(input, line, 0u64);
+};
 
 clearBytes :: (Ptr, UInt64) -> Unit := \(memory :: Ptr, remaining :: UInt64) {
     if (remaining == 0u64)
@@ -147,8 +211,8 @@ writeResponse :: Symbol -> Unit := \(response :: Symbol) {
     extern writeSymbol(response);
 };
 
-putRecord :: (Database, Ptr, Ptr, UInt64, UInt64, UInt64, UInt64) -> Unit :=
-    \(file :: Database, database :: Ptr, line :: Ptr, keyStart :: UInt64, keyLength :: UInt64, valueStart :: UInt64, valueLength :: UInt64) {
+putRecord :: (File, Ptr, Ptr, UInt64, UInt64, UInt64, UInt64) -> Unit :=
+    \(file :: File, database :: Ptr, line :: Ptr, keyStart :: UInt64, keyLength :: UInt64, valueStart :: UInt64, valueLength :: UInt64) {
         if (keyLength == 0u64 || keyLength > keyCapacity || valueLength > valueCapacity)
             then { writeResponse("ERROR key<=16 value<=40\n") }
             else {
@@ -165,7 +229,7 @@ putRecord :: (Database, Ptr, Ptr, UInt64, UInt64, UInt64, UInt64) -> Unit :=
                         copyRange(line, keyStart, record + 8u64, keyLength);
                         copyRange(line, valueStart, record + 24u64, valueLength);
                         storeUInt8(record, 1u8);
-                        extern writeDatabase(file, database, databaseSize);
+                        saveDatabase(file, database);
                         writeResponse("OK\n");
                     };
             };
@@ -186,19 +250,19 @@ getRecord :: (Ptr, Ptr, UInt64, UInt64) -> Unit :=
             };
     };
 
-deleteRecord :: (Database, Ptr, Ptr, UInt64, UInt64) -> Unit :=
-    \(file :: Database, database :: Ptr, line :: Ptr, keyStart :: UInt64, keyLength :: UInt64) {
+deleteRecord :: (File, Ptr, Ptr, UInt64, UInt64) -> Unit :=
+    \(file :: File, database :: Ptr, line :: Ptr, keyStart :: UInt64, keyLength :: UInt64) {
         slot := findRecord(database, line, keyStart, keyLength, 0u64);
         if (slot == recordCount)
             then { writeResponse("NOT FOUND\n") }
             else {
                 storeUInt8(recordAt(database, slot), 0u8);
-                extern writeDatabase(file, database, databaseSize);
+                saveDatabase(file, database);
                 writeResponse("OK\n");
             };
     };
 
-handleQuery :: (Database, Ptr, Ptr, UInt64) -> Unit := \(file :: Database, database :: Ptr, line :: Ptr, length :: UInt64) {
+handleQuery :: (File, Ptr, Ptr, UInt64) -> Unit := \(file :: File, database :: Ptr, line :: Ptr, length :: UInt64) {
     if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "get "))
         then {
             keyLength := length - 4u64;
@@ -239,21 +303,22 @@ handleQuery :: (Database, Ptr, Ptr, UInt64) -> Unit := \(file :: Database, datab
         };
 };
 
-runQueries :: (Database, Ptr, Ptr) -> Unit := \(file :: Database, database :: Ptr, line :: Ptr) {
-    length := extern readLine(line, queryCapacity);
+runQueries :: (File, File, Ptr, Ptr) -> Unit := \(input :: File, file :: File, database :: Ptr, line :: Ptr) {
+    length := readLine(input, line);
     if (length == 0u64 || rangeEquals(line, length, 0u64, length, "quit"))
         then { () }
         else {
             handleQuery(file, database, line, length);
-            runQueries(file, database, line);
+            runQueries(input, file, database, line);
         };
 };
 
 executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
-    file := extern openDatabase(path);
-    database := extern allocate(databaseSize);
-    query := extern allocate(queryCapacity);
-    loaded := extern readDatabase(file, database, databaseSize);
+    file := extern openReadWriteCreate(path);
+    input := extern standardInput();
+    database := extern allocate(databaseReadCapacity);
+    query := extern allocate(queryStorageSize);
+    loaded := readFileToCapacity(file, database, databaseReadCapacity, 0u64);
     if (loaded == 0u64)
         then { initializeDatabase(database) }
         else {
@@ -264,10 +329,10 @@ executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
                 }
                 else { () };
         };
-    runQueries(file, database, query);
+    runQueries(input, file, database, query);
     extern release(query);
     extern release(database);
-    extern closeDatabase(file);
+    extern closeFile(file);
     0;
 };
 

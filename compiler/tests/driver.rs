@@ -466,6 +466,7 @@ fn mini_database_example_persists_queries_across_processes() {
             .arg(&database)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("run mini database");
         child
@@ -491,6 +492,31 @@ fn mini_database_example_persists_queries_across_processes() {
         String::from_utf8(output.stdout).unwrap(),
         "VALUE hello world\nOK\nNOT FOUND\n"
     );
+
+    let output = run_session("get greeting\r\nquit\r\n");
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "VALUE hello world\n"
+    );
+
+    let longest_line = format!("{}\nquit\n", "x".repeat(256));
+    let output = run_session(&longest_line);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "ERROR commands: put/get/del/quit\n"
+    );
+
+    let overlong_line = format!("{}\n", "x".repeat(257));
+    let output = run_session(&overlong_line);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("query line exceeds its buffer"));
+
+    std::fs::write(&database, vec![0; 4113]).unwrap();
+    let output = run_session("quit\n");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid database file"));
 }
 
 #[test]

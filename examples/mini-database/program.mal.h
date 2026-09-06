@@ -57,13 +57,13 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* Host-visible types */
 
-typedef struct { uintptr_t bits; } MalType_Database;
+typedef struct { uintptr_t bits; } MalType_File;
 
 typedef struct MalRepr_Product_0 MalRepr_Product_0;
 typedef struct MalRepr_Product_1 MalRepr_Product_1;
 
 struct MalRepr_Product_0 {
-    MalType_Database field_0;
+    MalType_File field_0;
     MalType_Ptr field_1;
     MalType_UInt64 field_2;
 };
@@ -75,11 +75,11 @@ struct MalRepr_Product_1 {
 
 /* Type helpers */
 
-static inline MalType_Database mal_Database_from_bits(uintptr_t bits) {
-    return (MalType_Database){ .bits = bits };
+static inline MalType_File mal_File_from_bits(uintptr_t bits) {
+    return (MalType_File){ .bits = bits };
 }
 
-static inline uintptr_t mal_Database_bits(MalType_Database value) {
+static inline uintptr_t mal_File_bits(MalType_File value) {
     return value.bits;
 }
 
@@ -87,11 +87,13 @@ static inline uintptr_t mal_Database_bits(MalType_Database value) {
 
 MalType_Ptr mal_ext_allocate(MalContext *context, MalType_UInt64 value);
 void mal_ext_release(MalContext *context, MalType_Ptr value);
-MalType_Database mal_ext_openDatabase(MalContext *context, MalType_Symbol value);
-MalType_UInt64 mal_ext_readDatabase(MalContext *context, MalType_Database argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
-void mal_ext_writeDatabase(MalContext *context, MalType_Database argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
-void mal_ext_closeDatabase(MalContext *context, MalType_Database value);
-MalType_UInt64 mal_ext_readLine(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
+MalType_File mal_ext_openReadWriteCreate(MalContext *context, MalType_Symbol value);
+MalType_File mal_ext_standardInput(MalContext *context);
+MalType_UInt64 mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
+MalType_UInt64 mal_ext_writeFile(MalContext *context, MalType_File argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
+void mal_ext_rewindFile(MalContext *context, MalType_File value);
+void mal_ext_flushFile(MalContext *context, MalType_File value);
+void mal_ext_closeFile(MalContext *context, MalType_File value);
 void mal_ext_writeSymbol(MalContext *context, MalType_Symbol value);
 void mal_ext_writeMemory(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
 void mal_ext_fail(MalContext *context, MalType_Symbol value);
@@ -112,44 +114,56 @@ void mal_ext_release( \
     MalType_Ptr value \
 )
 
-#define MAL_HAS_EXTERN_openDatabase 1
-#define MAL_DEFINE_openDatabase(context, value) \
-MalType_Database mal_ext_openDatabase( \
+#define MAL_HAS_EXTERN_openReadWriteCreate 1
+#define MAL_DEFINE_openReadWriteCreate(context, value) \
+MalType_File mal_ext_openReadWriteCreate( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_Symbol value \
 )
 
-#define MAL_HAS_EXTERN_readDatabase 1
-#define MAL_DEFINE_readDatabase(context, argument_0, argument_1, argument_2) \
-MalType_UInt64 mal_ext_readDatabase( \
+#define MAL_HAS_EXTERN_standardInput 1
+#define MAL_DEFINE_standardInput(context) \
+MalType_File mal_ext_standardInput( \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED \
+)
+
+#define MAL_HAS_EXTERN_readFile 1
+#define MAL_DEFINE_readFile(context, argument_0, argument_1, argument_2) \
+MalType_UInt64 mal_ext_readFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Database argument_0, \
+    MalType_File argument_0, \
     MalType_Ptr argument_1, \
     MalType_UInt64 argument_2 \
 )
 
-#define MAL_HAS_EXTERN_writeDatabase 1
-#define MAL_DEFINE_writeDatabase(context, argument_0, argument_1, argument_2) \
-void mal_ext_writeDatabase( \
+#define MAL_HAS_EXTERN_writeFile 1
+#define MAL_DEFINE_writeFile(context, argument_0, argument_1, argument_2) \
+MalType_UInt64 mal_ext_writeFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Database argument_0, \
+    MalType_File argument_0, \
     MalType_Ptr argument_1, \
     MalType_UInt64 argument_2 \
 )
 
-#define MAL_HAS_EXTERN_closeDatabase 1
-#define MAL_DEFINE_closeDatabase(context, value) \
-void mal_ext_closeDatabase( \
+#define MAL_HAS_EXTERN_rewindFile 1
+#define MAL_DEFINE_rewindFile(context, value) \
+void mal_ext_rewindFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Database value \
+    MalType_File value \
 )
 
-#define MAL_HAS_EXTERN_readLine 1
-#define MAL_DEFINE_readLine(context, argument_0, argument_1) \
-MalType_UInt64 mal_ext_readLine( \
+#define MAL_HAS_EXTERN_flushFile 1
+#define MAL_DEFINE_flushFile(context, value) \
+void mal_ext_flushFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Ptr argument_0, \
-    MalType_UInt64 argument_1 \
+    MalType_File value \
+)
+
+#define MAL_HAS_EXTERN_closeFile 1
+#define MAL_DEFINE_closeFile(context, value) \
+void mal_ext_closeFile( \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_File value \
 )
 
 #define MAL_HAS_EXTERN_writeSymbol 1
