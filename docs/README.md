@@ -33,7 +33,7 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[test方針](development/testing.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
-| 設計理由を調べる | [決定記録](design/decisions.md) | [最小性](design/minimality.md)、[authority](design/authority.md) |
+| 設計理由を調べる | [設計決定index](design/decisions-index.md) | [決定記録](design/decisions.md)、[最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [generated C performance](development/performance.md) | [compiler compile-time](development/compiler-performance.md) |
 | 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
@@ -42,7 +42,7 @@
 | 場所 | 役割 |
 |---|---|
 | `spec/` | 利用者と実装者が従う規範的仕様 |
-| `design/` | 採択済み判断の理由と、変更時に残す選択肢 |
+| `design/` | 採択済み判断の理由、後継関係、変更時に残す選択肢 |
 | `implementation/` | compiler/backend の現在の責務と構成 |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
 | `research/` | 外部仕様・先行事例から得た根拠 |

@@ -1,6 +1,9 @@
 # 設計決定記録
 
 仕様上の判断と、その理由を記録する。後から変更する場合も古い理由を消さず、status と後継 decision を記載する。
+現行判断とsuperseded recordを探す場合は[設計決定index](decisions-index.md)から入る。
+
+<a id="decision-d001"></a>
 
 ## D001. v0.4 では local capture を禁止する
 
@@ -36,6 +39,8 @@ partial application、local state を覚える callback、関数を生成する 
 
 この書き換えは環境型ごとに行う必要がある。v0.4 は polymorphism と existential type を持たないため、任意の environment を持つ closure の汎用 encoding は提供しない。
 
+<a id="decision-d002"></a>
+
 ## D002. reference compiler は Rust で実装する
 
 - Status: Accepted
@@ -57,6 +62,8 @@ mal の言語としての最小性は、compiler の実装言語まで最小で�
 ### 位置づけ
 
 これは mal program の意味論を定める言語仕様ではなく、reference implementation の選択である。他言語で互換 compiler を実装することを妨げない。
+
+<a id="decision-d003"></a>
 
 ## D003. v0.4 は lexical closure を持つ
 
@@ -87,6 +94,8 @@ compiler は意味を保存する限り、capture 除去、lambda lifting、stac
 ### extern との関係
 
 external opaque value の binding は immutable でも、handle の指す resource が immutable または有効であるとは限らない。closure に capture された handle の lifetime safety は v0.4 では保証せず、extern implementation と program の責務に置く。
+
+<a id="decision-d004"></a>
 
 ## D004. 直和型を `[A, B, C]` と書く
 
@@ -121,6 +130,8 @@ array を組み込み構文として持たないため、角括弧を直和の�
 ### 影響
 
 将来 array literal または array type を組み込み機能として追加する場合、`[]` は利用できない。v0.4 は array を library/extern storage 上に実装する方針なので、この制約を受け入れる。
+
+<a id="decision-d005"></a>
 
 ## D005. `Bool` と `if` を直和と `case` から導出する
 
@@ -164,6 +175,8 @@ Boolは二択の直和として既存の型とtermだけで表現できる。`if
 
 `Bool`、`false`、`true`は専用literal tokenではなく、predefined scopeにある通常のidentifierとして扱う。ただしtop-levelで同名を再定義してはならない。`if`、`then`、`else`、`case`はkeywordである。
 
+<a id="decision-d006"></a>
+
 ## D006. byte literal は `b'…' :: UInt8` とする
 
 - Status: Superseded by D025
@@ -189,6 +202,8 @@ raw characterはprintable ASCIIからsingle quoteとbackslashを除いたもの�
 malの`Engram`はUnicode stringではなくimmutable byte sequenceで、byte accessも`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
 
 `Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0au8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
+
+<a id="decision-d007"></a>
 
 ## D007. capture listを明示する
 
@@ -229,6 +244,8 @@ malのbindingはimmutableなので、C++のreference capture、default capture�
 
 capture listはenvironmentの内容を明示するが、配置と回収方法は変更しない。D003のprogram-lifetime arena方針に従う。
 
+<a id="decision-d008"></a>
+
 ## D008. minimalismには利用者のcontrolと調査面積を含める
 
 - Status: Accepted
@@ -258,6 +275,8 @@ surface sugarは一律にminimalismへ反するものではない。既存core�
 implicit reference countingはruntime codeが小さくても、retain/releaseの挿入位置とcost modelを隠すため採用しない。source-level manual freeもaliasとlifetimeの負担を未記述のまま利用者へ移すなら最小とはみなさない。
 
 closure environmentとruntime生成Engramは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
+
+<a id="decision-d009"></a>
 
 ## D009. Floatは IEEE 754-2019 の固定profileとする
 
@@ -291,6 +310,8 @@ IEEE 754という名前だけではrounding mode、exception handling、NaN payl
 
 NaN payloadをsource semanticsに含めると、演算ごとのpropagationとbackend差を規定する必要がある。bit reinterpretationを持たないv0.4ではpayloadを抽象化する方が小さい。
 
+<a id="decision-d010"></a>
+
 ## D010. `Engram`は mal-ownedなprogram-lifetime bytesとする
 
 - Status: Superseded by D031
@@ -322,6 +343,8 @@ mutable byte arrayまたはbufferは組み込み型にしない。必要なprogr
 Goの`string`と`[]byte`はimmutabilityとmutabilityを分離するが、backing storageのlifetime自体はGCが支える。GCもownership typeもないmalでは、二つのsurface typeを追加するだけではlifetimeは決まらない。
 
 externから返すbufferをhostがprogram終了まで保持する規則は、すべてのhost APIへ長いlifetimeを要求する。境界で必ずcopyすれば、Engramのlifetimeをclosure environmentと同じprogram-lifetime modelへ閉じ、hostが提供する一時bufferのpolicyから切り離せる。長時間programではstorageを回収できない制約をv0.4では受け入れる。
+
+<a id="decision-d011"></a>
 
 ## D011. numeric separatorを認める
 
@@ -356,6 +379,8 @@ _1       invalid
 
 長い整数、bit mask、protocol constantの桁構造を明示できる。digit間だけという局所規則ならidentifierやwildcardとの曖昧性を増やさず、literal semanticsにも新しい値を追加しない。
 
+<a id="decision-d012"></a>
+
 ## D012. 初期extern implementationはC adapterをlinkする
 
 - Status: Accepted; refined by D016
@@ -373,6 +398,8 @@ extern declarationを任意の既存C function declarationと同一視しない�
 ### 理由
 
 C backendを使う以上、同じtoolchainでcompileする小さなC adapterは最短のhost boundaryになる。C header parser、dynamic FFI、runtime loaderをcompilerへ組み込まず、既存library固有のownershipやerror policyをadapter内に明示できる。
+
+<a id="decision-d013"></a>
 
 ## D013. 整数型間の変換はdestination widthでmoduloとする
 
@@ -408,6 +435,8 @@ unsigned arithmetic、明示的なbit copy、または同値な操作でこの�
 範囲検査してtrapする案は、値が収まることを要求する別のoperationとしては有用だが、v0.4の唯一のconversion formには
 採用しない。constantだけをcompile-time errorにする案は、同じ値がconstantかruntime valueかで意味が変わるため採用しない。
 
+<a id="decision-d014"></a>
+
 ## D014. shift countはleft operandと同じ型とする
 
 - Status: Accepted
@@ -434,6 +463,8 @@ signed representationやhost shiftの挙動から独立する。
 `UInt64`固定のcountはnegative valueを型で除外できる一方、すべてのshiftだけに特別なliteral contextと変換を要求するため
 採用しない。型が正しくても値域は実行時にしか決まらないので、範囲外countは一律にtrapとする。
 
+<a id="decision-d015"></a>
+
 ## D015. opaque valueはcopyable handleとする
 
 - Status: Accepted
@@ -456,6 +487,8 @@ policyを埋め込まず、必要なprotocolをtyped external operationとして
 
 one-wordに収まらないhost stateはhost側でboxする。正しく型付けされたmal programでも、期限切れhandleや二重closeを
 防ぐことは保証しない。
+
+<a id="decision-d016"></a>
 
 ## D016. externはmal C ABIとadapterを介する
 
@@ -483,6 +516,8 @@ mal型とC型を直接同一視すると、aggregate layout、target calling con
 declarationから判別できない。小さなadapter境界とgenerated headerへ集約すれば、C parserやdynamic FFIをcompilerへ追加せず、
 target toolchainが実際に使用するABIとhost固有contractを明示できる。
 
+<a id="decision-d017"></a>
+
 ## D017. immutable byte値の型名は`Engram`とする
 
 - Status: Superseded by D031
@@ -506,6 +541,8 @@ lifetimeは[Engram仕様](../spec/engrams.md)に従う。
 `String`はtextとencoding、`Bytes`は要素のcollection、`Buffer`はmutable storageを連想させるため採用しない。
 既存Engramのbytesを変更するにはexternal mutable storageへcopyし、加工したbytesを別のEngramとしてmalへ戻す必要がある。
 
+<a id="decision-d018"></a>
+
 ## D018. top-level initializationは作用のないclosed valueに限定する
 
 - Status: Accepted
@@ -527,6 +564,8 @@ bindingは、そのlambda body内から自分自身を参照できる。product 
 top-levelのeffectとfile間初期化順を導入せず、現在のstatic valueとclosureの生成だけでprogram initializationを閉じられる。
 自己再帰の対象を構文的に限定することで、一般的なrecursive value、初期化中のcycle、暗黙のfixed-point semanticsを追加せずに
 反復に必要な関数再帰を提供できる。
+
+<a id="decision-d019"></a>
 
 ## D019. decimal float syntaxとC target profileを固定する
 
@@ -572,6 +611,8 @@ decimal point形はlexerの境界を明確に保ち、integer literalとの分�
 Cの`float`と`double`のwidthだけでは、subnormal、excess precision、contraction、rounding modeは保証されない。
 backend、build driver、adapterが所有する条件を分けて明示し、保証できないtargetで別の意味になることを避ける。
 
+<a id="decision-d020"></a>
+
 ## D020. numeric literalの型suffixは短縮名とする
 
 - Status: Accepted
@@ -588,6 +629,8 @@ suffixとして認めない。suffixのないinteger literalのdefaultは`Int64`
 
 literalでは値と型指定の境界が明瞭であり、固定幅を小文字の短い表記へ揃えることで頻出する定数を簡潔に書ける。
 未releaseのv0.4内の変更なので、旧形式の互換syntaxや専用のmigration diagnosticは設けない。
+
+<a id="decision-d021"></a>
 
 ## D021. v0.4のlexical detailとtrap mappingを固定する
 
@@ -609,6 +652,8 @@ lambda、`if` branch、`case` armのblockは最後にresult expressionを必須�
 
 最小構文をrelease profileとして固定し、block間でresult規則を統一して字句や終了方法が実装の偶然に見える状態を解消する。
 trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異常終了として確実に観測できるcontractを保つ。
+
+<a id="decision-d022"></a>
 
 ## D022. 型なし`Ptr`をmemory primitiveのbaselineとする
 
@@ -644,6 +689,8 @@ representativeなindexed workloadをpointer offset、`Int64`/`UInt8` accessだ�
 `Ptr<T>`はaddressable type、aggregate layout、cast規則を追加する。scalar operationの合成で必要なprogramを
 記述できる間は、この追加costを負わない。
 
+<a id="decision-d023"></a>
+
 ## D023. `case`は括弧付きscrutineeとarm blockを持つ
 
 - Status: Accepted
@@ -674,6 +721,8 @@ armのpattern bindingとblock内のbindingはarmごとの同じscopeに属する
 `then`と`else`のexpression blockを並べる構造と対応し、case全体を囲むbraceやpatternと結果の間の
 追加separatorを不要にする。arm内でも`if` branchと同じbinding、statement、末尾式を使用できる。
 
+<a id="decision-d024"></a>
+
 ## D024. `Ptr`をmemoryへload/storeできる
 
 - Status: Accepted
@@ -697,6 +746,8 @@ pointer graphではedgeの保存と復元がhost operationへ流出する。`Ptr
 加えると、hostの責務をstorage提供とlifetimeへ限定したまま、list、tree、graphのlink操作をmalへ戻せる。
 pointerを`UInt64`として扱わないため、pointer幅、integer conversion、null、equalityをsource semanticsへ追加しない。
 
+<a id="decision-d025"></a>
+
 ## D025. byte literalはsingle quoteだけで書く
 
 - Status: Accepted
@@ -715,6 +766,8 @@ raw character、escape、exactly one byteの規則はD006から変更しない�
 malは`Char`型を持たず、single-quoted literalをbyte以外の意味に使わないため、`b` prefixは構文上も
 型選択上も曖昧性を解消していなかった。literalの唯一の型をsyntaxに重ねて書かず、短いspellingへ一本化する。
 Unicode characterを将来追加する場合は、byte literalの意味を変更せず別のsyntaxとして設計する。
+
+<a id="decision-d026"></a>
 
 ## D026. Engram descriptorをmemoryへload/storeできる
 
@@ -744,6 +797,8 @@ scalarや`Ptr`と同じmemory mechanismでround-trip可能にすれば、bytes�
 malへ戻せる。storage layoutをpointerとfixed-width lengthの連結として定めることで、target依存のstruct paddingを
 programのoffset計算へ持ち込まない。
 
+<a id="decision-d027"></a>
+
 ## D027. `@T`でmemory storage幅を表す
 
 - Status: Refined by D031
@@ -772,6 +827,8 @@ functionとしての`sizeof(T)`は型を値引数に見せる。専用sigilはla
 productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory表現と対応するload/store戦略を
 別途決定してから対象へ加える。これにより現在のbackend layoutを将来のsource contractとして固定しない。
 
+<a id="decision-d028"></a>
+
 ## D028. Engramのlengthとbyte accessを`#` operatorで表す
 
 - Status: Refined by D031
@@ -794,6 +851,8 @@ unary `#`によるEngram byte lengthにはLuaなどの前例がある。binary `
 割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、EngramがUnicode characterではなく
 immutable byte sequenceである現在の意味を保つ。
 
+<a id="decision-d029"></a>
+
 ## D029. `Engram + Engram`をbyte concatenationとする
 
 - Status: Refined by D031
@@ -815,6 +874,8 @@ byte-wise equalityによってbyte sequenceとしてすでに観測可能であ�
 
 連結を`extern`だけに置くと、Engramの基本的な値構成までhost contractに依存する。reference runtimeはすでに
 runtime生成Engramのprogram-lifetime storageを持つため、組み込みにしても新しいownership modelは不要である。
+
+<a id="decision-d030"></a>
 
 ## D030. entry pointへprocess argument列を渡す
 
@@ -841,6 +902,8 @@ operatorを追加すると、argument取得だけのために新しいcollection
 count、`Ptr`、Engramのcanonical memory表現を組み合わせれば、新しいvalue typeやmemory operationなしで境界を
 明示できる。通常のargument accessにはunsafeな`Ptr`計算が残るが、v0.5の既存memory mechanismと同じcontractであり、
 将来collectionを導入する場合もsource entryの意味を保ったwrapperを構成できる。
+
+<a id="decision-d031"></a>
 
 ## D031. Engramをmal内部のlifetime authorityとする
 

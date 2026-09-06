@@ -592,7 +592,7 @@ fn traps_out_of_range_symbol_byte_access() {
 }
 
 #[test]
-fn copies_host_bytes_into_mal_owned_symbols() {
+fn admits_host_bytes_as_symbols() {
     let generated = emit(
         r#"extern fetch :: Unit -> Symbol;
 main :: Unit -> Int32 := \() {

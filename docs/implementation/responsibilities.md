@@ -42,9 +42,9 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `driver` | source file、temporary path、C compiler process、linker inputのownership |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
-predefined scopeの名前とreserved identityは`resolve/predefined`が一組で所有する。resolver、type checker、editorは
-それぞれ別の一覧を持たず、このmappingを参照する。source declaration用のidentityはreserved identityの最大値から
-採番し、primitive追加時に手動の個数定数を同期しない。
+predefined scopeの名前とreserved identityは`resolve/predefined`の一つの宣言から生成する。resolver、type checker、
+editorはそれぞれ別の一覧を持たず、このmappingを参照する。source declaration用のidentityはreserved identityの
+最大値から採番し、primitive追加時に名前表、ID、手動の個数定数を同期しない。
 
 後段が前段のraw inputを再解釈してはならない。未検証入力とadmit済み出力を、optional fieldやflagを持つ
 一つの型で兼用しない。許される操作が異なるsemantic stateには別の型を使う。
@@ -76,6 +76,28 @@ value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。C trans
 `pipeline`はin-memory `SourceFile`から上記stageを構成し、filesystemやprocessを扱わない。`driver`はfileを
 `SourceFile`へadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
+
+## 現在のmodule境界
+
+大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyで分割する。
+
+| Module | Internal responsibility |
+|---|---|
+| `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
+| `parser/expression/forms` | product、call、extern call、conversion、sum injection |
+| `parser/expression/lambda` | capture、parameter、lambda bodyの構成 |
+| `parser/expression/control` | `if`、`case`、expression blockの構成 |
+| `check` | program順序、value environment、checked itemの構成 |
+| `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
+| `check/interface` | extern transport検査とsource-level alias metadata |
+| `check/initializer` | top-level closed-value admission |
+| `formatter/layout` | block compactnessとtop-level groupの事前計算 |
+| `formatter/token` | token spacingと`if`、`case`、blockの出力state |
+| `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identity |
+| `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類 |
+| `c_emit/body/expression` | operationからC expressionへのdispatch |
+| `c_emit/body/expression/primitive` | numeric、comparison、Symbol primitiveのC semantics |
+| `c_emit/body/expression/atom` | typed atomのC representation |
 
 ## Source structure
 

@@ -109,8 +109,8 @@ typedef struct {
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
 Symbol literalのdataは生成物のstatic storageへ置ける。host側byte bufferからSymbol resultを作るadapterは、source-level
-extern callを完了する前にlengthを検査し、bytesをmal-owned arenaへcopyする。Symbol concatenationと`loadSymbol`の
-resultも同じarenaへ置く。現在のreference runtimeはarenaをprogram終了時に一括解放するが、これは回収時期を
+extern callを完了する前にlengthを検査し、bytesをruntime arenaへcopyしてmalへadmitする。Symbol concatenationと
+`loadSymbol`のresultも同じarenaへ置く。現在のreference runtimeはarenaをprogram終了時に一括解放するが、これは回収時期を
 source semanticsへ固定しない実装上の選択である。lengthまたはallocation sizeのoverflowとallocation failureはmal trapへ写像する。
 
 `loadSymbol`は外部regionから指定lengthのbytesをarenaへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
@@ -138,6 +138,10 @@ operationを実行するcapture-free closure entryを生成する。region、per
 [`memory` contract](../spec/memory.md)として保持する。
 
 reference runtime は closure environment とruntime Symbol bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
+
+C representationの収集では、`TypeRegistry`がtranslation unit全体で一意なstructural type IDとFloat利用状況を
+所有し、`HostTypes`がextern signatureから到達できる型とexternal opaque type名だけを所有する。headerとsourceは
+同じ`TypeRegistry`を参照するため、公開aggregateと内部aggregateの名前を別々に採番しない。
 
 Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
 
