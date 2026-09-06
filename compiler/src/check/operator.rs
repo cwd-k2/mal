@@ -20,10 +20,10 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if operator.kind == UnaryOperator::StringLength {
-            let value = self.check_expression(operand, Some(&Type::String))?;
+        if operator.kind == UnaryOperator::EngramLength {
+            let value = self.check_expression(operand, Some(&Type::Engram))?;
             return Ok(Expression {
-                kind: ExpressionKind::StringLength {
+                kind: ExpressionKind::EngramLength {
                     value: Box::new(value),
                 },
                 ty: Type::UInt64,
@@ -114,14 +114,14 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if operator.kind == BinaryOperator::StringAt {
-            let left = self.check_expression(left, Some(&Type::String))?;
+        if operator.kind == BinaryOperator::EngramAt {
+            let left = self.check_expression(left, Some(&Type::Engram))?;
             let right = self.check_expression(right, Some(&Type::UInt64))?;
             return Ok(Expression {
-                kind: ExpressionKind::StringAt {
+                kind: ExpressionKind::EngramAt {
                     argument: Box::new(Expression {
                         kind: ExpressionKind::Product(vec![left, right]),
-                        ty: Type::Product(vec![Type::String, Type::UInt64]),
+                        ty: Type::Product(vec![Type::Engram, Type::UInt64]),
                         span,
                     }),
                 },
@@ -168,7 +168,7 @@ impl Checker {
                 if !is_integer(&left.ty)
                     && !is_float(&left.ty)
                     && left.ty != bool_type()
-                    && left.ty != Type::String
+                    && left.ty != Type::Engram
                 {
                     return Err(Diagnostic::error("equality is not defined for this type")
                         .with_primary(
@@ -192,7 +192,7 @@ impl Checker {
                 let result = left.ty.clone();
                 (left, right, result)
             }
-            BinaryOperator::StringAt => unreachable!("String access is checked separately"),
+            BinaryOperator::EngramAt => unreachable!("Engram access is checked separately"),
         };
         Ok(Expression {
             kind: ExpressionKind::Binary {

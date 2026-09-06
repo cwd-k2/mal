@@ -44,13 +44,13 @@ impl BodyEmitter<'_> {
                     self.emit_atom(argument)
                 )
             }
-            Operation::StringLength { value } => {
+            Operation::EngramLength { value } => {
                 format!("({}).length", self.emit_atom(value))
             }
-            Operation::StringAt { argument } => {
-                self.needs.string_at = true;
+            Operation::EngramAt { argument } => {
+                self.needs.engram_at = true;
                 let argument = self.emit_atom(argument);
-                format!("mal_string_at(mal_context, {argument}.field_0, {argument}.field_1)")
+                format!("mal_engram_at(mal_context, {argument}.field_0, {argument}.field_1)")
             }
             Operation::Memory {
                 primitive,
@@ -83,13 +83,13 @@ impl BodyEmitter<'_> {
                         self.needs.memory_store_ptr = true;
                         format!("mal_store_ptr({argument}.field_0, {argument}.field_1)")
                     }
-                    MemoryPrimitive::LoadString => {
-                        self.needs.memory_load_string = true;
-                        format!("mal_load_string({argument})")
+                    MemoryPrimitive::LoadEngram => {
+                        self.needs.memory_load_engram = true;
+                        format!("mal_load_engram({argument})")
                     }
-                    MemoryPrimitive::StoreString => {
-                        self.needs.memory_store_string = true;
-                        format!("mal_store_string({argument}.field_0, {argument}.field_1)")
+                    MemoryPrimitive::StoreEngram => {
+                        self.needs.memory_store_engram = true;
+                        format!("mal_store_engram({argument}.field_0, {argument}.field_1)")
                     }
                 }
             }
@@ -308,9 +308,9 @@ impl BodyEmitter<'_> {
         left: &str,
         right: &str,
     ) -> String {
-        if *operand_type == Type::String {
-            self.needs.string_equality = true;
-            let equality = format!("mal_string_equal({left}, {right})");
+        if *operand_type == Type::Engram {
+            self.needs.engram_equality = true;
+            let equality = format!("mal_engram_equal({left}, {right})");
             return if operator == BinaryPrimitive::Equal {
                 equality
             } else {
@@ -366,13 +366,13 @@ impl BodyEmitter<'_> {
                 Type::Float64 => format!("mal_float64_from_bits(UINT64_C({bits}))"),
                 _ => unreachable!("float atoms have Float32 or Float64 type"),
             },
-            AtomKind::String(value) => {
+            AtomKind::Engram(value) => {
                 let bytes = value
                     .iter()
                     .map(|byte| format!("\\x{byte:02x}"))
                     .collect::<String>();
                 format!(
-                    "(MalString){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
+                    "(MalEngram){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
                     value.len()
                 )
             }
@@ -382,7 +382,7 @@ impl BodyEmitter<'_> {
                 Type::Int32 | Type::UInt32 | Type::Float32 => "UINT64_C(4)".into(),
                 Type::Int64 | Type::UInt64 | Type::Float64 => "UINT64_C(8)".into(),
                 Type::Ptr => "((uint64_t)sizeof(MalPtr))".into(),
-                Type::String => "((uint64_t)(sizeof(MalPtr) + sizeof(uint64_t)))".into(),
+                Type::Engram => "((uint64_t)(sizeof(MalPtr) + sizeof(uint64_t)))".into(),
                 _ => unreachable!("only memory-storable types have storage-size atoms"),
             },
             AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),

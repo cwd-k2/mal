@@ -51,7 +51,7 @@ impl Parser<'_> {
     fn parse_prefix(&mut self) -> Result<Node<Expression>, Diagnostic> {
         if let Some(operator) = self.unary_operator() {
             let token = self.advance().clone();
-            let minimum = if operator == UnaryOperator::StringLength {
+            let minimum = if operator == UnaryOperator::EngramLength {
                 22
             } else {
                 21
@@ -92,12 +92,12 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Byte(value), token.span));
         }
-        if matches!(self.current().kind, TokenKind::String(_)) {
+        if matches!(self.current().kind, TokenKind::Engram(_)) {
             let token = self.advance().clone();
-            let TokenKind::String(value) = token.kind else {
+            let TokenKind::Engram(value) = token.kind else {
                 unreachable!();
             };
-            return Ok(Node::new(Expression::String(value), token.span));
+            return Ok(Node::new(Expression::Engram(value), token.span));
         }
         if self.at(&TokenKind::At) {
             let at = self.advance().clone();
@@ -390,7 +390,7 @@ impl Parser<'_> {
             TokenKind::Star => (BinaryOperator::Multiply, 19, false),
             TokenKind::Slash => (BinaryOperator::Divide, 19, false),
             TokenKind::Percent => (BinaryOperator::Remainder, 19, false),
-            TokenKind::Hash => (BinaryOperator::StringAt, 21, true),
+            TokenKind::Hash => (BinaryOperator::EngramAt, 21, true),
             _ => return None,
         })
     }
@@ -400,7 +400,7 @@ impl Parser<'_> {
             TokenKind::Minus => Some(UnaryOperator::Negate),
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
-            TokenKind::Hash => Some(UnaryOperator::StringLength),
+            TokenKind::Hash => Some(UnaryOperator::EngramLength),
             _ => None,
         }
     }

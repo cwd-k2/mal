@@ -28,7 +28,7 @@ fn formats_spacing_and_blocks_canonically() {
 #[test]
 fn preserves_comments_and_literal_spelling() {
     let formatted =
-        format("// heading\nnumber::UInt32:=0xff_ffu32;// value\ntext::String:=\"a\\x62\";\n");
+        format("// heading\nnumber::UInt32:=0xff_ffu32;// value\ntext::Engram:=\"a\\x62\";\n");
 
     assert!(formatted.starts_with("// heading\n"));
     assert!(formatted.contains("0xff_ffu32; // value\n"));
@@ -38,16 +38,16 @@ fn preserves_comments_and_literal_spelling() {
 #[test]
 fn keeps_storage_size_attached_to_its_type() {
     assert_eq!(
-        format("size::UInt64:=@ String+@Ptr;"),
-        "size :: UInt64 := @String + @Ptr;\n"
+        format("size::UInt64:=@ Engram+@Ptr;"),
+        "size :: UInt64 := @Engram + @Ptr;\n"
     );
 }
 
 #[test]
-fn formats_unary_and_binary_string_operators() {
+fn formats_unary_and_binary_engram_operators() {
     assert_eq!(
-        format("inspect:=\\(value::String){# value+value#1u64;};"),
-        "inspect := \\(value :: String) { #value + value # 1u64 };\n"
+        format("inspect:=\\(value::Engram){# value+value#1u64;};"),
+        "inspect := \\(value :: Engram) { #value + value # 1u64 };\n"
     );
 }
 

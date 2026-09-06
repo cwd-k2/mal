@@ -64,11 +64,11 @@ conversionで意味も表現も変えず共有する。各loweringは実行表�
 複数parameter/argumentはproduct parameter/application、0 parameter/argumentは`Unit`へlowerする。blockの末尾式はbody resultへ、sequential bindingはnested letまたはlambda applicationへ落とせる。
 
 surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
-desugarする。直ちにbranchとして消費する数値・String comparisonはtyped core以降で専用のprimitive branchとして保持し、
+desugarする。直ちにbranchとして消費する数値・Engram comparisonはtyped core以降で専用のprimitive branchとして保持し、
 C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
 `uint8_t`へ写像する。
 
-String operatorの`#value`と`value # index`は型検査後にそれぞれString lengthとbounds-checked byte accessの
+Engram operatorの`#value`と`value # index`は型検査後にそれぞれEngram lengthとbounds-checked byte accessの
 専用core operationへlowerする。predefined value lookupや通常のfunction callは経由しない。
 
 ```mal
@@ -90,26 +90,26 @@ scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、�
 
 extern symbol、generated header、linker input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 
-product は compiler-generated struct、sum は tag と payload union、String は概念上 pointer と length に lower できる。
+product は compiler-generated struct、sum は tag と payload union、Engram は概念上 pointer と length に lower できる。
 
 ```c
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalString;
+} MalEngram;
 ```
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-String literalのdataは生成物のstatic storageへ置ける。hostからStringを受け取るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferをMalStringへ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
+Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferをMalEngramへ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
 
-Stringのmemory load/storeはC structのpaddingをstorageへ含めない。`MalPtr`のobject representationと
+Engramのmemory load/storeはC structのpaddingをstorageへ含めない。`MalPtr`のobject representationと
 `uint64_t`のlengthをこの順で個別に`memcpy`し、必要byte数をpointer格納byte数と8の和に固定する。
-descriptorだけを複製し、参照先のString bytesは複製しない。
+descriptorだけを複製し、参照先のEngram bytesは複製しない。
 
 storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
-C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalPtr)`へ、`@String`を
-`sizeof(MalPtr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalString`自体の
+C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalPtr)`へ、`@Engram`を
+`sizeof(MalPtr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalEngram`自体の
 `sizeof`には依存しない。
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
@@ -128,7 +128,7 @@ fallbackする。product resultとfirst-class function callはtarget C ABIへ委
 runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。
 
-reference runtime は closure environment とruntime String bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
+reference runtime は closure environment とruntime Engram bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
 
 Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
 

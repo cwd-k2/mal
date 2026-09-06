@@ -90,7 +90,7 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
     assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("MalString mal_string_copy("));
+    assert!(generated_header.contains("MalEngram mal_engram_copy("));
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn emit_header_writes_a_standalone_host_interface() {
 fn emit_header_defaults_to_the_source_directory() {
     let directory = NativeFixture::new("driver-default-header");
     let source = directory.join("source/program.mal");
-    directory.write("source/program.mal", "extern print :: String -> Unit;");
+    directory.write("source/program.mal", "extern print :: Engram -> Unit;");
 
     let output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
 
@@ -212,7 +212,7 @@ fn checked_in_example_headers_match_the_compiler() {
         "print-and-closure",
         "ptr-memory",
         "strict-float",
-        "string-round-trip",
+        "engram-round-trip",
         "tail-recursion",
     ];
 
@@ -387,12 +387,12 @@ fn opaque_aggregate_example_round_trips_through_the_host() {
 }
 
 #[test]
-fn string_round_trip_example_copies_host_bytes() {
+fn engram_round_trip_example_copies_host_bytes() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/string-round-trip");
+        .join("examples/engram-round-trip");
     let program = example.join("program.mal");
 
     let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);

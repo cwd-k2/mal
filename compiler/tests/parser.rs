@@ -116,11 +116,11 @@ fn calls_bind_more_tightly_than_unary_operators() {
 }
 
 #[test]
-fn parses_string_length_and_byte_access_with_access_precedence() {
+fn parses_engram_length_and_byte_access_with_access_precedence() {
     let Expression::Unary { operator, operand } = binding_value(r#"value := #make();"#) else {
-        panic!("expected String length");
+        panic!("expected Engram length");
     };
-    assert_eq!(operator.kind, UnaryOperator::StringLength);
+    assert_eq!(operator.kind, UnaryOperator::EngramLength);
     assert!(matches!(operand.kind, Expression::Call { .. }));
 
     let Expression::Binary {
@@ -136,7 +136,7 @@ fn parses_string_length_and_byte_access_with_access_precedence() {
         left.kind,
         Expression::Binary {
             operator: malc::ast::Node {
-                kind: BinaryOperator::StringAt,
+                kind: BinaryOperator::EngramAt,
                 ..
             },
             ..
@@ -146,9 +146,9 @@ fn parses_string_length_and_byte_access_with_access_precedence() {
 }
 
 #[test]
-fn rejects_chained_string_byte_access() {
+fn rejects_chained_engram_byte_access() {
     let source = source(r#"value := "abc" # 0u64 # 1u64;"#);
-    let error = parse(&source).expect_err("String byte access must be non-associative");
+    let error = parse(&source).expect_err("Engram byte access must be non-associative");
     assert_eq!(error.message, "non-associative operator chain");
 }
 
@@ -176,16 +176,16 @@ fn parses_a_decimal_float_as_an_atomic_expression() {
 }
 
 #[test]
-fn parses_a_string_literal_as_bytes() {
+fn parses_an_engram_literal_as_bytes() {
     assert_eq!(
         binding_value(r#"value := "a\0\xff";"#),
-        Expression::String(vec![b'a', 0, 255])
+        Expression::Engram(vec![b'a', 0, 255])
     );
 }
 
 #[test]
 fn parses_storage_size_as_a_type_prefix_expression() {
-    let Expression::StorageSize(ty) = binding_value("value := @String;") else {
+    let Expression::StorageSize(ty) = binding_value("value := @Engram;") else {
         panic!("expected storage-size expression");
     };
     assert!(matches!(ty.kind, TypeExpression::Named(_)));

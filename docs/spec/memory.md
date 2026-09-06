@@ -24,9 +24,9 @@ host callを伴わないtarget constantであり、transparent aliasは展開し
 | `Int32`, `UInt32`, `Float32` | 4 |
 | `Int64`, `UInt64`, `Float64` | 8 |
 | `Ptr` | target ABIの`MalPtr` object representationのbyte数 |
-| `String` | `@Ptr + 8` |
+| `Engram` | `@Ptr + 8` |
 
-この値はmemory上のcanonical表現だけを測り、Stringが参照するbytes、allocation metadata、C backend内部の
+この値はmemory上のcanonical表現だけを測り、Engramが参照するbytes、allocation metadata、C backend内部の
 struct paddingは含めない。`offset`の単位もbyteであるため、field offsetは`@T`の和として記述できる。
 
 v0.5では`Unit`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
@@ -35,7 +35,7 @@ layoutをsource-level memory contractにはしない。
 
 ## primitive
 
-v0.5のoperation集合はbyte offsetと、全numeric scalar、`Ptr`、およびString descriptorに対する型別load/storeである。
+v0.5のoperation集合はbyte offsetと、全numeric scalar、`Ptr`、およびEngram descriptorに対する型別load/storeである。
 
 ```text
 offset      :: (Ptr, UInt64) -> Ptr
@@ -61,8 +61,8 @@ loadFloat64 :: Ptr -> Float64
 storeFloat64 :: (Ptr, Float64) -> Unit
 loadPtr      :: Ptr -> Ptr
 storePtr     :: (Ptr, Ptr) -> Unit
-loadString   :: Ptr -> String
-storeString  :: (Ptr, String) -> Unit
+loadEngram   :: Ptr -> Engram
+storeEngram  :: (Ptr, Engram) -> Unit
 ```
 
 これらはpredefined scopeにあるdirect-call-only primitiveであり、first-class function valueとして参照できない。
@@ -81,14 +81,14 @@ load/storeは指定型の全byteを対象とし、alignmentを要求しない。
 pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
 `storePtr`またはhostが有効な`MalPtr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
 
-`storeString`はString descriptorをstorageへcopyし、Stringのbytes自体はcopyしない。storage表現は、
+`storeEngram`はEngram descriptorをstorageへcopyし、Engramのbytes自体はcopyしない。storage表現は、
 `storePtr`が用いるpointer表現、その直後の`storeUInt64`が用いるlength表現の順でpaddingなしに並べる。
-したがって必要byte数はtarget ABIのpointer格納byte数に8を加えた値である。`storeString`の後に同じaddressから
-`loadString`すると、間に同じbytesへのwriteがなければ同じbyte sequenceを持つStringを得る。descriptorの
-複製はString bytesのprogram-lifetimeを変更せず、bytesをmutableにしない。
+したがって必要byte数はtarget ABIのpointer格納byte数に8を加えた値である。`storeEngram`の後に同じaddressから
+`loadEngram`すると、間に同じbytesへのwriteがなければ同じbyte sequenceを持つEngramを得る。descriptorの
+複製はEngram bytesのprogram-lifetimeを変更せず、bytesをmutableにしない。
 
-`storeString`またはhostが既存の有効なmal Stringから上記storage表現で書いたものではないbytesを`loadString`する
-programはcontract違反である。特にpointerはprogram終了まで有効で変更されないmal-ownedまたはliteralのString bytesを
+`storeEngram`またはhostが既存の有効なmal Engramから上記storage表現で書いたものではないbytesを`loadEngram`する
+programはcontract違反である。特にpointerはprogram終了まで有効で変更されないmal-ownedまたはliteralのEngram bytesを
 指し、lengthはそのlive region内に収まらなければならない。
 
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
@@ -100,5 +100,5 @@ aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、�
 
 ## minimality
 
-この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、String fieldに共通するmechanismだけを提供する。
+この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、Engram fieldに共通するmechanismだけを提供する。
 採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。

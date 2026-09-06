@@ -40,12 +40,12 @@ static void *mal_allocate(MalContext *context, size_t size) {
     return allocation + 1;
 }
 
-MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length) {
+MalEngram mal_engram_copy(MalContext *context, const uint8_t *data, uint64_t length) {
     if (length == UINT64_C(0)) {
-        return (MalString){ NULL, UINT64_C(0) };
+        return (MalEngram){ NULL, UINT64_C(0) };
     }
     if (data == NULL) {
-        mal_trap(context, "null string data");
+        mal_trap(context, "null Engram data");
     }
     size_t size = (size_t)length;
     if ((uint64_t)size != length) {
@@ -53,6 +53,5 @@ MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t len
     }
     uint8_t *copy = (uint8_t *)mal_allocate(context, size);
     memcpy(copy, data, size);
-    return (MalString){ copy, length };
+    return (MalEngram){ copy, length };
 }
-

@@ -100,7 +100,7 @@ pub enum AtomKind {
     Reference(Reference),
     Integer(i128),
     Float(u64),
-    String(Vec<u8>),
+    Engram(Vec<u8>),
     StorageSize(Type),
     Unit,
 }
@@ -123,10 +123,10 @@ pub enum Operation {
         callee: Atom,
         argument: Atom,
     },
-    StringLength {
+    EngramLength {
         value: Atom,
     },
-    StringAt {
+    EngramAt {
         argument: Atom,
     },
     Memory {

@@ -152,7 +152,7 @@ if (condition)
 
 これは condition を一度評価する `case` へ desugar する。`then` は index 1、`else` は index 0 に対応する。condition の括弧、`then`、`else` は必須とする。
 
-`&&`、`||`、`!`、Bool equality も `case` へ desugar する。`&&` と `||` は short-circuit を維持する。数値およびStringの比較primitiveは同じBool表現を返す。
+`&&`、`||`、`!`、Bool equality も `case` へ desugar する。`&&` と `||` は short-circuit を維持する。数値およびEngramの比較primitiveは同じBool表現を返す。
 
 ### 理由
 
@@ -186,7 +186,7 @@ raw characterはprintable ASCIIからsingle quoteとbackslashを除いたもの�
 
 ### 理由
 
-malの`String`はUnicode stringではなくimmutable byte sequenceで、byte accessも`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
+malの`Engram`はUnicode stringではなくimmutable byte sequenceで、byte accessも`UInt8`を返す。`Char`はUnicode scalar、code point、graphemeなどの未提供概念を期待させる。
 
 `Byte :: UInt8`はtransparent aliasとして新しい性質を与えない。一方、protocol parserなどで`0x0au8`の代わりに`b'\n'`と書けるsurface sugarには明確な可読性上の価値がある。
 
@@ -257,7 +257,7 @@ surface sugarは一律にminimalismへ反するものではない。既存core�
 
 implicit reference countingはruntime codeが小さくても、retain/releaseの挿入位置とcost modelを隠すため採用しない。source-level manual freeもaliasとlifetimeの負担を未記述のまま利用者へ移すなら最小とはみなさない。
 
-closure environmentとruntime生成Stringは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
+closure environmentとruntime生成Engramは例外としてdocumentedなprogram-lifetime storageを使用する。将来回収が必要になった場合は、implicit RCを既定にする前に、利用者が選択できる明示的arena/regionまたは交換可能な小さなruntime contractを検討する。
 
 ## D009. Floatは IEEE 754-2019 の固定profileとする
 
@@ -291,7 +291,7 @@ IEEE 754という名前だけではrounding mode、exception handling、NaN payl
 
 NaN payloadをsource semanticsに含めると、演算ごとのpropagationとbackend差を規定する必要がある。bit reinterpretationを持たないv0.4ではpayloadを抽象化する方が小さい。
 
-## D010. `String`は mal-ownedなprogram-lifetime bytesとする
+## D010. `Engram`は mal-ownedなprogram-lifetime bytesとする
 
 - Status: Accepted
 - Date: 2026-09-04
@@ -299,21 +299,21 @@ NaN payloadをsource semanticsに含めると、演算ごとのpropagationとbac
 
 ### 決定
 
-`String`はimmutableな有限byte sequenceである。String値はcopyableなdescriptorとして振る舞い、そのbytesはmal program終了まで有効で変更されない。source-levelの個別解放操作はない。
+`Engram`はimmutableな有限byte sequenceである。Engram値はcopyableなdescriptorとして振る舞い、そのbytesはmal program終了まで有効で変更されない。source-levelの個別解放操作はない。
 
-String literalのbytesは静的storageに置いてよい。実行時に新しくmalへ入るStringのbytesはmal-owned storageへcopyする。reference compilerはこれをprogram-lifetime arenaへ配置し、個別に回収しない。allocation sizeを表現できない場合とallocation failureはtrapする。
+Engram literalのbytesは静的storageに置いてよい。実行時に新しくmalへ入るEngramのbytesはmal-owned storageへcopyする。reference compilerはこれをprogram-lifetime arenaへ配置し、個別に回収しない。allocation sizeを表現できない場合とallocation failureはtrapする。
 
 `extern`境界では次を固定する。
 
-- malからhostへ渡すStringはcall中だけborrowされる。hostはreturn後にpointerを保持してはならない。
-- hostからStringを返すsource-level operationは、callが完了する前にbytesをmal-owned storageへcopyした結果を返す。
-- host側bufferの具体的な取得、copy後の解放、calling conventionはbackend adapter contractが定める。hostの後続変更や解放が、返されたmal Stringへ影響してはならない。
+- malからhostへ渡すEngramはcall中だけborrowされる。hostはreturn後にpointerを保持してはならない。
+- Engram resultを宣言したsource-level operationは、callが完了する前にhost側bytesをmal-owned storageへcopyし、その時点で新しいEngramを作る。
+- host側bufferの具体的な取得、copy後の解放、calling conventionはbackend adapter contractが定める。hostの後続変更や解放が、返されたmal Engramへ影響してはならない。
 
 compilerは観測可能な意味を変えず、hostに期限切れ参照を残さないと証明できる場合にstorage allocationやcopyを省略してよい。
 
 ### mutable bytesとの分離
 
-mutable byte arrayまたはbufferは組み込み型にしない。必要なprogramは`ByteBuffer`などのexternal opaque typeと、用途に応じた明示的な`extern` operationを宣言する。bufferからStringを返すoperationにも上記のcopy規則が適用される。
+mutable byte arrayまたはbufferは組み込み型にしない。必要なprogramは`ByteBuffer`などのexternal opaque typeと、用途に応じた明示的な`extern` operationを宣言する。bufferからEngramを返すoperationにも上記のcopy規則が適用される。
 
 `ByteBuffer`という名前、operation集合、allocation/free policyはpredefined APIではない。opaque handleは通常のmal値としてcopyableなため、そのresource safetyは従来どおりhost contractとprogramの責務である。
 
@@ -321,7 +321,7 @@ mutable byte arrayまたはbufferは組み込み型にしない。必要なprogr
 
 Goの`string`と`[]byte`はimmutabilityとmutabilityを分離するが、backing storageのlifetime自体はGCが支える。GCもownership typeもないmalでは、二つのsurface typeを追加するだけではlifetimeは決まらない。
 
-externから返すbufferをhostがprogram終了まで保持する規則は、すべてのhost APIへ長いlifetimeを要求する。境界で必ずcopyすれば、Stringのlifetimeをclosure environmentと同じprogram-lifetime modelへ閉じ、hostが提供する一時bufferのpolicyから切り離せる。長時間programではstorageを回収できない制約をv0.4では受け入れる。
+externから返すbufferをhostがprogram終了まで保持する規則は、すべてのhost APIへ長いlifetimeを要求する。境界で必ずcopyすれば、Engramのlifetimeをclosure environmentと同じprogram-lifetime modelへ閉じ、hostが提供する一時bufferのpolicyから切り離せる。長時間programではstorageを回収できない制約をv0.4では受け入れる。
 
 ## D011. numeric separatorを認める
 
@@ -368,7 +368,7 @@ reference compilerはprogramが要求するextern symbolのC headerを生成す�
 
 C source、object、static archive、shared objectをlinker inputにできる。shared objectはplatform linker/loaderでprocess開始時に解決し、mal runtimeは`dlopen`、symbol discovery、plugin lifecycleを提供しない。
 
-extern declarationを任意の既存C function declarationと同一視しない。symbol prefix、runtime context、scalar/String/opaque/aggregate mappingはprogram固有のgenerated headerと[C host ABI profile](../spec/c-host-abi.md)が定める。
+extern declarationを任意の既存C function declarationと同一視しない。symbol prefix、runtime context、scalar/Engram/opaque/aggregate mappingはprogram固有のgenerated headerと[C host ABI profile](../spec/c-host-abi.md)が定める。
 
 ### 理由
 
@@ -479,32 +479,32 @@ hostによるclosure保持、hostから返るclosureのallocationは定義しな
 
 ### 理由
 
-mal型とC型を直接同一視すると、aggregate layout、target calling convention、String lifetime、opaque resource policyがsource
+mal型とC型を直接同一視すると、aggregate layout、target calling convention、Engram lifetime、opaque resource policyがsource
 declarationから判別できない。小さなadapter境界とgenerated headerへ集約すれば、C parserやdynamic FFIをcompilerへ追加せず、
 target toolchainが実際に使用するABIとhost固有contractを明示できる。
 
-## D017. immutable byte sequenceの型名は`String`とする
+## D017. immutable byte値の型名は`Engram`とする
 
 - Status: Accepted
-- Date: 2026-09-05
-- Scope: mal v0.4
+- Date: 2026-09-06
+- Scope: mal v0.5
 - Refines: D010
 
 ### 決定
 
-immutableな有限byte sequenceの組み込み型名は`String`とする。この名称はtext encodingやUnicodeの保証を伴わない。
-値は任意のbyte列を保持でき、valid UTF-8、Unicode scalar、code point、grapheme、normalizationのinvariantを持たない。
+malに組み込むimmutableな有限byte値の型名は`Engram`とする。Engramはarray、buffer、encoded textではなく、
+numeric valueと同じく言語が直接持つ値領域の一つである。値は任意のbytesを保持でき、valid UTF-8、
+Unicode scalar、code point、grapheme、normalizationのinvariantを持たない。
 
-source上のraw characterはsource encodingであるUTF-8のbytesとしてliteralへ入り、`\xNN` escapeは任意の1 byteを表す。
-byte列としてのoperationとlifetimeは[String仕様](../spec/strings.md)に従う。
+`"..."`はEngramを表すliteral notationとする。literalのbytesはprogram imageにあらかじめ含まれる。host側の
+一時byte bufferはEngramではなく、mal-owned storageへcopyされた時点で新しいEngramになる。byte単位の観測と
+lifetimeは[Engram仕様](../spec/engrams.md)に従う。
 
 ### 理由
 
-既存のsyntax、型一覧、extern例との連続性を保ち、immutableな値であることをmutable buffer型と区別するため`String`を維持する。
-UTF-8を保証しない点は型名だけでは伝わらないため、型とliteralのauthorityで明記する。
-
-`Bytes`への改名はencoding上の誤解を減らせる一方、値の意味や安全性を変えず、既存文書とprogramを一斉に変更する移行コストが
-生じるため採用しない。mutable byte storageは引き続きexternal opaque typeで表し、`String`へmutable semanticsを追加しない。
+`Engram`は`en-`と、書かれたものを表す`gramma`に由来し、言語内部へ刻まれた値というmodelを示す。
+`String`はtextとencoding、`Bytes`は要素のcollection、`Buffer`はmutable storageを連想させるため採用しない。
+変更にはEngramをexternal mutable storageへcopyし、加工したbytesを別のEngramとしてmalへ戻す必要がある。
 
 ## D018. top-level initializationは作用のないclosed valueに限定する
 
@@ -687,7 +687,7 @@ predefinedなdirect-call-only primitiveとして`loadPtr :: Ptr -> Ptr`と
 `storePtr :: (Ptr, Ptr) -> Unit`を追加する。pointerは整数へ変換せず、target ABIのdata address object
 representationとしてalignmentを要求せずcopyする。格納されたpointerの複製はstorageのlifetimeを延長しない。
 
-product、sum、String、external opaque type、functionのaggregate accessは引き続き追加しない。pointerを含む
+product、sum、Engram、external opaque type、functionのaggregate accessは引き続き追加しない。pointerを含む
 node layoutのsize、allocation、deallocation、bounds、lifetimeはprogram固有のextern contractが所有する。
 
 ### 理由
@@ -716,7 +716,7 @@ malは`Char`型を持たず、single-quoted literalをbyte以外の意味に使�
 型選択上も曖昧性を解消していなかった。literalの唯一の型をsyntaxに重ねて書かず、短いspellingへ一本化する。
 Unicode characterを将来追加する場合は、byte literalの意味を変更せず別のsyntaxとして設計する。
 
-## D026. String descriptorをmemoryへload/storeできる
+## D026. Engram descriptorをmemoryへload/storeできる
 
 - Status: Accepted
 - Date: 2026-09-05
@@ -725,22 +725,22 @@ Unicode characterを将来追加する場合は、byte literalの意味を変更
 
 ### 決定
 
-predefinedなdirect-call-only primitiveとして`loadString :: Ptr -> String`と
-`storeString :: (Ptr, String) -> Unit`を追加する。operationはString descriptorだけをalignmentを要求せずcopyし、
-参照先のbytesはcopyしない。String bytesのprogram-lifetimeとimmutabilityは変更しない。
+predefinedなdirect-call-only primitiveとして`loadEngram :: Ptr -> Engram`と
+`storeEngram :: (Ptr, Engram) -> Unit`を追加する。operationはEngram descriptorだけをalignmentを要求せずcopyし、
+参照先のbytesはcopyしない。Engram bytesのprogram-lifetimeとimmutabilityは変更しない。
 
 memory上のdescriptorは、`storePtr`と同じpointer表現、その直後の`storeUInt64`と同じlength表現の順で
-paddingなしに配置する。必要byte数はtarget ABIのpointer格納byte数と8の和であり、Cの`MalString` structに
+paddingなしに配置する。必要byte数はtarget ABIのpointer格納byte数と8の和であり、Cの`MalEngram` structに
 含まれ得るpaddingには依存しない。
 
 ### 理由
 
-String fieldを持つmemory上のnodeをdescriptor primitiveなしで構築すると、program-lifetimeですでに安定している
-bytesを別領域へcopyし、pointerとlengthへ分解して管理する処理が必要になる。しかしStringのdata pointerは
+Engram fieldを持つmemory上のnodeをdescriptor primitiveなしで構築すると、program-lifetimeですでに安定している
+bytesを別領域へcopyし、pointerとlengthへ分解して管理する処理が必要になる。しかしEngramのdata pointerは
 immutabilityを保つためsource-levelに公開しておらず、復元にもhost operationが必要になる。
 
-Stringは一般のproductと異なり、組み込みのdescriptor表現とprogram-lifetime invariantを持つ。そのdescriptorを
-scalarや`Ptr`と同じmemory mechanismでround-trip可能にすれば、bytesのownershipを変えずにString fieldの操作を
+Engramは一般のproductと異なり、組み込みのdescriptor表現とprogram-lifetime invariantを持つ。そのdescriptorを
+scalarや`Ptr`と同じmemory mechanismでround-trip可能にすれば、bytesのownershipを変えずにEngram fieldの操作を
 malへ戻せる。storage layoutをpointerとfixed-width lengthの連結として定めることで、target依存のstruct paddingを
 programのoffset計算へ持ち込まない。
 
@@ -754,7 +754,7 @@ programのoffset計算へ持ち込まない。
 ### 決定
 
 `@T :: UInt64`を、型`T`のcanonical memory storage表現が占めるbyte数を返すtarget constantとして追加する。
-`@Ptr`はtarget ABIのpointer格納幅、`@String`は`@Ptr + 8`である。numeric scalarにも対応し、transparent
+`@Ptr`はtarget ABIのpointer格納幅、`@Engram`は`@Ptr + 8`である。numeric scalarにも対応し、transparent
 aliasは展開する。`Unit`、product、sum、external opaque type、functionはv0.5では拒否する。
 
 `@`は値に対する通常のunary operatorでも、型をfirst-class valueへ変えるsyntaxでもない。後続のtypeを
@@ -767,12 +767,12 @@ storage幅へ写す専用の構文であり、host `extern`を必要としない
 functionとしての`sizeof(T)`は型を値引数に見せる。専用sigilはlayout queryであることを短く明示する。
 
 `<T>`も同じ短さを持つが、`<`と`>`は比較演算子およびlambda capture listですでに使用している。`@T`なら
-それらのtoken列との境界を増やさず、field offsetの式でも`@String + @UInt8`と読める。
+それらのtoken列との境界を増やさず、field offsetの式でも`@Engram + @UInt8`と読める。
 
 productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory表現と対応するload/store戦略を
 別途決定してから対象へ加える。これにより現在のbackend layoutを将来のsource contractとして固定しない。
 
-## D028. Stringのlengthとbyte accessを`#` operatorで表す
+## D028. Engramのlengthとbyte accessを`#` operatorで表す
 
 - Status: Accepted
 - Date: 2026-09-05
@@ -780,16 +780,16 @@ productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory
 
 ### 決定
 
-Stringのbyte lengthを`#value :: UInt64`、0-based byte accessを
+Engramのbyte lengthを`#value :: UInt64`、0-based byte accessを
 `value # index :: UInt8`として表す。binary `#`のindexは`UInt64`で、範囲外はtrapし、operatorは
 non-associativeとする。
 
 ### 理由
 
-これらは通常のfunction valueではなく、すべてのString valueに常在する基本的な観測である。numeric scalarの
+これらは通常のfunction valueではなく、すべてのEngram valueに常在する基本的な観測である。numeric scalarの
 算術や比較と同じく型付きoperatorとして表し、値が元から持つprimitive operationとambient nameの境界を
 明確にする。
 
-unary `#`によるString byte lengthにはLuaなどの前例がある。binary `#`を同じoperator familyのbyte accessへ
-割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、StringがUnicode characterではなく
+unary `#`によるEngram byte lengthにはLuaなどの前例がある。binary `#`を同じoperator familyのbyte accessへ
+割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、EngramがUnicode characterではなく
 immutable byte sequenceである現在の意味を保つ。

@@ -22,5 +22,5 @@ line commentのcontentsと順序を保持する。tokenと同じsource lineに�
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。
 元のwhitespaceと空行数は保持しない。
 
-numeric separator、suffix、byte/String escapeを含むliteralのbyte spellingは変更しない。formatterは
+numeric separator、suffix、byte/Engram escapeを含むliteralのbyte spellingは変更しない。formatterは
 malformed sourceを補正せず、lexerまたはparserのstructured diagnosticを返す。

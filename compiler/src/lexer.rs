@@ -1,8 +1,8 @@
 use crate::diagnostic::Diagnostic;
 use crate::source::{SourceFile, Span};
 
+mod engram;
 mod number;
-mod string;
 mod token;
 
 pub use token::{
@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
             if byte == b'\'' {
                 self.lex_byte(start)?;
             } else if byte == b'"' {
-                self.lex_string(start)?;
+                self.lex_engram(start)?;
             } else if byte.is_ascii_alphabetic() {
                 self.lex_identifier(start)?;
             } else if byte.is_ascii_digit() {
@@ -166,16 +166,16 @@ impl<'a> Lexer<'a> {
         self.error(start, self.offset, "invalid byte literal", label)
     }
 
-    fn lex_string(&mut self, start: usize) -> Result<(), Diagnostic> {
-        match string::decode(self.bytes, start) {
+    fn lex_engram(&mut self, start: usize) -> Result<(), Diagnostic> {
+        match engram::decode(self.bytes, start) {
             Ok(decoded) => {
                 self.offset = decoded.end;
-                self.push(TokenKind::String(decoded.value), start);
+                self.push(TokenKind::Engram(decoded.value), start);
                 Ok(())
             }
             Err(error) => {
                 self.offset = error.end;
-                Err(self.error(start, error.end, "invalid string literal", error.label))
+                Err(self.error(start, error.end, "invalid Engram literal", error.label))
             }
         }
     }

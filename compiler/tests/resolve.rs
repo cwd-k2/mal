@@ -2,9 +2,9 @@ use malc::ast;
 use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
-    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE,
-    LOAD_PTR_VALUE, LOAD_STRING_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE, PTR_TYPE, STORE_INT64_VALUE,
-    STORE_PTR_VALUE, STORE_STRING_VALUE, STORE_UINT8_VALUE, STRING_TYPE, TopItem, UINT8_TYPE,
+    self as resolved, ENGRAM_TYPE, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
+    LOAD_ENGRAM_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE, PTR_TYPE,
+    STORE_ENGRAM_VALUE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_UINT8_VALUE, TopItem, UINT8_TYPE,
     UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
@@ -62,19 +62,19 @@ fn preserves_byte_literals_during_name_resolution() {
 }
 
 #[test]
-fn preserves_string_literals_and_resolves_the_predefined_type() {
-    let program = resolve_ok(r#"value :: String := "a\0";"#);
+fn preserves_engram_literals_and_resolves_the_predefined_type() {
+    let program = resolve_ok(r#"value :: Engram := "a\0";"#);
     let binding = top_binding(&program.items[0]);
     assert!(matches!(
         binding.value.kind,
-        resolved::Expression::String(ref value) if value == b"a\0"
+        resolved::Expression::Engram(ref value) if value == b"a\0"
     ));
     let resolved::TypeExpression::Named(reference) =
         &binding.annotation.as_ref().expect("annotation").kind
     else {
         panic!("expected named type");
     };
-    assert_eq!(reference.id, STRING_TYPE);
+    assert_eq!(reference.id, ENGRAM_TYPE);
 }
 
 #[test]
@@ -89,8 +89,8 @@ fn resolves_memory_primitives_and_the_ptr_type() {
            storeUInt8(next, byte);\n\
            target := loadPtr(next);\n\
            storePtr(next, target);\n\
-           text := loadString(next);\n\
-           storeString(next, text);\n\
+           text := loadEngram(next);\n\
+           storeEngram(next, text);\n\
            ();\n\
          };",
     );
@@ -117,8 +117,8 @@ fn resolves_memory_primitives_and_the_ptr_type() {
         STORE_UINT8_VALUE,
         LOAD_PTR_VALUE,
         STORE_PTR_VALUE,
-        LOAD_STRING_VALUE,
-        STORE_STRING_VALUE,
+        LOAD_ENGRAM_VALUE,
+        STORE_ENGRAM_VALUE,
     ];
     for (item, expected) in lambda.body.items.iter().zip(expected) {
         let expression = match item {
@@ -486,15 +486,6 @@ fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     for (text, expected) in cases {
         assert_eq!(resolve_error(text).message, expected, "input: {text}");
     }
-}
-
-#[test]
-fn removed_string_primitive_names_are_ordinary_names() {
-    resolve_ok("byteLength := 0; byteAt := 1;");
-    assert_eq!(
-        resolve_error("value := byteLength(\"abc\");").message,
-        "unknown value `byteLength`"
-    );
 }
 
 #[test]

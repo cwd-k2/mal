@@ -54,7 +54,7 @@ captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#sco
 lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: String -> Unit := \(message :: String) { extern print(message) };
+log :: Engram -> Unit := \(message :: Engram) { extern print(message) };
 ```
 
 ## 関数適用
@@ -71,8 +71,8 @@ makeFunction()(x)
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
 [memory](memory.md#primitive)に列挙するoperationはdirect-call-only primitiveである。通常のidentifierと同じ形で
-callするが、値としてbindingしたり引数として渡したりできない。Stringのlengthとbyte accessは名前付きprimitive
-ではなく、[`#` operator](strings.md#operator)で表す。
+callするが、値としてbindingしたり引数として渡したりできない。Engramのlengthとbyte accessは名前付きprimitive
+ではなく、[`#` operator](engrams.md#operator)で表す。
 
 ## storage size
 
@@ -82,7 +82,7 @@ function callではなく、host operationも実行しない。定義対象と�
 
 ```mal
 pointerBytes :: UInt64 := @Ptr;
-stringFieldBytes := @String + @UInt8;
+engramFieldBytes := @Engram + @UInt8;
 ```
 
 ## if
@@ -152,7 +152,7 @@ float literalとする。完全な形は[grammar](grammar.md#numeric-separator)�
 
 numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
 
-string literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[String](strings.md#literal)に定める。
+Engram literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[Engram](engrams.md#literal)に定める。
 
 ### byte literal
 

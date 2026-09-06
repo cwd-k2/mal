@@ -40,16 +40,16 @@ impl Checker {
                 ty: Type::UInt8,
                 span: expression.span,
             },
-            resolved::Expression::String(value) => Expression {
-                kind: ExpressionKind::String(value.clone()),
-                ty: Type::String,
+            resolved::Expression::Engram(value) => Expression {
+                kind: ExpressionKind::Engram(value.clone()),
+                ty: Type::Engram,
                 span: expression.span,
             },
             resolved::Expression::StorageSize(source) => {
                 let measured = self.expand_type(source)?;
                 if !is_integer(&measured)
                     && !is_float(&measured)
-                    && !matches!(measured, Type::Ptr | Type::String)
+                    && !matches!(measured, Type::Ptr | Type::Engram)
                 {
                     return Err(Diagnostic::error(
                         "type has no defined memory storage representation",

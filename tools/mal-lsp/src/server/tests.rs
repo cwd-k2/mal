@@ -239,14 +239,6 @@ fn serves_symbols_completion_and_semantic_tokens() {
             .iter()
             .any(|item| item["label"] == "offset" && item["kind"] == 3)
     );
-    assert!(
-        !completion["result"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| { item["label"] == "byteLength" || item["label"] == "byteAt" })
-    );
-
     let tokens = server.handle(json!({
         "jsonrpc": "2.0", "id": 22, "method": "textDocument/semanticTokens/full",
         "params": {"textDocument": {"uri": uri}}

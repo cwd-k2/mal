@@ -51,7 +51,7 @@ closure は定義した scope の外へ返したり、他の関数へ渡した�
 
 compiler は観測可能な動作を変えない限り、capture 除去、lambda lifting、stack allocation などにより environment allocation を省略してよい。
 
-`String`をcaptureした場合はcopyableなdescriptorをenvironmentへ保持し、そのbytesはprogram終了まで有効である。external opaque valueをcaptureしても、そのresourceに新しいownership規則は加わらない。詳細は[`extern` contract](extern.md)に従う。closure自体の決定理由は[D003](../design/decisions.md#d003-v04-は-lexical-closure-を持つ)、明示capture syntaxは[D007](../design/decisions.md#d007-capture-listを明示する)に記録する。
+`Engram`をcaptureした場合はcopyableなdescriptorをenvironmentへ保持し、そのbytesはprogram終了まで有効である。external opaque valueをcaptureしても、そのresourceに新しいownership規則は加わらない。詳細は[`extern` contract](extern.md)に従う。closure自体の決定理由は[D003](../design/decisions.md#d003-v04-は-lexical-closure-を持つ)、明示capture syntaxは[D007](../design/decisions.md#d007-capture-listを明示する)に記録する。
 
 ## 再帰
 
@@ -78,7 +78,7 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 - integer division または remainder の divisor が 0
 - 最小 signed integer を `-1` で割る、または remainder を求める
 - shift count が負、またはleft operandのbit width以上
-- String byte access `value # index` のindexが範囲外
+- Engram byte access `value # index` のindexが範囲外
 
 `<<`と`>>`のright operandはleft operandと同じ整数型で、結果も同じ型である。`<<`は数学的な`2^count`倍を
 operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する

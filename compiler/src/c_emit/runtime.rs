@@ -31,19 +31,19 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.shift_left != 0 || needs.shift_right != 0 {
         output.push_str(&emit_integer_shift(needs.shift_left, needs.shift_right));
     }
-    if needs.string_equality {
-        output.push_str(RUNTIME_STRING_EQUALITY);
+    if needs.engram_equality {
+        output.push_str(RUNTIME_ENGRAM_EQUALITY);
     }
-    if needs.string_at {
-        output.push_str(RUNTIME_STRING_AT);
+    if needs.engram_at {
+        output.push_str(RUNTIME_ENGRAM_AT);
     }
     if needs.memory_offset
         || needs.memory_load != 0
         || needs.memory_store != 0
         || needs.memory_load_ptr
         || needs.memory_store_ptr
-        || needs.memory_load_string
-        || needs.memory_store_string
+        || needs.memory_load_engram
+        || needs.memory_store_engram
     {
         output.push_str(&memory::emit(
             needs.memory_offset,
@@ -51,8 +51,8 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
             needs.memory_store,
             needs.memory_load_ptr,
             needs.memory_store_ptr,
-            needs.memory_load_string,
-            needs.memory_store_string,
+            needs.memory_load_engram,
+            needs.memory_store_engram,
         ));
     }
     if needs.float_to_integer != 0 {
@@ -62,5 +62,5 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
 }
 
 const RUNTIME_CORE: &str = include_str!("runtime/core.c");
-const RUNTIME_STRING_EQUALITY: &str = include_str!("runtime/string_equal.c");
-const RUNTIME_STRING_AT: &str = include_str!("runtime/string_at.c");
+const RUNTIME_ENGRAM_EQUALITY: &str = include_str!("runtime/engram_equal.c");
+const RUNTIME_ENGRAM_AT: &str = include_str!("runtime/engram_at.c");

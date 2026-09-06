@@ -29,10 +29,10 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
             .any(|symbol| { symbol.name == "offset" && symbol.kind == SymbolKind::Function })
     );
     assert!(
-        !document
+        document
             .completions()
             .iter()
-            .any(|symbol| symbol.name == "byteLength" || symbol.name == "byteAt")
+            .any(|symbol| { symbol.name == "Engram" && symbol.kind == SymbolKind::Type })
     );
 }
 
@@ -69,9 +69,9 @@ fn storage_size_types_support_hover_and_definition() {
 }
 
 #[test]
-fn string_operators_report_their_result_types() {
+fn engram_operators_report_their_result_types() {
     let text =
-        "inspect :: String -> UInt64 := \\(value :: String) { #value + UInt64(value # 0); };";
+        "inspect :: Engram -> UInt64 := \\(value :: Engram) { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();

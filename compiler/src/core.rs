@@ -103,7 +103,7 @@ impl Lowerer {
             },
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
             checked::ExpressionKind::Float(bits) => ExpressionKind::Float(*bits),
-            checked::ExpressionKind::String(value) => ExpressionKind::String(value.clone()),
+            checked::ExpressionKind::Engram(value) => ExpressionKind::Engram(value.clone()),
             checked::ExpressionKind::StorageSize(ty) => ExpressionKind::StorageSize(ty.clone()),
             checked::ExpressionKind::Unit => ExpressionKind::Unit,
             checked::ExpressionKind::Product(elements) => ExpressionKind::Product(
@@ -120,10 +120,10 @@ impl Lowerer {
                 callee: Box::new(self.lower_expression(callee)),
                 argument: Box::new(self.lower_expression(argument)),
             },
-            checked::ExpressionKind::StringLength { value } => ExpressionKind::StringLength {
+            checked::ExpressionKind::EngramLength { value } => ExpressionKind::EngramLength {
                 value: Box::new(self.lower_expression(value)),
             },
-            checked::ExpressionKind::StringAt { argument } => ExpressionKind::StringAt {
+            checked::ExpressionKind::EngramAt { argument } => ExpressionKind::EngramAt {
                 argument: Box::new(self.lower_expression(argument)),
             },
             checked::ExpressionKind::Memory {
@@ -175,7 +175,7 @@ impl Lowerer {
                     operator: match operator.kind {
                         UnaryOperator::Negate => UnaryPrimitive::Negate,
                         UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
-                        UnaryOperator::LogicalNot | UnaryOperator::StringLength => {
+                        UnaryOperator::LogicalNot | UnaryOperator::EngramLength => {
                             unreachable!("type checking rejects non-numeric core primitives")
                         }
                     },
@@ -192,8 +192,8 @@ impl Lowerer {
                 {
                     return self.lower_short_circuit(operator.kind, left, right, expression.span);
                 }
-                if operator.kind == BinaryOperator::StringAt {
-                    unreachable!("String access is lowered before generic binary operators");
+                if operator.kind == BinaryOperator::EngramAt {
+                    unreachable!("Engram access is lowered before generic binary operators");
                 }
                 if matches!(
                     operator.kind,

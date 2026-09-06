@@ -4,8 +4,8 @@ use super::ast::BinaryPrimitive;
 
 pub(super) fn lower_binary_primitive(operator: BinaryOperator) -> BinaryPrimitive {
     match operator {
-        BinaryOperator::StringAt => {
-            unreachable!("String access is lowered before generic binary primitives")
+        BinaryOperator::EngramAt => {
+            unreachable!("Engram access is lowered before generic binary primitives")
         }
         BinaryOperator::Multiply => BinaryPrimitive::Multiply,
         BinaryOperator::Divide => BinaryPrimitive::Divide,

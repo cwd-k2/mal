@@ -10,7 +10,7 @@ T ::=
   | Int8 | Int16 | Int32 | Int64
   | UInt8 | UInt16 | UInt32 | UInt64
   | Float32 | Float64
-  | String
+  | Engram
   | Ptr
   | (T, T, ...)
   | [T, T, ...]
@@ -25,19 +25,19 @@ T ::=
 
 `Byte` と `Char` という型はない。単一 byte は `UInt8` で表す。mal は Unicode character を primitive value として定義しない。
 
-## String
+## Engram
 
-`String`はimmutableな有限byte sequenceである。値はcopyableであり、そのbytesはprogram終了まで有効で変更されない。String値を複製してもbytes自体を複製する必要はない。source-levelの個別解放操作は存在しない。
+`Engram`は言語組み込みのimmutableな有限byte値であり、array、buffer、encoded textではない。値はcopyableで、そのbytesはprogram終了まで有効で変更されない。Engram値を複製してもbytes自体を複製する必要はない。source-levelの個別解放操作は存在しない。
 
-String literalは静的storageに置いてよい。`extern`から得るStringはmal-owned storageへcopyされる。literal、primitive、storageの完全な規則は[String](strings.md)に定める。
+Engram literalはnumeric literalと同じく組み込み値を表すnotationであり、そのbytesはprogram imageの静的storageに置いてよい。host側の一時byte bufferはEngramではなく、`extern`境界でmal-owned storageへcopyされた時点でEngramになる。literal、operator、storageの完全な規則は[Engram](engrams.md)に定める。
 
-mutable byte bufferはStringではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
+mutable byte bufferはEngramではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
 組み込みのarray、slice、`ByteBuffer`型を持たない。
 
 ## Ptr
 
 `Ptr`は型なしのdata address型である。要素型、length、ownershipは持たず、memory accessにはpredefinedな
-numeric scalar、pointer、およびString descriptor operationを使う。完全な規則は[memory primitive](memory.md)に定める。
+numeric scalar、pointer、およびEngram descriptor operationを使う。完全な規則は[memory primitive](memory.md)に定める。
 
 ## Unit
 

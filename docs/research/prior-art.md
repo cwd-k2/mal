@@ -51,16 +51,16 @@ mal への含意:
 - v0.4 はlexical closureを採用するが、captureする名前はsourceのcapture listで明示する。reference compilerの回収戦略はprogram-lifetime arenaに限定する。
 - binding が immutable でも environment の配置は必要だが、mutable cell の共有規則は不要になる。
 
-## ABI、String、resource
+## ABI、Engram、resource
 
 [WebAssembly Component Model Canonical ABI](https://github.com/webassembly/component-model/blob/main/design/mvp/CanonicalABI.md) は scalar 以外の値を component 境界で渡すために、layout、allocation、post-return など多くの規則を必要とする。[Component Model overview](https://component-model.bytecodealliance.org/advanced/canonical-abi.html) も、string や composite type には wire representation と ownership rule が必要だと説明する。
 
 mal への含意:
 
-- `extern print :: String -> Unit` という型だけでは相互運用仕様は完成しない。
+- `extern print :: Engram -> Unit` という型だけでは相互運用仕様は完成しない。
 - pointer を source language から隠しても、buffer の ownership と lifetime は消えない。
 - opaque resource を unrestricted value とするなら、resource safety を保証しないことを明記する必要がある。
-- v0.4のStringはextern return時にmal-ownedなprogram-lifetime storageへcopyし、mutable bytesはexternal opaque bufferへ分離する。これによりhostへprogram-lifetime bufferを要求しない。
+- v0.4のEngramはextern return時にmal-ownedなprogram-lifetime storageへcopyし、mutable bytesはexternal opaque bufferへ分離する。これによりhostへprogram-lifetime bufferを要求しない。
 
 ## 調査からの結論
 

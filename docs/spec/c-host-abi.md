@@ -32,7 +32,7 @@ typedef struct {
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalString;
+} MalEngram;
 
 typedef struct {
     uint8_t *address;
@@ -40,14 +40,14 @@ typedef struct {
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 
-MalString mal_string_copy(
+MalEngram mal_engram_copy(
     MalContext *context,
     const uint8_t *data,
     uint64_t length
 );
 ```
 
-`MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_string_copy`はreference runtimeが提供する。
+`MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_engram_copy`はreference runtimeが提供する。
 
 generated headerは各external operationに`MAL_HAS_EXTERN_<name>`を値`1`で定義し、`MAL_DEFINE_<name>` macroも生成する。
 前者は複数programで共有するhost adapterが、そのprogramにoperationが存在するかをpreprocessorで判定するために使う。
@@ -65,7 +65,7 @@ MAL_DEFINE_printInt32(context, value) {
 
 `MalUnit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
-`mal_string_copy`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたStringはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
+`mal_engram_copy`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたEngramはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
 
 ## symbol naming
 
@@ -123,11 +123,13 @@ host resourceが一wordに収まらない場合はhost側でboxする。zero bit
 generated headerは各opaque typeについて`mal_<Type>_from_bits`と`mal_<Type>_bits`を生成する。このhelperは
 `.bits` fieldと同じbit patternを構成・取得するだけであり、resource contractやownershipを追加しない。
 
-String parameterは`MalString`で渡し、hostはcall終了後に`data`を保持しない。String resultを返すhost implementationは`mal_string_copy`で作った`MalString`を返す。
+`MalEngram`はmal EngramをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
+Engram parameterは`MalEngram`で渡し、hostはcall終了後に`data`を保持しない。Engram resultを返すhost
+implementationは、一時byte bufferを`mal_engram_copy`へ渡して作った`MalEngram`を返す。
 
-String descriptorのmemory load/store表現はCの`MalString` object representationそのものではない。
+Engram descriptorのmemory load/store表現はCの`MalEngram` object representationそのものではない。
 `MalPtr`のobject representationと`uint64_t`のlengthをこの順でpaddingなしに置く。hostがこの表現を書く場合も、
-data pointerとlengthは既存の有効なmal Stringから取得し、C structのpaddingを含む`sizeof(MalString)` bytesを
+data pointerとlengthは既存の有効なmal Engramから取得し、C structのpaddingを含む`sizeof(MalEngram)` bytesを
 そのままcopyしてはならない。
 
 `Ptr`は`MalPtr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを

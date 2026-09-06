@@ -1,6 +1,6 @@
 // Every lexical category in the v0.5 profile appears in this fixture.
 extern Handle;
-extern write :: (Handle, String) -> Unit;
+extern write :: (Handle, Engram) -> Unit;
 Pair :: (Int32, UInt8);
 Choice :: [Int32, UInt8];
 
@@ -14,11 +14,11 @@ letter :: UInt8 := '\x41';
 
 closingParen :: UInt8 := ')';
 
-message :: String := "mal\n";
+message :: Engram := "mal\n";
 
-stringStorageSize :: UInt64 := @String;
+engramStorageSize :: UInt64 := @Engram;
 
-inspect :: String -> UInt64 := \(value :: String) {
+inspect :: Engram -> UInt64 := \(value :: Engram) {
     #value + UInt64(value # 1u64);
 };
 

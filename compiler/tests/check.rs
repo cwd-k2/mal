@@ -246,20 +246,20 @@ fn checks_float_arithmetic_comparison_and_negation() {
 }
 
 #[test]
-fn checks_string_literals_as_immutable_bytes() {
-    let program = check_ok(r#"empty :: String := ""; bytes := "あ\0\xff";"#);
-    assert_eq!(top_binding(&program, 0).value.ty, Type::String);
+fn checks_engram_literals_as_immutable_bytes() {
+    let program = check_ok(r#"empty :: Engram := ""; bytes := "あ\0\xff";"#);
+    assert_eq!(top_binding(&program, 0).value.ty, Type::Engram);
     assert!(matches!(
         top_binding(&program, 1).value.kind,
-        ExpressionKind::String(ref value) if value == &[0xe3, 0x81, 0x82, 0, 255]
+        ExpressionKind::Engram(ref value) if value == &[0xe3, 0x81, 0x82, 0, 255]
     ));
 }
 
 #[test]
-fn checks_string_operators_and_byte_wise_equality() {
+fn checks_engram_operators_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: String -> UInt64 := \(value :: String) { #value; };
-item :: (String, UInt64) -> UInt8 := \(value :: String, index :: UInt64) {
+        r#"length :: Engram -> UInt64 := \(value :: Engram) { #value; };
+item :: (Engram, UInt64) -> UInt8 := \(value :: Engram, index :: UInt64) {
   value # index;
 };
 same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
@@ -271,14 +271,14 @@ literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };"#,
     };
     assert!(matches!(
         length.body.result.kind,
-        ExpressionKind::StringLength { .. }
+        ExpressionKind::EngramLength { .. }
     ));
     let ExpressionKind::Lambda(item) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
     };
     assert!(matches!(
         item.body.result.kind,
-        ExpressionKind::StringAt { .. }
+        ExpressionKind::EngramAt { .. }
     ));
     for index in 2..=3 {
         let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {
@@ -293,7 +293,7 @@ literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };"#,
 }
 
 #[test]
-fn rejects_unsupported_or_mistyped_string_operations() {
+fn rejects_unsupported_or_mistyped_engram_operations() {
     for text in [
         r#"bad := "a" + "b";"#,
         r#"bad := "a" < "b";"#,
@@ -351,7 +351,7 @@ fn checks_memory_primitives_for_every_supported_value_type() {
            storeFloat32(pointer, loadFloat32(pointer));\n\
            storeFloat64(pointer, loadFloat64(pointer));\n\
            storePtr(pointer, loadPtr(pointer));\n\
-           storeString(pointer, loadString(pointer));\n\
+           storeEngram(pointer, loadEngram(pointer));\n\
            ();\n\
          };",
     );
@@ -367,13 +367,13 @@ fn checks_memory_primitives_for_every_supported_value_type() {
 }
 
 #[test]
-fn checks_storage_sizes_for_scalar_ptr_and_string_types() {
+fn checks_storage_sizes_for_scalar_ptr_and_engram_types() {
     let program = check_ok(
         "Byte :: UInt8;\n\
          byteSize :: UInt64 := @Byte;\n\
          sizes :: Unit -> UInt64 := \\() {\n\
            @Int8 + @Int16 + @Int32 + @Int64 + byteSize\n\
-             + @UInt16 + @UInt32 + @UInt64 + @Float32 + @Float64 + @Ptr + @String;\n\
+             + @UInt16 + @UInt32 + @UInt64 + @Float32 + @Float64 + @Ptr + @Engram;\n\
          };",
     );
     assert_eq!(top_binding(&program, 1).value.ty, Type::UInt64);
@@ -391,8 +391,8 @@ fn checks_storage_sizes_for_scalar_ptr_and_string_types() {
 fn rejects_storage_sizes_without_a_memory_representation() {
     for text in [
         "value := @Unit;",
-        "value := @(UInt8, String);",
-        "value := @[UInt8, String];",
+        "value := @(UInt8, Engram);",
+        "value := @[UInt8, Engram];",
         "extern Resource; value := @Resource;",
         "value := @(Int32 -> Int32);",
     ] {
@@ -412,12 +412,12 @@ fn rejects_mistyped_or_first_class_memory_primitives() {
         "bad := \\() { loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storePtr(extern memory(), 1u64); (); };",
-        "bad := \\() { loadString(0u64); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { storeString(extern memory(), 1u64); (); };",
+        "bad := \\() { loadEngram(0u64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storeEngram(extern memory(), 1u64); (); };",
         "bad := offset;",
         "bad := loadFloat64;",
         "bad := loadPtr;",
-        "bad := storeString;",
+        "bad := storeEngram;",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

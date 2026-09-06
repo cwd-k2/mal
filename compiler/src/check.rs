@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::ast::{Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, BOOL_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE,
-    INT32_TYPE, INT64_TYPE, PTR_TYPE, STRING_TYPE, TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE,
+    self as resolved, BOOL_TYPE, ENGRAM_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE,
+    INT16_TYPE, INT32_TYPE, INT64_TYPE, PTR_TYPE, TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE,
     UINT32_TYPE, UINT64_TYPE, UNIT_TYPE, ValueId,
 };
 use crate::source::Span;
@@ -277,7 +277,7 @@ impl Checker {
             FLOAT32_TYPE => return Ok(Type::Float32),
             FLOAT64_TYPE => return Ok(Type::Float64),
             BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
-            STRING_TYPE => return Ok(Type::String),
+            ENGRAM_TYPE => return Ok(Type::Engram),
             PTR_TYPE => return Ok(Type::Ptr),
             _ => {}
         }
@@ -435,7 +435,7 @@ fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
         resolved::Expression::Integer(_)
         | resolved::Expression::Float(_)
         | resolved::Expression::Byte(_)
-        | resolved::Expression::String(_)
+        | resolved::Expression::Engram(_)
         | resolved::Expression::StorageSize(_)
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
@@ -475,7 +475,7 @@ fn contains_function(ty: &Type) -> bool {
         | Type::UInt32
         | Type::UInt64 => false,
         Type::Float32 | Type::Float64 => false,
-        Type::String => false,
+        Type::Engram => false,
         Type::Ptr => false,
     }
 }

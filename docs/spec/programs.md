@@ -20,7 +20,7 @@ value binding
 
 ```mal
 Point :: (Float64, Float64);
-extern print :: String -> Unit;
+extern print :: Engram -> Unit;
 
 distance :: (Point, Point) -> Float64 :=
     \(a :: Point, b :: Point) {

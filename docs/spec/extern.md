@@ -9,7 +9,7 @@ I/O、memory、allocation、filesystem、network、clock、randomness、process�
 ```mal
 extern Mem;
 extern alloc :: UInt64 -> Mem;
-extern print :: String -> Unit;
+extern print :: Engram -> Unit;
 ```
 
 call site には必ず `extern` を書く。
@@ -28,7 +28,7 @@ v0.5では、extern declarationのparameter型とresult型はfunction型を直�
 ```text
 externSafe(Unit)         = true
 externSafe(scalar)       = true
-externSafe(String)       = true
+externSafe(Engram)       = true
 externSafe(Ptr)          = true
 externSafe(ExternalType) = true
 externSafe((T...))       = all externSafe(T)
@@ -37,8 +37,8 @@ externSafe(A -> B)       = false
 ```
 
 ```mal
-extern print :: String -> Unit;
-extern choose :: [Int32, String] -> Int32;
+extern print :: Engram -> Unit;
+extern choose :: [Int32, Engram] -> Int32;
 ```
 
 上の二つはvalidである。次はfunction型を含むためinvalidである。
@@ -71,22 +71,22 @@ printValue :: Int32 -> Unit := \(x :: Int32) {
 型の宣言だけでは ABI、ownership、lifetime、failure を定義できない。各 backend または embedding は少なくとも次を別途定義しなければならない。
 
 - symbol の名前解決と calling convention
-- scalar、product、sum、`String` の表現
+- scalar、product、sum、`Engram` の表現
 - opaque value の size、alignment、copy/drop の意味
-- host 側の一時 `String` buffer の取得方法と copy 後の解放
+- host 側の一時byte bufferの取得方法とcopy後の解放
 - host failure を trap、process termination、戻り値のどれへ写像するか
 - host が保持してよい引数と、mal が保持してよい戻り値
 
-## Stringのlifetime
+## Engramのlifetime
 
-v0.5のString lifetime contractは次とする。
+v0.5のEngram lifetime contractは次とする。
 
-- mal から host へ渡す `String` は call 中だけ borrow され、host は return 後に参照を保持しない。
-- hostからStringを返すsource-level operationは、callが完了する前にbytesをmal-owned storageへcopyする。返されたmal Stringはhost側bufferを参照しない。
-- mal-ownedなString bytesはprogram終了まで有効で変更されない。reference compilerは実行時に得るbytesをprogram-lifetime arenaへ配置し、個別に解放しない。
-- String copyのallocation sizeを表現できない場合とallocation failureはtrapする。
+- mal から host へ渡す `Engram` は call 中だけ borrow され、host は return 後に参照を保持しない。
+- host側の一時byte bufferはEngramではない。Engramを返すsource-level operationは、callが完了する前にbytesをmal-owned storageへcopyし、その時点で新しいEngramを作る。返されたEngramはhost側bufferを参照しない。
+- mal-ownedなEngram bytesはprogram終了まで有効で変更されない。reference compilerは実行時に得るbytesをprogram-lifetime arenaへ配置し、個別に解放しない。
+- Engram copyのallocation sizeを表現できない場合とallocation failureはtrapする。
 
-host側bufferの具体的な取得、copy完了までの有効期間、copy後の解放はbackend adapter contractが定める。hostの後続変更や解放がmal Stringへ影響してはならない。決定理由は[D010](../design/decisions.md#d010-stringは-mal-ownedなprogram-lifetime-bytesとする)に記録する。
+host側bufferの具体的な取得、copy完了までの有効期間、copy後の解放はbackend adapter contractが定める。hostの後続変更や解放がEngramへ影響してはならない。決定理由は[D010](../design/decisions.md#d010-engramは-mal-ownedなprogram-lifetime-bytesとする)に記録する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)に記録する。
@@ -96,7 +96,7 @@ storageを複製せず、lifetimeを延長しない。詳細は[memory primitive
 
 ## ABI と adapter
 
-`extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`String` は target ABI によって引数・戻り値の渡し方が異なる。
+`extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`Engram` は target ABI によって引数・戻り値の渡し方が異なる。
 
 reference C backendはmal用の一貫したC representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
 host APIを呼ぶ。C header parserやC type systemはmalに導入しない。
@@ -107,6 +107,6 @@ linker inputとして渡す。symbolはlink時に解決し、runtime `dlopen`や
 
 ## 安全性の境界
 
-正しく型付けされた mal program であっても、contract に違反する host implementation から保護されない。例えば不正な tag の sum、copy完了前に無効となるhost側String buffer、二重解放可能な handle を host が与えれば、言語の型安全性は維持できない。
+正しく型付けされた mal program であっても、contract に違反する host implementation から保護されない。例えば不正な tag の sum、copy完了前に無効となるhost側byte buffer、二重解放可能な handle を host が与えれば、言語の型安全性は維持できない。
 
 したがって `extern` implementation は trusted computing base に含まれる。

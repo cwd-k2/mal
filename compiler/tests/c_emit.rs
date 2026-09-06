@@ -487,10 +487,10 @@ fn traps_invalid_float_to_integer_conversions_before_the_c_cast() {
 }
 
 #[test]
-fn emits_static_string_bytes_that_survive_closure_escape() {
+fn emits_static_engram_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
-        r#"extern inspect :: String -> Unit;
-make :: String -> (Unit -> String) := \(value :: String) {
+        r#"extern inspect :: Engram -> Unit;
+make :: Engram -> (Unit -> Engram) := \(value :: Engram) {
   \<value>() { value; };
 };
 main :: Unit -> Int32 := \() {
@@ -504,7 +504,7 @@ main :: Unit -> Int32 := \() {
 #include <inttypes.h>
 #include <stdio.h>
 
-void mal_ext_inspect(MalContext *context, MalString value) {
+void mal_ext_inspect(MalContext *context, MalEngram value) {
     (void)context;
     printf("%" PRIu64 ":", value.length);
     for (uint64_t index = 0; index < value.length; index += UINT64_C(1)) {
@@ -522,7 +522,7 @@ void mal_ext_inspect(MalContext *context, MalString value) {
 }
 
 #[test]
-fn executes_string_operators_and_byte_wise_equality() {
+fn executes_engram_operators_and_byte_wise_equality() {
     let output = compile_and_run(
         r#"main :: Unit -> Int32 := \() {
   value := "あ\0\xff";
@@ -544,7 +544,7 @@ fn executes_string_operators_and_byte_wise_equality() {
 }
 
 #[test]
-fn traps_out_of_range_string_byte_access() {
+fn traps_out_of_range_engram_byte_access() {
     for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
@@ -552,45 +552,45 @@ fn traps_out_of_range_string_byte_access() {
         );
         assert!(!output.status.success(), "expression: {expression}");
         assert!(
-            String::from_utf8_lossy(&output.stderr).contains("string index out of range"),
+            String::from_utf8_lossy(&output.stderr).contains("Engram index out of range"),
             "expression: {expression}"
         );
     }
 }
 
 #[test]
-fn copies_host_string_results_into_program_lifetime_storage() {
+fn copies_host_bytes_into_program_lifetime_engrams() {
     let generated = emit(
-        r#"extern fetch :: Unit -> String;
+        r#"extern fetch :: Unit -> Engram;
 main :: Unit -> Int32 := \() {
   value := extern fetch();
   ok := (value == "host\0\xff") && (value # 5u64 == 255u8);
   if (ok) then { 0 } else { 1 };
 };"#,
     )
-    .expect("emit String ABI");
+    .expect("emit Engram ABI");
     assert!(generated.header.contains(
-        "MalString mal_string_copy(MalContext *context, const uint8_t *data, uint64_t length);"
+        "MalEngram mal_engram_copy(MalContext *context, const uint8_t *data, uint64_t length);"
     ));
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "MalString mal_ext_fetch(MalContext *context);"
+        "MalEngram mal_ext_fetch(MalContext *context);"
     ));
-    let fixture = NativeFixture::new("string-copy");
+    let fixture = NativeFixture::new("engram-copy");
     let executable = fixture.compile_generated(
         generated,
         r#"#include "program.mal.h"
 #include <stdlib.h>
 #include <string.h>
 
-MalString mal_ext_fetch(MalContext *context) {
+MalEngram mal_ext_fetch(MalContext *context) {
     uint8_t *scratch = (uint8_t *)malloc(6);
     if (scratch == NULL) {
         mal_trap(context, "host allocation failed");
     }
     const uint8_t original[6] = { 'h', 'o', 's', 't', 0, 255 };
     memcpy(scratch, original, 6);
-    MalString result = mal_string_copy(context, scratch, UINT64_C(6));
+    MalEngram result = mal_engram_copy(context, scratch, UINT64_C(6));
     memset(scratch, 0, 6);
     free(scratch);
     return result;
@@ -606,17 +606,17 @@ MalString mal_ext_fetch(MalContext *context) {
 }
 
 #[test]
-fn traps_string_copy_allocation_failure_and_length_overflow() {
+fn traps_engram_copy_allocation_failure_and_length_overflow() {
     let source =
-        "extern fetch :: Unit -> String; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
+        "extern fetch :: Unit -> Engram; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
 
-    let failure_fixture = NativeFixture::new("string-copy-failure");
+    let failure_fixture = NativeFixture::new("engram-copy-failure");
     let failure_executable = failure_fixture.compile_generated_with_options(
-        emit(source).expect("emit String ABI"),
+        emit(source).expect("emit Engram ABI"),
         r#"#include "program.mal.h"
-MalString mal_ext_fetch(MalContext *context) {
+MalEngram mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_string_copy(context, &value, UINT64_C(1));
+    return mal_engram_copy(context, &value, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
@@ -625,13 +625,13 @@ MalString mal_ext_fetch(MalContext *context) {
     assert!(!failure.status.success());
     assert!(String::from_utf8_lossy(&failure.stderr).contains("mal trap: allocation failed"));
 
-    let overflow_fixture = NativeFixture::new("string-copy-overflow");
+    let overflow_fixture = NativeFixture::new("engram-copy-overflow");
     let overflow_executable = overflow_fixture.compile_generated(
-        emit(source).expect("emit String ABI"),
+        emit(source).expect("emit Engram ABI"),
         r#"#include "program.mal.h"
-MalString mal_ext_fetch(MalContext *context) {
+MalEngram mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_string_copy(context, &value, UINT64_MAX);
+    return mal_engram_copy(context, &value, UINT64_MAX);
 }
 "#,
     );
@@ -759,7 +759,7 @@ fn executes_target_storage_size_expressions() {
          main :: Unit -> Int32 := \\() {\n\
            actual := @Int8 + @Int16 + @Int32 + @Int64\n\
              + @UInt8 + @UInt16 + @UInt32 + @UInt64\n\
-             + @Float32 + @Float64 + pointerSize + @String;\n\
+             + @Float32 + @Float64 + pointerSize + @Engram;\n\
            if (actual == extern expectedSize()) then { 0 } else { 1 };\n\
          };",
         r#"#include "program.mal.h"
@@ -774,32 +774,32 @@ uint64_t mal_ext_expectedSize(MalContext *context) {
 }
 
 #[test]
-fn executes_unaligned_string_descriptor_access() {
-    let source = "extern stringSlot :: Unit -> Ptr;\n\
-         extern inspectStringSlot :: Unit -> Unit;\n\
+fn executes_unaligned_engram_descriptor_access() {
+    let source = "extern engramSlot :: Unit -> Ptr;\n\
+         extern inspectEngramSlot :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := offset(extern stringSlot(), 1u64);\n\
-           initial := loadString(slot);\n\
-           storeString(slot, \"held\\0\\xff\");\n\
-           extern inspectStringSlot();\n\
-           stored := loadString(slot);\n\
+           slot := offset(extern engramSlot(), 1u64);\n\
+           initial := loadEngram(slot);\n\
+           storeEngram(slot, \"held\\0\\xff\");\n\
+           extern inspectEngramSlot();\n\
+           stored := loadEngram(slot);\n\
            if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
              0\n\
            } else {\n\
              1\n\
            };\n\
          };";
-    let generated = emit(source).expect("emit String descriptor access");
-    assert!(generated.source.contains("mal_load_string"));
-    assert!(generated.source.contains("mal_store_string"));
+    let generated = emit(source).expect("emit Engram descriptor access");
+    assert!(generated.source.contains("mal_load_engram"));
+    assert!(generated.source.contains("mal_store_engram"));
     let host = r#"#include "program.mal.h"
 #include <string.h>
 
 static uint8_t slot[sizeof(MalPtr) + sizeof(uint64_t) + 1];
 
-MalPtr mal_ext_stringSlot(MalContext *context) {
+MalPtr mal_ext_engramSlot(MalContext *context) {
     static const uint8_t seed[] = { 's', 'e', 'e', 'd' };
-    MalString initial = mal_string_copy(context, seed, UINT64_C(4));
+    MalEngram initial = mal_engram_copy(context, seed, UINT64_C(4));
     MalPtr data = mal_ptr_from_address((uint8_t *)initial.data);
     uint64_t length = initial.length;
     memcpy(slot + 1, &data, sizeof(data));
@@ -807,7 +807,7 @@ MalPtr mal_ext_stringSlot(MalContext *context) {
     return mal_ptr_from_address(slot);
 }
 
-void mal_ext_inspectStringSlot(MalContext *context) {
+void mal_ext_inspectEngramSlot(MalContext *context) {
     MalPtr data;
     uint64_t length;
     static const uint8_t expected[] = { 'h', 'e', 'l', 'd', 0, 255 };
@@ -815,11 +815,11 @@ void mal_ext_inspectStringSlot(MalContext *context) {
     memcpy(&length, slot + 1 + sizeof(data), sizeof(length));
     if (length != UINT64_C(6)
         || memcmp(mal_ptr_address(data), expected, sizeof(expected)) != 0) {
-        mal_trap(context, "unexpected stored String descriptor");
+        mal_trap(context, "unexpected stored Engram descriptor");
     }
 }
 "#;
-    let fixture = NativeFixture::new("string-value-memory");
+    let fixture = NativeFixture::new("engram-value-memory");
     let executable = fixture.compile_generated(generated, host);
     assert!(fixture.run(executable).status.success());
 }
@@ -841,8 +841,8 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     assert!(!generated.source.contains("mal_ptr_offset"));
     assert!(!generated.source.contains("mal_load_int8"));
     assert!(!generated.source.contains("mal_store_float64"));
-    assert!(!generated.source.contains("mal_load_string"));
-    assert!(!generated.source.contains("mal_store_string"));
+    assert!(!generated.source.contains("mal_load_engram"));
+    assert!(!generated.source.contains("mal_store_engram"));
 
     let fixture = NativeFixture::new("selective-memory-runtime");
     let executable = fixture.compile_generated_with_options(

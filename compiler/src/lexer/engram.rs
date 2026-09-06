@@ -39,7 +39,7 @@ pub(super) fn decode(bytes: &[u8], start: usize) -> Result<Decoded, DecodeError>
                         };
                         high * 16 + low
                     }
-                    _ => return Err(error(bytes, offset, "unknown string escape")),
+                    _ => return Err(error(bytes, offset, "unknown Engram escape")),
                 };
                 value.push(escaped);
                 offset += 1;

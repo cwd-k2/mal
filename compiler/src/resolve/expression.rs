@@ -21,7 +21,7 @@ impl Resolver {
             ast::Expression::Integer(value) => Expression::Integer(value.clone()),
             ast::Expression::Float(value) => Expression::Float(value.clone()),
             ast::Expression::Byte(value) => Expression::Byte(*value),
-            ast::Expression::String(value) => Expression::String(value.clone()),
+            ast::Expression::Engram(value) => Expression::Engram(value.clone()),
             ast::Expression::StorageSize(ty) => Expression::StorageSize(self.resolve_type(ty)?),
             ast::Expression::Unit => Expression::Unit,
             ast::Expression::Parenthesized(inner) => {

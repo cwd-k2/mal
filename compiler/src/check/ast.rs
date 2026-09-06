@@ -17,7 +17,7 @@ pub enum Type {
     UInt64,
     Float32,
     Float64,
-    String,
+    Engram,
     Ptr,
     External {
         id: TypeId,
@@ -94,7 +94,7 @@ pub enum ExpressionKind {
     Reference(ValueReference),
     Integer(i128),
     Float(u64),
-    String(Vec<u8>),
+    Engram(Vec<u8>),
     StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
@@ -104,10 +104,10 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
-    StringLength {
+    EngramLength {
         value: Box<Expression>,
     },
-    StringAt {
+    EngramAt {
         argument: Box<Expression>,
     },
     Memory {
@@ -153,8 +153,8 @@ pub enum MemoryPrimitive {
     Store(MemoryScalar),
     LoadPtr,
     StorePtr,
-    LoadString,
-    StoreString,
+    LoadEngram,
+    StoreEngram,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

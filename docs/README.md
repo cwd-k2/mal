@@ -12,7 +12,7 @@
 1. [最小性の方針](design/minimality.md)
 2. [言語の範囲](spec/scope.md)
 3. [型](spec/types.md)
-4. [String](spec/strings.md)
+4. [Engram](spec/engrams.md)
 5. [memory primitive](spec/memory.md)
 6. [式と binding](spec/expressions.md)
 7. [実行意味論](spec/execution.md)
@@ -46,7 +46,7 @@
 ## v0.5 の短い定義
 
 malはstrict call-by-valueの単純型付き関数型言語である。immutable binding、関数、直積、直和、固定幅scalar、
-immutable byte string、型なし`Ptr`によるscalar memory accessを持つ。外部世界との作用は`extern` callと
+immutable Engram、型なし`Ptr`によるscalar memory accessを持つ。外部世界との作用は`extern` callと
 明示的なmemory storeに限定する。
 
 reference compiler `malc` はRustで実装し、最初のbackendはCを生成する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
