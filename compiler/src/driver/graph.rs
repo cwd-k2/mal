@@ -67,13 +67,22 @@ impl Builder {
             let required_path =
                 requirement_path(source, &required.kind.path, required.kind.path_span)
                     .map_err(|error| Error::diagnostic(error, &self.files))?;
-            let canonical = canonicalize_requirement(&required_path, required.kind.path_span)
-                .map_err(|error| Error::diagnostic(error, &self.files))?;
-            match canonical
+            let kind = match required_path
                 .extension()
                 .and_then(|extension| extension.to_str())
             {
-                Some("mal") => {
+                Some("mal") => RequirementKind::Mal,
+                Some("c") => RequirementKind::C,
+                _ => {
+                    let diagnostic = Diagnostic::error("unsupported requirement type")
+                        .with_primary(required.kind.path_span, "expected a `.mal` or `.c` path");
+                    return Err(Error::diagnostic(diagnostic, &self.files));
+                }
+            };
+            let canonical = canonicalize_requirement(&required_path, required.kind.path_span)
+                .map_err(|error| Error::diagnostic(error, &self.files))?;
+            match kind {
+                RequirementKind::Mal => {
                     let dependency = self.load_mal(&canonical, Some(required.kind.path_span))?;
                     let requirements = &mut self.requirements[id.index() as usize];
                     if !requirements
@@ -86,21 +95,22 @@ impl Builder {
                         });
                     }
                 }
-                Some("c") => {
+                RequirementKind::C => {
                     if self.seen_c_sources.insert(canonical.clone()) {
                         self.c_sources.push(canonical);
                     }
-                }
-                _ => {
-                    let diagnostic = Diagnostic::error("unsupported requirement type")
-                        .with_primary(required.kind.path_span, "expected a `.mal` or `.c` path");
-                    return Err(Error::diagnostic(diagnostic, &self.files));
                 }
             }
         }
         self.states.insert(path.to_owned(), State::Loaded(id));
         Ok(id)
     }
+}
+
+#[derive(Clone, Copy)]
+enum RequirementKind {
+    Mal,
+    C,
 }
 
 fn canonicalize_root(path: &Path) -> Result<PathBuf, Error> {

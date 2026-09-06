@@ -45,6 +45,22 @@ fn reports_missing_and_cyclic_requirements_at_the_declaration() {
 }
 
 #[test]
+fn rejects_empty_and_unsupported_requirement_paths() {
+    let directory = NativeFixture::new("driver-invalid-requirement");
+    let empty = directory.write("empty.mal", "require \"\";\n");
+    let output = directory.malc([OsStr::new("check"), empty.as_os_str()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("expected a non-empty relative path"));
+
+    let unsupported = directory.write("unsupported.mal", "require \"./data.txt\";\n");
+    let output = directory.malc([OsStr::new("check"), unsupported.as_os_str()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("error: unsupported requirement type")
+    );
+}
+
+#[test]
 fn renders_frontend_errors_from_the_required_file() {
     let directory = NativeFixture::new("driver-required-diagnostic");
     let root = directory.write("root.mal", "require \"./broken.mal\";\n");

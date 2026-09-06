@@ -12,7 +12,8 @@ require "./geometry.mal";
 require "./geometry.c";
 ```
 
-pathは宣言を持つfileのdirectoryから解決する相対pathで、空であってはならない。`.mal` requirementは対象file自身が
+pathはSymbol literalからdecodeしたUTF-8で、宣言を持つfileのdirectoryから解決する相対pathとし、空であってはならない。
+file種別はpathの末尾にある`.mal`または`.c`で決める。`.mal` requirementは対象file自身が
 定義したpublicなtop-level名を宣言元fileへ導入する。requireしたfileから導入された名前を自動的に再公開しない。
 同じcanonical pathへ複数経路から到達しても一つのsource fileとして扱い、`.mal` requirementのcycleはcompile-time
 errorとする。
