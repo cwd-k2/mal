@@ -39,6 +39,11 @@ contextやEngramのlifetime authorityを取得しない。
 有効なcapabilityに変換せず、hostまたは`storePtr`が書いた有効なpointer representationだけを復元できる。
 external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
 
+external opaque valueを外部storageへ保存し、後で復元する必要がある場合、hostはその型に固有の`extern`
+operationを定義できる。保存表現、有効な値の範囲、復元後のresource lifetime、stale handleや多重解放の扱いは
+Externのauthorityに残り、保存や復元によってreferentのlifetimeは延長されない。malのpredefined memory
+primitiveがopaque valueの表現を定めないことは[memory primitive](memory.md#primitive)に定める。
+
 外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。`storeSymbol`が
 書くのはbytesだけである。Externはmal内部のidentityを生成できず、malのlifetimeを延長できない。
 
