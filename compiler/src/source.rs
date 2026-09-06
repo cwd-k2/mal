@@ -73,6 +73,85 @@ pub struct SourceFile {
     line_starts: Vec<usize>,
 }
 
+#[derive(Debug)]
+pub struct SourceGraph {
+    root: FileId,
+    files: Vec<SourceFile>,
+    requirements: Vec<Vec<FileId>>,
+    c_sources: Vec<PathBuf>,
+}
+
+impl SourceGraph {
+    pub fn new(
+        root: FileId,
+        files: Vec<SourceFile>,
+        requirements: Vec<Vec<FileId>>,
+        c_sources: Vec<PathBuf>,
+    ) -> Self {
+        assert_eq!(files.len(), requirements.len());
+        assert!(root.index() < files.len() as u32);
+        for (index, file) in files.iter().enumerate() {
+            assert_eq!(file.id().index(), index as u32);
+        }
+        Self {
+            root,
+            files,
+            requirements,
+            c_sources,
+        }
+    }
+
+    pub const fn root(&self) -> FileId {
+        self.root
+    }
+
+    pub fn root_source(&self) -> &SourceFile {
+        self.source(self.root)
+            .expect("a source graph always contains its root")
+    }
+
+    pub fn files(&self) -> &[SourceFile] {
+        &self.files
+    }
+
+    pub fn source(&self, id: FileId) -> Option<&SourceFile> {
+        self.files.get(id.index() as usize)
+    }
+
+    pub fn requirements(&self, id: FileId) -> &[FileId] {
+        self.requirements
+            .get(id.index() as usize)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+    }
+
+    pub fn c_sources(&self) -> &[PathBuf] {
+        &self.c_sources
+    }
+}
+
+pub trait SourceProvider {
+    fn source(&self, id: FileId) -> Option<&SourceFile>;
+}
+
+impl SourceProvider for SourceFile {
+    fn source(&self, id: FileId) -> Option<&SourceFile> {
+        (self.id == id).then_some(self)
+    }
+}
+
+impl SourceProvider for SourceGraph {
+    fn source(&self, id: FileId) -> Option<&SourceFile> {
+        self.source(id)
+    }
+}
+
+impl SourceProvider for Vec<SourceFile> {
+    fn source(&self, id: FileId) -> Option<&SourceFile> {
+        self.get(id.index() as usize)
+    }
+}
+
 impl SourceFile {
     pub fn new(id: FileId, path: impl Into<PathBuf>, text: String) -> Self {
         let mut line_starts = vec![0];

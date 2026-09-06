@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use crate::source::{SourceFile, Span};
+use crate::source::{SourceProvider, Span};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Severity {
@@ -52,10 +52,10 @@ impl Diagnostic {
         self
     }
 
-    pub fn render(&self, source: &SourceFile) -> String {
+    pub fn render(&self, sources: &impl SourceProvider) -> String {
         let mut rendered = format!("{}: {}\n", self.severity.name(), self.message);
         if let Some(label) = &self.primary {
-            render_label(&mut rendered, source, label);
+            render_label(&mut rendered, sources, label);
         }
         for note in &self.notes {
             let _ = writeln!(rendered, "note: {note}");
@@ -64,7 +64,11 @@ impl Diagnostic {
     }
 }
 
-fn render_label(rendered: &mut String, source: &SourceFile, label: &Label) {
+fn render_label(rendered: &mut String, sources: &impl SourceProvider, label: &Label) {
+    let Some(source) = sources.source(label.span.file()) else {
+        let _ = writeln!(rendered, " --> <unknown source>:<invalid span>");
+        return;
+    };
     if !source.contains(label.span) {
         let _ = writeln!(rendered, " --> {}:<invalid span>", source.path().display());
         return;
@@ -104,7 +108,7 @@ fn render_label(rendered: &mut String, source: &SourceFile, label: &Label) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::FileId;
+    use crate::source::{FileId, SourceFile};
 
     #[test]
     fn renders_a_primary_source_label() {

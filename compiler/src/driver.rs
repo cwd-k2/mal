@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::source::{FileId, SourceFile};
 
+mod graph;
+
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
 const C_COMPILER_OPTIONS: &[&str] = &[
@@ -23,10 +25,10 @@ const C_COMPILER_OPTIONS: &[&str] = &[
 ];
 
 pub fn check(source_path: &Path) -> Result<(), Error> {
-    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    crate::pipeline::check(&source)
+    let graph = graph::load(source_path)?;
+    crate::pipeline::check(graph.root_source())
         .map(|_| ())
-        .map_err(|error| Error::diagnostic(error, &source))
+        .map_err(|error| Error::diagnostic(error, &graph))
 }
 
 pub fn format(source_path: &Path) -> Result<String, Error> {
@@ -35,25 +37,25 @@ pub fn format(source_path: &Path) -> Result<String, Error> {
 }
 
 pub fn emit_c(source_path: &Path, output_path: &Path) -> Result<PathBuf, Error> {
-    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    let generated =
-        crate::pipeline::emit_c(&source).map_err(|error| Error::diagnostic(error, &source))?;
+    let graph = graph::load(source_path)?;
+    let generated = crate::pipeline::emit_c(graph.root_source())
+        .map_err(|error| Error::diagnostic(error, &graph))?;
     write_generated(output_path, generated)
 }
 
 pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
-    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    let header =
-        crate::pipeline::emit_header(&source).map_err(|error| Error::diagnostic(error, &source))?;
+    let graph = graph::load(source_path)?;
+    let header = crate::pipeline::emit_header(graph.root_source())
+        .map_err(|error| Error::diagnostic(error, &graph))?;
     create_parent(output_path)?;
     fs::write(output_path, header)
         .map_err(|error| Error::io("write generated header", output_path, error))
 }
 
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {
-    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    crate::pipeline::emit_host(&source, header_name)
-        .map_err(|error| Error::diagnostic(error, &source))
+    let graph = graph::load(source_path)?;
+    crate::pipeline::emit_host(graph.root_source(), header_name)
+        .map_err(|error| Error::diagnostic(error, &graph))
 }
 
 pub fn build(
@@ -61,9 +63,9 @@ pub fn build(
     output_path: &Path,
     linker_inputs: &[PathBuf],
 ) -> Result<(), Error> {
-    let source = SourceFile::load(FileId::new(0), source_path).map_err(Error::source)?;
-    let generated =
-        crate::pipeline::emit_c(&source).map_err(|error| Error::diagnostic(error, &source))?;
+    let graph = graph::load(source_path)?;
+    let generated = crate::pipeline::emit_c(graph.root_source())
+        .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = TemporaryDirectory::new()?;
     let generated_path = temporary.path().join("program.c");
     write_generated(&generated_path, generated)?;
@@ -155,8 +157,11 @@ impl Error {
         Self::new(format!("malc: {error}"))
     }
 
-    fn diagnostic(error: crate::diagnostic::Diagnostic, source: &SourceFile) -> Self {
-        Self::new(error.render(source))
+    fn diagnostic(
+        error: crate::diagnostic::Diagnostic,
+        sources: &impl crate::source::SourceProvider,
+    ) -> Self {
+        Self::new(error.render(sources))
     }
 
     fn io(action: &str, path: &Path, error: std::io::Error) -> Self {

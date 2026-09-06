@@ -26,6 +26,25 @@ fn reports_source_and_output_filesystem_failures() {
 }
 
 #[test]
+fn reports_missing_and_cyclic_requirements_at_the_declaration() {
+    let directory = NativeFixture::new("driver-requirement-failure");
+    let missing = directory.write("missing-root.mal", "require \"./absent.mal\";\n");
+    let output = directory.malc([OsStr::new("check"), missing.as_os_str()]);
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error: cannot load requirement"));
+    assert!(stderr.contains("missing-root.mal:1:9"));
+
+    let first = directory.write("first.mal", "require \"./second.mal\";\n");
+    directory.write("second.mal", "require \"./first.mal\";\n");
+    let output = directory.malc([OsStr::new("check"), first.as_os_str()]);
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error: cyclic `.mal` requirement"));
+    assert!(stderr.contains("second.mal:1:9"));
+}
+
+#[test]
 fn reports_linker_input_and_c_compiler_failures() {
     let directory = NativeFixture::new("driver-failure");
     let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
