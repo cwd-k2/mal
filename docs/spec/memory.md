@@ -23,7 +23,7 @@ host callを伴わないtarget constantであり、transparent aliasは展開し
 | `Int16`, `UInt16` | 2 |
 | `Int32`, `UInt32`, `Float32` | 4 |
 | `Int64`, `UInt64`, `Float64` | 8 |
-| `Ptr` | target ABIの`MalPtr` object representationのbyte数 |
+| `Ptr` | target ABIの`MalType_Ptr` object representationのbyte数 |
 | `Engram` | `@Ptr + 8` |
 
 この値はmemory上のcanonical表現だけを測り、Engramが参照するbytes、allocation metadata、C backend内部の
@@ -79,7 +79,7 @@ load/storeは指定型の全byteを対象とし、alignmentを要求しない。
 `storePtr`はdata addressのobject representationをstorageへcopyし、`loadPtr`はそれを`Ptr`として復元する。
 `storePtr`の後に同じaddressから`loadPtr`すると、間に同じbytesへのwriteがなければ同じstorageを指す値を得る。
 pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
-`storePtr`またはhostが有効な`MalPtr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
+`storePtr`またはhostが有効な`MalType_Ptr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
 
 `storeEngram`はEngram descriptorをstorageへcopyし、Engramのbytes自体はcopyしない。storage表現は、
 `storePtr`が用いるpointer表現、その直後の`storeUInt64`が用いるlength表現の順でpaddingなしに並べる。

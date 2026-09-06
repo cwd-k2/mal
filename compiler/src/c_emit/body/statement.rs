@@ -102,7 +102,7 @@ impl BodyEmitter<'_> {
         for arm in arms {
             c_line!(output, indent + 1, "case UINT32_C({}): {{", arm.index);
             let payload = if is_bool(&scrutinee.ty) {
-                "(MalUnit){ UINT8_C(0) }".into()
+                "(MalType_Unit){ UINT8_C(0) }".into()
             } else {
                 format!("{scrutinee_text}.payload.variant_{}", arm.index)
             };
@@ -228,7 +228,7 @@ impl BodyEmitter<'_> {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                c_line!(output, indent, "MalUnit {name} = {{ UINT8_C(0) }};");
+                c_line!(output, indent, "MalType_Unit {name} = {{ UINT8_C(0) }};");
                 c_line!(output, indent, "(void){name};");
             }
             Pattern::Wildcard { .. } => {}
@@ -262,7 +262,7 @@ impl BodyEmitter<'_> {
             if let Pattern::Binding { id, ty } = &arm.pattern {
                 let name = value_name(*id);
                 let payload = if bool_scrutinee {
-                    "(MalUnit){ UINT8_C(0) }".into()
+                    "(MalType_Unit){ UINT8_C(0) }".into()
                 } else {
                     format!("{scrutinee_text}.payload.variant_{}", arm.index)
                 };

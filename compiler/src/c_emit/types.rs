@@ -22,7 +22,7 @@ impl TypeRegistry {
                 .map(|external| external.name.clone()),
         );
         for external in &program.interface.externals {
-            self.collect_public_parameter(&external.parameter);
+            self.collect_public(&external.parameter);
             self.collect_public(&external.result);
         }
         for binding in &program.bindings {
@@ -40,26 +40,26 @@ impl TypeRegistry {
 
     pub(super) fn c_type(&self, ty: &Type) -> String {
         if is_bool(ty) {
-            return "uint8_t".into();
+            return "MalType_Bool".into();
         }
         match ty {
-            Type::Unit => "MalUnit".into(),
-            Type::Int8 => "int8_t".into(),
-            Type::Int16 => "int16_t".into(),
-            Type::Int32 => "int32_t".into(),
-            Type::Int64 => "int64_t".into(),
-            Type::UInt8 => "uint8_t".into(),
-            Type::UInt16 => "uint16_t".into(),
-            Type::UInt32 => "uint32_t".into(),
-            Type::UInt64 => "uint64_t".into(),
-            Type::Float32 => "float".into(),
-            Type::Float64 => "double".into(),
-            Type::Engram => "MalEngram".into(),
-            Type::Ptr => "MalPtr".into(),
-            Type::External { name, .. } => format!("MalOpaque_{name}"),
-            Type::Product(_) => format!("MalProduct_{}", self.index(ty)),
-            Type::Sum(_) => format!("MalSum_{}", self.index(ty)),
-            Type::Function { .. } => format!("MalClosure_{}", self.index(ty)),
+            Type::Unit => "MalType_Unit".into(),
+            Type::Int8 => "MalType_Int8".into(),
+            Type::Int16 => "MalType_Int16".into(),
+            Type::Int32 => "MalType_Int32".into(),
+            Type::Int64 => "MalType_Int64".into(),
+            Type::UInt8 => "MalType_UInt8".into(),
+            Type::UInt16 => "MalType_UInt16".into(),
+            Type::UInt32 => "MalType_UInt32".into(),
+            Type::UInt64 => "MalType_UInt64".into(),
+            Type::Float32 => "MalType_Float32".into(),
+            Type::Float64 => "MalType_Float64".into(),
+            Type::Engram => "MalType_Engram".into(),
+            Type::Ptr => "MalType_Ptr".into(),
+            Type::External { name, .. } => format!("MalType_{name}"),
+            Type::Product(_) => format!("MalRepr_Product_{}", self.index(ty)),
+            Type::Sum(_) => format!("MalRepr_Sum_{}", self.index(ty)),
+            Type::Function { .. } => format!("MalRepr_Closure_{}", self.index(ty)),
         }
     }
 
@@ -86,9 +86,9 @@ impl TypeRegistry {
                 continue;
             }
             let kind = match ty {
-                Type::Product(_) => "MalProduct",
-                Type::Sum(_) => "MalSum",
-                Type::Function { .. } => "MalClosure",
+                Type::Product(_) => "MalRepr_Product",
+                Type::Sum(_) => "MalRepr_Sum",
+                Type::Function { .. } => "MalRepr_Closure",
                 Type::External { .. }
                 | Type::Unit
                 | Type::Int8
@@ -119,7 +119,7 @@ impl TypeRegistry {
             }
             match ty {
                 Type::Product(elements) => {
-                    c_line!(&mut output, 0, "struct MalProduct_{index} {{");
+                    c_line!(&mut output, 0, "struct MalRepr_Product_{index} {{");
                     for (element_index, element) in elements.iter().enumerate() {
                         c_line!(
                             &mut output,
@@ -131,7 +131,7 @@ impl TypeRegistry {
                     output.push_str("};\n\n");
                 }
                 Type::Sum(members) => {
-                    c_line!(&mut output, 0, "struct MalSum_{index} {{");
+                    c_line!(&mut output, 0, "struct MalRepr_Sum_{index} {{");
                     output.push_str("    uint32_t tag;\n    union {\n");
                     for (member_index, member) in members.iter().enumerate() {
                         c_line!(
@@ -144,7 +144,7 @@ impl TypeRegistry {
                     output.push_str("    } payload;\n};\n\n");
                 }
                 Type::Function { parameter, result } => {
-                    c_line!(&mut output, 0, "struct MalClosure_{index} {{");
+                    c_line!(&mut output, 0, "struct MalRepr_Closure_{index} {{");
                     c_line!(
                         &mut output,
                         1,
@@ -191,16 +191,6 @@ impl TypeRegistry {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => {}
-        }
-    }
-
-    fn collect_public_parameter(&mut self, ty: &Type) {
-        if let Type::Product(elements) = ty {
-            for element in elements {
-                self.collect_public(element);
-            }
-        } else {
-            self.collect_public(ty);
         }
     }
 

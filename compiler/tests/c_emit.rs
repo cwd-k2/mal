@@ -80,15 +80,13 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
 
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "uint8_t mal_ext_exchange(MalContext *context, uint8_t argument_0, \
-         MalProduct_0 argument_1);"
+        "MalType_Bool mal_ext_exchange(MalContext *context, MalType_Bool argument_0, \
+         MalRepr_Product_0 argument_1);"
     ));
-    assert!(
-        generated
-            .header
-            .contains("struct MalProduct_0 {\n    uint8_t field_0;\n    int32_t field_1;\n};")
-    );
-    assert!(!generated.header.contains("MalSum_"));
+    assert!(generated.header.contains(
+        "struct MalRepr_Product_0 {\n    MalType_Bool field_0;\n    MalType_Int32 field_1;\n};"
+    ));
+    assert!(!generated.header.contains("MalRepr_Sum_"));
     assert!(!generated.source.contains(".tag"));
 
     let fixture = NativeFixture::new("scalar-bool-abi");
@@ -96,14 +94,14 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
         generated,
         r#"#include "program.mal.h"
 
-uint8_t mal_ext_exchange(
+MalType_Bool mal_ext_exchange(
     MalContext *context,
-    uint8_t outer,
-    MalProduct_0 inner
+    MalType_Bool outer,
+    MalRepr_Product_0 inner
 ) {
     (void)context;
-    return (outer == UINT8_C(1) && inner.field_0 == UINT8_C(0) &&
-            inner.field_1 == INT32_C(42)) ? UINT8_C(1) : UINT8_C(0);
+    return (outer == MAL_TRUE && inner.field_0 == MAL_FALSE &&
+            inner.field_1 == INT32_C(42)) ? MAL_TRUE : MAL_FALSE;
 }
 "#,
     );
@@ -186,12 +184,12 @@ fn labels_generated_functions_with_top_level_source_bindings() {
     assert!(
         generated
             .source
-            .contains("/* mal source binding: double */\nstatic int64_t mal_function_0(")
+            .contains("/* mal source binding: double */\nstatic MalType_Int64 mal_function_0(")
     );
     assert!(
         generated
             .source
-            .contains("/* mal source binding: main */\nstatic int32_t mal_function_1(")
+            .contains("/* mal source binding: main */\nstatic MalType_Int32 mal_function_1(")
     );
 }
 
@@ -229,9 +227,9 @@ fn passes_known_product_arguments_through_a_direct_entry() {
     .expect("emit a direct product entry");
 
     assert!(generated.source.contains(
-        "static int64_t mal_direct_function_0(MalContext *mal_context, \
-         const void *mal_environment, int64_t mal_direct_parameter_0, \
-         int64_t mal_direct_parameter_1)"
+        "static MalType_Int64 mal_direct_function_0(MalContext *mal_context, \
+         const void *mal_environment, MalType_Int64 mal_direct_parameter_0, \
+         MalType_Int64 mal_direct_parameter_1)"
     ));
     assert!(generated.source.contains(
         "return mal_direct_function_0(mal_context, mal_environment, \
@@ -265,8 +263,8 @@ fn flattens_nested_products_only_at_known_call_entries() {
     .expect("emit nested direct product fields");
 
     assert!(generated.source.contains(
-        "int64_t mal_direct_parameter_0, int64_t mal_direct_parameter_1, \
-         int64_t mal_direct_parameter_2)"
+        "MalType_Int64 mal_direct_parameter_0, MalType_Int64 mal_direct_parameter_1, \
+         MalType_Int64 mal_direct_parameter_2)"
     ));
     assert!(generated.source.contains(".field_0.field_0"));
     assert!(generated.source.contains(".field_0.field_1"));
@@ -390,7 +388,8 @@ fn emits_exact_float_bits_and_scalar_extern_abi() {
     .expect("emit Float ABI");
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "int32_t mal_ext_inspect(MalContext *context, float argument_0, double argument_1);"
+        "MalType_Int32 mal_ext_inspect(MalContext *context, MalType_Float32 argument_0, \
+         MalType_Float64 argument_1);"
     ));
     assert!(generated.source.contains("#pragma STDC FP_CONTRACT OFF"));
     let fixture = NativeFixture::new("float-bits");
@@ -504,7 +503,7 @@ main :: Unit -> Int32 := \() {
 #include <inttypes.h>
 #include <stdio.h>
 
-void mal_ext_inspect(MalContext *context, MalEngram value) {
+void mal_ext_inspect(MalContext *context, MalType_Engram value) {
     (void)context;
     printf("%" PRIu64 ":", value.length);
     for (uint64_t index = 0; index < value.length; index += UINT64_C(1)) {
@@ -570,11 +569,11 @@ main :: Unit -> Int32 := \() {
     )
     .expect("emit Engram ABI");
     assert!(generated.header.contains(
-        "MalEngram mal_engram_copy(MalContext *context, const uint8_t *data, uint64_t length);"
+        "MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);"
     ));
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "MalEngram mal_ext_fetch(MalContext *context);"
+        "MalType_Engram mal_ext_fetch(MalContext *context);"
     ));
     let fixture = NativeFixture::new("engram-copy");
     let executable = fixture.compile_generated(
@@ -583,14 +582,14 @@ main :: Unit -> Int32 := \() {
 #include <stdlib.h>
 #include <string.h>
 
-MalEngram mal_ext_fetch(MalContext *context) {
+MalType_Engram mal_ext_fetch(MalContext *context) {
     uint8_t *scratch = (uint8_t *)malloc(6);
     if (scratch == NULL) {
         mal_trap(context, "host allocation failed");
     }
     const uint8_t original[6] = { 'h', 'o', 's', 't', 0, 255 };
     memcpy(scratch, original, 6);
-    MalEngram result = mal_engram_copy(context, scratch, UINT64_C(6));
+    MalType_Engram result = mal_Engram_copy_from_bytes(context, scratch, UINT64_C(6));
     memset(scratch, 0, 6);
     free(scratch);
     return result;
@@ -614,9 +613,9 @@ fn traps_engram_copy_allocation_failure_and_length_overflow() {
     let failure_executable = failure_fixture.compile_generated_with_options(
         emit(source).expect("emit Engram ABI"),
         r#"#include "program.mal.h"
-MalEngram mal_ext_fetch(MalContext *context) {
+MalType_Engram mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_engram_copy(context, &value, UINT64_C(1));
+    return mal_Engram_copy_from_bytes(context, &value, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
@@ -629,9 +628,9 @@ MalEngram mal_ext_fetch(MalContext *context) {
     let overflow_executable = overflow_fixture.compile_generated(
         emit(source).expect("emit Engram ABI"),
         r#"#include "program.mal.h"
-MalEngram mal_ext_fetch(MalContext *context) {
+MalType_Engram mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_engram_copy(context, &value, UINT64_MAX);
+    return mal_Engram_copy_from_bytes(context, &value, UINT64_MAX);
 }
 "#,
     );
@@ -657,14 +656,14 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
     )
     .expect("emit C");
     for declaration in [
-        "int8_t mal_ext_i8(MalContext *context, int8_t value);",
-        "int16_t mal_ext_i16(MalContext *context, int16_t value);",
-        "int32_t mal_ext_i32(MalContext *context, int32_t value);",
-        "int64_t mal_ext_i64(MalContext *context, int64_t value);",
-        "uint8_t mal_ext_u8(MalContext *context, uint8_t value);",
-        "uint16_t mal_ext_u16(MalContext *context, uint16_t value);",
-        "uint32_t mal_ext_u32(MalContext *context, uint32_t value);",
-        "uint64_t mal_ext_u64(MalContext *context, uint64_t value);",
+        "MalType_Int8 mal_ext_i8(MalContext *context, MalType_Int8 value);",
+        "MalType_Int16 mal_ext_i16(MalContext *context, MalType_Int16 value);",
+        "MalType_Int32 mal_ext_i32(MalContext *context, MalType_Int32 value);",
+        "MalType_Int64 mal_ext_i64(MalContext *context, MalType_Int64 value);",
+        "MalType_UInt8 mal_ext_u8(MalContext *context, MalType_UInt8 value);",
+        "MalType_UInt16 mal_ext_u16(MalContext *context, MalType_UInt16 value);",
+        "MalType_UInt32 mal_ext_u32(MalContext *context, MalType_UInt32 value);",
+        "MalType_UInt64 mal_ext_u64(MalContext *context, MalType_UInt64 value);",
     ] {
         assert!(
             contains_ignoring_whitespace(&generated.header, declaration),
@@ -699,18 +698,18 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     assert!(
         generated
             .header
-            .contains("typedef struct { uint8_t *address; } MalPtr;")
+            .contains("typedef struct { uint8_t *address; } MalType_Ptr;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "MalPtr mal_ext_memory(MalContext *context);"
+        "MalType_Ptr mal_ext_memory(MalContext *context);"
     ));
     let host = r#"#include "program.mal.h"
 
-MalPtr mal_ext_memory(MalContext *context) {
+MalType_Ptr mal_ext_memory(MalContext *context) {
     static uint8_t bytes[52];
     (void)context;
-    return (MalPtr){ .address = bytes };
+    return (MalType_Ptr){ .address = bytes };
 }
 "#;
     let fixture = NativeFixture::new("ptr-memory");
@@ -734,16 +733,16 @@ fn executes_unaligned_ptr_value_access() {
     assert!(generated.source.contains("mal_store_ptr"));
     let host = r#"#include "program.mal.h"
 
-MalPtr mal_ext_pointerSlot(MalContext *context) {
-    static uint8_t bytes[sizeof(MalPtr) + 1];
+MalType_Ptr mal_ext_pointerSlot(MalContext *context) {
+    static uint8_t bytes[sizeof(MalType_Ptr) + 1];
     (void)context;
-    return mal_ptr_from_address(bytes);
+    return mal_Ptr_from_address(bytes);
 }
 
-MalPtr mal_ext_target(MalContext *context) {
+MalType_Ptr mal_ext_target(MalContext *context) {
     static uint8_t bytes[sizeof(int32_t)];
     (void)context;
-    return mal_ptr_from_address(bytes);
+    return mal_Ptr_from_address(bytes);
 }
 "#;
     let fixture = NativeFixture::new("ptr-value-memory");
@@ -766,7 +765,7 @@ fn executes_target_storage_size_expressions() {
 
 uint64_t mal_ext_expectedSize(MalContext *context) {
     (void)context;
-    return UINT64_C(50) + (uint64_t)(sizeof(MalPtr) * 2);
+    return UINT64_C(50) + (uint64_t)(sizeof(MalType_Ptr) * 2);
 }
 "#,
     );
@@ -795,26 +794,26 @@ fn executes_unaligned_engram_descriptor_access() {
     let host = r#"#include "program.mal.h"
 #include <string.h>
 
-static uint8_t slot[sizeof(MalPtr) + sizeof(uint64_t) + 1];
+static uint8_t slot[sizeof(MalType_Ptr) + sizeof(uint64_t) + 1];
 
-MalPtr mal_ext_engramSlot(MalContext *context) {
+MalType_Ptr mal_ext_engramSlot(MalContext *context) {
     static const uint8_t seed[] = { 's', 'e', 'e', 'd' };
-    MalEngram initial = mal_engram_copy(context, seed, UINT64_C(4));
-    MalPtr data = mal_ptr_from_address((uint8_t *)initial.data);
+    MalType_Engram initial = mal_Engram_copy_from_bytes(context, seed, UINT64_C(4));
+    MalType_Ptr data = mal_Ptr_from_address((uint8_t *)mal_Engram_data(initial));
     uint64_t length = initial.length;
     memcpy(slot + 1, &data, sizeof(data));
     memcpy(slot + 1 + sizeof(data), &length, sizeof(length));
-    return mal_ptr_from_address(slot);
+    return mal_Ptr_from_address(slot);
 }
 
 void mal_ext_inspectEngramSlot(MalContext *context) {
-    MalPtr data;
+    MalType_Ptr data;
     uint64_t length;
     static const uint8_t expected[] = { 'h', 'e', 'l', 'd', 0, 255 };
     memcpy(&data, slot + 1, sizeof(data));
     memcpy(&length, slot + 1 + sizeof(data), sizeof(length));
     if (length != UINT64_C(6)
-        || memcmp(mal_ptr_address(data), expected, sizeof(expected)) != 0) {
+        || memcmp(mal_Ptr_address(data), expected, sizeof(expected)) != 0) {
         mal_trap(context, "unexpected stored Engram descriptor");
     }
 }
@@ -849,10 +848,10 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
         generated,
         r#"#include "program.mal.h"
 
-MalPtr mal_ext_memory(MalContext *context) {
+MalType_Ptr mal_ext_memory(MalContext *context) {
     static uint8_t bytes[8];
     (void)context;
-    return (MalPtr){ .address = bytes };
+    return (MalType_Ptr){ .address = bytes };
 }
 "#,
         &["-O2"],
@@ -875,16 +874,20 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
              [1](pair) { total(pair) };\n\
          };";
     let generated = emit(source).expect("emit aggregate ABI");
-    assert!(!generated.header.contains("MalType_Request"));
     assert!(
         generated
             .header
-            .contains("typedef MalSum_2 MalType_Response;")
+            .contains("typedef MalRepr_Product_1 MalType_Request;")
+    );
+    assert!(
+        generated
+            .header
+            .contains("typedef MalRepr_Sum_3 MalType_Response;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "MalType_Response mal_ext_exchange(MalContext *context, int32_t argument_0, \
-         MalProduct_0 argument_1);"
+        "MalType_Response mal_ext_exchange(MalContext *context, MalType_Int32 argument_0, \
+         MalRepr_Product_0 argument_1);"
     ));
     assert!(
         generated
@@ -899,20 +902,22 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     assert!(
         generated
             .header
-            .contains("MalContext *context MAL_MAYBE_UNUSED, \\")
+            .contains("MalContext *context MAL_DETAIL_MAYBE_UNUSED, \\")
     );
-    assert!(generated.header.contains("MalProduct_0 argument_1 \\"));
-    assert!(
-        generated
-            .header
-            .contains("struct MalProduct_0 {\n    uint8_t field_0;\n    int32_t field_1;\n};")
-    );
-    assert!(generated.header.contains("MalProduct_1 variant_1;"));
+    assert!(generated.header.contains("MalRepr_Product_0 argument_1 \\"));
+    assert!(generated.header.contains(
+        "struct MalRepr_Product_0 {\n    MalType_UInt8 field_0;\n    MalType_Int32 field_1;\n};"
+    ));
+    assert!(generated.header.contains("MalRepr_Product_2 variant_1;"));
 
     let host = r#"#include "program.mal.h"
 
 MAL_DEFINE_exchange(context, argument_0, argument_1) {
-    return mal_make_Response_1(argument_0, argument_1.field_1);
+    MAL_TYPE(Request) request = MAL_OPERATION(Request, make)(argument_0, argument_1);
+    return MAL_OPERATION(Response, make_1)(
+        MAL_OPERATION(Request, get_0)(request),
+        MAL_OPERATION(Request, get_1)(request).field_1
+    );
 }
 
 "#;
@@ -924,8 +929,8 @@ MAL_DEFINE_exchange(context, argument_0, argument_1) {
 
 MalType_Response mal_ext_exchange(
     MalContext *context,
-    int32_t argument_0,
-    MalProduct_0 argument_1
+    MalType_Int32 argument_0,
+    MalRepr_Product_0 argument_1
 ) {
     (void)context;
     (void)argument_0;
@@ -949,7 +954,11 @@ fn exposes_scalar_alias_names_in_the_host_header() {
     )
     .expect("emit scalar alias ABI");
 
-    assert!(generated.header.contains("typedef uint64_t MalType_Count;"));
+    assert!(
+        generated
+            .header
+            .contains("typedef MalType_UInt64 MalType_Count;")
+    );
     assert!(contains_ignoring_whitespace(
         &generated.header,
         "MalType_Count mal_ext_increment(MalContext *context, MalType_Count value);"
@@ -979,12 +988,12 @@ fn preserves_the_aliases_spelled_in_an_extern_declaration() {
     assert!(
         generated
             .header
-            .contains("typedef uint64_t MalType_FirstCount;")
+            .contains("typedef MalType_UInt64 MalType_FirstCount;")
     );
     assert!(
         generated
             .header
-            .contains("typedef uint64_t MalType_SecondCount;")
+            .contains("typedef MalType_UInt64 MalType_SecondCount;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
@@ -1008,7 +1017,7 @@ fn preserves_aliases_inside_a_flattened_parameter_alias() {
         "MalType_Count mal_ext_exchange(MalContext *context, MalType_Count argument_0, \
          MalType_Payload argument_1);"
     ));
-    assert!(!generated.header.contains("MalType_Request"));
+    assert!(generated.header.contains("MalType_Request"));
 }
 
 #[test]
@@ -1025,21 +1034,45 @@ fn generated_sum_helpers_construct_and_inspect_named_variants() {
 
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "static inline MalType_Choice mal_make_Choice_1(int32_t value_0, int32_t value_1)"
+        "static inline MalType_Choice mal_Choice_make_1(MalType_Int32 value_0, \
+         MalType_Int32 value_1)"
     ));
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "static inline int32_t mal_get_Choice_1_0(MalContext *context, MalType_Choice value)"
+        "static inline MalType_Int32 mal_Choice_expect_1_0(MalContext *context, \
+         MalType_Choice value)"
     ));
+    assert!(
+        generated
+            .header
+            .contains("#define MAL_TYPE(name) MalType_##name")
+    );
+    assert!(
+        generated
+            .header
+            .contains("#define MAL_OPERATION(type, operation) mal_##type##_##operation")
+    );
+    assert!(
+        generated
+            .header
+            .contains("#define MAL_TAG(type, variant) MAL_##type##_TAG_##variant")
+    );
+    assert!(
+        generated
+            .header
+            .contains("#define MAL_EXTERN(name) mal_ext_##name")
+    );
 
     let host = r#"#include "program.mal.h"
 
 MAL_DEFINE_inspect(context, value) {
-    if (!mal_is_Choice_1(value)) {
+    MAL_TYPE(Choice) copy = value;
+    if (!MAL_OPERATION(Choice, is_1)(copy) ||
+        MAL_OPERATION(Choice, tag)(copy) != MAL_TAG(Choice, 1)) {
         mal_trap(context, "expected pair");
     }
-    return mal_get_Choice_1_0(context, value) +
-           mal_get_Choice_1_1(context, value);
+    return MAL_OPERATION(Choice, expect_1_0)(context, copy) +
+           MAL_OPERATION(Choice, expect_1_1)(context, copy);
 }
 "#;
     let fixture = NativeFixture::new("named-sum-helpers");
@@ -1060,24 +1093,24 @@ fn exposes_copyable_opaque_handles_to_the_host() {
     assert!(
         generated
             .header
-            .contains("typedef struct { uintptr_t bits; } MalOpaque_Mem;")
+            .contains("typedef struct { uintptr_t bits; } MalType_Mem;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "uint64_t mal_ext_combinedLength(MalContext *context, \
-         MalOpaque_Mem argument_0, MalOpaque_Mem argument_1);"
+        "MalType_UInt64 mal_ext_combinedLength(MalContext *context, \
+         MalType_Mem argument_0, MalType_Mem argument_1);"
     ));
     let host = r#"#include "program.mal.h"
 
-MalOpaque_Mem mal_ext_allocate(MalContext *context, uint64_t value) {
+MalType_Mem MAL_EXTERN(allocate)(MalContext *context, MalType_UInt64 value) {
     (void)context;
-    return (MalOpaque_Mem){ .bits = (uintptr_t)value };
+    return (MalType_Mem){ .bits = (uintptr_t)value };
 }
 
-uint64_t mal_ext_combinedLength(
+MalType_UInt64 mal_ext_combinedLength(
     MalContext *context,
-    MalOpaque_Mem first,
-    MalOpaque_Mem second
+    MalType_Mem first,
+    MalType_Mem second
 ) {
     (void)context;
     return (uint64_t)first.bits + (uint64_t)second.bits;
@@ -1105,9 +1138,9 @@ fn preserves_duplicate_sum_members_by_tag() {
          };",
         r#"#include "program.mal.h"
 
-MalSum_1 mal_ext_choose(MalContext *context) {
+MalRepr_Sum_1 mal_ext_choose(MalContext *context) {
     (void)context;
-    return (MalSum_1){
+    return (MalRepr_Sum_1){
         .tag = UINT32_C(1),
         .payload.variant_1 = {
             .field_0 = INT32_C(42),

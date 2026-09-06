@@ -10,7 +10,7 @@ MAL_DEFINE_allocate(context, value) {
 MAL_DEFINE_resize(context, memory, amount) {
     uintptr_t bits = mal_Mem_bits(memory) + (uintptr_t)amount;
     printf("%" PRIuPTR "\n", bits);
-    return mal_make_Response_1(mal_Mem_from_bits(bits), amount);
+    return mal_Response_make_1(mal_Mem_from_bits(bits), amount);
 }
 
 MAL_DEFINE_handleBits(context, memory) {

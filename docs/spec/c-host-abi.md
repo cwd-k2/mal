@@ -23,37 +23,78 @@ headerは少なくともC11でcompileでき、同じprogramについて生成し
 
 #define MAL_C_ABI_VERSION 0x000500u
 
+#define MAL_TYPE(name) MalType_##name
+#define MAL_OPERATION(type, operation) mal_##type##_##operation
+#define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
+#define MAL_EXTERN(name) mal_ext_##name
+
 typedef struct MalContext MalContext;
 
 typedef struct {
     uint8_t unused;
-} MalUnit;
+} MalType_Unit;
+
+typedef uint8_t MalType_Bool;
+typedef int8_t MalType_Int8;
+typedef int16_t MalType_Int16;
+typedef int32_t MalType_Int32;
+typedef int64_t MalType_Int64;
+typedef uint8_t MalType_UInt8;
+typedef uint16_t MalType_UInt16;
+typedef uint32_t MalType_UInt32;
+typedef uint64_t MalType_UInt64;
+typedef float MalType_Float32;
+typedef double MalType_Float64;
 
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalEngram;
+} MalType_Engram;
 
 typedef struct {
     uint8_t *address;
-} MalPtr;
+} MalType_Ptr;
+
+#define MAL_FALSE ((MalType_Bool)UINT8_C(0))
+#define MAL_TRUE ((MalType_Bool)UINT8_C(1))
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 
-MalEngram mal_engram_copy(
+MalType_Engram mal_Engram_copy_from_bytes(
     MalContext *context,
     const uint8_t *data,
     uint64_t length
 );
 ```
 
-`MalContext *`は各extern implementationの先頭parameterとして渡す。hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_engram_copy`はreference runtimeが提供する。
+`MalContext *`はmal valueではなく、各extern implementationへ先頭parameterとして渡すruntime capabilityである。
+hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Engram_copy_from_bytes`はreference runtimeが提供する。
+
+malのpredefined type、source-level alias、external typeはすべてCで`MalType_<name>`と綴る。host implementationは
+aliasとexternal typeを別の命名規則として記憶する必要がない。`MalRepr_Product_<id>`と`MalRepr_Sum_<id>`は
+source-level nameを持たないstructural typeのgenerated representation名であり、`MalType_`の名前とは区別する。
+
+型に属するhost helperは`mal_<owner>_<operation>`と綴り、positional variantとfieldはoperationの後ろへsource orderで
+付ける。`MAL_TYPE(name)`、`MAL_OPERATION(type, operation)`、`MAL_TAG(type, variant)`、`MAL_EXTERN(name)`は、
+この規則からそれぞれC type、type operation、sum tag constant、external symbolを構成する。これらは通常のC identifierを隠す別interfaceではなく、展開後のidentifierも
+直接使用できる。`mal_trap`のような型に属さないruntime operationと、`mal_ext_<name>`のようなprogram operationには
+型ownerを補わない。
+
+```c
+MAL_TYPE(Engram) value;
+MAL_OPERATION(Ptr, from_address)(address);
+MAL_OPERATION(Response, make_1)(memory, length);
+MAL_TAG(Response, 1);
+MAL_EXTERN(printInt32)(context, value);
+```
 
 generated headerは各external operationに`MAL_HAS_EXTERN_<name>`を値`1`で定義し、`MAL_DEFINE_<name>` macroも生成する。
 前者は複数programで共有するhost adapterが、そのprogramにoperationが存在するかをpreprocessorで判定するために使う。
 後者は先頭にcontextのidentifier、続いてsource-level parameterに対応するidentifierを受け取り、正しいC function
-definition headerへ展開する。context parameterにはgenerated headerの`MAL_MAYBE_UNUSED`を付けるため、implementationが
+definition headerへ展開する。context parameterにはgenerated headerの`MAL_DETAIL_MAYBE_UNUSED`を付けるため、implementationが
 runtime serviceを使わない場合にunused castを必要としない。macroを使わず、宣言された`mal_ext_<name>`を直接定義してもよい。
+`MAL_HAS_EXTERN_<name>`は`#ifdef`のoperandとしてliteral identifierを要求し、`MAL_DEFINE_<name>`はprogram固有signatureを
+保持するため、この二つはgeneric macroだけへ置き換えない。
 
 ```c
 #ifdef MAL_HAS_EXTERN_printInt32
@@ -63,9 +104,9 @@ MAL_DEFINE_printInt32(context, value) {
 #endif
 ```
 
-`MalUnit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
+`MalType_Unit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
-`mal_engram_copy`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたEngramはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
+`mal_Engram_copy_from_bytes`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたEngramはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
 
 ## symbol naming
 
@@ -76,17 +117,18 @@ extern printInt32 :: Int32 -> Unit;
 ```
 
 ```c
-void mal_ext_printInt32(MalContext *context, int32_t value);
+void mal_ext_printInt32(MalContext *context, MalType_Int32 value);
 ```
 
 `mal_` prefixはgenerated/runtime symbol用に予約する。
 
 ## type mapping
 
-numeric scalarは対応する`intN_t`、`uintN_t`、binary32 `float`、binary64 `double`でby-valueに渡す。targetが要求representationを満たさなければそのtargetにFloat32/64を提供しない。
+numeric scalarは対応する`intN_t`、`uintN_t`、binary32 `float`、binary64 `double`をtypedefした
+`MalType_<name>`でby-valueに渡す。targetが要求representationを満たさなければそのtargetにFloat32/64を提供しない。
 
-`Bool`と構造的に同じ`[Unit, Unit]`は`uint8_t`でby-valueに渡し、index 0を`UINT8_C(0)`、index 1を
-`UINT8_C(1)`で表す。generated Cが作る値はこの2値に限定する。host implementationもBool resultとして0または1だけを
+`Bool`と構造的に同じ`[Unit, Unit]`は`uint8_t`をtypedefした`MalType_Bool`でby-valueに渡し、index 0を
+`MAL_FALSE`、index 1を`MAL_TRUE`で表す。generated Cが作る値はこの2値に限定する。host implementationもBool resultとして0または1だけを
 返さなければならず、それ以外の値はextern contract違反である。このspecializationはtransparent aliasとしての
 source-level semanticsを変えない。
 
@@ -105,54 +147,58 @@ extern writeInt32 :: (Mem, UInt64, Int32) -> Unit;
 ```c
 void mal_ext_writeInt32(
     MalContext *context,
-    MalOpaque_Mem memory,
-    uint64_t offset,
-    int32_t value
+    MalType_Mem memory,
+    MalType_UInt64 offset,
+    MalType_Int32 value
 );
 ```
 
-各external opaque typeは一machine wordのcopyable handleとして生成する。
+各external typeはC hostにとって一machine wordのcopyable named handleとして生成する。`opaque`はmal側から
+representationを操作できないことを表すlanguage-side propertyなので、C type名には含めない。
 
 ```c
 typedef struct {
     uintptr_t bits;
-} MalOpaque_Mem;
+} MalType_Mem;
 ```
 
 host resourceが一wordに収まらない場合はhost側でboxする。zero bit pattern、copy、dropには言語組み込みの意味を与えず、個々のhost contractが定める。
-generated headerは各opaque typeについて`mal_<Type>_from_bits`と`mal_<Type>_bits`を生成する。このhelperは
+generated headerは各external typeについて`mal_<Type>_from_bits`と`mal_<Type>_bits`を生成する。このhelperは
 `.bits` fieldと同じbit patternを構成・取得するだけであり、resource contractやownershipを追加しない。
 
-`MalEngram`はmal EngramをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
-Engram parameterは`MalEngram`で渡し、hostはcall終了後に`data`を保持しない。Engram resultを返すhost
-implementationは、一時byte bufferを`mal_engram_copy`へ渡して作った`MalEngram`を返す。
+`MalType_Engram`はmal EngramをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
+Engram parameterは`MalType_Engram`で渡し、hostはcall終了後にdataを保持しない。dataとlengthは
+`mal_Engram_data`と`mal_Engram_length`で取得できる。Engram resultを返すhost implementationは、一時byte bufferを
+`mal_Engram_copy_from_bytes`へ渡して作った`MalType_Engram`を返す。
 
-Engram descriptorのmemory load/store表現はCの`MalEngram` object representationそのものではない。
-`MalPtr`のobject representationと`uint64_t`のlengthをこの順でpaddingなしに置く。hostがこの表現を書く場合も、
-data pointerとlengthは既存の有効なmal Engramから取得し、C structのpaddingを含む`sizeof(MalEngram)` bytesを
+Engram descriptorのmemory load/store表現はCの`MalType_Engram` object representationそのものではない。
+`MalType_Ptr`のobject representationと`uint64_t`のlengthをこの順でpaddingなしに置く。hostがこの表現を書く場合も、
+data pointerとlengthは既存の有効なmal Engramから取得し、C structのpaddingを含む`sizeof(MalType_Engram)` bytesを
 そのままcopyしてはならない。
 
-`Ptr`は`MalPtr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
+`Ptr`は`MalType_Ptr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
 operation固有のcontractとして定める。reference runtimeのnumeric scalarおよびpointer accessは`memcpy`相当であり、
 alignmentを要求しない。異なるscalar型で同じbytesを観測した場合はtarget C scalarのobject representationに従う。
-pointer accessは`MalPtr`のobject representationをcopyし、必要なstorage sizeとrepresentationはtarget ABIに従う。
-hostは`mal_ptr_from_address`と`mal_ptr_address`で`MalPtr`を構成・参照できる。このhelperはregion、permission、lifetimeを
+pointer accessは`MalType_Ptr`のobject representationをcopyし、必要なstorage sizeとrepresentationはtarget ABIに従う。
+hostは`mal_Ptr_from_address`と`mal_Ptr_address`で`MalType_Ptr`を構成・参照できる。このhelperはregion、permission、lifetimeを
 検査または延長しない。
 
-productと一般のsumのfield order、tag、paddingを含む正確なC declarationはgenerated headerを正とする。一般のsumのtagは
+productと一般のsumのfield order、tag、paddingを含む正確な`MalRepr_` declarationはgenerated headerを正とする。一般のsumのtagは
 0-based `uint32_t`である。`[Unit, Unit]`には前述のBool specializationを適用し、sum structを生成しない。
 
 extern signatureのABI表現に現れるsource-level aliasには、generated headerで`MalType_<Alias>`という`typedef`を生成する。
 extern declarationはsourceの対応位置に明記されたaliasを`MalType_<Alias>`として保持する。同じunderlying typeを表す
 aliasが複数あっても、構造的一致から別のaliasを推測しない。top-level product parameterをflattenするときは、そのproduct
-aliasの定義に明記された直下要素のaliasを各C parameterに保持する。flattenによってC declarationに現れない外側のproduct
-aliasと、そのためだけのproduct structはheaderへ生成しない。どの`typedef`も新しいnominal identityやruntime
+aliasの定義に明記された直下要素のaliasを各C parameterに保持する。flattenによってextern function declarationに現れない
+外側のproduct aliasも`MAL_TYPE(<Alias>)`で参照できるよう、そのtypedef、representation、helperをheaderへ生成する。
+どの`typedef`も新しいnominal identityやruntime
 representationを作らない。
 
-extern境界から到達できるproduct aliasには`mal_make_<Alias>`と位置ごとの`mal_get_<Alias>_<index>`を生成する。
-一般のsum aliasには`MAL_TAG_<Alias>_<index>`、`mal_tag_<Alias>`、`mal_is_<Alias>_<index>`、
-`mal_make_<Alias>_<index>`を生成する。payload取得helperはvariantが一致しなければ`mal_trap`を呼ぶ。product payloadの
-取得helperは`mal_get_<Alias>_<variant>_<field>`とする。これらはC記述用のconvenience APIであり、source-levelの
+extern境界から到達できるproduct aliasには`mal_<Alias>_make`と位置ごとの`mal_<Alias>_get_<index>`を生成する。
+一般のsum aliasには`MAL_<Alias>_TAG_<index>`、`mal_<Alias>_tag`、`mal_<Alias>_is_<index>`、
+`mal_<Alias>_make_<index>`を生成する。payload取得helperは`mal_<Alias>_expect_<variant>`とし、variantが一致しなければ
+`mal_trap`を呼ぶ。product payloadの取得helperは`mal_<Alias>_expect_<variant>_<field>`とする。
+`get`は必ず成功するproduct projectionだけに、`expect`はtrapし得るsum projectionだけに使う。これらはC記述用のconvenience APIであり、source-levelの
 positional product/sum semanticsを変更しない。
 
 ## closure exclusion

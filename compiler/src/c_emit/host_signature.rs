@@ -83,7 +83,7 @@ impl<'a> HostSignature<'a> {
             .map(|parameter| {
                 let separator = if parameter.is_context { "" } else { " " };
                 let unused = if definition && parameter.is_context {
-                    " MAL_MAYBE_UNUSED"
+                    " MAL_DETAIL_MAYBE_UNUSED"
                 } else {
                     ""
                 };

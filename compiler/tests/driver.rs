@@ -90,7 +90,7 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
     assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("MalEngram mal_engram_copy("));
+    assert!(generated_header.contains("MalType_Engram mal_Engram_copy_from_bytes("));
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn emit_header_writes_a_standalone_host_interface() {
         String::from_utf8_lossy(&output.stderr)
     );
     let header = std::fs::read_to_string(output_path).unwrap();
-    assert!(header.contains("typedef uint64_t MalType_Count;"));
+    assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(context, value)"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));

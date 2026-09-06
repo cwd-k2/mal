@@ -372,7 +372,7 @@ impl BodyEmitter<'_> {
                     .map(|byte| format!("\\x{byte:02x}"))
                     .collect::<String>();
                 format!(
-                    "(MalEngram){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
+                    "(MalType_Engram){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
                     value.len()
                 )
             }
@@ -381,11 +381,11 @@ impl BodyEmitter<'_> {
                 Type::Int16 | Type::UInt16 => "UINT64_C(2)".into(),
                 Type::Int32 | Type::UInt32 | Type::Float32 => "UINT64_C(4)".into(),
                 Type::Int64 | Type::UInt64 | Type::Float64 => "UINT64_C(8)".into(),
-                Type::Ptr => "((uint64_t)sizeof(MalPtr))".into(),
-                Type::Engram => "((uint64_t)(sizeof(MalPtr) + sizeof(uint64_t)))".into(),
+                Type::Ptr => "((uint64_t)sizeof(MalType_Ptr))".into(),
+                Type::Engram => "((uint64_t)(sizeof(MalType_Ptr) + sizeof(uint64_t)))".into(),
                 _ => unreachable!("only memory-storable types have storage-size atoms"),
             },
-            AtomKind::Unit => "(MalUnit){ UINT8_C(0) }".into(),
+            AtomKind::Unit => "(MalType_Unit){ UINT8_C(0) }".into(),
         }
     }
 }

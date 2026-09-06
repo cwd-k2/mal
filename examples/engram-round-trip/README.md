@@ -1,6 +1,6 @@
 # Engram round-trip example
 
-This example receives arbitrary bytes from a host scratch buffer, validates them with Engram operators, and returns the borrowed Engram to the host. The host copies its result with `mal_engram_copy`, then overwrites and frees the scratch buffer before mal observes the value.
+This example receives arbitrary bytes from a host scratch buffer, validates them with Engram operators, and returns the borrowed Engram to the host. The host copies its result with `mal_Engram_copy_from_bytes`, then overwrites and frees the scratch buffer before mal observes the value.
 
 From the repository root in Nushell:
 

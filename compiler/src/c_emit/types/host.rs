@@ -10,7 +10,7 @@ impl TypeRegistry {
             c_line!(
                 &mut output,
                 0,
-                "typedef struct {{ uintptr_t bits; }} MalOpaque_{name};"
+                "typedef struct {{ uintptr_t bits; }} MalType_{name};"
             );
         }
         if !self.opaque_names.is_empty() {
@@ -45,18 +45,14 @@ impl TypeRegistry {
             c_line!(
                 &mut output,
                 0,
-                "static inline MalOpaque_{name} mal_{name}_from_bits(uintptr_t bits) {{"
+                "static inline MalType_{name} mal_{name}_from_bits(uintptr_t bits) {{"
             );
-            c_line!(
-                &mut output,
-                1,
-                "return (MalOpaque_{name}){{ .bits = bits }};"
-            );
+            c_line!(&mut output, 1, "return (MalType_{name}){{ .bits = bits }};");
             output.push_str("}\n\n");
             c_line!(
                 &mut output,
                 0,
-                "static inline uintptr_t mal_{name}_bits(MalOpaque_{name} value) {{"
+                "static inline uintptr_t mal_{name}_bits(MalType_{name} value) {{"
             );
             c_line!(&mut output, 1, "return value.bits;");
             output.push_str("}\n\n");
@@ -99,7 +95,7 @@ impl TypeRegistry {
         c_line!(
             output,
             0,
-            "static inline MalType_{} mal_make_{}(",
+            "static inline MalType_{} mal_{}_make(",
             alias.name,
             alias.name
         );
@@ -117,7 +113,7 @@ impl TypeRegistry {
             c_line!(
                 output,
                 0,
-                "static inline {} mal_get_{}_{index}(MalType_{} value) {{",
+                "static inline {} mal_{}_get_{index}(MalType_{} value) {{",
                 self.c_type(element),
                 alias.name,
                 alias.name
@@ -132,14 +128,14 @@ impl TypeRegistry {
             c_line!(
                 output,
                 0,
-                "#define MAL_TAG_{}_{index} UINT32_C({index})",
+                "#define MAL_{}_TAG_{index} UINT32_C({index})",
                 alias.name
             );
         }
         c_line!(
             output,
             0,
-            "static inline uint32_t mal_tag_{}(MalType_{} value) {{",
+            "static inline uint32_t mal_{}_tag(MalType_{} value) {{",
             alias.name,
             alias.name
         );
@@ -149,14 +145,14 @@ impl TypeRegistry {
             c_line!(
                 output,
                 0,
-                "static inline uint8_t mal_is_{}_{index}(MalType_{} value) {{",
+                "static inline MalType_Bool mal_{}_is_{index}(MalType_{} value) {{",
                 alias.name,
                 alias.name
             );
             c_line!(
                 output,
                 1,
-                "return value.tag == MAL_TAG_{}_{index};",
+                "return value.tag == MAL_{}_TAG_{index};",
                 alias.name
             );
             output.push_str("}\n\n");
@@ -175,7 +171,7 @@ impl TypeRegistry {
         c_line!(
             output,
             0,
-            "static inline MalType_{} mal_make_{}_{index}(",
+            "static inline MalType_{} mal_{}_make_{index}(",
             alias.name,
             alias.name
         );
@@ -186,7 +182,7 @@ impl TypeRegistry {
         }
         output.push_str(") {\n");
         c_line!(output, 1, "return (MalType_{}){{", alias.name);
-        c_line!(output, 2, ".tag = MAL_TAG_{}_{index},", alias.name);
+        c_line!(output, 2, ".tag = MAL_{}_TAG_{index},", alias.name);
         c_write!(output, "        .payload.variant_{index} = ",);
         match member {
             Type::Unit => output.push_str("{ .unused = UINT8_C(0) },\n"),
@@ -216,14 +212,14 @@ impl TypeRegistry {
                     c_line!(
                         output,
                         0,
-                        "static inline {} mal_get_{}_{index}_{element_index}(",
+                        "static inline {} mal_{}_expect_{index}_{element_index}(",
                         self.c_type(element),
                         alias.name
                     );
                     output.push_str("    MalContext *context,\n");
                     c_line!(output, 1, "MalType_{} value", alias.name);
                     output.push_str(") {\n");
-                    c_line!(output, 1, "if (!mal_is_{}_{index}(value))", alias.name);
+                    c_line!(output, 1, "if (!mal_{}_is_{index}(value))", alias.name);
                     c_line!(
                         output,
                         2,
@@ -242,14 +238,14 @@ impl TypeRegistry {
                 c_line!(
                     output,
                     0,
-                    "static inline {} mal_get_{}_{index}(",
+                    "static inline {} mal_{}_expect_{index}(",
                     self.c_type(member),
                     alias.name
                 );
                 output.push_str("    MalContext *context,\n");
                 c_line!(output, 1, "MalType_{} value", alias.name);
                 output.push_str(") {\n");
-                c_line!(output, 1, "if (!mal_is_{}_{index}(value))", alias.name);
+                c_line!(output, 1, "if (!mal_{}_is_{index}(value))", alias.name);
                 c_line!(
                     output,
                     2,

@@ -9,9 +9,9 @@ MAL_DEFINE_allocate(context, size) {
     uint8_t *memory = malloc((size_t)size);
     if (memory == NULL)
         mal_trap(context, "allocation failed");
-    return mal_ptr_from_address(memory);
+    return mal_Ptr_from_address(memory);
 }
 
 MAL_DEFINE_release(context, pointer) {
-    free(mal_ptr_address(pointer));
+    free(mal_Ptr_address(pointer));
 }

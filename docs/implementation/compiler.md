@@ -96,20 +96,20 @@ product は compiler-generated struct、sum は tag と payload union、Engram �
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalEngram;
+} MalType_Engram;
 ```
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferをMalEngramへ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
+Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferを`MalType_Engram`へ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
 
-Engramのmemory load/storeはC structのpaddingをstorageへ含めない。`MalPtr`のobject representationと
+Engramのmemory load/storeはC structのpaddingをstorageへ含めない。`MalType_Ptr`のobject representationと
 `uint64_t`のlengthをこの順で個別に`memcpy`し、必要byte数をpointer格納byte数と8の和に固定する。
 descriptorだけを複製し、参照先のEngram bytesは複製しない。
 
 storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
-C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalPtr)`へ、`@Engram`を
-`sizeof(MalPtr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalEngram`自体の
+C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalType_Ptr)`へ、`@Engram`を
+`sizeof(MalType_Ptr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalType_Engram`自体の
 `sizeof`には依存しない。
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
@@ -123,7 +123,7 @@ product値をproduct patternで分解するだけのbindingは、C backendでpro
 entryはaggregateを受けるthunkとして残す。direct entryのleaf数は16個までとし、それを超える場合はaggregate entryへ
 fallbackする。product resultとfirst-class function callはtarget C ABIへ委ねる。
 
-`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalPtr`へlowerする。`offset`はbyte addressを進め、targetの
+`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。`offset`はbyte addressを進め、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
 runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。

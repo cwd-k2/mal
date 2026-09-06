@@ -730,7 +730,7 @@ predefinedなdirect-call-only primitiveとして`loadEngram :: Ptr -> Engram`と
 参照先のbytesはcopyしない。Engram bytesのprogram-lifetimeとimmutabilityは変更しない。
 
 memory上のdescriptorは、`storePtr`と同じpointer表現、その直後の`storeUInt64`と同じlength表現の順で
-paddingなしに配置する。必要byte数はtarget ABIのpointer格納byte数と8の和であり、Cの`MalEngram` structに
+paddingなしに配置する。必要byte数はtarget ABIのpointer格納byte数と8の和であり、Cの`MalType_Engram` structに
 含まれ得るpaddingには依存しない。
 
 ### 理由

@@ -2,6 +2,65 @@ use crate::closure::ast::Program;
 
 use super::{TypeRegistry, host_signature::HostSignature};
 
+const HEADER_PREFIX: &str = r#"#ifndef MAL_PROGRAM_MAL_H
+#define MAL_PROGRAM_MAL_H
+
+#include <stdint.h>
+
+#define MAL_C_ABI_VERSION 0x000500u
+
+#define MAL_TYPE(name) MalType_##name
+#define MAL_OPERATION(type, operation) mal_##type##_##operation
+#define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
+#define MAL_EXTERN(name) mal_ext_##name
+
+#if defined(__clang__) || defined(__GNUC__)
+#define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAL_DETAIL_MAYBE_UNUSED
+#endif
+
+/* Runtime API */
+
+typedef struct MalContext MalContext;
+typedef struct { uint8_t unused; } MalType_Unit;
+typedef uint8_t MalType_Bool;
+typedef int8_t MalType_Int8;
+typedef int16_t MalType_Int16;
+typedef int32_t MalType_Int32;
+typedef int64_t MalType_Int64;
+typedef uint8_t MalType_UInt8;
+typedef uint16_t MalType_UInt16;
+typedef uint32_t MalType_UInt32;
+typedef uint64_t MalType_UInt64;
+typedef float MalType_Float32;
+typedef double MalType_Float64;
+typedef struct { const uint8_t *data; uint64_t length; } MalType_Engram;
+typedef struct { uint8_t *address; } MalType_Ptr;
+
+#define MAL_FALSE ((MalType_Bool)UINT8_C(0))
+#define MAL_TRUE ((MalType_Bool)UINT8_C(1))
+
+_Noreturn void mal_trap(MalContext *context, const char *message);
+MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+
+static inline const uint8_t *mal_Engram_data(MalType_Engram value) {
+    return value.data;
+}
+
+static inline uint64_t mal_Engram_length(MalType_Engram value) {
+    return value.length;
+}
+
+static inline MalType_Ptr mal_Ptr_from_address(uint8_t *address) {
+    return (MalType_Ptr){ .address = address };
+}
+
+static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
+    return value.address;
+}
+"#;
+
 pub(super) fn emit(program: &Program, types: &TypeRegistry) -> String {
     let signatures: Vec<_> = program
         .interface
@@ -9,9 +68,7 @@ pub(super) fn emit(program: &Program, types: &TypeRegistry) -> String {
         .iter()
         .map(|external| HostSignature::new(external, types))
         .collect();
-    let mut output = String::from(
-        "#ifndef MAL_PROGRAM_MAL_H\n#define MAL_PROGRAM_MAL_H\n\n#include <stdint.h>\n\n#define MAL_C_ABI_VERSION 0x000500u\n\n#if defined(__clang__) || defined(__GNUC__)\n#define MAL_MAYBE_UNUSED __attribute__((unused))\n#else\n#define MAL_MAYBE_UNUSED\n#endif\n\n/* Runtime API */\n\ntypedef struct MalContext MalContext;\ntypedef struct { uint8_t unused; } MalUnit;\ntypedef struct { const uint8_t *data; uint64_t length; } MalEngram;\ntypedef struct { uint8_t *address; } MalPtr;\n\n_Noreturn void mal_trap(MalContext *context, const char *message);\nMalEngram mal_engram_copy(MalContext *context, const uint8_t *data, uint64_t length);\n\nstatic inline MalPtr mal_ptr_from_address(uint8_t *address) {\n    return (MalPtr){ .address = address };\n}\n\nstatic inline uint8_t *mal_ptr_address(MalPtr value) {\n    return value.address;\n}\n",
-    );
+    let mut output = String::from(HEADER_PREFIX);
     let mut declarations = types.header_declarations();
     declarations.push_str(&types.header_alias_declarations(&program.interface.type_aliases));
     if !declarations.is_empty() {

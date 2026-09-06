@@ -158,7 +158,7 @@ impl BodyEmitter<'_> {
         };
         let name = value_name(id);
         format!(
-            "int main(void) {{\n    MalContext mal_context = {{ NULL }};\n    MalUnit mal_unit = {{ UINT8_C(0) }};\n    mal_program_initialize(&mal_context);\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_unit);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
+            "int main(void) {{\n    MalContext mal_context = {{ NULL }};\n    MalType_Unit mal_unit = {{ UINT8_C(0) }};\n    mal_program_initialize(&mal_context);\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_unit);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
         )
     }
 

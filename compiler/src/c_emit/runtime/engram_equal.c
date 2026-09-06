@@ -1,4 +1,4 @@
-static uint8_t mal_engram_equal(MalEngram left, MalEngram right) {
+static uint8_t mal_engram_equal(MalType_Engram left, MalType_Engram right) {
     if (left.length != right.length) {
         return UINT8_C(0);
     }
@@ -9,4 +9,3 @@ static uint8_t mal_engram_equal(MalEngram left, MalEngram right) {
     }
     return UINT8_C(1);
 }
-
