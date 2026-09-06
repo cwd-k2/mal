@@ -42,6 +42,10 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `driver` | source file、temporary path、C compiler process、linker inputのownership |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
+predefined scopeの名前とreserved identityは`resolve/predefined`が一組で所有する。resolver、type checker、editorは
+それぞれ別の一覧を持たず、このmappingを参照する。source declaration用のidentityはreserved identityの最大値から
+採番し、primitive追加時に手動の個数定数を同期しない。
+
 後段が前段のraw inputを再解釈してはならない。未検証入力とadmit済み出力を、optional fieldやflagを持つ
 一つの型で兼用しない。許される操作が異なるsemantic stateには別の型を使う。
 
