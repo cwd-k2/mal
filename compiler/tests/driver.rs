@@ -387,7 +387,7 @@ fn opaque_aggregate_example_round_trips_through_the_host() {
 }
 
 #[test]
-fn engram_round_trip_example_copies_host_bytes() {
+fn engram_round_trip_example_copies_and_concatenates_bytes() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -432,7 +432,7 @@ fn engram_round_trip_example_copies_host_bytes() {
     );
     let output = directory.run(executable);
     assert!(output.status.success());
-    assert_eq!(String::from_utf8(output.stdout).unwrap(), "8 bytes\n");
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "9 bytes\n");
 }
 
 #[test]

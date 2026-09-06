@@ -1,6 +1,6 @@
 # Engram round-trip example
 
-This example receives arbitrary bytes from a host scratch buffer, validates them with Engram operators, and returns the borrowed Engram to the host. The host copies its result with `mal_Engram_copy_from_bytes`, then overwrites and frees the scratch buffer before mal observes the value.
+This example receives arbitrary bytes from a host scratch buffer, validates them with Engram operators, appends a suffix with `Engram + Engram`, and sends the resulting Engram to the host. The host copies its result with `mal_Engram_copy_from_bytes`, then overwrites and frees the scratch buffer before mal observes the value.
 
 From the repository root in Nushell:
 
@@ -14,7 +14,7 @@ nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build exa
 Expected output:
 
 ```text
-8 bytes
+9 bytes
 ```
 
-The executable exits with status 0 after checking UTF-8 source bytes, an embedded NUL, and `\xff`.
+The executable exits with status 0 after checking UTF-8 source bytes, an embedded NUL, `\xff`, and the concatenated suffix.
