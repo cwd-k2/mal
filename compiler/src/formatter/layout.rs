@@ -9,7 +9,7 @@ pub(super) struct BlockLayout {
 }
 
 impl BlockLayout {
-    pub(super) fn new(lexed: &Lexed) -> Self {
+    pub(super) fn new(source: &SourceFile, lexed: &Lexed) -> Self {
         let mut matching = vec![None; lexed.tokens.len()];
         let mut stack = Vec::new();
         for (index, token) in lexed.tokens.iter().enumerate() {
@@ -61,7 +61,12 @@ impl BlockLayout {
                 })
                 .collect::<Vec<_>>();
             let last = right.checked_sub(1);
-            let is_compact = !has_nested_block
+            let is_single_line = source
+                .location(lexed.tokens[left].span.start())
+                .zip(source.location(lexed.tokens[right].span.end()))
+                .is_some_and(|(left, right)| left.line == right.line);
+            let is_compact = is_single_line
+                && !has_nested_block
                 && !has_comment
                 && (semicolons.is_empty()
                     || semicolons.len() == 1 && semicolons.first().copied() == last);
@@ -103,7 +108,11 @@ pub(super) fn top_level_breaks(
         {
             lexeme_index += 1;
         }
-        if !(is_declaration(&previous.kind) && is_declaration(&next.kind)) {
+        let between = &source.text()[previous.span.end()..next.span.start()];
+        if has_blank_line(between)
+            || is_function_binding(&previous.kind)
+            || is_function_binding(&next.kind)
+        {
             let previous_line = source
                 .location(previous.span.end())
                 .expect("parsed item span belongs to the source")
@@ -128,6 +137,31 @@ pub(super) fn top_level_breaks(
     breaks
 }
 
-fn is_declaration(item: &TopItem) -> bool {
-    !matches!(item, TopItem::Binding(_))
+fn is_function_binding(item: &TopItem) -> bool {
+    let TopItem::Binding(binding) = item else {
+        return false;
+    };
+    let mut expression = &binding.value.kind;
+    while let crate::ast::Expression::Parenthesized(inner) = expression {
+        expression = &inner.kind;
+    }
+    matches!(expression, crate::ast::Expression::Lambda(_))
+}
+
+fn has_blank_line(text: &str) -> bool {
+    let mut saw_newline = false;
+    let mut line_is_empty = true;
+    for byte in text.bytes() {
+        match byte {
+            b'\n' if saw_newline && line_is_empty => return true,
+            b'\n' => {
+                saw_newline = true;
+                line_is_empty = true;
+            }
+            b'\r' | b' ' | b'\t' if saw_newline => {}
+            _ if saw_newline => line_is_empty = false,
+            _ => {}
+        }
+    }
+    false
 }

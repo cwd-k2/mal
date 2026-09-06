@@ -18,8 +18,8 @@ fn formats_spacing_and_blocks_canonically() {
         concat!(
             "choose :: Bool -> Int32 := \\(condition :: Bool) {\n",
             "    if (condition)\n",
-            "        then { 1 }\n",
-            "        else { 2 };\n",
+            "    then { 1 }\n",
+            "    else { 2 };\n",
             "};\n",
         )
     );
@@ -88,16 +88,91 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 }
 
 #[test]
-fn aligns_case_arms_at_the_continuation_indent() {
+fn aligns_statement_case_arms_with_case() {
     let formatted = format(
         "pick::[Int32,UInt8]->Int32:=\\(value::[Int32,UInt8]){case(value)[0](x){x}[1](x){Int32(x)};};",
     );
 
     assert!(formatted.contains(concat!(
         "    case (value)\n",
-        "        [0](x) { x }\n",
-        "        [1](x) { Int32(x) };\n",
+        "    [0](x) { x }\n",
+        "    [1](x) { Int32(x) };\n",
     )));
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn indents_control_branches_used_as_binding_rhs() {
+    let formatted = format(
+        "choose:=\\(condition::Bool,value::[Int32,Int32]){selected:=if(condition)then{1}else{2};result:=case(value)[0](x){x}[1](x){x};selected+result;};",
+    );
+
+    assert!(formatted.contains(concat!(
+        "    selected := if (condition)\n",
+        "        then { 1 }\n",
+        "        else { 2 };\n",
+        "    result := case (value)\n",
+        "        [0](x) { x }\n",
+        "        [1](x) { x };\n",
+    )));
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn preserves_explicit_binding_and_expression_breaks() {
+    let formatted = format(
+        "first::(Int32,Int32)->Int32\n:=\\(left::Int32,right::Int32){\nresult:=left\n+right;\nextern emit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n\\(){1};",
+    );
+
+    assert!(formatted.contains(concat!(
+        "first :: (Int32, Int32) -> Int32\n",
+        "    := \\(left :: Int32, right :: Int32) {\n",
+        "        result := left\n",
+        "            + right;\n",
+        "        extern emit(\n",
+        "            left,\n",
+        "            right\n",
+        "        );\n",
+        "        result;\n",
+        "    };\n",
+        "\n",
+        "second :: Unit -> Int32 :=\n",
+        "    \\() { 1 };\n",
+    )));
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn preserves_explicit_top_level_groups_without_splitting_data_bindings() {
+    let formatted = format("extern A;\n\nextern B;\nfirst:=1;\nsecond:=2;");
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "extern A;\n",
+            "\n",
+            "extern B;\n",
+            "first := 1;\n",
+            "second := 2;\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn preserves_explicit_type_and_extern_declaration_breaks() {
+    let formatted = format("Pair\n::(Int32,Int32);\nextern combine\n::(Int32,Int32)\n->Int32;");
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "Pair\n",
+            "    :: (Int32, Int32);\n",
+            "extern combine\n",
+            "    :: (Int32, Int32)\n",
+            "    -> Int32;\n",
+        )
+    );
     assert_eq!(format(&formatted), formatted);
 }
 

@@ -10,85 +10,85 @@ extern destroyAllocator :: Allocator -> Unit;
 leaf :: (Allocator, Int32) -> NodeResult := \(allocator :: Allocator, value :: Int32) {
     allocated := extern allocateNode(allocator, 5u64);
     case (allocated)
-        [0](node) {
-            storeInt32(node, value);
-            storeUInt8(node + 4u64, 0u8);
-            NodeResult[0](node);
-        }
-        [1](_) { NodeResult[1](()) };
+    [0](node) {
+        storeInt32(node, value);
+        storeUInt8(node + 4u64, 0u8);
+        NodeResult[0](node);
+    }
+    [1](_) { NodeResult[1](()) };
 };
 
 sumTree :: Ptr -> Int32 := \(node :: Ptr) {
     value := loadInt32(node);
     isBranch := loadUInt8(node + 4u64);
     if (isBranch == 0u8)
-        then { value }
-        else {
-            left := loadPtr(node + 5u64);
-            right := loadPtr(node + 5u64 + @Ptr);
-            value + sumTree(left) + sumTree(right);
-        };
+    then { value }
+    else {
+        left := loadPtr(node + 5u64);
+        right := loadPtr(node + 5u64 + @Ptr);
+        value + sumTree(left) + sumTree(right);
+    };
 };
 
 destroyTree :: (Allocator, Ptr) -> Unit := \(allocator :: Allocator, node :: Ptr) {
     isBranch := loadUInt8(node + 4u64);
     if (isBranch == 0u8)
-        then { extern releaseNode(allocator, node) }
-        else {
-            left := loadPtr(node + 5u64);
-            right := loadPtr(node + 5u64 + @Ptr);
-            destroyTree(allocator, left);
-            destroyTree(allocator, right);
-            extern releaseNode(allocator, node);
-        };
+    then { extern releaseNode(allocator, node) }
+    else {
+        left := loadPtr(node + 5u64);
+        right := loadPtr(node + 5u64 + @Ptr);
+        destroyTree(allocator, left);
+        destroyTree(allocator, right);
+        extern releaseNode(allocator, node);
+    };
 };
 
 branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     \(allocator :: Allocator, value :: Int32, left :: Ptr, right :: Ptr) {
         allocated := extern allocateNode(allocator, 5u64 + @Ptr * 2u64);
         case (allocated)
-            [0](node) {
-                storeInt32(node, value);
-                storeUInt8(node + 4u64, 1u8);
-                storePtr(node + 5u64, left);
-                storePtr(node + 5u64 + @Ptr, right);
-                NodeResult[0](node);
-            }
-            [1](_) {
-                destroyTree(allocator, left);
-                destroyTree(allocator, right);
-                NodeResult[1](());
-            };
+        [0](node) {
+            storeInt32(node, value);
+            storeUInt8(node + 4u64, 1u8);
+            storePtr(node + 5u64, left);
+            storePtr(node + 5u64 + @Ptr, right);
+            NodeResult[0](node);
+        }
+        [1](_) {
+            destroyTree(allocator, left);
+            destroyTree(allocator, right);
+            NodeResult[1](());
+        };
     };
 
 buildLeft :: Allocator -> NodeResult := \(allocator :: Allocator) {
     first := leaf(allocator, 3);
     case (first)
-        [0](left) {
-            second := leaf(allocator, 4);
-            case (second)
-                [0](right) { branchOwned(allocator, 2, left, right) }
-                [1](_) {
-                    destroyTree(allocator, left);
-                    NodeResult[1](());
-                };
-        }
-        [1](_) { NodeResult[1](()) };
+    [0](left) {
+        second := leaf(allocator, 4);
+        case (second)
+        [0](right) { branchOwned(allocator, 2, left, right) }
+        [1](_) {
+            destroyTree(allocator, left);
+            NodeResult[1](());
+        };
+    }
+    [1](_) { NodeResult[1](()) };
 };
 
 buildTree :: Allocator -> NodeResult := \(allocator :: Allocator) {
     leftResult := buildLeft(allocator);
     case (leftResult)
-        [0](left) {
-            rightResult := leaf(allocator, 5);
-            case (rightResult)
-                [0](right) { branchOwned(allocator, 1, left, right) }
-                [1](_) {
-                    destroyTree(allocator, left);
-                    NodeResult[1](());
-                };
-        }
-        [1](_) { NodeResult[1](()) };
+    [0](left) {
+        rightResult := leaf(allocator, 5);
+        case (rightResult)
+        [0](right) { branchOwned(allocator, 1, left, right) }
+        [1](_) {
+            destroyTree(allocator, left);
+            NodeResult[1](());
+        };
+    }
+    [1](_) { NodeResult[1](()) };
 };
 
 successfulBuild :: Unit -> Bool := \() {
@@ -120,6 +120,6 @@ failedBuildCleansPartialTree :: Unit -> Bool := \() {
 
 main :: Unit -> Int32 := \() {
     if (successfulBuild() && failedBuildCleansPartialTree())
-        then { 0 }
-        else { 1 };
+    then { 0 }
+    else { 1 };
 };

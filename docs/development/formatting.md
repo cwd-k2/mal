@@ -11,16 +11,22 @@ Status: Current v0.5 tooling policy
 - outputの改行はLFとし、file末に1つのLFを置く。
 - `::`、`:=`、`->`とbinary operatorの両側、commaの後にspaceを置く。
 - call、conversion、sum injection、delimiterの内側にspaceを置かない。
-- body itemを持たず、nested blockとcommentも持たないblockは一行に置き、result直後の`;`を省く。
+- sourceで一行のblockは、body item、nested block、commentを持たなければ一行に置き、result直後の`;`を
+  省く。sourceで複数行のblockは、単純なresultだけでも複数行のままにする。
 - それ以外のblockはbraceと内容を別の行に置き、resultを含む各行を`;`で終える。
-- `if`のconditionの後で改行し、`then`と`else`を同じcontinuation indentに置く。
-- `case`のscrutineeの後で改行し、すべてのarmを同じcontinuation indentに置く。
-- 連続するtype aliasと`extern` declarationは空行なしで一つの宣言群にする。
-- 宣言群とtop-level bindingの間、およびtop-level binding同士の間に1空行を置く。
+- `if`のconditionの後で改行する。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を
+  `if`と同じindentに置き、bindingなどのRHSにある`if`では一段深いcontinuation indentに置く。
+- `case`のscrutineeの後で改行する。block直下のexpressionとして行頭から始まる`case`ではすべてのarmを
+  `case`と同じindentに置き、bindingなどのRHSにある`case`では一段深いcontinuation indentに置く。
+- sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingは
+  前後のitemと1空行で分け、連続するそれ以外のbindingへformatterだけを理由とする空行を追加しない。
+- `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
+  曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで
+  一段深くし、それ以外のcontinuation行も一段深くする。
 
 line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。
-元のwhitespaceと空行数は保持しない。
+上記の意味を持つ改行以外のwhitespaceと空行数は保持しない。
 
 numeric separator、suffix、byte/Symbol escapeを含むliteralのbyte spellingは変更しない。formatterは
 malformed sourceを補正せず、lexerまたはparserのstructured diagnosticを返す。

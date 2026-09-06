@@ -95,6 +95,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/interface` | extern transport検査とsource-level alias metadata |
 | `check/initializer` | top-level closed-value admission |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
+| `formatter/control` | block positionとRHSにある`if`、`case`の事前分類 |
 | `formatter/token` | token spacingと`if`、`case`、blockの出力state |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |

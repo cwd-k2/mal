@@ -29,25 +29,25 @@ copyContents :: (File, Buffer) -> Status := \(file :: File, buffer :: Buffer) {
     (memory, capacity, _) := buffer;
     result := extern readFile(file, (memory, capacity));
     case (result)
-        [0](length) {
-            if (length == 0u64)
-                then { Status[0](()) }
-                else {
-                    extern writeBytes((memory, length));
-                    copyContents(file, (memory, capacity, length));
-                };
-        }
-        [1](error) { Status[1](error) };
+    [0](length) {
+        if (length == 0u64)
+        then { Status[0](()) }
+        else {
+            extern writeBytes((memory, length));
+            copyContents(file, (memory, capacity, length));
+        };
+    }
+    [1](error) { Status[1](error) };
 };
 
 finishCopy :: (Status, CloseResult) -> Status := \(copied :: Status, closed :: CloseResult) {
     case (copied)
-        [0](_) {
-            case (closed)
-                [0](_) { Status[0](()) }
-                [1](error) { Status[1](error) };
-        }
+    [0](_) {
+        case (closed)
+        [0](_) { Status[0](()) }
         [1](error) { Status[1](error) };
+    }
+    [1](error) { Status[1](error) };
 };
 
 copyPath :: Symbol -> Status := \(path :: Symbol) {
@@ -67,18 +67,18 @@ copyPath :: Symbol -> Status := \(path :: Symbol) {
 
 main :: Arguments -> Int32 := \(argumentCount :: UInt64, arguments :: Ptr) {
     if (argumentCount == 1u64)
-        then {
-            path := loadSymbol(loadPtr(arguments), loadUInt64(arguments + @Ptr));
-            result := copyPath(path);
-            case (result)
-                [0](_) { 0 }
-                [1](error) {
-                    extern writeError(error);
-                    1;
-                };
-        }
-        else {
-            extern writeSymbol("usage: mal-recoverable-file FILE\n");
-            2;
+    then {
+        path := loadSymbol(loadPtr(arguments), loadUInt64(arguments + @Ptr));
+        result := copyPath(path);
+        case (result)
+        [0](_) { 0 }
+        [1](error) {
+            extern writeError(error);
+            1;
         };
+    }
+    else {
+        extern writeSymbol("usage: mal-recoverable-file FILE\n");
+        2;
+    };
 };

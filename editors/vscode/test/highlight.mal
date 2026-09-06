@@ -24,12 +24,12 @@ inspect :: Symbol -> UInt64 := \(value :: Symbol) {
 
 choose :: Bool -> Choice := \(condition :: Bool) {
     if (condition && !false)
-        then { Choice[0](42) }
-        else { Choice[1](letter) };
+    then { Choice[0](42) }
+    else { Choice[1](letter) };
 };
 
 select :: Choice -> Int32 := \(value :: Choice) {
     case (value)
-        [0](integer) { integer }
-        [1](byte) { Int32(byte) };
+    [0](integer) { integer }
+    [1](byte) { Int32(byte) };
 };

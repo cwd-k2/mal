@@ -3,9 +3,11 @@ use crate::diagnostic::Diagnostic;
 use crate::lexer::{Lexed, LexemeKind};
 use crate::source::SourceFile;
 
+mod control;
 mod layout;
 mod token;
 
+use self::control::ControlLayout;
 use self::layout::{BlockLayout, top_level_breaks};
 use self::token::{CaseStage, IfStage, Previous};
 
@@ -24,11 +26,15 @@ struct Formatter<'a> {
     line_start: bool,
     source_break: bool,
     pending_newline: bool,
+    source_line_indent: Option<usize>,
     previous: Previous,
     in_capture: bool,
     ifs: Vec<IfStage>,
     paren_depth: usize,
     cases: Vec<CaseStage>,
+    brace_depth: usize,
+    binding_continuations: Vec<usize>,
+    controls: ControlLayout,
     blocks: BlockLayout,
     top_level_breaks: Vec<usize>,
     next_top_level_break: usize,
@@ -45,12 +51,16 @@ impl<'a> Formatter<'a> {
             line_start: true,
             source_break: false,
             pending_newline: false,
+            source_line_indent: None,
             previous: Previous::None,
             in_capture: false,
             ifs: Vec::new(),
             paren_depth: 0,
             cases: Vec::new(),
-            blocks: BlockLayout::new(lexed),
+            brace_depth: 0,
+            binding_continuations: Vec::new(),
+            controls: ControlLayout::new(lexed, program),
+            blocks: BlockLayout::new(source, lexed),
             top_level_breaks: top_level_breaks(source, lexed, program),
             next_top_level_break: 0,
         }
@@ -120,7 +130,8 @@ impl<'a> Formatter<'a> {
 
     fn write(&mut self, text: &str) {
         if self.line_start {
-            self.output.push_str(&" ".repeat(self.indent * 4));
+            let indent = self.source_line_indent.take().unwrap_or(self.indent);
+            self.output.push_str(&" ".repeat(indent * 4));
             self.line_start = false;
         }
         self.output.push_str(text);

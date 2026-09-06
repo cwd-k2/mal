@@ -16,43 +16,43 @@ extern writeSymbol :: Symbol -> Unit;
 
 nextCapacity :: (UInt64, UInt64) -> UInt64 := \(capacity :: UInt64, required :: UInt64) {
     if (capacity >= required)
-        then { capacity }
-        else {
-            if (capacity > 0x7fff_ffff_ffff_ffffu64)
-                then { required }
-                else { nextCapacity(capacity * 2u64, required) };
-        };
+    then { capacity }
+    else {
+        if (capacity > 0x7fff_ffff_ffff_ffffu64)
+        then { required }
+        else { nextCapacity(capacity * 2u64, required) };
+    };
 };
 
 appendSymbol :: (Buffer, Symbol) -> BufferResult := \(buffer :: Buffer, value :: Symbol) {
     (allocation, memory, capacity, length) := buffer;
     additional := #value;
     if (additional > 0xffff_ffff_ffff_ffffu64 - length)
-        then { BufferResult[1](1u32) }
-        else {
-            required := length + additional;
-            available := if (required <= capacity)
-                then { BufferResult[0](buffer) }
-                else {
-                    target := nextCapacity(capacity, required);
-                    extern resizeBuffer(buffer, target);
-                };
-            case (available)
-                [0](resized) {
-                    (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
-                    storeSymbol(nextMemory + length, value);
-                    BufferResult[0]((nextAllocation, nextMemory, nextCapacityValue, required));
-                }
-                [1](error) { BufferResult[1](error) };
-        };
+    then { BufferResult[1](1u32) }
+    else {
+        required := length + additional;
+        available := if (required <= capacity)
+            then { BufferResult[0](buffer) }
+            else {
+                target := nextCapacity(capacity, required);
+                extern resizeBuffer(buffer, target);
+            };
+        case (available)
+        [0](resized) {
+            (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
+            storeSymbol(nextMemory + length, value);
+            BufferResult[0]((nextAllocation, nextMemory, nextCapacityValue, required));
+        }
+        [1](error) { BufferResult[1](error) };
+    };
 };
 
 sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
     \(buffer :: Buffer, start :: UInt64, length :: UInt64) {
         (allocation, memory, _, initialized) := buffer;
         if (start <= initialized && length <= initialized - start)
-            then { SliceResult[0]((allocation, memory + start, length)) }
-            else { SliceResult[1](()) };
+        then { SliceResult[0]((allocation, memory + start, length)) }
+        else { SliceResult[1](()) };
     };
 
 releaseBufferValue :: Buffer -> Unit := \(buffer :: Buffer) {
@@ -65,15 +65,15 @@ writeThroughDescriptor :: Slice -> Bool := \(slice :: Slice) {
     descriptorSize := @Ptr + @UInt64;
     allocated := extern allocateBuffer(descriptorSize, descriptorSize);
     case (allocated)
-        [0](descriptor) {
-            (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-            storePtr(descriptorMemory, memory);
-            storeUInt64(descriptorMemory + @Ptr, length);
-            extern writeSliceDescriptor(allocation, descriptorMemory);
-            extern releaseBuffer(descriptorAllocation);
-            true;
-        }
-        [1](_) { false };
+    [0](descriptor) {
+        (descriptorAllocation, descriptorMemory, _, _) := descriptor;
+        storePtr(descriptorMemory, memory);
+        storeUInt64(descriptorMemory + @Ptr, length);
+        extern writeSliceDescriptor(allocation, descriptorMemory);
+        extern releaseBuffer(descriptorAllocation);
+        true;
+    }
+    [1](_) { false };
 };
 
 finishLimitTest :: (Buffer, Bool) -> Int32 := \(buffer :: Buffer, aliasesInvalid :: Bool) {
@@ -82,85 +82,85 @@ finishLimitTest :: (Buffer, Bool) -> Int32 := \(buffer :: Buffer, aliasesInvalid
         "this append is intentionally larger than the allocation limit for the pressure test"
     );
     case (rejected)
-        [0](unexpected) {
-            releaseBufferValue(unexpected);
-            5;
+    [0](unexpected) {
+        releaseBufferValue(unexpected);
+        5;
+    }
+    [1](_) {
+        current := extern isCurrentBuffer(buffer);
+        releaseBufferValue(buffer);
+        if (aliasesInvalid && current)
+        then {
+            extern writeSymbol("resize rejected\n");
+            0;
         }
-        [1](_) {
-            current := extern isCurrentBuffer(buffer);
-            releaseBufferValue(buffer);
-            if (aliasesInvalid && current)
-                then {
-                    extern writeSymbol("resize rejected\n");
-                    0;
-                }
-                else { 6 };
-        };
+        else { 6 };
+    };
 };
 
 afterGrowth :: (Buffer, Slice) -> Int32 := \(before :: Buffer, staleSlice :: Slice) {
     grownResult := appendSymbol(before, "-shared-buffer");
     case (grownResult)
-        [0](grown) {
-            aliasesInvalid := !extern isCurrentBuffer(before) && !extern isCurrentSlice(staleSlice);
-            (_, _, _, length) := grown;
-            sliceResult := sliceBuffer(grown, 0u64, length);
-            case (sliceResult)
-                [0](currentSlice) {
-                    if (writeThroughDescriptor(currentSlice))
-                        then {
-                            extern writeSymbol("\n");
-                            finishLimitTest(grown, aliasesInvalid);
-                        }
-                        else {
-                            releaseBufferValue(grown);
-                            4;
-                        };
-                }
-                [1](_) {
-                    releaseBufferValue(grown);
-                    4;
-                };
+    [0](grown) {
+        aliasesInvalid := !extern isCurrentBuffer(before) && !extern isCurrentSlice(staleSlice);
+        (_, _, _, length) := grown;
+        sliceResult := sliceBuffer(grown, 0u64, length);
+        case (sliceResult)
+        [0](currentSlice) {
+            if (writeThroughDescriptor(currentSlice))
+            then {
+                extern writeSymbol("\n");
+                finishLimitTest(grown, aliasesInvalid);
+            }
+            else {
+                releaseBufferValue(grown);
+                4;
+            };
         }
         [1](_) {
-            releaseBufferValue(before);
-            3;
+            releaseBufferValue(grown);
+            4;
         };
+    }
+    [1](_) {
+        releaseBufferValue(before);
+        3;
+    };
 };
 
 withInitialValue :: Buffer -> Int32 := \(initial :: Buffer) {
     appended := appendSymbol(initial, "mal");
     case (appended)
-        [0](buffer) {
-            invalidSlice := sliceBuffer(buffer, 2u64, 2u64);
-            case (invalidSlice)
-                [0](_) {
-                    releaseBufferValue(buffer);
-                    8;
-                }
-                [1](_) {
-                    sliceResult := sliceBuffer(buffer, 1u64, 2u64);
-                    case (sliceResult)
-                        [0](slice) {
-                            extern writeSlice(slice);
-                            extern writeSymbol("\n");
-                            afterGrowth(buffer, slice);
-                        }
-                        [1](_) {
-                            releaseBufferValue(buffer);
-                            2;
-                        };
-                };
+    [0](buffer) {
+        invalidSlice := sliceBuffer(buffer, 2u64, 2u64);
+        case (invalidSlice)
+        [0](_) {
+            releaseBufferValue(buffer);
+            8;
         }
         [1](_) {
-            releaseBufferValue(initial);
-            1;
+            sliceResult := sliceBuffer(buffer, 1u64, 2u64);
+            case (sliceResult)
+            [0](slice) {
+                extern writeSlice(slice);
+                extern writeSymbol("\n");
+                afterGrowth(buffer, slice);
+            }
+            [1](_) {
+                releaseBufferValue(buffer);
+                2;
+            };
         };
+    }
+    [1](_) {
+        releaseBufferValue(initial);
+        1;
+    };
 };
 
 main :: Unit -> Int32 := \() {
     allocated := extern allocateBuffer(4u64, 64u64);
     case (allocated)
-        [0](buffer) { withInitialValue(buffer) }
-        [1](_) { 7 };
+    [0](buffer) { withInitialValue(buffer) }
+    [1](_) { 7 };
 };

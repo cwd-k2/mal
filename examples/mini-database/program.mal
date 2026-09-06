@@ -39,13 +39,13 @@ inputStorageSize :: UInt64 := 4096u64;
 readFileToCapacity :: (File, Buffer) -> Buffer := \(file :: File, buffer :: Buffer) {
     (memory, capacity, length) := buffer;
     if (length == capacity)
+    then { buffer }
+    else {
+        transferred := extern readFile(file, (memory + length, capacity - length));
+        if (transferred == 0u64)
         then { buffer }
-        else {
-            transferred := extern readFile(file, (memory + length, capacity - length));
-            if (transferred == 0u64)
-                then { buffer }
-                else { readFileToCapacity(file, (memory, capacity, length + transferred)) };
-        };
+        else { readFileToCapacity(file, (memory, capacity, length + transferred)) };
+    };
 };
 
 initializedBytes :: Buffer -> Bytes := \(buffer :: Buffer) {
@@ -57,16 +57,16 @@ writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
     \(file :: File, bytes :: Bytes, written :: UInt64) {
         (memory, length) := bytes;
         if (written == length)
-            then { () }
-            else {
-                transferred := extern writeFile(file, (memory + written, length - written));
-                if (transferred == 0u64)
-                    then {
-                        extern fail("file write made no progress");
-                        ();
-                    }
-                    else { writeBytesFully(file, bytes, written + transferred) };
-            };
+        then { () }
+        else {
+            transferred := extern writeFile(file, (memory + written, length - written));
+            if (transferred == 0u64)
+            then {
+                extern fail("file write made no progress");
+                ();
+            }
+            else { writeBytesFully(file, bytes, written + transferred) };
+        };
     };
 
 saveDatabase :: (File, Buffer) -> Unit := \(file :: File, database :: Buffer) {
@@ -79,52 +79,52 @@ readByte :: Reader -> ByteRead := \(reader :: Reader) {
     (file, buffer, position) := reader;
     (memory, capacity, length) := buffer;
     if (position < length)
-        then {
-            byte := loadUInt8(memory + position);
-            ByteRead[1](((file, buffer, position + 1u64), byte));
-        }
+    then {
+        byte := loadUInt8(memory + position);
+        ByteRead[1](((file, buffer, position + 1u64), byte));
+    }
+    else {
+        transferred := extern readFile(file, (memory, capacity));
+        filled := (memory, capacity, transferred);
+        next := (file, filled, 0u64);
+        if (transferred == 0u64)
+        then { ByteRead[0](next) }
         else {
-            transferred := extern readFile(file, (memory, capacity));
-            filled := (memory, capacity, transferred);
-            next := (file, filled, 0u64);
-            if (transferred == 0u64)
-                then { ByteRead[0](next) }
-                else {
-                    byte := loadUInt8(memory);
-                    ByteRead[1](((file, filled, 1u64), byte));
-                };
+            byte := loadUInt8(memory);
+            ByteRead[1](((file, filled, 1u64), byte));
         };
+    };
 };
 
 readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
     (line, capacity, length) := buffer;
     result := readByte(reader);
     case (result)
-        [0](next) {
-            if (length == 0u64)
-                then { LineRead[0](next) }
-                else { LineRead[1]((next, buffer)) };
+    [0](next) {
+        if (length == 0u64)
+        then { LineRead[0](next) }
+        else { LineRead[1]((next, buffer)) };
+    }
+    [1](read) {
+        (next, byte) := read;
+        if (byte == '\n')
+        then {
+            if (length > 0u64 && loadUInt8(line + length - 1u64) == '\r')
+            then { LineRead[1]((next, (line, capacity, length - 1u64))) }
+            else { LineRead[1]((next, buffer)) };
         }
-        [1](read) {
-            (next, byte) := read;
-            if (byte == '\n')
-                then {
-                    if (length > 0u64 && loadUInt8(line + length - 1u64) == '\r')
-                        then { LineRead[1]((next, (line, capacity, length - 1u64))) }
-                        else { LineRead[1]((next, buffer)) };
-                }
-                else {
-                    if (length + 1u64 == capacity)
-                        then {
-                            extern fail("query line exceeds its buffer");
-                            LineRead[1]((next, buffer));
-                        }
-                        else {
-                            storeUInt8(line + length, byte);
-                            readLineAt(next, (line, capacity, length + 1u64));
-                        };
-                };
+        else {
+            if (length + 1u64 == capacity)
+            then {
+                extern fail("query line exceeds its buffer");
+                LineRead[1]((next, buffer));
+            }
+            else {
+                storeUInt8(line + length, byte);
+                readLineAt(next, (line, capacity, length + 1u64));
+            };
         };
+    };
 };
 
 readLine :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
@@ -134,11 +134,11 @@ readLine :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer
 
 clearBytes :: (Ptr, UInt64) -> Unit := \(memory :: Ptr, remaining :: UInt64) {
     if (remaining == 0u64)
-        then { () }
-        else {
-            storeUInt8(memory, 0u8);
-            clearBytes(memory + 1u64, remaining - 1u64);
-        };
+    then { () }
+    else {
+        storeUInt8(memory, 0u8);
+        clearBytes(memory + 1u64, remaining - 1u64);
+    };
 };
 
 initializeDatabase :: Buffer -> Buffer := \(buffer :: Buffer) {
@@ -159,18 +159,18 @@ recordAt :: (Ptr, UInt64) -> Ptr := \(database :: Ptr, index :: UInt64) {
 
 validateRecords :: (Ptr, UInt64) -> Bool := \(database :: Ptr, index :: UInt64) {
     if (index == recordCount)
-        then { true }
-        else {
-            record := recordAt(database, index);
-            active := loadUInt8(record);
-            keyLength := UInt64(loadUInt8(record + 1u64));
-            valueLength := UInt64(loadUInt8(record + 2u64));
-            valid := (active == 0u8 || active == 1u8)
-                && keyLength <= keyCapacity
-                && valueLength <= valueCapacity
-                && (active == 0u8 || keyLength > 0u64);
-            valid && validateRecords(database, index + 1u64);
-        };
+    then { true }
+    else {
+        record := recordAt(database, index);
+        active := loadUInt8(record);
+        keyLength := UInt64(loadUInt8(record + 1u64));
+        valueLength := UInt64(loadUInt8(record + 2u64));
+        valid := (active == 0u8 || active == 1u8)
+            && keyLength <= keyCapacity
+            && valueLength <= valueCapacity
+            && (active == 0u8 || keyLength > 0u64);
+        valid && validateRecords(database, index + 1u64);
+    };
 };
 
 validateDatabase :: Buffer -> Bool := \(buffer :: Buffer) {
@@ -188,11 +188,11 @@ validateDatabase :: Buffer -> Bool := \(buffer :: Buffer) {
 rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
     \(source :: Ptr, start :: UInt64, expected :: Symbol, index :: UInt64) {
         if (index == #expected)
-            then { true }
-            else {
-                loadUInt8(source + start + index) == expected # index
-                    && rangeEqualsAt(source, start, expected, index + 1u64);
-            };
+        then { true }
+        else {
+            loadUInt8(source + start + index) == expected # index
+                && rangeEqualsAt(source, start, expected, index + 1u64);
+        };
     };
 
 rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
@@ -205,57 +205,57 @@ rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
     \(source :: Ptr, length :: UInt64, index :: UInt64, byte :: UInt8) {
         if (index == length)
+        then { index }
+        else {
+            if (loadUInt8(source + index) == byte)
             then { index }
-            else {
-                if (loadUInt8(source + index) == byte)
-                    then { index }
-                    else { findByte(source, length, index + 1u64, byte) };
-            };
+            else { findByte(source, length, index + 1u64, byte) };
+        };
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
     \(memory :: Ptr, source :: Ptr, start :: UInt64, length :: UInt64, index :: UInt64) {
         if (index == length)
-            then { true }
-            else {
-                loadUInt8(memory + index) == loadUInt8(source + start + index)
-                    && memoryEqualsAt(memory, source, start, length, index + 1u64);
-            };
+        then { true }
+        else {
+            loadUInt8(memory + index) == loadUInt8(source + start + index)
+                && memoryEqualsAt(memory, source, start, length, index + 1u64);
+        };
     };
 
 findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
     \(database :: Ptr, key :: Ptr, start :: UInt64, length :: UInt64, index :: UInt64) {
         if (index == recordCount)
-            then { recordCount }
-            else {
-                record := recordAt(database, index);
-                matches := loadUInt8(record) == 1u8
-                    && UInt64(loadUInt8(record + 1u64)) == length
-                    && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
-                if (matches)
-                    then { index }
-                    else { findRecord(database, key, start, length, index + 1u64) };
-            };
+        then { recordCount }
+        else {
+            record := recordAt(database, index);
+            matches := loadUInt8(record) == 1u8
+                && UInt64(loadUInt8(record + 1u64)) == length
+                && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
+            if (matches)
+            then { index }
+            else { findRecord(database, key, start, length, index + 1u64) };
+        };
     };
 
 findFreeRecord :: (Ptr, UInt64) -> UInt64 := \(database :: Ptr, index :: UInt64) {
     if (index == recordCount)
-        then { recordCount }
-        else {
-            if (loadUInt8(recordAt(database, index)) == 0u8)
-                then { index }
-                else { findFreeRecord(database, index + 1u64) };
-        };
+    then { recordCount }
+    else {
+        if (loadUInt8(recordAt(database, index)) == 0u8)
+        then { index }
+        else { findFreeRecord(database, index + 1u64) };
+    };
 };
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
     \(source :: Ptr, start :: UInt64, destination :: Ptr, remaining :: UInt64) {
         if (remaining == 0u64)
-            then { () }
-            else {
-                storeUInt8(destination, loadUInt8(source + start));
-                copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64);
-            };
+        then { () }
+        else {
+            storeUInt8(destination, loadUInt8(source + start));
+            copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64);
+        };
     };
 
 writeResponse :: Symbol -> Unit := \(response :: Symbol) {
@@ -267,25 +267,25 @@ putRecord :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         if (keyLength == 0u64 || keyLength > keyCapacity || valueLength > valueCapacity)
-            then { writeResponse("ERROR key<=16 value<=40\n") }
+        then { writeResponse("ERROR key<=16 value<=40\n") }
+        else {
+            existing := findRecord(database, line, keyStart, keyLength, 0u64);
+            slot := if (existing == recordCount)
+                then { findFreeRecord(database, 0u64) }
+                else { existing };
+            if (slot == recordCount)
+            then { writeResponse("ERROR database full\n") }
             else {
-                existing := findRecord(database, line, keyStart, keyLength, 0u64);
-                slot := if (existing == recordCount)
-                    then { findFreeRecord(database, 0u64) }
-                    else { existing };
-                if (slot == recordCount)
-                    then { writeResponse("ERROR database full\n") }
-                    else {
-                        record := recordAt(database, slot);
-                        storeUInt8(record + 1u64, UInt8(keyLength));
-                        storeUInt8(record + 2u64, UInt8(valueLength));
-                        copyRange(line, keyStart, record + 8u64, keyLength);
-                        copyRange(line, valueStart, record + 24u64, valueLength);
-                        storeUInt8(record, 1u8);
-                        saveDatabase(file, databaseBuffer);
-                        writeResponse("OK\n");
-                    };
+                record := recordAt(database, slot);
+                storeUInt8(record + 1u64, UInt8(keyLength));
+                storeUInt8(record + 2u64, UInt8(valueLength));
+                copyRange(line, keyStart, record + 8u64, keyLength);
+                copyRange(line, valueStart, record + 24u64, valueLength);
+                storeUInt8(record, 1u8);
+                saveDatabase(file, databaseBuffer);
+                writeResponse("OK\n");
             };
+        };
     };
 
 getRecord :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
@@ -294,15 +294,15 @@ getRecord :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
         (line, _) := lineBytes;
         slot := findRecord(database, line, keyStart, keyLength, 0u64);
         if (slot == recordCount)
-            then { writeResponse("NOT FOUND\n") }
-            else {
-                record := recordAt(database, slot);
-                valueLength := UInt64(loadUInt8(record + 2u64));
-                extern writeSymbol("VALUE ");
-                extern writeBytes((record + 24u64, valueLength));
-                extern writeSymbol("\n");
-                ();
-            };
+        then { writeResponse("NOT FOUND\n") }
+        else {
+            record := recordAt(database, slot);
+            valueLength := UInt64(loadUInt8(record + 2u64));
+            extern writeSymbol("VALUE ");
+            extern writeBytes((record + 24u64, valueLength));
+            extern writeSymbol("\n");
+            ();
+        };
     };
 
 deleteRecord :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
@@ -311,72 +311,72 @@ deleteRecord :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
         (line, _) := lineBytes;
         slot := findRecord(database, line, keyStart, keyLength, 0u64);
         if (slot == recordCount)
-            then { writeResponse("NOT FOUND\n") }
-            else {
-                storeUInt8(recordAt(database, slot), 0u8);
-                saveDatabase(file, databaseBuffer);
-                writeResponse("OK\n");
-            };
+        then { writeResponse("NOT FOUND\n") }
+        else {
+            storeUInt8(recordAt(database, slot), 0u8);
+            saveDatabase(file, databaseBuffer);
+            writeResponse("OK\n");
+        };
     };
 
 handleQuery :: (File, Buffer, Bytes) -> Unit := \(file :: File, database :: Buffer, lineBytes :: Bytes) {
     (line, length) := lineBytes;
     if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "get "))
+    then {
+        keyLength := length - 4u64;
+        extraSpace := findByte(line, length, 4u64, ' ');
+        if (keyLength == 0u64 || extraSpace != length)
+        then { writeResponse("ERROR usage: get KEY\n") }
+        else { getRecord(database, lineBytes, 4u64, keyLength) };
+    }
+    else {
+        if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "del "))
         then {
             keyLength := length - 4u64;
             extraSpace := findByte(line, length, 4u64, ' ');
             if (keyLength == 0u64 || extraSpace != length)
-                then { writeResponse("ERROR usage: get KEY\n") }
-                else { getRecord(database, lineBytes, 4u64, keyLength) };
+            then { writeResponse("ERROR usage: del KEY\n") }
+            else { deleteRecord(file, database, lineBytes, 4u64, keyLength) };
         }
         else {
-            if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "del "))
-                then {
-                    keyLength := length - 4u64;
-                    extraSpace := findByte(line, length, 4u64, ' ');
-                    if (keyLength == 0u64 || extraSpace != length)
-                        then { writeResponse("ERROR usage: del KEY\n") }
-                        else { deleteRecord(file, database, lineBytes, 4u64, keyLength) };
-                }
+            if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "put "))
+            then {
+                separator := findByte(line, length, 4u64, ' ');
+                if (separator == length || separator == 4u64)
+                then { writeResponse("ERROR usage: put KEY VALUE\n") }
                 else {
-                    if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "put "))
-                        then {
-                            separator := findByte(line, length, 4u64, ' ');
-                            if (separator == length || separator == 4u64)
-                                then { writeResponse("ERROR usage: put KEY VALUE\n") }
-                                else {
-                                    putRecord(
-                                        file,
-                                        database,
-                                        lineBytes,
-                                        4u64,
-                                        separator - 4u64,
-                                        separator + 1u64,
-                                        length - separator - 1u64
-                                    );
-                                };
-                        }
-                        else { writeResponse("ERROR commands: put/get/del/quit\n") };
+                    putRecord(
+                        file,
+                        database,
+                        lineBytes,
+                        4u64,
+                        separator - 4u64,
+                        separator + 1u64,
+                        length - separator - 1u64
+                    );
                 };
+            }
+            else { writeResponse("ERROR commands: put/get/del/quit\n") };
         };
+    };
 };
 
 runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
     \(reader :: Reader, file :: File, database :: Buffer, query :: Buffer) {
         result := readLine(reader, query);
         case (result)
-            [0](_) { () }
-            [1](state) {
-                (next, lineBuffer) := state;
-                lineBytes := initializedBytes(lineBuffer);
-                (line, length) := lineBytes;
-                if (length == 0u64 || rangeEquals(line, length, 0u64, length, "quit"))
-                    then { () }
-                    else {
-                        handleQuery(file, database, lineBytes);
-                        runQueries(next, file, database, query);
-                    };
+        [0](_) { () }
+        [1](state) {
+            (next, lineBuffer) := state;
+            lineBytes := initializedBytes(lineBuffer);
+            (line, length) := lineBytes;
+            if (length == 0u64 || rangeEquals(line, length, 0u64, length, "quit"))
+            then { () }
+            else {
+                handleQuery(file, database, lineBytes);
+                runQueries(next, file, database, query);
             };
+        };
     };
 
 executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
@@ -392,11 +392,11 @@ executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
         then { initializeDatabase(loadedDatabase) }
         else {
             if (!validateDatabase(loadedDatabase))
-                then {
-                    extern fail("invalid database file");
-                    loadedDatabase;
-                }
-                else { loadedDatabase };
+            then {
+                extern fail("invalid database file");
+                loadedDatabase;
+            }
+            else { loadedDatabase };
         };
     runQueries((input, inputBuffer, 0u64), file, database, query);
     extern closeFile(file);
@@ -406,12 +406,12 @@ executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
 
 main :: Arguments -> Int32 := \(argumentCount :: UInt64, arguments :: Ptr) {
     if (argumentCount == 1u64)
-        then {
-            path := loadSymbol(loadPtr(arguments), loadUInt64(arguments + @Ptr));
-            executeDatabase(path)
-        }
-        else {
-            extern writeSymbol("usage: mal-mini-database DATABASE\n");
-            2;
-        };
+    then {
+        path := loadSymbol(loadPtr(arguments), loadUInt64(arguments + @Ptr));
+        executeDatabase(path);
+    }
+    else {
+        extern writeSymbol("usage: mal-mini-database DATABASE\n");
+        2;
+    };
 };
