@@ -171,7 +171,7 @@ impl Formatter<'_> {
             TokenKind::Case => {
                 self.write_case(token_index, text);
             }
-            TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
+            TokenKind::Require | TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
                 if matches!(
                     self.previous,
                     Previous::Word

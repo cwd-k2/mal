@@ -97,6 +97,23 @@ pub(super) fn top_level_breaks(
     program: &Program,
 ) -> Vec<usize> {
     let mut breaks = Vec::new();
+    if let (Some(requirement), Some(item)) = (program.requirements.last(), program.items.first()) {
+        breaks.push(item.span.start());
+        if source.text()[requirement.span.end()..item.span.start()]
+            .lines()
+            .any(|line| line.trim_start().starts_with("//"))
+        {
+            breaks[0] = lexed
+                .lexemes
+                .iter()
+                .find(|lexeme| {
+                    matches!(lexeme.kind, LexemeKind::LineComment)
+                        && lexeme.span.start() >= requirement.span.end()
+                        && lexeme.span.end() <= item.span.start()
+                })
+                .map_or(item.span.start(), |comment| comment.span.start());
+        }
+    }
     let mut lexeme_index = 0;
     for items in program.items.windows(2) {
         let previous = &items[0];

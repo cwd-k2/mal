@@ -21,8 +21,15 @@ pub struct Name {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
+    pub requirements: Vec<Node<Requirement>>,
     pub items: Vec<Node<TopItem>>,
     pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Requirement {
+    pub path: Vec<u8>,
+    pub path_span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -106,6 +106,7 @@ impl<'a> Lexer<'a> {
 
         let text = &self.source.text()[start..self.offset];
         let kind = match text {
+            "require" => TokenKind::Require,
             "extern" => TokenKind::Extern,
             "if" => TokenKind::If,
             "then" => TokenKind::Then,
@@ -195,16 +196,39 @@ impl<'a> Lexer<'a> {
             (Some(b'|'), Some(b'|')) => (TokenKind::PipePipe, 2),
             (Some(b'_'), _) => {
                 self.offset += 1;
+                if self.peek().is_some_and(|byte| byte.is_ascii_alphabetic()) {
+                    let first = self.offset;
+                    self.offset += 1;
+                    while matches!(self.peek(), Some(byte) if byte.is_ascii_alphanumeric()) {
+                        self.offset += 1;
+                    }
+                    if self.peek() == Some(b'_') {
+                        self.consume_identifier_like();
+                        return Err(self.error(
+                            start,
+                            self.offset,
+                            "invalid identifier",
+                            "underscores are only allowed at the start of identifiers",
+                        ));
+                    }
+                    let kind = if self.bytes[first].is_ascii_uppercase() {
+                        TokenKind::TypeIdentifier
+                    } else {
+                        TokenKind::ValueIdentifier
+                    };
+                    self.push(kind, start);
+                    return Ok(());
+                }
                 if self
                     .peek()
-                    .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                    .is_some_and(|byte| byte.is_ascii_digit() || byte == b'_')
                 {
                     self.consume_identifier_like();
                     return Err(self.error(
                         start,
                         self.offset,
                         "invalid identifier",
-                        "`_` is a wildcard and cannot start an identifier",
+                        "expected an ASCII letter after `_`",
                     ));
                 }
                 self.push(TokenKind::Underscore, start);

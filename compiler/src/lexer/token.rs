@@ -59,6 +59,7 @@ pub enum TokenKind {
     Float(DecimalFloatLiteral),
     Byte(u8),
     Symbol(Vec<u8>),
+    Require,
     Extern,
     If,
     Then,

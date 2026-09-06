@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn parses_requirements_before_top_level_items() {
+    let program = parse_ok("require \"./support.mal\";\nrequire \"./host.c\";\n_private := 1;\n");
+
+    assert_eq!(program.requirements.len(), 2);
+    assert_eq!(program.requirements[0].kind.path, b"./support.mal");
+    assert_eq!(program.requirements[1].kind.path, b"./host.c");
+    let TopItem::Binding(binding) = &program.items[0].kind else {
+        panic!("expected a private binding");
+    };
+    let Pattern::Name(name) = &binding.pattern.kind else {
+        panic!("expected a name pattern");
+    };
+    assert_eq!(name.text, "_private");
+}
+
+#[test]
+fn rejects_requirements_after_top_level_items() {
+    let source = source("value := 1; require \"./late.mal\";");
+    let error = parse(&source).expect_err("late requirement should be rejected");
+
+    assert_eq!(error.message, "require declaration after a top-level item");
+}
+
+#[test]
 fn parses_the_basic_host_example() {
     let program = parse_ok(
         "extern printInt32 :: Int32 -> Unit;\n\

@@ -36,6 +36,19 @@ fn preserves_comments_and_literal_spelling() {
 }
 
 #[test]
+fn formats_requirements_as_a_leading_group() {
+    assert_eq!(
+        format("require\"./support.mal\";require \"./host.c\";main:=\\(){0;};"),
+        concat!(
+            "require \"./support.mal\";\n",
+            "require \"./host.c\";\n",
+            "\n",
+            "main := \\() { 0 };\n",
+        )
+    );
+}
+
+#[test]
 fn keeps_storage_size_attached_to_its_type() {
     assert_eq!(
         format("size::UInt64:=@ Ptr+@UInt64;"),

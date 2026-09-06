@@ -54,8 +54,10 @@ fn lexes_the_basic_host_example() {
 #[test]
 fn recognizes_keywords_only_at_identifier_boundaries() {
     assert_eq!(
-        kinds("if ifValue Bool false true then else case return extern"),
+        kinds("require required if ifValue Bool false true then else case return extern"),
         vec![
+            TokenKind::Require,
+            TokenKind::ValueIdentifier,
             TokenKind::If,
             TokenKind::ValueIdentifier,
             TokenKind::TypeIdentifier,
@@ -170,8 +172,20 @@ fn lossless_lexing_covers_tokens_whitespace_and_comments_in_source_order() {
 }
 
 #[test]
-fn rejects_non_ascii_and_underscore_identifiers() {
-    for text in ["café", "snake_case", "_name"] {
+fn accepts_leading_underscore_identifiers() {
+    assert_eq!(
+        kinds("_private _Private"),
+        vec![
+            TokenKind::ValueIdentifier,
+            TokenKind::TypeIdentifier,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn rejects_non_ascii_and_internal_underscore_identifiers() {
+    for text in ["café", "snake_case", "_snake_case", "_1"] {
         assert!(
             lex(&source(text)).is_err(),
             "input should be rejected: {text}"

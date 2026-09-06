@@ -1,6 +1,8 @@
 use std::mem::discriminant;
 
-use crate::ast::{Binding, LambdaBody, Name, Node, Pattern, Program, TopItem, TypeExpression};
+use crate::ast::{
+    Binding, LambdaBody, Name, Node, Pattern, Program, Requirement, TopItem, TypeExpression,
+};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{Token, TokenKind, lex};
 use crate::source::{SourceFile, Span};
@@ -45,15 +47,43 @@ impl<'a> Parser<'a> {
 
     fn parse_program(mut self) -> Result<Program, Diagnostic> {
         let start = self.current_span().start();
+        let mut requirements = Vec::new();
+        while self.at(&TokenKind::Require) {
+            requirements.push(self.parse_requirement()?);
+        }
         let mut items = Vec::new();
         while !self.at(&TokenKind::Eof) {
+            if self.at(&TokenKind::Require) {
+                return Err(
+                    Diagnostic::error("require declaration after a top-level item")
+                        .with_primary(self.current_span(), "requirements must appear first"),
+                );
+            }
             items.push(self.parse_top_item()?);
         }
         let end = self.current_span().end();
         Ok(Program {
+            requirements,
             items,
             span: self.span(start, end),
         })
+    }
+
+    fn parse_requirement(&mut self) -> Result<Node<Requirement>, Diagnostic> {
+        let start = self.expect(&TokenKind::Require, "`require`")?.span.start();
+        let path = self.current().clone();
+        let TokenKind::Symbol(value) = &path.kind else {
+            return Err(self.expected("a quoted requirement path"));
+        };
+        self.advance();
+        let semicolon = self.expect(&TokenKind::Semicolon, "`;`")?;
+        Ok(Node::new(
+            Requirement {
+                path: value.clone(),
+                path_span: path.span,
+            },
+            self.span(start, semicolon.span.end()),
+        ))
     }
 
     fn parse_top_item(&mut self) -> Result<Node<TopItem>, Diagnostic> {
