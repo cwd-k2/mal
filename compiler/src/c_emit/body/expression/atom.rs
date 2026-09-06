@@ -2,7 +2,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 
 use crate::c_emit::scalar::integer_type;
-use crate::c_emit::syntax::{Expr, Initializer};
+use crate::c_emit::syntax::{Expr, Initializer, TypeName};
 
 use super::super::{function_name, value_name};
 
@@ -27,7 +27,7 @@ impl BodyEmitter<'_> {
                 if integer.minimum_value == Some(*value) {
                     Expr::identifier(integer.minimum.unwrap())
                 } else {
-                    Expr::named_call(integer.constant, [Expr::literal(value.to_string())])
+                    Expr::named_call(integer.constant, [Expr::number(value.to_string())])
                 }
             }
             AtomKind::Float(bits) => match atom.ty {
@@ -35,45 +35,39 @@ impl BodyEmitter<'_> {
                     "mal_float32_from_bits",
                     [Expr::named_call(
                         "UINT32_C",
-                        [Expr::literal(bits.to_string())],
+                        [Expr::number(bits.to_string())],
                     )],
                 ),
                 Type::Float64 => Expr::named_call(
                     "mal_float64_from_bits",
                     [Expr::named_call(
                         "UINT64_C",
-                        [Expr::literal(bits.to_string())],
+                        [Expr::number(bits.to_string())],
                     )],
                 ),
                 _ => unreachable!("float atoms have Float32 or Float64 type"),
             },
-            AtomKind::Symbol(value) => {
-                let bytes = value
-                    .iter()
-                    .map(|byte| format!("\\x{byte:02x}"))
-                    .collect::<String>();
-                Expr::compound_literal(
-                    "MalType_Symbol",
-                    [
-                        Initializer::positional(Expr::cast(
-                            "const uint8_t *",
-                            Expr::literal(format!("\"{bytes}\"")),
-                        )),
-                        Initializer::positional(Expr::named_call(
-                            "UINT64_C",
-                            [Expr::literal(value.len().to_string())],
-                        )),
-                    ],
-                )
-            }
+            AtomKind::Symbol(value) => Expr::compound_literal(
+                "MalType_Symbol",
+                [
+                    Initializer::positional(Expr::cast(
+                        TypeName::const_named("uint8_t").pointer(),
+                        Expr::byte_string(value.clone()),
+                    )),
+                    Initializer::positional(Expr::named_call(
+                        "UINT64_C",
+                        [Expr::number(value.len().to_string())],
+                    )),
+                ],
+            ),
             AtomKind::StorageSize(ty) => match ty {
-                Type::Int8 | Type::UInt8 => Expr::named_call("UINT64_C", [Expr::literal("1")]),
-                Type::Int16 | Type::UInt16 => Expr::named_call("UINT64_C", [Expr::literal("2")]),
+                Type::Int8 | Type::UInt8 => Expr::named_call("UINT64_C", [Expr::number("1")]),
+                Type::Int16 | Type::UInt16 => Expr::named_call("UINT64_C", [Expr::number("2")]),
                 Type::Int32 | Type::UInt32 | Type::Float32 => {
-                    Expr::named_call("UINT64_C", [Expr::literal("4")])
+                    Expr::named_call("UINT64_C", [Expr::number("4")])
                 }
                 Type::Int64 | Type::UInt64 | Type::Float64 => {
-                    Expr::named_call("UINT64_C", [Expr::literal("8")])
+                    Expr::named_call("UINT64_C", [Expr::number("8")])
                 }
                 Type::Ptr => Expr::cast("uint64_t", Expr::sizeof_type("MalType_Ptr")),
                 _ => unreachable!("only memory-storable types have storage-size atoms"),
@@ -82,7 +76,7 @@ impl BodyEmitter<'_> {
                 "MalType_Unit",
                 [Initializer::positional(Expr::named_call(
                     "UINT8_C",
-                    [Expr::literal("0")],
+                    [Expr::number("0")],
                 ))],
             ),
         }

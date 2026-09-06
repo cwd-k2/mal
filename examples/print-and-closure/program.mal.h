@@ -33,8 +33,8 @@ typedef double MalType_Float64;
 typedef struct { const uint8_t *data; uint64_t length; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
 
-#define MAL_FALSE ((MalType_Bool)UINT8_C(0))
-#define MAL_TRUE ((MalType_Bool)UINT8_C(1))
+#define MAL_FALSE (MalType_Bool)UINT8_C(0)
+#define MAL_TRUE (MalType_Bool)UINT8_C(1)
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
@@ -63,9 +63,9 @@ void mal_ext_printInt32(MalContext *context, MalType_Int32 value);
 
 #define MAL_HAS_EXTERN_printInt32 1
 #define MAL_DEFINE_printInt32(context, value) \
-    void mal_ext_printInt32( \
+void mal_ext_printInt32( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_Int32 value \
-    )
+)
 
 #endif

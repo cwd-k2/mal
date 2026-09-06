@@ -1,16 +1,19 @@
 use crate::check::ast::Type;
 use crate::core::ast::ExternalOperation;
 
-use super::TypeRegistry;
+use super::{
+    TypeRegistry,
+    syntax::{Parameter, TypeName},
+};
 
 pub(super) struct HostSignature<'a> {
     pub(super) operation_name: &'a str,
-    pub(super) result_type: String,
+    pub(super) result_type: TypeName,
     parameters: Vec<HostParameter>,
 }
 
 struct HostParameter {
-    c_type: String,
+    c_type: TypeName,
     default_name: String,
     is_context: bool,
 }
@@ -18,12 +21,12 @@ struct HostParameter {
 impl<'a> HostSignature<'a> {
     pub(super) fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         let result_type = if external.result == Type::Unit {
-            "void".into()
+            TypeName::named("void")
         } else {
             types.header_c_type(&external.result, external.result_alias.as_deref())
         };
         let mut parameters = vec![HostParameter {
-            c_type: "MalContext *".into(),
+            c_type: TypeName::named("MalContext").pointer(),
             default_name: "context".into(),
             is_context: true,
         }];
@@ -69,28 +72,25 @@ impl<'a> HostSignature<'a> {
             .collect()
     }
 
-    pub(super) fn parameter_declarations(&self) -> Vec<String> {
-        self.render_parameter_declarations(false)
+    pub(super) fn parameters(&self) -> Vec<Parameter> {
+        self.build_parameters(false)
     }
 
-    pub(super) fn definition_parameter_declarations(&self) -> Vec<String> {
-        self.render_parameter_declarations(true)
+    pub(super) fn definition_parameters(&self) -> Vec<Parameter> {
+        self.build_parameters(true)
     }
 
-    fn render_parameter_declarations(&self, definition: bool) -> Vec<String> {
+    fn build_parameters(&self, definition: bool) -> Vec<Parameter> {
         self.parameters
             .iter()
             .map(|parameter| {
-                let separator = if parameter.is_context { "" } else { " " };
-                let unused = if definition && parameter.is_context {
-                    " MAL_DETAIL_MAYBE_UNUSED"
+                let declaration =
+                    Parameter::named(parameter.c_type.clone(), parameter.default_name.clone());
+                if definition && parameter.is_context {
+                    declaration.maybe_unused()
                 } else {
-                    ""
-                };
-                format!(
-                    "{}{separator}{}{unused}",
-                    parameter.c_type, parameter.default_name
-                )
+                    declaration
+                }
             })
             .collect()
     }

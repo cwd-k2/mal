@@ -1,6 +1,7 @@
 use crate::c_emit::syntax::{
     AggregateDefinition, AggregateField, Block as CBlock, Comment, Declaration, Expr as CExpr,
-    ForInitializer, FunctionDefinition, Initializer, Statement,
+    ForInitializer, FunctionDefinition, FunctionSignature, Initializer, Parameter, Statement,
+    TranslationUnit, TypeName,
 };
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, TopLevelPattern};
@@ -12,8 +13,8 @@ use super::{
 };
 
 impl BodyEmitter<'_> {
-    pub(super) fn emit_environments(&self) -> String {
-        let mut output = String::new();
+    pub(super) fn emit_environments(&self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
         for function in &self.program.functions {
             if function.environment.is_empty() {
                 continue;
@@ -24,54 +25,53 @@ impl BodyEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, field)| {
-                    AggregateField::declaration(format!(
-                        "{} field_{index}",
-                        self.types.c_type(&field.ty)
-                    ))
+                    AggregateField::variable(self.types.c_type(&field.ty), format!("field_{index}"))
                 });
-            output.push_str(
-                &AggregateDefinition::new(format!("typedef struct {name}"), fields, Some(name))
-                    .render(),
-            );
-            output.push('\n');
+            output.push(AggregateDefinition::typedef_structure(
+                Some(name.clone()),
+                fields,
+                name,
+            ));
+            output.blank_line();
         }
         output
     }
 
-    pub(super) fn emit_globals(&self) -> String {
-        let mut output = String::new();
+    pub(super) fn emit_globals(&self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
         for binding in &self.program.bindings {
             self.emit_top_level_globals(&mut output, &binding.pattern);
         }
         if !output.is_empty() {
-            output.push('\n');
+            output.blank_line();
         }
         output
     }
 
-    pub(super) fn emit_function_declarations(&self) -> String {
-        let mut output = String::new();
+    pub(super) fn emit_function_declarations(&self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
         for function in &self.program.functions {
             if let Some(name) = self.top_level_function_name(function.id) {
-                output.push_str(&Comment::new(format!("mal source binding: {name}")).render());
+                output.push(Comment::new(format!("mal source binding: {name}")));
             }
             if has_direct_product_entry(&function.parameter.ty) {
-                output
-                    .push_str(&Declaration::new(self.direct_function_signature(function)).render());
+                output.push(Declaration::function(
+                    self.direct_function_signature(function),
+                ));
             }
-            output.push_str(&Declaration::new(self.function_signature(function)).render());
+            output.push(Declaration::function(self.function_signature(function)));
         }
         if !output.is_empty() {
-            output.push('\n');
+            output.blank_line();
         }
         output
     }
 
-    pub(super) fn emit_function_definitions(&mut self) -> String {
-        let mut output = String::new();
+    pub(super) fn emit_function_definitions(&mut self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
         for function in &self.program.functions {
             if let Some(name) = self.top_level_function_name(function.id) {
-                output.push_str(&Comment::new(format!("mal source binding: {name}")).render());
+                output.push(Comment::new(format!("mal source binding: {name}")));
             }
             if has_direct_product_entry(&function.parameter.ty) {
                 let mut body = CBlock::default();
@@ -82,19 +82,17 @@ impl BodyEmitter<'_> {
                 let mut next_parameter = 0;
                 let value =
                     self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
-                body.push(Statement::declaration(
-                    format!(
-                        "{} {parameter_name}",
-                        self.types.c_type(&function.parameter.ty)
-                    ),
+                body.push(Statement::variable(
+                    self.types.c_type(&function.parameter.ty),
+                    parameter_name.clone(),
                     Some(value),
                 ));
                 self.emit_function_body(&mut body, function);
-                output.push_str(
-                    &FunctionDefinition::new(self.direct_function_signature(function), body)
-                        .render(),
-                );
-                output.push('\n');
+                output.push(FunctionDefinition::from_signature(
+                    self.direct_function_signature(function),
+                    body,
+                ));
+                output.blank_line();
 
                 let arguments = flattened_product_values(
                     &function.parameter.ty,
@@ -109,23 +107,25 @@ impl BodyEmitter<'_> {
                     direct_function_name(function.id),
                     call_arguments,
                 ))]);
-                output.push_str(
-                    &FunctionDefinition::new(self.function_signature(function), body).render(),
-                );
-                output.push('\n');
+                output.push(FunctionDefinition::from_signature(
+                    self.function_signature(function),
+                    body,
+                ));
+                output.blank_line();
                 continue;
             }
             let mut body = CBlock::default();
             self.emit_function_body(&mut body, function);
-            output.push_str(
-                &FunctionDefinition::new(self.function_signature(function), body).render(),
-            );
-            output.push('\n');
+            output.push(FunctionDefinition::from_signature(
+                self.function_signature(function),
+                body,
+            ));
+            output.blank_line();
         }
         output
     }
 
-    pub(super) fn emit_initializer(&mut self) -> String {
+    pub(super) fn emit_initializer(&mut self) -> TranslationUnit {
         let mut body = CBlock::default();
         body.push(Statement::expression(CExpr::cast(
             "void",
@@ -157,16 +157,23 @@ impl BodyEmitter<'_> {
                 ),
             }
         }
-        let mut output = FunctionDefinition::new(
-            "static void mal_program_initialize(MalContext *mal_context)",
+        let definition = FunctionDefinition::from_signature(
+            FunctionSignature::static_function(
+                "void",
+                "mal_program_initialize",
+                [Parameter::named(
+                    TypeName::named("MalContext").pointer(),
+                    "mal_context",
+                )],
+            ),
             body,
-        )
-        .render();
-        output.push('\n');
+        );
+        let mut output = TranslationUnit::new([definition.into()]);
+        output.blank_line();
         output
     }
 
-    pub(super) fn emit_main(&self, main: &closure::TopLevelBinding) -> String {
+    pub(super) fn emit_main(&self, main: &closure::TopLevelBinding) -> TranslationUnit {
         let TopLevelPattern::Binding { id, ref ty, .. } = main.pattern else {
             unreachable!()
         };
@@ -175,27 +182,30 @@ impl BodyEmitter<'_> {
             unreachable!("entry point validation requires a function")
         };
         if **parameter == Type::Unit {
-            return FunctionDefinition::new(
-                "int main(void)",
+            return TranslationUnit::new([FunctionDefinition::from_signature(
+                FunctionSignature::new("int", "main", []),
                 CBlock::new([
-                    Statement::declaration(
-                        "MalContext mal_context",
+                    Statement::variable(
+                        "MalContext",
+                        "mal_context",
                         Some(CExpr::initializer_list([Initializer::positional(
                             CExpr::identifier("NULL"),
                         )])),
                     ),
-                    Statement::declaration(
-                        "MalType_Unit mal_unit",
+                    Statement::variable(
+                        "MalType_Unit",
+                        "mal_unit",
                         Some(CExpr::initializer_list([Initializer::positional(
-                            CExpr::named_call("UINT8_C", [CExpr::literal("0")]),
+                            CExpr::named_call("UINT8_C", [CExpr::number("0")]),
                         )])),
                     ),
                     Statement::expression(CExpr::named_call(
                         "mal_program_initialize",
                         [CExpr::unary("&", CExpr::identifier("mal_context"))],
                     )),
-                    Statement::declaration(
-                        "int32_t mal_result",
+                    Statement::variable(
+                        "int32_t",
+                        "mal_result",
                         Some(CExpr::call(
                             CExpr::identifier(name.clone()).field("call"),
                             [
@@ -212,7 +222,7 @@ impl BodyEmitter<'_> {
                     Statement::return_value(CExpr::cast("int", CExpr::identifier("mal_result"))),
                 ]),
             )
-            .render();
+            .into()]);
         }
 
         let parameter_type = self.types.c_type(parameter);
@@ -220,7 +230,7 @@ impl BodyEmitter<'_> {
             CExpr::identifier("mal_argv").index(CExpr::binary(
                 "+",
                 CExpr::identifier("mal_index"),
-                CExpr::literal("1"),
+                CExpr::number("1"),
             ))
         };
         let trap = |message: &'static str| {
@@ -228,15 +238,23 @@ impl BodyEmitter<'_> {
                 "mal_trap",
                 [
                     CExpr::unary("&", CExpr::identifier("mal_context")),
-                    CExpr::literal(format!("\"{message}\"")),
+                    CExpr::string(message),
                 ],
             ))
         };
-        FunctionDefinition::new(
-            "int main(int mal_argc, char **mal_argv)",
+        TranslationUnit::new([FunctionDefinition::from_signature(
+            FunctionSignature::new(
+                "int",
+                "main",
+                [
+                    Parameter::named("int", "mal_argc"),
+                    Parameter::named(TypeName::named("char").pointer().pointer(), "mal_argv"),
+                ],
+            ),
             CBlock::new([
-                Statement::declaration(
-                    "MalContext mal_context",
+                Statement::variable(
+                    "MalContext",
+                    "mal_context",
                     Some(CExpr::initializer_list([Initializer::positional(
                         CExpr::identifier("NULL"),
                     )])),
@@ -245,19 +263,21 @@ impl BodyEmitter<'_> {
                     "mal_program_initialize",
                     [CExpr::unary("&", CExpr::identifier("mal_context"))],
                 )),
-                Statement::declaration(
-                    "size_t mal_argument_count",
+                Statement::variable(
+                    "size_t",
+                    "mal_argument_count",
                     Some(CExpr::conditional(
-                        CExpr::binary(">", CExpr::identifier("mal_argc"), CExpr::literal("1")),
+                        CExpr::binary(">", CExpr::identifier("mal_argc"), CExpr::number("1")),
                         CExpr::cast(
                             "size_t",
-                            CExpr::binary("-", CExpr::identifier("mal_argc"), CExpr::literal("1")),
+                            CExpr::binary("-", CExpr::identifier("mal_argc"), CExpr::number("1")),
                         ),
-                        CExpr::literal("0"),
+                        CExpr::number("0"),
                     )),
                 ),
-                Statement::declaration(
-                    "const size_t mal_argument_stride",
+                Statement::variable(
+                    TypeName::const_named("size_t"),
+                    "mal_argument_stride",
                     Some(CExpr::binary(
                         "+",
                         CExpr::sizeof_type("MalType_Ptr"),
@@ -276,10 +296,11 @@ impl BodyEmitter<'_> {
                     ),
                     CBlock::new([trap("argument descriptor size overflow")]),
                 ),
-                Statement::declaration(
-                    "uint8_t *mal_argument_storage",
+                Statement::variable(
+                    TypeName::named("uint8_t").pointer(),
+                    "mal_argument_storage",
                     Some(CExpr::cast(
-                        "uint8_t *",
+                        TypeName::named("uint8_t").pointer(),
                         CExpr::named_call(
                             "mal_allocate",
                             [
@@ -294,7 +315,7 @@ impl BodyEmitter<'_> {
                     )),
                 ),
                 Statement::for_loop(
-                    ForInitializer::declaration("size_t mal_index", CExpr::literal("0")),
+                    ForInitializer::variable("size_t", "mal_index", CExpr::number("0")),
                     CExpr::binary(
                         "<",
                         CExpr::identifier("mal_index"),
@@ -302,8 +323,9 @@ impl BodyEmitter<'_> {
                     ),
                     CExpr::unary("++", CExpr::identifier("mal_index")),
                     CBlock::new([
-                        Statement::declaration(
-                            "size_t mal_length",
+                        Statement::variable(
+                            "size_t",
+                            "mal_length",
                             Some(CExpr::named_call("strlen", [argv()])),
                         ),
                         Statement::if_then(
@@ -314,19 +336,22 @@ impl BodyEmitter<'_> {
                             ),
                             CBlock::new([trap("argument length overflow")]),
                         ),
-                        Statement::declaration(
-                            "MalType_Ptr mal_data",
+                        Statement::variable(
+                            "MalType_Ptr",
+                            "mal_data",
                             Some(CExpr::named_call(
                                 "mal_Ptr_from_address",
-                                [CExpr::cast("uint8_t *", argv())],
+                                [CExpr::cast(TypeName::named("uint8_t").pointer(), argv())],
                             )),
                         ),
-                        Statement::declaration(
-                            "uint64_t mal_length_u64",
+                        Statement::variable(
+                            "uint64_t",
+                            "mal_length_u64",
                             Some(CExpr::cast("uint64_t", CExpr::identifier("mal_length"))),
                         ),
-                        Statement::declaration(
-                            "uint8_t *mal_slot",
+                        Statement::variable(
+                            TypeName::named("uint8_t").pointer(),
+                            "mal_slot",
                             Some(CExpr::binary(
                                 "+",
                                 CExpr::identifier("mal_argument_storage"),
@@ -342,7 +367,7 @@ impl BodyEmitter<'_> {
                             [
                                 CExpr::identifier("mal_slot"),
                                 CExpr::unary("&", CExpr::identifier("mal_data")),
-                                CExpr::sizeof_type("mal_data"),
+                                CExpr::sizeof_expr(CExpr::identifier("mal_data")),
                             ],
                         )),
                         Statement::expression(CExpr::named_call(
@@ -351,16 +376,17 @@ impl BodyEmitter<'_> {
                                 CExpr::binary(
                                     "+",
                                     CExpr::identifier("mal_slot"),
-                                    CExpr::sizeof_type("mal_data"),
+                                    CExpr::sizeof_expr(CExpr::identifier("mal_data")),
                                 ),
                                 CExpr::unary("&", CExpr::identifier("mal_length_u64")),
-                                CExpr::sizeof_type("mal_length_u64"),
+                                CExpr::sizeof_expr(CExpr::identifier("mal_length_u64")),
                             ],
                         )),
                     ]),
                 ),
-                Statement::declaration(
-                    format!("{parameter_type} mal_arguments"),
+                Statement::variable(
+                    parameter_type.clone(),
+                    "mal_arguments",
                     Some(CExpr::compound_literal(
                         parameter_type,
                         [
@@ -378,8 +404,9 @@ impl BodyEmitter<'_> {
                         ],
                     )),
                 ),
-                Statement::declaration(
-                    "int32_t mal_result",
+                Statement::variable(
+                    "int32_t",
+                    "mal_result",
                     Some(CExpr::call(
                         CExpr::identifier(name.clone()).field("call"),
                         [
@@ -396,37 +423,48 @@ impl BodyEmitter<'_> {
                 Statement::return_value(CExpr::cast("int", CExpr::identifier("mal_result"))),
             ]),
         )
-        .render()
+        .into()])
     }
 
-    fn function_signature(&self, function: &closure::Function) -> String {
+    fn function_signature(&self, function: &closure::Function) -> FunctionSignature {
         let result = self.types.c_type(&function.body.result.ty);
         let parameter_type = self.types.c_type(&function.parameter.ty);
         let parameter_name = function
             .parameter
             .binding
             .map_or_else(|| "mal_parameter".into(), value_name);
-        format!(
-            "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameter_type} {parameter_name})",
-            function_name(function.id)
+        FunctionSignature::static_function(
+            result,
+            function_name(function.id),
+            [
+                Parameter::named(TypeName::named("MalContext").pointer(), "mal_context"),
+                Parameter::named(TypeName::const_named("void").pointer(), "mal_environment"),
+                Parameter::named(parameter_type, parameter_name),
+            ],
         )
     }
 
-    fn direct_function_signature(&self, function: &closure::Function) -> String {
+    fn direct_function_signature(&self, function: &closure::Function) -> FunctionSignature {
         let result = self.types.c_type(&function.body.result.ty);
         let crate::check::ast::Type::Product(_) = &function.parameter.ty else {
             unreachable!("only product parameters have direct entry points")
         };
-        let parameters = flattened_product_types(&function.parameter.ty)
-            .into_iter()
-            .enumerate()
-            .map(|(index, ty)| format!("{} mal_direct_parameter_{index}", self.types.c_type(ty)))
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!(
-            "static {result} {}(MalContext *mal_context, const void *mal_environment, {parameters})",
-            direct_function_name(function.id)
-        )
+        let mut parameters = vec![
+            Parameter::named(TypeName::named("MalContext").pointer(), "mal_context"),
+            Parameter::named(TypeName::const_named("void").pointer(), "mal_environment"),
+        ];
+        parameters.extend(
+            flattened_product_types(&function.parameter.ty)
+                .into_iter()
+                .enumerate()
+                .map(|(index, ty)| {
+                    Parameter::named(
+                        self.types.c_type(ty),
+                        format!("mal_direct_parameter_{index}"),
+                    )
+                }),
+        );
+        FunctionSignature::static_function(result, direct_function_name(function.id), parameters)
     }
 
     fn direct_parameter_value(
@@ -460,10 +498,11 @@ impl BodyEmitter<'_> {
             )));
         } else {
             let environment_type = environment_name(function.id);
-            output.push(Statement::declaration(
-                format!("const {environment_type} *mal_environment_fields"),
+            output.push(Statement::variable(
+                TypeName::const_named(environment_type.clone()).pointer(),
+                "mal_environment_fields",
                 Some(CExpr::cast(
-                    format!("const {environment_type} *"),
+                    TypeName::const_named(environment_type).pointer(),
                     CExpr::identifier("mal_environment"),
                 )),
             ));

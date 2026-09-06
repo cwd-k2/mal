@@ -1,4 +1,7 @@
-use crate::c_emit::syntax::{Block, Expr, FunctionDefinition, Initializer, Statement};
+use crate::c_emit::syntax::{
+    Block, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter, Statement,
+    TranslationUnit, TypeName,
+};
 use crate::check::ast::MemoryScalar;
 
 const SCALARS: [(MemoryScalar, &str, &str); 10] = [
@@ -30,8 +33,8 @@ pub(super) fn emit(
     store_ptr: bool,
     load_symbol: bool,
     store_symbol: bool,
-) -> String {
-    let mut output = String::new();
+) -> TranslationUnit {
+    let mut output = TranslationUnit::default();
     if offsets.0 {
         emit_offset(&mut output, "mal_ptr_offset", "+");
     }
@@ -56,7 +59,15 @@ pub(super) fn emit(
     if load_symbol {
         append_function(
             &mut output,
-            "static inline MalType_Symbol mal_load_symbol(MalContext *context, MalType_Ptr pointer, uint64_t length)",
+            FunctionSignature::static_inline(
+                "MalType_Symbol",
+                "mal_load_symbol",
+                [
+                    Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+                    Parameter::named("MalType_Ptr", "pointer"),
+                    Parameter::named("uint64_t", "length"),
+                ],
+            ),
             Block::new([Statement::return_value(Expr::named_call(
                 "mal_Symbol_copy_from_bytes",
                 [
@@ -70,13 +81,20 @@ pub(super) fn emit(
     if store_symbol {
         append_function(
             &mut output,
-            "static inline MalType_Unit mal_store_symbol(MalType_Ptr pointer, MalType_Symbol value)",
+            FunctionSignature::static_inline(
+                "MalType_Unit",
+                "mal_store_symbol",
+                [
+                    Parameter::named("MalType_Ptr", "pointer"),
+                    Parameter::named("MalType_Symbol", "value"),
+                ],
+            ),
             Block::new([
                 Statement::if_then(
                     Expr::binary(
                         "!=",
                         Expr::identifier("value").field("length"),
-                        Expr::named_call("UINT64_C", [Expr::literal("0")]),
+                        Expr::named_call("UINT64_C", [Expr::number("0")]),
                     ),
                     Block::new([Statement::expression(Expr::named_call(
                         "memcpy",
@@ -94,11 +112,17 @@ pub(super) fn emit(
     output
 }
 
-fn emit_offset(output: &mut String, name: &str, operator: &'static str) {
+fn emit_offset(output: &mut TranslationUnit, name: &str, operator: &'static str) {
     append_function(
         output,
-        format!(
-            "static inline MalType_Ptr {name}(MalContext *context, MalType_Ptr pointer, uint64_t offset)"
+        FunctionSignature::static_inline(
+            "MalType_Ptr",
+            name,
+            [
+                Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+                Parameter::named("MalType_Ptr", "pointer"),
+                Parameter::named("uint64_t", "offset"),
+            ],
         ),
         Block::new([
             Statement::if_then(
@@ -121,18 +145,22 @@ fn emit_offset(output: &mut String, name: &str, operator: &'static str) {
     );
 }
 
-fn emit_load(output: &mut String, name: &str, c_type: &str) {
+fn emit_load(output: &mut TranslationUnit, name: &str, c_type: &str) {
     append_function(
         output,
-        format!("static inline {c_type} mal_load_{name}(MalType_Ptr pointer)"),
+        FunctionSignature::static_inline(
+            c_type,
+            format!("mal_load_{name}"),
+            [Parameter::named("MalType_Ptr", "pointer")],
+        ),
         Block::new([
-            Statement::declaration(format!("{c_type} value"), None),
+            Statement::variable(c_type, "value", None),
             Statement::expression(Expr::named_call(
                 "memcpy",
                 [
                     Expr::unary("&", Expr::identifier("value")),
                     Expr::identifier("pointer").field("address"),
-                    Expr::sizeof_type("value"),
+                    Expr::sizeof_expr(Expr::identifier("value")),
                 ],
             )),
             Statement::return_value(Expr::identifier("value")),
@@ -140,17 +168,24 @@ fn emit_load(output: &mut String, name: &str, c_type: &str) {
     );
 }
 
-fn emit_store(output: &mut String, name: &str, c_type: &str) {
+fn emit_store(output: &mut TranslationUnit, name: &str, c_type: &str) {
     append_function(
         output,
-        format!("static inline MalType_Unit mal_store_{name}(MalType_Ptr pointer, {c_type} value)"),
+        FunctionSignature::static_inline(
+            "MalType_Unit",
+            format!("mal_store_{name}"),
+            [
+                Parameter::named("MalType_Ptr", "pointer"),
+                Parameter::named(c_type, "value"),
+            ],
+        ),
         Block::new([
             Statement::expression(Expr::named_call(
                 "memcpy",
                 [
                     Expr::identifier("pointer").field("address"),
                     Expr::unary("&", Expr::identifier("value")),
-                    Expr::sizeof_type("value"),
+                    Expr::sizeof_expr(Expr::identifier("value")),
                 ],
             )),
             Statement::return_value(unit()),
@@ -161,10 +196,7 @@ fn emit_store(output: &mut String, name: &str, c_type: &str) {
 fn trap(message: &'static str) -> Block {
     Block::new([Statement::expression(Expr::named_call(
         "mal_trap",
-        [
-            Expr::identifier("context"),
-            Expr::literal(format!("\"{message}\"")),
-        ],
+        [Expr::identifier("context"), Expr::string(message)],
     ))])
 }
 
@@ -173,14 +205,14 @@ fn unit() -> Expr {
         "MalType_Unit",
         [Initializer::positional(Expr::named_call(
             "UINT8_C",
-            [Expr::literal("0")],
+            [Expr::number("0")],
         ))],
     )
 }
 
-fn append_function(output: &mut String, signature: impl Into<String>, body: Block) {
-    output.push_str(&FunctionDefinition::new(signature, body).render());
-    output.push('\n');
+fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {
+    output.push(FunctionDefinition::from_signature(signature, body));
+    output.blank_line();
 }
 
 fn scalar_index(scalar: MemoryScalar) -> usize {

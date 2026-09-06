@@ -174,14 +174,14 @@ impl BodyEmitter<'_> {
             Operation::SumInjection { index, value } => {
                 if is_bool(result) {
                     debug_assert_eq!(value.ty, Type::Unit);
-                    Expr::named_call("UINT8_C", [Expr::literal(index.to_string())])
+                    Expr::named_call("UINT8_C", [Expr::number(index.to_string())])
                 } else {
                     Expr::compound_literal(
                         self.types.c_type(result),
                         [
                             Initializer::designated(
                                 "tag",
-                                Expr::named_call("UINT32_C", [Expr::literal(index.to_string())]),
+                                Expr::named_call("UINT32_C", [Expr::number(index.to_string())]),
                             ),
                             Initializer::designated(
                                 format!("payload.variant_{index}"),
@@ -205,7 +205,7 @@ impl BodyEmitter<'_> {
                 let expression = match operator {
                     UnaryPrimitive::Negate => Expr::binary(
                         "-",
-                        Expr::cast(unsigned, Expr::literal("0")),
+                        Expr::cast(unsigned, Expr::number("0")),
                         Expr::cast(unsigned, operand_text),
                     ),
                     UnaryPrimitive::BitwiseNot => {

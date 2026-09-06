@@ -1,4 +1,7 @@
-use crate::c_emit::syntax::{AggregateDefinition, AggregateField, Declaration};
+use crate::c_emit::syntax::{
+    AggregateDefinition, AggregateField, AggregateKind, Declaration, Parameter, TranslationUnit,
+    TypeName,
+};
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
 use crate::core::ast::ProgramInterface;
@@ -33,28 +36,28 @@ impl TypeRegistry {
         }
     }
 
-    pub(super) fn c_type(&self, ty: &Type) -> String {
+    pub(super) fn c_type(&self, ty: &Type) -> TypeName {
         if is_bool(ty) {
-            return "MalType_Bool".into();
+            return TypeName::named("MalType_Bool");
         }
         match ty {
-            Type::Unit => "MalType_Unit".into(),
-            Type::Int8 => "MalType_Int8".into(),
-            Type::Int16 => "MalType_Int16".into(),
-            Type::Int32 => "MalType_Int32".into(),
-            Type::Int64 => "MalType_Int64".into(),
-            Type::UInt8 => "MalType_UInt8".into(),
-            Type::UInt16 => "MalType_UInt16".into(),
-            Type::UInt32 => "MalType_UInt32".into(),
-            Type::UInt64 => "MalType_UInt64".into(),
-            Type::Float32 => "MalType_Float32".into(),
-            Type::Float64 => "MalType_Float64".into(),
-            Type::Symbol => "MalType_Symbol".into(),
-            Type::Ptr => "MalType_Ptr".into(),
-            Type::External { name, .. } => format!("MalType_{name}"),
-            Type::Product(_) => format!("MalRepr_Product_{}", self.index(ty)),
-            Type::Sum(_) => format!("MalRepr_Sum_{}", self.index(ty)),
-            Type::Function { .. } => format!("MalRepr_Closure_{}", self.index(ty)),
+            Type::Unit => TypeName::named("MalType_Unit"),
+            Type::Int8 => TypeName::named("MalType_Int8"),
+            Type::Int16 => TypeName::named("MalType_Int16"),
+            Type::Int32 => TypeName::named("MalType_Int32"),
+            Type::Int64 => TypeName::named("MalType_Int64"),
+            Type::UInt8 => TypeName::named("MalType_UInt8"),
+            Type::UInt16 => TypeName::named("MalType_UInt16"),
+            Type::UInt32 => TypeName::named("MalType_UInt32"),
+            Type::UInt64 => TypeName::named("MalType_UInt64"),
+            Type::Float32 => TypeName::named("MalType_Float32"),
+            Type::Float64 => TypeName::named("MalType_Float64"),
+            Type::Symbol => TypeName::named("MalType_Symbol"),
+            Type::Ptr => TypeName::named("MalType_Ptr"),
+            Type::External { name, .. } => TypeName::named(format!("MalType_{name}")),
+            Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
+            Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
+            Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
         }
     }
 
@@ -70,12 +73,12 @@ impl TypeRegistry {
         self.uses_float64
     }
 
-    pub(super) fn source_declarations(&self, host: &HostTypes) -> String {
+    pub(super) fn source_declarations(&self, host: &HostTypes) -> TranslationUnit {
         self.declarations(host, false)
     }
 
-    fn declarations(&self, host: &HostTypes, public: bool) -> String {
-        let mut output = String::new();
+    fn declarations(&self, host: &HostTypes, public: bool) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
         for (index, ty) in self.aggregates.iter().enumerate() {
             if host.contains(ty) != public {
                 continue;
@@ -99,12 +102,13 @@ impl TypeRegistry {
                 | Type::Symbol
                 | Type::Ptr => unreachable!(),
             };
-            output.push_str(
-                &Declaration::new(format!("typedef struct {kind}_{index} {kind}_{index}")).render(),
-            );
+            output.push(Declaration::type_alias(
+                TypeName::structure(format!("{kind}_{index}")),
+                format!("{kind}_{index}"),
+            ));
         }
         if !output.is_empty() {
-            output.push('\n');
+            output.blank_line();
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
             if host.contains(ty) != public {
@@ -113,58 +117,53 @@ impl TypeRegistry {
             match ty {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(element_index, element)| {
-                        AggregateField::declaration(format!(
-                            "{} field_{element_index}",
-                            self.c_type(element)
-                        ))
-                    });
-                    output.push_str(
-                        &AggregateDefinition::new(
-                            format!("struct MalRepr_Product_{index}"),
-                            fields,
-                            None,
+                        AggregateField::variable(
+                            self.c_type(element),
+                            format!("field_{element_index}"),
                         )
-                        .render(),
-                    );
-                    output.push('\n');
+                    });
+                    output.push(AggregateDefinition::structure(
+                        format!("MalRepr_Product_{index}"),
+                        fields,
+                    ));
+                    output.blank_line();
                 }
                 Type::Sum(members) => {
                     let variants = members.iter().enumerate().map(|(member_index, member)| {
-                        AggregateField::declaration(format!(
-                            "{} variant_{member_index}",
-                            self.c_type(member)
-                        ))
-                    });
-                    output.push_str(
-                        &AggregateDefinition::new(
-                            format!("struct MalRepr_Sum_{index}"),
-                            [
-                                AggregateField::declaration("uint32_t tag"),
-                                AggregateField::aggregate("union", variants, "payload"),
-                            ],
-                            None,
+                        AggregateField::variable(
+                            self.c_type(member),
+                            format!("variant_{member_index}"),
                         )
-                        .render(),
-                    );
-                    output.push('\n');
+                    });
+                    output.push(AggregateDefinition::structure(
+                        format!("MalRepr_Sum_{index}"),
+                        [
+                            AggregateField::variable("uint32_t", "tag"),
+                            AggregateField::aggregate(AggregateKind::Union, variants, "payload"),
+                        ],
+                    ));
+                    output.blank_line();
                 }
                 Type::Function { parameter, result } => {
-                    output.push_str(
-                        &AggregateDefinition::new(
-                            format!("struct MalRepr_Closure_{index}"),
-                            [
-                                AggregateField::declaration(format!(
-                                    "{} (*call)(MalContext *, const void *, {})",
-                                    self.c_type(result),
-                                    self.c_type(parameter)
-                                )),
-                                AggregateField::declaration("const void *environment"),
-                            ],
-                            None,
-                        )
-                        .render(),
-                    );
-                    output.push('\n');
+                    output.push(AggregateDefinition::structure(
+                        format!("MalRepr_Closure_{index}"),
+                        [
+                            AggregateField::function_pointer(
+                                self.c_type(result),
+                                "call",
+                                [
+                                    Parameter::unnamed(TypeName::named("MalContext").pointer()),
+                                    Parameter::unnamed(TypeName::const_named("void").pointer()),
+                                    Parameter::unnamed(self.c_type(parameter)),
+                                ],
+                            ),
+                            AggregateField::variable(
+                                TypeName::const_named("void").pointer(),
+                                "environment",
+                            ),
+                        ],
+                    ));
+                    output.blank_line();
                 }
                 Type::External { .. }
                 | Type::Unit

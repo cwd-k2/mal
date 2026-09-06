@@ -1,4 +1,4 @@
-use crate::c_emit::syntax::{Block, Expr, Initializer, Statement};
+use crate::c_emit::syntax::{Block, Expr, Initializer, Statement, TypeName};
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId, Pattern};
 
@@ -15,8 +15,9 @@ impl BodyEmitter<'_> {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                block.push(Statement::declaration(
-                    format!("{} {name}", self.types.c_type(ty)),
+                block.push(Statement::variable(
+                    self.types.c_type(ty),
+                    &name,
                     Some(expression),
                 ));
                 block.push(Statement::expression(Expr::cast(
@@ -29,8 +30,9 @@ impl BodyEmitter<'_> {
             }
             Pattern::Product { .. } => {
                 let target = self.result_target(pattern);
-                block.push(Statement::declaration(
-                    format!("{} {target}", self.types.c_type(ty)),
+                block.push(Statement::variable(
+                    self.types.c_type(ty),
+                    target.clone(),
                     Some(expression),
                 ));
                 block.push(Statement::expression(Expr::cast(
@@ -46,13 +48,14 @@ impl BodyEmitter<'_> {
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
-                block.push(Statement::declaration(
-                    format!("MalType_Unit {name}"),
+                block.push(Statement::variable(
+                    "MalType_Unit",
+                    &name,
                     Some(Expr::compound_literal(
                         "MalType_Unit",
                         [Initializer::positional(Expr::named_call(
                             "UINT8_C",
-                            [Expr::literal("0")],
+                            [Expr::number("0")],
                         ))],
                     )),
                 ));
@@ -82,10 +85,11 @@ impl BodyEmitter<'_> {
         } else {
             let allocation = format!("mal_new_environment_{target}");
             let environment_type = environment_name(function);
-            block.push(Statement::declaration(
-                format!("{environment_type} *{allocation}"),
+            block.push(Statement::variable(
+                TypeName::named(environment_type.clone()).pointer(),
+                allocation.clone(),
                 Some(Expr::cast(
-                    format!("{environment_type} *"),
+                    TypeName::named(environment_type.clone()).pointer(),
                     Expr::named_call(
                         "mal_allocate",
                         [
@@ -104,8 +108,9 @@ impl BodyEmitter<'_> {
             ));
             Expr::identifier(allocation)
         };
-        block.push(Statement::declaration(
-            format!("{} {target}", self.types.c_type(ty)),
+        block.push(Statement::variable(
+            self.types.c_type(ty),
+            &target,
             Some(Expr::compound_literal(
                 self.types.c_type(ty),
                 [

@@ -1,5 +1,5 @@
 use super::body::RuntimeNeeds;
-use super::syntax::RawTranslationUnit;
+use super::syntax::{RawTranslationUnit, TranslationUnit};
 
 pub(super) mod memory;
 mod numeric;
@@ -8,13 +8,13 @@ use self::numeric::{
     emit_float_to_integer, emit_integer_checked, emit_integer_shift, emit_integer_wrap,
 };
 
-pub(super) fn emit(needs: &RuntimeNeeds) -> String {
-    let mut output = String::from(RawTranslationUnit::new(RUNTIME_CORE).render());
+pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
+    let mut output = TranslationUnit::new([RawTranslationUnit::new(RUNTIME_CORE).into()]);
     if needs.wrap != 0 {
-        output.push_str(&emit_integer_wrap(needs.wrap));
+        output.extend(emit_integer_wrap(needs.wrap));
     }
     if needs.divide != 0 {
-        output.push_str(&emit_integer_checked(
+        output.extend(emit_integer_checked(
             needs.divide,
             "divide",
             "/",
@@ -22,7 +22,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         ));
     }
     if needs.remainder != 0 {
-        output.push_str(&emit_integer_checked(
+        output.extend(emit_integer_checked(
             needs.remainder,
             "remainder",
             "%",
@@ -30,16 +30,16 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         ));
     }
     if needs.shift_left != 0 || needs.shift_right != 0 {
-        output.push_str(&emit_integer_shift(needs.shift_left, needs.shift_right));
+        output.extend(emit_integer_shift(needs.shift_left, needs.shift_right));
     }
     if needs.symbol_equality {
-        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_EQUALITY).render());
+        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_EQUALITY));
     }
     if needs.symbol_at {
-        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_AT).render());
+        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_AT));
     }
     if needs.symbol_concatenate {
-        output.push_str(RawTranslationUnit::new(RUNTIME_SYMBOL_CONCATENATE).render());
+        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_CONCATENATE));
     }
     if needs.memory_offset_forward
         || needs.memory_offset_backward
@@ -50,7 +50,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         || needs.memory_load_symbol
         || needs.memory_store_symbol
     {
-        output.push_str(&memory::emit(
+        output.extend(memory::emit(
             (needs.memory_offset_forward, needs.memory_offset_backward),
             needs.memory_load,
             needs.memory_store,
@@ -61,7 +61,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         ));
     }
     if needs.float_to_integer != 0 {
-        output.push_str(&emit_float_to_integer(needs.float_to_integer));
+        output.extend(emit_float_to_integer(needs.float_to_integer));
     }
     output
 }

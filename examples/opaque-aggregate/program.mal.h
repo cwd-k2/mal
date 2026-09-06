@@ -33,8 +33,8 @@ typedef double MalType_Float64;
 typedef struct { const uint8_t *data; uint64_t length; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
 
-#define MAL_FALSE ((MalType_Bool)UINT8_C(0))
-#define MAL_TRUE ((MalType_Bool)UINT8_C(1))
+#define MAL_FALSE (MalType_Bool)UINT8_C(0)
+#define MAL_TRUE (MalType_Bool)UINT8_C(1)
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
@@ -133,24 +133,24 @@ MalType_UInt64 mal_ext_handleBits(MalContext *context, MalType_Mem value);
 
 #define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(context, value) \
-    MalType_Mem mal_ext_allocate( \
+MalType_Mem mal_ext_allocate( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_UInt64 value \
-    )
+)
 
 #define MAL_HAS_EXTERN_resize 1
 #define MAL_DEFINE_resize(context, argument_0, argument_1) \
-    MalType_Response mal_ext_resize( \
+MalType_Response mal_ext_resize( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_Mem argument_0, \
     MalType_UInt64 argument_1 \
-    )
+)
 
 #define MAL_HAS_EXTERN_handleBits 1
 #define MAL_DEFINE_handleBits(context, value) \
-    MalType_UInt64 mal_ext_handleBits( \
+MalType_UInt64 mal_ext_handleBits( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_Mem value \
-    )
+)
 
 #endif

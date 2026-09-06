@@ -4,6 +4,7 @@ use crate::closure::ast::{self as closure, Binding, Block, FunctionId, Operation
 use crate::core::ast::ExternalOperation;
 use crate::resolve::ast::ExternalOperationId;
 
+use super::syntax::TranslationUnit;
 use super::types::TypeRegistry;
 
 mod expression;
@@ -35,12 +36,12 @@ pub(super) struct RuntimeNeeds {
 }
 
 pub(super) struct BodyOutput {
-    pub(super) environment_declarations: String,
-    pub(super) globals: String,
-    pub(super) function_declarations: String,
-    pub(super) function_definitions: String,
-    pub(super) initializer: String,
-    pub(super) main: String,
+    pub(super) environment_declarations: TranslationUnit,
+    pub(super) globals: TranslationUnit,
+    pub(super) function_declarations: TranslationUnit,
+    pub(super) function_definitions: TranslationUnit,
+    pub(super) initializer: TranslationUnit,
+    pub(super) main: TranslationUnit,
     pub(super) needs: RuntimeNeeds,
 }
 

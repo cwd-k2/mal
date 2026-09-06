@@ -124,8 +124,9 @@ impl BodyEmitter<'_> {
         arms: &[closure::CaseArm],
     ) {
         let target = self.result_target(pattern);
-        output.push(Statement::declaration(
-            format!("{} {target}", self.types.c_type(ty)),
+        output.push(Statement::variable(
+            self.types.c_type(ty),
+            target.clone(),
             None,
         ));
         let bool_scrutinee = is_bool(&scrutinee.ty);
@@ -141,8 +142,9 @@ impl BodyEmitter<'_> {
             let mut body = Block::default();
             if let Pattern::Binding { id, ty } = &arm.pattern {
                 let name = value_name(*id);
-                body.push(Statement::declaration(
-                    format!("{} {name}", self.types.c_type(ty)),
+                body.push(Statement::variable(
+                    self.types.c_type(ty),
+                    &name,
                     Some(payload),
                 ));
                 body.push(discard(Expr::identifier(name)));
@@ -176,8 +178,9 @@ impl BodyEmitter<'_> {
         then: &ClosureBlock,
     ) {
         let target = self.result_target(pattern);
-        output.push(Statement::declaration(
-            format!("{} {target}", self.types.c_type(ty)),
+        output.push(Statement::variable(
+            self.types.c_type(ty),
+            target.clone(),
             None,
         ));
         let condition = self.emit_primitive_condition(operator, left, right);
@@ -206,7 +209,7 @@ fn case_payload(scrutinee: &Expr, index: usize, bool_scrutinee: bool) -> Expr {
         Expr::compound_literal(
             "MalType_Unit",
             [crate::c_emit::syntax::Initializer::positional(
-                Expr::named_call("UINT8_C", [Expr::literal("0")]),
+                Expr::named_call("UINT8_C", [Expr::number("0")]),
             )],
         )
     } else {
@@ -218,7 +221,7 @@ fn case_payload(scrutinee: &Expr, index: usize, bool_scrutinee: bool) -> Expr {
 }
 
 fn uint32(value: usize) -> Expr {
-    Expr::named_call("UINT32_C", [Expr::literal(value.to_string())])
+    Expr::named_call("UINT32_C", [Expr::number(value.to_string())])
 }
 
 fn discard(value: Expr) -> Statement {
@@ -230,7 +233,7 @@ fn invalid_sum_default() -> SwitchCase {
         "mal_trap",
         [
             Expr::identifier("mal_context"),
-            Expr::literal("\"invalid sum tag\""),
+            Expr::string("invalid sum tag"),
         ],
     ))]))
 }

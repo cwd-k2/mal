@@ -1,8 +1,11 @@
 use crate::c_emit::scalar::{INTEGER_TYPES, IntegerType};
-use crate::c_emit::syntax::{Block, Expr, FunctionDefinition, Statement};
+use crate::c_emit::syntax::{
+    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TranslationUnit,
+    TypeName,
+};
 
-pub(super) fn emit_float_to_integer(needs: u32) -> String {
-    let mut output = String::new();
+pub(super) fn emit_float_to_integer(needs: u32) -> TranslationUnit {
+    let mut output = TranslationUnit::default();
     for source_index in 0..2 {
         let (source_name, source_type, precision, literal_suffix) = if source_index == 0 {
             ("f32", "float", 24, "f")
@@ -17,7 +20,7 @@ pub(super) fn emit_float_to_integer(needs: u32) -> String {
             let target_type = target.c_type;
             let bits = target.width;
             let upper_exponent = if target.signed() { bits - 1 } else { bits };
-            let upper = Expr::literal(format!("0x1p{upper_exponent}{literal_suffix}"));
+            let upper = Expr::number(format!("0x1p{upper_exponent}{literal_suffix}"));
             let lower = if target.signed() && bits <= precision {
                 Expr::binary(
                     ">",
@@ -26,9 +29,9 @@ pub(super) fn emit_float_to_integer(needs: u32) -> String {
                         "-",
                         Expr::unary(
                             "-",
-                            Expr::literal(format!("0x1p{}{literal_suffix}", bits - 1)),
+                            Expr::number(format!("0x1p{}{literal_suffix}", bits - 1)),
                         ),
-                        Expr::literal(format!("1.0{literal_suffix}")),
+                        Expr::number(format!("1.0{literal_suffix}")),
                     ),
                 )
             } else if target.signed() {
@@ -37,20 +40,22 @@ pub(super) fn emit_float_to_integer(needs: u32) -> String {
                     Expr::identifier("value"),
                     Expr::unary(
                         "-",
-                        Expr::literal(format!("0x1p{}{literal_suffix}", bits - 1)),
+                        Expr::number(format!("0x1p{}{literal_suffix}", bits - 1)),
                     ),
                 )
             } else {
                 Expr::binary(
                     ">",
                     Expr::identifier("value"),
-                    Expr::unary("-", Expr::literal(format!("1.0{literal_suffix}"))),
+                    Expr::unary("-", Expr::number(format!("1.0{literal_suffix}"))),
                 )
             };
             append_function(
                 &mut output,
-                format!(
-                    "static inline {target_type} mal_{source_name}_to_{target_name}(MalContext *context, {source_type} value)"
+                FunctionSignature::static_inline(
+                    target_type,
+                    format!("mal_{source_name}_to_{target_name}"),
+                    [context_parameter(), Parameter::named(source_type, "value")],
                 ),
                 Block::new([
                     Statement::if_then(
@@ -72,8 +77,8 @@ pub(super) fn emit_float_to_integer(needs: u32) -> String {
     output
 }
 
-pub(super) fn emit_integer_wrap(needs: u16) -> String {
-    let mut output = String::new();
+pub(super) fn emit_integer_wrap(needs: u16) -> TranslationUnit {
+    let mut output = TranslationUnit::default();
     for integer in INTEGER_TYPES {
         if !integer.signed() || needs & integer.mask() == 0 {
             continue;
@@ -83,15 +88,19 @@ pub(super) fn emit_integer_wrap(needs: u16) -> String {
         let unsigned = integer.unsigned;
         append_function(
             &mut output,
-            format!("static {c_type} mal_{name}_from_{unsigned}({unsigned} bits)"),
+            FunctionSignature::static_function(
+                c_type,
+                format!("mal_{name}_from_{unsigned}"),
+                [Parameter::named(unsigned, "bits")],
+            ),
             Block::new([
-                Statement::declaration(format!("{c_type} value"), None),
+                Statement::variable(c_type, "value", None),
                 Statement::expression(Expr::named_call(
                     "memcpy",
                     [
                         Expr::unary("&", Expr::identifier("value")),
                         Expr::unary("&", Expr::identifier("bits")),
-                        Expr::sizeof_type("value"),
+                        Expr::sizeof_expr(Expr::identifier("value")),
                     ],
                 )),
                 Statement::return_value(Expr::identifier("value")),
@@ -106,8 +115,8 @@ pub(super) fn emit_integer_checked(
     operation: &str,
     symbol: &'static str,
     zero_message: &str,
-) -> String {
-    let mut output = String::new();
+) -> TranslationUnit {
+    let mut output = TranslationUnit::default();
     let overflow_operation = if operation == "divide" {
         "division"
     } else {
@@ -124,7 +133,7 @@ pub(super) fn emit_integer_checked(
             Expr::binary(
                 "==",
                 Expr::identifier("divisor"),
-                Expr::cast(c_type, Expr::literal("0")),
+                Expr::cast(c_type, Expr::number("0")),
             ),
             trap(zero_message),
         ));
@@ -140,7 +149,7 @@ pub(super) fn emit_integer_checked(
                     Expr::binary(
                         "==",
                         Expr::identifier("divisor"),
-                        Expr::cast(c_type, Expr::unary("-", Expr::literal("1"))),
+                        Expr::cast(c_type, Expr::unary("-", Expr::number("1"))),
                     ),
                 ),
                 trap(&format!("signed {overflow_operation} overflow")),
@@ -153,8 +162,14 @@ pub(super) fn emit_integer_checked(
         )));
         append_function(
             &mut output,
-            format!(
-                "static inline {c_type} mal_{name}_{operation}(MalContext *context, {c_type} dividend, {c_type} divisor)"
+            FunctionSignature::static_inline(
+                c_type,
+                format!("mal_{name}_{operation}"),
+                [
+                    context_parameter(),
+                    Parameter::named(c_type, "dividend"),
+                    Parameter::named(c_type, "divisor"),
+                ],
             ),
             body,
         );
@@ -162,8 +177,8 @@ pub(super) fn emit_integer_checked(
     output
 }
 
-pub(super) fn emit_integer_shift(left_needs: u16, right_needs: u16) -> String {
-    let mut output = String::new();
+pub(super) fn emit_integer_shift(left_needs: u16, right_needs: u16) -> TranslationUnit {
+    let mut output = TranslationUnit::default();
     for integer in INTEGER_TYPES {
         let mask = integer.mask();
         if (left_needs | right_needs) & mask == 0 {
@@ -194,7 +209,7 @@ pub(super) fn emit_integer_shift(left_needs: u16, right_needs: u16) -> String {
     output
 }
 
-fn emit_shift_left(output: &mut String, integer: IntegerType, result: Expr) {
+fn emit_shift_left(output: &mut TranslationUnit, integer: IntegerType, result: Expr) {
     let name = integer.name;
     let c_type = integer.c_type;
     let unsigned = integer.unsigned;
@@ -203,29 +218,36 @@ fn emit_shift_left(output: &mut String, integer: IntegerType, result: Expr) {
     let range_check = if integer.signed() {
         Expr::binary(
             "||",
-            Expr::binary("<", Expr::identifier("count"), Expr::literal("0")),
+            Expr::binary("<", Expr::identifier("count"), Expr::number("0")),
             Expr::binary(
                 ">=",
                 Expr::cast(carrier, Expr::identifier("count")),
-                Expr::literal(width.to_string()),
+                Expr::number(width.to_string()),
             ),
         )
     } else {
         Expr::binary(
             ">=",
             Expr::cast(carrier, Expr::identifier("count")),
-            Expr::literal(width.to_string()),
+            Expr::number(width.to_string()),
         )
     };
     append_function(
         output,
-        format!(
-            "static inline {c_type} mal_{name}_shift_left(MalContext *context, {c_type} value, {c_type} count)"
+        FunctionSignature::static_inline(
+            c_type,
+            format!("mal_{name}_shift_left"),
+            [
+                context_parameter(),
+                Parameter::named(c_type, "value"),
+                Parameter::named(c_type, "count"),
+            ],
         ),
         Block::new([
             Statement::if_then(range_check, trap("shift count out of range")),
-            Statement::declaration(
-                format!("{carrier} shifted"),
+            Statement::variable(
+                carrier,
+                "shifted",
                 Some(Expr::binary(
                     "<<",
                     Expr::cast(carrier, Expr::cast(unsigned, Expr::identifier("value"))),
@@ -237,7 +259,7 @@ fn emit_shift_left(output: &mut String, integer: IntegerType, result: Expr) {
     );
 }
 
-fn emit_signed_shift_right(output: &mut String, integer: IntegerType, result: Expr) {
+fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, result: Expr) {
     let name = integer.name;
     let c_type = integer.c_type;
     let unsigned = integer.unsigned;
@@ -246,35 +268,43 @@ fn emit_signed_shift_right(output: &mut String, integer: IntegerType, result: Ex
     let maximum = integer.maximum;
     append_function(
         output,
-        format!(
-            "static inline {c_type} mal_{name}_shift_right(MalContext *context, {c_type} value, {c_type} count)"
+        FunctionSignature::static_inline(
+            c_type,
+            format!("mal_{name}_shift_right"),
+            [
+                context_parameter(),
+                Parameter::named(c_type, "value"),
+                Parameter::named(c_type, "count"),
+            ],
         ),
         Block::new([
             Statement::if_then(
                 Expr::binary(
                     "||",
-                    Expr::binary("<", Expr::identifier("count"), Expr::literal("0")),
+                    Expr::binary("<", Expr::identifier("count"), Expr::number("0")),
                     Expr::binary(
                         ">=",
                         Expr::cast(carrier, Expr::identifier("count")),
-                        Expr::literal(width.to_string()),
+                        Expr::number(width.to_string()),
                     ),
                 ),
                 trap("shift count out of range"),
             ),
             Statement::if_then(
-                Expr::binary("==", Expr::identifier("count"), Expr::literal("0")),
+                Expr::binary("==", Expr::identifier("count"), Expr::number("0")),
                 Block::new([Statement::return_value(Expr::identifier("value"))]),
             ),
-            Statement::declaration(
-                format!("{carrier} bits"),
+            Statement::variable(
+                carrier,
+                "bits",
                 Some(Expr::cast(
                     carrier,
                     Expr::cast(unsigned, Expr::identifier("value")),
                 )),
             ),
-            Statement::declaration(
-                format!("{carrier} shifted"),
+            Statement::variable(
+                carrier,
+                "shifted",
                 Some(Expr::binary(
                     ">>",
                     Expr::identifier("bits"),
@@ -289,11 +319,11 @@ fn emit_signed_shift_right(output: &mut String, integer: IntegerType, result: Ex
                         Expr::identifier("bits"),
                         Expr::binary(
                             "<<",
-                            Expr::cast(carrier, Expr::literal("1")),
-                            Expr::literal((width - 1).to_string()),
+                            Expr::cast(carrier, Expr::number("1")),
+                            Expr::number((width - 1).to_string()),
                         ),
                     ),
-                    Expr::literal("0"),
+                    Expr::number("0"),
                 ),
                 Block::new([Statement::assignment(
                     Expr::identifier("shifted"),
@@ -305,7 +335,7 @@ fn emit_signed_shift_right(output: &mut String, integer: IntegerType, result: Ex
                             Expr::cast(carrier, Expr::identifier(maximum)),
                             Expr::binary(
                                 "-",
-                                Expr::literal(width.to_string()),
+                                Expr::number(width.to_string()),
                                 Expr::cast(carrier, Expr::identifier("count")),
                             ),
                         ),
@@ -317,22 +347,28 @@ fn emit_signed_shift_right(output: &mut String, integer: IntegerType, result: Ex
     );
 }
 
-fn emit_unsigned_shift_right(output: &mut String, integer: IntegerType) {
+fn emit_unsigned_shift_right(output: &mut TranslationUnit, integer: IntegerType) {
     let name = integer.name;
     let c_type = integer.c_type;
     let carrier = integer.carrier;
     let width = integer.width;
     append_function(
         output,
-        format!(
-            "static inline {c_type} mal_{name}_shift_right(MalContext *context, {c_type} value, {c_type} count)"
+        FunctionSignature::static_inline(
+            c_type,
+            format!("mal_{name}_shift_right"),
+            [
+                context_parameter(),
+                Parameter::named(c_type, "value"),
+                Parameter::named(c_type, "count"),
+            ],
         ),
         Block::new([
             Statement::if_then(
                 Expr::binary(
                     ">=",
                     Expr::cast(carrier, Expr::identifier("count")),
-                    Expr::literal(width.to_string()),
+                    Expr::number(width.to_string()),
                 ),
                 trap("shift count out of range"),
             ),
@@ -351,14 +387,15 @@ fn emit_unsigned_shift_right(output: &mut String, integer: IntegerType) {
 fn trap(message: &str) -> Block {
     Block::new([Statement::expression(Expr::named_call(
         "mal_trap",
-        [
-            Expr::identifier("context"),
-            Expr::literal(format!("\"{message}\"")),
-        ],
+        [Expr::identifier("context"), Expr::string(message)],
     ))])
 }
 
-fn append_function(output: &mut String, signature: impl Into<String>, body: Block) {
-    output.push_str(&FunctionDefinition::new(signature, body).render());
-    output.push('\n');
+fn context_parameter() -> Parameter {
+    Parameter::named(TypeName::named("MalContext").pointer(), "context")
+}
+
+fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {
+    output.push(FunctionDefinition::from_signature(signature, body));
+    output.blank_line();
 }

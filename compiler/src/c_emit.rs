@@ -30,34 +30,38 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     let mut emitter = BodyEmitter::new(program, &types);
     let body = emitter.emit(main);
 
-    let mut source = String::new();
-    source.push_str(&syntax::Directive::IncludeQuoted(GENERATED_HEADER_NAME.into()).render());
+    let mut source = syntax::TranslationUnit::default();
+    source.push(syntax::Directive::IncludeQuoted(
+        GENERATED_HEADER_NAME.into(),
+    ));
     for header in [
         "float.h", "stddef.h", "stdint.h", "stdio.h", "stdlib.h", "string.h",
     ] {
-        source.push_str(&syntax::Directive::IncludeSystem(header.into()).render());
+        source.push(syntax::Directive::IncludeSystem(header.into()));
     }
-    source.push('\n');
+    source.blank_line();
     if types.uses_float() {
-        source.push_str(&float_target_profile());
+        source.extend(float_target_profile());
         if types.uses_float32() {
-            source.push_str(&float_from_bits_definition("float", "float32", "uint32_t"));
+            source.push(float_from_bits_definition("float", "float32", "uint32_t"));
+            source.blank_line();
         }
         if types.uses_float64() {
-            source.push_str(&float_from_bits_definition("double", "float64", "uint64_t"));
+            source.push(float_from_bits_definition("double", "float64", "uint64_t"));
+            source.blank_line();
         }
     }
-    source.push_str(&types.source_declarations(&host));
-    source.push_str(&body.environment_declarations);
-    source.push_str(&runtime::emit(&body.needs));
-    source.push_str(&body.globals);
-    source.push_str(&body.function_declarations);
-    source.push_str(&body.function_definitions);
-    source.push_str(&body.initializer);
-    source.push_str(&body.main);
+    source.extend(types.source_declarations(&host));
+    source.extend(body.environment_declarations);
+    source.extend(runtime::emit(&body.needs));
+    source.extend(body.globals);
+    source.extend(body.function_declarations);
+    source.extend(body.function_definitions);
+    source.extend(body.initializer);
+    source.extend(body.main);
 
     Ok(Output {
-        source,
+        source: source.render(),
         header: header::emit(&program.interface, &types, &host),
     })
 }
@@ -86,62 +90,108 @@ pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
             .any(|character| character.is_control() || matches!(character, '"' | '\\'))
 }
 
-fn float_target_profile() -> String {
-    use self::syntax::{Declaration, Directive};
+fn float_target_profile() -> syntax::TranslationUnit {
+    use self::syntax::{Declaration, Directive, Expr, PreprocessorExpr, TranslationUnit};
 
-    let mut output = Directive::If("defined(__clang__)".into()).render();
-    output.push_str(&Directive::Pragma("STDC FENV_ACCESS ON".into()).render());
-    output.push_str(&Directive::Pragma("STDC FP_CONTRACT OFF".into()).render());
-    output.push_str(&Directive::Endif.render());
-    output.push('\n');
-    for assertion in [
-        "_Static_assert(FLT_RADIX == 2, \"mal requires radix-2 floating point\")",
-        "_Static_assert(sizeof(float) == 4 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128 && FLT_MIN_EXP == -125, \"mal requires binary32 float\")",
-        "_Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024 && DBL_MIN_EXP == -1021, \"mal requires binary64 double\")",
-        "_Static_assert(FLT_EVAL_METHOD == 0, \"mal requires evaluation in the operand format\")",
-    ] {
-        output.push_str(&Declaration::new(assertion).render());
-    }
+    let mut output = TranslationUnit::new([
+        Directive::If(PreprocessorExpr::defined("__clang__")).into(),
+        Directive::pragma("STDC", "FENV_ACCESS", "ON").into(),
+        Directive::pragma("STDC", "FP_CONTRACT", "OFF").into(),
+        Directive::Endif.into(),
+    ]);
+    output.blank_line();
     for (condition, message) in [
         (
-            "defined(FLT_HAS_SUBNORM) && FLT_HAS_SUBNORM != 1",
-            "\"mal requires float subnormals\"",
+            Expr::binary("==", Expr::identifier("FLT_RADIX"), Expr::number("2")),
+            "mal requires radix-2 floating point",
         ),
         (
-            "defined(DBL_HAS_SUBNORM) && DBL_HAS_SUBNORM != 1",
-            "\"mal requires double subnormals\"",
+            conjunction([
+                Expr::binary("==", Expr::sizeof_type("float"), Expr::number("4")),
+                Expr::binary("==", Expr::identifier("FLT_MANT_DIG"), Expr::number("24")),
+                Expr::binary("==", Expr::identifier("FLT_MAX_EXP"), Expr::number("128")),
+                Expr::binary(
+                    "==",
+                    Expr::identifier("FLT_MIN_EXP"),
+                    Expr::unary("-", Expr::number("125")),
+                ),
+            ]),
+            "mal requires binary32 float",
+        ),
+        (
+            conjunction([
+                Expr::binary("==", Expr::sizeof_type("double"), Expr::number("8")),
+                Expr::binary("==", Expr::identifier("DBL_MANT_DIG"), Expr::number("53")),
+                Expr::binary("==", Expr::identifier("DBL_MAX_EXP"), Expr::number("1024")),
+                Expr::binary(
+                    "==",
+                    Expr::identifier("DBL_MIN_EXP"),
+                    Expr::unary("-", Expr::number("1021")),
+                ),
+            ]),
+            "mal requires binary64 double",
+        ),
+        (
+            Expr::binary("==", Expr::identifier("FLT_EVAL_METHOD"), Expr::number("0")),
+            "mal requires evaluation in the operand format",
         ),
     ] {
-        output.push_str(&Directive::If(condition.into()).render());
-        output.push_str(&Directive::Error(message.into()).render());
-        output.push_str(&Directive::Endif.render());
+        output.push(Declaration::static_assert(condition, message));
     }
-    output.push('\n');
+    for (macro_name, message) in [
+        ("FLT_HAS_SUBNORM", "mal requires float subnormals"),
+        ("DBL_HAS_SUBNORM", "mal requires double subnormals"),
+    ] {
+        output.push(Directive::If(PreprocessorExpr::binary(
+            "&&",
+            PreprocessorExpr::defined(macro_name),
+            PreprocessorExpr::binary(
+                "!=",
+                PreprocessorExpr::identifier(macro_name),
+                PreprocessorExpr::integer("1"),
+            ),
+        )));
+        output.push(Directive::Error(message.into()));
+        output.push(Directive::Endif);
+    }
+    output.blank_line();
     output
 }
 
-fn float_from_bits_definition(c_type: &str, name: &str, bits_type: &str) -> String {
-    use self::syntax::{Block, Expr, FunctionDefinition, Statement};
+fn conjunction<const N: usize>(expressions: [syntax::Expr; N]) -> syntax::Expr {
+    expressions
+        .into_iter()
+        .reduce(|left, right| syntax::Expr::binary("&&", left, right))
+        .expect("conjunction requires at least one expression")
+}
+
+fn float_from_bits_definition(
+    c_type: &str,
+    name: &str,
+    bits_type: &str,
+) -> syntax::FunctionDefinition {
+    use self::syntax::{Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement};
 
     let body = Block::new([
-        Statement::declaration(format!("{c_type} value"), None),
+        Statement::variable(c_type, "value", None),
         Statement::expression(Expr::named_call(
             "memcpy",
             [
                 Expr::unary("&", Expr::identifier("value")),
                 Expr::unary("&", Expr::identifier("bits")),
-                Expr::sizeof_type("value"),
+                Expr::sizeof_expr(Expr::identifier("value")),
             ],
         )),
         Statement::return_value(Expr::identifier("value")),
     ]);
-    let mut output = FunctionDefinition::new(
-        format!("static inline {c_type} mal_{name}_from_bits({bits_type} bits)"),
+    FunctionDefinition::from_signature(
+        FunctionSignature::static_inline(
+            c_type,
+            format!("mal_{name}_from_bits"),
+            [Parameter::named(bits_type, "bits")],
+        ),
         body,
     )
-    .render();
-    output.push('\n');
-    output
 }
 
 fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding, Diagnostic> {

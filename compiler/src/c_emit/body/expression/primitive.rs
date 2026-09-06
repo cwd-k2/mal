@@ -120,8 +120,8 @@ impl BodyEmitter<'_> {
                 debug_assert!(is_bool(result));
                 Expr::conditional(
                     condition,
-                    Expr::named_call("UINT8_C", [Expr::literal("1")]),
-                    Expr::named_call("UINT8_C", [Expr::literal("0")]),
+                    Expr::named_call("UINT8_C", [Expr::number("1")]),
+                    Expr::named_call("UINT8_C", [Expr::number("0")]),
                 )
             }
         }

@@ -97,7 +97,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/token` | token spacingと`if`、`case`、blockの出力state |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `c_emit/syntax` | C expression、statement、block、declaration、definition、preprocessor directiveの構造とrendering policy。checked-in runtime Cだけを明示的なraw translation unitとして扱う |
+| `c_emit/syntax` | C translation unit、type name、declarator、parameter、function signature、expression、statement、definition、preprocessor構文のRust内DSLとrendering policy。構文nodeは最終renderまで保持し、checked-in runtime Cだけを明示的なraw translation unitとして扱う |
 | `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identity |
 | `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類 |
 | `c_emit/body/expression` | operationからC expressionへのdispatch |

@@ -1,9 +1,9 @@
-use super::Expr;
+use super::{Expr, FunctionSignature, MacroInvocation, VariableDeclaration};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Statement {
-    Declaration {
-        declarator: String,
+    VariableDeclaration {
+        declaration: VariableDeclaration,
         initializer: Option<Expr>,
     },
     Expression(Expr),
@@ -42,8 +42,14 @@ pub(in crate::c_emit) struct Block {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct FunctionDefinition {
-    signature: String,
+    header: FunctionHeader,
     body: Block,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum FunctionHeader {
+    Signature(FunctionSignature),
+    MacroInvocation(MacroInvocation),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -54,23 +60,31 @@ pub(in crate::c_emit) struct SwitchCase {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct ForInitializer {
-    declarator: String,
+    declaration: VariableDeclaration,
     initializer: Expr,
 }
 
 impl Statement {
-    pub(in crate::c_emit) fn declaration(
-        declarator: impl Into<String>,
+    pub(in crate::c_emit) fn expression(expression: Expr) -> Self {
+        Self::Expression(expression)
+    }
+
+    pub(in crate::c_emit) fn variable_declaration(
+        declaration: VariableDeclaration,
         initializer: Option<Expr>,
     ) -> Self {
-        Self::Declaration {
-            declarator: declarator.into(),
+        Self::VariableDeclaration {
+            declaration,
             initializer,
         }
     }
 
-    pub(in crate::c_emit) fn expression(expression: Expr) -> Self {
-        Self::Expression(expression)
+    pub(in crate::c_emit) fn variable(
+        ty: impl Into<super::TypeName>,
+        name: impl Into<String>,
+        initializer: Option<Expr>,
+    ) -> Self {
+        Self::variable_declaration(VariableDeclaration::new(ty, name), initializer)
     }
 
     pub(in crate::c_emit) fn assignment(target: Expr, value: Expr) -> Self {
@@ -128,12 +142,12 @@ impl Statement {
 
     pub(in crate::c_emit) fn render(&self, output: &mut String, depth: usize) {
         match self {
-            Self::Declaration {
-                declarator,
+            Self::VariableDeclaration {
+                declaration,
                 initializer,
             } => {
                 write_indent(output, depth);
-                output.push_str(declarator);
+                output.push_str(&declaration.render());
                 if let Some(initializer) = initializer {
                     output.push_str(" = ");
                     output.push_str(&initializer.to_string());
@@ -223,15 +237,19 @@ impl Statement {
 }
 
 impl ForInitializer {
-    pub(in crate::c_emit) fn declaration(declarator: impl Into<String>, initializer: Expr) -> Self {
+    pub(in crate::c_emit) fn variable(
+        ty: impl Into<super::TypeName>,
+        name: impl Into<String>,
+        initializer: Expr,
+    ) -> Self {
         Self {
-            declarator: declarator.into(),
+            declaration: VariableDeclaration::new(ty, name),
             initializer,
         }
     }
 
     fn render(&self, output: &mut String) {
-        output.push_str(&self.declarator);
+        output.push_str(&self.declaration.render());
         output.push_str(" = ");
         output.push_str(&self.initializer.to_string());
     }
@@ -289,15 +307,25 @@ impl SwitchCase {
 }
 
 impl FunctionDefinition {
-    pub(in crate::c_emit) fn new(signature: impl Into<String>, body: Block) -> Self {
+    pub(in crate::c_emit) fn from_signature(signature: FunctionSignature, body: Block) -> Self {
         Self {
-            signature: signature.into(),
+            header: FunctionHeader::Signature(signature),
+            body,
+        }
+    }
+
+    pub(in crate::c_emit) fn from_macro(invocation: MacroInvocation, body: Block) -> Self {
+        Self {
+            header: FunctionHeader::MacroInvocation(invocation),
             body,
         }
     }
 
     pub(in crate::c_emit) fn render(&self) -> String {
-        let mut output = self.signature.clone();
+        let mut output = match &self.header {
+            FunctionHeader::Signature(signature) => signature.render(),
+            FunctionHeader::MacroInvocation(invocation) => invocation.render(),
+        };
         output.push(' ');
         self.body.render_braced(&mut output, 0);
         output
@@ -313,19 +341,19 @@ fn write_indent(output: &mut String, depth: usize) {
 #[cfg(test)]
 mod tests {
     use super::{Block, FunctionDefinition, Statement};
-    use crate::c_emit::syntax::Expr;
+    use crate::c_emit::syntax::{Expr, FunctionSignature};
 
     #[test]
     fn renders_function_statements_and_blocks() {
-        let definition = FunctionDefinition::new(
-            "int choose(void)",
+        let definition = FunctionDefinition::from_signature(
+            FunctionSignature::new("int", "choose", []),
             Block::new([
-                Statement::declaration("int result", Some(Expr::literal("0"))),
+                Statement::variable("int", "result", Some(Expr::number("0"))),
                 Statement::if_then(
                     Expr::identifier("ready"),
                     Block::new([Statement::assignment(
                         Expr::identifier("result"),
-                        Expr::literal("42"),
+                        Expr::number("42"),
                     )]),
                 ),
                 Statement::return_value(Expr::identifier("result")),

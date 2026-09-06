@@ -1,8 +1,12 @@
 use std::fmt;
 
+use super::TypeName;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Expr {
-    Literal(String),
+    Number(String),
+    StringLiteral(String),
+    ByteString(Vec<u8>),
     Identifier(String),
     Call {
         callee: Box<Self>,
@@ -18,7 +22,7 @@ pub(in crate::c_emit) enum Expr {
         index: Box<Self>,
     },
     Cast {
-        ty: String,
+        ty: TypeName,
         value: Box<Self>,
     },
     Unary {
@@ -35,9 +39,10 @@ pub(in crate::c_emit) enum Expr {
         then: Box<Self>,
         otherwise: Box<Self>,
     },
-    SizeofType(String),
+    SizeofType(TypeName),
+    SizeofValue(Box<Self>),
     CompoundLiteral {
-        ty: String,
+        ty: TypeName,
         fields: Vec<Initializer>,
     },
     InitializerList(Vec<Initializer>),
@@ -45,13 +50,21 @@ pub(in crate::c_emit) enum Expr {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct Initializer {
-    designator: Option<String>,
+    designator: Vec<String>,
     value: Expr,
 }
 
 impl Expr {
-    pub(in crate::c_emit) fn literal(value: impl Into<String>) -> Self {
-        Self::Literal(value.into())
+    pub(in crate::c_emit) fn number(value: impl Into<String>) -> Self {
+        Self::Number(value.into())
+    }
+
+    pub(in crate::c_emit) fn string(value: impl Into<String>) -> Self {
+        Self::StringLiteral(value.into())
+    }
+
+    pub(in crate::c_emit) fn byte_string(value: impl Into<Vec<u8>>) -> Self {
+        Self::ByteString(value.into())
     }
 
     pub(in crate::c_emit) fn identifier(name: impl Into<String>) -> Self {
@@ -95,7 +108,7 @@ impl Expr {
         }
     }
 
-    pub(in crate::c_emit) fn cast(ty: impl Into<String>, value: Self) -> Self {
+    pub(in crate::c_emit) fn cast(ty: impl Into<TypeName>, value: Self) -> Self {
         Self::Cast {
             ty: ty.into(),
             value: Box::new(value),
@@ -125,12 +138,16 @@ impl Expr {
         }
     }
 
-    pub(in crate::c_emit) fn sizeof_type(ty: impl Into<String>) -> Self {
+    pub(in crate::c_emit) fn sizeof_type(ty: impl Into<TypeName>) -> Self {
         Self::SizeofType(ty.into())
     }
 
+    pub(in crate::c_emit) fn sizeof_expr(value: Self) -> Self {
+        Self::SizeofValue(Box::new(value))
+    }
+
     pub(in crate::c_emit) fn compound_literal(
-        ty: impl Into<String>,
+        ty: impl Into<TypeName>,
         fields: impl IntoIterator<Item = Initializer>,
     ) -> Self {
         Self::CompoundLiteral {
@@ -149,7 +166,15 @@ impl Expr {
         use std::fmt::Write as _;
 
         match self {
-            Self::Literal(value) | Self::Identifier(value) => output.push_str(value),
+            Self::Number(value) | Self::Identifier(value) => output.push_str(value),
+            Self::StringLiteral(value) => render_string(output, value),
+            Self::ByteString(value) => {
+                output.push('"');
+                for byte in value {
+                    write!(output, "\\x{byte:02x}").expect("writing generated C cannot fail");
+                }
+                output.push('"');
+            }
             Self::Call { callee, arguments } => {
                 callee.render_postfix_operand(output);
                 output.push('(');
@@ -207,6 +232,11 @@ impl Expr {
             Self::SizeofType(ty) => {
                 write!(output, "sizeof({ty})").expect("writing generated C cannot fail");
             }
+            Self::SizeofValue(value) => {
+                output.push_str("sizeof(");
+                value.render(output);
+                output.push(')');
+            }
             Self::CompoundLiteral { ty, fields } => {
                 write!(output, "({ty}){{ ").expect("writing generated C cannot fail");
                 for (index, field) in fields.iter().enumerate() {
@@ -233,7 +263,9 @@ impl Expr {
     fn render_postfix_operand(&self, output: &mut String) {
         if matches!(
             self,
-            Self::Literal(_)
+            Self::Number(_)
+                | Self::StringLiteral(_)
+                | Self::ByteString(_)
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
@@ -250,7 +282,9 @@ impl Expr {
     fn render_unary_operand(&self, output: &mut String) {
         if matches!(
             self,
-            Self::Literal(_)
+            Self::Number(_)
+                | Self::StringLiteral(_)
+                | Self::ByteString(_)
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
@@ -258,6 +292,7 @@ impl Expr {
                 | Self::Cast { .. }
                 | Self::Unary { .. }
                 | Self::SizeofType(_)
+                | Self::SizeofValue(_)
         ) {
             self.render(output);
         } else {
@@ -281,26 +316,61 @@ impl Expr {
 impl Initializer {
     pub(in crate::c_emit) fn positional(value: Expr) -> Self {
         Self {
-            designator: None,
+            designator: Vec::new(),
             value,
         }
     }
 
     pub(in crate::c_emit) fn designated(name: impl Into<String>, value: Expr) -> Self {
         Self {
-            designator: Some(name.into()),
+            designator: vec![name.into()],
+            value,
+        }
+    }
+
+    pub(in crate::c_emit) fn designated_path(
+        path: impl IntoIterator<Item = impl Into<String>>,
+        value: Expr,
+    ) -> Self {
+        Self {
+            designator: path.into_iter().map(Into::into).collect(),
             value,
         }
     }
 
     fn render(&self, output: &mut String) {
-        if let Some(designator) = &self.designator {
+        for designator in &self.designator {
             output.push('.');
             output.push_str(designator);
+        }
+        if !self.designator.is_empty() {
             output.push_str(" = ");
         }
         self.value.render(output);
     }
+}
+
+fn render_string(output: &mut String, value: &str) {
+    use std::fmt::Write as _;
+
+    output.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            character if character.is_ascii_graphic() || character == ' ' => {
+                output.push(character);
+            }
+            character => {
+                write!(output, "\\x{:02x}", u32::from(character))
+                    .expect("writing generated C cannot fail");
+            }
+        }
+    }
+    output.push('"');
 }
 
 impl fmt::Display for Expr {
