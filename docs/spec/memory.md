@@ -24,18 +24,17 @@ host callを伴わないtarget constantであり、transparent aliasは展開し
 | `Int32`, `UInt32`, `Float32` | 4 |
 | `Int64`, `UInt64`, `Float64` | 8 |
 | `Ptr` | target ABIの`MalType_Ptr` object representationのbyte数 |
-| `Engram` | `@Ptr + 8` |
 
-この値はmemory上のcanonical表現だけを測り、Engramが参照するbytes、allocation metadata、C backend内部の
-struct paddingは含めない。pointerに対する`+`と`-`の右operandの単位もbyteであるため、field offsetは`@T`の和として記述できる。
+この値はmemory上のcanonical表現だけを測る。pointerに対する`+`と`-`の右operandの単位もbyteであるため、
+field offsetは`@T`の和として記述できる。
 
-v0.5では`Unit`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
+v0.5では`Unit`、`Symbol`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
 `@`をcompile-time errorとする。特にproductとsumはC ABI上の表現を持っていても、そのpaddingやbackend内部の
 layoutをsource-level memory contractにはしない。
 
 ## primitive
 
-v0.5のoperation集合はbyte offsetと、全numeric scalar、`Ptr`、およびEngram descriptorに対する型別load/storeである。
+v0.5のoperation集合はbyte offset、全numeric scalarと`Ptr`のobject representation、および`Symbol`のbyte copyである。
 
 ```text
 +           :: (Ptr, UInt64) -> Ptr
@@ -62,8 +61,8 @@ loadFloat64 :: Ptr -> Float64
 storeFloat64 :: (Ptr, Float64) -> Unit
 loadPtr      :: Ptr -> Ptr
 storePtr     :: (Ptr, Ptr) -> Unit
-loadEngram   :: Ptr -> Engram
-storeEngram  :: (Ptr, Engram) -> Unit
+loadSymbol   :: (Ptr, UInt64) -> Symbol
+storeSymbol  :: (Ptr, Symbol) -> Unit
 ```
 
 pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefined scopeにあるfirst-class functionであり、
@@ -83,15 +82,13 @@ load/storeは指定型の全byteを対象とし、alignmentを要求しない。
 pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
 `storePtr`またはhostが有効な`MalType_Ptr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
 
-`storeEngram`はEngram descriptorをstorageへcopyし、Engramのbytes自体はcopyしない。storage表現は、
-`storePtr`が用いるpointer表現、その直後の`storeUInt64`が用いるlength表現の順でpaddingなしに並べる。
-したがって必要byte数はtarget ABIのpointer格納byte数に8を加えた値である。`storeEngram`の後に同じaddressから
-`loadEngram`すると、間に同じbytesへのwriteがなければ同じbyte sequenceを持つEngramを得る。descriptorの
-複製はEngram bytesのprogram-lifetimeを変更せず、bytesをmutableにしない。
+`loadSymbol(pointer, length)`は指定した外部regionの`length` bytesをcopyし、新しいmal-controlled `Symbol`を返す。
+`length == 0`ではpointerをdereferenceしない。lengthをtarget allocation sizeで表現できない場合やallocation failureは
+trapする。`storeSymbol(pointer, value)`は`value`の全bytesを外部regionへcopyし、descriptorやownershipは書き出さない。
+したがって`Symbol`にはcanonical memory表現も`@Symbol`もない。
 
-`storeEngram`またはhostが既存の有効なmal Engramから上記storage表現で書いたものではないbytesを`loadEngram`する
-programはcontract違反である。特にpointerはprogram終了まで有効で変更されないmal-ownedまたはliteralのEngram bytesを
-指し、lengthはそのlive region内に収まらなければならない。
+同じaddressへ`storeSymbol`した後、そのbyte lengthを指定して`loadSymbol`すれば、間にwriteがない限り同じbyte
+sequenceを持つ別の`Symbol`を得る。このround tripはidentityやlifetimeの移動ではなく、二回のbyte copyである。
 
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
 lifetime終了後にaccessするprogramはcontract違反であり、trapを含む特定の結果を保証しない。boundsを
@@ -102,5 +99,5 @@ aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、�
 
 ## minimality
 
-この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、Engram fieldに共通するmechanismだけを提供する。
+この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、Symbol fieldに共通するmechanismだけを提供する。
 採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions.md#d022-型なしptrをmemory-primitiveのbaselineとする)に記録する。

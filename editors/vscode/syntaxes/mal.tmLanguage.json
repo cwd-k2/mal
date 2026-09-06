@@ -7,7 +7,7 @@
   ],
   "patterns": [
     { "include": "#comments" },
-    { "include": "#engrams" },
+    { "include": "#symbols" },
     { "include": "#bytes" },
     { "include": "#numbers" },
     { "include": "#keywords" },
@@ -27,7 +27,7 @@
         }
       ]
     },
-    "engrams": {
+    "symbols": {
       "patterns": [
         {
           "name": "string.quoted.double.mal",

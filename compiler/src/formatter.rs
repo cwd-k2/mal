@@ -441,7 +441,7 @@ impl<'a> Formatter<'a> {
             | TokenKind::Integer(_)
             | TokenKind::Float(_)
             | TokenKind::Byte(_)
-            | TokenKind::Engram(_)
+            | TokenKind::Symbol(_)
             | TokenKind::Underscore => {
                 if matches!(
                     self.previous,

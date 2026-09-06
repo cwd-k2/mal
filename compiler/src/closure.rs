@@ -145,10 +145,10 @@ impl Converter {
                 callee: self.convert_atom(callee, environment),
                 argument: self.convert_atom(argument, environment),
             },
-            anf::Operation::EngramLength { value } => Operation::EngramLength {
+            anf::Operation::SymbolLength { value } => Operation::SymbolLength {
                 value: self.convert_atom(value, environment),
             },
-            anf::Operation::EngramAt { argument } => Operation::EngramAt {
+            anf::Operation::SymbolAt { argument } => Operation::SymbolAt {
                 argument: self.convert_atom(argument, environment),
             },
             anf::Operation::MemoryFunction { primitive } => {
@@ -340,7 +340,7 @@ impl Converter {
             anf::AtomKind::Reference(id) => self.reference_kind(*id, environment),
             anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
             anf::AtomKind::Float(bits) => AtomKind::Float(*bits),
-            anf::AtomKind::Engram(value) => AtomKind::Engram(value.clone()),
+            anf::AtomKind::Symbol(value) => AtomKind::Symbol(value.clone()),
             anf::AtomKind::StorageSize(ty) => AtomKind::StorageSize(ty.clone()),
             anf::AtomKind::Unit => AtomKind::Unit,
         };

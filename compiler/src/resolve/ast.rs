@@ -24,7 +24,7 @@ pub const UINT16_TYPE: TypeId = TypeId(6);
 pub const UINT32_TYPE: TypeId = TypeId(7);
 pub const UINT64_TYPE: TypeId = TypeId(8);
 pub const BOOL_TYPE: TypeId = TypeId(9);
-pub const ENGRAM_TYPE: TypeId = TypeId(10);
+pub const SYMBOL_TYPE: TypeId = TypeId(10);
 pub const FLOAT32_TYPE: TypeId = TypeId(11);
 pub const FLOAT64_TYPE: TypeId = TypeId(12);
 pub const PTR_TYPE: TypeId = TypeId(13);
@@ -52,8 +52,8 @@ pub const LOAD_FLOAT64_VALUE: ValueId = ValueId(20);
 pub const STORE_FLOAT64_VALUE: ValueId = ValueId(21);
 pub const LOAD_PTR_VALUE: ValueId = ValueId(22);
 pub const STORE_PTR_VALUE: ValueId = ValueId(23);
-pub const LOAD_ENGRAM_VALUE: ValueId = ValueId(24);
-pub const STORE_ENGRAM_VALUE: ValueId = ValueId(25);
+pub const LOAD_SYMBOL_VALUE: ValueId = ValueId(24);
+pub const STORE_SYMBOL_VALUE: ValueId = ValueId(25);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueOwner {
@@ -149,7 +149,7 @@ pub enum Expression {
     Integer(IntegerLiteral),
     Float(DecimalFloatLiteral),
     Byte(u8),
-    Engram(Vec<u8>),
+    Symbol(Vec<u8>),
     StorageSize(Node<TypeExpression>),
     Unit,
     Parenthesized(Box<Node<Expression>>),

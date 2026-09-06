@@ -27,8 +27,8 @@ pub(super) fn emit(
     stores: u16,
     load_ptr: bool,
     store_ptr: bool,
-    load_engram: bool,
-    store_engram: bool,
+    load_symbol: bool,
+    store_symbol: bool,
 ) -> String {
     let (offset_forward, offset_backward) = offsets;
     let mut output = String::new();
@@ -133,52 +133,32 @@ pub(super) fn emit(
         c_line!(&mut output, 1, "return (MalType_Unit){{ UINT8_C(0) }};");
         c_line!(&mut output, 0, "}}\n");
     }
-    if load_engram {
+    if load_symbol {
         c_line!(
             &mut output,
             0,
-            "static inline MalType_Engram mal_load_engram(MalType_Ptr pointer) {{"
-        );
-        c_line!(&mut output, 1, "MalType_Ptr data;");
-        c_line!(&mut output, 1, "uint64_t length;");
-        c_line!(
-            &mut output,
-            1,
-            "memcpy(&data, pointer.address, sizeof(data));"
+            "static inline MalType_Symbol mal_load_symbol(MalContext *context, MalType_Ptr pointer, uint64_t length) {{"
         );
         c_line!(
             &mut output,
             1,
-            "memcpy(&length, pointer.address + sizeof(data), sizeof(length));"
-        );
-        c_line!(
-            &mut output,
-            1,
-            "return (MalType_Engram){{ (const uint8_t *)data.address, length }};"
+            "return mal_Symbol_copy_from_bytes(context, pointer.address, length);"
         );
         c_line!(&mut output, 0, "}}\n");
     }
-    if store_engram {
+    if store_symbol {
         c_line!(
             &mut output,
             0,
-            "static inline MalType_Unit mal_store_engram(MalType_Ptr pointer, MalType_Engram value) {{"
+            "static inline MalType_Unit mal_store_symbol(MalType_Ptr pointer, MalType_Symbol value) {{"
         );
+        c_line!(&mut output, 1, "if (value.length != UINT64_C(0)) {{");
         c_line!(
             &mut output,
-            1,
-            "MalType_Ptr data = {{ (uint8_t *)value.data }};"
+            2,
+            "memcpy(pointer.address, value.data, (size_t)value.length);"
         );
-        c_line!(
-            &mut output,
-            1,
-            "memcpy(pointer.address, &data, sizeof(data));"
-        );
-        c_line!(
-            &mut output,
-            1,
-            "memcpy(pointer.address + sizeof(data), &value.length, sizeof(value.length));"
-        );
+        c_line!(&mut output, 1, "}}");
         c_line!(&mut output, 1, "return (MalType_Unit){{ UINT8_C(0) }};");
         c_line!(&mut output, 0, "}}\n");
     }

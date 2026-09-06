@@ -20,17 +20,17 @@ pub(super) struct RuntimeNeeds {
     pub(super) remainder: u16,
     pub(super) shift_left: u16,
     pub(super) shift_right: u16,
-    pub(super) engram_equality: bool,
-    pub(super) engram_at: bool,
-    pub(super) engram_concatenate: bool,
+    pub(super) symbol_equality: bool,
+    pub(super) symbol_at: bool,
+    pub(super) symbol_concatenate: bool,
     pub(super) memory_offset_forward: bool,
     pub(super) memory_offset_backward: bool,
     pub(super) memory_load: u16,
     pub(super) memory_store: u16,
     pub(super) memory_load_ptr: bool,
     pub(super) memory_store_ptr: bool,
-    pub(super) memory_load_engram: bool,
-    pub(super) memory_store_engram: bool,
+    pub(super) memory_load_symbol: bool,
+    pub(super) memory_store_symbol: bool,
     pub(super) float_to_integer: u32,
 }
 
@@ -295,8 +295,8 @@ fn memory_primitive_name(primitive: MemoryPrimitive) -> &'static str {
         },
         MemoryPrimitive::LoadPtr => "load_ptr",
         MemoryPrimitive::StorePtr => "store_ptr",
-        MemoryPrimitive::LoadEngram => "load_engram",
-        MemoryPrimitive::StoreEngram => "store_engram",
+        MemoryPrimitive::LoadSymbol => "load_symbol",
+        MemoryPrimitive::StoreSymbol => "store_symbol",
         MemoryPrimitive::OffsetForward | MemoryPrimitive::OffsetBackward => {
             unreachable!("pointer offsets are operators, not function values")
         }

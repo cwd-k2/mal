@@ -41,6 +41,10 @@ malc build source.mal --output program --link host.c
 - `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
 - `--link`は複数回指定でき、C source、object、static archive、shared objectを指定順にC compilerへ渡す。
 
+生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
+`Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
+contractは[program specification](../spec/programs.md#entry-point)に定める。
+
 親directoryは必要に応じて作成し、同名の出力は置き換える。二つの`emit-c`出力を同じdirectoryへ置くと
 `program.mal.h`が衝突するため、programごとにdirectoryを分ける。Cとheaderは一組として扱い、一方だけを
 別の生成結果と組み合わせない。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の

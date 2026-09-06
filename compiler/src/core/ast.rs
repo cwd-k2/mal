@@ -105,7 +105,7 @@ pub enum ExpressionKind {
     Reference(ValueId),
     Integer(i128),
     Float(u64),
-    Engram(Vec<u8>),
+    Symbol(Vec<u8>),
     StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
@@ -118,10 +118,10 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
-    EngramLength {
+    SymbolLength {
         value: Box<Expression>,
     },
-    EngramAt {
+    SymbolAt {
         argument: Box<Expression>,
     },
     MemoryFunction {

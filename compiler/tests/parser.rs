@@ -116,11 +116,11 @@ fn calls_bind_more_tightly_than_unary_operators() {
 }
 
 #[test]
-fn parses_engram_length_and_byte_access_with_access_precedence() {
+fn parses_symbol_length_and_byte_access_with_access_precedence() {
     let Expression::Unary { operator, operand } = binding_value(r#"value := #make();"#) else {
-        panic!("expected Engram length");
+        panic!("expected Symbol length");
     };
-    assert_eq!(operator.kind, UnaryOperator::EngramLength);
+    assert_eq!(operator.kind, UnaryOperator::SymbolLength);
     assert!(matches!(operand.kind, Expression::Call { .. }));
 
     let Expression::Binary {
@@ -136,7 +136,7 @@ fn parses_engram_length_and_byte_access_with_access_precedence() {
         left.kind,
         Expression::Binary {
             operator: malc::ast::Node {
-                kind: BinaryOperator::EngramAt,
+                kind: BinaryOperator::SymbolAt,
                 ..
             },
             ..
@@ -146,9 +146,9 @@ fn parses_engram_length_and_byte_access_with_access_precedence() {
 }
 
 #[test]
-fn rejects_chained_engram_byte_access() {
+fn rejects_chained_symbol_byte_access() {
     let source = source(r#"value := "abc" # 0u64 # 1u64;"#);
-    let error = parse(&source).expect_err("Engram byte access must be non-associative");
+    let error = parse(&source).expect_err("Symbol byte access must be non-associative");
     assert_eq!(error.message, "non-associative operator chain");
 }
 
@@ -176,16 +176,16 @@ fn parses_a_decimal_float_as_an_atomic_expression() {
 }
 
 #[test]
-fn parses_an_engram_literal_as_bytes() {
+fn parses_a_symbol_literal_as_bytes() {
     assert_eq!(
         binding_value(r#"value := "a\0\xff";"#),
-        Expression::Engram(vec![b'a', 0, 255])
+        Expression::Symbol(vec![b'a', 0, 255])
     );
 }
 
 #[test]
 fn parses_storage_size_as_a_type_prefix_expression() {
-    let Expression::StorageSize(ty) = binding_value("value := @Engram;") else {
+    let Expression::StorageSize(ty) = binding_value("value := @Ptr;") else {
         panic!("expected storage-size expression");
     };
     assert!(matches!(ty.kind, TypeExpression::Named(_)));
@@ -268,7 +268,7 @@ fn parses_sum_injection_and_case_arms() {
 }
 
 #[test]
-fn rejects_the_old_case_syntax() {
+fn rejects_case_forms_outside_the_grammar() {
     for text in [
         "value := case (value) [0](_) => 0;;",
         "value := case value { [0](_) { 0 } };",
@@ -320,7 +320,7 @@ fn rejects_a_lambda_without_a_result_expression() {
 }
 
 #[test]
-fn treats_the_removed_return_spelling_as_an_ordinary_identifier() {
+fn treats_return_as_an_ordinary_identifier() {
     assert!(parse(&source("value := \\() { return := 1; return; };")).is_ok());
     assert!(parse(&source("value := \\() { return 1; };")).is_err());
 }

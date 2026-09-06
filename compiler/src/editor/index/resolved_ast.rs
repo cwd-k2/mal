@@ -168,7 +168,7 @@ impl Index<'_> {
             Expression::Integer(_)
             | Expression::Float(_)
             | Expression::Byte(_)
-            | Expression::Engram(_)
+            | Expression::Symbol(_)
             | Expression::Unit => {}
         }
     }

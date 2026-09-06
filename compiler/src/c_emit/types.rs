@@ -54,7 +54,7 @@ impl TypeRegistry {
             Type::UInt64 => "MalType_UInt64".into(),
             Type::Float32 => "MalType_Float32".into(),
             Type::Float64 => "MalType_Float64".into(),
-            Type::Engram => "MalType_Engram".into(),
+            Type::Symbol => "MalType_Symbol".into(),
             Type::Ptr => "MalType_Ptr".into(),
             Type::External { name, .. } => format!("MalType_{name}"),
             Type::Product(_) => format!("MalRepr_Product_{}", self.index(ty)),
@@ -101,7 +101,7 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Engram
+                | Type::Symbol
                 | Type::Ptr => unreachable!(),
             };
             c_line!(
@@ -166,7 +166,7 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Engram
+                | Type::Symbol
                 | Type::Ptr => unreachable!(),
             }
         }
@@ -239,7 +239,7 @@ impl TypeRegistry {
             | Type::UInt64
             | Type::Float32
             | Type::Float64
-            | Type::Engram
+            | Type::Symbol
             | Type::Ptr => return,
         }
         if !self.aggregates.contains(ty) {
@@ -293,8 +293,8 @@ impl TypeRegistry {
                 self.collect_atom(callee);
                 self.collect_atom(argument);
             }
-            Operation::EngramLength { value } => self.collect_atom(value),
-            Operation::EngramAt { argument } => self.collect_atom(argument),
+            Operation::SymbolLength { value } => self.collect_atom(value),
+            Operation::SymbolAt { argument } => self.collect_atom(argument),
             Operation::Memory { argument, .. } => self.collect_atom(argument),
             Operation::ExternalCall { argument, .. }
             | Operation::NumericConversion { operand: argument }

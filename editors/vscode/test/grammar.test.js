@@ -30,7 +30,7 @@ async function loadGrammar() {
   return registry.loadGrammar('source.mal');
 }
 
-test("keeps a closing parenthesis inside ')' in an Engram literal token", async () => {
+test("keeps a closing parenthesis inside ')' in a Symbol literal token", async () => {
   const grammar = await loadGrammar();
   const line = "call(')');";
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
@@ -48,7 +48,7 @@ test("keeps a closing parenthesis inside ')' in an Engram literal token", async 
 
 test('highlights the storage-size sigil and its type separately', async () => {
   const grammar = await loadGrammar();
-  const line = 'size := @Engram + @UInt8;';
+  const line = 'size := @Ptr + @UInt8;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
@@ -57,13 +57,13 @@ test('highlights the storage-size sigil and its type separately', async () => {
   for (const token of tokens.filter((candidate) => candidate.text === '@')) {
     assert.ok(token.scopes.includes('keyword.operator.mal'));
   }
-  for (const name of ['Engram', 'UInt8']) {
+  for (const name of ['Ptr', 'UInt8']) {
     const token = tokens.find((candidate) => candidate.text === name);
     assert.ok(token.scopes.includes('entity.name.type.mal'));
   }
 });
 
-test('highlights unary and binary Engram operators', async () => {
+test('highlights unary and binary Symbol operators', async () => {
   const grammar = await loadGrammar();
   const line = 'length := #value; byte := value # 1u64;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({

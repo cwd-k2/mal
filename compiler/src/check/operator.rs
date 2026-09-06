@@ -20,10 +20,10 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if operator.kind == UnaryOperator::EngramLength {
-            let value = self.check_expression(operand, Some(&Type::Engram))?;
+        if operator.kind == UnaryOperator::SymbolLength {
+            let value = self.check_expression(operand, Some(&Type::Symbol))?;
             return Ok(Expression {
-                kind: ExpressionKind::EngramLength {
+                kind: ExpressionKind::SymbolLength {
                     value: Box::new(value),
                 },
                 ty: Type::UInt64,
@@ -114,14 +114,14 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        if operator.kind == BinaryOperator::EngramAt {
-            let left = self.check_expression(left, Some(&Type::Engram))?;
+        if operator.kind == BinaryOperator::SymbolAt {
+            let left = self.check_expression(left, Some(&Type::Symbol))?;
             let right = self.check_expression(right, Some(&Type::UInt64))?;
             return Ok(Expression {
-                kind: ExpressionKind::EngramAt {
+                kind: ExpressionKind::SymbolAt {
                     argument: Box::new(Expression {
                         kind: ExpressionKind::Product(vec![left, right]),
-                        ty: Type::Product(vec![Type::Engram, Type::UInt64]),
+                        ty: Type::Product(vec![Type::Symbol, Type::UInt64]),
                         span,
                     }),
                 },
@@ -171,7 +171,7 @@ impl Checker {
                 if !is_integer(&left.ty)
                     && !is_float(&left.ty)
                     && left.ty != bool_type()
-                    && left.ty != Type::Engram
+                    && left.ty != Type::Symbol
                 {
                     return Err(Diagnostic::error("equality is not defined for this type")
                         .with_primary(
@@ -195,7 +195,7 @@ impl Checker {
                 let result = left.ty.clone();
                 (left, right, result)
             }
-            BinaryOperator::EngramAt | BinaryOperator::Add | BinaryOperator::Subtract => {
+            BinaryOperator::SymbolAt | BinaryOperator::Add | BinaryOperator::Subtract => {
                 unreachable!("specialized operators are checked separately")
             }
         };
@@ -227,8 +227,8 @@ impl Checker {
             let left = self.check_expression(left, Some(&Type::Ptr))?;
             return self.check_pointer_offset(pointer_primitive, left, right, span);
         }
-        if operator.kind == BinaryOperator::Add && expected == Some(&Type::Engram) {
-            return self.check_engram_concatenation(operator, left, right, span);
+        if operator.kind == BinaryOperator::Add && expected == Some(&Type::Symbol) {
+            return self.check_symbol_concatenation(operator, left, right, span);
         }
 
         let expected_numeric =
@@ -243,15 +243,15 @@ impl Checker {
             if left.ty == Type::Ptr {
                 return self.check_pointer_offset(pointer_primitive, left, right, span);
             }
-            if operator.kind == BinaryOperator::Add && left.ty == Type::Engram {
-                let right = self.check_expression(right, Some(&Type::Engram))?;
+            if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
+                let right = self.check_expression(right, Some(&Type::Symbol))?;
                 return Ok(Expression {
                     kind: ExpressionKind::Binary {
                         operator: operator.clone(),
                         left: Box::new(left),
                         right: Box::new(right),
                     },
-                    ty: Type::Engram,
+                    ty: Type::Symbol,
                     span,
                 });
             }
@@ -278,22 +278,22 @@ impl Checker {
         })
     }
 
-    fn check_engram_concatenation(
+    fn check_symbol_concatenation(
         &mut self,
         operator: &Node<BinaryOperator>,
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
         span: Span,
     ) -> Result<Expression, Diagnostic> {
-        let left = self.check_expression(left, Some(&Type::Engram))?;
-        let right = self.check_expression(right, Some(&Type::Engram))?;
+        let left = self.check_expression(left, Some(&Type::Symbol))?;
+        let right = self.check_expression(right, Some(&Type::Symbol))?;
         Ok(Expression {
             kind: ExpressionKind::Binary {
                 operator: operator.clone(),
                 left: Box::new(left),
                 right: Box::new(right),
             },
-            ty: Type::Engram,
+            ty: Type::Symbol,
             span,
         })
     }

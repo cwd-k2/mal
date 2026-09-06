@@ -74,7 +74,7 @@ pub enum Expression {
     Integer(IntegerLiteral),
     Float(DecimalFloatLiteral),
     Byte(u8),
-    Engram(Vec<u8>),
+    Symbol(Vec<u8>),
     StorageSize(Node<TypeExpression>),
     Unit,
     Parenthesized(Box<Node<Expression>>),
@@ -159,12 +159,12 @@ pub enum UnaryOperator {
     Negate,
     LogicalNot,
     BitwiseNot,
-    EngramLength,
+    SymbolLength,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
-    EngramAt,
+    SymbolAt,
     Multiply,
     Divide,
     Remainder,

@@ -12,14 +12,15 @@
 1. [最小性の方針](design/minimality.md)
 2. [言語の範囲](spec/scope.md)
 3. [型](spec/types.md)
-4. [Engram](spec/engrams.md)
-5. [memory primitive](spec/memory.md)
-6. [式と binding](spec/expressions.md)
-7. [実行意味論](spec/execution.md)
-8. [`extern` 境界](spec/extern.md)
-9. [C host ABI](spec/c-host-abi.md)
-10. [プログラム構造](spec/programs.md)
-11. [字句・文法](spec/grammar.md)
+4. [EngramとExtern](spec/engrams.md)
+5. [Symbol](spec/symbols.md)
+6. [memory primitive](spec/memory.md)
+7. [式と binding](spec/expressions.md)
+8. [実行意味論](spec/execution.md)
+9. [`extern` 境界](spec/extern.md)
+10. [C host ABI](spec/c-host-abi.md)
+11. [プログラム構造](spec/programs.md)
+12. [字句・文法](spec/grammar.md)
 
 利用者向けのcompiler command、対応環境、toolchain、生成物は
 [reference compiler利用contract](development/compiler-usage.md)、formatterのlayoutは
@@ -42,11 +43,13 @@
 | `research/` | 外部仕様・先行事例から得た根拠 |
 
 仕様と実装文書が衝突した場合は`spec/`を優先する。仕様で意図的に未指定とする挙動は該当する規範文書に直接記載する。
+退役した名称、構文、ABI、意味論と変更理由は`design/decisions.md`だけに残す。spec、implementation、test、exampleは
+過去との差分ではなく、現在のruleとbehaviorを直接記述する。測定履歴は責務が限定された`development/*performance.md`に置く。
 
 ## v0.5 の短い定義
 
 malはstrict call-by-valueの単純型付き関数型言語である。immutable binding、関数、直積、直和、固定幅scalar、
-immutable Engram、型なし`Ptr`によるscalar memory accessを持つ。外部世界との作用は`extern` callと
+immutable Symbol、型なし`Ptr`によるscalar memory accessを持つ。外部世界との作用は`extern` callと
 明示的なmemory storeに限定する。
 
 reference compiler `malc` はRustで実装し、最初のbackendはCを生成する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。

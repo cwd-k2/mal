@@ -17,7 +17,7 @@ pub enum Type {
     UInt64,
     Float32,
     Float64,
-    Engram,
+    Symbol,
     Ptr,
     External {
         id: TypeId,
@@ -94,7 +94,7 @@ pub enum ExpressionKind {
     Reference(ValueReference),
     Integer(i128),
     Float(u64),
-    Engram(Vec<u8>),
+    Symbol(Vec<u8>),
     StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
@@ -104,10 +104,10 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
-    EngramLength {
+    SymbolLength {
         value: Box<Expression>,
     },
-    EngramAt {
+    SymbolAt {
         argument: Box<Expression>,
     },
     MemoryFunction {
@@ -158,8 +158,8 @@ pub enum MemoryPrimitive {
     Store(MemoryScalar),
     LoadPtr,
     StorePtr,
-    LoadEngram,
-    StoreEngram,
+    LoadSymbol,
+    StoreSymbol,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -186,8 +186,8 @@ impl MemoryPrimitive {
             Self::Store(scalar) => (Type::Product(vec![Type::Ptr, scalar.ty()]), Type::Unit),
             Self::LoadPtr => (Type::Ptr, Type::Ptr),
             Self::StorePtr => (Type::Product(vec![Type::Ptr, Type::Ptr]), Type::Unit),
-            Self::LoadEngram => (Type::Ptr, Type::Engram),
-            Self::StoreEngram => (Type::Product(vec![Type::Ptr, Type::Engram]), Type::Unit),
+            Self::LoadSymbol => (Type::Product(vec![Type::Ptr, Type::UInt64]), Type::Symbol),
+            Self::StoreSymbol => (Type::Product(vec![Type::Ptr, Type::Symbol]), Type::Unit),
         }
     }
 }

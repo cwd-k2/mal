@@ -77,11 +77,11 @@ product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
 storageSize ::= "@" type
-engramLength ::= "#" expression
-engramByteAccess ::= expression "#" expression
+symbolLength ::= "#" expression
+symbolByteAccess ::= expression "#" expression
 
-engramLiteral ::= '"' (rawEngramCharacter | engramEscape)* '"'
-engramEscape  ::= "\\" ("\\" | '"' | "n" | "r" | "t" | "0"
+symbolLiteral ::= '"' (rawSymbolCharacter | symbolEscape)* '"'
+symbolEscape  ::= "\\" ("\\" | '"' | "n" | "r" | "t" | "0"
                         | "x" HEX_DIGIT HEX_DIGIT)
 byteLiteral ::= "'" byteUnit "'"
 byteUnit    ::= printableAsciiExceptQuoteOrBackslash
@@ -108,8 +108,8 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 |---|---|---|
 | call | `f(...)` | left |
 | storage size | `@T` | — |
-| Engram length | `#value` | right |
-| Engram byte access | `value # index` | non-associative |
+| Symbol length | `#value` | right |
+| Symbol byte access | `value # index` | non-associative |
 | unary | `- ! ~` | right |
 | multiplicative | `* / %` | left |
 | additive | `+ -` | left |
@@ -126,10 +126,10 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 `UInt64 + Ptr`、`Ptr + Ptr`、`UInt64 - Ptr`は定義しない。`|` は式中の bitwise OR だけに使用する。直和型は
 `[]` で区切るため、型と式で`|`の意味を切り替えない。assignment operatorはない。
 
-`@`の直後はexpressionではなく`type`としてparseする。したがって`@Engram`は一つのatomic expressionであり、
+`@`の直後はexpressionではなく`type`としてparseする。したがって`@Ptr`は一つのatomic expressionであり、
 空白の有無は意味を変えない。標準の表記では`@`と型の間に空白を置かない。
 
-`#`はoperand数でEngram lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
+`#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。
 
 `[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
@@ -140,7 +140,7 @@ decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
 
 `Bool` は predefined `TYPE_IDENT`、`false` と `true` は predefined `VALUE_IDENT` として通常の identifier 規則で token 化する。`then` は `if` syntax の keyword である。
 
-Engram literalのraw source characterとescapeが表すbytesは[Engram仕様](engrams.md#literal)に定める。
+Symbol literalのraw source characterとescapeが表すbytesは[Symbol仕様](symbols.md#literal)に定める。
 
 byte literal の raw character は ASCII `0x20` から `0x7e` のうち single quote と backslash を除く範囲とする。非ASCII source characterは、UTF-8 encoded lengthにかかわらずbyte literal内では認めない。
 

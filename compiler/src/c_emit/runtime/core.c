@@ -40,12 +40,12 @@ static void *mal_allocate(MalContext *context, size_t size) {
     return allocation + 1;
 }
 
-MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {
+MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {
     if (length == UINT64_C(0)) {
-        return (MalType_Engram){ NULL, UINT64_C(0) };
+        return (MalType_Symbol){ NULL, UINT64_C(0) };
     }
     if (data == NULL) {
-        mal_trap(context, "null Engram data");
+        mal_trap(context, "null Symbol data");
     }
     size_t size = (size_t)length;
     if ((uint64_t)size != length) {
@@ -53,5 +53,5 @@ MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *da
     }
     uint8_t *copy = (uint8_t *)mal_allocate(context, size);
     memcpy(copy, data, size);
-    return (MalType_Engram){ copy, length };
+    return (MalType_Symbol){ copy, length };
 }

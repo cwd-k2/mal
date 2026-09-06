@@ -87,13 +87,13 @@ impl Index<'_> {
                 self.collect_checked_expression(callee);
                 self.collect_checked_expression(argument);
             }
-            ExpressionKind::EngramLength { value }
+            ExpressionKind::SymbolLength { value }
             | ExpressionKind::Memory {
                 argument: value, ..
             }
             | ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => self.collect_checked_expression(value),
-            ExpressionKind::EngramAt { argument } => self.collect_checked_expression(argument),
+            ExpressionKind::SymbolAt { argument } => self.collect_checked_expression(argument),
             ExpressionKind::ExternalCall { argument, .. } => {
                 self.collect_checked_expression(argument);
             }
@@ -120,7 +120,7 @@ impl Index<'_> {
             }
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
-            | ExpressionKind::Engram(_)
+            | ExpressionKind::Symbol(_)
             | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
         }

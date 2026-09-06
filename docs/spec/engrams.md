@@ -1,83 +1,58 @@
-# Engram
+# EngramとExtern
 
 Status: Current v0.5 profile
 
-## 値とstorage
+## authority
 
-`Engram`はmalに組み込まれたimmutableな有限byte値である。array、buffer、encoded textではない。
-名前は「内部へ書き込まれたもの」を表し、[D017](../design/decisions.md#d017-immutable-byte値の型名はengramとする)に従う。
-Unicode character、code point、grapheme、normalizationの概念を持たず、valid UTF-8も保証しない。
+Engramはsource-levelの型名ではなく、mal program内部に刻まれた意味を持つものの総称である。`Unit`、numeric scalar、
+`Symbol`、product、sum、function valueはEngramであり、その構築、有効な値の範囲、identity、到達可能性、
+lifetime authorityはmalに属する。実装がstatic storage、arena、region、tracing、reference countingのどれを使うかは、
+観測できない限りsource semanticsではない。
 
-Engram値はcopyableなdescriptorとして振る舞う。値を複製してもbytes自体を複製する必要はない。bytesはmal program終了まで有効で変更されず、source-levelの個別解放操作は存在しない。
+Externはmalの外部にあるstate、storage、resource、作用の領域である。`Ptr`はexternal storageへのcapabilityであり、
+external opaque valueはhost resourceへのcopyable handleである。いずれもcopyしてもreferentのlifetimeを延長しない。
+close、free、permission、alias、failureは個々のhost contractが定める。
 
-Engram literalのbytesはprogram imageにあらかじめ含まれ、静的storageに置いてよい。host側の一時byte
-bufferはEngramではない。`extern`のresultとしてmal-ownedなprogram-lifetime storageへcopyされた時点で、
-新しいEngramになる。[`extern`境界の規則](extern.md#engramのlifetime)に従う。
+EngramとExternはsource-level typeを二分する分類ではなく、意味とlifetimeのauthorityを分類する。`Ptr`を含むproductや
+closureの構造はmalが持つEngramだが、`Ptr`のreferentはExternに残る。external opaque valueについても同じであり、
+Engramへ包んでもresource ownershipは移らない。
 
-## literal
+## 境界のoperation
 
-`"..."`はEngramを表すliteral notationである。numeric literalがnumeric valueを表すのと同様に、
-quoted contentsを実行時に構築するoperationではない。
+境界を通るoperationは三種類に分ける。
 
-mal sourceはUTF-8である。raw source characterはUTF-8 bytesとしてliteralへ入るため、`"あ"`は3 bytesを持つ。
+| operation | direction | meaning |
+|---|---|---|
+| admission | ExternからEngram | external representationを検査またはcopyし、新しいmal valueを構成する |
+| observation | EngramからExtern | call中にborrowするか外部storageへcopyし、malのidentityとlifetimeを渡さない |
+| capability transfer | 双方向 | `Ptr`またはexternal opaque valueを運び、referentのauthorityをExternに残す |
 
-```mal
-"hello"
-"こんにちは"
-""
-"\x00\xff"
-```
+numeric scalarの`loadT`とextern result、`loadSymbol(pointer, length)`はadmissionである。`loadSymbol`はbytesを
+mal-controlled storageへcopyする。scalarや`Symbol`のstoreとextern parameterはobservationである。`Symbol`
+parameterのdataはcall中だけborrowされ、hostはreturn後に保持しない。
 
-escapeは最低限`\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN`を認める。`\xNN`はちょうど2桁のhexadecimal digitで任意の1 byteを表す。
+`Ptr`のextern parameter/resultと`loadPtr`/`storePtr`はcapability transferである。`loadPtr`は任意のbytesを
+有効なcapabilityに変換せず、hostまたは`storePtr`が書いた有効なpointer representationだけを復元できる。
+external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
 
-## operator
+外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。`storeSymbol`が
+書くのはbytesだけである。Externはmal内部のidentityを生成できず、malのlifetimeを延長できない。
 
-Engramに組み込むoperatorは次である。
+## composition
 
-```mal
-#value
-value # index
-left + right
-```
+productとsumはfieldごとに境界operationを再帰的に適用する。例えば`(Symbol, Ptr)`をhostへ渡すと、第一fieldは
+observation、第二fieldはcapability transferになる。hostから返す場合は第一fieldをadmitし、第二fieldのcapabilityを
+importする。aggregate carrier全体を一つのownership単位とはみなさない。
 
-`#value`はbyte lengthを`UInt64`で返す。`value # index`は`UInt64`のindexにあるbyteを`UInt8`で返す。
-`left + right`は両operandのbytesを順に連結した新しいEngramを返す。空Engramは連結の単位元であり、
-結果のbytesは他のEngramと同じくimmutableでprogram終了まで有効である。実装は観測可能な結果を変えない限り、
-空Engramとの連結でoperandのstorageを再利用してよい。結果のlengthを`UInt64`で表現できない場合、または必要な
-storageのallocationに失敗した場合はtrapする。
+Bool、sum tag、opaque handleなど有効表現が限定される値をhostが返す場合、adapterはそのcontractを満たさなければならない。
+function valueはv0.5の境界を通せない。closureを渡すにはmal-owned code/environmentの保持期間と呼出権限が必要になり、
+admission、observation、capability transferのいずれにも暗黙には分類できないためである。
 
-これらはすべてのEngram valueに常在する組み込みoperatorであり、function valueとしては存在しない。
+## lifetime
 
-indexは0-basedで、範囲外の`#` accessはtrapする。binary `#`はnon-associativeである。
+Engramがいつ回収可能になるかはmalが決める。source programとhostが観測できるのは、到達可能な値の意味が保持され、
+borrowがcall中有効であることだけである。Extern resourceのlifetimeはこの回収に連動しない。reference compilerの
+現在の回収方式は[implementation notes](../implementation/compiler.md)に記録し、言語contractには固定しない。
 
-`==`と`!=`はbyte-wise equalityとする。orderingは定義しない。
-
-```mal
-"a" == "a"
-"a" != "b"
-"a" + "b" == "ab"
-```
-
-次はcompile-time errorである。
-
-```mal
-"a" < "b"
-```
-
-## mutable bytesとの分離
-
-Engramは内容を観測できるが変更できない。v0.5は組み込みのarray/sliceを持たない。内容を加工するには
-`Ptr`とlength、または`ByteBuffer`などのexternal opaque typeが表すmutable host storageへcopyし、加工後の
-bytesを別のEngramとしてmalへcopyする。
-
-```mal
-extern ByteBuffer;
-extern bufferNew :: UInt64 -> ByteBuffer;
-extern bufferWrite :: (ByteBuffer, UInt64, UInt8) -> Unit;
-extern bufferToEngram :: ByteBuffer -> Engram;
-extern bufferFree :: ByteBuffer -> Unit;
-```
-
-これはpredefined APIではない。`bufferToEngram`のresultにはextern return時のcopy規則を適用する。opaque handleのalias、bounds、allocation、freeの安全性はhost contractとprogramの責務である。
-
-組み込みの連結以外の変換で新しいbytesを作る処理は、必要ならEngramを返す`extern`として宣言する。そのresultは同じくmal-owned storageへcopyされる。
+正確なextern signatureとtrusted範囲は[`extern`](extern.md)、reference C representationは
+[C host ABI](c-host-abi.md)、memory operationは[memory primitive](memory.md)に定める。

@@ -48,19 +48,19 @@ malへの含意:
 mal への含意:
 
 - 「escape しなければ capture 可」は escape analysis と implementation-dependent acceptance を持ち込むため、言語規則にはしない。
-- v0.4 はlexical closureを採用するが、captureする名前はsourceのcapture listで明示する。reference compilerの回収戦略はprogram-lifetime arenaに限定する。
+- lexical closureがcaptureする名前はsourceのcapture listで明示し、storageの回収方式はsource semanticsから隠す。
 - binding が immutable でも environment の配置は必要だが、mutable cell の共有規則は不要になる。
 
-## ABI、Engram、resource
+## ABI、Symbol、resource
 
 [WebAssembly Component Model Canonical ABI](https://github.com/webassembly/component-model/blob/main/design/mvp/CanonicalABI.md) は scalar 以外の値を component 境界で渡すために、layout、allocation、post-return など多くの規則を必要とする。[Component Model overview](https://component-model.bytecodealliance.org/advanced/canonical-abi.html) も、string や composite type には wire representation と ownership rule が必要だと説明する。
 
 mal への含意:
 
-- `extern print :: Engram -> Unit` という型だけでは相互運用仕様は完成しない。
+- `extern print :: Symbol -> Unit` という型だけでは相互運用仕様は完成しない。
 - pointer を source language から隠しても、buffer の ownership と lifetime は消えない。
 - opaque resource を unrestricted value とするなら、resource safety を保証しないことを明記する必要がある。
-- v0.4のEngramはextern return時にmal-ownedなprogram-lifetime storageへcopyし、mutable bytesはexternal opaque bufferへ分離する。これによりhostへprogram-lifetime bufferを要求しない。
+- Symbolはextern return時にmal-controlled storageへcopyし、mutable bytesはExternのstorageへ分離する。これによりhost bufferのlifetimeからSymbolを切り離す。
 
 ## 調査からの結論
 
@@ -68,7 +68,7 @@ mal の差別化は「理論上もっとも少ない primitive」ではなく、
 
 1. 純粋な typed core
 2. trap を含む決定的な scalar semantics
-3. immutable lexical closure と単純な program-lifetime environment
+3. immutable lexical closure とmal-controlled environment
 4. trusted な extern/ABI contract
 
 とくに 4 を仕様外として無言で残すと、言語表面だけが小さく、実際の system は利用者ごとの暗黙仕様へ分裂する。

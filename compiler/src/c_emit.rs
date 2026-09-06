@@ -111,13 +111,22 @@ fn find_main(program: &Program) -> Result<&crate::closure::ast::TopLevelBinding,
     let TopLevelPattern::Binding { ty, .. } = &main.pattern else {
         unreachable!()
     };
-    let expected = Type::Function {
-        parameter: Box::new(Type::Unit),
-        result: Box::new(Type::Int32),
+    let Type::Function { parameter, result } = ty else {
+        return Err(Diagnostic::error("`main` has the wrong type").with_primary(
+            main.span,
+            "expected `Unit -> Int32` or `(UInt64, Ptr) -> Int32`",
+        ));
     };
-    if *ty != expected {
-        return Err(Diagnostic::error("`main` has the wrong type")
-            .with_primary(main.span, "expected `Unit -> Int32`"));
+    let accepts_arguments = matches!(
+        parameter.as_ref(),
+        Type::Product(elements)
+            if elements.as_slice() == [Type::UInt64, Type::Ptr]
+    );
+    if **result != Type::Int32 || (**parameter != Type::Unit && !accepts_arguments) {
+        return Err(Diagnostic::error("`main` has the wrong type").with_primary(
+            main.span,
+            "expected `Unit -> Int32` or `(UInt64, Ptr) -> Int32`",
+        ));
     }
     Ok(main)
 }

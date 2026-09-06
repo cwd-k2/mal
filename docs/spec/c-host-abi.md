@@ -12,6 +12,11 @@ linker inputにはC source、object file、static archive、shared objectを指�
 
 既存libraryのfunctionを任意の宣言で直接呼ぶことは保証しない。型やownershipが合わない場合は利用者が薄いC adapterを書く。
 
+`main :: Unit -> Int32`にはCの`main(void)`を生成する。`main :: (UInt64, Ptr) -> Int32`には
+`main(int argc, char **argv)`を生成する。`argv[1]`以降の各addressと終端NULを除いたlengthを、`MalType_Ptr`と
+`uint64_t`をpaddingなしに並べた外部descriptor列へ置き、そのcountと先頭`Ptr`をsource-level `main`へ渡す。
+argv bytesとdescriptor列は`main`のreturnまでread-onlyで有効であり、`loadSymbol`を呼ぶまでmal Symbolではない。
+
 ## generated header
 
 headerは少なくともC11でcompileでき、同じprogramについて生成したC translation unitと対になる。v0.5は異なるcompiler versionが生成したheader間のbinary compatibilityを保証しない。shared objectは対象programのheaderに対してbuildする。
@@ -49,7 +54,7 @@ typedef double MalType_Float64;
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalType_Engram;
+} MalType_Symbol;
 
 typedef struct {
     uint8_t *address;
@@ -60,7 +65,7 @@ typedef struct {
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 
-MalType_Engram mal_Engram_copy_from_bytes(
+MalType_Symbol mal_Symbol_copy_from_bytes(
     MalContext *context,
     const uint8_t *data,
     uint64_t length
@@ -68,7 +73,7 @@ MalType_Engram mal_Engram_copy_from_bytes(
 ```
 
 `MalContext *`はmal valueではなく、各extern implementationへ先頭parameterとして渡すruntime capabilityである。
-hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Engram_copy_from_bytes`はreference runtimeが提供する。
+hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Symbol_copy_from_bytes`はreference runtimeが提供する。
 
 malのpredefined type、source-level alias、external typeはすべてCで`MalType_<name>`と綴る。host implementationは
 aliasとexternal typeを別の命名規則として記憶する必要がない。`MalRepr_Product_<id>`と`MalRepr_Sum_<id>`は
@@ -81,7 +86,7 @@ source-level nameを持たないstructural typeのgenerated representation名で
 型ownerを補わない。
 
 ```c
-MAL_TYPE(Engram) value;
+MAL_TYPE(Symbol) value;
 MAL_OPERATION(Ptr, from_address)(address);
 MAL_OPERATION(Response, make_1)(memory, length);
 MAL_TAG(Response, 1);
@@ -106,7 +111,8 @@ MAL_DEFINE_printInt32(context, value) {
 
 `MalType_Unit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
-`mal_Engram_copy_from_bytes`はbytesをmal-ownedなprogram-lifetime storageへcopyする。allocation size overflowまたはfailureではtrapし、正常returnしたEngramはprogram終了まで有効である。`length == 0`では`data`をdereferenceしない。
+`mal_Symbol_copy_from_bytes`はbytesをmal-controlled storageへcopyしてSymbolをadmitする。allocation size overflowまたは
+failureではtrapし、正常returnした値はmalのlifetime authorityに属する。`length == 0`では`data`をdereferenceしない。
 
 ## symbol naming
 
@@ -166,15 +172,15 @@ host resourceが一wordに収まらない場合はhost側でboxする。zero bit
 generated headerは各external typeについて`mal_<Type>_from_bits`と`mal_<Type>_bits`を生成する。このhelperは
 `.bits` fieldと同じbit patternを構成・取得するだけであり、resource contractやownershipを追加しない。
 
-`MalType_Engram`はmal EngramをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
-Engram parameterは`MalType_Engram`で渡し、hostはcall終了後にdataを保持しない。dataとlengthは
-`mal_Engram_data`と`mal_Engram_length`で取得できる。Engram resultを返すhost implementationは、一時byte bufferを
-`mal_Engram_copy_from_bytes`へ渡して作った`MalType_Engram`を返す。
+`MalType_Symbol`はmal SymbolをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
+Symbol parameterは`MalType_Symbol`で渡し、hostはcall終了後にdataを保持しない。dataとlengthは
+`mal_Symbol_data`と`mal_Symbol_length`で取得できる。Symbol resultを返すhost implementationは、一時byte bufferを
+`mal_Symbol_copy_from_bytes`へ渡して作った`MalType_Symbol`を返す。hostがstruct literalなどで独自のdata pointerを
+持つ`MalType_Symbol`を直接作って返すことはcontract違反である。
 
-Engram descriptorのmemory load/store表現はCの`MalType_Engram` object representationそのものではない。
-`MalType_Ptr`のobject representationと`uint64_t`のlengthをこの順でpaddingなしに置く。hostがこの表現を書く場合も、
-data pointerとlengthは既存の有効なmal Engramから取得し、C structのpaddingを含む`sizeof(MalType_Engram)` bytesを
-そのままcopyしてはならない。
+`MalType_Symbol`はextern call中のABI carrierであり、source-level memory表現ではない。hostがstructやdata pointerを
+外部memoryへ保存しても、後からmal Symbolとして復元できない。`loadSymbol`は外部のraw bytesとlengthを受け取り、
+新しいSymbolへcopyする。`storeSymbol`はSymbolのraw bytesだけを外部memoryへcopyする。
 
 `Ptr`は`MalType_Ptr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
 operation固有のcontractとして定める。reference runtimeのnumeric scalarおよびpointer accessは`memcpy`相当であり、

@@ -35,20 +35,20 @@ typedef uint32_t MalType_UInt32;
 typedef uint64_t MalType_UInt64;
 typedef float MalType_Float32;
 typedef double MalType_Float64;
-typedef struct { const uint8_t *data; uint64_t length; } MalType_Engram;
+typedef struct { const uint8_t *data; uint64_t length; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
 
 #define MAL_FALSE ((MalType_Bool)UINT8_C(0))
 #define MAL_TRUE ((MalType_Bool)UINT8_C(1))
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
-MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
 
-static inline const uint8_t *mal_Engram_data(MalType_Engram value) {
+static inline const uint8_t *mal_Symbol_data(MalType_Symbol value) {
     return value.data;
 }
 
-static inline uint64_t mal_Engram_length(MalType_Engram value) {
+static inline uint64_t mal_Symbol_length(MalType_Symbol value) {
     return value.length;
 }
 

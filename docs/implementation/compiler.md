@@ -64,12 +64,12 @@ conversionで意味も表現も変えず共有する。各loweringは実行表�
 複数parameter/argumentはproduct parameter/application、0 parameter/argumentは`Unit`へlowerする。blockの末尾式はbody resultへ、sequential bindingはnested letまたはlambda applicationへ落とせる。
 
 surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
-desugarする。直ちにbranchとして消費する数値・Engram comparisonはtyped core以降で専用のprimitive branchとして保持し、
+desugarする。直ちにbranchとして消費する数値・Symbol comparisonはtyped core以降で専用のprimitive branchとして保持し、
 C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
 `uint8_t`へ写像する。
 
-Engram operatorの`#value`と`value # index`は型検査後にそれぞれEngram lengthとbounds-checked byte accessの
-専用core operationへlowerする。`Engram + Engram`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
+Symbol operatorの`#value`と`value # index`は型検査後にそれぞれSymbol lengthとbounds-checked byte accessの
+専用core operationへlowerする。`Symbol + Symbol`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
 C backendでprogram-lifetime storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
 
 ```mal
@@ -91,27 +91,31 @@ scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、�
 
 extern symbol、generated header、linker input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 
-product は compiler-generated struct、sum は tag と payload union、Engram は概念上 pointer と length に lower できる。
+argument-aware entry pointではCの`argv[1]`以降のaddressとlengthを外部descriptor列へ置き、`(UInt64, Ptr)`として
+source-level `main`を呼ぶ。Symbolへのcopyはsourceが`loadSymbol`を呼ぶ時点で行い、entry専用のcollection型は持たない。
+
+product は compiler-generated struct、sum は tag と payload union、Symbol は概念上 pointer と length に lower できる。
 
 ```c
 typedef struct {
     const uint8_t *data;
     uint64_t length;
-} MalType_Engram;
+} MalType_Symbol;
 ```
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferを`MalType_Engram`へ直接保存してはならない。Engram concatenationの結果も同じlifetimeのstorageへ置く。lengthまたはallocation sizeのoverflowとallocation failureはmal trapへ写像する。
+Symbol literalのdataは生成物のstatic storageへ置ける。host側byte bufferからSymbol resultを作るadapterは、source-level
+extern callを完了する前にlengthを検査し、bytesをmal-owned arenaへcopyする。Symbol concatenationと`loadSymbol`の
+resultも同じarenaへ置く。現在のreference runtimeはarenaをprogram終了時に一括解放するが、これは回収時期を
+source semanticsへ固定しない実装上の選択である。lengthまたはallocation sizeのoverflowとallocation failureはmal trapへ写像する。
 
-Engramのmemory load/storeはC structのpaddingをstorageへ含めない。`MalType_Ptr`のobject representationと
-`uint64_t`のlengthをこの順で個別に`memcpy`し、必要byte数をpointer格納byte数と8の和に固定する。
-descriptorだけを複製し、参照先のEngram bytesは複製しない。
+`loadSymbol`は外部regionから指定lengthのbytesをarenaへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
+`MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
 
 storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
-C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalType_Ptr)`へ、`@Engram`を
-`sizeof(MalType_Ptr) + sizeof(uint64_t)`へlowerする。これはgenerated Cのtargetで評価され、`MalType_Engram`自体の
-`sizeof`には依存しない。
+C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalType_Ptr)`へlowerする。これはgenerated Cのtargetで
+評価する。`Symbol`にはsource-level memory表現がないため`@Symbol`を型検査で拒否する。
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
 
@@ -130,7 +134,7 @@ runtime helperへlowerする。直接callはhelper operationへ直接lowerし、
 operationを実行するcapture-free closure entryを生成する。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。
 
-reference runtime は closure environment とruntime Engram bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
+reference runtime は closure environment とruntime Symbol bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
 
 Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
 

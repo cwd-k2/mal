@@ -293,7 +293,7 @@ NaN payloadをsource semanticsに含めると、演算ごとのpropagationとbac
 
 ## D010. `Engram`は mal-ownedなprogram-lifetime bytesとする
 
-- Status: Accepted
+- Status: Superseded by D031
 - Date: 2026-09-04
 - Scope: mal v0.4, extern contract, and reference compiler
 
@@ -485,7 +485,7 @@ target toolchainが実際に使用するABIとhost固有contractを明示でき�
 
 ## D017. immutable byte値の型名は`Engram`とする
 
-- Status: Accepted
+- Status: Superseded by D031
 - Date: 2026-09-06
 - Scope: mal v0.5
 - Refines: D010
@@ -718,7 +718,7 @@ Unicode characterを将来追加する場合は、byte literalの意味を変更
 
 ## D026. Engram descriptorをmemoryへload/storeできる
 
-- Status: Accepted
+- Status: Superseded by D031
 - Date: 2026-09-05
 - Scope: mal v0.5 and reference compiler
 - Refines: D010, D022, D024
@@ -746,7 +746,7 @@ programのoffset計算へ持ち込まない。
 
 ## D027. `@T`でmemory storage幅を表す
 
-- Status: Accepted
+- Status: Refined by D031
 - Date: 2026-09-05
 - Scope: mal v0.5 and reference compiler
 - Refines: D022, D024, D026
@@ -774,7 +774,7 @@ productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory
 
 ## D028. Engramのlengthとbyte accessを`#` operatorで表す
 
-- Status: Accepted
+- Status: Refined by D031
 - Date: 2026-09-05
 - Scope: mal v0.5 and reference compiler
 
@@ -796,7 +796,7 @@ immutable byte sequenceである現在の意味を保つ。
 
 ## D029. `Engram + Engram`をbyte concatenationとする
 
-- Status: Accepted
+- Status: Refined by D031
 - Date: 2026-09-06
 - Scope: mal v0.5 and reference compiler
 - Refines: D010, D017
@@ -815,3 +815,78 @@ byte-wise equalityによってbyte sequenceとしてすでに観測可能であ�
 
 連結を`extern`だけに置くと、Engramの基本的な値構成までhost contractに依存する。reference runtimeはすでに
 runtime生成Engramのprogram-lifetime storageを持つため、組み込みにしても新しいownership modelは不要である。
+
+## D030. entry pointへprocess argument列を渡す
+
+- Status: Refined by D031
+- Date: 2026-09-06
+- Scope: mal v0.5 and reference compiler
+
+### 決定
+
+実行可能programのentry pointは従来の`main :: Unit -> Int32`に加え、
+`main :: (UInt64, Ptr) -> Int32`を認める。productは実行ファイル名を除くargument数と、read-onlyなEngram
+descriptor列へのpointerである。descriptorとbytesは`main`のreturnまで有効で、argumentのbytesはUTF-8を
+保証しない。
+
+argument `i`は既存の`loadEngram(arguments + UInt64(i) * @Engram)`で取得する。範囲外accessは通常の`Ptr`
+contract違反である。
+
+### 理由
+
+process argumentを得るためにprogram固有の環境変数、globalなhost state、または専用`extern`を要求すると、
+実行環境との基本的な依存がsource entryから消える。一方、組み込みの可変長Array、iterator、`Args`型と専用
+operatorを追加すると、argument取得だけのために新しいcollection semanticsが必要になる。
+
+count、`Ptr`、Engramのcanonical memory表現を組み合わせれば、新しいvalue typeやmemory operationなしで境界を
+明示できる。通常のargument accessにはunsafeな`Ptr`計算が残るが、v0.5の既存memory mechanismと同じcontractであり、
+将来collectionを導入する場合もsource entryの意味を保ったwrapperを構成できる。
+
+## D031. Engramをmal内部のlifetime authorityとする
+
+- Status: Accepted
+- Date: 2026-09-06
+- Scope: mal v0.5, extern contract, and reference compiler
+- Supersedes: D010, D017, D026
+- Refines: D027, D028, D029, D030
+
+### 決定
+
+`Engram`をimmutable byte型の名前から、mal program内部に固定された意味を持ち、そのidentityとlifetimeをmalが
+支配するものの総称へ昇格する。従来のbyte型は`Symbol`へ改名する。`Unit`、scalar、`Symbol`、product、sum、
+function valueはEngramである。`Ptr`とexternal opaque valueはExternへのcapabilityであり、Engramに含めても
+referentのownershipやlifetimeはmalへ移らない。
+
+境界operationを、Extern representationから新しいEngramを作るadmission、Engramをborrowまたはcopyするobservation、
+Externへのcapabilityを運ぶcapability transferに分ける。numeric scalarとSymbolは前二者、`Ptr`とexternal opaque
+valueはcapability transferを使う。productとsumはfieldごとにこの分類を再帰適用し、aggregate全体を一つの
+ownership単位とはみなさない。
+
+外部storageへmal内部のdescriptor、managed pointer、rootを書いて復元する経路は提供しない。
+
+従来のdescriptor operationを次へ置き換える。
+
+```text
+loadSymbol  :: (Ptr, UInt64) -> Symbol
+storeSymbol :: (Ptr, Symbol) -> Unit
+```
+
+`loadSymbol`は外部bytesをmal-controlled storageへcopyし、`storeSymbol`はSymbol bytesを外へcopyする。
+`Symbol`にはcanonical source-level memory表現を定めず、`@Symbol`を拒否する。
+
+process argument列は`Ptr`と`UInt64`をpaddingなしに並べた外部descriptor列とする。sourceは両fieldを読み、
+`loadSymbol`で必要なargumentだけをadmitする。
+
+Engramの回収時期と方式は、到達可能な値の意味とborrowの有効性を保つ限り実装詳細とする。reference compilerは
+当面runtime生成Symbolとclosure environmentをprogram-lifetime arenaへ置くが、この方式をsource semanticsにはしない。
+file、socket、allocationなどのExtern resourceはこのmemory reclamationに含めず、引き続き明示的なclose/free contractに従う。
+
+### 理由
+
+byte descriptorを外部memoryから復元できると、Externがmal内部のidentityとlifetimeを一方的に生成でき、どちらが
+所有するかという境界が崩れる。bytesそのものをcopyするadmissionなら、外部bufferのlifetimeからSymbolを切り離し、
+Engramは常にmal側のauthorityに閉じる。
+
+一方、program-lifetimeを言語仕様に固定すると、将来GC、region、escape analysisなどで回収しても観測不能なstorageを
+保持し続けなければならない。lifetime authorityだけを固定し、回収mechanismを隠すことで、reference countingを
+source semanticsへ追加せずに現在の単純なarena実装と将来の回収を両立できる。

@@ -54,7 +54,7 @@ captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#sco
 lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: Engram -> Unit := \(message :: Engram) { extern print(message) };
+log :: Symbol -> Unit := \(message :: Symbol) { extern print(message) };
 ```
 
 ## 関数適用
@@ -71,8 +71,8 @@ makeFunction()(x)
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
 [memory](memory.md#primitive)に列挙するload/store operationはpredefined functionであり、通常のfunctionと同じく
-直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Engramの
-lengthとbyte accessは[`#` operator](engrams.md#operator)で表す。
+直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
+lengthとbyte accessは[`#` operator](symbols.md#operator)で表す。
 
 ## storage size
 
@@ -82,7 +82,7 @@ function callではなく、host operationも実行しない。定義対象と�
 
 ```mal
 pointerBytes :: UInt64 := @Ptr;
-engramFieldBytes := @Engram + @UInt8;
+recordBytes := @Ptr + @UInt64 + @UInt8;
 ```
 
 ## if
@@ -152,7 +152,7 @@ float literalとする。完全な形は[grammar](grammar.md#numeric-separator)�
 
 numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
 
-Engram literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[Engram](engrams.md#literal)に定める。
+Symbol literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[Symbol](symbols.md#literal)に定める。
 
 ### byte literal
 
@@ -194,13 +194,13 @@ float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
 pointer:  Ptr + UInt64, Ptr - UInt64
-Engram:   Engram + Engram, == !=
+Symbol:   Symbol + Symbol, == !=
 ```
 
 数値比較は predefined `Bool` を返す。異なる数値型を暗黙変換しない。
 
-`Engram + Engram`はbyte sequenceを連結して`Engram`を返す。完全な規則は
-[Engram](engrams.md#operator)に定める。
+`Symbol + Symbol`はbyte sequenceを連結して`Symbol`を返す。完全な規則は
+[Symbol](symbols.md#operator)に定める。
 
 Bool operator は core primitive ではなく `case` へ desugar する。特に `&&` と `||` は左 operand を一度だけ先に評価し、必要な場合だけ右 operand を評価する。
 

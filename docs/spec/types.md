@@ -10,7 +10,7 @@ T ::=
   | Int8 | Int16 | Int32 | Int64
   | UInt8 | UInt16 | UInt32 | UInt64
   | Float32 | Float64
-  | Engram
+  | Symbol
   | Ptr
   | (T, T, ...)
   | [T, T, ...]
@@ -25,19 +25,22 @@ T ::=
 
 `Byte` と `Char` という型はない。単一 byte は `UInt8` で表す。mal は Unicode character を primitive value として定義しない。
 
-## Engram
+## Symbol
 
-`Engram`は言語組み込みのimmutableな有限byte値であり、array、buffer、encoded textではない。値はcopyableで、そのbytesはprogram終了まで有効で変更されない。Engram値を複製してもbytes自体を複製する必要はない。source-levelの個別解放操作は存在しない。
+`Symbol`は言語組み込みのimmutableな有限byte値であり、array、buffer、encoded textではない。値はcopyableで、
+その意味とlifetimeはmalが支配する。Symbol値を複製してもbytes自体を複製する必要はなく、source-levelの個別解放操作は存在しない。
 
-Engram literalはnumeric literalと同じく組み込み値を表すnotationであり、そのbytesはprogram imageの静的storageに置いてよい。host側の一時byte bufferはEngramではなく、`extern`境界でmal-owned storageへcopyされた時点でEngramになる。literal、operator、storageの完全な規則は[Engram](engrams.md)に定める。
+Symbol literalはnumeric literalと同じく組み込み値を表すnotationであり、そのbytesはprogram imageの静的storageに置いてよい。
+host側の一時byte bufferはSymbolではなく、明示的なadmissionでmal-controlled storageへcopyされた時点でSymbolになる。
+literal、operator、storageの完全な規則は[Symbol](symbols.md)に定める。
 
-mutable byte bufferはEngramではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
+mutable byte bufferはSymbolではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
 組み込みのarray、slice、`ByteBuffer`型を持たない。
 
 ## Ptr
 
 `Ptr`は型なしのdata address型である。要素型、length、ownershipは持たず、memory accessにはpredefinedな
-numeric scalar、pointer、およびEngram descriptor operationを使う。完全な規則は[memory primitive](memory.md)に定める。
+numeric scalarとpointerのobject representation、およびSymbol byte copy operationを使う。完全な規則は[memory primitive](memory.md)に定める。
 
 ## Unit
 

@@ -1,3 +1,4 @@
+use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, TopLevelPattern};
 
 use super::{
@@ -153,12 +154,22 @@ impl BodyEmitter<'_> {
     }
 
     pub(super) fn emit_main(&self, main: &closure::TopLevelBinding) -> String {
-        let TopLevelPattern::Binding { id, .. } = main.pattern else {
+        let TopLevelPattern::Binding { id, ref ty, .. } = main.pattern else {
             unreachable!()
         };
         let name = value_name(id);
+        let Type::Function { parameter, .. } = ty else {
+            unreachable!("entry point validation requires a function")
+        };
+        if **parameter == Type::Unit {
+            return format!(
+                "int main(void) {{\n    MalContext mal_context = {{ NULL }};\n    MalType_Unit mal_unit = {{ UINT8_C(0) }};\n    mal_program_initialize(&mal_context);\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_unit);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
+            );
+        }
+
+        let parameter_type = self.types.c_type(parameter);
         format!(
-            "int main(void) {{\n    MalContext mal_context = {{ NULL }};\n    MalType_Unit mal_unit = {{ UINT8_C(0) }};\n    mal_program_initialize(&mal_context);\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_unit);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
+            "int main(int mal_argc, char **mal_argv) {{\n    MalContext mal_context = {{ NULL }};\n    mal_program_initialize(&mal_context);\n    size_t mal_argument_count = mal_argc > 1 ? (size_t)(mal_argc - 1) : 0;\n    const size_t mal_argument_stride = sizeof(MalType_Ptr) + sizeof(uint64_t);\n    if (mal_argument_count > SIZE_MAX / mal_argument_stride) {{\n        mal_trap(&mal_context, \"argument descriptor size overflow\");\n    }}\n    uint8_t *mal_argument_storage = (uint8_t *)mal_allocate(&mal_context, mal_argument_count * mal_argument_stride);\n    for (size_t mal_index = 0; mal_index < mal_argument_count; ++mal_index) {{\n        size_t mal_length = strlen(mal_argv[mal_index + 1]);\n        if ((uint64_t)mal_length != mal_length) {{\n            mal_trap(&mal_context, \"argument length overflow\");\n        }}\n        MalType_Ptr mal_data = mal_Ptr_from_address((uint8_t *)mal_argv[mal_index + 1]);\n        uint64_t mal_length_u64 = (uint64_t)mal_length;\n        uint8_t *mal_slot = mal_argument_storage + mal_index * mal_argument_stride;\n        memcpy(mal_slot, &mal_data, sizeof(mal_data));\n        memcpy(mal_slot + sizeof(mal_data), &mal_length_u64, sizeof(mal_length_u64));\n    }}\n    {parameter_type} mal_arguments = {{ .field_0 = (uint64_t)mal_argument_count, .field_1 = mal_Ptr_from_address(mal_argument_storage) }};\n    int32_t mal_result = {name}.call(&mal_context, {name}.environment, mal_arguments);\n    mal_context_destroy(&mal_context);\n    return (int)mal_result;\n}}\n"
         )
     }
 

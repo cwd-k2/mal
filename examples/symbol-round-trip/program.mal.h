@@ -31,20 +31,20 @@ typedef uint32_t MalType_UInt32;
 typedef uint64_t MalType_UInt64;
 typedef float MalType_Float32;
 typedef double MalType_Float64;
-typedef struct { const uint8_t *data; uint64_t length; } MalType_Engram;
+typedef struct { const uint8_t *data; uint64_t length; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
 
 #define MAL_FALSE ((MalType_Bool)UINT8_C(0))
 #define MAL_TRUE ((MalType_Bool)UINT8_C(1))
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
-MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
 
-static inline const uint8_t *mal_Engram_data(MalType_Engram value) {
+static inline const uint8_t *mal_Symbol_data(MalType_Symbol value) {
     return value.data;
 }
 
-static inline uint64_t mal_Engram_length(MalType_Engram value) {
+static inline uint64_t mal_Symbol_length(MalType_Symbol value) {
     return value.length;
 }
 
@@ -58,19 +58,19 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* External operations */
 
-MalType_Engram mal_ext_receive(
+MalType_Symbol mal_ext_receive(
     MalContext *context
 );
 void mal_ext_send(
     MalContext *context,
-    MalType_Engram value
+    MalType_Symbol value
 );
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_receive 1
 #define MAL_DEFINE_receive(context) \
-    MalType_Engram mal_ext_receive( \
+    MalType_Symbol mal_ext_receive( \
         MalContext *context MAL_DETAIL_MAYBE_UNUSED \
     )
 
@@ -78,7 +78,7 @@ void mal_ext_send(
 #define MAL_DEFINE_send(context, value) \
     void mal_ext_send( \
         MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-        MalType_Engram value \
+        MalType_Symbol value \
     )
 
 #endif

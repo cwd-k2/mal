@@ -1,5 +1,7 @@
 use std::ffi::OsStr;
+use std::io::Write;
 use std::path::Path;
+use std::process::{Command, Stdio};
 
 mod support;
 
@@ -90,7 +92,7 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
     assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("MalType_Engram mal_Engram_copy_from_bytes("));
+    assert!(generated_header.contains("MalType_Symbol mal_Symbol_copy_from_bytes("));
 }
 
 #[test]
@@ -128,7 +130,7 @@ fn emit_header_writes_a_standalone_host_interface() {
 fn emit_header_defaults_to_the_source_directory() {
     let directory = NativeFixture::new("driver-default-header");
     let source = directory.join("source/program.mal");
-    directory.write("source/program.mal", "extern print :: Engram -> Unit;");
+    directory.write("source/program.mal", "extern print :: Symbol -> Unit;");
 
     let output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
 
@@ -207,12 +209,13 @@ fn checked_in_example_headers_match_the_compiler() {
         .expect("compiler directory has a repository parent");
     let examples = [
         "integer-and-byte",
+        "mini-database",
         "opaque-aggregate",
         "pointer-tree",
         "print-and-closure",
         "ptr-memory",
         "strict-float",
-        "engram-round-trip",
+        "symbol-round-trip",
         "tail-recursion",
     ];
 
@@ -387,12 +390,12 @@ fn opaque_aggregate_example_round_trips_through_the_host() {
 }
 
 #[test]
-fn engram_round_trip_example_copies_and_concatenates_bytes() {
+fn symbol_round_trip_example_copies_and_concatenates_bytes() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/engram-round-trip");
+        .join("examples/symbol-round-trip");
     let program = example.join("program.mal");
 
     let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
@@ -433,6 +436,61 @@ fn engram_round_trip_example_copies_and_concatenates_bytes() {
     let output = directory.run(executable);
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap(), "9 bytes\n");
+}
+
+#[test]
+fn mini_database_example_persists_queries_across_processes() {
+    let directory = NativeFixture::new("mini-database");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/mini-database");
+    let executable = directory.join("example");
+    let database = directory.join("data.bin");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let run_session = |input: &str| {
+        let mut child = Command::new(&executable)
+            .arg(&database)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("run mini database");
+        child
+            .stdin
+            .take()
+            .expect("open mini database stdin")
+            .write_all(input.as_bytes())
+            .expect("write mini database queries");
+        child.wait_with_output().expect("wait for mini database")
+    };
+
+    let output = run_session("put language mal\nput greeting hello world\nget language\nquit\n");
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "OK\nOK\nVALUE mal\n"
+    );
+    assert_eq!(std::fs::metadata(&database).unwrap().len(), 4112);
+
+    let output = run_session("get greeting\ndel language\nget language\nquit\n");
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "VALUE hello world\nOK\nNOT FOUND\n"
+    );
 }
 
 #[test]

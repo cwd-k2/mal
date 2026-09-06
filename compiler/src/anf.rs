@@ -91,8 +91,8 @@ impl Lowerer {
             core::ExpressionKind::Float(bits) => {
                 self.atom_block(expression, AtomKind::Float(*bits))
             }
-            core::ExpressionKind::Engram(value) => {
-                self.atom_block(expression, AtomKind::Engram(value.clone()))
+            core::ExpressionKind::Symbol(value) => {
+                self.atom_block(expression, AtomKind::Symbol(value.clone()))
             }
             core::ExpressionKind::StorageSize(ty) => {
                 self.atom_block(expression, AtomKind::StorageSize(ty.clone()))
@@ -136,13 +136,13 @@ impl Lowerer {
                 let argument = builder.append(self, argument);
                 builder.finish(self, expression, Operation::Call { callee, argument })
             }
-            core::ExpressionKind::EngramLength { value } => {
+            core::ExpressionKind::SymbolLength { value } => {
                 let (builder, value) = self.lower_operand(value);
-                builder.finish(self, expression, Operation::EngramLength { value })
+                builder.finish(self, expression, Operation::SymbolLength { value })
             }
-            core::ExpressionKind::EngramAt { argument } => {
+            core::ExpressionKind::SymbolAt { argument } => {
                 let (builder, argument) = self.lower_operand(argument);
-                builder.finish(self, expression, Operation::EngramAt { argument })
+                builder.finish(self, expression, Operation::SymbolAt { argument })
             }
             core::ExpressionKind::MemoryFunction { primitive } => self.operation_block(
                 expression,

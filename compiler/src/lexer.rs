@@ -1,8 +1,8 @@
 use crate::diagnostic::Diagnostic;
 use crate::source::{SourceFile, Span};
 
-mod engram;
 mod number;
+mod symbol;
 mod token;
 
 pub use token::{
@@ -50,13 +50,13 @@ impl<'a> Lexer<'a> {
             if byte == b'\'' {
                 self.lex_byte(start)?;
             } else if byte == b'"' {
-                self.lex_engram(start)?;
+                self.lex_symbol(start)?;
             } else if byte.is_ascii_alphabetic() {
                 self.lex_identifier(start)?;
             } else if byte.is_ascii_digit() {
                 self.lex_number(start)?;
             } else {
-                self.lex_symbol(start)?;
+                self.lex_punctuation(start)?;
             }
         }
 
@@ -166,21 +166,21 @@ impl<'a> Lexer<'a> {
         self.error(start, self.offset, "invalid byte literal", label)
     }
 
-    fn lex_engram(&mut self, start: usize) -> Result<(), Diagnostic> {
-        match engram::decode(self.bytes, start) {
+    fn lex_symbol(&mut self, start: usize) -> Result<(), Diagnostic> {
+        match symbol::decode(self.bytes, start) {
             Ok(decoded) => {
                 self.offset = decoded.end;
-                self.push(TokenKind::Engram(decoded.value), start);
+                self.push(TokenKind::Symbol(decoded.value), start);
                 Ok(())
             }
             Err(error) => {
                 self.offset = error.end;
-                Err(self.error(start, error.end, "invalid Engram literal", error.label))
+                Err(self.error(start, error.end, "invalid Symbol literal", error.label))
             }
         }
     }
 
-    fn lex_symbol(&mut self, start: usize) -> Result<(), Diagnostic> {
+    fn lex_punctuation(&mut self, start: usize) -> Result<(), Diagnostic> {
         let (kind, width) = match (self.peek(), self.peek_next()) {
             (Some(b':'), Some(b':')) => (TokenKind::DoubleColon, 2),
             (Some(b':'), Some(b'=')) => (TokenKind::Bind, 2),

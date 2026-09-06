@@ -14,10 +14,11 @@ product and sum
 surface if and exhaustive case
 self recursion
 fixed-width numeric, logical, and bit operations
-language-intrinsic immutable Engram
-Engram byte concatenation
+language-intrinsic immutable Symbol
+Symbol byte concatenation
 typed numeric scalar and pointer access through untyped Ptr
 extern boundary
+optional process argument entry
 ```
 
 何をもって最小とするかは[最小性の方針](../design/minimality.md)で定める。
@@ -63,7 +64,7 @@ mal は `Some` や field name に特別な意味を与えない。
 
 ## memory と mutable data
 
-source languageは型なし`Ptr`と、byte offsetおよび全numeric scalar、`Ptr`、Engram descriptorのload/storeを持つ。allocation、
+source languageは型なし`Ptr`と、byte offset、全numeric scalarと`Ptr`のload/store、およびSymbol byte copyを持つ。allocation、
 deallocation、length、bounds、ownershipは組み込まず、program固有の`extern` contractに置く。完全な規則は
 [memory primitive](memory.md)に定める。
 
@@ -80,11 +81,11 @@ mutable bytesが必要な場合も同じ境界を使う。次はpredefined API�
 extern ByteBuffer;
 extern bufferNew :: UInt64 -> ByteBuffer;
 extern bufferWrite :: (ByteBuffer, UInt64, UInt8) -> Unit;
-extern bufferToEngram :: ByteBuffer -> Engram;
+extern bufferToSymbol :: ByteBuffer -> Symbol;
 extern bufferFree :: ByteBuffer -> Unit;
 ```
 
-`bufferToEngram`が返すbytesは[`extern`のEngram copy規則](extern.md#engramのlifetime)によりmal-owned storageへcopyされる。`ByteBuffer` handleの複製、bounds、freeの安全性はhost contractの責務である。
+`bufferToSymbol`が返すbytesは[`extern`のadmission規則](extern.md#boundary-transport)によりmal-controlled storageへcopyされる。`ByteBuffer` handleの複製、bounds、freeの安全性はhost contractの責務である。
 
 array は例えば `(Ptr, UInt64)` の alias と mal 関数で構成できる。
 
@@ -101,7 +102,7 @@ arrayGet :: (Int64Array, UInt64) -> Int64 :=
 ただしbounds、allocation failure、deallocationはこのaliasだけでは保証されない。alignmentをscalar accessの
 条件にはしない。storageのregionとlifetimeは[`extern` contract](extern.md)が定める。`[]` syntaxはない。
 
-hash table、list、set も組み込み型ではない。必要な element type ごとに、product/sum と external storage から実装する。parametric polymorphism がないため、例えば `Int32Array` と `EngramArray` は別実装になる。
+hash table、list、set も組み込み型ではない。必要な element type ごとに、product/sum と external storage から実装する。parametric polymorphism がないため、例えば `Int32Array` と `SymbolArray` は別実装になる。
 
 ## standard library と file
 

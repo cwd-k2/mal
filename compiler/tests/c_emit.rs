@@ -486,10 +486,10 @@ fn traps_invalid_float_to_integer_conversions_before_the_c_cast() {
 }
 
 #[test]
-fn emits_static_engram_bytes_that_survive_closure_escape() {
+fn emits_static_symbol_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
-        r#"extern inspect :: Engram -> Unit;
-make :: Engram -> (Unit -> Engram) := \(value :: Engram) {
+        r#"extern inspect :: Symbol -> Unit;
+make :: Symbol -> (Unit -> Symbol) := \(value :: Symbol) {
   \<value>() { value; };
 };
 main :: Unit -> Int32 := \() {
@@ -503,7 +503,7 @@ main :: Unit -> Int32 := \() {
 #include <inttypes.h>
 #include <stdio.h>
 
-void mal_ext_inspect(MalContext *context, MalType_Engram value) {
+void mal_ext_inspect(MalContext *context, MalType_Symbol value) {
     (void)context;
     printf("%" PRIu64 ":", value.length);
     for (uint64_t index = 0; index < value.length; index += UINT64_C(1)) {
@@ -521,7 +521,7 @@ void mal_ext_inspect(MalContext *context, MalType_Engram value) {
 }
 
 #[test]
-fn executes_engram_operators_and_byte_wise_equality() {
+fn executes_symbol_operators_and_byte_wise_equality() {
     let output = compile_and_run(
         r#"main :: Unit -> Int32 := \() {
   value := "あ\0\xff";
@@ -543,7 +543,7 @@ fn executes_engram_operators_and_byte_wise_equality() {
 }
 
 #[test]
-fn concatenates_engrams_as_immutable_bytes() {
+fn concatenates_symbols_as_immutable_bytes() {
     let output = compile_and_run(
         r#"main :: Unit -> Int32 := \() {
   joined := "あ\0" + "\xffz";
@@ -563,11 +563,11 @@ fn concatenates_engrams_as_immutable_bytes() {
 }
 
 #[test]
-fn traps_engram_concatenation_allocation_failure() {
-    let fixture = NativeFixture::new("engram-concatenation-failure");
+fn traps_symbol_concatenation_allocation_failure() {
+    let fixture = NativeFixture::new("symbol-concatenation-failure");
     let executable = fixture.compile_generated_with_options(
         emit(r#"main :: Unit -> Int32 := \() { "left" + "right"; 0; };"#)
-            .expect("emit Engram concatenation"),
+            .expect("emit Symbol concatenation"),
         "",
         &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
     );
@@ -577,7 +577,7 @@ fn traps_engram_concatenation_allocation_failure() {
 }
 
 #[test]
-fn traps_out_of_range_engram_byte_access() {
+fn traps_out_of_range_symbol_byte_access() {
     for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
@@ -585,45 +585,45 @@ fn traps_out_of_range_engram_byte_access() {
         );
         assert!(!output.status.success(), "expression: {expression}");
         assert!(
-            String::from_utf8_lossy(&output.stderr).contains("Engram index out of range"),
+            String::from_utf8_lossy(&output.stderr).contains("Symbol index out of range"),
             "expression: {expression}"
         );
     }
 }
 
 #[test]
-fn copies_host_bytes_into_program_lifetime_engrams() {
+fn copies_host_bytes_into_mal_owned_symbols() {
     let generated = emit(
-        r#"extern fetch :: Unit -> Engram;
+        r#"extern fetch :: Unit -> Symbol;
 main :: Unit -> Int32 := \() {
   value := extern fetch();
   ok := (value == "host\0\xff") && (value # 5u64 == 255u8);
   if (ok) then { 0 } else { 1 };
 };"#,
     )
-    .expect("emit Engram ABI");
+    .expect("emit Symbol ABI");
     assert!(generated.header.contains(
-        "MalType_Engram mal_Engram_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);"
+        "MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);"
     ));
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "MalType_Engram mal_ext_fetch(MalContext *context);"
+        "MalType_Symbol mal_ext_fetch(MalContext *context);"
     ));
-    let fixture = NativeFixture::new("engram-copy");
+    let fixture = NativeFixture::new("symbol-copy");
     let executable = fixture.compile_generated(
         generated,
         r#"#include "program.mal.h"
 #include <stdlib.h>
 #include <string.h>
 
-MalType_Engram mal_ext_fetch(MalContext *context) {
+MalType_Symbol mal_ext_fetch(MalContext *context) {
     uint8_t *scratch = (uint8_t *)malloc(6);
     if (scratch == NULL) {
         mal_trap(context, "host allocation failed");
     }
     const uint8_t original[6] = { 'h', 'o', 's', 't', 0, 255 };
     memcpy(scratch, original, 6);
-    MalType_Engram result = mal_Engram_copy_from_bytes(context, scratch, UINT64_C(6));
+    MalType_Symbol result = mal_Symbol_copy_from_bytes(context, scratch, UINT64_C(6));
     memset(scratch, 0, 6);
     free(scratch);
     return result;
@@ -639,17 +639,17 @@ MalType_Engram mal_ext_fetch(MalContext *context) {
 }
 
 #[test]
-fn traps_engram_copy_allocation_failure_and_length_overflow() {
+fn traps_symbol_copy_allocation_failure_and_length_overflow() {
     let source =
-        "extern fetch :: Unit -> Engram; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
+        "extern fetch :: Unit -> Symbol; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
 
-    let failure_fixture = NativeFixture::new("engram-copy-failure");
+    let failure_fixture = NativeFixture::new("symbol-copy-failure");
     let failure_executable = failure_fixture.compile_generated_with_options(
-        emit(source).expect("emit Engram ABI"),
+        emit(source).expect("emit Symbol ABI"),
         r#"#include "program.mal.h"
-MalType_Engram mal_ext_fetch(MalContext *context) {
+MalType_Symbol mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_Engram_copy_from_bytes(context, &value, UINT64_C(1));
+    return mal_Symbol_copy_from_bytes(context, &value, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
@@ -658,13 +658,13 @@ MalType_Engram mal_ext_fetch(MalContext *context) {
     assert!(!failure.status.success());
     assert!(String::from_utf8_lossy(&failure.stderr).contains("mal trap: allocation failed"));
 
-    let overflow_fixture = NativeFixture::new("engram-copy-overflow");
+    let overflow_fixture = NativeFixture::new("symbol-copy-overflow");
     let overflow_executable = overflow_fixture.compile_generated(
-        emit(source).expect("emit Engram ABI"),
+        emit(source).expect("emit Symbol ABI"),
         r#"#include "program.mal.h"
-MalType_Engram mal_ext_fetch(MalContext *context) {
+MalType_Symbol mal_ext_fetch(MalContext *context) {
     const uint8_t value = 1;
-    return mal_Engram_copy_from_bytes(context, &value, UINT64_MAX);
+    return mal_Symbol_copy_from_bytes(context, &value, UINT64_MAX);
 }
 "#,
     );
@@ -825,14 +825,14 @@ fn executes_target_storage_size_expressions() {
          main :: Unit -> Int32 := \\() {\n\
            actual := @Int8 + @Int16 + @Int32 + @Int64\n\
              + @UInt8 + @UInt16 + @UInt32 + @UInt64\n\
-             + @Float32 + @Float64 + pointerSize + @Engram;\n\
+             + @Float32 + @Float64 + pointerSize;\n\
            if (actual == extern expectedSize()) then { 0 } else { 1 };\n\
          };",
         r#"#include "program.mal.h"
 
 uint64_t mal_ext_expectedSize(MalContext *context) {
     (void)context;
-    return UINT64_C(50) + (uint64_t)(sizeof(MalType_Ptr) * 2);
+    return UINT64_C(42) + (uint64_t)sizeof(MalType_Ptr);
 }
 "#,
     );
@@ -840,52 +840,44 @@ uint64_t mal_ext_expectedSize(MalContext *context) {
 }
 
 #[test]
-fn executes_unaligned_engram_descriptor_access() {
-    let source = "extern engramSlot :: Unit -> Ptr;\n\
-         extern inspectEngramSlot :: Unit -> Unit;\n\
+fn copies_symbols_between_mal_and_external_memory() {
+    let source = "extern symbolSlot :: Unit -> Ptr;\n\
+         extern inspectSymbolSlot :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := extern engramSlot() + 1u64;\n\
-           initial := loadEngram(slot);\n\
-           storeEngram(slot, \"held\\0\\xff\");\n\
-           extern inspectEngramSlot();\n\
-           stored := loadEngram(slot);\n\
+           slot := extern symbolSlot() + 1u64;\n\
+           initial := loadSymbol(slot, 4u64);\n\
+           storeSymbol(slot, \"held\\0\\xff\");\n\
+           extern inspectSymbolSlot();\n\
+           stored := loadSymbol(slot, 6u64);\n\
            if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
              0\n\
            } else {\n\
              1\n\
            };\n\
          };";
-    let generated = emit(source).expect("emit Engram descriptor access");
-    assert!(generated.source.contains("mal_load_engram"));
-    assert!(generated.source.contains("mal_store_engram"));
+    let generated = emit(source).expect("emit Symbol byte copies");
+    assert!(generated.source.contains("mal_load_symbol"));
+    assert!(generated.source.contains("mal_store_symbol"));
     let host = r#"#include "program.mal.h"
 #include <string.h>
 
-static uint8_t slot[sizeof(MalType_Ptr) + sizeof(uint64_t) + 1];
+static uint8_t slot[7];
 
-MalType_Ptr mal_ext_engramSlot(MalContext *context) {
+MalType_Ptr mal_ext_symbolSlot(MalContext *context) {
     static const uint8_t seed[] = { 's', 'e', 'e', 'd' };
-    MalType_Engram initial = mal_Engram_copy_from_bytes(context, seed, UINT64_C(4));
-    MalType_Ptr data = mal_Ptr_from_address((uint8_t *)mal_Engram_data(initial));
-    uint64_t length = initial.length;
-    memcpy(slot + 1, &data, sizeof(data));
-    memcpy(slot + 1 + sizeof(data), &length, sizeof(length));
+    (void)context;
+    memcpy(slot + 1, seed, sizeof(seed));
     return mal_Ptr_from_address(slot);
 }
 
-void mal_ext_inspectEngramSlot(MalContext *context) {
-    MalType_Ptr data;
-    uint64_t length;
+void mal_ext_inspectSymbolSlot(MalContext *context) {
     static const uint8_t expected[] = { 'h', 'e', 'l', 'd', 0, 255 };
-    memcpy(&data, slot + 1, sizeof(data));
-    memcpy(&length, slot + 1 + sizeof(data), sizeof(length));
-    if (length != UINT64_C(6)
-        || memcmp(mal_Ptr_address(data), expected, sizeof(expected)) != 0) {
-        mal_trap(context, "unexpected stored Engram descriptor");
+    if (memcmp(slot + 1, expected, sizeof(expected)) != 0) {
+        mal_trap(context, "unexpected stored Symbol bytes");
     }
 }
 "#;
-    let fixture = NativeFixture::new("engram-value-memory");
+    let fixture = NativeFixture::new("symbol-value-memory");
     let executable = fixture.compile_generated(generated, host);
     assert!(fixture.run(executable).status.success());
 }
@@ -907,8 +899,8 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     assert!(!generated.source.contains("mal_ptr_offset"));
     assert!(!generated.source.contains("mal_load_int8"));
     assert!(!generated.source.contains("mal_store_float64"));
-    assert!(!generated.source.contains("mal_load_engram"));
-    assert!(!generated.source.contains("mal_store_engram"));
+    assert!(!generated.source.contains("mal_load_symbol"));
+    assert!(!generated.source.contains("mal_store_symbol"));
 
     let fixture = NativeFixture::new("selective-memory-runtime");
     let executable = fixture.compile_generated_with_options(
@@ -1495,4 +1487,36 @@ fn rejects_invalid_executable_programs() {
             .message
             .contains("wrong type")
     );
+}
+
+#[test]
+fn admits_process_arguments_as_symbols() {
+    let generated = emit(
+        "Arguments :: (UInt64, Ptr);\n\
+         argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments :: Ptr, index :: UInt64) {\n\
+           slot := arguments + index * (@Ptr + @UInt64);\n\
+           loadSymbol(loadPtr(slot), loadUInt64(slot + @Ptr));\n\
+         };\n\
+         main :: Arguments -> Int32 := \\(count :: UInt64, arguments :: Ptr) {\n\
+           first := argumentAt(arguments, 0u64);\n\
+           second := argumentAt(arguments, 1u64);\n\
+           if (count == 2u64 && first == \"alpha\" && second == \"\")\n\
+             then { 0 }\n\
+             else { 1 };\n\
+         };",
+    )
+    .expect("emit an argument-aware entry point");
+    assert!(
+        generated
+            .source
+            .contains("int main(int mal_argc, char **mal_argv)")
+    );
+
+    let fixture = NativeFixture::new("process-arguments");
+    let executable = fixture.compile_generated(generated, "");
+    let output = std::process::Command::new(executable)
+        .args(["alpha", ""])
+        .output()
+        .expect("run argument-aware executable");
+    assert!(output.status.success());
 }

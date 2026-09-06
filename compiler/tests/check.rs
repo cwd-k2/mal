@@ -246,26 +246,26 @@ fn checks_float_arithmetic_comparison_and_negation() {
 }
 
 #[test]
-fn checks_engram_literals_as_immutable_bytes() {
-    let program = check_ok(r#"empty :: Engram := ""; bytes := "あ\0\xff";"#);
-    assert_eq!(top_binding(&program, 0).value.ty, Type::Engram);
+fn checks_symbol_literals_as_immutable_bytes() {
+    let program = check_ok(r#"empty :: Symbol := ""; bytes := "あ\0\xff";"#);
+    assert_eq!(top_binding(&program, 0).value.ty, Type::Symbol);
     assert!(matches!(
         top_binding(&program, 1).value.kind,
-        ExpressionKind::Engram(ref value) if value == &[0xe3, 0x81, 0x82, 0, 255]
+        ExpressionKind::Symbol(ref value) if value == &[0xe3, 0x81, 0x82, 0, 255]
     ));
 }
 
 #[test]
-fn checks_engram_operators_and_byte_wise_equality() {
+fn checks_symbol_operators_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: Engram -> UInt64 := \(value :: Engram) { #value; };
-item :: (Engram, UInt64) -> UInt8 := \(value :: Engram, index :: UInt64) {
+        r#"length :: Symbol -> UInt64 := \(value :: Symbol) { #value; };
+item :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
   value # index;
 };
 same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
 different :: Unit -> Bool := \() { "a" != "b"; };
 literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };
-concatenate :: (Engram, Engram) -> Engram := \(left :: Engram, right :: Engram) {
+concatenate :: (Symbol, Symbol) -> Symbol := \(left :: Symbol, right :: Symbol) {
   left + right;
 };"#,
     );
@@ -274,14 +274,14 @@ concatenate :: (Engram, Engram) -> Engram := \(left :: Engram, right :: Engram) 
     };
     assert!(matches!(
         length.body.result.kind,
-        ExpressionKind::EngramLength { .. }
+        ExpressionKind::SymbolLength { .. }
     ));
     let ExpressionKind::Lambda(item) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
     };
     assert!(matches!(
         item.body.result.kind,
-        ExpressionKind::EngramAt { .. }
+        ExpressionKind::SymbolAt { .. }
     ));
     for index in 2..=3 {
         let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {
@@ -296,11 +296,11 @@ concatenate :: (Engram, Engram) -> Engram := \(left :: Engram, right :: Engram) 
     let Type::Function { result, .. } = &top_binding(&program, 5).value.ty else {
         panic!("expected function type");
     };
-    assert_eq!(result.as_ref(), &Type::Engram);
+    assert_eq!(result.as_ref(), &Type::Symbol);
 }
 
 #[test]
-fn rejects_unsupported_or_mistyped_engram_operations() {
+fn rejects_unsupported_or_mistyped_symbol_operations() {
     for text in [
         r#"bad := \() { "a" + 1; };"#,
         r#"bad := "a" < "b";"#,
@@ -358,7 +358,7 @@ fn checks_memory_primitives_for_every_supported_value_type() {
            storeFloat32(pointer, loadFloat32(pointer));\n\
            storeFloat64(pointer, loadFloat64(pointer));\n\
            storePtr(pointer, loadPtr(pointer));\n\
-           storeEngram(pointer, loadEngram(pointer));\n\
+           storeSymbol(pointer, loadSymbol(pointer, 4u64));\n\
            ();\n\
          };",
     );
@@ -374,13 +374,13 @@ fn checks_memory_primitives_for_every_supported_value_type() {
 }
 
 #[test]
-fn checks_storage_sizes_for_scalar_ptr_and_engram_types() {
+fn checks_storage_sizes_for_scalar_and_ptr_types() {
     let program = check_ok(
         "Byte :: UInt8;\n\
          byteSize :: UInt64 := @Byte;\n\
          sizes :: Unit -> UInt64 := \\() {\n\
            @Int8 + @Int16 + @Int32 + @Int64 + byteSize\n\
-             + @UInt16 + @UInt32 + @UInt64 + @Float32 + @Float64 + @Ptr + @Engram;\n\
+             + @UInt16 + @UInt32 + @UInt64 + @Float32 + @Float64 + @Ptr;\n\
          };",
     );
     assert_eq!(top_binding(&program, 1).value.ty, Type::UInt64);
@@ -398,8 +398,9 @@ fn checks_storage_sizes_for_scalar_ptr_and_engram_types() {
 fn rejects_storage_sizes_without_a_memory_representation() {
     for text in [
         "value := @Unit;",
-        "value := @(UInt8, Engram);",
-        "value := @[UInt8, Engram];",
+        "value := @Symbol;",
+        "value := @(UInt8, Symbol);",
+        "value := @[UInt8, Symbol];",
         "extern Resource; value := @Resource;",
         "value := @(Int32 -> Int32);",
     ] {
@@ -419,8 +420,8 @@ fn rejects_mistyped_memory_operations() {
         "bad := \\() { loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storePtr(extern memory(), 1u64); (); };",
-        "bad := \\() { loadEngram(0u64); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { storeEngram(extern memory(), 1u64); (); };",
+        "bad := \\() { loadSymbol(0u64, 1u64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { storeSymbol(extern memory(), 1u64); (); };",
         "extern memory :: Unit -> Ptr; bad := \\() { 1u64 + extern memory(); };",
         "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + extern memory(); };",
         "extern memory :: Unit -> Ptr; bad := \\() { 1u64 - extern memory(); };",
@@ -444,7 +445,7 @@ fn gives_every_memory_function_a_first_class_function_type() {
          lf32 :: Ptr -> Float32 := loadFloat32; sf32 :: (Ptr, Float32) -> Unit := storeFloat32;\n\
          lf64 :: Ptr -> Float64 := loadFloat64; sf64 :: (Ptr, Float64) -> Unit := storeFloat64;\n\
          lp :: Ptr -> Ptr := loadPtr; sp :: (Ptr, Ptr) -> Unit := storePtr;\n\
-         le :: Ptr -> Engram := loadEngram; se :: (Ptr, Engram) -> Unit := storeEngram;",
+         le :: (Ptr, UInt64) -> Symbol := loadSymbol; se :: (Ptr, Symbol) -> Unit := storeSymbol;",
     );
     assert_eq!(program.items.len(), 24);
     assert!(program.items.iter().all(|item| {

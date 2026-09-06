@@ -20,7 +20,7 @@ value binding
 
 ```mal
 Point :: (Float64, Float64);
-extern print :: Engram -> Unit;
+extern print :: Symbol -> Unit;
 
 distance :: (Point, Point) -> Float64 :=
     \(a :: Point, b :: Point) {
@@ -45,3 +45,26 @@ main :: Unit -> Int32 := \() { 0 };
 ```
 
 backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointはv0.5の言語仕様外である。
+
+command-line argumentを受け取る実行可能programは、代わりに次のentry pointを持てる。
+
+```mal
+Arguments :: (UInt64, Ptr);
+
+main :: Arguments -> Int32 := \(count :: UInt64, arguments :: Ptr) {
+    data := loadPtr(arguments);
+    length := loadUInt64(arguments + @Ptr);
+    first := loadSymbol(data, length);
+    0;
+};
+```
+
+productの第一要素は実行ファイル名を除くargument数である。第二要素はread-onlyな外部descriptor列の先頭を指す。
+各descriptorは`Ptr`と`UInt64`をpaddingなしに並べた`@Ptr + @UInt64` bytesで、argument bytesのaddressとlengthを表す。
+index `i` のslotから`loadPtr`と`loadUInt64`で両fieldを読み、`loadSymbol(data, length)`で明示的にmalへ受け入れる。
+
+argument bytesはhost process interfaceが渡した終端NULを含まないbyte列であり、UTF-8を保証しない。descriptor列と
+各byte regionは`main`のreturnまでread-onlyで有効である。`count`以上のdescriptorへaccessしてはならない。
+
+`Unit -> Int32`と`(UInt64, Ptr) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
+[D030](../design/decisions.md#d030-entry-pointへprocess-argument列を渡す)に記録する。

@@ -224,21 +224,21 @@ fn rejects_malformed_byte_literals_at_the_lexer_boundary() {
 }
 
 #[test]
-fn lexes_engram_bytes_and_every_escape() {
+fn lexes_symbol_bytes_and_every_escape() {
     assert_eq!(
         kinds(r#""" "hello" "あ" "\\\"\n\r\t\0\x00\xff""#),
         vec![
-            TokenKind::Engram(Vec::new()),
-            TokenKind::Engram(b"hello".to_vec()),
-            TokenKind::Engram("あ".as_bytes().to_vec()),
-            TokenKind::Engram(vec![b'\\', b'"', b'\n', b'\r', b'\t', 0, 0, 255]),
+            TokenKind::Symbol(Vec::new()),
+            TokenKind::Symbol(b"hello".to_vec()),
+            TokenKind::Symbol("あ".as_bytes().to_vec()),
+            TokenKind::Symbol(vec![b'\\', b'"', b'\n', b'\r', b'\t', 0, 0, 255]),
             TokenKind::Eof,
         ]
     );
 }
 
 #[test]
-fn rejects_malformed_engram_literals_at_the_lexer_boundary() {
+fn rejects_malformed_symbol_literals_at_the_lexer_boundary() {
     for text in [
         r#""\q""#,
         r#""\x0""#,
@@ -246,8 +246,8 @@ fn rejects_malformed_engram_literals_at_the_lexer_boundary() {
         "\"unterminated",
         "\"line\nbreak\"",
     ] {
-        let error = lex(&source(text)).expect_err("Engram literal should be rejected");
-        assert_eq!(error.message, "invalid Engram literal", "input: {text:?}");
+        let error = lex(&source(text)).expect_err("Symbol literal should be rejected");
+        assert_eq!(error.message, "invalid Symbol literal", "input: {text:?}");
         assert_eq!(
             error.primary.expect("primary label").span.start(),
             0,
@@ -302,8 +302,8 @@ fn lexes_every_operator_and_delimiter() {
 }
 
 #[test]
-fn rejects_the_removed_case_arrow() {
-    let error = lex(&source("=>")).expect_err("the removed case arrow should be rejected");
+fn rejects_the_unsupported_fat_arrow_token() {
+    let error = lex(&source("=>")).expect_err("the unsupported token should be rejected");
     assert_eq!(error.message, "invalid token");
 }
 

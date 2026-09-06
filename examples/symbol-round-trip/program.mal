@@ -1,5 +1,5 @@
-extern receive :: Unit -> Engram;
-extern send :: Engram -> Unit;
+extern receive :: Unit -> Symbol;
+extern send :: Symbol -> Unit;
 
 main :: Unit -> Int32 := \() {
     value := extern receive();
