@@ -1,11 +1,12 @@
-# mal documentation
+# mal documentation index
 
-このディレクトリは `mal language specification v0.5` を、参照しやすさと議論しやすさを優先して構成したものである。
+この文書は、知りたい内容からauthorityへ到達するためのindexである。言語の紹介とbuild例はrepository rootの
+[`README.md`](../README.md)に置き、ここでは規則や手順を重複させない。
 
 現時点のstatusは **v0.5 development**。規範項目は`docs/spec/`、compilerの現在の構成と責務は
 `docs/implementation/`で管理する。
 
-## 読む順序
+## 言語を読む順序
 
 初めて読む場合は次の順を推奨する。
 
@@ -23,15 +24,18 @@
 12. [プログラム構造](spec/programs.md)
 13. [字句・文法](spec/grammar.md)
 
-利用者向けのcompiler command、対応環境、toolchain、生成物は
-[reference compiler利用contract](development/compiler-usage.md)、formatterのlayoutは
-[formatting policy](development/formatting.md)、editorとlanguage serverの起動は
-[editor tooling](development/editor-tooling.md)にまとめる。実装者はまず
-[compilerの責務境界](implementation/responsibilities.md)、[compiler implementation notes](implementation/compiler.md)、
-[test方針](development/testing.md)を参照する。generated Cの測定と採否判断は
-[generated C performance記録](development/performance.md)、compiler自身の測定は
-[compiler compile-time記録](development/compiler-performance.md)、仕様とtestの対応は
-[conformance matrix](development/conformance.md)に集約する。設計理由は[決定記録](design/decisions.md)、実装の変更履歴はGitを参照する。
+## 目的別の入口
+
+| 目的 | 最初に読む文書 | 次に参照するauthority |
+|---|---|---|
+| `malc`を使う | [reference compiler利用contract](development/compiler-usage.md) | [C host ABI](spec/c-host-abi.md) |
+| formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
+| editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
+| compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[test方針](development/testing.md) |
+| 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
+| 設計理由を調べる | [決定記録](design/decisions.md) | [最小性](design/minimality.md)、[authority](design/authority.md) |
+| 性能を評価する | [generated C performance](development/performance.md) | [compiler compile-time](development/compiler-performance.md) |
+| 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
 ## 文書の役割
 
@@ -50,8 +54,9 @@
 ## v0.5 の短い定義
 
 malはstrict call-by-valueの単純型付き関数型言語である。immutable binding、関数、直積、直和、固定幅scalar、
-immutable Symbol、型なし`Ptr`によるscalar memory accessを持つ。外部世界との作用は`extern` callと
-明示的なmemory storeに限定する。
+immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。mal内部で意味とlifetime authorityを持つ
+値をEngramと総称し、外部resourceへのcapabilityから区別する。外部世界との作用は`extern` callと明示的な
+memory storeに限定する。
 
 reference compiler `malc` はRustで実装し、最初のbackendはCを生成する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
 

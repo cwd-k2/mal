@@ -57,8 +57,10 @@ numeric separatorは各radixの有効なdigitに挟まれたsingle underscoreだ
 extern declarationの型検査ではaliasを展開し、parameter/resultの全subtypeを再帰的に走査する。function型が現れた場合は
 extern transport制約により拒否する。
 
-typed coreで確定したtype alias、external type、external operationからなる`ProgramInterface`は、ANFとclosure
-conversionで意味も表現も変えず共有する。各loweringは実行表現だけを変換し、host interfaceを複製または再解釈しない。
+checked programからcore境界で、type alias、external type、external operationからなる`ProgramInterface`を抽出する。
+`emit-header`と`emit-host`はvalue bindingをlowerせず、このinterfaceから生成する。C translation unitを作る経路では
+同じinterfaceをcore programへ載せ、ANFとclosure conversionで意味も表現も変えず共有する。各loweringは実行表現だけを
+変換し、host interfaceを複製または再解釈しない。
 
 ## desugaring と ANF
 

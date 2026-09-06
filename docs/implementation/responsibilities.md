@@ -51,6 +51,28 @@ core passへ渡す前に`SourceFile`、`Diagnostic`、またはtyped compiler ou
 source identityとspanのようにpipeline全体で同じ意味を持つ概念だけを明示的に横断させる。診断のための
 spanを保持しても、後段がsource textの意味を独自に解析する理由にはならない。
 
+## 構成経路
+
+public use caseごとに必要なstageだけを構成する。後段を通すこと自体をvalidationの代用にしない。
+
+| Use case | Path | Outcome |
+|---|---|---|
+| `check`、diagnostic | `source -> lexer -> parser -> resolve -> check` | checked programまたはstructured diagnostic |
+| editor semantic query | frontendのresolved programとchecked program `-> editor` | source identityに基づくsemantic index |
+| `format` | `source -> lossless lexer -> parser -> formatter` | commentとliteral spellingを保持したsource text |
+| `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> c_emit` | checked host interfaceだけから生成したC headerまたはadapter stub |
+| `emit-c` | frontend `-> core -> anf -> closure -> c_emit` | 対になるC translation unitとheader |
+| `build` | `emit-c` path `-> driver -> C compiler/linker` | executableまたはexternal-boundary error |
+
+`ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
+source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は
+value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。C translation unitを生成する経路では同じ
+`ProgramInterface`をlowered executable bodyと一緒に運ぶ。
+
+`pipeline`はin-memory `SourceFile`から上記stageを構成し、filesystemやprocessを扱わない。`driver`はfileを
+`SourceFile`へadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
+use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
+
 ## Source structure
 
 各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written source fileは
