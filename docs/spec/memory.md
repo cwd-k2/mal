@@ -6,7 +6,7 @@ Status: Current v0.5 profile
 
 `Ptr`は型なしのmutable data addressである。値はcopyableであり、複製しても指すstorageのlifetimeを
 延長しない。pointer literal、null、equality、integerとの変換はない。mal programは`Ptr`を`extern`から
-受け取るか、`offset`の結果として得る。
+受け取るか、pointerに対する`+`または`-`の結果として得る。
 
 `Ptr`はlength、allocation identity、ownershipを保持しない。各`extern` contractは、返すpointerが指す
 live region、読み書きの可否、lifetime、およびstorageを無効にするoperationを定める。同じpointerのaliasは
@@ -27,7 +27,7 @@ host callを伴わないtarget constantであり、transparent aliasは展開し
 | `Engram` | `@Ptr + 8` |
 
 この値はmemory上のcanonical表現だけを測り、Engramが参照するbytes、allocation metadata、C backend内部の
-struct paddingは含めない。`offset`の単位もbyteであるため、field offsetは`@T`の和として記述できる。
+struct paddingは含めない。pointerに対する`+`と`-`の右operandの単位もbyteであるため、field offsetは`@T`の和として記述できる。
 
 v0.5では`Unit`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
 `@`をcompile-time errorとする。特にproductとsumはC ABI上の表現を持っていても、そのpaddingやbackend内部の
@@ -38,7 +38,8 @@ layoutをsource-level memory contractにはしない。
 v0.5のoperation集合はbyte offsetと、全numeric scalar、`Ptr`、およびEngram descriptorに対する型別load/storeである。
 
 ```text
-offset      :: (Ptr, UInt64) -> Ptr
++           :: (Ptr, UInt64) -> Ptr
+-           :: (Ptr, UInt64) -> Ptr
 loadInt8    :: Ptr -> Int8
 storeInt8   :: (Ptr, Int8) -> Unit
 loadInt16   :: Ptr -> Int16
@@ -65,12 +66,12 @@ loadEngram   :: Ptr -> Engram
 storeEngram  :: (Ptr, Engram) -> Unit
 ```
 
-これらはpredefined scopeにあるdirect-call-only primitiveであり、first-class function valueとして参照できない。
-引数は通常のcallと同じく左から右へ一度ずつ評価する。
+pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefined scopeにあるdirect-call-only primitiveであり、
+first-class function valueとして参照できない。operandおよび引数は左から右へ一度ずつ評価する。
 
-`offset(pointer, bytes)`は同じlive region内で`bytes`だけ後方のaddressを返す。region末尾の直後を指す値は
-作れるがload/storeには使えない。targetのaddress計算で`bytes`を表現できなければtrapする。regionの外へ
-移動するoffsetはcontract違反である。
+`pointer + bytes`はaddressを`bytes`だけ大きい側へ、`pointer - bytes`は小さい側へ移動する。resultは同じlive region内、
+またはregion末尾の直後でなければならない。末尾の直後を指す値は作れるがload/storeには使えない。targetの
+address計算で`bytes`を表現できなければtrapする。regionの外へ移動するoffsetはcontract違反である。
 
 load/storeは指定型の全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
 `loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。

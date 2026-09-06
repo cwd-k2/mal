@@ -237,7 +237,7 @@ fn serves_symbols_completion_and_semantic_tokens() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|item| item["label"] == "offset" && item["kind"] == 3)
+            .any(|item| item["label"] == "loadInt64" && item["kind"] == 3)
     );
     let tokens = server.handle(json!({
         "jsonrpc": "2.0", "id": 22, "method": "textDocument/semanticTokens/full",

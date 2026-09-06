@@ -58,10 +58,16 @@ impl BodyEmitter<'_> {
             } => {
                 let argument = self.emit_atom(argument);
                 match primitive {
-                    MemoryPrimitive::Offset => {
-                        self.needs.memory_offset = true;
+                    MemoryPrimitive::OffsetForward => {
+                        self.needs.memory_offset_forward = true;
                         format!(
                             "mal_ptr_offset(mal_context, {argument}.field_0, {argument}.field_1)"
+                        )
+                    }
+                    MemoryPrimitive::OffsetBackward => {
+                        self.needs.memory_offset_backward = true;
+                        format!(
+                            "mal_ptr_offset_backward(mal_context, {argument}.field_0, {argument}.field_1)"
                         )
                     }
                     MemoryPrimitive::Load(scalar) => {

@@ -22,7 +22,7 @@ pub(crate) fn scalar_name(scalar: MemoryScalar) -> &'static str {
 }
 
 pub(super) fn emit(
-    offset: bool,
+    offsets: (bool, bool),
     loads: u16,
     stores: u16,
     load_ptr: bool,
@@ -30,8 +30,9 @@ pub(super) fn emit(
     load_engram: bool,
     store_engram: bool,
 ) -> String {
+    let (offset_forward, offset_backward) = offsets;
     let mut output = String::new();
-    if offset {
+    if offset_forward {
         c_line!(
             &mut output,
             0,
@@ -48,6 +49,26 @@ pub(super) fn emit(
             &mut output,
             1,
             "return (MalType_Ptr){{ pointer.address + (size_t)offset }};"
+        );
+        c_line!(&mut output, 0, "}}\n");
+    }
+    if offset_backward {
+        c_line!(
+            &mut output,
+            0,
+            "static inline MalType_Ptr mal_ptr_offset_backward(MalContext *context, MalType_Ptr pointer, uint64_t offset) {{"
+        );
+        c_line!(&mut output, 1, "if (offset > SIZE_MAX) {{");
+        c_line!(
+            &mut output,
+            2,
+            "mal_trap(context, \"pointer offset is not representable on this target\");"
+        );
+        c_line!(&mut output, 1, "}}");
+        c_line!(
+            &mut output,
+            1,
+            "return (MalType_Ptr){{ pointer.address - (size_t)offset }};"
         );
         c_line!(&mut output, 0, "}}\n");
     }

@@ -148,7 +148,8 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MemoryPrimitive {
-    Offset,
+    OffsetForward,
+    OffsetBackward,
     Load(MemoryScalar),
     Store(MemoryScalar),
     LoadPtr,

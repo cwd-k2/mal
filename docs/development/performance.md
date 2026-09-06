@@ -11,7 +11,7 @@ wall-clock値はconformanceではなく、同じ環境内で変更前後を比�
 ## 調査の発端
 
 localのalgorithm corpusを、indexed storageとalgorithmをmal側に置いて実装した。behavior caseと
-maximum-order smokeがpublic `malc build`経路で成功した。新しいcollection primitiveは必要なく、`Ptr`、byte `offset`、
+maximum-order smokeがpublic `malc build`経路で成功した。新しいcollection primitiveは必要なく、`Ptr`、byte offset operator、
 numeric scalar load/storeでgraph storage、priority queue、state transition、規則的なnumeric transformを表現できた。
 
 この結果はmemory mechanismの不足よりgenerated codeのcostを次に調べる根拠になる。branch-heavyなheap操作と

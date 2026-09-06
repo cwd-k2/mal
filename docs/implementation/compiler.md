@@ -123,7 +123,7 @@ product値をproduct patternで分解するだけのbindingは、C backendでpro
 entryはaggregateを受けるthunkとして残す。direct entryのleaf数は16個までとし、それを超える場合はaggregate entryへ
 fallbackする。product resultとfirst-class function callはtarget C ABIへ委ねる。
 
-`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。`offset`はbyte addressを進め、targetの
+`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。pointerに対する`+`と`-`はbyte addressを移動し、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
 runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。

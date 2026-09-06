@@ -677,16 +677,17 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     let source = "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
            base := extern memory();\n\
-           p0 := offset(base, 1u64); storeInt8(p0, -8i8);\n\
-           p1 := offset(base, 3u64); storeInt16(p1, -16i16);\n\
-           p2 := offset(base, 6u64); storeInt32(p2, -32i32);\n\
-           p3 := offset(base, 11u64); storeInt64(p3, -64i64);\n\
-           p4 := offset(base, 20u64); storeUInt8(p4, 8u8);\n\
-           p5 := offset(base, 22u64); storeUInt16(p5, 16u16);\n\
-           p6 := offset(base, 25u64); storeUInt32(p6, 32u32);\n\
-           p7 := offset(base, 30u64); storeUInt64(p7, 64u64);\n\
-           p8 := offset(base, 39u64); storeFloat32(p8, 1.5f32);\n\
-           p9 := offset(base, 44u64); storeFloat64(p9, -2.5f64);\n\
+           p0 := base + 1u64; storeInt8(p0, -8i8);\n\
+           p1 := base + 3u64; storeInt16(p1, -16i16);\n\
+           p2 := base + 6u64; storeInt32(p2, -32i32);\n\
+           p3 := base + 11u64; storeInt64(p3, -64i64);\n\
+           p4 := base + 20u64; storeUInt8(p4, 8u8);\n\
+           p5 := base + 22u64; storeUInt16(p5, 16u16);\n\
+           p6 := base + 25u64; storeUInt32(p6, 32u32);\n\
+           p7 := base + 30u64; storeUInt64(p7, 64u64);\n\
+           p8 := base + 39u64; storeFloat32(p8, 1.5f32);\n\
+           end := base + 52u64;\n\
+           p9 := end - 8u64; storeFloat64(p9, -2.5f64);\n\
            ok := (loadInt8(p0) == -8i8) && (loadInt16(p1) == -16i16) &&\n\
                  (loadInt32(p2) == -32i32) && (loadInt64(p3) == -64i64) &&\n\
                  (loadUInt8(p4) == 8u8) && (loadUInt16(p5) == 16u16) &&\n\
@@ -722,7 +723,7 @@ fn executes_unaligned_ptr_value_access() {
     let source = "extern pointerSlot :: Unit -> Ptr;\n\
          extern target :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := offset(extern pointerSlot(), 1u64);\n\
+           slot := extern pointerSlot() + 1u64;\n\
            storePtr(slot, extern target());\n\
            stored := loadPtr(slot);\n\
            storeInt32(stored, 42i32);\n\
@@ -777,7 +778,7 @@ fn executes_unaligned_engram_descriptor_access() {
     let source = "extern engramSlot :: Unit -> Ptr;\n\
          extern inspectEngramSlot :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := offset(extern engramSlot(), 1u64);\n\
+           slot := extern engramSlot() + 1u64;\n\
            initial := loadEngram(slot);\n\
            storeEngram(slot, \"held\\0\\xff\");\n\
            extern inspectEngramSlot();\n\

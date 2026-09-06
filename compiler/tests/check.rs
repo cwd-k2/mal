@@ -311,7 +311,7 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
     let program = check_ok(
         "extern memory :: Unit -> Ptr;\n\
          useMemory :: Ptr -> UInt8 := \\(pointer :: Ptr) {\n\
-           slot := offset(pointer, 8u64);\n\
+           slot := pointer + 8u64;\n\
            storeInt64(slot, 42i64);\n\
            value := loadInt64(slot);\n\
            storeUInt8(slot, UInt8(value));\n\
@@ -408,13 +408,15 @@ fn rejects_storage_sizes_without_a_memory_representation() {
 #[test]
 fn rejects_mistyped_or_first_class_memory_primitives() {
     for text in [
-        "extern memory :: Unit -> Ptr; bad := \\() { offset(extern memory(), 1i64); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + 1i64; };",
         "bad := \\() { loadInt64(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeUInt8(extern memory(), 1u64); (); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storePtr(extern memory(), 1u64); (); };",
         "bad := \\() { loadEngram(0u64); };",
         "extern memory :: Unit -> Ptr; bad := \\() { storeEngram(extern memory(), 1u64); (); };",
-        "bad := offset;",
+        "extern memory :: Unit -> Ptr; bad := \\() { 1u64 + extern memory(); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + extern memory(); };",
+        "extern memory :: Unit -> Ptr; bad := \\() { 1u64 - extern memory(); };",
         "bad := loadFloat64;",
         "bad := loadPtr;",
         "bad := storeEngram;",

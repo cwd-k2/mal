@@ -3,7 +3,7 @@ use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
     self as resolved, LOAD_ENGRAM_VALUE, LOAD_FLOAT32_VALUE, LOAD_FLOAT64_VALUE, LOAD_INT8_VALUE,
     LOAD_INT16_VALUE, LOAD_INT32_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE,
-    LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, OFFSET_VALUE, STORE_ENGRAM_VALUE,
+    LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, STORE_ENGRAM_VALUE,
     STORE_FLOAT32_VALUE, STORE_FLOAT64_VALUE, STORE_INT8_VALUE, STORE_INT16_VALUE,
     STORE_INT32_VALUE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_UINT8_VALUE, STORE_UINT16_VALUE,
     STORE_UINT32_VALUE, STORE_UINT64_VALUE, ValueId,
@@ -16,8 +16,7 @@ use super::ast::{Expression, ExpressionKind, MemoryPrimitive, MemoryScalar, Type
 pub(super) fn is_memory_primitive(value: ValueId) -> bool {
     matches!(
         value,
-        OFFSET_VALUE
-            | LOAD_INT8_VALUE
+        LOAD_INT8_VALUE
             | STORE_INT8_VALUE
             | LOAD_INT16_VALUE
             | STORE_INT16_VALUE
@@ -52,11 +51,6 @@ impl Checker {
         span: Span,
     ) -> Option<Result<Expression, Diagnostic>> {
         let (operation, parameter, result) = match primitive {
-            OFFSET_VALUE => (
-                MemoryPrimitive::Offset,
-                Type::Product(vec![Type::Ptr, Type::UInt64]),
-                Type::Ptr,
-            ),
             LOAD_INT8_VALUE => load(MemoryScalar::Int8, Type::Int8),
             STORE_INT8_VALUE => store(MemoryScalar::Int8, Type::Int8),
             LOAD_INT16_VALUE => load(MemoryScalar::Int16, Type::Int16),

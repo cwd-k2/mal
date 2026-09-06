@@ -26,7 +26,7 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
         document
             .completions()
             .iter()
-            .any(|symbol| { symbol.name == "offset" && symbol.kind == SymbolKind::Function })
+            .any(|symbol| { symbol.name == "loadInt64" && symbol.kind == SymbolKind::Function })
     );
     assert!(
         document

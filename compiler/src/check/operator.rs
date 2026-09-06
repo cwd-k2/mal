@@ -4,7 +4,7 @@ use crate::resolve::ast as resolved;
 use crate::source::Span;
 
 use super::Checker;
-use super::ast::{Expression, ExpressionKind, Type};
+use super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
 use super::float::{is_contextual_float, is_float};
 use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
@@ -129,14 +129,17 @@ impl Checker {
                 span,
             });
         }
+        if matches!(
+            operator.kind,
+            BinaryOperator::Add | BinaryOperator::Subtract
+        ) {
+            return self.check_pointer_or_numeric_arithmetic(operator, left, right, span, expected);
+        }
         let expected_integer = expected.filter(|expected| is_integer(expected));
         let expected_numeric =
             expected.filter(|expected| is_integer(expected) || is_float(expected));
         let (left, right, result) = match operator.kind {
-            BinaryOperator::Multiply
-            | BinaryOperator::Divide
-            | BinaryOperator::Add
-            | BinaryOperator::Subtract => {
+            BinaryOperator::Multiply | BinaryOperator::Divide => {
                 let (left, right) = self.check_numeric_operands(left, right, expected_numeric)?;
                 let result = left.ty.clone();
                 (left, right, result)
@@ -192,7 +195,9 @@ impl Checker {
                 let result = left.ty.clone();
                 (left, right, result)
             }
-            BinaryOperator::EngramAt => unreachable!("Engram access is checked separately"),
+            BinaryOperator::EngramAt | BinaryOperator::Add | BinaryOperator::Subtract => {
+                unreachable!("specialized operators are checked separately")
+            }
         };
         Ok(Expression {
             kind: ExpressionKind::Binary {
@@ -201,6 +206,81 @@ impl Checker {
                 right: Box::new(right),
             },
             ty: result,
+            span,
+        })
+    }
+
+    fn check_pointer_or_numeric_arithmetic(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        span: Span,
+        expected: Option<&Type>,
+    ) -> Result<Expression, Diagnostic> {
+        let pointer_primitive = match operator.kind {
+            BinaryOperator::Add => MemoryPrimitive::OffsetForward,
+            BinaryOperator::Subtract => MemoryPrimitive::OffsetBackward,
+            _ => unreachable!("caller selects addition or subtraction"),
+        };
+        if expected == Some(&Type::Ptr) {
+            let left = self.check_expression(left, Some(&Type::Ptr))?;
+            return self.check_pointer_offset(pointer_primitive, left, right, span);
+        }
+
+        let expected_numeric =
+            expected.filter(|expected| is_integer(expected) || is_float(expected));
+        let (left, right) = if expected_numeric.is_some()
+            || is_contextual_integer(left)
+            || is_contextual_float(left)
+        {
+            self.check_numeric_operands(left, right, expected_numeric)?
+        } else {
+            let left = self.check_expression(left, None)?;
+            if left.ty == Type::Ptr {
+                return self.check_pointer_offset(pointer_primitive, left, right, span);
+            }
+            let right = self.check_expression(right, Some(&left.ty))?;
+            if !is_integer(&left.ty) && !is_float(&left.ty) {
+                return Err(
+                    Diagnostic::error("numeric operator requires numeric operands").with_primary(
+                        left.span,
+                        format!("this has type `{}`", type_name(&left.ty)),
+                    ),
+                );
+            }
+            (left, right)
+        };
+        let result = left.ty.clone();
+        Ok(Expression {
+            kind: ExpressionKind::Binary {
+                operator: operator.clone(),
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            ty: result,
+            span,
+        })
+    }
+
+    fn check_pointer_offset(
+        &mut self,
+        primitive: MemoryPrimitive,
+        left: Expression,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> Result<Expression, Diagnostic> {
+        let right = self.check_expression(right, Some(&Type::UInt64))?;
+        Ok(Expression {
+            kind: ExpressionKind::Memory {
+                primitive,
+                argument: Box::new(Expression {
+                    kind: ExpressionKind::Product(vec![left, right]),
+                    ty: Type::Product(vec![Type::Ptr, Type::UInt64]),
+                    span,
+                }),
+            },
+            ty: Type::Ptr,
             span,
         })
     }

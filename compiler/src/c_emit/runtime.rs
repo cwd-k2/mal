@@ -37,7 +37,8 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.engram_at {
         output.push_str(RUNTIME_ENGRAM_AT);
     }
-    if needs.memory_offset
+    if needs.memory_offset_forward
+        || needs.memory_offset_backward
         || needs.memory_load != 0
         || needs.memory_store != 0
         || needs.memory_load_ptr
@@ -46,7 +47,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
         || needs.memory_store_engram
     {
         output.push_str(&memory::emit(
-            needs.memory_offset,
+            (needs.memory_offset_forward, needs.memory_offset_backward),
             needs.memory_load,
             needs.memory_store,
             needs.memory_load_ptr,

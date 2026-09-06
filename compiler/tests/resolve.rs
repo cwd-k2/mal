@@ -3,7 +3,7 @@ use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
     self as resolved, ENGRAM_TYPE, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
-    LOAD_ENGRAM_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE, OFFSET_VALUE, PTR_TYPE,
+    LOAD_ENGRAM_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_UINT8_VALUE, PTR_TYPE,
     STORE_ENGRAM_VALUE, STORE_INT64_VALUE, STORE_PTR_VALUE, STORE_UINT8_VALUE, TopItem, UINT8_TYPE,
     UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
@@ -82,7 +82,7 @@ fn resolves_memory_primitives_and_the_ptr_type() {
     let program = resolve_ok(
         "extern memory :: Unit -> Ptr;\n\
          useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
-           next := offset(pointer, 8u64);\n\
+           next := pointer + 8u64;\n\
            value := loadInt64(next);\n\
            storeInt64(next, value);\n\
            byte := loadUInt8(next);\n\
@@ -109,8 +109,21 @@ fn resolves_memory_primitives_and_the_ptr_type() {
     let resolved::Expression::Lambda(lambda) = &binding.value.kind else {
         panic!("expected lambda");
     };
+    let resolved::BodyItem::Binding(next) = &lambda.body.items[0] else {
+        panic!("expected pointer offset binding");
+    };
+    assert!(matches!(
+        next.kind.value.kind,
+        resolved::Expression::Binary {
+            operator: malc::ast::Node {
+                kind: ast::BinaryOperator::Add,
+                ..
+            },
+            ..
+        }
+    ));
+
     let expected = [
-        OFFSET_VALUE,
         LOAD_INT64_VALUE,
         STORE_INT64_VALUE,
         LOAD_UINT8_VALUE,
@@ -120,7 +133,7 @@ fn resolves_memory_primitives_and_the_ptr_type() {
         LOAD_ENGRAM_VALUE,
         STORE_ENGRAM_VALUE,
     ];
-    for (item, expected) in lambda.body.items.iter().zip(expected) {
+    for (item, expected) in lambda.body.items.iter().skip(1).zip(expected) {
         let expression = match item {
             resolved::BodyItem::Binding(binding) => &binding.kind.value,
             resolved::BodyItem::Expression(expression) => expression,

@@ -618,11 +618,11 @@ trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異�
 
 ### 決定
 
-要素型を持たないcopyableなdata address型`Ptr`を追加する。operation集合はbyte単位の`offset`と、全fixed-width
-integerおよび`Float32`/`Float64`の型別load/storeとする。operationはpredefinedかつdirect-call-onlyである。
+要素型を持たないcopyableなdata address型`Ptr`を追加する。operation集合はbyte単位の`+`/`-` operatorと、全fixed-width
+integerおよび`Float32`/`Float64`の型別load/storeとする。load/storeはpredefinedかつdirect-call-onlyである。
 型ごとの名前を使うことでoverloadやexpected type依存の型規則を追加せず、numeric scalar間の任意の例外も作らない。
 
-`Ptr`はextern-safeとし、mal program内のpointerは`extern` resultまたは`offset`から得る。allocation、
+`Ptr`はextern-safeとし、mal program内のpointerは`extern` resultまたはpointer offsetから得る。allocation、
 deallocation、length、bounds、ownershipは組み込まず、programとhost contractが所有する。null、equality、
 integer conversion、`Ptr<T>`、pointerおよびaggregateのload/storeは追加しない。
 
@@ -636,7 +636,7 @@ localのalgorithm corpusをv0.4で実装した結果、collection-orientedなwor
 storageを使うalgorithm上の処理までC adapterへ移った。これはsurfaceを小さく
 保つ代わりにtrusted host APIと利用者の調査面積を増やしていた。
 
-representativeなindexed workloadを`offset`、`Int64`/`UInt8` accessだけで再実装すると、hostの責務をI/Oとallocationへ
+representativeなindexed workloadをpointer offset、`Int64`/`UInt8` accessだけで再実装すると、hostの責務をI/Oとallocationへ
 限定し、data構築、transition、集計をmalへ戻せた。behavior caseとmaximum-order caseを完走したため、型なしscalar accessで
 当初の境界問題を解消できることを確認した。
 
@@ -762,7 +762,7 @@ storage幅へ写す専用の構文であり、host `extern`を必要としない
 
 ### 理由
 
-`offset`がbyte単位である以上、target依存のpointer幅を含むlayoutをsourceだけで記述するには、型からbyte幅を
+pointer offsetがbyte単位である以上、target依存のpointer幅を含むlayoutをsourceだけで記述するには、型からbyte幅を
 得る手段が必要になる。bare type nameを数値として扱うとtype/value namespaceの境界が不明瞭になり、通常の
 functionとしての`sizeof(T)`は型を値引数に見せる。専用sigilはlayout queryであることを短く明示する。
 

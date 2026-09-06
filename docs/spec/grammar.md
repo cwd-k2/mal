@@ -122,7 +122,9 @@ capture listを省略するとcapture-freeになる。bodyが参照する外側�
 | logical AND | `&&` | left |
 | logical OR | `||` | left |
 
-`|` は式中の bitwise OR だけに使用する。直和型は `[]` で区切るため、型と式で `|` の意味を切り替えない。assignment operator はない。
+`+`と`-`は同じnumeric型同士に加えて、`Ptr`と`UInt64`の順のoperandにbyte offset operatorとして定義する。
+`UInt64 + Ptr`、`Ptr + Ptr`、`UInt64 - Ptr`は定義しない。`|` は式中の bitwise OR だけに使用する。直和型は
+`[]` で区切るため、型と式で`|`の意味を切り替えない。assignment operatorはない。
 
 `@`の直後はexpressionではなく`type`としてparseする。したがって`@Engram`は一つのatomic expressionであり、
 空白の有無は意味を変えない。標準の表記では`@`と型の間に空白を置かない。
@@ -144,4 +146,4 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 
 ## 存在しない構文
 
-v0.5 は `let`、`var`、`mut`、`const`、`fn`、return statement、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。`Ptr`とmemory primitiveは通常のtype/value identifierとして既存grammar内に収まる。
+v0.5 は `let`、`var`、`mut`、`const`、`fn`、return statement、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。
