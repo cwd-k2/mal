@@ -31,13 +31,11 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     let body = emitter.emit(main);
 
     let mut source = syntax::TranslationUnit::default();
-    source.push(syntax::Directive::IncludeQuoted(
-        GENERATED_HEADER_NAME.into(),
-    ));
+    source.push(syntax::Directive::include_quoted(GENERATED_HEADER_NAME));
     for header in [
         "float.h", "stddef.h", "stdint.h", "stdio.h", "stdlib.h", "string.h",
     ] {
-        source.push(syntax::Directive::IncludeSystem(header.into()));
+        source.push(syntax::Directive::include_system(header));
     }
     source.blank_line();
     if types.uses_float() {
@@ -84,19 +82,16 @@ pub fn emit_host(interface: &ProgramInterface, header_name: &str) -> Result<Stri
 }
 
 pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
-    !header_name.is_empty()
-        && !header_name
-            .chars()
-            .any(|character| character.is_control() || matches!(character, '"' | '\\'))
+    syntax::Directive::is_valid_quoted_include(header_name)
 }
 
 fn float_target_profile() -> syntax::TranslationUnit {
-    use self::syntax::{Declaration, Directive, Expr, PreprocessorExpr, TranslationUnit};
+    use self::syntax::{Declaration, Directive, Expr, Pragma, PreprocessorExpr, TranslationUnit};
 
     let mut output = TranslationUnit::new([
         Directive::If(PreprocessorExpr::defined("__clang__")).into(),
-        Directive::pragma("STDC", "FENV_ACCESS", "ON").into(),
-        Directive::pragma("STDC", "FP_CONTRACT", "OFF").into(),
+        Directive::pragma(Pragma::FenvAccessOn).into(),
+        Directive::pragma(Pragma::FpContractOff).into(),
         Directive::Endif.into(),
     ]);
     output.blank_line();
@@ -144,10 +139,10 @@ fn float_target_profile() -> syntax::TranslationUnit {
             PreprocessorExpr::defined(macro_name),
             PreprocessorExpr::not_equal(
                 PreprocessorExpr::identifier(macro_name),
-                PreprocessorExpr::integer("1"),
+                PreprocessorExpr::integer(1),
             ),
         )));
-        output.push(Directive::Error(message.into()));
+        output.push(Directive::error(message));
         output.push(Directive::Endif);
     }
     output.blank_line();

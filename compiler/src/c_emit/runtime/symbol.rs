@@ -134,7 +134,7 @@ pub(super) fn emit_concatenate() -> FunctionDefinition {
                     ),
                 )),
             ),
-            call_statement(
+            Statement::call(
                 "memcpy",
                 [
                     Expr::identifier("bytes"),
@@ -142,7 +142,7 @@ pub(super) fn emit_concatenate() -> FunctionDefinition {
                     Expr::cast("size_t", Expr::identifier("left").field("length")),
                 ],
             ),
-            call_statement(
+            Statement::call(
                 "memcpy",
                 [
                     Expr::add(
@@ -169,7 +169,7 @@ fn context_parameter() -> Parameter {
 }
 
 fn trap(message: &str) -> Block {
-    Block::new([call_statement(
+    Block::new([Statement::call(
         "mal_trap",
         [Expr::identifier("context"), Expr::string(message)],
     )])
@@ -181,10 +181,6 @@ fn uint8(value: u8) -> Expr {
 
 fn uint64(value: u64) -> Expr {
     Expr::named_call("UINT64_C", [Expr::number(value.to_string())])
-}
-
-fn call_statement(name: &str, arguments: impl IntoIterator<Item = Expr>) -> Statement {
-    Statement::expression(Expr::named_call(name, arguments))
 }
 
 fn function(signature: FunctionSignature, body: Block) -> FunctionDefinition {

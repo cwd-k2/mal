@@ -229,11 +229,11 @@ fn discard(value: Expr) -> Statement {
 }
 
 fn invalid_sum_default() -> SwitchCase {
-    SwitchCase::default(Block::new([Statement::expression(Expr::named_call(
+    SwitchCase::default(Block::new([Statement::call(
         "mal_trap",
         [
             Expr::identifier("mal_context"),
             Expr::string("invalid sum tag"),
         ],
-    ))]))
+    )]))
 }

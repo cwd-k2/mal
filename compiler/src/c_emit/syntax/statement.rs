@@ -1,4 +1,6 @@
-use super::{Directive, Expr, FunctionSignature, MacroInvocation, VariableDeclaration};
+use super::{Directive, Expr, FunctionSignature, Identifier, MacroInvocation, VariableDeclaration};
+
+mod render;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Statement {
@@ -12,10 +14,10 @@ pub(in crate::c_emit) enum Statement {
         value: Expr,
     },
     Return(Expr),
-    Goto(String),
+    Goto(Identifier),
     Break,
     Label {
-        name: String,
+        name: Identifier,
         body: Block,
     },
     If {
@@ -74,6 +76,13 @@ impl Statement {
         Self::Expression(expression)
     }
 
+    pub(in crate::c_emit) fn call(
+        name: impl Into<Identifier>,
+        arguments: impl IntoIterator<Item = Expr>,
+    ) -> Self {
+        Self::expression(Expr::named_call(name, arguments))
+    }
+
     pub(in crate::c_emit) fn variable_declaration(
         declaration: VariableDeclaration,
         initializer: Option<Expr>,
@@ -86,7 +95,7 @@ impl Statement {
 
     pub(in crate::c_emit) fn variable(
         ty: impl Into<super::TypeName>,
-        name: impl Into<String>,
+        name: impl Into<Identifier>,
         initializer: Option<Expr>,
     ) -> Self {
         Self::variable_declaration(VariableDeclaration::new(ty, name), initializer)
@@ -100,11 +109,11 @@ impl Statement {
         Self::Return(value)
     }
 
-    pub(in crate::c_emit) fn goto(label: impl Into<String>) -> Self {
+    pub(in crate::c_emit) fn goto(label: impl Into<Identifier>) -> Self {
         Self::Goto(label.into())
     }
 
-    pub(in crate::c_emit) fn label(name: impl Into<String>, body: Block) -> Self {
+    pub(in crate::c_emit) fn label(name: impl Into<Identifier>, body: Block) -> Self {
         Self::Label {
             name: name.into(),
             body,
@@ -152,127 +161,18 @@ impl Statement {
             body,
         }
     }
-
-    pub(in crate::c_emit) fn render(&self, output: &mut String, depth: usize) {
-        match self {
-            Self::VariableDeclaration {
-                declaration,
-                initializer,
-            } => {
-                write_indent(output, depth);
-                output.push_str(&declaration.render());
-                if let Some(initializer) = initializer {
-                    output.push_str(" = ");
-                    output.push_str(&initializer.to_string());
-                }
-                output.push_str(";\n");
-            }
-            Self::Expression(expression) => {
-                write_indent(output, depth);
-                output.push_str(&expression.to_string());
-                output.push_str(";\n");
-            }
-            Self::Assignment { target, value } => {
-                write_indent(output, depth);
-                output.push_str(&target.to_string());
-                output.push_str(" = ");
-                output.push_str(&value.to_string());
-                output.push_str(";\n");
-            }
-            Self::Return(value) => {
-                write_indent(output, depth);
-                output.push_str("return ");
-                output.push_str(&value.to_string());
-                output.push_str(";\n");
-            }
-            Self::Goto(label) => {
-                write_indent(output, depth);
-                output.push_str("goto ");
-                output.push_str(label);
-                output.push_str(";\n");
-            }
-            Self::Break => {
-                write_indent(output, depth);
-                output.push_str("break;\n");
-            }
-            Self::Label { name, body } => {
-                write_indent(output, depth);
-                output.push_str(name);
-                output.push_str(":\n");
-                write_indent(output, depth);
-                body.render_braced(output, depth);
-            }
-            Self::If {
-                condition,
-                then,
-                otherwise,
-            } => {
-                write_indent(output, depth);
-                output.push_str("if (");
-                output.push_str(&condition.to_string());
-                output.push_str(") ");
-                then.render_braced(output, depth);
-                if let Some(otherwise) = otherwise {
-                    output.pop();
-                    output.push_str(" else ");
-                    otherwise.render_braced(output, depth);
-                }
-            }
-            Self::For {
-                initializer,
-                condition,
-                update,
-                body,
-            } => {
-                write_indent(output, depth);
-                output.push_str("for (");
-                initializer.render(output);
-                output.push_str("; ");
-                output.push_str(&condition.to_string());
-                output.push_str("; ");
-                output.push_str(&update.to_string());
-                output.push_str(") ");
-                body.render_braced(output, depth);
-            }
-            Self::While { condition, body } => {
-                write_indent(output, depth);
-                output.push_str("while (");
-                output.push_str(&condition.to_string());
-                output.push_str(") ");
-                body.render_braced(output, depth);
-            }
-            Self::Switch { value, cases } => {
-                write_indent(output, depth);
-                output.push_str("switch (");
-                output.push_str(&value.to_string());
-                output.push_str(") {\n");
-                for case in cases {
-                    case.render(output, depth + 1);
-                }
-                write_indent(output, depth);
-                output.push_str("}\n");
-            }
-            Self::Directive(directive) => output.push_str(&directive.render()),
-        }
-    }
 }
 
 impl ForInitializer {
     pub(in crate::c_emit) fn variable(
         ty: impl Into<super::TypeName>,
-        name: impl Into<String>,
+        name: impl Into<Identifier>,
         initializer: Expr,
     ) -> Self {
         Self {
             declaration: VariableDeclaration::new(ty, name),
             initializer,
         }
-    }
-
-    fn render(&self, output: &mut String) {
-        output.push_str(&self.declaration.render());
-        output.push_str(" = ");
-        output.push_str(&self.initializer.to_string());
     }
 }
 
@@ -286,15 +186,6 @@ impl Block {
     pub(in crate::c_emit) fn push(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
-
-    fn render_braced(&self, output: &mut String, depth: usize) {
-        output.push_str("{\n");
-        for statement in &self.statements {
-            statement.render(output, depth + 1);
-        }
-        write_indent(output, depth);
-        output.push_str("}\n");
-    }
 }
 
 impl SwitchCase {
@@ -307,23 +198,6 @@ impl SwitchCase {
 
     pub(in crate::c_emit) fn default(body: Block) -> Self {
         Self { label: None, body }
-    }
-
-    fn render(&self, output: &mut String, depth: usize) {
-        write_indent(output, depth);
-        match &self.label {
-            Some(label) => {
-                output.push_str("case ");
-                output.push_str(&label.to_string());
-            }
-            None => output.push_str("default"),
-        }
-        output.push_str(": {\n");
-        for statement in &self.body.statements {
-            statement.render(output, depth + 1);
-        }
-        write_indent(output, depth);
-        output.push_str("}\n");
     }
 }
 
@@ -341,49 +215,8 @@ impl FunctionDefinition {
             body,
         }
     }
-
-    pub(in crate::c_emit) fn render(&self) -> String {
-        let mut output = match &self.header {
-            FunctionHeader::Signature(signature) => signature.render(),
-            FunctionHeader::MacroInvocation(invocation) => invocation.render(),
-        };
-        output.push(' ');
-        self.body.render_braced(&mut output, 0);
-        output
-    }
-}
-
-fn write_indent(output: &mut String, depth: usize) {
-    for _ in 0..depth {
-        output.push_str("    ");
-    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{Block, FunctionDefinition, Statement};
-    use crate::c_emit::syntax::{Expr, FunctionSignature};
-
-    #[test]
-    fn renders_function_statements_and_blocks() {
-        let definition = FunctionDefinition::from_signature(
-            FunctionSignature::new("int", "choose", []),
-            Block::new([
-                Statement::variable("int", "result", Some(Expr::number("0"))),
-                Statement::if_then(
-                    Expr::identifier("ready"),
-                    Block::new([Statement::assignment(
-                        Expr::identifier("result"),
-                        Expr::number("42"),
-                    )]),
-                ),
-                Statement::return_value(Expr::identifier("result")),
-            ]),
-        );
-
-        assert_eq!(
-            definition.render(),
-            "int choose(void) {\n    int result = 0;\n    if (ready) {\n        result = 42;\n    }\n    return result;\n}\n"
-        );
-    }
-}
+#[path = "statement_tests.rs"]
+mod tests;

@@ -1,17 +1,23 @@
-use crate::anf;
-use crate::check::ast::{MemoryPrimitive, Type};
-use crate::closure::ast::{self as closure, Binding, Block, FunctionId, Operation, Pattern};
+use crate::closure::ast::{self as closure, FunctionId, Pattern};
 use crate::core::ast::ExternalOperation;
 use crate::resolve::ast::ExternalOperationId;
 
 use super::syntax::TranslationUnit;
 use super::types::TypeRegistry;
 
+mod call;
+mod entry;
 mod expression;
 mod function;
+mod name;
 mod pattern;
 mod statement;
 
+use self::call::{
+    flattened_product_types, flattened_product_values, has_direct_product_entry,
+    has_direct_tail_call,
+};
+use self::name::{direct_function_name, environment_name, function_name, value_name};
 use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
@@ -173,148 +179,4 @@ impl<'a> BodyEmitter<'a> {
             }
         }
     }
-}
-
-fn value_name(id: anf::ast::ValueId) -> String {
-    match id {
-        anf::ast::ValueId::Core(crate::core::ast::ValueId::Source(id)) => {
-            format!("mal_value_source_{}", id.0)
-        }
-        anf::ast::ValueId::Core(crate::core::ast::ValueId::Temporary(id)) => {
-            format!("mal_value_core_{id}")
-        }
-        anf::ast::ValueId::Temporary(id) => format!("mal_value_anf_{id}"),
-        anf::ast::ValueId::MemoryParameter(primitive) => {
-            format!("mal_memory_parameter_{}", memory_primitive_name(primitive))
-        }
-        anf::ast::ValueId::MemoryResult(primitive) => {
-            format!("mal_memory_result_{}", memory_primitive_name(primitive))
-        }
-    }
-}
-
-fn function_name(id: FunctionId) -> String {
-    match id {
-        FunctionId::Lambda(id) => format!("mal_function_{}", id.0),
-        FunctionId::Memory(primitive) => {
-            format!("mal_memory_function_{}", memory_primitive_name(primitive))
-        }
-    }
-}
-
-fn direct_function_name(id: FunctionId) -> String {
-    match id {
-        FunctionId::Lambda(id) => format!("mal_direct_function_{}", id.0),
-        FunctionId::Memory(primitive) => format!(
-            "mal_direct_memory_function_{}",
-            memory_primitive_name(primitive)
-        ),
-    }
-}
-
-const MAX_DIRECT_PARAMETERS: usize = 16;
-
-fn has_direct_product_entry(ty: &Type) -> bool {
-    matches!(ty, Type::Product(_)) && flattened_product_types(ty).len() <= MAX_DIRECT_PARAMETERS
-}
-
-fn flattened_product_types(ty: &Type) -> Vec<&Type> {
-    match ty {
-        Type::Product(elements) => elements.iter().flat_map(flattened_product_types).collect(),
-        _ => vec![ty],
-    }
-}
-
-fn flattened_product_values(
-    ty: &Type,
-    value: crate::c_emit::syntax::Expr,
-) -> Vec<crate::c_emit::syntax::Expr> {
-    match ty {
-        Type::Product(elements) => elements
-            .iter()
-            .enumerate()
-            .flat_map(|(index, element)| {
-                flattened_product_values(element, value.clone().field(format!("field_{index}")))
-            })
-            .collect(),
-        _ => vec![value],
-    }
-}
-
-fn environment_name(id: FunctionId) -> String {
-    match id {
-        FunctionId::Lambda(id) => format!("MalEnvironment_{}", id.0),
-        FunctionId::Memory(primitive) => {
-            format!("MalMemoryEnvironment_{}", memory_primitive_name(primitive))
-        }
-    }
-}
-
-fn has_direct_tail_call(block: &Block, function: FunctionId) -> bool {
-    let Some(binding) = tail_binding(block) else {
-        return false;
-    };
-    match &binding.operation {
-        Operation::Call { callee, .. } => matches!(
-            callee.kind,
-            closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
-        ),
-        Operation::Case { arms, .. } => arms
-            .iter()
-            .any(|arm| has_direct_tail_call(&arm.value, function)),
-        Operation::PrimitiveBranch {
-            otherwise, then, ..
-        } => has_direct_tail_call(otherwise, function) || has_direct_tail_call(then, function),
-        _ => false,
-    }
-}
-
-fn memory_primitive_name(primitive: MemoryPrimitive) -> &'static str {
-    use crate::check::ast::MemoryScalar;
-
-    match primitive {
-        MemoryPrimitive::Load(scalar) => match scalar {
-            MemoryScalar::Int8 => "load_int8",
-            MemoryScalar::Int16 => "load_int16",
-            MemoryScalar::Int32 => "load_int32",
-            MemoryScalar::Int64 => "load_int64",
-            MemoryScalar::UInt8 => "load_uint8",
-            MemoryScalar::UInt16 => "load_uint16",
-            MemoryScalar::UInt32 => "load_uint32",
-            MemoryScalar::UInt64 => "load_uint64",
-            MemoryScalar::Float32 => "load_float32",
-            MemoryScalar::Float64 => "load_float64",
-        },
-        MemoryPrimitive::Store(scalar) => match scalar {
-            MemoryScalar::Int8 => "store_int8",
-            MemoryScalar::Int16 => "store_int16",
-            MemoryScalar::Int32 => "store_int32",
-            MemoryScalar::Int64 => "store_int64",
-            MemoryScalar::UInt8 => "store_uint8",
-            MemoryScalar::UInt16 => "store_uint16",
-            MemoryScalar::UInt32 => "store_uint32",
-            MemoryScalar::UInt64 => "store_uint64",
-            MemoryScalar::Float32 => "store_float32",
-            MemoryScalar::Float64 => "store_float64",
-        },
-        MemoryPrimitive::LoadPtr => "load_ptr",
-        MemoryPrimitive::StorePtr => "store_ptr",
-        MemoryPrimitive::LoadSymbol => "load_symbol",
-        MemoryPrimitive::StoreSymbol => "store_symbol",
-        MemoryPrimitive::OffsetForward | MemoryPrimitive::OffsetBackward => {
-            unreachable!("pointer offsets are operators, not function values")
-        }
-    }
-}
-
-fn tail_binding(block: &Block) -> Option<&Binding> {
-    block.bindings.last().filter(|binding| {
-        matches!(
-            (&block.result.kind, &binding.pattern),
-            (
-                closure::AtomKind::Reference(closure::Reference::Binding(result)),
-                Pattern::Binding { id, .. }
-            ) if result == id
-        )
-    })
 }

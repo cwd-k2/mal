@@ -36,16 +36,16 @@ pub(super) fn emit() -> TranslationUnit {
         ),
         Block::new([
             Statement::expression(Expr::cast("void", Expr::identifier("context"))),
-            call_statement(
+            Statement::call(
                 "fputs",
                 [Expr::string("mal trap: "), Expr::identifier("stderr")],
             ),
-            call_statement(
+            Statement::call(
                 "fputs",
                 [Expr::identifier("message"), Expr::identifier("stderr")],
             ),
-            call_statement("fputc", [Expr::character('\n'), Expr::identifier("stderr")]),
-            call_statement("abort", []),
+            Statement::call("fputc", [Expr::character('\n'), Expr::identifier("stderr")]),
+            Statement::call("abort", []),
         ]),
     );
 
@@ -66,7 +66,7 @@ pub(super) fn emit() -> TranslationUnit {
                         "next",
                         Some(Expr::identifier("allocation").pointer_field("next")),
                     ),
-                    call_statement("free", [Expr::identifier("allocation")]),
+                    Statement::call("free", [Expr::identifier("allocation")]),
                     Statement::assignment(Expr::identifier("allocation"), Expr::identifier("next")),
                 ]),
             ),
@@ -177,7 +177,7 @@ pub(super) fn emit() -> TranslationUnit {
                     ),
                 )),
             ),
-            call_statement(
+            Statement::call(
                 "memcpy",
                 [
                     Expr::identifier("copy"),
@@ -200,7 +200,7 @@ fn context_parameter() -> Parameter {
 }
 
 fn trap(message: &str) -> Block {
-    Block::new([call_statement(
+    Block::new([Statement::call(
         "mal_trap",
         [Expr::identifier("context"), Expr::string(message)],
     )])
@@ -211,10 +211,6 @@ fn symbol(fields: impl IntoIterator<Item = Expr>) -> Expr {
         "MalType_Symbol",
         fields.into_iter().map(Initializer::positional),
     )
-}
-
-fn call_statement(name: &str, arguments: impl IntoIterator<Item = Expr>) -> Statement {
-    Statement::expression(Expr::named_call(name, arguments))
 }
 
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {

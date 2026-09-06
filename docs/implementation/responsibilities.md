@@ -97,15 +97,27 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/token` | token spacingと`if`、`case`、blockの出力state |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `c_emit/syntax` | C translation unit、type name、declarator、parameter、function signature、expression、statement、definition、preprocessor構文のRust内DSLとrendering policy。構文nodeは最終renderまで保持する |
-| `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identity |
-| `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類 |
+| `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
+| `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
+| `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
+| `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identityとC typeへのmapping |
+| `c_emit/types/collect` | lowered programから必要なstructural representationを収集する走査 |
+| `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
+| `c_emit/types/host/product`、`c_emit/types/host/sum` | host-visible aggregateのconstructor、observer、checked projectionの構成 |
+| `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
+| `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
+| `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
+| `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
+| `c_emit/body/entry` | program initializerとentry pointの構成 |
+| `c_emit/body/entry/arguments` | process argumentからMal entry argumentへのmarshalling |
 | `c_emit/body/expression` | operationからC expressionへのdispatch |
 | `c_emit/body/expression/primitive` | numeric、comparison、Symbol primitiveのC semantics |
 | `c_emit/body/expression/atom` | typed atomのC representation |
 | `c_emit/body/statement` | binding operationからstatement emissionへのdispatch |
 | `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
 | `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
+| `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
+| `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
 ## Source structure
 

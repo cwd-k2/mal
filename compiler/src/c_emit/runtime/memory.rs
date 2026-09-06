@@ -99,14 +99,14 @@ pub(super) fn emit(
                         Expr::identifier("value").field("length"),
                         Expr::named_call("UINT64_C", [Expr::number("0")]),
                     ),
-                    Block::new([Statement::expression(Expr::named_call(
+                    Block::new([Statement::call(
                         "memcpy",
                         [
                             Expr::identifier("pointer").field("address"),
                             Expr::identifier("value").field("data"),
                             Expr::cast("size_t", Expr::identifier("value").field("length")),
                         ],
-                    ))]),
+                    )]),
                 ),
                 Statement::return_value(unit()),
             ]),
@@ -154,14 +154,14 @@ fn emit_load(output: &mut TranslationUnit, name: &str, c_type: &str) {
         ),
         Block::new([
             Statement::variable(c_type, "value", None),
-            Statement::expression(Expr::named_call(
+            Statement::call(
                 "memcpy",
                 [
                     Expr::address_of(Expr::identifier("value")),
                     Expr::identifier("pointer").field("address"),
                     Expr::sizeof_expr(Expr::identifier("value")),
                 ],
-            )),
+            ),
             Statement::return_value(Expr::identifier("value")),
         ]),
     );
@@ -179,24 +179,24 @@ fn emit_store(output: &mut TranslationUnit, name: &str, c_type: &str) {
             ],
         ),
         Block::new([
-            Statement::expression(Expr::named_call(
+            Statement::call(
                 "memcpy",
                 [
                     Expr::identifier("pointer").field("address"),
                     Expr::address_of(Expr::identifier("value")),
                     Expr::sizeof_expr(Expr::identifier("value")),
                 ],
-            )),
+            ),
             Statement::return_value(unit()),
         ]),
     );
 }
 
 fn trap(message: &'static str) -> Block {
-    Block::new([Statement::expression(Expr::named_call(
+    Block::new([Statement::call(
         "mal_trap",
         [Expr::identifier("context"), Expr::string(message)],
-    ))])
+    )])
 }
 
 fn unit() -> Expr {
