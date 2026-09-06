@@ -54,8 +54,8 @@ compiler は観測可能な動作を変えない限り、capture 除去、lambda
 
 `Symbol`をcaptureした場合も、その意味とlifetime authorityはmalに属し、environmentから到達できる間は値が保持される。
 external opaque valueをcaptureしても、そのresourceに新しいownership規則は加わらない。詳細は
-[EngramとExtern](engrams.md)に従う。closure自体の決定理由は[D003](../design/decisions.md#d003-v04-は-lexical-closure-を持つ)、
-明示capture syntaxは[D007](../design/decisions.md#d007-capture-listを明示する)に記録する。
+[EngramとExtern](engrams.md)に従う。closure自体の決定理由は[D003](../design/decisions/D003.md)、
+明示capture syntaxは[D007](../design/decisions/D007.md)に記録する。
 
 ## 再帰
 
@@ -88,7 +88,7 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 `<<`と`>>`のright operandはleft operandと同じ整数型で、結果も同じ型である。`<<`は数学的な`2^count`倍を
 operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する
 arithmetic shiftとする。backendはCの範囲外shiftやsigned shiftの偶発的な挙動へ依存してはならない。
-設計理由は[D014](../design/decisions.md#d014-shift-countはleft-operandと同じ型とする)に記録する。
+設計理由は[D014](../design/decisions/D014.md)に記録する。
 
 ## 浮動小数点
 
@@ -104,7 +104,7 @@ zero除算、有限値のoverflow、invalid operationはIEEE 754に従ってinfi
 - どちらかがNaNなら`==`はfalse、`!=`はtrueである。
 - どちらかがNaNなら`< <= > >=`はすべてfalseである。
 
-演算規則の設計理由は[D009](../design/decisions.md#d009-floatは-ieee-754-2019-の固定profileとする)に記録する。
+演算規則の設計理由は[D009](../design/decisions/D009.md)に記録する。
 
 ## trap
 

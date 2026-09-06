@@ -52,7 +52,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.5から除外する。決定理由は[D016](../design/decisions.md#d016-externはmal-c-abiとadapterを介する)に記録する。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.5から除外する。決定理由は[D016](../design/decisions/D016.md)に記録する。
 
 ## source-level semantics
 
@@ -97,10 +97,10 @@ v0.5のEngram observationとadmissionは次とする。
 
 host側bufferの具体的な取得、copy完了までの有効期間、copy後の解放はbackend adapter contractが定める。hostの後続変更や
 解放がSymbolへ影響してはならない。境界operationの一般則は[Engram仕様](engrams.md#境界のoperation)に、決定理由は
-[D031](../design/decisions.md#d031-engramをmal内部のlifetime-authorityとする)に記録する。
+[D031](../design/decisions/D031.md)に記録する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
-決定理由は[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)に記録する。
+決定理由は[D015](../design/decisions/D015.md)に記録する。
 
 host operationがresult capabilityを正常returnする前にtrapするか、capabilityを含まないfailure resultを返す場合、
 そのoperationだけが取得し、callerにもresultにも属さない一時resourceはadapterが解放する。正常resultへ含めた

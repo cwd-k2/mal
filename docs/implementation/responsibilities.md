@@ -94,6 +94,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
 | `check/interface` | extern transport検査とsource-level alias metadata |
 | `check/initializer` | top-level closed-value admission |
+| `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
+| `check/float/big_uint` | decimal float roundingだけが使うdependency-freeの非負多倍長整数演算 |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/control` | block positionとRHSにある`if`、`case`の事前分類 |
 | `formatter/token` | token spacingと`if`、`case`、blockの出力state |
@@ -120,13 +122,15 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
-## Source structure
+## Code structure
 
-各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written source fileは
+各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written code fileは
 200行以下を目安にする。500行を超える前にowned behaviorまたは語彙で分割する。
 
 行数を満たすための番号付きfileや恣意的な断片は作らない。generated file、lock file、mechanical fixture、
 一箇所でcontractをreviewする必要があるcanonical schemaはこの目安の対象外とする。
+
+文書の構造と行数基準は[documentation index](../README.md#文書構造)が定める。
 
 ## Semantic portability
 

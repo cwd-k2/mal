@@ -64,5 +64,5 @@ mechanismである。次の場合にだけ言語機能の候補とする。
 6. trusted adapterだけで十分か、runtimeによる強制が必要か。
 
 この問いに短く答えられない機能は、surfaceだけを追加せず境界modelから再検討する。採択に至った経緯は
-[D031](decisions.md#d031-engramをmal内部のlifetime-authorityとする)に記録する。
+[D031](decisions/D031.md)に記録する。
 

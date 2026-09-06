@@ -34,7 +34,7 @@ distance :: (Point, Point) -> Float64 :=
 
 type alias と extern declaration は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
 
-top-level value の RHS は、literal、product/sum、integer conversion、lambda、およびそれらからなる作用のない closed expression に制限する。他のtop-level valueへの参照と`extern` callは認めない。`false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある nested lambda は明示capture listを使用できる。詳細と理由は[D018](../design/decisions.md#d018-top-level-initializationは作用のないclosed-valueに限定する)に記録する。
+top-level value の RHS は、literal、product/sum、integer conversion、lambda、およびそれらからなる作用のない closed expression に制限する。他のtop-level valueへの参照と`extern` callは認めない。`false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある nested lambda は明示capture listを使用できる。詳細と理由は[D018](../design/decisions/D018.md)に記録する。
 
 ## entry point
 
@@ -67,4 +67,4 @@ argument bytesはhost process interfaceが渡した終端NULを含まないbyte�
 各byte regionは`main`のreturnまでread-onlyで有効である。`count`以上のdescriptorへaccessしてはならない。
 
 `Unit -> Int32`と`(UInt64, Ptr) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
-[D030](../design/decisions.md#d030-entry-pointへprocess-argument列を渡す)に記録する。
+[D030](../design/decisions/D030.md)に記録する。

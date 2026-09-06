@@ -2,23 +2,23 @@
 
 Status: Current navigation
 
-この文書は[設計決定記録](decisions.md)への入口だけを持つ。規則は[`spec/`](../spec/)、判断の本文とstatusは
-各decisionを正とし、ここでは現行判断とhistorical recordを分けて示す。
+この文書は`decisions/`にある個別の設計決定記録への入口だけを持つ。規則は[`spec/`](../spec/)、判断の本文と
+statusは各decisionを正とし、ここでは現行判断とhistorical recordを分けて示す。
 
 ## 現行判断
 
 | Area | Decisions |
 |---|---|
-| compiler | [D002](decisions.md#decision-d002) |
-| closure | [D003](decisions.md#decision-d003)、[D007](decisions.md#decision-d007) |
-| sum、Bool、`if`、`case` | [D004](decisions.md#decision-d004)、[D005](decisions.md#decision-d005)、[D023](decisions.md#decision-d023) |
-| minimalism | [D008](decisions.md#decision-d008) |
-| Float | [D009](decisions.md#decision-d009)、[D019](decisions.md#decision-d019) |
-| literalとscalar operation | [D011](decisions.md#decision-d011)、[D013](decisions.md#decision-d013)、[D014](decisions.md#decision-d014)、[D020](decisions.md#decision-d020)、[D021](decisions.md#decision-d021)、[D025](decisions.md#decision-d025) |
-| externとopaque value | [D012](decisions.md#decision-d012)、[D015](decisions.md#decision-d015)、[D016](decisions.md#decision-d016) |
-| top-level initialization | [D018](decisions.md#decision-d018) |
-| `Ptr` memory primitive | [D022](decisions.md#decision-d022)、[D024](decisions.md#decision-d024) |
-| EngramとExternのauthority | [D031](decisions.md#decision-d031) |
+| compiler | [D002](decisions/D002.md) |
+| closure | [D003](decisions/D003.md)、[D007](decisions/D007.md) |
+| sum、Bool、`if`、`case` | [D004](decisions/D004.md)、[D005](decisions/D005.md)、[D023](decisions/D023.md) |
+| minimalism | [D008](decisions/D008.md) |
+| Float | [D009](decisions/D009.md)、[D019](decisions/D019.md) |
+| literalとscalar operation | [D011](decisions/D011.md)、[D013](decisions/D013.md)、[D014](decisions/D014.md)、[D020](decisions/D020.md)、[D021](decisions/D021.md)、[D025](decisions/D025.md) |
+| externとopaque value | [D012](decisions/D012.md)、[D015](decisions/D015.md)、[D016](decisions/D016.md) |
+| top-level initialization | [D018](decisions/D018.md) |
+| `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md) |
+| EngramとExternのauthority | [D031](decisions/D031.md) |
 
 D012はD016、D022はD024でrefineされているが、元の判断を撤回していない。
 
@@ -26,15 +26,15 @@ D012はD016、D022はD024でrefineされているが、元の判断を撤回し�
 
 | Record | Current successor |
 |---|---|
-| [D001: local capture禁止](decisions.md#decision-d001) | [D003](decisions.md#decision-d003) |
-| [D006: `b'…'` byte literal](decisions.md#decision-d006) | [D025](decisions.md#decision-d025) |
-| [D010: byte型としてのEngram](decisions.md#decision-d010) | [D031](decisions.md#decision-d031) |
-| [D017: immutable byte型名](decisions.md#decision-d017) | [D031](decisions.md#decision-d031) |
-| [D026: Engram descriptor memory operation](decisions.md#decision-d026) | [D031](decisions.md#decision-d031) |
-| [D027: storage-size query](decisions.md#decision-d027) | [D031](decisions.md#decision-d031)で対象型をrefine |
-| [D028: Engram operator](decisions.md#decision-d028) | [D031](decisions.md#decision-d031)で`Symbol` operationへrefine |
-| [D029: Engram concatenation](decisions.md#decision-d029) | [D031](decisions.md#decision-d031)で`Symbol` operationへrefine |
-| [D030: process argument descriptor](decisions.md#decision-d030) | [D031](decisions.md#decision-d031)でexternal descriptorへrefine |
+| [D001: local capture禁止](decisions/D001.md) | [D003](decisions/D003.md) |
+| [D006: `b'…'` byte literal](decisions/D006.md) | [D025](decisions/D025.md) |
+| [D010: byte型としてのEngram](decisions/D010.md) | [D031](decisions/D031.md) |
+| [D017: immutable byte型名](decisions/D017.md) | [D031](decisions/D031.md) |
+| [D026: Engram descriptor memory operation](decisions/D026.md) | [D031](decisions/D031.md) |
+| [D027: storage-size query](decisions/D027.md) | [D031](decisions/D031.md)で対象型をrefine |
+| [D028: Engram operator](decisions/D028.md) | [D031](decisions/D031.md)で`Symbol` operationへrefine |
+| [D029: Engram concatenation](decisions/D029.md) | [D031](decisions/D031.md)で`Symbol` operationへrefine |
+| [D030: process argument descriptor](decisions/D030.md) | [D031](decisions/D031.md)でexternal descriptorへrefine |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../spec/)を確認する。

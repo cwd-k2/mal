@@ -33,7 +33,7 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[test方針](development/testing.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
-| 設計理由を調べる | [設計決定index](design/decisions-index.md) | [決定記録](design/decisions.md)、[最小性](design/minimality.md)、[authority](design/authority.md) |
+| 設計理由を調べる | [設計決定index](design/decisions-index.md) | [最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [generated C performance](development/performance.md) | [compiler compile-time](development/compiler-performance.md) |
 | 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
@@ -48,8 +48,17 @@
 | `research/` | 外部仕様・先行事例から得た根拠 |
 
 仕様と実装文書が衝突した場合は`spec/`を優先する。仕様で意図的に未指定とする挙動は該当する規範文書に直接記載する。
-退役した名称、構文、ABI、意味論と変更理由は`design/decisions.md`だけに残す。spec、implementation、test、exampleは
+退役した名称、構文、ABI、意味論と変更理由は`design/decisions/`の個別decisionだけに残す。spec、implementation、test、exampleは
 過去との差分ではなく、現在のruleとbehaviorを直接記述する。測定履歴は責務が限定された`development/*performance.md`に置く。
+
+## 文書構造
+
+各文書には一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written documentは200行以下を
+目安にし、500行を超える前にauthorityまたは読者が調べる目的で分割する。分割後はindexまたはowner文書から
+到達できるようにし、同じruleを複数の文書へ複製しない。
+
+行数を満たすための番号付き断片や、独立して意味を持たないpageは作らない。mechanical fixture、測定結果、
+一箇所で全体をreviewする必要があるcanonical schemaはこの目安の対象外とする。
 
 ## v0.5 の短い定義
 

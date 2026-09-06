@@ -142,7 +142,7 @@ source-level semanticsを変えない。
 
 Floatを使うprogramのC adapterはround-to-nearest, ties-to-evenのfloating-point environmentを保持し、
 flush-to-zeroまたはdenormals-are-zeroを有効にしたままreturnしてはならない。完全なtarget条件は
-[D019](../design/decisions.md#d019-decimal-float-syntaxとc-target-profileを固定する)に定める。
+[D019](../design/decisions/D019.md)に定める。
 
 top-level parameter型が`Unit`ならC側parameterを追加しない。top-level result型が`Unit`ならC resultは`void`とする。top-level parameter型がproductなら、その直下の要素をsource orderでC parameterへflattenする。nested productとsumにはgenerated header内のprogram固有structを用いる。aggregate resultはgenerated structをby-valueで返す。
 

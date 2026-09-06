@@ -29,7 +29,7 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 便利な標準APIを多数用意すると、実装量だけでなく「どのAPIを選び、どの暗黙規約に従うか」という探索costが増える。malはmechanismを少数提供し、用途別policyをprogramまたはhost側へ残す。
 
-一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions.md#d008-minimalismには利用者のcontrolと調査面積を含める)
+一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions/D008.md)
 
 memory、resource、host境界では、特定のownership mechanismを先に選ばず、
 [EngramとExternのauthority](authority.md)から必要なadmission、observation、capability transferを導く。
