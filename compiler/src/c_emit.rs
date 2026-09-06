@@ -27,7 +27,7 @@ mod text;
 mod types;
 
 use self::body::BodyEmitter;
-use self::types::TypeRegistry;
+use self::types::{HostTypes, TypeRegistry};
 
 pub const GENERATED_HEADER_NAME: &str = "program.mal.h";
 
@@ -40,7 +40,8 @@ pub struct Output {
 pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     let main = find_main(program)?;
     let mut types = TypeRegistry::default();
-    types.collect_program(program);
+    let host = HostTypes::collect(&program.interface, &mut types);
+    types.collect_program_body(program);
     let mut emitter = BodyEmitter::new(program, &types);
     let body = emitter.emit(main);
 
@@ -56,7 +57,7 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
             source.push_str("static inline double mal_float64_from_bits(uint64_t bits) { double value; memcpy(&value, &bits, sizeof(value)); return value; }\n\n");
         }
     }
-    source.push_str(&types.source_declarations());
+    source.push_str(&types.source_declarations(&host));
     source.push_str(&body.environment_declarations);
     source.push_str(&runtime::emit(&body.needs));
     source.push_str(&body.globals);
@@ -67,14 +68,14 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
     Ok(Output {
         source,
-        header: header::emit(&program.interface, &types),
+        header: header::emit(&program.interface, &types, &host),
     })
 }
 
 pub fn emit_header(interface: &ProgramInterface) -> String {
     let mut types = TypeRegistry::default();
-    types.collect_interface(interface);
-    header::emit(interface, &types)
+    let host = HostTypes::collect(interface, &mut types);
+    header::emit(interface, &types, &host)
 }
 
 pub fn emit_host(interface: &ProgramInterface, header_name: &str) -> Result<String, Diagnostic> {
@@ -84,7 +85,7 @@ pub fn emit_host(interface: &ProgramInterface, header_name: &str) -> Result<Stri
         ));
     }
     let mut types = TypeRegistry::default();
-    types.collect_interface(interface);
+    let _host = HostTypes::collect(interface, &mut types);
     Ok(header::emit_host(interface, &types, header_name))
 }
 

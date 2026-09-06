@@ -1,29 +1,33 @@
 use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
 
-use super::{TypeRegistry, is_bool};
+use super::{HostTypes, TypeRegistry, is_bool};
 
 impl TypeRegistry {
-    pub(in crate::c_emit) fn header_declarations(&self) -> String {
+    pub(in crate::c_emit) fn header_declarations(&self, host: &HostTypes) -> String {
         let mut output = String::new();
-        for name in &self.opaque_names {
+        for name in &host.opaque_names {
             c_line!(
                 &mut output,
                 0,
                 "typedef struct {{ uintptr_t bits; }} MalType_{name};"
             );
         }
-        if !self.opaque_names.is_empty() {
+        if !host.opaque_names.is_empty() {
             output.push('\n');
         }
-        output.push_str(&self.declarations(true));
+        output.push_str(&self.declarations(host, true));
         output
     }
 
-    pub(in crate::c_emit) fn header_alias_declarations(&self, aliases: &[TypeAlias]) -> String {
+    pub(in crate::c_emit) fn header_alias_declarations(
+        &self,
+        host: &HostTypes,
+        aliases: &[TypeAlias],
+    ) -> String {
         let mut output = String::new();
         for alias in aliases {
-            if self.is_host_type(&alias.ty) {
+            if host.contains(&alias.ty) {
                 c_line!(
                     &mut output,
                     0,
@@ -39,9 +43,9 @@ impl TypeRegistry {
         output
     }
 
-    pub(in crate::c_emit) fn header_opaque_helpers(&self) -> String {
+    pub(in crate::c_emit) fn header_opaque_helpers(&self, host: &HostTypes) -> String {
         let mut output = String::new();
-        for name in &self.opaque_names {
+        for name in &host.opaque_names {
             c_line!(
                 &mut output,
                 0,
@@ -60,10 +64,14 @@ impl TypeRegistry {
         output
     }
 
-    pub(in crate::c_emit) fn header_alias_helpers(&self, aliases: &[TypeAlias]) -> String {
+    pub(in crate::c_emit) fn header_alias_helpers(
+        &self,
+        host: &HostTypes,
+        aliases: &[TypeAlias],
+    ) -> String {
         let mut output = String::new();
         for alias in aliases {
-            if !self.is_host_type(&alias.ty) {
+            if !host.contains(&alias.ty) {
                 continue;
             }
             match &alias.ty {

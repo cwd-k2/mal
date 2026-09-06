@@ -7,15 +7,18 @@ mod host;
 #[derive(Default)]
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
-    public: Vec<Type>,
-    opaque_names: Vec<String>,
     uses_float32: bool,
     uses_float64: bool,
 }
 
+#[derive(Default)]
+pub(super) struct HostTypes {
+    types: Vec<Type>,
+    opaque_names: Vec<String>,
+}
+
 impl TypeRegistry {
-    pub(super) fn collect_program(&mut self, program: &closure::Program) {
-        self.collect_interface(&program.interface);
+    pub(super) fn collect_program_body(&mut self, program: &closure::Program) {
         for binding in &program.bindings {
             self.collect_top_pattern(&binding.pattern);
             self.collect_block(&binding.value);
@@ -26,19 +29,6 @@ impl TypeRegistry {
             }
             self.collect(&function.parameter.ty);
             self.collect_block(&function.body);
-        }
-    }
-
-    pub(super) fn collect_interface(&mut self, interface: &ProgramInterface) {
-        self.opaque_names.extend(
-            interface
-                .external_types
-                .iter()
-                .map(|external| external.name.clone()),
-        );
-        for external in &interface.externals {
-            self.collect_public(&external.parameter);
-            self.collect_public(&external.result);
         }
     }
 
@@ -79,14 +69,14 @@ impl TypeRegistry {
         self.uses_float64
     }
 
-    pub(super) fn source_declarations(&self) -> String {
-        self.declarations(false)
+    pub(super) fn source_declarations(&self, host: &HostTypes) -> String {
+        self.declarations(host, false)
     }
 
-    fn declarations(&self, public: bool) -> String {
+    fn declarations(&self, host: &HostTypes, public: bool) -> String {
         let mut output = String::new();
         for (index, ty) in self.aggregates.iter().enumerate() {
-            if self.is_public(ty) != public {
+            if host.contains(ty) != public {
                 continue;
             }
             let kind = match ty {
@@ -118,7 +108,7 @@ impl TypeRegistry {
             output.push('\n');
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
-            if self.is_public(ty) != public {
+            if host.contains(ty) != public {
                 continue;
             }
             match ty {
@@ -177,35 +167,6 @@ impl TypeRegistry {
         output
     }
 
-    fn collect_public(&mut self, ty: &Type) {
-        if !self.public.contains(ty) {
-            self.public.push(ty.clone());
-        }
-        if is_bool(ty) {
-            return;
-        }
-        match ty {
-            Type::Product(elements) | Type::Sum(elements) => {
-                for element in elements {
-                    self.collect_public(element);
-                }
-                self.collect(ty);
-            }
-            Type::Function { .. } => {
-                unreachable!("type checking excludes functions from extern signatures")
-            }
-            _ => {}
-        }
-    }
-
-    fn is_public(&self, ty: &Type) -> bool {
-        self.public.contains(ty)
-    }
-
-    fn is_host_type(&self, ty: &Type) -> bool {
-        self.public.contains(ty)
-    }
-
     fn collect(&mut self, ty: &Type) {
         if is_bool(ty) {
             return;
@@ -251,6 +212,57 @@ impl TypeRegistry {
         }
     }
 
+    fn index(&self, ty: &Type) -> usize {
+        self.aggregates
+            .iter()
+            .position(|candidate| candidate == ty)
+            .expect("all emitted types are collected before rendering")
+    }
+}
+
+impl HostTypes {
+    pub(super) fn collect(interface: &ProgramInterface, registry: &mut TypeRegistry) -> Self {
+        let mut host = Self::default();
+        host.opaque_names.extend(
+            interface
+                .external_types
+                .iter()
+                .map(|external| external.name.clone()),
+        );
+        for external in &interface.externals {
+            host.collect_type(&external.parameter, registry);
+            host.collect_type(&external.result, registry);
+        }
+        host
+    }
+
+    fn collect_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
+        if !self.types.contains(ty) {
+            self.types.push(ty.clone());
+        }
+        if is_bool(ty) {
+            return;
+        }
+        match ty {
+            Type::Product(elements) | Type::Sum(elements) => {
+                for element in elements {
+                    self.collect_type(element, registry);
+                }
+                registry.collect(ty);
+            }
+            Type::Function { .. } => {
+                unreachable!("type checking excludes functions from extern signatures")
+            }
+            _ => {}
+        }
+    }
+
+    pub(super) fn contains(&self, ty: &Type) -> bool {
+        self.types.contains(ty)
+    }
+}
+
+impl TypeRegistry {
     fn collect_top_pattern(&mut self, pattern: &TopLevelPattern) {
         match pattern {
             TopLevelPattern::Binding { ty, .. } | TopLevelPattern::Wildcard { ty, .. } => {
@@ -332,13 +344,6 @@ impl TypeRegistry {
                 self.collect_atom(right);
             }
         }
-    }
-
-    fn index(&self, ty: &Type) -> usize {
-        self.aggregates
-            .iter()
-            .position(|candidate| candidate == ty)
-            .expect("all emitted types are collected before rendering")
     }
 }
 

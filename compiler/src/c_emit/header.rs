@@ -1,6 +1,6 @@
 use crate::core::ast::ProgramInterface;
 
-use super::{TypeRegistry, host_signature::HostSignature};
+use super::{HostTypes, TypeRegistry, host_signature::HostSignature};
 
 const HEADER_PREFIX: &str = r#"#ifndef MAL_PROGRAM_MAL_H
 #define MAL_PROGRAM_MAL_H
@@ -61,22 +61,22 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 }
 "#;
 
-pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry) -> String {
+pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &HostTypes) -> String {
     let signatures: Vec<_> = interface
         .externals
         .iter()
         .map(|external| HostSignature::new(external, types))
         .collect();
     let mut output = String::from(HEADER_PREFIX);
-    let mut declarations = types.header_declarations();
-    declarations.push_str(&types.header_alias_declarations(&interface.type_aliases));
+    let mut declarations = types.header_declarations(host);
+    declarations.push_str(&types.header_alias_declarations(host, &interface.type_aliases));
     if !declarations.is_empty() {
         begin_section(&mut output, "Host-visible types");
         output.push_str(&declarations);
     }
 
-    let mut helpers = types.header_opaque_helpers();
-    helpers.push_str(&types.header_alias_helpers(&interface.type_aliases));
+    let mut helpers = types.header_opaque_helpers(host);
+    helpers.push_str(&types.header_alias_helpers(host, &interface.type_aliases));
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.push_str(&helpers);
