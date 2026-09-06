@@ -94,6 +94,22 @@ fn reports_required_c_source_and_c_compiler_failures() {
     assert!(stderr.contains("error: cannot load requirement"));
     assert!(stderr.contains("missing-host.c"));
 
+    directory.write(
+        "program.mal",
+        "require \"./broken.c\";\nmain :: Unit -> Int32 := \\() { 0; };",
+    );
+    directory.write("broken.c", "this is not C\n");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("malc: C compiler '"));
+    assert!(stderr.contains("failed with exit status"));
+
     directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     let unavailable_compiler = directory.join("missing-clang");
     let output = directory.malc_with_env(
