@@ -77,18 +77,18 @@ struct MalRepr_Product_1 {
 };
 
 struct MalRepr_Product_2 {
-    MalType_File field_0;
-    MalType_Ptr field_1;
-    MalType_UInt64 field_2;
-};
-
-struct MalRepr_Product_3 {
     MalType_Ptr field_0;
     MalType_UInt64 field_1;
 };
 
+struct MalRepr_Product_3 {
+    MalType_File field_0;
+    MalRepr_Product_2 field_1;
+};
+
 typedef MalRepr_Product_1 MalType_Buffer;
-typedef MalRepr_Product_3 MalType_Bytes;
+typedef MalRepr_Product_2 MalType_Bytes;
+typedef MalRepr_Product_2 MalType_Region;
 
 /* Type helpers */
 
@@ -136,6 +136,18 @@ static inline MalType_UInt64 mal_Bytes_get_1(MalType_Bytes value) {
     return value.field_1;
 }
 
+static inline MalType_Region mal_Region_make(MalType_Ptr value_0, MalType_UInt64 value_1) {
+    return (MalType_Region){ .field_0 = value_0, .field_1 = value_1 };
+}
+
+static inline MalType_Ptr mal_Region_get_0(MalType_Region value) {
+    return value.field_0;
+}
+
+static inline MalType_UInt64 mal_Region_get_1(MalType_Region value) {
+    return value.field_1;
+}
+
 /* External operations */
 
 MalType_Allocator mal_ext_createAllocator(MalContext *context);
@@ -143,8 +155,8 @@ MalType_Buffer mal_ext_allocateBuffer(MalContext *context, MalType_Allocator arg
 void mal_ext_destroyAllocator(MalContext *context, MalType_Allocator value);
 MalType_File mal_ext_openReadWriteCreate(MalContext *context, MalType_Symbol value);
 MalType_File mal_ext_standardInput(MalContext *context);
-MalType_UInt64 mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
-MalType_UInt64 mal_ext_writeFile(MalContext *context, MalType_File argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
+MalType_UInt64 mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_Region argument_1);
+MalType_UInt64 mal_ext_writeFile(MalContext *context, MalType_File argument_0, MalType_Bytes argument_1);
 void mal_ext_rewindFile(MalContext *context, MalType_File value);
 void mal_ext_flushFile(MalContext *context, MalType_File value);
 void mal_ext_closeFile(MalContext *context, MalType_File value);
@@ -189,21 +201,19 @@ MalType_File mal_ext_standardInput( \
 )
 
 #define MAL_HAS_EXTERN_readFile 1
-#define MAL_DEFINE_readFile(context, argument_0, argument_1, argument_2) \
+#define MAL_DEFINE_readFile(context, argument_0, argument_1) \
 MalType_UInt64 mal_ext_readFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_File argument_0, \
-    MalType_Ptr argument_1, \
-    MalType_UInt64 argument_2 \
+    MalType_Region argument_1 \
 )
 
 #define MAL_HAS_EXTERN_writeFile 1
-#define MAL_DEFINE_writeFile(context, argument_0, argument_1, argument_2) \
+#define MAL_DEFINE_writeFile(context, argument_0, argument_1) \
 MalType_UInt64 mal_ext_writeFile( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_File argument_0, \
-    MalType_Ptr argument_1, \
-    MalType_UInt64 argument_2 \
+    MalType_Bytes argument_1 \
 )
 
 #define MAL_HAS_EXTERN_rewindFile 1

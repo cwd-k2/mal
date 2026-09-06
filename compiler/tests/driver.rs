@@ -508,6 +508,14 @@ fn mini_database_example_persists_queries_across_processes() {
         "ERROR commands: put/get/del/quit\n"
     );
 
+    let chunked_input = format!("{}quit\n", "get missing\n".repeat(400));
+    let output = run_session(&chunked_input);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "NOT FOUND\n".repeat(400)
+    );
+
     let overlong_line = format!("{}\n", "x".repeat(257));
     let output = run_session(&overlong_line);
     assert!(!output.status.success());

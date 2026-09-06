@@ -10,15 +10,18 @@ The shared-memory interface uses three representations with separate responsibil
   destroyed.
 - `Buffer` is a mal-visible `(Ptr, capacity, initialized length)` descriptor returned by the C
   allocator and updated immutably by mal code.
+- `Region` is a `(Ptr, writable length)` view passed to host operations that fill memory.
 - `Bytes` is a `(Ptr, length)` read-only view passed to consumers that do not need spare capacity.
+- `Reader` combines a `File`, an input `Buffer`, and a cursor. Sum values return either end-of-file or
+  a byte together with the next immutable reader state.
 
 These distinctions document intent but do not add ownership or bounds enforcement to the language.
 Aliases remain structural, opaque handles remain copyable, and the host contract determines the
 lifetime of every `Ptr`.
 
-Standard input is read one byte at a time into one reusable `Ptr` buffer. The mal program detects
-line endings and overlong lines, so processing more queries does not retain one new Symbol for every
-input line.
+Standard input is transferred into one reusable 4 KiB buffer. The mal program carries unread input
+between calls, detects line endings and overlong lines, and copies the current line into a second
+reusable buffer. Processing more queries does not retain one new Symbol for every input line.
 
 The query language is:
 

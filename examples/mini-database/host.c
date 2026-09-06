@@ -94,7 +94,9 @@ MAL_DEFINE_standardInput(context) {
     return mal_File_from_bits((uintptr_t)stdin);
 }
 
-MAL_DEFINE_readFile(context, file, memory, capacity) {
+MAL_DEFINE_readFile(context, file, region) {
+    MalType_Ptr memory = mal_Region_get_0(region);
+    uint64_t capacity = mal_Region_get_1(region);
     if (capacity > SIZE_MAX) {
         mal_trap(context, "file read capacity is too large");
     }
@@ -106,7 +108,9 @@ MAL_DEFINE_readFile(context, file, memory, capacity) {
     return (uint64_t)length;
 }
 
-MAL_DEFINE_writeFile(context, file, memory, length) {
+MAL_DEFINE_writeFile(context, file, bytes) {
+    MalType_Ptr memory = mal_Bytes_get_0(bytes);
+    uint64_t length = mal_Bytes_get_1(bytes);
     if (length > SIZE_MAX) {
         mal_trap(context, "file write length is too large");
     }
