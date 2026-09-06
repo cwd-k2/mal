@@ -59,26 +59,26 @@ fn renders_frontend_errors_from_the_required_file() {
 }
 
 #[test]
-fn reports_linker_input_and_c_compiler_failures() {
+fn reports_required_c_source_and_c_compiler_failures() {
     let directory = NativeFixture::new("driver-failure");
-    let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
+    let source = directory.write(
+        "program.mal",
+        "require \"./missing-host.c\";\nmain :: Unit -> Int32 := \\() { 0; };",
+    );
     let executable = directory.join("program");
-    let missing_linker_input = directory.join("missing-host.c");
     let arguments = [
         OsStr::new("build"),
         source.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        missing_linker_input.as_os_str(),
     ];
     let output = directory.malc(arguments);
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("malc: C compiler '"));
-    assert!(stderr.contains("failed with exit status"));
-    assert!(stderr.contains(missing_linker_input.to_string_lossy().as_ref()));
+    assert!(stderr.contains("error: cannot load requirement"));
+    assert!(stderr.contains("missing-host.c"));
 
+    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     let unavailable_compiler = directory.join("missing-clang");
     let output = directory.malc_with_env(
         [

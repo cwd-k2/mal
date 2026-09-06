@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern Allocation;
 
 Buffer :: (Allocation, Ptr, UInt64, UInt64);

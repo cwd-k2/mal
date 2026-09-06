@@ -43,7 +43,7 @@ integer byte order. The database path is the program's single command-line argum
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/mini-database/program.mal --output /tmp/mal-mini-database --link examples/mini-database/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/mini-database/program.mal --output /tmp/mal-mini-database
 /tmp/mal-mini-database /tmp/mal-mini.db
 ```
 

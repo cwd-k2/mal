@@ -58,11 +58,7 @@ pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error>
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
-pub fn build(
-    source_path: &Path,
-    output_path: &Path,
-    linker_inputs: &[PathBuf],
-) -> Result<(), Error> {
+pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
     let generated =
         crate::pipeline::emit_c_graph(&graph).map_err(|error| Error::diagnostic(error, &graph))?;
@@ -77,7 +73,7 @@ pub fn build(
         .arg("-I")
         .arg(temporary.path())
         .arg(&generated_path)
-        .args(linker_inputs)
+        .args(graph.c_sources())
         .arg("-o")
         .arg(output_path)
         .output()

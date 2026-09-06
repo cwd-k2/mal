@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern Allocator;
 
 NodeResult :: [Ptr, Unit];

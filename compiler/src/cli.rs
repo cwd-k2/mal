@@ -13,7 +13,7 @@ Usage:
   malc emit-header <source.mal> [--output <program.mal.h>]
   malc emit-host <source.mal> [--header <header-name>]
   malc emit-c <source.mal> --output <program.c>
-  malc build <source.mal> --output <program> [--link <input>]...
+  malc build <source.mal> --output <program>
 ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -167,7 +167,6 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
         return usage_error("build requires a source path");
     };
     let mut output = None;
-    let mut linker_inputs = Vec::new();
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -181,8 +180,6 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             if output.replace(PathBuf::from(value)).is_some() {
                 return usage_error("--output may only be specified once");
             }
-        } else if option == OsStr::new("--link") {
-            linker_inputs.push(PathBuf::from(value));
         } else {
             return usage_error(&format!(
                 "unknown build option '{}'",
@@ -194,7 +191,7 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
     let Some(output) = output else {
         return usage_error("build requires --output");
     };
-    match crate::driver::build(PathBuf::from(source).as_path(), &output, &linker_inputs) {
+    match crate::driver::build(PathBuf::from(source).as_path(), &output) {
         Ok(()) => Outcome::success(String::new()),
         Err(error) => Outcome::compile_error(error),
     }
@@ -237,9 +234,20 @@ mod tests {
 
     #[test]
     fn validates_build_options_before_running_the_driver() {
-        let outcome = execute(args(&["build", "sample.mal", "--link", "host.c"]));
+        let outcome = execute(args(&["build", "sample.mal"]));
         assert_eq!(outcome.status, ExitStatus::UsageError);
         assert!(outcome.stderr.contains("requires --output"));
+
+        let outcome = execute(args(&[
+            "build",
+            "sample.mal",
+            "--output",
+            "program",
+            "--unknown",
+            "value",
+        ]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(outcome.stderr.contains("unknown build option"));
 
         let outcome = execute(args(&[
             "build",

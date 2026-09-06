@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern memory :: Unit -> Ptr;
 
 main :: Unit -> Int32 := \() {

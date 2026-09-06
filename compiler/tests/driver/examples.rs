@@ -9,14 +9,11 @@ fn print_and_closure_example_builds_and_runs_through_the_public_cli() {
         .join("examples/print-and-closure");
     let executable = directory.join("example");
     let program = example.join("program.mal");
-    let host = example.join("host.c");
     let output = directory.malc([
         OsStr::new("build"),
         program.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        host.as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -45,8 +42,6 @@ fn integer_and_byte_example_reproduces_host_results_and_a_trap() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -90,8 +85,6 @@ fn opaque_aggregate_example_round_trips_through_the_host() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -139,8 +132,6 @@ fn symbol_round_trip_example_copies_and_concatenates_bytes() {
         program.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -165,8 +156,6 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -208,8 +197,6 @@ fn resizable_buffer_example_handles_growth_slices_and_stale_aliases() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -240,8 +227,6 @@ fn mini_database_example_persists_queries_across_processes() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -376,8 +361,6 @@ fn ptr_memory_example_accesses_unaligned_storage() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -400,8 +383,6 @@ fn fallible_tree_example_cleans_partial_construction() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -428,8 +409,6 @@ fn pointer_tree_example_builds_and_traverses_a_tree() {
         example.join("program.mal").as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),
@@ -477,8 +456,6 @@ fn strict_float_example_preserves_bits_across_the_host_abi() {
         program.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        example.join("host.c").as_os_str(),
     ]);
     assert!(
         output.status.success(),

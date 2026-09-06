@@ -1,3 +1,5 @@
+require "./host.c";
+
 Buffer :: (Ptr, UInt64, UInt64);
 Region :: (Ptr, UInt64);
 Bytes :: (Ptr, UInt64);

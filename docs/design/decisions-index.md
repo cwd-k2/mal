@@ -21,7 +21,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md) |
 | EngramとExternのauthority | [D031](decisions/D031.md) |
 
-D012はD016、D022はD024でrefineされているが、元の判断を撤回していない。
+D012はD016とD032、D022はD024でrefineされているが、元の判断を撤回していない。
 
 ## 後継があるhistorical record
 

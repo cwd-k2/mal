@@ -120,8 +120,8 @@ host APIを呼ぶ。`mal_ext_*` adapterはtrusted computing baseに含まれる�
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
 
-reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC source、object、static archive、shared objectを
-linker inputとして渡す。symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
+reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
+symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
 [C host ABI](c-host-abi.md)に定める。
 
 ## 安全性の境界

@@ -177,15 +177,15 @@ fn checked_in_example_headers_match_the_compiler() {
 }
 
 #[test]
-fn build_links_multiple_host_inputs_and_produces_an_executable() {
+fn build_compiles_required_host_inputs_and_produces_an_executable() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
-    let host = directory.join("host.c");
-    let helper = directory.join("helper.c");
     let executable = directory.join("out/program");
     directory.write(
         "program.mal",
-        "extern adjust :: Int32 -> Int32;\n\
+        "require \"./host.c\";\n\
+         require \"./helper.c\";\n\
+         extern adjust :: Int32 -> Int32;\n\
          main :: Unit -> Int32 := \\() { extern adjust(40) - 42; };",
     );
     directory.write(
@@ -208,10 +208,6 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
         source.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
-        OsStr::new("--link"),
-        host.as_os_str(),
-        OsStr::new("--link"),
-        helper.as_os_str(),
     ]);
     assert!(
         output.status.success(),

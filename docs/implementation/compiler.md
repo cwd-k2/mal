@@ -92,7 +92,7 @@ c
 
 scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、対応する unsigned 型で演算して bit pattern を signed 型へ戻すなど、C の signed overflow に依存しない実装にする。
 
-extern symbol、generated header、linker input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
+extern symbol、generated header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 
 argument-aware entry pointではCの`argv[1]`以降のaddressとlengthを外部descriptor列へ置き、`(UInt64, Ptr)`として
 source-level `main`を呼ぶ。Symbolへのcopyはsourceが`loadSymbol`を呼ぶ時点で行い、entry専用のcollection型は持たない。

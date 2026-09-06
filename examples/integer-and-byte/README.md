@@ -6,7 +6,7 @@ From the repository root in Nushell, build and run the successful program:
 
 ```nu
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/integer-and-byte/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/integer-and-byte/program.mal --output /tmp/mal-integer-and-byte --link examples/integer-and-byte/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/integer-and-byte/program.mal --output /tmp/mal-integer-and-byte
 /tmp/mal-integer-and-byte
 ```
 

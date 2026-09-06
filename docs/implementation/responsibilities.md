@@ -39,7 +39,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/reference、checked typeをeditor queryへ構成 |
-| `driver` | source file、temporary path、C compiler process、linker inputのownership |
+| `driver` | source file、require path、temporary path、C compiler process、C build inputのownership |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
 predefined scopeの名前とreserved identityは`resolve/predefined`の一つの宣言から生成する。resolver、type checker、

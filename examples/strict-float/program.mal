@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern inspect :: (Float32, Float32, Float64, Int64) -> Int32;
 
 main :: Unit -> Int32 := \() {

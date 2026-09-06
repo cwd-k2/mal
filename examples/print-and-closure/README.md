@@ -6,7 +6,7 @@ From the repository root in Nushell:
 
 ```nu
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-print-and-closure --link examples/print-and-closure/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-print-and-closure
 /tmp/mal-print-and-closure
 ```
 

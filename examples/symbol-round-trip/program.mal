@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern receive :: Unit -> Symbol;
 extern send :: Symbol -> Unit;
 

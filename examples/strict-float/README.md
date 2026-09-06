@@ -7,7 +7,7 @@ From the repository root in Nushell:
 ```nu
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/strict-float/program.mal
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- emit-c examples/strict-float/program.mal --output /tmp/mal-strict-float.c
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/strict-float/program.mal --output /tmp/mal-strict-float --link examples/strict-float/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/strict-float/program.mal --output /tmp/mal-strict-float
 /tmp/mal-strict-float
 ```
 

@@ -7,6 +7,6 @@ trip correctly.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/ptr-memory/program.mal --output /tmp/mal-ptr-memory --link examples/ptr-memory/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/ptr-memory/program.mal --output /tmp/mal-ptr-memory
 /tmp/mal-ptr-memory
 ```

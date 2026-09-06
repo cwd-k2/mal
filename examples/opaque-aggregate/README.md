@@ -6,7 +6,7 @@ From the repository root in Nushell:
 
 ```nu
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/opaque-aggregate/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/opaque-aggregate/program.mal --output /tmp/mal-opaque-aggregate --link examples/opaque-aggregate/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/opaque-aggregate/program.mal --output /tmp/mal-opaque-aggregate
 /tmp/mal-opaque-aggregate
 ```
 

@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern allocate :: UInt64 -> Ptr;
 extern release :: Ptr -> Unit;
 

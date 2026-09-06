@@ -25,7 +25,7 @@ current allocation handle.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/resizable-buffer/program.mal --output /tmp/mal-resizable-buffer --link examples/resizable-buffer/host.c
+nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/resizable-buffer/program.mal --output /tmp/mal-resizable-buffer
 /tmp/mal-resizable-buffer
 ```
 

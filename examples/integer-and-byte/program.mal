@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern printUInt64 :: UInt64 -> Unit;
 
 main :: Unit -> Int32 := \() {

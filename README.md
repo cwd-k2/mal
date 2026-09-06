@@ -19,7 +19,7 @@ The pinned development environment is provided by Nix. From the repository root 
 nix develop
 cargo test --manifest-path compiler/Cargo.toml
 cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal
-cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-example --link examples/print-and-closure/host.c
+cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-example
 /tmp/mal-example
 ```
 

@@ -1,3 +1,5 @@
+require "./host.c";
+
 extern Mem;
 Response :: [Unit, (Mem, UInt64)];
 extern allocate :: UInt64 -> Mem;
