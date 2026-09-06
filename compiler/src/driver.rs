@@ -26,7 +26,7 @@ const C_COMPILER_OPTIONS: &[&str] = &[
 
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    crate::pipeline::check(graph.root_source())
+    crate::pipeline::check_graph(&graph)
         .map(|_| ())
         .map_err(|error| Error::diagnostic(error, &graph))
 }
@@ -38,14 +38,14 @@ pub fn format(source_path: &Path) -> Result<String, Error> {
 
 pub fn emit_c(source_path: &Path, output_path: &Path) -> Result<PathBuf, Error> {
     let graph = graph::load(source_path)?;
-    let generated = crate::pipeline::emit_c(graph.root_source())
-        .map_err(|error| Error::diagnostic(error, &graph))?;
+    let generated =
+        crate::pipeline::emit_c_graph(&graph).map_err(|error| Error::diagnostic(error, &graph))?;
     write_generated(output_path, generated)
 }
 
 pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    let header = crate::pipeline::emit_header(graph.root_source())
+    let header = crate::pipeline::emit_header_graph(&graph)
         .map_err(|error| Error::diagnostic(error, &graph))?;
     create_parent(output_path)?;
     fs::write(output_path, header)
@@ -54,7 +54,7 @@ pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> 
 
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    crate::pipeline::emit_host(graph.root_source(), header_name)
+    crate::pipeline::emit_host_graph(&graph, header_name)
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
@@ -64,8 +64,8 @@ pub fn build(
     linker_inputs: &[PathBuf],
 ) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    let generated = crate::pipeline::emit_c(graph.root_source())
-        .map_err(|error| Error::diagnostic(error, &graph))?;
+    let generated =
+        crate::pipeline::emit_c_graph(&graph).map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = TemporaryDirectory::new()?;
     let generated_path = temporary.path().join("program.c");
     write_generated(&generated_path, generated)?;

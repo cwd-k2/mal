@@ -5,6 +5,7 @@ use crate::source::Span;
 
 pub mod ast;
 mod expression;
+mod files;
 mod predefined;
 mod scope;
 
@@ -16,6 +17,13 @@ use self::ast::{
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
     Resolver::new(program.span).resolve_program(program)
+}
+
+pub fn resolve_graph(
+    graph: &crate::source::SourceGraph,
+    programs: &[crate::ast::Program],
+) -> Result<Program, Diagnostic> {
+    files::resolve(graph, programs)
 }
 
 #[derive(Clone)]
@@ -74,6 +82,22 @@ impl Resolver {
             items,
             span: program.span,
         })
+    }
+
+    fn begin_file(&mut self, span: Span) {
+        self.types.clear();
+        self.externals.clear();
+        self.value_scopes.clear();
+        self.value_scopes.push(HashMap::new());
+        self.current_lambda = None;
+        self.recursive_lambda = None;
+        self.synthetic_span = Span::new(span.file(), span.start(), span.start());
+        for &(name, id) in PREDEFINED_TYPES {
+            self.add_predefined_type(name, id);
+        }
+        for &(name, id) in PREDEFINED_VALUES {
+            self.add_predefined_value(name, id);
+        }
     }
 
     fn resolve_top_item(

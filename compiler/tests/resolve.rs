@@ -36,5 +36,7 @@ fn top_binding(item: &ast::Node<TopItem>) -> &resolved::Binding {
 mod captures;
 #[path = "resolve/declarations.rs"]
 mod declarations;
+#[path = "resolve/files.rs"]
+mod files;
 #[path = "resolve/scopes.rs"]
 mod scopes;

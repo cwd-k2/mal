@@ -45,6 +45,20 @@ fn reports_missing_and_cyclic_requirements_at_the_declaration() {
 }
 
 #[test]
+fn renders_frontend_errors_from_the_required_file() {
+    let directory = NativeFixture::new("driver-required-diagnostic");
+    let root = directory.write("root.mal", "require \"./broken.mal\";\n");
+    directory.write("broken.mal", "value :: Int32 := true;\n");
+
+    let output = directory.malc([OsStr::new("check"), root.as_os_str()]);
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("broken.mal:1:"));
+    assert!(!stderr.contains("<invalid span>"));
+}
+
+#[test]
 fn reports_linker_input_and_c_compiler_failures() {
     let directory = NativeFixture::new("driver-failure");
     let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");

@@ -220,3 +220,39 @@ fn build_links_multiple_host_inputs_and_produces_an_executable() {
     );
     assert!(directory.run(executable).status.success());
 }
+
+#[test]
+fn builds_public_functions_from_required_files_with_private_helpers() {
+    let directory = NativeFixture::new("driver-required-mal");
+    let source = directory.write(
+        "program.mal",
+        "require \"./left.mal\";\n\
+         require \"./right.mal\";\n\
+         main :: Unit -> Int32 := \\() { left(39) + right(1) - 42 };",
+    );
+    directory.write(
+        "left.mal",
+        "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1 };\n\
+         left :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+    );
+    directory.write(
+        "right.mal",
+        "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1 };\n\
+         right :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+    );
+    let executable = directory.join("program");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}

@@ -77,15 +77,21 @@ pub struct SourceFile {
 pub struct SourceGraph {
     root: FileId,
     files: Vec<SourceFile>,
-    requirements: Vec<Vec<FileId>>,
+    requirements: Vec<Vec<SourceRequirement>>,
     c_sources: Vec<PathBuf>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SourceRequirement {
+    pub target: FileId,
+    pub span: Span,
 }
 
 impl SourceGraph {
     pub fn new(
         root: FileId,
         files: Vec<SourceFile>,
-        requirements: Vec<Vec<FileId>>,
+        requirements: Vec<Vec<SourceRequirement>>,
         c_sources: Vec<PathBuf>,
     ) -> Self {
         assert_eq!(files.len(), requirements.len());
@@ -118,7 +124,7 @@ impl SourceGraph {
         self.files.get(id.index() as usize)
     }
 
-    pub fn requirements(&self, id: FileId) -> &[FileId] {
+    pub fn requirements(&self, id: FileId) -> &[SourceRequirement] {
         self.requirements
             .get(id.index() as usize)
             .map(Vec::as_slice)

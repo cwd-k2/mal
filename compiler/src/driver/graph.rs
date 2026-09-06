@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::diagnostic::Diagnostic;
-use crate::source::{FileId, SourceFile, SourceGraph};
+use crate::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
 
 use super::Error;
 
@@ -27,7 +27,7 @@ pub(super) fn load(root: &Path) -> Result<SourceGraph, Error> {
 #[derive(Default)]
 struct Builder {
     files: Vec<SourceFile>,
-    requirements: Vec<Vec<FileId>>,
+    requirements: Vec<Vec<SourceRequirement>>,
     states: HashMap<PathBuf, State>,
     c_sources: Vec<PathBuf>,
     seen_c_sources: HashSet<PathBuf>,
@@ -75,7 +75,10 @@ impl Builder {
             {
                 Some("mal") => {
                     let dependency = self.load_mal(&canonical, Some(required.kind.path_span))?;
-                    self.requirements[id.index() as usize].push(dependency);
+                    self.requirements[id.index() as usize].push(SourceRequirement {
+                        target: dependency,
+                        span: required.kind.path_span,
+                    });
                 }
                 Some("c") => {
                     if self.seen_c_sources.insert(canonical.clone()) {

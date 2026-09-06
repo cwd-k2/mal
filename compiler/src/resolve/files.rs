@@ -1,0 +1,179 @@
+use std::collections::HashMap;
+
+use crate::ast;
+use crate::diagnostic::Diagnostic;
+use crate::resolve::ast::{self as resolved, TypeBinding, ValueBinding};
+use crate::source::{FileId, SourceGraph, Span};
+
+use super::{ExternalBinding, Resolver};
+
+#[derive(Clone, Default)]
+struct Exports {
+    types: HashMap<String, TypeBinding>,
+    externals: HashMap<String, ExternalBinding>,
+    values: HashMap<String, ValueBinding>,
+}
+
+pub(super) fn resolve(
+    graph: &SourceGraph,
+    programs: &[ast::Program],
+) -> Result<resolved::Program, Diagnostic> {
+    if programs.len() != graph.files().len() {
+        return Err(Diagnostic::error("source graph and parsed programs differ"));
+    }
+    let root_span = programs[graph.root().index() as usize].span;
+    let mut resolver = FileResolver {
+        graph,
+        programs,
+        resolver: Resolver::new(root_span),
+        exports: vec![None; programs.len()],
+        items: Vec::new(),
+    };
+    resolver.resolve_file(graph.root())?;
+    Ok(resolved::Program {
+        items: resolver.items,
+        span: root_span,
+    })
+}
+
+struct FileResolver<'a> {
+    graph: &'a SourceGraph,
+    programs: &'a [ast::Program],
+    resolver: Resolver,
+    exports: Vec<Option<Exports>>,
+    items: Vec<ast::Node<resolved::TopItem>>,
+}
+
+impl FileResolver<'_> {
+    fn resolve_file(&mut self, file: FileId) -> Result<(), Diagnostic> {
+        if self.exports[file.index() as usize].is_some() {
+            return Ok(());
+        }
+        let requirements = self.graph.requirements(file).to_vec();
+        for requirement in &requirements {
+            self.resolve_file(requirement.target)?;
+        }
+
+        let program = &self.programs[file.index() as usize];
+        self.resolver.begin_file(program.span);
+        for requirement in &requirements {
+            let exports = self.exports[requirement.target.index() as usize]
+                .as_ref()
+                .expect("dependency is resolved before its importer")
+                .clone();
+            self.import(&exports, requirement.span)?;
+        }
+        if file != self.graph.root() {
+            reject_dependency_main(program)?;
+        }
+        self.resolver.predeclare_unit_names(program)?;
+
+        let mut exports = Exports::default();
+        for item in &program.items {
+            let resolved = self.resolver.resolve_top_item(item)?;
+            collect_exports(&mut exports, &resolved.kind);
+            self.items.push(resolved);
+        }
+        self.exports[file.index() as usize] = Some(exports);
+        Ok(())
+    }
+
+    fn import(&mut self, exports: &Exports, span: Span) -> Result<(), Diagnostic> {
+        for (name, binding) in &exports.types {
+            if self
+                .resolver
+                .types
+                .insert(name.clone(), binding.clone())
+                .is_some()
+            {
+                return Err(import_conflict(span, "type", name));
+            }
+        }
+        for (name, binding) in &exports.externals {
+            if self.resolver.externals.contains_key(name)
+                || self.resolver.value_scopes[0].contains_key(name)
+            {
+                return Err(import_conflict(span, "top-level value", name));
+            }
+            self.resolver
+                .externals
+                .insert(name.clone(), binding.clone());
+        }
+        for (name, binding) in &exports.values {
+            if self.resolver.externals.contains_key(name)
+                || self.resolver.value_scopes[0].contains_key(name)
+            {
+                return Err(import_conflict(span, "top-level value", name));
+            }
+            self.resolver.value_scopes[0].insert(name.clone(), binding.clone());
+        }
+        Ok(())
+    }
+}
+
+fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
+    match item {
+        resolved::TopItem::TypeAlias { binding, .. }
+        | resolved::TopItem::ExternalType { binding }
+            if is_public(&binding.name.text) =>
+        {
+            exports
+                .types
+                .insert(binding.name.text.clone(), binding.clone());
+        }
+        resolved::TopItem::ExternalOperation { id, name, .. } if is_public(&name.text) => {
+            exports
+                .externals
+                .insert(name.text.clone(), ExternalBinding { id: *id });
+        }
+        resolved::TopItem::Binding(binding) => collect_pattern_exports(exports, &binding.pattern),
+        _ => {}
+    }
+}
+
+fn collect_pattern_exports(exports: &mut Exports, pattern: &ast::Node<resolved::Pattern>) {
+    match &pattern.kind {
+        resolved::Pattern::Binding(binding) if is_public(&binding.name.text) => {
+            exports
+                .values
+                .insert(binding.name.text.clone(), binding.clone());
+        }
+        resolved::Pattern::Product(elements) => {
+            for element in elements {
+                collect_pattern_exports(exports, element);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn reject_dependency_main(program: &ast::Program) -> Result<(), Diagnostic> {
+    for item in &program.items {
+        if let ast::TopItem::Binding(binding) = &item.kind
+            && let Some(name) = pattern_name(&binding.pattern, "main")
+        {
+            return Err(Diagnostic::error("`main` declared outside the root file")
+                .with_primary(name.span, "the entry point belongs in the root file"));
+        }
+    }
+    Ok(())
+}
+
+fn pattern_name<'a>(pattern: &'a ast::Node<ast::Pattern>, expected: &str) -> Option<&'a ast::Name> {
+    match &pattern.kind {
+        ast::Pattern::Name(name) if name.text == expected => Some(name),
+        ast::Pattern::Product(elements) => elements
+            .iter()
+            .find_map(|element| pattern_name(element, expected)),
+        _ => None,
+    }
+}
+
+fn is_public(name: &str) -> bool {
+    !name.starts_with('_')
+}
+
+fn import_conflict(span: Span, category: &str, name: &str) -> Diagnostic {
+    Diagnostic::error(format!("duplicate imported {category} `{name}`"))
+        .with_primary(span, "this requirement introduces a conflicting name")
+}
