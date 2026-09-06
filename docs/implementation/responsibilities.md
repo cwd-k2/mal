@@ -98,7 +98,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/float/big_uint` | decimal float roundingだけが使うdependency-freeの非負多倍長整数演算 |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/control` | block positionとRHSにある`if`、`case`の事前分類 |
-| `formatter/token` | token spacingと`if`、`case`、blockの出力state |
+| `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
+| `formatter/token/control` | `if`、`case`、block delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |

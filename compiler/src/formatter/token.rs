@@ -2,6 +2,10 @@ use crate::lexer::TokenKind;
 
 use super::Formatter;
 
+mod control;
+
+pub(super) use self::control::{CaseStage, IfStage};
+
 #[derive(Clone, Copy)]
 pub(super) enum Previous {
     None,
@@ -22,23 +26,6 @@ pub(super) enum Previous {
     CaptureClose,
 }
 
-pub(super) enum IfStage {
-    Condition(bool),
-    ThenKeyword(bool),
-    ThenBranch(usize, bool),
-    AwaitElse(bool),
-    ElseKeyword(bool),
-    ElseBranch(usize, bool),
-    Finished(bool),
-}
-
-pub(super) enum CaseStage {
-    Keyword(bool),
-    Scrutinee(usize, bool),
-    Arms(usize, bool),
-    AwaitArmOrEnd(usize, bool),
-}
-
 impl Previous {
     fn ends_expression(self) -> bool {
         matches!(
@@ -53,27 +40,7 @@ impl Formatter<'_> {
         if self.blocks.omit[token_index] {
             return;
         }
-        if let Some(CaseStage::AwaitArmOrEnd(arms_indent, continuation)) = self.cases.last() {
-            if matches!(kind, TokenKind::LeftBracket) {
-                let arms_indent = *arms_indent;
-                let continuation = *continuation;
-                *self.cases.last_mut().expect("matched case") =
-                    CaseStage::Arms(arms_indent, continuation);
-            } else {
-                let continuation = *continuation;
-                self.cases.pop();
-                if continuation {
-                    self.indent = self.indent.saturating_sub(1);
-                }
-            }
-        }
-        if let Some(IfStage::Finished(continuation)) = self.ifs.last() {
-            let continuation = *continuation;
-            self.ifs.pop();
-            if continuation {
-                self.indent = self.indent.saturating_sub(1);
-            }
-        }
+        self.finish_completed_control(kind);
         if self.pending_newline {
             self.newline();
             self.pending_newline = false;
@@ -81,103 +48,10 @@ impl Formatter<'_> {
         self.preserve_source_break(kind);
         match kind {
             TokenKind::LeftBrace => {
-                self.space();
-                self.write(text);
-                self.brace_depth += 1;
-                if self.blocks.compact[token_index] {
-                    if let Some(stage) = self.ifs.last_mut() {
-                        match stage {
-                            IfStage::ThenKeyword(continuation) => {
-                                *stage = IfStage::ThenBranch(self.indent, *continuation);
-                            }
-                            IfStage::ElseKeyword(continuation) => {
-                                *stage = IfStage::ElseBranch(self.indent, *continuation);
-                            }
-                            _ => {}
-                        }
-                    }
-                    self.space();
-                    self.previous = Previous::LeftBrace;
-                    return;
-                }
-                self.indent += 1;
-                if let Some(stage) = self.ifs.last_mut() {
-                    match stage {
-                        IfStage::ThenKeyword(continuation) => {
-                            *stage = IfStage::ThenBranch(self.indent, *continuation);
-                        }
-                        IfStage::ElseKeyword(continuation) => {
-                            *stage = IfStage::ElseBranch(self.indent, *continuation);
-                        }
-                        _ => {}
-                    }
-                }
-                self.newline();
-                self.previous = Previous::LeftBrace;
+                self.write_left_brace(token_index, text);
             }
             TokenKind::RightBrace => {
-                self.brace_depth = self.brace_depth.saturating_sub(1);
-                if self.blocks.compact[token_index] {
-                    self.space();
-                    self.write(text);
-                    if let Some(stage) = self.ifs.last_mut() {
-                        match stage {
-                            IfStage::ThenBranch(branch_indent, continuation)
-                                if *branch_indent == self.indent =>
-                            {
-                                *stage = IfStage::AwaitElse(*continuation);
-                            }
-                            IfStage::ElseBranch(branch_indent, continuation)
-                                if *branch_indent == self.indent =>
-                            {
-                                *stage = IfStage::Finished(*continuation);
-                            }
-                            _ => {}
-                        }
-                    }
-                    if let Some(CaseStage::Arms(arms_indent, continuation)) = self.cases.last()
-                        && self.indent == *arms_indent
-                    {
-                        let arms_indent = *arms_indent;
-                        let continuation = *continuation;
-                        *self.cases.last_mut().expect("matched case arms") =
-                            CaseStage::AwaitArmOrEnd(arms_indent, continuation);
-                    }
-                    self.previous = Previous::RightBrace;
-                    return;
-                }
-                if self.blocks.terminate[token_index] {
-                    self.trim_space();
-                    self.write(";");
-                }
-                let closing_indent = self.indent;
-                self.indent = self.indent.saturating_sub(1);
-                self.newline();
-                self.write(text);
-                if let Some(stage) = self.ifs.last_mut() {
-                    match stage {
-                        IfStage::ThenBranch(branch_indent, continuation)
-                            if *branch_indent == closing_indent =>
-                        {
-                            *stage = IfStage::AwaitElse(*continuation);
-                        }
-                        IfStage::ElseBranch(branch_indent, continuation)
-                            if *branch_indent == closing_indent =>
-                        {
-                            *stage = IfStage::Finished(*continuation);
-                        }
-                        _ => {}
-                    }
-                }
-                if let Some(CaseStage::Arms(arms_indent, continuation)) = self.cases.last()
-                    && self.indent == *arms_indent
-                {
-                    let arms_indent = *arms_indent;
-                    let continuation = *continuation;
-                    *self.cases.last_mut().expect("matched case arms") =
-                        CaseStage::AwaitArmOrEnd(arms_indent, continuation);
-                }
-                self.previous = Previous::RightBrace;
+                self.write_right_brace(token_index, text);
             }
             TokenKind::Semicolon => {
                 self.trim_space();
@@ -196,37 +70,10 @@ impl Formatter<'_> {
                 self.previous = Previous::Comma;
             }
             TokenKind::LeftParen => {
-                if matches!(self.previous, Previous::Keyword) {
-                    self.space();
-                }
-                self.write(text);
-                self.paren_depth += 1;
-                if let Some(CaseStage::Keyword(continuation)) = self.cases.last() {
-                    let continuation = *continuation;
-                    *self.cases.last_mut().expect("matched case keyword") =
-                        CaseStage::Scrutinee(self.paren_depth, continuation);
-                }
-                self.previous = Previous::LeftParen;
+                self.write_left_paren(text);
             }
             TokenKind::RightParen => {
-                self.trim_space();
-                self.write(text);
-                if matches!(
-                    self.cases.last(),
-                    Some(CaseStage::Scrutinee(depth, _)) if *depth == self.paren_depth
-                ) {
-                    let continuation = match self.cases.last().expect("matched case scrutinee") {
-                        CaseStage::Scrutinee(_, continuation) => *continuation,
-                        _ => unreachable!("matched case scrutinee"),
-                    };
-                    if continuation {
-                        self.indent += 1;
-                    }
-                    *self.cases.last_mut().expect("matched case scrutinee") =
-                        CaseStage::Arms(self.indent, continuation);
-                }
-                self.paren_depth = self.paren_depth.saturating_sub(1);
-                self.previous = Previous::RightParen;
+                self.write_right_paren(text);
             }
             TokenKind::LeftBracket => {
                 if matches!(self.previous, Previous::RightParen | Previous::RightBrace) {
@@ -313,61 +160,16 @@ impl Formatter<'_> {
                 self.previous = Previous::Operator;
             }
             TokenKind::Then if matches!(self.ifs.last(), Some(IfStage::Condition(_))) => {
-                self.newline();
-                let continuation = match self.ifs.last().expect("matched condition") {
-                    IfStage::Condition(continuation) => *continuation,
-                    _ => unreachable!("matched condition"),
-                };
-                if continuation {
-                    self.indent += 1;
-                }
-                self.write(text);
-                *self.ifs.last_mut().expect("matched condition") =
-                    IfStage::ThenKeyword(continuation);
-                self.previous = Previous::Keyword;
+                self.write_then(text);
             }
             TokenKind::Else if matches!(self.ifs.last(), Some(IfStage::AwaitElse(_))) => {
-                self.newline();
-                self.write(text);
-                let continuation = match self.ifs.last().expect("matched then branch") {
-                    IfStage::AwaitElse(continuation) => *continuation,
-                    _ => unreachable!("matched then branch"),
-                };
-                *self.ifs.last_mut().expect("matched then branch") =
-                    IfStage::ElseKeyword(continuation);
-                self.previous = Previous::Keyword;
+                self.write_else(text);
             }
             TokenKind::If => {
-                if matches!(
-                    self.previous,
-                    Previous::Word
-                        | Previous::Keyword
-                        | Previous::RightParen
-                        | Previous::RightBracket
-                        | Previous::RightBrace
-                ) {
-                    self.space();
-                }
-                self.write(text);
-                self.ifs
-                    .push(IfStage::Condition(!self.controls.is_aligned(token_index)));
-                self.previous = Previous::Keyword;
+                self.write_if(token_index, text);
             }
             TokenKind::Case => {
-                if matches!(
-                    self.previous,
-                    Previous::Word
-                        | Previous::Keyword
-                        | Previous::RightParen
-                        | Previous::RightBracket
-                        | Previous::RightBrace
-                ) {
-                    self.space();
-                }
-                self.write(text);
-                self.cases
-                    .push(CaseStage::Keyword(!self.controls.is_aligned(token_index)));
-                self.previous = Previous::Keyword;
+                self.write_case(token_index, text);
             }
             TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
                 if matches!(
