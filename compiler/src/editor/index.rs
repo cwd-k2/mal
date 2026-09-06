@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::check::ast as checked;
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use crate::source::{FileId, Span};
 
 use super::{Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, SymbolKind};
 
@@ -10,8 +10,13 @@ mod aliases;
 mod checked_ast;
 mod resolved_ast;
 
-pub(super) fn build(resolved: &resolved::Program, checked: &checked::Program) -> SemanticDocument {
-    Index::new(resolved, checked).finish()
+pub(super) fn build(
+    resolved: &resolved::Program,
+    checked: &checked::Program,
+    file: Option<FileId>,
+    visible: Option<&HashSet<FileId>>,
+) -> SemanticDocument {
+    Index::new(resolved, checked).finish(file, visible)
 }
 
 struct Index<'a> {
@@ -59,7 +64,11 @@ impl<'a> Index<'a> {
         index
     }
 
-    fn finish(mut self) -> SemanticDocument {
+    fn finish(
+        mut self,
+        file: Option<FileId>,
+        visible: Option<&HashSet<FileId>>,
+    ) -> SemanticDocument {
         let raw_occurrences = std::mem::take(&mut self.raw_occurrences);
         let mut occurrences = raw_occurrences
             .into_iter()
@@ -75,19 +84,42 @@ impl<'a> Index<'a> {
                 }
             })
             .collect::<Vec<_>>();
-        occurrences.sort_by_key(|occurrence| (occurrence.span.start(), occurrence.span.end()));
+        occurrences.sort_by_key(|occurrence| {
+            (
+                occurrence.span.file().index(),
+                occurrence.span.start(),
+                occurrence.span.end(),
+            )
+        });
 
-        let document_symbols = self
+        let top_level = self
             .top_level
             .iter()
             .filter_map(|&id| symbol_for(id, &occurrences))
             .collect::<Vec<_>>();
+        let document_symbols = top_level
+            .iter()
+            .filter(|symbol| {
+                file.is_none_or(|file| symbol.span.is_some_and(|span| span.file() == file))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
         let mut completions = predefined_symbols();
-        completions.extend(document_symbols.iter().cloned());
+        completions.extend(top_level.into_iter().filter(|symbol| {
+            let Some(span) = symbol.span else {
+                return false;
+            };
+            file.is_none_or(|file| {
+                span.file() == file
+                    || (visible.is_some_and(|visible| visible.contains(&span.file()))
+                        && !symbol.name.starts_with('_'))
+            })
+        }));
         completions.sort_by(|left, right| left.name.cmp(&right.name));
         completions.dedup_by(|left, right| left.name == right.name);
 
         SemanticDocument {
+            file,
             occurrences,
             typed_regions: self.typed_regions,
             document_symbols,

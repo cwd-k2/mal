@@ -1,5 +1,5 @@
 use malc::editor::{OccurrenceRole, SymbolKind};
-use malc::source::{FileId, SourceFile};
+use malc::source::{FileId, SourceFile, SourceGraph, SourceRequirement, Span};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(111), "editor-test.mal", text.into())
@@ -143,4 +143,61 @@ fn reports_the_function_type_of_a_first_class_memory_function() {
 
     assert_eq!(hover.ty, "Ptr -> Int64");
     assert_eq!(hover.occurrence.unwrap().name, "loadInt64");
+}
+
+#[test]
+fn graph_analysis_keeps_navigation_global_and_document_features_local() {
+    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := \\() { publicValue; };\n";
+    let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
+    let root = SourceFile::new(FileId::new(0), "root.mal", root_text.into());
+    let library = SourceFile::new(FileId::new(1), "library.mal", library_text.into());
+    let graph = SourceGraph::new(
+        FileId::new(0),
+        vec![root, library],
+        vec![
+            vec![SourceRequirement {
+                target: FileId::new(1),
+                span: Span::new(FileId::new(0), 0, 22),
+            }],
+            vec![],
+        ],
+        vec![],
+    );
+    let analysis = malc::pipeline::analyze_graph(&graph).expect("graph analysis");
+    let document = malc::editor::from_graph_analysis(&graph, &analysis, FileId::new(0));
+
+    assert_eq!(
+        document
+            .document_symbols()
+            .iter()
+            .map(|symbol| symbol.name.as_str())
+            .collect::<Vec<_>>(),
+        ["answer"]
+    );
+    assert!(
+        document
+            .completions()
+            .iter()
+            .any(|symbol| symbol.name == "publicValue")
+    );
+    assert!(
+        !document
+            .completions()
+            .iter()
+            .any(|symbol| symbol.name == "_privateValue")
+    );
+
+    let reference = document
+        .occurrence_at(root_text.rfind("publicValue").unwrap())
+        .expect("root reference");
+    let definition = document
+        .definition(reference.id)
+        .expect("library definition");
+    assert_eq!(definition.span.file(), FileId::new(1));
+    assert_eq!(document.references(reference.id, true).len(), 2);
+    assert!(
+        document
+            .document_occurrences()
+            .all(|occurrence| occurrence.span.file() == FileId::new(0))
+    );
 }

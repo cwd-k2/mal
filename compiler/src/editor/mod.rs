@@ -1,6 +1,8 @@
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
-use crate::source::{SourceFile, Span};
+use std::collections::HashSet;
+
+use crate::source::{FileId, SourceFile, SourceGraph, Span};
 
 mod index;
 
@@ -53,6 +55,7 @@ pub struct Hover<'a> {
 
 #[derive(Clone, Debug)]
 pub struct SemanticDocument {
+    file: Option<FileId>,
     occurrences: Vec<Occurrence>,
     typed_regions: Vec<(Span, String)>,
     document_symbols: Vec<Symbol>,
@@ -61,11 +64,37 @@ pub struct SemanticDocument {
 
 pub fn analyze(source: &SourceFile) -> Result<SemanticDocument, Diagnostic> {
     let analysis = crate::pipeline::analyze(source)?;
-    Ok(from_analysis(&analysis))
+    Ok(from_analysis_for_file(&analysis, source.id()))
 }
 
 pub fn from_analysis(analysis: &crate::pipeline::Analysis) -> SemanticDocument {
-    index::build(&analysis.resolved, &analysis.checked)
+    index::build(&analysis.resolved, &analysis.checked, None, None)
+}
+
+pub fn from_analysis_for_file(
+    analysis: &crate::pipeline::Analysis,
+    file: FileId,
+) -> SemanticDocument {
+    index::build(&analysis.resolved, &analysis.checked, Some(file), None)
+}
+
+pub fn from_graph_analysis(
+    graph: &SourceGraph,
+    analysis: &crate::pipeline::Analysis,
+    file: FileId,
+) -> SemanticDocument {
+    let visible = graph
+        .requirements(file)
+        .iter()
+        .map(|requirement| requirement.target)
+        .chain(std::iter::once(file))
+        .collect::<HashSet<_>>();
+    index::build(
+        &analysis.resolved,
+        &analysis.checked,
+        Some(file),
+        Some(&visible),
+    )
 }
 
 impl SemanticDocument {
@@ -73,10 +102,18 @@ impl SemanticDocument {
         &self.occurrences
     }
 
+    pub fn document_occurrences(&self) -> impl Iterator<Item = &Occurrence> {
+        self.occurrences
+            .iter()
+            .filter(|occurrence| self.in_document(occurrence.span))
+    }
+
     pub fn occurrence_at(&self, byte_offset: usize) -> Option<&Occurrence> {
         self.occurrences
             .iter()
-            .filter(|occurrence| contains(occurrence.span, byte_offset))
+            .filter(|occurrence| {
+                self.in_document(occurrence.span) && contains(occurrence.span, byte_offset)
+            })
             .min_by_key(|occurrence| occurrence.span.end() - occurrence.span.start())
     }
 
@@ -92,7 +129,7 @@ impl SemanticDocument {
         }
         self.typed_regions
             .iter()
-            .filter(|(span, _)| contains(*span, byte_offset))
+            .filter(|(span, _)| self.in_document(*span) && contains(*span, byte_offset))
             .min_by_key(|(span, _)| span.end() - span.start())
             .map(|(span, ty)| Hover {
                 span: *span,
@@ -134,6 +171,10 @@ impl SemanticDocument {
 
     pub fn completions(&self) -> &[Symbol] {
         &self.completions
+    }
+
+    fn in_document(&self, span: Span) -> bool {
+        self.file.is_none_or(|file| span.file() == file)
     }
 }
 
