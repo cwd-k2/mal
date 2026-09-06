@@ -1,14 +1,17 @@
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::closure::ast::{Atom, AtomKind, Operation, Reference};
-use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
+use crate::closure::ast::{Atom, Operation};
+use crate::core::ast::UnaryPrimitive;
 
 use crate::c_emit::runtime::memory::{scalar_mask, scalar_name};
 use crate::c_emit::scalar::integer_type;
 use crate::c_emit::types::is_bool;
 
+mod atom;
+mod primitive;
+
 use super::{
     BodyEmitter, direct_function_name, flattened_product_values, function_name,
-    has_direct_product_entry, value_name,
+    has_direct_product_entry,
 };
 
 impl BodyEmitter<'_> {
@@ -201,203 +204,6 @@ impl BodyEmitter<'_> {
             _ => format!(", {}", self.emit_atom(argument)),
         };
         format!("mal_ext_{}(mal_context{arguments})", external.name)
-    }
-
-    fn emit_binary(
-        &mut self,
-        operator: BinaryPrimitive,
-        left: &Atom,
-        right: &Atom,
-        result: &Type,
-    ) -> String {
-        let operand_type = left.ty.clone();
-        let left = self.emit_atom(left);
-        let right = self.emit_atom(right);
-        match operator {
-            BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract => {
-                if operator == BinaryPrimitive::Add && operand_type == Type::Symbol {
-                    self.needs.symbol_concatenate = true;
-                    return format!("mal_symbol_concatenate(mal_context, {left}, {right})");
-                }
-                if matches!(operand_type, Type::Float32 | Type::Float64) {
-                    let symbol = match operator {
-                        BinaryPrimitive::Multiply => "*",
-                        BinaryPrimitive::Add => "+",
-                        BinaryPrimitive::Subtract => "-",
-                        _ => unreachable!(),
-                    };
-                    return format!("({left} {symbol} {right})");
-                }
-                let integer = integer_type(&operand_type).unwrap();
-                let unsigned = integer.unsigned;
-                let carrier = integer.carrier;
-                let symbol = match operator {
-                    BinaryPrimitive::Multiply => "*",
-                    BinaryPrimitive::Add => "+",
-                    BinaryPrimitive::Subtract => "-",
-                    _ => unreachable!(),
-                };
-                let expression = format!(
-                    "({carrier})({unsigned})({left}) {symbol} ({carrier})({unsigned})({right})"
-                );
-                self.wrap_integer(&operand_type, &expression)
-            }
-            BinaryPrimitive::Divide => {
-                if matches!(operand_type, Type::Float32 | Type::Float64) {
-                    return format!("({left} / {right})");
-                }
-                let integer = integer_type(&operand_type).unwrap();
-                self.needs.divide |= integer.mask();
-                let name = integer.name;
-                format!("mal_{name}_divide(mal_context, {left}, {right})")
-            }
-            BinaryPrimitive::Remainder => {
-                let integer = integer_type(&operand_type).unwrap();
-                self.needs.remainder |= integer.mask();
-                let name = integer.name;
-                format!("mal_{name}_remainder(mal_context, {left}, {right})")
-            }
-            BinaryPrimitive::ShiftLeft | BinaryPrimitive::ShiftRight => {
-                if operator == BinaryPrimitive::ShiftLeft {
-                    self.needs.shift_left |= integer_type(&operand_type).unwrap().mask();
-                } else {
-                    self.needs.shift_right |= integer_type(&operand_type).unwrap().mask();
-                }
-                let integer = integer_type(&operand_type).unwrap();
-                self.needs.wrap |= integer.mask();
-                let name = integer.name;
-                let direction = if operator == BinaryPrimitive::ShiftLeft {
-                    "shift_left"
-                } else {
-                    "shift_right"
-                };
-                format!("mal_{name}_{direction}(mal_context, {left}, {right})")
-            }
-            BinaryPrimitive::BitwiseAnd
-            | BinaryPrimitive::BitwiseXor
-            | BinaryPrimitive::BitwiseOr => {
-                let unsigned = integer_type(&operand_type).unwrap().unsigned;
-                let symbol = match operator {
-                    BinaryPrimitive::BitwiseAnd => "&",
-                    BinaryPrimitive::BitwiseXor => "^",
-                    BinaryPrimitive::BitwiseOr => "|",
-                    _ => unreachable!(),
-                };
-                let expression = format!("({unsigned})({left}) {symbol} ({unsigned})({right})");
-                self.wrap_integer(&operand_type, &expression)
-            }
-            BinaryPrimitive::Less
-            | BinaryPrimitive::LessEqual
-            | BinaryPrimitive::Greater
-            | BinaryPrimitive::GreaterEqual
-            | BinaryPrimitive::Equal
-            | BinaryPrimitive::NotEqual => {
-                let condition = self.comparison_text(operator, &operand_type, &left, &right);
-                debug_assert!(is_bool(result));
-                format!("({condition}) ? UINT8_C(1) : UINT8_C(0)")
-            }
-        }
-    }
-
-    pub(super) fn emit_primitive_condition(
-        &mut self,
-        operator: BinaryPrimitive,
-        left: &Atom,
-        right: &Atom,
-    ) -> String {
-        self.comparison_text(
-            operator,
-            &left.ty,
-            &self.emit_atom(left),
-            &self.emit_atom(right),
-        )
-    }
-
-    fn comparison_text(
-        &mut self,
-        operator: BinaryPrimitive,
-        operand_type: &Type,
-        left: &str,
-        right: &str,
-    ) -> String {
-        if *operand_type == Type::Symbol {
-            self.needs.symbol_equality = true;
-            let equality = format!("mal_symbol_equal({left}, {right})");
-            return if operator == BinaryPrimitive::Equal {
-                equality
-            } else {
-                format!("!{equality}")
-            };
-        }
-        let symbol = match operator {
-            BinaryPrimitive::Less => "<",
-            BinaryPrimitive::LessEqual => "<=",
-            BinaryPrimitive::Greater => ">",
-            BinaryPrimitive::GreaterEqual => ">=",
-            BinaryPrimitive::Equal => "==",
-            BinaryPrimitive::NotEqual => "!=",
-            _ => unreachable!("primitive branches contain only comparison operators"),
-        };
-        format!("{left} {symbol} {right}")
-    }
-
-    fn wrap_integer(&mut self, ty: &Type, expression: &str) -> String {
-        let integer = integer_type(ty).unwrap();
-        let name = integer.name;
-        let unsigned = integer.unsigned;
-        if integer.signed() {
-            self.needs.wrap |= integer.mask();
-            format!("mal_{name}_from_{unsigned}(({unsigned})({expression}))")
-        } else {
-            format!("({unsigned})({expression})")
-        }
-    }
-
-    pub(super) fn emit_atom(&self, atom: &Atom) -> String {
-        match &atom.kind {
-            AtomKind::Reference(Reference::Binding(id)) => value_name(*id),
-            AtomKind::Reference(Reference::EnvironmentField(index)) => {
-                format!("mal_environment_fields->field_{index}")
-            }
-            AtomKind::Reference(Reference::SelfClosure(function)) => format!(
-                "({}){{ .call = {}, .environment = mal_environment }}",
-                self.types.c_type(&atom.ty),
-                function_name(*function)
-            ),
-            AtomKind::Integer(value) => {
-                let integer = integer_type(&atom.ty).expect("integer atoms have integer types");
-                if integer.minimum_value == Some(*value) {
-                    integer.minimum.unwrap().into()
-                } else {
-                    let constant = integer.constant;
-                    format!("{constant}({value})")
-                }
-            }
-            AtomKind::Float(bits) => match atom.ty {
-                Type::Float32 => format!("mal_float32_from_bits(UINT32_C({bits}))"),
-                Type::Float64 => format!("mal_float64_from_bits(UINT64_C({bits}))"),
-                _ => unreachable!("float atoms have Float32 or Float64 type"),
-            },
-            AtomKind::Symbol(value) => {
-                let bytes = value
-                    .iter()
-                    .map(|byte| format!("\\x{byte:02x}"))
-                    .collect::<String>();
-                format!(
-                    "(MalType_Symbol){{ (const uint8_t *)\"{bytes}\", UINT64_C({}) }}",
-                    value.len()
-                )
-            }
-            AtomKind::StorageSize(ty) => match ty {
-                Type::Int8 | Type::UInt8 => "UINT64_C(1)".into(),
-                Type::Int16 | Type::UInt16 => "UINT64_C(2)".into(),
-                Type::Int32 | Type::UInt32 | Type::Float32 => "UINT64_C(4)".into(),
-                Type::Int64 | Type::UInt64 | Type::Float64 => "UINT64_C(8)".into(),
-                Type::Ptr => "((uint64_t)sizeof(MalType_Ptr))".into(),
-                _ => unreachable!("only memory-storable types have storage-size atoms"),
-            },
-            AtomKind::Unit => "(MalType_Unit){ UINT8_C(0) }".into(),
-        }
     }
 }
 
