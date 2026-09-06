@@ -254,3 +254,25 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
     );
     assert!(directory.run(executable).status.success());
 }
+
+#[test]
+fn source_graph_overlays_open_mal_buffers() {
+    let directory = NativeFixture::new("driver-overlays");
+    let source = directory.write("program.mal", "not the open buffer");
+    let dependency = directory.write("library.mal", "not the open buffer");
+    let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := \\() { value - 42; };";
+    let dependency_text = "value :: Int32 := 42;";
+    let overlays =
+        std::collections::HashMap::from([(dependency.clone(), dependency_text.to_owned())]);
+
+    let graph = malc::driver::load_source_graph_with_overlays(&source, root_text, &overlays)
+        .expect("load overlaid source graph");
+
+    assert_eq!(graph.root_source().text(), root_text);
+    assert_eq!(graph.files().len(), 2);
+    assert_eq!(
+        graph.source(malc::source::FileId::new(1)).unwrap().text(),
+        dependency_text
+    );
+    malc::pipeline::check_graph(&graph).expect("check overlaid graph");
+}

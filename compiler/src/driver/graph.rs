@@ -14,7 +14,8 @@ enum State {
 
 pub(super) fn load(root: &Path) -> Result<SourceGraph, Error> {
     let root_path = canonicalize_root(root)?;
-    let mut builder = Builder::default();
+    let overlays = HashMap::new();
+    let mut builder = Builder::new(&overlays);
     let root = builder.load_mal(&root_path, None)?;
     Ok(SourceGraph::new(
         root,
@@ -24,16 +25,48 @@ pub(super) fn load(root: &Path) -> Result<SourceGraph, Error> {
     ))
 }
 
-#[derive(Default)]
-struct Builder {
+pub(super) fn load_with_overlays(
+    root: &Path,
+    root_text: &str,
+    overlays: &HashMap<PathBuf, String>,
+) -> Result<SourceGraph, Error> {
+    let root_path = canonicalize_or_absolute(root)?;
+    let mut normalized = overlays
+        .iter()
+        .map(|(path, text)| Ok((canonicalize_or_absolute(path)?, text.as_str())))
+        .collect::<Result<HashMap<_, _>, Error>>()?;
+    normalized.insert(root_path.clone(), root_text);
+    let mut builder = Builder::new(&normalized);
+    let root = builder.load_mal(&root_path, None)?;
+    Ok(SourceGraph::new(
+        root,
+        builder.files,
+        builder.requirements,
+        builder.c_sources,
+    ))
+}
+
+struct Builder<'a> {
     files: Vec<SourceFile>,
     requirements: Vec<Vec<SourceRequirement>>,
     states: HashMap<PathBuf, State>,
     c_sources: Vec<PathBuf>,
     seen_c_sources: HashSet<PathBuf>,
+    overlays: &'a HashMap<PathBuf, &'a str>,
 }
 
-impl Builder {
+impl<'a> Builder<'a> {
+    fn new(overlays: &'a HashMap<PathBuf, &'a str>) -> Self {
+        Self {
+            files: Vec::new(),
+            requirements: Vec::new(),
+            states: HashMap::new(),
+            c_sources: Vec::new(),
+            seen_c_sources: HashSet::new(),
+            overlays,
+        }
+    }
+
     fn load_mal(
         &mut self,
         path: &Path,
@@ -55,7 +88,10 @@ impl Builder {
         }
 
         let id = FileId::new(self.files.len() as u32);
-        let source = SourceFile::load(id, path).map_err(Error::source)?;
+        let source = self.overlays.get(path).map_or_else(
+            || SourceFile::load(id, path).map_err(Error::source),
+            |text| Ok(SourceFile::new(id, path, (*text).to_owned())),
+        )?;
         let parsed =
             crate::parser::parse(&source).map_err(|error| Error::diagnostic(error, &source))?;
         self.states.insert(path.to_owned(), State::Loading);
@@ -115,6 +151,16 @@ enum RequirementKind {
 
 fn canonicalize_root(path: &Path) -> Result<PathBuf, Error> {
     std::fs::canonicalize(path).map_err(|error| Error::io("read source", path, error))
+}
+
+fn canonicalize_or_absolute(path: &Path) -> Result<PathBuf, Error> {
+    match std::fs::canonicalize(path) {
+        Ok(path) => Ok(path),
+        Err(_) if path.is_absolute() => Ok(path.to_owned()),
+        Err(_) => std::env::current_dir()
+            .map(|current| current.join(path))
+            .map_err(|error| Error::io("resolve source path", path, error)),
+    }
 }
 
 fn requirement_path(

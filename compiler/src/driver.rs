@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
@@ -5,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::source::{FileId, SourceFile};
+use crate::source::{FileId, SourceFile, SourceGraph};
 
 mod graph;
 
@@ -29,6 +30,14 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
     crate::pipeline::check_graph(&graph)
         .map(|_| ())
         .map_err(|error| Error::diagnostic(error, &graph))
+}
+
+pub fn load_source_graph_with_overlays(
+    root_path: &Path,
+    root_text: &str,
+    overlays: &HashMap<PathBuf, String>,
+) -> Result<SourceGraph, Error> {
+    graph::load_with_overlays(root_path, root_text, overlays)
 }
 
 pub fn format(source_path: &Path) -> Result<String, Error> {
