@@ -87,7 +87,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `parser/expression/forms` | product、call、extern call、conversion、sum injection |
 | `parser/expression/lambda` | capture、parameter、lambda bodyの構成 |
 | `parser/expression/control` | `if`、`case`、expression blockの構成 |
-| `resolve` | compilation unit順序、resolved itemの構成、lambda identity |
+| `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
 | `resolve/expression` | expression、capture list、lambda-local ownershipの解決 |

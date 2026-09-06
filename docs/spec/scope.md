@@ -109,7 +109,7 @@ hash table、list、set も組み込み型ではない。必要な element type 
 v0.5はArray、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeは`.mal` fileから
 requireするかhostが`extern`として提供する。
 
-compilation unitとfileの規則は[プログラム構造](programs.md)に置く。
+programとsource fileの規則は[プログラム構造](programs.md)に置く。
 
 ## 設計原則
 

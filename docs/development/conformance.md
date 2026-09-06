@@ -17,7 +17,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`scope`: 持たないもの](../spec/scope.md#mal-が持たないもの) | `rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`）、`rejects_non_associative_operator_chains`（`compiler/tests/parser.rs`） | — |
 | [`scope`: named data](../spec/scope.md#named-data) | P/E: `expands_aliases_and_compares_types_structurally`、`checks_sum_injection_payload_and_index`（`compiler/tests/check.rs`） | `executes_sum_injection_and_case`（`compiler/tests/c_emit.rs`） |
 | [`scope`: memoryとmutable data](../spec/scope.md#memory-と-mutable-data) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `exposes_copyable_opaque_handles_to_the_host`（`compiler/tests/c_emit.rs`） |
-| [`scope`: standard libraryとfile](../spec/scope.md#standard-library-と-file) | 単一sourceだけを受けるCLI grammar（`compiler/src/cli.rs`） | `build_links_multiple_host_inputs_and_produces_an_executable`（`compiler/tests/driver.rs`） |
+| [`scope`: standard libraryとfile](../spec/scope.md#standard-library-と-file) | require grammarとpath rejection（`compiler/tests/parser.rs`、`compiler/tests/driver.rs`） | `build_compiles_required_host_inputs_and_produces_an_executable`（`compiler/tests/driver.rs`） |
 | [`scope`: 設計原則](../spec/scope.md#設計原則) | 以下の型・`extern` ABI対応行で検証 | 以下のABI testで検証 |
 | [`types`: scalarと型の構成](../spec/types.md#型の構成) | P/N/E: `checks_all_fixed_width_literal_boundaries_and_byte_literals`、`checks_float_arithmetic_comparison_and_negation`（`compiler/tests/check.rs`） | `emits_every_fixed_width_scalar_in_the_generated_header`（`compiler/tests/c_emit.rs`） |
 | [`types`: Symbol](../spec/types.md#symbol) | P/N: `checks_symbol_literals_as_immutable_bytes`、`rejects_unsupported_or_mistyped_symbol_operations`（`compiler/tests/check.rs`） | `emits_static_symbol_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
@@ -75,7 +75,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 
 | 規範 | P / N / E | X |
 |---|---|---|
-| [`programs`: compilation unit](../spec/programs.md#compilation-unit) | 単一sourceのprogram parseとCLI grammar（`compiler/tests/parser.rs`、`compiler/src/cli.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
+| [`programs`: programとsource file](../spec/programs.md#program-と-source-file) | P/N/E: require parse、visibility、衝突、cycle、path tests（`compiler/tests/parser.rs`、`compiler/tests/resolve.rs`、`compiler/tests/driver.rs`） | `builds_public_functions_from_required_files_with_private_helpers`、`mini-database` example（`compiler/tests/driver.rs`） |
 | [`programs`: top-level item](../spec/programs.md#top-level-item) | P/N/E: `type_and_external_declarations_are_visible_across_the_unit`（`compiler/tests/resolve.rs`）、`rejects_effectful_top_level_initializers`（`compiler/tests/check.rs`） | `examples/`のchecked-in program（`compiler/tests/driver.rs`） |
 | [`programs`: entry point](../spec/programs.md#entry-point) | P/N/E: `rejects_invalid_executable_programs`、`admits_process_arguments_as_symbols`（`compiler/tests/c_emit.rs`） | public `build` example tests（`compiler/tests/driver.rs`） |
 | [`grammar`: sourceとidentifier](../spec/grammar.md#source-と-identifier) | P/N/E: keyword、whitespace/comment、identifier、UTF-8 diagnostic tests（`compiler/tests/lexer.rs`、`compiler/src/source.rs`） | frontendを通る全native test |

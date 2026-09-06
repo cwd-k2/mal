@@ -107,7 +107,8 @@ false :: Bool := Bool[0](());
 true :: Bool := Bool[1](());
 ```
 
-これらは compilation unit より外側の predefined scope に存在するものとして名前解決する。compilation unit の top-level で `Bool`、`false`、`true` を再定義してはならない。local scope では通常の shadowing 規則により `false` と `true` を shadow できる。
+これらはsource fileより外側のpredefined scopeに存在するものとして名前解決する。各source fileのtop-levelで`Bool`、
+`false`、`true`を再定義してはならない。local scopeでは通常のshadowing規則により`false`と`true`をshadowできる。
 
 `false` と `true` は keyword や専用 literal ではなく、型付きの immutable value である。
 
