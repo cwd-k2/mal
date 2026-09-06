@@ -1,6 +1,10 @@
 # Symbol round-trip example
 
-This example receives arbitrary bytes from a host scratch buffer, validates them with Symbol operators, appends a suffix with `Symbol + Symbol`, and sends the resulting Symbol to the host. The host copies its result with `mal_Symbol_copy_from_bytes`, then overwrites and frees the scratch buffer before mal observes the value.
+This example receives arbitrary bytes from a host scratch buffer, validates them with Symbol
+operators, appends a suffix with `Symbol + Symbol`, and sends the resulting Symbol to the host. The
+host copies its result with `mal_Symbol_copy_from_bytes`, then overwrites the stack scratch buffer
+before mal observes the value. Stack storage avoids leaving an untransferred heap resource when the
+copy helper traps on allocation failure.
 
 From the repository root in Nushell:
 

@@ -81,6 +81,7 @@ printValue :: Int32 -> Unit := \(x :: Int32) {
 - host 側の一時byte bufferの取得方法とcopy後の解放
 - host failure を trap、process termination、戻り値のどれへ写像するか
 - host が保持してよい引数と、mal が保持してよい戻り値
+- result capabilityをmalへtransferするcommit pointと、それ以前にhostが取得した一時resourceのcleanup
 
 ## boundary transport
 
@@ -100,6 +101,12 @@ host側bufferの具体的な取得、copy完了までの有効期間、copy後�
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../design/decisions.md#d015-opaque-valueはcopyable-handleとする)に記録する。
+
+host operationがresult capabilityを正常returnする前にtrapするか、capabilityを含まないfailure resultを返す場合、
+そのoperationだけが取得し、callerにもresultにも属さない一時resourceはadapterが解放する。正常resultへ含めた
+capabilityのtransferはreturn時にcommitする。この規則はargumentとして受け取ったresource、以前のcallでtransfer済みの
+resource、またはtrap時の一般的なstack unwindingをcleanupしない。trapし得るruntime helperを呼ぶadapterは、helperより前に
+取得した一時resourceを残さない構成にするか、operation固有のcleanup手段を用意する。
 
 `Ptr`を返すoperationは、pointerが指すlive region、permission、lifetimeをhost contractに定める。`Ptr`の複製は
 storageを複製せず、lifetimeを延長しない。詳細は[memory primitive](memory.md)に定める。

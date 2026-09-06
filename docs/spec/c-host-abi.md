@@ -216,3 +216,8 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 ## failure
 
 回復可能なhost failureは明示的なsum resultとしてAPIに表す。ABI共通のhidden error channel、`errno` mapping、exception translationは持たない。回復不能なcontract violationは`mal_trap`を呼べる。
+
+adapterはresult capabilityを正常returnした時点でhostからmalへのtransferをcommitする。それ以前にtrapする場合、または
+capabilityを含まないfailure variantを返す場合、adapterがそのcall内で取得した一時allocationや未transfer resourceは
+adapter自身が解放する。argument resourceと以前にtransfer済みのresourceはこのcleanupの対象ではない。
+`mal_Symbol_copy_from_bytes`と`mal_trap`はreturnしない場合があるため、その前にcleanup不能な一時resourceを残してはならない。

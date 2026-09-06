@@ -2,7 +2,6 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 static const uint8_t received[8] = {
@@ -14,14 +13,10 @@ static const uint8_t expected[9] = {
 };
 
 MAL_DEFINE_receive(context) {
-    uint8_t *scratch = (uint8_t *)malloc(sizeof(received));
-    if (scratch == NULL) {
-        mal_trap(context, "host allocation failed");
-    }
+    uint8_t scratch[sizeof(received)];
     memcpy(scratch, received, sizeof(received));
     MalType_Symbol result = mal_Symbol_copy_from_bytes(context, scratch, UINT64_C(8));
     memset(scratch, 0, sizeof(received));
-    free(scratch);
     return result;
 }
 
