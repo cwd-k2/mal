@@ -102,37 +102,35 @@ fn float_target_profile() -> syntax::TranslationUnit {
     output.blank_line();
     for (condition, message) in [
         (
-            Expr::binary("==", Expr::identifier("FLT_RADIX"), Expr::number("2")),
+            Expr::equal(Expr::identifier("FLT_RADIX"), Expr::number("2")),
             "mal requires radix-2 floating point",
         ),
         (
             conjunction([
-                Expr::binary("==", Expr::sizeof_type("float"), Expr::number("4")),
-                Expr::binary("==", Expr::identifier("FLT_MANT_DIG"), Expr::number("24")),
-                Expr::binary("==", Expr::identifier("FLT_MAX_EXP"), Expr::number("128")),
-                Expr::binary(
-                    "==",
+                Expr::equal(Expr::sizeof_type("float"), Expr::number("4")),
+                Expr::equal(Expr::identifier("FLT_MANT_DIG"), Expr::number("24")),
+                Expr::equal(Expr::identifier("FLT_MAX_EXP"), Expr::number("128")),
+                Expr::equal(
                     Expr::identifier("FLT_MIN_EXP"),
-                    Expr::unary("-", Expr::number("125")),
+                    Expr::negate(Expr::number("125")),
                 ),
             ]),
             "mal requires binary32 float",
         ),
         (
             conjunction([
-                Expr::binary("==", Expr::sizeof_type("double"), Expr::number("8")),
-                Expr::binary("==", Expr::identifier("DBL_MANT_DIG"), Expr::number("53")),
-                Expr::binary("==", Expr::identifier("DBL_MAX_EXP"), Expr::number("1024")),
-                Expr::binary(
-                    "==",
+                Expr::equal(Expr::sizeof_type("double"), Expr::number("8")),
+                Expr::equal(Expr::identifier("DBL_MANT_DIG"), Expr::number("53")),
+                Expr::equal(Expr::identifier("DBL_MAX_EXP"), Expr::number("1024")),
+                Expr::equal(
                     Expr::identifier("DBL_MIN_EXP"),
-                    Expr::unary("-", Expr::number("1021")),
+                    Expr::negate(Expr::number("1021")),
                 ),
             ]),
             "mal requires binary64 double",
         ),
         (
-            Expr::binary("==", Expr::identifier("FLT_EVAL_METHOD"), Expr::number("0")),
+            Expr::equal(Expr::identifier("FLT_EVAL_METHOD"), Expr::number("0")),
             "mal requires evaluation in the operand format",
         ),
     ] {
@@ -142,11 +140,9 @@ fn float_target_profile() -> syntax::TranslationUnit {
         ("FLT_HAS_SUBNORM", "mal requires float subnormals"),
         ("DBL_HAS_SUBNORM", "mal requires double subnormals"),
     ] {
-        output.push(Directive::If(PreprocessorExpr::binary(
-            "&&",
+        output.push(Directive::If(PreprocessorExpr::logical_and(
             PreprocessorExpr::defined(macro_name),
-            PreprocessorExpr::binary(
-                "!=",
+            PreprocessorExpr::not_equal(
                 PreprocessorExpr::identifier(macro_name),
                 PreprocessorExpr::integer("1"),
             ),
@@ -161,7 +157,7 @@ fn float_target_profile() -> syntax::TranslationUnit {
 fn conjunction<const N: usize>(expressions: [syntax::Expr; N]) -> syntax::Expr {
     expressions
         .into_iter()
-        .reduce(|left, right| syntax::Expr::binary("&&", left, right))
+        .reduce(syntax::Expr::logical_and)
         .expect("conjunction requires at least one expression")
 }
 
@@ -177,8 +173,8 @@ fn float_from_bits_definition(
         Statement::expression(Expr::named_call(
             "memcpy",
             [
-                Expr::unary("&", Expr::identifier("value")),
-                Expr::unary("&", Expr::identifier("bits")),
+                Expr::address_of(Expr::identifier("value")),
+                Expr::address_of(Expr::identifier("bits")),
                 Expr::sizeof_expr(Expr::identifier("value")),
             ],
         )),

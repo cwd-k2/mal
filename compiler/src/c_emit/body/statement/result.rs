@@ -103,7 +103,7 @@ impl BodyEmitter<'_> {
                 Initializer::designated(format!("field_{index}"), self.emit_atom(atom))
             });
             block.push(Statement::assignment(
-                Expr::unary("*", Expr::identifier(allocation.clone())),
+                Expr::dereference(Expr::identifier(allocation.clone())),
                 Expr::compound_literal(environment_type, fields),
             ));
             Expr::identifier(allocation)

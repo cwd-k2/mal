@@ -2,9 +2,42 @@ use std::fmt;
 
 use super::TypeName;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(in crate::c_emit) enum UnaryOperator {
+    AddressOf,
+    Dereference,
+    Negate,
+    BitwiseNot,
+    LogicalNot,
+    PreIncrement,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(in crate::c_emit) enum BinaryOperator {
+    Multiply,
+    Divide,
+    Remainder,
+    Add,
+    Subtract,
+    ShiftLeft,
+    ShiftRight,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Equal,
+    NotEqual,
+    BitwiseAnd,
+    BitwiseXor,
+    BitwiseOr,
+    LogicalAnd,
+    LogicalOr,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Expr {
     Number(String),
+    Character(char),
     StringLiteral(String),
     ByteString(Vec<u8>),
     Identifier(String),
@@ -26,11 +59,11 @@ pub(in crate::c_emit) enum Expr {
         value: Box<Self>,
     },
     Unary {
-        operator: &'static str,
+        operator: UnaryOperator,
         operand: Box<Self>,
     },
     Binary {
-        operator: &'static str,
+        operator: BinaryOperator,
         left: Box<Self>,
         right: Box<Self>,
     },
@@ -48,15 +81,44 @@ pub(in crate::c_emit) enum Expr {
     InitializerList(Vec<Initializer>),
 }
 
+macro_rules! unary_constructors {
+    ($($method:ident => $operator:ident),+ $(,)?) => {
+        $(
+            pub(in crate::c_emit) fn $method(operand: Self) -> Self {
+                Self::unary(UnaryOperator::$operator, operand)
+            }
+        )+
+    };
+}
+
+macro_rules! binary_constructors {
+    ($($method:ident => $operator:ident),+ $(,)?) => {
+        $(
+            pub(in crate::c_emit) fn $method(left: Self, right: Self) -> Self {
+                Self::binary(BinaryOperator::$operator, left, right)
+            }
+        )+
+    };
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct Initializer {
-    designator: Vec<String>,
+    designators: Vec<Designator>,
     value: Expr,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Designator {
+    Field(String),
 }
 
 impl Expr {
     pub(in crate::c_emit) fn number(value: impl Into<String>) -> Self {
         Self::Number(value.into())
+    }
+
+    pub(in crate::c_emit) fn character(value: char) -> Self {
+        Self::Character(value)
     }
 
     pub(in crate::c_emit) fn string(value: impl Into<String>) -> Self {
@@ -115,19 +177,46 @@ impl Expr {
         }
     }
 
-    pub(in crate::c_emit) fn unary(operator: &'static str, operand: Self) -> Self {
+    pub(in crate::c_emit) fn unary(operator: UnaryOperator, operand: Self) -> Self {
         Self::Unary {
             operator,
             operand: Box::new(operand),
         }
     }
 
-    pub(in crate::c_emit) fn binary(operator: &'static str, left: Self, right: Self) -> Self {
+    pub(in crate::c_emit) fn binary(operator: BinaryOperator, left: Self, right: Self) -> Self {
         Self::Binary {
             operator,
             left: Box::new(left),
             right: Box::new(right),
         }
+    }
+
+    unary_constructors! {
+        address_of => AddressOf,
+        dereference => Dereference,
+        negate => Negate,
+        bitwise_not => BitwiseNot,
+        logical_not => LogicalNot,
+        pre_increment => PreIncrement,
+    }
+
+    binary_constructors! {
+        multiply => Multiply,
+        divide => Divide,
+        add => Add,
+        subtract => Subtract,
+        shift_left => ShiftLeft,
+        shift_right => ShiftRight,
+        less => Less,
+        greater => Greater,
+        greater_equal => GreaterEqual,
+        equal => Equal,
+        not_equal => NotEqual,
+        bitwise_and => BitwiseAnd,
+        bitwise_or => BitwiseOr,
+        logical_and => LogicalAnd,
+        logical_or => LogicalOr,
     }
 
     pub(in crate::c_emit) fn conditional(condition: Self, then: Self, otherwise: Self) -> Self {
@@ -167,6 +256,7 @@ impl Expr {
 
         match self {
             Self::Number(value) | Self::Identifier(value) => output.push_str(value),
+            Self::Character(value) => render_character(output, *value),
             Self::StringLiteral(value) => render_string(output, value),
             Self::ByteString(value) => {
                 output.push('"');
@@ -206,7 +296,7 @@ impl Expr {
                 value.render_unary_operand(output);
             }
             Self::Unary { operator, operand } => {
-                output.push_str(operator);
+                output.push_str(operator.symbol());
                 operand.render_unary_operand(output);
             }
             Self::Binary {
@@ -215,7 +305,7 @@ impl Expr {
                 right,
             } => {
                 left.render_binary_operand(output);
-                write!(output, " {operator} ").expect("writing generated C cannot fail");
+                write!(output, " {} ", operator.symbol()).expect("writing generated C cannot fail");
                 right.render_binary_operand(output);
             }
             Self::Conditional {
@@ -264,6 +354,7 @@ impl Expr {
         if matches!(
             self,
             Self::Number(_)
+                | Self::Character(_)
                 | Self::StringLiteral(_)
                 | Self::ByteString(_)
                 | Self::Identifier(_)
@@ -283,6 +374,7 @@ impl Expr {
         if matches!(
             self,
             Self::Number(_)
+                | Self::Character(_)
                 | Self::StringLiteral(_)
                 | Self::ByteString(_)
                 | Self::Identifier(_)
@@ -313,17 +405,55 @@ impl Expr {
     }
 }
 
+impl UnaryOperator {
+    fn symbol(self) -> &'static str {
+        match self {
+            Self::AddressOf => "&",
+            Self::Dereference => "*",
+            Self::Negate => "-",
+            Self::BitwiseNot => "~",
+            Self::LogicalNot => "!",
+            Self::PreIncrement => "++",
+        }
+    }
+}
+
+impl BinaryOperator {
+    fn symbol(self) -> &'static str {
+        match self {
+            Self::Multiply => "*",
+            Self::Divide => "/",
+            Self::Remainder => "%",
+            Self::Add => "+",
+            Self::Subtract => "-",
+            Self::ShiftLeft => "<<",
+            Self::ShiftRight => ">>",
+            Self::Less => "<",
+            Self::LessEqual => "<=",
+            Self::Greater => ">",
+            Self::GreaterEqual => ">=",
+            Self::Equal => "==",
+            Self::NotEqual => "!=",
+            Self::BitwiseAnd => "&",
+            Self::BitwiseXor => "^",
+            Self::BitwiseOr => "|",
+            Self::LogicalAnd => "&&",
+            Self::LogicalOr => "||",
+        }
+    }
+}
+
 impl Initializer {
     pub(in crate::c_emit) fn positional(value: Expr) -> Self {
         Self {
-            designator: Vec::new(),
+            designators: Vec::new(),
             value,
         }
     }
 
     pub(in crate::c_emit) fn designated(name: impl Into<String>, value: Expr) -> Self {
         Self {
-            designator: vec![name.into()],
+            designators: vec![Designator::Field(name.into())],
             value,
         }
     }
@@ -333,17 +463,24 @@ impl Initializer {
         value: Expr,
     ) -> Self {
         Self {
-            designator: path.into_iter().map(Into::into).collect(),
+            designators: path
+                .into_iter()
+                .map(|name| Designator::Field(name.into()))
+                .collect(),
             value,
         }
     }
 
     fn render(&self, output: &mut String) {
-        for designator in &self.designator {
-            output.push('.');
-            output.push_str(designator);
+        for designator in &self.designators {
+            match designator {
+                Designator::Field(name) => {
+                    output.push('.');
+                    output.push_str(name);
+                }
+            }
         }
-        if !self.designator.is_empty() {
+        if !self.designators.is_empty() {
             output.push_str(" = ");
         }
         self.value.render(output);
@@ -373,6 +510,23 @@ fn render_string(output: &mut String, value: &str) {
     output.push('"');
 }
 
+fn render_character(output: &mut String, value: char) {
+    output.push('\'');
+    match value {
+        '\'' => output.push_str("\\'"),
+        '\\' => output.push_str("\\\\"),
+        '\n' => output.push_str("\\n"),
+        '\r' => output.push_str("\\r"),
+        '\t' => output.push_str("\\t"),
+        value if value.is_ascii_graphic() || value == ' ' => output.push(value),
+        value => {
+            use std::fmt::Write as _;
+            write!(output, "\\x{:02x}", u32::from(value)).expect("writing generated C cannot fail");
+        }
+    }
+    output.push('\'');
+}
+
 impl fmt::Display for Expr {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut output = String::new();
@@ -393,7 +547,7 @@ mod tests {
                 Expr::identifier("object").pointer_field("value"),
                 Expr::cast(
                     "uint64_t",
-                    Expr::binary("+", Expr::identifier("left"), Expr::identifier("right")),
+                    Expr::add(Expr::identifier("left"), Expr::identifier("right")),
                 ),
             ],
         );
@@ -415,5 +569,11 @@ mod tests {
         );
 
         assert_eq!(expression.to_string(), "(Pair){ .first = left, right }");
+    }
+
+    #[test]
+    fn renders_character_literals() {
+        assert_eq!(Expr::character('\n').to_string(), "'\\n'");
+        assert_eq!(Expr::character('\'').to_string(), "'\\''");
     }
 }

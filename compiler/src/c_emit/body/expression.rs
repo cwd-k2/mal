@@ -183,8 +183,8 @@ impl BodyEmitter<'_> {
                                 "tag",
                                 Expr::named_call("UINT32_C", [Expr::number(index.to_string())]),
                             ),
-                            Initializer::designated(
-                                format!("payload.variant_{index}"),
+                            Initializer::designated_path(
+                                ["payload".into(), format!("variant_{index}")],
                                 self.emit_atom(value),
                             ),
                         ],
@@ -195,7 +195,7 @@ impl BodyEmitter<'_> {
                 let operand_text = self.emit_atom(operand);
                 if matches!(operand.ty, Type::Float32 | Type::Float64) {
                     return match operator {
-                        UnaryPrimitive::Negate => Expr::unary("-", operand_text),
+                        UnaryPrimitive::Negate => Expr::negate(operand_text),
                         UnaryPrimitive::BitwiseNot => {
                             unreachable!("bitwise not is not defined for Float")
                         }
@@ -203,13 +203,12 @@ impl BodyEmitter<'_> {
                 }
                 let unsigned = integer_type(&operand.ty).unwrap().unsigned;
                 let expression = match operator {
-                    UnaryPrimitive::Negate => Expr::binary(
-                        "-",
+                    UnaryPrimitive::Negate => Expr::subtract(
                         Expr::cast(unsigned, Expr::number("0")),
                         Expr::cast(unsigned, operand_text),
                     ),
                     UnaryPrimitive::BitwiseNot => {
-                        Expr::unary("~", Expr::cast(unsigned, operand_text))
+                        Expr::bitwise_not(Expr::cast(unsigned, operand_text))
                     }
                 };
                 self.wrap_integer(&operand.ty, expression)

@@ -1,7 +1,7 @@
 use crate::c_emit::scalar::{INTEGER_TYPES, IntegerType};
 use crate::c_emit::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TranslationUnit,
-    TypeName,
+    BinaryOperator, Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement,
+    TranslationUnit, TypeName,
 };
 
 pub(super) fn emit_float_to_integer(needs: u32) -> TranslationUnit {
@@ -22,32 +22,22 @@ pub(super) fn emit_float_to_integer(needs: u32) -> TranslationUnit {
             let upper_exponent = if target.signed() { bits - 1 } else { bits };
             let upper = Expr::number(format!("0x1p{upper_exponent}{literal_suffix}"));
             let lower = if target.signed() && bits <= precision {
-                Expr::binary(
-                    ">",
+                Expr::greater(
                     Expr::identifier("value"),
-                    Expr::binary(
-                        "-",
-                        Expr::unary(
-                            "-",
-                            Expr::number(format!("0x1p{}{literal_suffix}", bits - 1)),
-                        ),
+                    Expr::subtract(
+                        Expr::negate(Expr::number(format!("0x1p{}{literal_suffix}", bits - 1))),
                         Expr::number(format!("1.0{literal_suffix}")),
                     ),
                 )
             } else if target.signed() {
-                Expr::binary(
-                    ">=",
+                Expr::greater_equal(
                     Expr::identifier("value"),
-                    Expr::unary(
-                        "-",
-                        Expr::number(format!("0x1p{}{literal_suffix}", bits - 1)),
-                    ),
+                    Expr::negate(Expr::number(format!("0x1p{}{literal_suffix}", bits - 1))),
                 )
             } else {
-                Expr::binary(
-                    ">",
+                Expr::greater(
                     Expr::identifier("value"),
-                    Expr::unary("-", Expr::number(format!("1.0{literal_suffix}"))),
+                    Expr::negate(Expr::number(format!("1.0{literal_suffix}"))),
                 )
             };
             append_function(
@@ -59,14 +49,10 @@ pub(super) fn emit_float_to_integer(needs: u32) -> TranslationUnit {
                 ),
                 Block::new([
                     Statement::if_then(
-                        Expr::unary(
-                            "!",
-                            Expr::binary(
-                                "&&",
-                                lower,
-                                Expr::binary("<", Expr::identifier("value"), upper),
-                            ),
-                        ),
+                        Expr::logical_not(Expr::logical_and(
+                            lower,
+                            Expr::less(Expr::identifier("value"), upper),
+                        )),
                         trap("float-to-integer conversion out of range"),
                     ),
                     Statement::return_value(Expr::cast(target_type, Expr::identifier("value"))),
@@ -98,8 +84,8 @@ pub(super) fn emit_integer_wrap(needs: u16) -> TranslationUnit {
                 Statement::expression(Expr::named_call(
                     "memcpy",
                     [
-                        Expr::unary("&", Expr::identifier("value")),
-                        Expr::unary("&", Expr::identifier("bits")),
+                        Expr::address_of(Expr::identifier("value")),
+                        Expr::address_of(Expr::identifier("bits")),
                         Expr::sizeof_expr(Expr::identifier("value")),
                     ],
                 )),
@@ -113,7 +99,7 @@ pub(super) fn emit_integer_wrap(needs: u16) -> TranslationUnit {
 pub(super) fn emit_integer_checked(
     needs: u16,
     operation: &str,
-    symbol: &'static str,
+    operator: BinaryOperator,
     zero_message: &str,
 ) -> TranslationUnit {
     let mut output = TranslationUnit::default();
@@ -130,8 +116,7 @@ pub(super) fn emit_integer_checked(
         let c_type = integer.c_type;
         let mut body = Block::default();
         body.push(Statement::if_then(
-            Expr::binary(
-                "==",
+            Expr::equal(
                 Expr::identifier("divisor"),
                 Expr::cast(c_type, Expr::number("0")),
             ),
@@ -139,24 +124,18 @@ pub(super) fn emit_integer_checked(
         ));
         if let Some(minimum) = integer.minimum {
             body.push(Statement::if_then(
-                Expr::binary(
-                    "&&",
-                    Expr::binary(
-                        "==",
-                        Expr::identifier("dividend"),
-                        Expr::identifier(minimum),
-                    ),
-                    Expr::binary(
-                        "==",
+                Expr::logical_and(
+                    Expr::equal(Expr::identifier("dividend"), Expr::identifier(minimum)),
+                    Expr::equal(
                         Expr::identifier("divisor"),
-                        Expr::cast(c_type, Expr::unary("-", Expr::number("1"))),
+                        Expr::cast(c_type, Expr::negate(Expr::number("1"))),
                     ),
                 ),
                 trap(&format!("signed {overflow_operation} overflow")),
             ));
         }
         body.push(Statement::return_value(Expr::binary(
-            symbol,
+            operator,
             Expr::identifier("dividend"),
             Expr::identifier("divisor"),
         )));
@@ -216,18 +195,15 @@ fn emit_shift_left(output: &mut TranslationUnit, integer: IntegerType, result: E
     let carrier = integer.carrier;
     let width = integer.width;
     let range_check = if integer.signed() {
-        Expr::binary(
-            "||",
-            Expr::binary("<", Expr::identifier("count"), Expr::number("0")),
-            Expr::binary(
-                ">=",
+        Expr::logical_or(
+            Expr::less(Expr::identifier("count"), Expr::number("0")),
+            Expr::greater_equal(
                 Expr::cast(carrier, Expr::identifier("count")),
                 Expr::number(width.to_string()),
             ),
         )
     } else {
-        Expr::binary(
-            ">=",
+        Expr::greater_equal(
             Expr::cast(carrier, Expr::identifier("count")),
             Expr::number(width.to_string()),
         )
@@ -248,8 +224,7 @@ fn emit_shift_left(output: &mut TranslationUnit, integer: IntegerType, result: E
             Statement::variable(
                 carrier,
                 "shifted",
-                Some(Expr::binary(
-                    "<<",
+                Some(Expr::shift_left(
                     Expr::cast(carrier, Expr::cast(unsigned, Expr::identifier("value"))),
                     Expr::cast(carrier, Expr::identifier("count")),
                 )),
@@ -279,11 +254,9 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
         ),
         Block::new([
             Statement::if_then(
-                Expr::binary(
-                    "||",
-                    Expr::binary("<", Expr::identifier("count"), Expr::number("0")),
-                    Expr::binary(
-                        ">=",
+                Expr::logical_or(
+                    Expr::less(Expr::identifier("count"), Expr::number("0")),
+                    Expr::greater_equal(
                         Expr::cast(carrier, Expr::identifier("count")),
                         Expr::number(width.to_string()),
                     ),
@@ -291,7 +264,7 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
                 trap("shift count out of range"),
             ),
             Statement::if_then(
-                Expr::binary("==", Expr::identifier("count"), Expr::number("0")),
+                Expr::equal(Expr::identifier("count"), Expr::number("0")),
                 Block::new([Statement::return_value(Expr::identifier("value"))]),
             ),
             Statement::variable(
@@ -305,20 +278,16 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
             Statement::variable(
                 carrier,
                 "shifted",
-                Some(Expr::binary(
-                    ">>",
+                Some(Expr::shift_right(
                     Expr::identifier("bits"),
                     Expr::cast(carrier, Expr::identifier("count")),
                 )),
             ),
             Statement::if_then(
-                Expr::binary(
-                    "!=",
-                    Expr::binary(
-                        "&",
+                Expr::not_equal(
+                    Expr::bitwise_and(
                         Expr::identifier("bits"),
-                        Expr::binary(
-                            "<<",
+                        Expr::shift_left(
                             Expr::cast(carrier, Expr::number("1")),
                             Expr::number((width - 1).to_string()),
                         ),
@@ -327,14 +296,11 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
                 ),
                 Block::new([Statement::assignment(
                     Expr::identifier("shifted"),
-                    Expr::binary(
-                        "|",
+                    Expr::bitwise_or(
                         Expr::identifier("shifted"),
-                        Expr::binary(
-                            "<<",
+                        Expr::shift_left(
                             Expr::cast(carrier, Expr::identifier(maximum)),
-                            Expr::binary(
-                                "-",
+                            Expr::subtract(
                                 Expr::number(width.to_string()),
                                 Expr::cast(carrier, Expr::identifier("count")),
                             ),
@@ -365,8 +331,7 @@ fn emit_unsigned_shift_right(output: &mut TranslationUnit, integer: IntegerType)
         ),
         Block::new([
             Statement::if_then(
-                Expr::binary(
-                    ">=",
+                Expr::greater_equal(
                     Expr::cast(carrier, Expr::identifier("count")),
                     Expr::number(width.to_string()),
                 ),
@@ -374,8 +339,7 @@ fn emit_unsigned_shift_right(output: &mut TranslationUnit, integer: IntegerType)
             ),
             Statement::return_value(Expr::cast(
                 c_type,
-                Expr::binary(
-                    ">>",
+                Expr::shift_right(
                     Expr::cast(carrier, Expr::identifier("value")),
                     Expr::cast(carrier, Expr::identifier("count")),
                 ),

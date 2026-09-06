@@ -1,15 +1,17 @@
 use super::body::RuntimeNeeds;
-use super::syntax::{RawTranslationUnit, TranslationUnit};
+use super::syntax::{BinaryOperator, TranslationUnit};
 
+mod core;
 pub(super) mod memory;
 mod numeric;
+mod symbol;
 
 use self::numeric::{
     emit_float_to_integer, emit_integer_checked, emit_integer_shift, emit_integer_wrap,
 };
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
-    let mut output = TranslationUnit::new([RawTranslationUnit::new(RUNTIME_CORE).into()]);
+    let mut output = core::emit();
     if needs.wrap != 0 {
         output.extend(emit_integer_wrap(needs.wrap));
     }
@@ -17,7 +19,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.extend(emit_integer_checked(
             needs.divide,
             "divide",
-            "/",
+            BinaryOperator::Divide,
             "division by zero",
         ));
     }
@@ -25,7 +27,7 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.extend(emit_integer_checked(
             needs.remainder,
             "remainder",
-            "%",
+            BinaryOperator::Remainder,
             "remainder by zero",
         ));
     }
@@ -33,13 +35,16 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.extend(emit_integer_shift(needs.shift_left, needs.shift_right));
     }
     if needs.symbol_equality {
-        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_EQUALITY));
+        output.push(symbol::emit_equality());
+        output.blank_line();
     }
     if needs.symbol_at {
-        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_AT));
+        output.push(symbol::emit_at());
+        output.blank_line();
     }
     if needs.symbol_concatenate {
-        output.push(RawTranslationUnit::new(RUNTIME_SYMBOL_CONCATENATE));
+        output.push(symbol::emit_concatenate());
+        output.blank_line();
     }
     if needs.memory_offset_forward
         || needs.memory_offset_backward
@@ -65,8 +70,3 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
     }
     output
 }
-
-const RUNTIME_CORE: &str = include_str!("runtime/core.c");
-const RUNTIME_SYMBOL_EQUALITY: &str = include_str!("runtime/symbol_equal.c");
-const RUNTIME_SYMBOL_AT: &str = include_str!("runtime/symbol_at.c");
-const RUNTIME_SYMBOL_CONCATENATE: &str = include_str!("runtime/symbol_concatenate.c");

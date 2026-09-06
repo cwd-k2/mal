@@ -123,8 +123,7 @@ fn emit_prefix() -> TranslationUnit {
         output.push(directive);
     }
     output.blank_line();
-    output.push(Directive::If(PreprocessorExpr::binary(
-        "||",
+    output.push(Directive::If(PreprocessorExpr::logical_or(
         PreprocessorExpr::defined("__clang__"),
         PreprocessorExpr::defined("__GNUC__"),
     )));

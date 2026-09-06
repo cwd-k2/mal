@@ -11,9 +11,6 @@ pub(in crate::c_emit) enum Declaration {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct Comment(String);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::c_emit) struct RawTranslationUnit(&'static str);
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct AggregateDefinition {
     kind: AggregateKind,
@@ -87,16 +84,6 @@ impl Comment {
 
     pub(in crate::c_emit) fn render(&self) -> String {
         format!("/* {} */\n", self.0)
-    }
-}
-
-impl RawTranslationUnit {
-    pub(in crate::c_emit) fn new(source: &'static str) -> Self {
-        Self(source)
-    }
-
-    pub(in crate::c_emit) fn render(self) -> &'static str {
-        self.0
     }
 }
 

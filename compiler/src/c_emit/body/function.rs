@@ -201,7 +201,7 @@ impl BodyEmitter<'_> {
                     ),
                     Statement::expression(CExpr::named_call(
                         "mal_program_initialize",
-                        [CExpr::unary("&", CExpr::identifier("mal_context"))],
+                        [CExpr::address_of(CExpr::identifier("mal_context"))],
                     )),
                     Statement::variable(
                         "int32_t",
@@ -209,7 +209,7 @@ impl BodyEmitter<'_> {
                         Some(CExpr::call(
                             CExpr::identifier(name.clone()).field("call"),
                             [
-                                CExpr::unary("&", CExpr::identifier("mal_context")),
+                                CExpr::address_of(CExpr::identifier("mal_context")),
                                 CExpr::identifier(name.clone()).field("environment"),
                                 CExpr::identifier("mal_unit"),
                             ],
@@ -217,7 +217,7 @@ impl BodyEmitter<'_> {
                     ),
                     Statement::expression(CExpr::named_call(
                         "mal_context_destroy",
-                        [CExpr::unary("&", CExpr::identifier("mal_context"))],
+                        [CExpr::address_of(CExpr::identifier("mal_context"))],
                     )),
                     Statement::return_value(CExpr::cast("int", CExpr::identifier("mal_result"))),
                 ]),
@@ -227,8 +227,7 @@ impl BodyEmitter<'_> {
 
         let parameter_type = self.types.c_type(parameter);
         let argv = || {
-            CExpr::identifier("mal_argv").index(CExpr::binary(
-                "+",
+            CExpr::identifier("mal_argv").index(CExpr::add(
                 CExpr::identifier("mal_index"),
                 CExpr::number("1"),
             ))
@@ -237,7 +236,7 @@ impl BodyEmitter<'_> {
             Statement::expression(CExpr::named_call(
                 "mal_trap",
                 [
-                    CExpr::unary("&", CExpr::identifier("mal_context")),
+                    CExpr::address_of(CExpr::identifier("mal_context")),
                     CExpr::string(message),
                 ],
             ))
@@ -261,16 +260,16 @@ impl BodyEmitter<'_> {
                 ),
                 Statement::expression(CExpr::named_call(
                     "mal_program_initialize",
-                    [CExpr::unary("&", CExpr::identifier("mal_context"))],
+                    [CExpr::address_of(CExpr::identifier("mal_context"))],
                 )),
                 Statement::variable(
                     "size_t",
                     "mal_argument_count",
                     Some(CExpr::conditional(
-                        CExpr::binary(">", CExpr::identifier("mal_argc"), CExpr::number("1")),
+                        CExpr::greater(CExpr::identifier("mal_argc"), CExpr::number("1")),
                         CExpr::cast(
                             "size_t",
-                            CExpr::binary("-", CExpr::identifier("mal_argc"), CExpr::number("1")),
+                            CExpr::subtract(CExpr::identifier("mal_argc"), CExpr::number("1")),
                         ),
                         CExpr::number("0"),
                     )),
@@ -278,18 +277,15 @@ impl BodyEmitter<'_> {
                 Statement::variable(
                     TypeName::const_named("size_t"),
                     "mal_argument_stride",
-                    Some(CExpr::binary(
-                        "+",
+                    Some(CExpr::add(
                         CExpr::sizeof_type("MalType_Ptr"),
                         CExpr::sizeof_type("uint64_t"),
                     )),
                 ),
                 Statement::if_then(
-                    CExpr::binary(
-                        ">",
+                    CExpr::greater(
                         CExpr::identifier("mal_argument_count"),
-                        CExpr::binary(
-                            "/",
+                        CExpr::divide(
                             CExpr::identifier("SIZE_MAX"),
                             CExpr::identifier("mal_argument_stride"),
                         ),
@@ -304,9 +300,8 @@ impl BodyEmitter<'_> {
                         CExpr::named_call(
                             "mal_allocate",
                             [
-                                CExpr::unary("&", CExpr::identifier("mal_context")),
-                                CExpr::binary(
-                                    "*",
+                                CExpr::address_of(CExpr::identifier("mal_context")),
+                                CExpr::multiply(
                                     CExpr::identifier("mal_argument_count"),
                                     CExpr::identifier("mal_argument_stride"),
                                 ),
@@ -316,12 +311,11 @@ impl BodyEmitter<'_> {
                 ),
                 Statement::for_loop(
                     ForInitializer::variable("size_t", "mal_index", CExpr::number("0")),
-                    CExpr::binary(
-                        "<",
+                    CExpr::less(
                         CExpr::identifier("mal_index"),
                         CExpr::identifier("mal_argument_count"),
                     ),
-                    CExpr::unary("++", CExpr::identifier("mal_index")),
+                    CExpr::pre_increment(CExpr::identifier("mal_index")),
                     CBlock::new([
                         Statement::variable(
                             "size_t",
@@ -329,8 +323,7 @@ impl BodyEmitter<'_> {
                             Some(CExpr::named_call("strlen", [argv()])),
                         ),
                         Statement::if_then(
-                            CExpr::binary(
-                                "!=",
+                            CExpr::not_equal(
                                 CExpr::cast("uint64_t", CExpr::identifier("mal_length")),
                                 CExpr::identifier("mal_length"),
                             ),
@@ -352,11 +345,9 @@ impl BodyEmitter<'_> {
                         Statement::variable(
                             TypeName::named("uint8_t").pointer(),
                             "mal_slot",
-                            Some(CExpr::binary(
-                                "+",
+                            Some(CExpr::add(
                                 CExpr::identifier("mal_argument_storage"),
-                                CExpr::binary(
-                                    "*",
+                                CExpr::multiply(
                                     CExpr::identifier("mal_index"),
                                     CExpr::identifier("mal_argument_stride"),
                                 ),
@@ -366,19 +357,18 @@ impl BodyEmitter<'_> {
                             "memcpy",
                             [
                                 CExpr::identifier("mal_slot"),
-                                CExpr::unary("&", CExpr::identifier("mal_data")),
+                                CExpr::address_of(CExpr::identifier("mal_data")),
                                 CExpr::sizeof_expr(CExpr::identifier("mal_data")),
                             ],
                         )),
                         Statement::expression(CExpr::named_call(
                             "memcpy",
                             [
-                                CExpr::binary(
-                                    "+",
+                                CExpr::add(
                                     CExpr::identifier("mal_slot"),
                                     CExpr::sizeof_expr(CExpr::identifier("mal_data")),
                                 ),
-                                CExpr::unary("&", CExpr::identifier("mal_length_u64")),
+                                CExpr::address_of(CExpr::identifier("mal_length_u64")),
                                 CExpr::sizeof_expr(CExpr::identifier("mal_length_u64")),
                             ],
                         )),
@@ -410,7 +400,7 @@ impl BodyEmitter<'_> {
                     Some(CExpr::call(
                         CExpr::identifier(name.clone()).field("call"),
                         [
-                            CExpr::unary("&", CExpr::identifier("mal_context")),
+                            CExpr::address_of(CExpr::identifier("mal_context")),
                             CExpr::identifier(name).field("environment"),
                             CExpr::identifier("mal_arguments"),
                         ],
@@ -418,7 +408,7 @@ impl BodyEmitter<'_> {
                 ),
                 Statement::expression(CExpr::named_call(
                     "mal_context_destroy",
-                    [CExpr::unary("&", CExpr::identifier("mal_context"))],
+                    [CExpr::address_of(CExpr::identifier("mal_context"))],
                 )),
                 Statement::return_value(CExpr::cast("int", CExpr::identifier("mal_result"))),
             ]),

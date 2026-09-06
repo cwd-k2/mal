@@ -1,4 +1,4 @@
-use super::{Expr, FunctionSignature, MacroInvocation, VariableDeclaration};
+use super::{Directive, Expr, FunctionSignature, MacroInvocation, VariableDeclaration};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Statement {
@@ -23,6 +23,10 @@ pub(in crate::c_emit) enum Statement {
         then: Block,
         otherwise: Option<Block>,
     },
+    While {
+        condition: Expr,
+        body: Block,
+    },
     For {
         initializer: ForInitializer,
         condition: Expr,
@@ -33,6 +37,7 @@ pub(in crate::c_emit) enum Statement {
         value: Expr,
         cases: Vec<SwitchCase>,
     },
+    Directive(Directive),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -124,6 +129,14 @@ impl Statement {
 
     pub(in crate::c_emit) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
+    }
+
+    pub(in crate::c_emit) fn while_loop(condition: Expr, body: Block) -> Self {
+        Self::While { condition, body }
+    }
+
+    pub(in crate::c_emit) fn directive(directive: Directive) -> Self {
+        Self::Directive(directive)
     }
 
     pub(in crate::c_emit) fn for_loop(
@@ -221,6 +234,13 @@ impl Statement {
                 output.push_str(") ");
                 body.render_braced(output, depth);
             }
+            Self::While { condition, body } => {
+                write_indent(output, depth);
+                output.push_str("while (");
+                output.push_str(&condition.to_string());
+                output.push_str(") ");
+                body.render_braced(output, depth);
+            }
             Self::Switch { value, cases } => {
                 write_indent(output, depth);
                 output.push_str("switch (");
@@ -232,6 +252,7 @@ impl Statement {
                 write_indent(output, depth);
                 output.push_str("}\n");
             }
+            Self::Directive(directive) => output.push_str(&directive.render()),
         }
     }
 }

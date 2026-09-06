@@ -3,7 +3,7 @@ use crate::closure::ast::Atom;
 use crate::core::ast::BinaryPrimitive;
 
 use crate::c_emit::scalar::integer_type;
-use crate::c_emit::syntax::Expr;
+use crate::c_emit::syntax::{BinaryOperator, Expr};
 use crate::c_emit::types::is_bool;
 
 use super::super::BodyEmitter;
@@ -29,25 +29,25 @@ impl BodyEmitter<'_> {
                     );
                 }
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
-                    let symbol = match operator {
-                        BinaryPrimitive::Multiply => "*",
-                        BinaryPrimitive::Add => "+",
-                        BinaryPrimitive::Subtract => "-",
+                    let operator = match operator {
+                        BinaryPrimitive::Multiply => BinaryOperator::Multiply,
+                        BinaryPrimitive::Add => BinaryOperator::Add,
+                        BinaryPrimitive::Subtract => BinaryOperator::Subtract,
                         _ => unreachable!(),
                     };
-                    return Expr::binary(symbol, left, right);
+                    return Expr::binary(operator, left, right);
                 }
                 let integer = integer_type(&operand_type).unwrap();
                 let unsigned = integer.unsigned;
                 let carrier = integer.carrier;
-                let symbol = match operator {
-                    BinaryPrimitive::Multiply => "*",
-                    BinaryPrimitive::Add => "+",
-                    BinaryPrimitive::Subtract => "-",
+                let operator = match operator {
+                    BinaryPrimitive::Multiply => BinaryOperator::Multiply,
+                    BinaryPrimitive::Add => BinaryOperator::Add,
+                    BinaryPrimitive::Subtract => BinaryOperator::Subtract,
                     _ => unreachable!(),
                 };
                 let expression = Expr::binary(
-                    symbol,
+                    operator,
                     Expr::cast(carrier, Expr::cast(unsigned, left)),
                     Expr::cast(carrier, Expr::cast(unsigned, right)),
                 );
@@ -55,7 +55,7 @@ impl BodyEmitter<'_> {
             }
             BinaryPrimitive::Divide => {
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
-                    return Expr::binary("/", left, right);
+                    return Expr::divide(left, right);
                 }
                 let integer = integer_type(&operand_type).unwrap();
                 self.needs.divide |= integer.mask();
@@ -97,14 +97,14 @@ impl BodyEmitter<'_> {
             | BinaryPrimitive::BitwiseXor
             | BinaryPrimitive::BitwiseOr => {
                 let unsigned = integer_type(&operand_type).unwrap().unsigned;
-                let symbol = match operator {
-                    BinaryPrimitive::BitwiseAnd => "&",
-                    BinaryPrimitive::BitwiseXor => "^",
-                    BinaryPrimitive::BitwiseOr => "|",
+                let operator = match operator {
+                    BinaryPrimitive::BitwiseAnd => BinaryOperator::BitwiseAnd,
+                    BinaryPrimitive::BitwiseXor => BinaryOperator::BitwiseXor,
+                    BinaryPrimitive::BitwiseOr => BinaryOperator::BitwiseOr,
                     _ => unreachable!(),
                 };
                 let expression = Expr::binary(
-                    symbol,
+                    operator,
                     Expr::cast(unsigned, left),
                     Expr::cast(unsigned, right),
                 );
@@ -154,19 +154,19 @@ impl BodyEmitter<'_> {
             return if operator == BinaryPrimitive::Equal {
                 equality
             } else {
-                Expr::unary("!", equality)
+                Expr::logical_not(equality)
             };
         }
-        let symbol = match operator {
-            BinaryPrimitive::Less => "<",
-            BinaryPrimitive::LessEqual => "<=",
-            BinaryPrimitive::Greater => ">",
-            BinaryPrimitive::GreaterEqual => ">=",
-            BinaryPrimitive::Equal => "==",
-            BinaryPrimitive::NotEqual => "!=",
+        let operator = match operator {
+            BinaryPrimitive::Less => BinaryOperator::Less,
+            BinaryPrimitive::LessEqual => BinaryOperator::LessEqual,
+            BinaryPrimitive::Greater => BinaryOperator::Greater,
+            BinaryPrimitive::GreaterEqual => BinaryOperator::GreaterEqual,
+            BinaryPrimitive::Equal => BinaryOperator::Equal,
+            BinaryPrimitive::NotEqual => BinaryOperator::NotEqual,
             _ => unreachable!("primitive branches contain only comparison operators"),
         };
-        Expr::binary(symbol, left, right)
+        Expr::binary(operator, left, right)
     }
 
     pub(super) fn wrap_integer(&mut self, ty: &Type, expression: Expr) -> Expr {

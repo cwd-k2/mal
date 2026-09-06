@@ -179,8 +179,7 @@ impl TypeRegistry {
                     format!("mal_{}_is_{index}", alias.name),
                     [Parameter::named(format!("MalType_{}", alias.name), "value")],
                 ),
-                Block::new([Statement::return_value(Expr::binary(
-                    "==",
+                Block::new([Statement::return_value(Expr::equal(
                     Expr::identifier("value").field("tag"),
                     Expr::identifier(format!("MAL_{}_TAG_{index}", alias.name)),
                 ))]),
@@ -282,13 +281,10 @@ impl TypeRegistry {
                 ),
                 Block::new([
                     Statement::if_then(
-                        Expr::unary(
-                            "!",
-                            Expr::named_call(
-                                format!("mal_{}_is_{index}", alias.name),
-                                [Expr::identifier("value")],
-                            ),
-                        ),
+                        Expr::logical_not(Expr::named_call(
+                            format!("mal_{}_is_{index}", alias.name),
+                            [Expr::identifier("value")],
+                        )),
                         Block::new([Statement::expression(Expr::named_call(
                             "mal_trap",
                             [

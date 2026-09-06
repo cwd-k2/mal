@@ -1,6 +1,4 @@
-use super::{
-    AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition, RawTranslationUnit,
-};
+use super::{AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum UnitItem {
@@ -9,7 +7,6 @@ pub(in crate::c_emit) enum UnitItem {
     Declaration(Declaration),
     Directive(Directive),
     Function(FunctionDefinition),
-    Raw(RawTranslationUnit),
     BlankLine,
 }
 
@@ -52,7 +49,6 @@ impl TranslationUnit {
                 UnitItem::Declaration(declaration) => output.push_str(&declaration.render()),
                 UnitItem::Directive(directive) => output.push_str(&directive.render()),
                 UnitItem::Function(definition) => output.push_str(&definition.render()),
-                UnitItem::Raw(source) => output.push_str(source.render()),
                 UnitItem::BlankLine => output.push('\n'),
             }
         }
@@ -87,12 +83,6 @@ impl From<Directive> for UnitItem {
 impl From<FunctionDefinition> for UnitItem {
     fn from(value: FunctionDefinition) -> Self {
         Self::Function(value)
-    }
-}
-
-impl From<RawTranslationUnit> for UnitItem {
-    fn from(value: RawTranslationUnit) -> Self {
-        Self::Raw(value)
     }
 }
 

@@ -2,13 +2,20 @@ use std::fmt::Write as _;
 
 use super::{Expr, FunctionSignature};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(in crate::c_emit) enum BinaryOperator {
+    NotEqual,
+    LogicalAnd,
+    LogicalOr,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum PreprocessorExpr {
     Defined(String),
     Identifier(String),
     Integer(String),
     Binary {
-        operator: &'static str,
+        operator: BinaryOperator,
         left: Box<Self>,
         right: Box<Self>,
     },
@@ -78,12 +85,24 @@ impl PreprocessorExpr {
         Self::Integer(value.into())
     }
 
-    pub(in crate::c_emit) fn binary(operator: &'static str, left: Self, right: Self) -> Self {
+    fn binary(operator: BinaryOperator, left: Self, right: Self) -> Self {
         Self::Binary {
             operator,
             left: Box::new(left),
             right: Box::new(right),
         }
+    }
+
+    pub(in crate::c_emit) fn not_equal(left: Self, right: Self) -> Self {
+        Self::binary(BinaryOperator::NotEqual, left, right)
+    }
+
+    pub(in crate::c_emit) fn logical_and(left: Self, right: Self) -> Self {
+        Self::binary(BinaryOperator::LogicalAnd, left, right)
+    }
+
+    pub(in crate::c_emit) fn logical_or(left: Self, right: Self) -> Self {
+        Self::binary(BinaryOperator::LogicalOr, left, right)
     }
 
     fn render(&self, output: &mut String) {
@@ -98,9 +117,19 @@ impl PreprocessorExpr {
                 right,
             } => {
                 left.render(output);
-                write!(output, " {operator} ").expect("writing generated C cannot fail");
+                write!(output, " {} ", operator.symbol()).expect("writing generated C cannot fail");
                 right.render(output);
             }
+        }
+    }
+}
+
+impl BinaryOperator {
+    fn symbol(self) -> &'static str {
+        match self {
+            Self::NotEqual => "!=",
+            Self::LogicalAnd => "&&",
+            Self::LogicalOr => "||",
         }
     }
 }
@@ -296,7 +325,7 @@ fn render_macro_parameters(output: &mut String, parameters: &[MacroParameter]) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Directive, PastePart};
+    use super::{Directive, PastePart, PreprocessorExpr};
 
     #[test]
     fn renders_token_pasting_function_aliases() {
@@ -308,6 +337,22 @@ mod tests {
         assert_eq!(
             directive.render(),
             "#define MAL_TYPE(name) MalType_##name\n"
+        );
+    }
+
+    #[test]
+    fn renders_typed_condition_operators() {
+        let condition = PreprocessorExpr::logical_and(
+            PreprocessorExpr::defined("FEATURE"),
+            PreprocessorExpr::not_equal(
+                PreprocessorExpr::identifier("FEATURE"),
+                PreprocessorExpr::integer("1"),
+            ),
+        );
+
+        assert_eq!(
+            Directive::If(condition).render(),
+            "#if defined(FEATURE) && FEATURE != 1\n"
         );
     }
 }

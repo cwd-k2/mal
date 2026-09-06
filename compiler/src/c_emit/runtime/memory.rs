@@ -1,6 +1,6 @@
 use crate::c_emit::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter, Statement,
-    TranslationUnit, TypeName,
+    BinaryOperator, Block, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter,
+    Statement, TranslationUnit, TypeName,
 };
 use crate::check::ast::MemoryScalar;
 
@@ -36,10 +36,14 @@ pub(super) fn emit(
 ) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     if offsets.0 {
-        emit_offset(&mut output, "mal_ptr_offset", "+");
+        emit_offset(&mut output, "mal_ptr_offset", BinaryOperator::Add);
     }
     if offsets.1 {
-        emit_offset(&mut output, "mal_ptr_offset_backward", "-");
+        emit_offset(
+            &mut output,
+            "mal_ptr_offset_backward",
+            BinaryOperator::Subtract,
+        );
     }
     for (index, (_, name, c_type)) in SCALARS.iter().enumerate() {
         let mask = 1 << index;
@@ -91,8 +95,7 @@ pub(super) fn emit(
             ),
             Block::new([
                 Statement::if_then(
-                    Expr::binary(
-                        "!=",
+                    Expr::not_equal(
                         Expr::identifier("value").field("length"),
                         Expr::named_call("UINT64_C", [Expr::number("0")]),
                     ),
@@ -112,7 +115,7 @@ pub(super) fn emit(
     output
 }
 
-fn emit_offset(output: &mut TranslationUnit, name: &str, operator: &'static str) {
+fn emit_offset(output: &mut TranslationUnit, name: &str, operator: BinaryOperator) {
     append_function(
         output,
         FunctionSignature::static_inline(
@@ -126,11 +129,7 @@ fn emit_offset(output: &mut TranslationUnit, name: &str, operator: &'static str)
         ),
         Block::new([
             Statement::if_then(
-                Expr::binary(
-                    ">",
-                    Expr::identifier("offset"),
-                    Expr::identifier("SIZE_MAX"),
-                ),
+                Expr::greater(Expr::identifier("offset"), Expr::identifier("SIZE_MAX")),
                 trap("pointer offset is not representable on this target"),
             ),
             Statement::return_value(Expr::compound_literal(
@@ -158,7 +157,7 @@ fn emit_load(output: &mut TranslationUnit, name: &str, c_type: &str) {
             Statement::expression(Expr::named_call(
                 "memcpy",
                 [
-                    Expr::unary("&", Expr::identifier("value")),
+                    Expr::address_of(Expr::identifier("value")),
                     Expr::identifier("pointer").field("address"),
                     Expr::sizeof_expr(Expr::identifier("value")),
                 ],
@@ -184,7 +183,7 @@ fn emit_store(output: &mut TranslationUnit, name: &str, c_type: &str) {
                 "memcpy",
                 [
                     Expr::identifier("pointer").field("address"),
-                    Expr::unary("&", Expr::identifier("value")),
+                    Expr::address_of(Expr::identifier("value")),
                     Expr::sizeof_expr(Expr::identifier("value")),
                 ],
             )),
