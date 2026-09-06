@@ -31,6 +31,9 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions.md#d008-minimalismには利用者のcontrolと調査面積を含める)
 
+memory、resource、host境界では、特定のownership mechanismを先に選ばず、
+[EngramとExternのauthority](authority.md)から必要なadmission、observation、capability transferを導く。
+
 ## 意味論上の核
 
 言語の性質を説明するための核は次とする。
@@ -57,6 +60,7 @@ product と sum は数学的にさらに encoding できる場合があるが、
 3. reference C backendでrepresentationを説明でき、別backendを不必要に妨げないか。
 4. hidden allocation、GC、lifetime analysis を要求しないか。要求するなら、それを言語の責務として認めるか。
 5. 一つ以上の conformance test で境界を固定できるか。
+6. value、storage、resourceのauthorityと、境界を越えるoperationを説明できるか。
 
 「頻繁に使う」「短く書ける」だけでは追加理由にしない。一方、仕様から外した結果、すべての利用者が危険な独自 ABI を発明するなら、外したコストも数える。
 

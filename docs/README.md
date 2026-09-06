@@ -10,17 +10,18 @@
 初めて読む場合は次の順を推奨する。
 
 1. [最小性の方針](design/minimality.md)
-2. [言語の範囲](spec/scope.md)
-3. [型](spec/types.md)
-4. [EngramとExtern](spec/engrams.md)
-5. [Symbol](spec/symbols.md)
-6. [memory primitive](spec/memory.md)
-7. [式と binding](spec/expressions.md)
-8. [実行意味論](spec/execution.md)
-9. [`extern` 境界](spec/extern.md)
-10. [C host ABI](spec/c-host-abi.md)
-11. [プログラム構造](spec/programs.md)
-12. [字句・文法](spec/grammar.md)
+2. [EngramとExternのauthority](design/authority.md)
+3. [言語の範囲](spec/scope.md)
+4. [型](spec/types.md)
+5. [EngramとExtern](spec/engrams.md)
+6. [Symbol](spec/symbols.md)
+7. [memory primitive](spec/memory.md)
+8. [式と binding](spec/expressions.md)
+9. [実行意味論](spec/execution.md)
+10. [`extern` 境界](spec/extern.md)
+11. [C host ABI](spec/c-host-abi.md)
+12. [プログラム構造](spec/programs.md)
+13. [字句・文法](spec/grammar.md)
 
 利用者向けのcompiler command、対応環境、toolchain、生成物は
 [reference compiler利用contract](development/compiler-usage.md)、formatterのlayoutは
