@@ -213,6 +213,10 @@ impl BodyEmitter<'_> {
         let right = self.emit_atom(right);
         match operator {
             BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract => {
+                if operator == BinaryPrimitive::Add && operand_type == Type::Engram {
+                    self.needs.engram_concatenate = true;
+                    return format!("mal_engram_concatenate(mal_context, {left}, {right})");
+                }
                 if matches!(operand_type, Type::Float32 | Type::Float64) {
                     let symbol = match operator {
                         BinaryPrimitive::Multiply => "*",

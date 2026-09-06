@@ -37,6 +37,9 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
     if needs.engram_at {
         output.push_str(RUNTIME_ENGRAM_AT);
     }
+    if needs.engram_concatenate {
+        output.push_str(RUNTIME_ENGRAM_CONCATENATE);
+    }
     if needs.memory_offset_forward
         || needs.memory_offset_backward
         || needs.memory_load != 0
@@ -65,3 +68,4 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> String {
 const RUNTIME_CORE: &str = include_str!("runtime/core.c");
 const RUNTIME_ENGRAM_EQUALITY: &str = include_str!("runtime/engram_equal.c");
 const RUNTIME_ENGRAM_AT: &str = include_str!("runtime/engram_at.c");
+const RUNTIME_ENGRAM_CONCATENATE: &str = include_str!("runtime/engram_concatenate.c");

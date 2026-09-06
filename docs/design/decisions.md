@@ -504,7 +504,7 @@ lifetimeは[Engram仕様](../spec/engrams.md)に従う。
 
 `Engram`は`en-`と、書かれたものを表す`gramma`に由来し、言語内部へ刻まれた値というmodelを示す。
 `String`はtextとencoding、`Bytes`は要素のcollection、`Buffer`はmutable storageを連想させるため採用しない。
-変更にはEngramをexternal mutable storageへcopyし、加工したbytesを別のEngramとしてmalへ戻す必要がある。
+既存Engramのbytesを変更するにはexternal mutable storageへcopyし、加工したbytesを別のEngramとしてmalへ戻す必要がある。
 
 ## D018. top-level initializationは作用のないclosed valueに限定する
 
@@ -793,3 +793,25 @@ non-associativeとする。
 unary `#`によるEngram byte lengthにはLuaなどの前例がある。binary `#`を同じoperator familyのbyte accessへ
 割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、EngramがUnicode characterではなく
 immutable byte sequenceである現在の意味を保つ。
+
+## D029. `Engram + Engram`をbyte concatenationとする
+
+- Status: Accepted
+- Date: 2026-09-06
+- Scope: mal v0.5 and reference compiler
+- Refines: D010, D017
+
+### 決定
+
+`left + right :: Engram`を、leftのbytesにrightのbytesを続けた新しいEngramを得る組み込みoperatorとする。
+空Engramは単位元である。結果はimmutableなmal-owned bytesを持ちprogram終了まで有効とするが、観測可能な
+結果を変えないstorageの再利用は認める。結果lengthを`UInt64`で表現できない場合と、必要なallocationの失敗はtrapする。
+
+### 理由
+
+Engramはencoded textやmutable bufferではなく、malが直接持つ有限byte valueである。length、byte access、
+byte-wise equalityによってbyte sequenceとしてすでに観測可能であり、同じ値領域で閉じるconcatenationは
+文字列固有の意味や新しいmutationを導入しない。
+
+連結を`extern`だけに置くと、Engramの基本的な値構成までhost contractに依存する。reference runtimeはすでに
+runtime生成Engramのprogram-lifetime storageを持つため、組み込みにしても新しいownership modelは不要である。

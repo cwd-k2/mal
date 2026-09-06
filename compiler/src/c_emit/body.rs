@@ -22,6 +22,7 @@ pub(super) struct RuntimeNeeds {
     pub(super) shift_right: u16,
     pub(super) engram_equality: bool,
     pub(super) engram_at: bool,
+    pub(super) engram_concatenate: bool,
     pub(super) memory_offset_forward: bool,
     pub(super) memory_offset_backward: bool,
     pub(super) memory_load: u16,

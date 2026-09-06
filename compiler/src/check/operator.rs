@@ -227,6 +227,9 @@ impl Checker {
             let left = self.check_expression(left, Some(&Type::Ptr))?;
             return self.check_pointer_offset(pointer_primitive, left, right, span);
         }
+        if operator.kind == BinaryOperator::Add && expected == Some(&Type::Engram) {
+            return self.check_engram_concatenation(operator, left, right, span);
+        }
 
         let expected_numeric =
             expected.filter(|expected| is_integer(expected) || is_float(expected));
@@ -239,6 +242,18 @@ impl Checker {
             let left = self.check_expression(left, None)?;
             if left.ty == Type::Ptr {
                 return self.check_pointer_offset(pointer_primitive, left, right, span);
+            }
+            if operator.kind == BinaryOperator::Add && left.ty == Type::Engram {
+                let right = self.check_expression(right, Some(&Type::Engram))?;
+                return Ok(Expression {
+                    kind: ExpressionKind::Binary {
+                        operator: operator.clone(),
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                    ty: Type::Engram,
+                    span,
+                });
             }
             let right = self.check_expression(right, Some(&left.ty))?;
             if !is_integer(&left.ty) && !is_float(&left.ty) {
@@ -259,6 +274,26 @@ impl Checker {
                 right: Box::new(right),
             },
             ty: result,
+            span,
+        })
+    }
+
+    fn check_engram_concatenation(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> Result<Expression, Diagnostic> {
+        let left = self.check_expression(left, Some(&Type::Engram))?;
+        let right = self.check_expression(right, Some(&Type::Engram))?;
+        Ok(Expression {
+            kind: ExpressionKind::Binary {
+                operator: operator.clone(),
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            ty: Type::Engram,
             span,
         })
     }

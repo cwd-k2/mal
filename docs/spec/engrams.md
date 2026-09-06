@@ -32,30 +32,36 @@ escapeは最低限`\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN`を認める�
 
 ## operator
 
-Engramに組み込む観測operatorは次である。
+Engramに組み込むoperatorは次である。
 
 ```mal
 #value
 value # index
+left + right
 ```
 
 `#value`はbyte lengthを`UInt64`で返す。`value # index`は`UInt64`のindexにあるbyteを`UInt8`で返す。
-いずれもEngram descriptorを観測する組み込みoperatorであり、function valueとしては存在しない。
+`left + right`は両operandのbytesを順に連結した新しいEngramを返す。空Engramは連結の単位元であり、
+結果のbytesは他のEngramと同じくimmutableでprogram終了まで有効である。実装は観測可能な結果を変えない限り、
+空Engramとの連結でoperandのstorageを再利用してよい。結果のlengthを`UInt64`で表現できない場合、または必要な
+storageのallocationに失敗した場合はtrapする。
+
+これらはすべてのEngram valueに常在する組み込みoperatorであり、function valueとしては存在しない。
 
 indexは0-basedで、範囲外の`#` accessはtrapする。binary `#`はnon-associativeである。
 
-`==`と`!=`はbyte-wise equalityとする。orderingとconcatenationは定義しない。
+`==`と`!=`はbyte-wise equalityとする。orderingは定義しない。
 
 ```mal
 "a" == "a"
 "a" != "b"
+"a" + "b" == "ab"
 ```
 
 次はcompile-time errorである。
 
 ```mal
 "a" < "b"
-"a" + "b"
 ```
 
 ## mutable bytesとの分離
@@ -74,4 +80,4 @@ extern bufferFree :: ByteBuffer -> Unit;
 
 これはpredefined APIではない。`bufferToEngram`のresultにはextern return時のcopy規則を適用する。opaque handleのalias、bounds、allocation、freeの安全性はhost contractとprogramの責務である。
 
-concatenationのように新しいbytesを作る処理も、必要ならEngramを返す`extern`として宣言する。そのresultは同じくmal-owned storageへcopyされる。
+組み込みの連結以外の変換で新しいbytesを作る処理は、必要ならEngramを返す`extern`として宣言する。そのresultは同じくmal-owned storageへcopyされる。

@@ -543,6 +543,40 @@ fn executes_engram_operators_and_byte_wise_equality() {
 }
 
 #[test]
+fn concatenates_engrams_as_immutable_bytes() {
+    let output = compile_and_run(
+        r#"main :: Unit -> Int32 := \() {
+  joined := "あ\0" + "\xffz";
+  ok := (joined == "\xe3\x81\x82\x00\xffz") &&
+        (#joined == 6u64) &&
+        (("" + joined) == joined) &&
+        ((joined + "") == joined);
+  if (ok) then { 0 } else { 1 };
+};"#,
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_engram_concatenation_allocation_failure() {
+    let fixture = NativeFixture::new("engram-concatenation-failure");
+    let executable = fixture.compile_generated_with_options(
+        emit(r#"main :: Unit -> Int32 := \() { "left" + "right"; 0; };"#)
+            .expect("emit Engram concatenation"),
+        "",
+        &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
 fn traps_out_of_range_engram_byte_access() {
     for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
         let output = compile_and_run(

@@ -15,6 +15,7 @@ surface if and exhaustive case
 self recursion
 fixed-width numeric, logical, and bit operations
 language-intrinsic immutable Engram
+Engram byte concatenation
 typed numeric scalar and pointer access through untyped Ptr
 extern boundary
 ```

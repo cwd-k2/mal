@@ -194,9 +194,13 @@ float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
 pointer:  Ptr + UInt64, Ptr - UInt64
+Engram:   Engram + Engram, == !=
 ```
 
 数値比較は predefined `Bool` を返す。異なる数値型を暗黙変換しない。
+
+`Engram + Engram`はbyte sequenceを連結して`Engram`を返す。完全な規則は
+[Engram](engrams.md#operator)に定める。
 
 Bool operator は core primitive ではなく `case` へ desugar する。特に `&&` と `||` は左 operand を一度だけ先に評価し、必要な場合だけ右 operand を評価する。
 

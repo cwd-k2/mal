@@ -264,7 +264,10 @@ item :: (Engram, UInt64) -> UInt8 := \(value :: Engram, index :: UInt64) {
 };
 same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
 different :: Unit -> Bool := \() { "a" != "b"; };
-literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };"#,
+literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };
+concatenate :: (Engram, Engram) -> Engram := \(left :: Engram, right :: Engram) {
+  left + right;
+};"#,
     );
     let ExpressionKind::Lambda(length) = &top_binding(&program, 0).value.kind else {
         panic!("expected lambda");
@@ -290,12 +293,16 @@ literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };"#,
         panic!("expected function type");
     };
     assert_eq!(result.as_ref(), &Type::UInt64);
+    let Type::Function { result, .. } = &top_binding(&program, 5).value.ty else {
+        panic!("expected function type");
+    };
+    assert_eq!(result.as_ref(), &Type::Engram);
 }
 
 #[test]
 fn rejects_unsupported_or_mistyped_engram_operations() {
     for text in [
-        r#"bad := "a" + "b";"#,
+        r#"bad := \() { "a" + 1; };"#,
         r#"bad := "a" < "b";"#,
         r#"bad := #1;"#,
         r#"bad := "a" # 0u8;"#,

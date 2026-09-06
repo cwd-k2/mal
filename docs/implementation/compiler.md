@@ -69,7 +69,8 @@ C backendでBool valueをmaterializeしない。値として必要なcomparison 
 `uint8_t`へ写像する。
 
 Engram operatorの`#value`と`value # index`は型検査後にそれぞれEngram lengthとbounds-checked byte accessの
-専用core operationへlowerする。predefined value lookupや通常のfunction callは経由しない。
+専用core operationへlowerする。`Engram + Engram`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
+C backendでprogram-lifetime storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
 
 ```mal
 f(g(x), h(y))
@@ -101,7 +102,7 @@ typedef struct {
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferを`MalType_Engram`へ直接保存してはならない。allocation size overflowとfailureはmal trapへ写像する。
+Engram literalのdataは生成物のstatic storageへ置ける。host側byte bufferからEngram resultを作るadapterは、source-level extern callを完了する前にlengthを検査し、bytesをmal-ownedなprogram-lifetime arenaへcopyする。host bufferを`MalType_Engram`へ直接保存してはならない。Engram concatenationの結果も同じlifetimeのstorageへ置く。lengthまたはallocation sizeのoverflowとallocation failureはmal trapへ写像する。
 
 Engramのmemory load/storeはC structのpaddingをstorageへ含めない。`MalType_Ptr`のobject representationと
 `uint64_t`のlengthをこの順で個別に`memcpy`し、必要byte数をpointer格納byte数と8の和に固定する。
