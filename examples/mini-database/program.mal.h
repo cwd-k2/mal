@@ -57,23 +57,48 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 
 /* Host-visible types */
 
+typedef struct { uintptr_t bits; } MalType_Allocator;
 typedef struct { uintptr_t bits; } MalType_File;
 
 typedef struct MalRepr_Product_0 MalRepr_Product_0;
 typedef struct MalRepr_Product_1 MalRepr_Product_1;
+typedef struct MalRepr_Product_2 MalRepr_Product_2;
+typedef struct MalRepr_Product_3 MalRepr_Product_3;
 
 struct MalRepr_Product_0 {
-    MalType_File field_0;
-    MalType_Ptr field_1;
-    MalType_UInt64 field_2;
+    MalType_Allocator field_0;
+    MalType_UInt64 field_1;
 };
 
 struct MalRepr_Product_1 {
     MalType_Ptr field_0;
     MalType_UInt64 field_1;
+    MalType_UInt64 field_2;
 };
 
+struct MalRepr_Product_2 {
+    MalType_File field_0;
+    MalType_Ptr field_1;
+    MalType_UInt64 field_2;
+};
+
+struct MalRepr_Product_3 {
+    MalType_Ptr field_0;
+    MalType_UInt64 field_1;
+};
+
+typedef MalRepr_Product_1 MalType_Buffer;
+typedef MalRepr_Product_3 MalType_Bytes;
+
 /* Type helpers */
+
+static inline MalType_Allocator mal_Allocator_from_bits(uintptr_t bits) {
+    return (MalType_Allocator){ .bits = bits };
+}
+
+static inline uintptr_t mal_Allocator_bits(MalType_Allocator value) {
+    return value.bits;
+}
 
 static inline MalType_File mal_File_from_bits(uintptr_t bits) {
     return (MalType_File){ .bits = bits };
@@ -83,10 +108,39 @@ static inline uintptr_t mal_File_bits(MalType_File value) {
     return value.bits;
 }
 
+static inline MalType_Buffer mal_Buffer_make(MalType_Ptr value_0, MalType_UInt64 value_1, MalType_UInt64 value_2) {
+    return (MalType_Buffer){ .field_0 = value_0, .field_1 = value_1, .field_2 = value_2 };
+}
+
+static inline MalType_Ptr mal_Buffer_get_0(MalType_Buffer value) {
+    return value.field_0;
+}
+
+static inline MalType_UInt64 mal_Buffer_get_1(MalType_Buffer value) {
+    return value.field_1;
+}
+
+static inline MalType_UInt64 mal_Buffer_get_2(MalType_Buffer value) {
+    return value.field_2;
+}
+
+static inline MalType_Bytes mal_Bytes_make(MalType_Ptr value_0, MalType_UInt64 value_1) {
+    return (MalType_Bytes){ .field_0 = value_0, .field_1 = value_1 };
+}
+
+static inline MalType_Ptr mal_Bytes_get_0(MalType_Bytes value) {
+    return value.field_0;
+}
+
+static inline MalType_UInt64 mal_Bytes_get_1(MalType_Bytes value) {
+    return value.field_1;
+}
+
 /* External operations */
 
-MalType_Ptr mal_ext_allocate(MalContext *context, MalType_UInt64 value);
-void mal_ext_release(MalContext *context, MalType_Ptr value);
+MalType_Allocator mal_ext_createAllocator(MalContext *context);
+MalType_Buffer mal_ext_allocateBuffer(MalContext *context, MalType_Allocator argument_0, MalType_UInt64 argument_1);
+void mal_ext_destroyAllocator(MalContext *context, MalType_Allocator value);
 MalType_File mal_ext_openReadWriteCreate(MalContext *context, MalType_Symbol value);
 MalType_File mal_ext_standardInput(MalContext *context);
 MalType_UInt64 mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_Ptr argument_1, MalType_UInt64 argument_2);
@@ -95,23 +149,30 @@ void mal_ext_rewindFile(MalContext *context, MalType_File value);
 void mal_ext_flushFile(MalContext *context, MalType_File value);
 void mal_ext_closeFile(MalContext *context, MalType_File value);
 void mal_ext_writeSymbol(MalContext *context, MalType_Symbol value);
-void mal_ext_writeMemory(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
+void mal_ext_writeBytes(MalContext *context, MalType_Ptr argument_0, MalType_UInt64 argument_1);
 void mal_ext_fail(MalContext *context, MalType_Symbol value);
 
 /* External definition helpers */
 
-#define MAL_HAS_EXTERN_allocate 1
-#define MAL_DEFINE_allocate(context, value) \
-MalType_Ptr mal_ext_allocate( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_UInt64 value \
+#define MAL_HAS_EXTERN_createAllocator 1
+#define MAL_DEFINE_createAllocator(context) \
+MalType_Allocator mal_ext_createAllocator( \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED \
 )
 
-#define MAL_HAS_EXTERN_release 1
-#define MAL_DEFINE_release(context, value) \
-void mal_ext_release( \
+#define MAL_HAS_EXTERN_allocateBuffer 1
+#define MAL_DEFINE_allocateBuffer(context, argument_0, argument_1) \
+MalType_Buffer mal_ext_allocateBuffer( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Ptr value \
+    MalType_Allocator argument_0, \
+    MalType_UInt64 argument_1 \
+)
+
+#define MAL_HAS_EXTERN_destroyAllocator 1
+#define MAL_DEFINE_destroyAllocator(context, value) \
+void mal_ext_destroyAllocator( \
+    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
+    MalType_Allocator value \
 )
 
 #define MAL_HAS_EXTERN_openReadWriteCreate 1
@@ -173,9 +234,9 @@ void mal_ext_writeSymbol( \
     MalType_Symbol value \
 )
 
-#define MAL_HAS_EXTERN_writeMemory 1
-#define MAL_DEFINE_writeMemory(context, argument_0, argument_1) \
-void mal_ext_writeMemory( \
+#define MAL_HAS_EXTERN_writeBytes 1
+#define MAL_DEFINE_writeBytes(context, argument_0, argument_1) \
+void mal_ext_writeBytes( \
     MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
     MalType_Ptr argument_0, \
     MalType_UInt64 argument_1 \

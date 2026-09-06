@@ -10,19 +10,57 @@ static FILE *file_handle(MalType_File file) {
     return (FILE *)mal_File_bits(file);
 }
 
-MAL_DEFINE_allocate(context, size) {
+typedef struct Allocation Allocation;
+
+struct Allocation {
+    uint8_t *memory;
+    Allocation *next;
+};
+
+typedef struct {
+    Allocation *first;
+} AllocatorHandle;
+
+static AllocatorHandle *allocator_handle(MalType_Allocator allocator) {
+    return (AllocatorHandle *)mal_Allocator_bits(allocator);
+}
+
+MAL_DEFINE_createAllocator(context) {
+    AllocatorHandle *allocator = malloc(sizeof(*allocator));
+    if (allocator == NULL) {
+        mal_trap(context, "allocator creation failed");
+    }
+    allocator->first = NULL;
+    return mal_Allocator_from_bits((uintptr_t)allocator);
+}
+
+MAL_DEFINE_allocateBuffer(context, allocator, size) {
     if (size == 0 || size > SIZE_MAX) {
         mal_trap(context, "invalid allocation size");
     }
+    Allocation *allocation = malloc(sizeof(*allocation));
     uint8_t *memory = malloc((size_t)size);
-    if (memory == NULL) {
+    if (allocation == NULL || memory == NULL) {
+        free(allocation);
+        free(memory);
         mal_trap(context, "allocation failed");
     }
-    return mal_Ptr_from_address(memory);
+    allocation->memory = memory;
+    allocation->next = allocator_handle(allocator)->first;
+    allocator_handle(allocator)->first = allocation;
+    return mal_Buffer_make(mal_Ptr_from_address(memory), size, UINT64_C(0));
 }
 
-MAL_DEFINE_release(context, memory) {
-    free(mal_Ptr_address(memory));
+MAL_DEFINE_destroyAllocator(context, allocator) {
+    AllocatorHandle *handle = allocator_handle(allocator);
+    Allocation *allocation = handle->first;
+    while (allocation != NULL) {
+        Allocation *next = allocation->next;
+        free(allocation->memory);
+        free(allocation);
+        allocation = next;
+    }
+    free(handle);
 }
 
 MAL_DEFINE_openReadWriteCreate(context, path) {
@@ -106,7 +144,7 @@ MAL_DEFINE_writeSymbol(context, value) {
     }
 }
 
-MAL_DEFINE_writeMemory(context, memory, length) {
+MAL_DEFINE_writeBytes(context, memory, length) {
     if (length > SIZE_MAX
         || fwrite(mal_Ptr_address(memory), 1, (size_t)length, stdout) != (size_t)length) {
         mal_trap(context, "cannot write stdout");

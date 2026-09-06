@@ -4,6 +4,18 @@ This example implements a persistent fixed-capacity key-value database. The mal 
 binary layout, validation, query parser, lookup, updates, complete-file transfer, and line framing.
 Its C adapter supplies only allocation, thin file operations, and byte output.
 
+The shared-memory interface uses three representations with separate responsibilities:
+
+- `Allocator` is an opaque C-owned arena handle. All allocations remain live until the arena is
+  destroyed.
+- `Buffer` is a mal-visible `(Ptr, capacity, initialized length)` descriptor returned by the C
+  allocator and updated immutably by mal code.
+- `Bytes` is a `(Ptr, length)` read-only view passed to consumers that do not need spare capacity.
+
+These distinctions document intent but do not add ownership or bounds enforcement to the language.
+Aliases remain structural, opaque handles remain copyable, and the host contract determines the
+lifetime of every `Ptr`.
+
 Standard input is read one byte at a time into one reusable `Ptr` buffer. The mal program detects
 line endings and overlong lines, so processing more queries does not retain one new Symbol for every
 input line.
@@ -54,6 +66,11 @@ Run the executable again with the same path to observe persistence.
 only when the path does not exist. `standardInput` returns a borrowed `File` that the mal program must
 not close. A `File` is a copyable handle; copying it does not duplicate the stream or extend its
 lifetime.
+
+`createAllocator` returns an empty arena. `allocateBuffer` returns a nonempty writable buffer whose
+storage remains live until `destroyAllocator`; destroying the arena invalidates every buffer it
+returned. The mal program must destroy each allocator exactly once and must not use its buffers
+afterward.
 
 `readFile` writes at most `capacity` bytes into the supplied live writable region, advances the file
 position, and returns the transferred length. Zero means end-of-file when `capacity` is nonzero.
