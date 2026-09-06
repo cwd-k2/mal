@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomKind, Binding, Block, EnvironmentField, Function, Operation, Parameter, Pattern,
-    Program, Reference, TopLevelBinding, TopLevelPattern,
+    Atom, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, Operation, Parameter,
+    Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -137,7 +137,7 @@ impl Converter {
                     .collect();
                 self.lift_function(lambda);
                 Operation::MakeClosure {
-                    function: lambda.id,
+                    function: FunctionId::Lambda(lambda.id),
                     captures,
                 }
             }
@@ -151,6 +151,13 @@ impl Converter {
             anf::Operation::EngramAt { argument } => Operation::EngramAt {
                 argument: self.convert_atom(argument, environment),
             },
+            anf::Operation::MemoryFunction { primitive } => {
+                let function = self.lift_memory_function(*primitive, span);
+                Operation::MakeClosure {
+                    function,
+                    captures: Vec::new(),
+                }
+            }
             anf::Operation::Memory {
                 primitive,
                 argument,
@@ -219,11 +226,14 @@ impl Converter {
             .map(|(index, capture)| (capture.binding, Reference::EnvironmentField(index)))
             .collect::<HashMap<_, _>>();
         if let Some(self_binding) = lambda.self_binding {
-            environment.insert(self_binding, Reference::SelfClosure(lambda.id));
+            environment.insert(
+                self_binding,
+                Reference::SelfClosure(FunctionId::Lambda(lambda.id)),
+            );
         }
         let body = self.convert_block(&lambda.body, &environment);
         self.functions.push(Function {
-            id: lambda.id,
+            id: FunctionId::Lambda(lambda.id),
             environment: lambda
                 .captures
                 .iter()
@@ -238,6 +248,53 @@ impl Converter {
             },
             body,
         });
+    }
+
+    fn lift_memory_function(
+        &mut self,
+        primitive: crate::check::ast::MemoryPrimitive,
+        span: crate::source::Span,
+    ) -> FunctionId {
+        let id = FunctionId::Memory(primitive);
+        if self.functions.iter().any(|function| function.id == id) {
+            return id;
+        }
+        let (parameter_type, result_type) = primitive.signature();
+        let parameter = anf::ValueId::MemoryParameter(primitive);
+        let result = anf::ValueId::MemoryResult(primitive);
+        self.functions.push(Function {
+            id,
+            environment: Vec::new(),
+            parameter: Parameter {
+                binding: Some(parameter),
+                ty: parameter_type.clone(),
+                span,
+            },
+            body: Block {
+                bindings: vec![Binding {
+                    pattern: Pattern::Binding {
+                        id: result,
+                        ty: result_type.clone(),
+                    },
+                    operation: Operation::Memory {
+                        primitive,
+                        argument: Atom {
+                            kind: AtomKind::Reference(Reference::Binding(parameter)),
+                            ty: parameter_type,
+                            span,
+                        },
+                    },
+                    span,
+                }],
+                result: Atom {
+                    kind: AtomKind::Reference(Reference::Binding(result)),
+                    ty: result_type,
+                    span,
+                },
+                span,
+            },
+        });
+        id
     }
 
     fn convert_case_arm(

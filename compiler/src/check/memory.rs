@@ -11,36 +11,36 @@ use crate::resolve::ast::{
 use crate::source::Span;
 
 use super::Checker;
-use super::ast::{Expression, ExpressionKind, MemoryPrimitive, MemoryScalar, Type};
+use super::ast::{Expression, ExpressionKind, MemoryPrimitive, MemoryScalar};
 
-pub(super) fn is_memory_primitive(value: ValueId) -> bool {
-    matches!(
-        value,
-        LOAD_INT8_VALUE
-            | STORE_INT8_VALUE
-            | LOAD_INT16_VALUE
-            | STORE_INT16_VALUE
-            | LOAD_INT32_VALUE
-            | STORE_INT32_VALUE
-            | LOAD_INT64_VALUE
-            | STORE_INT64_VALUE
-            | LOAD_UINT8_VALUE
-            | STORE_UINT8_VALUE
-            | LOAD_UINT16_VALUE
-            | STORE_UINT16_VALUE
-            | LOAD_UINT32_VALUE
-            | STORE_UINT32_VALUE
-            | LOAD_UINT64_VALUE
-            | STORE_UINT64_VALUE
-            | LOAD_FLOAT32_VALUE
-            | STORE_FLOAT32_VALUE
-            | LOAD_FLOAT64_VALUE
-            | STORE_FLOAT64_VALUE
-            | LOAD_PTR_VALUE
-            | STORE_PTR_VALUE
-            | LOAD_ENGRAM_VALUE
-            | STORE_ENGRAM_VALUE
-    )
+pub(super) fn memory_primitive(value: ValueId) -> Option<MemoryPrimitive> {
+    Some(match value {
+        LOAD_INT8_VALUE => MemoryPrimitive::Load(MemoryScalar::Int8),
+        STORE_INT8_VALUE => MemoryPrimitive::Store(MemoryScalar::Int8),
+        LOAD_INT16_VALUE => MemoryPrimitive::Load(MemoryScalar::Int16),
+        STORE_INT16_VALUE => MemoryPrimitive::Store(MemoryScalar::Int16),
+        LOAD_INT32_VALUE => MemoryPrimitive::Load(MemoryScalar::Int32),
+        STORE_INT32_VALUE => MemoryPrimitive::Store(MemoryScalar::Int32),
+        LOAD_INT64_VALUE => MemoryPrimitive::Load(MemoryScalar::Int64),
+        STORE_INT64_VALUE => MemoryPrimitive::Store(MemoryScalar::Int64),
+        LOAD_UINT8_VALUE => MemoryPrimitive::Load(MemoryScalar::UInt8),
+        STORE_UINT8_VALUE => MemoryPrimitive::Store(MemoryScalar::UInt8),
+        LOAD_UINT16_VALUE => MemoryPrimitive::Load(MemoryScalar::UInt16),
+        STORE_UINT16_VALUE => MemoryPrimitive::Store(MemoryScalar::UInt16),
+        LOAD_UINT32_VALUE => MemoryPrimitive::Load(MemoryScalar::UInt32),
+        STORE_UINT32_VALUE => MemoryPrimitive::Store(MemoryScalar::UInt32),
+        LOAD_UINT64_VALUE => MemoryPrimitive::Load(MemoryScalar::UInt64),
+        STORE_UINT64_VALUE => MemoryPrimitive::Store(MemoryScalar::UInt64),
+        LOAD_FLOAT32_VALUE => MemoryPrimitive::Load(MemoryScalar::Float32),
+        STORE_FLOAT32_VALUE => MemoryPrimitive::Store(MemoryScalar::Float32),
+        LOAD_FLOAT64_VALUE => MemoryPrimitive::Load(MemoryScalar::Float64),
+        STORE_FLOAT64_VALUE => MemoryPrimitive::Store(MemoryScalar::Float64),
+        LOAD_PTR_VALUE => MemoryPrimitive::LoadPtr,
+        STORE_PTR_VALUE => MemoryPrimitive::StorePtr,
+        LOAD_ENGRAM_VALUE => MemoryPrimitive::LoadEngram,
+        STORE_ENGRAM_VALUE => MemoryPrimitive::StoreEngram,
+        _ => return None,
+    })
 }
 
 impl Checker {
@@ -50,41 +50,8 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: Span,
     ) -> Option<Result<Expression, Diagnostic>> {
-        let (operation, parameter, result) = match primitive {
-            LOAD_INT8_VALUE => load(MemoryScalar::Int8, Type::Int8),
-            STORE_INT8_VALUE => store(MemoryScalar::Int8, Type::Int8),
-            LOAD_INT16_VALUE => load(MemoryScalar::Int16, Type::Int16),
-            STORE_INT16_VALUE => store(MemoryScalar::Int16, Type::Int16),
-            LOAD_INT32_VALUE => load(MemoryScalar::Int32, Type::Int32),
-            STORE_INT32_VALUE => store(MemoryScalar::Int32, Type::Int32),
-            LOAD_INT64_VALUE => load(MemoryScalar::Int64, Type::Int64),
-            STORE_INT64_VALUE => store(MemoryScalar::Int64, Type::Int64),
-            LOAD_UINT8_VALUE => load(MemoryScalar::UInt8, Type::UInt8),
-            STORE_UINT8_VALUE => store(MemoryScalar::UInt8, Type::UInt8),
-            LOAD_UINT16_VALUE => load(MemoryScalar::UInt16, Type::UInt16),
-            STORE_UINT16_VALUE => store(MemoryScalar::UInt16, Type::UInt16),
-            LOAD_UINT32_VALUE => load(MemoryScalar::UInt32, Type::UInt32),
-            STORE_UINT32_VALUE => store(MemoryScalar::UInt32, Type::UInt32),
-            LOAD_UINT64_VALUE => load(MemoryScalar::UInt64, Type::UInt64),
-            STORE_UINT64_VALUE => store(MemoryScalar::UInt64, Type::UInt64),
-            LOAD_FLOAT32_VALUE => load(MemoryScalar::Float32, Type::Float32),
-            STORE_FLOAT32_VALUE => store(MemoryScalar::Float32, Type::Float32),
-            LOAD_FLOAT64_VALUE => load(MemoryScalar::Float64, Type::Float64),
-            STORE_FLOAT64_VALUE => store(MemoryScalar::Float64, Type::Float64),
-            LOAD_PTR_VALUE => (MemoryPrimitive::LoadPtr, Type::Ptr, Type::Ptr),
-            STORE_PTR_VALUE => (
-                MemoryPrimitive::StorePtr,
-                Type::Product(vec![Type::Ptr, Type::Ptr]),
-                Type::Unit,
-            ),
-            LOAD_ENGRAM_VALUE => (MemoryPrimitive::LoadEngram, Type::Ptr, Type::Engram),
-            STORE_ENGRAM_VALUE => (
-                MemoryPrimitive::StoreEngram,
-                Type::Product(vec![Type::Ptr, Type::Engram]),
-                Type::Unit,
-            ),
-            _ => return None,
-        };
+        let operation = memory_primitive(primitive)?;
+        let (parameter, result) = operation.signature();
         Some(
             self.check_argument(arguments, &parameter, span)
                 .map(|argument| Expression {
@@ -97,16 +64,4 @@ impl Checker {
                 }),
         )
     }
-}
-
-fn load(scalar: MemoryScalar, ty: Type) -> (MemoryPrimitive, Type, Type) {
-    (MemoryPrimitive::Load(scalar), Type::Ptr, ty)
-}
-
-fn store(scalar: MemoryScalar, ty: Type) -> (MemoryPrimitive, Type, Type) {
-    (
-        MemoryPrimitive::Store(scalar),
-        Type::Product(vec![Type::Ptr, ty]),
-        Type::Unit,
-    )
 }

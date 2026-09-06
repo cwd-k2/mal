@@ -619,7 +619,7 @@ trapを通常のreturnや固定exit codeへ写像せず、埋め込み先が異�
 ### 決定
 
 要素型を持たないcopyableなdata address型`Ptr`を追加する。operation集合はbyte単位の`+`/`-` operatorと、全fixed-width
-integerおよび`Float32`/`Float64`の型別load/storeとする。load/storeはpredefinedかつdirect-call-onlyである。
+integerおよび`Float32`/`Float64`の型別load/storeとする。load/storeはpredefinedなfirst-class functionである。
 型ごとの名前を使うことでoverloadやexpected type依存の型規則を追加せず、numeric scalar間の任意の例外も作らない。
 
 `Ptr`はextern-safeとし、mal program内のpointerは`extern` resultまたはpointer offsetから得る。allocation、
@@ -683,7 +683,7 @@ armのpattern bindingとblock内のbindingはarmごとの同じscopeに属する
 
 ### 決定
 
-predefinedなdirect-call-only primitiveとして`loadPtr :: Ptr -> Ptr`と
+predefinedなfirst-class functionとして`loadPtr :: Ptr -> Ptr`と
 `storePtr :: (Ptr, Ptr) -> Unit`を追加する。pointerは整数へ変換せず、target ABIのdata address object
 representationとしてalignmentを要求せずcopyする。格納されたpointerの複製はstorageのlifetimeを延長しない。
 
@@ -725,7 +725,7 @@ Unicode characterを将来追加する場合は、byte literalの意味を変更
 
 ### 決定
 
-predefinedなdirect-call-only primitiveとして`loadEngram :: Ptr -> Engram`と
+predefinedなfirst-class functionとして`loadEngram :: Ptr -> Engram`と
 `storeEngram :: (Ptr, Engram) -> Unit`を追加する。operationはEngram descriptorだけをalignmentを要求せずcopyし、
 参照先のbytesはcopyしない。Engram bytesのprogram-lifetimeとimmutabilityは変更しない。
 

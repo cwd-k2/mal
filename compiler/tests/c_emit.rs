@@ -719,6 +719,38 @@ MalType_Ptr mal_ext_memory(MalContext *context) {
 }
 
 #[test]
+fn executes_first_class_memory_functions_through_closure_calls() {
+    let source = "Reader :: Ptr -> Int64;\n\
+         Writer :: (Ptr, Int64) -> Unit;\n\
+         extern memory :: Unit -> Ptr;\n\
+         readWith :: (Reader, Ptr) -> Int64 := \\(reader :: Reader, pointer :: Ptr) {\n\
+           reader(pointer);\n\
+         };\n\
+         writeWith :: (Writer, Ptr, Int64) -> Unit := \\(writer :: Writer, pointer :: Ptr, value :: Int64) {\n\
+           writer(pointer, value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           pointer := extern memory();\n\
+           writeWith(storeInt64, pointer, 42i64);\n\
+           Int32(readWith(loadInt64, pointer) - 42i64);\n\
+         };";
+    let generated = emit(source).expect("emit first-class memory functions");
+    assert!(generated.source.contains("mal_memory_function_load_int64"));
+    assert!(generated.source.contains("mal_memory_function_store_int64"));
+    let host = r#"#include "program.mal.h"
+
+MalType_Ptr mal_ext_memory(MalContext *context) {
+    static uint8_t bytes[8];
+    (void)context;
+    return (MalType_Ptr){ .address = bytes };
+}
+"#;
+    let fixture = NativeFixture::new("first-class-memory");
+    let executable = fixture.compile_generated(generated, host);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn executes_unaligned_ptr_value_access() {
     let source = "extern pointerSlot :: Unit -> Ptr;\n\
          extern target :: Unit -> Ptr;\n\

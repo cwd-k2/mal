@@ -39,10 +39,16 @@ pub enum TopLevelPattern {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
-    pub id: LambdaId,
+    pub id: FunctionId,
     pub environment: Vec<EnvironmentField>,
     pub parameter: Parameter,
     pub body: Block,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum FunctionId {
+    Lambda(LambdaId),
+    Memory(MemoryPrimitive),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -109,14 +115,14 @@ pub enum AtomKind {
 pub enum Reference {
     Binding(ValueId),
     EnvironmentField(usize),
-    SelfClosure(LambdaId),
+    SelfClosure(FunctionId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Operation {
     Atom(Atom),
     MakeClosure {
-        function: LambdaId,
+        function: FunctionId,
         captures: Vec<Atom>,
     },
     Call {

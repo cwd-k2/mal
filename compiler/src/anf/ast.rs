@@ -7,6 +7,8 @@ use crate::source::Span;
 pub enum ValueId {
     Core(CoreValueId),
     Temporary(u32),
+    MemoryParameter(MemoryPrimitive),
+    MemoryResult(MemoryPrimitive),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -102,6 +104,9 @@ pub enum Operation {
     },
     EngramAt {
         argument: Atom,
+    },
+    MemoryFunction {
+        primitive: MemoryPrimitive,
     },
     Memory {
         primitive: MemoryPrimitive,

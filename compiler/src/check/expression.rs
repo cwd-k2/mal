@@ -17,16 +17,23 @@ impl Checker {
     ) -> Result<Expression, Diagnostic> {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
-                kind: if super::memory::is_memory_primitive(reference.id) {
-                    return Err(Diagnostic::error(format!(
-                        "primitive `{}` must be called directly",
-                        reference.name.text
-                    ))
-                    .with_primary(expression.span, "expected a call at this reference"));
+                kind: if let Some(primitive) = super::memory::memory_primitive(reference.id) {
+                    ExpressionKind::MemoryFunction {
+                        primitive,
+                        reference: reference.clone(),
+                    }
                 } else {
                     ExpressionKind::Reference(reference.clone())
                 },
-                ty: self.value_type(reference)?,
+                ty: if let Some(primitive) = super::memory::memory_primitive(reference.id) {
+                    let (parameter, result) = primitive.signature();
+                    Type::Function {
+                        parameter: Box::new(parameter),
+                        result: Box::new(result),
+                    }
+                } else {
+                    self.value_type(reference)?
+                },
                 span: expression.span,
             },
             resolved::Expression::Integer(literal) => {

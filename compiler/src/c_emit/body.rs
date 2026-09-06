@@ -1,8 +1,8 @@
 use crate::anf;
-use crate::check::ast::Type;
-use crate::closure::ast::{self as closure, Binding, Block, Operation, Pattern};
+use crate::check::ast::{MemoryPrimitive, Type};
+use crate::closure::ast::{self as closure, Binding, Block, FunctionId, Operation, Pattern};
 use crate::core::ast::ExternalOperation;
-use crate::resolve::ast::{ExternalOperationId, LambdaId};
+use crate::resolve::ast::ExternalOperationId;
 
 use super::types::TypeRegistry;
 
@@ -87,7 +87,7 @@ impl<'a> BodyEmitter<'a> {
             .expect("closure conversion preserves external declarations")
     }
 
-    fn function(&self, id: LambdaId) -> &closure::Function {
+    fn function(&self, id: FunctionId) -> &closure::Function {
         self.program
             .functions
             .iter()
@@ -95,7 +95,7 @@ impl<'a> BodyEmitter<'a> {
             .expect("closure conversion preserves function identities")
     }
 
-    fn direct_function(&self, callee: &closure::Atom) -> Option<(LambdaId, &'static str)> {
+    fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, &'static str)> {
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
                 Some((function, "mal_environment"))
@@ -135,7 +135,7 @@ impl<'a> BodyEmitter<'a> {
         }
     }
 
-    fn top_level_function_name(&self, function: LambdaId) -> Option<&str> {
+    fn top_level_function_name(&self, function: FunctionId) -> Option<&str> {
         self.program.bindings.iter().find_map(|binding| {
             let closure::TopLevelPattern::Binding { name, .. } = &binding.pattern else {
                 return None;
@@ -182,15 +182,32 @@ fn value_name(id: anf::ast::ValueId) -> String {
             format!("mal_value_core_{id}")
         }
         anf::ast::ValueId::Temporary(id) => format!("mal_value_anf_{id}"),
+        anf::ast::ValueId::MemoryParameter(primitive) => {
+            format!("mal_memory_parameter_{}", memory_primitive_name(primitive))
+        }
+        anf::ast::ValueId::MemoryResult(primitive) => {
+            format!("mal_memory_result_{}", memory_primitive_name(primitive))
+        }
     }
 }
 
-fn function_name(id: LambdaId) -> String {
-    format!("mal_function_{}", id.0)
+fn function_name(id: FunctionId) -> String {
+    match id {
+        FunctionId::Lambda(id) => format!("mal_function_{}", id.0),
+        FunctionId::Memory(primitive) => {
+            format!("mal_memory_function_{}", memory_primitive_name(primitive))
+        }
+    }
 }
 
-fn direct_function_name(id: LambdaId) -> String {
-    format!("mal_direct_function_{}", id.0)
+fn direct_function_name(id: FunctionId) -> String {
+    match id {
+        FunctionId::Lambda(id) => format!("mal_direct_function_{}", id.0),
+        FunctionId::Memory(primitive) => format!(
+            "mal_direct_memory_function_{}",
+            memory_primitive_name(primitive)
+        ),
+    }
 }
 
 const MAX_DIRECT_PARAMETERS: usize = 16;
@@ -219,11 +236,16 @@ fn flattened_product_values(ty: &Type, value: &str) -> Vec<String> {
     }
 }
 
-fn environment_name(id: LambdaId) -> String {
-    format!("MalEnvironment_{}", id.0)
+fn environment_name(id: FunctionId) -> String {
+    match id {
+        FunctionId::Lambda(id) => format!("MalEnvironment_{}", id.0),
+        FunctionId::Memory(primitive) => {
+            format!("MalMemoryEnvironment_{}", memory_primitive_name(primitive))
+        }
+    }
 }
 
-fn has_direct_tail_call(block: &Block, function: LambdaId) -> bool {
+fn has_direct_tail_call(block: &Block, function: FunctionId) -> bool {
     let Some(binding) = tail_binding(block) else {
         return false;
     };
@@ -239,6 +261,44 @@ fn has_direct_tail_call(block: &Block, function: LambdaId) -> bool {
             otherwise, then, ..
         } => has_direct_tail_call(otherwise, function) || has_direct_tail_call(then, function),
         _ => false,
+    }
+}
+
+fn memory_primitive_name(primitive: MemoryPrimitive) -> &'static str {
+    use crate::check::ast::MemoryScalar;
+
+    match primitive {
+        MemoryPrimitive::Load(scalar) => match scalar {
+            MemoryScalar::Int8 => "load_int8",
+            MemoryScalar::Int16 => "load_int16",
+            MemoryScalar::Int32 => "load_int32",
+            MemoryScalar::Int64 => "load_int64",
+            MemoryScalar::UInt8 => "load_uint8",
+            MemoryScalar::UInt16 => "load_uint16",
+            MemoryScalar::UInt32 => "load_uint32",
+            MemoryScalar::UInt64 => "load_uint64",
+            MemoryScalar::Float32 => "load_float32",
+            MemoryScalar::Float64 => "load_float64",
+        },
+        MemoryPrimitive::Store(scalar) => match scalar {
+            MemoryScalar::Int8 => "store_int8",
+            MemoryScalar::Int16 => "store_int16",
+            MemoryScalar::Int32 => "store_int32",
+            MemoryScalar::Int64 => "store_int64",
+            MemoryScalar::UInt8 => "store_uint8",
+            MemoryScalar::UInt16 => "store_uint16",
+            MemoryScalar::UInt32 => "store_uint32",
+            MemoryScalar::UInt64 => "store_uint64",
+            MemoryScalar::Float32 => "store_float32",
+            MemoryScalar::Float64 => "store_float64",
+        },
+        MemoryPrimitive::LoadPtr => "load_ptr",
+        MemoryPrimitive::StorePtr => "store_ptr",
+        MemoryPrimitive::LoadEngram => "load_engram",
+        MemoryPrimitive::StoreEngram => "store_engram",
+        MemoryPrimitive::OffsetForward | MemoryPrimitive::OffsetBackward => {
+            unreachable!("pointer offsets are operators, not function values")
+        }
     }
 }
 

@@ -406,7 +406,7 @@ fn rejects_storage_sizes_without_a_memory_representation() {
 }
 
 #[test]
-fn rejects_mistyped_or_first_class_memory_primitives() {
+fn rejects_mistyped_memory_operations() {
     for text in [
         "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + 1i64; };",
         "bad := \\() { loadInt64(0u64); };",
@@ -417,13 +417,37 @@ fn rejects_mistyped_or_first_class_memory_primitives() {
         "extern memory :: Unit -> Ptr; bad := \\() { 1u64 + extern memory(); };",
         "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + extern memory(); };",
         "extern memory :: Unit -> Ptr; bad := \\() { 1u64 - extern memory(); };",
-        "bad := loadFloat64;",
-        "bad := loadPtr;",
-        "bad := storeEngram;",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");
     }
+}
+
+#[test]
+fn gives_every_memory_function_a_first_class_function_type() {
+    let program = check_ok(
+        "li8 :: Ptr -> Int8 := loadInt8; si8 :: (Ptr, Int8) -> Unit := storeInt8;\n\
+         li16 :: Ptr -> Int16 := loadInt16; si16 :: (Ptr, Int16) -> Unit := storeInt16;\n\
+         li32 :: Ptr -> Int32 := loadInt32; si32 :: (Ptr, Int32) -> Unit := storeInt32;\n\
+         li64 :: Ptr -> Int64 := loadInt64; si64 :: (Ptr, Int64) -> Unit := storeInt64;\n\
+         lu8 :: Ptr -> UInt8 := loadUInt8; su8 :: (Ptr, UInt8) -> Unit := storeUInt8;\n\
+         lu16 :: Ptr -> UInt16 := loadUInt16; su16 :: (Ptr, UInt16) -> Unit := storeUInt16;\n\
+         lu32 :: Ptr -> UInt32 := loadUInt32; su32 :: (Ptr, UInt32) -> Unit := storeUInt32;\n\
+         lu64 :: Ptr -> UInt64 := loadUInt64; su64 :: (Ptr, UInt64) -> Unit := storeUInt64;\n\
+         lf32 :: Ptr -> Float32 := loadFloat32; sf32 :: (Ptr, Float32) -> Unit := storeFloat32;\n\
+         lf64 :: Ptr -> Float64 := loadFloat64; sf64 :: (Ptr, Float64) -> Unit := storeFloat64;\n\
+         lp :: Ptr -> Ptr := loadPtr; sp :: (Ptr, Ptr) -> Unit := storePtr;\n\
+         le :: Ptr -> Engram := loadEngram; se :: (Ptr, Engram) -> Unit := storeEngram;",
+    );
+    assert_eq!(program.items.len(), 24);
+    assert!(program.items.iter().all(|item| {
+        matches!(
+            &item.kind,
+            TopItem::Binding(binding)
+                if matches!(binding.value.kind, ExpressionKind::MemoryFunction { .. })
+                    && matches!(binding.value.ty, Type::Function { .. })
+        )
+    }));
 }
 
 #[test]

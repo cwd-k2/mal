@@ -70,8 +70,8 @@ makeFunction()(x)
 
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
-[memory](memory.md#primitive)に列挙するload/store operationはdirect-call-only primitiveである。通常のidentifierと
-同じ形でcallするが、値としてbindingしたり引数として渡したりできない。pointerのbyte offsetは`+`と`-`、Engramの
+[memory](memory.md#primitive)に列挙するload/store operationはpredefined functionであり、通常のfunctionと同じく
+直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Engramの
 lengthとbyte accessは[`#` operator](engrams.md#operator)で表す。
 
 ## storage size

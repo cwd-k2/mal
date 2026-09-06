@@ -133,3 +133,14 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
     assert!(document.definition(occurrence.id).is_none());
     assert!(document.rename_spans(offset).is_none());
 }
+
+#[test]
+fn reports_the_function_type_of_a_first_class_memory_function() {
+    let text = "reader :: Ptr -> Int64 := loadInt64;";
+    let offset = text.find("loadInt64").unwrap();
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let hover = document.hover_at(offset).expect("memory function hover");
+
+    assert_eq!(hover.ty, "Ptr -> Int64");
+    assert_eq!(hover.occurrence.unwrap().name, "loadInt64");
+}

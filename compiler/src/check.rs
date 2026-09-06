@@ -440,6 +440,7 @@ fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
+                || memory::memory_primitive(reference.id).is_some()
         }
         resolved::Expression::Parenthesized(inner) => is_top_level_initializer(inner),
         resolved::Expression::Product(elements) => elements.iter().all(is_top_level_initializer),

@@ -66,8 +66,9 @@ loadEngram   :: Ptr -> Engram
 storeEngram  :: (Ptr, Engram) -> Unit
 ```
 
-pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefined scopeにあるdirect-call-only primitiveであり、
-first-class function valueとして参照できない。operandおよび引数は左から右へ一度ずつ評価する。
+pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefined scopeにあるfirst-class functionであり、
+binding、引数、resultとして扱える。直接callとfunction valueを介したcallは同じmemory operationを行う。
+operand、callee、引数は通常のoperatorとcallの規則どおり左から右へ一度ずつ評価する。
 
 `pointer + bytes`はaddressを`bytes`だけ大きい側へ、`pointer - bytes`は小さい側へ移動する。resultは同じlive region内、
 またはregion末尾の直後でなければならない。末尾の直後を指す値は作れるがload/storeには使えない。targetの

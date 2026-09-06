@@ -144,6 +144,12 @@ impl Lowerer {
                 let (builder, argument) = self.lower_operand(argument);
                 builder.finish(self, expression, Operation::EngramAt { argument })
             }
+            core::ExpressionKind::MemoryFunction { primitive } => self.operation_block(
+                expression,
+                Operation::MemoryFunction {
+                    primitive: *primitive,
+                },
+            ),
             core::ExpressionKind::Memory {
                 primitive,
                 argument,

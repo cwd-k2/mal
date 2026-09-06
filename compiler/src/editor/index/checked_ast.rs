@@ -55,6 +55,11 @@ impl Index<'_> {
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
             }
+            ExpressionKind::MemoryFunction { reference, .. } => {
+                self.value_types
+                    .entry(self.canonical_value(reference.id))
+                    .or_insert(ty);
+            }
             ExpressionKind::Product(elements) => {
                 for element in elements {
                     self.collect_checked_expression(element);

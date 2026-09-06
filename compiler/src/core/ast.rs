@@ -124,6 +124,9 @@ pub enum ExpressionKind {
     EngramAt {
         argument: Box<Expression>,
     },
+    MemoryFunction {
+        primitive: MemoryPrimitive,
+    },
     Memory {
         primitive: MemoryPrimitive,
         argument: Box<Expression>,

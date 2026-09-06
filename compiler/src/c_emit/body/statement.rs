@@ -1,6 +1,6 @@
 use crate::check::ast::Type;
+use crate::closure::ast::FunctionId;
 use crate::closure::ast::{self as closure, Atom, Binding, Block, Operation, Pattern};
-use crate::resolve::ast::LambdaId;
 
 use super::{BodyEmitter, environment_name, function_name, pattern_type, value_name};
 use crate::c_emit::types::is_bool;
@@ -21,7 +21,7 @@ impl BodyEmitter<'_> {
         &mut self,
         output: &mut String,
         block: &Block,
-        function: LambdaId,
+        function: FunctionId,
         parameter_name: &str,
         indent: usize,
     ) {
@@ -88,7 +88,7 @@ impl BodyEmitter<'_> {
         output: &mut String,
         scrutinee: &Atom,
         arms: &[closure::CaseArm],
-        function: LambdaId,
+        function: FunctionId,
         parameter_name: &str,
         indent: usize,
     ) {
@@ -134,7 +134,7 @@ impl BodyEmitter<'_> {
         right: &Atom,
         otherwise: &Block,
         then: &Block,
-        function: LambdaId,
+        function: FunctionId,
         parameter_name: &str,
         indent: usize,
     ) {
@@ -341,7 +341,7 @@ impl BodyEmitter<'_> {
         output: &mut String,
         pattern: &Pattern,
         ty: &Type,
-        function: LambdaId,
+        function: FunctionId,
         captures: &[Atom],
         indent: usize,
     ) {

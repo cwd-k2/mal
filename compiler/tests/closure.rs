@@ -19,14 +19,14 @@ fn convert_ok(text: &str) -> closure::ast::Program {
     closure::convert(&anf)
 }
 
-fn closure_function_id(operation: &Operation) -> malc::resolve::ast::LambdaId {
+fn closure_function_id(operation: &Operation) -> closure::ast::FunctionId {
     let Operation::MakeClosure { function, .. } = operation else {
         panic!("expected closure construction, found {operation:#?}");
     };
     *function
 }
 
-fn function(program: &closure::ast::Program, id: malc::resolve::ast::LambdaId) -> &Function {
+fn function(program: &closure::ast::Program, id: closure::ast::FunctionId) -> &Function {
     program
         .functions
         .iter()

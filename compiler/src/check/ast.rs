@@ -110,6 +110,10 @@ pub enum ExpressionKind {
     EngramAt {
         argument: Box<Expression>,
     },
+    MemoryFunction {
+        primitive: MemoryPrimitive,
+        reference: ValueReference,
+    },
     Memory {
         primitive: MemoryPrimitive,
         argument: Box<Expression>,
@@ -146,7 +150,7 @@ pub enum ExpressionKind {
     },
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MemoryPrimitive {
     OffsetForward,
     OffsetBackward,
@@ -158,7 +162,7 @@ pub enum MemoryPrimitive {
     StoreEngram,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MemoryScalar {
     Int8,
     Int16,
@@ -170,6 +174,39 @@ pub enum MemoryScalar {
     UInt64,
     Float32,
     Float64,
+}
+
+impl MemoryPrimitive {
+    pub(crate) fn signature(self) -> (Type, Type) {
+        match self {
+            Self::OffsetForward | Self::OffsetBackward => {
+                (Type::Product(vec![Type::Ptr, Type::UInt64]), Type::Ptr)
+            }
+            Self::Load(scalar) => (Type::Ptr, scalar.ty()),
+            Self::Store(scalar) => (Type::Product(vec![Type::Ptr, scalar.ty()]), Type::Unit),
+            Self::LoadPtr => (Type::Ptr, Type::Ptr),
+            Self::StorePtr => (Type::Product(vec![Type::Ptr, Type::Ptr]), Type::Unit),
+            Self::LoadEngram => (Type::Ptr, Type::Engram),
+            Self::StoreEngram => (Type::Product(vec![Type::Ptr, Type::Engram]), Type::Unit),
+        }
+    }
+}
+
+impl MemoryScalar {
+    fn ty(self) -> Type {
+        match self {
+            Self::Int8 => Type::Int8,
+            Self::Int16 => Type::Int16,
+            Self::Int32 => Type::Int32,
+            Self::Int64 => Type::Int64,
+            Self::UInt8 => Type::UInt8,
+            Self::UInt16 => Type::UInt16,
+            Self::UInt32 => Type::UInt32,
+            Self::UInt64 => Type::UInt64,
+            Self::Float32 => Type::Float32,
+            Self::Float64 => Type::Float64,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

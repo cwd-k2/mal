@@ -126,6 +126,11 @@ impl Lowerer {
             checked::ExpressionKind::EngramAt { argument } => ExpressionKind::EngramAt {
                 argument: Box::new(self.lower_expression(argument)),
             },
+            checked::ExpressionKind::MemoryFunction { primitive, .. } => {
+                ExpressionKind::MemoryFunction {
+                    primitive: *primitive,
+                }
+            }
             checked::ExpressionKind::Memory {
                 primitive,
                 argument,

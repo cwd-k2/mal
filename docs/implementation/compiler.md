@@ -125,7 +125,8 @@ fallbackする。product resultとfirst-class function callはtarget C ABIへ委
 
 `Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。pointerに対する`+`と`-`はbyte addressを移動し、targetの
 `size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
-runtime helperへlowerする。region、permission、lifetimeはtyped IRに補わず、source-levelの
+runtime helperへlowerする。直接callはhelper operationへ直接lowerし、function valueとして参照された場合は同じ
+operationを実行するcapture-free closure entryを生成する。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。
 
 reference runtime は closure environment とruntime Engram bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
