@@ -21,6 +21,7 @@ struct Document {
     id: FileId,
     version: i64,
     text: String,
+    analysis: Option<malc::pipeline::Analysis>,
     semantic: Option<malc::editor::SemanticDocument>,
 }
 
@@ -157,6 +158,7 @@ impl Server {
                             id,
                             version: item.version,
                             text: item.text,
+                            analysis: None,
                             semantic: None,
                         },
                     );
@@ -170,6 +172,7 @@ impl Server {
                 {
                     document.version = params.text_document.version;
                     document.text.clone_from(&text.text);
+                    document.analysis = None;
                     document.semantic = None;
                     messages.push(self.diagnostics(&params.text_document.uri));
                 }
@@ -192,9 +195,9 @@ impl Server {
     fn diagnostics(&mut self, uri: &str) -> Value {
         let document = self.documents.get_mut(uri).expect("open document");
         let source = document.source(uri);
-        let diagnostics = match malc::editor::analyze(&source) {
-            Ok(semantic) => {
-                document.semantic = Some(semantic);
+        let diagnostics = match malc::pipeline::analyze(&source) {
+            Ok(analysis) => {
+                document.analysis = Some(analysis);
                 Vec::new()
             }
             Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
@@ -232,6 +235,17 @@ impl Server {
 impl Document {
     fn source(&self, uri: &str) -> SourceFile {
         SourceFile::new(self.id, uri, self.text.clone())
+    }
+
+    fn semantic(&mut self, source: &SourceFile) -> Option<&malc::editor::SemanticDocument> {
+        if self.semantic.is_none() {
+            self.semantic = self
+                .analysis
+                .as_ref()
+                .map(malc::editor::from_analysis)
+                .or_else(|| malc::editor::analyze(source).ok());
+        }
+        self.semantic.as_ref()
     }
 }
 

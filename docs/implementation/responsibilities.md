@@ -93,11 +93,15 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/initializer` | top-level closed-value admission |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/token` | token spacingと`if`、`case`、blockの出力state |
+| `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identity |
 | `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類 |
 | `c_emit/body/expression` | operationからC expressionへのdispatch |
 | `c_emit/body/expression/primitive` | numeric、comparison、Symbol primitiveのC semantics |
 | `c_emit/body/expression/atom` | typed atomのC representation |
+| `c_emit/body/statement` | binding operationからstatement emissionへのdispatch |
+| `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
+| `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
 
 ## Source structure
 

@@ -62,4 +62,5 @@ cargo run --manifest-path tools/mal-lsp/Cargo.toml --locked
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに
-成功したときに利用できる。incremental analysisとinvalid sourceからの部分的semantic resultは対象外とする。
+成功したときに利用できる。diagnostic生成に成功した同一document versionのfrontend analysisを再利用し、semantic indexは
+最初のsemantic requestで構築する。incremental analysisとinvalid sourceからの部分的semantic resultは対象外とする。

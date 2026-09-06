@@ -61,7 +61,11 @@ pub struct SemanticDocument {
 
 pub fn analyze(source: &SourceFile) -> Result<SemanticDocument, Diagnostic> {
     let analysis = crate::pipeline::analyze(source)?;
-    Ok(index::build(&analysis.resolved, &analysis.checked))
+    Ok(from_analysis(&analysis))
+}
+
+pub fn from_analysis(analysis: &crate::pipeline::Analysis) -> SemanticDocument {
+    index::build(&analysis.resolved, &analysis.checked)
 }
 
 impl SemanticDocument {

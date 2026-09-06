@@ -37,10 +37,10 @@ language behaviorのtestを分けて扱う。
 変化しないはずのstageが概ね同水準であり、改善がlossless bookkeepingを含む境界に集中したため、この変更を採用する。
 `lex_lossless`は従来どおり全lexemeを返し、formatterのliteral/comment保存contractは変えない。
 
-LSPは最初のsemantic requestで得たanalysisをopen documentのversionと共にmemoryへ保持し、後続requestごとに
-`editor::analyze`を繰り返さない。full document change時に破棄し、次のsemantic requestで再計算する。diagnosticだけを
-必要とするchangeでは追加のsemantic indexを構築せず、invalid sourceではsemantic resultを保持しない。これはincremental
-compilationではなく、同一versionのimmutable resultの再利用である。
+LSPはdiagnostic生成で成功したfrontend analysisをopen documentのversionと共にmemoryへ保持し、最初のsemantic requestで
+そのresolved/checked programからsemantic indexを構築する。後続requestでは同じindexを再利用する。full document change時に
+analysisとindexを破棄する。diagnosticだけを必要とするchangeではsemantic indexを構築せず、invalid sourceではどちらも
+保持しない。これはincremental compilationではなく、同一versionのimmutable resultの再利用である。
 
 parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側は
 [generated C performance記録](performance.md)の再検討条件を満たす新しいhotspotがないため変更しない。

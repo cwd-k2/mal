@@ -210,10 +210,7 @@ impl Server {
             line: position.line,
             character: position.character,
         })?;
-        if document.semantic.is_none() {
-            document.semantic = malc::editor::analyze(&source).ok();
-        }
-        let semantic = document.semantic.as_ref()?;
+        let semantic = document.semantic(&source)?;
         Some((source, semantic, offset))
     }
 
@@ -222,10 +219,7 @@ impl Server {
         let uri = identifier.text_document.uri;
         let document = self.documents.get_mut(&uri)?;
         let source = document.source(&uri);
-        if document.semantic.is_none() {
-            document.semantic = malc::editor::analyze(&source).ok();
-        }
-        let semantic = document.semantic.as_ref()?;
+        let semantic = document.semantic(&source)?;
         Some((source, semantic))
     }
 }
