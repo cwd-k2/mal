@@ -81,9 +81,13 @@ function callではなく、host operationも実行しない。定義対象と�
 [memoryのstorage幅](memory.md#storage-幅)に定める。
 
 ```mal
-pointerBytes :: UInt64 := @Ptr;
-recordBytes := @Ptr + @UInt64 + @UInt8;
+descriptorSize :: Unit -> UInt64 := \() {
+    @Ptr + @UInt64 + @UInt8;
+};
 ```
+
+`@T`単独はtop-levelのclosed valueに使える。上の加算はlambda body内の通常のexpressionであり、top-level initializerに
+binary operationを追加しない。
 
 ## if
 

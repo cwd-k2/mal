@@ -215,6 +215,7 @@ fn checked_in_example_headers_match_the_compiler() {
         "print-and-closure",
         "ptr-memory",
         "recoverable-file",
+        "resizable-buffer",
         "strict-float",
         "symbol-round-trip",
         "tail-recursion",
@@ -480,6 +481,37 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).starts_with("file error: "));
+}
+
+#[test]
+fn resizable_buffer_example_handles_growth_slices_and_stale_aliases() {
+    let directory = NativeFixture::new("resizable-buffer");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/resizable-buffer");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "al\nmal-shared-buffer\nresize rejected\n"
+    );
+    assert!(output.stderr.is_empty());
 }
 
 #[test]
