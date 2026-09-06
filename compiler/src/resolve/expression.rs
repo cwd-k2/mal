@@ -5,8 +5,8 @@ use crate::diagnostic::Diagnostic;
 
 use super::Resolver;
 use super::ast::{
-    BodyItem, Capture, CaseArm, Expression, ExpressionBlock, ExternalOperationReference, Lambda,
-    LambdaBody, Parameter, ValueOwner, ValueReference,
+    BodyItem, Capture, CaseArm, Expression, ExpressionBlock, Lambda, LambdaBody, Parameter,
+    ValueOwner, ValueReference,
 };
 
 impl Resolver {
@@ -42,7 +42,7 @@ impl Resolver {
                     .collect::<Result<_, _>>()?,
             },
             ast::Expression::ExternalCall { name, arguments } => Expression::ExternalCall {
-                operation: self.resolve_external_reference(name)?,
+                operation: self.external_reference(name)?,
                 arguments: arguments
                     .iter()
                     .map(|argument| self.resolve_expression(argument))
@@ -263,20 +263,6 @@ impl Resolver {
             );
         }
         Ok(ValueReference {
-            id: binding.id,
-            name: name.clone(),
-        })
-    }
-
-    fn resolve_external_reference(
-        &self,
-        name: &ast::Name,
-    ) -> Result<ExternalOperationReference, Diagnostic> {
-        let binding = self
-            .externals
-            .get(&name.text)
-            .ok_or_else(|| self.unknown(name, "external operation"))?;
-        Ok(ExternalOperationReference {
             id: binding.id,
             name: name.clone(),
         })

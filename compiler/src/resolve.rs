@@ -6,12 +6,12 @@ use crate::source::Span;
 pub mod ast;
 mod expression;
 mod predefined;
+mod scope;
 
 pub use self::predefined::{TYPES as PREDEFINED_TYPES, VALUES as PREDEFINED_VALUES};
 
 use self::ast::{
-    ExternalOperationId, LambdaId, Program, TypeBinding, TypeId, TypeReference, ValueBinding,
-    ValueId, ValueOwner,
+    ExternalOperationId, LambdaId, Program, TypeBinding, ValueBinding, ValueId, ValueOwner,
 };
 
 pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
@@ -74,39 +74,6 @@ impl Resolver {
             items,
             span: program.span,
         })
-    }
-
-    fn predeclare_unit_names(&mut self, program: &crate::ast::Program) -> Result<(), Diagnostic> {
-        for item in &program.items {
-            match &item.kind {
-                crate::ast::TopItem::TypeAlias { name, .. }
-                | crate::ast::TopItem::ExternalType { name } => {
-                    if self.types.contains_key(&name.text) {
-                        return Err(self.duplicate(name, "type"));
-                    }
-                    let binding = TypeBinding {
-                        id: TypeId(self.next_type),
-                        name: name.clone(),
-                    };
-                    self.next_type += 1;
-                    self.types.insert(name.text.clone(), binding);
-                }
-                crate::ast::TopItem::ExternalOperation { name, .. } => {
-                    if self.externals.contains_key(&name.text)
-                        || self.value_scopes[0].contains_key(&name.text)
-                    {
-                        return Err(self.duplicate(name, "top-level value"));
-                    }
-                    let binding = ExternalBinding {
-                        id: ExternalOperationId(self.next_external),
-                    };
-                    self.next_external += 1;
-                    self.externals.insert(name.text.clone(), binding);
-                }
-                crate::ast::TopItem::Binding(_) => {}
-            }
-        }
-        Ok(())
     }
 
     fn resolve_top_item(
@@ -213,82 +180,6 @@ impl Resolver {
         })
     }
 
-    fn declare_pattern(
-        &mut self,
-        pattern: &crate::ast::Node<crate::ast::Pattern>,
-        owner: ValueOwner,
-    ) -> Result<crate::ast::Node<ast::Pattern>, Diagnostic> {
-        let kind = match &pattern.kind {
-            crate::ast::Pattern::Name(name) => {
-                ast::Pattern::Binding(self.declare_value(name, owner)?)
-            }
-            crate::ast::Pattern::Wildcard => ast::Pattern::Wildcard,
-            crate::ast::Pattern::Product(elements) => ast::Pattern::Product(
-                elements
-                    .iter()
-                    .map(|element| self.declare_pattern(element, owner))
-                    .collect::<Result<_, _>>()?,
-            ),
-        };
-        Ok(crate::ast::Node::new(kind, pattern.span))
-    }
-
-    fn declare_value(
-        &mut self,
-        name: &crate::ast::Name,
-        owner: ValueOwner,
-    ) -> Result<ValueBinding, Diagnostic> {
-        if self
-            .value_scopes
-            .last()
-            .expect("value scope")
-            .contains_key(&name.text)
-            || (owner == ValueOwner::TopLevel && self.externals.contains_key(&name.text))
-        {
-            return Err(self.duplicate(name, "value"));
-        }
-        let binding = ValueBinding {
-            id: ValueId(self.next_value),
-            name: name.clone(),
-            owner,
-        };
-        self.next_value += 1;
-        self.value_scopes
-            .last_mut()
-            .expect("value scope")
-            .insert(name.text.clone(), binding.clone());
-        Ok(binding)
-    }
-
-    fn type_binding(&self, name: &crate::ast::Name) -> Result<TypeBinding, Diagnostic> {
-        self.types
-            .get(&name.text)
-            .cloned()
-            .ok_or_else(|| self.unknown(name, "type"))
-    }
-
-    fn type_reference(&self, name: &crate::ast::Name) -> Result<TypeReference, Diagnostic> {
-        Ok(TypeReference {
-            id: self.type_binding(name)?.id,
-            name: name.clone(),
-        })
-    }
-
-    fn lookup_value(&self, text: &str) -> Option<ValueBinding> {
-        self.value_scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.get(text).cloned())
-    }
-
-    fn push_scope(&mut self) {
-        self.value_scopes.push(HashMap::new());
-    }
-
-    fn pop_scope(&mut self) {
-        self.value_scopes.pop().expect("a nested value scope");
-    }
-
     fn allocate_lambda(&mut self) -> LambdaId {
         let id = LambdaId(self.next_lambda);
         self.next_lambda += 1;
@@ -300,44 +191,5 @@ impl Resolver {
             Diagnostic::error("local binding outside a lambda is not supported")
                 .with_primary(span, "this binding has no owning lambda")
         })
-    }
-
-    fn add_predefined_type(&mut self, text: &str, id: TypeId) {
-        self.types.insert(
-            text.into(),
-            TypeBinding {
-                id,
-                name: self.synthetic_name(text),
-            },
-        );
-    }
-
-    fn add_predefined_value(&mut self, text: &str, id: ValueId) {
-        let name = self.synthetic_name(text);
-        self.value_scopes[0].insert(
-            text.into(),
-            ValueBinding {
-                id,
-                name,
-                owner: ValueOwner::Predefined,
-            },
-        );
-    }
-
-    fn synthetic_name(&self, text: &str) -> crate::ast::Name {
-        crate::ast::Name {
-            text: text.into(),
-            span: self.synthetic_span,
-        }
-    }
-
-    fn duplicate(&self, name: &crate::ast::Name, category: &str) -> Diagnostic {
-        Diagnostic::error(format!("duplicate {category} `{}`", name.text))
-            .with_primary(name.span, "already declared in this scope")
-    }
-
-    fn unknown(&self, name: &crate::ast::Name, category: &str) -> Diagnostic {
-        Diagnostic::error(format!("unknown {category} `{}`", name.text))
-            .with_primary(name.span, format!("this {category} is not in scope"))
     }
 }
