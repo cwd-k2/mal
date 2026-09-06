@@ -21,6 +21,48 @@ pub fn lower(program: &checked::Program) -> Program {
     Lowerer::new().lower_program(program)
 }
 
+pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
+    let mut interface = ProgramInterface {
+        type_aliases: Vec::new(),
+        external_types: Vec::new(),
+        externals: Vec::new(),
+    };
+    for item in &program.items {
+        match &item.kind {
+            checked::TopItem::TypeAlias { binding, ty } => {
+                interface.type_aliases.push(TypeAlias {
+                    name: binding.name.text.clone(),
+                    ty: ty.clone(),
+                });
+            }
+            checked::TopItem::ExternalType { binding } => {
+                interface.external_types.push(ExternalType {
+                    name: binding.name.text.clone(),
+                });
+            }
+            checked::TopItem::ExternalOperation {
+                id,
+                name,
+                parameter,
+                parameter_aliases,
+                result,
+                result_alias,
+                ..
+            } => interface.externals.push(ExternalOperation {
+                id: *id,
+                name: name.text.clone(),
+                parameter: parameter.clone(),
+                parameter_aliases: parameter_aliases.clone(),
+                result: result.clone(),
+                result_alias: result_alias.clone(),
+                span: item.span,
+            }),
+            checked::TopItem::Binding(_) => {}
+        }
+    }
+    interface
+}
+
 struct Lowerer {
     next_temporary: u32,
 }
@@ -31,47 +73,16 @@ impl Lowerer {
     }
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
-        let mut externals = Vec::new();
-        let mut external_types = Vec::new();
-        let mut type_aliases = Vec::new();
-        let mut bindings = Vec::new();
-        for item in &program.items {
-            match &item.kind {
-                checked::TopItem::TypeAlias { binding, ty } => type_aliases.push(TypeAlias {
-                    name: binding.name.text.clone(),
-                    ty: ty.clone(),
-                }),
-                checked::TopItem::ExternalType { binding } => external_types.push(ExternalType {
-                    name: binding.name.text.clone(),
-                }),
-                checked::TopItem::ExternalOperation {
-                    id,
-                    name,
-                    parameter,
-                    parameter_aliases,
-                    result,
-                    result_alias,
-                    ..
-                } => externals.push(ExternalOperation {
-                    id: *id,
-                    name: name.text.clone(),
-                    parameter: parameter.clone(),
-                    parameter_aliases: parameter_aliases.clone(),
-                    result: result.clone(),
-                    result_alias: result_alias.clone(),
-                    span: item.span,
-                }),
-                checked::TopItem::Binding(binding) => {
-                    bindings.push(self.lower_top_level_binding(binding));
-                }
-            }
-        }
+        let bindings = program
+            .items
+            .iter()
+            .filter_map(|item| match &item.kind {
+                checked::TopItem::Binding(binding) => Some(self.lower_top_level_binding(binding)),
+                _ => None,
+            })
+            .collect();
         Program {
-            interface: ProgramInterface {
-                type_aliases,
-                external_types,
-                externals,
-            },
+            interface: lower_interface(program),
             bindings,
             span: program.span,
         }

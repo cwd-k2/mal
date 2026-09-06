@@ -1,5 +1,6 @@
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
+use crate::core::ast::ProgramInterface;
 
 mod host;
 
@@ -14,17 +15,7 @@ pub(super) struct TypeRegistry {
 
 impl TypeRegistry {
     pub(super) fn collect_program(&mut self, program: &closure::Program) {
-        self.opaque_names.extend(
-            program
-                .interface
-                .external_types
-                .iter()
-                .map(|external| external.name.clone()),
-        );
-        for external in &program.interface.externals {
-            self.collect_public(&external.parameter);
-            self.collect_public(&external.result);
-        }
+        self.collect_interface(&program.interface);
         for binding in &program.bindings {
             self.collect_top_pattern(&binding.pattern);
             self.collect_block(&binding.value);
@@ -35,6 +26,19 @@ impl TypeRegistry {
             }
             self.collect(&function.parameter.ty);
             self.collect_block(&function.body);
+        }
+    }
+
+    pub(super) fn collect_interface(&mut self, interface: &ProgramInterface) {
+        self.opaque_names.extend(
+            interface
+                .external_types
+                .iter()
+                .map(|external| external.name.clone()),
+        );
+        for external in &interface.externals {
+            self.collect_public(&external.parameter);
+            self.collect_public(&external.result);
         }
     }
 

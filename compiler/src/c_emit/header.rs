@@ -1,4 +1,4 @@
-use crate::closure::ast::Program;
+use crate::core::ast::ProgramInterface;
 
 use super::{TypeRegistry, host_signature::HostSignature};
 
@@ -61,29 +61,28 @@ static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
 }
 "#;
 
-pub(super) fn emit(program: &Program, types: &TypeRegistry) -> String {
-    let signatures: Vec<_> = program
-        .interface
+pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry) -> String {
+    let signatures: Vec<_> = interface
         .externals
         .iter()
         .map(|external| HostSignature::new(external, types))
         .collect();
     let mut output = String::from(HEADER_PREFIX);
     let mut declarations = types.header_declarations();
-    declarations.push_str(&types.header_alias_declarations(&program.interface.type_aliases));
+    declarations.push_str(&types.header_alias_declarations(&interface.type_aliases));
     if !declarations.is_empty() {
         begin_section(&mut output, "Host-visible types");
         output.push_str(&declarations);
     }
 
     let mut helpers = types.header_opaque_helpers();
-    helpers.push_str(&types.header_alias_helpers(&program.interface.type_aliases));
+    helpers.push_str(&types.header_alias_helpers(&interface.type_aliases));
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.push_str(&helpers);
     }
 
-    if !program.interface.externals.is_empty() {
+    if !interface.externals.is_empty() {
         begin_section(&mut output, "External operations");
         for signature in &signatures {
             emit_external_declaration(&mut output, signature);
@@ -105,9 +104,13 @@ fn begin_section(output: &mut String, title: &str) {
     output.push('\n');
 }
 
-pub(super) fn emit_host(program: &Program, types: &TypeRegistry, header_name: &str) -> String {
+pub(super) fn emit_host(
+    interface: &ProgramInterface,
+    types: &TypeRegistry,
+    header_name: &str,
+) -> String {
     let mut output = format!("#include \"{header_name}\"\n");
-    for external in &program.interface.externals {
+    for external in &interface.externals {
         let signature = HostSignature::new(external, types);
         output.push('\n');
         emit_macro_invocation(&mut output, &signature);

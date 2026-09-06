@@ -59,6 +59,28 @@ fn preserves_type_alias_names_as_backend_metadata() {
 }
 
 #[test]
+fn extracts_the_host_interface_without_lowering_value_bindings() {
+    let source = SourceFile::new(
+        FileId::new(42),
+        "core-test.mal",
+        "Pair :: (Int32, Symbol);\n\
+         extern send :: Pair -> Unit;\n\
+         value :: Int32 := 1;"
+            .into(),
+    );
+    let parsed = parser::parse(&source).expect("parsed program");
+    let resolved = resolve::resolve(&parsed).expect("resolved program");
+    let checked = check::check(&resolved).expect("checked program");
+
+    let interface = core::lower_interface(&checked);
+
+    assert_eq!(interface.type_aliases.len(), 1);
+    assert_eq!(interface.external_types.len(), 0);
+    assert_eq!(interface.externals.len(), 1);
+    assert_eq!(interface.externals[0].name, "send");
+}
+
+#[test]
 fn lowers_if_to_false_then_true_case_arms() {
     let program = lower_ok(
         "choose :: Bool -> Int32 := \\(flag :: Bool) {\n\

@@ -23,13 +23,18 @@ pub fn emit_c(source: &SourceFile) -> Result<crate::c_emit::Output, Diagnostic> 
 }
 
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
-    let closure = lower_for_c(source)?;
-    Ok(crate::c_emit::emit_header(&closure))
+    let interface = lower_interface(source)?;
+    Ok(crate::c_emit::emit_header(&interface))
 }
 
 pub fn emit_host(source: &SourceFile, header_name: &str) -> Result<String, Diagnostic> {
-    let closure = lower_for_c(source)?;
-    crate::c_emit::emit_host(&closure, header_name)
+    let interface = lower_interface(source)?;
+    crate::c_emit::emit_host(&interface, header_name)
+}
+
+fn lower_interface(source: &SourceFile) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {
+    let checked = check(source)?;
+    Ok(crate::core::lower_interface(&checked))
 }
 
 fn lower_for_c(source: &SourceFile) -> Result<crate::closure::ast::Program, Diagnostic> {

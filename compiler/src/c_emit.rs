@@ -1,5 +1,6 @@
 use crate::check::ast::Type;
 use crate::closure::ast::{Program, TopLevelPattern};
+use crate::core::ast::ProgramInterface;
 use crate::diagnostic::Diagnostic;
 
 macro_rules! c_write {
@@ -66,25 +67,25 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
     Ok(Output {
         source,
-        header: header::emit(program, &types),
+        header: header::emit(&program.interface, &types),
     })
 }
 
-pub fn emit_header(program: &Program) -> String {
+pub fn emit_header(interface: &ProgramInterface) -> String {
     let mut types = TypeRegistry::default();
-    types.collect_program(program);
-    header::emit(program, &types)
+    types.collect_interface(interface);
+    header::emit(interface, &types)
 }
 
-pub fn emit_host(program: &Program, header_name: &str) -> Result<String, Diagnostic> {
+pub fn emit_host(interface: &ProgramInterface, header_name: &str) -> Result<String, Diagnostic> {
     if !is_valid_header_name(header_name) {
         return Err(Diagnostic::error(
             "generated host header name is not valid in a quoted C include",
         ));
     }
     let mut types = TypeRegistry::default();
-    types.collect_program(program);
-    Ok(header::emit_host(program, &types, header_name))
+    types.collect_interface(interface);
+    Ok(header::emit_host(interface, &types, header_name))
 }
 
 pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
