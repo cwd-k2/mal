@@ -782,13 +782,13 @@ productとsumはbackend ABI上のC struct sizeを公開せず、canonical memory
 
 Stringのbyte lengthを`#value :: UInt64`、0-based byte accessを
 `value # index :: UInt8`として表す。binary `#`のindexは`UInt64`で、範囲外はtrapし、operatorは
-non-associativeとする。`byteLength`と`byteAt`はpredefined valueから削除し、互換aliasを残さない。
+non-associativeとする。
 
 ### 理由
 
-これらは通常のfunction valueではなく、すべてのString valueに常在する基本的な観測である。名前だけを
-predefined scopeへ置きながらfirst-class useを禁止するより、numeric scalarの算術や比較と同じく型付きoperator
-として表す方が、値が元から持つprimitive operationとambient nameの境界を明確にできる。
+これらは通常のfunction valueではなく、すべてのString valueに常在する基本的な観測である。numeric scalarの
+算術や比較と同じく型付きoperatorとして表し、値が元から持つprimitive operationとambient nameの境界を
+明確にする。
 
 unary `#`によるString byte lengthにはLuaなどの前例がある。binary `#`を同じoperator familyのbyte accessへ
 割り当てることで、将来の汎用container indexingを暗示する`[]`を導入せず、StringがUnicode characterではなく

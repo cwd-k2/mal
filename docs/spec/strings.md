@@ -34,7 +34,6 @@ value # index
 
 `#value`はbyte lengthを`UInt64`で返す。`value # index`は`UInt64`のindexにあるbyteを`UInt8`で返す。
 いずれもString descriptorを観測する組み込みoperatorであり、function valueとしては存在しない。
-`byteLength`と`byteAt`はpredefined nameではない。
 
 indexは0-basedで、範囲外の`#` accessはtrapする。binary `#`はnon-associativeである。
 
