@@ -45,7 +45,7 @@ fn publishes_utf16_diagnostics_and_clears_them_after_a_change() {
     }));
     assert_eq!(changed.messages[0]["params"]["version"], 2);
     assert_eq!(changed.messages[0]["params"]["diagnostics"], json!([]));
-    assert!(server.documents["file:///unicode.mal"].semantic.is_none());
+    assert!(server.documents["file:///unicode.mal"].semantic.is_some());
     request_at(
         &mut server,
         2,

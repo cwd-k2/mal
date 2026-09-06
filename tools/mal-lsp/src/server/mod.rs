@@ -189,11 +189,14 @@ impl Server {
         Outcome { messages, exit }
     }
 
-    fn diagnostics(&self, uri: &str) -> Value {
-        let document = self.documents.get(uri).expect("open document");
+    fn diagnostics(&mut self, uri: &str) -> Value {
+        let document = self.documents.get_mut(uri).expect("open document");
         let source = document.source(uri);
-        let diagnostics = match malc::pipeline::check(&source) {
-            Ok(_) => Vec::new(),
+        let diagnostics = match malc::editor::analyze(&source) {
+            Ok(semantic) => {
+                document.semantic = Some(semantic);
+                Vec::new()
+            }
             Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
         };
         publish_diagnostics(uri, Some(document.version), diagnostics)
