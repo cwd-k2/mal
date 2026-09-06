@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
-use malc::source::{FileId, SourceFile, Utf16Position};
+use malc::source::{FileId, SourceFile, SourceGraph, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -22,6 +23,7 @@ struct Document {
     version: i64,
     text: String,
     analysis: Option<malc::pipeline::Analysis>,
+    graph: Option<SourceGraph>,
     semantic: Option<malc::editor::SemanticDocument>,
 }
 
@@ -159,10 +161,12 @@ impl Server {
                             version: item.version,
                             text: item.text,
                             analysis: None,
+                            graph: None,
                             semantic: None,
                         },
                     );
-                    messages.push(self.diagnostics(&item.uri));
+                    self.invalidate_analyses();
+                    self.publish_workspace_diagnostics(&item.uri, &mut messages);
                 }
             }
             (Some("textDocument/didChange"), None) => {
@@ -172,9 +176,8 @@ impl Server {
                 {
                     document.version = params.text_document.version;
                     document.text.clone_from(&text.text);
-                    document.analysis = None;
-                    document.semantic = None;
-                    messages.push(self.diagnostics(&params.text_document.uri));
+                    self.invalidate_analyses();
+                    self.publish_workspace_diagnostics(&params.text_document.uri, &mut messages);
                 }
             }
             (Some("textDocument/didClose"), None) => {
@@ -185,6 +188,11 @@ impl Server {
                         None,
                         Vec::new(),
                     ));
+                    self.invalidate_analyses();
+                    let remaining = self.documents.keys().cloned().collect::<Vec<_>>();
+                    for uri in remaining {
+                        messages.push(self.diagnostics(&uri));
+                    }
                 }
             }
             _ => {}
@@ -193,16 +201,90 @@ impl Server {
     }
 
     fn diagnostics(&mut self, uri: &str) -> Value {
-        let document = self.documents.get_mut(uri).expect("open document");
-        let source = document.source(uri);
-        let diagnostics = match malc::pipeline::analyze(&source) {
-            Ok(analysis) => {
-                document.analysis = Some(analysis);
-                Vec::new()
-            }
-            Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
-        };
+        let diagnostics = self.analyze_document(uri);
+        let document = self.documents.get(uri).expect("open document");
         publish_diagnostics(uri, Some(document.version), diagnostics)
+    }
+
+    fn invalidate_analyses(&mut self) {
+        for document in self.documents.values_mut() {
+            document.analysis = None;
+            document.graph = None;
+            document.semantic = None;
+        }
+    }
+
+    fn publish_workspace_diagnostics(&mut self, primary: &str, messages: &mut Vec<Value>) {
+        messages.push(self.diagnostics(primary));
+        let mut remaining = self
+            .documents
+            .keys()
+            .filter(|uri| uri.as_str() != primary)
+            .cloned()
+            .collect::<Vec<_>>();
+        remaining.sort();
+        for uri in remaining {
+            messages.push(self.diagnostics(&uri));
+        }
+    }
+
+    fn analyze_document(&mut self, uri: &str) -> Vec<Value> {
+        let overlays = self
+            .documents
+            .iter()
+            .filter_map(|(uri, document)| Some((uri_to_path(uri)?, document.text.clone())))
+            .collect::<HashMap<_, _>>();
+        let document = self.documents.get_mut(uri).expect("open document");
+        let Some(path) = uri_to_path(uri) else {
+            return document.analyze_single(uri);
+        };
+        match malc::driver::load_source_graph_with_overlays(&path, &document.text, &overlays) {
+            Ok(graph) => match malc::pipeline::analyze_graph(&graph) {
+                Ok(analysis) => {
+                    document.graph = Some(graph);
+                    document.analysis = Some(analysis);
+                    Vec::new()
+                }
+                Err(diagnostic) => {
+                    let source = diagnostic
+                        .primary
+                        .as_ref()
+                        .and_then(|label| graph.source(label.span.file()))
+                        .unwrap_or_else(|| graph.root_source());
+                    let diagnostic = if source.id() == graph.root() {
+                        lsp_diagnostic(source, diagnostic)
+                    } else {
+                        lsp_diagnostic_at_root(source, diagnostic)
+                    };
+                    document.graph = Some(graph);
+                    vec![diagnostic]
+                }
+            },
+            Err(load_error) => {
+                let source = document.source(uri);
+                match malc::pipeline::analyze(&source) {
+                    Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
+                    Ok(_) => vec![json!({
+                        "range": zero_range(), "severity": 1, "source": "malc",
+                        "message": load_error.to_string()
+                    })],
+                }
+            }
+        }
+    }
+
+    fn ensure_analyzed(&mut self, uri: &str) -> bool {
+        if self
+            .documents
+            .get(uri)
+            .is_some_and(|document| document.analysis.is_some())
+        {
+            return true;
+        }
+        self.analyze_document(uri);
+        self.documents
+            .get(uri)
+            .is_some_and(|document| document.analysis.is_some())
     }
 
     fn formatting(&self, id: Value, params: Value) -> Value {
@@ -234,18 +316,45 @@ impl Server {
 
 impl Document {
     fn source(&self, uri: &str) -> SourceFile {
-        SourceFile::new(self.id, uri, self.text.clone())
+        self.graph.as_ref().map_or_else(
+            || SourceFile::new(self.id, uri, self.text.clone()),
+            |graph| SourceFile::new(graph.root(), graph.root_source().path(), self.text.clone()),
+        )
     }
 
-    fn semantic(&mut self, source: &SourceFile) -> Option<&malc::editor::SemanticDocument> {
+    fn semantic(&mut self) -> Option<&malc::editor::SemanticDocument> {
         if self.semantic.is_none() {
-            self.semantic = self
-                .analysis
-                .as_ref()
-                .map(malc::editor::from_analysis)
-                .or_else(|| malc::editor::analyze(source).ok());
+            let analysis = self.analysis.as_ref()?;
+            self.semantic = Some(self.graph.as_ref().map_or_else(
+                || malc::editor::from_analysis_for_file(analysis, self.id),
+                |graph| malc::editor::from_graph_analysis(graph, analysis, graph.root()),
+            ));
         }
         self.semantic.as_ref()
+    }
+
+    fn analyze_single(&mut self, uri: &str) -> Vec<Value> {
+        let source = self.source(uri);
+        match malc::pipeline::analyze(&source) {
+            Ok(analysis) => {
+                self.analysis = Some(analysis);
+                Vec::new()
+            }
+            Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
+        }
+    }
+
+    fn source_for(&self, span: malc::source::Span, uri: &str) -> Option<SourceFile> {
+        if let Some(graph) = &self.graph {
+            let source = graph.source(span.file())?;
+            return Some(SourceFile::new(
+                source.id(),
+                source.path(),
+                source.text().to_owned(),
+            ));
+        }
+        let source = self.source(uri);
+        source.contains(span).then_some(source)
     }
 }
 
@@ -272,6 +381,57 @@ fn lsp_diagnostic(source: &SourceFile, diagnostic: malc::diagnostic::Diagnostic)
         message.push_str(&note);
     }
     json!({"range": range, "severity": 1, "source": "malc", "message": message})
+}
+
+fn lsp_diagnostic_at_root(source: &SourceFile, diagnostic: malc::diagnostic::Diagnostic) -> Value {
+    let mut value = lsp_diagnostic(source, diagnostic);
+    value["range"] = zero_range();
+    if let Some(message) = value["message"].as_str() {
+        value["message"] = Value::String(format!("{}: {message}", source.path().display()));
+    }
+    value
+}
+
+fn uri_to_path(uri: &str) -> Option<PathBuf> {
+    let encoded = uri.strip_prefix("file://")?;
+    let encoded = encoded.strip_prefix("localhost").unwrap_or(encoded);
+    let bytes = encoded.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let high = hex(*bytes.get(index + 1)?)?;
+            let low = hex(*bytes.get(index + 2)?)?;
+            decoded.push((high << 4) | low);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(decoded).ok().map(PathBuf::from)
+}
+
+fn path_to_uri(path: &Path) -> String {
+    let mut uri = String::from("file://");
+    for byte in path.to_string_lossy().bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-' | b'_' | b'.' | b'~') {
+            uri.push(char::from(byte));
+        } else {
+            use std::fmt::Write;
+            write!(uri, "%{byte:02X}").expect("writing to a string cannot fail");
+        }
+    }
+    uri
+}
+
+fn hex(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn publish_diagnostics(uri: &str, version: Option<i64>, diagnostics: Vec<Value>) -> Value {

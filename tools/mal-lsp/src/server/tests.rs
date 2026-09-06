@@ -1,5 +1,10 @@
 use super::*;
 
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
 #[test]
 fn initializes_with_full_sync_utf16_and_formatting() {
     let mut server = Server::new();
@@ -251,13 +256,133 @@ fn serves_symbols_completion_and_semantic_tokens() {
     assert!(data.chunks(5).any(|token| token[3] == 0 && token[4] == 1));
 }
 
+#[test]
+fn serves_cross_file_semantics_from_open_dependency_buffers() {
+    let files = TestFiles::new();
+    let root_path = files.write("program.mal", "not the open buffer");
+    let library_path = files.write("library.mal", "diskValue :: Int32 := 0;");
+    let root_uri = path_to_uri(&root_path);
+    let library_uri = path_to_uri(&library_path);
+    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := \\() { publicValue; };\n";
+    let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
+    let mut server = Server::new();
+    let root_opened = server.handle(did_open(&root_uri, root_text));
+    assert!(
+        !root_opened.messages[0]["params"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let library_opened = server.handle(did_open(&library_uri, library_text));
+    assert_eq!(library_opened.messages.len(), 2);
+    assert_eq!(library_opened.messages[1]["params"]["uri"], root_uri);
+    assert_eq!(
+        library_opened.messages[1]["params"]["diagnostics"],
+        json!([])
+    );
+
+    let reference = root_text.rfind("publicValue").unwrap();
+    let definition = request_at(
+        &mut server,
+        30,
+        "textDocument/definition",
+        &root_uri,
+        root_text,
+        reference,
+    );
+    assert_eq!(definition["result"]["uri"], library_uri);
+    assert_eq!(
+        definition["result"]["range"]["start"],
+        text_position(library_text, 0)
+    );
+
+    let references = server.handle(json!({
+        "jsonrpc": "2.0", "id": 31, "method": "textDocument/references",
+        "params": {
+            "textDocument": {"uri": root_uri},
+            "position": text_position(root_text, reference),
+            "context": {"includeDeclaration": true}
+        }
+    }));
+    let locations = references.messages[0]["result"].as_array().unwrap();
+    assert_eq!(locations.len(), 2);
+    assert!(
+        locations
+            .iter()
+            .any(|location| location["uri"] == library_uri)
+    );
+    assert!(locations.iter().any(|location| location["uri"] == root_uri));
+
+    let rename = server.handle(json!({
+        "jsonrpc": "2.0", "id": 32, "method": "textDocument/rename",
+        "params": {
+            "textDocument": {"uri": root_uri},
+            "position": text_position(root_text, reference),
+            "newName": "renamed"
+        }
+    }));
+    assert_eq!(
+        rename.messages[0]["result"]["changes"][&root_uri]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        rename.messages[0]["result"]["changes"][&library_uri]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let completion = request_at(
+        &mut server,
+        33,
+        "textDocument/completion",
+        &root_uri,
+        root_text,
+        root_text.len(),
+    );
+    let labels = completion["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["label"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert!(labels.contains(&"publicValue"));
+    assert!(!labels.contains(&"_privateValue"));
+
+    let symbols = server.handle(json!({
+        "jsonrpc": "2.0", "id": 34, "method": "textDocument/documentSymbol",
+        "params": {"textDocument": {"uri": root_uri}}
+    }));
+    assert_eq!(symbols.messages[0]["result"].as_array().unwrap().len(), 1);
+    assert_eq!(symbols.messages[0]["result"][0]["name"], "answer");
+
+    let tokens = server.handle(json!({
+        "jsonrpc": "2.0", "id": 35, "method": "textDocument/semanticTokens/full",
+        "params": {"textDocument": {"uri": root_uri}}
+    }));
+    assert!(
+        !tokens.messages[0]["result"]["data"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
 fn open_document(uri: &str, text: &str) -> Server {
     let mut server = Server::new();
-    server.handle(json!({
+    server.handle(did_open(uri, text));
+    server
+}
+
+fn did_open(uri: &str, text: &str) -> Value {
+    json!({
         "jsonrpc": "2.0", "method": "textDocument/didOpen",
         "params": {"textDocument": {"uri": uri, "languageId": "mal", "version": 1, "text": text}}
-    }));
-    server
+    })
 }
 
 fn request_at(
@@ -282,4 +407,30 @@ fn text_position(text: &str, offset: usize) -> Value {
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count();
     let character = prefix.rsplit('\n').next().unwrap().encode_utf16().count();
     json!({"line": line, "character": character})
+}
+
+struct TestFiles {
+    path: PathBuf,
+}
+
+impl TestFiles {
+    fn new() -> Self {
+        let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("mal-lsp-test-{}-{sequence}", std::process::id()));
+        std::fs::create_dir(&path).expect("create LSP test directory");
+        Self { path }
+    }
+
+    fn write(&self, name: impl AsRef<Path>, text: &str) -> PathBuf {
+        let path = self.path.join(name);
+        std::fs::write(&path, text).expect("write LSP test file");
+        path
+    }
+}
+
+impl Drop for TestFiles {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.path).expect("remove LSP test directory");
+    }
 }

@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use malc::editor::{Hover, OccurrenceRole, SemanticDocument, SymbolId, SymbolKind};
 use malc::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Server, TextDocumentIdentifier, error, position, success};
+use super::{Server, TextDocumentIdentifier, error, path_to_uri, position, success};
 
 #[derive(Clone, Copy, Deserialize)]
 struct Position {
@@ -58,27 +60,28 @@ impl Server {
     }
 
     pub(super) fn definition(&mut self, id: Value, params: Value) -> Value {
-        let Some((source, semantic, offset)) = self.position_request(&params) else {
+        let Some((_, semantic, offset)) = self.position_request(&params) else {
             return error(id, -32602, "invalid position or document is not open");
         };
-        let Some(definition) = semantic
+        let Some(span) = semantic
             .occurrence_at(offset)
             .and_then(|occurrence| semantic.definition(occurrence.id))
+            .map(|definition| definition.span)
         else {
             return success(id, Value::Null);
         };
         let uri = params["textDocument"]["uri"].as_str().unwrap_or_default();
-        success(
-            id,
-            json!({"uri": uri, "range": span_range(&source, definition.span)}),
-        )
+        let Some((target_uri, range)) = self.span_location(uri, span) else {
+            return success(id, Value::Null);
+        };
+        success(id, json!({"uri": target_uri, "range": range}))
     }
 
     pub(super) fn references(&mut self, id: Value, params: Value) -> Value {
         let Ok(request) = serde_json::from_value::<ReferenceParams>(params) else {
             return error(id, -32602, "invalid reference parameters");
         };
-        let Some((source, semantic, offset)) =
+        let Some((_, semantic, offset)) =
             self.semantic_at(&request.text_document.uri, request.position)
         else {
             return error(id, -32602, "invalid position or document is not open");
@@ -86,11 +89,16 @@ impl Server {
         let Some(occurrence) = semantic.occurrence_at(offset) else {
             return success(id, json!([]));
         };
-        let locations = semantic
+        let spans = semantic
             .references(occurrence.id, request.context.include_declaration)
             .into_iter()
-            .map(|occurrence| {
-                json!({"uri": request.text_document.uri, "range": span_range(&source, occurrence.span)})
+            .map(|occurrence| occurrence.span)
+            .collect::<Vec<_>>();
+        let locations = spans
+            .into_iter()
+            .filter_map(|span| {
+                let (uri, range) = self.span_location(&request.text_document.uri, span)?;
+                Some(json!({"uri": uri, "range": range}))
             })
             .collect::<Vec<_>>();
         success(id, json!(locations))
@@ -100,7 +108,7 @@ impl Server {
         let Ok(request) = serde_json::from_value::<RenameParams>(params) else {
             return error(id, -32602, "invalid rename parameters");
         };
-        let Some((source, semantic, offset)) =
+        let Some((_, semantic, offset)) =
             self.semantic_at(&request.text_document.uri, request.position)
         else {
             return error(id, -32602, "invalid position or document is not open");
@@ -108,11 +116,17 @@ impl Server {
         let Some(spans) = semantic.rename_spans(offset) else {
             return success(id, Value::Null);
         };
-        let edits = spans
-            .into_iter()
-            .map(|span| json!({"range": span_range(&source, span), "newText": request.new_name}))
-            .collect::<Vec<_>>();
-        success(id, json!({"changes": {request.text_document.uri: edits}}))
+        let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
+        for span in spans {
+            let Some((uri, range)) = self.span_location(&request.text_document.uri, span) else {
+                continue;
+            };
+            changes
+                .entry(uri)
+                .or_default()
+                .push(json!({"range": range, "newText": request.new_name}));
+        }
+        success(id, json!({"changes": changes}))
     }
 
     pub(super) fn document_symbols(&mut self, id: Value, params: Value) -> Value {
@@ -163,7 +177,7 @@ impl Server {
             line: 0,
             character: 0,
         };
-        for occurrence in semantic.occurrences() {
+        for occurrence in semantic.document_occurrences() {
             let Some(start) = source.utf16_position(occurrence.span.start()) else {
                 continue;
             };
@@ -204,23 +218,45 @@ impl Server {
         uri: &str,
         position: Position,
     ) -> Option<(SourceFile, &SemanticDocument, usize)> {
+        if !self.ensure_analyzed(uri) {
+            return None;
+        }
         let document = self.documents.get_mut(uri)?;
         let source = document.source(uri);
         let offset = source.byte_offset_utf16(Utf16Position {
             line: position.line,
             character: position.character,
         })?;
-        let semantic = document.semantic(&source)?;
+        let semantic = document.semantic()?;
         Some((source, semantic, offset))
     }
 
     fn document_request(&mut self, params: &Value) -> Option<(SourceFile, &SemanticDocument)> {
         let identifier = serde_json::from_value::<DocumentRequest>(params.clone()).ok()?;
         let uri = identifier.text_document.uri;
+        if !self.ensure_analyzed(&uri) {
+            return None;
+        }
         let document = self.documents.get_mut(&uri)?;
         let source = document.source(&uri);
-        let semantic = document.semantic(&source)?;
+        let semantic = document.semantic()?;
         Some((source, semantic))
+    }
+
+    fn span_location(&self, root_uri: &str, span: Span) -> Option<(String, Value)> {
+        let document = self.documents.get(root_uri)?;
+        let source = document.source_for(span, root_uri)?;
+        let uri = document.graph.as_ref().map_or_else(
+            || root_uri.to_owned(),
+            |graph| {
+                if span.file() == graph.root() {
+                    root_uri.to_owned()
+                } else {
+                    path_to_uri(source.path())
+                }
+            },
+        );
+        Some((uri, span_range(&source, span)))
     }
 }
 
