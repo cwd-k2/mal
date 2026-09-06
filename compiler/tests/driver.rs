@@ -208,6 +208,7 @@ fn checked_in_example_headers_match_the_compiler() {
         .parent()
         .expect("compiler directory has a repository parent");
     let examples = [
+        "fallible-tree",
         "integer-and-byte",
         "mini-database",
         "opaque-aggregate",
@@ -673,6 +674,34 @@ fn ptr_memory_example_accesses_unaligned_storage() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(directory.run(executable).status.success());
+}
+
+#[test]
+fn fallible_tree_example_cleans_partial_construction() {
+    let directory = NativeFixture::new("fallible-tree");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/fallible-tree");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--link"),
+        example.join("host.c").as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
 }
 
 #[test]
