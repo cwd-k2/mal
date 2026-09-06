@@ -1,59 +1,60 @@
-use super::ast::{
-    BOOL_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
-    INT64_TYPE, LOAD_FLOAT32_VALUE, LOAD_FLOAT64_VALUE, LOAD_INT8_VALUE, LOAD_INT16_VALUE,
-    LOAD_INT32_VALUE, LOAD_INT64_VALUE, LOAD_PTR_VALUE, LOAD_SYMBOL_VALUE, LOAD_UINT8_VALUE,
-    LOAD_UINT16_VALUE, LOAD_UINT32_VALUE, LOAD_UINT64_VALUE, PTR_TYPE, STORE_FLOAT32_VALUE,
-    STORE_FLOAT64_VALUE, STORE_INT8_VALUE, STORE_INT16_VALUE, STORE_INT32_VALUE, STORE_INT64_VALUE,
-    STORE_PTR_VALUE, STORE_SYMBOL_VALUE, STORE_UINT8_VALUE, STORE_UINT16_VALUE, STORE_UINT32_VALUE,
-    STORE_UINT64_VALUE, SYMBOL_TYPE, TRUE_VALUE, TypeId, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
-    UINT64_TYPE, UNIT_TYPE, ValueId,
-};
+use super::ast::{TypeId, ValueId};
 
-pub const TYPES: &[(&str, TypeId)] = &[
-    ("Unit", UNIT_TYPE),
-    ("Int8", INT8_TYPE),
-    ("Int16", INT16_TYPE),
-    ("Int32", INT32_TYPE),
-    ("Int64", INT64_TYPE),
-    ("UInt8", UINT8_TYPE),
-    ("UInt16", UINT16_TYPE),
-    ("UInt32", UINT32_TYPE),
-    ("UInt64", UINT64_TYPE),
-    ("Bool", BOOL_TYPE),
-    ("Symbol", SYMBOL_TYPE),
-    ("Float32", FLOAT32_TYPE),
-    ("Float64", FLOAT64_TYPE),
-    ("Ptr", PTR_TYPE),
-];
+macro_rules! predefined {
+    ($id_type:ident, $bindings:ident; $( $constant:ident = $id:literal => $name:literal ),+ $(,)?) => {
+        $(pub const $constant: $id_type = $id_type($id);)+
 
-pub const VALUES: &[(&str, ValueId)] = &[
-    ("false", FALSE_VALUE),
-    ("true", TRUE_VALUE),
-    ("loadInt64", LOAD_INT64_VALUE),
-    ("storeInt64", STORE_INT64_VALUE),
-    ("loadUInt8", LOAD_UINT8_VALUE),
-    ("storeUInt8", STORE_UINT8_VALUE),
-    ("loadInt8", LOAD_INT8_VALUE),
-    ("storeInt8", STORE_INT8_VALUE),
-    ("loadInt16", LOAD_INT16_VALUE),
-    ("storeInt16", STORE_INT16_VALUE),
-    ("loadInt32", LOAD_INT32_VALUE),
-    ("storeInt32", STORE_INT32_VALUE),
-    ("loadUInt16", LOAD_UINT16_VALUE),
-    ("storeUInt16", STORE_UINT16_VALUE),
-    ("loadUInt32", LOAD_UINT32_VALUE),
-    ("storeUInt32", STORE_UINT32_VALUE),
-    ("loadUInt64", LOAD_UINT64_VALUE),
-    ("storeUInt64", STORE_UINT64_VALUE),
-    ("loadFloat32", LOAD_FLOAT32_VALUE),
-    ("storeFloat32", STORE_FLOAT32_VALUE),
-    ("loadFloat64", LOAD_FLOAT64_VALUE),
-    ("storeFloat64", STORE_FLOAT64_VALUE),
-    ("loadPtr", LOAD_PTR_VALUE),
-    ("storePtr", STORE_PTR_VALUE),
-    ("loadSymbol", LOAD_SYMBOL_VALUE),
-    ("storeSymbol", STORE_SYMBOL_VALUE),
-];
+        pub const $bindings: &[(&str, $id_type)] = &[
+            $(($name, $constant),)+
+        ];
+    };
+}
+
+predefined!(TypeId, TYPES;
+    UNIT_TYPE = 0 => "Unit",
+    INT8_TYPE = 1 => "Int8",
+    INT16_TYPE = 2 => "Int16",
+    INT32_TYPE = 3 => "Int32",
+    INT64_TYPE = 4 => "Int64",
+    UINT8_TYPE = 5 => "UInt8",
+    UINT16_TYPE = 6 => "UInt16",
+    UINT32_TYPE = 7 => "UInt32",
+    UINT64_TYPE = 8 => "UInt64",
+    BOOL_TYPE = 9 => "Bool",
+    SYMBOL_TYPE = 10 => "Symbol",
+    FLOAT32_TYPE = 11 => "Float32",
+    FLOAT64_TYPE = 12 => "Float64",
+    PTR_TYPE = 13 => "Ptr",
+);
+
+predefined!(ValueId, VALUES;
+    FALSE_VALUE = 0 => "false",
+    TRUE_VALUE = 1 => "true",
+    LOAD_INT64_VALUE = 2 => "loadInt64",
+    STORE_INT64_VALUE = 3 => "storeInt64",
+    LOAD_UINT8_VALUE = 4 => "loadUInt8",
+    STORE_UINT8_VALUE = 5 => "storeUInt8",
+    LOAD_INT8_VALUE = 6 => "loadInt8",
+    STORE_INT8_VALUE = 7 => "storeInt8",
+    LOAD_INT16_VALUE = 8 => "loadInt16",
+    STORE_INT16_VALUE = 9 => "storeInt16",
+    LOAD_INT32_VALUE = 10 => "loadInt32",
+    STORE_INT32_VALUE = 11 => "storeInt32",
+    LOAD_UINT16_VALUE = 12 => "loadUInt16",
+    STORE_UINT16_VALUE = 13 => "storeUInt16",
+    LOAD_UINT32_VALUE = 14 => "loadUInt32",
+    STORE_UINT32_VALUE = 15 => "storeUInt32",
+    LOAD_UINT64_VALUE = 16 => "loadUInt64",
+    STORE_UINT64_VALUE = 17 => "storeUInt64",
+    LOAD_FLOAT32_VALUE = 18 => "loadFloat32",
+    STORE_FLOAT32_VALUE = 19 => "storeFloat32",
+    LOAD_FLOAT64_VALUE = 20 => "loadFloat64",
+    STORE_FLOAT64_VALUE = 21 => "storeFloat64",
+    LOAD_PTR_VALUE = 22 => "loadPtr",
+    STORE_PTR_VALUE = 23 => "storePtr",
+    LOAD_SYMBOL_VALUE = 24 => "loadSymbol",
+    STORE_SYMBOL_VALUE = 25 => "storeSymbol",
+);
 
 pub fn first_source_type_id() -> u32 {
     TYPES
@@ -81,6 +82,8 @@ mod tests {
     fn predefined_names_and_ids_are_unique() {
         assert_unique(TYPES.iter().map(|(name, id)| (*name, id.0)));
         assert_unique(VALUES.iter().map(|(name, id)| (*name, id.0)));
+        assert_dense(TYPES.iter().map(|(_, id)| id.0));
+        assert_dense(VALUES.iter().map(|(_, id)| id.0));
     }
 
     fn assert_unique(entries: impl Iterator<Item = (&'static str, u32)>) {
@@ -90,5 +93,11 @@ mod tests {
             assert!(names.insert(name), "duplicate predefined name `{name}`");
             assert!(ids.insert(id), "duplicate predefined ID {id}");
         }
+    }
+
+    fn assert_dense(ids: impl Iterator<Item = u32>) {
+        let mut ids = ids.collect::<Vec<_>>();
+        ids.sort_unstable();
+        assert_eq!(ids, (0..ids.len() as u32).collect::<Vec<_>>());
     }
 }
