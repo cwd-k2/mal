@@ -5,62 +5,21 @@ use crate::source::Span;
 
 pub mod ast;
 mod bool;
+mod interface;
 mod pattern;
 mod primitive;
 
 use self::bool::bool_type;
+pub use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    Binding, Capture, CaseArm, Expression, ExpressionKind, ExternalOperation, ExternalType, Lambda,
-    Parameter, Pattern, Program, ProgramInterface, TopLevelBinding, TypeAlias, UnaryPrimitive,
-    ValueId,
+    Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, Parameter, Pattern, Program,
+    TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub fn lower(program: &checked::Program) -> Program {
     Lowerer::new().lower_program(program)
-}
-
-pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
-    let mut interface = ProgramInterface {
-        type_aliases: Vec::new(),
-        external_types: Vec::new(),
-        externals: Vec::new(),
-    };
-    for item in &program.items {
-        match &item.kind {
-            checked::TopItem::TypeAlias { binding, ty } => {
-                interface.type_aliases.push(TypeAlias {
-                    name: binding.name.text.clone(),
-                    ty: ty.clone(),
-                });
-            }
-            checked::TopItem::ExternalType { binding } => {
-                interface.external_types.push(ExternalType {
-                    name: binding.name.text.clone(),
-                });
-            }
-            checked::TopItem::ExternalOperation {
-                id,
-                name,
-                parameter,
-                parameter_aliases,
-                result,
-                result_alias,
-                ..
-            } => interface.externals.push(ExternalOperation {
-                id: *id,
-                name: name.text.clone(),
-                parameter: parameter.clone(),
-                parameter_aliases: parameter_aliases.clone(),
-                result: result.clone(),
-                result_alias: result_alias.clone(),
-                span: item.span,
-            }),
-            checked::TopItem::Binding(_) => {}
-        }
-    }
-    interface
 }
 
 struct Lowerer {
