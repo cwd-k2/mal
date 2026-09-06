@@ -72,8 +72,10 @@ MalType_Symbol mal_Symbol_copy_from_bytes(
 );
 ```
 
-`MalContext *`はmal valueではなく、各extern implementationへ先頭parameterとして渡すruntime capabilityである。
-hostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Symbol_copy_from_bytes`はreference runtimeが提供する。
+`mal_ext_<name>`はraw host library functionそのものではなく、host operationとmal valueの間を変換するtrusted adapter
+entryである。`MalContext *`はmal valueではなく、各adapterへ先頭parameterとして一時的に渡すruntime capabilityである。
+adapterとhostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Symbol_copy_from_bytes`はreference runtimeが
+提供し、adapterは後者を通じてSymbol admissionをmalへ依頼する。helperを呼ぶauthorityはSymbolのownershipをadapterへ移さない。
 
 malのpredefined type、source-level alias、external typeはすべてCで`MalType_<name>`と綴る。host implementationは
 aliasとexternal typeを別の命名規則として記憶する必要がない。`MalRepr_Product_<id>`と`MalRepr_Sum_<id>`は

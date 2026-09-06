@@ -31,6 +31,10 @@ numeric scalarの`loadT`とextern result、`loadSymbol(pointer, length)`はadmis
 mal-controlled storageへcopyする。scalarや`Symbol`のstoreとextern parameterはobservationである。`Symbol`
 parameterのdataはcall中だけborrowされ、hostはreturn後に保持しない。
 
+backend adapterはraw host operationとmal valueの間に立つtrusted boundary codeである。adapterがruntime contextを使って
+admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、
+contextやEngramのlifetime authorityを取得しない。
+
 `Ptr`のextern parameter/resultと`loadPtr`/`storePtr`はcapability transferである。`loadPtr`は任意のbytesを
 有効なcapabilityに変換せず、hostまたは`storePtr`が書いた有効なpointer representationだけを復元できる。
 external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
