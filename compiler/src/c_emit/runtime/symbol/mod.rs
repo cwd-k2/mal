@@ -73,13 +73,6 @@ pub(super) fn emit_at() -> FunctionDefinition {
             ],
         ),
         Block::new([
-            Statement::if_then(
-                Expr::greater_equal(
-                    Expr::identifier("index"),
-                    Expr::identifier("value").field("length"),
-                ),
-                trap("Symbol index out of range"),
-            ),
             Statement::assignment(
                 Expr::identifier("value"),
                 materialize(Expr::identifier("value")),
@@ -95,13 +88,6 @@ pub(super) fn emit_at() -> FunctionDefinition {
 
 fn context_parameter() -> Parameter {
     Parameter::named(TypeName::named("MalContext").pointer(), "context")
-}
-
-fn trap(message: &str) -> Block {
-    Block::new([Statement::call(
-        "mal_trap",
-        [Expr::identifier("context"), Expr::string(message)],
-    )])
 }
 
 fn uint8(value: u8) -> Expr {

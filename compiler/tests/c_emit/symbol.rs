@@ -696,18 +696,18 @@ main :: Unit -> Int32 := \() { prependTwice("a"); 0; };"#,
 }
 
 #[test]
-fn traps_out_of_range_symbol_byte_access() {
-    for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
-        let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
-            "",
-        );
-        assert!(!output.status.success(), "expression: {expression}");
-        assert!(
-            String::from_utf8_lossy(&output.stderr).contains("Symbol index out of range"),
-            "expression: {expression}"
-        );
-    }
+fn omits_symbol_precondition_traps_from_generated_c() {
+    let generated = emit(
+        r#"main :: Unit -> Int32 := \() {
+  "a" # 0u64;
+  "a" + "b";
+  0;
+};"#,
+    )
+    .expect("emit Symbol operations");
+
+    assert!(!generated.source.contains("Symbol index out of range"));
+    assert!(!generated.source.contains("Symbol length overflow"));
 }
 
 fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {

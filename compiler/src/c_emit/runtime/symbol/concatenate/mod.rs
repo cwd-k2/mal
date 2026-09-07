@@ -72,16 +72,6 @@ pub(super) fn emit(consume_left: bool, consume_right: bool) -> FunctionDefinitio
             Expr::equal(Expr::identifier("right").field("length"), uint64(0)),
             empty_right,
         ),
-        Statement::if_then(
-            Expr::greater(
-                Expr::identifier("left").field("length"),
-                Expr::subtract(
-                    Expr::identifier("UINT64_MAX"),
-                    Expr::identifier("right").field("length"),
-                ),
-            ),
-            trap("Symbol length overflow"),
-        ),
         Statement::variable(
             "uint64_t",
             "length",
