@@ -112,24 +112,3 @@ fn executes_ties_to_even_numeric_float_conversions() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
-
-#[test]
-fn traps_invalid_float_to_integer_conversions_before_the_c_cast() {
-    for expression in [
-        "UInt8(0.0f32 / 0.0f32)",
-        "Int64(1.0f64 / 0.0f64)",
-        "UInt8(-1.0f32)",
-        "Int8(128.0f64)",
-    ] {
-        let output = compile_and_run(
-            &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
-            "",
-        );
-        assert!(!output.status.success(), "expression: {expression}");
-        assert!(
-            String::from_utf8_lossy(&output.stderr)
-                .contains("float-to-integer conversion out of range"),
-            "expression: {expression}"
-        );
-    }
-}

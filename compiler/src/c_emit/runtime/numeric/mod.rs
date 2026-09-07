@@ -1,12 +1,11 @@
 use crate::c_emit::scalar::{INTEGER_TYPES, IntegerType};
 use crate::c_emit::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TranslationUnit,
-    TypeName,
 };
 
 mod conversion;
 
-pub(super) use conversion::{emit_float_to_integer, emit_integer_checked, emit_integer_wrap};
+pub(super) use conversion::{emit_float_to_integer, emit_integer_binary, emit_integer_wrap};
 
 pub(super) fn emit_integer_shift(left_needs: u16, right_needs: u16) -> TranslationUnit {
     let mut output = TranslationUnit::default();
@@ -45,34 +44,17 @@ fn emit_shift_left(output: &mut TranslationUnit, integer: IntegerType, result: E
     let c_type = integer.c_type;
     let unsigned = integer.unsigned;
     let carrier = integer.carrier;
-    let width = integer.width;
-    let range_check = if integer.signed() {
-        Expr::logical_or(
-            Expr::less(Expr::identifier("count"), Expr::number("0")),
-            Expr::greater_equal(
-                Expr::cast(carrier, Expr::identifier("count")),
-                Expr::number(width.to_string()),
-            ),
-        )
-    } else {
-        Expr::greater_equal(
-            Expr::cast(carrier, Expr::identifier("count")),
-            Expr::number(width.to_string()),
-        )
-    };
     append_function(
         output,
         FunctionSignature::static_inline(
             c_type,
             format!("mal_{name}_shift_left"),
             [
-                context_parameter(),
                 Parameter::named(c_type, "value"),
                 Parameter::named(c_type, "count"),
             ],
         ),
         Block::new([
-            Statement::if_then(range_check, trap("shift count out of range")),
             Statement::variable(
                 carrier,
                 "shifted",
@@ -99,22 +81,11 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
             c_type,
             format!("mal_{name}_shift_right"),
             [
-                context_parameter(),
                 Parameter::named(c_type, "value"),
                 Parameter::named(c_type, "count"),
             ],
         ),
         Block::new([
-            Statement::if_then(
-                Expr::logical_or(
-                    Expr::less(Expr::identifier("count"), Expr::number("0")),
-                    Expr::greater_equal(
-                        Expr::cast(carrier, Expr::identifier("count")),
-                        Expr::number(width.to_string()),
-                    ),
-                ),
-                trap("shift count out of range"),
-            ),
             Statement::if_then(
                 Expr::equal(Expr::identifier("count"), Expr::number("0")),
                 Block::new([Statement::return_value(Expr::identifier("value"))]),
@@ -169,46 +140,24 @@ fn emit_unsigned_shift_right(output: &mut TranslationUnit, integer: IntegerType)
     let name = integer.name;
     let c_type = integer.c_type;
     let carrier = integer.carrier;
-    let width = integer.width;
     append_function(
         output,
         FunctionSignature::static_inline(
             c_type,
             format!("mal_{name}_shift_right"),
             [
-                context_parameter(),
                 Parameter::named(c_type, "value"),
                 Parameter::named(c_type, "count"),
             ],
         ),
-        Block::new([
-            Statement::if_then(
-                Expr::greater_equal(
-                    Expr::cast(carrier, Expr::identifier("count")),
-                    Expr::number(width.to_string()),
-                ),
-                trap("shift count out of range"),
+        Block::new([Statement::return_value(Expr::cast(
+            c_type,
+            Expr::shift_right(
+                Expr::cast(carrier, Expr::identifier("value")),
+                Expr::cast(carrier, Expr::identifier("count")),
             ),
-            Statement::return_value(Expr::cast(
-                c_type,
-                Expr::shift_right(
-                    Expr::cast(carrier, Expr::identifier("value")),
-                    Expr::cast(carrier, Expr::identifier("count")),
-                ),
-            )),
-        ]),
+        ))]),
     );
-}
-
-fn trap(message: &str) -> Block {
-    Block::new([Statement::call(
-        "mal_trap",
-        [Expr::identifier("context"), Expr::string(message)],
-    )])
-}
-
-fn context_parameter() -> Parameter {
-    Parameter::named(TypeName::named("MalContext").pointer(), "context")
 }
 
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {

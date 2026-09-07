@@ -7,7 +7,7 @@ mod numeric;
 mod symbol;
 
 use self::numeric::{
-    emit_float_to_integer, emit_integer_checked, emit_integer_shift, emit_integer_wrap,
+    emit_float_to_integer, emit_integer_binary, emit_integer_shift, emit_integer_wrap,
 };
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
@@ -16,19 +16,17 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.extend(emit_integer_wrap(needs.wrap));
     }
     if needs.divide != 0 {
-        output.extend(emit_integer_checked(
+        output.extend(emit_integer_binary(
             needs.divide,
             "divide",
             BinaryOperator::Divide,
-            "division by zero",
         ));
     }
     if needs.remainder != 0 {
-        output.extend(emit_integer_checked(
+        output.extend(emit_integer_binary(
             needs.remainder,
             "remainder",
             BinaryOperator::Remainder,
-            "remainder by zero",
         ));
     }
     if needs.shift_left != 0 || needs.shift_right != 0 {

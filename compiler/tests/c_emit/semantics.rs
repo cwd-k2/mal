@@ -175,29 +175,29 @@ fn executes_a_product_captured_by_an_escaping_closure() {
 }
 
 #[test]
-fn traps_out_of_range_shift_counts() {
+fn executes_valid_shift_counts_at_every_width() {
     for expression in [
-        "1i8 << 8i8",
-        "1i16 << 16i16",
-        "1i32 << 32i32",
-        "1i64 << 64i64",
-        "1u8 << 8u8",
-        "1u16 << 16u16",
-        "1u32 << 32u32",
-        "1u64 << 64u64",
-        "1i8 >> -1i8",
-        "1i16 >> -1i16",
-        "1i32 >> -1i32",
-        "1i64 >> -1i64",
+        "1i8 << 7i8",
+        "1i16 << 15i16",
+        "1i32 << 31i32",
+        "1i64 << 63i64",
+        "1u8 << 7u8",
+        "1u16 << 15u16",
+        "1u32 << 31u32",
+        "1u64 << 63u64",
+        "-1i8 >> 7i8",
+        "-1i16 >> 15i16",
+        "-1i32 >> 31i32",
+        "-1i64 >> 63i64",
     ] {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
-        assert!(!output.status.success(), "expression: {expression}");
         assert!(
-            String::from_utf8_lossy(&output.stderr).contains("shift count out of range"),
-            "expression: {expression}"
+            output.status.success(),
+            "expression: {expression}: {}",
+            String::from_utf8_lossy(&output.stderr)
         );
     }
 }
@@ -223,8 +223,8 @@ fn executes_sum_injection_and_case() {
 }
 
 #[test]
-fn traps_invalid_division_and_remainder_at_every_width() {
-    let mut cases = Vec::new();
+fn executes_valid_division_and_remainder_at_every_width() {
+    let mut expressions = Vec::new();
     for (suffix, minimum) in [
         ("i8", Some("-128")),
         ("i16", Some("-32768")),
@@ -235,29 +235,46 @@ fn traps_invalid_division_and_remainder_at_every_width() {
         ("u32", None),
         ("u64", None),
     ] {
-        cases.push((format!("1{suffix} / 0{suffix}"), "division by zero"));
-        cases.push((format!("1{suffix} % 0{suffix}"), "remainder by zero"));
+        expressions.push(format!("7{suffix} / 2{suffix}"));
+        expressions.push(format!("7{suffix} % 2{suffix}"));
         if let Some(minimum) = minimum {
-            cases.push((
-                format!("{minimum}{suffix} / -1{suffix}"),
-                "signed division overflow",
-            ));
-            cases.push((
-                format!("{minimum}{suffix} % -1{suffix}"),
-                "signed remainder overflow",
-            ));
+            expressions.push(format!("{minimum}{suffix} / 1{suffix}"));
+            expressions.push(format!("{minimum}{suffix} % 1{suffix}"));
         }
     }
-    for (expression, message) in cases {
+    for expression in expressions {
         let output = compile_and_run(
             &format!("main :: Unit -> Int32 := \\() {{ {expression}; 0; }};"),
             "",
         );
-        assert!(!output.status.success(), "expression: {expression}");
         assert!(
-            String::from_utf8_lossy(&output.stderr).contains(message),
-            "expression: {expression}"
+            output.status.success(),
+            "expression: {expression}: {}",
+            String::from_utf8_lossy(&output.stderr)
         );
+    }
+}
+
+#[test]
+fn omits_numeric_precondition_traps_from_generated_c() {
+    let generated = emit(
+        "main :: Unit -> Int32 := \\() {\n\
+           1u64 << 1u64;\n\
+           4i64 / 2i64;\n\
+           5i64 % 2i64;\n\
+           Int64(1.0f64);\n\
+           0;\n\
+         };",
+    )
+    .expect("emit numeric operations");
+
+    for obsolete in [
+        "shift count out of range",
+        "division by zero",
+        "remainder by zero",
+        "float-to-integer conversion out of range",
+    ] {
+        assert!(!generated.source.contains(obsolete), "{obsolete}");
     }
 }
 

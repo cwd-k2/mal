@@ -87,19 +87,13 @@ impl BodyEmitter<'_> {
                 let integer = integer_type(&operand_type).unwrap();
                 self.needs.divide |= integer.mask();
                 let name = integer.name;
-                Expr::named_call(
-                    format!("mal_{name}_divide"),
-                    [Expr::identifier("mal_context"), left, right],
-                )
+                Expr::named_call(format!("mal_{name}_divide"), [left, right])
             }
             BinaryPrimitive::Remainder => {
                 let integer = integer_type(&operand_type).unwrap();
                 self.needs.remainder |= integer.mask();
                 let name = integer.name;
-                Expr::named_call(
-                    format!("mal_{name}_remainder"),
-                    [Expr::identifier("mal_context"), left, right],
-                )
+                Expr::named_call(format!("mal_{name}_remainder"), [left, right])
             }
             BinaryPrimitive::ShiftLeft | BinaryPrimitive::ShiftRight => {
                 if operator == BinaryPrimitive::ShiftLeft {
@@ -115,10 +109,7 @@ impl BodyEmitter<'_> {
                 } else {
                     "shift_right"
                 };
-                Expr::named_call(
-                    format!("mal_{name}_{direction}"),
-                    [Expr::identifier("mal_context"), left, right],
-                )
+                Expr::named_call(format!("mal_{name}_{direction}"), [left, right])
             }
             BinaryPrimitive::BitwiseAnd
             | BinaryPrimitive::BitwiseXor

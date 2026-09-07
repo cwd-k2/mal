@@ -149,10 +149,7 @@ impl BodyEmitter<'_> {
                     } else {
                         "f64"
                     };
-                    Expr::named_call(
-                        format!("mal_{source_name}_to_{target_name}"),
-                        [Expr::identifier("mal_context"), operand],
-                    )
+                    Expr::named_call(format!("mal_{source_name}_to_{target_name}"), [operand])
                 } else if is_float_type(result) {
                     Expr::cast(self.types.c_type(result), operand)
                 } else {

@@ -1,6 +1,6 @@
 # Integer and byte example
 
-This example exercises byte literals, fixed-width wrapping arithmetic, modulo integer conversion, the scalar host ABI, and an invalid shift trap through the public compiler driver.
+This example exercises byte literals, fixed-width wrapping arithmetic, modulo integer conversion, and the scalar host ABI through the public compiler driver. Shift counts are required to be within the left operand's bit width.
 
 From the repository root in Nushell, build and run the successful program:
 
@@ -17,12 +17,3 @@ Expected output:
 0
 18446744073709551615
 ```
-
-Build and run the trapping program:
-
-```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/integer-and-byte/trap.mal --output /tmp/mal-integer-and-byte-trap
-/tmp/mal-integer-and-byte-trap
-```
-
-The final command exits unsuccessfully and writes `mal trap: shift count out of range` to stderr.

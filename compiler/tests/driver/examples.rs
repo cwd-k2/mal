@@ -29,7 +29,7 @@ fn print_and_closure_example_builds_and_runs_through_the_public_cli() {
 }
 
 #[test]
-fn integer_and_byte_example_reproduces_host_results_and_a_trap() {
+fn integer_and_byte_example_reproduces_host_results() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -54,22 +54,6 @@ fn integer_and_byte_example_reproduces_host_results_and_a_trap() {
         String::from_utf8(output.stdout).unwrap(),
         "255\n0\n18446744073709551615\n"
     );
-
-    let trap = directory.join("trap");
-    let output = directory.malc([
-        OsStr::new("build"),
-        example.join("trap.mal").as_os_str(),
-        OsStr::new("--output"),
-        trap.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let output = directory.run(trap);
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: shift count out of range"));
 }
 
 #[test]
