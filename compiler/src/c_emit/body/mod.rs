@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+
+use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, FunctionId, Pattern};
 use crate::core::ast::ExternalOperation;
 use crate::resolve::ast::ExternalOperationId;
@@ -70,6 +73,7 @@ pub(super) struct BodyEmitter<'a> {
     ownership: OwnershipPlan,
     closure_uses: ClosureUsePlan,
     owned_calls: OwnedCallPlan,
+    ephemeral_bindings: HashSet<ValueId>,
     parameter_owned: bool,
 }
 
@@ -86,6 +90,7 @@ impl<'a> BodyEmitter<'a> {
             ownership,
             closure_uses,
             owned_calls,
+            ephemeral_bindings: HashSet::new(),
             parameter_owned: false,
         }
     }

@@ -45,9 +45,7 @@ impl BodyEmitter<'_> {
             )
         });
         let ordinary_count = block.bindings.len() - usize::from(tail.is_some());
-        for binding in &block.bindings[..ordinary_count] {
-            self.emit_binding(output, binding);
-        }
+        self.emit_bindings(output, &block.bindings[..ordinary_count]);
         let mut cleanup = outer_cleanup.to_vec();
         cleanup.push(TailCleanup::Bindings(&block.bindings[..ordinary_count]));
 

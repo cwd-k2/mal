@@ -210,9 +210,19 @@ impl BodyEmitter<'_> {
     }
 
     pub(super) fn emit_call(&self, callee: &Atom, argument: &Atom, owned: bool) -> Expr {
+        self.emit_call_with_value(callee, &argument.ty, self.emit_atom(argument), owned)
+    }
+
+    pub(super) fn emit_call_with_value(
+        &self,
+        callee: &Atom,
+        argument_type: &Type,
+        argument: Expr,
+        owned: bool,
+    ) -> Expr {
         if let Some((function, environment)) = self.direct_function(callee) {
-            let argument = self.emit_atom(argument);
             let parameter = &self.function(function).parameter.ty;
+            debug_assert_eq!(parameter, argument_type);
             if has_direct_product_entry(parameter) {
                 let mut arguments = vec![Expr::identifier("mal_context"), environment];
                 arguments.extend(flattened_product_values(parameter, argument));
@@ -240,9 +250,29 @@ impl BodyEmitter<'_> {
             [
                 Expr::identifier("mal_context"),
                 callee.field("environment"),
-                self.emit_atom(argument),
+                argument,
             ],
         )
+    }
+
+    pub(super) fn emit_direct_call_with_product_elements(
+        &self,
+        callee: &Atom,
+        parameter: &Type,
+        elements: &[Atom],
+    ) -> Expr {
+        let (function, environment) = self
+            .direct_function(callee)
+            .expect("ephemeral calls require a known callee");
+        debug_assert!(has_direct_product_entry(parameter));
+        let mut arguments = vec![Expr::identifier("mal_context"), environment];
+        for element in elements {
+            arguments.extend(flattened_product_values(
+                &element.ty,
+                self.emit_atom(element),
+            ));
+        }
+        Expr::named_call(direct_function_name(function), arguments)
     }
 
     pub(super) fn emit_external_call(

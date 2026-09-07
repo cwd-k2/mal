@@ -122,7 +122,7 @@ source、生成物、計測dataは`.scratch/`だけに置いた。
 | `Bool` case | `uint8_t`の`switch` | internalな既知値では消え、extern resultではvalidation branchが残る | host contract境界のcheckとして維持 |
 | function value | code pointerとenvironment pointer | 動的選択ではpairとindirect callが残る | first-class closureの意味に必要 |
 | numeric/memory helper | helper callと`memcpy` | helperはinlineされscalar load/storeになる | wrap、trap、unaligned accessの意味に必要 |
-| managed Engram | descriptorのretain/release | read-only byte loopにもretain/releaseが残る | borrow-preserving loweringを再検討 |
+| managed Engram | descriptorのretain/release | 保存されるaggregateやtail stateにはretain/releaseが残る | borrow-preserving loweringを継続 |
 
 先行3 workloadでは最適化後IRからproduct型と`switch`が消えたが、全corpusでは同じ結論を一般化できなかった。C sourceの
 aggregate数ではなく、最適化後にも残る個別のretain、aggregate slot、tag、callを判断材料にする。
@@ -132,7 +132,8 @@ memory contractの差は別軸として残る。generated scalar accessはalignm
 
 `Symbol` byte accessとequalityはnon-null `data`を持つ連続値をsmall wrapperで直接処理し、未materialize ropeだけを
 no-inline slow pathへ送る。flat scanのdeterministic materialization countはbyte数と同じ26回から0回になり、Clang `-O2`後の
-IRではwrapper callが消え、data loadとslow callの分岐に分かれる。retain/releaseは別のaggregate lowering costとして残る。
+IRではwrapper callが消え、data loadとslow callの分岐に分かれる。byte accessだけが消費する一時productもborrowしたleafを
+直接渡すため、同じscanのretain/releaseは26/27回から0/1回になった。保存されるaggregateとtail stateは別のcostとして残る。
 
 ### 間接callとproduct result
 

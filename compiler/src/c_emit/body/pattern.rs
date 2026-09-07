@@ -135,7 +135,9 @@ impl BodyEmitter<'_> {
     pub(super) fn destroy_pattern_bindings(&self, block: &mut Block, pattern: &Pattern) {
         match pattern {
             Pattern::Binding { id, ty } => {
-                if self.closure_uses.direct_closure(*id).is_some() {
+                if self.closure_uses.direct_closure(*id).is_some()
+                    || self.ephemeral_bindings.contains(id)
+                {
                     return;
                 }
                 self.types

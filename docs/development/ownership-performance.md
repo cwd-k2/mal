@@ -24,6 +24,7 @@ self closureをfunction valueとして使う経路がheapへfallbackすること
 最適化のcost baselineは`compiler/tests/c_emit/performance.rs`に置く。flat/rope `Symbol` observation、transient host admission、
 managed aggregateのdirect-tail stateを小さいnative fixtureで実行し、test macroでretain、release、materialization、allocationの
 上限を固定する。flat scanは同じsourceのClang `-O2`後LLVM IRも生成し、inlineされたdata loadと分離されたslow pathを検査する。
+byte accessのephemeral productはretain zero、scan終了時のowner release一回を上限とする。
 
 ## pressure suite
 

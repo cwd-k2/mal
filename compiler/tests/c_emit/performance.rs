@@ -35,8 +35,8 @@ main :: Unit -> Int32 := \() {
         generated,
         INPUT_HOST,
         &[
-            "-DMAL_TEST_RETAIN_LIMIT=26",
-            "-DMAL_TEST_RELEASE_LIMIT=27",
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_RELEASE_LIMIT=1",
             "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
             "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
@@ -76,6 +76,50 @@ main :: Unit -> Int32 := \() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn borrows_a_fresh_symbol_through_an_ephemeral_access_product() {
+    let generated = emit(
+        r#"main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  byte := value # 0u64;
+  if ((byte == 'a') && (value == "ab")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit a fresh Symbol byte access");
+    let fixture = NativeFixture::new("fresh-symbol-ephemeral-access");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn passes_unmanaged_ephemeral_products_directly_to_known_calls() {
+    let generated = emit(
+        r#"add :: (Int64, Int64) -> Int64 := \(left :: Int64, right :: Int64) { left + right };
+main :: Unit -> Int32 := \() { Int32(add(20i64, 22i64) - 42i64) };"#,
+    )
+    .expect("emit an ephemeral known-call product");
+    let main = generated_function(&generated.source, "main");
+    assert!(!main.contains("MalRepr_Product_"), "{main}");
+
+    let fixture = NativeFixture::new("ephemeral-known-call-product");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]
@@ -192,4 +236,16 @@ main :: Unit -> Int32 := \() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {
+    let marker = format!("/* mal source binding: {binding} */");
+    let start = source
+        .rfind(&marker)
+        .unwrap_or_else(|| panic!("missing generated function for {binding}"));
+    let remainder = &source[start + marker.len()..];
+    let end = remainder
+        .find("/* mal source binding:")
+        .unwrap_or(remainder.len());
+    &remainder[..end]
 }

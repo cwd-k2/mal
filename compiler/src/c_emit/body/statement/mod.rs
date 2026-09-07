@@ -11,9 +11,88 @@ mod result;
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_block_bindings(&mut self, output: &mut Block, block: &ClosureBlock) {
-        for binding in &block.bindings {
+        self.emit_bindings(output, &block.bindings);
+    }
+
+    pub(in crate::c_emit::body) fn emit_bindings(
+        &mut self,
+        output: &mut Block,
+        bindings: &[Binding],
+    ) {
+        let mut index = 0;
+        while let Some(binding) = bindings.get(index) {
+            if let Some(consumer) = bindings.get(index + 1)
+                && self.emit_ephemeral_product_consumer(output, binding, consumer)
+            {
+                index += 2;
+                continue;
+            }
             self.emit_binding(output, binding);
+            index += 1;
         }
+    }
+
+    fn emit_ephemeral_product_consumer(
+        &mut self,
+        output: &mut Block,
+        product: &Binding,
+        consumer: &Binding,
+    ) -> bool {
+        let (Pattern::Binding { id, ty }, Operation::Product(elements)) =
+            (&product.pattern, &product.operation)
+        else {
+            return false;
+        };
+        let argument = match &consumer.operation {
+            Operation::SymbolAt { argument } | Operation::Call { argument, .. } => argument,
+            _ => return false,
+        };
+        let crate::closure::ast::AtomKind::Reference(crate::closure::ast::Reference::Binding(
+            argument_id,
+        )) = argument.kind
+        else {
+            return false;
+        };
+        if argument_id != *id || !self.can_transfer(argument) {
+            return false;
+        }
+
+        let (value, ownership) = match &consumer.operation {
+            Operation::SymbolAt { .. } if elements.len() == 2 => {
+                self.needs.symbol_at = true;
+                (
+                    Expr::named_call(
+                        "mal_symbol_at",
+                        [
+                            Expr::identifier("mal_context"),
+                            self.emit_atom(&elements[0]),
+                            self.emit_atom(&elements[1]),
+                        ],
+                    ),
+                    ResultOwnership::Borrowed,
+                )
+            }
+            Operation::Call { callee, .. }
+                if self.direct_function(callee).is_some_and(|(function, _)| {
+                    !self.types.contains_managed(ty) || !self.owned_calls.contains(function)
+                }) && super::has_direct_product_entry(ty) =>
+            {
+                (
+                    self.emit_direct_call_with_product_elements(callee, ty, elements),
+                    ResultOwnership::Owned,
+                )
+            }
+            _ => return false,
+        };
+        self.ephemeral_bindings.insert(*id);
+        self.emit_simple_result(
+            output,
+            &consumer.pattern,
+            pattern_type(&consumer.pattern),
+            value,
+            ownership,
+        );
+        true
     }
 
     fn emit_binding(&mut self, output: &mut Block, binding: &Binding) {
