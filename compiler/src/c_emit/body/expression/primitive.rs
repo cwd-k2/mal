@@ -9,6 +9,29 @@ use crate::c_emit::types::is_bool;
 use super::super::BodyEmitter;
 
 impl BodyEmitter<'_> {
+    pub(in crate::c_emit::body) fn emit_symbol_concatenate(
+        &mut self,
+        left: &Atom,
+        right: &Atom,
+        consume_left: bool,
+    ) -> Expr {
+        let name = if consume_left {
+            self.needs.symbol_concatenate_consuming_left = true;
+            "mal_symbol_concatenate_consuming_left"
+        } else {
+            self.needs.symbol_concatenate = true;
+            "mal_symbol_concatenate"
+        };
+        Expr::named_call(
+            name,
+            [
+                Expr::identifier("mal_context"),
+                self.emit_atom(left),
+                self.emit_atom(right),
+            ],
+        )
+    }
+
     pub(super) fn emit_binary(
         &mut self,
         operator: BinaryPrimitive,

@@ -158,6 +158,13 @@ keepAlias :: Symbol -> Symbol := \(suffix :: Symbol) {
   extern inspect(owned);
   alias;
 };
+keepShared :: Symbol -> (Symbol, Symbol) := \(suffix :: Symbol) {
+  owned := "shared" + suffix;
+  alias := owned;
+  extended := owned + "x";
+  (alias, extended);
+};
+duplicate :: Symbol -> Symbol := \(value :: Symbol) { value + value };
 choose :: (Bool, Symbol) -> Symbol := \(condition :: Bool, suffix :: Symbol) {
   owned := "branch" + suffix;
   if (condition)
@@ -171,9 +178,16 @@ grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
 };
 main :: Unit -> Int32 := \() {
   alias := keepAlias("a");
+  (shared, extended) := keepShared("b");
+  duplicated := duplicate("c");
   selected := choose(true, "b");
   grown := grow("", 3i64);
-  if ((alias == "prefixa") && (selected == "branchb") && (grown == "xxx"))
+  if ((alias == "prefixa") &&
+      (shared == "sharedb") &&
+      (extended == "sharedbx") &&
+      (duplicated == "cc") &&
+      (selected == "branchb") &&
+      (grown == "xxx"))
   then { 0 }
   else { 1 };
 };"#,
@@ -182,11 +196,17 @@ main :: Unit -> Int32 := \() {
 
     let alias = generated_function(&generated.source, "keepAlias");
     assert_eq!(alias.matches("mal_symbol_retain(").count(), 1);
+    let shared = generated_function(&generated.source, "keepShared");
+    assert!(shared.contains("mal_symbol_concatenate_consuming_left("));
+    let duplicated = generated_function(&generated.source, "duplicate");
+    assert!(duplicated.contains("mal_symbol_concatenate("));
+    assert!(!duplicated.contains("mal_symbol_concatenate_consuming_left("));
     let branch = generated_function(&generated.source, "choose");
     assert_eq!(branch.matches("mal_symbol_retain(").count(), 1);
     let tail = generated_function(&generated.source, "grow");
     assert!(!tail.contains("mal_symbol_retain("));
     assert_eq!(tail.matches("mal_copy_value_").count(), 1);
+    assert!(tail.contains("mal_symbol_concatenate_consuming_left("));
 
     let fixture = NativeFixture::new("last-use-ownership-transfer");
     let executable = fixture.compile_generated_with_options(

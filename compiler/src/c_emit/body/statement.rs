@@ -2,6 +2,7 @@ use crate::c_emit::syntax::{Block, Expr, Initializer, Statement};
 use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
 use crate::closure::ast::{Binding, Block as ClosureBlock, Operation, Pattern};
+use crate::core::ast::BinaryPrimitive;
 
 use super::{BodyEmitter, ResultOwnership, pattern_type};
 
@@ -77,6 +78,21 @@ impl BodyEmitter<'_> {
                     value,
                     ResultOwnership::Owned,
                     &transfers,
+                );
+            }
+            Operation::PrimitiveBinary {
+                operator: BinaryPrimitive::Add,
+                left,
+                right,
+            } if left.ty == Type::Symbol && self.ownership.can_transfer(left) => {
+                let value = self.emit_symbol_concatenate(left, right, true);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &[left],
                 );
             }
             Operation::Case { scrutinee, arms } => {
