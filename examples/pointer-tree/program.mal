@@ -3,6 +3,8 @@ require "./host.c";
 extern allocate :: UInt64 -> Ptr;
 extern release :: Ptr -> Unit;
 
+// Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
+// Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + @Ptr.
 leaf :: Int32 -> Ptr := \(value :: Int32) {
     node := extern allocate(5u64);
     storeInt32(node, value);

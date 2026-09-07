@@ -31,6 +31,16 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions/D008.md)
 
+controlは、利用者がすべてのmechanismをoperationごとに再定義することではない。policyを選択でき、選択後の
+mechanismが一つの規則から予測できる状態を指す。minimalityの比較では、primitiveやsyntaxの個数だけでなく、
+独立して発見、理解、検証しなければならないcontractと、各call siteで再判断する事項の数を小さくする。
+
+例えばexternal storageでは、allocation、deallocation、region、permission、lifetimeをprogram固有の`extern`
+contractに残し、canonical scalar representationとのload/storeを共通primitiveに固定する。これによりallocation
+policyを選ぶcontrolを保ちつつ、scalar operationごとにwidth、alignment、failureをhost APIから調査する必要を
+なくす。反対に、productとsumへ暗黙のmemory layoutを与えず、program固有のencodingはmalで書くcodecとして
+sourceに残す。正確な配置規則は[authority](authority.md#policyとmechanismを分ける)が所有する。
+
 memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
 capability transferを導く。reference backendのEngram回収は[D033](decisions/D033.md)のborrow/owned result規約に閉じ、
 Extern resourceのpolicyへ拡張しない。
@@ -62,6 +72,7 @@ product と sum は数学的にさらに encoding できる場合があるが、
 4. hidden allocation、GC、lifetime analysis を要求しないか。要求するなら、それを言語の責務として認めるか。
 5. 一つ以上の conformance test で境界を固定できるか。
 6. value、storage、resourceのauthorityと、境界を越えるoperationを説明できるか。
+7. system全体で独立contractと局所的な再判断を減らすか。
 
 「頻繁に使う」「短く書ける」だけでは追加理由にしない。一方、仕様から外した結果、すべての利用者が危険な独自 ABI を発明するなら、外したコストも数える。
 

@@ -1,16 +1,14 @@
 require "./host.c";
 
+// Buffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
 Buffer :: (Ptr, UInt64, UInt64);
+// Bytes fields: 0 readable memory, 1 byte length.
 Bytes :: (Ptr, UInt64);
+// Region fields: 0 writable memory, 1 byte length.
 Region :: (Ptr, UInt64);
 
 extern Allocator;
 extern File;
-
-Reader :: (File, Buffer, UInt64);
-ByteRead :: [Reader, (Reader, UInt8)];
-LineState :: (Reader, Buffer);
-LineRead :: [Reader, LineState];
 
 extern createAllocator :: Unit -> Allocator;
 extern allocateBuffer :: (Allocator, UInt64) -> Buffer;
@@ -26,4 +24,5 @@ extern writeSymbol :: Symbol -> Unit;
 extern writeBytes :: Bytes -> Unit;
 extern fail :: Symbol -> Unit;
 
+// Arguments fields: 0 argument count, 1 first external descriptor address.
 Arguments :: (UInt64, Ptr);

@@ -1,17 +1,25 @@
 require "./host.c";
 
+// Buffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
 Buffer :: (Ptr, UInt64, UInt64);
+// Region fields: 0 writable memory, 1 byte length.
 Region :: (Ptr, UInt64);
+// Bytes fields: 0 readable memory, 1 byte length.
 Bytes :: (Ptr, UInt64);
 
 extern Allocation;
 extern File;
 
 IoError :: UInt32;
+// OwnedBuffer fields: 0 allocation authority, 1 mal-visible buffer descriptor.
 OwnedBuffer :: (Allocation, Buffer);
+// OpenResult variant 0 carries a file; variant 1 carries the host error code.
 OpenResult :: [File, IoError];
+// ReadResult variant 0 carries the transferred length; variant 1 carries the host error code.
 ReadResult :: [UInt64, IoError];
+// CloseResult variant 0 carries success; variant 1 carries the host error code.
 CloseResult :: [Unit, IoError];
+// Status variant 0 carries completion; variant 1 carries the preserved operation error.
 Status :: [Unit, IoError];
 
 extern allocateBuffer :: UInt64 -> OwnedBuffer;
@@ -23,6 +31,7 @@ extern writeBytes :: Bytes -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 extern writeError :: IoError -> Unit;
 
+// Arguments fields: 0 argument count, 1 first external descriptor address.
 Arguments :: (UInt64, Ptr);
 
 bufferSize :: UInt64 := 4096u64;

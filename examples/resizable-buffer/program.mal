@@ -2,9 +2,13 @@ require "./host.c";
 
 extern Allocation;
 
+// Buffer fields: 0 allocation identity, 1 writable memory, 2 capacity, 3 initialized length.
 Buffer :: (Allocation, Ptr, UInt64, UInt64);
+// Slice fields: 0 allocation identity, 1 readable memory, 2 byte length.
 Slice :: (Allocation, Ptr, UInt64);
+// BufferResult variant 0 carries the current buffer; variant 1 carries an error code.
 BufferResult :: [Buffer, UInt32];
+// SliceResult variant 0 carries an in-bounds slice; variant 1 reports invalid bounds.
 SliceResult :: [Slice, Unit];
 
 extern allocateBuffer :: (UInt64, UInt64) -> BufferResult;
@@ -64,6 +68,7 @@ releaseBufferValue :: Buffer -> Unit := \(buffer :: Buffer) {
 
 writeThroughDescriptor :: Slice -> Bool := \(slice :: Slice) {
     (allocation, memory, length) := slice;
+    // Shared descriptor bytes contain only Ptr memory followed by UInt64 length.
     descriptorSize := @Ptr + @UInt64;
     allocated := extern allocateBuffer(descriptorSize, descriptorSize);
     case (allocated)

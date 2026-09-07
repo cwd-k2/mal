@@ -1,0 +1,67 @@
+require "./host.mal";
+
+// Reader fields: 0 source file, 1 reusable buffer, 2 next unread byte.
+Reader :: (File, Buffer, UInt64);
+// ByteRead variant 0 carries the reader at EOF; variant 1 carries the next reader and byte.
+ByteRead :: [Reader, (Reader, UInt8)];
+// LineState fields: 0 next reader, 1 initialized line buffer.
+LineState :: (Reader, Buffer);
+// LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
+LineRead :: [Reader, LineState];
+
+_readByte :: Reader -> ByteRead := \(reader :: Reader) {
+    (file, buffer, position) := reader;
+    (memory, capacity, length) := buffer;
+    if (position < length)
+    then {
+        byte := loadUInt8(memory + position);
+        ByteRead[1](((file, buffer, position + 1u64), byte));
+    }
+    else {
+        transferred := extern readFile(file, (memory, capacity));
+        filled := (memory, capacity, transferred);
+        next := (file, filled, 0u64);
+        if (transferred == 0u64)
+        then { ByteRead[0](next) }
+        else {
+            byte := loadUInt8(memory);
+            ByteRead[1](((file, filled, 1u64), byte));
+        };
+    };
+};
+
+_readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
+    (line, capacity, length) := buffer;
+    result := _readByte(reader);
+    case (result)
+    [0](next) {
+        if (length == 0u64)
+        then { LineRead[0](next) }
+        else { LineRead[1]((next, buffer)) };
+    }
+    [1](read) {
+        (next, byte) := read;
+        if (byte == '\n')
+        then {
+            if (length > 0u64 && loadUInt8(line + length - 1u64) == '\r')
+            then { LineRead[1]((next, (line, capacity, length - 1u64))) }
+            else { LineRead[1]((next, buffer)) };
+        }
+        else {
+            if (length + 1u64 == capacity)
+            then {
+                extern fail("query line exceeds its buffer");
+                LineRead[1]((next, buffer));
+            }
+            else {
+                storeUInt8(line + length, byte);
+                _readLineAt(next, (line, capacity, length + 1u64));
+            };
+        };
+    };
+};
+
+readLine :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
+    (line, capacity, _) := buffer;
+    _readLineAt(reader, (line, capacity, 0u64));
+};

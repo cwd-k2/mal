@@ -69,6 +69,12 @@ pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefine
 binding、引数、resultとして扱える。直接callとfunction valueを介したcallは同じmemory operationを行う。
 operand、callee、引数は通常のoperatorとcallの規則どおり左から右へ一度ずつ評価する。
 
+これらはExtern-owned storageに関わるが、program固有の`extern` operationではない。言語がcanonical representationとの
+変換を一度だけ定めるprimitiveであり、allocation、region、permission、lifetimeのpolicyは`Ptr`を提供する
+`extern` contractに残す。productやsumなどcanonical memory representationを持たない型のcodecは、このprimitiveを
+組み合わせたmal関数として記述するか、host固有の意味が必要な場合に型固有の`extern` contractとして定義する。
+配置の判断規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に定める。
+
 `pointer + bytes`はaddressを`bytes`だけ大きい側へ、`pointer - bytes`は小さい側へ移動する。resultは同じlive region内、
 またはregion末尾の直後でなければならない。末尾の直後を指す値は作れるがload/storeには使えない。targetの
 address計算で`bytes`を表現できなければtrapする。regionの外へ移動するoffsetはcontract違反である。

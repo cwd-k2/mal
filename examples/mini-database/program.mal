@@ -1,5 +1,5 @@
 require "./host.mal";
-require "./database.mal";
+require "./application.mal";
 
 main :: Arguments -> Int32 := \(argumentCount :: UInt64, arguments :: Ptr) {
     if (argumentCount == 1u64)

@@ -1,6 +1,7 @@
 require "./host.c";
 
 extern Mem;
+// Response variant 0 reports failure; variant 1 carries the handle and logical length.
 Response :: [Unit, (Mem, UInt64)];
 extern allocate :: UInt64 -> Mem;
 extern resize :: (Mem, UInt64) -> Response;

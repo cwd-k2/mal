@@ -1,0 +1,31 @@
+require "./host.mal";
+require "./database.mal";
+require "./query.mal";
+
+_queryStorageSize :: UInt64 := 257u64;
+_inputStorageSize :: UInt64 := 4096u64;
+
+executeDatabase :: Symbol -> Int32 := \(path :: Symbol) {
+    allocator := extern createAllocator();
+    file := extern openReadWriteCreate(path);
+    input := extern standardInput();
+    databaseStorage := extern allocateBuffer(allocator, databaseReadCapacity);
+    query := extern allocateBuffer(allocator, _queryStorageSize);
+    inputBuffer := extern allocateBuffer(allocator, _inputStorageSize);
+    loadedDatabase := readDatabaseFile(file, databaseStorage);
+    (_, _, loaded) := loadedDatabase;
+    database := if (loaded == 0u64)
+        then { initializeDatabase(loadedDatabase) }
+        else {
+            if (!validateDatabase(loadedDatabase))
+            then {
+                extern fail("invalid database file");
+                loadedDatabase;
+            }
+            else { loadedDatabase };
+        };
+    runQueries((input, inputBuffer, 0u64), file, database, query);
+    extern closeFile(file);
+    extern destroyAllocator(allocator);
+    0;
+};

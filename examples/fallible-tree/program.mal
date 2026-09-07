@@ -2,6 +2,7 @@ require "./host.c";
 
 extern Allocator;
 
+// NodeResult variant 0 carries allocated node memory; variant 1 reports allocation failure.
 NodeResult :: [Ptr, Unit];
 
 extern createAllocator :: UInt64 -> Allocator;
@@ -9,6 +10,8 @@ extern allocateNode :: (Allocator, UInt64) -> NodeResult;
 extern releaseNode :: (Allocator, Ptr) -> Unit;
 extern destroyAllocator :: Allocator -> Unit;
 
+// Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
+// Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + @Ptr.
 leaf :: (Allocator, Int32) -> NodeResult := \(allocator :: Allocator, value :: Int32) {
     allocated := extern allocateNode(allocator, 5u64);
     case (allocated)

@@ -4,7 +4,10 @@ Status: Current v0.5 profile
 
 ## 目的
 
-I/O、memory、allocation、filesystem、network、clock、randomness、process、thread は mal の意味論へ個別に取り込まず、すべて `extern` call の外側に置く。
+I/O、allocation、deallocation、filesystem、network、clock、randomness、process、thread、およびhost固有の
+resource operationはmalの意味論へ個別に取り込まず、program固有の`extern` callに置く。external storageへの
+capabilityは`Ptr`で運び、canonicalなscalar、pointer、Symbol bytesとの固定された変換には組み込みの
+[memory primitive](memory.md)を使う。
 
 ```mal
 extern Mem;
@@ -20,6 +23,11 @@ extern print("hello");
 ```
 
 external symbol は first-class value ではない。`f := extern print;` は不正である。
+
+`extern` callはExternに関わるoperationのすべてを表す分類ではなく、program固有のnamed host operationを呼ぶ
+構文である。memory primitiveもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
+host symbolを呼ばない。両者を配置する規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に
+定める。
 
 ## transportable type
 

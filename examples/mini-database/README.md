@@ -4,11 +4,19 @@ This example implements a persistent fixed-capacity key-value database. The mal 
 binary layout, validation, query parser, lookup, updates, complete-file transfer, and line framing.
 Its C adapter supplies only allocation, thin file operations, and byte output.
 
-The source is split by responsibility. `program.mal` owns the process entry point, `database.mal`
-owns database and query behavior, and `host.mal` owns the aliases and extern declarations shared at
-the C boundary. `host.mal` requires `host.c`, so building the root source discovers the adapter
-transitively. Database helpers use leading `_` names and only `executeDatabase` is exposed to the
-entry file.
+The source is split by authority and operation rather than kept in one application module:
+
+- `host.mal` defines positional boundary descriptors and the extern contract.
+- `bytes.mal` composes raw byte operations from the fixed `Ptr` primitives.
+- `input.mal` owns buffered standard-input and line framing.
+- `database.mal` owns the persistent binary layout, validation, lookup, and mutation.
+- `query.mal` parses commands, maps database results to responses, and decides when to persist.
+- `application.mal` acquires and releases resources and connects the other responsibilities.
+- `program.mal` admits the process argument and owns the entry point.
+
+Each file directly requires the public names it uses; required names are not re-exported. `host.mal`
+requires `host.c`, so building the root source still discovers the adapter transitively. Private
+helpers use leading `_` names.
 
 The shared-memory interface uses three representations with separate responsibilities:
 
@@ -24,6 +32,10 @@ The shared-memory interface uses three representations with separate responsibil
 These distinctions document intent but do not add ownership or bounds enforcement to the language.
 Aliases remain structural, opaque handles remain copyable, and the host contract determines the
 lifetime of every `Ptr`.
+
+Comments beside positional product and sum aliases name each field or variant. The comments are part
+of the example's protocol documentation: transparent aliases do not create named fields or nominal
+variants in the language.
 
 Standard input is transferred into one reusable 4 KiB buffer. The mal program carries unread input
 between calls, detects line endings and overlong lines, and copies the current line into a second
