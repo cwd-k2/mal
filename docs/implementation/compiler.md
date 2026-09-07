@@ -113,8 +113,9 @@ Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnull
 source-level extern callを完了する前にlengthを検査し、bytesをmanaged storageへcopyしてmalへadmitする。runtime Symbolはflat
 bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
 構築する。equality、byte access、`storeSymbol`、extern callの直前で必要ならcontiguous bytesを一度materializeする。
-`loadSymbol`のresultはflat allocationを使う。lengthまたはallocation sizeのoverflow、allocation failure、reference count
-overflowはmal trapへ写像する。
+`loadSymbol`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
+runtime検査しない。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。reference count
+overflowはreference runtime固有のfatal failureであり、source semanticsにはしない。
 
 `loadSymbol`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
 `MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
@@ -146,8 +147,8 @@ product値をproduct patternで分解するだけのbindingは、C backendでpro
 entryはaggregateを受けるthunkとして残す。direct entryのleaf数は16個までとし、それを超える場合はaggregate entryへ
 fallbackする。product resultとfirst-class function callはtarget C ABIへ委ねる。
 
-`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。pointerに対する`+`と`-`はbyte addressを移動し、targetの
-`size_t`でoffsetを表現できない場合はtrapする。scalar load/storeはalignmentに依存しない`memcpy`相当の
+`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。pointerに対する`+`と`-`はbyte addressを移動し、
+targetでのrepresentabilityとregion内に収まることはsource-level preconditionとしてruntime検査しない。scalar load/storeはalignmentに依存しない`memcpy`相当の
 runtime helperへlowerする。直接callはhelper operationへ直接lowerし、function valueとして参照された場合は同じ
 operationを実行するcapture-free closure entryを生成する。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。
@@ -163,7 +164,7 @@ C representationの収集では、`TypeRegistry`がtranslation unit全体で一�
 
 Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
 
-floatからintegerへのC castは、NaN、infinity、範囲外を先に検査してmal trapへ分岐した後だけ実行する。
+floatからintegerへのC castは、source-levelのfiniteかつ値域内というpreconditionのもとで直接実行する。
 integerからfloat、およびFloat64からFloat32への変換も、C implementation任せでties-to-evenを保証できないtargetではhelperまたは
 別のloweringを用いる。現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書には
 test一覧を重複させない。

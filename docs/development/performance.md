@@ -176,5 +176,5 @@ performance comparisonでは各variantを同じinput、同じstdout検査、同�
 ## 維持する制約
 
 - closureとして渡される関数のcalling conventionを、direct callだけの測定から削除しない。
-- strict float option、integer wrap helper、trap checkをbenchmarkのために無効化しない。
+- strict float option、integer wrap helper、仕様が要求するruntime failure処理をbenchmarkのために無効化しない。
 - absolute timeを異なるmachine間の合否判定に使わない。
