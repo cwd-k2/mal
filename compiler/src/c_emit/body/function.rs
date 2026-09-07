@@ -6,9 +6,9 @@ use crate::c_emit::syntax::{
 use crate::closure::ast as closure;
 
 use super::{
-    BodyEmitter, direct_function_name, environment_name, flattened_product_types,
-    flattened_product_values, function_name, has_direct_product_entry, has_direct_tail_call,
-    value_name,
+    BodyEmitter, direct_function_name, environment_destroy_name, environment_name,
+    flattened_product_types, flattened_product_values, function_name, has_direct_product_entry,
+    has_direct_tail_call, value_name,
 };
 
 impl BodyEmitter<'_> {
@@ -42,6 +42,61 @@ impl BodyEmitter<'_> {
             self.emit_top_level_globals(&mut output, &binding.pattern);
         }
         if !output.is_empty() {
+            output.blank_line();
+        }
+        output
+    }
+
+    pub(super) fn emit_environment_definitions(&self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
+        for function in &self.program.functions {
+            if function.environment.is_empty() {
+                continue;
+            }
+            let environment_type = environment_name(function.id);
+            let mut body = CBlock::default();
+            body.push(Statement::variable(
+                TypeName::const_named(environment_type.clone()).pointer(),
+                "mal_environment_fields",
+                Some(CExpr::cast(
+                    TypeName::const_named(environment_type).pointer(),
+                    CExpr::identifier("mal_environment"),
+                )),
+            ));
+            body.push(Statement::expression(CExpr::cast(
+                "void",
+                CExpr::identifier("mal_context"),
+            )));
+            body.push(Statement::expression(CExpr::cast(
+                "void",
+                CExpr::identifier("mal_environment_fields"),
+            )));
+            for (index, field) in function.environment.iter().enumerate().rev() {
+                self.types.destroy_value(
+                    &mut body,
+                    &field.ty,
+                    CExpr::identifier("mal_environment_fields")
+                        .pointer_field(format!("field_{index}")),
+                );
+            }
+            body.push(Statement::call(
+                "mal_deallocate",
+                [CExpr::identifier("mal_environment")],
+            ));
+            output.push(FunctionDefinition::from_signature(
+                FunctionSignature::static_function(
+                    "void",
+                    environment_destroy_name(function.id),
+                    [
+                        Parameter::named(TypeName::named("MalContext").pointer(), "mal_context"),
+                        Parameter::named(
+                            TypeName::const_named("void").pointer(),
+                            "mal_environment",
+                        ),
+                    ],
+                ),
+                body,
+            ));
             output.blank_line();
         }
         output
@@ -211,7 +266,10 @@ impl BodyEmitter<'_> {
                 CExpr::identifier("mal_parameter"),
             )));
         }
-        if has_direct_tail_call(&function.body, function.id) {
+        if has_direct_tail_call(&function.body, function.id)
+            && !self.types.contains_managed(&function.body.result.ty)
+            && !block_contains_managed(self.types, &function.body)
+        {
             let parameter_name = function
                 .parameter
                 .binding
@@ -221,9 +279,38 @@ impl BodyEmitter<'_> {
             output.push(Statement::label("mal_tail_entry", tail));
         } else {
             self.emit_block_bindings(output, &function.body);
-            output.push(Statement::return_value(
-                self.emit_atom(&function.body.result),
+            let result_name = "mal_function_result";
+            output.push(Statement::variable(
+                self.types.c_type(&function.body.result.ty),
+                result_name,
+                Some(self.types.copy_value(
+                    &function.body.result.ty,
+                    self.emit_atom(&function.body.result),
+                )),
             ));
+            self.emit_block_cleanup(output, &function.body);
+            output.push(Statement::return_value(CExpr::identifier(result_name)));
         }
     }
+}
+
+fn block_contains_managed(
+    types: &crate::c_emit::types::TypeRegistry,
+    block: &closure::Block,
+) -> bool {
+    block.bindings.iter().any(|binding| {
+        types.contains_managed(super::pattern_type(&binding.pattern))
+            || match &binding.operation {
+                closure::Operation::Case { arms, .. } => arms.iter().any(|arm| {
+                    types.contains_managed(super::pattern_type(&arm.pattern))
+                        || block_contains_managed(types, &arm.value)
+                }),
+                closure::Operation::PrimitiveBranch {
+                    otherwise, then, ..
+                } => {
+                    block_contains_managed(types, otherwise) || block_contains_managed(types, then)
+                }
+                _ => false,
+            }
+    })
 }

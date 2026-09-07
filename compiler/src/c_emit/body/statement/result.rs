@@ -2,7 +2,10 @@ use crate::c_emit::syntax::{Block, Expr, Initializer, Statement, TypeName};
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId, Pattern};
 
-use super::super::{BodyEmitter, environment_name, function_name, value_name};
+use super::super::{
+    BodyEmitter, ResultOwnership, environment_destroy_name, environment_name, function_name,
+    value_name,
+};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_simple_result(
@@ -11,7 +14,13 @@ impl BodyEmitter<'_> {
         pattern: &Pattern,
         ty: &Type,
         expression: Expr,
+        ownership: ResultOwnership,
     ) {
+        let expression = if ownership == ResultOwnership::Owned {
+            expression
+        } else {
+            self.types.copy_value(ty, expression)
+        };
         match pattern {
             Pattern::Binding { id, .. } => {
                 let name = value_name(*id);
@@ -26,7 +35,18 @@ impl BodyEmitter<'_> {
                 )));
             }
             Pattern::Wildcard { .. } => {
-                block.push(Statement::expression(Expr::cast("void", expression)))
+                if self.types.contains_managed(ty) {
+                    let target = self.result_target(pattern);
+                    block.push(Statement::variable(
+                        self.types.c_type(ty),
+                        target.clone(),
+                        Some(expression),
+                    ));
+                    self.types
+                        .destroy_value(block, ty, Expr::identifier(target));
+                } else {
+                    block.push(Statement::expression(Expr::cast("void", expression)));
+                }
             }
             Pattern::Product { .. } => {
                 let target = self.result_target(pattern);
@@ -39,7 +59,9 @@ impl BodyEmitter<'_> {
                     "void",
                     Expr::identifier(target.clone()),
                 )));
-                self.emit_pattern_bindings(block, pattern, Expr::identifier(target));
+                self.emit_pattern_bindings(block, pattern, Expr::identifier(target.clone()));
+                self.types
+                    .destroy_value(block, ty, Expr::identifier(target));
             }
         }
     }
@@ -100,7 +122,10 @@ impl BodyEmitter<'_> {
                 )),
             ));
             let fields = captures.iter().enumerate().map(|(index, atom)| {
-                Initializer::designated(format!("field_{index}"), self.emit_atom(atom))
+                Initializer::designated(
+                    format!("field_{index}"),
+                    self.types.copy_value(&atom.ty, self.emit_atom(atom)),
+                )
             });
             block.push(Statement::assignment(
                 Expr::dereference(Expr::identifier(allocation.clone())),
@@ -116,12 +141,21 @@ impl BodyEmitter<'_> {
                 [
                     Initializer::positional(Expr::identifier(function_name(function))),
                     Initializer::positional(environment),
+                    Initializer::positional(if captures.is_empty() {
+                        Expr::identifier("NULL")
+                    } else {
+                        Expr::identifier(environment_destroy_name(function))
+                    }),
                 ],
             )),
         ));
         block.push(Statement::expression(Expr::cast(
             "void",
-            Expr::identifier(target),
+            Expr::identifier(target.clone()),
         )));
+        if matches!(pattern, Pattern::Wildcard { .. }) {
+            self.types
+                .destroy_value(block, ty, Expr::identifier(target));
+        }
     }
 }

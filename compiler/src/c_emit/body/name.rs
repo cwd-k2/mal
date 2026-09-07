@@ -48,6 +48,16 @@ pub(super) fn environment_name(id: FunctionId) -> String {
     }
 }
 
+pub(super) fn environment_destroy_name(id: FunctionId) -> String {
+    match id {
+        FunctionId::Lambda(id) => format!("mal_destroy_environment_{}", id.0),
+        FunctionId::Memory(primitive) => format!(
+            "mal_destroy_memory_environment_{}",
+            memory_primitive_name(primitive)
+        ),
+    }
+}
+
 fn memory_primitive_name(primitive: MemoryPrimitive) -> &'static str {
     use crate::check::ast::MemoryScalar;
 

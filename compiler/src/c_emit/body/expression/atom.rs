@@ -4,7 +4,7 @@ use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::c_emit::scalar::integer_type;
 use crate::c_emit::syntax::{Expr, Initializer, TypeName};
 
-use super::super::{function_name, value_name};
+use super::super::{environment_destroy_name, function_name, value_name};
 
 use super::super::BodyEmitter;
 
@@ -20,6 +20,14 @@ impl BodyEmitter<'_> {
                 [
                     Initializer::designated("call", Expr::identifier(function_name(*function))),
                     Initializer::designated("environment", Expr::identifier("mal_environment")),
+                    Initializer::designated(
+                        "destroy_environment",
+                        if self.function(*function).environment.is_empty() {
+                            Expr::identifier("NULL")
+                        } else {
+                            Expr::identifier(environment_destroy_name(*function))
+                        },
+                    ),
                 ],
             ),
             AtomKind::Integer(value) => {
@@ -58,6 +66,7 @@ impl BodyEmitter<'_> {
                         "UINT64_C",
                         [Expr::number(value.len().to_string())],
                     )),
+                    Initializer::positional(Expr::identifier("NULL")),
                 ],
             ),
             AtomKind::StorageSize(ty) => match ty {

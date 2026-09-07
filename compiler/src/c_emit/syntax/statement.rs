@@ -25,10 +25,6 @@ pub(in crate::c_emit) enum Statement {
         then: Block,
         otherwise: Option<Block>,
     },
-    While {
-        condition: Expr,
-        body: Block,
-    },
     For {
         initializer: ForInitializer,
         condition: Expr,
@@ -138,10 +134,6 @@ impl Statement {
 
     pub(in crate::c_emit) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
-    }
-
-    pub(in crate::c_emit) fn while_loop(condition: Expr, body: Block) -> Self {
-        Self::While { condition, body }
     }
 
     pub(in crate::c_emit) fn directive(directive: Directive) -> Self {

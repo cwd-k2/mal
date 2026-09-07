@@ -21,7 +21,7 @@ language surface
 
 malのminimalismは、実装の行数だけでなく、利用者がprogramの挙動を把握するために調べる範囲を小さくする。
 
-- 隠れたcapture、allocation、retain/release、暗黙変換を増やさない。
+- capture、allocation、retain/release、暗黙変換を増やす場合は、対象と挿入規則を短く列挙できる境界に閉じる。
 - policyを言語や巨大なstandard APIへ固定せず、可能な限り利用者が選べるmechanismまたは小さな`extern` contractに置く。
 - sourceから依存と評価順を追えるようにする。
 - surface sugarは、既存coreへの局所的で完全なdesugaringを短く説明できる場合に限る。
@@ -31,8 +31,9 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions/D008.md)
 
-memory、resource、host境界では、特定のownership mechanismを先に選ばず、
-[EngramとExternのauthority](authority.md)から必要なadmission、observation、capability transferを導く。
+memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
+capability transferを導く。reference backendのEngram回収は[D033](decisions/D033.md)のborrow/owned result規約に閉じ、
+Extern resourceのpolicyへ拡張しない。
 
 ## 意味論上の核
 

@@ -73,7 +73,7 @@ C backendでBool valueをmaterializeしない。値として必要なcomparison 
 
 Symbol operatorの`#value`と`value # index`は型検査後にそれぞれSymbol lengthとbounds-checked byte accessの
 専用core operationへlowerする。`Symbol + Symbol`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
-C backendでprogram-lifetime storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
+C backendでmanaged storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
 
 ```mal
 f(g(x), h(y))
@@ -103,17 +103,18 @@ product は compiler-generated struct、sum は tag と payload union、Symbol �
 typedef struct {
     const uint8_t *data;
     uint64_t length;
+    void *ownership;
 } MalType_Symbol;
 ```
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Symbol literalのdataは生成物のstatic storageへ置ける。host側byte bufferからSymbol resultを作るadapterは、source-level
-extern callを完了する前にlengthを検査し、bytesをruntime arenaへcopyしてmalへadmitする。Symbol concatenationと
-`loadSymbol`のresultも同じarenaへ置く。現在のreference runtimeはarenaをprogram終了時に一括解放するが、これは回収時期を
-source semanticsへ固定しない実装上の選択である。lengthまたはallocation sizeのoverflowとallocation failureはmal trapへ写像する。
+Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。host側byte bufferからSymbol resultを作るadapterは、
+source-level extern callを完了する前にlengthを検査し、bytesをmanaged storageへcopyしてmalへadmitする。Symbol concatenationと
+`loadSymbol`のresultも同じruntime allocationを使う。lengthまたはallocation sizeのoverflow、allocation failure、reference count
+overflowはmal trapへ写像する。
 
-`loadSymbol`は外部regionから指定lengthのbytesをarenaへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
+`loadSymbol`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
 `MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
 
 storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
@@ -137,7 +138,10 @@ runtime helperへlowerする。直接callはhelper operationへ直接lowerし、
 operationを実行するcapture-free closure entryを生成する。region、permission、lifetimeはtyped IRに補わず、source-levelの
 [`memory` contract](../spec/memory.md)として保持する。
 
-reference runtime は closure environment とruntime Symbol bytes 用の program-lifetime storage を提供する。両者に個別の retain/release は生成しない。allocation failure は mal trap へ写像する。同じarenaを共有するかは実装上の選択である。
+reference runtimeはclosure environmentとruntime Symbol bytesにreference count付きallocationを提供する。C emitterはparameterと
+既存値をborrowし、resultをowned transferとして扱い、managed bindingへcopy/destroyを生成する。productとsumはfieldへ再帰適用する。
+closure environmentの最後のreleaseではcaptureを逆順にdestroyする。詳細は
+[C backendのEngram ownership](ownership.md)を正とする。
 
 C representationの収集では、`TypeRegistry`がtranslation unit全体で一意なstructural type IDとFloat利用状況を
 所有し、`HostTypes`がextern signatureから到達できる型とexternal opaque type名だけを所有する。headerとsourceは

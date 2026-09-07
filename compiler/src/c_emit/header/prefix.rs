@@ -49,6 +49,33 @@ pub(super) fn emit_prefix() -> TranslationUnit {
             ["name"],
             [PastePart::text("mal_ext_"), PastePart::parameter("name")],
         ),
+        Directive::function_alias(
+            "MAL_CLONE",
+            ["owner"],
+            [
+                PastePart::text("mal_"),
+                PastePart::parameter("owner"),
+                PastePart::text("_clone"),
+            ],
+        ),
+        Directive::function_alias(
+            "MAL_MOVE",
+            ["owner"],
+            [
+                PastePart::text("mal_"),
+                PastePart::parameter("owner"),
+                PastePart::text("_take"),
+            ],
+        ),
+        Directive::function_alias(
+            "MAL_DROP",
+            ["owner"],
+            [
+                PastePart::text("mal_"),
+                PastePart::parameter("owner"),
+                PastePart::text("_drop"),
+            ],
+        ),
     ] {
         output.push(directive);
     }
@@ -96,6 +123,7 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         [
             AggregateField::variable(TypeName::const_named("uint8_t").pointer(), "data"),
             AggregateField::variable("uint64_t", "length"),
+            AggregateField::variable(TypeName::named("void").pointer(), "ownership"),
         ],
         "MalType_Symbol",
     ));
@@ -138,6 +166,30 @@ pub(super) fn emit_prefix() -> TranslationUnit {
             Parameter::named(TypeName::named("MalContext").pointer(), "context"),
             Parameter::named(TypeName::const_named("uint8_t").pointer(), "data"),
             Parameter::named("uint64_t", "length"),
+        ],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "MalType_Symbol",
+        "mal_Symbol_clone",
+        [
+            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+            Parameter::named("MalType_Symbol", "value"),
+        ],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "MalType_Symbol",
+        "mal_Symbol_take",
+        [Parameter::named(
+            TypeName::named("MalType_Symbol").pointer(),
+            "value",
+        )],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "void",
+        "mal_Symbol_drop",
+        [
+            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+            Parameter::named(TypeName::named("MalType_Symbol").pointer(), "value"),
         ],
     )));
     output.blank_line();

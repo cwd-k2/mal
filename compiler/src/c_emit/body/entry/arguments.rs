@@ -38,7 +38,7 @@ impl BodyEmitter<'_> {
                     "MalContext",
                     "mal_context",
                     Some(CExpr::initializer_list([Initializer::positional(
-                        CExpr::identifier("NULL"),
+                        CExpr::number("0"),
                     )])),
                 ),
                 Statement::call(
@@ -188,6 +188,14 @@ impl BodyEmitter<'_> {
                             CExpr::identifier("mal_arguments"),
                         ],
                     )),
+                ),
+                Statement::call(
+                    "mal_deallocate",
+                    [CExpr::identifier("mal_argument_storage")],
+                ),
+                Statement::call(
+                    "mal_program_destroy",
+                    [CExpr::address_of(CExpr::identifier("mal_context"))],
                 ),
                 Statement::call(
                     "mal_context_destroy",

@@ -82,13 +82,6 @@ impl Statement {
                 output.push_str(") ");
                 body.render_braced(output, depth);
             }
-            Self::While { condition, body } => {
-                write_indent(output, depth);
-                output.push_str("while (");
-                condition.render(output);
-                output.push_str(") ");
-                body.render_braced(output, depth);
-            }
             Self::Switch { value, cases } => {
                 write_indent(output, depth);
                 output.push_str("switch (");

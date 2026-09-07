@@ -1,31 +1,56 @@
 use crate::c_emit::syntax::{
-    AggregateDefinition, AggregateField, Block, Directive, Expr, FunctionDefinition,
+    AggregateDefinition, AggregateField, Block, Declaration, Directive, Expr, FunctionDefinition,
     FunctionSignature, Initializer, Parameter, PreprocessorExpr, Statement, TranslationUnit,
-    TypeName,
+    TypeName, VariableDeclaration,
 };
 
 pub(super) fn emit() -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
-        Some("MalAllocation".into()),
-        [AggregateField::variable(
-            TypeName::structure("MalAllocation").pointer(),
-            "next",
-        )],
+        None,
+        [AggregateField::variable("uint64_t", "references")],
         "MalAllocation",
     ));
     output.blank_line();
     output.push(AggregateDefinition::structure(
         "MalContext",
-        [AggregateField::variable(
-            TypeName::named("MalAllocation").pointer(),
-            "allocations",
-        )],
+        [AggregateField::variable("uint8_t", "unused")],
     ));
+    output.push(Directive::If(live_allocation_tracking()));
+    output.push(Declaration::variable(VariableDeclaration::static_variable(
+        "size_t",
+        "mal_live_allocations",
+    )));
+    output.push(Directive::Endif);
     output.blank_line();
 
+    append_trap(&mut output);
     append_function(
         &mut output,
+        FunctionSignature::static_function("void", "mal_context_destroy", [context_parameter()]),
+        Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+            ))),
+            Statement::if_then(
+                Expr::not_equal(Expr::identifier("mal_live_allocations"), Expr::number("0")),
+                trap("live allocations at context destruction"),
+            ),
+            Statement::directive(Directive::Endif),
+        ]),
+    );
+    append_allocation(&mut output);
+    append_reference_counting(&mut output);
+    append_symbol_lifetime(&mut output);
+    append_host_symbol_lifetime(&mut output);
+    append_symbol_copy(&mut output);
+    output
+}
+
+fn append_trap(output: &mut TranslationUnit) {
+    append_function(
+        output,
         FunctionSignature::no_return(
             "void",
             "mal_trap",
@@ -48,33 +73,11 @@ pub(super) fn emit() -> TranslationUnit {
             Statement::call("abort", []),
         ]),
     );
+}
 
+fn append_allocation(output: &mut TranslationUnit) {
     append_function(
-        &mut output,
-        FunctionSignature::static_function("void", "mal_context_destroy", [context_parameter()]),
-        Block::new([
-            Statement::variable(
-                TypeName::named("MalAllocation").pointer(),
-                "allocation",
-                Some(Expr::identifier("context").pointer_field("allocations")),
-            ),
-            Statement::while_loop(
-                Expr::not_equal(Expr::identifier("allocation"), Expr::identifier("NULL")),
-                Block::new([
-                    Statement::variable(
-                        TypeName::named("MalAllocation").pointer(),
-                        "next",
-                        Some(Expr::identifier("allocation").pointer_field("next")),
-                    ),
-                    Statement::call("free", [Expr::identifier("allocation")]),
-                    Statement::assignment(Expr::identifier("allocation"), Expr::identifier("next")),
-                ]),
-            ),
-        ]),
-    );
-
-    append_function(
-        &mut output,
+        output,
         FunctionSignature::static_function(
             TypeName::named("void").pointer(),
             "mal_allocate",
@@ -91,6 +94,17 @@ pub(super) fn emit() -> TranslationUnit {
                 ),
                 trap("allocation size overflow"),
             ),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_LIVE_ALLOCATION_LIMIT",
+            ))),
+            Statement::if_then(
+                Expr::greater_equal(
+                    Expr::identifier("mal_live_allocations"),
+                    Expr::cast("size_t", Expr::identifier("MAL_TEST_LIVE_ALLOCATION_LIMIT")),
+                ),
+                trap("allocation failed"),
+            ),
+            Statement::directive(Directive::Endif),
             Statement::directive(Directive::If(PreprocessorExpr::defined(
                 "MAL_TEST_FORCE_ALLOCATION_FAILURE",
             ))),
@@ -117,19 +131,236 @@ pub(super) fn emit() -> TranslationUnit {
                 trap("allocation failed"),
             ),
             Statement::assignment(
-                Expr::identifier("allocation").pointer_field("next"),
-                Expr::identifier("context").pointer_field("allocations"),
+                Expr::identifier("allocation").pointer_field("references"),
+                uint64(1),
             ),
-            Statement::assignment(
-                Expr::identifier("context").pointer_field("allocations"),
-                Expr::identifier("allocation"),
-            ),
+            Statement::directive(Directive::If(live_allocation_tracking())),
+            Statement::expression(Expr::pre_increment(Expr::identifier(
+                "mal_live_allocations",
+            ))),
+            Statement::directive(Directive::Endif),
             Statement::return_value(Expr::add(Expr::identifier("allocation"), Expr::number("1"))),
         ]),
     );
+}
 
+fn append_reference_counting(output: &mut TranslationUnit) {
     append_function(
-        &mut output,
+        output,
+        FunctionSignature::static_function(
+            TypeName::const_named("void").pointer(),
+            "mal_retain",
+            [
+                context_parameter(),
+                Parameter::named(TypeName::const_named("void").pointer(), "value"),
+            ],
+        ),
+        Block::new([
+            Statement::if_then(
+                Expr::equal(Expr::identifier("value"), Expr::identifier("NULL")),
+                Block::new([Statement::return_value(Expr::identifier("NULL"))]),
+            ),
+            Statement::variable(
+                TypeName::named("MalAllocation").pointer(),
+                "allocation",
+                Some(allocation_for(Expr::identifier("value"))),
+            ),
+            Statement::if_then(
+                Expr::equal(
+                    Expr::identifier("allocation").pointer_field("references"),
+                    Expr::identifier("UINT64_MAX"),
+                ),
+                trap("reference count overflow"),
+            ),
+            Statement::expression(Expr::pre_increment(
+                Expr::identifier("allocation").pointer_field("references"),
+            )),
+            Statement::return_value(Expr::identifier("value")),
+        ]),
+    );
+    append_function(
+        output,
+        FunctionSignature::static_function(
+            "uint8_t",
+            "mal_release",
+            [Parameter::named(
+                TypeName::const_named("void").pointer(),
+                "value",
+            )],
+        ),
+        Block::new([
+            Statement::if_then(
+                Expr::equal(Expr::identifier("value"), Expr::identifier("NULL")),
+                Block::new([Statement::return_value(uint8(0))]),
+            ),
+            Statement::variable(
+                TypeName::named("MalAllocation").pointer(),
+                "allocation",
+                Some(allocation_for(Expr::identifier("value"))),
+            ),
+            Statement::assignment(
+                Expr::identifier("allocation").pointer_field("references"),
+                Expr::subtract(
+                    Expr::identifier("allocation").pointer_field("references"),
+                    uint64(1),
+                ),
+            ),
+            Statement::return_value(Expr::cast(
+                "uint8_t",
+                Expr::equal(
+                    Expr::identifier("allocation").pointer_field("references"),
+                    uint64(0),
+                ),
+            )),
+        ]),
+    );
+    append_function(
+        output,
+        FunctionSignature::static_function(
+            "void",
+            "mal_deallocate",
+            [Parameter::named(
+                TypeName::const_named("void").pointer(),
+                "value",
+            )],
+        ),
+        Block::new([
+            Statement::directive(Directive::If(live_allocation_tracking())),
+            Statement::assignment(
+                Expr::identifier("mal_live_allocations"),
+                Expr::subtract(Expr::identifier("mal_live_allocations"), Expr::number("1")),
+            ),
+            Statement::directive(Directive::Endif),
+            Statement::call("free", [allocation_for(Expr::identifier("value"))]),
+        ]),
+    );
+}
+
+fn append_symbol_lifetime(output: &mut TranslationUnit) {
+    append_function(
+        output,
+        FunctionSignature::new(
+            "MalType_Symbol",
+            "mal_symbol_retain",
+            [
+                context_parameter(),
+                Parameter::named("MalType_Symbol", "value"),
+            ],
+        ),
+        Block::new([
+            Statement::expression(Expr::named_call(
+                "mal_retain",
+                [
+                    Expr::identifier("context"),
+                    Expr::identifier("value").field("ownership"),
+                ],
+            )),
+            Statement::return_value(Expr::identifier("value")),
+        ]),
+    );
+    append_function(
+        output,
+        FunctionSignature::new(
+            "void",
+            "mal_symbol_release",
+            [Parameter::named("MalType_Symbol", "value")],
+        ),
+        Block::new([Statement::if_then(
+            Expr::not_equal(
+                Expr::identifier("value").field("ownership"),
+                Expr::identifier("NULL"),
+            ),
+            Block::new([Statement::if_then(
+                Expr::not_equal(
+                    Expr::named_call(
+                        "mal_release",
+                        [Expr::identifier("value").field("ownership")],
+                    ),
+                    uint8(0),
+                ),
+                Block::new([Statement::call(
+                    "mal_deallocate",
+                    [Expr::identifier("value").field("ownership")],
+                )]),
+            )]),
+        )]),
+    );
+}
+
+fn append_host_symbol_lifetime(output: &mut TranslationUnit) {
+    append_function(
+        output,
+        FunctionSignature::new(
+            "MalType_Symbol",
+            "mal_Symbol_clone",
+            [
+                context_parameter(),
+                Parameter::named("MalType_Symbol", "value"),
+            ],
+        ),
+        Block::new([Statement::return_value(Expr::named_call(
+            "mal_symbol_retain",
+            [Expr::identifier("context"), Expr::identifier("value")],
+        ))]),
+    );
+    append_function(
+        output,
+        FunctionSignature::new(
+            "MalType_Symbol",
+            "mal_Symbol_take",
+            [Parameter::named(
+                TypeName::named("MalType_Symbol").pointer(),
+                "value",
+            )],
+        ),
+        Block::new([
+            Statement::variable(
+                "MalType_Symbol",
+                "result",
+                Some(Expr::dereference(Expr::identifier("value"))),
+            ),
+            Statement::assignment(
+                Expr::dereference(Expr::identifier("value")),
+                symbol([
+                    Expr::identifier("NULL"),
+                    uint64(0),
+                    Expr::identifier("NULL"),
+                ]),
+            ),
+            Statement::return_value(Expr::identifier("result")),
+        ]),
+    );
+    append_function(
+        output,
+        FunctionSignature::new(
+            "void",
+            "mal_Symbol_drop",
+            [
+                context_parameter(),
+                Parameter::named(TypeName::named("MalType_Symbol").pointer(), "value"),
+            ],
+        ),
+        Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+            Statement::call(
+                "mal_symbol_release",
+                [Expr::dereference(Expr::identifier("value"))],
+            ),
+            Statement::assignment(
+                Expr::dereference(Expr::identifier("value")),
+                symbol([
+                    Expr::identifier("NULL"),
+                    uint64(0),
+                    Expr::identifier("NULL"),
+                ]),
+            ),
+        ]),
+    );
+}
+
+fn append_symbol_copy(output: &mut TranslationUnit) {
+    append_function(
+        output,
         FunctionSignature::new(
             "MalType_Symbol",
             "mal_Symbol_copy_from_bytes",
@@ -141,13 +372,11 @@ pub(super) fn emit() -> TranslationUnit {
         ),
         Block::new([
             Statement::if_then(
-                Expr::equal(
-                    Expr::identifier("length"),
-                    Expr::named_call("UINT64_C", [Expr::number("0")]),
-                ),
+                Expr::equal(Expr::identifier("length"), uint64(0)),
                 Block::new([Statement::return_value(symbol([
                     Expr::identifier("NULL"),
-                    Expr::named_call("UINT64_C", [Expr::number("0")]),
+                    uint64(0),
+                    Expr::identifier("NULL"),
                 ]))]),
             ),
             Statement::if_then(
@@ -188,11 +417,17 @@ pub(super) fn emit() -> TranslationUnit {
             Statement::return_value(symbol([
                 Expr::identifier("copy"),
                 Expr::identifier("length"),
+                Expr::identifier("copy"),
             ])),
         ]),
     );
+}
 
-    output
+fn allocation_for(value: Expr) -> Expr {
+    Expr::subtract(
+        Expr::cast(TypeName::named("MalAllocation").pointer(), value),
+        Expr::number("1"),
+    )
 }
 
 fn context_parameter() -> Parameter {
@@ -210,6 +445,21 @@ fn symbol(fields: impl IntoIterator<Item = Expr>) -> Expr {
     Expr::compound_literal(
         "MalType_Symbol",
         fields.into_iter().map(Initializer::positional),
+    )
+}
+
+fn uint8(value: u8) -> Expr {
+    Expr::named_call("UINT8_C", [Expr::number(value.to_string())])
+}
+
+fn uint64(value: u64) -> Expr {
+    Expr::named_call("UINT64_C", [Expr::number(value.to_string())])
+}
+
+fn live_allocation_tracking() -> PreprocessorExpr {
+    PreprocessorExpr::logical_or(
+        PreprocessorExpr::defined("MAL_TEST_LIVE_ALLOCATION_LIMIT"),
+        PreprocessorExpr::defined("MAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"),
     )
 }
 

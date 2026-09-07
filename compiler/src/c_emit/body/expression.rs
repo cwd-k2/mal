@@ -10,6 +10,17 @@ use crate::c_emit::types::is_bool;
 mod atom;
 mod primitive;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ResultOwnership {
+    Borrowed,
+    Owned,
+}
+
+pub(super) struct EmittedExpression {
+    pub(super) expression: Expr,
+    pub(super) ownership: ResultOwnership,
+}
+
 use super::{
     BodyEmitter, direct_function_name, flattened_product_values, function_name,
     has_direct_product_entry,
@@ -20,7 +31,16 @@ impl BodyEmitter<'_> {
         &mut self,
         operation: &Operation,
         result: &Type,
-    ) -> Expr {
+    ) -> EmittedExpression {
+        let ownership = operation_result_ownership(operation, result);
+        let expression = self.emit_operation_expression_value(operation, result);
+        EmittedExpression {
+            expression,
+            ownership,
+        }
+    }
+
+    fn emit_operation_expression_value(&mut self, operation: &Operation, result: &Type) -> Expr {
         match operation {
             Operation::Atom(atom) => self.emit_atom(atom),
             Operation::Call { callee, argument } => {
@@ -247,6 +267,54 @@ impl BodyEmitter<'_> {
             _ => arguments.push(self.emit_atom(argument)),
         }
         Expr::named_call(format!("mal_ext_{}", external.name), arguments)
+    }
+}
+
+fn operation_result_ownership(operation: &Operation, result: &Type) -> ResultOwnership {
+    use crate::core::ast::BinaryPrimitive;
+
+    match operation {
+        Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. } => {
+            ResultOwnership::Borrowed
+        }
+        Operation::MakeClosure { .. }
+        | Operation::Call { .. }
+        | Operation::ExternalCall { .. }
+        | Operation::Case { .. }
+        | Operation::PrimitiveBranch { .. } => ResultOwnership::Owned,
+        Operation::SymbolLength { .. }
+        | Operation::SymbolAt { .. }
+        | Operation::NumericConversion { .. }
+        | Operation::PrimitiveUnary { .. } => ResultOwnership::Borrowed,
+        Operation::Memory { primitive, .. } => match primitive {
+            MemoryPrimitive::LoadSymbol => ResultOwnership::Owned,
+            MemoryPrimitive::OffsetForward
+            | MemoryPrimitive::OffsetBackward
+            | MemoryPrimitive::Load(_)
+            | MemoryPrimitive::Store(_)
+            | MemoryPrimitive::LoadPtr
+            | MemoryPrimitive::StorePtr
+            | MemoryPrimitive::StoreSymbol => ResultOwnership::Borrowed,
+        },
+        Operation::PrimitiveBinary { operator, .. } => match operator {
+            BinaryPrimitive::Add if *result == Type::Symbol => ResultOwnership::Owned,
+            BinaryPrimitive::Multiply
+            | BinaryPrimitive::Divide
+            | BinaryPrimitive::Remainder
+            | BinaryPrimitive::Add
+            | BinaryPrimitive::Subtract
+            | BinaryPrimitive::ShiftLeft
+            | BinaryPrimitive::ShiftRight
+            | BinaryPrimitive::Less
+            | BinaryPrimitive::LessEqual
+            | BinaryPrimitive::Greater
+            | BinaryPrimitive::GreaterEqual
+            | BinaryPrimitive::Equal
+            | BinaryPrimitive::NotEqual
+            | BinaryPrimitive::BitwiseAnd
+            | BinaryPrimitive::BitwiseXor
+            | BinaryPrimitive::BitwiseOr => ResultOwnership::Borrowed,
+        },
     }
 }
 

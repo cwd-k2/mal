@@ -55,8 +55,8 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 
 | 規範 | P / N / E | X |
 |---|---|---|
-| [`engrams`: authorityと境界](../spec/engrams.md) | P/N: transportable type、`@Symbol` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission tests（`compiler/tests/c_emit.rs`） |
-| [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests（`compiler/tests/c_emit.rs`） |
+| [`engrams`: authorityと境界](../spec/engrams.md) | P/N: transportable type、`@Symbol` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission、`releases_function_local_symbols_before_the_next_call`（`compiler/tests/c_emit.rs`） |
+| [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests、`retains_returned_and_captured_symbols_until_their_owners_are_destroyed`、`retains_only_the_active_managed_sum_payload`、`destroys_discarded_and_destructured_managed_branch_results`（`compiler/tests/c_emit.rs`） |
 | [`symbols`: literal](../spec/symbols.md#literal) | P/N/E: Symbol literal lexer tests（`compiler/tests/lexer.rs`） | `emits_static_symbol_bytes_that_survive_closure_escape`（`compiler/tests/c_emit.rs`） |
 | [`symbols`: operator](../spec/symbols.md#operator) | P/N/E: `parses_symbol_length_and_byte_access_with_access_precedence`、`rejects_chained_symbol_byte_access`（`compiler/tests/parser.rs`）、`checks_symbol_operators_and_byte_wise_equality`、`rejects_unsupported_or_mistyped_symbol_operations`（`compiler/tests/check.rs`） | `executes_symbol_operators_and_byte_wise_equality`、`concatenates_symbols_as_immutable_bytes`、Symbol access/concatenation trap tests（`compiler/tests/c_emit.rs`） |
 | [`symbols`: mutable bytesとの分離](../spec/symbols.md#mutable-bytesとの分離) | P/N: opaque typeとunsupported operation tests（`compiler/tests/check.rs`） | `symbol-round-trip` example（`compiler/tests/driver.rs`） |
@@ -67,7 +67,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | checked-in host adapter（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: generated headerとsymbol](../spec/c-host-abi.md#generated-header) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/c_emit.rs`） | headerをincludeするhost fixture群 |
-| [`c-host-abi`: type mapping](../spec/c-host-abi.md#type-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test（`compiler/tests/c_emit.rs`） |
+| [`c-host-abi`: type mapping](../spec/c-host-abi.md#type-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test、`exposes_managed_value_transfer_helpers_to_host_adapters`（`compiler/tests/c_emit.rs`） |
 | [`c-host-abi`: closure exclusion](../spec/c-host-abi.md#closure-exclusion) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
 | [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/c_emit.rs`） | `mal_trap`を含むnative trap tests |
 

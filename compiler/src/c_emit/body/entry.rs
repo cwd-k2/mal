@@ -23,7 +23,10 @@ impl BodyEmitter<'_> {
                 TopLevelPattern::Binding { id, .. } => {
                     body.push(Statement::assignment(
                         CExpr::identifier(value_name(*id)),
-                        self.emit_atom(&binding.value.result),
+                        self.types.copy_value(
+                            &binding.value.result.ty,
+                            self.emit_atom(&binding.value.result),
+                        ),
                     ));
                     body.push(Statement::expression(CExpr::cast(
                         "void",
@@ -42,11 +45,37 @@ impl BodyEmitter<'_> {
                     self.emit_atom(&binding.value.result),
                 ),
             }
+            self.emit_block_cleanup(&mut body, &binding.value);
         }
         let definition = FunctionDefinition::from_signature(
             FunctionSignature::static_function(
                 "void",
                 "mal_program_initialize",
+                [Parameter::named(
+                    TypeName::named("MalContext").pointer(),
+                    "mal_context",
+                )],
+            ),
+            body,
+        );
+        let mut output = TranslationUnit::new([definition.into()]);
+        output.blank_line();
+        output
+    }
+
+    pub(super) fn emit_program_destroy(&self) -> TranslationUnit {
+        let mut body = CBlock::default();
+        for binding in self.program.bindings.iter().rev() {
+            self.destroy_top_level_pattern(&mut body, &binding.pattern);
+        }
+        body.push(Statement::expression(CExpr::cast(
+            "void",
+            CExpr::identifier("mal_context"),
+        )));
+        let definition = FunctionDefinition::from_signature(
+            FunctionSignature::static_function(
+                "void",
+                "mal_program_destroy",
                 [Parameter::named(
                     TypeName::named("MalContext").pointer(),
                     "mal_context",
@@ -75,7 +104,7 @@ impl BodyEmitter<'_> {
                         "MalContext",
                         "mal_context",
                         Some(CExpr::initializer_list([Initializer::positional(
-                            CExpr::identifier("NULL"),
+                            CExpr::number("0"),
                         )])),
                     ),
                     Statement::variable(
@@ -100,6 +129,10 @@ impl BodyEmitter<'_> {
                                 CExpr::identifier("mal_unit"),
                             ],
                         )),
+                    ),
+                    Statement::call(
+                        "mal_program_destroy",
+                        [CExpr::address_of(CExpr::identifier("mal_context"))],
                     ),
                     Statement::call(
                         "mal_context_destroy",

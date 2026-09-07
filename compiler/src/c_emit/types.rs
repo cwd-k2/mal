@@ -6,6 +6,7 @@ use crate::check::ast::Type;
 
 mod collect;
 mod host;
+mod lifetime;
 
 #[derive(Default)]
 pub(super) struct TypeRegistry {
@@ -145,6 +146,14 @@ impl TypeRegistry {
                             AggregateField::variable(
                                 TypeName::const_named("void").pointer(),
                                 "environment",
+                            ),
+                            AggregateField::function_pointer(
+                                "void",
+                                "destroy_environment",
+                                [
+                                    Parameter::unnamed(TypeName::named("MalContext").pointer()),
+                                    Parameter::unnamed(TypeName::const_named("void").pointer()),
+                                ],
                             ),
                         ],
                     ));

@@ -4,7 +4,8 @@ use crate::check::ast::Type;
 use crate::closure::ast::FunctionId;
 use crate::closure::ast::{self as closure, Atom, Block as ClosureBlock, Pattern};
 
-use super::super::{BodyEmitter, pattern_type, value_name};
+use super::super::ResultOwnership;
+use super::super::{BodyEmitter, pattern_type};
 
 impl BodyEmitter<'_> {
     pub(in crate::c_emit::body) fn emit_tail_block(
@@ -87,7 +88,13 @@ impl BodyEmitter<'_> {
         for arm in arms {
             let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
             let mut body = Block::default();
-            self.emit_simple_result(&mut body, &arm.pattern, pattern_type(&arm.pattern), payload);
+            self.emit_simple_result(
+                &mut body,
+                &arm.pattern,
+                pattern_type(&arm.pattern),
+                payload,
+                ResultOwnership::Borrowed,
+            );
             self.emit_tail_block(&mut body, &arm.value, function, parameter_name);
             cases.push(SwitchCase::case(uint32(arm.index), body));
         }
@@ -140,28 +147,38 @@ impl BodyEmitter<'_> {
         for arm in arms {
             let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
             let mut body = Block::default();
-            if let Pattern::Binding { id, ty } = &arm.pattern {
-                let name = value_name(*id);
-                body.push(Statement::variable(
-                    self.types.c_type(ty),
-                    &name,
-                    Some(payload),
-                ));
-                body.push(discard(Expr::identifier(name)));
-            }
+            self.emit_simple_result(
+                &mut body,
+                &arm.pattern,
+                pattern_type(&arm.pattern),
+                payload,
+                ResultOwnership::Borrowed,
+            );
             self.emit_block_bindings(&mut body, &arm.value);
             body.push(Statement::assignment(
                 Expr::identifier(target.clone()),
-                self.emit_atom(&arm.value.result),
+                self.types
+                    .copy_value(&arm.value.result.ty, self.emit_atom(&arm.value.result)),
             ));
+            self.emit_block_cleanup(&mut body, &arm.value);
+            self.destroy_pattern_bindings(&mut body, &arm.pattern);
             body.push(Statement::Break);
             cases.push(SwitchCase::case(uint32(arm.index), body));
         }
         cases.push(invalid_sum_default());
         output.push(Statement::switch(tag, cases));
         output.push(discard(Expr::identifier(target.clone())));
-        if matches!(pattern, Pattern::Product { .. }) {
-            self.emit_pattern_bindings(output, pattern, Expr::identifier(target));
+        match pattern {
+            Pattern::Binding { .. } => {}
+            Pattern::Wildcard { .. } => {
+                self.types
+                    .destroy_value(output, ty, Expr::identifier(target));
+            }
+            Pattern::Product { .. } => {
+                self.emit_pattern_bindings(output, pattern, Expr::identifier(target.clone()));
+                self.types
+                    .destroy_value(output, ty, Expr::identifier(target));
+            }
         }
     }
 
@@ -188,18 +205,31 @@ impl BodyEmitter<'_> {
         self.emit_block_bindings(&mut then_body, then);
         then_body.push(Statement::assignment(
             Expr::identifier(target.clone()),
-            self.emit_atom(&then.result),
+            self.types
+                .copy_value(&then.result.ty, self.emit_atom(&then.result)),
         ));
+        self.emit_block_cleanup(&mut then_body, then);
         let mut otherwise_body = Block::default();
         self.emit_block_bindings(&mut otherwise_body, otherwise);
         otherwise_body.push(Statement::assignment(
             Expr::identifier(target.clone()),
-            self.emit_atom(&otherwise.result),
+            self.types
+                .copy_value(&otherwise.result.ty, self.emit_atom(&otherwise.result)),
         ));
+        self.emit_block_cleanup(&mut otherwise_body, otherwise);
         output.push(Statement::if_else(condition, then_body, otherwise_body));
         output.push(discard(Expr::identifier(target.clone())));
-        if matches!(pattern, Pattern::Product { .. }) {
-            self.emit_pattern_bindings(output, pattern, Expr::identifier(target));
+        match pattern {
+            Pattern::Binding { .. } => {}
+            Pattern::Wildcard { .. } => {
+                self.types
+                    .destroy_value(output, ty, Expr::identifier(target));
+            }
+            Pattern::Product { .. } => {
+                self.emit_pattern_bindings(output, pattern, Expr::identifier(target.clone()));
+                self.types
+                    .destroy_value(output, ty, Expr::identifier(target));
+            }
         }
     }
 }

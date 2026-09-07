@@ -87,6 +87,69 @@ MalType_Response mal_ext_exchange(
 }
 
 #[test]
+fn exposes_managed_value_transfer_helpers_to_host_adapters() {
+    let generated = emit(
+        r#"Pair :: (Symbol, Symbol);
+Response :: [Unit, Pair];
+extern duplicate :: Symbol -> Response;
+main :: Unit -> Int32 := \() {
+  response := extern duplicate("host");
+  case (response)
+    [0](_) { 1 }
+    [1](pair) {
+      (left, right) := pair;
+      if ((left == "host") && (right == "host")) then { 0 } else { 2 };
+    };
+};"#,
+    )
+    .expect("emit managed host ownership helpers");
+
+    for declaration in [
+        "#define MAL_CLONE(owner) mal_##owner##_clone",
+        "#define MAL_MOVE(owner) mal_##owner##_take",
+        "#define MAL_DROP(owner) mal_##owner##_drop",
+        "MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);",
+        "MalType_Symbol mal_Symbol_take(MalType_Symbol *value);",
+        "void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);",
+    ] {
+        assert!(generated.header.contains(declaration), "{declaration}");
+    }
+    assert!(generated.header.contains("mal_Response_clone"));
+    assert!(generated.header.contains("mal_Response_take"));
+    assert!(generated.header.contains("mal_Response_drop"));
+
+    let host = r#"#include "program.mal.h"
+
+MAL_DEFINE_duplicate(context, value) {
+    MalType_Symbol left = MAL_CLONE(Symbol)(context, value);
+    MalType_Symbol right = MAL_CLONE(Symbol)(context, value);
+    MalType_Response response = MAL_OPERATION(Response, make_1)(
+        MAL_MOVE(Symbol)(&left),
+        MAL_MOVE(Symbol)(&right)
+    );
+    MalType_Response copy = MAL_CLONE(Response)(context, response);
+    MAL_DROP(Response)(context, &response);
+    MAL_DROP(Symbol)(context, &left);
+    MAL_DROP(Symbol)(context, &right);
+    return MAL_MOVE(Response)(&copy);
+}
+"#;
+    let fixture = NativeFixture::new("managed-host-ownership");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        host,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "status: {:?}\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn exposes_scalar_alias_names_in_the_host_header() {
     let generated = emit(
         "Count :: UInt64;\n\

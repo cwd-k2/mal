@@ -7,6 +7,7 @@ use crate::core::ast::TypeAlias;
 
 use super::{HostTypes, TypeRegistry, is_bool};
 
+mod lifetime;
 mod product;
 mod sum;
 

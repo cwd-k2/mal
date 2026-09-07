@@ -49,9 +49,21 @@ impl BodyEmitter<'_> {
                 self.emit_unit_result(output, &binding.pattern);
             }
             operation => {
-                let expression = self.emit_operation_expression(operation, ty);
-                self.emit_simple_result(output, &binding.pattern, ty, expression);
+                let emitted = self.emit_operation_expression(operation, ty);
+                self.emit_simple_result(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    emitted.expression,
+                    emitted.ownership,
+                );
             }
+        }
+    }
+
+    pub(super) fn emit_block_cleanup(&self, output: &mut Block, block: &ClosureBlock) {
+        for binding in block.bindings.iter().rev() {
+            self.destroy_pattern_bindings(output, &binding.pattern);
         }
     }
 }

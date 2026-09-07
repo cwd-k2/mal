@@ -87,11 +87,17 @@ pub(super) fn emit_concatenate() -> FunctionDefinition {
         Block::new([
             Statement::if_then(
                 Expr::equal(Expr::identifier("left").field("length"), uint64(0)),
-                Block::new([Statement::return_value(Expr::identifier("right"))]),
+                Block::new([Statement::return_value(Expr::named_call(
+                    "mal_symbol_retain",
+                    [Expr::identifier("context"), Expr::identifier("right")],
+                ))]),
             ),
             Statement::if_then(
                 Expr::equal(Expr::identifier("right").field("length"), uint64(0)),
-                Block::new([Statement::return_value(Expr::identifier("left"))]),
+                Block::new([Statement::return_value(Expr::named_call(
+                    "mal_symbol_retain",
+                    [Expr::identifier("context"), Expr::identifier("left")],
+                ))]),
             ),
             Statement::if_then(
                 Expr::greater(
@@ -158,6 +164,7 @@ pub(super) fn emit_concatenate() -> FunctionDefinition {
                 [
                     Initializer::positional(Expr::identifier("bytes")),
                     Initializer::positional(Expr::identifier("length")),
+                    Initializer::positional(Expr::identifier("bytes")),
                 ],
             )),
         ]),

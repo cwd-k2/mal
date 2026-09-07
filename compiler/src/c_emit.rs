@@ -52,10 +52,13 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     source.extend(types.source_declarations(&host));
     source.extend(body.environment_declarations);
     source.extend(runtime::emit(&body.needs));
+    source.extend(types.lifetime_definitions());
+    source.extend(body.environment_definitions);
     source.extend(body.globals);
     source.extend(body.function_declarations);
     source.extend(body.function_definitions);
     source.extend(body.initializer);
+    source.extend(body.program_destroy);
     source.extend(body.main);
 
     Ok(Output {

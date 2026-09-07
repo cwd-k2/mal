@@ -17,6 +17,8 @@ use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
 };
+use self::expression::ResultOwnership;
+use self::name::environment_destroy_name;
 use self::name::{direct_function_name, environment_name, function_name, value_name};
 use self::pattern::pattern_type;
 
@@ -43,10 +45,12 @@ pub(super) struct RuntimeNeeds {
 
 pub(super) struct BodyOutput {
     pub(super) environment_declarations: TranslationUnit,
+    pub(super) environment_definitions: TranslationUnit,
     pub(super) globals: TranslationUnit,
     pub(super) function_declarations: TranslationUnit,
     pub(super) function_definitions: TranslationUnit,
     pub(super) initializer: TranslationUnit,
+    pub(super) program_destroy: TranslationUnit,
     pub(super) main: TranslationUnit,
     pub(super) needs: RuntimeNeeds,
 }
@@ -70,17 +74,21 @@ impl<'a> BodyEmitter<'a> {
 
     pub(super) fn emit(&mut self, main: &crate::closure::ast::TopLevelBinding) -> BodyOutput {
         let environment_declarations = self.emit_environments();
+        let environment_definitions = self.emit_environment_definitions();
         let globals = self.emit_globals();
         let function_declarations = self.emit_function_declarations();
         let function_definitions = self.emit_function_definitions();
         let initializer = self.emit_initializer();
+        let program_destroy = self.emit_program_destroy();
         let main = self.emit_main(main);
         BodyOutput {
             environment_declarations,
+            environment_definitions,
             globals,
             function_declarations,
             function_definitions,
             initializer,
+            program_destroy,
             main,
             needs: self.needs,
         }

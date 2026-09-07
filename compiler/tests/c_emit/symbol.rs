@@ -78,6 +78,138 @@ fn concatenates_symbols_as_immutable_bytes() {
 }
 
 #[test]
+fn releases_function_local_symbols_before_the_next_call() {
+    let generated = emit(
+        r#"measure :: Symbol -> UInt64 := \(suffix :: Symbol) {
+  value := "prefix" + suffix;
+  #value;
+};
+main :: Unit -> Int32 := \() {
+  measure("a");
+  measure("b");
+  measure("c");
+  0;
+};"#,
+    )
+    .expect("emit owned Symbol cleanup");
+    let fixture = NativeFixture::new("symbol-local-ownership");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_LIVE_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn retains_returned_and_captured_symbols_until_their_owners_are_destroyed() {
+    let generated = emit(
+        r#"make :: Symbol -> Symbol := \(suffix :: Symbol) {
+  "prefix" + suffix;
+};
+hold :: Symbol -> (Unit -> Symbol) := \(suffix :: Symbol) {
+  value := make(suffix);
+  \<value>() { value; };
+};
+main :: Unit -> Int32 := \() {
+  first := make("a");
+  alias := first;
+  pair := (first, alias);
+  (left, right) := pair;
+  held := hold(left);
+  returned := held();
+  ok := (left == "prefixa") &&
+        (right == "prefixa") &&
+        (returned == "prefixprefixa");
+  if (ok) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit shared and captured Symbol ownership");
+    let fixture = NativeFixture::new("symbol-shared-ownership");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "status: {:?}\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn retains_only_the_active_managed_sum_payload() {
+    let generated = emit(
+        r#"Choice :: [Unit, Symbol];
+make :: Symbol -> Choice := \(suffix :: Symbol) {
+  Choice[1]("prefix" + suffix);
+};
+read :: Choice -> Symbol := \(choice :: Choice) {
+  case (choice)
+    [0](_) { "empty" }
+    [1](value) { value };
+};
+main :: Unit -> Int32 := \() {
+  choice := make("a");
+  value := read(choice);
+  if (value == "prefixa") then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit managed sum ownership");
+    let fixture = NativeFixture::new("symbol-sum-ownership");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "status: {:?}\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn destroys_discarded_and_destructured_managed_branch_results() {
+    let generated = emit(
+        r#"main :: Unit -> Int32 := \() {
+  if (true) then { "a" + "b" } else { "c" + "d" };
+  (left, right) := if (true)
+    then { ("e" + "f", "g" + "h") }
+    else { ("i" + "j", "k" + "l") };
+  if ((left == "ef") && (right == "gh")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit managed branch result cleanup");
+    let fixture = NativeFixture::new("symbol-branch-ownership");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "status: {:?}\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn traps_symbol_concatenation_allocation_failure() {
     let fixture = NativeFixture::new("symbol-concatenation-failure");
     let executable = fixture.compile_generated_with_options(

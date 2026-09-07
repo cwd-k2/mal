@@ -117,7 +117,7 @@ source、生成物、計測dataは`.scratch/`だけに置いた。
 | `Bool` case | `uint8_t`の`switch` | internalな既知値では消え、extern resultではvalidation branchが残る | host contract境界のcheckとして維持 |
 | function value | code pointerとenvironment pointer | 動的選択ではpairとindirect callが残る | first-class closureの意味に必要 |
 | numeric/memory helper | helper callと`memcpy` | helperはinlineされscalar load/storeになる | wrap、trap、unaligned accessの意味に必要 |
-| `Symbol`とruntime arena | descriptor、copy、allocation list | 使用経路またはpublic runtime symbolとして残る | lifetimeとhost ABIのcontractに必要 |
+| managed Engram | descriptor、retain/release、allocation header | escapeする値では残り、局所値では一部をoptimizerが除去できる | lifetimeとhost ABIのcontractに必要 |
 
 代表generated Cではproduct型名が243箇所、unused warning抑制が424箇所、`switch`が7箇所あったが、最適化後のIRでは
 product型と`switch`は0箇所、stack allocationは`MalContext`用の1箇所だった。C sourceの大きさをそのまま実行時costと

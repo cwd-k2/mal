@@ -25,6 +25,7 @@ pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &Ho
     }
 
     let mut helpers = types.header_opaque_helpers(host);
+    helpers.extend(types.header_lifetime_helpers(host, &interface.type_aliases));
     helpers.extend(types.header_alias_helpers(host, &interface.type_aliases));
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");

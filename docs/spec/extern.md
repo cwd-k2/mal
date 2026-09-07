@@ -120,6 +120,11 @@ host APIを呼ぶ。`mal_ext_*` adapterはtrusted computing baseに含まれる�
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
 
+reference C ABIはadapter内のborrowed、owned、movedを規約として区別し、managed carrierのclone、move、drop helperを
+generated headerへ出す。これはhostへEngram authorityを移すものではなく、call中の一時的なownership shareを正しく
+transferまたは解放するためのinterfaceである。詳細は[C host ABI](c-host-abi.md#ownership-operation)と
+[D034](../design/decisions/D034.md)に定める。
+
 reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
 [C host ABI](c-host-abi.md)に定める。

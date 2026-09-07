@@ -38,6 +38,9 @@ headerは少なくともC11でcompileでき、同じprogramについて生成し
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
 #define MAL_EXTERN(name) mal_ext_##name
+#define MAL_CLONE(owner) mal_##owner##_clone
+#define MAL_MOVE(owner) mal_##owner##_take
+#define MAL_DROP(owner) mal_##owner##_drop
 
 typedef struct MalContext MalContext;
 
@@ -60,6 +63,7 @@ typedef double MalType_Float64;
 typedef struct {
     const uint8_t *data;
     uint64_t length;
+    void *ownership;
 } MalType_Symbol;
 
 typedef struct {
@@ -76,6 +80,9 @@ MalType_Symbol mal_Symbol_copy_from_bytes(
     const uint8_t *data,
     uint64_t length
 );
+MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);
+MalType_Symbol mal_Symbol_take(MalType_Symbol *value);
+void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);
 ```
 
 `mal_ext_<name>`はraw host library functionそのものではなく、host operationとmal valueの間を変換するtrusted adapter
@@ -121,6 +128,37 @@ MAL_DEFINE_printInt32(context, value) {
 
 `mal_Symbol_copy_from_bytes`はbytesをmal-controlled storageへcopyしてSymbolをadmitする。allocation size overflowまたは
 failureではtrapし、正常returnした値はmalのlifetime authorityに属する。`length == 0`では`data`をdereferenceしない。
+`ownership`はreference runtimeだけが解釈するopaque fieldである。hostはgenerated lifecycle helper以外から値を変更、比較、
+dereferenceしてはならない。
+
+## ownership operation
+
+C adapter内のmanaged carrierには概念上次の三状態がある。C typeは状態を区別しないため、adapterがこの規約を守る。
+
+| 状態 | 許される操作 |
+|---|---|
+| borrowed | 読取り、`clone`。`move`、`drop`、call終了後の保持は禁止 |
+| owned | 一度だけextern resultへtransfer、aggregate constructorへconsume、`move`、`drop`のいずれか |
+| moved | `drop`。値の観測と再transferは禁止 |
+
+`clone(context, value)`はborrowed valueからownership shareを一つ持つowned valueを返す。`take(&value)`はowned
+lvalueのshareをresultへ移し、元をzero-initializeしたmoved状態にする。`drop(context, &value)`はshareを解放して
+元をmoved状態にする。moved値への`drop`はno-opである。`take`と`drop`のpointerはnullであってはならない。
+
+`MAL_CLONE(owner)`、`MAL_MOVE(owner)`、`MAL_DROP(owner)`は対応するoperation名へ展開する。ownership処理をmacro内で
+行わないため、function argumentはCの通常の規則で一度だけ評価される。`MAL_MOVE`と`MAL_DROP`へ渡すpointerは
+modifiable lvalueを指さなければならない。
+
+```c
+MalType_Symbol copy = MAL_CLONE(Symbol)(context, borrowed);
+MalType_Symbol result = MAL_MOVE(Symbol)(&copy);
+MAL_DROP(Symbol)(context, &copy); /* moved valueなのでno-op */
+return result;
+```
+
+host-visibleなmanaged productとsumには同じoperationを生成する。source alias `Response`のownerは`Response`、aliasを
+持たない`MalRepr_Product_3`のownerは`Repr_Product_3`である。clone/dropはactiveなmanaged fieldへ型再帰で適用する。
+`Ptr`とexternal opaque fieldのbit patternはそのままcopyするだけで、referentやhost resourceを複製、close、freeしない。
 
 ## symbol naming
 
@@ -186,6 +224,10 @@ Symbol parameterは`MalType_Symbol`で渡し、hostはcall終了後にdataを保
 `mal_Symbol_copy_from_bytes`へ渡して作った`MalType_Symbol`を返す。hostがstruct literalなどで独自のdata pointerを
 持つ`MalType_Symbol`を直接作って返すことはcontract違反である。
 
+managed valueを含むextern parameterはcall中のborrowである。extern resultではmanaged fieldごとにownership shareを一つ
+malへtransferする。parameterまたはaccessor resultを返す場合は`clone`し、owned localを明示的に移す場合は`take`する。
+同じowned descriptorを通常のC assignmentで複製してもownership shareは増えない。
+
 `MalType_Symbol`はextern call中のABI carrierであり、source-level memory表現ではない。hostがstructやdata pointerを
 外部memoryへ保存しても、後からmal Symbolとして復元できない。`loadSymbol`は外部のraw bytesとlengthを受け取り、
 新しいSymbolへcopyする。`storeSymbol`はSymbolのraw bytesだけを外部memoryへcopyする。
@@ -214,6 +256,18 @@ extern境界から到達できるproduct aliasには`mal_<Alias>_make`と位置�
 `mal_trap`を呼ぶ。product payloadの取得helperは`mal_<Alias>_expect_<variant>_<field>`とする。
 `get`は必ず成功するproduct projectionだけに、`expect`はtrapし得るsum projectionだけに使う。これらはC記述用のconvenience APIであり、source-levelの
 positional product/sum semanticsを変更しない。
+
+constructorはmanaged argumentのownership shareをresultへconsumeする。borrowed argumentを渡す場合は先に`clone`し、owned
+lvalueを渡す場合は`take`する。`get`と`expect`が返すmanaged fieldはborrowであり、元のaggregateより長く保持しない。
+
+```c
+MalType_Symbol left = MAL_CLONE(Symbol)(context, borrowed);
+MalType_Response response = MAL_OPERATION(Response, make_1)(
+    MAL_MOVE(Symbol)(&left),
+    MAL_CLONE(Symbol)(context, borrowed)
+);
+return MAL_MOVE(Response)(&response);
+```
 
 ## closure exclusion
 

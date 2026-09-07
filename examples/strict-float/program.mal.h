@@ -8,6 +8,9 @@
 #define MAL_OPERATION(type, operation) mal_##type##_##operation
 #define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
 #define MAL_EXTERN(name) mal_ext_##name
+#define MAL_CLONE(owner) mal_##owner##_clone
+#define MAL_MOVE(owner) mal_##owner##_take
+#define MAL_DROP(owner) mal_##owner##_drop
 
 #if defined(__clang__) || defined(__GNUC__)
 #define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
@@ -30,7 +33,7 @@ typedef uint32_t MalType_UInt32;
 typedef uint64_t MalType_UInt64;
 typedef float MalType_Float32;
 typedef double MalType_Float64;
-typedef struct { const uint8_t *data; uint64_t length; } MalType_Symbol;
+typedef struct { const uint8_t *data; uint64_t length; void *ownership; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
 
 #define MAL_FALSE (MalType_Bool)UINT8_C(0)
@@ -38,6 +41,9 @@ typedef struct { uint8_t *address; } MalType_Ptr;
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);
+MalType_Symbol mal_Symbol_take(MalType_Symbol *value);
+void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);
 
 static inline const uint8_t *mal_Symbol_data(MalType_Symbol value) {
     return value.data;

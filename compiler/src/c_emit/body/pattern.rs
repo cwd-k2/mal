@@ -35,10 +35,10 @@ impl BodyEmitter<'_> {
         value: Expr,
     ) {
         match pattern {
-            TopLevelPattern::Binding { id, .. } => {
+            TopLevelPattern::Binding { id, ty, .. } => {
                 block.push(Statement::assignment(
                     Expr::identifier(value_name(*id)),
-                    value,
+                    self.types.copy_value(ty, value),
                 ));
                 block.push(Statement::expression(Expr::cast(
                     "void",
@@ -58,6 +58,21 @@ impl BodyEmitter<'_> {
         }
     }
 
+    pub(super) fn destroy_top_level_pattern(&self, block: &mut Block, pattern: &TopLevelPattern) {
+        match pattern {
+            TopLevelPattern::Binding { id, ty, .. } => {
+                self.types
+                    .destroy_value(block, ty, Expr::identifier(value_name(*id)))
+            }
+            TopLevelPattern::Wildcard { .. } => {}
+            TopLevelPattern::Product { elements, .. } => {
+                for element in elements.iter().rev() {
+                    self.destroy_top_level_pattern(block, element);
+                }
+            }
+        }
+    }
+
     pub(super) fn emit_pattern_bindings(&self, block: &mut Block, pattern: &Pattern, value: Expr) {
         match pattern {
             Pattern::Binding { id, ty } => {
@@ -65,7 +80,7 @@ impl BodyEmitter<'_> {
                 block.push(Statement::variable(
                     self.types.c_type(ty),
                     &name,
-                    Some(value),
+                    Some(self.types.copy_value(ty, value)),
                 ));
                 block.push(Statement::expression(Expr::cast(
                     "void",
@@ -80,6 +95,21 @@ impl BodyEmitter<'_> {
                         element,
                         value.clone().field(format!("field_{index}")),
                     );
+                }
+            }
+        }
+    }
+
+    pub(super) fn destroy_pattern_bindings(&self, block: &mut Block, pattern: &Pattern) {
+        match pattern {
+            Pattern::Binding { id, ty } => {
+                self.types
+                    .destroy_value(block, ty, Expr::identifier(value_name(*id)))
+            }
+            Pattern::Wildcard { .. } => {}
+            Pattern::Product { elements, .. } => {
+                for element in elements.iter().rev() {
+                    self.destroy_pattern_bindings(block, element);
                 }
             }
         }
