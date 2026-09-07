@@ -7,7 +7,6 @@ use crate::closure::ast::{self as closure, TopLevelPattern};
 
 use super::{BodyEmitter, value_name};
 
-#[path = "entry/arguments.rs"]
 mod arguments;
 
 impl BodyEmitter<'_> {

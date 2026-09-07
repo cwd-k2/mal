@@ -162,6 +162,39 @@ fn stack_closure_borrows_managed_captures_across_repeated_calls() {
 }
 
 #[test]
+fn heap_allocates_a_recursive_closure_whose_self_value_escapes_a_call() {
+    let generated = emit(
+        r#"apply :: ((Int32 -> Int32), Int32) -> Int32 := \(function :: Int32 -> Int32, value :: Int32) {
+  function(value);
+};
+main :: Unit -> Int32 := \() {
+  offset := 1i32;
+  recurse :: Int32 -> Int32 := \(value :: Int32) {
+    if (value == 0) then { offset } else { apply(recurse, value - 1) };
+  };
+  recurse(2) - 1;
+};"#,
+    )
+    .expect("emit a recursive closure passed as a value");
+
+    assert!(generated.source.contains("mal_new_environment_"));
+    assert!(!generated.source.contains("mal_stack_environment_"));
+
+    let fixture = NativeFixture::new("escaping-recursive-self-closure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn transfers_a_symbol_into_an_owned_stack_closure_call() {
     let generated = emit(
         r#"main :: Unit -> Int32 := \() {

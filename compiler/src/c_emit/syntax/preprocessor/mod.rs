@@ -272,5 +272,4 @@ impl MacroInvocation {
 }
 
 #[cfg(test)]
-#[path = "preprocessor_tests.rs"]
 mod tests;

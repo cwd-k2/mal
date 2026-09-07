@@ -113,9 +113,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/types/host/lifetime` | host-visible managed carrierのclone/take/drop operationの構成 |
 | `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
-| `c_emit/body/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
-| `c_emit/body/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
-| `c_emit/body/closure_use` | local closureのalias追跡、callee-only判定、stack environment候補の計画 |
+| `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
+| `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
+| `c_emit/body/analysis/closure_use` | local closureとself closureのuse分類、alias追跡、stack environment候補の計画 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |
@@ -136,6 +136,10 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
 各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written code fileは
 200行以下を目安にする。500行を超える前にowned behaviorまたは語彙で分割する。
+
+子moduleを持つmoduleは同名directoryの`mod.rs`をrootとし、ownerと子のsourceを同じdirectory treeへ置く。
+子を持たないmoduleは親directory直下の単一`.rs` fileに置く。integration testのcrate rootなどtoolingが配置を
+規定するfileはその規則を優先する。
 
 行数を満たすための番号付きfileや恣意的な断片は作らない。generated file、lock file、mechanical fixture、
 一箇所でcontractをreviewする必要があるcanonical schemaはこの目安の対象外とする。

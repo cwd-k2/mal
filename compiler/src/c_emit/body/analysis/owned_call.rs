@@ -3,14 +3,15 @@ use std::collections::{HashMap, HashSet};
 use crate::c_emit::types::TypeRegistry;
 use crate::closure::ast::{self as closure, Block, FunctionId, Operation, Pattern};
 
-use super::{ClosureUsePlan, OwnershipPlan, direct_function_id, has_direct_tail_call};
+use super::super::{direct_function_id, has_direct_tail_call};
+use super::{ClosureUsePlan, OwnershipPlan};
 
-pub(super) struct OwnedCallPlan {
+pub(in crate::c_emit::body) struct OwnedCallPlan {
     functions: HashSet<FunctionId>,
 }
 
 impl OwnedCallPlan {
-    pub(super) fn new(
+    pub(in crate::c_emit::body) fn new(
         program: &crate::closure::ast::Program,
         types: &TypeRegistry,
         ownership: &OwnershipPlan,
@@ -72,7 +73,7 @@ impl OwnedCallPlan {
         }
     }
 
-    pub(super) fn contains(&self, function: FunctionId) -> bool {
+    pub(in crate::c_emit::body) fn contains(&self, function: FunctionId) -> bool {
         self.functions.contains(&function)
     }
 }

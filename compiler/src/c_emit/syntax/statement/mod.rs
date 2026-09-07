@@ -210,5 +210,4 @@ impl FunctionDefinition {
 }
 
 #[cfg(test)]
-#[path = "statement_tests.rs"]
 mod tests;

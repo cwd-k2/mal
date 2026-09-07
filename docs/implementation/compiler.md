@@ -136,9 +136,10 @@ callerはargumentをentryへtransferし、calleeはparameterをreturn、aggregat
 calling conventionは維持し、source-level function typeにはownershipを追加しない。
 
 callにしか使われないcapturing local closureはenvironmentをC stack上に構築し、captureは外側のlexical
-lifetime内でborrowする。この場合はclosure descriptor、reference count、environment destructorを生成しない。通常の
-heap closureと同じenvironment pointer引数を使うため、function bodyのcloneは不要である。これらの区別はsourceから
-観測できない。
+lifetime内でborrowする。callee位置にある直接の自己参照はこの条件を保つが、自己参照をreturn、aggregate、capture、
+argumentなどのfunction valueとして使う場合はheapへfallbackする。stack配置ではclosure descriptor、reference count、
+environment destructorを生成しない。通常のheap closureと同じenvironment pointer引数を使うため、function bodyのcloneは
+不要である。これらの区別はsourceから観測できない。
 
 product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、元の値のfieldから
 直接bindingを生成する。product parameterを持つ既知関数にはleaf fieldを個別に受けるdirect entryを生成し、共通closure

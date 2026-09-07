@@ -5,30 +5,26 @@ use crate::resolve::ast::ExternalOperationId;
 use super::syntax::TranslationUnit;
 use super::types::TypeRegistry;
 
+mod analysis;
 mod call;
-mod closure_use;
 mod entry;
 mod expression;
 mod function;
 mod name;
-mod owned_call;
-mod ownership;
 mod pattern;
 mod statement;
 
+use self::analysis::{ClosureUsePlan, OwnedCallPlan, OwnershipPlan};
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
 };
-use self::closure_use::ClosureUsePlan;
 use self::expression::ResultOwnership;
 use self::name::environment_destroy_name;
 use self::name::{
     direct_function_name, environment_name, function_name, owned_function_name,
     stack_environment_name, value_name,
 };
-use self::owned_call::OwnedCallPlan;
-use self::ownership::OwnershipPlan;
 use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]

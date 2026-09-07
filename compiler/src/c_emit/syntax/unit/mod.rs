@@ -132,5 +132,4 @@ impl AggregateField {
 }
 
 #[cfg(test)]
-#[path = "unit_tests.rs"]
 mod tests;

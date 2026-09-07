@@ -4,17 +4,17 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Block, FunctionId, Operation, Pattern};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(super) struct DirectClosure {
-    pub(super) creator: ValueId,
-    pub(super) function: FunctionId,
+pub(in crate::c_emit::body) struct DirectClosure {
+    pub(in crate::c_emit::body) creator: ValueId,
+    pub(in crate::c_emit::body) function: FunctionId,
 }
 
-pub(super) struct ClosureUsePlan {
+pub(in crate::c_emit::body) struct ClosureUsePlan {
     direct: HashMap<ValueId, DirectClosure>,
 }
 
 impl ClosureUsePlan {
-    pub(super) fn new(program: &closure::Program) -> Self {
+    pub(in crate::c_emit::body) fn new(program: &closure::Program) -> Self {
         let mut candidates = HashMap::new();
         for binding in &program.bindings {
             collect_candidates(&binding.value, &mut candidates);
@@ -22,6 +22,12 @@ impl ClosureUsePlan {
         for function in &program.functions {
             collect_candidates(&function.body, &mut candidates);
         }
+        // Closure conversion rewrites recursive references away from their source
+        // binding, so retain the creator identity needed for escape classification.
+        let creators = candidates
+            .iter()
+            .filter_map(|(id, target)| (*id == target.creator).then_some((target.function, *id)))
+            .collect::<HashMap<_, _>>();
 
         let mut direct_uses = HashSet::new();
         let mut other_uses = HashSet::new();
@@ -29,6 +35,7 @@ impl ClosureUsePlan {
             collect_uses(
                 &binding.value,
                 &candidates,
+                &creators,
                 &mut direct_uses,
                 &mut other_uses,
             );
@@ -37,6 +44,7 @@ impl ClosureUsePlan {
             collect_uses(
                 &function.body,
                 &candidates,
+                &creators,
                 &mut direct_uses,
                 &mut other_uses,
             );
@@ -47,15 +55,15 @@ impl ClosureUsePlan {
         Self { direct: candidates }
     }
 
-    pub(super) fn direct_closure(&self, id: ValueId) -> Option<DirectClosure> {
+    pub(in crate::c_emit::body) fn direct_closure(&self, id: ValueId) -> Option<DirectClosure> {
         self.direct.get(&id).copied()
     }
 
-    pub(super) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
+    pub(in crate::c_emit::body) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
         self.direct.contains_key(&id) && self.direct.get(&id) == self.direct.get(&source)
     }
 
-    pub(super) fn has_direct_creator(&self, function: FunctionId) -> bool {
+    pub(in crate::c_emit::body) fn has_direct_creator(&self, function: FunctionId) -> bool {
         self.direct
             .values()
             .any(|candidate| candidate.function == function)
@@ -113,10 +121,18 @@ fn collect_nested_candidates(
 fn collect_uses(
     block: &Block,
     candidates: &HashMap<ValueId, DirectClosure>,
+    creators: &HashMap<FunctionId, ValueId>,
     direct_uses: &mut HashSet<ValueId>,
     other_uses: &mut HashSet<ValueId>,
 ) {
-    collect_atom_use(&block.result, false, candidates, direct_uses, other_uses);
+    collect_atom_use(
+        &block.result,
+        false,
+        candidates,
+        creators,
+        direct_uses,
+        other_uses,
+    );
     for binding in &block.bindings {
         if let (
             Pattern::Binding { id, .. },
@@ -130,18 +146,25 @@ fn collect_uses(
         {
             continue;
         }
-        collect_operation_uses(&binding.operation, candidates, direct_uses, other_uses);
+        collect_operation_uses(
+            &binding.operation,
+            candidates,
+            creators,
+            direct_uses,
+            other_uses,
+        );
     }
 }
 
 fn collect_operation_uses(
     operation: &Operation,
     candidates: &HashMap<ValueId, DirectClosure>,
+    creators: &HashMap<FunctionId, ValueId>,
     direct_uses: &mut HashSet<ValueId>,
     other_uses: &mut HashSet<ValueId>,
 ) {
     let mut atom = |atom: &Atom, direct| {
-        collect_atom_use(atom, direct, candidates, direct_uses, other_uses);
+        collect_atom_use(atom, direct, candidates, creators, direct_uses, other_uses);
     };
     match operation {
         Operation::Atom(value)
@@ -166,7 +189,7 @@ fn collect_operation_uses(
         Operation::Case { scrutinee, arms } => {
             atom(scrutinee, false);
             for arm in arms {
-                collect_uses(&arm.value, candidates, direct_uses, other_uses);
+                collect_uses(&arm.value, candidates, creators, direct_uses, other_uses);
             }
         }
         Operation::PrimitiveBranch {
@@ -178,8 +201,8 @@ fn collect_operation_uses(
         } => {
             atom(left, false);
             atom(right, false);
-            collect_uses(otherwise, candidates, direct_uses, other_uses);
-            collect_uses(then, candidates, direct_uses, other_uses);
+            collect_uses(otherwise, candidates, creators, direct_uses, other_uses);
+            collect_uses(then, candidates, creators, direct_uses, other_uses);
         }
         Operation::PrimitiveBinary { left, right, .. } => {
             atom(left, false);
@@ -192,18 +215,28 @@ fn collect_atom_use(
     atom: &Atom,
     direct_callee: bool,
     candidates: &HashMap<ValueId, DirectClosure>,
+    creators: &HashMap<FunctionId, ValueId>,
     direct_uses: &mut HashSet<ValueId>,
     other_uses: &mut HashSet<ValueId>,
 ) {
-    let AtomKind::Reference(closure::Reference::Binding(id)) = atom.kind else {
-        return;
-    };
-    let Some(target) = candidates.get(&id) else {
-        return;
+    let creator = match atom.kind {
+        AtomKind::Reference(closure::Reference::Binding(id)) => {
+            let Some(target) = candidates.get(&id) else {
+                return;
+            };
+            target.creator
+        }
+        AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
+            let Some(creator) = creators.get(&function) else {
+                return;
+            };
+            *creator
+        }
+        _ => return,
     };
     if direct_callee {
-        direct_uses.insert(target.creator);
+        direct_uses.insert(creator);
     } else {
-        other_uses.insert(target.creator);
+        other_uses.insert(creator);
     }
 }

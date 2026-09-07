@@ -222,5 +222,4 @@ impl FunctionSignature {
 }
 
 #[cfg(test)]
-#[path = "declaration_tests.rs"]
 mod tests;

@@ -3,13 +3,13 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Block, Operation, Pattern, Reference};
 
-pub(super) struct OwnershipPlan {
+pub(in crate::c_emit::body) struct OwnershipPlan {
     last_owned_uses: HashSet<*const Atom>,
     last_parameter_uses: HashSet<*const Atom>,
 }
 
 impl OwnershipPlan {
-    pub(super) fn new(program: &closure::Program) -> Self {
+    pub(in crate::c_emit::body) fn new(program: &closure::Program) -> Self {
         let mut plan = Self {
             last_owned_uses: HashSet::new(),
             last_parameter_uses: HashSet::new(),
@@ -26,7 +26,7 @@ impl OwnershipPlan {
         plan
     }
 
-    pub(super) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
+    pub(in crate::c_emit::body) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
         self.last_owned_uses.contains(&atom_key(atom))
             || (parameter_owned && self.last_parameter_uses.contains(&atom_key(atom)))
     }

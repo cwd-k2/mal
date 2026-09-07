@@ -82,8 +82,9 @@ closure valueはcode pointer、environment pointer、environment destructorの�
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
 
 call以外へ流出しないlocal closureはdescriptorをmaterializeせず、environment structをstack上に置いて外側の
-bindingをborrowする。単純alias chainの全referenceがcallee位置に限られる場合だけこの表現を使い、それ以外は
-reference count付きheap environmentへfallbackする。stack environmentはretainもdestroyもしない。
+bindingをborrowする。単純alias chainとclosure本体のself referenceを合わせて調べ、全referenceがcallee位置に限られる
+場合だけこの表現を使う。self closureを別functionのargumentなどの値として使う場合を含め、それ以外はreference count付き
+heap environmentへfallbackする。stack environmentはretainもdestroyもしない。
 
 ## programとhost境界
 
