@@ -62,6 +62,8 @@ pub(super) fn emit_equality() -> FunctionDefinition {
 }
 
 pub(super) fn emit_at() -> FunctionDefinition {
+    // Index validity belongs to the source operation contract; materializing
+    // the language-owned representation remains a runtime responsibility.
     function(
         FunctionSignature::static_function(
             "uint8_t",

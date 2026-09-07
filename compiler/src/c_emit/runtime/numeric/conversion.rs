@@ -5,6 +5,8 @@ use crate::c_emit::syntax::{
 
 use super::append_function;
 
+// The source precondition keeps the value finite and within the destination
+// range, which is exactly the domain where the C cast is defined.
 pub(in crate::c_emit::runtime) fn emit_float_to_integer(needs: u32) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     for source_index in 0..2 {
@@ -74,6 +76,8 @@ pub(in crate::c_emit::runtime) fn emit_integer_binary(
     operation: &str,
     operator: BinaryOperator,
 ) -> TranslationUnit {
+    // Zero divisors and the signed minimum divided by -1 are source
+    // precondition violations, so valid calls can use the C operator directly.
     let mut output = TranslationUnit::default();
     for integer in INTEGER_TYPES {
         if needs & integer.mask() == 0 {

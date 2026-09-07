@@ -72,6 +72,8 @@ pub(super) fn emit(consume_left: bool, consume_right: bool) -> FunctionDefinitio
             Expr::equal(Expr::identifier("right").field("length"), uint64(0)),
             empty_right,
         ),
+        // Source code controls the operands and promises that their combined
+        // length is representable. Storage representability is checked below.
         Statement::variable(
             "uint64_t",
             "length",

@@ -8,6 +8,8 @@ mod conversion;
 pub(super) use conversion::{emit_float_to_integer, emit_integer_binary, emit_integer_wrap};
 
 pub(super) fn emit_integer_shift(left_needs: u16, right_needs: u16) -> TranslationUnit {
+    // The source contract keeps counts within the operand width. Unsigned
+    // carriers provide the specified bit behavior for every valid count.
     let mut output = TranslationUnit::default();
     for integer in INTEGER_TYPES {
         let mask = integer.mask();

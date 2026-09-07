@@ -124,6 +124,8 @@ pub(super) fn emit(
 }
 
 fn emit_offset(output: &mut TranslationUnit, name: &str, operator: BinaryOperator) {
+    // Representability and region membership belong to the contract that
+    // supplied the external capability.
     append_function(
         output,
         FunctionSignature::static_inline(
