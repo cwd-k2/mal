@@ -42,6 +42,10 @@ primitive、known direct call、pattern projectionのためだけに作られ、
 `ephemeral aggregate`として扱う。そのfieldは元bindingからborrowしたままconsumerへ渡し、一時aggregateにowning shareを
 作らない。
 
+reference backendは、隣接するproduct構築とbyte access、memory operation、borrowed known direct call、直後のpattern projectionを
+この経路へloweringする。product bindingのuseがconsumerで終わることをownership解析で確認できない場合と、owned entryへ
+transferするcallはaggregate経路へfallbackする。
+
 field expressionはsource orderで一度ずつ評価し、新しくowned resultを作るfieldはaggregateへcopyせずleaf temporary自身が
 consumer完了までshareを持つ。consumer後は未transferのleaf temporaryを逆順でdestroyする。したがってaggregateのshareを
 省略しても、borrow元または一時ownerが存在しない時間を作らない。
@@ -109,7 +113,7 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 
 ## 実装順とcommit境界
 
-1. ephemeral aggregateのborrow-preserving loweringを導入する。
+1. ephemeral aggregateのborrow-preserving loweringを残るconsumer形状へ拡張する。
 2. direct self-tail stateをleaf slot化する。
 3. C host ABIをbuilder admissionへ置き換え、repository内adapterを同じcommitで移行する。
 4. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。

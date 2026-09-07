@@ -44,7 +44,10 @@ impl BodyEmitter<'_> {
             return false;
         };
         let argument = match &consumer.operation {
-            Operation::SymbolAt { argument } | Operation::Call { argument, .. } => argument,
+            Operation::SymbolAt { argument }
+            | Operation::Call { argument, .. }
+            | Operation::Memory { argument, .. }
+            | Operation::Atom(argument) => argument,
             _ => return false,
         };
         let crate::closure::ast::AtomKind::Reference(crate::closure::ast::Reference::Binding(
@@ -55,6 +58,32 @@ impl BodyEmitter<'_> {
         };
         if argument_id != *id || !self.can_transfer(argument) {
             return false;
+        }
+
+        if let (
+            Operation::Atom(_),
+            Pattern::Product {
+                elements: patterns, ..
+            },
+        ) = (&consumer.operation, &consumer.pattern)
+        {
+            if patterns.len() != elements.len() {
+                return false;
+            }
+            self.ephemeral_bindings.insert(*id);
+            for (pattern, atom) in patterns.iter().zip(elements) {
+                let mut transfers = Vec::new();
+                let value = self.materialize_atom(atom, &mut transfers);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    pattern,
+                    pattern_type(pattern),
+                    value,
+                    ResultOwnership::Owned,
+                    &transfers,
+                );
+            }
+            return true;
         }
 
         let (value, ownership) = match &consumer.operation {
@@ -82,6 +111,14 @@ impl BodyEmitter<'_> {
                     ResultOwnership::Owned,
                 )
             }
+            Operation::Memory { primitive, .. } if elements.len() == 2 => (
+                self.emit_memory_with_product_elements(*primitive, elements),
+                if matches!(primitive, crate::check::ast::MemoryPrimitive::LoadSymbol) {
+                    ResultOwnership::Owned
+                } else {
+                    ResultOwnership::Borrowed
+                },
+            ),
             _ => return false,
         };
         self.ephemeral_bindings.insert(*id);

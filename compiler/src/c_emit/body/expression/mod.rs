@@ -60,69 +60,7 @@ impl BodyEmitter<'_> {
             Operation::Memory {
                 primitive,
                 argument,
-            } => {
-                let argument = self.emit_atom(argument);
-                match primitive {
-                    MemoryPrimitive::OffsetForward => {
-                        self.needs.memory_offset_forward = true;
-                        Expr::named_call(
-                            "mal_ptr_offset",
-                            [argument.clone().field("field_0"), argument.field("field_1")],
-                        )
-                    }
-                    MemoryPrimitive::OffsetBackward => {
-                        self.needs.memory_offset_backward = true;
-                        Expr::named_call(
-                            "mal_ptr_offset_backward",
-                            [argument.clone().field("field_0"), argument.field("field_1")],
-                        )
-                    }
-                    MemoryPrimitive::Load(scalar) => {
-                        self.needs.memory_load |= scalar_mask(*scalar);
-                        Expr::named_call(format!("mal_load_{}", scalar_name(*scalar)), [argument])
-                    }
-                    MemoryPrimitive::Store(scalar) => {
-                        self.needs.memory_store |= scalar_mask(*scalar);
-                        Expr::named_call(
-                            format!("mal_store_{}", scalar_name(*scalar)),
-                            [argument.clone().field("field_0"), argument.field("field_1")],
-                        )
-                    }
-                    MemoryPrimitive::LoadPtr => {
-                        self.needs.memory_load_ptr = true;
-                        Expr::named_call("mal_load_ptr", [argument])
-                    }
-                    MemoryPrimitive::StorePtr => {
-                        self.needs.memory_store_ptr = true;
-                        Expr::named_call(
-                            "mal_store_ptr",
-                            [argument.clone().field("field_0"), argument.field("field_1")],
-                        )
-                    }
-                    MemoryPrimitive::LoadSymbol => {
-                        self.needs.memory_load_symbol = true;
-                        Expr::named_call(
-                            "mal_load_symbol",
-                            [
-                                Expr::identifier("mal_context"),
-                                argument.clone().field("field_0"),
-                                argument.field("field_1"),
-                            ],
-                        )
-                    }
-                    MemoryPrimitive::StoreSymbol => {
-                        self.needs.memory_store_symbol = true;
-                        Expr::named_call(
-                            "mal_store_symbol",
-                            [
-                                Expr::identifier("mal_context"),
-                                argument.clone().field("field_0"),
-                                argument.field("field_1"),
-                            ],
-                        )
-                    }
-                }
-            }
+            } => self.emit_memory_with_value(*primitive, self.emit_atom(argument)),
             Operation::ExternalCall { id, argument } => self.emit_external_call(*id, argument),
             Operation::NumericConversion { operand } => {
                 let source = &operand.ty;
@@ -205,6 +143,118 @@ impl BodyEmitter<'_> {
             | Operation::Case { .. }
             | Operation::PrimitiveBranch { .. } => {
                 unreachable!("structured operations are emitted as statements")
+            }
+        }
+    }
+
+    pub(super) fn emit_memory_with_value(
+        &mut self,
+        primitive: MemoryPrimitive,
+        argument: Expr,
+    ) -> Expr {
+        match primitive {
+            MemoryPrimitive::OffsetForward => {
+                self.needs.memory_offset_forward = true;
+                Expr::named_call(
+                    "mal_ptr_offset",
+                    [argument.clone().field("field_0"), argument.field("field_1")],
+                )
+            }
+            MemoryPrimitive::OffsetBackward => {
+                self.needs.memory_offset_backward = true;
+                Expr::named_call(
+                    "mal_ptr_offset_backward",
+                    [argument.clone().field("field_0"), argument.field("field_1")],
+                )
+            }
+            MemoryPrimitive::Load(scalar) => {
+                self.needs.memory_load |= scalar_mask(scalar);
+                Expr::named_call(format!("mal_load_{}", scalar_name(scalar)), [argument])
+            }
+            MemoryPrimitive::Store(scalar) => {
+                self.needs.memory_store |= scalar_mask(scalar);
+                Expr::named_call(
+                    format!("mal_store_{}", scalar_name(scalar)),
+                    [argument.clone().field("field_0"), argument.field("field_1")],
+                )
+            }
+            MemoryPrimitive::LoadPtr => {
+                self.needs.memory_load_ptr = true;
+                Expr::named_call("mal_load_ptr", [argument])
+            }
+            MemoryPrimitive::StorePtr => {
+                self.needs.memory_store_ptr = true;
+                Expr::named_call(
+                    "mal_store_ptr",
+                    [argument.clone().field("field_0"), argument.field("field_1")],
+                )
+            }
+            MemoryPrimitive::LoadSymbol => {
+                self.needs.memory_load_symbol = true;
+                Expr::named_call(
+                    "mal_load_symbol",
+                    [
+                        Expr::identifier("mal_context"),
+                        argument.clone().field("field_0"),
+                        argument.field("field_1"),
+                    ],
+                )
+            }
+            MemoryPrimitive::StoreSymbol => {
+                self.needs.memory_store_symbol = true;
+                Expr::named_call(
+                    "mal_store_symbol",
+                    [
+                        Expr::identifier("mal_context"),
+                        argument.clone().field("field_0"),
+                        argument.field("field_1"),
+                    ],
+                )
+            }
+        }
+    }
+
+    pub(super) fn emit_memory_with_product_elements(
+        &mut self,
+        primitive: MemoryPrimitive,
+        elements: &[Atom],
+    ) -> Expr {
+        debug_assert_eq!(elements.len(), 2);
+        let left = self.emit_atom(&elements[0]);
+        let right = self.emit_atom(&elements[1]);
+        match primitive {
+            MemoryPrimitive::OffsetForward => {
+                self.needs.memory_offset_forward = true;
+                Expr::named_call("mal_ptr_offset", [left, right])
+            }
+            MemoryPrimitive::OffsetBackward => {
+                self.needs.memory_offset_backward = true;
+                Expr::named_call("mal_ptr_offset_backward", [left, right])
+            }
+            MemoryPrimitive::Store(scalar) => {
+                self.needs.memory_store |= scalar_mask(scalar);
+                Expr::named_call(format!("mal_store_{}", scalar_name(scalar)), [left, right])
+            }
+            MemoryPrimitive::StorePtr => {
+                self.needs.memory_store_ptr = true;
+                Expr::named_call("mal_store_ptr", [left, right])
+            }
+            MemoryPrimitive::LoadSymbol => {
+                self.needs.memory_load_symbol = true;
+                Expr::named_call(
+                    "mal_load_symbol",
+                    [Expr::identifier("mal_context"), left, right],
+                )
+            }
+            MemoryPrimitive::StoreSymbol => {
+                self.needs.memory_store_symbol = true;
+                Expr::named_call(
+                    "mal_store_symbol",
+                    [Expr::identifier("mal_context"), left, right],
+                )
+            }
+            MemoryPrimitive::Load(_) | MemoryPrimitive::LoadPtr => {
+                unreachable!("unary memory operations do not consume product arguments")
             }
         }
     }

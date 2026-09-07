@@ -123,6 +123,28 @@ main :: Unit -> Int32 := \() { Int32(add(20i64, 22i64) - 42i64) };"#,
 }
 
 #[test]
+fn projects_ephemeral_product_fields_without_storing_the_product() {
+    let generated = emit(
+        r#"main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  (left, right) := (value, value);
+  if ((value == "ab") && (left == "ab") && (right == "ab")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit an ephemeral product projection");
+    let main = generated_function(&generated.source, "main");
+    assert!(!main.contains("MalRepr_Product_"), "{main}");
+
+    let fixture = NativeFixture::new("ephemeral-product-projection");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn tracks_rope_symbol_scan_cost() {
     let generated = emit(
         r#"prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };

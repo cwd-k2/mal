@@ -176,10 +176,12 @@ fn copies_symbols_between_mal_and_external_memory() {
          main :: Unit -> Int32 := \\() {\n\
            slot := extern symbolSlot() + 1u64;\n\
            initial := loadSymbol(slot, 4u64);\n\
-           storeSymbol(slot, \"held\\0\\xff\");\n\
+           held := \"held\" + \"\\0\\xff\";\n\
+           storeSymbol(slot, held);\n\
            extern inspectSymbolSlot();\n\
            stored := loadSymbol(slot, 6u64);\n\
-           if ((initial == \"seed\") && (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
+           if ((initial == \"seed\") && (held == \"held\\0\\xff\") &&\n\
+               (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
              0\n\
            } else {\n\
              1\n\
@@ -208,7 +210,14 @@ void mal_ext_inspectSymbolSlot(MalContext *context) {
 }
 "#;
     let fixture = NativeFixture::new("symbol-value-memory");
-    let executable = fixture.compile_generated(generated, host);
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        host,
+        &[
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
     assert!(fixture.run(executable).status.success());
 }
 

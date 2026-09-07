@@ -25,6 +25,8 @@ self closureをfunction valueとして使う経路がheapへfallbackすること
 managed aggregateのdirect-tail stateを小さいnative fixtureで実行し、test macroでretain、release、materialization、allocationの
 上限を固定する。flat scanは同じsourceのClang `-O2`後LLVM IRも生成し、inlineされたdata loadと分離されたslow pathを検査する。
 byte accessのephemeral productはretain zero、scan終了時のowner release一回を上限とする。
+`storeSymbol`を含むmemory operationは元bindingをoperation完了までborrowし、保存されるproductとowned callはaggregateの
+copyまたはtransfer経路を維持する。
 
 ## pressure suite
 
