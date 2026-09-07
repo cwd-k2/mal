@@ -1,0 +1,66 @@
+require "./host.c";
+
+extern Socket;
+
+// Packet fields: 0 sequence number, 1 immutable payload bytes.
+Packet :: (UInt64, Symbol);
+// SocketPair fields: 0 sending endpoint, 1 receiving endpoint.
+SocketPair :: (Socket, Socket);
+// Status variant 0 means complete; variant 1 carries an errno-compatible error code.
+Status :: [Unit, UInt32];
+// ReceiveResult variant 0 carries a complete packet; variant 1 carries an error code.
+ReceiveResult :: [Packet, UInt32];
+
+extern createSocketPair :: Unit -> SocketPair;
+extern sendPacket :: (Socket, Packet) -> Status;
+extern receivePacket :: Socket -> ReceiveResult;
+extern closeSocket :: Socket -> Status;
+extern writeError :: UInt32 -> Unit;
+
+_reportStatus :: Status -> Bool := \(status :: Status) {
+    case (status)
+    [0](_) { true }
+    [1](error) {
+        extern writeError(error);
+        false;
+    };
+};
+
+_isRejected :: Status -> Bool := \(status :: Status) {
+    case (status)
+    [0](_) { false }
+    [1](_) { true };
+};
+
+_receiveExpected :: Socket -> Bool := \(socket :: Socket) {
+    result := extern receivePacket(socket);
+    case (result)
+    [0](packet) {
+        (sequence, payload) := packet;
+        sequence == 42u64 && payload == "hello from mal";
+    }
+    [1](error) {
+        extern writeError(error);
+        false;
+    };
+};
+
+main :: Unit -> Int32 := \() {
+    pair := extern createSocketPair();
+    (sender, receiver) := pair;
+    chunk := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    oversized := chunk + chunk + chunk + chunk + "x";
+    oversizedRejected := _isRejected(extern sendPacket(sender, (0u64, oversized)));
+    sent := extern sendPacket(sender, (42u64, "hello from mal"));
+    communicated := case (sent)
+        [0](_) { _receiveExpected(receiver) }
+        [1](error) {
+            extern writeError(error);
+            false;
+        };
+    senderClosed := _reportStatus(extern closeSocket(sender));
+    receiverClosed := _reportStatus(extern closeSocket(receiver));
+    if (oversizedRejected && communicated && senderClosed && receiverClosed)
+    then { 0 }
+    else { 1 };
+};

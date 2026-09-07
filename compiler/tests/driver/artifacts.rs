@@ -149,6 +149,7 @@ fn checked_in_example_headers_match_the_compiler() {
         "ptr-memory",
         "recoverable-file",
         "resizable-buffer",
+        "socket-packet",
         "strict-float",
         "symbol-round-trip",
         "tail-recursion",

@@ -63,13 +63,13 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | host adapterを持つchecked-in example（`compiler/tests/driver.rs`） |
 | [`extern`: transportable type](../spec/extern.md#transportable-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/c_emit.rs`） |
 | [`extern`: host contractと安全性](../spec/extern.md#host-contract) | trusted host側の規範であり、mal compilerのadmission対象外 | generated headerを使用する全host fixture |
-| [`extern`: boundary transport](../spec/extern.md#boundary-transport) | P/E: Symbol型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/c_emit.rs`） |
-| [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | checked-in host adapter（`compiler/tests/driver.rs`） |
+| [`extern`: boundary transport](../spec/extern.md#boundary-transport) | P/E: Symbol型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/c_emit.rs`）、`socket-packet` example（`compiler/tests/driver.rs`） |
+| [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | checked-in host adapter、`socket-packet`のgenerated macro使用（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: generated headerとsymbol](../spec/c-host-abi.md#generated-header) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/c_emit.rs`） | headerをincludeするhost fixture群 |
 | [`c-host-abi`: type mapping](../spec/c-host-abi.md#type-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test、`exposes_managed_value_transfer_helpers_to_host_adapters`（`compiler/tests/c_emit.rs`） |
 | [`c-host-abi`: closure exclusion](../spec/c-host-abi.md#closure-exclusion) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
-| [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/c_emit.rs`） | `mal_trap`を含むnative trap tests |
+| [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/c_emit.rs`） | `mal_trap`を含むnative trap tests、`socket-packet`のrecoverable payload rejection |
 
 ## Programと字句・文法
 
