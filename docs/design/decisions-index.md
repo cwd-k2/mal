@@ -19,7 +19,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | top-level initialization | [D018](decisions/D018.md) |
 | source file requirement | [D032](decisions/D032.md) |
 | `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md)、[D035](decisions/D035.md) |
-| EngramとExternのauthority | [D031](decisions/D031.md)、[D033](decisions/D033.md)、[D034](decisions/D034.md)、[D035](decisions/D035.md) |
+| EngramとExternのauthority | [D031](decisions/D031.md)、[D033](decisions/D033.md)、[D034](decisions/D034.md)、[D035](decisions/D035.md)、[D036](decisions/D036.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。

@@ -132,6 +132,11 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
+generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。managed borrowとtail stateは
+`c_emit/body/analysis`と`c_emit/body`、`Symbol`の連続表現とcapacityは`c_emit/runtime`、host admission carrierは
+`c_emit/header`が所有する。着手順と計測gateは
+[generated program最適化計画](../development/generated-program-optimization.md)を正とする。
+
 ## Code structure
 
 各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written code fileは

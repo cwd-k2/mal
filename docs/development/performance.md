@@ -2,8 +2,9 @@
 
 Status: Current measurement record
 
-この文書はgenerated Cの性能調査方法、2026-09-05時点のbaseline、得られた結果と採否判断を定める。
+この文書はgenerated Cの性能調査方法、現在のbaseline、得られた結果と採否判断を定める。
 言語の意味は[`spec/`](../spec/)、通常の検証commandは[test policy](testing.md)を正とする。
+改善軸と実装順は[generated program最適化計画](generated-program-optimization.md)に置く。
 
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。
@@ -17,40 +18,44 @@ numeric scalar load/storeでgraph storage、priority queue、state transition、
 この結果はmemory mechanismの不足よりgenerated codeのcostを次に調べる根拠になる。branch-heavyなheap操作と
 規則的なnumeric loopはC optimizerへの反応が異なるため、両方を代表workloadにする。
 
-## 2026-09-05 baseline
+## 2026-09-07全corpus baseline
 
-環境はrepositoryのpinned NixOS development environment、Clang 21.1.8。maximum-order inputをstdinから読み、
-Hyperfineをshellなし、2回以上のwarmup、10回以上の反復で実行した。三つの実行形式は次の通り。
+interactiveな053を除くTypical90の79問について、mal版と同じalgorithmのhandwritten Cを用意した。Clang 21.1.8の`-O2`、
+同じmaximum-order input、shellなし、warmup 3回、20反復を標準条件とした。C側の269 sampleと、79個のmaximum-order inputに
+おけるmal/Cのstdoutを測定前に検証した。複数解を許すsampleは意味を検査した。
 
-| Variant | 内容 |
-|---|---|
-| `solution-before` | 調査開始時のpublic `malc build`。driverはC optimization optionを渡していなかった |
-| `generated-o2` | `malc emit-c`の出力を`clang -std=c11 -O2`でcompile |
-| `baseline` | mal版と同じalgorithmの単純なC実装を`clang -O2`でcompile |
+比率は`mal / direct C`とし、1より大きいほどCが速い。
 
-三者のstdoutが一致することを確認してから測定した。
-対象の3 workloadはfloatを使わない。public buildへ`-O2`を採用する判断には、別途strict float optionを同時に指定した
-native testが必要である。
+| Population | Count | Median ratio | Geometric mean |
+|---|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.11 | 1.19 |
+| 両実行時間が1 ms以上 | 62 | 1.16 | 1.17 |
+| 両実行時間が5 ms以上 | 51 | 1.20 | 1.23 |
+| 両実行時間が10 ms以上 | 40 | 1.19 | 1.26 |
 
-| Workload | Maximum-order shape | `solution-before` | `generated-o2` | `baseline` |
-|---|---|---:|---:|---:|
-| short state transition | 小さいqueue-based workload | 4.3 ms | 4.3 ms | 3.0 ms |
-| branch-heavy heap | 大きいpriority-queue workload | 875.2 ms | 390.1 ms | 238.5 ms |
-| numeric transform | 大きい規則的なnumeric loop | 465.9 ms | 395.1 ms | 382.1 ms |
+±5%を同等とするとmalが速いものは12、同等は19、Cが速いものは48だった。1 ms未満はprocess起動の比率が大きいため、
+optimizationの順位には使わない。
 
-short state transitionは実行時間が短くprocess起動とinputの比率が大きいため、厳密なoptimization gateには使わない。残る二つの
-比率を主な比較に使い、絶対時間はmachine間で比較しない。
+最大の差は006の7.90倍、008の6.34倍、027の5.25倍、016の2.76倍だった。006、008、027ではflat `Symbol`のbyte scanに
+materialization判定とmanaged aggregateのretain/releaseが残る。027では100,000 tokenをhost scratch bufferへ読み、別の
+mal-controlled allocationへadmitしてから固定長recordへcopyする。016、029、032、043ではproduct parameterをflattenした
+direct entryの内側またはtail edgeでaggregate stateが再構築される。
 
-`-O2` executableのtext sectionはshort state transitionが6215 bytes対2915 bytes、branch-heavy heapが7523 bytes対3978 bytes、
-numeric transformが7866 bytes対4653 bytesで、いずれも左がgenerated C、右がdirect Cである。code sizeだけを
-原因とはみなさないが、runtime check、tagged control flow、specialized product typeが残る量の補助指標にはなる。
+最適化後LLVM IRでも027のbyte loopに`Symbol` descriptorの`memcpy`、reference count更新、release、rope判定が残った。
+したがって以前の3 workloadでは消えていたaggregateとmanaged bookkeepingを、全corpusの新しい再現例に基づいて再検討する。
+実装対象とnegative caseは[最適化計画](generated-program-optimization.md)を正とする。
 
-public `build`へstrict float optionと同時に`-O2`を採用した後、`CC=clang`を明示して同じmaximum-order inputを
-warmup 3回、10回反復で再測定した。public build対direct Cの比率はbranch-heavy heapが約1.62、numeric transformが
-約1.03だった。絶対時間はmachineの状態で変動したため、初回tableと混ぜず比率だけを現在の比較値とする。
+一方、030のsieve、045のsubset DP、065のNTTはdirect Cと同等以上または近い。規則的なnumeric/`Ptr`処理の結果は、新しい
+collection primitiveを性能だけのために追加する根拠にならない。
 
-source、input、expected output、direct C、generated C、Hyperfine JSONなどのraw artifactはlocalの`.scratch/`にあり、
-tracked repositoryには含まれない。
+source、input、expected output、direct C、generated C、Hyperfine JSONなどのraw artifactはlocalの`.scratch/`に置き、
+tracked repositoryには含めない。
+
+## 先行baselineから採用した改善
+
+2026-09-05の3 workload比較では、未最適化public buildに対してC compilerの`-O2`がbranch-heavy heapを875.2 msから
+390.1 msへ、numeric transformを465.9 msから395.1 msへ短縮した。この根拠とstrict float testによりpublic buildへ`-O2`を
+採用した。その後Boolの0/1 specializationとproduct parameterのdirect entryを採用し、現在の全corpus baselineへ引き継いだ。
 
 ## generated Cで確認済みの事実
 
@@ -112,26 +117,18 @@ source、生成物、計測dataは`.scratch/`だけに置いた。
 | ANF binding | local variableと`(void)` | dead valueとcopyは除去 | 読みやすさ上は冗長だがhot-path costではない |
 | `Unit` | 1-byte struct | parameter/resultが不要なら除去され、store helper resultは`void`化 | scalar化の性能根拠なし |
 | `Ptr` | addressだけを持つstruct | function parameterはLLVM `ptr`、accessorはinline | struct自体の性能根拠なし |
-| known-call product | aggregate構築とdirect entry | 代表hot pathからproduct型が消える | 現在のfield direct entryで対処済み |
+| known-call product | aggregate構築とdirect entry | 先行3 workloadでは消えたが全corpusのtail stateには残る | leaf slot化を再検討 |
 | 一般sum | tagとpayload union | extern resultではaggregate return、tag branch、invalid-tag pathが残る | public ABIとvariant選択に必要 |
 | `Bool` case | `uint8_t`の`switch` | internalな既知値では消え、extern resultではvalidation branchが残る | host contract境界のcheckとして維持 |
 | function value | code pointerとenvironment pointer | 動的選択ではpairとindirect callが残る | first-class closureの意味に必要 |
 | numeric/memory helper | helper callと`memcpy` | helperはinlineされscalar load/storeになる | wrap、trap、unaligned accessの意味に必要 |
-| managed Engram | descriptor、retain/release、allocation header | escapeする値では残り、局所値では一部をoptimizerが除去できる | lifetimeとhost ABIのcontractに必要 |
+| managed Engram | descriptor、retain/release、allocation header | read-only byte loopにもretain/releaseが残る | borrow-preserving loweringを再検討 |
 
-代表generated Cではproduct型名が243箇所、unused warning抑制が424箇所、`switch`が7箇所あったが、最適化後のIRでは
-product型と`switch`は0箇所、stack allocationは`MalContext`用の1箇所だった。C sourceの大きさをそのまま実行時costと
-みなせないことを確認した。
+先行3 workloadでは最適化後IRからproduct型と`switch`が消えたが、全corpusでは同じ結論を一般化できなかった。C sourceの
+aggregate数ではなく、最適化後にも残る個別のretain、aggregate slot、tag、callを判断材料にする。
 
-残った差で目立つのは意味論の過剰なmaterializationではなく、memory contractの違いである。generated codeのscalar accessは
-alignment 1で、異なる`Ptr`がaliasしないとは仮定できない。direct Cはtyped、aligned storageとallocation由来のalias情報を
-optimizerへ渡せる。malの`Ptr`はunaligned accessとaliasを許し、externが返すregion間の非alias性を規定しないため、現行仕様の
-まま`restrict`や強いalignmentを付けるのは誤りである。
-
-したがって現在のbranch-heavy workloadについて、`Unit`、`Ptr`、一般sum、closureを一律scalar化する次の変更は行わない。
-次に調査する場合は、最適化後にも残る個別のproduct resultまたは間接callをsynthetic programで再現できた場合に限る。
-memory側を進めるなら、まずalias/alignmentを表現する新しいlanguage/extern contractが必要かを仕様変更として判断し、C emitter
-だけで事実を仮定しない。
+memory contractの差は別軸として残る。generated scalar accessはalignment 1で、異なる`Ptr`がaliasしないとは仮定できない。
+現行仕様のまま`restrict`や強いalignmentを付けるのは誤りであり、managed borrowやaggregate stateの改善と混ぜない。
 
 ### 間接callとproduct result
 
@@ -150,9 +147,8 @@ product resultはtarget C ABIへ委ねた場合、小さい2-scalar productはca
 out parameter entryを追加しても、全fieldを使うcallではwriteを減らせない。使用fieldだけを返すspecializationはcallee内のeffectを
 維持したresult-use analysisとfunction cloningを必要とし、単なるproduct ABIの改善ではない。
 
-将来これらを再検討する条件は、最適化後のprofileで間接callまたはlarge `sret`がhotであること、独立設計のsynthetic regressionで
-構造を固定できること、closure共通entryをfallbackとして残しつつclone数を制限できることの三点とする。それまではoptimizerが
-既に除去するalias追跡を中間表現へ追加せず、product result用entryも増やさない。
+全corpusでaggregate resultが残る例を得たため、borrowとtail stateの改善後にも`large sret`がhotなら再検討する。独立したfixtureで
+構造を固定できること、closure共通entryをfallbackとして残すこと、clone数を制限できることを採用条件とする。
 
 ## 測定の再現条件
 

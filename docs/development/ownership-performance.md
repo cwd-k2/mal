@@ -4,7 +4,8 @@ Status: Current measurement policy and baseline
 
 この文書はC backendのmanaged Engram最適化に対する測定方法、回帰条件、現在のbaselineを管理する。
 ownership correctnessと実装方式は[実装規約](../implementation/ownership.md)、一般的なgenerated Cの性能記録は
-[generated C performance](performance.md)、通常の検証commandは[test policy](testing.md)を正とする。
+[generated C performance](performance.md)、改善順は[generated program最適化計画](generated-program-optimization.md)、
+通常の検証commandは[test policy](testing.md)を正とする。
 
 ## 対象
 
@@ -33,6 +34,9 @@ localのignored `.scratch/pressure/`は次のworkloadを持つ。
 | `closure-churn` | 20万個の短寿命capturing closure | environment allocationとcleanup |
 | `aggregate-churn` | 20万回のmanaged product、sum、case | field copyとpath-local cleanup |
 
+borrow-preserving loweringへ着手する前に、flat/rope `Symbol` scan、transient token admission、managed aggregateを含む
+direct-tail stateを追加する。各workloadはwall-clockだけでなくretain、release、materialization、allocationのcounterを持つ。
+
 runnerはiteration数と`Symbol` bytesを別C translation unitへ渡し、allocator builtinを無効にしてClangによるworkloadの
 除去を防ぐ。小さいpeak live-allocation上限と終了時live allocationゼロを検査し、通常buildとASan/UBSan buildを実行する。
 ptrace環境ではLeakSanitizerを使えないため、leakはruntime counterで検査する。
@@ -43,13 +47,13 @@ nu .scratch/pressure/run.nu --sanitize
 ```
 
 2026-09-07時点では両方が全caseを通過した。`symbol-growth`の1万byte構築は約9,999回のallocationからtest上限32回以内に
-減少し、`closure-churn`の20万environment allocationは0になった。実用algorithmではTypical90の206 sampleと
-maximum-order 40 checksがpublic `malc build`経路を通過した。絶対時間はCIの合否条件にせず、同一環境の変更前後だけを
+減少し、`closure-churn`の20万environment allocationは0になった。実用algorithmではTypical90の269 sampleと
+maximum-order 79 checksがpublic `malc build`経路を通過した。絶対時間はCIの合否条件にせず、同一環境の変更前後だけを
 比較する。
 
 ## 採用条件
 
-- source semantics、C host ABI、trap、評価順序を変えない。
+- source semantics、trap、評価順序を変えない。C host ABIを変える段階は独立したdecisionとrepository内adapterの同時移行を要求する。
 - alias再使用、branch/case、aggregate、return、direct tail edge、closure escapeのnegative caseを置く。
 - retain/releaseまたはallocationの削減をgenerated Cかdeterministicなcounterで確認する。
 - 通常のcompiler testに加え、pressure suiteを通常とsanitizerの両方で通す。

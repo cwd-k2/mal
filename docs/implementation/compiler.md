@@ -71,7 +71,7 @@ desugarする。直ちにbranchとして消費する数値・Symbol comparison�
 C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
 `uint8_t`へ写像する。
 
-Symbol operatorの`#value`と`value # index`は型検査後にそれぞれSymbol lengthとbounds-checked byte accessの
+Symbol operatorの`#value`と`value # index`は型検査後にそれぞれSymbol lengthとbyte accessの
 専用core operationへlowerする。`Symbol + Symbol`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
 C backendでmanaged storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
 
