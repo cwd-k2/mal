@@ -6,6 +6,7 @@ use super::syntax::TranslationUnit;
 use super::types::TypeRegistry;
 
 mod call;
+mod closure_use;
 mod entry;
 mod expression;
 mod function;
@@ -18,9 +19,12 @@ use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
 };
+use self::closure_use::ClosureUsePlan;
 use self::expression::ResultOwnership;
 use self::name::environment_destroy_name;
-use self::name::{direct_function_name, environment_name, function_name, value_name};
+use self::name::{
+    direct_function_name, environment_name, function_name, stack_environment_name, value_name,
+};
 use self::ownership::OwnershipPlan;
 use self::pattern::pattern_type;
 
@@ -64,6 +68,7 @@ pub(super) struct BodyEmitter<'a> {
     needs: RuntimeNeeds,
     next_discard: u32,
     ownership: OwnershipPlan,
+    closure_uses: ClosureUsePlan,
 }
 
 impl<'a> BodyEmitter<'a> {
@@ -74,6 +79,7 @@ impl<'a> BodyEmitter<'a> {
             needs: RuntimeNeeds::default(),
             next_discard: 0,
             ownership: OwnershipPlan::new(program),
+            closure_uses: ClosureUsePlan::new(program),
         }
     }
 
@@ -116,12 +122,23 @@ impl<'a> BodyEmitter<'a> {
             .expect("closure conversion preserves function identities")
     }
 
-    fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, &'static str)> {
+    fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, super::syntax::Expr)> {
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
-                Some((function, "mal_environment"))
+                Some((function, super::syntax::Expr::identifier("mal_environment")))
             }
             closure::AtomKind::Reference(closure::Reference::Binding(id)) => {
+                if let Some(target) = self.closure_uses.direct_closure(id) {
+                    let function = target.function;
+                    let environment = if self.function(function).environment.is_empty() {
+                        super::syntax::Expr::identifier("NULL")
+                    } else {
+                        super::syntax::Expr::address_of(super::syntax::Expr::identifier(
+                            stack_environment_name(target.creator),
+                        ))
+                    };
+                    return Some((function, environment));
+                }
                 self.program.bindings.iter().find_map(|binding| {
                     let closure::TopLevelPattern::Binding {
                         id: top_level_id, ..
@@ -145,7 +162,7 @@ impl<'a> BodyEmitter<'a> {
                             closure::Operation::MakeClosure { function, captures }
                                 if id == result_id && captures.is_empty() =>
                             {
-                                Some((*function, "NULL"))
+                                Some((*function, super::syntax::Expr::identifier("NULL")))
                             }
                             _ => None,
                         }

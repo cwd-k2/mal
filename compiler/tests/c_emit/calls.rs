@@ -75,6 +75,119 @@ fn executes_escaping_capturing_closures() {
 }
 
 #[test]
+fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
+    let generated = emit(
+        "main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 40;\n\
+           add := \\(value :: Int32) { base + value; };\n\
+           add(2) - 42;\n\
+         };",
+    )
+    .expect("emit a non-escaping closure");
+
+    assert!(
+        generated
+            .source
+            .contains("MalEnvironment_1 mal_stack_environment_"),
+        "{}",
+        generated.source
+    );
+    assert!(
+        generated
+            .source
+            .contains("mal_function_1(mal_context, &mal_stack_environment_")
+    );
+    assert!(!generated.source.contains("mal_new_environment_"));
+
+    let fixture = NativeFixture::new("stack-closure-environment");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=0"],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn stack_closure_calls_use_flattened_product_entries() {
+    let generated = emit(
+        "main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 40;\n\
+           add := \\(left :: Int32, right :: Int32) { base + left + right; };\n\
+           add(1, 1) - 42;\n\
+         };",
+    )
+    .expect("emit a non-escaping closure with product parameters");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_direct_function_1(mal_context, &mal_stack_environment_")
+    );
+    assert!(!generated.source.contains("mal_new_environment_"));
+
+    let fixture = NativeFixture::new("stack-closure-product-entry");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=0"],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn stack_closure_borrows_managed_captures_across_repeated_calls() {
+    let generated = emit(
+        "main :: Unit -> Int32 := \\() {\n\
+           prefix := \"a\";\n\
+           append := \\(suffix :: Symbol) { prefix + suffix; };\n\
+           first := append(\"b\");\n\
+           second := append(\"c\");\n\
+           if (first == \"ab\" && second == \"ac\" && prefix == \"a\")\n\
+           then { 0 }\n\
+           else { 1 };\n\
+         };",
+    )
+    .expect("emit a stack closure with a managed capture");
+
+    assert!(
+        generated
+            .source
+            .contains("MalEnvironment_1 mal_stack_environment_")
+    );
+    assert!(!generated.source.contains("mal_new_environment_"));
+    let fixture = NativeFixture::new("stack-closure-managed-capture");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn heap_allocates_a_local_closure_that_flows_to_another_function() {
+    let generated = emit(
+        "apply :: (Int32 -> Int32) -> Int32 := \\(operation :: Int32 -> Int32) {\n\
+           operation(2);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 40;\n\
+           add := \\(value :: Int32) { base + value; };\n\
+           apply(add) - 42;\n\
+         };",
+    )
+    .expect("emit a conservatively escaping local closure");
+
+    assert!(generated.source.contains("mal_new_environment_"));
+    let fixture = NativeFixture::new("passed-closure-environment");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
 fn executes_top_level_and_local_recursive_closures() {
     let output = compile_and_run(
         "factorial :: Int32 -> Int32 := \\(n :: Int32) {\n\

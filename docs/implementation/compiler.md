@@ -123,9 +123,15 @@ C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalType_Ptr)`へlo
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
 
-call siteのcalleeがimmutableなtop-level lambdaまたは現在のself closureと静的に分かる場合、C backendは
-closureのfunction pointerを経由せず生成functionを直接callする。関数値として受け取ったcalleeとlocal closureは
-共通calling conventionを使う。この区別はsourceから観測できず、既知関数の細粒度call costを減らす。
+call siteのcalleeがimmutableなtop-level lambda、現在のself closure、またはcall以外へ流出しないlocal closureと
+静的に分かる場合、C backendはclosureのfunction pointerを経由せず生成functionを直接callする。local closureの
+単純aliasも同じidentityとして追跡するが、return、aggregate格納、capture、別関数への引数のいずれかに使われれば
+共通function-value calling conventionへfallbackする。
+
+callにしか使われないcapturing local closureはenvironmentをC stack上に構築し、captureは外側のlexical
+lifetime内でborrowする。この場合はclosure descriptor、reference count、environment destructorを生成しない。通常の
+heap closureと同じenvironment pointer引数を使うため、function bodyのcloneは不要である。これらの区別はsourceから
+観測できない。
 
 product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、元の値のfieldから
 直接bindingを生成する。product parameterを持つ既知関数にはleaf fieldを個別に受けるdirect entryを生成し、共通closure

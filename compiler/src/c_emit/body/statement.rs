@@ -18,6 +18,20 @@ impl BodyEmitter<'_> {
 
     fn emit_binding(&mut self, output: &mut Block, binding: &Binding) {
         let ty = pattern_type(&binding.pattern);
+        if let (
+            Pattern::Binding { id, .. },
+            Operation::Atom(crate::closure::ast::Atom {
+                kind:
+                    crate::closure::ast::AtomKind::Reference(crate::closure::ast::Reference::Binding(
+                        source,
+                    )),
+                ..
+            }),
+        ) = (&binding.pattern, &binding.operation)
+            && self.closure_uses.is_direct_alias(*id, *source)
+        {
+            return;
+        }
         match &binding.operation {
             Operation::Atom(atom)
                 if matches!(binding.pattern, Pattern::Product { .. })

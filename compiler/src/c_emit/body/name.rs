@@ -48,6 +48,10 @@ pub(super) fn environment_name(id: FunctionId) -> String {
     }
 }
 
+pub(super) fn stack_environment_name(id: anf::ast::ValueId) -> String {
+    format!("mal_stack_environment_{}", value_name(id))
+}
+
 pub(super) fn environment_destroy_name(id: FunctionId) -> String {
     match id {
         FunctionId::Lambda(id) => format!("mal_destroy_environment_{}", id.0),

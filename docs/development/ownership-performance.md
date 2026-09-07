@@ -67,16 +67,17 @@ overflow、共有aliasのimmutability、hostへのcontiguous byte borrowをfocus
 約0.87 ms、ASan/UBSan buildの確認値は約70 msから約3.45 msになった。`symbol-churn`、`closure-churn`、`aggregate-churn`にも
 同じ実行で退行は観測されなかった。絶対時間は環境に依存するため合否条件にはせず、allocation上限をdeterministicな回帰条件とする。
 
-### 3. non-escaping closure environment（保留）
+### 3. non-escaping closure environment（実装済み）
 
-capturing closureがlocal callから外へ保存、return、aggregate格納されないことを証明できる場合に、environmentのstack化または
-captureの直接引数化を調べる。capture-free closureは既にallocationしない。function-value用の共通calling conventionは
-fallbackとして残し、候補ごとのfunction cloneを無制限に生成しない。
+`c_emit/body/closure_use`はMakeClosureから単純alias chainを追跡し、すべてのreferenceがcallのcallee位置に
+限られるlocal closureを直接callする。capturing closureのenvironmentはC stack上に置き、captureは外側の
+lexical lifetime内でborrowする。return、aggregate格納、capture、別関数の引数に現れるaliasが一つでもあれば、
+従来のreference count付きheap environmentへfallbackする。
 
-現行の`closure-churn`は20万個のcapturing closureを生成しても通常buildで約1.5 ms、ASan/UBSan buildで約23 msであり、
-同じpressure suiteでは支配的なcostではない。実用programのprofileにもenvironment allocationがbottleneckである根拠がないため、
-escape解析とcalling conventionの複雑化は現時点では採用しない。代表的な実用workloadでclosure allocationが支配的になった場合に
-この段階から再開する。
+function bodyはheap closureと同じenvironment pointer引数を受けるためcloneせず、product parameterの既存direct entryも
+共有する。focused native testはscalarとproduct parameterの両方でtotal allocation上限0を満たし、別関数へ渡す
+negative caseがheap allocation failureを維持することを確認する。`closure-churn`の20万environment allocationは0になり、
+同一のpressure suiteで他caseの退行は観測されなかった。
 
 ### 4. 表現変更（現時点では不要）
 

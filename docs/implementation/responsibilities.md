@@ -114,6 +114,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
 | `c_emit/body/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
+| `c_emit/body/closure_use` | local closureのalias追跡、callee-only判定、stack environment候補の計画 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |

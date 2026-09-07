@@ -53,6 +53,9 @@ impl BodyEmitter<'_> {
             if function.environment.is_empty() {
                 continue;
             }
+            if self.closure_uses.has_direct_creator(function.id) {
+                continue;
+            }
             let environment_type = environment_name(function.id);
             let mut body = CBlock::default();
             body.push(Statement::variable(
@@ -186,7 +189,7 @@ impl BodyEmitter<'_> {
             .parameter
             .binding
             .map_or_else(|| "mal_parameter".into(), value_name);
-        FunctionSignature::static_function(
+        let signature = FunctionSignature::static_function(
             result,
             function_name(function.id),
             [
@@ -194,7 +197,14 @@ impl BodyEmitter<'_> {
                 Parameter::named(TypeName::const_named("void").pointer(), "mal_environment"),
                 Parameter::named(parameter_type, parameter_name),
             ],
-        )
+        );
+        if self.closure_uses.has_direct_creator(function.id)
+            && has_direct_product_entry(&function.parameter.ty)
+        {
+            signature.maybe_unused()
+        } else {
+            signature
+        }
     }
 
     fn direct_function_signature(&self, function: &closure::Function) -> FunctionSignature {

@@ -4,7 +4,7 @@ use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference};
 
 use super::super::{
     BodyEmitter, ResultOwnership, environment_destroy_name, environment_name, function_name,
-    value_name,
+    stack_environment_name, value_name,
 };
 
 impl BodyEmitter<'_> {
@@ -150,6 +150,24 @@ impl BodyEmitter<'_> {
         function: FunctionId,
         captures: &[Atom],
     ) {
+        if let Pattern::Binding { id, .. } = pattern
+            && self
+                .closure_uses
+                .direct_closure(*id)
+                .is_some_and(|target| target.function == function && target.creator == *id)
+        {
+            if !captures.is_empty() {
+                let fields = captures.iter().enumerate().map(|(index, atom)| {
+                    Initializer::designated(format!("field_{index}"), self.emit_atom(atom))
+                });
+                block.push(Statement::variable(
+                    environment_name(function),
+                    stack_environment_name(*id),
+                    Some(Expr::compound_literal(environment_name(function), fields)),
+                ));
+            }
+            return;
+        }
         let target = self.result_target(pattern);
         let environment = if captures.is_empty() {
             Expr::identifier("NULL")

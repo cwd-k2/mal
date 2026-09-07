@@ -71,6 +71,10 @@ capacityを増やす。staticまたは共有中のleftは新しいbufferへcopy�
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
 
+call以外へ流出しないlocal closureはdescriptorをmaterializeせず、environment structをstack上に置いて外側の
+bindingをborrowする。単純alias chainの全referenceがcallee位置に限られる場合だけこの表現を使い、それ以外は
+reference count付きheap environmentへfallbackする。stack environmentはretainもdestroyもしない。
+
 ## programとhost境界
 
 top-level initializerの一時値は各initializerの終了時にdestroyし、保存したtop-level値は`main`のreturn後に逆順でdestroyする。
@@ -86,8 +90,8 @@ typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous 
 
 ## 最適化との境界
 
-immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。将来のescape
-analysis、region化も、この文書のborrow/result contractを変えずに行う。
+immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。closureの
+local-use解析や将来のregion化も、この文書のborrow/result contractを変えずに行う。
 
 rope、slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。導入する場合も
 各nodeやcache entryが同じcopy/destroy contractへ従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、

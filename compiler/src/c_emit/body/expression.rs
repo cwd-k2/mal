@@ -48,20 +48,13 @@ impl BodyEmitter<'_> {
                     let argument = self.emit_atom(argument);
                     let parameter = &self.function(function).parameter.ty;
                     if has_direct_product_entry(parameter) {
-                        let mut arguments = vec![
-                            Expr::identifier("mal_context"),
-                            Expr::identifier(environment),
-                        ];
+                        let mut arguments = vec![Expr::identifier("mal_context"), environment];
                         arguments.extend(flattened_product_values(parameter, argument));
                         return Expr::named_call(direct_function_name(function), arguments);
                     }
                     return Expr::named_call(
                         function_name(function),
-                        [
-                            Expr::identifier("mal_context"),
-                            Expr::identifier(environment),
-                            argument,
-                        ],
+                        [Expr::identifier("mal_context"), environment, argument],
                     );
                 }
                 let callee = self.emit_atom(callee);
