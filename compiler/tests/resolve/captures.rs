@@ -4,7 +4,7 @@ use super::*;
 fn capture_sources_and_environment_bindings_have_distinct_identities() {
     let program = resolve_ok(
         "make := \\(x :: Int32) {\n\
-           \\<x>(y :: Int32) { x + y; };\n\
+           \\(y :: Int32) { x + y; };\n\
          };",
     );
     let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
@@ -31,11 +31,11 @@ fn capture_sources_and_environment_bindings_have_distinct_identities() {
 }
 
 #[test]
-fn nested_capture_is_forwarded_at_every_lambda_boundary() {
+fn nested_capture_is_inferred_and_forwarded_at_every_lambda_boundary() {
     let program = resolve_ok(
         "outer := \\(x :: Int32) {\n\
-           \\<x>() {\n\
-             \\<x>() { x; };\n\
+           \\() {\n\
+             \\() { x; };\n\
            };\n\
          };",
     );
@@ -112,56 +112,94 @@ fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
 }
 
 #[test]
-fn rejects_an_unlisted_outer_local_reference() {
-    let error = resolve_error(
+fn infers_an_outer_local_reference() {
+    let program = resolve_ok(
         "outer := \\(x :: Int32) {\n\
            \\() { x; };\n\
          };",
     );
-    assert_eq!(error.message, "value `x` is not captured");
+    let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
+        panic!("expected outer lambda");
+    };
+    let resolved::Expression::Lambda(inner) = &outer.body.result.kind else {
+        panic!("expected inner lambda");
+    };
+    assert_eq!(inner.captures.len(), 1);
+    assert_eq!(inner.captures[0].source.id, outer.parameters[0].binding.id);
 }
 
 #[test]
-fn rejects_capture_that_skips_an_enclosing_lambda() {
-    let error = resolve_error(
+fn infers_each_capture_once_and_respects_shadowing() {
+    let program = resolve_ok(
         "outer := \\(x :: Int32) {\n\
-           \\() {\n\
-             \\<x>() { x; };\n\
-           };\n\
+           captured := \\() { if (true) then { x } else { x }; };\n\
+           shadowed := \\(x :: Int32) { x; };\n\
+           (captured, shadowed);\n\
          };",
     );
-    assert_eq!(error.message, "capture `x` crosses a lambda boundary");
+    let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
+        panic!("expected outer lambda");
+    };
+    let resolved::BodyItem::Binding(captured) = &outer.body.items[0] else {
+        panic!("expected captured closure binding");
+    };
+    let resolved::Expression::Lambda(captured) = &captured.kind.value.kind else {
+        panic!("expected captured lambda");
+    };
+    assert_eq!(captured.captures.len(), 1);
+
+    let resolved::BodyItem::Binding(shadowed) = &outer.body.items[1] else {
+        panic!("expected shadowed closure binding");
+    };
+    let resolved::Expression::Lambda(shadowed) = &shadowed.kind.value.kind else {
+        panic!("expected shadowed lambda");
+    };
+    assert!(shadowed.captures.is_empty());
 }
 
 #[test]
-fn rejects_duplicate_invalid_and_non_local_captures() {
-    let cases = [
-        (
-            "outer := \\(x :: Int32) { \\<x, x>() { x; }; };",
-            "duplicate capture `x`",
-        ),
-        (
-            "outer := \\(x :: Int32) { \\<missing>() { x; }; };",
-            "unknown captured value `missing`",
-        ),
-        (
-            "top := 1; closure := \\<top>() { top; };",
-            "cannot capture non-local value `top`",
-        ),
-        (
-            "closure := \\<false>() { false; };",
-            "cannot capture non-local value `false`",
-        ),
-    ];
-    for (text, expected) in cases {
-        assert_eq!(resolve_error(text).message, expected, "input: {text}");
-    }
+fn inferred_capture_does_not_block_later_local_shadowing() {
+    let program = resolve_ok(
+        "outer := \\(x :: Int32) {\n\
+           middle := \\() {\n\
+             before := \\() { x; };\n\
+             x := 2;\n\
+             after := \\() { x; };\n\
+             (before, after);\n\
+           };\n\
+           middle;\n\
+         };",
+    );
+    let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
+        panic!("expected outer lambda");
+    };
+    let resolved::BodyItem::Binding(middle) = &outer.body.items[0] else {
+        panic!("expected middle binding");
+    };
+    let resolved::Expression::Lambda(middle) = &middle.kind.value.kind else {
+        panic!("expected middle lambda");
+    };
+    assert_eq!(middle.captures.len(), 1);
+
+    let resolved::BodyItem::Binding(local) = &middle.body.items[1] else {
+        panic!("expected shadowing local");
+    };
+    let resolved::BodyItem::Binding(after) = &middle.body.items[2] else {
+        panic!("expected second closure");
+    };
+    let resolved::Expression::Lambda(after) = &after.kind.value.kind else {
+        panic!("expected second lambda");
+    };
+    let resolved::Pattern::Binding(local) = &local.kind.pattern.kind else {
+        panic!("expected local binding pattern");
+    };
+    assert_eq!(after.captures.len(), 1);
+    assert_eq!(after.captures[0].source.id, local.id);
 }
 
 #[test]
-fn rejects_capture_parameter_and_same_scope_binding_collisions() {
+fn rejects_parameter_and_same_scope_binding_collisions() {
     let cases = [
-        "outer := \\(x :: Int32) { \\<x>(x :: Int32) { x; }; };",
         "main := \\(x :: Int32, x :: Int32) { x; };",
         "main := \\() { x := 1; x := 2; x; };",
         "main := \\() { (x, x) := (1, 2); x; };",

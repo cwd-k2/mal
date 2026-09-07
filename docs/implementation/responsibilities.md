@@ -33,7 +33,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `source` | file bytes、UTF-8 admission、file identity、require graph、byte span、位置計算 |
 | `lexer` | 文字列からtokenへのadmissionとlexical error |
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
-| `resolve` | name identity、scope、capture listのvalidation |
+| `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` | desugaring、evaluation order、closure representation |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
@@ -85,12 +85,12 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 |---|---|
 | `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
 | `parser/expression/forms` | product、call、extern call、conversion、sum injection |
-| `parser/expression/lambda` | capture、parameter、lambda bodyの構成 |
+| `parser/expression/lambda` | parameterとlambda bodyの構成 |
 | `parser/expression/control` | `if`、`case`、expression blockの構成 |
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
-| `resolve/expression` | expression、capture list、lambda-local ownershipの解決 |
+| `resolve/expression` | expression、transitive capture、lambda-local ownershipの解決 |
 | `check` | program順序、value environment、checked itemの構成 |
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
 | `check/interface` | extern transport検査とsource-level alias metadata |

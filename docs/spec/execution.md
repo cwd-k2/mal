@@ -14,13 +14,13 @@ f(a(), b(), c())
 
 ## scope と closure
 
-ラムダは lexical scope を持ち、capture listに明示した外側のparameterとlocal bindingだけをcaptureできる。capture listを省略したラムダはcapture-freeである。
+ラムダはlexical scopeを持ち、bodyから参照する外側のparameterとlocal bindingをcaptureする。
 
-ラムダ式を評価すると関数値が生成される。関数値は概念上、ラムダのcodeと、capture listに列挙したlocal valueのenvironmentからなるclosureである。environmentにはラムダ式を評価した時点の値をby-valueで保持する。
+ラムダ式を評価すると関数値が生成される。関数値は概念上、ラムダのcodeと、lexically captureしたlocal valueのenvironmentからなるclosureである。environmentにはラムダ式を評価した時点の値をby-valueで保持する。
 
 ```mal
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    \<x>(y :: Int32) { x + y };
+    \(y :: Int32) { x + y };
 };
 
 addTen := makeAdder(10);
@@ -31,19 +31,17 @@ result := addTen(5);
 
 top-level binding、predefined binding、compiler primitiveは全programから直接参照でき、closureごとのenvironmentに保存する必要はない。external symbolは通常のidentifierとして値にせず、`extern symbol(...)`の形でだけ呼び出す。
 
-unlistedの外側local valueはlexical scope内に見えていても参照できない。nested lambdaが複数のlambda境界を越えて値を使う場合、各境界で明示的に受け渡す。
-
 ```mal
 outer := \(x :: Int32) {
-    middle := \<x>() {
-        \<x>() { x };
+    middle := \() {
+        \() { x };
     };
 
     middle;
 };
 ```
 
-inner lambdaのcapture listに現れる`x`はmiddle lambda内での参照でもあるため、middle自身も`x`をcaptureしなければならない。compilerはtransitive captureを暗黙に追加しない。
+inner lambdaが参照する`x`は、inner closureを構築するmiddle lambdaにも自動的に転送される。
 
 closure は定義した scope の外へ返したり、他の関数へ渡したりしてよい。function equality は存在せず、program から code と environment を分解・観察することはできない。
 
@@ -55,7 +53,7 @@ compiler は観測可能な動作を変えない限り、capture 除去、lambda
 `Symbol`をcaptureした場合も、その意味とlifetime authorityはmalに属し、environmentから到達できる間は値が保持される。
 external opaque valueをcaptureしても、そのresourceに新しいownership規則は加わらない。詳細は
 [EngramとExtern](engrams.md)に従う。closure自体の決定理由は[D003](../design/decisions/D003.md)、
-明示capture syntaxは[D007](../design/decisions/D007.md)に記録する。
+lexical captureの決定理由は[D007](../design/decisions/D007.md)に記録する。
 
 ## 再帰
 

@@ -77,17 +77,26 @@ impl Resolver {
         {
             return Err(self.duplicate(name, "value"));
         }
+        let binding = self.allocate_value_binding(name, owner);
+        self.value_scopes
+            .last_mut()
+            .expect("value scope")
+            .insert(name.text.clone(), binding.clone());
+        Ok(binding)
+    }
+
+    pub(super) fn allocate_value_binding(
+        &mut self,
+        name: &ast::Name,
+        owner: ValueOwner,
+    ) -> ValueBinding {
         let binding = ValueBinding {
             id: ValueId(self.next_value),
             name: name.clone(),
             owner,
         };
         self.next_value += 1;
-        self.value_scopes
-            .last_mut()
-            .expect("value scope")
-            .insert(name.text.clone(), binding.clone());
-        Ok(binding)
+        binding
     }
 
     pub(super) fn type_binding(&self, name: &ast::Name) -> Result<TypeBinding, Diagnostic> {

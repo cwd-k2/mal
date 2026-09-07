@@ -43,12 +43,12 @@ malへの含意:
 
 [Efficient and Safe-for-Space Closure Conversion](https://doi.org/10.1145/345099.345125) は closure conversion が runtime representation を決める compiler の重要な段階であることを示す。[Selective Lambda Lifting](https://arxiv.org/abs/1910.11717) は lambda lifting と closure allocation の trade-off を扱う。
 
-[C++ working draftのlambda capture規則](https://eel.is/c%2B%2Bdraft/expr.prim.lambda.capture)はcapture listでcopy/reference/default captureを明示し、[closure type規則](https://eel.is/c%2B%2Bdraft/expr.prim.lambda)はlambdaごとに固有の無名class typeを与える。malはこのうち「保持する名前をsourceに示す」という性質だけを採り、reference/default captureとlambda固有のsource-level typeは採用しない。
+[C++ working draftのlambda capture規則](https://eel.is/c%2B%2Bdraft/expr.prim.lambda.capture)はcapture listでcopy/reference/default captureを明示し、[closure type規則](https://eel.is/c%2B%2Bdraft/expr.prim.lambda)はlambdaごとに固有の無名class typeを与える。malはbindingがimmutableであるためcapture modeを持たず、lexical free variableをby-valueでcaptureする。
 
 mal への含意:
 
 - 「escape しなければ capture 可」は escape analysis と implementation-dependent acceptance を持ち込むため、言語規則にはしない。
-- lexical closureがcaptureする名前はsourceのcapture listで明示し、storageの回収方式はsource semanticsから隠す。
+- lexical closureがcaptureする名前はbodyのfree variableから決まり、storageの回収方式はsource semanticsから隠す。
 - binding が immutable でも environment の配置は必要だが、mutable cell の共有規則は不要になる。
 
 ## ABI、Symbol、resource

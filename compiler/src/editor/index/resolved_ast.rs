@@ -97,13 +97,6 @@ impl Index<'_> {
                 }
             }
             Expression::Lambda(lambda) => {
-                for capture in &lambda.captures {
-                    self.add_raw(
-                        SymbolId::Value(self.canonical_value(capture.source.id)),
-                        &capture.source.name,
-                        OccurrenceRole::Reference,
-                    );
-                }
                 for parameter in &lambda.parameters {
                     self.collect_resolved_type(&parameter.ty);
                     self.add_raw(

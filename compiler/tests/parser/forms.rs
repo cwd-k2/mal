@@ -1,9 +1,9 @@
 use super::*;
 
 #[test]
-fn parses_captures_parameters_and_lambda_body_items() {
+fn parses_parameters_and_lambda_body_items() {
     let expression = binding_value(
-        "make := \\<outer>(x :: Int32, y :: Int32) {\n\
+        "make := \\(x :: Int32, y :: Int32) {\n\
            sum :: Int32 := x + y;\n\
            extern observe(sum);\n\
            outer(sum);\n\
@@ -12,7 +12,6 @@ fn parses_captures_parameters_and_lambda_body_items() {
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
     };
-    assert_eq!(lambda.captures[0].text, "outer");
     assert_eq!(lambda.parameters.len(), 2);
     assert!(matches!(lambda.body.items[0], BodyItem::Binding(_)));
     assert!(matches!(lambda.body.items[1], BodyItem::Expression(_)));
@@ -80,7 +79,6 @@ fn rejects_single_member_sums_and_trailing_commas() {
         "Only :: [Unit];",
         "Pair :: [Unit, Int32,];",
         "value := f(1,);",
-        "value := \\<>() { 0; };",
     ] {
         assert!(parse(&source(text)).is_err(), "input should fail: {text}");
     }

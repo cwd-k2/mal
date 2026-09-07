@@ -5,7 +5,7 @@ fn emits_static_symbol_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
         r#"extern inspect :: Symbol -> Unit;
 make :: Symbol -> (Unit -> Symbol) := \(value :: Symbol) {
-  \<value>() { value; };
+  \() { value; };
 };
 main :: Unit -> Int32 := \() {
   extern inspect("あ\0\xff");
@@ -117,7 +117,7 @@ fn retains_returned_and_captured_symbols_until_their_owners_are_destroyed() {
 };
 hold :: Symbol -> (Unit -> Symbol) := \(suffix :: Symbol) {
   value := make(suffix);
-  \<value>() { value; };
+  \() { value; };
 };
 main :: Unit -> Int32 := \() {
   first := make("a");

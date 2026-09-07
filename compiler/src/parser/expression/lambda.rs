@@ -7,15 +7,6 @@ use super::super::Parser;
 impl Parser<'_> {
     pub(super) fn parse_lambda(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let start = self.expect(&TokenKind::Backslash, "`\\`")?.span.start();
-        let mut captures = Vec::new();
-        if self.take(&TokenKind::Less).is_some() {
-            captures.push(self.parse_name(&TokenKind::ValueIdentifier, "a captured value name")?);
-            while self.take(&TokenKind::Comma).is_some() {
-                captures
-                    .push(self.parse_name(&TokenKind::ValueIdentifier, "a captured value name")?);
-            }
-            self.expect(&TokenKind::Greater, "`>`")?;
-        }
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let mut parameters = Vec::new();
         if !self.at(&TokenKind::RightParen) {
@@ -28,11 +19,7 @@ impl Parser<'_> {
         let body = self.parse_lambda_body()?;
         let span = self.span(start, body.span.end());
         Ok(Node::new(
-            Expression::Lambda(Lambda {
-                captures,
-                parameters,
-                body,
-            }),
+            Expression::Lambda(Lambda { parameters, body }),
             span,
         ))
     }

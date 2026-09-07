@@ -3,7 +3,7 @@ require "./host.c";
 extern printInt32 :: Int32 -> Unit;
 
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    \<x>(y :: Int32) { x + y };
+    \(y :: Int32) { x + y };
 };
 
 main :: Unit -> Int32 := \() {

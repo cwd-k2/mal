@@ -38,7 +38,7 @@ fn function(program: &closure::ast::Program, id: closure::ast::FunctionId) -> &F
 fn lifts_capturing_lambdas_and_materializes_their_environment() {
     let program = convert_ok(
         "makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\<x>(y :: Int32) { x + y; };\n\
+           \\(y :: Int32) { x + y; };\n\
          };",
     );
     let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
@@ -76,11 +76,11 @@ fn lifts_capturing_lambdas_and_materializes_their_environment() {
 }
 
 #[test]
-fn forwards_a_capture_explicitly_through_every_lifted_function() {
+fn forwards_an_inferred_capture_through_every_lifted_function() {
     let program = convert_ok(
         "outer :: Int32 -> (Unit -> (Unit -> Int32)) := \\(x :: Int32) {\n\
-           \\<x>() {\n\
-             \\<x>() { x; };\n\
+           \\() {\n\
+             \\() { x; };\n\
            };\n\
          };",
     );
@@ -198,7 +198,7 @@ fn preserves_captured_products_and_destructuring_patterns() {
     let program = convert_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
            pair := (20i32, 22i32);\n\
-           \\<pair>() {\n\
+           \\() {\n\
              (left, right) := pair;\n\
              left + right;\n\
            };\n\

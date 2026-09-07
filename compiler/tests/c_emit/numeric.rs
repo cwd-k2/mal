@@ -5,7 +5,7 @@ fn emits_uint64_literals_and_scalar_extern_abi() {
     let output = compile_and_run(
         "extern printUInt64 :: UInt64 -> Unit;\n\
          capture :: UInt64 -> (Unit -> UInt64) := \\(value :: UInt64) {\n\
-           \\<value>() { value; };\n\
+           \\() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            extern printUInt64(capture(18446744073709551615u64)());\n\

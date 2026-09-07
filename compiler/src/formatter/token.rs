@@ -23,7 +23,6 @@ pub(super) enum Previous {
     Operator,
     Unary,
     Backslash,
-    CaptureClose,
 }
 
 impl Previous {
@@ -93,17 +92,6 @@ impl Formatter<'_> {
                 }
                 self.write(text);
                 self.previous = Previous::Backslash;
-            }
-            TokenKind::Less if matches!(self.previous, Previous::Backslash) => {
-                self.write(text);
-                self.in_capture = true;
-                self.previous = Previous::LeftBracket;
-            }
-            TokenKind::Greater if self.in_capture => {
-                self.trim_space();
-                self.write(text);
-                self.in_capture = false;
-                self.previous = Previous::CaptureClose;
             }
             TokenKind::Minus if !self.previous.ends_expression() => {
                 if matches!(self.previous, Previous::Keyword) {

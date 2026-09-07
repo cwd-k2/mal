@@ -112,7 +112,7 @@ fn rejects_recursive_lambda_that_disagrees_with_its_annotation() {
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
         "make :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\<x>(y :: Int32) { x + y; };\n\
+           \\(y :: Int32) { x + y; };\n\
          };",
     );
     let ExpressionKind::Lambda(outer) = &top_binding(&program, 0).value.kind else {

@@ -110,7 +110,7 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\<x>() { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
@@ -147,7 +147,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
         }));
     assert_eq!(
         references.messages[0]["result"].as_array().unwrap().len(),
-        3
+        2
     );
 
     let rename = server.handle(json!({
@@ -159,7 +159,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
             .as_array()
             .unwrap()
             .len(),
-        3
+        2
     );
 }
 

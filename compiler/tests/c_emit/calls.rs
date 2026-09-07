@@ -61,7 +61,7 @@ fn executes_escaping_capturing_closures() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\<x>(y :: Int32) { x + y; };\n\
+           \\(y :: Int32) { x + y; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            addTen := makeAdder(10);\n\
@@ -82,7 +82,7 @@ fn executes_top_level_and_local_recursive_closures() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 120;\n\
-           local :: Int32 -> Int32 := \\<base>(n :: Int32) {\n\
+           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
              if (n == 0) then { base } else { local(n - 1) };\n\
            };\n\
            local(3) - factorial(5);\n\

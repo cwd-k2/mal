@@ -4,7 +4,7 @@ use super::*;
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
         "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\
-           \\<value>() { value; };\n\
+           \\() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() { makeClosure(7)(); };",
     )
@@ -159,7 +159,7 @@ fn executes_a_product_captured_by_an_escaping_closure() {
     let output = compile_and_run(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
            pair := (20i32, 22i32);\n\
-           \\<pair>() {\n\
+           \\() {\n\
              (left, right) := pair;\n\
              left + right;\n\
            };\n\

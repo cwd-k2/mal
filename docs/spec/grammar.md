@@ -66,8 +66,7 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | sumType
 sumType     ::= "[" type "," type ("," type)* "]"
 
-lambda      ::= "\\" captureList? "(" parameterList? ")" block
-captureList ::= "<" VALUE_IDENT ("," VALUE_IDENT)* ">"
+lambda      ::= "\\" "(" parameterList? ")" block
 parameter   ::= VALUE_IDENT "::" type
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
@@ -102,7 +101,7 @@ caseArm     ::= "[" INTEGER "]" "(" pattern ")" block
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
 
-capture listを省略するとcapture-freeになる。bodyが参照する外側のlocal valueはcapture listに存在しなければならず、compilerが暗黙に追加してはならない。詳細は[closure規則](execution.md#scope-と-closure)を参照する。
+lambda bodyが参照する外側のlocal valueはlexically captureされる。詳細は[closure規則](execution.md#scope-と-closure)を参照する。
 
 ## operator precedence
 

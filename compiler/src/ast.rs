@@ -126,7 +126,6 @@ pub enum Expression {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
-    pub captures: Vec<Name>,
     pub parameters: Vec<Parameter>,
     pub body: LambdaBody,
 }

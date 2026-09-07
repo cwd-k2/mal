@@ -42,9 +42,9 @@ predefined環境には`Bool :: [Unit, Unit]`、`false :: Bool`、`true :: Bool`�
 拒否する。aliasはcycleを検出して展開し、構造的に比較する。parameterは明示型、bindingはRHSから推論できる。
 overload resolutionはoperatorとoperand typeの組で閉じる。
 
-name resolverは各value bindingにtop-levelまたは所属lambdaのidentityを記録する。capture listの各名前が外側のlocal valueへ解決されることを確認し、environment fieldをlist順に作る。bodyから別lambda所属のlocal bindingへの参照を見つけた場合、その名前がcapture listになければerrorとする。
-
-compilerはfree-variable setからcaptureを補完しない。nested lambdaのcapture listで使われる名前も現在のlambda内の参照として検査するため、lambda境界ごとの明示的な受け渡しが必要になる。top-level/predefined bindingはenvironment fieldにしない。
+name resolverは各value bindingにtop-levelまたは所属lambdaのidentityを記録する。bodyから別lambda所属のlocal bindingへの
+参照を見つけると、現在のlambdaまでの各境界にcapture bindingを作り、内側closureの構築に必要な値を転送する。
+capture順は最初のlexical参照順とする。top-level/predefined bindingはenvironment fieldにしない。
 
 integer/float literal は最初から `Int64`/`Float64` に固定せず、期待型を受け取れる literal node として検査する。期待型がなければ default を適用する。
 

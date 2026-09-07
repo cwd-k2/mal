@@ -82,19 +82,14 @@ fn symbol_operators_report_their_result_types() {
 
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
-    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\<x>() { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let parameter_offset = text.find("x ::").unwrap();
-    let captured_offset = text.find("<x>").unwrap() + 1;
     let inner_reference_offset = text.find("{ x;").unwrap() + 2;
 
     let parameter = document.occurrence_at(parameter_offset).unwrap();
     assert_eq!(parameter.kind, SymbolKind::Parameter);
     assert_eq!(parameter.role, OccurrenceRole::Declaration);
-    assert_eq!(
-        document.occurrence_at(captured_offset).unwrap().id,
-        parameter.id
-    );
     assert_eq!(
         document.occurrence_at(inner_reference_offset).unwrap().id,
         parameter.id
@@ -103,10 +98,10 @@ fn definition_references_and_rename_follow_capture_identity() {
         document.definition(parameter.id).unwrap().span,
         parameter.span
     );
-    assert_eq!(document.references(parameter.id, true).len(), 3);
+    assert_eq!(document.references(parameter.id, true).len(), 2);
     assert_eq!(
         document.rename_spans(inner_reference_offset).unwrap().len(),
-        3
+        2
     );
 }
 

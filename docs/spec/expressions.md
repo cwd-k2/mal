@@ -31,23 +31,16 @@ add :: (Int32, Int32) -> Int32 :=
 
 parameter の型は必須。ラムダ自身に戻り型を書く構文はなく、bodyのresult expressionと、あればbinding annotationから検査する。
 
-ラムダは optional な capture list をparameter listの前に書ける。
+ラムダbodyから参照する外側のlocal bindingはby-valueでlexically captureされる。
 
 ```mal
 makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    \<x>(y :: Int32) { x + y };
+    \(y :: Int32) { x + y };
 };
 ```
 
-`<x>`は外側のlocal binding `x`をby-value captureする。capture listを省略したラムダは何もcaptureしない。
-
-```mal
-double := \(x :: Int32) { x * 2 };
-```
-
-capture listにない外側のlocal valueをbodyから参照するとcompile-time errorになる。top-level binding、predefined binding、compiler primitiveはcaptureせず直接参照するため、listに書かない。
-
-capture listは1個以上の異なるvalue identifierを持つ。空の`<>`、duplicate、parameterと同名のcapture、scopeにない名前、top-level名の明示captureはcompile-time errorである。
+top-level binding、predefined binding、compiler primitiveはenvironmentへcaptureせず直接参照する。nested lambdaだけが
+さらに外側のlocal valueを参照する場合も、compilerが各lambda境界を通して値を転送する。
 
 captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#scope-と-closure)に従う。
 

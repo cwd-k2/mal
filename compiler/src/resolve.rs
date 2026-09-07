@@ -31,12 +31,19 @@ struct ExternalBinding {
     id: ExternalOperationId,
 }
 
+struct LambdaFrame {
+    id: LambdaId,
+    captures: Vec<ast::Capture>,
+    captured_sources: HashMap<ValueId, ValueBinding>,
+}
+
 struct Resolver {
     types: HashMap<String, TypeBinding>,
     externals: HashMap<String, ExternalBinding>,
     value_scopes: Vec<HashMap<String, ValueBinding>>,
     current_lambda: Option<LambdaId>,
     recursive_lambda: Option<(LambdaId, ValueId)>,
+    lambda_frames: Vec<LambdaFrame>,
     next_type: u32,
     next_value: u32,
     next_external: u32,
@@ -57,6 +64,7 @@ impl Resolver {
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
             recursive_lambda: None,
+            lambda_frames: Vec::new(),
             next_type: predefined::first_source_type_id(),
             next_value: predefined::first_source_value_id(),
             next_external: 0,
@@ -91,6 +99,7 @@ impl Resolver {
         self.value_scopes.push(HashMap::new());
         self.current_lambda = None;
         self.recursive_lambda = None;
+        self.lambda_frames.clear();
         self.synthetic_span = Span::new(span.file(), span.start(), span.start());
         for &(name, id) in PREDEFINED_TYPES {
             self.add_predefined_type(name, id);

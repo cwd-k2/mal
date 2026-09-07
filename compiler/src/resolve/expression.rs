@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::ast;
 use crate::diagnostic::Diagnostic;
 
@@ -103,60 +101,18 @@ impl Resolver {
         lambda: &ast::Lambda,
         self_binding: Option<super::ast::ValueBinding>,
     ) -> Result<Lambda, Diagnostic> {
-        let mut seen = HashSet::new();
-        let mut sources = Vec::with_capacity(lambda.captures.len());
-        for capture in &lambda.captures {
-            if !seen.insert(capture.text.as_str()) {
-                return Err(
-                    Diagnostic::error(format!("duplicate capture `{}`", capture.text))
-                        .with_primary(capture.span, "already listed in this capture list"),
-                );
-            }
-            let source = self
-                .lookup_value(&capture.text)
-                .ok_or_else(|| self.unknown(capture, "captured value"))?;
-            match source.owner {
-                ValueOwner::Lambda(owner) if Some(owner) == self.current_lambda => {}
-                ValueOwner::Lambda(_) => {
-                    return Err(Diagnostic::error(format!(
-                        "capture `{}` crosses a lambda boundary",
-                        capture.text
-                    ))
-                    .with_primary(capture.span, "capture it in each enclosing lambda first"));
-                }
-                ValueOwner::Predefined | ValueOwner::TopLevel => {
-                    return Err(Diagnostic::error(format!(
-                        "cannot capture non-local value `{}`",
-                        capture.text
-                    ))
-                    .with_primary(
-                        capture.span,
-                        "top-level and predefined values are referenced directly",
-                    ));
-                }
-            }
-            sources.push((capture, source));
-        }
-
         let id = self.allocate_lambda();
         let outer_lambda = self.current_lambda;
         let outer_recursive_lambda = self.recursive_lambda;
         self.current_lambda = Some(id);
         self.recursive_lambda = self_binding.as_ref().map(|binding| (id, binding.id));
         self.push_scope();
+        self.lambda_frames.push(super::LambdaFrame {
+            id,
+            captures: Vec::new(),
+            captured_sources: std::collections::HashMap::new(),
+        });
         let result = (|| {
-            let mut captures = Vec::with_capacity(sources.len());
-            for (name, source) in sources {
-                let binding = self.declare_value(name, ValueOwner::Lambda(id))?;
-                captures.push(Capture {
-                    source: ValueReference {
-                        id: source.id,
-                        name: name.clone(),
-                    },
-                    binding,
-                });
-            }
-
             let mut parameters = Vec::with_capacity(lambda.parameters.len());
             for parameter in &lambda.parameters {
                 let ty = self.resolve_type(&parameter.ty)?;
@@ -168,6 +124,13 @@ impl Resolver {
                 });
             }
             let body = self.resolve_lambda_body(&lambda.body)?;
+            let captures = std::mem::take(
+                &mut self
+                    .lambda_frames
+                    .last_mut()
+                    .expect("active lambda frame")
+                    .captures,
+            );
             Ok(Lambda {
                 id,
                 self_binding: self_binding.map(|binding| binding.id),
@@ -176,6 +139,7 @@ impl Resolver {
                 body,
             })
         })();
+        self.lambda_frames.pop().expect("active lambda frame");
         self.pop_scope();
         self.current_lambda = outer_lambda;
         self.recursive_lambda = outer_recursive_lambda;
@@ -249,22 +213,53 @@ impl Resolver {
         result
     }
 
-    fn resolve_value_reference(&self, name: &ast::Name) -> Result<ValueReference, Diagnostic> {
-        let binding = self
+    fn resolve_value_reference(&mut self, name: &ast::Name) -> Result<ValueReference, Diagnostic> {
+        let mut binding = self
             .lookup_value(&name.text)
             .ok_or_else(|| self.unknown(name, "value"))?;
         if let ValueOwner::Lambda(owner) = binding.owner
             && Some(owner) != self.current_lambda
             && self.recursive_lambda != self.current_lambda.map(|lambda| (lambda, binding.id))
         {
-            return Err(
-                Diagnostic::error(format!("value `{}` is not captured", name.text))
-                    .with_primary(name.span, "add this value to the lambda capture list"),
-            );
+            let owner_index = self
+                .lambda_frames
+                .iter()
+                .position(|frame| frame.id == owner)
+                .expect("an in-scope lambda-owned value has an active owner");
+            for frame_index in owner_index + 1..self.lambda_frames.len() {
+                binding = self.capture_in_frame(frame_index, binding, name);
+            }
         }
         Ok(ValueReference {
             id: binding.id,
             name: name.clone(),
         })
+    }
+
+    fn capture_in_frame(
+        &mut self,
+        frame_index: usize,
+        source: super::ast::ValueBinding,
+        name: &ast::Name,
+    ) -> super::ast::ValueBinding {
+        if let Some(binding) = self.lambda_frames[frame_index]
+            .captured_sources
+            .get(&source.id)
+        {
+            return binding.clone();
+        }
+        let owner = ValueOwner::Lambda(self.lambda_frames[frame_index].id);
+        let binding = self.allocate_value_binding(name, owner);
+        self.lambda_frames[frame_index]
+            .captured_sources
+            .insert(source.id, binding.clone());
+        self.lambda_frames[frame_index].captures.push(Capture {
+            source: ValueReference {
+                id: source.id,
+                name: name.clone(),
+            },
+            binding: binding.clone(),
+        });
+        binding
     }
 }

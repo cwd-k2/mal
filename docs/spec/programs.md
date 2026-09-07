@@ -57,7 +57,7 @@ distance :: (Point, Point) -> Float64 :=
 
 type alias と extern declaration は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
 
-top-level value の RHS は、literal、product/sum、integer conversion、lambda、およびそれらからなる作用のない closed expression に制限する。他のtop-level valueへの参照と`extern` callは認めない。`false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある nested lambda は明示capture listを使用できる。詳細と理由は[D018](../design/decisions/D018.md)に記録する。
+top-level value の RHS は、literal、product/sum、integer conversion、lambda、およびそれらからなる作用のない closed expression に制限する。他のtop-level valueへの参照と`extern` callは認めない。`false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../design/decisions/D018.md)に記録する。
 
 ## entry point
 
