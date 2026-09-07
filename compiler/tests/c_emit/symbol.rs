@@ -149,6 +149,70 @@ main :: Unit -> Int32 := \() {
 }
 
 #[test]
+fn transfers_only_last_owned_uses_through_aliases_branches_and_tail_edges() {
+    let generated = emit(
+        r#"extern inspect :: Symbol -> Unit;
+keepAlias :: Symbol -> Symbol := \(suffix :: Symbol) {
+  owned := "prefix" + suffix;
+  alias := owned;
+  extern inspect(owned);
+  alias;
+};
+choose :: (Bool, Symbol) -> Symbol := \(condition :: Bool, suffix :: Symbol) {
+  owned := "branch" + suffix;
+  if (condition)
+  then { selected := owned; selected }
+  else { selected := owned; selected };
+};
+grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+  if (remaining == 0)
+  then { value }
+  else { grow(value + "x", remaining - 1) };
+};
+main :: Unit -> Int32 := \() {
+  alias := keepAlias("a");
+  selected := choose(true, "b");
+  grown := grow("", 3i64);
+  if ((alias == "prefixa") && (selected == "branchb") && (grown == "xxx"))
+  then { 0 }
+  else { 1 };
+};"#,
+    )
+    .expect("emit last-use ownership transfers");
+
+    let alias = generated_function(&generated.source, "keepAlias");
+    assert_eq!(alias.matches("mal_symbol_retain(").count(), 1);
+    let branch = generated_function(&generated.source, "choose");
+    assert_eq!(branch.matches("mal_symbol_retain(").count(), 1);
+    let tail = generated_function(&generated.source, "grow");
+    assert!(!tail.contains("mal_symbol_retain("));
+    assert_eq!(tail.matches("mal_copy_value_").count(), 1);
+
+    let fixture = NativeFixture::new("last-use-ownership-transfer");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+#include <string.h>
+
+void mal_ext_inspect(MalContext *context, MalType_Symbol value) {
+    static const uint8_t expected[] = "prefixa";
+    if (value.length != UINT64_C(7)
+        || memcmp(value.data, expected, sizeof(expected) - 1) != 0) {
+        mal_trap(context, "last-use transfer changed a live alias");
+    }
+}
+"#,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn retains_only_the_active_managed_sum_payload() {
     let generated = emit(
         r#"Choice :: [Unit, Symbol];
@@ -236,6 +300,18 @@ fn traps_out_of_range_symbol_byte_access() {
             "expression: {expression}"
         );
     }
+}
+
+fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {
+    let marker = format!("/* mal source binding: {binding} */");
+    let start = source
+        .rfind(&marker)
+        .unwrap_or_else(|| panic!("missing generated function for {binding}"));
+    let remainder = &source[start + marker.len()..];
+    let end = remainder
+        .find("/* mal source binding:")
+        .unwrap_or(remainder.len());
+    &remainder[..end]
 }
 
 #[test]

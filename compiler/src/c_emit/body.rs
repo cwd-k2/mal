@@ -10,6 +10,7 @@ mod entry;
 mod expression;
 mod function;
 mod name;
+mod ownership;
 mod pattern;
 mod statement;
 
@@ -20,6 +21,7 @@ use self::call::{
 use self::expression::ResultOwnership;
 use self::name::environment_destroy_name;
 use self::name::{direct_function_name, environment_name, function_name, value_name};
+use self::ownership::OwnershipPlan;
 use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
@@ -60,6 +62,7 @@ pub(super) struct BodyEmitter<'a> {
     types: &'a TypeRegistry,
     needs: RuntimeNeeds,
     next_discard: u32,
+    ownership: OwnershipPlan,
 }
 
 impl<'a> BodyEmitter<'a> {
@@ -69,6 +72,7 @@ impl<'a> BodyEmitter<'a> {
             types,
             needs: RuntimeNeeds::default(),
             next_discard: 0,
+            ownership: OwnershipPlan::new(program),
         }
     }
 

@@ -8,8 +8,8 @@ authorityは[Engram仕様](../spec/engrams.md)、hostとの受け渡しは[C hos
 ## 現在の状態
 
 v0.5が現在受理するprogramとtrusted C adapter contractの範囲では、ownership correctnessに必要なcopy、transfer、
-cleanupは実装済みである。ownershipに関する残件は、現行contractを変えないretain/release除去、last-use move、
-escape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
+cleanupとlocal owned bindingのlast-use transferは実装済みである。ownershipに関する残件は、現行contractを変えない
+consuming operation、escape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
 
 将来、managed cycle、thread間共有、host resourceの自動解放などを言語またはABIへ追加する場合は、その新しい範囲に
 対するownership設計を別途行う。これは現在のv0.5 ownership実装の未完成部分ではない。
@@ -38,12 +38,18 @@ expression emitterは各`Operation`のC式と`ResultOwnership`を同じinterface
 `MemoryPrimitive`、managed resultを作り得るprimitiveをwildcardなしで列挙し、新しいvariantの分類漏れをRustの
 exhaustiveness checkで拒否する。structured operationもstatement emitterでowned resultを作る規約を明示する。
 
-現在のemitterはlast-use moveを解析せず、保存時に保守的なcopyを生成する。したがって正しさは変数の最終使用位置に依存しない。
-型付きclosure-converted IRのlexical blockとpatternからcleanupを生成でき、lexerやparserへlifetime解析を追加しない。
+`c_emit`は型付きclosure-converted IRを逆向きに走査し、lexical blockとbranchごとにlocal owned bindingの最後の使用を
+求める。binding、aggregate field、function result、direct tail callの次parameterへ保存する最後の使用ではdescriptorを
+transferし、sourceを型に対応するzero状態にする。既存cleanupはzero状態を安全にdestroyできるため、branchごとにtransfer位置が
+異なっても共通のlexical cleanupを維持できる。同じoperationまたは後続処理でaliasを再使用する場合はcopyを残す。
 
-direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyして
-ownershipを確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを
-slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyしてから同じcleanupを行う。これによりmanaged valueを
+通常のparameter、environment field、case payloadの読取りはborrowであり、最後の使用というだけではtransferしない。direct tail
+loopが明示的にcopyして所有するparameter slotは例外であり、slot全体をdestructureするときに各fieldへownershipを分配できる。
+解析とmaterializationは`c_emit/body`に閉じ、lexer、parser、language IRへbackendのlifetime policyを追加しない。
+
+direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyまたは
+last-use transferで確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを
+slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyまたはtransferしてから同じcleanupを行う。これによりmanaged valueを
 含む場合も、参照先を早く解放せず、iterationごとのownership shareを残さず、C stackを増やさない。
 
 ## 型ごとのoperation
@@ -77,8 +83,8 @@ typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous 
 
 ## 最適化との境界
 
-immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。将来はlast-use move、
-escape analysis、region化でretain/releaseを除去できるが、この文書のborrow/result contractを変えずに行う。
+immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。将来のconsuming
+operation、escape analysis、region化も、この文書のborrow/result contractを変えずに行う。
 
 rope、slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。導入する場合も
 各nodeやcache entryが同じcopy/destroy contractへ従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、

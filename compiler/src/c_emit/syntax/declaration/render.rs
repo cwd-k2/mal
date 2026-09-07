@@ -108,6 +108,9 @@ impl FunctionSignature {
                 FunctionSpecifier::NoReturn => "_Noreturn ",
             });
         }
+        if self.maybe_unused {
+            output.push_str("MAL_DETAIL_MAYBE_UNUSED ");
+        }
         output.push_str(&self.result.render_declarator(&self.name));
         output.push('(');
         output.push_str(&render_parameters(&self.parameters));

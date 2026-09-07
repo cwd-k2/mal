@@ -100,6 +100,38 @@ impl BodyEmitter<'_> {
         }
     }
 
+    pub(super) fn emit_owned_pattern_bindings(
+        &self,
+        block: &mut Block,
+        pattern: &Pattern,
+        value: Expr,
+    ) {
+        match pattern {
+            Pattern::Binding { id, ty } => {
+                let name = value_name(*id);
+                block.push(Statement::variable(
+                    self.types.c_type(ty),
+                    &name,
+                    Some(value),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(name),
+                )));
+            }
+            Pattern::Wildcard { ty, .. } => self.types.destroy_value(block, ty, value),
+            Pattern::Product { elements, .. } => {
+                for (index, element) in elements.iter().enumerate() {
+                    self.emit_owned_pattern_bindings(
+                        block,
+                        element,
+                        value.clone().field(format!("field_{index}")),
+                    );
+                }
+            }
+        }
+    }
+
     pub(super) fn destroy_pattern_bindings(&self, block: &mut Block, pattern: &Pattern) {
         match pattern {
             Pattern::Binding { id, ty } => {

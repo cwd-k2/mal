@@ -1,6 +1,6 @@
 use crate::c_emit::syntax::{Block, Expr, Initializer, Statement, TypeName};
 use crate::check::ast::Type;
-use crate::closure::ast::{Atom, FunctionId, Pattern};
+use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference};
 
 use super::super::{
     BodyEmitter, ResultOwnership, environment_destroy_name, environment_name, function_name,
@@ -15,6 +15,18 @@ impl BodyEmitter<'_> {
         ty: &Type,
         expression: Expr,
         ownership: ResultOwnership,
+    ) {
+        self.emit_simple_result_with_transfers(block, pattern, ty, expression, ownership, &[]);
+    }
+
+    pub(super) fn emit_simple_result_with_transfers(
+        &mut self,
+        block: &mut Block,
+        pattern: &Pattern,
+        ty: &Type,
+        expression: Expr,
+        ownership: ResultOwnership,
+        transfers: &[&Atom],
     ) {
         let expression = if ownership == ResultOwnership::Owned {
             expression
@@ -33,6 +45,7 @@ impl BodyEmitter<'_> {
                     "void",
                     Expr::identifier(name),
                 )));
+                self.clear_transferred_atoms(block, transfers);
             }
             Pattern::Wildcard { .. } => {
                 if self.types.contains_managed(ty) {
@@ -47,6 +60,7 @@ impl BodyEmitter<'_> {
                 } else {
                     block.push(Statement::expression(Expr::cast("void", expression)));
                 }
+                self.clear_transferred_atoms(block, transfers);
             }
             Pattern::Product { .. } => {
                 let target = self.result_target(pattern);
@@ -59,10 +73,45 @@ impl BodyEmitter<'_> {
                     "void",
                     Expr::identifier(target.clone()),
                 )));
-                self.emit_pattern_bindings(block, pattern, Expr::identifier(target.clone()));
-                self.types
-                    .destroy_value(block, ty, Expr::identifier(target));
+                self.clear_transferred_atoms(block, transfers);
+                self.emit_owned_pattern_bindings(block, pattern, Expr::identifier(target));
             }
+        }
+    }
+
+    pub(in crate::c_emit::body) fn materialize_atom<'a>(
+        &self,
+        atom: &'a Atom,
+        transfers: &mut Vec<&'a Atom>,
+    ) -> Expr {
+        let expression = self.emit_atom(atom);
+        if self.types.contains_managed(&atom.ty)
+            && self.ownership.can_transfer(atom)
+            && matches!(atom.kind, AtomKind::Reference(Reference::Binding(_)))
+        {
+            transfers.push(atom);
+            expression
+        } else {
+            self.types.copy_value(&atom.ty, expression)
+        }
+    }
+
+    pub(in crate::c_emit::body) fn clear_transferred_atoms(
+        &self,
+        block: &mut Block,
+        transfers: &[&Atom],
+    ) {
+        for atom in transfers {
+            let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+                unreachable!("only binding references can transfer ownership")
+            };
+            block.push(Statement::assignment(
+                Expr::identifier(value_name(id)),
+                Expr::compound_literal(
+                    self.types.c_type(&atom.ty),
+                    [Initializer::positional(Expr::number("0"))],
+                ),
+            ));
         }
     }
 

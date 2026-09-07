@@ -58,14 +58,14 @@ impl BodyEmitter<'_> {
                         closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
                 ) =>
             {
+                let mut transfers = Vec::new();
+                let next_parameter = self.materialize_atom(argument, &mut transfers);
                 output.push(Statement::variable(
                     self.types.c_type(parameter_type),
                     "mal_tail_next_parameter",
-                    Some(
-                        self.types
-                            .copy_value(parameter_type, self.emit_atom(argument)),
-                    ),
+                    Some(next_parameter),
                 ));
+                self.clear_transferred_atoms(output, &transfers);
                 self.emit_tail_cleanup(output, &cleanup);
                 self.types
                     .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
@@ -214,11 +214,14 @@ impl BodyEmitter<'_> {
         parameter_type: &Type,
         cleanup: &[TailCleanup<'_>],
     ) {
+        let mut transfers = Vec::new();
+        let result_value = self.materialize_atom(result, &mut transfers);
         output.push(Statement::variable(
             self.types.c_type(&result.ty),
             "mal_tail_result",
-            Some(self.types.copy_value(&result.ty, self.emit_atom(result))),
+            Some(result_value),
         ));
+        self.clear_transferred_atoms(output, &transfers);
         self.emit_tail_cleanup(output, cleanup);
         self.types
             .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
@@ -273,11 +276,13 @@ impl BodyEmitter<'_> {
                 ResultOwnership::Borrowed,
             );
             self.emit_block_bindings(&mut body, &arm.value);
+            let mut transfers = Vec::new();
+            let result = self.materialize_atom(&arm.value.result, &mut transfers);
             body.push(Statement::assignment(
                 Expr::identifier(target.clone()),
-                self.types
-                    .copy_value(&arm.value.result.ty, self.emit_atom(&arm.value.result)),
+                result,
             ));
+            self.clear_transferred_atoms(&mut body, &transfers);
             self.emit_block_cleanup(&mut body, &arm.value);
             self.destroy_pattern_bindings(&mut body, &arm.pattern);
             body.push(Statement::Break);
@@ -293,9 +298,7 @@ impl BodyEmitter<'_> {
                     .destroy_value(output, ty, Expr::identifier(target));
             }
             Pattern::Product { .. } => {
-                self.emit_pattern_bindings(output, pattern, Expr::identifier(target.clone()));
-                self.types
-                    .destroy_value(output, ty, Expr::identifier(target));
+                self.emit_owned_pattern_bindings(output, pattern, Expr::identifier(target));
             }
         }
     }
@@ -321,19 +324,23 @@ impl BodyEmitter<'_> {
         let condition = self.emit_primitive_condition(operator, left, right);
         let mut then_body = Block::default();
         self.emit_block_bindings(&mut then_body, then);
+        let mut then_transfers = Vec::new();
+        let then_result = self.materialize_atom(&then.result, &mut then_transfers);
         then_body.push(Statement::assignment(
             Expr::identifier(target.clone()),
-            self.types
-                .copy_value(&then.result.ty, self.emit_atom(&then.result)),
+            then_result,
         ));
+        self.clear_transferred_atoms(&mut then_body, &then_transfers);
         self.emit_block_cleanup(&mut then_body, then);
         let mut otherwise_body = Block::default();
         self.emit_block_bindings(&mut otherwise_body, otherwise);
+        let mut otherwise_transfers = Vec::new();
+        let otherwise_result = self.materialize_atom(&otherwise.result, &mut otherwise_transfers);
         otherwise_body.push(Statement::assignment(
             Expr::identifier(target.clone()),
-            self.types
-                .copy_value(&otherwise.result.ty, self.emit_atom(&otherwise.result)),
+            otherwise_result,
         ));
+        self.clear_transferred_atoms(&mut otherwise_body, &otherwise_transfers);
         self.emit_block_cleanup(&mut otherwise_body, otherwise);
         output.push(Statement::if_else(condition, then_body, otherwise_body));
         output.push(discard(Expr::identifier(target.clone())));
@@ -344,9 +351,7 @@ impl BodyEmitter<'_> {
                     .destroy_value(output, ty, Expr::identifier(target));
             }
             Pattern::Product { .. } => {
-                self.emit_pattern_bindings(output, pattern, Expr::identifier(target.clone()));
-                self.types
-                    .destroy_value(output, ty, Expr::identifier(target));
+                self.emit_owned_pattern_bindings(output, pattern, Expr::identifier(target));
             }
         }
     }

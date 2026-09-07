@@ -1,8 +1,9 @@
-use crate::c_emit::syntax::{Block, Statement};
+use crate::c_emit::syntax::{Block, Expr, Initializer, Statement};
+use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
 use crate::closure::ast::{Binding, Block as ClosureBlock, Operation, Pattern};
 
-use super::{BodyEmitter, pattern_type};
+use super::{BodyEmitter, ResultOwnership, pattern_type};
 
 mod control;
 mod result;
@@ -17,9 +18,66 @@ impl BodyEmitter<'_> {
     fn emit_binding(&mut self, output: &mut Block, binding: &Binding) {
         let ty = pattern_type(&binding.pattern);
         match &binding.operation {
-            Operation::Atom(atom) if matches!(binding.pattern, Pattern::Product { .. }) => {
+            Operation::Atom(atom)
+                if matches!(binding.pattern, Pattern::Product { .. })
+                    && !self.ownership.can_transfer(atom) =>
+            {
                 let value = self.emit_atom(atom);
                 self.emit_pattern_bindings(output, &binding.pattern, value);
+            }
+            Operation::Atom(atom) => {
+                let mut transfers = Vec::new();
+                let value = self.materialize_atom(atom, &mut transfers);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &transfers,
+                );
+            }
+            Operation::Product(elements) => {
+                let mut transfers = Vec::new();
+                let fields = elements.iter().enumerate().map(|(index, element)| {
+                    Initializer::designated(
+                        format!("field_{index}"),
+                        self.materialize_atom(element, &mut transfers),
+                    )
+                });
+                let value = Expr::compound_literal(self.types.c_type(ty), fields);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &transfers,
+                );
+            }
+            Operation::SumInjection { index, value } if !is_bool(ty) => {
+                let mut transfers = Vec::new();
+                let value = Expr::compound_literal(
+                    self.types.c_type(ty),
+                    [
+                        Initializer::designated(
+                            "tag",
+                            Expr::named_call("UINT32_C", [Expr::number(index.to_string())]),
+                        ),
+                        Initializer::designated_path(
+                            ["payload".into(), format!("variant_{index}")],
+                            self.materialize_atom(value, &mut transfers),
+                        ),
+                    ],
+                );
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &transfers,
+                );
             }
             Operation::Case { scrutinee, arms } => {
                 self.emit_case(output, &binding.pattern, ty, scrutinee, arms);

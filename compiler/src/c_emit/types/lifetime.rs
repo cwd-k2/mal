@@ -131,7 +131,7 @@ impl TypeRegistry {
         }
         body.push(Statement::return_value(Expr::identifier("value")));
         FunctionDefinition::from_signature(
-            FunctionSignature::static_function(
+            FunctionSignature::static_inline(
                 self.c_type(ty),
                 copy_name(index),
                 [
@@ -141,7 +141,8 @@ impl TypeRegistry {
                     ),
                     Parameter::named(self.c_type(ty), "value"),
                 ],
-            ),
+            )
+            .maybe_unused(),
             body,
         )
     }
@@ -202,7 +203,7 @@ impl TypeRegistry {
             _ => unreachable!("only aggregate types have generated lifetime operations"),
         }
         FunctionDefinition::from_signature(
-            FunctionSignature::static_function(
+            FunctionSignature::static_inline(
                 "void",
                 destroy_name(index),
                 [
@@ -212,7 +213,8 @@ impl TypeRegistry {
                     ),
                     Parameter::named(self.c_type(ty), "value"),
                 ],
-            ),
+            )
+            .maybe_unused(),
             body,
         )
     }

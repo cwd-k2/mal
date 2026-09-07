@@ -37,23 +37,24 @@ public `malc build`経路で通過した。これらの絶対時間はCIの合�
 
 ## 着手順
 
-### 1. last-use transfer
+### 1. last-use transfer（実装済み）
 
-最初に、owned bindingの最後の使用へdescriptorをtransferし、現在の保守的なretainと対応するreleaseを除去する。
-解析はlexerやparserではなく、型とlexical blockが確定したclosure-converted IR以降に置く。最初の範囲は、生成元が
-ownedであり、同じbindingへの後続使用がなく、transfer先がbinding、aggregate field、function result、またはdirect
-tail callの次parameterである場合に限定する。
+`c_emit/body/ownership`はowned bindingの最後の使用へdescriptorをtransferし、保守的なretainと対応する実効的なreleaseを
+除去する。解析はlexerやparserではなく、型とlexical blockが確定したclosure-converted IRに置く。生成元がownedであり、
+同じbindingへの後続使用がなく、transfer先がbinding、aggregate field、function result、またはdirect tail callの次parameter
+である場合に限定する。
 
 parameter、environment field、case payloadはborrowから開始するため、単にlast useであるだけではmoveしない。
-enclosing owner全体を同時にconsumeできることを証明するまではcopyを維持する。transferしたbindingはlexical cleanupから
-除外し、branchごとにlast useが異なる場合は各pathで独立に判断する。評価順序と、resultを確保してからsourceを破棄する
-順序は変えない。
+enclosing owner全体を同時にconsumeできる場合だけ各fieldへownershipを分配する。transferしたbindingはzero状態にして既存の
+lexical cleanupをno-opにし、branchごとにlast useが異なる場合は各pathで独立に判断する。評価順序と、resultを確保してから
+sourceを無効化する順序は変えない。direct tail loopが所有するparameter slotはowner全体をconsumeできる場合に含める。
 
-実装候補の境界は`c_emit/body/statement/result.rs`のmaterialization、`statement/control.rs`のbranch、case、tail edge、
-`body/pattern.rs`のaggregate field bindingである。`ResultOwnership`はoperation resultがownedかborrowedかを既に表すため、
-新しい解析はbinding側のshareをconsumeできるかだけを追加し、型ごとのcopy/destroy規則を複製しない。
+materializationは`c_emit/body/statement/result.rs`、branch、case、tail edgeは`statement/control.rs`、aggregate fieldへの
+ownership分配は`body/pattern.rs`が担う。`ResultOwnership`がoperation resultのowned/borrowedを表し、last-use解析はbinding側の
+shareをconsumeできるかだけを追加する。focused testはlive aliasではretainを残し、branchの各pathとaggregateを経由する
+direct tail edgeではtransferすることをgenerated Cとnative実行の両方で検査する。
 
-### 2. consuming Symbol concat
+### 2. consuming Symbol concat（次の評価対象）
 
 last-use transferが利用可能になった後、左operandをconsumeでき、runtime ownership shareが一つで、capacityが足りる場合に限り、
 Symbol concatのbufferを再利用する余地を測定する。通常の`a + b`は`a`をborrowするため、`a`が後で観測可能なままbufferを

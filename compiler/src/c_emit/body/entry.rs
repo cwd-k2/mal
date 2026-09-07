@@ -21,13 +21,13 @@ impl BodyEmitter<'_> {
             self.emit_block_bindings(&mut body, &binding.value);
             match &binding.pattern {
                 TopLevelPattern::Binding { id, .. } => {
+                    let mut transfers = Vec::new();
+                    let result = self.materialize_atom(&binding.value.result, &mut transfers);
                     body.push(Statement::assignment(
                         CExpr::identifier(value_name(*id)),
-                        self.types.copy_value(
-                            &binding.value.result.ty,
-                            self.emit_atom(&binding.value.result),
-                        ),
+                        result,
                     ));
+                    self.clear_transferred_atoms(&mut body, &transfers);
                     body.push(Statement::expression(CExpr::cast(
                         "void",
                         CExpr::identifier(value_name(*id)),

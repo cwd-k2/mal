@@ -290,14 +290,14 @@ impl BodyEmitter<'_> {
         } else {
             self.emit_block_bindings(output, &function.body);
             let result_name = "mal_function_result";
+            let mut transfers = Vec::new();
+            let result = self.materialize_atom(&function.body.result, &mut transfers);
             output.push(Statement::variable(
                 self.types.c_type(&function.body.result.ty),
                 result_name,
-                Some(self.types.copy_value(
-                    &function.body.result.ty,
-                    self.emit_atom(&function.body.result),
-                )),
+                Some(result),
             ));
+            self.clear_transferred_atoms(output, &transfers);
             self.emit_block_cleanup(output, &function.body);
             output.push(Statement::return_value(CExpr::identifier(result_name)));
         }

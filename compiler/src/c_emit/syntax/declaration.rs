@@ -51,6 +51,7 @@ pub(in crate::c_emit) struct FunctionSignature {
     result: TypeName,
     name: Identifier,
     parameters: Vec<Parameter>,
+    maybe_unused: bool,
 }
 
 impl TypeName {
@@ -177,7 +178,13 @@ impl FunctionSignature {
             result: result.into(),
             name: name.into(),
             parameters: parameters.into_iter().collect(),
+            maybe_unused: false,
         }
+    }
+
+    pub(in crate::c_emit) fn maybe_unused(mut self) -> Self {
+        self.maybe_unused = true;
+        self
     }
 
     pub(in crate::c_emit) fn with_specifiers(
