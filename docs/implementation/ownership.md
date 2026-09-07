@@ -8,7 +8,7 @@ authorityは[Engram仕様](../spec/engrams.md)、hostとの受け渡しは[C hos
 ## 現在の状態
 
 v0.5が現在受理するprogramとtrusted C adapter contractの範囲では、ownership correctnessに必要なcopy、transfer、
-cleanup、local owned bindingのlast-use transfer、consuming `Symbol` concatは実装済みである。ownershipに関する残件は、
+cleanup、local owned bindingのlast-use transfer、owned direct call、consuming `Symbol` concatは実装済みである。ownershipに関する残件は、
 現行contractを変えないescape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
 
 将来、managed cycle、thread間共有、host resourceの自動解放などを言語またはABIへ追加する場合は、その新しい範囲に
@@ -46,6 +46,12 @@ transferし、sourceを型に対応するzero状態にする。既存cleanupはz
 通常のparameter、environment field、case payloadの読取りはborrowであり、最後の使用というだけではtransferしない。direct tail
 loopが明示的にcopyして所有するparameter slotは例外であり、slot全体をdestructureするときに各fieldへownershipを分配できる。
 解析とmaterializationは`c_emit/body`に閉じ、lexer、parser、language IRへbackendのlifetime policyを追加しない。
+
+known direct callでは、callerがmanaged argument全体を所有し、そのbindingの最後の使用である場合だけowned entryへdescriptorを
+transferする。owned entryのparameterはlocal owned bindingと同じlast-use規則に従い、return、aggregate、primitive、次のknown
+direct callへ再transferできる。owned sum全体のlast-useである`case`はactive payloadへownershipを移す。calleeを静的に
+特定できないfunction value callと、call後にもargument bindingを使う経路は
+borrowed entryを維持する。これはgenerated C内部のcalling conventionであり、source typeとC host ABIには露出しない。
 
 direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyまたは
 last-use transferで確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを

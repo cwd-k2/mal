@@ -162,6 +162,233 @@ fn stack_closure_borrows_managed_captures_across_repeated_calls() {
 }
 
 #[test]
+fn transfers_a_symbol_into_an_owned_stack_closure_call() {
+    let generated = emit(
+        r#"main :: Unit -> Int32 := \() {
+  prefix := "p";
+  append := \(value :: Symbol) { prefix + value };
+  owned := "a" + "b";
+  result := append(owned);
+  if ((result == "pab") && (prefix == "p")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit an owned stack closure call");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_1(mal_context, &mal_stack_environment_")
+    );
+    assert!(
+        generated
+            .source
+            .contains("mal_symbol_concatenate_consuming_right(")
+    );
+    assert!(!generated.source.contains("mal_new_environment_"));
+
+    let fixture = NativeFixture::new("owned-stack-closure-call");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=2",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn transfers_owned_parameters_on_each_direct_call_branch() {
+    let generated = emit(
+        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
+choose :: (Bool, Symbol) -> Symbol := \(condition :: Bool, value :: Symbol) {
+  if (condition) then { append(value) } else { append(value) };
+};
+main :: Unit -> Int32 := \() {
+  first := "a" + "b";
+  second := "c" + "d";
+  left := choose(true, first);
+  right := choose(false, second);
+  if ((left == "abx") && (right == "cdx")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit branch-local owned direct calls");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_0(mal_context")
+    );
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_1(mal_context")
+    );
+
+    let fixture = NativeFixture::new("branch-owned-direct-calls");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=4",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn keeps_a_reused_direct_call_argument_borrowed() {
+    let generated = emit(
+        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
+main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  result := append(value);
+  if ((value == "ab") && (result == "abx")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit a borrowed direct call argument");
+
+    assert!(!generated.source.contains("mal_owned_function_0("));
+    let fixture = NativeFixture::new("borrowed-reused-direct-argument");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn preserves_a_shared_allocation_when_its_descriptor_is_transferred() {
+    let generated = emit(
+        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
+main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  alias := value;
+  result := append(value);
+  if ((alias == "ab") && (result == "abx")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit a shared owned direct call argument");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_0(mal_context")
+    );
+    let fixture = NativeFixture::new("shared-owned-direct-argument");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=2",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn transfers_an_active_sum_payload_from_an_owned_parameter() {
+    let generated = emit(
+        r#"Choice :: [Unit, Symbol];
+take :: Choice -> Symbol := \(choice :: Choice) {
+  case (choice) [0](_) { "empty" } [1](value) { value };
+};
+main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  alias := value;
+  choice := Choice[1](value);
+  result := take(choice);
+  if ((alias == "ab") && (result == "ab")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit an owned sum parameter");
+
+    let take = generated_function(&generated.source, "take");
+    let owned = &take[take
+        .find("mal_owned_function_0(")
+        .expect("owned entry for take")..];
+    assert_eq!(owned.matches("mal_symbol_retain(").count(), 1, "{owned}");
+
+    let fixture = NativeFixture::new("owned-sum-parameter");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn generates_an_owned_entry_for_a_non_tail_self_call() {
+    let generated = emit(
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+  if (remaining == 0)
+  then { value }
+  else {
+    next := "x" + value;
+    nested := grow(remaining - 1, next);
+    "y" + nested;
+  };
+};
+main :: Unit -> Int32 := \() {
+  value := grow(20i64, "");
+  if (#value == 40u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit an owned non-tail self call");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_0(mal_context")
+    );
+    let fixture = NativeFixture::new("owned-non-tail-self-call");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn heap_allocates_a_local_closure_that_flows_to_another_function() {
     let generated = emit(
         "apply :: (Int32 -> Int32) -> Int32 := \\(operation :: Int32 -> Int32) {\n\
@@ -308,6 +535,50 @@ fn passes_known_product_arguments_through_a_direct_entry() {
 }
 
 #[test]
+fn transfers_owned_managed_products_through_a_direct_entry() {
+    let generated = emit(
+        r#"join :: (Symbol, Symbol) -> Symbol := \(left :: Symbol, right :: Symbol) {
+  left + right;
+};
+main :: Unit -> Int32 := \() {
+  left := "a" + "b";
+  right := "c" + "d";
+  pair := (left, right);
+  value := join(pair);
+  if (value == "abcd") then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit an owned managed product entry");
+
+    assert!(generated.source.contains(
+        "static MalType_Symbol mal_owned_function_0(MalContext *mal_context, \
+         const void *mal_environment, MalType_Symbol mal_direct_parameter_0, \
+         MalType_Symbol mal_direct_parameter_1)"
+    ));
+    assert!(
+        generated
+            .source
+            .contains("mal_owned_function_0(mal_context, NULL,")
+    );
+
+    let fixture = NativeFixture::new("owned-managed-product-entry");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=4",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn flattens_nested_products_only_at_known_call_entries() {
     let generated = emit(
         "combine :: ((Int64, Int64), Int64) -> Int64 := \\(pair :: (Int64, Int64), extra :: Int64) {\n\
@@ -357,6 +628,47 @@ fn keeps_large_product_calls_on_the_aggregate_fallback() {
     let fixture = NativeFixture::new("large-product-fallback");
     let executable = fixture.compile_generated(generated, "");
     assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn keeps_owned_large_products_on_an_aggregate_entry() {
+    let mut types = vec!["Symbol"];
+    types.extend(std::iter::repeat_n("Int64", 16));
+    let mut parameters = vec!["value :: Symbol".to_owned()];
+    parameters.extend((0..16).map(|index| format!("unused{index} :: Int64")));
+    let mut arguments = vec!["value".to_owned()];
+    arguments.extend(std::iter::repeat_n("0i64".to_owned(), 16));
+    let source = format!(
+        "select :: ({}) -> Symbol := \\({}) {{ value }};\n\
+         main :: Unit -> Int32 := \\() {{\n\
+           value := \"a\" + \"b\";\n\
+           bundle := ({});\n\
+           result := select(bundle);\n\
+           if (result == \"ab\") then {{ 0 }} else {{ 1 }};\n\
+         }};",
+        types.join(", "),
+        parameters.join(", "),
+        arguments.join(", ")
+    );
+    let generated = emit(&source).expect("emit an owned aggregate entry fallback");
+
+    assert!(!generated.source.contains("mal_direct_function_0"));
+    assert!(generated.source.contains("mal_owned_function_0("));
+    let fixture = NativeFixture::new("owned-large-product-entry");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -484,4 +796,16 @@ int32_t mal_ext_step(MalContext *context, int32_t value) {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {
+    let marker = format!("/* mal source binding: {binding} */");
+    let start = source
+        .rfind(&marker)
+        .unwrap_or_else(|| panic!("missing generated function for {binding}"));
+    let remainder = &source[start + marker.len()..];
+    let end = remainder
+        .find("/* mal source binding:")
+        .unwrap_or(remainder.len());
+    &remainder[..end]
 }

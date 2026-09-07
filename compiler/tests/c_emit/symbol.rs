@@ -379,6 +379,50 @@ main :: Unit -> Int32 := \() {
 }
 
 #[test]
+fn transfers_symbol_arguments_through_known_helper_calls() {
+    let generated = emit(
+        r#"inner :: Symbol -> Symbol := \(value :: Symbol) {
+  "x" + value;
+};
+outer :: Symbol -> Symbol := \(value :: Symbol) {
+  inner(value);
+};
+grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+  if (remaining == 0)
+  then { value }
+  else { grow(remaining - 1, outer(value)) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow(10000i64, "");
+  if (#value == 10000u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit owned direct Symbol calls");
+    let inner = generated_function(&generated.source, "inner");
+    assert!(inner.contains("mal_owned_function_0("));
+    assert!(inner.contains("mal_symbol_concatenate_consuming_right("));
+    let outer = generated_function(&generated.source, "outer");
+    assert!(outer.contains("mal_owned_function_1("));
+    assert!(outer.contains("mal_owned_function_0(mal_context"));
+
+    let fixture = NativeFixture::new("owned-direct-symbol-calls");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=32",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn balances_shared_rope_concatenations_before_materialization() {
     let base = "a".repeat(300);
     let source = format!(
@@ -386,7 +430,12 @@ fn balances_shared_rope_concatenations_before_materialization() {
          grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
            if (remaining == 0)\n\
            then {{ value }}\n\
-           else {{ grow(remaining - 1, prepend(value)) }};\n\
+           else {{\n\
+             next := prepend(value);\n\
+             if (#value == 0u64)\n\
+             then {{ grow(remaining - 1, next) }}\n\
+             else {{ grow(remaining - 1, next) }}\n\
+           }};\n\
          }};\n\
          main :: Unit -> Int32 := \\() {{\n\
            value := grow(5000i64, \"{base}\");\n\
@@ -399,6 +448,7 @@ fn balances_shared_rope_concatenations_before_materialization() {
     let generated = emit(&source).expect("emit balanced shared Symbol rope");
     let prepend = generated_function(&generated.source, "prepend");
     assert!(prepend.contains("mal_symbol_concatenate(mal_context"));
+    assert!(!prepend.contains("mal_owned_function_0("));
     assert!(generated.source.contains("mal_symbol_rope_balance"));
 
     let fixture = NativeFixture::new("balanced-shared-symbol-rope");
@@ -421,7 +471,10 @@ fn balances_mixed_shared_rope_growth_and_joins() {
     let source = format!(
         "prepend :: Symbol -> Symbol := \\(value :: Symbol) {{ \"l\" + value }};\n\
          append :: Symbol -> Symbol := \\(value :: Symbol) {{ value + \"r\" }};\n\
-         step :: Symbol -> Symbol := \\(value :: Symbol) {{ append(prepend(value)) }};\n\
+         step :: Symbol -> Symbol := \\(value :: Symbol) {{\n\
+           prefixed := prepend(value);\n\
+           if (#value == 0u64) then {{ append(prefixed) }} else {{ append(prefixed) }};\n\
+         }};\n\
          grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
            if (remaining == 0) then {{ value }} else {{ grow(remaining - 1, step(value)) }};\n\
          }};\n\
@@ -551,7 +604,12 @@ prepend :: Symbol -> Symbol := \(value :: Symbol) {
 grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
   if (remaining == 0)
   then { value }
-  else { grow(remaining - 1, prepend(value)) };
+  else {
+    next := prepend(value);
+    if (#value == 0u64)
+    then { grow(remaining - 1, next) }
+    else { grow(remaining - 1, next) };
+  };
 };
 main :: Unit -> Int32 := \() {
   value := grow(1000i64, "");

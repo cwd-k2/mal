@@ -35,7 +35,7 @@ impl BodyEmitter<'_> {
         match &binding.operation {
             Operation::Atom(atom)
                 if matches!(binding.pattern, Pattern::Product { .. })
-                    && !self.ownership.can_transfer(atom) =>
+                    && !self.can_transfer(atom) =>
             {
                 let value = self.emit_atom(atom);
                 self.emit_pattern_bindings(output, &binding.pattern, value);
@@ -94,11 +94,28 @@ impl BodyEmitter<'_> {
                     &transfers,
                 );
             }
+            Operation::Call { callee, argument }
+                if self.types.contains_managed(&argument.ty)
+                    && self.can_transfer(argument)
+                    && self
+                        .direct_function(callee)
+                        .is_some_and(|(function, _)| self.owned_calls.contains(function)) =>
+            {
+                let value = self.emit_call(callee, argument, true);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &[argument],
+                );
+            }
             Operation::PrimitiveBinary {
                 operator: BinaryPrimitive::Add,
                 left,
                 right,
-            } if left.ty == Type::Symbol && self.ownership.can_transfer(left) => {
+            } if left.ty == Type::Symbol && self.can_transfer(left) => {
                 let value = self.emit_symbol_concatenate(left, right, true, false);
                 self.emit_simple_result_with_transfers(
                     output,
@@ -113,7 +130,7 @@ impl BodyEmitter<'_> {
                 operator: BinaryPrimitive::Add,
                 left,
                 right,
-            } if left.ty == Type::Symbol && self.ownership.can_transfer(right) => {
+            } if left.ty == Type::Symbol && self.can_transfer(right) => {
                 let value = self.emit_symbol_concatenate(left, right, false, true);
                 self.emit_simple_result_with_transfers(
                     output,

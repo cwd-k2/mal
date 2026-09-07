@@ -86,7 +86,7 @@ impl BodyEmitter<'_> {
     ) -> Expr {
         let expression = self.emit_atom(atom);
         if self.types.contains_managed(&atom.ty)
-            && self.ownership.can_transfer(atom)
+            && self.can_transfer(atom)
             && matches!(atom.kind, AtomKind::Reference(Reference::Binding(_)))
         {
             transfers.push(atom);

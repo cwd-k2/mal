@@ -9,7 +9,7 @@ Status: Current investigation roadmap
 ## 出発点
 
 現在のbackendは`Symbol`、capturing closure、それらを含むproductとsumについてcopy、transfer、逆順cleanupを生成する。
-direct self tail callもmanaged parameterとpath-local bindingを回収しながらCのloopへlowerされる。したがって最適化は
+direct self tail callとowned direct callもmanaged parameterをtransferし、path-local bindingを回収する。したがって最適化は
 受理可能なprogramやborrow/result contractを変えず、不要なretain、release、allocation、byte copyだけを減らす。
 
 focused regressionは`compiler/tests/c_emit/calls.rs`と`symbol.rs`にあり、managed tail recursionでは100万iteration、
@@ -20,7 +20,7 @@ case bindingを含むtail edgeでは10万iterationをnative Cとして実行す�
 |---|---|---|
 | `symbol-churn` | 100万回の短寿命concat | allocationとreleaseの残留 |
 | `symbol-growth` | 1 byteずつ成長する1万byteの値 | immutable concatの累積byte copy |
-| `symbol-prepend` | 先頭へ1 byteずつ追加する1万byteの値 | right operandをconsumeするbuffer再利用 |
+| `symbol-prepend` | helper call越しに先頭へ1 byteずつ追加する1万byteの値 | owned direct callとright operandのbuffer再利用 |
 | `symbol-rope` | borrowed関数境界を越える5000回のprepend | shared concatの平衡性と遅延materialization |
 | `closure-churn` | 20万個の短寿命capturing closure | environment allocationとcleanup |
 | `aggregate-churn` | 20万回のmanaged product、sum、case | field copyとpath-local cleanup |
@@ -96,6 +96,22 @@ cacheはropeと同じreference-count lifetimeで回収し、各`MalContext`内�
 focused testは左右の一意buffer成長をtotal allocation上限32、shared ropeを5000回の偏ったconcat、左右混在join、同じ部分木を
 再利用する18段のnested call、prependからappendへの切替、共有aliasのimmutability、nested aggregateのhost観測、allocation
 failureで検査する。pressure suiteはflat prependとshared ropeを独立したcaseとして通常buildとsanitizer buildで実行する。
+
+### 5. owned direct call（実装済み）
+
+calleeを静的に特定でき、managed argumentがowned bindingのlast useであるcallには、borrowed entryと別のowned entryを使う。
+callerはcall resultを確保してからargument bindingをzero状態にし、calleeはparameter全体のownershipを受け取る。これにより
+callee内のreturn、product destructuring、consuming concat、さらに別のknown direct callへ同じshareをtransferできる。
+direct self tail loopのowned entryは入口のparameter copyも省略する。
+
+owned entryは実際に必要なfunctionだけ生成する。必要性はtop-level initializerと各function bodyのdirect callから始め、owned
+parameterを次のknown calleeへ渡す経路がなくなるまでcall graph上で伝播する。通常のborrowed entry、first-class functionの
+indirect calling convention、extern ABIは変更しない。16 leaf以下のproductは既存のflattened direct entryと同じ引数形を使い、
+それを超えるproductはaggregateのまま渡す。
+
+focused testは1万回の二段helper prependをtotal allocation上限32、managed product、active sum payload、large product fallback、
+stack closure、branchごとのtransfer、transitive call chainで検査する。同じbindingをcall後に再使用する場合はowned entryを
+生成せず、別aliasがallocationを共有するdescriptorだけをtransferした場合はruntimeのreference countによりin-place変更しない。
 
 automatic memoizationは初期候補にしない。mal functionは`extern`を呼び得るためimmutabilityだけではpureにならず、無制限cacheは
 live setを増やす。descriptor addressは再利用され、source-level identityでもない。pure operationに限定したcacheがprofileで

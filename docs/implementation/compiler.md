@@ -130,6 +130,11 @@ call siteのcalleeがimmutableなtop-level lambda、現在のself closure、ま�
 単純aliasも同じidentityとして追跡するが、return、aggregate格納、capture、別関数への引数のいずれかに使われれば
 共通function-value calling conventionへfallbackする。
 
+known direct callのmanaged argumentがowned bindingのlast useなら、compilerは必要なcalleeだけにowned entryを生成する。
+callerはargumentをentryへtransferし、calleeはparameterをreturn、aggregate field、consuming primitive、次のowned direct callへ
+再transferできる。owned entryを必要とするcalleeはcall graph上で推移的に求める。borrowed entryとindirect function callの
+calling conventionは維持し、source-level function typeにはownershipを追加しない。
+
 callにしか使われないcapturing local closureはenvironmentをC stack上に構築し、captureは外側のlexical
 lifetime内でborrowする。この場合はclosure descriptor、reference count、environment destructorを生成しない。通常の
 heap closureと同じenvironment pointer引数を使うため、function bodyのcloneは不要である。これらの区別はsourceから

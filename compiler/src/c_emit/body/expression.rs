@@ -23,7 +23,7 @@ pub(super) struct EmittedExpression {
 
 use super::{
     BodyEmitter, direct_function_name, flattened_product_values, function_name,
-    has_direct_product_entry,
+    has_direct_product_entry, owned_function_name,
 };
 
 impl BodyEmitter<'_> {
@@ -43,30 +43,7 @@ impl BodyEmitter<'_> {
     fn emit_operation_expression_value(&mut self, operation: &Operation, result: &Type) -> Expr {
         match operation {
             Operation::Atom(atom) => self.emit_atom(atom),
-            Operation::Call { callee, argument } => {
-                if let Some((function, environment)) = self.direct_function(callee) {
-                    let argument = self.emit_atom(argument);
-                    let parameter = &self.function(function).parameter.ty;
-                    if has_direct_product_entry(parameter) {
-                        let mut arguments = vec![Expr::identifier("mal_context"), environment];
-                        arguments.extend(flattened_product_values(parameter, argument));
-                        return Expr::named_call(direct_function_name(function), arguments);
-                    }
-                    return Expr::named_call(
-                        function_name(function),
-                        [Expr::identifier("mal_context"), environment, argument],
-                    );
-                }
-                let callee = self.emit_atom(callee);
-                Expr::call(
-                    callee.clone().field("call"),
-                    [
-                        Expr::identifier("mal_context"),
-                        callee.field("environment"),
-                        self.emit_atom(argument),
-                    ],
-                )
-            }
+            Operation::Call { callee, argument } => self.emit_call(callee, argument, false),
             Operation::SymbolLength { value } => self.emit_atom(value).field("length"),
             Operation::SymbolAt { argument } => {
                 self.needs.symbol_at = true;
@@ -241,6 +218,42 @@ impl BodyEmitter<'_> {
                 unreachable!("structured operations are emitted as statements")
             }
         }
+    }
+
+    pub(super) fn emit_call(&self, callee: &Atom, argument: &Atom, owned: bool) -> Expr {
+        if let Some((function, environment)) = self.direct_function(callee) {
+            let argument = self.emit_atom(argument);
+            let parameter = &self.function(function).parameter.ty;
+            if has_direct_product_entry(parameter) {
+                let mut arguments = vec![Expr::identifier("mal_context"), environment];
+                arguments.extend(flattened_product_values(parameter, argument));
+                let name = if owned {
+                    owned_function_name(function)
+                } else {
+                    direct_function_name(function)
+                };
+                return Expr::named_call(name, arguments);
+            }
+            let name = if owned {
+                owned_function_name(function)
+            } else {
+                function_name(function)
+            };
+            return Expr::named_call(
+                name,
+                [Expr::identifier("mal_context"), environment, argument],
+            );
+        }
+        debug_assert!(!owned, "indirect calls cannot consume their argument");
+        let callee = self.emit_atom(callee);
+        Expr::call(
+            callee.clone().field("call"),
+            [
+                Expr::identifier("mal_context"),
+                callee.field("environment"),
+                self.emit_atom(argument),
+            ],
+        )
     }
 
     pub(super) fn emit_external_call(

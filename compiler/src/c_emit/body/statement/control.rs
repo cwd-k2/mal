@@ -136,6 +136,8 @@ impl BodyEmitter<'_> {
         parameter_type: &Type,
         outer_cleanup: &[TailCleanup<'a>],
     ) {
+        let scrutinee_atom = scrutinee;
+        let transfer_scrutinee = self.can_transfer(scrutinee);
         let bool_scrutinee = is_bool(&scrutinee.ty);
         let scrutinee = self.emit_atom(scrutinee);
         let tag = if bool_scrutinee {
@@ -147,13 +149,24 @@ impl BodyEmitter<'_> {
         for arm in arms {
             let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
             let mut body = Block::default();
-            self.emit_simple_result(
-                &mut body,
-                &arm.pattern,
-                pattern_type(&arm.pattern),
-                payload,
-                ResultOwnership::Borrowed,
-            );
+            if transfer_scrutinee {
+                self.emit_simple_result_with_transfers(
+                    &mut body,
+                    &arm.pattern,
+                    pattern_type(&arm.pattern),
+                    payload,
+                    ResultOwnership::Owned,
+                    &[scrutinee_atom],
+                );
+            } else {
+                self.emit_simple_result(
+                    &mut body,
+                    &arm.pattern,
+                    pattern_type(&arm.pattern),
+                    payload,
+                    ResultOwnership::Borrowed,
+                );
+            }
             let mut cleanup = outer_cleanup.to_vec();
             cleanup.push(TailCleanup::Pattern(&arm.pattern));
             self.emit_tail_block_with_cleanup(
@@ -257,6 +270,8 @@ impl BodyEmitter<'_> {
             target.clone(),
             None,
         ));
+        let scrutinee_atom = scrutinee;
+        let transfer_scrutinee = self.can_transfer(scrutinee);
         let bool_scrutinee = is_bool(&scrutinee.ty);
         let scrutinee = self.emit_atom(scrutinee);
         let tag = if bool_scrutinee {
@@ -268,13 +283,24 @@ impl BodyEmitter<'_> {
         for arm in arms {
             let payload = case_payload(&scrutinee, arm.index, bool_scrutinee);
             let mut body = Block::default();
-            self.emit_simple_result(
-                &mut body,
-                &arm.pattern,
-                pattern_type(&arm.pattern),
-                payload,
-                ResultOwnership::Borrowed,
-            );
+            if transfer_scrutinee {
+                self.emit_simple_result_with_transfers(
+                    &mut body,
+                    &arm.pattern,
+                    pattern_type(&arm.pattern),
+                    payload,
+                    ResultOwnership::Owned,
+                    &[scrutinee_atom],
+                );
+            } else {
+                self.emit_simple_result(
+                    &mut body,
+                    &arm.pattern,
+                    pattern_type(&arm.pattern),
+                    payload,
+                    ResultOwnership::Borrowed,
+                );
+            }
             self.emit_block_bindings(&mut body, &arm.value);
             let mut transfers = Vec::new();
             let result = self.materialize_atom(&arm.value.result, &mut transfers);

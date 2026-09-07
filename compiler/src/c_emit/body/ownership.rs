@@ -3,133 +3,140 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Block, Operation, Pattern, Reference};
 
-use super::has_direct_tail_call;
-
 pub(super) struct OwnershipPlan {
     last_owned_uses: HashSet<*const Atom>,
+    last_parameter_uses: HashSet<*const Atom>,
 }
 
 impl OwnershipPlan {
     pub(super) fn new(program: &closure::Program) -> Self {
         let mut plan = Self {
             last_owned_uses: HashSet::new(),
+            last_parameter_uses: HashSet::new(),
         };
         for binding in &program.bindings {
-            plan.analyze_root(&binding.value, None);
+            analyze_locals(&binding.value, &mut plan.last_owned_uses);
         }
         for function in &program.functions {
-            let owned_parameter = has_direct_tail_call(&function.body, function.id)
-                .then_some(function.parameter.binding)
-                .flatten();
-            plan.analyze_root(&function.body, owned_parameter);
+            analyze_locals(&function.body, &mut plan.last_owned_uses);
+            if let Some(parameter) = function.parameter.binding {
+                analyze_parameter(&function.body, parameter, &mut plan.last_parameter_uses);
+            }
         }
         plan
     }
 
-    pub(super) fn can_transfer(&self, atom: &Atom) -> bool {
+    pub(super) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
         self.last_owned_uses.contains(&atom_key(atom))
+            || (parameter_owned && self.last_parameter_uses.contains(&atom_key(atom)))
     }
+}
 
-    fn analyze_root(&mut self, block: &Block, owned_parameter: Option<ValueId>) {
-        let mut owned = HashSet::new();
-        collect_owned_bindings(block, &mut owned);
-        if let Some(parameter) = owned_parameter {
-            owned.insert(parameter);
+fn analyze_locals(block: &Block, transfers: &mut HashSet<*const Atom>) {
+    let mut owned = HashSet::new();
+    collect_owned_bindings(block, &mut owned);
+    analyze_block(block, &owned, &mut HashSet::new(), transfers);
+}
+
+fn analyze_parameter(block: &Block, parameter: ValueId, transfers: &mut HashSet<*const Atom>) {
+    analyze_block(
+        block,
+        &HashSet::from([parameter]),
+        &mut HashSet::new(),
+        transfers,
+    );
+}
+
+fn analyze_block(
+    block: &Block,
+    owned: &HashSet<ValueId>,
+    live_after: &mut HashSet<ValueId>,
+    transfers: &mut HashSet<*const Atom>,
+) {
+    analyze_atom(&block.result, owned, live_after, transfers);
+    for binding in block.bindings.iter().rev() {
+        remove_pattern_bindings(&binding.pattern, live_after);
+        analyze_operation(&binding.operation, owned, live_after, transfers);
+    }
+}
+
+fn analyze_operation(
+    operation: &Operation,
+    owned: &HashSet<ValueId>,
+    live_after: &mut HashSet<ValueId>,
+    transfers: &mut HashSet<*const Atom>,
+) {
+    match operation {
+        Operation::Atom(atom)
+        | Operation::SymbolLength { value: atom }
+        | Operation::NumericConversion { operand: atom }
+        | Operation::PrimitiveUnary { operand: atom, .. } => {
+            analyze_atom(atom, owned, live_after, transfers);
         }
-        self.analyze_block(block, &owned, &mut HashSet::new());
-    }
-
-    fn analyze_block(
-        &mut self,
-        block: &Block,
-        owned: &HashSet<ValueId>,
-        live_after: &mut HashSet<ValueId>,
-    ) {
-        self.analyze_atom(&block.result, owned, live_after);
-        for binding in block.bindings.iter().rev() {
-            remove_pattern_bindings(&binding.pattern, live_after);
-            self.analyze_operation(&binding.operation, owned, live_after);
-        }
-    }
-
-    fn analyze_operation(
-        &mut self,
-        operation: &Operation,
-        owned: &HashSet<ValueId>,
-        live_after: &mut HashSet<ValueId>,
-    ) {
-        match operation {
-            Operation::Atom(atom)
-            | Operation::SymbolLength { value: atom }
-            | Operation::NumericConversion { operand: atom }
-            | Operation::PrimitiveUnary { operand: atom, .. } => {
-                self.analyze_atom(atom, owned, live_after);
-            }
-            Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
-                for atom in captures.iter().rev() {
-                    self.analyze_atom(atom, owned, live_after);
-                }
-            }
-            Operation::Call { callee, argument } => {
-                self.analyze_atom(argument, owned, live_after);
-                self.analyze_atom(callee, owned, live_after);
-            }
-            Operation::SymbolAt { argument }
-            | Operation::Memory { argument, .. }
-            | Operation::ExternalCall { argument, .. }
-            | Operation::SumInjection {
-                value: argument, ..
-            } => self.analyze_atom(argument, owned, live_after),
-            Operation::Case { scrutinee, arms } => {
-                let continuation = live_after.clone();
-                let mut before_arms = HashSet::new();
-                for arm in arms {
-                    let mut arm_live = continuation.clone();
-                    self.analyze_block(&arm.value, owned, &mut arm_live);
-                    remove_pattern_bindings(&arm.pattern, &mut arm_live);
-                    before_arms.extend(arm_live);
-                }
-                *live_after = before_arms;
-                self.analyze_atom(scrutinee, owned, live_after);
-            }
-            Operation::PrimitiveBranch {
-                left,
-                right,
-                otherwise,
-                then,
-                ..
-            } => {
-                let continuation = live_after.clone();
-                let mut otherwise_live = continuation.clone();
-                self.analyze_block(otherwise, owned, &mut otherwise_live);
-                let mut then_live = continuation;
-                self.analyze_block(then, owned, &mut then_live);
-                otherwise_live.extend(then_live);
-                *live_after = otherwise_live;
-                self.analyze_atom(right, owned, live_after);
-                self.analyze_atom(left, owned, live_after);
-            }
-            Operation::PrimitiveBinary { left, right, .. } => {
-                self.analyze_atom(right, owned, live_after);
-                self.analyze_atom(left, owned, live_after);
+        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
+            for atom in captures.iter().rev() {
+                analyze_atom(atom, owned, live_after, transfers);
             }
         }
-    }
-
-    fn analyze_atom(
-        &mut self,
-        atom: &Atom,
-        owned: &HashSet<ValueId>,
-        live_after: &mut HashSet<ValueId>,
-    ) {
-        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
-            return;
-        };
-        if owned.contains(&id) && !live_after.contains(&id) {
-            self.last_owned_uses.insert(atom_key(atom));
+        Operation::Call { callee, argument } => {
+            analyze_atom(argument, owned, live_after, transfers);
+            analyze_atom(callee, owned, live_after, transfers);
         }
-        live_after.insert(id);
+        Operation::SymbolAt { argument }
+        | Operation::Memory { argument, .. }
+        | Operation::ExternalCall { argument, .. }
+        | Operation::SumInjection {
+            value: argument, ..
+        } => analyze_atom(argument, owned, live_after, transfers),
+        Operation::Case { scrutinee, arms } => {
+            let continuation = live_after.clone();
+            let mut before_arms = HashSet::new();
+            for arm in arms {
+                let mut arm_live = continuation.clone();
+                analyze_block(&arm.value, owned, &mut arm_live, transfers);
+                remove_pattern_bindings(&arm.pattern, &mut arm_live);
+                before_arms.extend(arm_live);
+            }
+            *live_after = before_arms;
+            analyze_atom(scrutinee, owned, live_after, transfers);
+        }
+        Operation::PrimitiveBranch {
+            left,
+            right,
+            otherwise,
+            then,
+            ..
+        } => {
+            let continuation = live_after.clone();
+            let mut otherwise_live = continuation.clone();
+            analyze_block(otherwise, owned, &mut otherwise_live, transfers);
+            let mut then_live = continuation;
+            analyze_block(then, owned, &mut then_live, transfers);
+            otherwise_live.extend(then_live);
+            *live_after = otherwise_live;
+            analyze_atom(right, owned, live_after, transfers);
+            analyze_atom(left, owned, live_after, transfers);
+        }
+        Operation::PrimitiveBinary { left, right, .. } => {
+            analyze_atom(right, owned, live_after, transfers);
+            analyze_atom(left, owned, live_after, transfers);
+        }
     }
+}
+
+fn analyze_atom(
+    atom: &Atom,
+    owned: &HashSet<ValueId>,
+    live_after: &mut HashSet<ValueId>,
+    transfers: &mut HashSet<*const Atom>,
+) {
+    let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+        return;
+    };
+    if owned.contains(&id) && !live_after.contains(&id) {
+        transfers.insert(atom_key(atom));
+    }
+    live_after.insert(id);
 }
 
 // The closure program is immutably borrowed for the complete emission, so an Atom's

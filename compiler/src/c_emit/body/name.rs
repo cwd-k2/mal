@@ -39,6 +39,16 @@ pub(super) fn direct_function_name(id: FunctionId) -> String {
     }
 }
 
+pub(super) fn owned_function_name(id: FunctionId) -> String {
+    match id {
+        FunctionId::Lambda(id) => format!("mal_owned_function_{}", id.0),
+        FunctionId::Memory(primitive) => format!(
+            "mal_owned_memory_function_{}",
+            memory_primitive_name(primitive)
+        ),
+    }
+}
+
 pub(super) fn environment_name(id: FunctionId) -> String {
     match id {
         FunctionId::Lambda(id) => format!("MalEnvironment_{}", id.0),

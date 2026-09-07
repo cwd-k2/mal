@@ -8,7 +8,7 @@ use crate::closure::ast as closure;
 use super::{
     BodyEmitter, direct_function_name, environment_destroy_name, environment_name,
     flattened_product_types, flattened_product_values, function_name, has_direct_product_entry,
-    has_direct_tail_call, value_name,
+    has_direct_tail_call, owned_function_name, value_name,
 };
 
 impl BodyEmitter<'_> {
@@ -117,6 +117,11 @@ impl BodyEmitter<'_> {
                 ));
             }
             output.push(Declaration::function(self.function_signature(function)));
+            if self.owned_calls.contains(function.id) {
+                output.push(Declaration::function(
+                    self.owned_function_signature(function),
+                ));
+            }
         }
         if !output.is_empty() {
             output.blank_line();
@@ -144,7 +149,7 @@ impl BodyEmitter<'_> {
                     parameter_name.clone(),
                     Some(value),
                 ));
-                self.emit_function_body(&mut body, function);
+                self.emit_function_body(&mut body, function, false);
                 output.push(FunctionDefinition::from_signature(
                     self.direct_function_signature(function),
                     body,
@@ -169,15 +174,41 @@ impl BodyEmitter<'_> {
                     body,
                 ));
                 output.blank_line();
+                if self.owned_calls.contains(function.id) {
+                    let mut body = CBlock::default();
+                    let mut next_parameter = 0;
+                    let value =
+                        self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
+                    body.push(Statement::variable(
+                        self.types.c_type(&function.parameter.ty),
+                        parameter_name,
+                        Some(value),
+                    ));
+                    self.emit_function_body(&mut body, function, true);
+                    output.push(FunctionDefinition::from_signature(
+                        self.owned_function_signature(function),
+                        body,
+                    ));
+                    output.blank_line();
+                }
                 continue;
             }
             let mut body = CBlock::default();
-            self.emit_function_body(&mut body, function);
+            self.emit_function_body(&mut body, function, false);
             output.push(FunctionDefinition::from_signature(
                 self.function_signature(function),
                 body,
             ));
             output.blank_line();
+            if self.owned_calls.contains(function.id) {
+                let mut body = CBlock::default();
+                self.emit_function_body(&mut body, function, true);
+                output.push(FunctionDefinition::from_signature(
+                    self.owned_function_signature(function),
+                    body,
+                ));
+                output.blank_line();
+            }
         }
         output
     }
@@ -198,9 +229,7 @@ impl BodyEmitter<'_> {
                 Parameter::named(parameter_type, parameter_name),
             ],
         );
-        if self.closure_uses.has_direct_creator(function.id)
-            && has_direct_product_entry(&function.parameter.ty)
-        {
+        if self.closure_uses.has_direct_creator(function.id) {
             signature.maybe_unused()
         } else {
             signature
@@ -208,6 +237,34 @@ impl BodyEmitter<'_> {
     }
 
     fn direct_function_signature(&self, function: &closure::Function) -> FunctionSignature {
+        self.flattened_function_signature(function, direct_function_name(function.id))
+    }
+
+    fn owned_function_signature(&self, function: &closure::Function) -> FunctionSignature {
+        if has_direct_product_entry(&function.parameter.ty) {
+            self.flattened_function_signature(function, owned_function_name(function.id))
+        } else {
+            let parameter_name = function
+                .parameter
+                .binding
+                .map_or_else(|| "mal_parameter".into(), value_name);
+            FunctionSignature::static_function(
+                self.types.c_type(&function.body.result.ty),
+                owned_function_name(function.id),
+                [
+                    Parameter::named(TypeName::named("MalContext").pointer(), "mal_context"),
+                    Parameter::named(TypeName::const_named("void").pointer(), "mal_environment"),
+                    Parameter::named(self.types.c_type(&function.parameter.ty), parameter_name),
+                ],
+            )
+        }
+    }
+
+    fn flattened_function_signature(
+        &self,
+        function: &closure::Function,
+        name: String,
+    ) -> FunctionSignature {
         let result = self.types.c_type(&function.body.result.ty);
         let crate::check::ast::Type::Product(_) = &function.parameter.ty else {
             unreachable!("only product parameters have direct entry points")
@@ -227,7 +284,7 @@ impl BodyEmitter<'_> {
                     )
                 }),
         );
-        FunctionSignature::static_function(result, direct_function_name(function.id), parameters)
+        FunctionSignature::static_function(result, name, parameters)
     }
 
     fn direct_parameter_value(
@@ -249,7 +306,12 @@ impl BodyEmitter<'_> {
         parameter
     }
 
-    fn emit_function_body(&mut self, output: &mut CBlock, function: &closure::Function) {
+    fn emit_function_body(
+        &mut self,
+        output: &mut CBlock,
+        function: &closure::Function,
+        owns_parameter: bool,
+    ) {
         output.push(Statement::expression(CExpr::cast(
             "void",
             CExpr::identifier("mal_context"),
@@ -281,13 +343,14 @@ impl BodyEmitter<'_> {
                 .parameter
                 .binding
                 .map_or_else(|| "mal_parameter".into(), value_name);
-            if self.types.contains_managed(&function.parameter.ty) {
+            if self.types.contains_managed(&function.parameter.ty) && !owns_parameter {
                 output.push(Statement::assignment(
                     CExpr::identifier(&parameter_name),
                     self.types
                         .copy_value(&function.parameter.ty, CExpr::identifier(&parameter_name)),
                 ));
             }
+            self.parameter_owned = true;
             let mut tail = CBlock::default();
             self.emit_tail_block(
                 &mut tail,
@@ -297,7 +360,9 @@ impl BodyEmitter<'_> {
                 &function.parameter.ty,
             );
             output.push(Statement::label("mal_tail_entry", tail));
+            self.parameter_owned = false;
         } else {
+            self.parameter_owned = owns_parameter;
             self.emit_block_bindings(output, &function.body);
             let result_name = "mal_function_result";
             let mut transfers = Vec::new();
@@ -309,7 +374,19 @@ impl BodyEmitter<'_> {
             ));
             self.clear_transferred_atoms(output, &transfers);
             self.emit_block_cleanup(output, &function.body);
+            if owns_parameter && self.types.contains_managed(&function.parameter.ty) {
+                let parameter_name = function
+                    .parameter
+                    .binding
+                    .map_or_else(|| "mal_parameter".into(), value_name);
+                self.types.destroy_value(
+                    output,
+                    &function.parameter.ty,
+                    CExpr::identifier(parameter_name),
+                );
+            }
             output.push(Statement::return_value(CExpr::identifier(result_name)));
+            self.parameter_owned = false;
         }
     }
 }

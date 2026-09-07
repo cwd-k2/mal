@@ -11,6 +11,7 @@ mod entry;
 mod expression;
 mod function;
 mod name;
+mod owned_call;
 mod ownership;
 mod pattern;
 mod statement;
@@ -23,8 +24,10 @@ use self::closure_use::ClosureUsePlan;
 use self::expression::ResultOwnership;
 use self::name::environment_destroy_name;
 use self::name::{
-    direct_function_name, environment_name, function_name, stack_environment_name, value_name,
+    direct_function_name, environment_name, function_name, owned_function_name,
+    stack_environment_name, value_name,
 };
+use self::owned_call::OwnedCallPlan;
 use self::ownership::OwnershipPlan;
 use self::pattern::pattern_type;
 
@@ -70,17 +73,24 @@ pub(super) struct BodyEmitter<'a> {
     next_discard: u32,
     ownership: OwnershipPlan,
     closure_uses: ClosureUsePlan,
+    owned_calls: OwnedCallPlan,
+    parameter_owned: bool,
 }
 
 impl<'a> BodyEmitter<'a> {
     pub(super) fn new(program: &'a closure::Program, types: &'a TypeRegistry) -> Self {
+        let ownership = OwnershipPlan::new(program);
+        let closure_uses = ClosureUsePlan::new(program);
+        let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         Self {
             program,
             types,
             needs: RuntimeNeeds::default(),
             next_discard: 0,
-            ownership: OwnershipPlan::new(program),
-            closure_uses: ClosureUsePlan::new(program),
+            ownership,
+            closure_uses,
+            owned_calls,
+            parameter_owned: false,
         }
     }
 
@@ -124,13 +134,13 @@ impl<'a> BodyEmitter<'a> {
     }
 
     fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, super::syntax::Expr)> {
+        let function = direct_function_id(self.program, &self.closure_uses, callee)?;
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
                 Some((function, super::syntax::Expr::identifier("mal_environment")))
             }
             closure::AtomKind::Reference(closure::Reference::Binding(id)) => {
                 if let Some(target) = self.closure_uses.direct_closure(id) {
-                    let function = target.function;
                     let environment = if self.function(function).environment.is_empty() {
                         super::syntax::Expr::identifier("NULL")
                     } else {
@@ -140,35 +150,7 @@ impl<'a> BodyEmitter<'a> {
                     };
                     return Some((function, environment));
                 }
-                self.program.bindings.iter().find_map(|binding| {
-                    let closure::TopLevelPattern::Binding {
-                        id: top_level_id, ..
-                    } = binding.pattern
-                    else {
-                        return None;
-                    };
-                    if top_level_id != id {
-                        return None;
-                    }
-                    let closure::AtomKind::Reference(closure::Reference::Binding(result_id)) =
-                        binding.value.result.kind
-                    else {
-                        return None;
-                    };
-                    binding.value.bindings.iter().find_map(|value| {
-                        let closure::Pattern::Binding { id, .. } = value.pattern else {
-                            return None;
-                        };
-                        match &value.operation {
-                            closure::Operation::MakeClosure { function, captures }
-                                if id == result_id && captures.is_empty() =>
-                            {
-                                Some((*function, super::syntax::Expr::identifier("NULL")))
-                            }
-                            _ => None,
-                        }
-                    })
-                })
+                Some((function, super::syntax::Expr::identifier("NULL")))
             }
             _ => None,
         }
@@ -209,5 +191,54 @@ impl<'a> BodyEmitter<'a> {
                 name
             }
         }
+    }
+
+    fn can_transfer(&self, atom: &closure::Atom) -> bool {
+        self.ownership.can_transfer(atom, self.parameter_owned)
+    }
+}
+
+fn direct_function_id(
+    program: &closure::Program,
+    closure_uses: &ClosureUsePlan,
+    callee: &closure::Atom,
+) -> Option<FunctionId> {
+    match callee.kind {
+        closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => Some(function),
+        closure::AtomKind::Reference(closure::Reference::Binding(id)) => {
+            if let Some(target) = closure_uses.direct_closure(id) {
+                return Some(target.function);
+            }
+            program.bindings.iter().find_map(|binding| {
+                let closure::TopLevelPattern::Binding {
+                    id: top_level_id, ..
+                } = binding.pattern
+                else {
+                    return None;
+                };
+                if top_level_id != id {
+                    return None;
+                }
+                let closure::AtomKind::Reference(closure::Reference::Binding(result_id)) =
+                    binding.value.result.kind
+                else {
+                    return None;
+                };
+                binding.value.bindings.iter().find_map(|value| {
+                    let closure::Pattern::Binding { id, .. } = value.pattern else {
+                        return None;
+                    };
+                    match &value.operation {
+                        closure::Operation::MakeClosure { function, captures }
+                            if id == result_id && captures.is_empty() =>
+                        {
+                            Some(*function)
+                        }
+                        _ => None,
+                    }
+                })
+            })
+        }
+        _ => None,
     }
 }
