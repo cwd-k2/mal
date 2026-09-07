@@ -8,7 +8,10 @@ pub(super) fn emit() -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
-        [AggregateField::variable("uint64_t", "references")],
+        [
+            AggregateField::variable("uint64_t", "references"),
+            AggregateField::variable("size_t", "capacity"),
+        ],
         "MalAllocation",
     ));
     output.blank_line();
@@ -20,6 +23,14 @@ pub(super) fn emit() -> TranslationUnit {
     output.push(Declaration::variable(VariableDeclaration::static_variable(
         "size_t",
         "mal_live_allocations",
+    )));
+    output.push(Directive::Endif);
+    output.push(Directive::If(PreprocessorExpr::defined(
+        "MAL_TEST_TOTAL_ALLOCATION_LIMIT",
+    )));
+    output.push(Declaration::variable(VariableDeclaration::static_variable(
+        "size_t",
+        "mal_total_allocations",
     )));
     output.push(Directive::Endif);
     output.blank_line();
@@ -36,6 +47,20 @@ pub(super) fn emit() -> TranslationUnit {
             Statement::if_then(
                 Expr::not_equal(Expr::identifier("mal_live_allocations"), Expr::number("0")),
                 trap("live allocations at context destruction"),
+            ),
+            Statement::directive(Directive::Endif),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_TOTAL_ALLOCATION_LIMIT",
+            ))),
+            Statement::if_then(
+                Expr::greater(
+                    Expr::identifier("mal_total_allocations"),
+                    Expr::cast(
+                        "size_t",
+                        Expr::identifier("MAL_TEST_TOTAL_ALLOCATION_LIMIT"),
+                    ),
+                ),
+                trap("total allocation limit exceeded"),
             ),
             Statement::directive(Directive::Endif),
         ]),
@@ -134,9 +159,20 @@ fn append_allocation(output: &mut TranslationUnit) {
                 Expr::identifier("allocation").pointer_field("references"),
                 uint64(1),
             ),
+            Statement::assignment(
+                Expr::identifier("allocation").pointer_field("capacity"),
+                Expr::identifier("size"),
+            ),
             Statement::directive(Directive::If(live_allocation_tracking())),
             Statement::expression(Expr::pre_increment(Expr::identifier(
                 "mal_live_allocations",
+            ))),
+            Statement::directive(Directive::Endif),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_TOTAL_ALLOCATION_LIMIT",
+            ))),
+            Statement::expression(Expr::pre_increment(Expr::identifier(
+                "mal_total_allocations",
             ))),
             Statement::directive(Directive::Endif),
             Statement::return_value(Expr::add(Expr::identifier("allocation"), Expr::number("1"))),

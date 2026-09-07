@@ -127,6 +127,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 | `c_emit/runtime/core` | allocation、reference count、Symbol admission、host-visible Symbol lifecycle operationの構成 |
 | `c_emit/runtime/symbol` | Symbol comparison、byte access、concatenation operationの構成 |
+| `c_emit/runtime/symbol/concatenate` | borrowed/consuming concatとunique buffer capacity拡張の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
 ## Code structure

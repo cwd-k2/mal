@@ -1,7 +1,13 @@
 use crate::c_emit::syntax::{
-    Block, Expr, ForInitializer, FunctionDefinition, FunctionSignature, Initializer, Parameter,
-    Statement, TypeName,
+    Block, Expr, ForInitializer, FunctionDefinition, FunctionSignature, Parameter, Statement,
+    TypeName,
 };
+
+mod concatenate;
+
+pub(super) fn emit_concatenate(consume_left: bool) -> FunctionDefinition {
+    concatenate::emit(consume_left)
+}
 
 pub(super) fn emit_equality() -> FunctionDefinition {
     function(
@@ -70,121 +76,6 @@ pub(super) fn emit_at() -> FunctionDefinition {
                     .index(Expr::identifier("index")),
             ),
         ]),
-    )
-}
-
-pub(super) fn emit_concatenate(consume_left: bool) -> FunctionDefinition {
-    let name = if consume_left {
-        "mal_symbol_concatenate_consuming_left"
-    } else {
-        "mal_symbol_concatenate"
-    };
-    let empty_right_result = if consume_left {
-        Expr::identifier("left")
-    } else {
-        Expr::named_call(
-            "mal_symbol_retain",
-            [Expr::identifier("context"), Expr::identifier("left")],
-        )
-    };
-    let mut body = Block::new([
-        Statement::if_then(
-            Expr::equal(Expr::identifier("left").field("length"), uint64(0)),
-            Block::new([Statement::return_value(Expr::named_call(
-                "mal_symbol_retain",
-                [Expr::identifier("context"), Expr::identifier("right")],
-            ))]),
-        ),
-        Statement::if_then(
-            Expr::equal(Expr::identifier("right").field("length"), uint64(0)),
-            Block::new([Statement::return_value(empty_right_result)]),
-        ),
-        Statement::if_then(
-            Expr::greater(
-                Expr::identifier("left").field("length"),
-                Expr::subtract(
-                    Expr::identifier("UINT64_MAX"),
-                    Expr::identifier("right").field("length"),
-                ),
-            ),
-            trap("Symbol length overflow"),
-        ),
-        Statement::variable(
-            "uint64_t",
-            "length",
-            Some(Expr::add(
-                Expr::identifier("left").field("length"),
-                Expr::identifier("right").field("length"),
-            )),
-        ),
-        Statement::variable(
-            "size_t",
-            "size",
-            Some(Expr::cast("size_t", Expr::identifier("length"))),
-        ),
-        Statement::if_then(
-            Expr::not_equal(
-                Expr::cast("uint64_t", Expr::identifier("size")),
-                Expr::identifier("length"),
-            ),
-            trap("allocation size overflow"),
-        ),
-        Statement::variable(
-            TypeName::named("uint8_t").pointer(),
-            "bytes",
-            Some(Expr::cast(
-                TypeName::named("uint8_t").pointer(),
-                Expr::named_call(
-                    "mal_allocate",
-                    [Expr::identifier("context"), Expr::identifier("size")],
-                ),
-            )),
-        ),
-        Statement::call(
-            "memcpy",
-            [
-                Expr::identifier("bytes"),
-                Expr::identifier("left").field("data"),
-                Expr::cast("size_t", Expr::identifier("left").field("length")),
-            ],
-        ),
-        Statement::call(
-            "memcpy",
-            [
-                Expr::add(
-                    Expr::identifier("bytes"),
-                    Expr::cast("size_t", Expr::identifier("left").field("length")),
-                ),
-                Expr::identifier("right").field("data"),
-                Expr::cast("size_t", Expr::identifier("right").field("length")),
-            ],
-        ),
-    ]);
-    if consume_left {
-        body.push(Statement::call(
-            "mal_symbol_release",
-            [Expr::identifier("left")],
-        ));
-    }
-    body.push(Statement::return_value(Expr::compound_literal(
-        "MalType_Symbol",
-        [
-            Initializer::positional(Expr::identifier("bytes")),
-            Initializer::positional(Expr::identifier("length")),
-            Initializer::positional(Expr::identifier("bytes")),
-        ],
-    )));
-    function(
-        FunctionSignature::static_function(
-            "MalType_Symbol",
-            name,
-            [
-                context_parameter(),
-                Parameter::named("MalType_Symbol", "left"),
-                Parameter::named("MalType_Symbol", "right"),
-            ],
-        ),
-        body,
     )
 }
 

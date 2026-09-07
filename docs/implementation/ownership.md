@@ -8,8 +8,8 @@ authorityは[Engram仕様](../spec/engrams.md)、hostとの受け渡しは[C hos
 ## 現在の状態
 
 v0.5が現在受理するprogramとtrusted C adapter contractの範囲では、ownership correctnessに必要なcopy、transfer、
-cleanupとlocal owned bindingのlast-use transferは実装済みである。ownershipに関する残件は、現行contractを変えない
-consuming operation、escape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
+cleanup、local owned bindingのlast-use transfer、consuming `Symbol` concatは実装済みである。ownershipに関する残件は、
+現行contractを変えないescape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
 
 将来、managed cycle、thread間共有、host resourceの自動解放などを言語またはABIへ追加する場合は、その新しい範囲に
 対するownership設計を別途行う。これは現在のv0.5 ownership実装の未完成部分ではない。
@@ -62,8 +62,11 @@ slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyま
 | sum | active payloadだけをcopy | active payloadだけをdestroy |
 | その他 | C value copy | no-op |
 
-`Symbol` literalはstatic storageを参照しownership pointerを持たない。runtime生成Symbolはallocation headerのreference countを
-共有する。空文字との連結が既存descriptorを返す場合も、result contractを満たすためretainする。
+`Symbol` literalはstatic storageを参照しownership pointerを持たない。runtime生成Symbolはallocation headerのreference countと
+payload capacityを共有する。borrowed operandを受ける連結が既存descriptorを返す場合は、result contractを満たすためretainする。
+last-useのowned left operandをconsumeする連結は、reference countが1ならcapacityの範囲でbytesを追記し、不足時は幾何的に
+capacityを増やす。staticまたは共有中のleftは新しいbufferへcopyし、consumeしたshareをreleaseする。いずれもsourceからは
+新しいimmutable byte sequenceとしてだけ観測され、descriptorとcapacityはC host ABIのopaque ownership内部に留まる。
 
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
@@ -83,8 +86,8 @@ typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous 
 
 ## 最適化との境界
 
-immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。将来のconsuming
-operation、escape analysis、region化も、この文書のborrow/result contractを変えずに行う。
+immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。将来のescape
+analysis、region化も、この文書のborrow/result contractを変えずに行う。
 
 rope、slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。導入する場合も
 各nodeやcache entryが同じcopy/destroy contractへ従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、

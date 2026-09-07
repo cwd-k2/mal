@@ -54,27 +54,38 @@ ownership分配は`body/pattern.rs`が担う。`ResultOwnership`がoperation res
 shareをconsumeできるかだけを追加する。focused testはlive aliasではretainを残し、branchの各pathとaggregateを経由する
 direct tail edgeではtransferすることをgenerated Cとnative実行の両方で検査する。
 
-### 2. consuming Symbol concat（次の評価対象）
+### 2. consuming Symbol concat（実装済み）
 
-last-use transferが利用可能になった後、左operandをconsumeでき、runtime ownership shareが一つで、capacityが足りる場合に限り、
-Symbol concatのbufferを再利用する余地を測定する。通常の`a + b`は`a`をborrowするため、`a`が後で観測可能なままbufferを
-変更してはならない。compilerからconsuming operationであることを明示できない段階ではin-place変更を行わない。
+左operandがowned bindingのlast useである場合だけ、compilerはconsuming concatを生成する。runtime ownership shareが一つなら
+既存bufferへ追記し、capacity不足時は上限を検査しながら幾何的に拡張する。通常の`a + b`、同じbindingを左右に使うconcat、
+後で再使用する`a`はborrowed operationを維持する。staticまたは共有中のleftは新しいbufferへcopyするfallbackへ進み、
+consuming operationへ渡されたleft shareはresult構築後にreleaseする。
 
-capacityをallocation headerへ追加する変更はC host ABIのopaque ownership field内に閉じられるが、空文字最適化、allocation
-failure、overflow、hostへのcontiguous byte borrowを維持する必要がある。`symbol-growth`で総copy量または同一環境の増加率が
-改善し、短いconcatとread-heavy workloadが退行しない場合だけ採用する。
+capacityはallocation headerにあり、C host ABIのopaque ownership field内に閉じる。空文字、allocationとreallocation failure、
+overflow、共有aliasのimmutability、hostへのcontiguous byte borrowをfocused testで検査する。1万byteの`symbol-growth`は
+約9,999回のallocationからtest上限32回以内になった。同一環境の通常build 7回の中央値はlast-use transfer後の約1.87 msから
+約0.87 ms、ASan/UBSan buildの確認値は約70 msから約3.45 msになった。`symbol-churn`、`closure-churn`、`aggregate-churn`にも
+同じ実行で退行は観測されなかった。絶対時間は環境に依存するため合否条件にはせず、allocation上限をdeterministicな回帰条件とする。
 
-### 3. non-escaping closure environment
+### 3. non-escaping closure environment（保留）
 
 capturing closureがlocal callから外へ保存、return、aggregate格納されないことを証明できる場合に、environmentのstack化または
 captureの直接引数化を調べる。capture-free closureは既にallocationしない。function-value用の共通calling conventionは
 fallbackとして残し、候補ごとのfunction cloneを無制限に生成しない。
 
-### 4. 表現変更
+現行の`closure-churn`は20万個のcapturing closureを生成しても通常buildで約1.5 ms、ASan/UBSan buildで約23 msであり、
+同じpressure suiteでは支配的なcostではない。実用programのprofileにもenvironment allocationがbottleneckである根拠がないため、
+escape解析とcalling conventionの複雑化は現時点では採用しない。代表的な実用workloadでclosure allocationが支配的になった場合に
+この段階から再開する。
+
+### 4. 表現変更（現時点では不要）
 
 rope、slice、flatten cacheは、反復concatのbyte copyが上記の局所最適化後も支配的な場合に限って検討する。host ABIは
 `Symbol`のcontiguous bytesをcall中borrowできるため、ropeを採るならflatten時点、cache lifetime、byte accessの計算量を
 別途設計する。論理的immutabilityを保っても内部cacheには同期と回収のpolicyが必要になる。
+
+consuming concatによって`symbol-growth`のallocation operationは幾何的増加の上限内となり、同一環境の測定でも累積copyが
+支配する兆候は解消した。この条件が維持される限り、表現変更には進まない。
 
 automatic memoizationは初期候補にしない。mal functionは`extern`を呼び得るためimmutabilityだけではpureにならず、無制限cacheは
 live setを増やす。descriptor addressは再利用され、source-level identityでもない。pure operationに限定したcacheがprofileで

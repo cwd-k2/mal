@@ -308,6 +308,58 @@ fn traps_symbol_concatenation_allocation_failure() {
 }
 
 #[test]
+fn grows_a_consumed_symbol_with_bounded_allocation_operations() {
+    let generated = emit(
+        r#"grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+  if (remaining == 0)
+  then { value }
+  else { grow(value + "x", remaining - 1) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow("", 10000i64);
+  if (#value == 10000u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit amortized Symbol growth");
+    let fixture = NativeFixture::new("bounded-symbol-growth-allocations");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=32",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn traps_when_a_consumed_symbol_cannot_be_reallocated() {
+    let generated = emit(
+        r#"appendTwice :: Symbol -> Symbol := \(value :: Symbol) {
+  first := value + "b";
+  first + "c";
+};
+main :: Unit -> Int32 := \() { appendTwice("a"); 0; };"#,
+    )
+    .expect("emit consuming Symbol reallocation");
+    let fixture = NativeFixture::new("symbol-reallocation-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_FORCE_REALLOCATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
 fn traps_out_of_range_symbol_byte_access() {
     for expression in [r#""" # 0u64"#, r#""a" # 1u64"#] {
         let output = compile_and_run(
