@@ -42,6 +42,7 @@ pub(in crate::c_emit) struct Parameter {
 pub(in crate::c_emit) enum FunctionSpecifier {
     Static,
     Inline,
+    NoInline,
     NoReturn,
 }
 
@@ -210,6 +211,15 @@ impl FunctionSignature {
     ) -> Self {
         Self::new(result, name, parameters)
             .with_specifiers([FunctionSpecifier::Static, FunctionSpecifier::Inline])
+    }
+
+    pub(in crate::c_emit) fn static_noinline(
+        result: impl Into<TypeName>,
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = Parameter>,
+    ) -> Self {
+        Self::new(result, name, parameters)
+            .with_specifiers([FunctionSpecifier::Static, FunctionSpecifier::NoInline])
     }
 
     pub(in crate::c_emit) fn no_return(

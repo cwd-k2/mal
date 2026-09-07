@@ -647,15 +647,11 @@ fn append_symbol_materialization(output: &mut TranslationUnit) {
             Statement::directive(Directive::Endif),
             Statement::if_then(
                 Expr::logical_or(
-                    Expr::equal(
-                        Expr::identifier("value").field("ownership"),
+                    Expr::not_equal(
+                        Expr::identifier("value").field("data"),
                         Expr::identifier("NULL"),
                     ),
-                    Expr::not_equal(
-                        allocation_for(Expr::identifier("value").field("ownership"))
-                            .pointer_field("capacity"),
-                        Expr::identifier("SIZE_MAX"),
-                    ),
+                    Expr::equal(Expr::identifier("value").field("length"), uint64(0)),
                 ),
                 Block::new([Statement::return_value(Expr::identifier("value"))]),
             ),

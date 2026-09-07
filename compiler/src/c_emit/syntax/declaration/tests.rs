@@ -18,6 +18,16 @@ fn renders_structured_function_signatures() {
 }
 
 #[test]
+fn renders_a_non_inline_function_contract() {
+    let signature = FunctionSignature::static_noinline("uint8_t", "slow", []);
+
+    assert_eq!(
+        signature.render(),
+        "static __attribute__((noinline)) uint8_t slow(void)"
+    );
+}
+
+#[test]
 fn renders_function_pointer_declarators() {
     let declaration = VariableDeclaration::function_pointer(
         "int32_t",

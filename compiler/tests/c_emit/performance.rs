@@ -27,6 +27,9 @@ main :: Unit -> Int32 := \() {
     let llvm_ir = fixture.compile_generated_to_llvm_ir(generated.clone());
     assert!(llvm_ir.contains("mal_ext_input"), "{llvm_ir}");
     assert!(llvm_ir.contains("icmp eq i64"), "{llvm_ir}");
+    assert!(!llvm_ir.contains("@mal_symbol_at("), "{llvm_ir}");
+    assert!(llvm_ir.contains("@mal_symbol_at_slow("), "{llvm_ir}");
+    assert!(llvm_ir.contains("load i8"), "{llvm_ir}");
 
     let executable = fixture.compile_generated_with_options(
         generated,
@@ -34,7 +37,35 @@ main :: Unit -> Int32 := \() {
         &[
             "-DMAL_TEST_RETAIN_LIMIT=26",
             "-DMAL_TEST_RELEASE_LIMIT=27",
-            "-DMAL_TEST_MATERIALIZATION_LIMIT=26",
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn keeps_flat_symbol_equality_off_the_materialization_path() {
+    let generated = emit(
+        r#"extern input :: Unit -> Symbol;
+main :: Unit -> Int32 := \() {
+  value := extern input();
+  if (value == "abcdefghijklmnopqrstuvwxyz") then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit flat Symbol equality");
+    let fixture = NativeFixture::new("flat-symbol-equality-cost");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        INPUT_HOST,
+        &[
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
             "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],

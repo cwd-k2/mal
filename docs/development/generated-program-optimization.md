@@ -27,14 +27,13 @@ Status: Current implementation plan and gates
 |---|---|---|
 | managed borrow | read-only operation用の一時productがmanaged fieldをretain/releaseする | 006、008、027 |
 | aggregate state | direct entryでleafを受けてもbodyとtail edgeでproductを再構築する | 016、029、032、043 |
-| `Symbol` observation | flat値でもbyte accessごとにmaterialization判定を行う | 006、008、027 |
 | `Symbol` admission | host scratch bufferから別のmal allocationへcopyする | 027 |
 | branchとresult | branchごとのaggregate resultとtagがhot pathに残る | 008、032、043 |
 | call boundary | costの大きいhelperがinlineされずaggregate resultを返す | 008、016 |
 | allocator | 短命なEngram allocationを汎用allocatorへ戻す | admission改善後に再測定 |
 | memory contract | unalignedかつalias可能な`Ptr` accessがvectorizationを制約する | 数値・table workload |
 
-最初の四軸は現行authorityのまま改善できる。memory contractだけはsourceまたはextern contractに新しい事実を表現しない限り
+managed borrow、aggregate state、`Symbol` admissionは現行authorityのまま改善できる。memory contractだけはsourceまたはextern contractに新しい事実を表現しない限り
 変更しない。narrow integer representationも、全operationで値域とwrap semanticsを証明できる独立解析なしには導入しない。
 
 ## A. borrow-preserving lowering
@@ -68,13 +67,15 @@ generic closure entry、明示的に値として使うproduct、indirect callは
 
 ## C. `Symbol` observationのfast/slow分離
 
-runtime descriptorでは、連続bytesを直接指せる値と未materialize ropeを区別する。byte accessとequalityは連続値を直接処理し、
-ropeだけをslow pathでmaterializeする。source-level index preconditionは再検査しない。
+runtime descriptorは、連続bytesを直接指す値をnon-null `data`、未materialize ropeをnull `data`で区別する。byte accessと
+equalityのsmall wrapperは連続値を直接処理し、no-inline slow pathだけがropeをmaterializeする。source-level index
+preconditionは再検査しない。
 
 同じlive `Symbol`をloopで観測するときは、borrow-preserving loweringによりdescriptorのretainを発生させない。extern parameterと
 `storeSymbol`はcallまたはcopyの前に連続表現を一度確定し、そのborrowをoperation中だけ使う。
 
-完了条件はflat、literal、rope、materialized ropeの同値性と、flat scanのhot loopがdata loadまで簡約されることである。
+regression gateはflat、literal、rope、materialized ropeの同値性、flat observationのmaterialization count zero、
+最適化後IRでsmall wrapperが消えてdata loadとslow callが分離されることとする。
 
 ## D. `Symbol` admission
 
@@ -108,13 +109,11 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 
 ## 実装順とcommit境界
 
-1. flat scan、rope scan、transient token、managed aggregate tail loopのcounterとIR fixtureを追加する。
-2. `Symbol` observationをfast/slow pathへ分ける。
-3. ephemeral aggregateのborrow-preserving loweringを導入する。
-4. direct self-tail stateをleaf slot化する。
-5. C host ABIをbuilder admissionへ置き換え、repository内adapterを同じcommitで移行する。
-6. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
-7. allocation profileが残る場合だけallocator recyclingを検討する。
+1. ephemeral aggregateのborrow-preserving loweringを導入する。
+2. direct self-tail stateをleaf slot化する。
+3. C host ABIをbuilder admissionへ置き換え、repository内adapterを同じcommitで移行する。
+4. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
+5. allocation profileが残る場合だけallocator recyclingを検討する。
 
 各commitは一つのcost modelだけを変え、focused generated-C test、native execution、通常のcompiler testを通す。managed lifetimeへ
 触れるcommitは[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。ABI置換commitは

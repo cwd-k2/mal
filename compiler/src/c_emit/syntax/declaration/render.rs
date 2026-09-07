@@ -93,6 +93,7 @@ impl FunctionSpecifier {
         match self {
             Self::Static => "static",
             Self::Inline => "inline",
+            Self::NoInline => "__attribute__((noinline))",
             Self::NoReturn => "_Noreturn",
         }
     }
@@ -105,6 +106,7 @@ impl FunctionSignature {
             output.push_str(match specifier {
                 FunctionSpecifier::Static => "static ",
                 FunctionSpecifier::Inline => "inline ",
+                FunctionSpecifier::NoInline => "__attribute__((noinline)) ",
                 FunctionSpecifier::NoReturn => "_Noreturn ",
             });
         }

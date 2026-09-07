@@ -33,12 +33,10 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.extend(emit_integer_shift(needs.shift_left, needs.shift_right));
     }
     if needs.symbol_equality {
-        output.push(symbol::emit_equality());
-        output.blank_line();
+        output.extend(symbol::emit_equality());
     }
     if needs.symbol_at {
-        output.push(symbol::emit_at());
-        output.blank_line();
+        output.extend(symbol::emit_at());
     }
     if needs.symbol_concatenate
         || needs.symbol_concatenate_consuming_left

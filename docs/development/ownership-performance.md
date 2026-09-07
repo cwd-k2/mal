@@ -21,9 +21,9 @@ focused regressionは`compiler/tests/c_emit/calls.rs`と`symbol.rs`に置く。m
 case bindingを含むtail edgeは10万iterationをnative Cとして実行する。closure-use testはaliasだけでなく、recursive
 self closureをfunction valueとして使う経路がheapへfallbackすることも検査する。
 
-最適化のcost baselineは`compiler/tests/c_emit/performance.rs`に置く。flat/rope `Symbol` scan、transient host admission、
+最適化のcost baselineは`compiler/tests/c_emit/performance.rs`に置く。flat/rope `Symbol` observation、transient host admission、
 managed aggregateのdirect-tail stateを小さいnative fixtureで実行し、test macroでretain、release、materialization、allocationの
-上限を固定する。flat scanは同じsourceのClang `-O2`後LLVM IRも生成し、後続変更の構造比較に使う。
+上限を固定する。flat scanは同じsourceのClang `-O2`後LLVM IRも生成し、inlineされたdata loadと分離されたslow pathを検査する。
 
 ## pressure suite
 
