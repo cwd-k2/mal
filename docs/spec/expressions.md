@@ -235,7 +235,8 @@ z := Float64(y);
 - `Float32`から`Float64`への変換は正確である。
 - `Float64`から`Float32`へはround-to-nearest, ties-to-evenで丸める。
 - integerからfloatへもround-to-nearest, ties-to-evenで丸める。
-- floatからintegerへは小数部をzero方向へ捨てる。NaN、infinity、または切り捨て後の値が目的型の範囲外ならtrapする。
+- floatからintegerへは、finiteであり、小数部をzero方向へ捨てた値が目的型の範囲内であることをpreconditionとする。
+  小数部はzero方向へ捨てる。precondition違反時の実行結果は保証しない。
 
 integer型からbit widthが`n`のinteger型への変換では、source値を数学的な整数`x`として`r = x mod 2^n`を
 `0 <= r < 2^n`となるように求める。destinationがunsignedなら結果は`r`、signedなら`r < 2^(n-1)`のとき`r`、

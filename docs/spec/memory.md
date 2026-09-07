@@ -75,9 +75,10 @@ operand、callee、引数は通常のoperatorとcallの規則どおり左から�
 組み合わせたmal関数として記述するか、host固有の意味が必要な場合に型固有の`extern` contractとして定義する。
 配置の判断規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に定める。
 
-`pointer + bytes`はaddressを`bytes`だけ大きい側へ、`pointer - bytes`は小さい側へ移動する。resultは同じlive region内、
-またはregion末尾の直後でなければならない。末尾の直後を指す値は作れるがload/storeには使えない。targetの
-address計算で`bytes`を表現できなければtrapする。regionの外へ移動するoffsetはcontract違反である。
+`pointer + bytes`はaddressを`bytes`だけ大きい側へ、`pointer - bytes`は小さい側へ移動する。targetのaddress計算で
+`bytes`を表現でき、resultが同じlive region内またはregion末尾の直後になることをpreconditionとする。末尾の直後を
+指す値は作れるがload/storeには使えない。precondition違反は`Ptr`を供給したhost contractへの違反であり、特定の
+実行結果を保証しない。
 
 load/storeは指定型の全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
 `loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。

@@ -14,15 +14,15 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | sum、Bool、`if`、`case` | [D004](decisions/D004.md)、[D005](decisions/D005.md)、[D023](decisions/D023.md) |
 | minimalism | [D008](decisions/D008.md)、[D033](decisions/D033.md) |
 | Float | [D009](decisions/D009.md)、[D019](decisions/D019.md) |
-| literalとscalar operation | [D011](decisions/D011.md)、[D013](decisions/D013.md)、[D014](decisions/D014.md)、[D020](decisions/D020.md)、[D021](decisions/D021.md)、[D025](decisions/D025.md) |
+| literalとscalar operation | [D011](decisions/D011.md)、[D013](decisions/D013.md)、[D020](decisions/D020.md)、[D021](decisions/D021.md)、[D025](decisions/D025.md)、[D035](decisions/D035.md) |
 | externとopaque value | [D012](decisions/D012.md)、[D015](decisions/D015.md)、[D016](decisions/D016.md)、[D034](decisions/D034.md) |
 | top-level initialization | [D018](decisions/D018.md) |
 | source file requirement | [D032](decisions/D032.md) |
-| `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md) |
-| EngramとExternのauthority | [D031](decisions/D031.md)、[D033](decisions/D033.md)、[D034](decisions/D034.md) |
+| `Ptr` memory primitive | [D022](decisions/D022.md)、[D024](decisions/D024.md)、[D035](decisions/D035.md) |
+| EngramとExternのauthority | [D031](decisions/D031.md)、[D033](decisions/D033.md)、[D034](decisions/D034.md)、[D035](decisions/D035.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
-D008のmemory management節だけはD033が置き換える。
+D008のmemory management節はD033が、D009、D022、D028、D029のtrapに関する一部はD035が置き換える。
 
 ## 後継があるhistorical record
 
@@ -37,6 +37,7 @@ D008のmemory management節だけはD033が置き換える。
 | [D028: Engram operator](decisions/D028.md) | [D031](decisions/D031.md)で`Symbol` operationへrefine |
 | [D029: Engram concatenation](decisions/D029.md) | [D031](decisions/D031.md)で`Symbol` operationへrefine |
 | [D030: process argument descriptor](decisions/D030.md) | [D031](decisions/D031.md)でexternal descriptorへrefine |
+| [D014: shift countを一律にtrap](decisions/D014.md) | [D035](decisions/D035.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../spec/)を確認する。

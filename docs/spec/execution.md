@@ -75,18 +75,17 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 
 整数は固定幅二の補数である。`+`、`-`、`*` は signed/unsigned とも bit width で wrap する。signed overflow を backend の undefined behavior にしてはならない。
 
-次は trap する。
+次のoperationにはpreconditionがある。
 
-- integer division または remainder の divisor が 0
-- 最小 signed integer を `-1` で割る、または remainder を求める
-- shift count が負、またはleft operandのbit width以上
-- Symbol byte access `value # index` のindexが範囲外
-- Symbol concatenationの結果lengthを`UInt64`で表現できない、または必要なallocationに失敗する
+- integer divisionまたはremainderのdivisorは0でない
+- 最小signed integerのdivisionまたはremainderではdivisorは`-1`でない
+- shift countは0以上、left operandのbit width未満である
 
 `<<`と`>>`のright operandはleft operandと同じ整数型で、結果も同じ型である。`<<`は数学的な`2^count`倍を
 operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する
-arithmetic shiftとする。backendはCの範囲外shiftやsigned shiftの偶発的な挙動へ依存してはならない。
-設計理由は[D014](../design/decisions/D014.md)に記録する。
+arithmetic shiftとする。これらのpreconditionに違反したprogramの実行結果は保証しない。backendはpreconditionを
+満たすoperationの結果をCのsigned shiftの偶発的な挙動へ依存させてはならない。
+現在の設計理由は[D035](../design/decisions/D035.md)に記録する。
 
 ## 浮動小数点
 
@@ -108,11 +107,15 @@ zero除算、有限値のoverflow、invalid operationはIEEE 754に従ってinfi
 
 trap は現在の mal program の評価を即座に異常終了する。mal code から捕捉・回復する構文はない。trap までに完了した `extern` の作用は巻き戻さない。
 
+有効なEngramの構成に必要なstorageを確保できない場合と、そのstorage sizeをtargetで表現できない場合はtrapする。
+precondition違反はtrapではなく、特定の実行結果を保証しない。reference implementation固有のresource limitや
+internal invariant failureはこの言語上のtrap条件に含めない。
+
 reference compilerのC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
 host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
 
-pointer accessのregion、permission、lifetime違反はtrapではなくhost contract違反であり、特定の実行結果を
-保証しない。pointer offsetがtargetで表現できない場合だけはtrapする。詳細は[memory](memory.md)に定める。
+pointer accessのregion、permission、lifetime違反とpointer offsetのprecondition違反はhost contract違反であり、
+特定の実行結果を保証しない。詳細は[memory](memory.md)に定める。
 
 ## core calculus
 
