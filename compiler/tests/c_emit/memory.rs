@@ -56,6 +56,11 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
          };";
     let generated = emit(source).expect("emit Ptr operations");
     assert!(
+        !generated
+            .source
+            .contains("pointer offset is not representable on this target")
+    );
+    assert!(
         generated
             .header
             .contains("typedef struct { uint8_t *address; } MalType_Ptr;")

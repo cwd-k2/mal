@@ -130,25 +130,18 @@ fn emit_offset(output: &mut TranslationUnit, name: &str, operator: BinaryOperato
             "MalType_Ptr",
             name,
             [
-                Parameter::named(TypeName::named("MalContext").pointer(), "context"),
                 Parameter::named("MalType_Ptr", "pointer"),
                 Parameter::named("uint64_t", "offset"),
             ],
         ),
-        Block::new([
-            Statement::if_then(
-                Expr::greater(Expr::identifier("offset"), Expr::identifier("SIZE_MAX")),
-                trap("pointer offset is not representable on this target"),
-            ),
-            Statement::return_value(Expr::compound_literal(
-                "MalType_Ptr",
-                [Initializer::positional(Expr::binary(
-                    operator,
-                    Expr::identifier("pointer").field("address"),
-                    Expr::cast("size_t", Expr::identifier("offset")),
-                ))],
-            )),
-        ]),
+        Block::new([Statement::return_value(Expr::compound_literal(
+            "MalType_Ptr",
+            [Initializer::positional(Expr::binary(
+                operator,
+                Expr::identifier("pointer").field("address"),
+                Expr::cast("size_t", Expr::identifier("offset")),
+            ))],
+        ))]),
     );
 }
 
@@ -198,13 +191,6 @@ fn emit_store(output: &mut TranslationUnit, name: &str, c_type: &str) {
             Statement::return_value(unit()),
         ]),
     );
-}
-
-fn trap(message: &'static str) -> Block {
-    Block::new([Statement::call(
-        "mal_trap",
-        [Expr::identifier("context"), Expr::string(message)],
-    )])
 }
 
 fn unit() -> Expr {

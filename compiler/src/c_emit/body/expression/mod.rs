@@ -67,22 +67,14 @@ impl BodyEmitter<'_> {
                         self.needs.memory_offset_forward = true;
                         Expr::named_call(
                             "mal_ptr_offset",
-                            [
-                                Expr::identifier("mal_context"),
-                                argument.clone().field("field_0"),
-                                argument.field("field_1"),
-                            ],
+                            [argument.clone().field("field_0"), argument.field("field_1")],
                         )
                     }
                     MemoryPrimitive::OffsetBackward => {
                         self.needs.memory_offset_backward = true;
                         Expr::named_call(
                             "mal_ptr_offset_backward",
-                            [
-                                Expr::identifier("mal_context"),
-                                argument.clone().field("field_0"),
-                                argument.field("field_1"),
-                            ],
+                            [argument.clone().field("field_0"), argument.field("field_1")],
                         )
                     }
                     MemoryPrimitive::Load(scalar) => {
