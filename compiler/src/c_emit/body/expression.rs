@@ -145,7 +145,11 @@ impl BodyEmitter<'_> {
                         self.needs.memory_store_symbol = true;
                         Expr::named_call(
                             "mal_store_symbol",
-                            [argument.clone().field("field_0"), argument.field("field_1")],
+                            [
+                                Expr::identifier("mal_context"),
+                                argument.clone().field("field_0"),
+                                argument.field("field_1"),
+                            ],
                         )
                     }
                 }
@@ -250,14 +254,17 @@ impl BodyEmitter<'_> {
             Type::Unit => {}
             Type::Product(elements) => {
                 let argument = self.emit_atom(argument);
-                arguments.extend(
-                    elements
-                        .iter()
-                        .enumerate()
-                        .map(|(index, _)| argument.clone().field(format!("field_{index}"))),
-                );
+                arguments.extend(elements.iter().enumerate().map(|(index, element)| {
+                    self.types.materialize_symbols(
+                        element,
+                        argument.clone().field(format!("field_{index}")),
+                    )
+                }));
             }
-            _ => arguments.push(self.emit_atom(argument)),
+            parameter => arguments.push(
+                self.types
+                    .materialize_symbols(parameter, self.emit_atom(argument)),
+            ),
         }
         Expr::named_call(format!("mal_ext_{}", external.name), arguments)
     }

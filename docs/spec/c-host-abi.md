@@ -224,6 +224,10 @@ Symbol parameterは`MalType_Symbol`で渡し、hostはcall終了後にdataを保
 `mal_Symbol_copy_from_bytes`へ渡して作った`MalType_Symbol`を返す。hostがstruct literalなどで独自のdata pointerを
 持つ`MalType_Symbol`を直接作って返すことはcontract違反である。
 
+extern parameterとして渡される非空Symbolの`data`は、直接のparameterでもproductまたはactive sum payload内でも、call中に
+`length` byteの連続領域を指す。host helperから得るborrowed Symbolにも同じ規則を適用する。mal内部のstorage表現はこのABI
+contractに含めず、compilerはextern callの前に必要な連続表現を用意する。
+
 managed valueを含むextern parameterはcall中のborrowである。extern resultではmanaged fieldごとにownership shareを一つ
 malへtransferする。parameterまたはaccessor resultを返す場合は`clone`し、owned localを明示的に移す場合は`take`する。
 同じowned descriptorを通常のC assignmentで複製してもownership shareは増えない。

@@ -42,12 +42,22 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
         output.push(symbol::emit_at());
         output.blank_line();
     }
+    if needs.symbol_concatenate
+        || needs.symbol_concatenate_consuming_left
+        || needs.symbol_concatenate_consuming_right
+    {
+        output.extend(symbol::emit_rope_support());
+    }
     if needs.symbol_concatenate {
-        output.push(symbol::emit_concatenate(false));
+        output.push(symbol::emit_concatenate(false, false));
         output.blank_line();
     }
     if needs.symbol_concatenate_consuming_left {
-        output.push(symbol::emit_concatenate(true));
+        output.push(symbol::emit_concatenate(true, false));
+        output.blank_line();
+    }
+    if needs.symbol_concatenate_consuming_right {
+        output.push(symbol::emit_concatenate(false, true));
         output.blank_line();
     }
     if needs.memory_offset_forward

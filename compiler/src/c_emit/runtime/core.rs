@@ -15,6 +15,17 @@ pub(super) fn emit() -> TranslationUnit {
         "MalAllocation",
     ));
     output.blank_line();
+    output.push(AggregateDefinition::typedef_structure(
+        Some("MalSymbolRope".into()),
+        [
+            AggregateField::variable("MalType_Symbol", "left"),
+            AggregateField::variable("MalType_Symbol", "right"),
+            AggregateField::variable(TypeName::named("uint8_t").pointer(), "flattened"),
+            AggregateField::variable("uint8_t", "height"),
+        ],
+        "MalSymbolRope",
+    ));
+    output.blank_line();
     output.push(AggregateDefinition::structure(
         "MalContext",
         [AggregateField::variable("uint8_t", "unused")],
@@ -70,6 +81,7 @@ pub(super) fn emit() -> TranslationUnit {
     append_symbol_lifetime(&mut output);
     append_host_symbol_lifetime(&mut output);
     append_symbol_copy(&mut output);
+    append_symbol_materialization(&mut output);
     output
 }
 
@@ -314,10 +326,47 @@ fn append_symbol_lifetime(output: &mut TranslationUnit) {
                     ),
                     uint8(0),
                 ),
-                Block::new([Statement::call(
-                    "mal_deallocate",
-                    [Expr::identifier("value").field("ownership")],
-                )]),
+                Block::new([
+                    Statement::if_then(
+                        Expr::equal(
+                            allocation_for(Expr::identifier("value").field("ownership"))
+                                .pointer_field("capacity"),
+                            Expr::identifier("SIZE_MAX"),
+                        ),
+                        Block::new([
+                            Statement::variable(
+                                TypeName::named("MalSymbolRope").pointer(),
+                                "rope",
+                                Some(Expr::cast(
+                                    TypeName::named("MalSymbolRope").pointer(),
+                                    Expr::identifier("value").field("ownership"),
+                                )),
+                            ),
+                            Statement::call(
+                                "mal_symbol_release",
+                                [Expr::identifier("rope").pointer_field("right")],
+                            ),
+                            Statement::call(
+                                "mal_symbol_release",
+                                [Expr::identifier("rope").pointer_field("left")],
+                            ),
+                            Statement::if_then(
+                                Expr::not_equal(
+                                    Expr::identifier("rope").pointer_field("flattened"),
+                                    Expr::identifier("NULL"),
+                                ),
+                                Block::new([Statement::call(
+                                    "mal_deallocate",
+                                    [Expr::identifier("rope").pointer_field("flattened")],
+                                )]),
+                            ),
+                        ]),
+                    ),
+                    Statement::call(
+                        "mal_deallocate",
+                        [Expr::identifier("value").field("ownership")],
+                    ),
+                ]),
             )]),
         )]),
     );
@@ -454,6 +503,160 @@ fn append_symbol_copy(output: &mut TranslationUnit) {
                 Expr::identifier("copy"),
                 Expr::identifier("length"),
                 Expr::identifier("copy"),
+            ])),
+        ]),
+    );
+}
+
+fn append_symbol_materialization(output: &mut TranslationUnit) {
+    append_function(
+        output,
+        FunctionSignature::static_function(
+            "uint8_t",
+            "mal_symbol_copy_into",
+            [
+                Parameter::named("MalType_Symbol", "value"),
+                Parameter::named(TypeName::named("uint8_t").pointer(), "bytes"),
+            ],
+        ),
+        Block::new([
+            Statement::if_then(
+                Expr::logical_and(
+                    Expr::not_equal(
+                        Expr::identifier("value").field("ownership"),
+                        Expr::identifier("NULL"),
+                    ),
+                    Expr::equal(
+                        allocation_for(Expr::identifier("value").field("ownership"))
+                            .pointer_field("capacity"),
+                        Expr::identifier("SIZE_MAX"),
+                    ),
+                ),
+                Block::new([
+                    Statement::variable(
+                        TypeName::const_named("MalSymbolRope").pointer(),
+                        "rope",
+                        Some(Expr::cast(
+                            TypeName::const_named("MalSymbolRope").pointer(),
+                            Expr::identifier("value").field("ownership"),
+                        )),
+                    ),
+                    Statement::call(
+                        "mal_symbol_copy_into",
+                        [
+                            Expr::identifier("rope").pointer_field("left"),
+                            Expr::identifier("bytes"),
+                        ],
+                    ),
+                    Statement::call(
+                        "mal_symbol_copy_into",
+                        [
+                            Expr::identifier("rope").pointer_field("right"),
+                            Expr::add(
+                                Expr::identifier("bytes"),
+                                Expr::cast(
+                                    "size_t",
+                                    Expr::identifier("rope")
+                                        .pointer_field("left")
+                                        .field("length"),
+                                ),
+                            ),
+                        ],
+                    ),
+                    Statement::return_value(uint8(0)),
+                ]),
+            ),
+            Statement::if_then(
+                Expr::not_equal(Expr::identifier("value").field("length"), uint64(0)),
+                Block::new([Statement::call(
+                    "memcpy",
+                    [
+                        Expr::identifier("bytes"),
+                        Expr::identifier("value").field("data"),
+                        Expr::cast("size_t", Expr::identifier("value").field("length")),
+                    ],
+                )]),
+            ),
+            Statement::return_value(uint8(0)),
+        ]),
+    );
+    append_function(
+        output,
+        FunctionSignature::new(
+            "MalType_Symbol",
+            "mal_symbol_materialize",
+            [
+                context_parameter(),
+                Parameter::named("MalType_Symbol", "value"),
+            ],
+        ),
+        Block::new([
+            Statement::if_then(
+                Expr::logical_or(
+                    Expr::equal(
+                        Expr::identifier("value").field("ownership"),
+                        Expr::identifier("NULL"),
+                    ),
+                    Expr::not_equal(
+                        allocation_for(Expr::identifier("value").field("ownership"))
+                            .pointer_field("capacity"),
+                        Expr::identifier("SIZE_MAX"),
+                    ),
+                ),
+                Block::new([Statement::return_value(Expr::identifier("value"))]),
+            ),
+            Statement::variable(
+                TypeName::named("MalSymbolRope").pointer(),
+                "rope",
+                Some(Expr::cast(
+                    TypeName::named("MalSymbolRope").pointer(),
+                    Expr::identifier("value").field("ownership"),
+                )),
+            ),
+            Statement::if_then(
+                Expr::equal(
+                    Expr::identifier("rope").pointer_field("flattened"),
+                    Expr::identifier("NULL"),
+                ),
+                Block::new([
+                    Statement::variable(
+                        "size_t",
+                        "size",
+                        Some(Expr::cast(
+                            "size_t",
+                            Expr::identifier("value").field("length"),
+                        )),
+                    ),
+                    Statement::if_then(
+                        Expr::not_equal(
+                            Expr::cast("uint64_t", Expr::identifier("size")),
+                            Expr::identifier("value").field("length"),
+                        ),
+                        trap("allocation size overflow"),
+                    ),
+                    Statement::assignment(
+                        Expr::identifier("rope").pointer_field("flattened"),
+                        Expr::cast(
+                            TypeName::named("uint8_t").pointer(),
+                            Expr::named_call(
+                                "mal_allocate",
+                                [Expr::identifier("context"), Expr::identifier("size")],
+                            ),
+                        ),
+                    ),
+                    Statement::call(
+                        "mal_symbol_copy_into",
+                        [
+                            Expr::identifier("value"),
+                            Expr::identifier("rope").pointer_field("flattened"),
+                        ],
+                    ),
+                ]),
+            ),
+            Statement::return_value(symbol([
+                Expr::identifier("rope").pointer_field("flattened"),
+                Expr::identifier("value").field("length"),
+                Expr::identifier("value").field("ownership"),
             ])),
         ]),
     );

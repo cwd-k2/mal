@@ -99,7 +99,7 @@ impl BodyEmitter<'_> {
                 left,
                 right,
             } if left.ty == Type::Symbol && self.ownership.can_transfer(left) => {
-                let value = self.emit_symbol_concatenate(left, right, true);
+                let value = self.emit_symbol_concatenate(left, right, true, false);
                 self.emit_simple_result_with_transfers(
                     output,
                     &binding.pattern,
@@ -107,6 +107,21 @@ impl BodyEmitter<'_> {
                     value,
                     ResultOwnership::Owned,
                     &[left],
+                );
+            }
+            Operation::PrimitiveBinary {
+                operator: BinaryPrimitive::Add,
+                left,
+                right,
+            } if left.ty == Type::Symbol && self.ownership.can_transfer(right) => {
+                let value = self.emit_symbol_concatenate(left, right, false, true);
+                self.emit_simple_result_with_transfers(
+                    output,
+                    &binding.pattern,
+                    ty,
+                    value,
+                    ResultOwnership::Owned,
+                    &[right],
                 );
             }
             Operation::Case { scrutinee, arms } => {

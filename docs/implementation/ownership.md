@@ -62,11 +62,15 @@ slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyま
 | sum | active payloadだけをcopy | active payloadだけをdestroy |
 | その他 | C value copy | no-op |
 
-`Symbol` literalはstatic storageを参照しownership pointerを持たない。runtime生成Symbolはallocation headerのreference countと
-payload capacityを共有する。borrowed operandを受ける連結が既存descriptorを返す場合は、result contractを満たすためretainする。
-last-useのowned left operandをconsumeする連結は、reference countが1ならcapacityの範囲でbytesを追記し、不足時は幾何的に
-capacityを増やす。staticまたは共有中のleftは新しいbufferへcopyし、consumeしたshareをreleaseする。いずれもsourceからは
-新しいimmutable byte sequenceとしてだけ観測され、descriptorとcapacityはC host ABIのopaque ownership内部に留まる。
+`Symbol` literalはstatic storageを参照しownership pointerを持たない。runtime生成Symbolのownershipはreference count付きの
+flat allocationまたはrope nodeを指す。borrowed operandを受ける連結が既存descriptorを返す場合は、result contractを満たすため
+retainする。last-useのowned flat operandはreference countが1なら、leftでは末尾capacity、rightでは先頭余白を再利用し、
+不足時は幾何的に拡張する。static、共有中、ropeのoperandはin-placeに変更しない。
+
+共有された大きなconcatはAVL-balanced rope nodeとして両operandをretainする。comparison、byte access、memory store、extern
+parameterがbytesを要求したときだけflattenし、そのcacheはrope nodeと共に解放する。extern aggregate内のSymbolも型再帰で
+materializeする。いずれの表現もsourceからは新しいimmutable byte sequenceとしてだけ観測され、node、cache、capacityは
+C host ABIのopaque ownership内部に留まる。
 
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
@@ -93,8 +97,8 @@ typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous 
 immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。closureの
 local-use解析や将来のregion化も、この文書のborrow/result contractを変えずに行う。
 
-rope、slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。導入する場合も
-各nodeやcache entryが同じcopy/destroy contractへ従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、
+slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。rope nodeと
+flatten cacheは上記のcopy/destroy contractに従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、
 memoization keyのsource-level意味には使わない。
 
 測定baseline、着手順、安全条件は[managed Engram性能評価](../development/ownership-performance.md)に置く。

@@ -89,11 +89,19 @@ pub(super) fn emit(
                 "MalType_Unit",
                 "mal_store_symbol",
                 [
+                    Parameter::named(TypeName::named("MalContext").pointer(), "context"),
                     Parameter::named("MalType_Ptr", "pointer"),
                     Parameter::named("MalType_Symbol", "value"),
                 ],
             ),
             Block::new([
+                Statement::assignment(
+                    Expr::identifier("value"),
+                    Expr::named_call(
+                        "mal_symbol_materialize",
+                        [Expr::identifier("context"), Expr::identifier("value")],
+                    ),
+                ),
                 Statement::if_then(
                     Expr::not_equal(
                         Expr::identifier("value").field("length"),

@@ -107,7 +107,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
 | `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identityとC typeへのmapping |
 | `c_emit/types/collect` | lowered programから必要なstructural representationを収集する走査 |
-| `c_emit/types/lifetime` | managed typeの分類とinternal aggregate copy/destroy operationの構成 |
+| `c_emit/types/lifetime` | managed typeの分類、internal aggregate copy/destroy、extern前のSymbol materializationの構成 |
 | `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
 | `c_emit/types/host/product`、`c_emit/types/host/sum` | host-visible aggregateのconstructor、observer、checked projectionの構成 |
 | `c_emit/types/host/lifetime` | host-visible managed carrierのclone/take/drop operationの構成 |
@@ -126,9 +126,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
 | `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
-| `c_emit/runtime/core` | allocation、reference count、Symbol admission、host-visible Symbol lifecycle operationの構成 |
+| `c_emit/runtime/core` | allocation、reference count、Symbol admission、flat/rope lifetimeとmaterialization、host-visible Symbol lifecycle operationの構成 |
 | `c_emit/runtime/symbol` | Symbol comparison、byte access、concatenation operationの構成 |
-| `c_emit/runtime/symbol/concatenate` | borrowed/consuming concatとunique buffer capacity拡張の構成 |
+| `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
 ## Code structure

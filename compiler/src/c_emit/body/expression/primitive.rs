@@ -14,10 +14,14 @@ impl BodyEmitter<'_> {
         left: &Atom,
         right: &Atom,
         consume_left: bool,
+        consume_right: bool,
     ) -> Expr {
         let name = if consume_left {
             self.needs.symbol_concatenate_consuming_left = true;
             "mal_symbol_concatenate_consuming_left"
+        } else if consume_right {
+            self.needs.symbol_concatenate_consuming_right = true;
+            "mal_symbol_concatenate_consuming_right"
         } else {
             self.needs.symbol_concatenate = true;
             "mal_symbol_concatenate"
@@ -173,7 +177,10 @@ impl BodyEmitter<'_> {
     ) -> Expr {
         if *operand_type == Type::Symbol {
             self.needs.symbol_equality = true;
-            let equality = Expr::named_call("mal_symbol_equal", [left, right]);
+            let equality = Expr::named_call(
+                "mal_symbol_equal",
+                [Expr::identifier("mal_context"), left, right],
+            );
             return if operator == BinaryPrimitive::Equal {
                 equality
             } else {

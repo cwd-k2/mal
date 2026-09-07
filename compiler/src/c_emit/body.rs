@@ -39,6 +39,7 @@ pub(super) struct RuntimeNeeds {
     pub(super) symbol_at: bool,
     pub(super) symbol_concatenate: bool,
     pub(super) symbol_concatenate_consuming_left: bool,
+    pub(super) symbol_concatenate_consuming_right: bool,
     pub(super) memory_offset_forward: bool,
     pub(super) memory_offset_backward: bool,
     pub(super) memory_load: u16,

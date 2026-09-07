@@ -1,12 +1,15 @@
 use crate::c_emit::syntax::{
-    Block, Expr, ForInitializer, FunctionDefinition, FunctionSignature, Parameter, Statement,
-    TypeName,
+    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TypeName,
 };
 
 mod concatenate;
 
-pub(super) fn emit_concatenate(consume_left: bool) -> FunctionDefinition {
-    concatenate::emit(consume_left)
+pub(super) fn emit_concatenate(consume_left: bool, consume_right: bool) -> FunctionDefinition {
+    concatenate::emit(consume_left, consume_right)
+}
+
+pub(super) fn emit_rope_support() -> crate::c_emit::syntax::TranslationUnit {
+    concatenate::emit_rope_support()
 }
 
 pub(super) fn emit_equality() -> FunctionDefinition {
@@ -15,6 +18,7 @@ pub(super) fn emit_equality() -> FunctionDefinition {
             "uint8_t",
             "mal_symbol_equal",
             [
+                context_parameter(),
                 Parameter::named("MalType_Symbol", "left"),
                 Parameter::named("MalType_Symbol", "right"),
             ],
@@ -27,26 +31,32 @@ pub(super) fn emit_equality() -> FunctionDefinition {
                 ),
                 Block::new([Statement::return_value(uint8(0))]),
             ),
-            Statement::for_loop(
-                ForInitializer::variable("uint64_t", "index", uint64(0)),
-                Expr::less(
-                    Expr::identifier("index"),
-                    Expr::identifier("left").field("length"),
-                ),
-                Expr::pre_increment(Expr::identifier("index")),
-                Block::new([Statement::if_then(
-                    Expr::not_equal(
-                        Expr::identifier("left")
-                            .field("data")
-                            .index(Expr::identifier("index")),
-                        Expr::identifier("right")
-                            .field("data")
-                            .index(Expr::identifier("index")),
-                    ),
-                    Block::new([Statement::return_value(uint8(0))]),
-                )]),
+            Statement::if_then(
+                Expr::equal(Expr::identifier("left").field("length"), Expr::number("0")),
+                Block::new([Statement::return_value(uint8(1))]),
             ),
-            Statement::return_value(uint8(1)),
+            Statement::assignment(
+                Expr::identifier("left"),
+                materialize(Expr::identifier("left")),
+            ),
+            Statement::assignment(
+                Expr::identifier("right"),
+                materialize(Expr::identifier("right")),
+            ),
+            Statement::return_value(Expr::cast(
+                "uint8_t",
+                Expr::equal(
+                    Expr::named_call(
+                        "memcmp",
+                        [
+                            Expr::identifier("left").field("data"),
+                            Expr::identifier("right").field("data"),
+                            Expr::cast("size_t", Expr::identifier("left").field("length")),
+                        ],
+                    ),
+                    Expr::number("0"),
+                ),
+            )),
         ]),
     )
 }
@@ -69,6 +79,10 @@ pub(super) fn emit_at() -> FunctionDefinition {
                     Expr::identifier("value").field("length"),
                 ),
                 trap("Symbol index out of range"),
+            ),
+            Statement::assignment(
+                Expr::identifier("value"),
+                materialize(Expr::identifier("value")),
             ),
             Statement::return_value(
                 Expr::identifier("value")
@@ -94,8 +108,11 @@ fn uint8(value: u8) -> Expr {
     Expr::named_call("UINT8_C", [Expr::number(value.to_string())])
 }
 
-fn uint64(value: u64) -> Expr {
-    Expr::named_call("UINT64_C", [Expr::number(value.to_string())])
+fn materialize(value: Expr) -> Expr {
+    Expr::named_call(
+        "mal_symbol_materialize",
+        [Expr::identifier("context"), value],
+    )
 }
 
 fn function(signature: FunctionSignature, body: Block) -> FunctionDefinition {

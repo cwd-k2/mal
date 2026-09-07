@@ -339,6 +339,263 @@ main :: Unit -> Int32 := \() {
 }
 
 #[test]
+fn prepends_into_a_consumed_flat_symbol_with_bounded_allocations() {
+    let generated = emit(
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+  if (remaining == 0)
+  then { value }
+  else { grow(remaining - 1, "x" + value) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow(5000i64, "");
+  ok := (#value == 5000u64) &&
+        (value # 0u64 == 'x') &&
+        (value # 4999u64 == 'x');
+  if (ok) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit amortized Symbol prepend");
+    assert!(
+        generated
+            .source
+            .contains("mal_symbol_concatenate_consuming_right")
+    );
+
+    let fixture = NativeFixture::new("right-growing-symbol-rope");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=32",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn balances_shared_rope_concatenations_before_materialization() {
+    let base = "a".repeat(300);
+    let source = format!(
+        "prepend :: Symbol -> Symbol := \\(value :: Symbol) {{ \"x\" + value }};\n\
+         grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
+           if (remaining == 0)\n\
+           then {{ value }}\n\
+           else {{ grow(remaining - 1, prepend(value)) }};\n\
+         }};\n\
+         main :: Unit -> Int32 := \\() {{\n\
+           value := grow(5000i64, \"{base}\");\n\
+           if ((#value == 5300u64) && (value # 0u64 == 'x') &&\n\
+               (value # 4999u64 == 'x') && (value # 5000u64 == 'a'))\n\
+           then {{ 0 }}\n\
+           else {{ 1 }};\n\
+         }};"
+    );
+    let generated = emit(&source).expect("emit balanced shared Symbol rope");
+    let prepend = generated_function(&generated.source, "prepend");
+    assert!(prepend.contains("mal_symbol_concatenate(mal_context"));
+    assert!(generated.source.contains("mal_symbol_rope_balance"));
+
+    let fixture = NativeFixture::new("balanced-shared-symbol-rope");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn balances_mixed_shared_rope_growth_and_joins() {
+    let base = "a".repeat(300);
+    let source = format!(
+        "prepend :: Symbol -> Symbol := \\(value :: Symbol) {{ \"l\" + value }};\n\
+         append :: Symbol -> Symbol := \\(value :: Symbol) {{ value + \"r\" }};\n\
+         step :: Symbol -> Symbol := \\(value :: Symbol) {{ append(prepend(value)) }};\n\
+         grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
+           if (remaining == 0) then {{ value }} else {{ grow(remaining - 1, step(value)) }};\n\
+         }};\n\
+         join :: (Symbol, Symbol) -> Symbol := \\(left :: Symbol, right :: Symbol) {{ left + right }};\n\
+         main :: Unit -> Int32 := \\() {{\n\
+           left := grow(2000i64, \"{base}\");\n\
+           right := grow(2000i64, \"{base}\");\n\
+           value := join(left, right);\n\
+           ok := (#value == 8600u64) && (value # 0u64 == 'l') &&\n\
+                 (value # 1999u64 == 'l') && (value # 2000u64 == 'a') &&\n\
+                 (value # 4299u64 == 'r') && (value # 4300u64 == 'l') &&\n\
+                 (value # 8599u64 == 'r');\n\
+           if (ok) then {{ 0 }} else {{ 1 }};\n\
+         }};"
+    );
+    let generated = emit(&source).expect("emit mixed balanced Symbol ropes");
+    let fixture = NativeFixture::new("mixed-balanced-symbol-ropes");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn shares_repeated_subtrees_in_deeply_nested_symbol_calls() {
+    let mut expression = "\"a\"".to_owned();
+    for _ in 0..18 {
+        expression = format!("twice({expression}, \"\")");
+    }
+    let source = format!(
+        "twice :: (Symbol, Symbol) -> Symbol := \\(a :: Symbol, b :: Symbol) {{ a + a + b + b }};\n\
+         main :: Unit -> Int32 := \\() {{\n\
+           value := {expression};\n\
+           if ((#value == 262144u64) && (value # 0u64 == 'a') &&\n\
+               (value # 262143u64 == 'a'))\n\
+           then {{ 0 }} else {{ 1 }};\n\
+         }};"
+    );
+    let generated = emit(&source).expect("emit deeply nested Symbol calls");
+    let fixture = NativeFixture::new("nested-symbol-rope-dag");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=32",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn preserves_bytes_when_switching_between_prepend_and_append_reuse() {
+    let generated = emit(
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+  if (remaining == 0)
+  then { value + "tail" }
+  else { grow(remaining - 1, "x" + value) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow(1000i64, "center");
+  ok := (#value == 1010u64) &&
+        (value # 0u64 == 'x') &&
+        (value # 999u64 == 'x') &&
+        (value # 1000u64 == 'c') &&
+        (value # 1009u64 == 'l');
+  if (ok) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit bidirectional flat Symbol reuse");
+    let fixture = NativeFixture::new("bidirectional-symbol-reuse");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=32",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn does_not_mutate_a_shared_right_symbol_during_prepend() {
+    let output = compile_and_run(
+        r#"main :: Unit -> Int32 := \() {
+  right := "b" + "c";
+  alias := right;
+  joined := "a" + right;
+  if ((alias == "bc") && (joined == "abc")) then { 0 } else { 1 };
+};"#,
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn materializes_rope_bytes_recursively_at_the_host_boundary() {
+    let generated = emit(
+        r#"Choice :: [Unit, Symbol];
+Envelope :: (Symbol, Choice);
+extern inspect :: Envelope -> UInt64;
+prepend :: Symbol -> Symbol := \(value :: Symbol) {
+  "x" + value;
+};
+grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+  if (remaining == 0)
+  then { value }
+  else { grow(remaining - 1, prepend(value)) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow(1000i64, "");
+  choice := Choice[1](value);
+  if (extern inspect(value, choice) == 2000u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit recursive host materialization");
+
+    let fixture = NativeFixture::new("rope-host-boundary");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+#include <stddef.h>
+
+MAL_DEFINE_inspect(context, direct, choice) {
+    MalType_Symbol nested = MAL_OPERATION(Choice, expect_1)(context, choice);
+    MalType_Symbol held = MAL_CLONE(Symbol)(context, direct);
+    if (direct.data == NULL || nested.data == NULL) {
+        MAL_DROP(Symbol)(context, &held);
+        return UINT64_C(0);
+    }
+    for (uint64_t index = 0; index < direct.length; ++index) {
+        if (direct.data[index] != (uint8_t)'x' || nested.data[index] != (uint8_t)'x') {
+            MAL_DROP(Symbol)(context, &held);
+            return UINT64_C(0);
+        }
+    }
+    uint64_t result = held.length + nested.length;
+    MAL_DROP(Symbol)(context, &held);
+    return result;
+}
+"#,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn traps_when_a_consumed_symbol_cannot_be_reallocated() {
     let generated = emit(
         r#"appendTwice :: Symbol -> Symbol := \(value :: Symbol) {
@@ -349,6 +606,27 @@ main :: Unit -> Int32 := \() { appendTwice("a"); 0; };"#,
     )
     .expect("emit consuming Symbol reallocation");
     let fixture = NativeFixture::new("symbol-reallocation-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_FORCE_REALLOCATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
+fn traps_when_a_consumed_symbol_cannot_be_reallocated_for_prepend() {
+    let generated = emit(
+        r#"prependTwice :: Symbol -> Symbol := \(value :: Symbol) {
+  first := "b" + value;
+  "c" + first;
+};
+main :: Unit -> Int32 := \() { prependTwice("a"); 0; };"#,
+    )
+    .expect("emit consuming Symbol prepend reallocation");
+    let fixture = NativeFixture::new("symbol-prepend-reallocation-failure");
     let executable = fixture.compile_generated_with_options(
         generated,
         "",

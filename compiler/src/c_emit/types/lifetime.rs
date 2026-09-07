@@ -1,6 +1,6 @@
 use crate::c_emit::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, SwitchCase,
-    TranslationUnit,
+    Block, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter, Statement,
+    SwitchCase, TranslationUnit,
 };
 use crate::check::ast::Type;
 
@@ -70,8 +70,79 @@ impl TypeRegistry {
             output.blank_line();
             output.push(self.destroy_definition(index, ty));
             output.blank_line();
+            if matches!(ty, Type::Sum(_)) && contains_symbol(ty) {
+                output.push(self.materialize_symbols_definition(index, ty));
+                output.blank_line();
+            }
         }
         output
+    }
+
+    pub(in crate::c_emit) fn materialize_symbols(&self, ty: &Type, value: Expr) -> Expr {
+        match ty {
+            Type::Symbol => Expr::named_call(
+                "mal_symbol_materialize",
+                [Expr::identifier("mal_context"), value],
+            ),
+            Type::Product(elements) => Expr::compound_literal(
+                self.c_type(ty),
+                elements.iter().enumerate().map(|(index, element)| {
+                    Initializer::designated(
+                        format!("field_{index}"),
+                        self.materialize_symbols(
+                            element,
+                            value.clone().field(format!("field_{index}")),
+                        ),
+                    )
+                }),
+            ),
+            Type::Sum(_) if !is_bool(ty) && contains_symbol(ty) => Expr::named_call(
+                materialize_symbols_name(self.index(ty)),
+                [Expr::identifier("mal_context"), value],
+            ),
+            _ => value,
+        }
+    }
+
+    fn materialize_symbols_definition(&self, index: usize, ty: &Type) -> FunctionDefinition {
+        let Type::Sum(members) = ty else {
+            unreachable!("only sum materialization requires a helper")
+        };
+        let mut cases = Vec::new();
+        for (variant, member) in members.iter().enumerate() {
+            let mut case = Block::default();
+            if contains_symbol(member) {
+                let target = Expr::identifier("value")
+                    .field("payload")
+                    .field(format!("variant_{variant}"));
+                case.push(Statement::assignment(
+                    target.clone(),
+                    self.materialize_symbols(member, target),
+                ));
+            }
+            case.push(Statement::Break);
+            cases.push(SwitchCase::case(uint32(variant), case));
+        }
+        cases.push(invalid_sum_default());
+        let body = Block::new([
+            Statement::switch(Expr::identifier("value").field("tag"), cases),
+            Statement::return_value(Expr::identifier("value")),
+        ]);
+        FunctionDefinition::from_signature(
+            FunctionSignature::static_inline(
+                self.c_type(ty),
+                materialize_symbols_name(index),
+                [
+                    Parameter::named(
+                        crate::c_emit::syntax::TypeName::named("MalContext").pointer(),
+                        "mal_context",
+                    ),
+                    Parameter::named(self.c_type(ty), "value"),
+                ],
+            )
+            .maybe_unused(),
+            body,
+        )
     }
 
     fn copy_definition(&self, index: usize, ty: &Type) -> FunctionDefinition {
@@ -226,6 +297,18 @@ fn copy_name(index: usize) -> String {
 
 fn destroy_name(index: usize) -> String {
     format!("mal_destroy_value_{index}")
+}
+
+fn materialize_symbols_name(index: usize) -> String {
+    format!("mal_materialize_symbols_{index}")
+}
+
+fn contains_symbol(ty: &Type) -> bool {
+    match ty {
+        Type::Symbol => true,
+        Type::Product(elements) | Type::Sum(elements) => elements.iter().any(contains_symbol),
+        _ => false,
+    }
 }
 
 fn uint8(value: u8) -> Expr {

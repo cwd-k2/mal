@@ -20,6 +20,8 @@ case bindingを含むtail edgeでは10万iterationをnative Cとして実行す�
 |---|---|---|
 | `symbol-churn` | 100万回の短寿命concat | allocationとreleaseの残留 |
 | `symbol-growth` | 1 byteずつ成長する1万byteの値 | immutable concatの累積byte copy |
+| `symbol-prepend` | 先頭へ1 byteずつ追加する1万byteの値 | right operandをconsumeするbuffer再利用 |
+| `symbol-rope` | borrowed関数境界を越える5000回のprepend | shared concatの平衡性と遅延materialization |
 | `closure-churn` | 20万個の短寿命capturing closure | environment allocationとcleanup |
 | `aggregate-churn` | 20万回のmanaged product、sum、case | field copyとpath-local cleanup |
 
@@ -56,10 +58,10 @@ direct tail edgeではtransferすることをgenerated Cとnative実行の両方
 
 ### 2. consuming Symbol concat（実装済み）
 
-左operandがowned bindingのlast useである場合だけ、compilerはconsuming concatを生成する。runtime ownership shareが一つなら
-既存bufferへ追記し、capacity不足時は上限を検査しながら幾何的に拡張する。通常の`a + b`、同じbindingを左右に使うconcat、
-後で再使用する`a`はborrowed operationを維持する。staticまたは共有中のleftは新しいbufferへcopyするfallbackへ進み、
-consuming operationへ渡されたleft shareはresult構築後にreleaseする。
+左右いずれかのoperandがowned bindingのlast useである場合、compilerは対応するconsuming concatを生成する。runtime ownership
+shareが一つのflat Symbolなら、leftをconsumeする場合は末尾へ追記し、rightをconsumeする場合は先頭余白へprependする。
+capacityまたは先頭余白が不足すれば、上限を検査しながら幾何的に拡張してbytesを再配置する。後で再使用するoperand、
+static storage、共有中のallocation、ropeはin-placeに変更しない。
 
 capacityはallocation headerにあり、C host ABIのopaque ownership field内に閉じる。空文字、allocationとreallocation failure、
 overflow、共有aliasのimmutability、hostへのcontiguous byte borrowをfocused testで検査する。1万byteの`symbol-growth`は
@@ -79,14 +81,21 @@ function bodyはheap closureと同じenvironment pointer引数を受けるため
 negative caseがheap allocation failureを維持することを確認する。`closure-churn`の20万environment allocationは0になり、
 同一のpressure suiteで他caseの退行は観測されなかった。
 
-### 4. 表現変更（現時点では不要）
+### 4. hybrid flat/rope Symbol（実装済み）
 
-rope、slice、flatten cacheは、反復concatのbyte copyが上記の局所最適化後も支配的な場合に限って検討する。host ABIは
-`Symbol`のcontiguous bytesをcall中borrowできるため、ropeを採るならflatten時点、cache lifetime、byte accessの計算量を
-別途設計する。論理的immutabilityを保っても内部cacheには同期と回収のpolicyが必要になる。
+一意なflat operandをconsumeできる反復concatは、左右どちらの成長も幾何的capacityを持つbufferで処理する。これにより
+linear builder相当の経路は少ないallocationと償却linearなbyte移動を保つ。両operandがborrowed、共有中、またはropeで、
+合計lengthが256 byteを超えるconcatはbytesをcopyせずAVL-balanced ropeを作る。小さいconcatはflat allocationを使い、
+短い値にnode allocationを追加しない。
 
-consuming concatによって`symbol-growth`のallocation operationは幾何的増加の上限内となり、同一環境の測定でも累積copyが
-支配する兆候は解消した。この条件が維持される限り、表現変更には進まない。
+`#value`はdescriptorのlengthだけを読む。equality、byte access、`storeSymbol`、extern parameterはcontiguous bytesを必要とするため、
+その時点でropeを一度だけflattenしてnodeにcacheする。externへ渡すproductとactive sum payloadも型再帰でmaterializeする。
+cacheはropeと同じreference-count lifetimeで回収し、各`MalContext`内の実行に閉じる。AVL heightを保つことでflattenとreleaseの
+再帰深度をconcat回数に比例させない。
+
+focused testは左右の一意buffer成長をtotal allocation上限32、shared ropeを5000回の偏ったconcat、左右混在join、同じ部分木を
+再利用する18段のnested call、prependからappendへの切替、共有aliasのimmutability、nested aggregateのhost観測、allocation
+failureで検査する。pressure suiteはflat prependとshared ropeを独立したcaseとして通常buildとsanitizer buildで実行する。
 
 automatic memoizationは初期候補にしない。mal functionは`extern`を呼び得るためimmutabilityだけではpureにならず、無制限cacheは
 live setを増やす。descriptor addressは再利用され、source-level identityでもない。pure operationに限定したcacheがprofileで
