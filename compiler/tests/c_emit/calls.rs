@@ -270,6 +270,80 @@ fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
 }
 
 #[test]
+fn lowers_managed_direct_tail_recursion_with_constant_stack() {
+    let source = "extern input :: Unit -> Symbol;\n\
+         count :: (Symbol, Int64) -> UInt64 := \\(value :: Symbol, remaining :: Int64) {\n\
+           if (remaining == 0) then { #value } else {\n\
+             count(value, remaining - 1)\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           if (count(extern input(), 1000000i64) == 1u64) then { 0 } else { 1 };\n\
+         };";
+    let generated = emit(source).expect("emit managed tail-recursive C");
+    assert!(generated.source.contains("goto mal_tail_entry;"));
+
+    let fixture = NativeFixture::new("managed-direct-tail-recursion");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+
+MalType_Symbol mal_ext_input(MalContext *context) {
+    static const uint8_t bytes[] = { UINT8_C(120) };
+    return mal_Symbol_copy_from_bytes(context, bytes, UINT64_C(1));
+}
+"#,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cleans_managed_case_bindings_on_direct_tail_edges() {
+    let source = r#"Choice :: [Unit, Symbol];
+extern input :: Unit -> Symbol;
+walk :: (Choice, Int64) -> Symbol := \(choice :: Choice, remaining :: Int64) {
+  case (choice)
+    [0](_) { "empty" }
+    [1](value) {
+      if (remaining == 0)
+      then { value }
+      else { walk(choice, remaining - 1) };
+    };
+};
+main :: Unit -> Int32 := \() {
+  result := walk(Choice[1](extern input()), 100000i64);
+  if (result == "x") then { 0 } else { 1 };
+};"#;
+    let generated = emit(source).expect("emit managed case tail-recursive C");
+    assert!(generated.source.contains("goto mal_tail_entry;"));
+
+    let fixture = NativeFixture::new("managed-case-tail-recursion");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+
+MalType_Symbol mal_ext_input(MalContext *context) {
+    static const uint8_t bytes[] = { UINT8_C(120) };
+    return mal_Symbol_copy_from_bytes(context, bytes, UINT64_C(1));
+}
+"#,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn preserves_effect_order_before_a_direct_tail_call() {
     let output = compile_and_run(
         "extern step :: Int32 -> Int32;\n\

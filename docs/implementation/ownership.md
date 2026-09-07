@@ -41,6 +41,11 @@ exhaustiveness checkで拒否する。structured operationもstatement emitter�
 現在のemitterはlast-use moveを解析せず、保存時に保守的なcopyを生成する。したがって正しさは変数の最終使用位置に依存しない。
 型付きclosure-converted IRのlexical blockとpatternからcleanupを生成でき、lexerやparserへlifetime解析を追加しない。
 
+direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyして
+ownershipを確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを
+slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyしてから同じcleanupを行う。これによりmanaged valueを
+含む場合も、参照先を早く解放せず、iterationごとのownership shareを残さず、C stackを増やさない。
+
 ## 型ごとのoperation
 
 | 型 | copy | destroy |

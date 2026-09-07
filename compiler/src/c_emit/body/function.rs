@@ -266,16 +266,26 @@ impl BodyEmitter<'_> {
                 CExpr::identifier("mal_parameter"),
             )));
         }
-        if has_direct_tail_call(&function.body, function.id)
-            && !self.types.contains_managed(&function.body.result.ty)
-            && !block_contains_managed(self.types, &function.body)
-        {
+        if has_direct_tail_call(&function.body, function.id) {
             let parameter_name = function
                 .parameter
                 .binding
                 .map_or_else(|| "mal_parameter".into(), value_name);
+            if self.types.contains_managed(&function.parameter.ty) {
+                output.push(Statement::assignment(
+                    CExpr::identifier(&parameter_name),
+                    self.types
+                        .copy_value(&function.parameter.ty, CExpr::identifier(&parameter_name)),
+                ));
+            }
             let mut tail = CBlock::default();
-            self.emit_tail_block(&mut tail, &function.body, function.id, &parameter_name);
+            self.emit_tail_block(
+                &mut tail,
+                &function.body,
+                function.id,
+                &parameter_name,
+                &function.parameter.ty,
+            );
             output.push(Statement::label("mal_tail_entry", tail));
         } else {
             self.emit_block_bindings(output, &function.body);
@@ -292,25 +302,4 @@ impl BodyEmitter<'_> {
             output.push(Statement::return_value(CExpr::identifier(result_name)));
         }
     }
-}
-
-fn block_contains_managed(
-    types: &crate::c_emit::types::TypeRegistry,
-    block: &closure::Block,
-) -> bool {
-    block.bindings.iter().any(|binding| {
-        types.contains_managed(super::pattern_type(&binding.pattern))
-            || match &binding.operation {
-                closure::Operation::Case { arms, .. } => arms.iter().any(|arm| {
-                    types.contains_managed(super::pattern_type(&arm.pattern))
-                        || block_contains_managed(types, &arm.value)
-                }),
-                closure::Operation::PrimitiveBranch {
-                    otherwise, then, ..
-                } => {
-                    block_contains_managed(types, otherwise) || block_contains_managed(types, then)
-                }
-                _ => false,
-            }
-    })
 }

@@ -14,6 +14,26 @@ impl BodyEmitter<'_> {
         block: &ClosureBlock,
         function: FunctionId,
         parameter_name: &str,
+        parameter_type: &Type,
+    ) {
+        self.emit_tail_block_with_cleanup(
+            output,
+            block,
+            function,
+            parameter_name,
+            parameter_type,
+            &[],
+        );
+    }
+
+    fn emit_tail_block_with_cleanup<'a>(
+        &mut self,
+        output: &mut Block,
+        block: &'a ClosureBlock,
+        function: FunctionId,
+        parameter_name: &str,
+        parameter_type: &Type,
+        outer_cleanup: &[TailCleanup<'a>],
     ) {
         let tail = block.bindings.last().filter(|binding| {
             matches!(
@@ -28,23 +48,42 @@ impl BodyEmitter<'_> {
         for binding in &block.bindings[..ordinary_count] {
             self.emit_binding(output, binding);
         }
+        let mut cleanup = outer_cleanup.to_vec();
+        cleanup.push(TailCleanup::Bindings(&block.bindings[..ordinary_count]));
 
         match tail.map(|binding| &binding.operation) {
             Some(closure::Operation::Call { callee, argument })
                 if matches!(
-                    callee.kind,
-                    closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
+                        callee.kind,
+                        closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
                 ) =>
             {
+                output.push(Statement::variable(
+                    self.types.c_type(parameter_type),
+                    "mal_tail_next_parameter",
+                    Some(
+                        self.types
+                            .copy_value(parameter_type, self.emit_atom(argument)),
+                    ),
+                ));
+                self.emit_tail_cleanup(output, &cleanup);
+                self.types
+                    .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
                 output.push(Statement::assignment(
                     Expr::identifier(parameter_name),
-                    self.emit_atom(argument),
+                    Expr::identifier("mal_tail_next_parameter"),
                 ));
                 output.push(Statement::goto("mal_tail_entry"));
             }
-            Some(closure::Operation::Case { scrutinee, arms }) => {
-                self.emit_tail_case(output, scrutinee, arms, function, parameter_name)
-            }
+            Some(closure::Operation::Case { scrutinee, arms }) => self.emit_tail_case(
+                output,
+                scrutinee,
+                arms,
+                function,
+                parameter_name,
+                parameter_type,
+                &cleanup,
+            ),
             Some(closure::Operation::PrimitiveBranch {
                 operator,
                 left,
@@ -60,22 +99,42 @@ impl BodyEmitter<'_> {
                 then,
                 function,
                 parameter_name,
+                parameter_type,
+                &cleanup,
             ),
             Some(_) => {
                 self.emit_binding(output, block.bindings.last().expect("tail binding"));
-                output.push(Statement::return_value(self.emit_atom(&block.result)));
+                cleanup.push(TailCleanup::Pattern(
+                    &block.bindings.last().expect("tail binding").pattern,
+                ));
+                self.emit_tail_return(
+                    output,
+                    &block.result,
+                    parameter_name,
+                    parameter_type,
+                    &cleanup,
+                );
             }
-            None => output.push(Statement::return_value(self.emit_atom(&block.result))),
+            None => self.emit_tail_return(
+                output,
+                &block.result,
+                parameter_name,
+                parameter_type,
+                &cleanup,
+            ),
         }
     }
 
-    fn emit_tail_case(
+    #[allow(clippy::too_many_arguments)]
+    fn emit_tail_case<'a>(
         &mut self,
         output: &mut Block,
         scrutinee: &Atom,
-        arms: &[closure::CaseArm],
+        arms: &'a [closure::CaseArm],
         function: FunctionId,
         parameter_name: &str,
+        parameter_type: &Type,
+        outer_cleanup: &[TailCleanup<'a>],
     ) {
         let bool_scrutinee = is_bool(&scrutinee.ty);
         let scrutinee = self.emit_atom(scrutinee);
@@ -95,7 +154,16 @@ impl BodyEmitter<'_> {
                 payload,
                 ResultOwnership::Borrowed,
             );
-            self.emit_tail_block(&mut body, &arm.value, function, parameter_name);
+            let mut cleanup = outer_cleanup.to_vec();
+            cleanup.push(TailCleanup::Pattern(&arm.pattern));
+            self.emit_tail_block_with_cleanup(
+                &mut body,
+                &arm.value,
+                function,
+                parameter_name,
+                parameter_type,
+                &cleanup,
+            );
             cases.push(SwitchCase::case(uint32(arm.index), body));
         }
         cases.push(invalid_sum_default());
@@ -103,23 +171,73 @@ impl BodyEmitter<'_> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_tail_primitive_branch(
+    fn emit_tail_primitive_branch<'a>(
         &mut self,
         output: &mut Block,
         operator: crate::core::ast::BinaryPrimitive,
         left: &Atom,
         right: &Atom,
-        otherwise: &ClosureBlock,
-        then: &ClosureBlock,
+        otherwise: &'a ClosureBlock,
+        then: &'a ClosureBlock,
         function: FunctionId,
         parameter_name: &str,
+        parameter_type: &Type,
+        cleanup: &[TailCleanup<'a>],
     ) {
         let condition = self.emit_primitive_condition(operator, left, right);
         let mut then_body = Block::default();
-        self.emit_tail_block(&mut then_body, then, function, parameter_name);
+        self.emit_tail_block_with_cleanup(
+            &mut then_body,
+            then,
+            function,
+            parameter_name,
+            parameter_type,
+            cleanup,
+        );
         let mut otherwise_body = Block::default();
-        self.emit_tail_block(&mut otherwise_body, otherwise, function, parameter_name);
+        self.emit_tail_block_with_cleanup(
+            &mut otherwise_body,
+            otherwise,
+            function,
+            parameter_name,
+            parameter_type,
+            cleanup,
+        );
         output.push(Statement::if_else(condition, then_body, otherwise_body));
+    }
+
+    fn emit_tail_return(
+        &self,
+        output: &mut Block,
+        result: &Atom,
+        parameter_name: &str,
+        parameter_type: &Type,
+        cleanup: &[TailCleanup<'_>],
+    ) {
+        output.push(Statement::variable(
+            self.types.c_type(&result.ty),
+            "mal_tail_result",
+            Some(self.types.copy_value(&result.ty, self.emit_atom(result))),
+        ));
+        self.emit_tail_cleanup(output, cleanup);
+        self.types
+            .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
+        output.push(Statement::return_value(Expr::identifier("mal_tail_result")));
+    }
+
+    fn emit_tail_cleanup(&self, output: &mut Block, cleanup: &[TailCleanup<'_>]) {
+        for cleanup in cleanup.iter().rev() {
+            match cleanup {
+                TailCleanup::Bindings(bindings) => {
+                    for binding in bindings.iter().rev() {
+                        self.destroy_pattern_bindings(output, &binding.pattern);
+                    }
+                }
+                TailCleanup::Pattern(pattern) => {
+                    self.destroy_pattern_bindings(output, pattern);
+                }
+            }
+        }
     }
 
     pub(super) fn emit_case(
@@ -232,6 +350,12 @@ impl BodyEmitter<'_> {
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+enum TailCleanup<'a> {
+    Bindings(&'a [closure::Binding]),
+    Pattern(&'a Pattern),
 }
 
 fn case_payload(scrutinee: &Expr, index: usize, bool_scrutinee: bool) -> Expr {
