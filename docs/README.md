@@ -34,7 +34,7 @@
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定index](design/decisions-index.md) | [最小性](design/minimality.md)、[authority](design/authority.md) |
-| 性能を評価する | [generated C performance](development/performance.md) | [compiler compile-time](development/compiler-performance.md) |
+| 性能を評価する | [generated C performance](development/performance.md) | [managed Engram性能](development/ownership-performance.md)、[compiler compile-time](development/compiler-performance.md) |
 | 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
 ## 文書の役割

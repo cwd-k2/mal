@@ -83,3 +83,5 @@ escape analysis、region化でretain/releaseを除去できるが、この文書
 rope、slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。導入する場合も
 各nodeやcache entryが同じcopy/destroy contractへ従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、
 memoization keyのsource-level意味には使わない。
+
+測定baseline、着手順、安全条件は[managed Engram性能評価](../development/ownership-performance.md)に置く。
