@@ -9,6 +9,8 @@ use super::{BodyEmitter, ResultOwnership, pattern_type};
 mod control;
 mod result;
 
+pub(super) use control::TailParameterSlot;
+
 impl BodyEmitter<'_> {
     pub(super) fn emit_block_bindings(&mut self, output: &mut Block, block: &ClosureBlock) {
         self.emit_bindings(output, &block.bindings);

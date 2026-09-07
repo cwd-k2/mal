@@ -239,15 +239,24 @@ main :: Unit -> Int32 := \() {
 };"#,
     )
     .expect("emit managed aggregate tail state");
-    assert!(generated.source.contains("mal_tail_next_parameter"));
+    assert!(
+        generated
+            .source
+            .contains("mal_tail_next_parameter_0 = mal_value_source_")
+    );
+    assert!(
+        !generated
+            .source
+            .contains("MalRepr_Product_0 mal_tail_next_parameter =")
+    );
 
     let fixture = NativeFixture::new("managed-aggregate-tail-cost");
     let executable = fixture.compile_generated_with_options(
         generated,
         "",
         &[
-            "-DMAL_TEST_RETAIN_LIMIT=256",
-            "-DMAL_TEST_RELEASE_LIMIT=256",
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_RELEASE_LIMIT=16",
             "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=3",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],
@@ -258,6 +267,33 @@ main :: Unit -> Int32 := \() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn keeps_aggregate_tail_state_when_a_parameter_leaf_is_a_product() {
+    let generated = emit(
+        r#"Nested :: (Symbol, Int64);
+walk :: (Nested, Int64) -> Symbol := \(state :: Nested, remaining :: Int64) {
+  (value, _) := state;
+  if (remaining == 0)
+  then { value }
+  else { walk(state, remaining - 1) };
+};
+main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  if (walk((value, 0i64), 4i64) == "ab") then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit nested aggregate tail state");
+    assert!(generated.source.contains(" mal_tail_next_parameter ="));
+
+    let fixture = NativeFixture::new("nested-aggregate-tail-fallback");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    assert!(fixture.run(executable).status.success());
 }
 
 fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {

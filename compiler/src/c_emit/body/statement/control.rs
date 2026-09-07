@@ -1,3 +1,4 @@
+use crate::anf::ast::ValueId;
 use crate::c_emit::syntax::{Block, Expr, Statement, SwitchCase};
 use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
@@ -20,8 +21,28 @@ impl BodyEmitter<'_> {
             output,
             block,
             function,
-            parameter_name,
-            parameter_type,
+            &TailState::Aggregate {
+                name: parameter_name,
+                ty: parameter_type,
+            },
+            0,
+            &[],
+        );
+    }
+
+    pub(in crate::c_emit::body) fn emit_leaf_tail_block(
+        &mut self,
+        output: &mut Block,
+        block: &ClosureBlock,
+        function: FunctionId,
+        slots: &[TailParameterSlot<'_>],
+    ) {
+        self.emit_tail_block_with_cleanup(
+            output,
+            block,
+            function,
+            &TailState::Leaves(slots),
+            1,
             &[],
         );
     }
@@ -31,8 +52,8 @@ impl BodyEmitter<'_> {
         output: &mut Block,
         block: &'a ClosureBlock,
         function: FunctionId,
-        parameter_name: &str,
-        parameter_type: &Type,
+        state: &TailState<'_>,
+        skip_bindings: usize,
         outer_cleanup: &[TailCleanup<'a>],
     ) {
         let tail = block.bindings.last().filter(|binding| {
@@ -45,9 +66,22 @@ impl BodyEmitter<'_> {
             )
         });
         let ordinary_count = block.bindings.len() - usize::from(tail.is_some());
-        self.emit_bindings(output, &block.bindings[..ordinary_count]);
+        let tail_elements = tail.and_then(|binding| match (&binding.operation, state) {
+            (
+                closure::Operation::Call { callee, argument },
+                TailState::Leaves(slots),
+            ) if matches!(
+                callee.kind,
+                closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
+            ) => tail_product_elements(block, ordinary_count, argument, slots.len()),
+            _ => None,
+        });
+        let emitted_count = ordinary_count - usize::from(tail_elements.is_some());
+        self.emit_bindings(output, &block.bindings[skip_bindings..emitted_count]);
         let mut cleanup = outer_cleanup.to_vec();
-        cleanup.push(TailCleanup::Bindings(&block.bindings[..ordinary_count]));
+        cleanup.push(TailCleanup::Bindings(
+            &block.bindings[skip_bindings..emitted_count],
+        ));
 
         match tail.map(|binding| &binding.operation) {
             Some(closure::Operation::Call { callee, argument })
@@ -56,32 +90,36 @@ impl BodyEmitter<'_> {
                         closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
                 ) =>
             {
-                let mut transfers = Vec::new();
-                let next_parameter = self.materialize_atom(argument, &mut transfers);
-                output.push(Statement::variable(
-                    self.types.c_type(parameter_type),
-                    "mal_tail_next_parameter",
-                    Some(next_parameter),
-                ));
-                self.clear_transferred_atoms(output, &transfers);
-                self.emit_tail_cleanup(output, &cleanup);
-                self.types
-                    .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
-                output.push(Statement::assignment(
-                    Expr::identifier(parameter_name),
-                    Expr::identifier("mal_tail_next_parameter"),
-                ));
+                match state {
+                    TailState::Aggregate { name, ty } => {
+                        let mut transfers = Vec::new();
+                        let next_parameter = self.materialize_atom(argument, &mut transfers);
+                        output.push(Statement::variable(
+                            self.types.c_type(ty),
+                            "mal_tail_next_parameter",
+                            Some(next_parameter),
+                        ));
+                        self.clear_transferred_atoms(output, &transfers);
+                        self.emit_tail_cleanup(output, &cleanup);
+                        self.types
+                            .destroy_value(output, ty, Expr::identifier(*name));
+                        output.push(Statement::assignment(
+                            Expr::identifier(*name),
+                            Expr::identifier("mal_tail_next_parameter"),
+                        ));
+                    }
+                    TailState::Leaves(slots) => self.emit_leaf_tail_update(
+                        output,
+                        tail_elements.expect("leaf tail calls have adjacent product arguments"),
+                        slots,
+                        &cleanup,
+                    ),
+                }
                 output.push(Statement::goto("mal_tail_entry"));
             }
-            Some(closure::Operation::Case { scrutinee, arms }) => self.emit_tail_case(
-                output,
-                scrutinee,
-                arms,
-                function,
-                parameter_name,
-                parameter_type,
-                &cleanup,
-            ),
+            Some(closure::Operation::Case { scrutinee, arms }) => {
+                self.emit_tail_case(output, scrutinee, arms, function, state, &cleanup)
+            }
             Some(closure::Operation::PrimitiveBranch {
                 operator,
                 left,
@@ -89,37 +127,16 @@ impl BodyEmitter<'_> {
                 otherwise,
                 then,
             }) => self.emit_tail_primitive_branch(
-                output,
-                *operator,
-                left,
-                right,
-                otherwise,
-                then,
-                function,
-                parameter_name,
-                parameter_type,
-                &cleanup,
+                output, *operator, left, right, otherwise, then, function, state, &cleanup,
             ),
             Some(_) => {
                 self.emit_binding(output, block.bindings.last().expect("tail binding"));
                 cleanup.push(TailCleanup::Pattern(
                     &block.bindings.last().expect("tail binding").pattern,
                 ));
-                self.emit_tail_return(
-                    output,
-                    &block.result,
-                    parameter_name,
-                    parameter_type,
-                    &cleanup,
-                );
+                self.emit_tail_return(output, &block.result, state, &cleanup);
             }
-            None => self.emit_tail_return(
-                output,
-                &block.result,
-                parameter_name,
-                parameter_type,
-                &cleanup,
-            ),
+            None => self.emit_tail_return(output, &block.result, state, &cleanup),
         }
     }
 
@@ -130,8 +147,7 @@ impl BodyEmitter<'_> {
         scrutinee: &Atom,
         arms: &'a [closure::CaseArm],
         function: FunctionId,
-        parameter_name: &str,
-        parameter_type: &Type,
+        state: &TailState<'_>,
         outer_cleanup: &[TailCleanup<'a>],
     ) {
         let scrutinee_atom = scrutinee;
@@ -167,14 +183,7 @@ impl BodyEmitter<'_> {
             }
             let mut cleanup = outer_cleanup.to_vec();
             cleanup.push(TailCleanup::Pattern(&arm.pattern));
-            self.emit_tail_block_with_cleanup(
-                &mut body,
-                &arm.value,
-                function,
-                parameter_name,
-                parameter_type,
-                &cleanup,
-            );
+            self.emit_tail_block_with_cleanup(&mut body, &arm.value, function, state, 0, &cleanup);
             cases.push(SwitchCase::case(uint32(arm.index), body));
         }
         cases.push(invalid_sum_default());
@@ -191,27 +200,19 @@ impl BodyEmitter<'_> {
         otherwise: &'a ClosureBlock,
         then: &'a ClosureBlock,
         function: FunctionId,
-        parameter_name: &str,
-        parameter_type: &Type,
+        state: &TailState<'_>,
         cleanup: &[TailCleanup<'a>],
     ) {
         let condition = self.emit_primitive_condition(operator, left, right);
         let mut then_body = Block::default();
-        self.emit_tail_block_with_cleanup(
-            &mut then_body,
-            then,
-            function,
-            parameter_name,
-            parameter_type,
-            cleanup,
-        );
+        self.emit_tail_block_with_cleanup(&mut then_body, then, function, state, 0, cleanup);
         let mut otherwise_body = Block::default();
         self.emit_tail_block_with_cleanup(
             &mut otherwise_body,
             otherwise,
             function,
-            parameter_name,
-            parameter_type,
+            state,
+            0,
             cleanup,
         );
         output.push(Statement::if_else(condition, then_body, otherwise_body));
@@ -221,8 +222,7 @@ impl BodyEmitter<'_> {
         &self,
         output: &mut Block,
         result: &Atom,
-        parameter_name: &str,
-        parameter_type: &Type,
+        state: &TailState<'_>,
         cleanup: &[TailCleanup<'_>],
     ) {
         let mut transfers = Vec::new();
@@ -234,9 +234,61 @@ impl BodyEmitter<'_> {
         ));
         self.clear_transferred_atoms(output, &transfers);
         self.emit_tail_cleanup(output, cleanup);
-        self.types
-            .destroy_value(output, parameter_type, Expr::identifier(parameter_name));
+        self.destroy_tail_state(output, state, &transfers);
         output.push(Statement::return_value(Expr::identifier("mal_tail_result")));
+    }
+
+    fn emit_leaf_tail_update(
+        &self,
+        output: &mut Block,
+        elements: &[Atom],
+        slots: &[TailParameterSlot<'_>],
+        cleanup: &[TailCleanup<'_>],
+    ) {
+        let mut transfers = Vec::new();
+        for (index, (element, slot)) in elements.iter().zip(slots).enumerate() {
+            output.push(Statement::variable(
+                self.types.c_type(slot.ty),
+                format!("mal_tail_next_parameter_{index}"),
+                Some(self.materialize_atom(element, &mut transfers)),
+            ));
+        }
+        self.clear_transferred_atoms(output, &transfers);
+        self.emit_tail_cleanup(output, cleanup);
+        self.destroy_tail_state(output, &TailState::Leaves(slots), &transfers);
+        for (index, slot) in slots.iter().enumerate() {
+            output.push(Statement::assignment(
+                Expr::identifier(super::super::value_name(slot.id)),
+                Expr::identifier(format!("mal_tail_next_parameter_{index}")),
+            ));
+        }
+    }
+
+    fn destroy_tail_state(&self, output: &mut Block, state: &TailState<'_>, transfers: &[&Atom]) {
+        match state {
+            TailState::Aggregate { name, ty } => {
+                self.types
+                    .destroy_value(output, ty, Expr::identifier(*name));
+            }
+            TailState::Leaves(slots) => {
+                for slot in slots.iter().rev() {
+                    if transfers.iter().any(|atom| {
+                        matches!(
+                            atom.kind,
+                            closure::AtomKind::Reference(closure::Reference::Binding(id))
+                                if id == slot.id
+                        )
+                    }) {
+                        continue;
+                    }
+                    self.types.destroy_value(
+                        output,
+                        slot.ty,
+                        Expr::identifier(super::super::value_name(slot.id)),
+                    );
+                }
+            }
+        }
     }
 
     fn emit_tail_cleanup(&self, output: &mut Block, cleanup: &[TailCleanup<'_>]) {
@@ -385,6 +437,36 @@ impl BodyEmitter<'_> {
 enum TailCleanup<'a> {
     Bindings(&'a [closure::Binding]),
     Pattern(&'a Pattern),
+}
+
+pub(in crate::c_emit::body) struct TailParameterSlot<'a> {
+    pub(in crate::c_emit::body) id: ValueId,
+    pub(in crate::c_emit::body) ty: &'a Type,
+}
+
+enum TailState<'a> {
+    Aggregate { name: &'a str, ty: &'a Type },
+    Leaves(&'a [TailParameterSlot<'a>]),
+}
+
+fn tail_product_elements<'a>(
+    block: &'a ClosureBlock,
+    ordinary_count: usize,
+    argument: &Atom,
+    expected: usize,
+) -> Option<&'a [Atom]> {
+    let closure::AtomKind::Reference(closure::Reference::Binding(argument_id)) = argument.kind
+    else {
+        return None;
+    };
+    let binding = block.bindings.get(ordinary_count.checked_sub(1)?)?;
+    let Pattern::Binding { id, .. } = binding.pattern else {
+        return None;
+    };
+    let closure::Operation::Product(elements) = &binding.operation else {
+        return None;
+    };
+    (id == argument_id && elements.len() == expected).then_some(elements)
 }
 
 fn case_payload(scrutinee: &Expr, index: usize, bool_scrutinee: bool) -> Expr {

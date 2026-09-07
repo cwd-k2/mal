@@ -66,6 +66,11 @@ managed leafのcopyまたはtransfer、現在slotのdestroy、次slotへのinsta
 generic closure entry、明示的に値として使うproduct、indirect callはstruct representationを維持する。leaf数の上限を超えるentryも
 現在のaggregate fallbackを使う。これはsource productの表現変更ではなくknown direct pathのcalling conventionである。
 
+reference backendは、function冒頭でflat product parameterを個別bindingへ分解し、各self-tail edgeが直前に同じarityの
+productを構築する場合にleaf slotを使う。次のleafをsource orderでtemporaryへ評価し、last-useのmanaged leafはtransfer、
+それ以外はcopyしてから旧slotをdestroyする。nested productを一つのparameter bindingとして使う形と、この局所形状を満たさない
+tail edgeはaggregate stateへfallbackする。
+
 完了条件は、対象loopの最適化後IRから不要なaggregate `alloca`、`memcpy`、`memset`が消え、managed productを含むtail edgeの
 通常・sanitizer testが通ることである。
 
@@ -114,7 +119,7 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 ## 実装順とcommit境界
 
 1. ephemeral aggregateのborrow-preserving loweringを残るconsumer形状へ拡張する。
-2. direct self-tail stateをleaf slot化する。
+2. direct self-tail stateのleaf slot化をnested parameterへ拡張する。
 3. C host ABIをbuilder admissionへ置き換え、repository内adapterを同じcommitで移行する。
 4. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
 5. allocation profileが残る場合だけallocator recyclingを検討する。

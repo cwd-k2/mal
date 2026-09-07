@@ -27,6 +27,8 @@ managed aggregateのdirect-tail stateを小さいnative fixtureで実行し、te
 byte accessのephemeral productはretain zero、scan終了時のowner release一回を上限とする。
 `storeSymbol`を含むmemory operationは元bindingをoperation完了までborrowし、保存されるproductとowned callはaggregateの
 copyまたはtransfer経路を維持する。
+flat product parameterのdirect self-tail loopはmanaged leafを個別のowned slotで保持する。同じleafを次状態へ渡すedgeでは
+aggregate copyを作らずlast-use transferし、全next leafの評価後にtransferされなかった旧slotだけをdestroyする。
 
 ## pressure suite
 

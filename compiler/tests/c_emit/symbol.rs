@@ -204,8 +204,9 @@ main :: Unit -> Int32 := \() {
     let branch = generated_function(&generated.source, "choose");
     assert_eq!(branch.matches("mal_symbol_retain(").count(), 1);
     let tail = generated_function(&generated.source, "grow");
-    assert!(!tail.contains("mal_symbol_retain("));
-    assert_eq!(tail.matches("mal_copy_value_").count(), 1);
+    assert_eq!(tail.matches("mal_symbol_retain(").count(), 1);
+    assert!(!tail.contains("mal_copy_value_"));
+    assert!(tail.contains("mal_tail_next_parameter_0"));
     assert!(tail.contains("mal_symbol_concatenate_consuming_left("));
 
     let fixture = NativeFixture::new("last-use-ownership-transfer");

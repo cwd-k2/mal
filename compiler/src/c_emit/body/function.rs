@@ -5,6 +5,7 @@ use crate::c_emit::syntax::{
 };
 use crate::closure::ast as closure;
 
+use super::statement::TailParameterSlot;
 use super::{
     BodyEmitter, direct_function_name, environment_destroy_name, environment_name,
     flattened_product_types, flattened_product_values, function_name, has_direct_product_entry,
@@ -136,20 +137,25 @@ impl BodyEmitter<'_> {
                 output.push(Comment::new(format!("mal source binding: {name}")));
             }
             if has_direct_product_entry(&function.parameter.ty) {
+                let tail_slots = direct_tail_parameter_slots(function);
                 let mut body = CBlock::default();
                 let parameter_name = function
                     .parameter
                     .binding
                     .map_or_else(|| "mal_parameter".into(), value_name);
-                let mut next_parameter = 0;
-                let value =
-                    self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
-                body.push(Statement::variable(
-                    self.types.c_type(&function.parameter.ty),
-                    parameter_name.clone(),
-                    Some(value),
-                ));
-                self.emit_function_body(&mut body, function, false);
+                if let Some(slots) = &tail_slots {
+                    self.emit_leaf_tail_function_body(&mut body, function, slots, false);
+                } else {
+                    let mut next_parameter = 0;
+                    let value =
+                        self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
+                    body.push(Statement::variable(
+                        self.types.c_type(&function.parameter.ty),
+                        parameter_name.clone(),
+                        Some(value),
+                    ));
+                    self.emit_function_body(&mut body, function, false);
+                }
                 output.push(FunctionDefinition::from_signature(
                     self.direct_function_signature(function),
                     body,
@@ -176,15 +182,19 @@ impl BodyEmitter<'_> {
                 output.blank_line();
                 if self.owned_calls.contains(function.id) {
                     let mut body = CBlock::default();
-                    let mut next_parameter = 0;
-                    let value =
-                        self.direct_parameter_value(&function.parameter.ty, &mut next_parameter);
-                    body.push(Statement::variable(
-                        self.types.c_type(&function.parameter.ty),
-                        parameter_name,
-                        Some(value),
-                    ));
-                    self.emit_function_body(&mut body, function, true);
+                    if let Some(slots) = &tail_slots {
+                        self.emit_leaf_tail_function_body(&mut body, function, slots, true);
+                    } else {
+                        let mut next_parameter = 0;
+                        let value = self
+                            .direct_parameter_value(&function.parameter.ty, &mut next_parameter);
+                        body.push(Statement::variable(
+                            self.types.c_type(&function.parameter.ty),
+                            parameter_name,
+                            Some(value),
+                        ));
+                        self.emit_function_body(&mut body, function, true);
+                    }
                     output.push(FunctionDefinition::from_signature(
                         self.owned_function_signature(function),
                         body,
@@ -312,32 +322,7 @@ impl BodyEmitter<'_> {
         function: &closure::Function,
         owns_parameter: bool,
     ) {
-        output.push(Statement::expression(CExpr::cast(
-            "void",
-            CExpr::identifier("mal_context"),
-        )));
-        if function.environment.is_empty() {
-            output.push(Statement::expression(CExpr::cast(
-                "void",
-                CExpr::identifier("mal_environment"),
-            )));
-        } else {
-            let environment_type = environment_name(function.id);
-            output.push(Statement::variable(
-                TypeName::const_named(environment_type.clone()).pointer(),
-                "mal_environment_fields",
-                Some(CExpr::cast(
-                    TypeName::const_named(environment_type).pointer(),
-                    CExpr::identifier("mal_environment"),
-                )),
-            ));
-        }
-        if function.parameter.binding.is_none() {
-            output.push(Statement::expression(CExpr::cast(
-                "void",
-                CExpr::identifier("mal_parameter"),
-            )));
-        }
+        self.emit_function_preamble(output, function);
         if has_direct_tail_call(&function.body, function.id) {
             let parameter_name = function
                 .parameter
@@ -388,5 +373,154 @@ impl BodyEmitter<'_> {
             output.push(Statement::return_value(CExpr::identifier(result_name)));
             self.parameter_owned = false;
         }
+    }
+
+    fn emit_leaf_tail_function_body(
+        &mut self,
+        output: &mut CBlock,
+        function: &closure::Function,
+        slots: &[TailParameterSlot<'_>],
+        owns_parameter: bool,
+    ) {
+        self.emit_function_preamble(output, function);
+        for (index, slot) in slots.iter().enumerate() {
+            let argument = CExpr::identifier(format!("mal_direct_parameter_{index}"));
+            let value = if !owns_parameter && self.types.contains_managed(slot.ty) {
+                self.types.copy_value(slot.ty, argument)
+            } else {
+                argument
+            };
+            let name = value_name(slot.id);
+            output.push(Statement::variable(
+                self.types.c_type(slot.ty),
+                &name,
+                Some(value),
+            ));
+            output.push(Statement::expression(CExpr::cast(
+                "void",
+                CExpr::identifier(name),
+            )));
+        }
+        self.parameter_owned = true;
+        let mut tail = CBlock::default();
+        self.emit_leaf_tail_block(&mut tail, &function.body, function.id, slots);
+        output.push(Statement::label("mal_tail_entry", tail));
+        self.parameter_owned = false;
+    }
+
+    fn emit_function_preamble(&self, output: &mut CBlock, function: &closure::Function) {
+        output.push(Statement::expression(CExpr::cast(
+            "void",
+            CExpr::identifier("mal_context"),
+        )));
+        if function.environment.is_empty() {
+            output.push(Statement::expression(CExpr::cast(
+                "void",
+                CExpr::identifier("mal_environment"),
+            )));
+        } else {
+            let environment_type = environment_name(function.id);
+            output.push(Statement::variable(
+                TypeName::const_named(environment_type.clone()).pointer(),
+                "mal_environment_fields",
+                Some(CExpr::cast(
+                    TypeName::const_named(environment_type).pointer(),
+                    CExpr::identifier("mal_environment"),
+                )),
+            ));
+        }
+        if function.parameter.binding.is_none() {
+            output.push(Statement::expression(CExpr::cast(
+                "void",
+                CExpr::identifier("mal_parameter"),
+            )));
+        }
+    }
+}
+
+fn direct_tail_parameter_slots(function: &closure::Function) -> Option<Vec<TailParameterSlot<'_>>> {
+    if !has_direct_tail_call(&function.body, function.id) {
+        return None;
+    }
+    let parameter = function.parameter.binding?;
+    let first = function.body.bindings.first()?;
+    let closure::Operation::Atom(closure::Atom {
+        kind: closure::AtomKind::Reference(closure::Reference::Binding(source)),
+        ..
+    }) = &first.operation
+    else {
+        return None;
+    };
+    if *source != parameter {
+        return None;
+    }
+    let closure::Pattern::Product { elements, .. } = &first.pattern else {
+        return None;
+    };
+    let slots: Option<Vec<_>> = elements
+        .iter()
+        .map(|pattern| match pattern {
+            closure::Pattern::Binding { id, ty }
+                if !matches!(ty, crate::check::ast::Type::Product(_)) =>
+            {
+                Some(TailParameterSlot { id: *id, ty })
+            }
+            _ => None,
+        })
+        .collect();
+    let slots = slots?;
+    tail_calls_have_flat_products(&function.body, function.id, slots.len()).then_some(slots)
+}
+
+fn tail_calls_have_flat_products(
+    block: &closure::Block,
+    function: closure::FunctionId,
+    arity: usize,
+) -> bool {
+    let Some(tail) = block.bindings.last().filter(|binding| {
+        matches!(
+            (&block.result.kind, &binding.pattern),
+            (
+                closure::AtomKind::Reference(closure::Reference::Binding(result)),
+                closure::Pattern::Binding { id, .. }
+            ) if result == id
+        )
+    }) else {
+        return true;
+    };
+    match &tail.operation {
+        closure::Operation::Call { callee, argument }
+            if matches!(
+                callee.kind,
+                closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
+            ) =>
+        {
+            let closure::AtomKind::Reference(closure::Reference::Binding(argument_id)) =
+                argument.kind
+            else {
+                return false;
+            };
+            let Some(product_index) = block.bindings.len().checked_sub(2) else {
+                return false;
+            };
+            matches!(
+                block.bindings.get(product_index),
+                Some(closure::Binding {
+                    pattern: closure::Pattern::Binding { id, .. },
+                    operation: closure::Operation::Product(elements),
+                    ..
+                }) if *id == argument_id && elements.len() == arity
+            )
+        }
+        closure::Operation::Case { arms, .. } => arms
+            .iter()
+            .all(|arm| tail_calls_have_flat_products(&arm.value, function, arity)),
+        closure::Operation::PrimitiveBranch {
+            otherwise, then, ..
+        } => {
+            tail_calls_have_flat_products(otherwise, function, arity)
+                && tail_calls_have_flat_products(then, function, arity)
+        }
+        _ => true,
     }
 }
