@@ -44,37 +44,70 @@ pub(super) fn emit() -> TranslationUnit {
         "mal_total_allocations",
     )));
     output.push(Directive::Endif);
+    for (counter, limit) in [
+        ("mal_test_retain_count", "MAL_TEST_RETAIN_LIMIT"),
+        ("mal_test_release_count", "MAL_TEST_RELEASE_LIMIT"),
+        (
+            "mal_test_materialization_count",
+            "MAL_TEST_MATERIALIZATION_LIMIT",
+        ),
+    ] {
+        output.push(Directive::If(PreprocessorExpr::defined(limit)));
+        output.push(Declaration::variable(VariableDeclaration::static_variable(
+            "size_t", counter,
+        )));
+        output.push(Directive::Endif);
+    }
     output.blank_line();
 
     append_trap(&mut output);
+    let mut context_destroy = Block::new([
+        Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+        Statement::directive(Directive::If(PreprocessorExpr::defined(
+            "MAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ))),
+        Statement::if_then(
+            Expr::not_equal(Expr::identifier("mal_live_allocations"), Expr::number("0")),
+            trap("live allocations at context destruction"),
+        ),
+        Statement::directive(Directive::Endif),
+        Statement::directive(Directive::If(PreprocessorExpr::defined(
+            "MAL_TEST_TOTAL_ALLOCATION_LIMIT",
+        ))),
+        Statement::if_then(
+            Expr::greater(
+                Expr::identifier("mal_total_allocations"),
+                Expr::cast(
+                    "size_t",
+                    Expr::identifier("MAL_TEST_TOTAL_ALLOCATION_LIMIT"),
+                ),
+            ),
+            trap("total allocation limit exceeded"),
+        ),
+        Statement::directive(Directive::Endif),
+    ]);
+    push_test_counter_limit_check(
+        &mut context_destroy,
+        "mal_test_retain_count",
+        "MAL_TEST_RETAIN_LIMIT",
+        "retain limit exceeded",
+    );
+    push_test_counter_limit_check(
+        &mut context_destroy,
+        "mal_test_release_count",
+        "MAL_TEST_RELEASE_LIMIT",
+        "release limit exceeded",
+    );
+    push_test_counter_limit_check(
+        &mut context_destroy,
+        "mal_test_materialization_count",
+        "MAL_TEST_MATERIALIZATION_LIMIT",
+        "materialization limit exceeded",
+    );
     append_function(
         &mut output,
         FunctionSignature::static_function("void", "mal_context_destroy", [context_parameter()]),
-        Block::new([
-            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
-            Statement::directive(Directive::If(PreprocessorExpr::defined(
-                "MAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
-            ))),
-            Statement::if_then(
-                Expr::not_equal(Expr::identifier("mal_live_allocations"), Expr::number("0")),
-                trap("live allocations at context destruction"),
-            ),
-            Statement::directive(Directive::Endif),
-            Statement::directive(Directive::If(PreprocessorExpr::defined(
-                "MAL_TEST_TOTAL_ALLOCATION_LIMIT",
-            ))),
-            Statement::if_then(
-                Expr::greater(
-                    Expr::identifier("mal_total_allocations"),
-                    Expr::cast(
-                        "size_t",
-                        Expr::identifier("MAL_TEST_TOTAL_ALLOCATION_LIMIT"),
-                    ),
-                ),
-                trap("total allocation limit exceeded"),
-            ),
-            Statement::directive(Directive::Endif),
-        ]),
+        context_destroy,
     );
     append_allocation(&mut output);
     append_reference_counting(&mut output);
@@ -204,6 +237,13 @@ fn append_reference_counting(output: &mut TranslationUnit) {
             ],
         ),
         Block::new([
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_RETAIN_LIMIT",
+            ))),
+            Statement::expression(Expr::pre_increment(Expr::identifier(
+                "mal_test_retain_count",
+            ))),
+            Statement::directive(Directive::Endif),
             Statement::if_then(
                 Expr::equal(Expr::identifier("value"), Expr::identifier("NULL")),
                 Block::new([Statement::return_value(Expr::identifier("NULL"))]),
@@ -237,6 +277,13 @@ fn append_reference_counting(output: &mut TranslationUnit) {
             )],
         ),
         Block::new([
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_RELEASE_LIMIT",
+            ))),
+            Statement::expression(Expr::pre_increment(Expr::identifier(
+                "mal_test_release_count",
+            ))),
+            Statement::directive(Directive::Endif),
             Statement::if_then(
                 Expr::equal(Expr::identifier("value"), Expr::identifier("NULL")),
                 Block::new([Statement::return_value(uint8(0))]),
@@ -591,6 +638,13 @@ fn append_symbol_materialization(output: &mut TranslationUnit) {
             ],
         ),
         Block::new([
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_MATERIALIZATION_LIMIT",
+            ))),
+            Statement::expression(Expr::pre_increment(Expr::identifier(
+                "mal_test_materialization_count",
+            ))),
+            Statement::directive(Directive::Endif),
             Statement::if_then(
                 Expr::logical_or(
                     Expr::equal(
@@ -700,6 +754,20 @@ fn live_allocation_tracking() -> PreprocessorExpr {
         PreprocessorExpr::defined("MAL_TEST_LIVE_ALLOCATION_LIMIT"),
         PreprocessorExpr::defined("MAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"),
     )
+}
+
+fn push_test_counter_limit_check(block: &mut Block, counter: &str, limit: &str, message: &str) {
+    block.push(Statement::directive(Directive::If(
+        PreprocessorExpr::defined(limit),
+    )));
+    block.push(Statement::if_then(
+        Expr::greater(
+            Expr::identifier(counter),
+            Expr::cast("size_t", Expr::identifier(limit)),
+        ),
+        trap(message),
+    ));
+    block.push(Statement::directive(Directive::Endif));
 }
 
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {

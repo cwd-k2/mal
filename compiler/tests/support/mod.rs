@@ -82,6 +82,39 @@ impl NativeFixture {
         executable
     }
 
+    pub fn compile_generated_to_llvm_ir(&self, generated: c_emit::Output) -> String {
+        self.write(c_emit::GENERATED_HEADER_NAME, generated.header);
+        self.write("program.c", generated.source);
+        let llvm_ir = self.join("program.ll");
+        let compilation = Command::new("clang")
+            .current_dir(&self.directory)
+            .args([
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-pedantic",
+                "-fno-fast-math",
+                "-ffp-contract=off",
+                "-frounding-math",
+                "-fexcess-precision=standard",
+                "-O2",
+                "-S",
+                "-emit-llvm",
+                "program.c",
+                "-o",
+            ])
+            .arg(&llvm_ir)
+            .output()
+            .expect("run Clang");
+        assert!(
+            compilation.status.success(),
+            "Clang failed:\n{}",
+            String::from_utf8_lossy(&compilation.stderr)
+        );
+        fs::read_to_string(llvm_ir).expect("read generated LLVM IR")
+    }
+
     pub fn malc(&self, arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
         Command::new(env!("CARGO_BIN_EXE_malc"))
             .args(arguments)

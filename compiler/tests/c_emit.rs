@@ -60,6 +60,8 @@ mod host_interface;
 mod memory;
 #[path = "c_emit/numeric.rs"]
 mod numeric;
+#[path = "c_emit/performance.rs"]
+mod performance;
 #[path = "c_emit/semantics.rs"]
 mod semantics;
 #[path = "c_emit/symbol.rs"]

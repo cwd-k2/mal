@@ -21,6 +21,10 @@ focused regressionは`compiler/tests/c_emit/calls.rs`と`symbol.rs`に置く。m
 case bindingを含むtail edgeは10万iterationをnative Cとして実行する。closure-use testはaliasだけでなく、recursive
 self closureをfunction valueとして使う経路がheapへfallbackすることも検査する。
 
+最適化のcost baselineは`compiler/tests/c_emit/performance.rs`に置く。flat/rope `Symbol` scan、transient host admission、
+managed aggregateのdirect-tail stateを小さいnative fixtureで実行し、test macroでretain、release、materialization、allocationの
+上限を固定する。flat scanは同じsourceのClang `-O2`後LLVM IRも生成し、後続変更の構造比較に使う。
+
 ## pressure suite
 
 localのignored `.scratch/pressure/`は次のworkloadを持つ。
@@ -34,8 +38,8 @@ localのignored `.scratch/pressure/`は次のworkloadを持つ。
 | `closure-churn` | 20万個の短寿命capturing closure | environment allocationとcleanup |
 | `aggregate-churn` | 20万回のmanaged product、sum、case | field copyとpath-local cleanup |
 
-borrow-preserving loweringへ着手する前に、flat/rope `Symbol` scan、transient token admission、managed aggregateを含む
-direct-tail stateを追加する。各workloadはwall-clockだけでなくretain、release、materialization、allocationのcounterを持つ。
+同じ四形状を長いiterationで測るlocal workloadは、wall-clockだけでなくretain、release、materialization、allocationの
+counterを持つ。
 
 runnerはiteration数と`Symbol` bytesを別C translation unitへ渡し、allocator builtinを無効にしてClangによるworkloadの
 除去を防ぐ。小さいpeak live-allocation上限と終了時live allocationゼロを検査し、通常buildとASan/UBSan buildを実行する。
