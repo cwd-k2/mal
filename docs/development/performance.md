@@ -106,6 +106,11 @@ aggregate call topologyを現在の最優先課題とする根拠はない。
 10/32/37の分類は維持された。この改善はsourceが所有するheap invariantの訂正であり、負数を含み得る一般のsigned divisionを
 shiftへ置き換えるbackend ruleにはしない。
 
+043の残差について、heapの2-field entry移動を16-byte `memcpy`へ置き換えるとassemblyは4個のscalar load/storeから
+2個のvector moveになったが、交互測定は同等だった。row/column stepを二つの算術式へ変えたvariantは約2%退行し、一つの
+product resultへまとめたvariantも約1%の範囲だった。見える命令数だけからmemory representationやdirection固有のloweringを
+追加せず、次の仮説にはhot instructionを直接示すprofileを要求する。
+
 比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると
 約1.27倍まで縮んだ。063の元の比率全体をbackend costとは扱わず、残差だけをcontrol flowとstorage表現の調査対象にする。
@@ -144,6 +149,13 @@ signed `>>`のportable C展開は、以前はunsigned logical shiftへsign mask�
 一方、063全体は変更前後とも約1.44--1.45倍であり、このoperationはworkloadを支配していない。全79問の分布にもmaterialな
 変化はなかった。この変更は063向けの局所最適化ではなく、仕様済みarithmetic shiftをoptimizerへ直接見せるinteger loweringの
 責務として採用する。
+
+063のsame-widthかつportable popcountなdirect Cを100回再測定すると、mal/direct Cの中央値は約1.27だった。direct側も
+malと同じ不一致時early exitへ揃えるとdirect C自体がさらに短縮したため、残差をcontrol-flowの不一致だけには帰属できない。
+columnごとに一度決まる基準値を`countColumns`で読み、比較だけを担う`sameRows`へscalarで渡すsource variantは、最適化後IRから
+row loop内の基準値loadを除いたがwall-clockは同等だった。early exitをやめて一致状態を運ぶfull-scan variantは約27%退行した。
+また、subsetごとのclearを直接`memset`へ置き換えたvariantは同等、Int64 accessへalignmentとtyped aliasを仮定したvariantは
+約4%改善、さらにLTOを併用しても追加改善はなかった。いずれも単独で残差を説明せず、現行`Ptr` contractを広げる根拠にはしない。
 
 ## 先行baselineから採用した改善
 

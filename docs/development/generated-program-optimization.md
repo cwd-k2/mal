@@ -53,6 +53,11 @@ signed division semanticsを守っていた。heap invariantに合わせて停�
 訂正として採用し、全signed divisionへrangeを仮定するbackend変更にはしない。043の残差はこのparent計算だけへ帰属させず、
 引き続きheap全体のbranchとstate updateを比較する。
 
+残るheap entry移動を16-byte `memcpy`へまとめる診断variantは、assembly上の4 scalar load/storeを2 vector moveへ減らしたが
+wall-clockは同等だった。direction stepを算術式または一つのproduct resultへまとめたsource variantも同等または退行した。
+scalar memory primitiveへproduct表現を追加したり、direction固有のrewriteを行ったりする根拠にはしない。043をさらに進める
+場合は、同じbinaryに対するhardware counterまたはsampling profileで支配的な命令列を特定してから新しいcost modelを置く。
+
 ## 2. nested scanとcontrol flow
 
 011と063の元の比率差は、そのままではcompilerの責務だけを測っていなかった。011をsame-widthに揃えたvariantは改善せず、
@@ -61,6 +66,12 @@ signed division semanticsを守っていた。heap invariantに合わせて停�
 
 063に残っていたsigned right shiftのmask合成は、integer lowering全体でClangが`ashr`へ認識できるportable表現へ変更した。
 独立したshift fixtureは改善したが063全体は変わらなかったため、残差をshift loweringへ帰属させない。
+
+063のrow scanではcolumnの基準値を`sameRows`が毎回取得していた。基準値の選択を外側の`countColumns`へ移し、比較対象の
+scalarだけを`sameRows`へ渡すと最適化後IRからrowごとの再loadが消えたが、wall-clockは同等だった。この責務分離はfixtureへ
+反映するが、性能改善とは数えない。clear loopを直接`memset`にしたvariantも同等で、early exitをやめてdirect Cと同じfull scanへ
+揃えると約27%退行した。typed/aligned accessは約4%だけ改善し、LTOとの併用に追加効果はなかった。したがってbulk fill、
+full-scan rewrite、alignment、allocation visibilityのいずれも063の独立したbackend設計候補にしない。
 
 最適化後IRとassemblyを比較すると、011のheap sortにある3-field record moveとbest値のvector reductionは通常buildと
 LTO buildで同形だった。差はDPの内側loopにあり、通常buildは`dp`へのstoreが`jobs`をaliasし得るためjob durationを
