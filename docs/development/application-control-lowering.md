@@ -101,10 +101,13 @@ edgeをdispatcherで実行することを意味しない。既存のdirect call�
 direct-call解析とpoints-to解析は正しさの条件ではなく、dispatchとframe操作を除去するための最適化である。通常のC callへ戻すedge
 集合についてはcycleがないことを検証し、Mal call depthに対するC stack使用量をboundedに保つ。
 
-recursive SCC内のedgeを一律にexplicit化する必要はない。選んだC-call edge集合がacyclicなら、SCC内でもcycleを閉じないedgeを
-通常callにできる。初版は静的なdirect-call graphから決定し、profileなしに結果が変わらない規則とする。非末尾のdirect self edgeは
-それ単独でcycleになるためexplicit controlを使う。静的にcall depth上限を証明するspecializationや、一定段数だけC callする
-bounded batchingは将来の候補だが、bounded C stackと実測上の利益を独立に示してから追加する。
+初版は静的なdirect-call graphで同じrecursive SCCに属する通常edgeをexplicit化し、SCC間のedgeとrecursive SCCから外れるhelper
+callを通常callにする。非末尾のdirect self edgeはそれ単独でrecursive SCCになるためexplicit controlを使う。dispatcher実行中に
+calleeがsuspendし得る通常C callを残したままcycleを一部だけdispatchへ変えると、suspend前のC frameを保持した再入によりstackが
+増え得る。このためSCC内の部分direct化は、control transferをdirect callerまでunwindする専用calling conventionなしには行わない。
+
+静的にcall depth上限を証明するspecialization、suspendを伝播するdirect convention、一定段数だけC callするbounded batchingは
+将来の候補だが、bounded C stackと実測上の利益を独立に示してから追加する。初版の判定はprofileなしに結果が変わらない規則とする。
 
 ## 正しさ
 

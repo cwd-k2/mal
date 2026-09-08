@@ -21,7 +21,6 @@ struct Candidate {
     site: StateId,
     caller: FunctionId,
     callee: FunctionId,
-    tail: bool,
 }
 
 impl ControlCallPlan {
@@ -58,7 +57,6 @@ impl ControlCallPlan {
                         site,
                         caller: function.id,
                         callee,
-                        tail: matches!(terminator, Terminator::TailCall { .. }),
                     });
                 } else {
                     modes.insert(site, ControlCallMode::Dispatch);
@@ -66,22 +64,22 @@ impl ControlCallPlan {
             }
         }
 
-        // A non-tail dispatched edge needs a continuation frame, while a tail
-        // edge only changes the next entry. Preserve non-tail direct calls first.
-        candidates.sort_by_key(|candidate| candidate.tail);
-        let mut direct_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
+        let mut known_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
+        for candidate in &candidates {
+            known_graph
+                .entry(candidate.caller)
+                .or_default()
+                .push(candidate.callee);
+        }
         for candidate in candidates {
-            if creates_cycle(&direct_graph, candidate.caller, candidate.callee) {
+            if creates_cycle(&known_graph, candidate.caller, candidate.callee) {
                 modes.insert(candidate.site, ControlCallMode::Dispatch);
             } else {
-                direct_graph
-                    .entry(candidate.caller)
-                    .or_default()
-                    .push(candidate.callee);
                 modes.insert(candidate.site, ControlCallMode::Direct(candidate.callee));
             }
         }
 
+        let direct_graph = direct_graph(control, &modes);
         debug_assert!(is_acyclic(
             &direct_graph,
             closure.functions.iter().map(|function| function.id)
@@ -92,6 +90,21 @@ impl ControlCallPlan {
     pub(in crate::c_emit::body) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
         self.modes.get(&site).copied()
     }
+}
+
+fn direct_graph(
+    program: &control::Program,
+    modes: &HashMap<StateId, ControlCallMode>,
+) -> HashMap<FunctionId, Vec<FunctionId>> {
+    let mut graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
+    for function in &program.functions {
+        for site in reachable_states(program, function.entry) {
+            if let Some(ControlCallMode::Direct(callee)) = modes.get(&site) {
+                graph.entry(function.id).or_default().push(*callee);
+            }
+        }
+    }
+    graph
 }
 
 fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
