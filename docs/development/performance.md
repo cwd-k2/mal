@@ -1,10 +1,10 @@
-# generated C performance評価
+# generated C performance測定履歴
 
-Status: Current measurement record
+Status: Measurement history and current baseline
 
-この文書はgenerated Cの性能調査方法、現在のbaseline、得られた結果と採否判断を定める。
+この文書はgenerated Cの性能調査方法、測定baseline、結果と原因調査の経緯を記録する。
 言語の意味は[`spec/`](../spec/)、通常の検証commandは[test policy](testing.md)を正とする。
-改善軸と実装順は[generated program最適化計画](generated-program-optimization.md)に置く。
+現在の未解決課題、改善軸、実装順は[generated program最適化計画](generated-program-optimization.md)に置く。
 
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。
