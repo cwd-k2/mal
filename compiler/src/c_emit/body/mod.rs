@@ -20,7 +20,7 @@ mod statement;
 
 use self::analysis::{
     ClosureUsePlan, CommonControlPlan, ControlCallMode, ControlCallPlan, ControlFramePlan,
-    OwnedCallPlan, OwnershipPlan,
+    ControlRegionPlan, OwnedCallPlan, OwnershipPlan,
 };
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
@@ -96,7 +96,9 @@ impl<'a> BodyEmitter<'a> {
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
         let control_calls = ControlCallPlan::new(program, &control, &closure_uses);
-        let common_control = CommonControlPlan::new(&control, &control_calls);
+        let control_regions = ControlRegionPlan::new(&control, &control_calls);
+        debug_assert!(control_regions.is_valid(&control, &control_calls));
+        let common_control = CommonControlPlan::new(&control_regions);
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)

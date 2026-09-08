@@ -124,7 +124,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
 | `c_emit/body/analysis/closure_use` | local・top-level closureとself closureのuse分類、alias追跡、direct-only表現とstack environment候補の計画 |
-| `c_emit/body/analysis/common_control` | call cycleを閉じるindirect edgeから共通control machine対象function群を閉包する計画 |
+| `c_emit/body/analysis/control_region` | cycle-closing application graphのSCC partitionとrecursive site・functionのregion所属を構成 |
+| `c_emit/body/analysis/common_control` | control regionから現行の共通C activationを必要とするfunction群を導出する移行中の計画 |
 | `c_emit/body/analysis/control_call` | applicationごとのdirect、self-tail、dispatch判定とC-call graphの非循環化 |
 | `c_emit/body/analysis/control_call/forwarder` | pureなknown tail forwarderをdirect self-tailへfusionできる条件の認識 |
 | `c_emit/body/analysis/control_call/graph` | direct C-call edgeの非循環性とcycle-closing edgeの判定 |
