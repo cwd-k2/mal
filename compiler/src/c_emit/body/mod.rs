@@ -95,6 +95,11 @@ impl<'a> BodyEmitter<'a> {
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
         let control_calls = ControlCallPlan::new(program, &control, &closure_uses);
+        debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
+            let site = crate::control::ast::StateId(index);
+            control_calls.mode(site) != Some(ControlCallMode::Dispatch)
+                || control_calls.dispatch_targets(site).is_some()
+        }));
         debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
             !matches!(
                 state.terminator,

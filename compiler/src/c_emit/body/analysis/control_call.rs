@@ -15,6 +15,7 @@ pub(in crate::c_emit::body) enum ControlCallMode {
 
 pub(in crate::c_emit::body) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
+    dispatch_targets: HashMap<StateId, Vec<FunctionId>>,
 }
 
 struct Candidate {
@@ -30,6 +31,7 @@ impl ControlCallPlan {
         closure_uses: &ClosureUsePlan,
     ) -> Self {
         let mut modes = HashMap::new();
+        let mut dispatch_targets = HashMap::new();
 
         for binding in &control.bindings {
             for site in reachable_states(control, binding.entry) {
@@ -40,6 +42,9 @@ impl ControlCallPlan {
                     .map(ControlCallMode::Direct)
                     .unwrap_or(ControlCallMode::Dispatch);
                 modes.insert(site, mode);
+                if mode == ControlCallMode::Dispatch {
+                    dispatch_targets.insert(site, compatible_targets(closure, callee));
+                }
             }
         }
 
@@ -54,10 +59,7 @@ impl ControlCallPlan {
                 if is_direct_self_tail(terminator, function.id) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                 } else if let Some(callee) = direct_function_id(closure_uses, callee) {
-                    possible_graph
-                        .entry(function.id)
-                        .or_default()
-                        .push(callee);
+                    possible_graph.entry(function.id).or_default().push(callee);
                     candidates.push(Candidate {
                         site,
                         caller: function.id,
@@ -65,18 +67,12 @@ impl ControlCallPlan {
                     });
                 } else {
                     modes.insert(site, ControlCallMode::Dispatch);
-                    if let crate::check::ast::Type::Function { parameter, result } = &callee.ty {
-                        possible_graph.entry(function.id).or_default().extend(
-                            closure
-                                .functions
-                                .iter()
-                                .filter(|target| {
-                                    target.parameter.ty == **parameter
-                                        && target.body.result.ty == **result
-                                })
-                                .map(|target| target.id),
-                        );
-                    }
+                    let targets = compatible_targets(closure, callee);
+                    possible_graph
+                        .entry(function.id)
+                        .or_default()
+                        .extend(targets.iter().copied());
+                    dispatch_targets.insert(site, targets);
                 }
             }
         }
@@ -84,6 +80,7 @@ impl ControlCallPlan {
         for candidate in candidates {
             if creates_cycle(&possible_graph, candidate.caller, candidate.callee) {
                 modes.insert(candidate.site, ControlCallMode::Dispatch);
+                dispatch_targets.insert(candidate.site, vec![candidate.callee]);
             } else {
                 modes.insert(candidate.site, ControlCallMode::Direct(candidate.callee));
             }
@@ -94,7 +91,10 @@ impl ControlCallPlan {
             &direct_graph,
             closure.functions.iter().map(|function| function.id)
         ));
-        Self { modes }
+        Self {
+            modes,
+            dispatch_targets,
+        }
     }
 
     pub(in crate::c_emit::body) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
@@ -106,6 +106,22 @@ impl ControlCallPlan {
             .values()
             .any(|mode| *mode == ControlCallMode::Dispatch)
     }
+
+    pub(in crate::c_emit::body) fn dispatch_targets(&self, site: StateId) -> Option<&[FunctionId]> {
+        self.dispatch_targets.get(&site).map(Vec::as_slice)
+    }
+}
+
+fn compatible_targets(program: &closure::Program, callee: &closure::Atom) -> Vec<FunctionId> {
+    let crate::check::ast::Type::Function { parameter, result } = &callee.ty else {
+        return Vec::new();
+    };
+    program
+        .functions
+        .iter()
+        .filter(|target| target.parameter.ty == **parameter && target.body.result.ty == **result)
+        .map(|target| target.id)
+        .collect()
 }
 
 fn direct_graph(
@@ -334,6 +350,17 @@ mod tests {
             };
             direct_function_id(&uses, callee) == Some(apply)
                 && plan.mode(StateId(index)) == Some(ControlCallMode::Dispatch)
+        }));
+        assert!(control.states.iter().enumerate().any(|(index, state)| {
+            let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =
+                &state.terminator
+            else {
+                return false;
+            };
+            direct_function_id(&uses, callee).is_none()
+                && plan
+                    .dispatch_targets(StateId(index))
+                    .is_some_and(|targets| !targets.is_empty())
         }));
     }
 
