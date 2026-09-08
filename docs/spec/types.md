@@ -150,4 +150,4 @@ extern File;
 
 opaque type の内部表現を mal program から構成・分解・観察することはできない。値は通常の mal 値と同様に binding でき、複製・破棄できるものとして型検査する。
 
-このため `File` や `Mem` のような resource の一意所有権は保証されない。resource correctness は [`extern` contract](extern.md) の責務であり、決定理由は[D015](../design/decisions/D015.md)に記録する。
+このため `File` や `Mem` のような resource の一意所有権は保証されない。resource correctness は [`extern` contract](extern.md) の責務であり、決定理由は[D015](../history/decisions/D015.md)に記録する。

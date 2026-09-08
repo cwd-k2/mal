@@ -25,7 +25,7 @@ direct self non-tail recursionを一つのC activation内のcontrol machineに�
 `Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
 activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
 zero化し、不要なretain/releaseを発生させない。
-direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
+direct self tail callは`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
 function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。
 managed captureはenvironmentの型別destructorまで含めてretain/releaseする。引数を分解して直ちに`function(value)`を返すpureな
@@ -34,7 +34,7 @@ known forwarderへself closureを渡すtail edgeは、forwarderを省略してdi
 first-class functionを介してcall graph cycleを閉じるedgeは所属するcontrol regionの共通machineで実行する。callee descriptorのcode identityから
 有限なuser-function targetを選び、environment ownerとtyped argumentをtarget entryへmoveする。非tail edgeではcallerのlive valueと
 environment ownerをtyped frameへ保存し、tail edgeではframeを増やさない。cycleを閉じないindirect callとuser function以外のtargetは
-従来のtyped C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
+typed C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
 含めない。frameを持つregionのarenaは`MalContext`へpointerとcapacityだけをcacheし、実行中のtopとcurrent frameはmachine localに
 保持する。tail遷移だけのregionはarenaを生成しない。
 
@@ -179,12 +179,7 @@ frameのauthorityへ問い合わせる。
 5. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
 6. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
 
-## control regionへのrefinement
-
-実装後測定ではC-call edgeの非循環化自体ではなく、全recursive continuationを一つの`MalContext`内の可変byte stackへ置き、
-各push、popでそのfieldを読み書きする表現がhot pathに残った。frameから未使用fieldを除く実験は既存after比0.98倍から1.01倍であり、
-call siteや単一resumeだけを特別扱いする根拠にはならなかった。次段はframe形状の局所規則ではなく、call graphのrecursive SCCを
-control regionとしてC storage lifetimeと一致させる。
+## control region
 
 可能call graphの各recursive SCCを一つのregionとする。同じregionを閉じるdirectまたはfirst-class edgeはregion内dispatch、
 異なるregionへのedgeはcondensation graph上の非循環な通常C callとする。runtime callee候補が同一regionとregion外の両方を含む場合は、
@@ -198,7 +193,7 @@ Region = <program-point, values, storage, top, current-frame>
 Frame  = <resume-constructor, previous-frame, typed-live-values, environment-owner?>
 ```
 
-frame列とsource evaluation contextの対応は従来の`R`をそのまま使う。違いはstorage authorityだけであり、frameを持つregionごとに
+frame列とsource evaluation contextの対応には`R`を使う。frameを持つregionごとに
 cached arenaを持ち、invocation中の`top`と`current-frame`はそのregion machineのC local stateにする。arenaのpointerとcapacityだけを
 `MalContext`へ戻して次のinvocationで再利用する。region内edgeはC callしないため同じarenaへ再入せず、region間callは別arenaを使う。externから
 Mal closureをcallbackできない現在のhost contractもこの非再入性の前提である。
@@ -207,23 +202,11 @@ frameは引き続きcall siteごとの可変size typed payloadとし、最大var
 `top <= capacity`不変条件の下で残容量とcompile-time frame幅を一度比較し、growth時だけ加算、alignment、capacityのoverflowを検査する。
 grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は変えない。
 
-このrefinementではC stack上に同時に存在するregion activationがcondensation graphのpath長でboundされ、Mal recursion depthには
-比例しない。arenaをfunction localに新規allocateするだけでは浅いrecursive functionの反復呼出しでallocationを増やすため採用しない。
-同様に単一frame siteだけからresume tagやenvironment fieldを除く規則はregion表現の正しさに由来せず、主要costを改善しなかったため
-混ぜない。
-
-residual continuation graphからのregion partition、各dispatch siteとfunction entryの所属、frame regionだけのarena cache、fast-path push、region別machine、
-旧global control storageの削除まで実装済みである。local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
+C stack上に同時に存在するregion activationはcondensation graphのpath長でboundされ、Mal recursion depthには比例しない。
+local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
 同じregion storage規約とframe規約に従う。構造検査はC-call graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を
-対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、
-acyclic direct、managed pressure suiteを退行させないことである。
-
-## 棄却した実行refinement
-
-continuationをarenaとC activationへ重複して置くbounded direct executionと、一定段数をC activationだけに置いて後からspillする
-segmented executionは、いずれも一般的なregion規則として採用しない。正しさを保ててもstorage authorityを複数にし、現行測定では
-一貫した改善を示さなかったためである。設計authorityはpure dispatcherに保ち、実験条件と計測値は
-[性能評価](performance.md#control-region-refinement)に置く。
+対象とする。性能上の採用gateと過去の比較結果は[generated program最適化計画](generated-program-optimization.md)と
+[性能測定履歴](../history/performance/generated-c.md#control-region-refinement)に置く。
 
 ## 正しさ
 

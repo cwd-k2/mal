@@ -33,8 +33,8 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
-| 設計理由を調べる | [設計決定index](design/decisions-index.md) | [最小性](design/minimality.md)、[authority](design/authority.md) |
-| 性能を評価する | [generated C performance](development/performance.md) | [generated program最適化計画](development/generated-program-optimization.md)、[managed Engram性能](development/ownership-performance.md)、[compiler compile-time](development/compiler-performance.md) |
+| 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
+| 性能を評価する | [性能測定履歴](history/performance/) | [generated program最適化計画](development/generated-program-optimization.md)、[test方針](development/testing.md) |
 | 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
 ## 文書の役割
@@ -46,10 +46,11 @@
 | `implementation/` | compiler/backend の現在の責務と構成 |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
 | `research/` | 外部仕様・先行事例から得た根拠 |
+| `history/` | 過去の設計判断、退役事項、条件付き測定記録 |
 
 仕様と実装文書が衝突した場合は`spec/`を優先する。仕様で意図的に未指定とする挙動は該当する規範文書に直接記載する。
-退役した名称、構文、ABI、意味論と変更理由は`design/decisions/`の個別decisionだけに残す。spec、implementation、test、exampleは
-過去との差分ではなく、現在のruleとbehaviorを直接記述する。測定履歴は責務が限定された`development/*performance.md`に置く。
+退役した名称、構文、ABI、意味論、完了済み作業、測定結果は`history/`だけに残す。spec、implementation、development、test、
+example、source commentは過去との差分ではなく、現在のruleとbehaviorを直接記述する。
 
 ## 文書構造
 

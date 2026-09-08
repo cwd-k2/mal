@@ -3,7 +3,7 @@
 Status: Current work plan
 
 この文書はreference C backendが生成するprogramの未解決なruntime性能課題、着手順、完了条件を管理する。
-測定値と解決済みの経緯は[generated C performance](performance.md)、managed valueの正しさは
+測定値と解決済みの経緯は[generated C performance](../history/performance/generated-c.md)、managed valueの正しさは
 [Engram ownership](../implementation/ownership.md)、言語とhostのauthorityは
 [EngramとExtern](../spec/engrams.md)を正とする。
 
@@ -21,49 +21,18 @@ Status: Current work plan
 
 ## 現在の課題
 
-| 優先度 | 軸 | 観測したcost | Fixture |
-|---:|---|---|---|
-| - | applicationのcontrol lowering | region化後もexplicit transition costは残るが、二つのbounded C hybridは非改善 | Hanoi、線形unwind、既存corpus |
+activeなcompiler rewriteはない。application controlは
+[application control lowering設計](application-control-lowering.md)のpure dispatcherとregion arenaを現在の表現とする。
+新しい最適化は、authorityを分散させず、C stack boundを維持し、focused caseと既存corpusの両方で独立した改善を示す場合に限って
+この計画へ追加する。過去のbaseline、比較結果、棄却したprototypeは
+[generated C performance](../history/performance/generated-c.md#application-control-lowering実装前後)に置く。
 
-## 1. applicationのcontrol lowering
-
-自然なHanoi再帰と、continuationを4個のscalar fieldからなる`Ptr` stackへdefunctionalizeしたmal版は、同じmove列のhashを返した。
-後者は単一のself tail recursionからgenerated Cの`goto` loopになった。各moveをcheapなwrap演算にしたdepth 26では、自然版と
-flat版の交互30回測定は114.94 msと77.89 ms、同一processの`cpu-clock` samplingは約60%と40%だった。非末尾call以外の
-node処理が軽いとき、自然な記述に約1.48倍のcostが残る。
-
-線形unwindでは最適化後assemblyにも非末尾の再帰`call`とframeごとの3個の8-byte pushが残った。8 MiBのC stackでdepth
-250,000は完了したが275,000はsignal 11で終了し、明示stack版は1,000,000まで同じ結果を返した。この確認のwall-clockは
-Nushell runnerを含む診断値なので、変換の採否には標準のHyperfine fixtureを別途要求する。
-
-同じ変換をmal sourceで記述することは可能だが、frame offset、capacity、program counter、push/popと全live stateの持ち回しを
-利用者が所有する。自然な非末尾再帰が中心構文である以上、これを通常のsource記法とは扱わない。
-
-一般変換、tail applicationとの関係、Cへのrefinementと機械的に確認する不変条件は
-[application control lowering設計](application-control-lowering.md)を正とする。この計画ではcost modelと採用gateだけを管理する。
-
-現在の実装範囲は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。最初の実装前後の
-[再測定](performance.md#application-control-lowering実装前後)では、direct tailとacyclic callは同等、managed first-class cycleは
-改善した一方、unmanaged non-tail cycleと既存corpusが退行した。その後recursive SCCをcontrol regionとしてarenaを分離し、実行中の
-stack stateをC localへ移した[refinement](performance.md#control-region-refinement)により、focused Hanoiは旧実装比0.89、linear
-unwindは0.73、元の退行6 caseは幾何平均0.90となった。direct tail、acyclic direct、managed pressureとC stack boundは維持した。
-
-残るcostはarenaの所属や単一frame siteの形ではなく、explicit frameのpush、resume、dispatchと通常のC callとの表現差にある。
-Callgrindではdirect Hanoiのregion版は通常C再帰よりinstructionとdata referenceが少ない一方でconditional branchが2.48倍、
-first-class cycleではinstructionが2.26倍、data referenceが3.78倍、conditional branchが5.26倍だった。
-[bounded direct execution](performance.md#control-region-refinement)としてframeをcall前に作るprototypeは、Hanoiで
-`B = 1`が同等、`B = 2`が1.16倍へ退行したため棄却した。次はbatch中のcontinuationをC activationだけに置き、fuel切れ時だけ
-bounded scratchを経てarenaへmaterializeするsegmented modelも検証したが、direct C比1.16から1.18で棄却した。first-classだけへの
-適用、call-site別の閾値、frame field削減は、共通のregion ruleを崩す割に全体改善の根拠がないため採用しない。現時点でこのcost
-modelに対するactiveなcompiler rewriteはなく、pure dispatcherとregion arenaを現在のbackend refinementとする。
-
-queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
-実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。
+queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。
 
 ## 共通の完了条件
 
 一つのcost modelごとにfocused generated-C test、native execution、通常のcompiler testを通す。managed lifetimeへ触れる変更は
-[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。ABI変更はgenerated header、host helper、
+[managed Engram性能記録](../history/performance/managed-engrams.md)の通常・sanitizer pressure suiteも通す。ABI変更はgenerated header、host helper、
 repository内adapterを同時に更新する。
 
 wall-clockでは同じinput、stdout、C compiler、optimization option、warmup/run数を揃え、5 ms未満のcaseを採否の主根拠にしない。改善が

@@ -92,4 +92,4 @@ mechanismである。次の場合にだけ言語機能の候補とする。
 7. 固定mechanismを再利用せず、新しい独立contractを増やす理由があるか。
 
 この問いに短く答えられない機能は、surfaceだけを追加せず境界modelから再検討する。採択に至った経緯は
-[D031](decisions/D031.md)に記録する。
+[D031](../history/decisions/D031.md)に記録する。

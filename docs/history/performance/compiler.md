@@ -1,9 +1,10 @@
 # reference compiler compile-time評価
 
-Status: Current measurement record
+Status: Historical measurement record
 
 この文書はreference compiler自身とsemantic editor queryの性能測定方法、baseline、採否判断を所有する。
-生成programのruntime評価は[generated C performance](performance.md)、通常の検証は[test policy](testing.md)を正とする。
+生成programのruntime評価は[generated C performance](generated-c.md)、通常の検証は
+[test policy](../../development/testing.md)を正とする。
 
 ## 測定方法
 
@@ -43,7 +44,7 @@ analysisとindexを破棄する。diagnosticだけを必要とするchangeでは
 保持しない。これはincremental compilationではなく、同一versionのimmutable resultの再利用である。
 
 parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側は
-[generated C performance記録](performance.md)の再検討条件を満たす新しいhotspotがないため変更しない。
+[generated C performance記録](generated-c.md)の再検討条件を満たす新しいhotspotがないため変更しない。
 
 ## 未解決の入力深度
 

@@ -52,8 +52,8 @@ compiler は観測可能な動作を変えない限り、capture 除去、lambda
 
 `Symbol`をcaptureした場合も、その意味とlifetime authorityはmalに属し、environmentから到達できる間は値が保持される。
 external opaque valueをcaptureしても、そのresourceに新しいownership規則は加わらない。詳細は
-[EngramとExtern](engrams.md)に従う。closure自体の決定理由は[D003](../design/decisions/D003.md)、
-lexical captureの決定理由は[D007](../design/decisions/D007.md)に記録する。
+[EngramとExtern](engrams.md)に従う。closure自体の決定理由は[D003](../history/decisions/D003.md)、
+lexical captureの決定理由は[D007](../history/decisions/D007.md)に記録する。
 
 ## 再帰
 
@@ -85,7 +85,7 @@ direct tail recursion を loop へ lower してよいが、program から観測�
 operandのbit widthでwrapしたbit patternを返す。unsigned `>>`はlogical shift、signed `>>`はsign bitを複製する
 arithmetic shiftとする。これらのpreconditionに違反したprogramの実行結果は保証しない。backendはpreconditionを
 満たすoperationの結果をCのsigned shiftの偶発的な挙動へ依存させてはならない。
-現在の設計理由は[D035](../design/decisions/D035.md)に記録する。
+現在の設計理由は[D035](../history/decisions/D035.md)に記録する。
 
 ## 浮動小数点
 
@@ -101,7 +101,7 @@ zero除算、有限値のoverflow、invalid operationはIEEE 754に従ってinfi
 - どちらかがNaNなら`==`はfalse、`!=`はtrueである。
 - どちらかがNaNなら`< <= > >=`はすべてfalseである。
 
-演算規則の設計理由は[D009](../design/decisions/D009.md)に記録する。
+演算規則の設計理由は[D009](../history/decisions/D009.md)に記録する。
 
 ## trap
 

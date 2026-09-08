@@ -29,7 +29,7 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 便利な標準APIを多数用意すると、実装量だけでなく「どのAPIを選び、どの暗黙規約に従うか」という探索costが増える。malはmechanismを少数提供し、用途別policyをprogramまたはhost側へ残す。
 
-一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](decisions/D008.md)
+一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](../history/decisions/D008.md)
 
 controlは、利用者がすべてのmechanismをoperationごとに再定義することではない。policyを選択でき、選択後の
 mechanismが一つの規則から予測できる状態を指す。minimalityの比較では、primitiveやsyntaxの個数だけでなく、
@@ -42,7 +42,7 @@ policyを選ぶcontrolを保ちつつ、scalar operationごとにwidth、alignme
 sourceに残す。正確な配置規則は[authority](authority.md#policyとmechanismを分ける)が所有する。
 
 memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
-capability transferを導く。reference backendのEngram回収は[D033](decisions/D033.md)のborrow/owned result規約に閉じ、
+capability transferを導く。reference backendのEngram回収は[D033](../history/decisions/D033.md)のborrow/owned result規約に閉じ、
 Extern resourceのpolicyへ拡張しない。
 
 ## 意味論上の核

@@ -110,4 +110,4 @@ lifetimeはhost contractの責務である。authorityの一般則は[EngramとE
 ## minimality
 
 この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、Symbol fieldに共通するmechanismだけを提供する。
-採択理由とlocal algorithm corpusによる評価は[D022](../design/decisions/D022.md)に記録する。
+採択理由とlocal algorithm corpusによる評価は[D022](../history/decisions/D022.md)に記録する。

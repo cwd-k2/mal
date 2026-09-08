@@ -133,4 +133,4 @@ slice、hash cache、operation memoizationは値表現または計算量の最�
 flatten cacheは上記のcopy/destroy contractに従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、
 memoization keyのsource-level意味には使わない。
 
-測定baseline、着手順、安全条件は[managed Engram性能評価](../development/ownership-performance.md)に置く。
+過去の測定baselineは[managed Engram性能記録](../history/performance/managed-engrams.md)に置く。

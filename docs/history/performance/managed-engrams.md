@@ -1,11 +1,11 @@
 # managed Engram性能検証
 
-Status: Current measurement policy and baseline
+Status: Historical measurement record
 
 この文書はC backendのmanaged Engram最適化に対する測定方法、回帰条件、現在のbaselineを管理する。
-ownership correctnessと実装方式は[実装規約](../implementation/ownership.md)、一般的なgenerated Cの性能記録は
-[generated C performance](performance.md)、改善順は[generated program最適化計画](generated-program-optimization.md)、
-通常の検証commandは[test policy](testing.md)を正とする。
+ownership correctnessと実装方式は[実装規約](../../implementation/ownership.md)、一般的なgenerated Cの性能記録は
+[generated C performance](generated-c.md)、改善順は[generated program最適化計画](../../development/generated-program-optimization.md)、
+通常の検証commandは[test policy](../../development/testing.md)を正とする。
 
 ## 対象
 
