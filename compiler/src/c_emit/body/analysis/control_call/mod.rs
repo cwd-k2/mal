@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::{ApplicationGraph, ClosureUsePlan, ControlRegionId, ControlRegionPlan};
+use super::{ApplicationGraph, ControlRegionId, ControlRegionPlan};
 
 mod forwarder;
 mod graph;
@@ -31,7 +31,6 @@ impl ControlCallPlan {
     pub(in crate::c_emit::body) fn new(
         closure: &closure::Program,
         control: &control::Program,
-        closure_uses: &ClosureUsePlan,
         applications: &ApplicationGraph,
         regions: &ControlRegionPlan,
     ) -> Self {
@@ -62,13 +61,9 @@ impl ControlCallPlan {
                 if application_callee(terminator).is_none() {
                     continue;
                 }
-                if let Some(argument) = forwarded_self_tail_argument(
-                    closure,
-                    state,
-                    terminator,
-                    function.id,
-                    closure_uses,
-                ) {
+                if let Some(argument) = applications.direct_target(site).and_then(|forwarder| {
+                    forwarded_self_tail_argument(closure, state, terminator, function.id, forwarder)
+                }) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                     forwarded_self_arguments.insert(site, argument);
                 } else if is_direct_self_tail(terminator, function.id) {
@@ -203,6 +198,7 @@ fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::super::super::direct_function_id;
+    use super::super::ClosureUsePlan;
     use super::*;
     use crate::source::{FileId, SourceFile};
     use crate::{anf, check, closure, control, core, parser, resolve};
@@ -236,7 +232,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
+        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
 
         let helper = top_level_function_id(&closure, "helper");
         let recursive = control
@@ -294,7 +290,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
+        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
 
@@ -353,7 +349,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
+        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
         let apply = top_level_function_id(&closure, "apply");
 
         assert!(control.states.iter().enumerate().any(|(index, state)| {

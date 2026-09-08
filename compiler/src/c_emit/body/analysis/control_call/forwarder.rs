@@ -1,20 +1,16 @@
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, Terminator};
 
-use super::super::super::direct_function_id;
-use super::super::ClosureUsePlan;
-
 pub(super) fn forwarded_self_tail_argument(
     program: &closure::Program,
     state: &control::State,
     terminator: &Terminator,
     caller: FunctionId,
-    closure_uses: &ClosureUsePlan,
+    forwarder: FunctionId,
 ) -> Option<closure::Atom> {
-    let Terminator::TailCall { callee, argument } = terminator else {
+    let Terminator::TailCall { argument, .. } = terminator else {
         return None;
     };
-    let forwarder = direct_function_id(closure_uses, callee)?;
     let function = program
         .functions
         .iter()

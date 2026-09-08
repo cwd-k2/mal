@@ -98,13 +98,8 @@ impl<'a> BodyEmitter<'a> {
         let applications = ApplicationGraph::new(program, &control, &closure_uses);
         let control_regions = ControlRegionPlan::new(&control, &applications);
         debug_assert!(control_regions.is_valid(&control, &applications));
-        let control_calls = ControlCallPlan::new(
-            program,
-            &control,
-            &closure_uses,
-            &applications,
-            &control_regions,
-        );
+        let control_calls =
+            ControlCallPlan::new(program, &control, &applications, &control_regions);
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)
