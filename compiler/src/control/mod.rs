@@ -134,8 +134,6 @@ impl Lowerer {
                             callee: callee.clone(),
                             argument: argument.clone(),
                             resume,
-                            live: Vec::new(),
-                            needs_environment: false,
                         },
                         binding.span,
                     )
@@ -272,6 +270,8 @@ impl Lowerer {
         let id = StateId(self.states.len());
         self.states.push(State {
             input,
+            live: Vec::new(),
+            needs_environment: false,
             bindings,
             terminator,
             span,
@@ -313,22 +313,13 @@ impl Lowerer {
         }
 
         for index in start..end {
-            let Terminator::Call {
-                resume,
-                live,
-                needs_environment,
-                ..
-            } = &mut self.states[index].terminator
-            else {
-                continue;
-            };
-            let resume_live = &live_in[resume.0 - start];
-            *live = locals
+            let state_live = &live_in[index - start];
+            self.states[index].live = locals
                 .iter()
-                .filter(|value| resume_live.contains(&value.id))
+                .filter(|value| state_live.contains(&value.id))
                 .cloned()
                 .collect();
-            *needs_environment = environment_in[resume.0 - start];
+            self.states[index].needs_environment = environment_in[index - start];
         }
     }
 }

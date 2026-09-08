@@ -37,6 +37,8 @@ pub struct StateId(pub usize);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct State {
     pub input: Option<Pattern>,
+    pub live: Vec<LiveValue>,
+    pub needs_environment: bool,
     pub bindings: Vec<Binding>,
     pub terminator: Terminator,
     pub span: Span,
@@ -101,8 +103,6 @@ pub enum Terminator {
         callee: Atom,
         argument: Atom,
         resume: StateId,
-        live: Vec<LiveValue>,
-        needs_environment: bool,
     },
     TailCall {
         callee: Atom,

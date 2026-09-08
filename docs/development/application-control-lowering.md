@@ -128,7 +128,7 @@ callを含まないbinding列と一つのterminatorからなる。
 Terminator ::= Return(value)
              | Goto(target)
              | Jump(target, value)
-             | Call(callee, argument, resume, live-values, needs-environment)
+             | Call(callee, argument, resume)
              | TailCall(callee, argument)
              | Case(scrutinee, arm-targets)
              | PrimitiveBranch(operator, operands, otherwise-target, then-target)
@@ -139,10 +139,10 @@ control frameを増やさない。stateのoptionalなinput patternが`Jump`のva
 function bodyの最終resultをそのまま返すapplicationだけを`TailCall`とし、`Case`と`PrimitiveBranch`のarmへreturn destinationを
 渡すことでbranch内のtail positionも保存する。
 
-lowering後にstate graphのbackward livenessを解き、各`Call`のresume stateで必要になるcaller-local bindingをcall siteの
-`live-values`へ型とspan付きで記録する。top-level bindingはprogram storageから再取得できるためframeへ複製しない。
-`EnvironmentField`またはenvironmentを伴う`SelfClosure`がresume側で必要なら`needs-environment`を立てる。C backendはこの明示情報
-だけからframe payloadを構成し、独自にclosure IRのsuffixを再解析しない。
+lowering後にstate graphのbackward livenessを解き、各stateへentry時に必要なcaller-local bindingを型とspan付きで記録する。
+`Call`のframe payloadはresume stateのlive-inと一致する。top-level bindingはprogram storageから再取得できるためframeへ複製しない。
+`EnvironmentField`またはenvironmentを伴う`SelfClosure`がstate以降で必要ならstateの`needs-environment`を立てる。C backendはこの
+明示情報だけからframe payloadとstate遷移時のcleanupを構成し、独自にclosure IRのsuffixを再解析しない。
 
 ## 保証と計測の境界
 

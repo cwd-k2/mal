@@ -97,20 +97,16 @@ fn records_only_caller_values_live_after_a_non_tail_call() {
     );
     let function = top_level_function(&program, "addAfter");
     let parameter = function.parameter.binding.expect("named parameter");
-    let call = reachable_states(&program, function)
+    let resume = reachable_states(&program, function)
         .into_iter()
         .find_map(|state| match &state.terminator {
-            Terminator::Call {
-                live,
-                needs_environment,
-                ..
-            } => Some((live, needs_environment)),
+            Terminator::Call { resume, .. } => Some(&program.states[resume.0]),
             _ => None,
         })
         .expect("non-tail call should suspend");
-    assert_eq!(call.0.len(), 1);
-    assert_eq!(call.0[0].id, parameter);
-    assert!(!call.1);
+    assert_eq!(resume.live.len(), 1);
+    assert_eq!(resume.live[0].id, parameter);
+    assert!(!resume.needs_environment);
 }
 
 #[test]
@@ -132,10 +128,8 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
     assert!(reachable_states(&program, inner).into_iter().any(|state| {
         matches!(
             state.terminator,
-            Terminator::Call {
-                needs_environment: true,
-                ..
-            }
+            Terminator::Call { resume, .. }
+                if program.states[resume.0].needs_environment
         )
     }));
 }
@@ -162,14 +156,14 @@ fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
         arms.iter()
             .all(|arm| program.states[arm.target.0].input.is_some())
     );
-    let call_live = states
+    let resume = states
         .iter()
         .find_map(|state| match &state.terminator {
-            Terminator::Call { live, .. } => Some(live),
+            Terminator::Call { resume, .. } => Some(&program.states[resume.0]),
             _ => None,
         })
         .expect("first arm should suspend for a non-tail call");
-    assert_eq!(call_live.len(), 1);
+    assert_eq!(resume.live.len(), 1);
 }
 
 #[test]
