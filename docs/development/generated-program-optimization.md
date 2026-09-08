@@ -51,9 +51,10 @@ unwindは0.73、元の退行6 caseは幾何平均0.90となった。direct tail�
 残るcostはarenaの所属や単一frame siteの形ではなく、explicit frameのpush、resume、dispatchと通常のC callとの表現差にある。
 Callgrindではdirect Hanoiのregion版は通常C再帰よりinstructionとdata referenceが少ない一方でconditional branchが2.48倍、
 first-class cycleではinstructionが2.26倍、data referenceが3.78倍、conditional branchが5.26倍だった。次は
-[bounded direct execution](application-control-lowering.md#bounded-direct-execution)として、frameをcall前にdurableにし、fuelが残る間は
-callee workerから既知resumeへ直行、fuel 0では同じactivationのdispatcherへ戻す。これを満たさないcall-site別の閾値やframe field削減は
-採用しない。
+[bounded direct execution](application-control-lowering.md#bounded-direct-execution)としてframeをcall前に作るprototypeは、Hanoiで
+`B = 1`が同等、`B = 2`が1.16倍へ退行したため棄却した。次はbatch中のcontinuationをC activationだけに置き、fuel切れ時だけ
+bounded scratchを経てarenaへmaterializeするsegmented modelをstandaloneで検証する。これを満たさないcall-site別の閾値やframe
+field削減は採用しない。
 
 queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
 実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。

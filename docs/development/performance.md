@@ -134,6 +134,11 @@ referenceが2.26、data referenceが3.78、conditional branchが5.26だった。
 ではcode identity選択、entry dispatch、resumeが独立した主要costである。したがって次の実験はframeを省略せず、fuelが残る間だけ
 callee workerをC callして既知resumeへ直行し、fuel 0では同じactivationのdispatcherへ戻す。
 
+local direct-self prototypeではcall前に従来frameを作り、pure dispatcherとC-call workerを別functionにした。Hanoiのwarmup 3回、
+交互30 roundでは`B = 1`が119.60 ms対119.09 msで1.00、`B = 2`が137.58 ms対118.99 msで1.16だった。dispatcherとworkerを
+分けない初期prototypeは`B = 1`でも4.57倍となり、runtimeでfuel 0でも生成functionに再帰edgeがあるだけでoptimizerのloop形成を
+妨げた。分離後もcontinuationをarenaとC activationへ常時二重化する利益はなく、このrefinementは棄却した。
+
 ## 個別調査
 
 | Case | 分離した境界 | 現在の判断 |

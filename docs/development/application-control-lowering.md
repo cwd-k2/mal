@@ -207,6 +207,16 @@ continuationを作らないのでC callせずregion内jumpを保つ。異なるr
 direct self、mutual、first-classを同じregion ruleで扱う。採用前に複数の固定値についてwall-clock、branch、code size、深度fixture、
 managed pressureを測り、portable C stackの上限と改善が両立する一つのbackend定数を選ぶ。
 
+この「call前にarena frameを作り、同じcontinuationをC activationにも保持する」refinementはprototypeで棄却した。pure dispatcherを
+別functionへ分離してoptimizerへの再帰edge混入を避けても、direct self Hanoiは`B = 1`で現行と同等、`B = 2`で1.16倍へ退行した。
+二つのstorageへcontinuationを常時重複する方式は、fuelの値を局所調整して採用しない。
+
+次に検討できるsegmented executionでは、batch中のcontinuationをC activationだけに置き、fuel切れ時にだけbounded scratchへspillする。
+innerからouterへunwindする順序とarenaのouterからinnerへのframe順序が逆になるため、driverが高々`B`個のscratch recordを逆順に
+materializeする必要がある。managed ownerはspill時にC localからscratchへ、materialize時にscratchからarenaへ一度ずつmoveする。
+通常returnではarena frameを作らない。この表現は常時二重化を避ける一方、`Spill`伝播、可変型scratch record、entry argumentの保存を
+追加するため、production emitterへ入れる前にstandalone modelでbatch幅ごとのcostとowner遷移を検証する。
+
 ## 正しさ
 
 各control stateのframe列を元のANF evaluation contextへ戻す対応`R`を定める。sourceのstepに対してcontrol machineが有限stepで
