@@ -9,53 +9,26 @@ Status: Measurement history and current baseline
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。
 
-## 調査の発端
+## 現在のbaseline
 
-localのalgorithm corpusを、indexed storageとalgorithmをmal側に置いて実装した。behavior caseと
-maximum-order smokeがpublic `malc build`経路で成功した。新しいcollection primitiveは必要なく、`Ptr`、byte offset operator、
-numeric scalar load/storeでgraph storage、priority queue、state transition、規則的なnumeric transformを表現できた。
-
-この結果はmemory mechanismの不足よりgenerated codeのcostを次に調べる根拠になる。branch-heavyなheap操作と
-規則的なnumeric loopはC optimizerへの反応が異なるため、両方を代表workloadにする。
-
-## 2026-09-07全corpus baseline
-
-interactiveな053を除くTypical90の79問について、mal版と同じalgorithmのhandwritten Cを用意した。Clang 21.1.8の`-O2`、
-同じmaximum-order input、shellなし、warmup 3回、20反復を標準条件とした。C側の269 sampleと、79個のmaximum-order inputに
-おけるmal/Cのstdoutを測定前に検証した。複数解を許すsampleは意味を検査した。
-
-比率は`mal / direct C`とし、1より大きいほどCが速い。
+interactiveな053を除くTypical90の79問を、Clang 21.1.8の`-O2`、同じmaximum-order input、warmup 3回、
+交互20 roundで比較した。比率は`mal / direct C`とし、1より大きいほどCが速い。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.11 | 1.19 |
-| 両実行時間が1 ms以上 | 62 | 1.16 | 1.17 |
-| 両実行時間が5 ms以上 | 51 | 1.20 | 1.23 |
-| 両実行時間が10 ms以上 | 40 | 1.19 | 1.26 |
+| 全非interactive問題 | 79 | 1.03 | 1.04 |
+| 両実行時間が1 ms以上 | 61 | 1.06 | 1.05 |
+| 両実行時間が5 ms以上 | 51 | 1.07 | 1.07 |
+| 両実行時間が10 ms以上 | 43 | 1.06 | 1.06 |
 
-±5%を同等とするとmalが速いものは12、同等は19、Cが速いものは48だった。1 ms未満はprocess起動の比率が大きいため、
-optimizationの順位には使わない。
+±5%を同等とするとmalが速いものは11、同等は34、Cが速いものは34だった。規則的なnumeric/`Ptr`処理は
+direct Cと同等以上または近く、新しいcollection primitiveを性能だけのために追加する根拠はない。現在、profileによって
+compilerの責務へ分離できたactiveなcost modelはない。
 
-最大の差は006の7.90倍、008の6.34倍、027の5.25倍、016の2.76倍だった。006、008、027ではflat `Symbol`のbyte scanに
-materialization判定とmanaged aggregateのretain/releaseが残る。027では100,000 tokenをhost scratch bufferへ読み、別の
-mal-controlled allocationへadmitしてから固定長recordへcopyする。016、029、032、043ではproduct parameterをflattenした
-direct entryの内側またはtail edgeでaggregate stateが再構築される。
+個別caseの数値はcompiler変更の採否ではなく、fixture差、source責務、backend責務を分離する証拠として読む。1 ms未満の
+caseと異なるmachine間の絶対時間は順位付けに使わない。
 
-最適化後LLVM IRでも027のbyte loopに`Symbol` descriptorの`memcpy`、reference count更新、release、rope判定が残った。
-したがって以前の3 workloadでは消えていたaggregateとmanaged bookkeepingを、全corpusの新しい再現例に基づいて再検討する。
-実装対象とnegative caseは[最適化計画](generated-program-optimization.md)を正とする。
-
-一方、030のsieve、045のsubset DP、065のNTTはdirect Cと同等以上または近い。規則的なnumeric/`Ptr`処理の結果は、新しい
-collection primitiveを性能だけのために追加する根拠にならない。
-
-source、input、expected output、direct C、generated C、Hyperfine JSONなどのraw artifactはlocalの`.scratch/`に置き、
-tracked repositoryには含めない。
-
-後述のtoolchain監査により、この回と最初の2026-09-08再測定ではmal側binaryが環境の`CC=gcc`を継承し、
-direct C側だけがClangでbuildされていたことが判明した。以下の初回比率は改善箇所を発見した調査履歴として残すが、
-現在のcompiler間比較baselineや改善幅の根拠には使わない。
-
-## 2026-09-08最適化後の再測定とtoolchain訂正
+## 測定経路の訂正
 
 最初の集計後、binaryの`.comment`と最適化後assemblyを監査し、mal側はGCC 15.3.0、direct C側はClang 21.1.8で
 buildされていたことを確認した。local build runnerが`CC`を固定せず、interactive環境の`CC=gcc`を継承したことが原因だった。
@@ -76,24 +49,22 @@ process時間は各Hyperfine invocationに測らせる。
 027のhost adapterはadmission中のdataとcapacityをbyte loop外で保持し、C側もtokenごとの動的admissionと、その後のrecord処理を
 分離した。
 
-| Population | Count | Median ratio | Geometric mean |
-|---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.03 | 1.04 |
-| 両実行時間が1 ms以上 | 61 | 1.06 | 1.05 |
-| 両実行時間が5 ms以上 | 51 | 1.07 | 1.07 |
-| 両実行時間が10 ms以上 | 43 | 1.06 | 1.06 |
+mixed-toolchainで得た比率は調査候補の発見にだけ使い、現在値やcompiler改善幅には使わない。source、生成物、Hyperfine JSONなどの
+raw artifactはlocalの`.scratch/`に置き、tracked repositoryには含めない。
 
-±5%を同等とするとmalが速いものは11、同等は34、Cが速いものは34だった。1 ms未満の分類数はprocess起動の揺れを
-含むためoptimizationの順位には使わない。mixed-toolchainの過去値との差はcompiler改善幅と解釈しない。
+## 個別調査
 
-borrowed direct entryと不変tail slotからのborrowにより、borrow導入前のgenerated Cにあった006と008のloop内の
-`Symbol` retain/releaseは消え、owned tail slot自身の終了時releaseだけが残る。borrowed parameterをresultへ保存する
-経路ではcopyを維持する。mixed-toolchainのwall-clock比率はこの効果の根拠には使わず、generated C構造と
-deterministic counterを根拠とする。
+| Case | 分離した境界 | 現在の判断 |
+|---:|---|---|
+| 005 | modulo回数 | source fixtureを訂正し、backend変更なし |
+| 011 | loop不変値とallocation alias | sourceで不変値を所有し、一律LTOと`noalias`を棄却 |
+| 016、032 | known-call product | 最適化後IRでcallが消えるためactive課題ではない |
+| 027 | `Symbol` release | 必要なlifetime semanticsを維持し、allocation変更を棄却 |
+| 029 | streamingとinteger幅 | source fixtureを訂正し、同幅Cとparity |
+| 043 | heap invariantとdirection mapping | source fixtureを訂正し、backend固有rewriteを棄却 |
+| 063 | scan条件とarea reduction | source fixtureを訂正し、同形Cとparity |
 
-訂正後の016は1.00倍、032は1.09倍だった。現在の016をClang `-O2`で処理したLLVM IRでは
-`searchSecond`と`searchFirst`に対応するcallが消え、entry body内のnested loopになる。したがってrecursive reductionや
-aggregate call topologyを現在の最優先課題とする根拠はない。
+### 043 — heap invariantとdirection mapping
 
 この時点で絶対差が大きい残差は043の約1.15倍だった。popped distanceをdirection loopへ明示的に渡すsource variantは、
 元のmal版と交互測定で同等だった。最適化後IRでも対応するloadはloop invariantになっているため、同じ値のsource-level
@@ -122,6 +93,8 @@ directionからrow/column差分をtable lookupし、mal版は二つの分岐関�
 これはdirection固有のcompiler rewriteではなく、mappingを所有するsource fixtureが意図をdataとして表した訂正とする。
 残差は測定揺れを含むparity境界付近にあり、samplingから独立したbackend costを特定できないため043を現在の最適化課題から外す。
 
+### 029 — streamingとinteger幅
+
 029のmal fixtureは全brickのrangeを二つの`Ptr` arrayへ保存してから処理していたが、direct Cは一件ずつ読み、その場で
 queryとassignを完了していた。後から参照しない入力履歴を除き、`placeBricks`が一件の入力から更新までを所有するstreaming形へ
 直すと、変更前との交互30回比較は約0.99倍で性能上は同等だった。不要な`Input` tail stateとallocationを除くfixture訂正として
@@ -131,19 +104,27 @@ queryとassignを完了していた。後から参照しない入力履歴を除
 同じalgorithmとstreamingを保ったままC側も`int64_t`へ揃えると約1.02倍になった。029の通常corpus比率は狭い型を含む
 fixture差として残し、narrow integer specializationやtail aggregateのbackend cost modelへ一般化しない。
 
+### 比較条件の整合 — 011と063
+
 比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると
 約1.27倍まで縮んだ。063の元の比率全体をbackend costとは扱わず、残差だけをcontrol flowとstorage表現の調査対象にする。
+
+### 027 — `Symbol` release
 
 027は100,000 tokenに対して約400,000回の`Symbol` release境界を通っていた。releaseをtranslation unit内へinternalizeすると、
 optimizerが引数形状とcalling conventionをspecializeできることを最適化後IRで確認した。訂正後のwall-clockは1.23倍である。
 所有権移譲後のzero descriptorを含むため最適化余地はあったが、必要なrelease semantics自体は維持している。allocationを無効化した
 実験は差を支配せず、外部buffer adoptionやallocator変更の根拠にはならなかった。
 
+### 005 — modulo回数
+
 005ではmal fixtureがcellごとに積と加算結果を別々にmoduloし、direct Cの1回に対し2回のdivisionを実行していた。
 両operandがmodulo済みで積と加算が`Int64`範囲内にあることをsourceで保ったまま、合計に対する1回だけへ揃えると
 0.99倍になった。typed/aligned accessの診断variantは約1%、host実装を見せるLTO variantは測定上の改善がなかった。
 したがってこの差は`Ptr` contractを広げたりbackendがwrap semanticsから演算を除いたりする根拠にはならない。
+
+### 横断仮説 — alignment、LTO、wrap semantics
 
 043でもtyped/aligned accessとLTOの診断variantは改善せず、direct Cへ`-fwrapv`を付けたvariantも通常buildと1.00倍だった。
 したがってalignment、host allocationのtranslation unit境界、signed wrap semanticsは現在の主原因候補から外す。
@@ -161,6 +142,8 @@ DP loopへ渡すmal variantは、LTOなしでも同じ再loadを除去した。m
 元の約1.48の差は消えた。この結果はrecord表現のbackend specializationではなく、fixtureが実際に知る不変性をsourceで表す
 根拠とする。一般のextern resultにfreshnessやnon-aliasを仮定する根拠にはしない。
 
+### signed right shift — backend lowering
+
 signed `>>`のportable C展開は、以前はunsigned logical shiftへsign maskを合成していた。063の最適化後IRでは、定数1のshiftにも
 `lshr`、sign-bit抽出、`or`が残っていた。型幅内の補数をlogical shiftして再反転する等価式へ変更すると、Cのsigned shiftへ
 依存せず、Clangは単一の`ashr i64`へ縮約した。dynamic shiftを1億回行う独立fixtureでは、交互20回測定の中央値が
@@ -169,6 +152,8 @@ signed `>>`のportable C展開は、以前はunsigned logical shiftへsign mask�
 一方、063全体は変更前後とも約1.44--1.45倍であり、このoperationはworkloadを支配していない。全79問の分布にもmaterialな
 変化はなかった。この変更は063向けの局所最適化ではなく、仕様済みarithmetic shiftをoptimizerへ直接見せるinteger loweringの
 責務として採用する。
+
+### 063 — scanとarea reduction
 
 063のsame-widthかつportable popcountなdirect Cを100回再測定すると、mal/direct Cの中央値は約1.27だった。direct側も
 malと同じ不一致時early exitへ揃えるとdirect C自体がさらに短縮したため、残差をcontrol-flowの不一致だけには帰属できない。
@@ -187,7 +172,7 @@ scan中に`rows * count`と既存bestを比較すると、IRはscalar `smax`のu
 中央値は1.03、幾何平均は1.04になった。これはvectorizationを抑制するbackend ruleではなく、中間値ではなく最終判断を
 所有するsource fixtureの訂正とする。063にも独立したbackend costが残らないため、現在の最適化課題から外す。
 
-## 先行baselineから採用した改善
+## 採用済みのcompiler改善
 
 2026-09-05の3 workload比較では、未最適化public buildに対してC compilerの`-O2`がbranch-heavy heapを875.2 msから
 390.1 msへ、numeric transformを465.9 msから395.1 msへ短縮した。この根拠とstrict float testによりpublic buildへ`-O2`を
