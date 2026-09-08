@@ -3,12 +3,16 @@ use std::collections::{HashMap, HashSet};
 use crate::anf::ast::ValueId;
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
-use super::{ClosureUsePlan, ControlRegionPlan};
+use super::{ClosureUsePlan, ControlRegionId, ControlRegionPlan};
 use crate::c_emit::types::TypeRegistry;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(in crate::c_emit::body) struct ControlArenaId(pub(in crate::c_emit::body) usize);
 
 pub(in crate::c_emit::body) struct ControlFramePlan {
     frames: HashMap<StateId, ControlFrame>,
     closures_crossing_suspension: HashSet<ValueId>,
+    region_arenas: HashMap<ControlRegionId, ControlArenaId>,
 }
 
 #[derive(Clone)]
@@ -63,9 +67,20 @@ impl ControlFramePlan {
                 },
             );
         }
+        let region_arenas = regions
+            .ids()
+            .filter(|region| {
+                frames
+                    .keys()
+                    .any(|site| regions.site_region(*site) == Some(*region))
+            })
+            .enumerate()
+            .map(|(arena, region)| (region, ControlArenaId(arena)))
+            .collect();
         Self {
             frames,
             closures_crossing_suspension,
+            region_arenas,
         }
     }
 
@@ -75,6 +90,14 @@ impl ControlFramePlan {
 
     pub(in crate::c_emit::body) fn closure_crosses_suspension(&self, id: ValueId) -> bool {
         self.closures_crossing_suspension.contains(&id)
+    }
+
+    pub(in crate::c_emit::body) fn arena_count(&self) -> usize {
+        self.region_arenas.len()
+    }
+
+    pub(in crate::c_emit::body) fn arena(&self, region: ControlRegionId) -> Option<ControlArenaId> {
+        self.region_arenas.get(&region).copied()
     }
 
     pub(in crate::c_emit::body) fn is_valid(

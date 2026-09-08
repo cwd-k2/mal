@@ -52,7 +52,7 @@ impl BodyEmitter<'_> {
             .cloned()
             .collect::<Vec<_>>();
         let mut body = Block::default();
-        let arena = self.control_regions.arena(region);
+        let arena = self.control_frames.arena(region);
         if let Some(arena) = arena {
             emit_control_stack_preamble(&mut body, arena);
         }

@@ -133,7 +133,7 @@ impl<'a> BodyEmitter<'a> {
         }));
         debug_assert!(control_frames.is_valid(&control, types));
         let needs = RuntimeNeeds {
-            control_arenas: control_regions.arena_count(),
+            control_arenas: control_frames.arena_count(),
             ..RuntimeNeeds::default()
         };
         Self {

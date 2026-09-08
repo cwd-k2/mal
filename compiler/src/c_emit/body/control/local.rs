@@ -92,7 +92,7 @@ impl BodyEmitter<'_> {
         if let Some(arena) = self
             .control_regions
             .function_region(function.id)
-            .and_then(|region| self.control_regions.arena(region))
+            .and_then(|region| self.control_frames.arena(region))
         {
             emit_control_stack_preamble(&mut body, arena);
         }
@@ -394,7 +394,7 @@ impl BodyEmitter<'_> {
         let Some(arena) = self
             .control_regions
             .function_region(function.id)
-            .and_then(|region| self.control_regions.arena(region))
+            .and_then(|region| self.control_frames.arena(region))
         else {
             debug_assert!(
                 sites

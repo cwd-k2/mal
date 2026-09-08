@@ -52,7 +52,7 @@ impl BodyEmitter<'_> {
             ),
             Statement::goto(common_control_done(region)),
         ]);
-        if self.control_regions.arena(region).is_none() {
+        if self.control_frames.arena(region).is_none() {
             output.append(root);
             return;
         }
