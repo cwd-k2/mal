@@ -53,6 +53,9 @@ extern contractの仕様課題として先に記録する。
 063をsame-widthかつportable popcountへ揃えたvariantは1.45倍から約1.27倍へ縮んだ。したがって011ではwidthを原因候補から外し、
 063では元の差の一部をfixture差として除外する。
 
+063に残っていたsigned right shiftのmask合成は、integer lowering全体でClangが`ashr`へ認識できるportable表現へ変更した。
+独立したshift fixtureは改善したが063全体は変わらなかったため、残差をshift loweringへ帰属させない。
+
 次は最適化後IRで、011のflat 3-field jobとC structのrecord move、heap上のDPとC local storage、および063のnested scanを
 別々に分類する。sourceで自然に異なるcontrol flowを、backendの局所rewriteでC sourceへ似せない。複数の独立fixtureに共通して
 残る表現costだけをbackend設計候補にする。

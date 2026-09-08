@@ -78,12 +78,12 @@ process時間は各Hyperfine invocationに測らせる。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.03 | 1.06 |
-| 両実行時間が1 ms以上 | 62 | 1.06 | 1.07 |
-| 両実行時間が5 ms以上 | 51 | 1.10 | 1.09 |
-| 両実行時間が10 ms以上 | 40 | 1.05 | 1.07 |
+| 全非interactive問題 | 79 | 1.04 | 1.05 |
+| 両実行時間が1 ms以上 | 62 | 1.05 | 1.06 |
+| 両実行時間が5 ms以上 | 51 | 1.09 | 1.08 |
+| 両実行時間が10 ms以上 | 40 | 1.06 | 1.07 |
 
-±5%を同等とするとmalが速いものは8、同等は35、Cが速いものは36だった。1 ms未満の分類数はprocess起動の揺れを
+±5%を同等とするとmalが速いものは10、同等は32、Cが速いものは37だった。1 ms未満の分類数はprocess起動の揺れを
 含むためoptimizationの順位には使わない。mixed-toolchainの過去値との差はcompiler改善幅と解釈しない。
 
 borrowed direct entryと不変tail slotからのborrowにより、borrow導入前のgenerated Cにあった006と008のloop内の
@@ -91,30 +91,39 @@ borrowed direct entryと不変tail slotからのborrowにより、borrow導入�
 経路ではcopyを維持する。mixed-toolchainのwall-clock比率はこの効果の根拠には使わず、generated C構造と
 deterministic counterを根拠とする。
 
-訂正後の016は1.00倍、032は1.08倍だった。現在の016をClang `-O2`で処理したLLVM IRでは
+訂正後の016は1.00倍、032は1.09倍だった。現在の016をClang `-O2`で処理したLLVM IRでは
 `searchSecond`と`searchFirst`に対応するcallが消え、entry body内のnested loopになる。したがってrecursive reductionや
 aggregate call topologyを現在の最優先課題とする根拠はない。
 
-絶対差が大きい残差は043の1.18倍（約46 ms）である。popped distanceをdirection loopへ明示的に渡すsource variantは、
+絶対差が大きい残差は043の1.20倍（約54 ms）である。popped distanceをdirection loopへ明示的に渡すsource variantは、
 元のmal版と交互測定で同等だった。最適化後IRでも対応するloadはloop invariantになっているため、同じ値のsource-level
 引き回しをbackend変更へ一般化しない。
 
-比率では011が1.51倍、063が1.45倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
+比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると
 約1.27倍まで縮んだ。063の元の比率全体をbackend costとは扱わず、残差だけをcontrol flowとstorage表現の調査対象にする。
 
 027は100,000 tokenに対して約400,000回の`Symbol` release境界を通っていた。releaseをtranslation unit内へinternalizeすると、
-optimizerが引数形状とcalling conventionをspecializeできることを最適化後IRで確認した。訂正後のwall-clockは1.19倍である。
+optimizerが引数形状とcalling conventionをspecializeできることを最適化後IRで確認した。訂正後のwall-clockは1.23倍である。
 所有権移譲後のzero descriptorを含むため最適化余地はあったが、必要なrelease semantics自体は維持している。allocationを無効化した
 実験は差を支配せず、外部buffer adoptionやallocator変更の根拠にはならなかった。
 
 005ではmal fixtureがcellごとに積と加算結果を別々にmoduloし、direct Cの1回に対し2回のdivisionを実行していた。
 両operandがmodulo済みで積と加算が`Int64`範囲内にあることをsourceで保ったまま、合計に対する1回だけへ揃えると
-1.00倍になった。typed/aligned accessの診断variantは約1%、host実装を見せるLTO variantは測定上の改善がなかった。
+0.99倍になった。typed/aligned accessの診断variantは約1%、host実装を見せるLTO variantは測定上の改善がなかった。
 したがってこの差は`Ptr` contractを広げたりbackendがwrap semanticsから演算を除いたりする根拠にはならない。
 
 043でもtyped/aligned accessとLTOの診断variantは改善せず、direct Cへ`-fwrapv`を付けたvariantも通常buildと1.00倍だった。
 したがってalignment、host allocationのtranslation unit境界、signed wrap semanticsは現在の主原因候補から外す。
+
+signed `>>`のportable C展開は、以前はunsigned logical shiftへsign maskを合成していた。063の最適化後IRでは、定数1のshiftにも
+`lshr`、sign-bit抽出、`or`が残っていた。型幅内の補数をlogical shiftして再反転する等価式へ変更すると、Cのsigned shiftへ
+依存せず、Clangは単一の`ashr i64`へ縮約した。dynamic shiftを1億回行う独立fixtureでは、交互20回測定の中央値が
+158.3 msから146.5 msへ約7%短縮し、assemblyもloop内の分岐とmask合成から` sar`へ変わった。
+
+一方、063全体は変更前後とも約1.44--1.45倍であり、このoperationはworkloadを支配していない。全79問の分布にもmaterialな
+変化はなかった。この変更は063向けの局所最適化ではなく、仕様済みarithmetic shiftをoptimizerへ直接見せるinteger loweringの
+責務として採用する。
 
 ## 先行baselineから採用した改善
 
