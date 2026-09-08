@@ -193,6 +193,80 @@ fn emits_typed_control_frame_fields_for_live_symbols() {
 }
 
 #[test]
+fn lowers_deep_non_tail_self_recursion_without_growing_the_c_stack() {
+    let generated = emit(
+        "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32)\n\
+             then { 0i32 }\n\
+             else { 1i32 + unwind(depth - 1i32) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { unwind(300000i32) - 300000i32; };",
+    )
+    .expect("emit deep non-tail recursion");
+    assert!(generated.source.contains("goto mal_control_state_"));
+    assert!(generated.source.contains("mal_control_push("));
+
+    let fixture = NativeFixture::new("deep-non-tail-control");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn reports_control_storage_failure_as_an_implementation_resource_limit() {
+    let generated = emit(
+        "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32)\n\
+             then { 0i32 }\n\
+             else { 1i32 + unwind(depth - 1i32) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { unwind(1i32); };",
+    )
+    .expect("emit control storage failure fixture");
+    let fixture = NativeFixture::new("control-resource-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_FORCE_CONTROL_ALLOCATION_FAILURE"],
+    );
+    let result = fixture.run(executable);
+    assert!(!result.status.success());
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("mal implementation resource failure: control stack allocation failed"),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
+fn resumes_multiple_non_tail_self_calls_with_product_parameters() {
+    let generated = emit(
+        "tree :: (Int32, Int32) -> Int32 := \\(depth :: Int32, seed :: Int32) {\n\
+           if (depth == 0i32)\n\
+             then { seed }\n\
+             else {\n\
+               left := tree(depth - 1i32, seed + 1i32);\n\
+               right := tree(depth - 1i32, seed + 2i32);\n\
+               left + right;\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { tree(3i32, 0i32) - 36i32; };",
+    )
+    .expect("emit multiple recursive continuations");
+    assert!(
+        generated
+            .source
+            .matches("MalControlFrameHeader header;")
+            .count()
+            >= 2
+    );
+
+    let fixture = NativeFixture::new("multiple-non-tail-control");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn stack_closure_calls_use_flattened_product_entries() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\
@@ -554,7 +628,7 @@ fn executes_top_level_and_local_recursive_closures() {
 }
 
 #[test]
-fn emits_direct_calls_for_known_top_level_and_self_functions() {
+fn emits_direct_calls_for_known_acyclic_functions_and_controls_recursive_edges() {
     let generated = emit(
         "square :: Int64 -> Int64 := \\(value :: Int64) { value * value; };\n\
          factorial :: Int64 -> Int64 := \\(value :: Int64) {\n\
@@ -568,11 +642,8 @@ fn emits_direct_calls_for_known_top_level_and_self_functions() {
             .source
             .contains("mal_function_0(mal_context, NULL,")
     );
-    assert!(
-        generated
-            .source
-            .contains("mal_function_1(mal_context, mal_environment,")
-    );
+    assert!(generated.source.contains("mal_control_push("));
+    assert!(generated.source.contains("goto mal_control_state_"));
     let fixture = NativeFixture::new("direct-known-calls");
     let executable = fixture.compile_generated(generated, "");
     assert!(fixture.run(executable).status.success());

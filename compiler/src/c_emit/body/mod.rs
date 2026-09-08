@@ -84,7 +84,7 @@ pub(super) struct BodyEmitter<'a> {
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
     control: crate::control::ast::Program,
-    _control_calls: ControlCallPlan,
+    control_calls: ControlCallPlan,
     control_frames: ControlFramePlan,
 }
 
@@ -133,7 +133,7 @@ impl<'a> BodyEmitter<'a> {
             direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
             control,
-            _control_calls: control_calls,
+            control_calls,
             control_frames,
         }
     }

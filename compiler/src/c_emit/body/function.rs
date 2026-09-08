@@ -123,6 +123,15 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
             }
+            if self.can_emit_local_control(function) {
+                output.push(Declaration::function(self.function_signature(function)));
+                if has_direct_product_entry(&function.parameter.ty) {
+                    output.push(Declaration::function(
+                        self.direct_function_signature(function),
+                    ));
+                }
+                continue;
+            }
             if has_direct_product_entry(&function.parameter.ty) {
                 output.push(Declaration::function(
                     self.direct_function_signature(function),
@@ -150,6 +159,10 @@ impl BodyEmitter<'_> {
         for function in &self.program.functions {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
+            }
+            if self.can_emit_local_control(function) {
+                output.extend(self.emit_local_control_function(function));
+                continue;
             }
             if has_direct_product_entry(&function.parameter.ty) {
                 let tail_slots = direct_tail_parameter_slots(function);
@@ -243,7 +256,10 @@ impl BodyEmitter<'_> {
         output
     }
 
-    fn function_signature(&self, function: &closure::Function) -> FunctionSignature {
+    pub(in crate::c_emit::body) fn function_signature(
+        &self,
+        function: &closure::Function,
+    ) -> FunctionSignature {
         let result = self.types.c_type(&function.body.result.ty);
         let parameter_type = self.types.c_type(&function.parameter.ty);
         let parameter_name = function
@@ -269,7 +285,10 @@ impl BodyEmitter<'_> {
         }
     }
 
-    fn direct_function_signature(&self, function: &closure::Function) -> FunctionSignature {
+    pub(in crate::c_emit::body) fn direct_function_signature(
+        &self,
+        function: &closure::Function,
+    ) -> FunctionSignature {
         self.flattened_function_signature(function, direct_function_name(function.id), true)
     }
 
@@ -325,7 +344,7 @@ impl BodyEmitter<'_> {
         }
     }
 
-    fn direct_parameter_value(
+    pub(in crate::c_emit::body) fn direct_parameter_value(
         &self,
         ty: &crate::check::ast::Type,
         next_parameter: &mut usize,
@@ -532,7 +551,11 @@ impl BodyEmitter<'_> {
         }
     }
 
-    fn emit_function_preamble(&self, output: &mut CBlock, function: &closure::Function) {
+    pub(in crate::c_emit::body) fn emit_function_preamble(
+        &self,
+        output: &mut CBlock,
+        function: &closure::Function,
+    ) {
         output.push(Statement::expression(CExpr::cast(
             "void",
             CExpr::identifier("mal_context"),

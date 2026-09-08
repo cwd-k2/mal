@@ -300,6 +300,10 @@ fn append_control_stack(output: &mut TranslationUnit) {
         Expr::identifier("context").pointer_field("control_top"),
         Expr::identifier("required"),
     ));
+    body.push(Statement::assignment(
+        Expr::identifier("context").pointer_field("control_frame"),
+        Expr::identifier("start"),
+    ));
     body.push(Statement::return_value(Expr::add(
         Expr::identifier("context").pointer_field("control_storage"),
         Expr::identifier("start"),

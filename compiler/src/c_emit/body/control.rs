@@ -1,3 +1,6 @@
+mod local;
+mod support;
+
 use crate::c_emit::syntax::{AggregateDefinition, AggregateField, TranslationUnit, TypeName};
 use crate::control::ast::StateId;
 

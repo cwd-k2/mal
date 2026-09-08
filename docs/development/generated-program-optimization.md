@@ -42,10 +42,10 @@ Nushell runnerを含む診断値なので、変換の採否には標準のHyperf
 一般変換、tail applicationとの関係、Cへのrefinementと機械的に確認する不変条件は
 [application control lowering設計](application-control-lowering.md)を正とする。この計画ではcost modelと採用gateだけを管理する。
 
-最初の実装単位は再帰patternではなく、この一般IRと変換規則である。検証fixtureはtail call、call後のscalar演算、複数の
-non-tail call、caseをまたぐcall、managed valueを保持するframe、capturing closure、indirect call、深いunwindを含める。
-generated CのMal call depthに対してC stack使用量がboundedであることを確認する。queue化とmemoizationは評価順または計算量を
-変える別のalgorithmなので、このcost modelには含めない。
+現在の実装範囲と残る適用境界は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。次のgateは
+managed frame、capturing closure、indirect call、mutual recursionであり、深いunwindだけでなくmanaged lifetimeと評価順を同時に
+検証する。generated CのMal call depthに対してC stack使用量がboundedであることを確認する。queue化とmemoizationは評価順または
+計算量を変える別のalgorithmなので、このcost modelには含めない。
 
 ## 共通の完了条件
 

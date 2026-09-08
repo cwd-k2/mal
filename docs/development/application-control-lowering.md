@@ -17,6 +17,17 @@ v0.5のexternはMal function valueを運ばず、hostからMal closureをcallbac
 block内で同期的に完了し、`Call`だけが別のMal functionへcontrolを移す。この境界が変わる場合は最適化ではなくcore semanticsの
 変更として扱う。
 
+## 実装状態
+
+control IR、backward liveness、direct-call cycle判定、typed frame layout、growable control storageは実装済みである。C emitterが
+この情報からcontrol machineを生成する現在の範囲は、managed valueをparameter、result、state input、local binding、frame fieldに
+含まないdirect self non-tail recursionである。この範囲では一つのC activation内でstateを遷移し、live scalarをtyped frameへ保存して
+return時にresumeする。direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
+
+`Symbol`などmanaged valueを含むfunction、indirect call、mutual recursionは、現時点では従来のC emissionを使う。したがってこの
+checkpointではmanaged valueのlifetimeを変更しない。これらをcontrol machineへ移す前に、[ownership規約](../implementation/ownership.md#control-frame)
+に従うframeへのcopyまたはtransfer、resume時のowner移動、通常return時のdestroyを実装し、sanitizerを含むlifetime testを通す。
+
 ## 抽象machine
 
 source側のconfigurationをexpression、environment、evaluation contextの組、control IR側をprogram point、live value、

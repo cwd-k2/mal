@@ -113,6 +113,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/types/host/product`、`c_emit/types/host/sum` | host-visible aggregateのconstructor、observer、checked projectionの構成 |
 | `c_emit/types/host/lifetime` | host-visible managed carrierのclone/take/drop operationの構成 |
 | `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
+| `c_emit/body/control` | typed control frame宣言とcontrol emissionのmodule境界 |
+| `c_emit/body/control/local` | 一つのC activationへfusionできるcontrol machineのC definition構成 |
+| `c_emit/body/control/support` | reachable state、local slot、control operation変換の純粋な補助解析 |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
@@ -128,7 +131,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
 | `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
-| `c_emit/runtime/core` | allocation、reference count、Symbol admission、flat/rope lifetimeとmaterialization、host-visible Symbol lifecycle operationの構成 |
+| `c_emit/runtime/core` | allocation、reference count、control storage、Symbol admission、flat/rope lifetimeとmaterialization、host-visible Symbol lifecycle operationの構成 |
 | `c_emit/runtime/symbol` | Symbol comparison、byte access、concatenation operationの構成 |
 | `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
