@@ -122,6 +122,15 @@ directionからrow/column差分をtable lookupし、mal版は二つの分岐関�
 これはdirection固有のcompiler rewriteではなく、mappingを所有するsource fixtureが意図をdataとして表した訂正とする。
 残差は測定揺れを含むparity境界付近にあり、samplingから独立したbackend costを特定できないため043を現在の最適化課題から外す。
 
+029のmal fixtureは全brickのrangeを二つの`Ptr` arrayへ保存してから処理していたが、direct Cは一件ずつ読み、その場で
+queryとassignを完了していた。後から参照しない入力履歴を除き、`placeBricks`が一件の入力から更新までを所有するstreaming形へ
+直すと、変更前との交互30回比較は約0.99倍で性能上は同等だった。不要な`Input` tail stateとallocationを除くfixture訂正として
+採用するが、改善とは数えない。
+
+通常のdirect Cはtree storage、index、counterに32-bit `int`を使うため、streaming mal版との交互30回比較は約1.12倍だった。
+同じalgorithmとstreamingを保ったままC側も`int64_t`へ揃えると約1.02倍になった。029の通常corpus比率は狭い型を含む
+fixture差として残し、narrow integer specializationやtail aggregateのbackend cost modelへ一般化しない。
+
 比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると
 約1.27倍まで縮んだ。063の元の比率全体をbackend costとは扱わず、残差だけをcontrol flowとstorage表現の調査対象にする。
