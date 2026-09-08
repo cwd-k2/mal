@@ -40,6 +40,11 @@ impl BodyEmitter<'_> {
     pub(super) fn emit_globals(&self) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for binding in &self.program.bindings {
+            if matches!(binding.pattern, closure::TopLevelPattern::Binding { id, .. }
+                if self.closure_uses.is_direct_top_level(id))
+            {
+                continue;
+            }
             self.emit_top_level_globals(&mut output, &binding.pattern);
         }
         if !output.is_empty() {
@@ -117,7 +122,11 @@ impl BodyEmitter<'_> {
                     self.direct_function_signature(function),
                 ));
             }
-            output.push(Declaration::function(self.function_signature(function)));
+            if !has_direct_product_entry(&function.parameter.ty)
+                || !self.closure_uses.has_direct_top_level_function(function.id)
+            {
+                output.push(Declaration::function(self.function_signature(function)));
+            }
             if self.owned_calls.contains(function.id) {
                 output.push(Declaration::function(
                     self.owned_function_signature(function),
@@ -156,30 +165,35 @@ impl BodyEmitter<'_> {
                     ));
                     self.emit_borrowed_direct_function_body(&mut body, function);
                 }
-                output.push(FunctionDefinition::from_signature(
-                    self.direct_function_signature(function),
-                    body,
-                ));
+                let mut signature = self.direct_function_signature(function);
+                if self.closure_uses.has_direct_top_level_function(function.id)
+                    && self.owned_calls.contains(function.id)
+                {
+                    signature = signature.maybe_unused();
+                }
+                output.push(FunctionDefinition::from_signature(signature, body));
                 output.blank_line();
 
-                let arguments = flattened_product_values(
-                    &function.parameter.ty,
-                    CExpr::identifier(&parameter_name),
-                );
-                let mut call_arguments = vec![
-                    CExpr::identifier("mal_context"),
-                    CExpr::identifier("mal_environment"),
-                ];
-                call_arguments.extend(arguments);
-                let body = CBlock::new([Statement::return_value(CExpr::named_call(
-                    direct_function_name(function.id),
-                    call_arguments,
-                ))]);
-                output.push(FunctionDefinition::from_signature(
-                    self.function_signature(function),
-                    body,
-                ));
-                output.blank_line();
+                if !self.closure_uses.has_direct_top_level_function(function.id) {
+                    let arguments = flattened_product_values(
+                        &function.parameter.ty,
+                        CExpr::identifier(&parameter_name),
+                    );
+                    let mut call_arguments = vec![
+                        CExpr::identifier("mal_context"),
+                        CExpr::identifier("mal_environment"),
+                    ];
+                    call_arguments.extend(arguments);
+                    let body = CBlock::new([Statement::return_value(CExpr::named_call(
+                        direct_function_name(function.id),
+                        call_arguments,
+                    ))]);
+                    output.push(FunctionDefinition::from_signature(
+                        self.function_signature(function),
+                        body,
+                    ));
+                    output.blank_line();
+                }
                 if self.owned_calls.contains(function.id) {
                     let mut body = CBlock::default();
                     if let Some(slots) = &tail_slots {
@@ -239,7 +253,10 @@ impl BodyEmitter<'_> {
                 Parameter::named(parameter_type, parameter_name),
             ],
         );
-        if self.closure_uses.has_direct_creator(function.id) {
+        if self.closure_uses.has_direct_creator(function.id)
+            || (self.closure_uses.has_direct_top_level_function(function.id)
+                && self.owned_calls.contains(function.id))
+        {
             signature.maybe_unused()
         } else {
             signature
@@ -247,12 +264,12 @@ impl BodyEmitter<'_> {
     }
 
     fn direct_function_signature(&self, function: &closure::Function) -> FunctionSignature {
-        self.flattened_function_signature(function, direct_function_name(function.id))
+        self.flattened_function_signature(function, direct_function_name(function.id), true)
     }
 
     fn owned_function_signature(&self, function: &closure::Function) -> FunctionSignature {
         if has_direct_product_entry(&function.parameter.ty) {
-            self.flattened_function_signature(function, owned_function_name(function.id))
+            self.flattened_function_signature(function, owned_function_name(function.id), false)
         } else {
             let parameter_name = function
                 .parameter
@@ -274,6 +291,7 @@ impl BodyEmitter<'_> {
         &self,
         function: &closure::Function,
         name: String,
+        direct: bool,
     ) -> FunctionSignature {
         let result = self.types.c_type(&function.body.result.ty);
         let crate::check::ast::Type::Product(_) = &function.parameter.ty else {
@@ -294,7 +312,11 @@ impl BodyEmitter<'_> {
                     )
                 }),
         );
-        FunctionSignature::static_function(result, name, parameters)
+        if direct && self.closure_uses.has_direct_top_level_function(function.id) {
+            FunctionSignature::static_inline(result, name, parameters)
+        } else {
+            FunctionSignature::static_function(result, name, parameters)
+        }
     }
 
     fn direct_parameter_value(

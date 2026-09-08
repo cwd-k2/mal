@@ -23,7 +23,6 @@ impl OwnedCallPlan {
                 &binding.value,
                 None,
                 false,
-                program,
                 types,
                 ownership,
                 closure_uses,
@@ -35,7 +34,6 @@ impl OwnedCallPlan {
                 &function.body,
                 Some(function.id),
                 has_direct_tail_call(&function.body, function.id),
-                program,
                 types,
                 ownership,
                 closure_uses,
@@ -61,7 +59,6 @@ impl OwnedCallPlan {
                 &function.body,
                 Some(function.id),
                 true,
-                program,
                 types,
                 ownership,
                 closure_uses,
@@ -97,7 +94,6 @@ fn collect_owned_callees(
     block: &Block,
     current: Option<FunctionId>,
     parameter_owned: bool,
-    program: &crate::closure::ast::Program,
     types: &TypeRegistry,
     ownership: &OwnershipPlan,
     closure_uses: &ClosureUsePlan,
@@ -109,7 +105,7 @@ fn collect_owned_callees(
                 if types.contains_managed(&argument.ty)
                     && ownership.can_transfer(argument, parameter_owned) =>
             {
-                if let Some(target) = direct_function_id(program, closure_uses, callee)
+                if let Some(target) = direct_function_id(closure_uses, callee)
                     && !is_direct_self_tail_call(block, index, current)
                 {
                     demand.insert(target);
@@ -121,7 +117,6 @@ fn collect_owned_callees(
                         &arm.value,
                         current,
                         parameter_owned,
-                        program,
                         types,
                         ownership,
                         closure_uses,
@@ -136,7 +131,6 @@ fn collect_owned_callees(
                     otherwise,
                     current,
                     parameter_owned,
-                    program,
                     types,
                     ownership,
                     closure_uses,
@@ -146,7 +140,6 @@ fn collect_owned_callees(
                     then,
                     current,
                     parameter_owned,
-                    program,
                     types,
                     ownership,
                     closure_uses,

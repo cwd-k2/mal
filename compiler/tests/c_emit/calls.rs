@@ -495,6 +495,48 @@ fn emits_direct_calls_for_known_top_level_and_self_functions() {
 }
 
 #[test]
+fn omits_closure_representation_for_direct_only_top_level_functions() {
+    let generated = emit(
+        "add :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) { left + right; };\n\
+         main :: Unit -> Int32 := \\() { Int32(add(20i64, 22i64) - 42i64); };",
+    )
+    .expect("emit a direct-only top-level function");
+
+    assert!(
+        generated
+            .source
+            .contains("static inline MalType_Int64 mal_direct_function_0(")
+    );
+    assert!(!generated.source.contains("mal_function_0("));
+    assert!(!generated.source.contains("{ mal_function_0, NULL, NULL }"));
+
+    let fixture = NativeFixture::new("direct-only-top-level");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn keeps_closure_representation_for_first_class_top_level_functions() {
+    let generated = emit(
+        "add :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) { left + right; };\n\
+         apply :: (((Int64, Int64) -> Int64), Int64, Int64) -> Int64 :=\n\
+           \\(operation :: (Int64, Int64) -> Int64, left :: Int64, right :: Int64) {\n\
+             operation(left, right);\n\
+           };\n\
+         main :: Unit -> Int32 := \\() { Int32(apply(add, 20i64, 22i64) - 42i64); };",
+    )
+    .expect("emit a first-class top-level function");
+
+    assert!(generated.source.contains("mal_direct_function_0("));
+    assert!(generated.source.contains("mal_function_0("));
+    assert!(generated.source.contains("{ mal_function_0, NULL, NULL }"));
+
+    let fixture = NativeFixture::new("first-class-top-level");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn labels_generated_functions_with_top_level_source_bindings() {
     let generated = emit(
         "double :: Int64 -> Int64 := \\(value :: Int64) { value * 2i64; };\n\

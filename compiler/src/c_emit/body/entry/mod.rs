@@ -17,6 +17,11 @@ impl BodyEmitter<'_> {
             CExpr::identifier("mal_context"),
         )));
         for binding in &self.program.bindings {
+            if matches!(binding.pattern, TopLevelPattern::Binding { id, .. }
+                if self.closure_uses.is_direct_top_level(id))
+            {
+                continue;
+            }
             self.emit_block_bindings(&mut body, &binding.value);
             match &binding.pattern {
                 TopLevelPattern::Binding { id, .. } => {
@@ -65,6 +70,11 @@ impl BodyEmitter<'_> {
     pub(super) fn emit_program_destroy(&self) -> TranslationUnit {
         let mut body = CBlock::default();
         for binding in self.program.bindings.iter().rev() {
+            if matches!(binding.pattern, TopLevelPattern::Binding { id, .. }
+                if self.closure_uses.is_direct_top_level(id))
+            {
+                continue;
+            }
             self.destroy_top_level_pattern(&mut body, &binding.pattern);
         }
         body.push(Statement::expression(CExpr::cast(

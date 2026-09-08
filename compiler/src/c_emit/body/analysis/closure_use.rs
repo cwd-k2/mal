@@ -11,11 +11,24 @@ pub(in crate::c_emit::body) struct DirectClosure {
 
 pub(in crate::c_emit::body) struct ClosureUsePlan {
     direct: HashMap<ValueId, DirectClosure>,
+    top_levels: HashSet<ValueId>,
+    known_top_levels: HashMap<ValueId, DirectClosure>,
 }
 
 impl ClosureUsePlan {
     pub(in crate::c_emit::body) fn new(program: &closure::Program) -> Self {
         let mut candidates = HashMap::new();
+        let mut top_levels = HashSet::new();
+        for binding in &program.bindings {
+            if let Some(candidate) = top_level_candidate(binding) {
+                top_levels.insert(candidate.creator);
+                candidates.insert(candidate.creator, candidate);
+            }
+        }
+        let known_top_levels = top_levels
+            .iter()
+            .filter_map(|id| candidates.get(id).map(|candidate| (*id, *candidate)))
+            .collect();
         for binding in &program.bindings {
             collect_candidates(&binding.value, &mut candidates);
         }
@@ -27,6 +40,11 @@ impl ClosureUsePlan {
         let creators = candidates
             .iter()
             .filter_map(|(id, target)| (*id == target.creator).then_some((target.function, *id)))
+            .chain(top_levels.iter().filter_map(|id| {
+                candidates
+                    .get(id)
+                    .map(|candidate| (candidate.function, *id))
+            }))
             .collect::<HashMap<_, _>>();
 
         let mut direct_uses = HashSet::new();
@@ -52,11 +70,18 @@ impl ClosureUsePlan {
         candidates.retain(|_, target| {
             direct_uses.contains(&target.creator) && !other_uses.contains(&target.creator)
         });
-        Self { direct: candidates }
+        Self {
+            direct: candidates,
+            top_levels,
+            known_top_levels,
+        }
     }
 
     pub(in crate::c_emit::body) fn direct_closure(&self, id: ValueId) -> Option<DirectClosure> {
-        self.direct.get(&id).copied()
+        self.direct
+            .get(&id)
+            .or_else(|| self.known_top_levels.get(&id))
+            .copied()
     }
 
     pub(in crate::c_emit::body) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
@@ -64,10 +89,50 @@ impl ClosureUsePlan {
     }
 
     pub(in crate::c_emit::body) fn has_direct_creator(&self, function: FunctionId) -> bool {
-        self.direct
-            .values()
-            .any(|candidate| candidate.function == function)
+        self.direct.values().any(|candidate| {
+            candidate.function == function && !self.top_levels.contains(&candidate.creator)
+        })
     }
+
+    pub(in crate::c_emit::body) fn is_direct_top_level(&self, id: ValueId) -> bool {
+        self.top_levels.contains(&id) && self.direct.contains_key(&id)
+    }
+
+    pub(in crate::c_emit::body) fn has_direct_top_level_function(
+        &self,
+        function: FunctionId,
+    ) -> bool {
+        self.top_levels.iter().any(|id| {
+            self.direct
+                .get(id)
+                .is_some_and(|candidate| candidate.function == function)
+        })
+    }
+}
+
+fn top_level_candidate(binding: &closure::TopLevelBinding) -> Option<DirectClosure> {
+    let closure::TopLevelPattern::Binding { id: creator, .. } = binding.pattern else {
+        return None;
+    };
+    let AtomKind::Reference(closure::Reference::Binding(result)) = binding.value.result.kind else {
+        return None;
+    };
+    binding.value.bindings.iter().find_map(|binding| {
+        let Pattern::Binding { id, .. } = binding.pattern else {
+            return None;
+        };
+        match &binding.operation {
+            Operation::MakeClosure { function, captures }
+                if id == result && captures.is_empty() =>
+            {
+                Some(DirectClosure {
+                    creator,
+                    function: *function,
+                })
+            }
+            _ => None,
+        }
+    })
 }
 
 fn collect_candidates(block: &Block, candidates: &mut HashMap<ValueId, DirectClosure>) {

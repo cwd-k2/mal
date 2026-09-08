@@ -139,7 +139,7 @@ impl<'a> BodyEmitter<'a> {
     }
 
     fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, super::syntax::Expr)> {
-        let function = direct_function_id(self.program, &self.closure_uses, callee)?;
+        let function = direct_function_id(&self.closure_uses, callee)?;
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
                 Some((function, super::syntax::Expr::identifier("mal_environment")))
@@ -219,47 +219,12 @@ impl<'a> BodyEmitter<'a> {
     }
 }
 
-fn direct_function_id(
-    program: &closure::Program,
-    closure_uses: &ClosureUsePlan,
-    callee: &closure::Atom,
-) -> Option<FunctionId> {
+fn direct_function_id(closure_uses: &ClosureUsePlan, callee: &closure::Atom) -> Option<FunctionId> {
     match callee.kind {
         closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => Some(function),
-        closure::AtomKind::Reference(closure::Reference::Binding(id)) => {
-            if let Some(target) = closure_uses.direct_closure(id) {
-                return Some(target.function);
-            }
-            program.bindings.iter().find_map(|binding| {
-                let closure::TopLevelPattern::Binding {
-                    id: top_level_id, ..
-                } = binding.pattern
-                else {
-                    return None;
-                };
-                if top_level_id != id {
-                    return None;
-                }
-                let closure::AtomKind::Reference(closure::Reference::Binding(result_id)) =
-                    binding.value.result.kind
-                else {
-                    return None;
-                };
-                binding.value.bindings.iter().find_map(|value| {
-                    let closure::Pattern::Binding { id, .. } = value.pattern else {
-                        return None;
-                    };
-                    match &value.operation {
-                        closure::Operation::MakeClosure { function, captures }
-                            if id == result_id && captures.is_empty() =>
-                        {
-                            Some(*function)
-                        }
-                        _ => None,
-                    }
-                })
-            })
-        }
+        closure::AtomKind::Reference(closure::Reference::Binding(id)) => closure_uses
+            .direct_closure(id)
+            .map(|target| target.function),
         _ => None,
     }
 }
