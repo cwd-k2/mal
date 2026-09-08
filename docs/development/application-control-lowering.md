@@ -138,6 +138,8 @@ C表現の判定は、同じ事実を後段が再推論しない一方向の導�
 ```text
 control IR + closure use
   -> possible application graph
+  -> fused tail transition
+  -> residual continuation graph
   -> recursive control regions
   -> siteごとのedge mode
   -> suspension frameとclosure lifetime
@@ -149,10 +151,14 @@ first-class targetかを一度だけ所有する。target集合は型互換性�
 frame、storageの都合を混ぜない。top-level initializerはrecursive SCCのnodeではないが、同じsite target情報を使ってedge modeを
 決める。
 
-recursive control regionはこのgraphのrecursive SCCをauthorityとする。同一regionを閉じるtargetだけをregion dispatch対象とし、
+direct self tailとpure forwarder fusionは、Mal applicationのpossible targetを変えず、C continuationを作らない`goto`遷移を構成する。
+residual continuation graphはpossible application graphからこのfused siteを除いたedgeだけを所有する。これはprofile依存の選択ではなく、
+tail applicationがcaller continuationをそのまま渡すことに基づく表現上の同値変換である。
+
+recursive control regionはresidual continuation graphのrecursive SCCをauthorityとする。同一regionを閉じるtargetだけをregion dispatch対象とし、
 region外targetはcondensation graph上の通常C callへfallbackできる。siteのedge modeはregion所属から導出し、edgeごとの到達性探索で
-cycleを再判定しない。direct self tailとpure forwarder fusionはframeを作らない同一region遷移のC specializationであり、possible
-targetやregion identityを消す根拠にはしない。
+cycleを再判定しない。fusion済みedgeがpossible target情報から消えることはないが、実行時のC call、dispatcher、region identityを
+要求する根拠にはしない。
 
 suspensionはnon-tail applicationが同一region targetへcontrolを渡す場合だけ発生する。frame layout、resume live owner、environment
 owner、local closureのheap fallbackはこのsuspension site集合からだけ導出する。callee選択のために`Dispatch`を使うこと自体は
@@ -167,10 +173,11 @@ frameのauthorityへ問い合わせる。
 実装と検証は次の依存順を保つ。
 
 1. possible application graphを独立した解析結果にし、target列挙を一箇所へ集約する。
-2. regionをgraphから、edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
-3. frameとclosure lifetimeをsuspension siteから導出し、共通machine判定の複製を除く。
-4. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
-5. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
+2. fusion可能なtail siteと渡すargumentを一度だけ構成し、残存continuation graphからregionを導出する。
+3. edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
+4. frameとclosure lifetimeをsuspension siteから導出し、共通machine判定の複製を除く。
+5. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
+6. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
 
 ## control regionへのrefinement
 

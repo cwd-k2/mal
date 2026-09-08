@@ -125,9 +125,10 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
 | `c_emit/body/analysis/closure_use` | local・top-level closureとself closureのuse分類、alias追跡、direct-only表現とstack environment候補の計画 |
 | `c_emit/body/analysis/application_graph` | application siteごとのcaller、known target、型互換なpossible user-function targetとfunction間edgeを構成 |
-| `c_emit/body/analysis/control_region` | possible application graphのrecursive SCC partitionとregion内site・target所属を構成 |
+| `c_emit/body/analysis/tail_call` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ`goto`遷移へfusion |
+| `c_emit/body/analysis/continuation_graph` | possible application graphからfusion済みtail edgeを除いたC continuation edgeを構成 |
+| `c_emit/body/analysis/control_region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `c_emit/body/analysis/control_call` | control regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、C-call graphを非循環化 |
-| `c_emit/body/analysis/control_call/forwarder` | pureなknown tail forwarderをdirect self-tailへfusionできる条件の認識 |
 | `c_emit/body/analysis/control_call/graph` | 導出済みdirect C-call edge集合の非循環性検査 |
 | `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frameとsuspensionをまたぐclosure lifetimeを導出 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
