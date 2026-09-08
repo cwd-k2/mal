@@ -25,16 +25,16 @@ Status: Implemented decisions and follow-up gates
 
 | 軸 | 現在残るcost | 主なcorpus |
 |---|---|---|
-| managed borrow | nested stateのprojectionからowned known callまでにshareを作る | 006、008 |
-| aggregate state | 明示的に値として使うproductとdirect形状外のstateを構築する | 032、043 |
-| `Symbol` admission | tokenごとにmal-controlled storageを確保する | 027 |
-| branchとresult | first-class function valueに一般result表現が残る | 043 |
-| call boundary | generic closure entryを併設する016で内側helperへのdirect callが残る | 016 |
-| allocator | 短命なEngram allocationを汎用allocatorへ戻すが支配的ではない | 027 |
-| memory contract | unalignedかつalias可能な`Ptr` accessがvectorizationを制約する | 数値・table workload |
+| managed lifetime | 保存またはreturnされる値には必要なshareとreleaseが残る | managed valueを持つ一般program |
+| recursive reduction | 非tail再帰の結果を結合するhelperがcallとして残り、C optimizerがloopへ変換できない | 016 |
+| aggregate call topology | 複数scalarからなるstateをdirect call間で受け渡す | 032 |
+| `Symbol` lifecycle boundary | admission後のdescriptor releaseをruntime helperへ渡す | 027 |
+| scalar memory contract | unalignedかつalias可能な`Ptr` accessと明示的なwrap/trapを維持する | 005などの数値・table workload |
+| first-class representation | 動的に選択されるclosureとlarge product resultに一般表現を使う | synthetic case |
 
-managed borrow、aggregate state、`Symbol` admissionは現行authorityのまま改善できる。memory contractだけはsourceまたはextern contractに新しい事実を表現しない限り
-変更しない。narrow integer representationも、全operationで値域とwrap semanticsを証明できる独立解析なしには導入しない。
+managed lifetime、call topology、`Symbol` lifecycleは現行authorityのまま不要な境界だけを改善できる。memory contractは
+sourceまたはextern contractに新しい事実を表現しない限り変更しない。narrow integer representationも、全operationで値域と
+wrap semanticsを証明できる独立解析なしには導入しない。
 
 ## A. borrow-preserving lowering
 
@@ -118,13 +118,24 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 
 ## 現在の採否判断
 
-AからDは実装済みであり、direct self-tail stateはnested product bindingを含めてbinding slotへ分割する。79問の再測定結果と
-残差の根拠は[generated C performance](performance.md)を正とする。
+AからDは実装済みであり、direct self-tail stateはnested product bindingを含めてbinding slotへ分割する。既知direct callだけで
+使われるtop-level functionはclosure global、初期化、generic entryを生成せず、leaf数16以下のproduct direct entryには弱い
+`static inline` hintを付ける。first-class useが一つでもあればgeneric representationを維持する。全functionへの
+`always_inline`はcode sizeと他workloadを悪化させるため採用しない。
 
-現在のprofileでは、016の既知direct pathに内側helperへのcall boundaryが残る。限定的なbody統合はEの候補だが、
-code sizeと適用条件を固定するfocused fixtureがまだないため、この変更には導入しない。027の`free`無効化によるwall-clock短縮も
-約10%で差を支配しないため、Fのallocator recyclingは導入しない。
-memory contractとnarrow integer representationは、source contractまたは独立した証明解析なしに変更しない。
+027ではadmission bufferのdataとcapacityをbyte loop外で保持するようhost fixtureを揃えたうえで、translation unit内だけで使う
+`mal_symbol_release`を`static inline`にした。これによりC optimizerがinternal calling conventionと引数形状をspecializeできる。
+allocationを無効化した実験の効果は差を支配しなかったため、Fのallocator recyclingは導入しない。
+
+016ではdirect-only表現と限定的なinline hintにより差は縮んだが、非tail再帰の内側reduction callが残る。generic closure entryの
+併設自体を除くだけでは変化しなかったため、closure表現を原因とはしない。次の候補は、effectと結合則を証明してreductionを
+accumulator loopへ変換する独立した最適化、またはbudget付きの限定的なbody統合である。いずれも016専用の形をbackendで
+推測せず、適用条件とcode-size gateを先に定める。
+
+032に残るscalar stateのcall topologyは、caller/calleeを跨ぐSROAまたは限定的なbody統合の候補とする。005のmemory contractは
+`Ptr`のalias、alignment、regionをsourceから導けず、wrap/trap semanticsも必要なため、attribute付与やnarrow integer化を行わない。
+まず最適化後IRとcounterでどの制約が支配的かを分離し、新しい事実が必要ならlanguageまたはextern contractの仕様課題として扱う。
+79問の測定値と比較fixtureの基準は[generated C performance](performance.md)を正とする。
 
 今後新しいprofileが採用gateを満たす場合も、一つのcost modelごとにfocused generated-C test、native execution、通常のcompiler
 testを通す。managed lifetimeへ触れる変更は[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。

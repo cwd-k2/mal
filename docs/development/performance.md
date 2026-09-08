@@ -57,36 +57,41 @@ tracked repositoryには含めない。
 測定前にmal側の269 sample、C側の269 sample、79個のmaximum-order inputにおけるmal/Cのstdoutを再検証した。
 両方を`-O2`とpublic buildのstrict float optionでbuildした。
 
-実装方式の差をcompiler差へ混ぜないため、比較上位caseのfixtureも揃えた。005は3個の作業bufferを再利用し、012と028は
-入力を保存せず処理し、055は同じinclude/exclude再帰で列挙する。005、012、016、023、028、032、055のC側storageと
-counterはmal sourceの`Int64`へ合わせ、027のC側もtokenごとの動的admissionと、その後のrecord処理を分離した。
+実装方式の差をcompiler差へ混ぜないため、比較fixtureは行単位の同形ではなく、各言語で同じ意図を自然に表す実装へ揃えた。
+005は3個の作業bufferを再利用し、012と028は入力を保存せず処理し、055は同じinclude/exclude再帰で列挙する。
+032は同じ順序で全候補を探索しつつ、mal側はbest値を返し、C側はsearch stateを更新する各言語で自然な形にした。043は
+固定容量のhole-based heapとし、005、012、016、023、028、032、055のC側storageとcounterはmal sourceの`Int64`へ合わせた。
+027のhost adapterはadmission中のdataとcapacityをbyte loop外で保持し、C側もtokenごとの動的admissionと、その後のrecord処理を
+分離した。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.07 | 1.09 |
-| 両実行時間が1 ms以上 | 60 | 1.16 | 1.12 |
-| 両実行時間が5 ms以上 | 51 | 1.19 | 1.17 |
-| 両実行時間が10 ms以上 | 38 | 1.17 | 1.16 |
+| 全非interactive問題 | 79 | 1.07 | 1.06 |
+| 両実行時間が1 ms以上 | 60 | 1.13 | 1.07 |
+| 両実行時間が5 ms以上 | 51 | 1.15 | 1.12 |
+| 両実行時間が10 ms以上 | 39 | 1.14 | 1.11 |
 
-±5%を同等とするとmalが速いものは13、同等は22、Cが速いものは44だった。1 ms未満の分類数はprocess起動の揺れを
-含むため、初回測定との増減をoptimization効果として扱わない。全体の幾何平均は1.19から1.09へ、5 ms以上は1.23から
-1.17へ、10 ms以上は1.26から1.16へ縮小した。
+±5%を同等とするとmalが速いものは16、同等は18、Cが速いものは45だった。1 ms未満の分類数はprocess起動の揺れを
+含むため、初回測定との増減をoptimization効果として扱わない。全体の幾何平均は1.19から1.06へ、5 ms以上は1.23から
+1.12へ、10 ms以上は1.26から1.11へ縮小した。
 
 borrowed direct entryと不変tail slotからのborrowにより、006は7.90倍から1.20倍、008は6.34倍から1.07倍へ縮小した。
 borrow導入前のgenerated Cにあったloop内の`Symbol` retain/releaseは消え、owned tail slot自身の終了時releaseだけが残る。borrowed parameterを
 resultへ保存する経路ではcopyを維持する。
 
-fixtureを揃えた後の主な残差は016の2.70倍、027の1.91倍、005の1.60倍、032の1.56倍である。016は同じ`Int64`と同じ二段の
-再帰helperに揃えても、mal生成物では外側loopから内側helperへのdirect callが最終binaryに残り、direct Cでは両loopが融合する。
-したがって以前想定したinteger幅ではなく、generic closure entryを併設する生成物に対するinlining判断が直接原因である。
+最終的な主な残差は016の2.17倍、005の1.59倍、032の1.43倍である。043は意図を揃えたheap実装で1.21倍、027は1.16倍まで
+縮小した。016ではclosureとして使われないtop-level functionのgeneric representationを省略し、boundedなdirect entryだけへ
+弱いinline hintを付けると改善した。一方、generic entryの省略だけでは変化せず、最終binaryには非tail再帰の内側helper callが残り、
+direct Cでは対応するreductionがloopへ変換される。残差の本体はclosure表現ではなく、このrecursive reductionの最適化差である。
 
-027はC側にもtokenごとの動的bufferを置いても差が残る。mal側にはruntime-owned `Symbol` admission、descriptor、固定長recordへの
-copyとreleaseが必要であり、C側の一時bufferより処理が多い。外部buffer adoptionはownership authorityをhostへ広げるため、
-この測定だけを根拠に導入しない。
+027は100,000 tokenに対して約400,000回の`Symbol` release境界を通っていた。releaseをtranslation unit内へinternalizeすると、
+optimizerが引数形状とcalling conventionをspecializeでき、admission accessorのloop外保持と合わせて1.16倍になった。
+所有権移譲後のzero descriptorを含むため最適化余地はあったが、必要なrelease semantics自体は維持している。allocationを無効化した
+実験は差を支配せず、外部buffer adoptionやallocator変更の根拠にはならなかった。
 
-043にはfirst-class function valueとして保持するproduct result functionが残る。既知direct pathだけのcloneでは一般のclosure
-entryを除けない。016の残存callは限定的なbody統合の候補だが、全functionへのinline指定や一般的なresult specializationを導入する
-根拠にはならない。
+032は同じ探索を各言語で自然に記述しても1.43倍で、scalar stateを渡すcall topologyが残る。005は同じbuffer再利用と`Int64`で
+1.59倍であり、unalignedかつalias可能な`Ptr` access、明示的なwrap/trap、helper control flowを分離して調べる必要がある。現行
+contractから`restrict`、強いalignment、narrow integerを推測して差を隠さない。
 
 ## 先行baselineから採用した改善
 
@@ -121,9 +126,9 @@ inlineされており、transition function自体はinline costがthresholdを�
 
 product parameterのdirect entryを導入する前は、local実験でClangのinline thresholdをhot functionのcostより少し上げると
 branch-heavy heapが改善した。しかしnested fieldまでdirect entryへ渡す現在の生成物では、同じ方法が通常thresholdより約5%
-遅くなった。call boundaryを越すaggregate costが既に減り、code duplicationのcostが上回ったと判断し、inline hintは採用しない。
-全direct tail-recursive functionへの`always_inline`もregular numeric transformを悪化させ、tail pathと別の再帰pathを併せ持つ
-関数をGCCがcompileできなかった。
+遅くなった。全direct functionへの強いinline hintはcode duplicationのcostが上回るため採用しない。全direct tail-recursive
+functionへの`always_inline`もregular numeric transformを悪化させ、tail pathと別の再帰pathを併せ持つ関数をGCCがcompileできなかった。
+現在はclosureとして使われず、leaf数16以下のproduct direct entryだけに弱い`static inline` hintを付けている。
 
 primitive比較を直ちに`if`条件として消費する経路は、Boolのtagged sumを作らずCの条件式へ直接loweringするようにした。
 focused testではsum valueと`switch`の除去を確認したが、代表workloadの実行時間とbinary sizeに有意な変化はなかった。
