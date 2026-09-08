@@ -116,6 +116,12 @@ optimizerが引数形状とcalling conventionをspecializeできることを最�
 043でもtyped/aligned accessとLTOの診断variantは改善せず、direct Cへ`-fwrapv`を付けたvariantも通常buildと1.00倍だった。
 したがってalignment、host allocationのtranslation unit境界、signed wrap semanticsは現在の主原因候補から外す。
 
+011ではgenerated Cとhost CをLTOしたvariantが通常buildの約0.71倍まで短縮したため、LTOをbuild policyの軸として79問すべてで
+通常buildと直接比較した。両方が5 ms以上の52問では中央値、算術平均とも約0.99倍で、043は1.00倍だった。一方059は
+50回の再測定でも約1.15倍へ退行した。特定fixtureのtranslation-unit境界を隠すために一律LTOを有効化せず、build policy候補から
+外す。extern allocatorがfreshか、異なる呼び出し結果がaliasしないかは現行host contractにないため、011の結果だけから
+`malloc`/`noalias`相当の属性も付けない。
+
 signed `>>`のportable C展開は、以前はunsigned logical shiftへsign maskを合成していた。063の最適化後IRでは、定数1のshiftにも
 `lshr`、sign-bit抽出、`or`が残っていた。型幅内の補数をlogical shiftして再反転する等価式へ変更すると、Cのsigned shiftへ
 依存せず、Clangは単一の`ashr i64`へ縮約した。dynamic shiftを1億回行う独立fixtureでは、交互20回測定の中央値が

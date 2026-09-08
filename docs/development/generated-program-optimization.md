@@ -60,6 +60,10 @@ extern contractの仕様課題として先に記録する。
 別々に分類する。sourceで自然に異なるcontrol flowを、backendの局所rewriteでC sourceへ似せない。複数の独立fixtureに共通して
 残る表現costだけをbackend設計候補にする。
 
+011単体ではLTOが改善したが、全corpusでは中央値に効果がなく059を退行させたため、一律LTOは採用しない。現行extern contractは
+allocationのfreshnessや呼び出し間のnon-aliasを保証しない。host実装がたまたま`malloc`を使うfixtureから属性を逆輸入せず、
+その保証が必要ならlanguage/host contractの独立した要求を先に置く。
+
 `popcount`の差だけを隠すbackend specializationや新しいprimitiveは導入しない。言語surfaceへbit-count operationを加える場合は、
 Typical90 fixtureではなく独立した言語要求とhost contractを先に必要とする。
 
