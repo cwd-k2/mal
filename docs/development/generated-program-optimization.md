@@ -56,13 +56,17 @@ extern contractの仕様課題として先に記録する。
 063に残っていたsigned right shiftのmask合成は、integer lowering全体でClangが`ashr`へ認識できるportable表現へ変更した。
 独立したshift fixtureは改善したが063全体は変わらなかったため、残差をshift loweringへ帰属させない。
 
-次は最適化後IRで、011のflat 3-field jobとC structのrecord move、heap上のDPとC local storage、および063のnested scanを
-別々に分類する。sourceで自然に異なるcontrol flowを、backendの局所rewriteでC sourceへ似せない。複数の独立fixtureに共通して
-残る表現costだけをbackend設計候補にする。
+最適化後IRとassemblyを比較すると、011のheap sortにある3-field record moveとbest値のvector reductionは通常buildと
+LTO buildで同形だった。差はDPの内側loopにあり、通常buildは`dp`へのstoreが`jobs`をaliasし得るためjob durationを
+反復ごとに再loadするが、LTO buildはhost allocatorの`calloc`まで見て異なるallocationを識別し、durationとrewardを
+loop外へhoistしていた。source側でこの2値をjobごとに一度読みscalar parameterとして渡す診断variantも同じ再loadを除去し、
+direct Cと同等になった。したがってflat record moveやbackend固有のDP rewriteは011の改善候補から外す。
 
 011単体ではLTOが改善したが、全corpusでは中央値に効果がなく059を退行させたため、一律LTOは採用しない。現行extern contractは
 allocationのfreshnessや呼び出し間のnon-aliasを保証しない。host実装がたまたま`malloc`を使うfixtureから属性を逆輸入せず、
-その保証が必要ならlanguage/host contractの独立した要求を先に置く。
+その保証が必要ならlanguage/host contractの独立した要求を先に置く。011のsource variantはprogramが知る不変値を明示した
+fixture訂正として扱い、全`Ptr`へalias仮定を加えるcompiler変更の根拠にはしない。063のnested scanは引き続き別のcostとして
+分類する。
 
 `popcount`の差だけを隠すbackend specializationや新しいprimitiveは導入しない。言語surfaceへbit-count operationを加える場合は、
 Typical90 fixtureではなく独立した言語要求とhost contractを先に必要とする。

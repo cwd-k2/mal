@@ -122,6 +122,13 @@ optimizerが引数形状とcalling conventionをspecializeできることを最�
 外す。extern allocatorがfreshか、異なる呼び出し結果がaliasしないかは現行host contractにないため、011の結果だけから
 `malloc`/`noalias`相当の属性も付けない。
 
+011のLTO有無を最終IRとassemblyで比較すると、heap sortのrecord moveとbest値のreductionは同形であり、LTOによる新しい
+loop vectorizationもなかった。通常buildのDP loopでは`dp`への条件付きstore後にjob durationを再loadするが、LTO buildでは
+host側`calloc`のnoaliasなresultが見えるためdurationとrewardがloop外へhoistされていた。両値をjobごとに一度読み、scalarとして
+DP loopへ渡すmal variantは、LTOなしでも同じ再loadを除去した。maximum-order inputの交互20回測定ではdirect C比約0.93となり、
+元の約1.48の差は消えた。この結果はrecord表現のbackend specializationではなく、fixtureが実際に知る不変性をsourceで表す
+根拠とする。一般のextern resultにfreshnessやnon-aliasを仮定する根拠にはしない。
+
 signed `>>`のportable C展開は、以前はunsigned logical shiftへsign maskを合成していた。063の最適化後IRでは、定数1のshiftにも
 `lshr`、sign-bit抽出、`or`が残っていた。型幅内の補数をlogical shiftして再反転する等価式へ変更すると、Cのsigned shiftへ
 依存せず、Clangは単一の`ashr i64`へ縮約した。dynamic shiftを1億回行う独立fixtureでは、交互20回測定の中央値が
