@@ -78,12 +78,12 @@ process時間は各Hyperfine invocationに測らせる。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.03 | 1.05 |
-| 両実行時間が1 ms以上 | 64 | 1.05 | 1.06 |
-| 両実行時間が5 ms以上 | 51 | 1.07 | 1.08 |
-| 両実行時間が10 ms以上 | 44 | 1.05 | 1.06 |
+| 全非interactive問題 | 79 | 1.03 | 1.04 |
+| 両実行時間が1 ms以上 | 61 | 1.06 | 1.05 |
+| 両実行時間が5 ms以上 | 51 | 1.07 | 1.07 |
+| 両実行時間が10 ms以上 | 43 | 1.06 | 1.06 |
 
-±5%を同等とするとmalが速いものは9、同等は33、Cが速いものは37だった。1 ms未満の分類数はprocess起動の揺れを
+±5%を同等とするとmalが速いものは11、同等は34、Cが速いものは34だった。1 ms未満の分類数はprocess起動の揺れを
 含むためoptimizationの順位には使わない。mixed-toolchainの過去値との差はcompiler改善幅と解釈しない。
 
 borrowed direct entryと不変tail slotからのborrowにより、borrow導入前のgenerated Cにあった006と008のloop内の
@@ -167,6 +167,16 @@ columnごとに一度決まる基準値を`countColumns`で読み、比較だけ
 row loop内の基準値loadを除いたがwall-clockは同等だった。early exitをやめて一致状態を運ぶfull-scan variantは約27%退行した。
 また、subsetごとのclearを直接`memset`へ置き換えたvariantは同等、Int64 accessへalignmentとtyped aliasを仮定したvariantは
 約4%改善、さらにLTOを併用しても追加改善はなかった。いずれも単独で残差を説明せず、現行`Ptr` contractを広げる根拠にはしない。
+
+`cpu-clock` samplingでは、063のgenerated entry bodyにあるfrequency reductionが支配的で、最適化後IRは4要素ずつの
+`<2 x i64>` load、`llvm.smax`、`llvm.vector.reduce.smax`を生成していた。sourceはsubset内の最大頻度を求めた後に
+selected row数を掛けていたが、問題が必要とする値は全subsetを通した最大面積である。reductionの責務を`bestArea`へ戻し、
+scan中に`rows * count`と既存bestを比較すると、IRはscalar `smax`のunrolled loopになった。
+
+変更前との交互50回比較は中央値で約41%短縮した。型幅とportable popcountを揃えたfull-scan Cに対して約0.71倍、
+不一致時early exitも揃えたCに対して約0.99倍だった。通常の全corpus比較では063はdirect Cの約0.85倍となり、全79問の
+中央値は1.03、幾何平均は1.04になった。これはvectorizationを抑制するbackend ruleではなく、中間値ではなく最終判断を
+所有するsource fixtureの訂正とする。063にも独立したbackend costが残らないため、現在の最適化課題から外す。
 
 ## 先行baselineから採用した改善
 
