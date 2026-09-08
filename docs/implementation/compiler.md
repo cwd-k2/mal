@@ -14,7 +14,6 @@ source
   -> desugaring to typed core
   -> ANF
   -> closure conversion
-  -> application control lowering
   -> C emitter
   -> host C compiler
 ```

@@ -6,6 +6,7 @@ pub mod c_emit;
 pub mod check;
 pub mod cli;
 pub mod closure;
+pub mod control;
 pub mod core;
 pub mod diagnostic;
 pub mod driver;
