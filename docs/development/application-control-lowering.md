@@ -215,7 +215,9 @@ managed pressureを測り、portable C stackの上限と改善が両立する一
 innerからouterへunwindする順序とarenaのouterからinnerへのframe順序が逆になるため、driverが高々`B`個のscratch recordを逆順に
 materializeする必要がある。managed ownerはspill時にC localからscratchへ、materialize時にscratchからarenaへ一度ずつmoveする。
 通常returnではarena frameを作らない。この表現は常時二重化を避ける一方、`Spill`伝播、可変型scratch record、entry argumentの保存を
-追加するため、production emitterへ入れる前にstandalone modelでbatch幅ごとのcostとowner遷移を検証する。
+追加する。scalar引数でgenerated direct entryと同じ形にしたstandalone modelでは、direct C比が`B = 8`で1.18、`B = 16`で1.16、
+`B = 32`で1.17となり棄却した。first-class regionだけに限定すれば別の結果になり得るが、同じcontinuation machineへcall形状別の
+storage ruleを加える根拠にはしない。現行のpure dispatcherをregion共通のrefinementとする。
 
 ## 正しさ
 

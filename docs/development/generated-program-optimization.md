@@ -23,7 +23,7 @@ Status: Current work plan
 
 | 優先度 | 軸 | 観測したcost | Fixture |
 |---:|---|---|---|
-| 1 | applicationのcontrol lowering | C stackはboundedになったがexplicit transitionが通常のC recursionより高い | Hanoi、線形unwind、既存corpus |
+| - | applicationのcontrol lowering | region化後もexplicit transition costは残るが、二つのbounded C hybridは非改善 | Hanoi、線形unwind、既存corpus |
 
 ## 1. applicationのcontrol lowering
 
@@ -53,8 +53,9 @@ Callgrindではdirect Hanoiのregion版は通常C再帰よりinstructionとdata 
 first-class cycleではinstructionが2.26倍、data referenceが3.78倍、conditional branchが5.26倍だった。次は
 [bounded direct execution](application-control-lowering.md#bounded-direct-execution)としてframeをcall前に作るprototypeは、Hanoiで
 `B = 1`が同等、`B = 2`が1.16倍へ退行したため棄却した。次はbatch中のcontinuationをC activationだけに置き、fuel切れ時だけ
-bounded scratchを経てarenaへmaterializeするsegmented modelをstandaloneで検証する。これを満たさないcall-site別の閾値やframe
-field削減は採用しない。
+bounded scratchを経てarenaへmaterializeするsegmented modelも検証したが、direct C比1.16から1.18で棄却した。first-classだけへの
+適用、call-site別の閾値、frame field削減は、共通のregion ruleを崩す割に全体改善の根拠がないため採用しない。現時点でこのcost
+modelに対するactiveなcompiler rewriteはなく、pure dispatcherとregion arenaを現在のbackend refinementとする。
 
 queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
 実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。

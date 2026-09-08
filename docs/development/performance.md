@@ -139,6 +139,14 @@ local direct-self prototypeではcall前に従来frameを作り、pure dispatche
 分けない初期prototypeは`B = 1`でも4.57倍となり、runtimeでfuel 0でも生成functionに再帰edgeがあるだけでoptimizerのloop形成を
 妨げた。分離後もcontinuationをarenaとC activationへ常時二重化する利益はなく、このrefinementは棄却した。
 
+常時二重化を避け、fuel切れ時だけC continuationをbounded scratchへspillして逆順にarena化するstandalone C modelも作成した。
+scalar引数、同一binary、depth 26、warmup 3回、各30 runではdirect Cが158.23 ms、`B = 8`が187.08 ms、`B = 16`が
+183.16 ms、`B = 32`が185.09 msで、比率は順に1.18、1.16、1.17だった。batch幅を増やしてもspill protocolのcostを回収せず、
+production emitterとmanaged owner遷移は実装しない。
+
+prototype撤去後に残したregion arenaへのlocal pointer表現も、`0b80b98`生成物との交互30 roundでHanoiが1.01、linear unwindが
+1.00であり同等帯だった。
+
 ## 個別調査
 
 | Case | 分離した境界 | 現在の判断 |
