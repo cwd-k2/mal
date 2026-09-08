@@ -46,6 +46,10 @@ Nushell runnerを含む診断値なので、変換の採否には標準のHyperf
 first-classなcalleeを含めてもframe constructorの集合は有限になる。v0.5ではfunction valueがhost境界を越えず、hostから
 mal closureをcallbackできないため、この変換はwhole-programで閉じる。
 
+有限である必要があるのはcallee候補ではなく、caller側のapplication位置である。indirect callはruntimeのclosure descriptorから
+codeとenvironmentを選ぶが、戻り先frameはcall siteから一意に決まるため、points-to解析や再帰targetの列挙を変換の前提にしない。
+direct callの同定はdispatchを省けるbackend optimizationにだけ使う。
+
 machine stateは実行位置、現在のvalue群、continuation stackからなる。`x := f(a); rest`は`rest`が必要とするvalueをframeへ
 移し、`f(a)`へ遷移する。calleeのresultはtop frameをpopし、`x`へbindして`rest`を再開する。direct、indirect、recursive、
 non-recursive applicationは同じ規則を使い、call graphの循環をsource構文とは独立に扱う。
@@ -83,6 +87,13 @@ stackをunwindしない現在の意味論を維持する。
 non-tail call、caseをまたぐcall、managed valueを保持するframe、capturing closure、indirect call、深いunwindを含める。
 generated CのMal call depthに対してC stack使用量がboundedであることを確認する。queue化とmemoizationは評価順または計算量を
 変える別のalgorithmなので、このcost modelには含めない。
+
+網羅性はfixtureのpattern一覧ではなく、closure-converted IRの全`Operation`に対する構造的な変換で保証する。同期的なprimitive、
+memory、extern operationは現在のblock内で完了し、`Call`だけが別のMal functionへcontrolを移す。`Case`と
+`PrimitiveBranch`は選んだsub-blockへ現在のcontinuationを渡す。変換後のIRに未処理の`Call`を残さず、operation variant追加時は
+exhaustive matchがcontrol loweringの更新を要求する構造にする。新しいsurface syntaxが既存coreへ完全にdesugarされる限り、
+control loweringの対象は増えない。host callback、exception、継続のcaptureなど新しいcontrol effectをcoreへ加える場合だけ、
+machine stateと仕様を同時に拡張する。
 
 ## 共通の完了条件
 
