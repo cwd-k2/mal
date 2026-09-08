@@ -164,7 +164,7 @@ tail遷移だけのregionはcontinuationを保存しないためarenaを持た�
 pointerとcapacityを、各invocationだけが持つ`top`とcurrent frameから型として分ける。これらの派生値を独立したplanへ複製せず、regionと
 frameのauthorityへ問い合わせる。
 
-移行は次の順で行う。
+実装と検証は次の依存順を保つ。
 
 1. possible application graphを独立した解析結果にし、target列挙を一箇所へ集約する。
 2. regionをgraphから、edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
