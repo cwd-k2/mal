@@ -16,6 +16,7 @@ Status: Current work plan
 - first-class function callとextern ABIに必要なgeneric representationを、direct callだけの測定から削除しない。
 - narrow integer representationは、全operationの値域とwrap semanticsを証明できる場合だけ使う。
 - wall-clock比較の両binaryは同じC compiler identityとoptionでbuildし、ambient `CC`を継承しない。
+- pair比較はroundごとに先行順を反転し、runnerではなくHyperfineのprocess時間を使う。
 - 最適化後のLLVM IR、deterministic counter、wall-clockの少なくとも二つで変更理由を確認する。
 
 ## 現在の課題
@@ -23,7 +24,7 @@ Status: Current work plan
 | 優先度 | 軸 | 観測したcost | Corpus |
 |---:|---|---|---:|
 | 1 | scalar memoryとcontrol flow | branch-heavy heapの`Ptr` accessとstate update cost | 043 |
-| 2 | comparison fixture admission | narrow storage/counterとintrinsicをbackend costから分離する | 011、063 |
+| 2 | record storageとcontrol flow | same-width化後にも残るheap、DP、subset scanのcost | 011、063 |
 
 この順序は絶対時間と差の大きさに加え、現行authorityの範囲内で不要な処理を除ける見込みで決める。新しいprofileで順位を
 変える場合は、同じ意図を各言語で自然に記述した比較fixtureを使い、source上の記法差をcompiler差として扱わない。
@@ -38,23 +39,26 @@ Status: Current work plan
 
 typed/aligned accessへ置き換えた診断variantと、host allocation実装を見せるLTO variantはどちらも改善しなかったため、
 alignmentとcross-translation-unitのallocation visibilityは現在の主原因候補から外す。direct Cの`-fwrapv` variantも
-通常buildと同等だったため、wrap semanticsの値域証明は優先しない。
+通常buildと同等だったため、wrap semanticsの値域証明は優先しない。popped distanceをdirection loopへ追加parameterとして
+渡すvariantも元のmal版と同等で、最適化後IRでは既存loadがloop invariantになっていたため採用しない。
 
 一つのcost modelはheap固有のbranch topologyとstate updateの責務に閉じる。既存contractから導けるhelper統合や
 control-flow簡約だけをbackend変更候補にする。
 改善にnon-alias、alignment、region分離、狭いinteger rangeが必要なら、その保証を選ぶauthorityをlanguageまたは
 extern contractの仕様課題として先に記録する。
 
-## 2. comparison fixture admission
+## 2. record storageとcontrol flow
 
-011と063の比率差は、現在のままではcompilerの責務だけを測っていない。direct Cのindexやstorageはmalの`Int64`より
-狭く、063はC compiler固有の`__builtin_popcount`を使う。各言語で同じ意図を自然に表すfixtureとして、次を別々に測る。
+011と063の元の比率差は、そのままではcompilerの責務だけを測っていなかった。011をsame-widthに揃えたvariantは改善せず、
+063をsame-widthかつportable popcountへ揃えたvariantは1.45倍から約1.27倍へ縮んだ。したがって011ではwidthを原因候補から外し、
+063では元の差の一部をfixture差として除外する。
 
-- same-widthのscalarとstorageに揃えたvariant
-- 各言語で利用可能なoperationだけで同じalgorithmを書くvariant
+次は最適化後IRで、011のflat 3-field jobとC structのrecord move、heap上のDPとC local storage、および063のnested scanを
+別々に分類する。sourceで自然に異なるcontrol flowを、backendの局所rewriteでC sourceへ似せない。複数の独立fixtureに共通して
+残る表現costだけをbackend設計候補にする。
 
-差が残る場合にのみ最適化後IRでoperationを分類する。狭いC型やintrinsicが理由なら、それを隠すbackend specializationや
-新しいprimitiveは導入せず、言語surfaceと比較fixtureの差として記録する。
+`popcount`の差だけを隠すbackend specializationや新しいprimitiveは導入しない。言語surfaceへbit-count operationを加える場合は、
+Typical90 fixtureではなく独立した言語要求とhost contractを先に必要とする。
 
 ## 共通の完了条件
 

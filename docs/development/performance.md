@@ -64,6 +64,11 @@ runnerがmal側にもClang 21.1.8を明示するよう訂正し、同じmaximum-
 測定前にmal側の269 sample、C側の269 sample、79個のmaximum-order inputにおけるmal/Cのstdoutを再検証した。
 両方を同じClang、`-O2`、public buildのstrict float optionでbuildした。
 
+最初の再測定はHyperfineが一方のbinaryを20回すべて実行してから他方を実行する順序だった。043を含む長時間caseで、先行する
+command groupにhost負荷の時間変動が偏ることを確認したため、現在値は1回ずつのHyperfine測定を20 round行い、roundごとに
+mal/Cの先行順を反転したものを正とする。Nushellから直接測った経過時間は短時間caseへ数msのrunner costを加えたため採用せず、
+process時間は各Hyperfine invocationに測らせる。
+
 実装方式の差をcompiler差へ混ぜないため、比較fixtureは行単位の同形ではなく、各言語で同じ意図を自然に表す実装へ揃えた。
 005は3個の作業bufferを再利用し、012と028は入力を保存せず処理し、055は同じinclude/exclude再帰で列挙する。
 032は同じ順序で全候補を探索しつつ、mal側はbest値を返し、C側はsearch stateを更新する各言語で自然な形にした。043は
@@ -73,12 +78,12 @@ runnerがmal側にもClang 21.1.8を明示するよう訂正し、同じmaximum-
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.05 | 1.06 |
-| 両実行時間が1 ms以上 | 59 | 1.07 | 1.07 |
+| 全非interactive問題 | 79 | 1.03 | 1.06 |
+| 両実行時間が1 ms以上 | 62 | 1.06 | 1.07 |
 | 両実行時間が5 ms以上 | 51 | 1.10 | 1.09 |
-| 両実行時間が10 ms以上 | 38 | 1.05 | 1.07 |
+| 両実行時間が10 ms以上 | 40 | 1.05 | 1.07 |
 
-±5%を同等とするとmalが速いものは10、同等は29、Cが速いものは40だった。1 ms未満の分類数はprocess起動の揺れを
+±5%を同等とするとmalが速いものは8、同等は35、Cが速いものは36だった。1 ms未満の分類数はprocess起動の揺れを
 含むためoptimizationの順位には使わない。mixed-toolchainの過去値との差はcompiler改善幅と解釈しない。
 
 borrowed direct entryと不変tail slotからのborrowにより、borrow導入前のgenerated Cにあった006と008のloop内の
@@ -86,13 +91,17 @@ borrowed direct entryと不変tail slotからのborrowにより、borrow導入�
 経路ではcopyを維持する。mixed-toolchainのwall-clock比率はこの効果の根拠には使わず、generated C構造と
 deterministic counterを根拠とする。
 
-訂正後の016は0.99倍、032は1.07倍だった。現在の016をClang `-O2`で処理したLLVM IRでは
+訂正後の016は1.00倍、032は1.08倍だった。現在の016をClang `-O2`で処理したLLVM IRでは
 `searchSecond`と`searchFirst`に対応するcallが消え、entry body内のnested loopになる。したがってrecursive reductionや
 aggregate call topologyを現在の最優先課題とする根拠はない。
 
-絶対差が大きい残差は043の1.19倍（約44 ms）である。比率では011と063が
-ともに1.43倍だが、direct C側はmal側より狭いcounterやstorageを使い、063は`__builtin_popcount`も使う。これらは
-backendのcostとして採用する前に、同じ意図を各言語で自然に表した結果と、表現widthやcompiler intrinsicの差を分離する。
+絶対差が大きい残差は043の1.18倍（約46 ms）である。popped distanceをdirection loopへ明示的に渡すsource variantは、
+元のmal版と交互測定で同等だった。最適化後IRでも対応するloadはloop invariantになっているため、同じ値のsource-level
+引き回しをbackend変更へ一般化しない。
+
+比率では011が1.51倍、063が1.45倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
+差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると
+約1.27倍まで縮んだ。063の元の比率全体をbackend costとは扱わず、残差だけをcontrol flowとstorage表現の調査対象にする。
 
 027は100,000 tokenに対して約400,000回の`Symbol` release境界を通っていた。releaseをtranslation unit内へinternalizeすると、
 optimizerが引数形状とcalling conventionをspecializeできることを最適化後IRで確認した。訂正後のwall-clockは1.19倍である。
@@ -101,7 +110,7 @@ optimizerが引数形状とcalling conventionをspecializeできることを最�
 
 005ではmal fixtureがcellごとに積と加算結果を別々にmoduloし、direct Cの1回に対し2回のdivisionを実行していた。
 両operandがmodulo済みで積と加算が`Int64`範囲内にあることをsourceで保ったまま、合計に対する1回だけへ揃えると
-0.98倍になった。typed/aligned accessの診断variantは約1%、host実装を見せるLTO variantは測定上の改善がなかった。
+1.00倍になった。typed/aligned accessの診断variantは約1%、host実装を見せるLTO variantは測定上の改善がなかった。
 したがってこの差は`Ptr` contractを広げたりbackendがwrap semanticsから演算を除いたりする根拠にはならない。
 
 043でもtyped/aligned accessとLTOの診断variantは改善せず、direct Cへ`-fwrapv`を付けたvariantも通常buildと1.00倍だった。
@@ -219,14 +228,12 @@ out parameter entryを追加しても、全fieldを使うcallではwriteを減�
 local corpusの具体的な検証commandはraw artifactと同じ場所で管理する。
 
 performance comparisonでは各variantを同じinput、同じstdout検査、同じoptimization optionで準備し、shell起動costを
-除いて反復する。例は次の形とする。
+除いて反復する。pair比較はroundごとに先行順を反転し、各process時間をHyperfineで測る。local corpusでは次の形とする。
 
 ```nu
-(hyperfine -N --warmup 3 --runs 10
-    --input maximum.in
-    ./solution
-    ./generated-o2
-    ./baseline)
+nu .scratch/typical90/performance/benchmark-pair.nu \
+    maximum.in current-results.json ./solution ./baseline \
+    --warmup 3 --runs 20
 ```
 
 測定結果を更新するときは、日付、toolchain、workload、warmup/run数、stdout検証の有無を一緒に記録する。
