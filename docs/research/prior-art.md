@@ -2,7 +2,7 @@
 
 Status: Informative
 
-2026-09-04 時点。mal の機能を増やすためではなく、小さく保つ際に隠れやすい実装・仕様コストを確認した。
+2026-09-08 時点。mal の機能を増やすためではなく、小さく保つ際に隠れやすい実装・仕様コストを確認した。
 
 ## 単純型付き lambda calculus
 
@@ -50,6 +50,25 @@ mal への含意:
 - 「escape しなければ capture 可」は escape analysis と implementation-dependent acceptance を持ち込むため、言語規則にはしない。
 - lexical closureがcaptureする名前はbodyのfree variableから決まり、storageの回収方式はsource semanticsから隠す。
 - binding が immutable でも environment の配置は必要だが、mutable cell の共有規則は不要になる。
+
+## controlとcontinuation
+
+[Defunctionalization at Work](https://doi.org/10.7146/brics.v8i23.21684)は、higher-orderな継続を有限個のconstructorと
+first-orderなapply functionへ変換するwhole-program transformationを整理している。
+[The Essence of Compiling with Continuations](https://doi.org/10.1145/155090.155113)は、naiveなCPS変換とその後の縮約・code
+generationを分離し、ANFに近いdirect-style IRから同等のcontrol表現を得られることを示す。
+[Spineless Tagless G-machine](https://doi.org/10.1017/S0956796800000319)は、関数的なsourceとは別にoperational semanticsを持つ
+抽象機械を置き、stock hardwareとCへ写像する設計を扱う。STGはnon-strict language向けなので、strict call-by-valueのmalへ
+評価機構をそのまま移さない。
+
+malへの含意:
+
+- sourceへloop、program counter、明示stackを加えなくても、applicationの継続をcompiler内部のdataとして表現できる。
+- 有限なprogramのcall後の構文位置は有限なので、各位置のfree valueをfieldに持つ有限種類のframeへ落とせる。
+- tail callは空の継続を特別処理する別機構ではなく、現在の継続を再利用する一般applicationの特殊例になる。
+- malはすでにANFを持つため、CPS termを一度全面的に構築せず、ANF suffixからcontrol frameを直接導出できる。
+- source closureのenvironmentとcontrol frameは異なるlifetimeを持つ。前者はfunction valueのlexical data、後者は未完了の
+  evaluation contextとして別々のstageに所有させる。
 
 ## ABI、Symbol、resource
 
