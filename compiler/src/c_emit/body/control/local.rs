@@ -22,7 +22,7 @@ impl BodyEmitter<'_> {
         &self,
         function: &closure::Function,
     ) -> bool {
-        if self.common_control.contains(function.id) {
+        if self.uses_common_control(function.id) {
             return false;
         }
         if !supports_local_control_type(&function.parameter.ty)

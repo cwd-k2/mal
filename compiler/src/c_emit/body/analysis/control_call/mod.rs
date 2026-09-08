@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::{ApplicationGraph, ClosureUsePlan, ControlRegionPlan};
+use super::{ApplicationGraph, ClosureUsePlan, ControlRegionId, ControlRegionPlan};
 
 mod forwarder;
 mod graph;
@@ -142,6 +142,27 @@ impl ControlCallPlan {
     ) -> Option<&closure::Atom> {
         self.forwarded_self_arguments.get(&site)
     }
+
+    pub(in crate::c_emit::body) fn requires_common_control(
+        &self,
+        program: &control::Program,
+        regions: &ControlRegionPlan,
+        region: ControlRegionId,
+    ) -> bool {
+        regions.functions(region).iter().any(|function| {
+            let entry = program
+                .functions
+                .iter()
+                .find(|candidate| candidate.id == *function)
+                .expect("region function has a control entry")
+                .entry;
+            reachable_states(program, entry).into_iter().any(|site| {
+                regions.site_region(site) == Some(region)
+                    && self.mode(site) == Some(ControlCallMode::Dispatch)
+                    && !is_direct_self_call(&program.states[site.0].terminator, *function)
+            })
+        })
+    }
 }
 
 fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
@@ -162,6 +183,20 @@ fn is_direct_self_tail(terminator: &Terminator, function: FunctionId) -> bool {
                 },
             ..
         } if *target == function
+    )
+}
+
+fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
+    matches!(
+        terminator,
+        Terminator::Call {
+            callee:
+                closure::Atom {
+                    kind: AtomKind::Reference(Reference::SelfClosure(target)),
+                    ..
+                },
+            ..
+        } if *target == caller
     )
 }
 

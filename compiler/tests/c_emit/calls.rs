@@ -119,6 +119,36 @@ fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
 }
 
 #[test]
+fn keeps_a_symbol_closure_local_across_nonrecursive_indirect_call() {
+    let generated = emit(
+        "identity :: Symbol -> Symbol := \\(value :: Symbol) { value; };\n\
+         run :: ((Symbol -> Symbol), Symbol) -> Symbol := \\(callee :: Symbol -> Symbol, value :: Symbol) {\n\
+           prefix :: Symbol := \"x\";\n\
+           prepend := \\(suffix :: Symbol) { prefix + suffix; };\n\
+           called := callee(value);\n\
+           prepend(called);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           result := run(identity, \"a\");\n\
+           if (result == \"xa\") then { 0i32 } else { 1i32 };\n\
+         };",
+    )
+    .expect("emit a local closure across a nonrecursive indirect call");
+
+    assert!(generated.source.contains("mal_stack_environment_"));
+    assert!(!generated.source.contains("mal_control_environment_"));
+
+    let fixture = NativeFixture::new("nonrecursive-indirect-stack-closure");
+    let executable = fixture.compile_generated(generated, "");
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn heap_allocates_a_local_closure_live_across_control_suspension() {
     let generated = emit(
         "walk :: (Int32, Int32) -> Int32 := \\(base :: Int32, depth :: Int32) {\n\

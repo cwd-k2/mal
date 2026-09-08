@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::anf::ast::ValueId;
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
-use super::ClosureUsePlan;
-use super::control_call::{ControlCallMode, ControlCallPlan};
+use super::{ClosureUsePlan, ControlRegionPlan};
 use crate::c_emit::types::TypeRegistry;
 
 pub(in crate::c_emit::body) struct ControlFramePlan {
@@ -28,7 +27,7 @@ pub(in crate::c_emit::body) struct ControlFrameField {
 impl ControlFramePlan {
     pub(in crate::c_emit::body) fn new(
         program: &control::Program,
-        calls: &ControlCallPlan,
+        regions: &ControlRegionPlan,
         types: &TypeRegistry,
         closure_uses: &ClosureUsePlan,
     ) -> Self {
@@ -36,7 +35,7 @@ impl ControlFramePlan {
         let mut closures_crossing_suspension = HashSet::new();
         for (index, state) in program.states.iter().enumerate() {
             let site = StateId(index);
-            if calls.mode(site) != Some(ControlCallMode::Dispatch) {
+            if regions.site_region(site).is_none() {
                 continue;
             }
             let Terminator::Call { resume, .. } = state.terminator else {

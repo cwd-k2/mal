@@ -19,8 +19,8 @@ mod pattern;
 mod statement;
 
 use self::analysis::{
-    ApplicationGraph, ClosureUsePlan, CommonControlPlan, ControlCallMode, ControlCallPlan,
-    ControlFramePlan, ControlRegionPlan, OwnedCallPlan, OwnershipPlan,
+    ApplicationGraph, ClosureUsePlan, ControlCallMode, ControlCallPlan, ControlFramePlan,
+    ControlRegionPlan, OwnedCallPlan, OwnershipPlan,
 };
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
@@ -86,7 +86,6 @@ pub(super) struct BodyEmitter<'a> {
     control: crate::control::ast::Program,
     control_calls: ControlCallPlan,
     control_regions: ControlRegionPlan,
-    common_control: CommonControlPlan,
     control_frames: ControlFramePlan,
 }
 
@@ -106,7 +105,6 @@ impl<'a> BodyEmitter<'a> {
             &applications,
             &control_regions,
         );
-        let common_control = CommonControlPlan::new(&control, &control_regions, &control_calls);
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)
@@ -121,13 +119,15 @@ impl<'a> BodyEmitter<'a> {
                 .mode(crate::control::ast::StateId(index))
                 .is_some()
         }));
-        let control_frames = ControlFramePlan::new(&control, &control_calls, types, &closure_uses);
+        let control_frames =
+            ControlFramePlan::new(&control, &control_regions, types, &closure_uses);
         debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
             !matches!(
                 state.terminator,
                 crate::control::ast::Terminator::Call { .. }
-            ) || control_calls.mode(crate::control::ast::StateId(index))
-                != Some(ControlCallMode::Dispatch)
+            ) || control_regions
+                .site_region(crate::control::ast::StateId(index))
+                .is_none()
                 || control_frames
                     .frame(crate::control::ast::StateId(index))
                     .is_some()
@@ -152,7 +152,6 @@ impl<'a> BodyEmitter<'a> {
             control,
             control_calls,
             control_regions,
-            common_control,
             control_frames,
         }
     }
@@ -188,6 +187,18 @@ impl<'a> BodyEmitter<'a> {
             .iter()
             .find(|external| external.id == id)
             .expect("closure conversion preserves external declarations")
+    }
+
+    fn uses_common_control(&self, function: closure::FunctionId) -> bool {
+        self.control_regions
+            .function_region(function)
+            .is_some_and(|region| {
+                self.control_calls.requires_common_control(
+                    &self.control,
+                    &self.control_regions,
+                    region,
+                )
+            })
     }
 
     fn function(&self, id: FunctionId) -> &closure::Function {

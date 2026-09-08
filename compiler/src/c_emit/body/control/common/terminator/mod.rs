@@ -207,7 +207,7 @@ impl BodyEmitter<'_> {
             .unwrap_or_default()
             .to_vec()
         {
-            debug_assert!(self.common_control.contains(target));
+            debug_assert!(self.uses_common_control(target));
             let target_function = self.function(target).clone();
             let mut branch = Block::default();
             if let Some(resume) = resume {

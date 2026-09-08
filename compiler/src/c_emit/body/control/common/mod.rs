@@ -32,7 +32,7 @@ impl BodyEmitter<'_> {
                 self.control_regions
                     .functions(*region)
                     .iter()
-                    .any(|function| self.common_control.contains(*function))
+                    .any(|function| self.uses_common_control(*function))
             })
             .collect::<Vec<_>>();
         let mut output = TranslationUnit::default();

@@ -123,7 +123,7 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
             }
-            if self.common_control.contains(function.id) || self.can_emit_local_control(function) {
+            if self.uses_common_control(function.id) || self.can_emit_local_control(function) {
                 output.push(Declaration::function(self.function_signature(function)));
                 if has_direct_product_entry(&function.parameter.ty) {
                     output.push(Declaration::function(
@@ -166,7 +166,7 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
             }
-            if self.common_control.contains(function.id) {
+            if self.uses_common_control(function.id) {
                 output.extend(self.emit_common_control_wrappers(function));
                 continue;
             }
