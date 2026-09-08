@@ -18,7 +18,7 @@ impl BodyEmitter<'_> {
         )));
         for binding in &self.program.bindings {
             if matches!(binding.pattern, TopLevelPattern::Binding { id, .. }
-                if self.closure_uses.is_direct_top_level(id))
+                if self.elides_top_level(id))
             {
                 continue;
             }
@@ -71,7 +71,7 @@ impl BodyEmitter<'_> {
         let mut body = CBlock::default();
         for binding in self.program.bindings.iter().rev() {
             if matches!(binding.pattern, TopLevelPattern::Binding { id, .. }
-                if self.closure_uses.is_direct_top_level(id))
+                if self.elides_top_level(id))
             {
                 continue;
             }

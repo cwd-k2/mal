@@ -234,7 +234,10 @@ impl BodyEmitter<'_> {
         self.types
             .destroy_value(&mut body, &function.parameter.ty, parameter);
         body.push(Statement::return_value(Expr::identifier(result)));
-        FunctionDefinition::from_signature(self.owned_function_signature(function), body)
+        FunctionDefinition::from_signature(
+            self.owned_function_signature(function).maybe_unused(),
+            body,
+        )
     }
 }
 

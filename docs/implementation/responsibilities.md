@@ -115,12 +115,19 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
 | `c_emit/body/control` | typed control frame宣言とcontrol emissionのmodule境界 |
 | `c_emit/body/control/local` | 一つのC activationへfusionできるcontrol machineのC definition構成 |
+| `c_emit/body/control/common` | recursive indirect edgeを共有するfunction群のentry、wrapper、共通C activationの構成 |
+| `c_emit/body/control/common/terminator` | 共通control machine内のstate terminator、dispatch、resume、returnの構成 |
+| `c_emit/body/control/common/terminator/returning` | typed resultのroot返却とframe resume、active environment ownerのrelease |
 | `c_emit/body/control/ownership` | control local slotとframe間のmanaged owner copy、move、cleanupの構成 |
 | `c_emit/body/control/support` | reachable state、local slot、control operation変換の純粋な補助解析 |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
 | `c_emit/body/analysis/closure_use` | local・top-level closureとself closureのuse分類、alias追跡、direct-only表現とstack environment候補の計画 |
+| `c_emit/body/analysis/common_control` | call cycleを閉じるindirect edgeから共通control machine対象function群を閉包する計画 |
+| `c_emit/body/analysis/control_call` | applicationごとのdirect、self-tail、dispatch判定とC-call graphの非循環化 |
+| `c_emit/body/analysis/control_call/forwarder` | pureなknown tail forwarderをdirect self-tailへfusionできる条件の認識 |
+| `c_emit/body/analysis/control_call/graph` | direct C-call edgeの非循環性とcycle-closing edgeの判定 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |

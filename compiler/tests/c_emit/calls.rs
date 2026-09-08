@@ -360,6 +360,80 @@ fn preserves_managed_arguments_through_a_deep_indirect_tail_forwarder() {
 }
 
 #[test]
+fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
+    let generated = emit(
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+           function(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+             if (value == 0i32) then { 0i32 } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               child + 1i32;\n\
+             };\n\
+           };\n\
+           recurse(300000i32) - 300000i32;\n\
+         };",
+    )
+    .expect("emit a deep first-class call cycle");
+    assert!(generated.source.contains("static void mal_run_control("));
+    assert!(generated.source.contains("mal_control_push("));
+
+    let fixture = NativeFixture::new("deep-first-class-call-cycle");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    let result = fixture.run(executable);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
+fn preserves_a_managed_capture_through_a_first_class_call_cycle() {
+    let generated = emit(
+        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(function :: Int32 -> Symbol, value :: Int32) {\n\
+           function(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           prefix := \"x\" + \"y\";\n\
+           recurse :: Int32 -> Symbol := \\(value :: Int32) {\n\
+             if (value == 0i32) then { prefix } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               if (child == prefix) then { child } else { \"bad\" };\n\
+             };\n\
+           };\n\
+           result := recurse(50000i32);\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    )
+    .expect("emit a managed capture through a first-class call cycle");
+    assert!(generated.source.contains("destroy_environment;"));
+
+    let fixture = NativeFixture::new("managed-first-class-call-cycle");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-O1",
+            "-fsanitize=address,undefined",
+            "-fno-omit-frame-pointer",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let result = std::process::Command::new(executable)
+        .env("ASAN_OPTIONS", "detect_leaks=0")
+        .env("UBSAN_OPTIONS", "halt_on_error=1")
+        .output()
+        .expect("run sanitized first-class call cycle");
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
 fn reports_control_storage_failure_as_an_implementation_resource_limit() {
     let generated = emit(
         "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\
@@ -483,7 +557,10 @@ main :: Unit -> Int32 := \() {
     )
     .expect("emit a recursive closure passed as a value");
 
-    assert!(generated.source.contains("mal_new_environment_"));
+    assert!(
+        generated.source.contains("mal_new_environment_")
+            || generated.source.contains("mal_control_environment_")
+    );
     assert!(!generated.source.contains("mal_stack_environment_"));
 
     let fixture = NativeFixture::new("escaping-recursive-self-closure");

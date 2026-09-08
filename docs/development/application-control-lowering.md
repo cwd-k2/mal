@@ -27,10 +27,13 @@ direct self tail callは従来どおり`goto`へfusionし、acyclicなknown call
 
 function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。
 managed captureはenvironmentの型別destructorまで含めてretain/releaseする。引数を分解して直ちに`function(value)`を返すpureな
-known forwarderへself closureを渡すtail edgeは、forwarderを省略してdirect self tailの`goto`へfusionする。その他のindirect callと
-first-class functionを介したcall cycleは現時点では従来のC emissionを使う。次の適用段階ではclosureのcodeとenvironmentをentry
-stateへ渡す共通dispatchを導入し、sanitizerを含むlifetime testを同じgateとして維持する。名前のforward referenceによる相互再帰は
-現在のsource languageが受理しないため、この最適化の完了条件には含めない。
+known forwarderへself closureを渡すtail edgeは、forwarderを省略してdirect self tailの`goto`へfusionする。
+
+first-class functionを介してcall graph cycleを閉じるedgeは共通control machineで実行する。callee descriptorのcode identityから
+有限なuser-function targetを選び、environment ownerとtyped argumentをtarget entryへmoveする。非tail edgeではcallerのlive valueと
+environment ownerをtyped frameへ保存し、tail edgeではframeを増やさない。cycleを閉じないindirect callとuser function以外のtargetは
+従来のtyped C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
+含めない。
 
 ## 抽象machine
 

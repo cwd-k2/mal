@@ -19,8 +19,8 @@ mod pattern;
 mod statement;
 
 use self::analysis::{
-    ClosureUsePlan, ControlCallMode, ControlCallPlan, ControlFramePlan, OwnedCallPlan,
-    OwnershipPlan,
+    ClosureUsePlan, CommonControlPlan, ControlCallMode, ControlCallPlan, ControlFramePlan,
+    OwnedCallPlan, OwnershipPlan,
 };
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
@@ -85,6 +85,7 @@ pub(super) struct BodyEmitter<'a> {
     parameter_owned: bool,
     control: crate::control::ast::Program,
     control_calls: ControlCallPlan,
+    common_control: CommonControlPlan,
     control_frames: ControlFramePlan,
 }
 
@@ -95,6 +96,7 @@ impl<'a> BodyEmitter<'a> {
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
         let control_calls = ControlCallPlan::new(program, &control, &closure_uses);
+        let common_control = CommonControlPlan::new(&control, &control_calls);
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)
@@ -139,6 +141,7 @@ impl<'a> BodyEmitter<'a> {
             parameter_owned: false,
             control,
             control_calls,
+            common_control,
             control_frames,
         }
     }
@@ -277,6 +280,10 @@ impl<'a> BodyEmitter<'a> {
                 if self.borrowed_bindings.contains(&id)
                     || self.direct_borrow_sources.contains(&id)
         )
+    }
+
+    fn elides_top_level(&self, id: ValueId) -> bool {
+        self.closure_uses.is_direct_top_level(id) && !self.control_calls.needs_closure_binding(id)
     }
 }
 

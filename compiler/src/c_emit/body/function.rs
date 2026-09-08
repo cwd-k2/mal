@@ -41,7 +41,7 @@ impl BodyEmitter<'_> {
         let mut output = TranslationUnit::default();
         for binding in &self.program.bindings {
             if matches!(binding.pattern, closure::TopLevelPattern::Binding { id, .. }
-                if self.closure_uses.is_direct_top_level(id))
+                if self.elides_top_level(id))
             {
                 continue;
             }
@@ -123,7 +123,7 @@ impl BodyEmitter<'_> {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
             }
-            if self.can_emit_local_control(function) {
+            if self.common_control.contains(function.id) || self.can_emit_local_control(function) {
                 output.push(Declaration::function(self.function_signature(function)));
                 if has_direct_product_entry(&function.parameter.ty) {
                     output.push(Declaration::function(
@@ -161,9 +161,14 @@ impl BodyEmitter<'_> {
 
     pub(super) fn emit_function_definitions(&mut self) -> TranslationUnit {
         let mut output = TranslationUnit::default();
+        output.extend(self.emit_common_control_machine());
         for function in &self.program.functions {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));
+            }
+            if self.common_control.contains(function.id) {
+                output.extend(self.emit_common_control_wrappers(function));
+                continue;
             }
             if self.can_emit_local_control(function) {
                 output.extend(self.emit_local_control_function(function));

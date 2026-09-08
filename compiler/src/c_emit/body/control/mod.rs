@@ -1,9 +1,12 @@
 mod call;
+mod common;
 mod local;
 mod ownership;
 mod support;
 
-use crate::c_emit::syntax::{AggregateDefinition, AggregateField, TranslationUnit, TypeName};
+use crate::c_emit::syntax::{
+    AggregateDefinition, AggregateField, Parameter, TranslationUnit, TypeName,
+};
 use crate::control::ast::StateId;
 
 use super::BodyEmitter;
@@ -27,6 +30,14 @@ impl BodyEmitter<'_> {
                 fields.push(AggregateField::variable(
                     TypeName::const_named("void").pointer(),
                     "environment",
+                ));
+                fields.push(AggregateField::function_pointer(
+                    "void",
+                    "destroy_environment",
+                    [
+                        Parameter::unnamed(TypeName::named("MalContext").pointer()),
+                        Parameter::unnamed(TypeName::const_named("void").pointer()),
+                    ],
                 ));
             }
             output.push(AggregateDefinition::typedef_structure(
