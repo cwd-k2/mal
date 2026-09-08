@@ -383,8 +383,9 @@ impl BodyEmitter<'_> {
         owns_parameter: bool,
     ) {
         self.emit_function_preamble(output, function);
-        for (index, slot) in slots.iter().enumerate() {
-            let argument = CExpr::identifier(format!("mal_direct_parameter_{index}"));
+        let mut next_parameter = 0;
+        for slot in slots {
+            let argument = self.direct_parameter_value(slot.ty, &mut next_parameter);
             let value = if !owns_parameter && self.types.contains_managed(slot.ty) {
                 self.types.copy_value(slot.ty, argument)
             } else {
@@ -460,11 +461,7 @@ fn direct_tail_parameter_slots(function: &closure::Function) -> Option<Vec<TailP
     let slots: Option<Vec<_>> = elements
         .iter()
         .map(|pattern| match pattern {
-            closure::Pattern::Binding { id, ty }
-                if !matches!(ty, crate::check::ast::Type::Product(_)) =>
-            {
-                Some(TailParameterSlot { id: *id, ty })
-            }
+            closure::Pattern::Binding { id, ty } => Some(TailParameterSlot { id: *id, ty }),
             _ => None,
         })
         .collect();

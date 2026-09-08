@@ -273,7 +273,7 @@ main :: Unit -> Int32 := \() {
 }
 
 #[test]
-fn keeps_aggregate_tail_state_when_a_parameter_leaf_is_a_product() {
+fn keeps_nested_parameter_bindings_in_separate_tail_slots() {
     let generated = emit(
         r#"Nested :: (Symbol, Int64);
 walk :: (Nested, Int64) -> Symbol := \(state :: Nested, remaining :: Int64) {
@@ -287,10 +287,12 @@ main :: Unit -> Int32 := \() {
   if (walk((value, 0i64), 4i64) == "ab") then { 0 } else { 1 };
 };"#,
     )
-    .expect("emit nested aggregate tail state");
-    assert!(generated.source.contains(" mal_tail_next_parameter ="));
+    .expect("emit nested parameter tail slots");
+    let walk = generated_function(&generated.source, "walk");
+    assert!(walk.contains("mal_tail_next_parameter_0"));
+    assert!(!walk.contains(" mal_tail_next_parameter ="));
 
-    let fixture = NativeFixture::new("nested-aggregate-tail-fallback");
+    let fixture = NativeFixture::new("nested-parameter-tail-slots");
     let executable = fixture.compile_generated_with_options(
         generated,
         "",

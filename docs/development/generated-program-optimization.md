@@ -66,10 +66,10 @@ managed leafのcopyまたはtransfer、現在slotのdestroy、次slotへのinsta
 generic closure entry、明示的に値として使うproduct、indirect callはstruct representationを維持する。leaf数の上限を超えるentryも
 現在のaggregate fallbackを使う。これはsource productの表現変更ではなくknown direct pathのcalling conventionである。
 
-reference backendは、function冒頭でflat product parameterを個別bindingへ分解し、各self-tail edgeが直前に同じarityの
-productを構築する場合にleaf slotを使う。次のleafをsource orderでtemporaryへ評価し、last-useのmanaged leafはtransfer、
-それ以外はcopyしてから旧slotをdestroyする。nested productを一つのparameter bindingとして使う形と、この局所形状を満たさない
-tail edgeはaggregate stateへfallbackする。
+reference backendは、function冒頭でproduct parameterを個別bindingへ分解し、各self-tail edgeが直前に同じarityの
+productを構築する場合にbinding slotを使う。binding自身がnested productの場合はdirect entryのleaf引数からその値だけを復元し、
+最外層のparameter全体は作らない。次のbindingをsource orderでtemporaryへ評価し、last-useのmanaged valueはtransfer、
+それ以外はcopyしてから旧slotをdestroyする。この局所形状を満たさないtail edgeはaggregate stateへfallbackする。
 
 完了条件は、対象loopの最適化後IRから不要なaggregate `alloca`、`memcpy`、`memset`が消え、managed productを含むtail edgeの
 通常・sanitizer testが通ることである。
