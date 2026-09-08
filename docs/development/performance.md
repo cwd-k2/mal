@@ -23,7 +23,7 @@ interactiveな053を除くTypical90の79問を、Clang 21.1.8の`-O2`、同じma
 
 ±5%を同等とするとmalが速いものは11、同等は34、Cが速いものは34だった。規則的なnumeric/`Ptr`処理は
 direct Cと同等以上または近く、新しいcollection primitiveを性能だけのために追加する根拠はない。現在、profileによって
-compilerの責務へ分離できたactiveなcost modelはない。
+compilerの責務へ分離できたactiveなcost modelはapplication control loweringのtransition costである。
 
 個別caseの数値はcompiler変更の採否ではなく、fixture差、source責務、backend責務を分離する証拠として読む。1 ms未満の
 caseと異なるmachine間の絶対時間は順位付けに使わない。
@@ -51,6 +51,48 @@ process時間は各Hyperfine invocationに測らせる。
 
 mixed-toolchainで得た比率は調査候補の発見にだけ使い、現在値やcompiler改善幅には使わない。source、生成物、Hyperfine JSONなどの
 raw artifactはlocalの`.scratch/`に置き、tracked repositoryには含めない。
+
+## application control lowering実装前後
+
+application control lowering実装直前の`a7fc89c`と、direct・indirect・first-class cycleおよびmanaged frame transferまで
+実装した`b9cfded`を比較した。両compilerを同じRust 1.97.1でrelease buildし、同じMal sourceからClang 21.1.8 `-O2`と
+public buildのstrict float optionでbinaryを生成した。wall-clockはHyperfineでwarmup 3回、交互30 roundとし、各pairの
+stdout一致を確認した。比率は`after / before`である。
+
+| Control形状 | Workload | After (ms) | Before (ms) | Ratio |
+|---|---|---:|---:|---:|
+| direct self non-tail | Hanoi depth 26 | 121.77 | 102.31 | 1.19 |
+| direct self non-tail | linear depth 250,000を10回 | 12.04 | 8.58 | 1.40 |
+| direct self tail | 1,000,000遷移を50回 | 6.18 | 6.20 | 1.00 |
+| acyclic direct helper + self tail | 1,000,000遷移を50回 | 11.98 | 12.00 | 1.00 |
+| indirect tail forwarder | 100,000遷移を500回 | 8.92 | 6.23 | 1.43 |
+| first-class non-tail cycle | depth 10,000を400回 | 14.16 | 6.21 | 2.28 |
+| captured `Symbol` first-class cycle | depth 10,000を400回 | 61.34 | 77.16 | 0.80 |
+
+direct self tailとacyclic direct callは実装前と同等であり、application全体がdispatcherへ変わったわけではない。一方、unmanagedな
+explicit frameのpush、resume、dispatchは通常のC recursionより高く、自然なHanoiは手動defunctionalize版の既存77.89 msにも
+届かなかった。managed fixtureだけはframe ownerのmoveによって退行せず改善したが、この一例をunmanaged frame costの相殺根拠には
+しない。indirect tail fixtureは実装前もClangがC tail callを除去してdepth 1,000,000を完了したため、対応toolchain上では新しい
+portableなstack boundと引き換えにtransition costだけが増えた。
+
+深度を増やすと、direct linear depth 1,000,000、first-class non-tail depth 300,000、captured `Symbol` first-class depth 50,000は
+afterが完了し、beforeはsignal 11で終了した。したがってC stack boundの目的は達成しているが、throughputの完了条件は満たしていない。
+
+既存79問corpusも同じcommit pair、Clang、input、stdout検査、warmup 3回、交互20 roundで再測定した。
+
+| Population | Count | Median ratio | Geometric mean | After faster / parity / slower |
+|---|---:|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.00 | 1.03 | 1 / 71 / 7 |
+| 両実行時間が5 ms以上 | 52 | 1.00 | 1.03 | 0 / 47 / 5 |
+| 両実行時間が10 ms以上 | 44 | 1.00 | 1.04 | 0 / 39 / 5 |
+
+5 ms以上で5%を超えて退行したのは016が1.73倍、032が1.56倍、029が1.31倍、023が1.25倍、055が1.10倍だった。
+080もbefore 3.52 msからafter 6.26 msへ1.78倍になった。016はnon-tail linear search、029はsegment treeのbranching recursion、
+032、055、080はbranching enumeration、023はprofile pair列挙を含み、いずれもrecursive SCC内のnon-tail edgeがhot pathにある。
+
+最適化後LLVM IRでは、代表的な032の行数が694から976、`call`が53から66、branchが64から89へ増えた。6退行caseのbinary
+text sizeも約12%から19%増えた。これは単なる測定揺れではなく、typed frameとdispatcherがoptimizer後にも残ることと整合する。
+次の改善ではstack boundを外さず、direct recursive SCCの複数遷移をまとめる表現を独立fixtureと全corpusの両方で評価する。
 
 ## 個別調査
 

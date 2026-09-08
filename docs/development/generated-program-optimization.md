@@ -23,7 +23,7 @@ Status: Current work plan
 
 | 優先度 | 軸 | 観測したcost | Fixture |
 |---:|---|---|---|
-| 1 | applicationのcontrol lowering | 軽いnode処理でのcall costとC stack深度 | Hanoi、線形unwind |
+| 1 | applicationのcontrol lowering | C stackはboundedになったがexplicit transitionが通常のC recursionより高い | Hanoi、線形unwind、既存corpus |
 
 ## 1. applicationのcontrol lowering
 
@@ -42,10 +42,15 @@ Nushell runnerを含む診断値なので、変換の採否には標準のHyperf
 一般変換、tail applicationとの関係、Cへのrefinementと機械的に確認する不変条件は
 [application control lowering設計](application-control-lowering.md)を正とする。この計画ではcost modelと採用gateだけを管理する。
 
-現在の実装範囲は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。direct、indirect、
-first-class functionを介したcall cycleについて、深いunwind、managed lifetime、評価順を同じgateで検証し、generated CのMal call
-depthに対してC stack使用量をboundedに保つ。現在記録済みの計測値を採用判断の基準とし、実装完了だけを理由にbaselineを置き換えない。
-queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。
+現在の実装範囲は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。実装前後の
+[再測定](performance.md#application-control-lowering実装前後)では、direct tailとacyclic callは同等、managed first-class cycleは
+改善した一方、unmanaged non-tail cycleは1.19倍から2.28倍、既存corpusの5 caseは1.10倍から1.73倍へ退行した。深いunwindの
+C stack bound、managed lifetime、評価順は維持できているため、次は意味上のmachineを変えずdirect recursive SCCの複数transitionを
+まとめ、frame push、resume、dispatchの償却を狙う。一定段数だけ通常C callを使う場合も段数をcompile-time定数でboundし、外部entryと
+spill後の継続を同じtyped frameへ写せることを先に示す。
+
+queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
+実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。
 
 ## 共通の完了条件
 
