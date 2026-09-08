@@ -17,7 +17,7 @@ mod name;
 mod pattern;
 mod statement;
 
-use self::analysis::{ClosureUsePlan, OwnedCallPlan, OwnershipPlan};
+use self::analysis::{ClosureUsePlan, ControlCallPlan, OwnedCallPlan, OwnershipPlan};
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
@@ -77,6 +77,8 @@ pub(super) struct BodyEmitter<'a> {
     borrowed_bindings: HashSet<ValueId>,
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
+    _control: crate::control::ast::Program,
+    _control_calls: ControlCallPlan,
 }
 
 impl<'a> BodyEmitter<'a> {
@@ -84,6 +86,17 @@ impl<'a> BodyEmitter<'a> {
         let ownership = OwnershipPlan::new(program);
         let closure_uses = ClosureUsePlan::new(program);
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
+        let control = crate::control::lower(program);
+        let control_calls = ControlCallPlan::new(program, &control, &closure_uses);
+        debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
+            !matches!(
+                state.terminator,
+                crate::control::ast::Terminator::Call { .. }
+                    | crate::control::ast::Terminator::TailCall { .. }
+            ) || control_calls
+                .mode(crate::control::ast::StateId(index))
+                .is_some()
+        }));
         Self {
             program,
             types,
@@ -96,6 +109,8 @@ impl<'a> BodyEmitter<'a> {
             borrowed_bindings: HashSet::new(),
             direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
+            _control: control,
+            _control_calls: control_calls,
         }
     }
 
