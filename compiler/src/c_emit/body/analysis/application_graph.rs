@@ -8,7 +8,6 @@ use super::ClosureUsePlan;
 
 pub(in crate::c_emit::body) struct ApplicationGraph {
     sites: HashMap<StateId, ApplicationSite>,
-    edges: HashMap<FunctionId, Vec<FunctionId>>,
 }
 
 struct ApplicationSite {
@@ -45,23 +44,7 @@ impl ApplicationGraph {
             );
         }
 
-        let mut edges: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
-        for site in sites.values() {
-            let Some(caller) = site.caller else {
-                continue;
-            };
-            let targets = edges.entry(caller).or_default();
-            for target in &site.targets {
-                if !targets.contains(target) {
-                    targets.push(*target);
-                }
-            }
-        }
-        Self { sites, edges }
-    }
-
-    pub(in crate::c_emit::body) fn caller(&self, site: StateId) -> Option<FunctionId> {
-        self.sites.get(&site).and_then(|site| site.caller)
+        Self { sites }
     }
 
     pub(in crate::c_emit::body) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
@@ -72,11 +55,13 @@ impl ApplicationGraph {
         self.sites.get(&site).map(|site| site.targets.as_slice())
     }
 
-    pub(in crate::c_emit::body) fn targets_from(
+    pub(in crate::c_emit::body) fn sites_from(
         &self,
         function: FunctionId,
-    ) -> impl Iterator<Item = FunctionId> + '_ {
-        self.edges.get(&function).into_iter().flatten().copied()
+    ) -> impl Iterator<Item = (StateId, &[FunctionId])> + '_ {
+        self.sites.iter().filter_map(move |(id, site)| {
+            (site.caller == Some(function)).then_some((*id, site.targets.as_slice()))
+        })
     }
 }
 

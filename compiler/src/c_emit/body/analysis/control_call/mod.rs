@@ -3,12 +3,10 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::{ApplicationGraph, ControlRegionId, ControlRegionPlan};
+use super::{ApplicationGraph, ControlRegionId, ControlRegionPlan, TailCallPlan};
 
-mod forwarder;
 mod graph;
 
-use forwarder::forwarded_self_tail_argument;
 use graph::{direct_graph, is_acyclic};
 
 pub(super) use super::application_graph::reachable_states;
@@ -23,20 +21,18 @@ pub(in crate::c_emit::body) enum ControlCallMode {
 pub(in crate::c_emit::body) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
     dispatch_targets: HashMap<StateId, Vec<FunctionId>>,
-    forwarded_self_arguments: HashMap<StateId, closure::Atom>,
     dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
 }
 
 impl ControlCallPlan {
     pub(in crate::c_emit::body) fn new(
-        closure: &closure::Program,
         control: &control::Program,
         applications: &ApplicationGraph,
+        tail_calls: &TailCallPlan,
         regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
         let mut dispatch_targets = HashMap::new();
-        let mut forwarded_self_arguments = HashMap::new();
 
         for binding in &control.bindings {
             for site in reachable_states(control, binding.entry) {
@@ -61,12 +57,7 @@ impl ControlCallPlan {
                 if application_callee(terminator).is_none() {
                     continue;
                 }
-                if let Some(argument) = applications.direct_target(site).and_then(|forwarder| {
-                    forwarded_self_tail_argument(closure, state, terminator, function.id, forwarder)
-                }) {
-                    modes.insert(site, ControlCallMode::DirectSelfTail);
-                    forwarded_self_arguments.insert(site, argument);
-                } else if is_direct_self_tail(terminator, function.id) {
+                if tail_calls.is_fused(site) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                 } else if regions.site_region(site).is_some() {
                     modes.insert(site, ControlCallMode::Dispatch);
@@ -89,7 +80,7 @@ impl ControlCallPlan {
         let direct_graph = direct_graph(control, &modes);
         debug_assert!(is_acyclic(
             &direct_graph,
-            closure.functions.iter().map(|function| function.id)
+            control.functions.iter().map(|function| function.id)
         ));
         let dispatch_bindings = control
             .states
@@ -105,7 +96,6 @@ impl ControlCallPlan {
         Self {
             modes,
             dispatch_targets,
-            forwarded_self_arguments,
             dispatch_bindings,
         }
     }
@@ -129,13 +119,6 @@ impl ControlCallPlan {
 
     pub(in crate::c_emit::body) fn dispatch_targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.dispatch_targets.get(&site).map(Vec::as_slice)
-    }
-
-    pub(in crate::c_emit::body) fn forwarded_self_argument(
-        &self,
-        site: StateId,
-    ) -> Option<&closure::Atom> {
-        self.forwarded_self_arguments.get(&site)
     }
 
     pub(in crate::c_emit::body) fn requires_common_control(
@@ -167,20 +150,6 @@ fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
     }
 }
 
-fn is_direct_self_tail(terminator: &Terminator, function: FunctionId) -> bool {
-    matches!(
-        terminator,
-        Terminator::TailCall {
-            callee:
-                closure::Atom {
-                    kind: AtomKind::Reference(Reference::SelfClosure(target)),
-                    ..
-                },
-            ..
-        } if *target == function
-    )
-}
-
 fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
     matches!(
         terminator,
@@ -198,7 +167,7 @@ fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::super::super::direct_function_id;
-    use super::super::ClosureUsePlan;
+    use super::super::{ClosureUsePlan, ContinuationGraph};
     use super::*;
     use crate::source::{FileId, SourceFile};
     use crate::{anf, check, closure, control, core, parser, resolve};
@@ -231,8 +200,10 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
+        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
+        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let regions = ControlRegionPlan::new(&control, &continuations);
+        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
 
         let helper = top_level_function_id(&closure, "helper");
         let recursive = control
@@ -289,8 +260,10 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
+        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
+        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let regions = ControlRegionPlan::new(&control, &continuations);
+        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
 
@@ -348,9 +321,13 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let regions = ControlRegionPlan::new(&control, &applications);
-        let plan = ControlCallPlan::new(&closure, &control, &applications, &regions);
+        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
+        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let regions = ControlRegionPlan::new(&control, &continuations);
+        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
+
+        assert!(regions.ids().next().is_none());
 
         assert!(control.states.iter().enumerate().any(|(index, state)| {
             let Terminator::TailCall { callee, .. } = &state.terminator else {
@@ -359,7 +336,7 @@ mod tests {
             let site = StateId(index);
             direct_function_id(&uses, callee) == Some(apply)
                 && plan.mode(site) == Some(ControlCallMode::DirectSelfTail)
-                && plan.forwarded_self_argument(site).is_some()
+                && tail_calls.forwarded_self_argument(site).is_some()
         }));
         assert!(control.states.iter().enumerate().any(|(index, state)| {
             let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =

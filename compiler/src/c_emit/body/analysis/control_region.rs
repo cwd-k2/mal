@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::FunctionId;
 use crate::control::ast::{Program, StateId};
 
-use super::ApplicationGraph;
+use super::ContinuationGraph;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(in crate::c_emit::body) struct ControlRegionId(pub(in crate::c_emit::body) usize);
@@ -24,7 +24,10 @@ struct ControlRegion {
 }
 
 impl ControlRegionPlan {
-    pub(in crate::c_emit::body) fn new(program: &Program, applications: &ApplicationGraph) -> Self {
+    pub(in crate::c_emit::body) fn new(
+        program: &Program,
+        continuations: &ContinuationGraph,
+    ) -> Self {
         let function_indices = program
             .functions
             .iter()
@@ -34,7 +37,7 @@ impl ControlRegionPlan {
         let mut graph = vec![Vec::new(); program.functions.len()];
         for function in &program.functions {
             let caller = function_indices[&function.id];
-            for target in applications.targets_from(function.id) {
+            for target in continuations.targets_from(function.id) {
                 if let Some(target) = function_indices.get(&target).copied()
                     && !graph[caller].contains(&target)
                 {
@@ -79,13 +82,13 @@ impl ControlRegionPlan {
         let mut recursive_targets = HashMap::new();
         for index in 0..program.states.len() {
             let site = StateId(index);
-            let Some(caller) = applications.caller(site) else {
+            let Some(caller) = continuations.caller(site) else {
                 continue;
             };
             let Some(region) = function_regions.get(&caller).copied() else {
                 continue;
             };
-            let targets = applications
+            let targets = continuations
                 .targets(site)
                 .into_iter()
                 .flatten()
@@ -161,7 +164,7 @@ impl ControlRegionPlan {
     pub(in crate::c_emit::body) fn is_valid(
         &self,
         program: &Program,
-        applications: &ApplicationGraph,
+        continuations: &ContinuationGraph,
     ) -> bool {
         let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
             self.recursive_targets(*site).is_some_and(|targets| {
@@ -170,7 +173,7 @@ impl ControlRegionPlan {
                     .all(|target| self.function_regions.get(target) == Some(region))
             }) && program.functions.iter().any(|function| {
                 self.function_regions.get(&function.id) == Some(region)
-                    && applications.caller(*site) == Some(function.id)
+                    && continuations.caller(*site) == Some(function.id)
             })
         });
         let all_recursive_sites_are_mapped = self

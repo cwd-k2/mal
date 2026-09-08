@@ -19,8 +19,8 @@ mod pattern;
 mod statement;
 
 use self::analysis::{
-    ApplicationGraph, ClosureUsePlan, ControlCallMode, ControlCallPlan, ControlFramePlan,
-    ControlRegionPlan, OwnedCallPlan, OwnershipPlan,
+    ApplicationGraph, ClosureUsePlan, ContinuationGraph, ControlCallMode, ControlCallPlan,
+    ControlFramePlan, ControlRegionPlan, OwnedCallPlan, OwnershipPlan, TailCallPlan,
 };
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
@@ -84,6 +84,7 @@ pub(super) struct BodyEmitter<'a> {
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
     control: crate::control::ast::Program,
+    tail_calls: TailCallPlan,
     control_calls: ControlCallPlan,
     control_regions: ControlRegionPlan,
     control_frames: ControlFramePlan,
@@ -96,10 +97,12 @@ impl<'a> BodyEmitter<'a> {
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
         let applications = ApplicationGraph::new(program, &control, &closure_uses);
-        let control_regions = ControlRegionPlan::new(&control, &applications);
-        debug_assert!(control_regions.is_valid(&control, &applications));
+        let tail_calls = TailCallPlan::new(program, &control, &applications);
+        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let control_regions = ControlRegionPlan::new(&control, &continuations);
+        debug_assert!(control_regions.is_valid(&control, &continuations));
         let control_calls =
-            ControlCallPlan::new(program, &control, &applications, &control_regions);
+            ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)
@@ -145,6 +148,7 @@ impl<'a> BodyEmitter<'a> {
             direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
             control,
+            tail_calls,
             control_calls,
             control_regions,
             control_frames,

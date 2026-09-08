@@ -390,6 +390,7 @@ fn lowers_a_deep_indirect_tail_forwarder_without_growing_the_c_stack() {
     )
     .expect("emit a deep indirect tail forwarder");
     assert!(generated.source.contains("goto mal_control_state_"));
+    assert!(!generated.source.contains("mal_run_control_"));
     assert!(!generated.source.contains("MalControlArena"));
     assert!(!generated.source.contains("MalControlStack"));
     assert!(!generated.source.contains("mal_control_push("));

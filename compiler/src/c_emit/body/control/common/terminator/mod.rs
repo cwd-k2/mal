@@ -79,7 +79,7 @@ impl BodyEmitter<'_> {
             Terminator::TailCall { callee, argument } => match self.control_calls.mode(site) {
                 Some(ControlCallMode::DirectSelfTail) => {
                     let argument = self
-                        .control_calls
+                        .tail_calls
                         .forwarded_self_argument(site)
                         .unwrap_or(argument);
                     let next = format!("mal_next_parameter_{}", site.0);
