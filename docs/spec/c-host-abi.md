@@ -70,16 +70,29 @@ typedef struct {
     uint8_t *address;
 } MalType_Ptr;
 
+typedef struct {
+    void *state;
+} MalSymbolAdmission;
+
 #define MAL_FALSE ((MalType_Bool)UINT8_C(0))
 #define MAL_TRUE ((MalType_Bool)UINT8_C(1))
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
 
-MalType_Symbol mal_Symbol_copy_from_bytes(
+MalSymbolAdmission mal_SymbolAdmission_begin(MalContext *context, uint64_t minimum_capacity);
+uint64_t mal_SymbolAdmission_capacity(const MalSymbolAdmission *admission);
+uint8_t *mal_SymbolAdmission_data(MalSymbolAdmission *admission);
+void mal_SymbolAdmission_reserve(
     MalContext *context,
-    const uint8_t *data,
+    MalSymbolAdmission *admission,
+    uint64_t minimum_capacity
+);
+MalType_Symbol mal_SymbolAdmission_finish(
+    MalContext *context,
+    MalSymbolAdmission *admission,
     uint64_t length
 );
+void mal_SymbolAdmission_drop(MalContext *context, MalSymbolAdmission *admission);
 MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);
 MalType_Symbol mal_Symbol_take(MalType_Symbol *value);
 void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);
@@ -87,8 +100,8 @@ void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);
 
 `mal_ext_<name>`はraw host library functionそのものではなく、host operationとmal valueの間を変換するtrusted adapter
 entryである。`MalContext *`はmal valueではなく、各adapterへ先頭parameterとして一時的に渡すruntime capabilityである。
-adapterとhostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_Symbol_copy_from_bytes`はreference runtimeが
-提供し、adapterは後者を通じてSymbol admissionをmalへ依頼する。helperを呼ぶauthorityはSymbolのownershipをadapterへ移さない。
+adapterとhostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_SymbolAdmission_*`はreference runtimeが
+提供し、adapterは後者を通じてSymbol admissionをmalへ依頼する。builder storageのauthorityは構築中もruntimeにある。
 
 malのpredefined type、source-level alias、external typeはすべてCで`MalType_<name>`と綴る。host implementationは
 aliasとexternal typeを別の命名規則として記憶する必要がない。`MalRepr_Product_<id>`と`MalRepr_Sum_<id>`は
@@ -126,10 +139,15 @@ MAL_DEFINE_printInt32(context, value) {
 
 `MalType_Unit`はaggregate内に現れる`Unit`の表現である。top-level parameterまたはresultそのものが`Unit`の場合は、後述のとおりC parameterを省略するか`void` resultにする。
 
-`mal_Symbol_copy_from_bytes`はbytesをmal-controlled storageへcopyしてSymbolをadmitする。allocation size overflowまたは
-failureではtrapし、正常returnした値はmalのlifetime authorityに属する。`length == 0`では`data`をdereferenceしない。
-`ownership`はreference runtimeだけが解釈するopaque fieldである。hostはgenerated lifecycle helper以外から値を変更、比較、
-dereferenceしてはならない。
+`mal_SymbolAdmission_begin`は少なくとも指定capacityを持つruntime-owned builderを返し、0を指定した場合はallocationを
+要求しない。hostは`capacity`で現在の範囲を確認し、`data`から得たpointerのcapacity内だけへ書く。`reserve`は既存bytesを
+保持してcapacityを増やせるがpointerを変更できるため、呼出し後は`data`を再取得する。`finish`はlengthがcapacity以下であることを
+検査し、copyせずimmutableなowned `Symbol`へpublishしてbuilderをzero状態にする。`drop`は未完了storageを解放し、zero状態では
+no-opである。data pointerは次のreserve、finish、dropまでだけ有効で、hostはその後保持しない。allocation size overflow、
+allocation failure、capacityを超えるfinishはtrapする。
+
+`MalType_Symbol.ownership`と`MalSymbolAdmission.state`はreference runtimeだけが解釈するopaque fieldである。hostは定義された
+helper以外から変更、比較、dereferenceしてはならない。
 
 ## ownership operation
 
@@ -220,9 +238,9 @@ generated headerは各external typeについて`mal_<Type>_from_bits`と`mal_<Ty
 
 `MalType_Symbol`はmal SymbolをC境界で運ぶABI carrierであり、hostが独立して所有するbyte buffer型ではない。
 Symbol parameterは`MalType_Symbol`で渡し、hostはcall終了後にdataを保持しない。dataとlengthは
-`mal_Symbol_data`と`mal_Symbol_length`で取得できる。Symbol resultを返すhost implementationは、一時byte bufferを
-`mal_Symbol_copy_from_bytes`へ渡して作った`MalType_Symbol`を返す。hostがstruct literalなどで独自のdata pointerを
-持つ`MalType_Symbol`を直接作って返すことはcontract違反である。
+`mal_Symbol_data`と`mal_Symbol_length`で取得できる。Symbol resultを返すhost implementationは、
+`MalSymbolAdmission`のdata領域へbytesを書き、`finish`が返した`MalType_Symbol`を返す。hostがstruct literalなどで独自の
+data pointerを持つ`MalType_Symbol`を直接作って返すことはcontract違反である。
 
 extern parameterとして渡される非空Symbolの`data`は、直接のparameterでもproductまたはactive sum payload内でも、call中に
 `length` byteの連続領域を指す。host helperから得るborrowed Symbolにも同じ規則を適用する。mal内部のstorage表現はこのABI
@@ -284,4 +302,5 @@ function型を直接またはproduct/sum内に含む型はextern signatureに使
 adapterはresult capabilityを正常returnした時点でhostからmalへのtransferをcommitする。それ以前にtrapする場合、または
 capabilityを含まないfailure variantを返す場合、adapterがそのcall内で取得した一時allocationや未transfer resourceは
 adapter自身が解放する。argument resourceと以前にtransfer済みのresourceはこのcleanupの対象ではない。
-`mal_Symbol_copy_from_bytes`と`mal_trap`はreturnしない場合があるため、その前にcleanup不能な一時resourceを残してはならない。
+Symbol admissionと`mal_trap`はreturnしない場合があるため、その前にcleanup不能な一時resourceを残してはならない。
+正常returnしない経路でliveなadmissionがある場合、adapterはtrapより前にdropするか、operation固有の一括cleanupへ接続する。

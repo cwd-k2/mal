@@ -735,32 +735,44 @@ main :: Unit -> Int32 := \() {
     )
     .expect("emit Symbol ABI");
     assert!(generated.header.contains(
-        "MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);"
+        "MalSymbolAdmission mal_SymbolAdmission_begin(MalContext *context, uint64_t minimum_capacity);"
     ));
+    assert!(!generated.header.contains("mal_Symbol_copy_from_bytes"));
     assert!(contains_ignoring_whitespace(
         &generated.header,
         "MalType_Symbol mal_ext_fetch(MalContext *context);"
     ));
-    let fixture = NativeFixture::new("symbol-copy");
-    let executable = fixture.compile_generated(
+    let fixture = NativeFixture::new("symbol-admission");
+    let executable = fixture.compile_generated_with_options(
         generated,
         r#"#include "program.mal.h"
-#include <stdlib.h>
 #include <string.h>
 
 MalType_Symbol mal_ext_fetch(MalContext *context) {
-    uint8_t *scratch = (uint8_t *)malloc(6);
-    if (scratch == NULL) {
-        mal_trap(context, "host allocation failed");
+    MalSymbolAdmission dropped = mal_SymbolAdmission_begin(context, UINT64_C(3));
+    mal_SymbolAdmission_drop(context, &dropped);
+    mal_SymbolAdmission_drop(context, &dropped);
+
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(2));
+    uint8_t *data = mal_SymbolAdmission_data(&admission);
+    data[0] = 'h';
+    data[1] = 'o';
+    mal_SymbolAdmission_reserve(context, &admission, UINT64_C(6));
+    if (mal_SymbolAdmission_capacity(&admission) < UINT64_C(6)) {
+        mal_trap(context, "Symbol admission capacity did not grow");
     }
-    const uint8_t original[6] = { 'h', 'o', 's', 't', 0, 255 };
-    memcpy(scratch, original, 6);
-    MalType_Symbol result = mal_Symbol_copy_from_bytes(context, scratch, UINT64_C(6));
-    memset(scratch, 0, 6);
-    free(scratch);
+    data = mal_SymbolAdmission_data(&admission);
+    const uint8_t rest[4] = { 's', 't', 0, 255 };
+    memcpy(data + 2, rest, sizeof(rest));
+    MalType_Symbol result = mal_SymbolAdmission_finish(context, &admission, UINT64_C(6));
+    mal_SymbolAdmission_drop(context, &admission);
     return result;
 }
 "#,
+        &[
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=3",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
     );
     let output = fixture.run(executable);
     assert!(
@@ -771,17 +783,17 @@ MalType_Symbol mal_ext_fetch(MalContext *context) {
 }
 
 #[test]
-fn traps_symbol_copy_allocation_failure_and_length_overflow() {
+fn traps_symbol_admission_allocation_failure_and_invalid_lengths() {
     let source =
         "extern fetch :: Unit -> Symbol; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
 
-    let failure_fixture = NativeFixture::new("symbol-copy-failure");
+    let failure_fixture = NativeFixture::new("symbol-admission-failure");
     let failure_executable = failure_fixture.compile_generated_with_options(
         emit(source).expect("emit Symbol ABI"),
         r#"#include "program.mal.h"
 MalType_Symbol mal_ext_fetch(MalContext *context) {
-    const uint8_t value = 1;
-    return mal_Symbol_copy_from_bytes(context, &value, UINT64_C(1));
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_FORCE_ALLOCATION_FAILURE"],
@@ -790,13 +802,13 @@ MalType_Symbol mal_ext_fetch(MalContext *context) {
     assert!(!failure.status.success());
     assert!(String::from_utf8_lossy(&failure.stderr).contains("mal trap: allocation failed"));
 
-    let overflow_fixture = NativeFixture::new("symbol-copy-overflow");
+    let overflow_fixture = NativeFixture::new("symbol-admission-overflow");
     let overflow_executable = overflow_fixture.compile_generated(
         emit(source).expect("emit Symbol ABI"),
         r#"#include "program.mal.h"
 MalType_Symbol mal_ext_fetch(MalContext *context) {
-    const uint8_t value = 1;
-    return mal_Symbol_copy_from_bytes(context, &value, UINT64_MAX);
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_MAX);
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_MAX);
 }
 "#,
     );
@@ -805,4 +817,58 @@ MalType_Symbol mal_ext_fetch(MalContext *context) {
     assert!(
         String::from_utf8_lossy(&overflow.stderr).contains("mal trap: allocation size overflow")
     );
+
+    let length_fixture = NativeFixture::new("symbol-admission-length");
+    let length_executable = length_fixture.compile_generated(
+        emit(source).expect("emit Symbol ABI"),
+        r#"#include "program.mal.h"
+MalType_Symbol mal_ext_fetch(MalContext *context) {
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(2));
+}
+"#,
+    );
+    let length = length_fixture.run(length_executable);
+    assert!(!length.status.success());
+    assert!(
+        String::from_utf8_lossy(&length.stderr)
+            .contains("mal trap: Symbol admission length exceeds capacity")
+    );
+
+    let growth_fixture = NativeFixture::new("symbol-admission-growth-failure");
+    let growth_executable = growth_fixture.compile_generated_with_options(
+        emit(source).expect("emit Symbol ABI"),
+        r#"#include "program.mal.h"
+MalType_Symbol mal_ext_fetch(MalContext *context) {
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
+    mal_SymbolAdmission_data(&admission)[0] = UINT8_C(1);
+    mal_SymbolAdmission_reserve(context, &admission, UINT64_C(2));
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
+}
+"#,
+        &["-DMAL_TEST_FORCE_REALLOCATION_FAILURE"],
+    );
+    let growth = growth_fixture.run(growth_executable);
+    assert!(!growth.status.success());
+    assert!(String::from_utf8_lossy(&growth.stderr).contains("mal trap: allocation failed"));
+}
+
+#[test]
+fn finishes_an_empty_symbol_admission_without_leaking_reserved_storage() {
+    let source = r#"extern fetch :: Unit -> Symbol;
+main :: Unit -> Int32 := \() {
+  if (extern fetch() == "") then { 0 } else { 1 };
+};"#;
+    let fixture = NativeFixture::new("empty-symbol-admission");
+    let executable = fixture.compile_generated_with_options(
+        emit(source).expect("emit empty Symbol admission"),
+        r#"#include "program.mal.h"
+MalType_Symbol mal_ext_fetch(MalContext *context) {
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(8));
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(0));
+}
+"#,
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    assert!(fixture.run(executable).status.success());
 }

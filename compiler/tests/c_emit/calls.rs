@@ -748,7 +748,9 @@ fn lowers_managed_direct_tail_recursion_with_constant_stack() {
 
 MalType_Symbol mal_ext_input(MalContext *context) {
     static const uint8_t bytes[] = { UINT8_C(120) };
-    return mal_Symbol_copy_from_bytes(context, bytes, UINT64_C(1));
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
+    mal_SymbolAdmission_data(&admission)[0] = bytes[0];
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
@@ -788,7 +790,9 @@ main :: Unit -> Int32 := \() {
 
 MalType_Symbol mal_ext_input(MalContext *context) {
     static const uint8_t bytes[] = { UINT8_C(120) };
-    return mal_Symbol_copy_from_bytes(context, bytes, UINT64_C(1));
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
+    mal_SymbolAdmission_data(&admission)[0] = bytes[0];
+    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
 }
 "#,
         &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],

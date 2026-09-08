@@ -24,7 +24,8 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
     assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("MalType_Symbol mal_Symbol_copy_from_bytes("));
+    assert!(generated_header.contains("MalSymbolAdmission mal_SymbolAdmission_begin("));
+    assert!(generated_header.contains("MalType_Symbol mal_SymbolAdmission_finish("));
 }
 
 #[test]

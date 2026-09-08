@@ -118,11 +118,8 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 
 ## 実装順とcommit境界
 
-1. ephemeral aggregateのborrow-preserving loweringを残るconsumer形状へ拡張する。
-2. direct self-tail stateのleaf slot化をnested parameterへ拡張する。
-3. C host ABIをbuilder admissionへ置き換え、repository内adapterを同じcommitで移行する。
-4. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
-5. allocation profileが残る場合だけallocator recyclingを検討する。
+1. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
+2. allocation profileが残る場合だけallocator recyclingを検討する。
 
 各commitは一つのcost modelだけを変え、focused generated-C test、native execution、通常のcompiler testを通す。managed lifetimeへ
 触れるcommitは[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。ABI置換commitは

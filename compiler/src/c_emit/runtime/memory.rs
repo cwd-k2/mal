@@ -73,7 +73,7 @@ pub(super) fn emit(
                 ],
             ),
             Block::new([Statement::return_value(Expr::named_call(
-                "mal_Symbol_copy_from_bytes",
+                "mal_symbol_copy_from_bytes",
                 [
                     Expr::identifier("context"),
                     Expr::identifier("pointer").field("address"),

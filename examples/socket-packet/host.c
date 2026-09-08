@@ -131,17 +131,22 @@ MAL_DEFINE_receivePacket(context, socket) {
         return MAL_OPERATION(ReceiveResult, make_1)((uint32_t)EMSGSIZE);
     }
 
-    uint8_t payloadBytes[MAX_PAYLOAD_SIZE];
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, length);
     if (length > 0) {
-        error = read_all(descriptor, payloadBytes, (size_t)length);
+        error = read_all(
+            descriptor,
+            mal_SymbolAdmission_data(&admission),
+            (size_t)length
+        );
         if (error != 0) {
+            mal_SymbolAdmission_drop(context, &admission);
             return MAL_OPERATION(ReceiveResult, make_1)(error);
         }
     }
 
-    MAL_TYPE(Symbol) payload = MAL_OPERATION(Symbol, copy_from_bytes)(
+    MAL_TYPE(Symbol) payload = mal_SymbolAdmission_finish(
         context,
-        payloadBytes,
+        &admission,
         length
     );
     return MAL_OPERATION(ReceiveResult, make_0)(

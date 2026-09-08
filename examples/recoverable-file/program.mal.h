@@ -35,12 +35,18 @@ typedef float MalType_Float32;
 typedef double MalType_Float64;
 typedef struct { const uint8_t *data; uint64_t length; void *ownership; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
+typedef struct { void *state; } MalSymbolAdmission;
 
 #define MAL_FALSE (MalType_Bool)UINT8_C(0)
 #define MAL_TRUE (MalType_Bool)UINT8_C(1)
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
-MalType_Symbol mal_Symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+MalSymbolAdmission mal_SymbolAdmission_begin(MalContext *context, uint64_t minimum_capacity);
+uint64_t mal_SymbolAdmission_capacity(const MalSymbolAdmission *admission);
+uint8_t *mal_SymbolAdmission_data(MalSymbolAdmission *admission);
+void mal_SymbolAdmission_reserve(MalContext *context, MalSymbolAdmission *admission, uint64_t minimum_capacity);
+MalType_Symbol mal_SymbolAdmission_finish(MalContext *context, MalSymbolAdmission *admission, uint64_t length);
+void mal_SymbolAdmission_drop(MalContext *context, MalSymbolAdmission *admission);
 MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);
 MalType_Symbol mal_Symbol_take(MalType_Symbol *value);
 void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);

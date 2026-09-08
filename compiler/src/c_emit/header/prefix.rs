@@ -135,6 +135,14 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         )],
         "MalType_Ptr",
     ));
+    output.push(AggregateDefinition::typedef_structure(
+        None,
+        [AggregateField::variable(
+            TypeName::named("void").pointer(),
+            "state",
+        )],
+        "MalSymbolAdmission",
+    ));
     output.blank_line();
     output.push(Directive::define_expr(
         "MAL_FALSE",
@@ -160,12 +168,53 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         ],
     )));
     output.push(Declaration::function(FunctionSignature::new(
-        "MalType_Symbol",
-        "mal_Symbol_copy_from_bytes",
+        "MalSymbolAdmission",
+        "mal_SymbolAdmission_begin",
         [
             Parameter::named(TypeName::named("MalContext").pointer(), "context"),
-            Parameter::named(TypeName::const_named("uint8_t").pointer(), "data"),
+            Parameter::named("uint64_t", "minimum_capacity"),
+        ],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "uint64_t",
+        "mal_SymbolAdmission_capacity",
+        [Parameter::named(
+            TypeName::const_named("MalSymbolAdmission").pointer(),
+            "admission",
+        )],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        TypeName::named("uint8_t").pointer(),
+        "mal_SymbolAdmission_data",
+        [Parameter::named(
+            TypeName::named("MalSymbolAdmission").pointer(),
+            "admission",
+        )],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "void",
+        "mal_SymbolAdmission_reserve",
+        [
+            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+            Parameter::named(TypeName::named("MalSymbolAdmission").pointer(), "admission"),
+            Parameter::named("uint64_t", "minimum_capacity"),
+        ],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "MalType_Symbol",
+        "mal_SymbolAdmission_finish",
+        [
+            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+            Parameter::named(TypeName::named("MalSymbolAdmission").pointer(), "admission"),
             Parameter::named("uint64_t", "length"),
+        ],
+    )));
+    output.push(Declaration::function(FunctionSignature::new(
+        "void",
+        "mal_SymbolAdmission_drop",
+        [
+            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
+            Parameter::named(TypeName::named("MalSymbolAdmission").pointer(), "admission"),
         ],
     )));
     output.push(Declaration::function(FunctionSignature::new(

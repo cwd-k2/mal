@@ -109,8 +109,8 @@ typedef struct {
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。host側byte bufferからSymbol resultを作るadapterは、
-source-level extern callを完了する前にlengthを検査し、bytesをmanaged storageへcopyしてmalへadmitする。runtime Symbolはflat
+Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。hostがSymbol resultを作るadapterは、
+runtime-owned admission bufferへbytesを書き、source-level extern callを完了する前にlengthを検査してcopyなしでpublishする。runtime Symbolはflat
 bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
 構築する。equality、byte access、`storeSymbol`、extern callの直前で必要ならcontiguous bytesを一度materializeする。
 `loadSymbol`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして

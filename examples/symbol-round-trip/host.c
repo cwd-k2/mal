@@ -13,11 +13,9 @@ static const uint8_t expected[9] = {
 };
 
 MAL_DEFINE_receive(context) {
-    uint8_t scratch[sizeof(received)];
-    memcpy(scratch, received, sizeof(received));
-    MalType_Symbol result = mal_Symbol_copy_from_bytes(context, scratch, UINT64_C(8));
-    memset(scratch, 0, sizeof(received));
-    return result;
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, sizeof(received));
+    memcpy(mal_SymbolAdmission_data(&admission), received, sizeof(received));
+    return mal_SymbolAdmission_finish(context, &admission, sizeof(received));
 }
 
 MAL_DEFINE_send(context, value) {

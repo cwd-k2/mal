@@ -1,10 +1,13 @@
 use super::*;
 
 const INPUT_HOST: &str = r#"#include "program.mal.h"
+#include <string.h>
 
 MAL_DEFINE_input(context) {
     static const uint8_t bytes[] = "abcdefghijklmnopqrstuvwxyz";
-    return mal_Symbol_copy_from_bytes(context, bytes, sizeof(bytes) - 1);
+    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, sizeof(bytes) - 1);
+    memcpy(mal_SymbolAdmission_data(&admission), bytes, sizeof(bytes) - 1);
+    return mal_SymbolAdmission_finish(context, &admission, sizeof(bytes) - 1);
 }
 "#;
 

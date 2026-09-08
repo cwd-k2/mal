@@ -92,7 +92,8 @@ top-level initializerの一時値は各initializerの終了時にdestroyし、�
 argument descriptor列のruntime allocationもsource-level `main`のreturn後に解放する。
 
 extern parameterはcall中だけborrowされる。managed resultの各fieldはownership shareを一つmalへtransferしなければならない。
-Symbol resultは`mal_Symbol_copy_from_bytes`で作る。malはextern resultをowned valueとして受け取り、通常のbinding cleanupへ接続する。
+Symbol resultはruntime-owned `MalSymbolAdmission`をfinishして作る。malはextern resultをowned valueとして受け取り、通常の
+binding cleanupへ接続する。finish前にreturnする経路ではadapterがadmissionをdropする。
 C adapter内のclone、move、dropとaggregate constructor/accessorの規約は[C host ABI](../spec/c-host-abi.md)を正とする。
 
 generated C自身は`MAL_CLONE`、`MAL_MOVE`、`MAL_DROP`を内部ownership primitiveとして使わない。compilerは

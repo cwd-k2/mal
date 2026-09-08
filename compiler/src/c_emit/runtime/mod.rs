@@ -11,7 +11,7 @@ use self::numeric::{
 };
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
-    let mut output = core::emit();
+    let mut output = core::emit(needs.memory_load_symbol);
     if needs.wrap != 0 {
         output.extend(emit_integer_wrap(needs.wrap));
     }
