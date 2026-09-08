@@ -19,8 +19,8 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 
 ## 実装状態
 
-control IR、backward liveness、possible call graphのrecursive SCC partition、typed frame layout、region別のgrowable control
-storageは実装済みである。C emitterは
+control IR、backward liveness、possible application graph、tail fusion後のresidual continuation graphとrecursive SCC partition、
+typed frame layout、frame region別のgrowable control storageは実装済みである。C emitterは
 direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
 `Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
 activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
@@ -212,7 +212,7 @@ grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、envi
 同様に単一frame siteだけからresume tagやenvironment fieldを除く規則はregion表現の正しさに由来せず、主要costを改善しなかったため
 混ぜない。
 
-possible call graphからのregion partition、各dispatch siteとfunction entryの所属、frame regionだけのarena cache、fast-path push、region別machine、
+residual continuation graphからのregion partition、各dispatch siteとfunction entryの所属、frame regionだけのarena cache、fast-path push、region別machine、
 旧global control storageの削除まで実装済みである。local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
 同じregion storage規約とframe規約に従う。構造検査はC-call graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を
 対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、

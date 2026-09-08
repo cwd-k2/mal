@@ -176,10 +176,28 @@ impl ControlRegionPlan {
                     && continuations.caller(*site) == Some(function.id)
             })
         });
-        let all_recursive_sites_are_mapped = self
-            .recursive_targets
-            .keys()
-            .all(|site| self.site_regions.contains_key(site));
+        let all_recursive_sites_are_mapped = (0..program.states.len()).all(|index| {
+            let site = StateId(index);
+            let Some(caller) = continuations.caller(site) else {
+                return !self.site_regions.contains_key(&site);
+            };
+            let Some(region) = self.function_regions.get(&caller).copied() else {
+                return !self.site_regions.contains_key(&site);
+            };
+            let expected = continuations
+                .targets(site)
+                .into_iter()
+                .flatten()
+                .copied()
+                .filter(|target| self.function_regions.get(target) == Some(&region))
+                .collect::<Vec<_>>();
+            if expected.is_empty() {
+                !self.site_regions.contains_key(&site)
+            } else {
+                self.site_regions.get(&site) == Some(&region)
+                    && self.recursive_targets(site) == Some(expected.as_slice())
+            }
+        });
         let all_region_functions_are_mapped =
             self.regions.iter().enumerate().all(|(index, region)| {
                 region.functions.iter().all(|function| {

@@ -335,6 +335,7 @@ mod tests {
             };
             let site = StateId(index);
             direct_function_id(&uses, callee) == Some(apply)
+                && applications.direct_target(site) == Some(apply)
                 && plan.mode(site) == Some(ControlCallMode::DirectSelfTail)
                 && tail_calls.forwarded_self_argument(site).is_some()
         }));
