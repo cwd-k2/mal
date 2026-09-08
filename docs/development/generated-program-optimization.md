@@ -43,7 +43,7 @@ Nushell runnerを含む診断値なので、変換の採否には標準のHyperf
 [application control lowering設計](application-control-lowering.md)を正とする。この計画ではcost modelと採用gateだけを管理する。
 
 現在の実装範囲と残る適用境界は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。次のgateは
-managed frame、capturing closure、indirect call、mutual recursionであり、深いunwindだけでなくmanaged lifetimeと評価順を同時に
+indirect callとfirst-class functionを介したcall cycleであり、深いunwindだけでなくmanaged lifetimeと評価順を同時に
 検証する。generated CのMal call depthに対してC stack使用量がboundedであることを確認する。queue化とmemoizationは評価順または
 計算量を変える別のalgorithmなので、このcost modelには含めない。
 

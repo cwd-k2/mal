@@ -4,7 +4,7 @@ use crate::c_emit::syntax::{
 use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Reference};
-use crate::control::ast::{self as control, StateId, Terminator};
+use crate::control::ast::{StateId, Terminator};
 
 use super::super::analysis::ControlCallMode;
 use super::super::{
@@ -32,7 +32,7 @@ impl BodyEmitter<'_> {
         else {
             return false;
         };
-        let mut has_dispatch = false;
+        let mut has_control = false;
         for site in reachable_states(&self.control, control_function.entry) {
             let state = &self.control.states[site.0];
             if state
@@ -47,7 +47,7 @@ impl BodyEmitter<'_> {
                 return false;
             }
             if self.control_calls.mode(site) == Some(ControlCallMode::Dispatch) {
-                has_dispatch = true;
+                has_control = true;
                 if !matches!(
                     state.terminator,
                     Terminator::Call {
@@ -61,8 +61,11 @@ impl BodyEmitter<'_> {
                     return false;
                 }
             }
+            if self.control_calls.forwarded_self_argument(site).is_some() {
+                has_control = true;
+            }
         }
-        has_dispatch
+        has_control
     }
 
     pub(in crate::c_emit::body) fn emit_local_control_function(
@@ -142,8 +145,9 @@ impl BodyEmitter<'_> {
                 ],
             ))]);
             let mut signature = self.direct_function_signature(function);
-            if self.closure_uses.has_direct_top_level_function(function.id)
-                && self.owned_calls.contains(function.id)
+            if !self.control_calls.has_direct_target(function.id)
+                || (self.closure_uses.has_direct_top_level_function(function.id)
+                    && self.owned_calls.contains(function.id))
             {
                 signature = signature.maybe_unused();
             }
@@ -286,6 +290,10 @@ impl BodyEmitter<'_> {
             },
             Terminator::TailCall { callee, argument } => match self.control_calls.mode(site) {
                 Some(ControlCallMode::DirectSelfTail) => {
+                    let argument = self
+                        .control_calls
+                        .forwarded_self_argument(site)
+                        .unwrap_or(argument);
                     let next = format!("mal_next_parameter_{}", site.0);
                     output.push(Statement::variable(
                         self.types.c_type(&argument.ty),
@@ -484,33 +492,5 @@ impl BodyEmitter<'_> {
             ]),
             unwind,
         ));
-    }
-
-    fn control_function(&self, id: closure::FunctionId) -> &control::Function {
-        self.control
-            .functions
-            .iter()
-            .find(|function| function.id == id)
-            .expect("control lowering preserves function identities")
-    }
-
-    fn emit_local_control_call(&self, callee: &Atom, argument: &Atom) -> Expr {
-        if let AtomKind::Reference(Reference::Binding(id)) = callee.kind
-            && self.closure_uses.direct_closure(id).is_some_and(|target| {
-                self.control_frames
-                    .closure_crosses_suspension(target.creator)
-            })
-        {
-            let callee = self.emit_atom(callee);
-            return Expr::call(
-                callee.clone().field("call"),
-                [
-                    Expr::identifier("mal_context"),
-                    callee.field("environment"),
-                    self.emit_atom(argument),
-                ],
-            );
-        }
-        self.emit_call(callee, argument, false)
     }
 }

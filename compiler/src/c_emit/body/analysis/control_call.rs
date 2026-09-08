@@ -16,6 +16,7 @@ pub(in crate::c_emit::body) enum ControlCallMode {
 pub(in crate::c_emit::body) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
     dispatch_targets: HashMap<StateId, Vec<FunctionId>>,
+    forwarded_self_arguments: HashMap<StateId, closure::Atom>,
 }
 
 struct Candidate {
@@ -32,6 +33,7 @@ impl ControlCallPlan {
     ) -> Self {
         let mut modes = HashMap::new();
         let mut dispatch_targets = HashMap::new();
+        let mut forwarded_self_arguments = HashMap::new();
 
         for binding in &control.bindings {
             for site in reachable_states(control, binding.entry) {
@@ -52,11 +54,21 @@ impl ControlCallPlan {
         let mut possible_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
         for function in &control.functions {
             for site in reachable_states(control, function.entry) {
-                let terminator = &control.states[site.0].terminator;
+                let state = &control.states[site.0];
+                let terminator = &state.terminator;
                 let Some(callee) = application_callee(terminator) else {
                     continue;
                 };
-                if is_direct_self_tail(terminator, function.id) {
+                if let Some(argument) = forwarded_self_tail_argument(
+                    closure,
+                    state,
+                    terminator,
+                    function.id,
+                    closure_uses,
+                ) {
+                    modes.insert(site, ControlCallMode::DirectSelfTail);
+                    forwarded_self_arguments.insert(site, argument);
+                } else if is_direct_self_tail(terminator, function.id) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                 } else if let Some(callee) = direct_function_id(closure_uses, callee) {
                     possible_graph.entry(function.id).or_default().push(callee);
@@ -94,6 +106,7 @@ impl ControlCallPlan {
         Self {
             modes,
             dispatch_targets,
+            forwarded_self_arguments,
         }
     }
 
@@ -107,9 +120,99 @@ impl ControlCallPlan {
             .any(|mode| *mode == ControlCallMode::Dispatch)
     }
 
+    pub(in crate::c_emit::body) fn has_direct_target(&self, function: FunctionId) -> bool {
+        self.modes
+            .values()
+            .any(|mode| *mode == ControlCallMode::Direct(function))
+    }
+
     pub(in crate::c_emit::body) fn dispatch_targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.dispatch_targets.get(&site).map(Vec::as_slice)
     }
+
+    pub(in crate::c_emit::body) fn forwarded_self_argument(
+        &self,
+        site: StateId,
+    ) -> Option<&closure::Atom> {
+        self.forwarded_self_arguments.get(&site)
+    }
+}
+
+fn forwarded_self_tail_argument(
+    program: &closure::Program,
+    state: &control::State,
+    terminator: &Terminator,
+    caller: FunctionId,
+    closure_uses: &ClosureUsePlan,
+) -> Option<closure::Atom> {
+    let Terminator::TailCall { callee, argument } = terminator else {
+        return None;
+    };
+    let forwarder = direct_function_id(closure_uses, callee)?;
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.id == forwarder)?;
+    let [first, tail] = function.body.bindings.as_slice() else {
+        return None;
+    };
+    let closure::Pattern::Product { elements, .. } = &first.pattern else {
+        return None;
+    };
+    let [
+        closure::Pattern::Binding { id: callee_id, .. },
+        closure::Pattern::Binding {
+            id: argument_id, ..
+        },
+    ] = elements.as_slice()
+    else {
+        return None;
+    };
+    let closure::Operation::Atom(closure::Atom {
+        kind: AtomKind::Reference(Reference::Binding(parameter)),
+        ..
+    }) = &first.operation
+    else {
+        return None;
+    };
+    if Some(*parameter) != function.parameter.binding {
+        return None;
+    }
+    let closure::Operation::Call {
+        callee:
+            closure::Atom {
+                kind: AtomKind::Reference(Reference::Binding(indirect_callee)),
+                ..
+            },
+        argument:
+            closure::Atom {
+                kind: AtomKind::Reference(Reference::Binding(indirect_argument)),
+                ..
+            },
+    } = &tail.operation
+    else {
+        return None;
+    };
+    if indirect_callee != callee_id || indirect_argument != argument_id {
+        return None;
+    }
+    let AtomKind::Reference(Reference::Binding(product)) = &argument.kind else {
+        return None;
+    };
+    let binding = state.bindings.iter().find(
+        |binding| matches!(binding.pattern, closure::Pattern::Binding { id, .. } if id == *product),
+    )?;
+    let control::Operation::Product(elements) = &binding.operation else {
+        return None;
+    };
+    let [forwarded_callee, forwarded_argument] = elements.as_slice() else {
+        return None;
+    };
+    matches!(
+        &forwarded_callee.kind,
+        AtomKind::Reference(Reference::SelfClosure(target)) if *target == caller
+    )
+    .then(|| forwarded_argument.clone())
 }
 
 fn compatible_targets(program: &closure::Program, callee: &closure::Atom) -> Vec<FunctionId> {
@@ -325,9 +428,12 @@ mod tests {
              };\n\
              main :: Unit -> Int32 := \\() {\n\
                recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
-                 if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
+                 if (value == 0i32) then { 0i32 } else {\n\
+                   child := apply(recurse, value - 1i32);\n\
+                   child + 1i32;\n\
+                 };\n\
                };\n\
-               recurse(2i32);\n\
+               recurse(2i32) - 2i32;\n\
              };"
             .into(),
         );
@@ -361,6 +467,44 @@ mod tests {
                 && plan
                     .dispatch_targets(StateId(index))
                     .is_some_and(|targets| !targets.is_empty())
+        }));
+    }
+
+    #[test]
+    fn fuses_a_pure_indirect_tail_forwarder_back_into_self_recursion() {
+        let source = SourceFile::new(
+            FileId::new(71),
+            "indirect-tail-forwarder.mal",
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+               function(value);\n\
+             };\n\
+             main :: Unit -> Int32 := \\() {\n\
+               recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+                 if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
+               };\n\
+               recurse(2i32);\n\
+             };"
+            .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse tail forwarder fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve tail forwarder fixture");
+        let checked = check::check(&resolved).expect("check tail forwarder fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = closure::convert(&anf);
+        let control = control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let plan = ControlCallPlan::new(&closure, &control, &uses);
+        let apply = top_level_function_id(&closure, "apply");
+
+        assert!(control.states.iter().enumerate().any(|(index, state)| {
+            let Terminator::TailCall { callee, .. } = &state.terminator else {
+                return false;
+            };
+            let site = StateId(index);
+            direct_function_id(&uses, callee) == Some(apply)
+                && plan.mode(site) == Some(ControlCallMode::DirectSelfTail)
+                && plan.forwarded_self_argument(site).is_some()
         }));
     }
 

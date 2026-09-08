@@ -309,6 +309,57 @@ fn lowers_deep_non_tail_self_recursion_without_growing_the_c_stack() {
 }
 
 #[test]
+fn lowers_a_deep_indirect_tail_forwarder_without_growing_the_c_stack() {
+    let generated = emit(
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+           function(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+             if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
+           };\n\
+           recurse(300000i32);\n\
+         };",
+    )
+    .expect("emit a deep indirect tail forwarder");
+    assert!(generated.source.contains("goto mal_control_state_"));
+
+    let fixture = NativeFixture::new("deep-indirect-tail-forwarder");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn preserves_managed_arguments_through_a_deep_indirect_tail_forwarder() {
+    let generated = emit(
+        "apply :: (((Int32, Symbol) -> Symbol), (Int32, Symbol)) -> Symbol := \\(function :: (Int32, Symbol) -> Symbol, argument :: (Int32, Symbol)) {\n\
+           function(argument);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, value :: Symbol) {\n\
+             if (depth == 0i32) then { value } else { apply(recurse, (depth - 1i32, value)) };\n\
+           };\n\
+           result := recurse(50000i32, \"x\" + \"y\");\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    )
+    .expect("emit managed arguments through an indirect tail forwarder");
+
+    let fixture = NativeFixture::new("managed-indirect-tail-forwarder");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-O2", "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let result = fixture.run(executable);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
 fn reports_control_storage_failure_as_an_implementation_resource_limit() {
     let generated = emit(
         "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\

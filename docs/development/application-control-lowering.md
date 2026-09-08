@@ -26,9 +26,11 @@ activation cleanup後、resume時にlocal slotへmoveする。copy-onlyの正し
 direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
 function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。
-managed captureはenvironmentの型別destructorまで含めてretain/releaseする。indirect callとmutual recursionは現時点では従来の
-C emissionを使う。次の適用段階ではclosureのcodeとenvironmentをentry stateへ渡す共通dispatchを導入し、sanitizerを含む
-lifetime testを同じgateとして維持する。
+managed captureはenvironmentの型別destructorまで含めてretain/releaseする。引数を分解して直ちに`function(value)`を返すpureな
+known forwarderへself closureを渡すtail edgeは、forwarderを省略してdirect self tailの`goto`へfusionする。その他のindirect callと
+first-class functionを介したcall cycleは現時点では従来のC emissionを使う。次の適用段階ではclosureのcodeとenvironmentをentry
+stateへ渡す共通dispatchを導入し、sanitizerを含むlifetime testを同じgateとして維持する。名前のforward referenceによる相互再帰は
+現在のsource languageが受理しないため、この最適化の完了条件には含めない。
 
 ## 抽象machine
 
@@ -107,6 +109,7 @@ edgeをdispatcherで実行することを意味しない。既存のdirect call�
 | edge | 許される表現 |
 |---|---|
 | direct self tail | 同一stateの`goto` |
+| pureなknown tail forwarderへ渡すdirect self | forwarderを省略した同一entryへの`goto` |
 | その他のtail | frameを増やさないdispatch |
 | C-call edge集合がacyclicなdirect call | 通常のC call |
 | recursive SCC内またはtarget不明のcall | explicit control stack |
