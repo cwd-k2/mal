@@ -1,15 +1,20 @@
-use crate::c_emit::syntax::{Block, Expr, FunctionDefinition, Initializer, Statement};
+use crate::c_emit::syntax::{Block, Expr, FunctionDefinition, Initializer, Statement, TypeName};
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Pattern};
 use crate::control::ast as control;
 
 use super::super::{
-    BodyEmitter, ResultOwnership, function_name, has_direct_product_entry, pattern_type, value_name,
+    BodyEmitter, ResultOwnership, environment_destroy_name, environment_name, function_name,
+    has_direct_product_entry, pattern_type, value_name,
 };
 use super::support::{closure_operation, uint8};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_control_binding(&mut self, output: &mut Block, binding: &control::Binding) {
+        if let control::Operation::MakeClosure { function, captures } = &binding.operation {
+            self.emit_control_make_closure(output, &binding.pattern, *function, captures);
+            return;
+        }
         let operation = closure_operation(&binding.operation);
         if let closure::Operation::ExternalCall { id, argument } = &operation
             && pattern_type(&binding.pattern) == &Type::Unit
@@ -38,6 +43,62 @@ impl BodyEmitter<'_> {
                 emitted.expression,
             );
         }
+    }
+
+    fn emit_control_make_closure(
+        &mut self,
+        output: &mut Block,
+        pattern: &Pattern,
+        function: closure::FunctionId,
+        captures: &[closure::Atom],
+    ) {
+        let environment = if captures.is_empty() {
+            Expr::identifier("NULL")
+        } else {
+            let allocation = format!("mal_control_environment_{}", self.next_discard);
+            self.next_discard += 1;
+            let environment_type = environment_name(function);
+            output.push(Statement::variable(
+                TypeName::named(environment_type.clone()).pointer(),
+                &allocation,
+                Some(Expr::cast(
+                    TypeName::named(environment_type.clone()).pointer(),
+                    Expr::named_call(
+                        "mal_allocate",
+                        [
+                            Expr::identifier("mal_context"),
+                            Expr::sizeof_type(environment_type.clone()),
+                        ],
+                    ),
+                )),
+            ));
+            output.push(Statement::assignment(
+                Expr::dereference(Expr::identifier(&allocation)),
+                Expr::compound_literal(
+                    environment_type,
+                    captures.iter().enumerate().map(|(index, capture)| {
+                        Initializer::designated(
+                            format!("field_{index}"),
+                            self.types.copy_value(&capture.ty, self.emit_atom(capture)),
+                        )
+                    }),
+                ),
+            ));
+            Expr::identifier(allocation)
+        };
+        let value = Expr::compound_literal(
+            self.types.c_type(pattern_type(pattern)),
+            [
+                Initializer::positional(Expr::identifier(function_name(function))),
+                Initializer::positional(environment),
+                Initializer::positional(if captures.is_empty() {
+                    Expr::identifier("NULL")
+                } else {
+                    Expr::identifier(environment_destroy_name(function))
+                }),
+            ],
+        );
+        self.emit_control_owned_pattern_assignment(output, pattern, value);
     }
 
     pub(super) fn emit_control_owned_pattern_assignment(
@@ -179,7 +240,6 @@ impl BodyEmitter<'_> {
 
 pub(super) fn supports_local_control_type(ty: &Type) -> bool {
     match ty {
-        Type::Function { .. } => false,
         Type::Product(elements) | Type::Sum(elements) => {
             elements.iter().all(supports_local_control_type)
         }

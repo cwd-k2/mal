@@ -110,7 +110,12 @@ fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
         "",
         &["-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=0"],
     );
-    assert!(fixture.run(executable).status.success());
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -129,7 +134,8 @@ fn heap_allocates_a_local_closure_live_across_control_suspension() {
     )
     .expect("emit a closure crossing a recursive suspension");
 
-    assert!(generated.source.contains("mal_new_environment_"));
+    assert!(generated.source.contains("mal_control_environment_"));
+    assert!(generated.source.contains("mal_control_push("));
     assert!(
         !generated
             .source
@@ -137,8 +143,53 @@ fn heap_allocates_a_local_closure_live_across_control_suspension() {
     );
 
     let fixture = NativeFixture::new("suspended-closure-environment");
-    let executable = fixture.compile_generated(generated, "");
-    assert!(fixture.run(executable).status.success());
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn preserves_a_managed_capture_across_control_suspension() {
+    let generated = emit(
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, prefix :: Symbol) {\n\
+           if (depth == 0i32)\n\
+             then { prefix }\n\
+             else {\n\
+               append := \\(suffix :: Symbol) { prefix + suffix; };\n\
+               child := walk(depth - 1i32, prefix);\n\
+               append(child);\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"x\" + \"y\";\n\
+           result := walk(8i32, seed);\n\
+           Int32(#result) - 18i32;\n\
+         };",
+    )
+    .expect("emit a managed capture crossing suspension");
+    assert!(generated.source.contains("mal_control_environment_"));
+    assert!(generated.source.contains("MalRepr_Closure_"));
+
+    let fixture = NativeFixture::new("suspended-managed-capture");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]

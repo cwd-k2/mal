@@ -39,10 +39,10 @@ impl BodyEmitter<'_> {
                 .input
                 .as_ref()
                 .is_some_and(|pattern| !supports_local_control_type(pattern_type(pattern)))
-                || state.bindings.iter().any(|binding| {
-                    !supports_local_control_type(pattern_type(&binding.pattern))
-                        || matches!(binding.operation, control::Operation::MakeClosure { .. })
-                })
+                || state
+                    .bindings
+                    .iter()
+                    .any(|binding| !supports_local_control_type(pattern_type(&binding.pattern)))
             {
                 return false;
             }
@@ -276,7 +276,7 @@ impl BodyEmitter<'_> {
                     self.emit_control_owned_pattern_assignment(
                         output,
                         &input,
-                        self.emit_call(callee, argument, false),
+                        self.emit_local_control_call(callee, argument),
                     );
                     output.push(Statement::goto(state_label(*resume)));
                 }
@@ -307,7 +307,7 @@ impl BodyEmitter<'_> {
                     )));
                 }
                 Some(ControlCallMode::Direct(_)) => {
-                    let result = self.emit_call(callee, argument, false);
+                    let result = self.emit_local_control_call(callee, argument);
                     self.emit_local_control_return(
                         output,
                         function,
@@ -492,5 +492,25 @@ impl BodyEmitter<'_> {
             .iter()
             .find(|function| function.id == id)
             .expect("control lowering preserves function identities")
+    }
+
+    fn emit_local_control_call(&self, callee: &Atom, argument: &Atom) -> Expr {
+        if let AtomKind::Reference(Reference::Binding(id)) = callee.kind
+            && self.closure_uses.direct_closure(id).is_some_and(|target| {
+                self.control_frames
+                    .closure_crosses_suspension(target.creator)
+            })
+        {
+            let callee = self.emit_atom(callee);
+            return Expr::call(
+                callee.clone().field("call"),
+                [
+                    Expr::identifier("mal_context"),
+                    callee.field("environment"),
+                    self.emit_atom(argument),
+                ],
+            );
+        }
+        self.emit_call(callee, argument, false)
     }
 }

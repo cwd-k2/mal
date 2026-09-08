@@ -25,8 +25,10 @@ direct self non-tail recursionを一つのC activation内のcontrol machineに�
 activation cleanup後、resume時にlocal slotへmoveする。copy-onlyの正しさを先に成立させており、last-use transferは未適用である。
 direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
-function valueを含むstate、indirect call、mutual recursionは現時点では従来のC emissionを使う。次の適用段階ではclosure environmentの
-ownerとentry stateをcontrol machineへ組み込み、sanitizerを含むlifetime testを同じgateとして維持する。
+function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。
+managed captureはenvironmentの型別destructorまで含めてretain/releaseする。indirect callとmutual recursionは現時点では従来の
+C emissionを使う。次の適用段階ではclosureのcodeとenvironmentをentry stateへ渡す共通dispatchを導入し、sanitizerを含む
+lifetime testを同じgateとして維持する。
 
 ## 抽象machine
 
