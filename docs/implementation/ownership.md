@@ -61,6 +61,27 @@ slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyま
 すべてのtail edgeが同じslotをそのまま次状態へ渡す場合、そのslotと冒頭でdestructureしたfieldはloop中のknown direct callへ
 borrowできる。slot自身のownershipとtail edgeでのtransferは維持する。
 
+## control frame
+
+application control loweringでhandlerがnon-tail callによりsuspendすると、callerのC activationはdispatcherへreturnする。
+resume stateのlive-inにある値だけをcall-site固有frameへ保存し、top-level bindingはprogram storageから再取得する。
+
+初版ではmanaged live bindingを型ごとのcopy operationでframe-owned fieldへ保存してから、activation側のinitialized slotを
+destroyする。resume時はfieldをzero状態にしてownerをlocal slotへmoveし、frame自体をpopする。これにより、従来borrowだった
+parameterやcase payloadもsuspension中は独立したownerを持つ。後からlast-use情報によりcopyとactivation側destroyを一つのtransferへ
+まとめてよいが、frame前後のowner数を変えてはならない。
+
+resume後にenvironment fieldまたはself closureを使う場合、frameはcaller environmentのownership shareも保持する。callee entryへ
+渡すenvironmentは、caller frameとは別のshareを確保してからcurrent activationを終了する。tail applicationではcaller frameを
+作らず、callee argumentとenvironmentを次entryへ移した後にcaller localをdestroyする。
+
+call-only local closureのC stack配置は、そのclosureとborrowed captureが同じhandler activation内だけで使われる場合に限る。
+closure bindingまたはそのenvironmentがsuspensionをまたぐ場合はheap environmentへfallbackする。control frameのbyte storageが
+移動し得るため、frame内captureのaddressをclosure environmentとして公開する最適化は行わない。
+
+trapではcontrol frameをunwindせず、従来のC activationと同様にprocessを直ちに異常終了する。control storageのcapacity不足は
+Engram allocation trapではなくimplementation resource failureであり、managed fieldの通常cleanupを開始しない。
+
 ## 型ごとのoperation
 
 | 型 | copy | destroy |
