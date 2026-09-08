@@ -124,6 +124,16 @@ managed first-class cycleは同等帯を維持し、通常・sanitizerのmanaged
 一方、016と通常のC recursionに対するfocused caseの残差はarenaの局所化では消えない。次段は個別frame fieldの削減ではなく、
 explicit transitionとboundedなC call batchingを同じcontinuation対応の下で比較する。
 
+depth 20のHanoiをCallgrind 3.27.1で比較すると、region版は通常C再帰に対してinstruction referenceが0.84、data referenceが
+0.80だったが、conditional branchは2.48、branch mispredictionは2.04だった。同じ生成binaryの手動defunctionalize経路に対しては、
+region版のinstruction referenceが1.32、data referenceが1.75、conditional branchが1.50、branch mispredictionが3.05である。
+nativeのwarmup 3回、交互30 roundではregion版と通常C再帰はHanoiで1.04、linear unwindで1.06だった。
+
+first-class non-tail cycleをdepth 10,000で1回実行したCallgrind比較では、region版は変換前の通常C call経路に対してinstruction
+referenceが2.26、data referenceが3.78、conditional branchが5.26だった。Hanoiだけからmemory traffic削減を結論できず、共通machine
+ではcode identity選択、entry dispatch、resumeが独立した主要costである。したがって次の実験はframeを省略せず、C callが正常に戻る
+batch内だけ既知resumeへ直行し、spill時には既存frameを保持してdriverまでunwindする。
+
 ## 個別調査
 
 | Case | 分離した境界 | 現在の判断 |

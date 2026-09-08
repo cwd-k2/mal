@@ -169,6 +169,40 @@ possible call graphからのregion partition、各dispatch siteとfunction entry
 対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、
 acyclic direct、managed pressure suiteを退行させないことである。
 
+## bounded direct execution
+
+region machineのdispatcher分岐を償却する候補として、同じregion内のnon-tail applicationを一定段数だけ通常のC callで実行する。
+単にdepth counterが尽きたcalleeだけをdispatcherへ送ると、それ以前のC activationが保持するcontinuationを失うか、C stackを残したまま
+次batchへ入り、Mal call depthに比例してC stackが増える。この形は採用しない。
+
+各regionはdriverとworkerを持つ。driverはarenaと次entryを所有し、compile-time定数`B`をfuelとしてworkerを開始する。workerが
+region内non-tail callを実行するときは、現在と同じtyped frameをcall前にpushしてcontinuationをdurableにする。fuelが残る場合だけ
+callee workerをC callする。calleeがframeの直上まで通常returnした場合、caller workerは既知のframeをpopし、site固有のresumeへ直接
+進む。fuelが尽きた場合はcallee entry、environment owner、argumentをdriver stateへmoveして`Spill`を返し、途中のworkerはframeを
+popせず`Spill`を伝播する。driverまでunwindした後にfuelを補充して次batchを始める。
+
+```text
+worker(entry, fuel, base-top) -> Complete(value) | Spill(next-entry, environment, argument)
+
+same-region non-tail call:
+  push Frame_site(live-values)
+  if fuel > 0:
+    Complete(value) = worker(callee, fuel - 1, top)
+      => pop Frame_site; resume_site(value)
+    Spill(next) => propagate Spill(next) without pop
+  else:
+    publish callee; return Spill(callee)
+```
+
+frameはC call成功時にも先に作るため、どの深度でspillしてもsource continuationと同じ順序でarenaに残る。managed localは従来どおり
+frameへmoveし、通常returnではframeからcaller localへmove-backし、spill時はframeだけがownerを保持する。tail applicationは新しい
+continuationを作らないのでC callせずregion内jumpを保つ。異なるregionへのcallはcondensation DAG上の従来のC callである。
+
+同時に存在するworker activationはregionごとに高々`B + 1`であり、program全体ではregion condensation pathに沿う有限和となる。
+`B = 0`は現在のpure dispatcherと同じ遷移になるため、意味論とstorage layoutを変えず比較できる。`B`はcall siteやprofileごとに変えず、
+direct self、mutual、first-classを同じregion ruleで扱う。採用前に複数の固定値についてwall-clock、branch、code size、深度fixture、
+managed pressureを測り、portable C stackの上限と改善が両立する一つのbackend定数を選ぶ。
+
 ## 正しさ
 
 各control stateのframe列を元のANF evaluation contextへ戻す対応`R`を定める。sourceのstepに対してcontrol machineが有限stepで

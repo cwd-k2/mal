@@ -49,9 +49,10 @@ stack stateをC localへ移した[refinement](performance.md#control-region-refi
 unwindは0.73、元の退行6 caseは幾何平均0.90となった。direct tail、acyclic direct、managed pressureとC stack boundは維持した。
 
 残るcostはarenaの所属や単一frame siteの形ではなく、explicit frameのpush、resume、dispatchと通常のC callとの表現差にある。
-次は両者のinstruction、branch、code sizeを同じrecursive regionで分解し、一定段数だけC callするbounded batchingを検討する。
-段数はcompile-time定数でboundし、外部entryとspill後の継続を同じtyped frameへ写せること、region間のC-call DAGを壊さないことを
-先に示す。これを満たさないcall-site別の閾値やframe field削減は採用しない。
+Callgrindではdirect Hanoiのregion版は通常C再帰よりinstructionとdata referenceが少ない一方でconditional branchが2.48倍、
+first-class cycleではinstructionが2.26倍、data referenceが3.78倍、conditional branchが5.26倍だった。次は
+[bounded direct execution](application-control-lowering.md#bounded-direct-execution)として、frameをcall前にdurableにし、正常returnは
+既知resumeへ直行、fuel切れはframeを残してdriverまでunwindする。これを満たさないcall-site別の閾値やframe field削減は採用しない。
 
 queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
 実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。
