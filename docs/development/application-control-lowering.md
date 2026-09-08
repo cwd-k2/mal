@@ -247,7 +247,7 @@ lowering後にstate graphのbackward livenessを解き、各stateへentry時に�
 
 | 分類 | 確認する性質 |
 |---|---|
-| 構造検査 | 未処理`Call`なし、tail edgeでpushなし、C-call edge集合がacyclic、frame fieldがlive valueと一致 |
+| 構造検査 | 未処理`Call`なし、tail edgeでpushなし、C-call edge集合がacyclic、region内non-tail siteとframe集合の一致、frame fieldとresume live-inの一致、crossing closure集合とarena集合の一致 |
 | semantic test | result、evaluation order、extern trace、managed lifetime、trapの一致 |
 | generated C検査 | Mal call depthに対するC stack bound、defined alignmentとsize計算、期待するfusion |
 | 実測 | wall-clock、instruction count、branch、cache、code size、resident memory |

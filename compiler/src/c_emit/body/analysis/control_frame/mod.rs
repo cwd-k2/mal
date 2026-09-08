@@ -103,9 +103,27 @@ impl ControlFramePlan {
     pub(in crate::c_emit::body) fn is_valid(
         &self,
         program: &control::Program,
+        regions: &ControlRegionPlan,
         types: &TypeRegistry,
+        closure_uses: &ClosureUsePlan,
     ) -> bool {
-        self.frames.iter().all(|(site, frame)| {
+        let expected_sites = program
+            .states
+            .iter()
+            .enumerate()
+            .filter_map(|(index, state)| {
+                let site = StateId(index);
+                (regions.site_region(site).is_some()
+                    && matches!(state.terminator, Terminator::Call { .. }))
+                .then_some(site)
+            })
+            .collect::<HashSet<_>>();
+        let frame_sites = self.frames.keys().copied().collect::<HashSet<_>>();
+        if frame_sites != expected_sites {
+            return false;
+        }
+
+        let frames_match_resume_live_ins = self.frames.iter().all(|(site, frame)| {
             matches!(
                 program.states[site.0].terminator,
                 Terminator::Call { resume, .. } if resume == frame.resume
@@ -118,6 +136,34 @@ impl ControlFramePlan {
                         field.value == *live && field.managed == types.contains_managed(&live.ty)
                     })
                 && frame.needs_environment == program.states[frame.resume.0].needs_environment
-        })
+        });
+        let expected_closures = expected_sites
+            .iter()
+            .flat_map(|site| {
+                let Terminator::Call { resume, .. } = program.states[site.0].terminator else {
+                    unreachable!("expected frame sites are non-tail calls")
+                };
+                program.states[resume.0].live.iter()
+            })
+            .filter_map(|value| closure_uses.direct_closure(value.id))
+            .map(|closure| closure.creator)
+            .collect::<HashSet<_>>();
+        let expected_arenas = regions
+            .ids()
+            .filter(|region| {
+                expected_sites
+                    .iter()
+                    .any(|site| regions.site_region(*site) == Some(*region))
+            })
+            .enumerate()
+            .map(|(arena, region)| (region, ControlArenaId(arena)))
+            .collect::<HashMap<_, _>>();
+
+        frames_match_resume_live_ins
+            && self.closures_crossing_suspension == expected_closures
+            && self.region_arenas == expected_arenas
     }
 }
+
+#[cfg(test)]
+mod tests;

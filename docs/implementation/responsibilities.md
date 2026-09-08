@@ -49,6 +49,10 @@ editorはそれぞれ別の一覧を持たず、このmappingを参照する。s
 後段が前段のraw inputを再解釈してはならない。未検証入力とadmit済み出力を、optional fieldやflagを持つ
 一つの型で兼用しない。許される操作が異なるsemantic stateには別の型を使う。
 
+stage constructorは成功時に自身のinvariantを満たす型だけを返す。authorityから結果集合を再構成する構造validatorは、
+外部入力のadmissionではなくcompiler内部の整合性検査である。通常testとdebug buildでは`debug_assert!`で実行し、release buildの
+恒常costにはしない。利用者入力により失敗し得る規則はvalidatorへ委ねず、所有stageがstructured diagnosticとして常に検査する。
+
 raw bytes、path、OS error、process status、C toolchain argumentは`source`、CLI、`driver`の境界で止める。
 core passへ渡す前に`SourceFile`、`Diagnostic`、またはtyped compiler outcomeへ変換する。
 

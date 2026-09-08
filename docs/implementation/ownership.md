@@ -5,11 +5,12 @@ Status: Current implementation contract
 この文書はreference C backendがmanaged Engramの保持と解放を生成する規約を定める。source-levelの意味と
 authorityは[Engram仕様](../spec/engrams.md)、hostとの受け渡しは[C host ABI](../spec/c-host-abi.md)を正とする。
 
-## 現在の状態
+## 保証範囲
 
-v0.5が現在受理するprogramとtrusted C adapter contractの範囲では、ownership correctnessに必要なcopy、transfer、
-cleanup、local owned bindingのlast-use transfer、owned direct call、consuming `Symbol` concatは実装済みである。ownershipに関する残件は、
-現行contractを変えないescape analysis、region化などの最適化であり、正しさを成立させるための未実装要件ではない。
+v0.5が受理するprogramとtrusted C adapter contractの範囲では、各managed ownerはlocal slot、closure environment、
+top-level storage、typed continuation frameのいずれか一箇所に属する。copyはownerを一つ増やし、transferは移動元をzero状態にし、
+scope、activation、programの終端では対応するownerを一度だけ解放する。last-use transfer、owned direct call、consuming `Symbol` concatも
+この規約の特殊化であり、別のownership authorityを持たない。
 
 将来、managed cycle、thread間共有、host resourceの自動解放などを言語またはABIへ追加する場合は、その新しい範囲に
 対するownership設計を別途行う。これは現在のv0.5 ownership実装の未完成部分ではない。
@@ -66,9 +67,9 @@ borrowできる。slot自身のownershipとtail edgeでのtransferは維持す�
 application control loweringでhandlerがnon-tail callによりsuspendすると、callerのC activationはdispatcherへreturnする。
 resume stateのlive-inにある値だけをcall-site固有frameへ保存し、top-level bindingはprogram storageから再取得する。
 
-初版ではmanaged live bindingを型ごとのcopy operationでframe-owned fieldへ保存してから、activation側のinitialized slotを
-destroyする。resume時はfieldをzero状態にしてownerをlocal slotへmoveし、frame自体をpopする。これにより、従来borrowだった
-parameterやcase payloadもsuspension中は独立したownerを持つ。後からlast-use情報によりcopyとactivation側destroyを一つのtransferへ
+managed live bindingは型ごとのcopy operationでframe-owned fieldへ保存してから、activation側のinitialized slotを
+destroyする。resume時はfieldをzero状態にしてownerをlocal slotへmoveし、frame自体をpopする。これにより、parameterやcase payloadも
+suspension中は独立したownerを持つ。後からlast-use情報によりcopyとactivation側destroyを一つのtransferへ
 まとめてよいが、frame前後のowner数を変えてはならない。
 
 resume後にenvironment fieldまたはself closureを使う場合、frameはcaller environmentのownership shareも保持する。callee entryへ
@@ -79,7 +80,7 @@ call-only local closureのC stack配置は、そのclosureとborrowed captureが
 closure bindingまたはそのenvironmentがsuspensionをまたぐ場合はheap environmentへfallbackする。control frameのbyte storageが
 移動し得るため、frame内captureのaddressをclosure environmentとして公開する最適化は行わない。
 
-trapではcontrol frameをunwindせず、従来のC activationと同様にprocessを直ちに異常終了する。control storageのcapacity不足は
+trapではcontrol frameをunwindせず、processを直ちに異常終了する。control storageのcapacity不足は
 Engram allocation trapではなくimplementation resource failureであり、managed fieldの通常cleanupを開始しない。
 
 ## 型ごとのoperation

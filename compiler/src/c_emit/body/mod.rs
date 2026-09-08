@@ -120,18 +120,7 @@ impl<'a> BodyEmitter<'a> {
         }));
         let control_frames =
             ControlFramePlan::new(&control, &control_regions, types, &closure_uses);
-        debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
-            !matches!(
-                state.terminator,
-                crate::control::ast::Terminator::Call { .. }
-            ) || control_regions
-                .site_region(crate::control::ast::StateId(index))
-                .is_none()
-                || control_frames
-                    .frame(crate::control::ast::StateId(index))
-                    .is_some()
-        }));
-        debug_assert!(control_frames.is_valid(&control, types));
+        debug_assert!(control_frames.is_valid(&control, &control_regions, types, &closure_uses));
         let needs = RuntimeNeeds {
             control_arenas: control_frames.arena_count(),
             ..RuntimeNeeds::default()
