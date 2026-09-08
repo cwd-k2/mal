@@ -4,7 +4,7 @@ use crate::c_emit::syntax::{
     TypeName, VariableDeclaration,
 };
 
-pub(super) fn emit(needs_symbol_copy: bool) -> TranslationUnit {
+pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
@@ -26,10 +26,16 @@ pub(super) fn emit(needs_symbol_copy: bool) -> TranslationUnit {
         "MalSymbolRope",
     ));
     output.blank_line();
-    output.push(AggregateDefinition::structure(
-        "MalContext",
-        [AggregateField::variable("uint8_t", "unused")],
-    ));
+    let mut context_fields = vec![AggregateField::variable("uint8_t", "unused")];
+    if needs_control_stack {
+        context_fields.extend([
+            AggregateField::variable(TypeName::named("uint8_t").pointer(), "control_storage"),
+            AggregateField::variable("size_t", "control_capacity"),
+            AggregateField::variable("size_t", "control_top"),
+            AggregateField::variable("size_t", "control_frame"),
+        ]);
+    }
+    output.push(AggregateDefinition::structure("MalContext", context_fields));
     output.push(Directive::If(live_allocation_tracking()));
     output.push(Declaration::variable(VariableDeclaration::static_variable(
         "size_t",
@@ -61,6 +67,9 @@ pub(super) fn emit(needs_symbol_copy: bool) -> TranslationUnit {
     output.blank_line();
 
     append_trap(&mut output);
+    if needs_control_stack {
+        append_control_stack(&mut output);
+    }
     let mut context_destroy = Block::new([
         Statement::expression(Expr::cast("void", Expr::identifier("context"))),
         Statement::directive(Directive::If(PreprocessorExpr::defined(
@@ -92,6 +101,12 @@ pub(super) fn emit(needs_symbol_copy: bool) -> TranslationUnit {
         "MAL_TEST_RETAIN_LIMIT",
         "retain limit exceeded",
     );
+    if needs_control_stack {
+        context_destroy.push(Statement::call(
+            "free",
+            [Expr::identifier("context").pointer_field("control_storage")],
+        ));
+    }
     push_test_counter_limit_check(
         &mut context_destroy,
         "mal_test_release_count",
@@ -119,6 +134,184 @@ pub(super) fn emit(needs_symbol_copy: bool) -> TranslationUnit {
     }
     append_symbol_materialization(&mut output);
     output
+}
+
+fn append_control_stack(output: &mut TranslationUnit) {
+    append_function(
+        output,
+        FunctionSignature::no_return(
+            "void",
+            "mal_control_resource_failure",
+            [Parameter::named(
+                TypeName::const_named("char").pointer(),
+                "message",
+            )],
+        )
+        .maybe_unused(),
+        Block::new([
+            Statement::call(
+                "fputs",
+                [
+                    Expr::string("mal implementation resource failure: "),
+                    Expr::identifier("stderr"),
+                ],
+            ),
+            Statement::call(
+                "fputs",
+                [Expr::identifier("message"), Expr::identifier("stderr")],
+            ),
+            Statement::call("fputc", [Expr::character('\n'), Expr::identifier("stderr")]),
+            Statement::call("abort", []),
+        ]),
+    );
+
+    let alignment = Expr::sizeof_type("max_align_t");
+    let padded_input = Expr::add(
+        Expr::identifier("size"),
+        Expr::subtract(alignment.clone(), Expr::number("1")),
+    );
+    let padded = Expr::multiply(
+        Expr::divide(padded_input, alignment.clone()),
+        alignment.clone(),
+    );
+    let mut body = Block::new([
+        Statement::if_then(
+            Expr::greater(
+                Expr::identifier("size"),
+                Expr::subtract(
+                    Expr::identifier("SIZE_MAX"),
+                    Expr::subtract(alignment, Expr::number("1")),
+                ),
+            ),
+            control_failure("control frame size overflow"),
+        ),
+        Statement::variable("size_t", "padded", Some(padded)),
+        Statement::if_then(
+            Expr::greater(
+                Expr::identifier("context").pointer_field("control_top"),
+                Expr::subtract(Expr::identifier("SIZE_MAX"), Expr::identifier("padded")),
+            ),
+            control_failure("control stack size overflow"),
+        ),
+        Statement::variable(
+            "size_t",
+            "required",
+            Some(Expr::add(
+                Expr::identifier("context").pointer_field("control_top"),
+                Expr::identifier("padded"),
+            )),
+        ),
+    ]);
+    let mut grow = Block::new([
+        Statement::variable(
+            "size_t",
+            "capacity",
+            Some(Expr::identifier("context").pointer_field("control_capacity")),
+        ),
+        Statement::if_then(
+            Expr::equal(Expr::identifier("capacity"), Expr::number("0")),
+            Block::new([Statement::assignment(
+                Expr::identifier("capacity"),
+                Expr::number("256"),
+            )]),
+        ),
+    ]);
+    grow.push(Statement::if_then(
+        Expr::less(Expr::identifier("capacity"), Expr::identifier("required")),
+        Block::new([Statement::if_else(
+            Expr::logical_or(
+                Expr::greater(
+                    Expr::identifier("capacity"),
+                    Expr::divide(Expr::identifier("SIZE_MAX"), Expr::number("2")),
+                ),
+                Expr::less(
+                    Expr::multiply(Expr::identifier("capacity"), Expr::number("2")),
+                    Expr::identifier("required"),
+                ),
+            ),
+            Block::new([Statement::assignment(
+                Expr::identifier("capacity"),
+                Expr::identifier("required"),
+            )]),
+            Block::new([Statement::assignment(
+                Expr::identifier("capacity"),
+                Expr::multiply(Expr::identifier("capacity"), Expr::number("2")),
+            )]),
+        )]),
+    ));
+    grow.push(Statement::directive(Directive::If(
+        PreprocessorExpr::defined("MAL_TEST_FORCE_CONTROL_ALLOCATION_FAILURE"),
+    )));
+    grow.push(Statement::variable(
+        TypeName::named("void").pointer(),
+        "storage",
+        Some(Expr::identifier("NULL")),
+    ));
+    grow.push(Statement::directive(Directive::Else));
+    grow.push(Statement::variable(
+        TypeName::named("void").pointer(),
+        "storage",
+        Some(Expr::named_call(
+            "realloc",
+            [
+                Expr::identifier("context").pointer_field("control_storage"),
+                Expr::identifier("capacity"),
+            ],
+        )),
+    ));
+    grow.push(Statement::directive(Directive::Endif));
+    grow.push(Statement::if_then(
+        Expr::equal(Expr::identifier("storage"), Expr::identifier("NULL")),
+        control_failure("control stack allocation failed"),
+    ));
+    grow.push(Statement::assignment(
+        Expr::identifier("context").pointer_field("control_storage"),
+        Expr::cast(
+            TypeName::named("uint8_t").pointer(),
+            Expr::identifier("storage"),
+        ),
+    ));
+    grow.push(Statement::assignment(
+        Expr::identifier("context").pointer_field("control_capacity"),
+        Expr::identifier("capacity"),
+    ));
+    body.push(Statement::if_then(
+        Expr::greater(
+            Expr::identifier("required"),
+            Expr::identifier("context").pointer_field("control_capacity"),
+        ),
+        grow,
+    ));
+    body.push(Statement::variable(
+        "size_t",
+        "start",
+        Some(Expr::identifier("context").pointer_field("control_top")),
+    ));
+    body.push(Statement::assignment(
+        Expr::identifier("context").pointer_field("control_top"),
+        Expr::identifier("required"),
+    ));
+    body.push(Statement::return_value(Expr::add(
+        Expr::identifier("context").pointer_field("control_storage"),
+        Expr::identifier("start"),
+    )));
+    append_function(
+        output,
+        FunctionSignature::static_function(
+            TypeName::named("void").pointer(),
+            "mal_control_push",
+            [context_parameter(), Parameter::named("size_t", "size")],
+        )
+        .maybe_unused(),
+        body,
+    );
+}
+
+fn control_failure(message: &str) -> Block {
+    Block::new([Statement::call(
+        "mal_control_resource_failure",
+        [Expr::string(message)],
+    )])
 }
 
 fn append_trap(output: &mut TranslationUnit) {

@@ -35,6 +35,7 @@ use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
+    pub(super) control_stack: bool,
     pub(super) wrap: u16,
     pub(super) divide: u16,
     pub(super) remainder: u16,
@@ -113,10 +114,14 @@ impl<'a> BodyEmitter<'a> {
                     .is_some()
         }));
         debug_assert!(control_frames.is_valid(&control, types));
+        let needs = RuntimeNeeds {
+            control_stack: control_calls.requires_dispatch(),
+            ..RuntimeNeeds::default()
+        };
         Self {
             program,
             types,
-            needs: RuntimeNeeds::default(),
+            needs,
             next_discard: 0,
             ownership,
             closure_uses,

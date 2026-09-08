@@ -137,6 +137,37 @@ fn heap_allocates_a_local_closure_live_across_control_suspension() {
 }
 
 #[test]
+fn emits_control_storage_only_for_programs_with_dispatch_edges() {
+    let recursive = emit(
+        "depth :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           if (value == 0i32)\n\
+             then { 0i32 }\n\
+             else { 1i32 + depth(value - 1i32) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { depth(4i32) - 4i32; };",
+    )
+    .expect("emit a recursive control stack");
+    assert!(recursive.source.contains("uint8_t *control_storage;"));
+    assert!(recursive.source.contains("mal_control_push("));
+    assert!(
+        recursive
+            .source
+            .contains("mal implementation resource failure: ")
+    );
+    let fixture = NativeFixture::new("control-stack-runtime");
+    let executable = fixture.compile_generated(recursive, "");
+    assert!(fixture.run(executable).status.success());
+
+    let acyclic = emit(
+        "identity :: Int32 -> Int32 := \\(value :: Int32) { value; };\n\
+         main :: Unit -> Int32 := \\() { identity(0i32); };",
+    )
+    .expect("emit an acyclic direct call");
+    assert!(!acyclic.source.contains("control_storage"));
+    assert!(!acyclic.source.contains("mal_control_push"));
+}
+
+#[test]
 fn stack_closure_calls_use_flattened_product_entries() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\

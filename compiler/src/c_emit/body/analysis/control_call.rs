@@ -90,6 +90,12 @@ impl ControlCallPlan {
     pub(in crate::c_emit::body) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
         self.modes.get(&site).copied()
     }
+
+    pub(in crate::c_emit::body) fn requires_dispatch(&self) -> bool {
+        self.modes
+            .values()
+            .any(|mode| *mode == ControlCallMode::Dispatch)
+    }
 }
 
 fn direct_graph(
