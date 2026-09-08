@@ -130,6 +130,47 @@ calleeがsuspendし得る通常C callを残したままcycleを一部だけdispa
 静的にcall depth上限を証明するspecialization、suspendを伝播するdirect convention、一定段数だけC callするbounded batchingは
 将来の候補だが、bounded C stackと実測上の利益を独立に示してから追加する。初版の判定はprofileなしに結果が変わらない規則とする。
 
+## 解析authorityとminimality
+
+C表現の判定は、同じ事実を後段が再推論しない一方向の導出にする。
+
+```text
+control IR + closure use
+  -> possible application graph
+  -> recursive control regions
+  -> siteごとのedge mode
+  -> suspension frameとclosure lifetime
+  -> region emissionとarena需要
+```
+
+possible application graphは各Mal function applicationについてcaller、有限なuser-function target集合、known targetか
+first-class targetかを一度だけ所有する。target集合は型互換性とclosure-use解析から保守的に求め、direct C call、dispatch、
+frame、storageの都合を混ぜない。top-level initializerはrecursive SCCのnodeではないが、同じsite target情報を使ってedge modeを
+決める。
+
+recursive control regionはこのgraphのrecursive SCCをauthorityとする。同一regionを閉じるtargetだけをregion dispatch対象とし、
+region外targetはcondensation graph上の通常C callへfallbackできる。siteのedge modeはregion所属から導出し、edgeごとの到達性探索で
+cycleを再判定しない。direct self tailとpure forwarder fusionはframeを作らない同一region遷移のC specializationであり、possible
+targetやregion identityを消す根拠にはしない。
+
+suspensionはnon-tail applicationが同一region targetへcontrolを渡す場合だけ発生する。frame layout、resume live owner、environment
+owner、local closureのheap fallbackはこのsuspension site集合からだけ導出する。callee選択のために`Dispatch`を使うこと自体は
+suspensionを意味せず、region外へ通常C callするだけのindirect siteはactivation-local lifetimeを延長しない。`Symbol`を含むmanaged
+valueでもsource-level lifetime authorityは変わらず、frameが必要な場合にだけownerの一時的な保存場所がlocal slotからframeへ移る。
+
+regionの存在、共通machineの必要性、arenaの必要性も分離する。複数entryまたはindirect region edgeがあれば共通machineを使うが、
+tail遷移だけのregionはcontinuationを保存しないためarenaを持たない。arenaはframeを持つregionだけに割り当て、`MalContext`がcacheする
+pointerとcapacityを、各invocationだけが持つ`top`とcurrent frameから型として分ける。これらの派生値を独立したplanへ複製せず、regionと
+frameのauthorityへ問い合わせる。
+
+移行は次の順で行う。
+
+1. possible application graphを独立した解析結果にし、target列挙を一箇所へ集約する。
+2. regionをgraphから、edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
+3. frameとclosure lifetimeをsuspension siteから導出し、共通machine判定の複製を除く。
+4. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
+5. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
+
 ## control regionへのrefinement
 
 実装後測定ではC-call edgeの非循環化自体ではなく、全recursive continuationを一つの`MalContext`内の可変byte stackへ置き、
@@ -169,55 +210,12 @@ possible call graphからのregion partition、各dispatch siteとfunction entry
 対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、
 acyclic direct、managed pressure suiteを退行させないことである。
 
-## bounded direct execution
+## 棄却した実行refinement
 
-region machineのdispatcher分岐を償却する候補として、同じregion内のnon-tail applicationを一定段数だけ通常のC callで実行する。
-各regionはdriverとworkerを持つ。driverはarenaをlocalへ取り出し、compile-time定数`B`をfuelとしてworkerを開始する。workerは
-arenaのpointerとtop、今回のC activationが消費してよい下限`base-top`を共有する。
-
-workerがregion内non-tail callを実行するときは、現在と同じtyped frameをcall前にpushしてcontinuationをdurableにする。fuelが残る
-場合だけcallee workerをC callし、push後のtopをcalleeの`base-top`にする。calleeはfunction resultを得てtopが`base-top`と一致したら、
-その直下のcaller frameを消費せずC returnする。callerは型が既知のframeをpopし、site固有のresumeへ直接進む。fuelが尽きた場合は
-C callせず、現在のactivation内でcallee entryへjumpする。以後は従来のdispatcherとして任意深度を実行し、topがそのactivationの
-`base-top`へ戻った時だけC returnする。
-
-```text
-worker(entry, fuel, base-top) -> value
-
-same-region non-tail call:
-  push Frame_site(live-values)
-  if fuel > 0:
-    value = worker(callee, fuel - 1, top)
-    pop the known Frame_site without dispatch
-    resume_site(value)
-  else:
-    enter callee in the current worker
-
-function return:
-  if top == base-top: return value
-  else: pop and dispatch the top frame
-```
-
-frameはC call前に作るため、worker activationの有無によらずsource continuationと同じ順序でarenaに残る。managed localは従来どおり
-frameへmoveし、calleeのC return後またはdispatcher resume時にframeからcaller localへmove-backする。tail applicationは新しい
-continuationを作らないのでC callせずregion内jumpを保つ。異なるregionへのcallはcondensation DAG上の従来のC callである。
-
-同時に存在するworker activationはregionごとに高々`B + 1`であり、program全体ではregion condensation pathに沿う有限和となる。
-`B = 0`は現在のpure dispatcherと同じ遷移になるため、意味論とstorage layoutを変えず比較できる。`B`はcall siteやprofileごとに変えず、
-direct self、mutual、first-classを同じregion ruleで扱う。採用前に複数の固定値についてwall-clock、branch、code size、深度fixture、
-managed pressureを測り、portable C stackの上限と改善が両立する一つのbackend定数を選ぶ。
-
-この「call前にarena frameを作り、同じcontinuationをC activationにも保持する」refinementはprototypeで棄却した。pure dispatcherを
-別functionへ分離してoptimizerへの再帰edge混入を避けても、direct self Hanoiは`B = 1`で現行と同等、`B = 2`で1.16倍へ退行した。
-二つのstorageへcontinuationを常時重複する方式は、fuelの値を局所調整して採用しない。
-
-次に検討できるsegmented executionでは、batch中のcontinuationをC activationだけに置き、fuel切れ時にだけbounded scratchへspillする。
-innerからouterへunwindする順序とarenaのouterからinnerへのframe順序が逆になるため、driverが高々`B`個のscratch recordを逆順に
-materializeする必要がある。managed ownerはspill時にC localからscratchへ、materialize時にscratchからarenaへ一度ずつmoveする。
-通常returnではarena frameを作らない。この表現は常時二重化を避ける一方、`Spill`伝播、可変型scratch record、entry argumentの保存を
-追加する。scalar引数でgenerated direct entryと同じ形にしたstandalone modelでは、direct C比が`B = 8`で1.18、`B = 16`で1.16、
-`B = 32`で1.17となり棄却した。first-class regionだけに限定すれば別の結果になり得るが、同じcontinuation machineへcall形状別の
-storage ruleを加える根拠にはしない。現行のpure dispatcherをregion共通のrefinementとする。
+continuationをarenaとC activationへ重複して置くbounded direct executionと、一定段数をC activationだけに置いて後からspillする
+segmented executionは、いずれも一般的なregion規則として採用しない。正しさを保ててもstorage authorityを複数にし、現行測定では
+一貫した改善を示さなかったためである。設計authorityはpure dispatcherに保ち、実験条件と計測値は
+[性能評価](performance.md#control-region-refinement)に置く。
 
 ## 正しさ
 
