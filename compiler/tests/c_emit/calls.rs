@@ -168,6 +168,31 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
 }
 
 #[test]
+fn emits_typed_control_frame_fields_for_live_symbols() {
+    let generated = emit(
+        "recurse :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, prefix :: Symbol) {\n\
+           if (depth == 0i32)\n\
+             then { prefix }\n\
+             else {\n\
+               suffix := recurse(depth - 1i32, prefix);\n\
+               prefix + suffix;\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           value := recurse(2i32, \"x\");\n\
+           Int32(value # 0u64) - 120i32;\n\
+         };",
+    )
+    .expect("emit a managed recursive frame");
+
+    assert!(generated.source.contains("MalControlFrameHeader header;"));
+    assert!(generated.source.contains("MalType_Symbol field_"));
+    let fixture = NativeFixture::new("typed-symbol-control-frame");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn stack_closure_calls_use_flattened_product_entries() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\

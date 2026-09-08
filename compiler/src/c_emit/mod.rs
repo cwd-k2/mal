@@ -52,6 +52,7 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
     source.extend(types.source_declarations(&host));
     source.extend(body.environment_declarations);
     source.extend(runtime::emit(&body.needs));
+    source.extend(body.control_frames);
     source.extend(types.lifetime_definitions());
     source.extend(body.environment_definitions);
     source.extend(body.globals);

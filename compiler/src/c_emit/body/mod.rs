@@ -10,6 +10,7 @@ use super::types::TypeRegistry;
 
 mod analysis;
 mod call;
+mod control;
 mod entry;
 mod expression;
 mod function;
@@ -63,6 +64,7 @@ pub(super) struct BodyOutput {
     pub(super) globals: TranslationUnit,
     pub(super) function_declarations: TranslationUnit,
     pub(super) function_definitions: TranslationUnit,
+    pub(super) control_frames: TranslationUnit,
     pub(super) initializer: TranslationUnit,
     pub(super) program_destroy: TranslationUnit,
     pub(super) main: TranslationUnit,
@@ -81,7 +83,7 @@ pub(super) struct BodyEmitter<'a> {
     borrowed_bindings: HashSet<ValueId>,
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
-    _control: crate::control::ast::Program,
+    control: crate::control::ast::Program,
     _control_calls: ControlCallPlan,
     control_frames: ControlFramePlan,
 }
@@ -130,7 +132,7 @@ impl<'a> BodyEmitter<'a> {
             borrowed_bindings: HashSet::new(),
             direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
-            _control: control,
+            control,
             _control_calls: control_calls,
             control_frames,
         }
@@ -142,6 +144,7 @@ impl<'a> BodyEmitter<'a> {
         let globals = self.emit_globals();
         let function_declarations = self.emit_function_declarations();
         let function_definitions = self.emit_function_definitions();
+        let control_frames = self.emit_control_frames();
         let initializer = self.emit_initializer();
         let program_destroy = self.emit_program_destroy();
         let main = self.emit_main(main);
@@ -151,6 +154,7 @@ impl<'a> BodyEmitter<'a> {
             globals,
             function_declarations,
             function_definitions,
+            control_frames,
             initializer,
             program_destroy,
             main,

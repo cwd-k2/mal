@@ -137,6 +137,15 @@ pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> Transl
 }
 
 fn append_control_stack(output: &mut TranslationUnit) {
+    output.push(AggregateDefinition::typedef_structure(
+        None,
+        [
+            AggregateField::variable("size_t", "previous_frame"),
+            AggregateField::variable("uint32_t", "resume"),
+        ],
+        "MalControlFrameHeader",
+    ));
+    output.blank_line();
     append_function(
         output,
         FunctionSignature::no_return(
