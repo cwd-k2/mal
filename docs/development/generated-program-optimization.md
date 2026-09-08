@@ -29,7 +29,7 @@ Status: Implemented decisions and follow-up gates
 | aggregate state | 明示的に値として使うproductとdirect形状外のstateを構築する | 032、043 |
 | `Symbol` admission | tokenごとにmal-controlled storageを確保する | 027 |
 | branchとresult | first-class function valueに一般result表現が残る | 043 |
-| call boundary | 現在の既知direct hot pathを支配する境界は観測されない | 016、043 |
+| call boundary | generic closure entryを併設する016で内側helperへのdirect callが残る | 016 |
 | allocator | 短命なEngram allocationを汎用allocatorへ戻すが支配的ではない | 027 |
 | memory contract | unalignedかつalias可能な`Ptr` accessがvectorizationを制約する | 数値・table workload |
 
@@ -121,8 +121,9 @@ sourceまたはextern contractで誰がその事実を選び保証するかを�
 AからDは実装済みであり、direct self-tail stateはnested product bindingを含めてbinding slotへ分割する。79問の再測定結果と
 残差の根拠は[generated C performance](performance.md)を正とする。
 
-現在のprofileでは、既知direct pathを支配するbranch、aggregate result、call boundaryが残らなかったためEの追加specializationは
-導入しない。027の`free`無効化によるwall-clock短縮も約10%で差を支配しないため、Fのallocator recyclingは導入しない。
+現在のprofileでは、016の既知direct pathに内側helperへのcall boundaryが残る。限定的なbody統合はEの候補だが、
+code sizeと適用条件を固定するfocused fixtureがまだないため、この変更には導入しない。027の`free`無効化によるwall-clock短縮も
+約10%で差を支配しないため、Fのallocator recyclingは導入しない。
 memory contractとnarrow integer representationは、source contractまたは独立した証明解析なしに変更しない。
 
 今後新しいprofileが採用gateを満たす場合も、一つのcost modelごとにfocused generated-C test、native execution、通常のcompiler

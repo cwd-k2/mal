@@ -54,34 +54,38 @@ tracked repositoryには含めない。
 ## 2026-09-08最適化後の再測定
 
 同じClang 21.1.8、maximum-order input、warmup 3回、20反復で、79問を現在のcompilerから再生成した。
-測定前にmal側の269 sampleと、79個のmaximum-order inputにおけるmal/Cのstdoutを再検証した。
+測定前にmal側の269 sample、C側の269 sample、79個のmaximum-order inputにおけるmal/Cのstdoutを再検証した。
+両方を`-O2`とpublic buildのstrict float optionでbuildした。
+
+実装方式の差をcompiler差へ混ぜないため、比較上位caseのfixtureも揃えた。005は3個の作業bufferを再利用し、012と028は
+入力を保存せず処理し、055は同じinclude/exclude再帰で列挙する。005、012、016、023、028、032、055のC側storageと
+counterはmal sourceの`Int64`へ合わせ、027のC側もtokenごとの動的admissionと、その後のrecord処理を分離した。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.12 | 1.16 |
-| 両実行時間が1 ms以上 | 60 | 1.16 | 1.15 |
-| 両実行時間が5 ms以上 | 51 | 1.19 | 1.20 |
-| 両実行時間が10 ms以上 | 37 | 1.18 | 1.21 |
+| 全非interactive問題 | 79 | 1.07 | 1.09 |
+| 両実行時間が1 ms以上 | 60 | 1.16 | 1.12 |
+| 両実行時間が5 ms以上 | 51 | 1.19 | 1.17 |
+| 両実行時間が10 ms以上 | 38 | 1.17 | 1.16 |
 
-±5%を同等とするとmalが速いものは10、同等は17、Cが速いものは52だった。1 ms未満の分類数はprocess起動の揺れを
-含むため、初回測定との増減をoptimization効果として扱わない。全体の幾何平均は1.19から1.16へ、5 ms以上は1.23から
-1.20へ、10 ms以上は1.26から1.21へ縮小した。
+±5%を同等とするとmalが速いものは13、同等は22、Cが速いものは44だった。1 ms未満の分類数はprocess起動の揺れを
+含むため、初回測定との増減をoptimization効果として扱わない。全体の幾何平均は1.19から1.09へ、5 ms以上は1.23から
+1.17へ、10 ms以上は1.26から1.16へ縮小した。
 
-大きかった差は006が7.90から3.19、008が6.34から3.47、027が5.25から2.06、029が1.70から1.38、043が
-1.58から1.38へ縮小した。006と008ではnested product bindingを独立したtail slotにしたことで最外層のstate構築が消えたが、
-変更されないnested stateをloop内でprojectし、owned known callへ渡すretain/releaseは残る。これを消すにはcalleeまでborrowを
-伝えるinterprocedural ownership contractが必要であり、pattern projectionだけの局所変更ではshareの作成位置が移るだけだった。
+borrowed direct entryと不変tail slotからのborrowにより、006は7.90倍から1.20倍、008は6.34倍から1.07倍へ縮小した。
+borrow導入前のgenerated Cにあったloop内の`Symbol` retain/releaseは消え、owned tail slot自身の終了時releaseだけが残る。borrowed parameterを
+resultへ保存する経路ではcopyを維持する。
 
-016は2.76のままだった。最適化後IRではmain loopへhelperとstateが融合し、hot pathに`sret`やcall boundaryは残らない。
-direct Cが値域に応じて狭いintegerを選ぶ一方、mal sourceは`Int64`を指定している。この差だけを根拠に表現を狭めず、値域と
-wrap semanticsを証明する解析が別途得られるまで現行表現を保つ。
+fixtureを揃えた後の主な残差は016の2.70倍、027の1.91倍、005の1.60倍、032の1.56倍である。016は同じ`Int64`と同じ二段の
+再帰helperに揃えても、mal生成物では外側loopから内側helperへのdirect callが最終binaryに残り、direct Cでは両loopが融合する。
+したがって以前想定したinteger幅ではなく、generic closure entryを併設する生成物に対するinlining判断が直接原因である。
 
-027でprocess中の`free`を無効にする対照実験は18.5 msから16.6 msへの約10%短縮に留まり、direct Cの8.9 msとの差を
-支配しなかった。recyclingにはhost releaseを含むdeallocationを`MalContext`へ通し、context終了時の解放とallocation counterを
-分離する変更が必要になる。現在のprofileではその複雑さを正当化しないため導入しない。
+027はC側にもtokenごとの動的bufferを置いても差が残る。mal側にはruntime-owned `Symbol` admission、descriptor、固定長recordへの
+copyとreleaseが必要であり、C側の一時bufferより処理が多い。外部buffer adoptionはownership authorityをhostへ広げるため、
+この測定だけを根拠に導入しない。
 
 043にはfirst-class function valueとして保持するproduct result functionが残る。既知direct pathだけのcloneでは一般のclosure
-entryを除けず、全体比率も1.38まで縮小した。016と併せると、全functionへのinline指定や一般的なresult specializationを導入する
+entryを除けない。016の残存callは限定的なbody統合の候補だが、全functionへのinline指定や一般的なresult specializationを導入する
 根拠にはならない。
 
 ## 先行baselineから採用した改善
