@@ -20,7 +20,6 @@ pub(in crate::c_emit::body) enum ControlCallMode {
 
 pub(in crate::c_emit::body) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
-    dispatch_targets: HashMap<StateId, Vec<FunctionId>>,
     dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
 }
 
@@ -32,21 +31,16 @@ impl ControlCallPlan {
         regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
-        let mut dispatch_targets = HashMap::new();
-
         for binding in &control.bindings {
             for site in reachable_states(control, binding.entry) {
+                if application_callee(&control.states[site.0].terminator).is_none() {
+                    continue;
+                }
                 let mode = applications
                     .direct_target(site)
                     .map(ControlCallMode::Direct)
                     .unwrap_or(ControlCallMode::Dispatch);
                 modes.insert(site, mode);
-                if mode == ControlCallMode::Dispatch {
-                    dispatch_targets.insert(
-                        site,
-                        applications.targets(site).unwrap_or_default().to_vec(),
-                    );
-                }
             }
         }
 
@@ -61,18 +55,10 @@ impl ControlCallPlan {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                 } else if regions.site_region(site).is_some() {
                     modes.insert(site, ControlCallMode::Dispatch);
-                    dispatch_targets.insert(
-                        site,
-                        applications.targets(site).unwrap_or_default().to_vec(),
-                    );
                 } else if let Some(callee) = applications.direct_target(site) {
                     modes.insert(site, ControlCallMode::Direct(callee));
                 } else {
                     modes.insert(site, ControlCallMode::Dispatch);
-                    dispatch_targets.insert(
-                        site,
-                        applications.targets(site).unwrap_or_default().to_vec(),
-                    );
                 }
             }
         }
@@ -95,7 +81,6 @@ impl ControlCallPlan {
             .collect();
         Self {
             modes,
-            dispatch_targets,
             dispatch_bindings,
         }
     }
@@ -115,10 +100,6 @@ impl ControlCallPlan {
         id: crate::anf::ast::ValueId,
     ) -> bool {
         self.dispatch_bindings.contains(&id)
-    }
-
-    pub(in crate::c_emit::body) fn dispatch_targets(&self, site: StateId) -> Option<&[FunctionId]> {
-        self.dispatch_targets.get(&site).map(Vec::as_slice)
     }
 
     pub(in crate::c_emit::body) fn requires_common_control(
@@ -285,8 +266,8 @@ mod tests {
             };
             direct_function_id(&uses, callee).is_none()
                 && regions.site_region(StateId(index)).is_some()
-                && plan
-                    .dispatch_targets(StateId(index))
+                && applications
+                    .targets(StateId(index))
                     .is_some_and(|targets| !targets.is_empty())
         }));
         assert!(control.states.iter().enumerate().all(|(index, _)| {

@@ -461,6 +461,44 @@ fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
 }
 
 #[test]
+fn dispatches_every_recursive_target_from_the_application_graph() {
+    let generated = emit(
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+           function(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           left :: Int32 -> Int32 := \\(value :: Int32) {\n\
+             if (value == 0i32) then { 0i32 } else { child := apply(left, value - 1i32); child + 1i32; };\n\
+           };\n\
+           right :: Int32 -> Int32 := \\(value :: Int32) {\n\
+             if (value == 0i32) then { 0i32 } else { child := apply(right, value - 1i32); child + 1i32; };\n\
+           };\n\
+           left(100000i32) + right(100000i32) - 200000i32;\n\
+         };",
+    )
+    .expect("emit every recursive application target");
+
+    let target_checks = generated
+        .source
+        .lines()
+        .filter(|line| line.contains(".call == mal_function_"))
+        .count();
+    assert!(
+        target_checks >= 2,
+        "{target_checks} recursive target checks"
+    );
+
+    let fixture = NativeFixture::new("all-application-graph-targets");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    let result = fixture.run(executable);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
 fn emits_independent_first_class_cycles_as_separate_regions() {
     let generated = emit(
         "apply32 :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) { function(value); };\n\

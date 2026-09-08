@@ -84,6 +84,7 @@ pub(super) struct BodyEmitter<'a> {
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
     control: crate::control::ast::Program,
+    applications: ApplicationGraph,
     tail_calls: TailCallPlan,
     control_calls: ControlCallPlan,
     control_regions: ControlRegionPlan,
@@ -106,7 +107,7 @@ impl<'a> BodyEmitter<'a> {
         debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
             let site = crate::control::ast::StateId(index);
             control_calls.mode(site) != Some(ControlCallMode::Dispatch)
-                || control_calls.dispatch_targets(site).is_some()
+                || applications.targets(site).is_some()
         }));
         debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
             !matches!(
@@ -148,6 +149,7 @@ impl<'a> BodyEmitter<'a> {
             direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
             control,
+            applications,
             tail_calls,
             control_calls,
             control_regions,

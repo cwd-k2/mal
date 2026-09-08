@@ -201,11 +201,18 @@ impl BodyEmitter<'_> {
             ),
         ));
 
-        for target in self
+        let region = self
             .control_regions
-            .recursive_targets(site)
+            .site_region(site)
+            .expect("common dispatch belongs to a control region");
+        for target in self
+            .applications
+            .targets(site)
             .unwrap_or_default()
-            .to_vec()
+            .iter()
+            .copied()
+            .filter(|target| self.control_regions.function_region(*target) == Some(region))
+            .collect::<Vec<_>>()
         {
             debug_assert!(self.uses_common_control(target));
             let target_function = self.function(target).clone();
