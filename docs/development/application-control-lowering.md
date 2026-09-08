@@ -19,7 +19,8 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 
 ## 実装状態
 
-control IR、backward liveness、direct-call cycle判定、typed frame layout、growable control storageは実装済みである。C emitterは
+control IR、backward liveness、possible call graphのrecursive SCC partition、typed frame layout、region別のgrowable control
+storageは実装済みである。C emitterは
 direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
 `Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
 activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
@@ -30,11 +31,11 @@ function valueを含むlocal stateもcontrol machineへ移し、suspensionをま
 managed captureはenvironmentの型別destructorまで含めてretain/releaseする。引数を分解して直ちに`function(value)`を返すpureな
 known forwarderへself closureを渡すtail edgeは、forwarderを省略してdirect self tailの`goto`へfusionする。
 
-first-class functionを介してcall graph cycleを閉じるedgeは共通control machineで実行する。callee descriptorのcode identityから
+first-class functionを介してcall graph cycleを閉じるedgeは所属するcontrol regionの共通machineで実行する。callee descriptorのcode identityから
 有限なuser-function targetを選び、environment ownerとtyped argumentをtarget entryへmoveする。非tail edgeではcallerのlive valueと
 environment ownerをtyped frameへ保存し、tail edgeではframeを増やさない。cycleを閉じないindirect callとuser function以外のtargetは
 従来のtyped C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
-含めない。
+含めない。各regionのarenaは`MalContext`へpointerとcapacityだけをcacheし、実行中のtopとcurrent frameはmachine localに保持する。
 
 ## 抽象machine
 
@@ -162,11 +163,11 @@ grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、envi
 同様に単一frame siteだけからresume tagやenvironment fieldを除く規則はregion表現の正しさに由来せず、主要costを改善しなかったため
 混ぜない。
 
-実装順は、(1) possible call graphからregion partitionを一意に構成、(2) 各dispatch siteとfunction entryをregionへ所属させ、
-(3) arena cacheとfast-path pushを生成、(4) local/common emitterをregion emitterへ統合、(5) 旧global control storageを削除、とする。
-各段階でC-call region graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を構造検査する。採用gateは深度fixtureの
-stack boundを維持し、focused unmanaged caseと退行した既存corpusの幾何平均をともに改善し、direct tail、acyclic direct、managed
-pressure suiteを退行させないことである。
+possible call graphからのregion partition、各dispatch siteとfunction entryの所属、arena cache、fast-path push、region別machine、
+旧global control storageの削除まで実装済みである。local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
+同じregion storage規約とframe規約に従う。構造検査はC-call graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を
+対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、
+acyclic direct、managed pressure suiteを退行させないことである。
 
 ## 正しさ
 

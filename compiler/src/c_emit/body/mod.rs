@@ -36,7 +36,7 @@ use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
-    pub(super) control_stack: bool,
+    pub(super) control_regions: usize,
     pub(super) wrap: u16,
     pub(super) divide: u16,
     pub(super) remainder: u16,
@@ -85,6 +85,7 @@ pub(super) struct BodyEmitter<'a> {
     parameter_owned: bool,
     control: crate::control::ast::Program,
     control_calls: ControlCallPlan,
+    control_regions: ControlRegionPlan,
     common_control: CommonControlPlan,
     control_frames: ControlFramePlan,
 }
@@ -126,7 +127,7 @@ impl<'a> BodyEmitter<'a> {
         }));
         debug_assert!(control_frames.is_valid(&control, types));
         let needs = RuntimeNeeds {
-            control_stack: control_calls.requires_dispatch(),
+            control_regions: control_regions.len(),
             ..RuntimeNeeds::default()
         };
         Self {
@@ -143,6 +144,7 @@ impl<'a> BodyEmitter<'a> {
             parameter_owned: false,
             control,
             control_calls,
+            control_regions,
             common_control,
             control_frames,
         }

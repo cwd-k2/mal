@@ -112,6 +112,33 @@ impl ControlRegionPlan {
             .flat_map(|region| region.functions.iter().copied())
     }
 
+    pub(in crate::c_emit::body) fn ids(&self) -> impl Iterator<Item = ControlRegionId> + '_ {
+        (0..self.regions.len()).map(ControlRegionId)
+    }
+
+    pub(in crate::c_emit::body) fn len(&self) -> usize {
+        self.regions.len()
+    }
+
+    pub(in crate::c_emit::body) fn functions(&self, region: ControlRegionId) -> &[FunctionId] {
+        &self.regions[region.0].functions
+    }
+
+    pub(in crate::c_emit::body) fn requires_common_control(&self, region: ControlRegionId) -> bool {
+        self.regions[region.0].requires_common_control
+    }
+
+    pub(in crate::c_emit::body) fn function_region(
+        &self,
+        function: FunctionId,
+    ) -> Option<ControlRegionId> {
+        self.function_regions.get(&function).copied()
+    }
+
+    pub(in crate::c_emit::body) fn site_region(&self, site: StateId) -> Option<ControlRegionId> {
+        self.site_regions.get(&site).copied()
+    }
+
     pub(in crate::c_emit::body) fn is_valid(
         &self,
         program: &Program,

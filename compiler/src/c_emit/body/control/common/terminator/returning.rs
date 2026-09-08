@@ -5,9 +5,12 @@ use crate::control::ast::StateId;
 
 use super::super::super::super::{BodyEmitter, ResultOwnership, pattern_type, value_name};
 use super::super::super::ownership::zero_value;
+use super::super::super::support::control_stack_field;
 use super::super::super::support::{state_label, uint8, uint32};
 use super::super::super::{frame_field_name, frame_name};
-use super::super::{CONTROL_DESTROY_ENVIRONMENT, CONTROL_ENVIRONMENT, CONTROL_RESULT};
+use super::super::{
+    CONTROL_DESTROY_ENVIRONMENT, CONTROL_ENVIRONMENT, CONTROL_RESULT, common_control_done,
+};
 
 impl BodyEmitter<'_> {
     pub(super) fn emit_common_control_return(
@@ -34,6 +37,11 @@ impl BodyEmitter<'_> {
         self.emit_control_activation_cleanup(output, function, local_slots);
         self.emit_release_control_environment(output);
 
+        let region = self
+            .control_regions
+            .function_region(function.id)
+            .expect("common control return belongs to a region");
+
         let root = Block::new([
             Statement::assignment(
                 Expr::dereference(Expr::cast(
@@ -42,11 +50,7 @@ impl BodyEmitter<'_> {
                 )),
                 Expr::identifier(&result_name),
             ),
-            Statement::assignment(
-                Expr::identifier("mal_context").pointer_field("control_frame"),
-                Expr::identifier("mal_control_base_frame"),
-            ),
-            Statement::goto("mal_control_done"),
+            Statement::goto(common_control_done(region)),
         ]);
         let mut resume_cases = Vec::new();
         for index in 0..self.control.states.len() {
@@ -54,7 +58,7 @@ impl BodyEmitter<'_> {
             let Some(frame) = self.control_frames.frame(site).cloned() else {
                 continue;
             };
-            if !self.common_control.contains_state(&self.control, site) {
+            if self.control_regions.site_region(site) != Some(region) {
                 continue;
             }
             let resume_type = self.control.states[frame.resume.0]
@@ -70,10 +74,7 @@ impl BodyEmitter<'_> {
                 &frame_variable,
                 Some(Expr::cast(
                     TypeName::named(frame_name(site)).pointer(),
-                    Expr::add(
-                        Expr::identifier("mal_context").pointer_field("control_storage"),
-                        Expr::identifier("mal_context").pointer_field("control_frame"),
-                    ),
+                    Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             )]);
             for (field_index, field) in frame.fields.iter().enumerate() {
@@ -117,11 +118,11 @@ impl BodyEmitter<'_> {
                 Expr::identifier(&result_name),
             );
             resume.push(Statement::assignment(
-                Expr::identifier("mal_context").pointer_field("control_top"),
-                Expr::identifier("mal_context").pointer_field("control_frame"),
+                control_stack_field("top"),
+                control_stack_field("frame"),
             ));
             resume.push(Statement::assignment(
-                Expr::identifier("mal_context").pointer_field("control_frame"),
+                control_stack_field("frame"),
                 Expr::identifier(&frame_variable)
                     .pointer_field("header")
                     .field("previous_frame"),
@@ -143,10 +144,7 @@ impl BodyEmitter<'_> {
                 &header,
                 Some(Expr::cast(
                     TypeName::named("MalControlFrameHeader").pointer(),
-                    Expr::add(
-                        Expr::identifier("mal_context").pointer_field("control_storage"),
-                        Expr::identifier("mal_context").pointer_field("control_frame"),
-                    ),
+                    Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             ),
             Statement::switch(
@@ -155,10 +153,7 @@ impl BodyEmitter<'_> {
             ),
         ]);
         output.push(Statement::if_else(
-            Expr::equal(
-                Expr::identifier("mal_context").pointer_field("control_top"),
-                Expr::identifier("mal_control_base_top"),
-            ),
+            Expr::equal(control_stack_field("top"), Expr::number("0")),
             root,
             unwind,
         ));

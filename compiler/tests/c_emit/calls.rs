@@ -203,7 +203,7 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
          main :: Unit -> Int32 := \\() { depth(4i32) - 4i32; };",
     )
     .expect("emit a recursive control stack");
-    assert!(recursive.source.contains("uint8_t *control_storage;"));
+    assert!(recursive.source.contains("MalControlStack"));
     assert!(recursive.source.contains("mal_control_push("));
     assert!(
         recursive
@@ -219,8 +219,39 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
          main :: Unit -> Int32 := \\() { identity(0i32); };",
     )
     .expect("emit an acyclic direct call");
-    assert!(!acyclic.source.contains("control_storage"));
+    assert!(!acyclic.source.contains("MalControlStack"));
     assert!(!acyclic.source.contains("mal_control_push"));
+}
+
+#[test]
+fn isolates_nested_recursive_regions_in_separate_cached_arenas() {
+    let generated = emit(
+        "inner :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32) then { 0i32 } else { 1i32 + inner(depth - 1i32) };\n\
+         };\n\
+         outer :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32) then { 0i32 } else {\n\
+             child := outer(depth - 1i32);\n\
+             child + inner(depth);\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { outer(4i32) - 10i32; };",
+    )
+    .expect("emit nested recursive regions");
+
+    assert!(
+        generated
+            .source
+            .contains("MalControlStack control_region_0;")
+    );
+    assert!(
+        generated
+            .source
+            .contains("MalControlStack control_region_1;")
+    );
+    let fixture = NativeFixture::new("nested-control-regions");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]
@@ -382,7 +413,7 @@ fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
          };",
     )
     .expect("emit a deep first-class call cycle");
-    assert!(generated.source.contains("static void mal_run_control("));
+    assert!(generated.source.contains("static void mal_run_control_"));
     assert!(generated.source.contains("mal_control_push("));
 
     let fixture = NativeFixture::new("deep-first-class-call-cycle");
@@ -393,6 +424,30 @@ fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
+}
+
+#[test]
+fn emits_independent_first_class_cycles_as_separate_regions() {
+    let generated = emit(
+        "apply32 :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) { function(value); };\n\
+         apply64 :: ((Int64 -> Int64), Int64) -> Int64 := \\(function :: Int64 -> Int64, value :: Int64) { function(value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse32 :: Int32 -> Int32 := \\(value :: Int32) {\n\
+             if (value == 0i32) then { 0i32 } else { child := apply32(recurse32, value - 1i32); child + 1i32; };\n\
+           };\n\
+           recurse64 :: Int64 -> Int64 := \\(value :: Int64) {\n\
+             if (value == 0i64) then { 0i64 } else { child := apply64(recurse64, value - 1i64); child + 1i64; };\n\
+           };\n\
+           recurse32(4i32) + Int32(recurse64(5i64)) - 9i32;\n\
+         };",
+    )
+    .expect("emit independent first-class control regions");
+
+    assert!(generated.source.contains("static void mal_run_control_0("));
+    assert!(generated.source.contains("static void mal_run_control_1("));
+    let fixture = NativeFixture::new("independent-first-class-control-regions");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]

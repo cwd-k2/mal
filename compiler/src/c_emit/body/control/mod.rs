@@ -16,6 +16,9 @@ impl BodyEmitter<'_> {
         let mut output = TranslationUnit::default();
         for index in 0..self.control.states.len() {
             let site = StateId(index);
+            if self.control_regions.site_region(site).is_none() {
+                continue;
+            }
             let Some(frame) = self.control_frames.frame(site) else {
                 continue;
             };

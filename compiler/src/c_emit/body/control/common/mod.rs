@@ -8,13 +8,15 @@ use crate::c_emit::syntax::{
 };
 use crate::closure::ast as closure;
 
+use super::super::analysis::ControlRegionId;
 use super::super::{
     BodyEmitter, environment_name, function_name, has_direct_product_entry, value_name,
 };
 use super::ownership::zero_value;
-use super::support::{local_slots, reachable_states, uint32};
+use super::support::{
+    emit_control_stack_cache, emit_control_stack_preamble, local_slots, reachable_states, uint32,
+};
 
-const COMMON_CONTROL_NAME: &str = "mal_run_control";
 const CONTROL_ENTRY: &str = "mal_control_entry";
 const CONTROL_ENVIRONMENT: &str = "mal_environment";
 const CONTROL_DESTROY_ENVIRONMENT: &str = "mal_control_destroy_environment";
@@ -22,28 +24,30 @@ const CONTROL_ARGUMENT: &str = "mal_control_argument";
 const CONTROL_RESULT: &str = "mal_control_result";
 
 impl BodyEmitter<'_> {
-    pub(in crate::c_emit::body) fn emit_common_control_machine(&mut self) -> TranslationUnit {
-        if self.common_control.is_empty() {
-            return TranslationUnit::default();
+    pub(in crate::c_emit::body) fn emit_common_control_machines(&mut self) -> TranslationUnit {
+        let regions = self
+            .control_regions
+            .ids()
+            .filter(|region| self.control_regions.requires_common_control(*region))
+            .collect::<Vec<_>>();
+        let mut output = TranslationUnit::default();
+        for region in regions {
+            output.extend(self.emit_common_control_machine(region));
         }
+        output
+    }
+
+    fn emit_common_control_machine(&mut self, region: ControlRegionId) -> TranslationUnit {
+        let region_functions = self.control_regions.functions(region).to_vec();
         let functions = self
             .program
             .functions
             .iter()
-            .filter(|function| self.common_control.contains(function.id))
+            .filter(|function| region_functions.contains(&function.id))
             .cloned()
             .collect::<Vec<_>>();
         let mut body = Block::default();
-        body.push(Statement::variable(
-            "size_t",
-            "mal_control_base_top",
-            Some(Expr::identifier("mal_context").pointer_field("control_top")),
-        ));
-        body.push(Statement::variable(
-            "size_t",
-            "mal_control_base_frame",
-            Some(Expr::identifier("mal_context").pointer_field("control_frame")),
-        ));
+        emit_control_stack_preamble(&mut body, region);
         body.push(Statement::variable(
             TypeName::const_named("void").pointer(),
             CONTROL_ENVIRONMENT,
@@ -157,12 +161,15 @@ impl BodyEmitter<'_> {
                 ));
             }
         }
-        body.push(Statement::label("mal_control_done", Block::default()));
+        let done = format!("mal_control_done_{}", region.0);
+        let mut done_body = Block::default();
+        emit_control_stack_cache(&mut done_body, region);
+        body.push(Statement::label(&done, done_body));
 
         let definition = FunctionDefinition::from_signature(
             FunctionSignature::static_function(
                 "void",
-                COMMON_CONTROL_NAME,
+                common_control_name(region),
                 [
                     Parameter::named(TypeName::named("MalContext").pointer(), "mal_context"),
                     Parameter::named("uint32_t", CONTROL_ENTRY),
@@ -191,10 +198,14 @@ impl BodyEmitter<'_> {
             .binding
             .map_or_else(|| "mal_parameter".into(), value_name);
         let result = "mal_common_control_result";
+        let region = self
+            .control_regions
+            .function_region(function.id)
+            .expect("common control function belongs to a region");
         let mut body = Block::new([
             Statement::variable(self.types.c_type(&function.body.result.ty), result, None),
             Statement::call(
-                COMMON_CONTROL_NAME,
+                common_control_name(region),
                 [
                     Expr::identifier("mal_context"),
                     uint32(self.control_function(function.id).entry.0),
@@ -235,4 +246,12 @@ impl BodyEmitter<'_> {
         }
         output
     }
+}
+
+pub(super) fn common_control_done(region: ControlRegionId) -> String {
+    format!("mal_control_done_{}", region.0)
+}
+
+fn common_control_name(region: ControlRegionId) -> String {
+    format!("mal_run_control_{}", region.0)
 }

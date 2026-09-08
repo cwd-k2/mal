@@ -1,9 +1,44 @@
 use std::collections::HashSet;
 
-use crate::c_emit::syntax::Expr;
+use crate::c_emit::syntax::{Block, Expr, Statement};
 use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Pattern};
 use crate::control::ast::{self as control, StateId, Terminator};
+
+use super::super::analysis::ControlRegionId;
+
+pub(super) const CONTROL_STACK: &str = "mal_control";
+
+pub(super) fn control_stack_field(field: &str) -> Expr {
+    Expr::identifier(CONTROL_STACK).field(field)
+}
+
+pub(super) fn control_region_name(region: ControlRegionId) -> String {
+    format!("control_region_{}", region.0)
+}
+
+pub(super) fn emit_control_stack_preamble(output: &mut Block, region: ControlRegionId) {
+    output.push(Statement::variable(
+        "MalControlStack",
+        CONTROL_STACK,
+        Some(Expr::identifier("mal_context").pointer_field(control_region_name(region))),
+    ));
+    output.push(Statement::assignment(
+        control_stack_field("top"),
+        Expr::number("0"),
+    ));
+    output.push(Statement::assignment(
+        control_stack_field("frame"),
+        Expr::number("0"),
+    ));
+}
+
+pub(super) fn emit_control_stack_cache(output: &mut Block, region: ControlRegionId) {
+    output.push(Statement::assignment(
+        Expr::identifier("mal_context").pointer_field(control_region_name(region)),
+        Expr::identifier(CONTROL_STACK),
+    ));
+}
 
 pub(super) fn state_label(state: StateId) -> String {
     format!("mal_control_state_{}", state.0)

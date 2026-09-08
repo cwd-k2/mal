@@ -161,7 +161,7 @@ impl BodyEmitter<'_> {
 
     pub(super) fn emit_function_definitions(&mut self) -> TranslationUnit {
         let mut output = TranslationUnit::default();
-        output.extend(self.emit_common_control_machine());
+        output.extend(self.emit_common_control_machines());
         for function in &self.program.functions {
             if let Some(name) = self.top_level_function_name(function.id) {
                 output.push(Comment::new(format!("mal source binding: {name}")));

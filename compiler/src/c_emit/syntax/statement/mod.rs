@@ -178,6 +178,10 @@ impl Block {
     pub(in crate::c_emit) fn push(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
+
+    pub(in crate::c_emit) fn append(&mut self, other: Self) {
+        self.statements.extend(other.statements);
+    }
 }
 
 impl SwitchCase {

@@ -4,7 +4,7 @@ use crate::c_emit::syntax::{
     TypeName, VariableDeclaration,
 };
 
-pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> TranslationUnit {
+pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
@@ -26,14 +26,25 @@ pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> Transl
         "MalSymbolRope",
     ));
     output.blank_line();
+    if control_regions != 0 {
+        output.push(AggregateDefinition::typedef_structure(
+            None,
+            [
+                AggregateField::variable(TypeName::named("uint8_t").pointer(), "storage"),
+                AggregateField::variable("size_t", "capacity"),
+                AggregateField::variable("size_t", "top"),
+                AggregateField::variable("size_t", "frame"),
+            ],
+            "MalControlStack",
+        ));
+        output.blank_line();
+    }
     let mut context_fields = vec![AggregateField::variable("uint8_t", "unused")];
-    if needs_control_stack {
-        context_fields.extend([
-            AggregateField::variable(TypeName::named("uint8_t").pointer(), "control_storage"),
-            AggregateField::variable("size_t", "control_capacity"),
-            AggregateField::variable("size_t", "control_top"),
-            AggregateField::variable("size_t", "control_frame"),
-        ]);
+    for region in 0..control_regions {
+        context_fields.push(AggregateField::variable(
+            "MalControlStack",
+            control_region_name(region),
+        ));
     }
     output.push(AggregateDefinition::structure("MalContext", context_fields));
     output.push(Directive::If(live_allocation_tracking()));
@@ -67,7 +78,7 @@ pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> Transl
     output.blank_line();
 
     append_trap(&mut output);
-    if needs_control_stack {
+    if control_regions != 0 {
         append_control_stack(&mut output);
     }
     let mut context_destroy = Block::new([
@@ -101,10 +112,12 @@ pub(super) fn emit(needs_symbol_copy: bool, needs_control_stack: bool) -> Transl
         "MAL_TEST_RETAIN_LIMIT",
         "retain limit exceeded",
     );
-    if needs_control_stack {
+    for region in 0..control_regions {
         context_destroy.push(Statement::call(
             "free",
-            [Expr::identifier("context").pointer_field("control_storage")],
+            [Expr::identifier("context")
+                .pointer_field(control_region_name(region))
+                .field("storage")],
         ));
     }
     push_test_counter_limit_check(
@@ -195,27 +208,13 @@ fn append_control_stack(output: &mut TranslationUnit) {
             control_failure("control frame size overflow"),
         ),
         Statement::variable("size_t", "padded", Some(padded)),
-        Statement::if_then(
-            Expr::greater(
-                Expr::identifier("context").pointer_field("control_top"),
-                Expr::subtract(Expr::identifier("SIZE_MAX"), Expr::identifier("padded")),
-            ),
-            control_failure("control stack size overflow"),
-        ),
-        Statement::variable(
-            "size_t",
-            "required",
-            Some(Expr::add(
-                Expr::identifier("context").pointer_field("control_top"),
-                Expr::identifier("padded"),
-            )),
-        ),
+        Statement::variable("size_t", "required", None),
     ]);
     let mut grow = Block::new([
         Statement::variable(
             "size_t",
             "capacity",
-            Some(Expr::identifier("context").pointer_field("control_capacity")),
+            Some(Expr::identifier("control").pointer_field("capacity")),
         ),
         Statement::if_then(
             Expr::equal(Expr::identifier("capacity"), Expr::number("0")),
@@ -263,7 +262,7 @@ fn append_control_stack(output: &mut TranslationUnit) {
         Some(Expr::named_call(
             "realloc",
             [
-                Expr::identifier("context").pointer_field("control_storage"),
+                Expr::identifier("control").pointer_field("storage"),
                 Expr::identifier("capacity"),
             ],
         )),
@@ -274,38 +273,65 @@ fn append_control_stack(output: &mut TranslationUnit) {
         control_failure("control stack allocation failed"),
     ));
     grow.push(Statement::assignment(
-        Expr::identifier("context").pointer_field("control_storage"),
+        Expr::identifier("control").pointer_field("storage"),
         Expr::cast(
             TypeName::named("uint8_t").pointer(),
             Expr::identifier("storage"),
         ),
     ));
     grow.push(Statement::assignment(
-        Expr::identifier("context").pointer_field("control_capacity"),
+        Expr::identifier("control").pointer_field("capacity"),
         Expr::identifier("capacity"),
     ));
-    body.push(Statement::if_then(
-        Expr::greater(
-            Expr::identifier("required"),
-            Expr::identifier("context").pointer_field("control_capacity"),
+    let mut slow = Block::new([
+        Statement::if_then(
+            Expr::greater(
+                Expr::identifier("control").pointer_field("top"),
+                Expr::subtract(Expr::identifier("SIZE_MAX"), Expr::identifier("padded")),
+            ),
+            control_failure("control stack size overflow"),
         ),
-        grow,
+        Statement::assignment(
+            Expr::identifier("required"),
+            Expr::add(
+                Expr::identifier("control").pointer_field("top"),
+                Expr::identifier("padded"),
+            ),
+        ),
+    ]);
+    slow.append(grow);
+    body.push(Statement::if_else(
+        Expr::greater(
+            Expr::identifier("padded"),
+            Expr::subtract(
+                Expr::identifier("control").pointer_field("capacity"),
+                Expr::identifier("control").pointer_field("top"),
+            ),
+        ),
+        slow,
+        Block::new([Statement::assignment(
+            Expr::identifier("required"),
+            Expr::add(
+                Expr::identifier("control").pointer_field("top"),
+                Expr::identifier("padded"),
+            ),
+        )]),
     ));
     body.push(Statement::variable(
         "size_t",
         "start",
-        Some(Expr::identifier("context").pointer_field("control_top")),
+        Some(Expr::identifier("control").pointer_field("top")),
     ));
     body.push(Statement::assignment(
-        Expr::identifier("context").pointer_field("control_top"),
+        Expr::identifier("control").pointer_field("top"),
         Expr::identifier("required"),
     ));
     body.push(Statement::assignment(
-        Expr::identifier("context").pointer_field("control_frame"),
+        Expr::identifier("control").pointer_field("frame"),
         Expr::identifier("start"),
     ));
     body.push(Statement::return_value(Expr::add(
-        Expr::identifier("context").pointer_field("control_storage"),
+        Expr::identifier("control").pointer_field("storage"),
         Expr::identifier("start"),
     )));
     append_function(
@@ -313,11 +339,18 @@ fn append_control_stack(output: &mut TranslationUnit) {
         FunctionSignature::static_function(
             TypeName::named("void").pointer(),
             "mal_control_push",
-            [context_parameter(), Parameter::named("size_t", "size")],
+            [
+                Parameter::named(TypeName::named("MalControlStack").pointer(), "control"),
+                Parameter::named("size_t", "size"),
+            ],
         )
         .maybe_unused(),
         body,
     );
+}
+
+fn control_region_name(region: usize) -> String {
+    format!("control_region_{region}")
 }
 
 fn control_failure(message: &str) -> Block {

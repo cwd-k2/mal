@@ -7,7 +7,7 @@ use crate::control::ast::{StateId, Terminator};
 use super::super::super::analysis::ControlCallMode;
 use super::super::super::{BodyEmitter, ResultOwnership, value_name};
 use super::super::frame_name;
-use super::super::support::{state_label, uint8, uint32};
+use super::super::support::{CONTROL_STACK, control_stack_field, state_label, uint8, uint32};
 use super::{CONTROL_DESTROY_ENVIRONMENT, CONTROL_ENVIRONMENT};
 
 impl BodyEmitter<'_> {
@@ -306,7 +306,7 @@ impl BodyEmitter<'_> {
         output.push(Statement::variable(
             "size_t",
             &previous,
-            Some(Expr::identifier("mal_context").pointer_field("control_frame")),
+            Some(control_stack_field("frame")),
         ));
         output.push(Statement::variable(
             TypeName::named(frame_name(site)).pointer(),
@@ -316,7 +316,7 @@ impl BodyEmitter<'_> {
                 Expr::named_call(
                     "mal_control_push",
                     [
-                        Expr::identifier("mal_context"),
+                        Expr::address_of(Expr::identifier(CONTROL_STACK)),
                         Expr::sizeof_type(frame_name(site)),
                     ],
                 ),

@@ -11,7 +11,10 @@ use super::super::{
     BodyEmitter, ResultOwnership, function_name, has_direct_product_entry, pattern_type, value_name,
 };
 use super::ownership::{supports_local_control_type, zero_value};
-use super::support::{local_slots, reachable_states, state_label, uint8, uint32};
+use super::support::{
+    CONTROL_STACK, control_stack_field, emit_control_stack_cache, emit_control_stack_preamble,
+    local_slots, reachable_states, state_label, uint8, uint32,
+};
 use super::{frame_field_name, frame_name};
 
 impl BodyEmitter<'_> {
@@ -86,6 +89,9 @@ impl BodyEmitter<'_> {
         let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
         let mut body = Block::default();
         self.emit_function_preamble(&mut body, function);
+        if let Some(region) = self.control_regions.function_region(function.id) {
+            emit_control_stack_preamble(&mut body, region);
+        }
         if let Some(parameter) = function.parameter.binding
             && self.types.contains_managed(&function.parameter.ty)
         {
@@ -95,16 +101,6 @@ impl BodyEmitter<'_> {
                 self.types.copy_value(&function.parameter.ty, target),
             ));
         }
-        body.push(Statement::variable(
-            "size_t",
-            "mal_control_base_top",
-            Some(Expr::identifier("mal_context").pointer_field("control_top")),
-        ));
-        body.push(Statement::variable(
-            "size_t",
-            "mal_control_base_frame",
-            Some(Expr::identifier("mal_context").pointer_field("control_frame")),
-        ));
         for (id, ty) in &local_slots {
             body.push(Statement::variable(
                 self.types.c_type(ty),
@@ -217,7 +213,7 @@ impl BodyEmitter<'_> {
                     output.push(Statement::variable(
                         "size_t",
                         &previous,
-                        Some(Expr::identifier("mal_context").pointer_field("control_frame")),
+                        Some(control_stack_field("frame")),
                     ));
                     output.push(Statement::variable(
                         TypeName::named(frame_name(site)).pointer(),
@@ -227,7 +223,7 @@ impl BodyEmitter<'_> {
                             Expr::named_call(
                                 "mal_control_push",
                                 [
-                                    Expr::identifier("mal_context"),
+                                    Expr::address_of(Expr::identifier(CONTROL_STACK)),
                                     Expr::sizeof_type(frame_name(site)),
                                 ],
                             ),
@@ -391,6 +387,15 @@ impl BodyEmitter<'_> {
             Some(result),
         ));
         self.emit_control_activation_cleanup(output, function, &local_slots);
+        let Some(region) = self.control_regions.function_region(function.id) else {
+            debug_assert!(
+                sites
+                    .iter()
+                    .all(|site| self.control_frames.frame(*site).is_none())
+            );
+            output.push(Statement::return_value(Expr::identifier(result_name)));
+            return;
+        };
         let mut resume_cases = Vec::new();
         for site in &sites {
             let Some(frame) = self.control_frames.frame(*site).cloned() else {
@@ -402,10 +407,7 @@ impl BodyEmitter<'_> {
                 &frame_variable,
                 Some(Expr::cast(
                     TypeName::named(frame_name(*site)).pointer(),
-                    Expr::add(
-                        Expr::identifier("mal_context").pointer_field("control_storage"),
-                        Expr::identifier("mal_context").pointer_field("control_frame"),
-                    ),
+                    Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             )]);
             for (index, field) in frame.fields.iter().enumerate() {
@@ -431,11 +433,11 @@ impl BodyEmitter<'_> {
                 Expr::identifier(&result_name),
             );
             resume.push(Statement::assignment(
-                Expr::identifier("mal_context").pointer_field("control_top"),
-                Expr::identifier("mal_context").pointer_field("control_frame"),
+                control_stack_field("top"),
+                control_stack_field("frame"),
             ));
             resume.push(Statement::assignment(
-                Expr::identifier("mal_context").pointer_field("control_frame"),
+                control_stack_field("frame"),
                 Expr::identifier(&frame_variable)
                     .pointer_field("header")
                     .field("previous_frame"),
@@ -457,10 +459,7 @@ impl BodyEmitter<'_> {
                 &header,
                 Some(Expr::cast(
                     TypeName::named("MalControlFrameHeader").pointer(),
-                    Expr::add(
-                        Expr::identifier("mal_context").pointer_field("control_storage"),
-                        Expr::identifier("mal_context").pointer_field("control_frame"),
-                    ),
+                    Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             ),
             Statement::switch(
@@ -469,17 +468,13 @@ impl BodyEmitter<'_> {
             ),
         ]);
         output.push(Statement::if_else(
-            Expr::equal(
-                Expr::identifier("mal_context").pointer_field("control_top"),
-                Expr::identifier("mal_control_base_top"),
-            ),
-            Block::new([
-                Statement::assignment(
-                    Expr::identifier("mal_context").pointer_field("control_frame"),
-                    Expr::identifier("mal_control_base_frame"),
-                ),
-                Statement::return_value(Expr::identifier(result_name)),
-            ]),
+            Expr::equal(control_stack_field("top"), Expr::number("0")),
+            {
+                let mut root = Block::default();
+                emit_control_stack_cache(&mut root, region);
+                root.push(Statement::return_value(Expr::identifier(result_name)));
+                root
+            },
             unwind,
         ));
     }

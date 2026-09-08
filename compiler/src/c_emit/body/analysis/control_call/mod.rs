@@ -151,12 +151,6 @@ impl ControlCallPlan {
         self.modes.get(&site).copied()
     }
 
-    pub(in crate::c_emit::body) fn requires_dispatch(&self) -> bool {
-        self.modes
-            .values()
-            .any(|mode| *mode == ControlCallMode::Dispatch)
-    }
-
     pub(in crate::c_emit::body) fn has_direct_target(&self, function: FunctionId) -> bool {
         self.modes
             .values()
