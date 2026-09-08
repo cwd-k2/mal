@@ -109,6 +109,34 @@ fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
 }
 
 #[test]
+fn heap_allocates_a_local_closure_live_across_control_suspension() {
+    let generated = emit(
+        "walk :: (Int32, Int32) -> Int32 := \\(base :: Int32, depth :: Int32) {\n\
+           if (depth == 0i32)\n\
+             then { 0i32 }\n\
+             else {\n\
+               add := \\(value :: Int32) { base + value; };\n\
+               child := walk(base, depth - 1i32);\n\
+               add(child);\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { walk(1i32, 4i32) - 4i32; };",
+    )
+    .expect("emit a closure crossing a recursive suspension");
+
+    assert!(generated.source.contains("mal_new_environment_"));
+    assert!(
+        !generated
+            .source
+            .contains("MalEnvironment_1 mal_stack_environment_")
+    );
+
+    let fixture = NativeFixture::new("suspended-closure-environment");
+    let executable = fixture.compile_generated(generated, "");
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn stack_closure_calls_use_flattened_product_entries() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\

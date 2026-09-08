@@ -17,7 +17,10 @@ mod name;
 mod pattern;
 mod statement;
 
-use self::analysis::{ClosureUsePlan, ControlCallPlan, OwnedCallPlan, OwnershipPlan};
+use self::analysis::{
+    ClosureUsePlan, ControlCallMode, ControlCallPlan, ControlFramePlan, OwnedCallPlan,
+    OwnershipPlan,
+};
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
@@ -79,6 +82,7 @@ pub(super) struct BodyEmitter<'a> {
     parameter_owned: bool,
     _control: crate::control::ast::Program,
     _control_calls: ControlCallPlan,
+    control_frames: ControlFramePlan,
 }
 
 impl<'a> BodyEmitter<'a> {
@@ -97,6 +101,18 @@ impl<'a> BodyEmitter<'a> {
                 .mode(crate::control::ast::StateId(index))
                 .is_some()
         }));
+        let control_frames = ControlFramePlan::new(&control, &control_calls, types, &closure_uses);
+        debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
+            !matches!(
+                state.terminator,
+                crate::control::ast::Terminator::Call { .. }
+            ) || control_calls.mode(crate::control::ast::StateId(index))
+                != Some(ControlCallMode::Dispatch)
+                || control_frames
+                    .frame(crate::control::ast::StateId(index))
+                    .is_some()
+        }));
+        debug_assert!(control_frames.is_valid(&control, types));
         Self {
             program,
             types,
@@ -111,6 +127,7 @@ impl<'a> BodyEmitter<'a> {
             parameter_owned: false,
             _control: control,
             _control_calls: control_calls,
+            control_frames,
         }
     }
 
@@ -163,6 +180,12 @@ impl<'a> BodyEmitter<'a> {
                 if let Some(target) = self.closure_uses.direct_closure(id) {
                     let environment = if self.function(function).environment.is_empty() {
                         super::syntax::Expr::identifier("NULL")
+                    } else if self
+                        .control_frames
+                        .closure_crosses_suspension(target.creator)
+                    {
+                        super::syntax::Expr::identifier(value_name(target.creator))
+                            .field("environment")
                     } else {
                         super::syntax::Expr::address_of(super::syntax::Expr::identifier(
                             stack_environment_name(target.creator),
@@ -222,6 +245,15 @@ impl<'a> BodyEmitter<'a> {
             return false;
         }
         self.ownership.can_transfer(atom, self.parameter_owned)
+    }
+
+    fn uses_stack_environment(&self, id: ValueId) -> bool {
+        self.closure_uses.direct_closure(id).is_some_and(|target| {
+            target.creator == id
+                && !self
+                    .control_frames
+                    .closure_crosses_suspension(target.creator)
+        })
     }
 
     fn is_borrowed(&self, atom: &closure::Atom) -> bool {

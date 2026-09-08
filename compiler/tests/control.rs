@@ -167,6 +167,29 @@ fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
 }
 
 #[test]
+fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
+    let program = lower_ok(
+        "identity :: Symbol -> Symbol := \\(value :: Symbol) { value; };\n\
+         appendAfter :: Symbol -> Symbol := \\(prefix :: Symbol) {\n\
+           called := identity(\"value\");\n\
+           prefix + called;\n\
+         };",
+    );
+    let function = top_level_function(&program, "appendAfter");
+    let parameter = function.parameter.binding.expect("named parameter");
+    let resume = reachable_states(&program, function)
+        .into_iter()
+        .find_map(|state| match state.terminator {
+            Terminator::Call { resume, .. } => Some(&program.states[resume.0]),
+            _ => None,
+        })
+        .expect("identity call should suspend in the semantic control IR");
+    assert_eq!(resume.live.len(), 1);
+    assert_eq!(resume.live[0].id, parameter);
+    assert_eq!(resume.live[0].ty, malc::check::ast::Type::Symbol);
+}
+
+#[test]
 fn propagates_tail_position_through_primitive_branches() {
     let program = lower_ok(
         "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\

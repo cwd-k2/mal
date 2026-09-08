@@ -59,7 +59,13 @@ impl BodyEmitter<'_> {
             if function.environment.is_empty() {
                 continue;
             }
-            if self.closure_uses.has_direct_creator(function.id) {
+            if self.closure_uses.has_direct_creator(function.id)
+                && !self.control_frames.closure_crosses_suspension(
+                    self.closure_uses
+                        .direct_creator(function.id)
+                        .expect("a direct creator has an identity"),
+                )
+            {
                 continue;
             }
             let environment_type = environment_name(function.id);

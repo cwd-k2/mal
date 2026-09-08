@@ -155,6 +155,7 @@ impl BodyEmitter<'_> {
                 .closure_uses
                 .direct_closure(*id)
                 .is_some_and(|target| target.function == function && target.creator == *id)
+            && !self.control_frames.closure_crosses_suspension(*id)
         {
             if !captures.is_empty() {
                 let fields = captures.iter().enumerate().map(|(index, atom)| {

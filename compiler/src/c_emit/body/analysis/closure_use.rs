@@ -94,6 +94,13 @@ impl ClosureUsePlan {
         })
     }
 
+    pub(in crate::c_emit::body) fn direct_creator(&self, function: FunctionId) -> Option<ValueId> {
+        self.direct.values().find_map(|candidate| {
+            (candidate.function == function && !self.top_levels.contains(&candidate.creator))
+                .then_some(candidate.creator)
+        })
+    }
+
     pub(in crate::c_emit::body) fn is_direct_top_level(&self, id: ValueId) -> bool {
         self.top_levels.contains(&id) && self.direct.contains_key(&id)
     }
