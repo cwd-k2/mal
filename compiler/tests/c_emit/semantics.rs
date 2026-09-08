@@ -203,6 +203,26 @@ fn executes_valid_shift_counts_at_every_width() {
 }
 
 #[test]
+fn preserves_signed_right_shift_at_zero_and_extreme_counts() {
+    let output = compile_and_run(
+        "main :: Unit -> Int32 := \\() {\n\
+           ok :=\n\
+             (-3i8 >> 0i8 == -3i8) && (-3i8 >> 1i8 == -2i8) && (-1i8 >> 7i8 == -1i8) &&\n\
+             (-3i16 >> 0i16 == -3i16) && (-3i16 >> 1i16 == -2i16) && (-1i16 >> 15i16 == -1i16) &&\n\
+             (-3i32 >> 0i32 == -3i32) && (-3i32 >> 1i32 == -2i32) && (-1i32 >> 31i32 == -1i32) &&\n\
+             (-3i64 >> 0i64 == -3i64) && (-3i64 >> 1i64 == -2i64) && (-1i64 >> 63i64 == -1i64);\n\
+           if (ok) then { 0 } else { 1 };\n\
+         };",
+        "",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn executes_sum_injection_and_case() {
     let output = compile_and_run(
         "Maybe :: [Unit, Int32];\n\

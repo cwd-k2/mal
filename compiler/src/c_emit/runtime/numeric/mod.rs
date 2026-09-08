@@ -76,7 +76,7 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
     let unsigned = integer.unsigned;
     let carrier = integer.carrier;
     let width = integer.width;
-    let maximum = integer.maximum;
+    let maximum = Expr::cast(carrier, Expr::identifier(integer.maximum));
     append_function(
         output,
         FunctionSignature::static_inline(
@@ -88,10 +88,6 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
             ],
         ),
         Block::new([
-            Statement::if_then(
-                Expr::equal(Expr::identifier("count"), Expr::number("0")),
-                Block::new([Statement::return_value(Expr::identifier("value"))]),
-            ),
             Statement::variable(
                 carrier,
                 "bits",
@@ -121,14 +117,11 @@ fn emit_signed_shift_right(output: &mut TranslationUnit, integer: IntegerType, r
                 ),
                 Block::new([Statement::assignment(
                     Expr::identifier("shifted"),
-                    Expr::bitwise_or(
-                        Expr::identifier("shifted"),
-                        Expr::shift_left(
-                            Expr::cast(carrier, Expr::identifier(maximum)),
-                            Expr::subtract(
-                                Expr::number(width.to_string()),
-                                Expr::cast(carrier, Expr::identifier("count")),
-                            ),
+                    Expr::bitwise_xor(
+                        maximum.clone(),
+                        Expr::shift_right(
+                            Expr::bitwise_xor(Expr::identifier("bits"), maximum),
+                            Expr::cast(carrier, Expr::identifier("count")),
                         ),
                     ),
                 )]),

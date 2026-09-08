@@ -180,7 +180,7 @@ impl Expr {
         equal => Equal,
         not_equal => NotEqual,
         bitwise_and => BitwiseAnd,
-        bitwise_or => BitwiseOr,
+        bitwise_xor => BitwiseXor,
         logical_and => LogicalAnd,
         logical_or => LogicalOr,
     }

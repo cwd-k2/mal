@@ -12,6 +12,21 @@ MAL_DEFINE_input(context) {
 "#;
 
 #[test]
+fn exposes_signed_right_shift_as_an_arithmetic_shift_to_clang() {
+    let generated = emit(
+        r#"extern input :: Unit -> Int64;
+extern output :: Int64 -> Unit;
+main :: Unit -> Int32 := \() { extern output(extern input() >> 1i64); 0 };"#,
+    )
+    .expect("emit signed right shift");
+    let fixture = NativeFixture::new("signed-right-shift-cost");
+    let llvm_ir = fixture.compile_generated_to_llvm_ir(generated);
+
+    assert!(llvm_ir.contains("ashr i64"), "{llvm_ir}");
+    assert!(!llvm_ir.contains("lshr i64"), "{llvm_ir}");
+}
+
+#[test]
 fn tracks_flat_symbol_scan_cost_and_keeps_an_optimized_ir_fixture() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
