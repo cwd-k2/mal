@@ -35,7 +35,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
-| `core` / `anf` / `closure` | desugaring、evaluation order、closure representation |
+| `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/reference、checked typeをeditor queryへ構成 |
@@ -102,6 +102,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
 | `formatter/token/control` | `if`、`case`、block delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
+| `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |

@@ -1,6 +1,6 @@
 # application control lowering設計
 
-Status: Design under validation
+Status: Current implementation design
 
 この文書はclosure-converted ANFから明示的なcontrol machineを導出し、portable Cへrefineする規則と検証境界を管理する。
 性能上の必要性と採用gateは[generated program最適化計画](generated-program-optimization.md)、source semanticsは
@@ -72,9 +72,19 @@ tail callの`goto`はこの遷移をC statementへfusionしたbackend specializa
 - trap時は現在の意味論どおり一般的なstack unwindを行わない。
 - externとruntime helperのC callは同期的に戻り、Mal call depthに比例するC stackを作らない。
 
-連続growable storage、segmented storage、tag dispatch、resume function pointerの選択はこの意味論から一意には決まらない。
-allocation failureも言語上のEngram allocation trapへ無断で読み替えず、implementation resource limitとしての扱いを確定してから
-実装する。
+最初のreference表現は`max_align_t`境界へ丸めたframeを置く連続growable byte storageとする。control contextはcapacity、次の
+空きoffset、top frameのoffsetを持つ。pushはsize加算とalignment丸めのoverflowを検査してから必要ならstorageをgrowし、grow後に
+offsetからframe pointerを再取得する。handler間、growを伴い得るoperation間、dispatcherへのreturnをまたいでframe pointerを
+保持しない。popも保存したoffsetから直前のtopと空きoffsetを復元する。
+
+frame headerはresume stateと直前frameのoffsetを持ち、payloadはcall siteごとに異なるtyped structとする。dispatchはgenerated
+program内で一意なstate tagを使う。function closureのcode identityはentry stateへ対応し、entry payloadへenvironmentとargumentを
+移してからdispatcherへcontrolを返す。C entry point、top-level initializerなどMal外部のcallerだけがdispatcherを開始してresultを
+受け取る。
+
+control storageはEngramまたはclosure environmentではなく、Mal programから到達不能なimplementation storageである。sizeが
+`size_t`で表現不能な場合とallocation failureは`mal_trap`へ写像せず、理由を示して`abort()`するimplementation resource failureと
+する。trapを捕捉できない現在のprofileではprocessの異常終了という観測は同じだが、言語上のallocation ruleとは分類を混同しない。
 
 ## backend specialization
 
@@ -99,6 +109,29 @@ direct-call解析とpoints-to解析は正しさの条件ではなく、dispatch�
 網羅性はfixture一覧ではなく、closure-converted IRの全`Operation`に対するexhaustiveな変換で保証する。`Case`と
 `PrimitiveBranch`は選んだsub-blockへ現在のcontinuationを渡し、変換後のIRに未処理の`Call`を残さない。operation variantの追加時は
 Rustのexhaustive matchがcontrol loweringの更新を要求する構造にする。
+
+## control IR
+
+`closure`と`c_emit`の間にcontrol lowering stageを置く。各top-level initializerとlifted functionはentry stateを持ち、stateは
+callを含まないbinding列と一つのterminatorからなる。
+
+```text
+Terminator ::= Return(value)
+             | Jump(target, value)
+             | Call(callee, argument, resume, live-values, needs-environment)
+             | TailCall(callee, argument)
+             | Case(scrutinee, arm-targets)
+             | PrimitiveBranch(operator, operands, otherwise-target, then-target)
+```
+
+`Jump`は同じMal activation内のcase arm resultをjoin stateへ渡す局所遷移であり、control frameを増やさない。stateのoptionalな
+input patternが`Jump`のvalueまたはnon-tail `Call`のresultを受け取る。function bodyの最終resultをそのまま返すapplicationだけを
+`TailCall`とし、`Case`と`PrimitiveBranch`のarmへreturn destinationを渡すことでbranch内のtail positionも保存する。
+
+lowering後にstate graphのbackward livenessを解き、各`Call`のresume stateで必要になるcaller-local bindingをcall siteの
+`live-values`へ型とspan付きで記録する。top-level bindingはprogram storageから再取得できるためframeへ複製しない。
+`EnvironmentField`またはenvironmentを伴う`SelfClosure`がresume側で必要なら`needs-environment`を立てる。C backendはこの明示情報
+だけからframe payloadを構成し、独自にclosure IRのsuffixを再解析しない。
 
 ## 保証と計測の境界
 
