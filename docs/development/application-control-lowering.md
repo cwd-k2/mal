@@ -129,6 +129,45 @@ calleeがsuspendし得る通常C callを残したままcycleを一部だけdispa
 静的にcall depth上限を証明するspecialization、suspendを伝播するdirect convention、一定段数だけC callするbounded batchingは
 将来の候補だが、bounded C stackと実測上の利益を独立に示してから追加する。初版の判定はprofileなしに結果が変わらない規則とする。
 
+## control regionへのrefinement
+
+実装後測定ではC-call edgeの非循環化自体ではなく、全recursive continuationを一つの`MalContext`内の可変byte stackへ置き、
+各push、popでそのfieldを読み書きする表現がhot pathに残った。frameから未使用fieldを除く実験は既存after比0.98倍から1.01倍であり、
+call siteや単一resumeだけを特別扱いする根拠にはならなかった。次段はframe形状の局所規則ではなく、call graphのrecursive SCCを
+control regionとしてC storage lifetimeと一致させる。
+
+可能call graphの各recursive SCCを一つのregionとする。同じregionを閉じるdirectまたはfirst-class edgeはregion内dispatch、
+異なるregionへのedgeはcondensation graph上の非循環な通常C callとする。runtime callee候補が同一regionとregion外の両方を含む場合は、
+code identityで前者だけをdispatchし、後者を通常callへfallbackする。direct self recursionは要素数1のregionであり、indirect cycleと
+異なる規則を持たない。
+
+各region invocationは次の状態を持つ。
+
+```text
+Region = <program-point, values, storage, top, current-frame>
+Frame  = <resume-constructor, previous-frame, typed-live-values, environment-owner?>
+```
+
+frame列とsource evaluation contextの対応は従来の`R`をそのまま使う。違いはstorage authorityだけであり、regionごとにcached arenaを
+持ち、invocation中の`top`と`current-frame`はそのregion machineのC local stateにする。arenaのpointerとcapacityだけを`MalContext`へ
+戻して次のinvocationで再利用する。region内edgeはC callしないため同じarenaへ再入せず、region間callは別arenaを使う。externから
+Mal closureをcallbackできない現在のhost contractもこの非再入性の前提である。
+
+frameは引き続きcall siteごとの可変size typed payloadとし、最大variant幅のunion slotへ一律に広げない。pushのfast pathは
+`top <= capacity`不変条件の下で残容量とcompile-time frame幅を一度比較し、growth時だけ加算、alignment、capacityのoverflowを検査する。
+grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は変えない。
+
+このrefinementではC stack上に同時に存在するregion activationがcondensation graphのpath長でboundされ、Mal recursion depthには
+比例しない。arenaをfunction localに新規allocateするだけでは浅いrecursive functionの反復呼出しでallocationを増やすため採用しない。
+同様に単一frame siteだけからresume tagやenvironment fieldを除く規則はregion表現の正しさに由来せず、主要costを改善しなかったため
+混ぜない。
+
+実装順は、(1) possible call graphからregion partitionを一意に構成、(2) 各dispatch siteとfunction entryをregionへ所属させ、
+(3) arena cacheとfast-path pushを生成、(4) local/common emitterをregion emitterへ統合、(5) 旧global control storageを削除、とする。
+各段階でC-call region graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を構造検査する。採用gateは深度fixtureの
+stack boundを維持し、focused unmanaged caseと退行した既存corpusの幾何平均をともに改善し、direct tail、acyclic direct、managed
+pressure suiteを退行させないことである。
+
 ## 正しさ
 
 各control stateのframe列を元のANF evaluation contextへ戻す対応`R`を定める。sourceのstepに対してcontrol machineが有限stepで
