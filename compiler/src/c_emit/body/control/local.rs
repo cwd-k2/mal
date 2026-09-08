@@ -89,8 +89,12 @@ impl BodyEmitter<'_> {
         let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
         let mut body = Block::default();
         self.emit_function_preamble(&mut body, function);
-        if let Some(region) = self.control_regions.function_region(function.id) {
-            emit_control_stack_preamble(&mut body, region);
+        if let Some(arena) = self
+            .control_regions
+            .function_region(function.id)
+            .and_then(|region| self.control_regions.arena(region))
+        {
+            emit_control_stack_preamble(&mut body, arena);
         }
         if let Some(parameter) = function.parameter.binding
             && self.types.contains_managed(&function.parameter.ty)
@@ -387,7 +391,11 @@ impl BodyEmitter<'_> {
             Some(result),
         ));
         self.emit_control_activation_cleanup(output, function, &local_slots);
-        let Some(region) = self.control_regions.function_region(function.id) else {
+        let Some(arena) = self
+            .control_regions
+            .function_region(function.id)
+            .and_then(|region| self.control_regions.arena(region))
+        else {
             debug_assert!(
                 sites
                     .iter()
@@ -471,7 +479,7 @@ impl BodyEmitter<'_> {
             Expr::equal(control_stack_field("top"), Expr::number("0")),
             {
                 let mut root = Block::default();
-                emit_control_stack_cache(&mut root, region);
+                emit_control_stack_cache(&mut root, arena);
                 root.push(Statement::return_value(Expr::identifier(result_name)));
                 root
             },

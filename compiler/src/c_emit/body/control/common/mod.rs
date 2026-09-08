@@ -52,7 +52,10 @@ impl BodyEmitter<'_> {
             .cloned()
             .collect::<Vec<_>>();
         let mut body = Block::default();
-        emit_control_stack_preamble(&mut body, region);
+        let arena = self.control_regions.arena(region);
+        if let Some(arena) = arena {
+            emit_control_stack_preamble(&mut body, arena);
+        }
         body.push(Statement::variable(
             TypeName::const_named("void").pointer(),
             CONTROL_ENVIRONMENT,
@@ -168,7 +171,9 @@ impl BodyEmitter<'_> {
         }
         let done = format!("mal_control_done_{}", region.0);
         let mut done_body = Block::default();
-        emit_control_stack_cache(&mut done_body, region);
+        if let Some(arena) = arena {
+            emit_control_stack_cache(&mut done_body, arena);
+        }
         body.push(Statement::label(&done, done_body));
 
         let definition = FunctionDefinition::from_signature(

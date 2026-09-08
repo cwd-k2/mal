@@ -52,6 +52,10 @@ impl BodyEmitter<'_> {
             ),
             Statement::goto(common_control_done(region)),
         ]);
+        if self.control_regions.arena(region).is_none() {
+            output.append(root);
+            return;
+        }
         let mut resume_cases = Vec::new();
         for index in 0..self.control.states.len() {
             let site = StateId(index);

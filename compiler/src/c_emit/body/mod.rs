@@ -36,7 +36,7 @@ use self::pattern::pattern_type;
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
-    pub(super) control_regions: usize,
+    pub(super) control_arenas: usize,
     pub(super) wrap: u16,
     pub(super) divide: u16,
     pub(super) remainder: u16,
@@ -134,7 +134,7 @@ impl<'a> BodyEmitter<'a> {
         }));
         debug_assert!(control_frames.is_valid(&control, types));
         let needs = RuntimeNeeds {
-            control_regions: control_regions.len(),
+            control_arenas: control_regions.arena_count(),
             ..RuntimeNeeds::default()
         };
         Self {

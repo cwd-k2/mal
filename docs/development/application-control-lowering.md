@@ -35,7 +35,8 @@ first-class functionを介してcall graph cycleを閉じるedgeは所属するc
 有限なuser-function targetを選び、environment ownerとtyped argumentをtarget entryへmoveする。非tail edgeではcallerのlive valueと
 environment ownerをtyped frameへ保存し、tail edgeではframeを増やさない。cycleを閉じないindirect callとuser function以外のtargetは
 従来のtyped C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
-含めない。各regionのarenaは`MalContext`へpointerとcapacityだけをcacheし、実行中のtopとcurrent frameはmachine localに保持する。
+含めない。frameを持つregionのarenaは`MalContext`へpointerとcapacityだけをcacheし、実行中のtopとcurrent frameはmachine localに
+保持する。tail遷移だけのregionはarenaを生成しない。
 
 ## 抽象machine
 
@@ -190,9 +191,9 @@ Region = <program-point, values, storage, top, current-frame>
 Frame  = <resume-constructor, previous-frame, typed-live-values, environment-owner?>
 ```
 
-frame列とsource evaluation contextの対応は従来の`R`をそのまま使う。違いはstorage authorityだけであり、regionごとにcached arenaを
-持ち、invocation中の`top`と`current-frame`はそのregion machineのC local stateにする。arenaのpointerとcapacityだけを`MalContext`へ
-戻して次のinvocationで再利用する。region内edgeはC callしないため同じarenaへ再入せず、region間callは別arenaを使う。externから
+frame列とsource evaluation contextの対応は従来の`R`をそのまま使う。違いはstorage authorityだけであり、frameを持つregionごとに
+cached arenaを持ち、invocation中の`top`と`current-frame`はそのregion machineのC local stateにする。arenaのpointerとcapacityだけを
+`MalContext`へ戻して次のinvocationで再利用する。region内edgeはC callしないため同じarenaへ再入せず、region間callは別arenaを使う。externから
 Mal closureをcallbackできない現在のhost contractもこの非再入性の前提である。
 
 frameは引き続きcall siteごとの可変size typed payloadとし、最大variant幅のunion slotへ一律に広げない。pushのfast pathは
@@ -204,7 +205,7 @@ grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、envi
 同様に単一frame siteだけからresume tagやenvironment fieldを除く規則はregion表現の正しさに由来せず、主要costを改善しなかったため
 混ぜない。
 
-possible call graphからのregion partition、各dispatch siteとfunction entryの所属、arena cache、fast-path push、region別machine、
+possible call graphからのregion partition、各dispatch siteとfunction entryの所属、frame regionだけのarena cache、fast-path push、region別machine、
 旧global control storageの削除まで実装済みである。local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
 同じregion storage規約とframe規約に従う。構造検査はC-call graphの非循環性、region内dispatch targetの閉包、frame ownerの一意性を
 対象とする。採用gateは深度fixtureのstack boundを維持し、focused unmanaged caseと退行した既存corpusを改善し、direct tail、

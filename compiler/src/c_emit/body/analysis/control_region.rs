@@ -8,6 +8,9 @@ use super::ApplicationGraph;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(in crate::c_emit::body) struct ControlRegionId(pub(in crate::c_emit::body) usize);
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(in crate::c_emit::body) struct ControlArenaId(pub(in crate::c_emit::body) usize);
+
 pub(in crate::c_emit::body) struct ControlRegionPlan {
     regions: Vec<ControlRegion>,
     function_regions: HashMap<FunctionId, ControlRegionId>,
@@ -17,6 +20,7 @@ pub(in crate::c_emit::body) struct ControlRegionPlan {
 
 struct ControlRegion {
     functions: Vec<FunctionId>,
+    arena: Option<ControlArenaId>,
 }
 
 impl ControlRegionPlan {
@@ -60,6 +64,7 @@ impl ControlRegionPlan {
                     .into_iter()
                     .map(|index| program.functions[index].id)
                     .collect(),
+                arena: None,
             })
             .collect::<Vec<_>>();
         let mut function_regions = HashMap::new();
@@ -93,6 +98,21 @@ impl ControlRegionPlan {
             }
         }
 
+        let mut regions = regions;
+        let mut next_arena = 0;
+        for (index, region) in regions.iter_mut().enumerate() {
+            if site_regions.iter().any(|(site, site_region)| {
+                site_region.0 == index
+                    && matches!(
+                        program.states[site.0].terminator,
+                        crate::control::ast::Terminator::Call { .. }
+                    )
+            }) {
+                region.arena = Some(ControlArenaId(next_arena));
+                next_arena += 1;
+            }
+        }
+
         Self {
             regions,
             function_regions,
@@ -105,12 +125,19 @@ impl ControlRegionPlan {
         (0..self.regions.len()).map(ControlRegionId)
     }
 
-    pub(in crate::c_emit::body) fn len(&self) -> usize {
-        self.regions.len()
+    pub(in crate::c_emit::body) fn arena_count(&self) -> usize {
+        self.regions
+            .iter()
+            .filter(|region| region.arena.is_some())
+            .count()
     }
 
     pub(in crate::c_emit::body) fn functions(&self, region: ControlRegionId) -> &[FunctionId] {
         &self.regions[region.0].functions
+    }
+
+    pub(in crate::c_emit::body) fn arena(&self, region: ControlRegionId) -> Option<ControlArenaId> {
+        self.regions[region.0].arena
     }
 
     pub(in crate::c_emit::body) fn function_region(

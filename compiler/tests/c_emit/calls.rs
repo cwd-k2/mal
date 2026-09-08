@@ -272,12 +272,12 @@ fn isolates_nested_recursive_regions_in_separate_cached_arenas() {
     assert!(
         generated
             .source
-            .contains("MalControlStack control_region_0;")
+            .contains("MalControlArena control_arena_0;")
     );
     assert!(
         generated
             .source
-            .contains("MalControlStack control_region_1;")
+            .contains("MalControlArena control_arena_1;")
     );
     let fixture = NativeFixture::new("nested-control-regions");
     let executable = fixture.compile_generated(generated, "");
@@ -390,6 +390,9 @@ fn lowers_a_deep_indirect_tail_forwarder_without_growing_the_c_stack() {
     )
     .expect("emit a deep indirect tail forwarder");
     assert!(generated.source.contains("goto mal_control_state_"));
+    assert!(!generated.source.contains("MalControlArena"));
+    assert!(!generated.source.contains("MalControlStack"));
+    assert!(!generated.source.contains("mal_control_push("));
 
     let fixture = NativeFixture::new("deep-indirect-tail-forwarder");
     let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);

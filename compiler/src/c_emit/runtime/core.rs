@@ -4,7 +4,7 @@ use crate::c_emit::syntax::{
     TypeName, VariableDeclaration,
 };
 
-pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> TranslationUnit {
+pub(super) fn emit(needs_symbol_copy: bool, control_arenas: usize) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
@@ -26,7 +26,16 @@ pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> Translati
         "MalSymbolRope",
     ));
     output.blank_line();
-    if control_regions != 0 {
+    if control_arenas != 0 {
+        output.push(AggregateDefinition::typedef_structure(
+            None,
+            [
+                AggregateField::variable(TypeName::named("uint8_t").pointer(), "storage"),
+                AggregateField::variable("size_t", "capacity"),
+            ],
+            "MalControlArena",
+        ));
+        output.blank_line();
         output.push(AggregateDefinition::typedef_structure(
             None,
             [
@@ -40,10 +49,10 @@ pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> Translati
         output.blank_line();
     }
     let mut context_fields = vec![AggregateField::variable("uint8_t", "unused")];
-    for region in 0..control_regions {
+    for arena in 0..control_arenas {
         context_fields.push(AggregateField::variable(
-            "MalControlStack",
-            control_region_name(region),
+            "MalControlArena",
+            control_arena_name(arena),
         ));
     }
     output.push(AggregateDefinition::structure("MalContext", context_fields));
@@ -78,7 +87,7 @@ pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> Translati
     output.blank_line();
 
     append_trap(&mut output);
-    if control_regions != 0 {
+    if control_arenas != 0 {
         append_control_stack(&mut output);
     }
     let mut context_destroy = Block::new([
@@ -112,11 +121,11 @@ pub(super) fn emit(needs_symbol_copy: bool, control_regions: usize) -> Translati
         "MAL_TEST_RETAIN_LIMIT",
         "retain limit exceeded",
     );
-    for region in 0..control_regions {
+    for arena in 0..control_arenas {
         context_destroy.push(Statement::call(
             "free",
             [Expr::identifier("context")
-                .pointer_field(control_region_name(region))
+                .pointer_field(control_arena_name(arena))
                 .field("storage")],
         ));
     }
@@ -349,8 +358,8 @@ fn append_control_stack(output: &mut TranslationUnit) {
     );
 }
 
-fn control_region_name(region: usize) -> String {
-    format!("control_region_{region}")
+fn control_arena_name(arena: usize) -> String {
+    format!("control_arena_{arena}")
 }
 
 fn control_failure(message: &str) -> Block {
