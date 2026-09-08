@@ -172,30 +172,34 @@ acyclic direct、managed pressure suiteを退行させないことである。
 ## bounded direct execution
 
 region machineのdispatcher分岐を償却する候補として、同じregion内のnon-tail applicationを一定段数だけ通常のC callで実行する。
-単にdepth counterが尽きたcalleeだけをdispatcherへ送ると、それ以前のC activationが保持するcontinuationを失うか、C stackを残したまま
-次batchへ入り、Mal call depthに比例してC stackが増える。この形は採用しない。
+各regionはdriverとworkerを持つ。driverはarenaをlocalへ取り出し、compile-time定数`B`をfuelとしてworkerを開始する。workerは
+arenaのpointerとtop、今回のC activationが消費してよい下限`base-top`を共有する。
 
-各regionはdriverとworkerを持つ。driverはarenaと次entryを所有し、compile-time定数`B`をfuelとしてworkerを開始する。workerが
-region内non-tail callを実行するときは、現在と同じtyped frameをcall前にpushしてcontinuationをdurableにする。fuelが残る場合だけ
-callee workerをC callする。calleeがframeの直上まで通常returnした場合、caller workerは既知のframeをpopし、site固有のresumeへ直接
-進む。fuelが尽きた場合はcallee entry、environment owner、argumentをdriver stateへmoveして`Spill`を返し、途中のworkerはframeを
-popせず`Spill`を伝播する。driverまでunwindした後にfuelを補充して次batchを始める。
+workerがregion内non-tail callを実行するときは、現在と同じtyped frameをcall前にpushしてcontinuationをdurableにする。fuelが残る
+場合だけcallee workerをC callし、push後のtopをcalleeの`base-top`にする。calleeはfunction resultを得てtopが`base-top`と一致したら、
+その直下のcaller frameを消費せずC returnする。callerは型が既知のframeをpopし、site固有のresumeへ直接進む。fuelが尽きた場合は
+C callせず、現在のactivation内でcallee entryへjumpする。以後は従来のdispatcherとして任意深度を実行し、topがそのactivationの
+`base-top`へ戻った時だけC returnする。
 
 ```text
-worker(entry, fuel, base-top) -> Complete(value) | Spill(next-entry, environment, argument)
+worker(entry, fuel, base-top) -> value
 
 same-region non-tail call:
   push Frame_site(live-values)
   if fuel > 0:
-    Complete(value) = worker(callee, fuel - 1, top)
-      => pop Frame_site; resume_site(value)
-    Spill(next) => propagate Spill(next) without pop
+    value = worker(callee, fuel - 1, top)
+    pop the known Frame_site without dispatch
+    resume_site(value)
   else:
-    publish callee; return Spill(callee)
+    enter callee in the current worker
+
+function return:
+  if top == base-top: return value
+  else: pop and dispatch the top frame
 ```
 
-frameはC call成功時にも先に作るため、どの深度でspillしてもsource continuationと同じ順序でarenaに残る。managed localは従来どおり
-frameへmoveし、通常returnではframeからcaller localへmove-backし、spill時はframeだけがownerを保持する。tail applicationは新しい
+frameはC call前に作るため、worker activationの有無によらずsource continuationと同じ順序でarenaに残る。managed localは従来どおり
+frameへmoveし、calleeのC return後またはdispatcher resume時にframeからcaller localへmove-backする。tail applicationは新しい
 continuationを作らないのでC callせずregion内jumpを保つ。異なるregionへのcallはcondensation DAG上の従来のC callである。
 
 同時に存在するworker activationはregionごとに高々`B + 1`であり、program全体ではregion condensation pathに沿う有限和となる。

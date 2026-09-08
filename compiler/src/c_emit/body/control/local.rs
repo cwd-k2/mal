@@ -223,7 +223,7 @@ impl BodyEmitter<'_> {
                             Expr::named_call(
                                 "mal_control_push",
                                 [
-                                    Expr::address_of(Expr::identifier(CONTROL_STACK)),
+                                    Expr::identifier(CONTROL_STACK),
                                     Expr::sizeof_type(frame_name(site)),
                                 ],
                             ),

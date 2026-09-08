@@ -8,9 +8,10 @@ use crate::control::ast::{self as control, StateId, Terminator};
 use super::super::analysis::ControlRegionId;
 
 pub(super) const CONTROL_STACK: &str = "mal_control";
+const CONTROL_STACK_STORAGE: &str = "mal_control_storage";
 
 pub(super) fn control_stack_field(field: &str) -> Expr {
-    Expr::identifier(CONTROL_STACK).field(field)
+    Expr::identifier(CONTROL_STACK).pointer_field(field)
 }
 
 pub(super) fn control_region_name(region: ControlRegionId) -> String {
@@ -20,8 +21,13 @@ pub(super) fn control_region_name(region: ControlRegionId) -> String {
 pub(super) fn emit_control_stack_preamble(output: &mut Block, region: ControlRegionId) {
     output.push(Statement::variable(
         "MalControlStack",
-        CONTROL_STACK,
+        CONTROL_STACK_STORAGE,
         Some(Expr::identifier("mal_context").pointer_field(control_region_name(region))),
+    ));
+    output.push(Statement::variable(
+        crate::c_emit::syntax::TypeName::named("MalControlStack").pointer(),
+        CONTROL_STACK,
+        Some(Expr::address_of(Expr::identifier(CONTROL_STACK_STORAGE))),
     ));
     output.push(Statement::assignment(
         control_stack_field("top"),
@@ -36,7 +42,7 @@ pub(super) fn emit_control_stack_preamble(output: &mut Block, region: ControlReg
 pub(super) fn emit_control_stack_cache(output: &mut Block, region: ControlRegionId) {
     output.push(Statement::assignment(
         Expr::identifier("mal_context").pointer_field(control_region_name(region)),
-        Expr::identifier(CONTROL_STACK),
+        Expr::dereference(Expr::identifier(CONTROL_STACK)),
     ));
 }
 

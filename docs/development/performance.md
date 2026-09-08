@@ -131,8 +131,8 @@ nativeのwarmup 3回、交互30 roundではregion版と通常C再帰はHanoiで1
 
 first-class non-tail cycleをdepth 10,000で1回実行したCallgrind比較では、region版は変換前の通常C call経路に対してinstruction
 referenceが2.26、data referenceが3.78、conditional branchが5.26だった。Hanoiだけからmemory traffic削減を結論できず、共通machine
-ではcode identity選択、entry dispatch、resumeが独立した主要costである。したがって次の実験はframeを省略せず、C callが正常に戻る
-batch内だけ既知resumeへ直行し、spill時には既存frameを保持してdriverまでunwindする。
+ではcode identity選択、entry dispatch、resumeが独立した主要costである。したがって次の実験はframeを省略せず、fuelが残る間だけ
+callee workerをC callして既知resumeへ直行し、fuel 0では同じactivationのdispatcherへ戻す。
 
 ## 個別調査
 
