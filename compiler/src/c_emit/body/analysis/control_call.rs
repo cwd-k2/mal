@@ -44,6 +44,7 @@ impl ControlCallPlan {
         }
 
         let mut candidates = Vec::new();
+        let mut possible_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
         for function in &control.functions {
             for site in reachable_states(control, function.entry) {
                 let terminator = &control.states[site.0].terminator;
@@ -53,6 +54,10 @@ impl ControlCallPlan {
                 if is_direct_self_tail(terminator, function.id) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
                 } else if let Some(callee) = direct_function_id(closure_uses, callee) {
+                    possible_graph
+                        .entry(function.id)
+                        .or_default()
+                        .push(callee);
                     candidates.push(Candidate {
                         site,
                         caller: function.id,
@@ -60,19 +65,24 @@ impl ControlCallPlan {
                     });
                 } else {
                     modes.insert(site, ControlCallMode::Dispatch);
+                    if let crate::check::ast::Type::Function { parameter, result } = &callee.ty {
+                        possible_graph.entry(function.id).or_default().extend(
+                            closure
+                                .functions
+                                .iter()
+                                .filter(|target| {
+                                    target.parameter.ty == **parameter
+                                        && target.body.result.ty == **result
+                                })
+                                .map(|target| target.id),
+                        );
+                    }
                 }
             }
         }
 
-        let mut known_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
-        for candidate in &candidates {
-            known_graph
-                .entry(candidate.caller)
-                .or_default()
-                .push(candidate.callee);
-        }
         for candidate in candidates {
-            if creates_cycle(&known_graph, candidate.caller, candidate.callee) {
+            if creates_cycle(&possible_graph, candidate.caller, candidate.callee) {
                 modes.insert(candidate.site, ControlCallMode::Dispatch);
             } else {
                 modes.insert(candidate.site, ControlCallMode::Direct(candidate.callee));
@@ -287,6 +297,44 @@ mod tests {
                 .filter_map(|site| plan.mode(site))
                 .any(|mode| mode == ControlCallMode::DirectSelfTail)
         );
+    }
+
+    #[test]
+    fn closes_known_edges_over_type_compatible_indirect_targets() {
+        let source = SourceFile::new(
+            FileId::new(70),
+            "indirect-control-cycle.mal",
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+               function(value);\n\
+             };\n\
+             main :: Unit -> Int32 := \\() {\n\
+               recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+                 if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
+               };\n\
+               recurse(2i32);\n\
+             };"
+            .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse indirect cycle fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve indirect cycle fixture");
+        let checked = check::check(&resolved).expect("check indirect cycle fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = closure::convert(&anf);
+        let control = control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let plan = ControlCallPlan::new(&closure, &control, &uses);
+        let apply = top_level_function_id(&closure, "apply");
+
+        assert!(control.states.iter().enumerate().any(|(index, state)| {
+            let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =
+                &state.terminator
+            else {
+                return false;
+            };
+            direct_function_id(&uses, callee) == Some(apply)
+                && plan.mode(StateId(index)) == Some(ControlCallMode::Dispatch)
+        }));
     }
 
     fn top_level_function_id(program: &closure::ast::Program, name: &str) -> FunctionId {
