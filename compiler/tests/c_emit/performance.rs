@@ -25,6 +25,11 @@ main :: Unit -> Int32 := \() {
 };"#,
     )
     .expect("emit flat Symbol scan");
+    assert!(
+        generated
+            .source
+            .contains("static inline void mal_symbol_release(")
+    );
 
     let fixture = NativeFixture::new("flat-symbol-scan-cost");
     let llvm_ir = fixture.compile_generated_to_llvm_ir(generated.clone());

@@ -358,7 +358,7 @@ fn append_symbol_lifetime(output: &mut TranslationUnit) {
     );
     append_function(
         output,
-        FunctionSignature::new(
+        FunctionSignature::static_inline(
             "void",
             "mal_symbol_release",
             [Parameter::named("MalType_Symbol", "value")],
