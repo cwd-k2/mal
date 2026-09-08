@@ -21,10 +21,27 @@ Status: Current work plan
 
 ## 現在の課題
 
-現在、profileによってcompilerの責務へ分離できたactiveなcost modelはない。新しい課題は、同じ意図を各言語で自然に
-記述した比較fixtureと最適化後IRまたはsampling profileが独立したcostを示した場合だけ追加する。source上の記法差を
-compiler差として扱わず、
-既存のlanguage/host authorityを越える仮定を性能差から逆輸入しない。
+| 優先度 | 軸 | 観測したcost | Fixture |
+|---:|---|---|---|
+| 1 | 非末尾再帰 | 軽いnode処理でのcall costとC stack深度 | Hanoi、線形unwind |
+
+## 1. 非末尾再帰
+
+自然なHanoi再帰と、continuationを4個のscalar fieldからなる`Ptr` stackへdefunctionalizeしたmal版は、同じmove列のhashを返した。
+後者は単一のself tail recursionからgenerated Cの`goto` loopになった。各moveをcheapなwrap演算にしたdepth 26では、自然版と
+flat版の交互30回測定は114.94 msと77.89 ms、同一processの`cpu-clock` samplingは約60%と40%だった。非末尾call以外の
+node処理が軽いとき、自然な記述に約1.48倍のcostが残る。
+
+線形unwindでは最適化後assemblyにも非末尾の再帰`call`とframeごとの3個の8-byte pushが残った。8 MiBのC stackでdepth
+250,000は完了したが275,000はsignal 11で終了し、明示stack版は1,000,000まで同じ結果を返した。この確認のwall-clockは
+Nushell runnerを含む診断値なので、変換の採否には標準のHyperfine fixtureを別途要求する。
+
+同じ変換をmal sourceで記述することは可能だが、frame offset、capacity、program counter、push/popと全live stateの持ち回しを
+利用者が所有する。自然な非末尾再帰が中心構文である以上、これを通常のsource記法とは扱わない。
+
+次の設計はdirectなfirst-order self recursionに対象を限定し、ANF上の継続形を有限種類のframeへ変換できる条件を先に定める。
+operandとeffectの順序、frameが持つmanaged valueのcopy/drop、stack storageとallocation failureのauthorityを解決するまで
+実装しない。queue化とmemoizationは順序または計算量を変えるため、このcost modelには含めない。
 
 ## 共通の完了条件
 
