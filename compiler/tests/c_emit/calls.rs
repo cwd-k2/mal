@@ -245,6 +245,12 @@ fn emits_typed_control_frame_fields_for_live_symbols() {
     assert!(generated.source.contains("MalType_Symbol field_"));
     assert!(generated.source.contains("mal_symbol_retain("));
     assert!(generated.source.contains("mal_symbol_release("));
+    assert!(
+        !generated
+            .source
+            .lines()
+            .any(|line| line.contains("->field_") && line.contains("mal_symbol_retain("))
+    );
     let fixture = NativeFixture::new("typed-symbol-control-frame");
     let executable = fixture.compile_generated_with_options(
         generated,

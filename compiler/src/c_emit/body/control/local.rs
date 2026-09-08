@@ -203,10 +203,6 @@ impl BodyEmitter<'_> {
                 resume,
             } => match self.control_calls.mode(site) {
                 Some(ControlCallMode::Dispatch) => {
-                    let frame = self
-                        .control_frames
-                        .frame(site)
-                        .expect("dispatching non-tail calls have frames");
                     let previous = format!("mal_previous_frame_{}", site.0);
                     let frame_variable = format!("mal_frame_{}", site.0);
                     let next_parameter = format!("mal_next_parameter_{}", site.0);
@@ -249,16 +245,7 @@ impl BodyEmitter<'_> {
                             .field("resume"),
                         uint32(resume.0),
                     ));
-                    for (index, field) in frame.fields.iter().enumerate() {
-                        output.push(Statement::assignment(
-                            Expr::identifier(&frame_variable)
-                                .pointer_field(frame_field_name(index)),
-                            self.types.copy_value(
-                                &field.value.ty,
-                                Expr::identifier(value_name(field.value.id)),
-                            ),
-                        ));
-                    }
+                    self.emit_control_frame_field_moves(output, site, &frame_variable);
                     self.emit_control_activation_cleanup(output, function, local_slots);
                     if let Some(parameter) = function.parameter.binding {
                         output.push(Statement::assignment(

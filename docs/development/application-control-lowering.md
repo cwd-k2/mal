@@ -22,7 +22,8 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 control IR、backward liveness、direct-call cycle判定、typed frame layout、growable control storageは実装済みである。C emitterは
 direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
 `Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
-activation cleanup後、resume時にlocal slotへmoveする。copy-onlyの正しさを先に成立させており、last-use transferは未適用である。
+activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
+zero化し、不要なretain/releaseを発生させない。
 direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
 function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。

@@ -6,8 +6,8 @@ use crate::control::ast::{StateId, Terminator};
 
 use super::super::super::analysis::ControlCallMode;
 use super::super::super::{BodyEmitter, ResultOwnership, value_name};
+use super::super::frame_name;
 use super::super::support::{state_label, uint8, uint32};
-use super::super::{frame_field_name, frame_name};
 use super::{CONTROL_DESTROY_ENVIRONMENT, CONTROL_ENVIRONMENT};
 
 impl BodyEmitter<'_> {
@@ -334,15 +334,7 @@ impl BodyEmitter<'_> {
                 .field("resume"),
             uint32(resume.0),
         ));
-        for (index, field) in frame.fields.iter().enumerate() {
-            output.push(Statement::assignment(
-                Expr::identifier(&frame_variable).pointer_field(frame_field_name(index)),
-                self.types.copy_value(
-                    &field.value.ty,
-                    Expr::identifier(value_name(field.value.id)),
-                ),
-            ));
-        }
+        self.emit_control_frame_field_moves(output, site, &frame_variable);
         if frame.needs_environment {
             output.push(Statement::assignment(
                 Expr::identifier(&frame_variable).pointer_field("environment"),
