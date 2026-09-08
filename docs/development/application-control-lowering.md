@@ -19,14 +19,14 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 
 ## 実装状態
 
-control IR、backward liveness、direct-call cycle判定、typed frame layout、growable control storageは実装済みである。C emitterが
-この情報からcontrol machineを生成する現在の範囲は、managed valueをparameter、result、state input、local binding、frame fieldに
-含まないdirect self non-tail recursionである。この範囲では一つのC activation内でstateを遷移し、live scalarをtyped frameへ保存して
-return時にresumeする。direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
+control IR、backward liveness、direct-call cycle判定、typed frame layout、growable control storageは実装済みである。C emitterは
+direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
+`Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
+activation cleanup後、resume時にlocal slotへmoveする。copy-onlyの正しさを先に成立させており、last-use transferは未適用である。
+direct self tail callは従来どおり`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
-`Symbol`などmanaged valueを含むfunction、indirect call、mutual recursionは、現時点では従来のC emissionを使う。したがってこの
-checkpointではmanaged valueのlifetimeを変更しない。これらをcontrol machineへ移す前に、[ownership規約](../implementation/ownership.md#control-frame)
-に従うframeへのcopyまたはtransfer、resume時のowner移動、通常return時のdestroyを実装し、sanitizerを含むlifetime testを通す。
+function valueを含むstate、indirect call、mutual recursionは現時点では従来のC emissionを使う。次の適用段階ではclosure environmentの
+ownerとentry stateをcontrol machineへ組み込み、sanitizerを含むlifetime testを同じgateとして維持する。
 
 ## 抽象machine
 

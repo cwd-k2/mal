@@ -130,6 +130,11 @@ impl BodyEmitter<'_> {
                         self.direct_function_signature(function),
                     ));
                 }
+                if self.owned_calls.contains(function.id) {
+                    output.push(Declaration::function(
+                        self.owned_function_signature(function),
+                    ));
+                }
                 continue;
             }
             if has_direct_product_entry(&function.parameter.ty) {
@@ -292,7 +297,10 @@ impl BodyEmitter<'_> {
         self.flattened_function_signature(function, direct_function_name(function.id), true)
     }
 
-    fn owned_function_signature(&self, function: &closure::Function) -> FunctionSignature {
+    pub(in crate::c_emit::body) fn owned_function_signature(
+        &self,
+        function: &closure::Function,
+    ) -> FunctionSignature {
         if has_direct_product_entry(&function.parameter.ty) {
             self.flattened_function_signature(function, owned_function_name(function.id), false)
         } else {

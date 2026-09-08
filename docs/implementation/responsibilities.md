@@ -115,6 +115,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
 | `c_emit/body/control` | typed control frame宣言とcontrol emissionのmodule境界 |
 | `c_emit/body/control/local` | 一つのC activationへfusionできるcontrol machineのC definition構成 |
+| `c_emit/body/control/ownership` | control local slotとframe間のmanaged owner copy、move、cleanupの構成 |
 | `c_emit/body/control/support` | reachable state、local slot、control operation変換の純粋な補助解析 |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |

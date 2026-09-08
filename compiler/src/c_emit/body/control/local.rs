@@ -3,16 +3,15 @@ use crate::c_emit::syntax::{
 };
 use crate::c_emit::types::is_bool;
 use crate::check::ast::Type;
-use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
+use crate::closure::ast::{self as closure, Atom, AtomKind, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
 use super::super::analysis::ControlCallMode;
 use super::super::{
-    BodyEmitter, function_name, has_direct_product_entry, pattern_type, value_name,
+    BodyEmitter, ResultOwnership, function_name, has_direct_product_entry, pattern_type, value_name,
 };
-use super::support::{
-    closure_operation, local_slots, reachable_states, state_label, uint8, uint32,
-};
+use super::ownership::{supports_local_control_type, zero_value};
+use super::support::{local_slots, reachable_states, state_label, uint8, uint32};
 use super::{frame_field_name, frame_name};
 
 impl BodyEmitter<'_> {
@@ -20,8 +19,8 @@ impl BodyEmitter<'_> {
         &self,
         function: &closure::Function,
     ) -> bool {
-        if self.types.contains_managed(&function.parameter.ty)
-            || self.types.contains_managed(&function.body.result.ty)
+        if !supports_local_control_type(&function.parameter.ty)
+            || !supports_local_control_type(&function.body.result.ty)
         {
             return false;
         }
@@ -39,9 +38,9 @@ impl BodyEmitter<'_> {
             if state
                 .input
                 .as_ref()
-                .is_some_and(|pattern| self.types.contains_managed(pattern_type(pattern)))
+                .is_some_and(|pattern| !supports_local_control_type(pattern_type(pattern)))
                 || state.bindings.iter().any(|binding| {
-                    self.types.contains_managed(pattern_type(&binding.pattern))
+                    !supports_local_control_type(pattern_type(&binding.pattern))
                         || matches!(binding.operation, control::Operation::MakeClosure { .. })
                 })
             {
@@ -61,13 +60,6 @@ impl BodyEmitter<'_> {
                 ) {
                     return false;
                 }
-                if self
-                    .control_frames
-                    .frame(site)
-                    .is_some_and(|frame| frame.fields.iter().any(|field| field.managed))
-                {
-                    return false;
-                }
             }
         }
         has_dispatch
@@ -85,8 +77,18 @@ impl BodyEmitter<'_> {
             .expect("control lowering preserves function identities")
             .clone();
         let sites = reachable_states(&self.control, control_function.entry);
+        let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
         let mut body = Block::default();
         self.emit_function_preamble(&mut body, function);
+        if let Some(parameter) = function.parameter.binding
+            && self.types.contains_managed(&function.parameter.ty)
+        {
+            let target = Expr::identifier(value_name(parameter));
+            body.push(Statement::assignment(
+                target.clone(),
+                self.types.copy_value(&function.parameter.ty, target),
+            ));
+        }
         body.push(Statement::variable(
             "size_t",
             "mal_control_base_top",
@@ -97,14 +99,11 @@ impl BodyEmitter<'_> {
             "mal_control_base_frame",
             Some(Expr::identifier("mal_context").pointer_field("control_frame")),
         ));
-        for (id, ty) in local_slots(&self.control, &sites, function.parameter.binding) {
+        for (id, ty) in &local_slots {
             body.push(Statement::variable(
-                self.types.c_type(&ty),
-                value_name(id),
-                Some(Expr::compound_literal(
-                    self.types.c_type(&ty),
-                    [Initializer::positional(Expr::number("0"))],
-                )),
+                self.types.c_type(ty),
+                value_name(*id),
+                Some(zero_value(self, ty)),
             ));
         }
         body.push(Statement::goto(state_label(control_function.entry)));
@@ -119,7 +118,7 @@ impl BodyEmitter<'_> {
                 function,
                 *site,
                 &state.terminator,
-                &sites,
+                &local_slots,
             );
             body.push(Statement::label(state_label(*site), state_body));
         }
@@ -142,56 +141,20 @@ impl BodyEmitter<'_> {
                     parameter,
                 ],
             ))]);
-            output.push(FunctionDefinition::from_signature(
-                self.direct_function_signature(function),
-                direct_body,
-            ));
+            let mut signature = self.direct_function_signature(function);
+            if self.closure_uses.has_direct_top_level_function(function.id)
+                && self.owned_calls.contains(function.id)
+            {
+                signature = signature.maybe_unused();
+            }
+            output.push(FunctionDefinition::from_signature(signature, direct_body));
+            output.blank_line();
+        }
+        if self.owned_calls.contains(function.id) {
+            output.push(self.emit_owned_control_wrapper(function));
             output.blank_line();
         }
         output
-    }
-
-    fn emit_control_binding(&mut self, output: &mut Block, binding: &control::Binding) {
-        let operation = closure_operation(&binding.operation);
-        if matches!(&operation, closure::Operation::ExternalCall { .. })
-            && pattern_type(&binding.pattern) == &Type::Unit
-        {
-            let closure::Operation::ExternalCall { id, argument } = &operation else {
-                unreachable!()
-            };
-            output.push(Statement::expression(
-                self.emit_external_call(*id, argument),
-            ));
-            self.emit_control_pattern_assignment(
-                output,
-                &binding.pattern,
-                Expr::compound_literal("MalType_Unit", [Initializer::positional(uint8(0))]),
-            );
-            return;
-        }
-        let emitted = self.emit_operation_expression(&operation, pattern_type(&binding.pattern));
-        self.emit_control_pattern_assignment(output, &binding.pattern, emitted.expression);
-    }
-
-    fn emit_control_pattern_assignment(&self, output: &mut Block, pattern: &Pattern, value: Expr) {
-        match pattern {
-            Pattern::Binding { id, .. } => output.push(Statement::assignment(
-                Expr::identifier(value_name(*id)),
-                value,
-            )),
-            Pattern::Wildcard { .. } => {
-                output.push(Statement::expression(Expr::cast("void", value)))
-            }
-            Pattern::Product { elements, .. } => {
-                for (index, element) in elements.iter().enumerate() {
-                    self.emit_control_pattern_assignment(
-                        output,
-                        element,
-                        value.clone().field(format!("field_{index}")),
-                    );
-                }
-            }
-        }
     }
 
     fn emit_control_terminator(
@@ -200,20 +163,31 @@ impl BodyEmitter<'_> {
         function: &closure::Function,
         site: StateId,
         terminator: &Terminator,
-        sites: &[StateId],
+        local_slots: &[(crate::anf::ast::ValueId, Type)],
     ) {
         match terminator {
             Terminator::Return(value) => {
                 let result = self.emit_atom(value);
-                self.emit_local_control_return(output, function, site, result, sites);
+                self.emit_local_control_return(
+                    output,
+                    function,
+                    site,
+                    result,
+                    ResultOwnership::Borrowed,
+                );
             }
             Terminator::Goto(target) => output.push(Statement::goto(state_label(*target))),
             Terminator::Jump { target, value } => {
                 let input = self.control.states[target.0]
                     .input
                     .as_ref()
-                    .expect("jump target accepts a value");
-                self.emit_control_pattern_assignment(output, input, self.emit_atom(value));
+                    .expect("jump target accepts a value")
+                    .clone();
+                self.emit_control_borrowed_pattern_assignment(
+                    output,
+                    &input,
+                    self.emit_atom(value),
+                );
                 output.push(Statement::goto(state_label(*target)));
             }
             Terminator::Call {
@@ -232,7 +206,10 @@ impl BodyEmitter<'_> {
                     output.push(Statement::variable(
                         self.types.c_type(&argument.ty),
                         &next_parameter,
-                        Some(self.emit_atom(argument)),
+                        Some(
+                            self.types
+                                .copy_value(&argument.ty, self.emit_atom(argument)),
+                        ),
                     ));
                     output.push(Statement::variable(
                         "size_t",
@@ -269,16 +246,19 @@ impl BodyEmitter<'_> {
                         output.push(Statement::assignment(
                             Expr::identifier(&frame_variable)
                                 .pointer_field(frame_field_name(index)),
-                            Expr::identifier(value_name(field.value.id)),
+                            self.types.copy_value(
+                                &field.value.ty,
+                                Expr::identifier(value_name(field.value.id)),
+                            ),
                         ));
                     }
-                    let Some(parameter) = function.parameter.binding else {
-                        unreachable!("self call has the current function parameter")
-                    };
-                    output.push(Statement::assignment(
-                        Expr::identifier(value_name(parameter)),
-                        Expr::identifier(next_parameter),
-                    ));
+                    self.emit_control_activation_cleanup(output, function, local_slots);
+                    if let Some(parameter) = function.parameter.binding {
+                        output.push(Statement::assignment(
+                            Expr::identifier(value_name(parameter)),
+                            Expr::identifier(next_parameter),
+                        ));
+                    }
                     output.push(Statement::goto(state_label(
                         self.control_function(function.id).entry,
                     )));
@@ -291,10 +271,11 @@ impl BodyEmitter<'_> {
                     let input = self.control.states[resume.0]
                         .input
                         .as_ref()
-                        .expect("call resume accepts its result");
-                    self.emit_control_pattern_assignment(
+                        .expect("call resume accepts its result")
+                        .clone();
+                    self.emit_control_owned_pattern_assignment(
                         output,
-                        input,
+                        &input,
                         self.emit_call(callee, argument, false),
                     );
                     output.push(Statement::goto(state_label(*resume)));
@@ -305,24 +286,35 @@ impl BodyEmitter<'_> {
             },
             Terminator::TailCall { callee, argument } => match self.control_calls.mode(site) {
                 Some(ControlCallMode::DirectSelfTail) => {
-                    let parameter = function.parameter.binding.expect("self call parameter");
                     let next = format!("mal_next_parameter_{}", site.0);
                     output.push(Statement::variable(
                         self.types.c_type(&argument.ty),
                         &next,
-                        Some(self.emit_atom(argument)),
+                        Some(
+                            self.types
+                                .copy_value(&argument.ty, self.emit_atom(argument)),
+                        ),
                     ));
-                    output.push(Statement::assignment(
-                        Expr::identifier(value_name(parameter)),
-                        Expr::identifier(next),
-                    ));
+                    self.emit_control_activation_cleanup(output, function, local_slots);
+                    if let Some(parameter) = function.parameter.binding {
+                        output.push(Statement::assignment(
+                            Expr::identifier(value_name(parameter)),
+                            Expr::identifier(next),
+                        ));
+                    }
                     output.push(Statement::goto(state_label(
                         self.control_function(function.id).entry,
                     )));
                 }
                 Some(ControlCallMode::Direct(_)) => {
                     let result = self.emit_call(callee, argument, false);
-                    self.emit_local_control_return(output, function, site, result, sites);
+                    self.emit_local_control_return(
+                        output,
+                        function,
+                        site,
+                        result,
+                        ResultOwnership::Owned,
+                    );
                 }
                 Some(ControlCallMode::Dispatch) | None => {
                     unreachable!("local control only dispatches non-tail self calls")
@@ -341,7 +333,8 @@ impl BodyEmitter<'_> {
                     let input = self.control.states[arm.target.0]
                         .input
                         .as_ref()
-                        .expect("case target accepts its payload");
+                        .expect("case target accepts its payload")
+                        .clone();
                     let payload = if is_bool(&scrutinee.ty) {
                         Expr::compound_literal("MalType_Unit", [Initializer::positional(uint8(0))])
                     } else {
@@ -350,7 +343,7 @@ impl BodyEmitter<'_> {
                             .field("payload")
                             .field(format!("variant_{}", arm.index))
                     };
-                    self.emit_control_pattern_assignment(&mut arm_body, input, payload);
+                    self.emit_control_borrowed_pattern_assignment(&mut arm_body, &input, payload);
                     arm_body.push(Statement::goto(state_label(arm.target)));
                     cases.push(SwitchCase::case(uint32(arm.index), arm_body));
                 }
@@ -378,22 +371,31 @@ impl BodyEmitter<'_> {
     }
 
     fn emit_local_control_return(
-        &self,
+        &mut self,
         output: &mut Block,
         function: &closure::Function,
         state: StateId,
         result: Expr,
-        sites: &[StateId],
+        ownership: ResultOwnership,
     ) {
+        let entry = self.control_function(function.id).entry;
+        let sites = reachable_states(&self.control, entry);
+        let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
         let result_name = format!("mal_control_result_{}", state.0);
+        let result = if ownership == ResultOwnership::Owned {
+            result
+        } else {
+            self.types.copy_value(&function.body.result.ty, result)
+        };
         output.push(Statement::variable(
             self.types.c_type(&function.body.result.ty),
             &result_name,
             Some(result),
         ));
+        self.emit_control_activation_cleanup(output, function, &local_slots);
         let mut resume_cases = Vec::new();
-        for site in sites {
-            let Some(frame) = self.control_frames.frame(*site) else {
+        for site in &sites {
+            let Some(frame) = self.control_frames.frame(*site).cloned() else {
                 continue;
             };
             let frame_variable = format!("mal_resume_frame_{}_{}", state.0, site.0);
@@ -409,18 +411,25 @@ impl BodyEmitter<'_> {
                 )),
             )]);
             for (index, field) in frame.fields.iter().enumerate() {
+                let frame_field =
+                    Expr::identifier(&frame_variable).pointer_field(frame_field_name(index));
                 resume.push(Statement::assignment(
                     Expr::identifier(value_name(field.value.id)),
-                    Expr::identifier(&frame_variable).pointer_field(frame_field_name(index)),
+                    frame_field.clone(),
+                ));
+                resume.push(Statement::assignment(
+                    frame_field,
+                    zero_value(self, &field.value.ty),
                 ));
             }
             let input = self.control.states[frame.resume.0]
                 .input
                 .as_ref()
-                .expect("resume accepts a call result");
-            self.emit_control_pattern_assignment(
+                .expect("resume accepts a call result")
+                .clone();
+            self.emit_control_owned_pattern_assignment(
                 &mut resume,
-                input,
+                &input,
                 Expr::identifier(&result_name),
             );
             resume.push(Statement::assignment(

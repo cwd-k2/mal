@@ -12,12 +12,14 @@ pub(in crate::c_emit::body) struct ControlFramePlan {
     closures_crossing_suspension: HashSet<ValueId>,
 }
 
+#[derive(Clone)]
 pub(in crate::c_emit::body) struct ControlFrame {
     pub(in crate::c_emit::body) resume: StateId,
     pub(in crate::c_emit::body) fields: Vec<ControlFrameField>,
     pub(in crate::c_emit::body) needs_environment: bool,
 }
 
+#[derive(Clone)]
 pub(in crate::c_emit::body) struct ControlFrameField {
     pub(in crate::c_emit::body) value: LiveValue,
     pub(in crate::c_emit::body) managed: bool,

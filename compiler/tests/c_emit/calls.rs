@@ -53,7 +53,12 @@ MalType_Bool mal_ext_exchange(
 }
 "#,
     );
-    assert!(fixture.run(executable).status.success());
+    let result = fixture.run(executable);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
 }
 
 #[test]
@@ -187,9 +192,50 @@ fn emits_typed_control_frame_fields_for_live_symbols() {
 
     assert!(generated.source.contains("MalControlFrameHeader header;"));
     assert!(generated.source.contains("MalType_Symbol field_"));
+    assert!(generated.source.contains("mal_symbol_retain("));
+    assert!(generated.source.contains("mal_symbol_release("));
     let fixture = NativeFixture::new("typed-symbol-control-frame");
-    let executable = fixture.compile_generated(generated, "");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
     assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn lowers_deep_symbol_recursion_with_balanced_frame_ownership() {
+    let generated = emit(
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, value :: Symbol) {\n\
+           if (depth == 0i32)\n\
+             then { value }\n\
+             else {\n\
+               resumed := walk(depth - 1i32, value);\n\
+               first := resumed # 0u64;\n\
+               if (first == 120u8) then { resumed } else { \"bad\" };\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"x\" + \"y\";\n\
+           result := walk(50000i32, seed);\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    )
+    .expect("emit deep managed control frames");
+    assert!(generated.source.contains("mal_control_push("));
+
+    let fixture = NativeFixture::new("deep-symbol-control");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-O2", "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    let result = fixture.run(executable);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
 }
 
 #[test]
