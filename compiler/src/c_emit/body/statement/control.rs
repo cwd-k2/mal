@@ -36,13 +36,14 @@ impl BodyEmitter<'_> {
         block: &ClosureBlock,
         function: FunctionId,
         slots: &[TailParameterSlot<'_>],
+        skip_bindings: usize,
     ) {
         self.emit_tail_block_with_cleanup(
             output,
             block,
             function,
             &TailState::Leaves(slots),
-            1,
+            skip_bindings,
             &[],
         );
     }

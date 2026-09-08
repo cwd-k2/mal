@@ -74,6 +74,8 @@ pub(super) struct BodyEmitter<'a> {
     closure_uses: ClosureUsePlan,
     owned_calls: OwnedCallPlan,
     ephemeral_bindings: HashSet<ValueId>,
+    borrowed_bindings: HashSet<ValueId>,
+    direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
 }
 
@@ -91,6 +93,8 @@ impl<'a> BodyEmitter<'a> {
             closure_uses,
             owned_calls,
             ephemeral_bindings: HashSet::new(),
+            borrowed_bindings: HashSet::new(),
+            direct_borrow_sources: HashSet::new(),
             parameter_owned: false,
         }
     }
@@ -195,7 +199,23 @@ impl<'a> BodyEmitter<'a> {
     }
 
     fn can_transfer(&self, atom: &closure::Atom) -> bool {
+        if matches!(
+            atom.kind,
+            closure::AtomKind::Reference(closure::Reference::Binding(id))
+                if self.borrowed_bindings.contains(&id)
+        ) {
+            return false;
+        }
         self.ownership.can_transfer(atom, self.parameter_owned)
+    }
+
+    fn is_borrowed(&self, atom: &closure::Atom) -> bool {
+        matches!(
+            atom.kind,
+            closure::AtomKind::Reference(closure::Reference::Binding(id))
+                if self.borrowed_bindings.contains(&id)
+                    || self.direct_borrow_sources.contains(&id)
+        )
     }
 }
 

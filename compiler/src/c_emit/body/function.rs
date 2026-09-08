@@ -154,7 +154,7 @@ impl BodyEmitter<'_> {
                         parameter_name.clone(),
                         Some(value),
                     ));
-                    self.emit_function_body(&mut body, function, false);
+                    self.emit_borrowed_direct_function_body(&mut body, function);
                 }
                 output.push(FunctionDefinition::from_signature(
                     self.direct_function_signature(function),
@@ -196,7 +196,7 @@ impl BodyEmitter<'_> {
                         self.emit_function_body(&mut body, function, true);
                     }
                     output.push(FunctionDefinition::from_signature(
-                        self.owned_function_signature(function),
+                        self.owned_function_signature(function).maybe_unused(),
                         body,
                     ));
                     output.blank_line();
@@ -214,7 +214,7 @@ impl BodyEmitter<'_> {
                 let mut body = CBlock::default();
                 self.emit_function_body(&mut body, function, true);
                 output.push(FunctionDefinition::from_signature(
-                    self.owned_function_signature(function),
+                    self.owned_function_signature(function).maybe_unused(),
                     body,
                 ));
                 output.blank_line();
@@ -375,6 +375,58 @@ impl BodyEmitter<'_> {
         }
     }
 
+    fn emit_borrowed_direct_function_body(
+        &mut self,
+        output: &mut CBlock,
+        function: &closure::Function,
+    ) {
+        let Some(parameter) = function.parameter.binding else {
+            self.emit_function_body(output, function, false);
+            return;
+        };
+        self.emit_function_preamble(output, function);
+        self.borrowed_bindings.insert(parameter);
+        let mut borrowed = vec![parameter];
+        let mut skip_bindings = 0;
+        while let Some(binding) = function.body.bindings.get(skip_bindings) {
+            let closure::Operation::Atom(closure::Atom {
+                kind: closure::AtomKind::Reference(closure::Reference::Binding(source)),
+                ..
+            }) = &binding.operation
+            else {
+                break;
+            };
+            if !self.borrowed_bindings.contains(source)
+                || (skip_bindings > 0
+                    && !matches!(binding.pattern, closure::Pattern::Product { .. }))
+            {
+                break;
+            }
+            borrowed.extend(self.emit_borrowed_pattern_bindings(
+                output,
+                &binding.pattern,
+                CExpr::identifier(value_name(*source)),
+            ));
+            skip_bindings += 1;
+        }
+        self.parameter_owned = false;
+        self.emit_bindings(output, &function.body.bindings[skip_bindings..]);
+        let mut transfers = Vec::new();
+        let result = self.materialize_atom(&function.body.result, &mut transfers);
+        output.push(Statement::variable(
+            self.types.c_type(&function.body.result.ty),
+            "mal_function_result",
+            Some(result),
+        ));
+        self.clear_transferred_atoms(output, &transfers);
+        self.emit_block_cleanup(output, &function.body);
+        output.push(Statement::return_value(CExpr::identifier(
+            "mal_function_result",
+        )));
+        self.parameter_owned = false;
+        self.end_borrowed_bindings(borrowed);
+    }
+
     fn emit_leaf_tail_function_body(
         &mut self,
         output: &mut CBlock,
@@ -402,11 +454,54 @@ impl BodyEmitter<'_> {
                 CExpr::identifier(name),
             )));
         }
+        let stable_slots = slots
+            .iter()
+            .enumerate()
+            .filter_map(|(slot_index, slot)| {
+                tail_calls_carry_slot(
+                    &function.body,
+                    function.id,
+                    slots.len(),
+                    slot_index,
+                    slot.id,
+                )
+                .then_some(slot.id)
+            })
+            .collect::<Vec<_>>();
+        self.direct_borrow_sources
+            .extend(stable_slots.iter().copied());
+        let mut borrowed = Vec::new();
+        let mut skip_bindings = 1;
+        for binding in function.body.bindings.iter().skip(1) {
+            let (
+                closure::Pattern::Product { .. },
+                closure::Operation::Atom(closure::Atom {
+                    kind: closure::AtomKind::Reference(closure::Reference::Binding(source)),
+                    ..
+                }),
+            ) = (&binding.pattern, &binding.operation)
+            else {
+                break;
+            };
+            if !stable_slots.contains(source) {
+                break;
+            }
+            borrowed.extend(self.emit_borrowed_pattern_bindings(
+                output,
+                &binding.pattern,
+                CExpr::identifier(value_name(*source)),
+            ));
+            skip_bindings += 1;
+        }
         self.parameter_owned = true;
         let mut tail = CBlock::default();
-        self.emit_leaf_tail_block(&mut tail, &function.body, function.id, slots);
+        self.emit_leaf_tail_block(&mut tail, &function.body, function.id, slots, skip_bindings);
         output.push(Statement::label("mal_tail_entry", tail));
         self.parameter_owned = false;
+        self.end_borrowed_bindings(borrowed);
+        for id in stable_slots {
+            self.direct_borrow_sources.remove(&id);
+        }
     }
 
     fn emit_function_preamble(&self, output: &mut CBlock, function: &closure::Function) {
@@ -517,6 +612,66 @@ fn tail_calls_have_flat_products(
         } => {
             tail_calls_have_flat_products(otherwise, function, arity)
                 && tail_calls_have_flat_products(then, function, arity)
+        }
+        _ => true,
+    }
+}
+
+fn tail_calls_carry_slot(
+    block: &closure::Block,
+    function: closure::FunctionId,
+    arity: usize,
+    slot_index: usize,
+    slot: crate::anf::ast::ValueId,
+) -> bool {
+    let Some(tail) = block.bindings.last().filter(|binding| {
+        matches!(
+            (&block.result.kind, &binding.pattern),
+            (
+                closure::AtomKind::Reference(closure::Reference::Binding(result)),
+                closure::Pattern::Binding { id, .. }
+            ) if result == id
+        )
+    }) else {
+        return true;
+    };
+    match &tail.operation {
+        closure::Operation::Call { callee, argument }
+            if matches!(
+                callee.kind,
+                closure::AtomKind::Reference(closure::Reference::SelfClosure(id)) if id == function
+            ) =>
+        {
+            let closure::AtomKind::Reference(closure::Reference::Binding(argument_id)) =
+                argument.kind
+            else {
+                return false;
+            };
+            let Some(product_index) = block.bindings.len().checked_sub(2) else {
+                return false;
+            };
+            matches!(
+                block.bindings.get(product_index),
+                Some(closure::Binding {
+                    pattern: closure::Pattern::Binding { id, .. },
+                    operation: closure::Operation::Product(elements),
+                    ..
+                }) if *id == argument_id
+                    && elements.len() == arity
+                    && matches!(
+                        elements[slot_index].kind,
+                        closure::AtomKind::Reference(closure::Reference::Binding(id)) if id == slot
+                    )
+            )
+        }
+        closure::Operation::Case { arms, .. } => arms
+            .iter()
+            .all(|arm| tail_calls_carry_slot(&arm.value, function, arity, slot_index, slot)),
+        closure::Operation::PrimitiveBranch {
+            otherwise, then, ..
+        } => {
+            tail_calls_carry_slot(otherwise, function, arity, slot_index, slot)
+                && tail_calls_carry_slot(then, function, arity, slot_index, slot)
         }
         _ => true,
     }

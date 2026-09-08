@@ -301,6 +301,114 @@ main :: Unit -> Int32 := \() {
     assert!(fixture.run(executable).status.success());
 }
 
+#[test]
+fn borrows_invariant_nested_tail_fields_through_known_calls() {
+    let generated = emit(
+        r#"Nested :: (Symbol, UInt64);
+byteAt :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
+  value # index
+};
+scan :: (Nested, UInt64, UInt64) -> UInt64 := \(state :: Nested, index :: UInt64, total :: UInt64) {
+  (value, length) := state;
+  if (index == length)
+  then { total }
+  else { scan(state, index + 1u64, total + UInt64(byteAt(value, index))) };
+};
+main :: Unit -> Int32 := \() {
+  value := "ab" + "cd";
+  if (scan((value, 4u64), 0u64, 0u64) == 394u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit borrowed nested tail field");
+    let scan = generated_function(&generated.source, "scan");
+    assert!(scan.contains("mal_direct_function_"));
+    assert!(!scan.contains("mal_symbol_retain("));
+
+    let fixture = NativeFixture::new("borrowed-nested-tail-field");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn borrows_invariant_managed_tail_slots_through_known_calls() {
+    let generated = emit(
+        r#"extern input :: Unit -> Symbol;
+inputByte :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
+  value # index
+};
+scan :: (Symbol, UInt64, UInt64, UInt64) -> UInt64 := \(value :: Symbol, length :: UInt64, index :: UInt64, total :: UInt64) {
+  if (index == length)
+  then { total }
+  else { scan(value, length, index + 1u64, total + UInt64(inputByte(value, index))) };
+};
+main :: Unit -> Int32 := \() {
+  value := extern input();
+  if (scan(value, 4u64, 0u64, 0u64) == 394u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit borrowed managed tail slot");
+    let scan = generated_function(&generated.source, "scan");
+    assert!(scan.contains("mal_direct_function_"));
+    assert_eq!(scan.matches("mal_symbol_retain(").count(), 1);
+
+    let fixture = NativeFixture::new("borrowed-managed-tail-slot");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        INPUT_HOST,
+        &[
+            "-DMAL_TEST_RETAIN_LIMIT=0",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn copies_a_borrowed_direct_parameter_when_it_escapes() {
+    let generated = emit(
+        r#"first :: (Symbol, Int64) -> Symbol := \(value :: Symbol, ignored :: Int64) { value };
+main :: Unit -> Int32 := \() {
+  value := "a" + "b";
+  result := first(value, 0i64);
+  if ((value == "ab") && (result == "ab")) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit escaping borrowed parameter");
+    let first = generated_function(&generated.source, "first");
+    assert_eq!(first.matches("mal_symbol_retain(").count(), 1);
+
+    let fixture = NativeFixture::new("escaping-borrowed-direct-parameter");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_RETAIN_LIMIT=1",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=1",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
 fn generated_function<'a>(source: &'a str, binding: &str) -> &'a str {
     let marker = format!("/* mal source binding: {binding} */");
     let start = source

@@ -16,6 +16,7 @@ ownership correctnessと実装方式は[実装規約](../implementation/ownershi
 - callに閉じたlocal closureのstack environment
 - shared concatのbalanced ropeと遅延materialization
 - known direct callに限定したowned entry
+- known direct callのborrowed parameter entry
 
 focused regressionは`compiler/tests/c_emit/calls.rs`と`symbol.rs`に置く。managed tail recursionは100万iteration、
 case bindingを含むtail edgeは10万iterationをnative Cとして実行する。closure-use testはaliasだけでなく、recursive
@@ -29,6 +30,8 @@ byte accessのephemeral productはretain zero、scan終了時のowner release一
 copyまたはtransfer経路を維持する。
 flat product parameterのdirect self-tail loopはmanaged leafを個別のowned slotで保持する。同じleafを次状態へ渡すedgeでは
 aggregate copyを作らずlast-use transferし、全next leafの評価後にtransferされなかった旧slotだけをdestroyする。
+全tail edgeで不変なmanaged slotと、その冒頭で得るnested fieldはknown direct callへborrowし、loop内のparameter-entry
+retain/releaseを発生させない。borrowed parameterがresultへescapeする場合はcopyを一回行う。
 
 ## pressure suite
 

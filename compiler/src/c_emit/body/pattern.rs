@@ -100,6 +100,62 @@ impl BodyEmitter<'_> {
         }
     }
 
+    pub(super) fn emit_borrowed_pattern_bindings(
+        &mut self,
+        block: &mut Block,
+        pattern: &Pattern,
+        value: Expr,
+    ) -> Vec<crate::anf::ast::ValueId> {
+        let mut borrowed = Vec::new();
+        self.emit_borrowed_pattern_bindings_into(block, pattern, value, &mut borrowed);
+        borrowed
+    }
+
+    fn emit_borrowed_pattern_bindings_into(
+        &mut self,
+        block: &mut Block,
+        pattern: &Pattern,
+        value: Expr,
+        borrowed: &mut Vec<crate::anf::ast::ValueId>,
+    ) {
+        match pattern {
+            Pattern::Binding { id, ty } => {
+                let name = value_name(*id);
+                block.push(Statement::variable(
+                    self.types.c_type(ty),
+                    &name,
+                    Some(value),
+                ));
+                block.push(Statement::expression(Expr::cast(
+                    "void",
+                    Expr::identifier(name),
+                )));
+                self.borrowed_bindings.insert(*id);
+                borrowed.push(*id);
+            }
+            Pattern::Wildcard { .. } => {}
+            Pattern::Product { elements, .. } => {
+                for (index, element) in elements.iter().enumerate() {
+                    self.emit_borrowed_pattern_bindings_into(
+                        block,
+                        element,
+                        value.clone().field(format!("field_{index}")),
+                        borrowed,
+                    );
+                }
+            }
+        }
+    }
+
+    pub(super) fn end_borrowed_bindings(
+        &mut self,
+        borrowed: impl IntoIterator<Item = crate::anf::ast::ValueId>,
+    ) {
+        for id in borrowed {
+            self.borrowed_bindings.remove(&id);
+        }
+    }
+
     pub(super) fn emit_owned_pattern_bindings(
         &self,
         block: &mut Block,
@@ -137,6 +193,7 @@ impl BodyEmitter<'_> {
             Pattern::Binding { id, ty } => {
                 if self.closure_uses.direct_closure(*id).is_some()
                     || self.ephemeral_bindings.contains(id)
+                    || self.borrowed_bindings.contains(id)
                 {
                     return;
                 }

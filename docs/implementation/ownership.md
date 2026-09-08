@@ -51,12 +51,15 @@ known direct callでは、callerがmanaged argument全体を所有し、そのbi
 transferする。owned entryのparameterはlocal owned bindingと同じlast-use規則に従い、return、aggregate、primitive、次のknown
 direct callへ再transferできる。owned sum全体のlast-useである`case`はactive payloadへownershipを移す。calleeを静的に
 特定できないfunction value callと、call後にもargument bindingを使う経路は
-borrowed entryを維持する。これはgenerated C内部のcalling conventionであり、source typeとC host ABIには露出しない。
+borrowed entryを維持する。borrowed entryはmanaged parameterと、その冒頭でdestructureしたfieldをcopyせずに参照し、resultなどへ
+escapeするときだけcopyする。これはgenerated C内部のcalling conventionであり、source typeとC host ABIには露出しない。
 
 direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyまたは
 last-use transferで確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを
 slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyまたはtransferしてから同じcleanupを行う。これによりmanaged valueを
 含む場合も、参照先を早く解放せず、iterationごとのownership shareを残さず、C stackを増やさない。
+すべてのtail edgeが同じslotをそのまま次状態へ渡す場合、そのslotと冒頭でdestructureしたfieldはloop中のknown direct callへ
+borrowできる。slot自身のownershipとtail edgeでのtransferは維持する。
 
 ## 型ごとのoperation
 

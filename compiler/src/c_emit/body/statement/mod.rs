@@ -105,7 +105,11 @@ impl BodyEmitter<'_> {
             }
             Operation::Call { callee, .. }
                 if self.direct_function(callee).is_some_and(|(function, _)| {
-                    !self.types.contains_managed(ty) || !self.owned_calls.contains(function)
+                    !self.types.contains_managed(ty)
+                        || !self.owned_calls.contains(function)
+                        || elements.iter().all(|element| {
+                            !self.types.contains_managed(&element.ty) || self.is_borrowed(element)
+                        })
                 }) && super::has_direct_product_entry(ty) =>
             {
                 (

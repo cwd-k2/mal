@@ -202,7 +202,7 @@ main :: Unit -> Int32 := \() {
     assert!(duplicated.contains("mal_symbol_concatenate("));
     assert!(!duplicated.contains("mal_symbol_concatenate_consuming_left("));
     let branch = generated_function(&generated.source, "choose");
-    assert_eq!(branch.matches("mal_symbol_retain(").count(), 1);
+    assert!(!branch.contains("mal_symbol_retain("));
     let tail = generated_function(&generated.source, "grow");
     assert_eq!(tail.matches("mal_symbol_retain(").count(), 1);
     assert!(!tail.contains("mal_copy_value_"));
