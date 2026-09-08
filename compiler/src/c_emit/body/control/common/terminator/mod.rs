@@ -202,8 +202,8 @@ impl BodyEmitter<'_> {
         ));
 
         for target in self
-            .control_calls
-            .recursive_dispatch_targets(site)
+            .control_regions
+            .recursive_targets(site)
             .unwrap_or_default()
             .to_vec()
         {

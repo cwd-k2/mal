@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::closure::ast::{AtomKind, FunctionId, Reference};
-use crate::control::ast::{Program, StateId, Terminator};
+use crate::closure::ast::FunctionId;
+use crate::control::ast::{Program, StateId};
 
-use super::control_call::{ControlCallPlan, reachable_states};
+use super::ApplicationGraph;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(in crate::c_emit::body) struct ControlRegionId(pub(in crate::c_emit::body) usize);
@@ -12,15 +12,15 @@ pub(in crate::c_emit::body) struct ControlRegionPlan {
     regions: Vec<ControlRegion>,
     function_regions: HashMap<FunctionId, ControlRegionId>,
     site_regions: HashMap<StateId, ControlRegionId>,
+    recursive_targets: HashMap<StateId, Vec<FunctionId>>,
 }
 
 struct ControlRegion {
     functions: Vec<FunctionId>,
-    requires_common_control: bool,
 }
 
 impl ControlRegionPlan {
-    pub(in crate::c_emit::body) fn new(program: &Program, calls: &ControlCallPlan) -> Self {
+    pub(in crate::c_emit::body) fn new(program: &Program, applications: &ApplicationGraph) -> Self {
         let function_indices = program
             .functions
             .iter()
@@ -28,22 +28,13 @@ impl ControlRegionPlan {
             .map(|(index, function)| (function.id, index))
             .collect::<HashMap<_, _>>();
         let mut graph = vec![Vec::new(); program.functions.len()];
-        let mut recursive_sites = Vec::new();
         for function in &program.functions {
             let caller = function_indices[&function.id];
-            for site in reachable_states(program, function.entry) {
-                if !calls.is_recursive_dispatch(site) {
-                    continue;
-                }
-                let Some(targets) = calls.recursive_dispatch_targets(site) else {
-                    unreachable!("recursive dispatch retains its targets");
-                };
-                recursive_sites.push((site, function.id));
-                for target in targets {
-                    let target = function_indices[target];
-                    if !graph[caller].contains(&target) {
-                        graph[caller].push(target);
-                    }
+            for target in applications.targets_from(function.id) {
+                if let Some(target) = function_indices.get(&target).copied()
+                    && !graph[caller].contains(&target)
+                {
+                    graph[caller].push(target);
                 }
             }
         }
@@ -62,14 +53,13 @@ impl ControlRegionPlan {
         }
         components.sort_by_key(|component| component[0]);
 
-        let mut regions = components
+        let regions = components
             .into_iter()
             .map(|component| ControlRegion {
                 functions: component
                     .into_iter()
                     .map(|index| program.functions[index].id)
                     .collect(),
-                requires_common_control: false,
             })
             .collect::<Vec<_>>();
         let mut function_regions = HashMap::new();
@@ -81,18 +71,25 @@ impl ControlRegionPlan {
         }
 
         let mut site_regions = HashMap::new();
-        for (site, caller) in recursive_sites {
-            let region = function_regions[&caller];
-            debug_assert!(
-                calls
-                    .recursive_dispatch_targets(site)
-                    .expect("recursive site retains targets")
-                    .iter()
-                    .all(|target| function_regions.get(target) == Some(&region))
-            );
-            site_regions.insert(site, region);
-            if !is_direct_self_call(&program.states[site.0].terminator, caller) {
-                regions[region.0].requires_common_control = true;
+        let mut recursive_targets = HashMap::new();
+        for index in 0..program.states.len() {
+            let site = StateId(index);
+            let Some(caller) = applications.caller(site) else {
+                continue;
+            };
+            let Some(region) = function_regions.get(&caller).copied() else {
+                continue;
+            };
+            let targets = applications
+                .targets(site)
+                .into_iter()
+                .flatten()
+                .copied()
+                .filter(|target| function_regions.get(target) == Some(&region))
+                .collect::<Vec<_>>();
+            if !targets.is_empty() {
+                site_regions.insert(site, region);
+                recursive_targets.insert(site, targets);
             }
         }
 
@@ -100,16 +97,8 @@ impl ControlRegionPlan {
             regions,
             function_regions,
             site_regions,
+            recursive_targets,
         }
-    }
-
-    pub(in crate::c_emit::body) fn common_functions(
-        &self,
-    ) -> impl Iterator<Item = FunctionId> + '_ {
-        self.regions
-            .iter()
-            .filter(|region| region.requires_common_control)
-            .flat_map(|region| region.functions.iter().copied())
     }
 
     pub(in crate::c_emit::body) fn ids(&self) -> impl Iterator<Item = ControlRegionId> + '_ {
@@ -124,10 +113,6 @@ impl ControlRegionPlan {
         &self.regions[region.0].functions
     }
 
-    pub(in crate::c_emit::body) fn requires_common_control(&self, region: ControlRegionId) -> bool {
-        self.regions[region.0].requires_common_control
-    }
-
     pub(in crate::c_emit::body) fn function_region(
         &self,
         function: FunctionId,
@@ -139,30 +124,32 @@ impl ControlRegionPlan {
         self.site_regions.get(&site).copied()
     }
 
+    pub(in crate::c_emit::body) fn recursive_targets(
+        &self,
+        site: StateId,
+    ) -> Option<&[FunctionId]> {
+        self.recursive_targets.get(&site).map(Vec::as_slice)
+    }
+
     pub(in crate::c_emit::body) fn is_valid(
         &self,
         program: &Program,
-        calls: &ControlCallPlan,
+        applications: &ApplicationGraph,
     ) -> bool {
         let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
-            calls
-                .recursive_dispatch_targets(*site)
-                .is_some_and(|targets| {
-                    targets
-                        .iter()
-                        .all(|target| self.function_regions.get(target) == Some(region))
-                })
-                && program.functions.iter().any(|function| {
-                    self.function_regions.get(&function.id) == Some(region)
-                        && reachable_states(program, function.entry).contains(site)
-                })
+            self.recursive_targets(*site).is_some_and(|targets| {
+                targets
+                    .iter()
+                    .all(|target| self.function_regions.get(target) == Some(region))
+            }) && program.functions.iter().any(|function| {
+                self.function_regions.get(&function.id) == Some(region)
+                    && applications.caller(*site) == Some(function.id)
+            })
         });
-        let all_recursive_sites_are_mapped = program.functions.iter().all(|function| {
-            reachable_states(program, function.entry)
-                .into_iter()
-                .filter(|site| calls.is_recursive_dispatch(*site))
-                .all(|site| self.site_regions.contains_key(&site))
-        });
+        let all_recursive_sites_are_mapped = self
+            .recursive_targets
+            .keys()
+            .all(|site| self.site_regions.contains_key(site));
         let all_region_functions_are_mapped =
             self.regions.iter().enumerate().all(|(index, region)| {
                 region.functions.iter().all(|function| {
@@ -171,20 +158,6 @@ impl ControlRegionPlan {
             });
         all_sites_are_closed && all_recursive_sites_are_mapped && all_region_functions_are_mapped
     }
-}
-
-fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
-    matches!(
-        terminator,
-        Terminator::Call {
-            callee:
-                crate::closure::ast::Atom {
-                    kind: AtomKind::Reference(Reference::SelfClosure(target)),
-                    ..
-                },
-            ..
-        } if *target == caller
-    )
 }
 
 fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {

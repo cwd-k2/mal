@@ -28,7 +28,12 @@ impl BodyEmitter<'_> {
         let regions = self
             .control_regions
             .ids()
-            .filter(|region| self.control_regions.requires_common_control(*region))
+            .filter(|region| {
+                self.control_regions
+                    .functions(*region)
+                    .iter()
+                    .any(|function| self.common_control.contains(*function))
+            })
             .collect::<Vec<_>>();
         let mut output = TranslationUnit::default();
         for region in regions {

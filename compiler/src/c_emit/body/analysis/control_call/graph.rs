@@ -20,26 +20,6 @@ pub(super) fn direct_graph(
     graph
 }
 
-pub(super) fn creates_cycle(
-    graph: &HashMap<FunctionId, Vec<FunctionId>>,
-    caller: FunctionId,
-    callee: FunctionId,
-) -> bool {
-    let mut pending = vec![callee];
-    let mut seen = HashSet::new();
-    while let Some(current) = pending.pop() {
-        if current == caller {
-            return true;
-        }
-        if seen.insert(current)
-            && let Some(next) = graph.get(&current)
-        {
-            pending.extend(next);
-        }
-    }
-    false
-}
-
 pub(super) fn is_acyclic(
     graph: &HashMap<FunctionId, Vec<FunctionId>>,
     nodes: impl IntoIterator<Item = FunctionId>,

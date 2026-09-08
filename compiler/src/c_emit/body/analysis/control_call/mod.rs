@@ -3,14 +3,15 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::super::direct_function_id;
-use super::ClosureUsePlan;
+use super::{ApplicationGraph, ClosureUsePlan, ControlRegionPlan};
 
 mod forwarder;
 mod graph;
 
 use forwarder::forwarded_self_tail_argument;
-use graph::{creates_cycle, direct_graph, is_acyclic};
+use graph::{direct_graph, is_acyclic};
+
+pub(super) use super::application_graph::reachable_states;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(in crate::c_emit::body) enum ControlCallMode {
@@ -24,13 +25,6 @@ pub(in crate::c_emit::body) struct ControlCallPlan {
     dispatch_targets: HashMap<StateId, Vec<FunctionId>>,
     forwarded_self_arguments: HashMap<StateId, closure::Atom>,
     dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
-    recursive_targets: HashMap<StateId, Vec<FunctionId>>,
-}
-
-struct Candidate {
-    site: StateId,
-    caller: FunctionId,
-    callee: FunctionId,
 }
 
 impl ControlCallPlan {
@@ -38,6 +32,8 @@ impl ControlCallPlan {
         closure: &closure::Program,
         control: &control::Program,
         closure_uses: &ClosureUsePlan,
+        applications: &ApplicationGraph,
+        regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
         let mut dispatch_targets = HashMap::new();
@@ -45,30 +41,27 @@ impl ControlCallPlan {
 
         for binding in &control.bindings {
             for site in reachable_states(control, binding.entry) {
-                let Some(callee) = application_callee(&control.states[site.0].terminator) else {
-                    continue;
-                };
-                let mode = direct_function_id(closure_uses, callee)
+                let mode = applications
+                    .direct_target(site)
                     .map(ControlCallMode::Direct)
                     .unwrap_or(ControlCallMode::Dispatch);
                 modes.insert(site, mode);
                 if mode == ControlCallMode::Dispatch {
-                    dispatch_targets.insert(site, compatible_targets(closure, callee));
+                    dispatch_targets.insert(
+                        site,
+                        applications.targets(site).unwrap_or_default().to_vec(),
+                    );
                 }
             }
         }
 
-        let mut candidates = Vec::new();
-        let mut callers = HashMap::new();
-        let mut possible_graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
         for function in &control.functions {
             for site in reachable_states(control, function.entry) {
                 let state = &control.states[site.0];
                 let terminator = &state.terminator;
-                let Some(callee) = application_callee(terminator) else {
+                if application_callee(terminator).is_none() {
                     continue;
-                };
-                callers.insert(site, function.id);
+                }
                 if let Some(argument) = forwarded_self_tail_argument(
                     closure,
                     state,
@@ -80,45 +73,21 @@ impl ControlCallPlan {
                     forwarded_self_arguments.insert(site, argument);
                 } else if is_direct_self_tail(terminator, function.id) {
                     modes.insert(site, ControlCallMode::DirectSelfTail);
-                } else if let Some(callee) = direct_function_id(closure_uses, callee) {
-                    possible_graph.entry(function.id).or_default().push(callee);
-                    candidates.push(Candidate {
+                } else if regions.site_region(site).is_some() {
+                    modes.insert(site, ControlCallMode::Dispatch);
+                    dispatch_targets.insert(
                         site,
-                        caller: function.id,
-                        callee,
-                    });
+                        applications.targets(site).unwrap_or_default().to_vec(),
+                    );
+                } else if let Some(callee) = applications.direct_target(site) {
+                    modes.insert(site, ControlCallMode::Direct(callee));
                 } else {
                     modes.insert(site, ControlCallMode::Dispatch);
-                    let targets = compatible_targets(closure, callee);
-                    possible_graph
-                        .entry(function.id)
-                        .or_default()
-                        .extend(targets.iter().copied());
-                    dispatch_targets.insert(site, targets);
+                    dispatch_targets.insert(
+                        site,
+                        applications.targets(site).unwrap_or_default().to_vec(),
+                    );
                 }
-            }
-        }
-
-        for candidate in candidates {
-            if creates_cycle(&possible_graph, candidate.caller, candidate.callee) {
-                modes.insert(candidate.site, ControlCallMode::Dispatch);
-                dispatch_targets.insert(candidate.site, vec![candidate.callee]);
-            } else {
-                modes.insert(candidate.site, ControlCallMode::Direct(candidate.callee));
-            }
-        }
-        let mut recursive_targets = HashMap::new();
-        for (site, targets) in &dispatch_targets {
-            let Some(caller) = callers.get(site).copied() else {
-                continue;
-            };
-            let targets = targets
-                .iter()
-                .copied()
-                .filter(|target| creates_cycle(&possible_graph, caller, *target))
-                .collect::<Vec<_>>();
-            if !targets.is_empty() {
-                recursive_targets.insert(*site, targets);
             }
         }
 
@@ -143,7 +112,6 @@ impl ControlCallPlan {
             dispatch_targets,
             forwarded_self_arguments,
             dispatch_bindings,
-            recursive_targets,
         }
     }
 
@@ -164,17 +132,6 @@ impl ControlCallPlan {
         self.dispatch_bindings.contains(&id)
     }
 
-    pub(in crate::c_emit::body) fn is_recursive_dispatch(&self, site: StateId) -> bool {
-        self.recursive_targets.contains_key(&site)
-    }
-
-    pub(in crate::c_emit::body) fn recursive_dispatch_targets(
-        &self,
-        site: StateId,
-    ) -> Option<&[FunctionId]> {
-        self.recursive_targets.get(&site).map(Vec::as_slice)
-    }
-
     pub(in crate::c_emit::body) fn dispatch_targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.dispatch_targets.get(&site).map(Vec::as_slice)
     }
@@ -185,18 +142,6 @@ impl ControlCallPlan {
     ) -> Option<&closure::Atom> {
         self.forwarded_self_arguments.get(&site)
     }
-}
-
-fn compatible_targets(program: &closure::Program, callee: &closure::Atom) -> Vec<FunctionId> {
-    let crate::check::ast::Type::Function { parameter, result } = &callee.ty else {
-        return Vec::new();
-    };
-    program
-        .functions
-        .iter()
-        .filter(|target| target.parameter.ty == **parameter && target.body.result.ty == **result)
-        .map(|target| target.id)
-        .collect()
 }
 
 fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
@@ -220,51 +165,12 @@ fn is_direct_self_tail(terminator: &Terminator, function: FunctionId) -> bool {
     )
 }
 
-pub(super) fn reachable_states(program: &control::Program, entry: StateId) -> Vec<StateId> {
-    let mut pending = vec![entry];
-    let mut seen = HashSet::new();
-    let mut states = Vec::new();
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        states.push(id);
-        match &program.states[id.0].terminator {
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => {
-                pending.extend(arms.iter().map(|arm| arm.target));
-            }
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-        }
-    }
-    states
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::super::direct_function_id;
     use super::*;
-    use crate::check::ast::{MemoryPrimitive, MemoryScalar};
     use crate::source::{FileId, SourceFile};
     use crate::{anf, check, closure, control, core, parser, resolve};
-
-    const A: FunctionId = FunctionId::Memory(MemoryPrimitive::Load(MemoryScalar::Int8));
-    const B: FunctionId = FunctionId::Memory(MemoryPrimitive::Load(MemoryScalar::Int16));
-    const C: FunctionId = FunctionId::Memory(MemoryPrimitive::Load(MemoryScalar::Int32));
-
-    #[test]
-    fn rejects_an_edge_exactly_when_it_would_close_a_cycle() {
-        let mut graph = HashMap::new();
-        graph.insert(A, vec![B]);
-        graph.insert(B, vec![C]);
-
-        assert!(!creates_cycle(&graph, A, C));
-        assert!(creates_cycle(&graph, C, A));
-        assert!(creates_cycle(&graph, A, A));
-    }
 
     #[test]
     fn preserves_direct_edges_without_admitting_recursive_c_call_cycles() {
@@ -293,7 +199,9 @@ mod tests {
         let closure = closure::convert(&anf);
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
-        let plan = ControlCallPlan::new(&closure, &control, &uses);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let regions = ControlRegionPlan::new(&control, &applications);
+        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
 
         let helper = top_level_function_id(&closure, "helper");
         let recursive = control
@@ -349,7 +257,9 @@ mod tests {
         let closure = closure::convert(&anf);
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
-        let plan = ControlCallPlan::new(&closure, &control, &uses);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let regions = ControlRegionPlan::new(&control, &applications);
+        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
 
@@ -361,7 +271,7 @@ mod tests {
             };
             direct_function_id(&uses, callee) == Some(apply)
                 && plan.mode(StateId(index)) == Some(ControlCallMode::Dispatch)
-                && plan.is_recursive_dispatch(StateId(index))
+                && regions.site_region(StateId(index)).is_some()
         }));
         assert!(control.states.iter().enumerate().any(|(index, state)| {
             let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =
@@ -370,16 +280,16 @@ mod tests {
                 return false;
             };
             direct_function_id(&uses, callee).is_none()
-                && plan.is_recursive_dispatch(StateId(index))
+                && regions.site_region(StateId(index)).is_some()
                 && plan
                     .dispatch_targets(StateId(index))
                     .is_some_and(|targets| !targets.is_empty())
         }));
-        assert!(
-            plan.recursive_targets
-                .values()
-                .all(|targets| !targets.contains(&identity))
-        );
+        assert!(control.states.iter().enumerate().all(|(index, _)| {
+            regions
+                .recursive_targets(StateId(index))
+                .is_none_or(|targets| !targets.contains(&identity))
+        }));
     }
 
     #[test]
@@ -406,7 +316,9 @@ mod tests {
         let closure = closure::convert(&anf);
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
-        let plan = ControlCallPlan::new(&closure, &control, &uses);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let regions = ControlRegionPlan::new(&control, &applications);
+        let plan = ControlCallPlan::new(&closure, &control, &uses, &applications, &regions);
         let apply = top_level_function_id(&closure, "apply");
 
         assert!(control.states.iter().enumerate().any(|(index, state)| {
@@ -425,7 +337,7 @@ mod tests {
                 return false;
             };
             direct_function_id(&uses, callee).is_none()
-                && !plan.is_recursive_dispatch(StateId(index))
+                && regions.site_region(StateId(index)).is_none()
         }));
     }
 
