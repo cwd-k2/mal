@@ -78,12 +78,12 @@ process時間は各Hyperfine invocationに測らせる。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.04 | 1.05 |
-| 両実行時間が1 ms以上 | 62 | 1.06 | 1.06 |
+| 全非interactive問題 | 79 | 1.03 | 1.05 |
+| 両実行時間が1 ms以上 | 64 | 1.05 | 1.06 |
 | 両実行時間が5 ms以上 | 51 | 1.07 | 1.08 |
-| 両実行時間が10 ms以上 | 40 | 1.06 | 1.07 |
+| 両実行時間が10 ms以上 | 44 | 1.05 | 1.06 |
 
-±5%を同等とするとmalが速いものは10、同等は32、Cが速いものは37だった。1 ms未満の分類数はprocess起動の揺れを
+±5%を同等とするとmalが速いものは9、同等は33、Cが速いものは37だった。1 ms未満の分類数はprocess起動の揺れを
 含むためoptimizationの順位には使わない。mixed-toolchainの過去値との差はcompiler改善幅と解釈しない。
 
 borrowed direct entryと不変tail slotからのborrowにより、borrow導入前のgenerated Cにあった006と008のloop内の
@@ -95,7 +95,7 @@ deterministic counterを根拠とする。
 `searchSecond`と`searchFirst`に対応するcallが消え、entry body内のnested loopになる。したがってrecursive reductionや
 aggregate call topologyを現在の最優先課題とする根拠はない。
 
-絶対差が大きい残差は043の約1.15倍である。popped distanceをdirection loopへ明示的に渡すsource variantは、
+この時点で絶対差が大きい残差は043の約1.15倍だった。popped distanceをdirection loopへ明示的に渡すsource variantは、
 元のmal版と交互測定で同等だった。最適化後IRでも対応するloadはloop invariantになっているため、同じ値のsource-level
 引き回しをbackend変更へ一般化しない。
 
@@ -109,7 +109,18 @@ shiftへ置き換えるbackend ruleにはしない。
 043の残差について、heapの2-field entry移動を16-byte `memcpy`へ置き換えるとassemblyは4個のscalar load/storeから
 2個のvector moveになったが、交互測定は同等だった。row/column stepを二つの算術式へ変えたvariantは約2%退行し、一つの
 product resultへまとめたvariantも約1%の範囲だった。見える命令数だけからmemory representationやdirection固有のloweringを
-追加せず、次の仮説にはhot instructionを直接示すprofileを要求する。
+追加せず、次の仮説にはhot instructionを直接示すprofileを要求した。
+
+WSL2ではhardware counterを取得できなかったため、043の両binaryを`cpu-clock`で各10回samplingした。generated側の約99%は
+entry body、direct C側の約99%は`main`にあり、距離更新の比較がそれぞれ約47%、壁判定が約11%、heap pop後のstale判定が
+約11--13%を占めた。特定helperや防御処理が突出せず、同じ探索責務へcostが分布していた。一方、assemblyではdirect Cだけが
+directionからrow/column差分をtable lookupし、mal版は二つの分岐関数を比較列へ展開していた。
+
+言語仕様がarrayの通常表現とする`Ptr`とscalar load/storeを使い、8個のdirection差分を一つのtable ownerへまとめると、
+最適化後のhot loopは二つのindexed loadになった。変更前との交互30回比較は中央値で約8.5%短縮し、direct Cとの別の
+交互30回比較は約1.04倍、全corpusの交互20 roundでは約1.06倍だった。全corpus中央値は1.03、幾何平均は1.05である。
+これはdirection固有のcompiler rewriteではなく、mappingを所有するsource fixtureが意図をdataとして表した訂正とする。
+残差は測定揺れを含むparity境界付近にあり、samplingから独立したbackend costを特定できないため043を現在の最適化課題から外す。
 
 比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると

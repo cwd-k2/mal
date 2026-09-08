@@ -23,42 +23,12 @@ Status: Current work plan
 
 | 優先度 | 軸 | 観測したcost | Corpus |
 |---:|---|---|---:|
-| 1 | scalar memoryとcontrol flow | branch-heavy heapの`Ptr` accessとstate update cost | 043 |
-| 2 | nested scanとcontrol flow | same-width化とsigned shift改善後にも残るscan cost | 063 |
+| 1 | nested scanとcontrol flow | same-width化とsigned shift改善後にも残るscan cost | 063 |
 
-この順序は絶対時間と差の大きさに加え、現行authorityの範囲内で不要な処理を除ける見込みで決める。新しいprofileで順位を
-変える場合は、同じ意図を各言語で自然に記述した比較fixtureを使い、source上の記法差をcompiler差として扱わない。
+新しいprofileで課題を追加する場合は、同じ意図を各言語で自然に記述した比較fixtureを使い、source上の記法差をcompiler差として
+扱わない。
 
-## 1. scalar memoryとcontrol flow
-
-043では、最適化後IRでsource helperとaggregate callはentry bodyへ統合されている。表面的なC function数を
-理由にbody統合やcloneを追加せず、次のcostをlocal variantとoptimization remarkで一つずつ分離する。
-
-- alias可能な複数`Ptr`
-- tail-lowered loopのbranchとstate update
-
-typed/aligned accessへ置き換えた診断variantと、host allocation実装を見せるLTO variantはどちらも改善しなかったため、
-alignmentとcross-translation-unitのallocation visibilityは現在の主原因候補から外す。direct Cの`-fwrapv` variantも
-通常buildと同等だったため、wrap semanticsの値域証明は優先しない。popped distanceをdirection loopへ追加parameterとして
-渡すvariantも元のmal版と同等で、最適化後IRでは既存loadがloop invariantになっていたため採用しない。
-
-一つのcost modelはheap固有のbranch topologyとstate updateの責務に閉じる。既存contractから導けるhelper統合や
-control-flow簡約だけをbackend変更候補にする。
-改善にnon-alias、alignment、region分離、狭いinteger rangeが必要なら、その保証を選ぶauthorityをlanguageまたは
-extern contractの仕様課題として先に記録する。
-
-043のheap parent計算は`index == 0`のelse側で`(index - 1) / 2`を実行していたため、optimizerは負のindexに対する
-signed division semanticsを守っていた。heap invariantに合わせて停止条件を`index <= 0`とすると、通常のdivisionのまま
-最適化後IRが4箇所の`sdiv`から`lshr`へ変わり、wall-clockは約5%改善した。これはheap indexの不変条件を所有するsourceの
-訂正として採用し、全signed divisionへrangeを仮定するbackend変更にはしない。043の残差はこのparent計算だけへ帰属させず、
-引き続きheap全体のbranchとstate updateを比較する。
-
-残るheap entry移動を16-byte `memcpy`へまとめる診断variantは、assembly上の4 scalar load/storeを2 vector moveへ減らしたが
-wall-clockは同等だった。direction stepを算術式または一つのproduct resultへまとめたsource variantも同等または退行した。
-scalar memory primitiveへproduct表現を追加したり、direction固有のrewriteを行ったりする根拠にはしない。043をさらに進める
-場合は、同じbinaryに対するhardware counterまたはsampling profileで支配的な命令列を特定してから新しいcost modelを置く。
-
-## 2. nested scanとcontrol flow
+## 1. nested scanとcontrol flow
 
 011と063の元の比率差は、そのままではcompilerの責務だけを測っていなかった。011をsame-widthに揃えたvariantは改善せず、
 063をsame-widthかつportable popcountへ揃えたvariantは1.45倍から約1.27倍へ縮んだ。したがって011ではwidthを原因候補から外し、
