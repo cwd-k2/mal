@@ -94,6 +94,36 @@ afterが完了し、beforeはsignal 11で終了した。したがってC stack b
 text sizeも約12%から19%増えた。これは単なる測定揺れではなく、typed frameとdispatcherがoptimizer後にも残ることと整合する。
 次の改善ではstack boundを外さず、direct recursive SCCの複数遷移をまとめる表現を独立fixtureと全corpusの両方で評価する。
 
+### control region refinement
+
+`0b80b98`ではpossible call graphのrecursive SCCごとにarenaを分離し、実行中のtopとcurrent frameをC localへ移した。旧実装を
+同じtoolchainとoptionで生成したbinaryを`current`、region版を`region`として、focused fixtureをwarmup 3回、交互30 roundで比較した。
+比率は`region / current`である。
+
+| Control形状 | Region (ms) | Current (ms) | Ratio |
+|---|---:|---:|---:|
+| direct self non-tail Hanoi | 118.19 | 133.07 | 0.89 |
+| direct self non-tail linear unwind | 9.24 | 12.62 | 0.73 |
+| direct self tail | 6.78 | 6.75 | 1.00 |
+| acyclic direct helper + self tail | 13.00 | 12.83 | 1.01 |
+| indirect tail forwarder | 9.84 | 9.76 | 1.01 |
+| first-class non-tail cycle | 14.66 | 14.76 | 0.99 |
+| captured `Symbol` first-class cycle | 68.01 | 67.15 | 1.01 |
+
+既存79問もwarmup 3回、交互20 roundでregion版と旧実装を直接比較した。
+
+| Population | Count | Median ratio | Geometric mean | Region faster / parity / slower |
+|---|---:|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.00 | 0.99 | 10 / 65 / 4 |
+| 両実行時間が5 ms以上 | 53 | 1.00 | 0.99 | 6 / 46 / 1 |
+| 両実行時間が10 ms以上 | 47 | 0.99 | 0.99 | 6 / 40 / 1 |
+
+元の退行6 caseの比率は016が1.04、023が0.94、029が0.84、032が0.91、055が0.93、080が0.77で、幾何平均は
+0.90だった。5 ms以上で唯一1.07となった001はwarmup 5回、交互50 roundの再測定で1.00となった。direct tail、acyclic direct、
+managed first-class cycleは同等帯を維持し、通常・sanitizerのmanaged pressure fixtureも完了した。したがってregion storageは採用する。
+一方、016と通常のC recursionに対するfocused caseの残差はarenaの局所化では消えない。次段は個別frame fieldの削減ではなく、
+explicit transitionとboundedなC call batchingを同じcontinuation対応の下で比較する。
+
 ## 個別調査
 
 | Case | 分離した境界 | 現在の判断 |

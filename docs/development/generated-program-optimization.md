@@ -42,12 +42,16 @@ Nushell runnerを含む診断値なので、変換の採否には標準のHyperf
 一般変換、tail applicationとの関係、Cへのrefinementと機械的に確認する不変条件は
 [application control lowering設計](application-control-lowering.md)を正とする。この計画ではcost modelと採用gateだけを管理する。
 
-現在の実装範囲は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。実装前後の
+現在の実装範囲は[application control lowering設計](application-control-lowering.md#実装状態)を正とする。最初の実装前後の
 [再測定](performance.md#application-control-lowering実装前後)では、direct tailとacyclic callは同等、managed first-class cycleは
-改善した一方、unmanaged non-tail cycleは1.19倍から2.28倍、既存corpusの5 caseは1.10倍から1.73倍へ退行した。深いunwindの
-C stack bound、managed lifetime、評価順は維持できているため、次は意味上のmachineを変えずdirect recursive SCCの複数transitionを
-まとめ、frame push、resume、dispatchの償却を狙う。一定段数だけ通常C callを使う場合も段数をcompile-time定数でboundし、外部entryと
-spill後の継続を同じtyped frameへ写せることを先に示す。
+改善した一方、unmanaged non-tail cycleと既存corpusが退行した。その後recursive SCCをcontrol regionとしてarenaを分離し、実行中の
+stack stateをC localへ移した[refinement](performance.md#control-region-refinement)により、focused Hanoiは旧実装比0.89、linear
+unwindは0.73、元の退行6 caseは幾何平均0.90となった。direct tail、acyclic direct、managed pressureとC stack boundは維持した。
+
+残るcostはarenaの所属や単一frame siteの形ではなく、explicit frameのpush、resume、dispatchと通常のC callとの表現差にある。
+次は両者のinstruction、branch、code sizeを同じrecursive regionで分解し、一定段数だけC callするbounded batchingを検討する。
+段数はcompile-time定数でboundし、外部entryとspill後の継続を同じtyped frameへ写せること、region間のC-call DAGを壊さないことを
+先に示す。これを満たさないcall-site別の閾値やframe field削減は採用しない。
 
 queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。現在記録済みの実装前baselineと
 実装後比較を採用判断の基準とし、stack safetyだけを理由にthroughput退行を完了扱いしない。
