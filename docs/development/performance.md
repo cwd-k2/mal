@@ -79,8 +79,8 @@ process時間は各Hyperfine invocationに測らせる。
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
 | 全非interactive問題 | 79 | 1.04 | 1.05 |
-| 両実行時間が1 ms以上 | 62 | 1.05 | 1.06 |
-| 両実行時間が5 ms以上 | 51 | 1.09 | 1.08 |
+| 両実行時間が1 ms以上 | 62 | 1.06 | 1.06 |
+| 両実行時間が5 ms以上 | 51 | 1.07 | 1.08 |
 | 両実行時間が10 ms以上 | 40 | 1.06 | 1.07 |
 
 ±5%を同等とするとmalが速いものは10、同等は32、Cが速いものは37だった。1 ms未満の分類数はprocess起動の揺れを
@@ -95,9 +95,16 @@ deterministic counterを根拠とする。
 `searchSecond`と`searchFirst`に対応するcallが消え、entry body内のnested loopになる。したがってrecursive reductionや
 aggregate call topologyを現在の最優先課題とする根拠はない。
 
-絶対差が大きい残差は043の1.20倍（約54 ms）である。popped distanceをdirection loopへ明示的に渡すsource variantは、
+絶対差が大きい残差は043の約1.15倍である。popped distanceをdirection loopへ明示的に渡すsource variantは、
 元のmal版と交互測定で同等だった。最適化後IRでも対応するloadはloop invariantになっているため、同じ値のsource-level
 引き回しをbackend変更へ一般化しない。
+
+043のheap bubble-upは`index == 0`で停止し、else側で`(index - 1) / 2`を計算していた。実際のheap indexは非負だが、
+この条件だけではoptimizerがelse側の負数を除外できず、最適化後IRに4箇所のsigned divisionが残った。停止条件をheapの
+不変条件どおり`index <= 0`にすると、sourceのdivisionをshiftへ書き換えなくても4箇所とも`lshr`になった。maximum-order inputの
+交互20回比較では元のmal版から約5%短縮し、全corpus roundのdirect C比は約1.15だった。全79問の中央値1.04、幾何平均1.05と
+10/32/37の分類は維持された。この改善はsourceが所有するheap invariantの訂正であり、負数を含み得る一般のsigned divisionを
+shiftへ置き換えるbackend ruleにはしない。
 
 比率では011が1.48倍、063が1.44倍だった。011のindexとcounterをすべて`Int64`相当へ揃えたvariantは約1.57倍で、狭い型は
 差の主因ではなかった。063でcounterとstorageを`Int64`へ揃え、`__builtin_popcount`を同じshift-and-count loopへ置き換えると

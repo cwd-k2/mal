@@ -24,7 +24,7 @@ Status: Current work plan
 | 優先度 | 軸 | 観測したcost | Corpus |
 |---:|---|---|---:|
 | 1 | scalar memoryとcontrol flow | branch-heavy heapの`Ptr` accessとstate update cost | 043 |
-| 2 | record storageとcontrol flow | same-width化後にも残るheap、DP、subset scanのcost | 011、063 |
+| 2 | nested scanとcontrol flow | same-width化とsigned shift改善後にも残るscan cost | 063 |
 
 この順序は絶対時間と差の大きさに加え、現行authorityの範囲内で不要な処理を除ける見込みで決める。新しいprofileで順位を
 変える場合は、同じ意図を各言語で自然に記述した比較fixtureを使い、source上の記法差をcompiler差として扱わない。
@@ -47,7 +47,13 @@ control-flow簡約だけをbackend変更候補にする。
 改善にnon-alias、alignment、region分離、狭いinteger rangeが必要なら、その保証を選ぶauthorityをlanguageまたは
 extern contractの仕様課題として先に記録する。
 
-## 2. record storageとcontrol flow
+043のheap parent計算は`index == 0`のelse側で`(index - 1) / 2`を実行していたため、optimizerは負のindexに対する
+signed division semanticsを守っていた。heap invariantに合わせて停止条件を`index <= 0`とすると、通常のdivisionのまま
+最適化後IRが4箇所の`sdiv`から`lshr`へ変わり、wall-clockは約5%改善した。これはheap indexの不変条件を所有するsourceの
+訂正として採用し、全signed divisionへrangeを仮定するbackend変更にはしない。043の残差はこのparent計算だけへ帰属させず、
+引き続きheap全体のbranchとstate updateを比較する。
+
+## 2. nested scanとcontrol flow
 
 011と063の元の比率差は、そのままではcompilerの責務だけを測っていなかった。011をsame-widthに揃えたvariantは改善せず、
 063をsame-widthかつportable popcountへ揃えたvariantは1.45倍から約1.27倍へ縮んだ。したがって011ではwidthを原因候補から外し、
