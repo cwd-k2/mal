@@ -51,6 +51,39 @@ collection primitiveを性能だけのために追加する根拠にならない
 source、input、expected output、direct C、generated C、Hyperfine JSONなどのraw artifactはlocalの`.scratch/`に置き、
 tracked repositoryには含めない。
 
+## 2026-09-08最適化後の再測定
+
+同じClang 21.1.8、maximum-order input、warmup 3回、20反復で、79問を現在のcompilerから再生成した。
+測定前にmal側の269 sampleと、79個のmaximum-order inputにおけるmal/Cのstdoutを再検証した。
+
+| Population | Count | Median ratio | Geometric mean |
+|---|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.12 | 1.16 |
+| 両実行時間が1 ms以上 | 60 | 1.16 | 1.15 |
+| 両実行時間が5 ms以上 | 51 | 1.19 | 1.20 |
+| 両実行時間が10 ms以上 | 37 | 1.18 | 1.21 |
+
+±5%を同等とするとmalが速いものは10、同等は17、Cが速いものは52だった。1 ms未満の分類数はprocess起動の揺れを
+含むため、初回測定との増減をoptimization効果として扱わない。全体の幾何平均は1.19から1.16へ、5 ms以上は1.23から
+1.20へ、10 ms以上は1.26から1.21へ縮小した。
+
+大きかった差は006が7.90から3.19、008が6.34から3.47、027が5.25から2.06、029が1.70から1.38、043が
+1.58から1.38へ縮小した。006と008ではnested product bindingを独立したtail slotにしたことで最外層のstate構築が消えたが、
+変更されないnested stateをloop内でprojectし、owned known callへ渡すretain/releaseは残る。これを消すにはcalleeまでborrowを
+伝えるinterprocedural ownership contractが必要であり、pattern projectionだけの局所変更ではshareの作成位置が移るだけだった。
+
+016は2.76のままだった。最適化後IRではmain loopへhelperとstateが融合し、hot pathに`sret`やcall boundaryは残らない。
+direct Cが値域に応じて狭いintegerを選ぶ一方、mal sourceは`Int64`を指定している。この差だけを根拠に表現を狭めず、値域と
+wrap semanticsを証明する解析が別途得られるまで現行表現を保つ。
+
+027でprocess中の`free`を無効にする対照実験は18.5 msから16.6 msへの約10%短縮に留まり、direct Cの8.9 msとの差を
+支配しなかった。recyclingにはhost releaseを含むdeallocationを`MalContext`へ通し、context終了時の解放とallocation counterを
+分離する変更が必要になる。現在のprofileではその複雑さを正当化しないため導入しない。
+
+043にはfirst-class function valueとして保持するproduct result functionが残る。既知direct pathだけのcloneでは一般のclosure
+entryを除けず、全体比率も1.38まで縮小した。016と併せると、全functionへのinline指定や一般的なresult specializationを導入する
+根拠にはならない。
+
 ## 先行baselineから採用した改善
 
 2026-09-05の3 workload比較では、未最適化public buildに対してC compilerの`-O2`がbranch-heavy heapを875.2 msから
@@ -152,8 +185,9 @@ product resultはtarget C ABIへ委ねた場合、小さい2-scalar productはca
 out parameter entryを追加しても、全fieldを使うcallではwriteを減らせない。使用fieldだけを返すspecializationはcallee内のeffectを
 維持したresult-use analysisとfunction cloningを必要とし、単なるproduct ABIの改善ではない。
 
-全corpusでaggregate resultが残る例を得たため、borrowとtail stateの改善後にも`large sret`がhotなら再検討する。独立したfixtureで
-構造を固定できること、closure共通entryをfallbackとして残すこと、clone数を制限できることを採用条件とする。
+全corpus再測定後もfirst-class valueとして必要な`large sret`は残るが、既知direct callのhot pathを支配する例はなかった。
+新しいprofileで支配的な例を得た場合に限り、独立したfixtureで構造を固定し、closure共通entryをfallbackとして残し、clone数を
+制限できることを採用条件として再検討する。
 
 ## 測定の再現条件
 

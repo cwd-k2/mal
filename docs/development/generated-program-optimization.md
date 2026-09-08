@@ -1,6 +1,6 @@
 # generated program最適化計画
 
-Status: Current implementation plan and gates
+Status: Implemented decisions and follow-up gates
 
 この文書はreference C backendが生成するprogramのruntime性能について、改善軸、着手順、各段階の完了条件を管理する。
 現在の測定結果は[generated C performance](performance.md)、managed valueの正しさは
@@ -25,12 +25,12 @@ Status: Current implementation plan and gates
 
 | 軸 | 現在残るcost | 主なcorpus |
 |---|---|---|
-| managed borrow | read-only operation用の一時productがmanaged fieldをretain/releaseする | 006、008、027 |
-| aggregate state | direct entryでleafを受けてもbodyとtail edgeでproductを再構築する | 016、029、032、043 |
-| `Symbol` admission | host scratch bufferから別のmal allocationへcopyする | 027 |
-| branchとresult | branchごとのaggregate resultとtagがhot pathに残る | 008、032、043 |
-| call boundary | costの大きいhelperがinlineされずaggregate resultを返す | 008、016 |
-| allocator | 短命なEngram allocationを汎用allocatorへ戻す | admission改善後に再測定 |
+| managed borrow | nested stateのprojectionからowned known callまでにshareを作る | 006、008 |
+| aggregate state | 明示的に値として使うproductとdirect形状外のstateを構築する | 032、043 |
+| `Symbol` admission | tokenごとにmal-controlled storageを確保する | 027 |
+| branchとresult | first-class function valueに一般result表現が残る | 043 |
+| call boundary | 現在の既知direct hot pathを支配する境界は観測されない | 016、043 |
+| allocator | 短命なEngram allocationを汎用allocatorへ戻すが支配的ではない | 027 |
 | memory contract | unalignedかつalias可能な`Ptr` accessがvectorizationを制約する | 数値・table workload |
 
 managed borrow、aggregate state、`Symbol` admissionは現行authorityのまま改善できる。memory contractだけはsourceまたはextern contractに新しい事実を表現しない限り
@@ -116,11 +116,15 @@ GCへの置換はこの段階へ含めない。
 alias、alignment、region分離を使う最適化は、既存`Ptr` contractから導けない。必要性が残る場合は、backend attributeを先に付けず、
 sourceまたはextern contractで誰がその事実を選び保証するかを仕様課題として扱う。
 
-## 実装順とcommit境界
+## 現在の採否判断
 
-1. 79問corpusを再測定し、残った根拠に応じてbranch/result specializationを選ぶ。
-2. allocation profileが残る場合だけallocator recyclingを検討する。
+AからDは実装済みであり、direct self-tail stateはnested product bindingを含めてbinding slotへ分割する。79問の再測定結果と
+残差の根拠は[generated C performance](performance.md)を正とする。
 
-各commitは一つのcost modelだけを変え、focused generated-C test、native execution、通常のcompiler testを通す。managed lifetimeへ
-触れるcommitは[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。ABI置換commitは
-generated header、host helper、全repository adapterを分けずに更新する。
+現在のprofileでは、既知direct pathを支配するbranch、aggregate result、call boundaryが残らなかったためEの追加specializationは
+導入しない。027の`free`無効化によるwall-clock短縮も約10%で差を支配しないため、Fのallocator recyclingは導入しない。
+memory contractとnarrow integer representationは、source contractまたは独立した証明解析なしに変更しない。
+
+今後新しいprofileが採用gateを満たす場合も、一つのcost modelごとにfocused generated-C test、native execution、通常のcompiler
+testを通す。managed lifetimeへ触れる変更は[managed Engram性能](ownership-performance.md)の通常・sanitizer pressure suiteも通す。
+ABI置換はgenerated header、host helper、全repository adapterを分けずに更新する。
