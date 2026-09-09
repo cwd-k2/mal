@@ -179,6 +179,10 @@ frameのauthorityへ問い合わせる。
 5. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
 6. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
 
+planのconstructorとfieldはbackend module内に閉じる。全再導出validatorはdebug assertionとfocused mutation testでconstructorの
+exactnessを検査し、release compilerでは重複解析を行わない。validatorを常時実行する必要が生じるのは、planを外部入力から
+復元する境界を追加した場合であり、その時点でcompiler-stage admission contractとして設計し直す。
+
 ## control region
 
 可能call graphの各recursive SCCを一つのregionとする。同じregionを閉じるdirectまたはfirst-class edgeはregion内dispatch、

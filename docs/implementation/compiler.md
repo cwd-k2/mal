@@ -113,7 +113,8 @@ typedef struct {
 Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。hostがSymbol resultを作るadapterは、
 runtime-owned admission bufferへbytesを書き、source-level extern callを完了する前にlengthを検査してcopyなしでpublishする。runtime Symbolはflat
 bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
-構築する。equality、byte access、`storeSymbol`、extern callの直前で必要ならcontiguous bytesを一度materializeする。
+構築する。equalityとbyte accessはropeを直接走査し、`storeSymbol`はleaf bytesを外部storageへ直接copyする。
+reference C ABIが連続領域を要求するextern callの直前だけ、必要ならcontiguous bytesを一度materializeする。
 `loadSymbol`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
 runtime検査しない。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。reference count
 overflowはreference runtime固有のfatal failureであり、source semanticsにはしない。
