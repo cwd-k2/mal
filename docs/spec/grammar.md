@@ -79,7 +79,7 @@ externCall  ::= "extern" VALUE_IDENT "(" argumentList? ")"
 product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
-storageSize ::= "@" type
+typeQualifiedPrimitive ::= TYPE_IDENT "." VALUE_IDENT
 symbolLength ::= "#" expression
 symbolByteAccess ::= expression "#" expression
 
@@ -110,7 +110,6 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 | level | operator | associativity |
 |---|---|---|
 | call | `f(...)` | left |
-| storage size | `@T` | — |
 | Symbol length | `#value` | right |
 | Symbol byte access | `value # index` | non-associative |
 | unary | `- ! ~` | right |
@@ -129,8 +128,9 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 `UInt64 + Ptr`、`Ptr + Ptr`、`UInt64 - Ptr`は定義しない。`|` は式中の bitwise OR だけに使用する。直和型は
 `[]` で区切るため、型と式で`|`の意味を切り替えない。assignment operatorはない。
 
-`@`の直後はexpressionではなく`type`としてparseする。したがって`@Ptr`は一つのatomic expressionであり、
-空白の有無は意味を変えない。標準の表記では`@`と型の間に空白を置かない。
+`TYPE_IDENT.VALUE_IDENT`は型で修飾したpredefined primitiveを表す一つのatomic expressionである。`.`の
+前後に空白を置かない。この形はmoduleやnamespaceのqualified name、field access、method、user-defined
+associated itemを導入しない。認める型とprimitiveの組は[memory primitive](memory.md)に定める。
 
 `#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。

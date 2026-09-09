@@ -96,7 +96,7 @@ scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、�
 extern symbol、generated header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 
 argument-aware entry pointではCの`argv[1]`以降のaddressとlengthを外部descriptor列へ置き、`(UInt64, Ptr)`として
-source-level `main`を呼ぶ。Symbolへのcopyはsourceが`loadSymbol`を呼ぶ時点で行い、entry専用のcollection型は持たない。
+source-level `main`を呼ぶ。Symbolへのcopyはsourceが`Symbol.read`を呼ぶ時点で行い、entry専用のcollection型は持たない。
 
 product は compiler-generated struct、sum は tag と payload union、Symbol は概念上 pointer と length に lower できる。
 
@@ -113,20 +113,20 @@ typedef struct {
 Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。hostがSymbol resultを作るadapterは、
 runtime-owned admission bufferへbytesを書き、source-level extern callを完了する前にlengthを検査してcopyなしでpublishする。runtime Symbolはflat
 bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
-構築する。equalityとbyte accessはropeを直接走査し、`storeSymbol`はleaf bytesを外部storageへ直接copyする。
+構築する。equalityとbyte accessはropeを直接走査し、`Symbol.write`はleaf bytesを外部storageへ直接copyする。
 equalityは二つのallocation-free leaf cursorを進め、木の分割形状が異なってもleaf単位の`memcmp`により全体をO(n)で比較する。
 cursorのpending pathはrope heightで上限づけたC stack storageであり、ownerを追加しない。reference C ABIが連続領域を要求する
 extern callの直前だけ、必要ならcontiguous bytesを一度materializeする。
-`loadSymbol`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
+`Symbol.read`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
 runtime検査しない。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。reference count
 overflowはreference runtime固有のfatal failureであり、source semanticsにはしない。
 
-`loadSymbol`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`storeSymbol`はSymbol bytesを外部regionへcopyする。
+`Symbol.read`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`Symbol.write`はSymbol bytesを外部regionへcopyする。
 `MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
 
 storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
-C backendはfixed-width scalarを定数へ、`@Ptr`を`sizeof(MalType_Ptr)`へlowerする。これはgenerated Cのtargetで
-評価する。`Symbol`にはsource-level memory表現がないため`@Symbol`を型検査で拒否する。
+C backendはfixed-width scalarの`.size`を定数へ、`Ptr.size`を`sizeof(MalType_Ptr)`へlowerする。これは
+generated Cのtargetで評価する。`Symbol`にはsource-level memory表現がないため`Symbol.size`を型検査で拒否する。
 
 function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
 

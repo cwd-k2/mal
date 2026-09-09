@@ -63,23 +63,30 @@ makeFunction()(x)
 
 `f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
 
-[memory](memory.md#primitive)に列挙するload/store operationはpredefined functionであり、通常のfunctionと同じく
+[memory](memory.md#primitive)に列挙する`load`、`store`、`read`、`write`はpredefined functionであり、通常のfunctionと同じく
 直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
 lengthとbyte accessは[`#` operator](symbols.md#operator)で表す。
 
-## storage size
+## 型で修飾したmemory primitive
 
-`@T`は型`T`のcanonical memory storage幅をbyte数で表す`UInt64`のtarget constantである。これは通常の
-function callではなく、host operationも実行しない。定義対象となる型と各幅は
-[memoryのstorage幅](memory.md#storage-幅)に定める。
+canonical memory representationを持つ型`T`には`T.size`、`T.load`、`T.store`を定める。`T.size`は
+storage幅をbyte数で表す`UInt64`のtarget constantであり、通常のfunction callではなくhost operationも
+実行しない。`T.load`と`T.store`はfirst-class functionである。`Symbol.read`と`Symbol.write`は
+canonical object representationではなくraw bytesをcopyするfirst-class functionである。
 
 ```mal
 descriptorSize :: Unit -> UInt64 := \() {
-    @Ptr + @UInt64 + @UInt8;
+    Ptr.size + UInt64.size + UInt8.size;
 };
+
+readUInt64 :: Ptr -> UInt64 := UInt64.load;
 ```
 
-`@T`単独はtop-levelのclosed valueに使える。上の加算はlambda body内の通常のexpressionであり、top-level initializerに
+`.`の形は一般のmodule、member、methodを導入せず、memory仕様が列挙するpredefined primitiveに限定する。
+transparent aliasは展開したcanonical typeによって利用できるprimitiveを決める。完全な型、署名、動作は
+[memory primitive](memory.md)に定める。
+
+`T.size`と型で修飾したfunctionはtop-levelのclosed valueに使える。上の加算はlambda body内の通常のexpressionであり、top-level initializerに
 binary operationを追加しない。
 
 ## if

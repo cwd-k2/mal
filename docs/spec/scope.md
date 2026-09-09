@@ -72,7 +72,7 @@ deallocation、length、bounds、ownershipは組み込まず、program固有の`
 extern alloc :: UInt64 -> Ptr;
 
 readInt64 :: (Ptr, UInt64) -> Int64 :=
-    \(base :: Ptr, index :: UInt64) { loadInt64(base + index * 8u64) };
+    \(base :: Ptr, index :: UInt64) { Int64.load(base + index * Int64.size) };
 ```
 
 mutable bytesが必要な場合も同じ境界を使う。次はpredefined APIではなく、program固有のhost contractの例である。
@@ -95,7 +95,7 @@ Int64Array :: (Ptr, UInt64);
 arrayGet :: (Int64Array, UInt64) -> Int64 :=
     \(array :: Int64Array, index :: UInt64) {
         (memory, _) := array;
-        loadInt64(memory + index * 8u64);
+        Int64.load(memory + index * Int64.size);
     };
 ```
 

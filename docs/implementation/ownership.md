@@ -113,7 +113,7 @@ retainする。last-useのowned flat operandはreference countが1なら、left�
 不足時は幾何的に拡張する。static、共有中、ropeのoperandはin-placeに変更しない。
 
 共有された大きなconcatはAVL-balanced rope nodeとして両operandをretainする。comparisonとbyte accessはropeを直接走査し、
-`storeSymbol`は外部storageへleaf bytesを直接copyする。連続領域を要求するextern parameterだけをcall前にflattenし、そのcacheは
+`Symbol.write`は外部storageへleaf bytesを直接copyする。連続領域を要求するextern parameterだけをcall前にflattenし、そのcacheは
 rope nodeと共に解放する。extern aggregate内のSymbolも型再帰でmaterializeする。いずれの表現もsourceからは新しいimmutable
 byte sequenceとしてだけ観測され、node、cache、capacityはC host ABIのopaque ownership内部に留まる。
 comparisonのleaf cursorはdescriptorとrope nodeをborrowし、retain、release、allocation、cache mutationを行わない。

@@ -14,10 +14,10 @@ live region、読み書きの可否、lifetime、およびstorageを無効にす
 
 ## storage 幅
 
-`@T`は、型`T`の値をこの文書のload/store表現でmemoryへ置くために必要なbyte数を`UInt64`で返す。
+`T.size`は、型`T`の値をこの文書のload/store表現でmemoryへ置くために必要なbyte数を`UInt64`で返す。
 host callを伴わないtarget constantであり、transparent aliasは展開して測る。
 
-| `T` | `@T` |
+| `T` | `T.size` |
 |---|---:|
 | `Int8`, `UInt8` | 1 |
 | `Int16`, `UInt16` | 2 |
@@ -26,10 +26,10 @@ host callを伴わないtarget constantであり、transparent aliasは展開し
 | `Ptr` | target ABIの`MalType_Ptr` object representationのbyte数 |
 
 この値はmemory上のcanonical表現だけを測る。pointerに対する`+`と`-`の右operandの単位もbyteであるため、
-field offsetは`@T`の和として記述できる。
+field offsetは`T.size`の和として記述できる。
 
 v0.5では`Unit`、`Symbol`、product、sum、external opaque type、functionにcanonical memory表現を定めず、これらへの
-`@`をcompile-time errorとする。特にproductとsumはC ABI上の表現を持っていても、そのpaddingやbackend内部の
+`.size`をcompile-time errorとする。特にproductとsumはC ABI上の表現を持っていても、そのpaddingやbackend内部の
 layoutをsource-level memory contractにはしない。
 
 ## primitive
@@ -37,35 +37,21 @@ layoutをsource-level memory contractにはしない。
 v0.5のoperation集合はbyte offset、全numeric scalarと`Ptr`のobject representation、および`Symbol`のbyte copyである。
 
 ```text
-+           :: (Ptr, UInt64) -> Ptr
--           :: (Ptr, UInt64) -> Ptr
-loadInt8    :: Ptr -> Int8
-storeInt8   :: (Ptr, Int8) -> Unit
-loadInt16   :: Ptr -> Int16
-storeInt16  :: (Ptr, Int16) -> Unit
-loadInt32   :: Ptr -> Int32
-storeInt32  :: (Ptr, Int32) -> Unit
-loadInt64   :: Ptr -> Int64
-storeInt64  :: (Ptr, Int64) -> Unit
-loadUInt8   :: Ptr -> UInt8
-storeUInt8  :: (Ptr, UInt8) -> Unit
-loadUInt16  :: Ptr -> UInt16
-storeUInt16 :: (Ptr, UInt16) -> Unit
-loadUInt32  :: Ptr -> UInt32
-storeUInt32 :: (Ptr, UInt32) -> Unit
-loadUInt64  :: Ptr -> UInt64
-storeUInt64 :: (Ptr, UInt64) -> Unit
-loadFloat32 :: Ptr -> Float32
-storeFloat32 :: (Ptr, Float32) -> Unit
-loadFloat64 :: Ptr -> Float64
-storeFloat64 :: (Ptr, Float64) -> Unit
-loadPtr      :: Ptr -> Ptr
-storePtr     :: (Ptr, Ptr) -> Unit
-loadSymbol   :: (Ptr, UInt64) -> Symbol
-storeSymbol  :: (Ptr, Symbol) -> Unit
++            :: (Ptr, UInt64) -> Ptr
+-            :: (Ptr, UInt64) -> Ptr
+T.size       :: UInt64
+T.load       :: Ptr -> T
+T.store      :: (Ptr, T) -> Unit
+Symbol.read  :: (Ptr, UInt64) -> Symbol
+Symbol.write :: (Ptr, Symbol) -> Unit
 ```
 
-pointerに対する`+`と`-`はbinary operatorである。load/storeはpredefined scopeにあるfirst-class functionであり、
+`T.size`、`T.load`、`T.store`の`T`には`Int8`、`Int16`、`Int32`、`Int64`、`UInt8`、`UInt16`、
+`UInt32`、`UInt64`、`Float32`、`Float64`、`Ptr`を認める。transparent aliasで修飾した場合は、その
+canonical typeがこの集合に含まれるかで判定する。`Symbol`はcanonical memory representationを持たないため
+`.size`、`.load`、`.store`を持たず、raw byte copyの`.read`と`.write`だけを持つ。
+
+pointerに対する`+`と`-`はbinary operatorである。load/store/read/writeは型で修飾したpredefined first-class functionであり、
 binding、引数、resultとして扱える。直接callとfunction valueを介したcallは同じmemory operationを行う。
 operand、callee、引数は通常のoperatorとcallの規則どおり左から右へ一度ずつ評価する。
 
@@ -80,22 +66,22 @@ operand、callee、引数は通常のoperatorとcallの規則どおり左から�
 指す値は作れるがload/storeには使えない。precondition違反は`Ptr`を供給したhost contractへの違反であり、特定の
 実行結果を保証しない。
 
-load/storeは指定型の全byteを対象とし、alignmentを要求しない。`storeInt64`の後に同じaddressから
-`loadInt64`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。
+load/storeは指定型の全byteを対象とし、alignmentを要求しない。`Int64.store`の後に同じaddressから
+`Int64.load`すると、間に同じbytesへのwriteがなければ元の値を得る。他のnumeric scalarにも同じ規則を適用する。
 異なるscalar operationで同じbytesを観測した場合のbyte orderとrepresentationはbackend host ABIが定める。
 
-`storePtr`はdata addressのobject representationをstorageへcopyし、`loadPtr`はそれを`Ptr`として復元する。
-`storePtr`の後に同じaddressから`loadPtr`すると、間に同じbytesへのwriteがなければ同じstorageを指す値を得る。
+`Ptr.store`はdata addressのobject representationをstorageへcopyし、`Ptr.load`はそれを`Ptr`として復元する。
+`Ptr.store`の後に同じaddressから`Ptr.load`すると、間に同じbytesへのwriteがなければ同じstorageを指す値を得る。
 pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpointerを複製しても指すstorageのlifetimeは延長しない。
-`storePtr`またはhostが有効な`MalType_Ptr`として書いたものではないbytesを`loadPtr`するprogramはcontract違反である。
+`Ptr.store`またはhostが有効な`MalType_Ptr`として書いたものではないbytesを`Ptr.load`するprogramはcontract違反である。
 
-`loadSymbol(pointer, length)`は指定した外部regionの`length` bytesをcopyし、新しいmal-controlled `Symbol`を返す。
+`Symbol.read(pointer, length)`は指定した外部regionの`length` bytesをcopyし、新しいmal-controlled `Symbol`を返す。
 `length == 0`ではpointerをdereferenceしない。lengthをtarget allocation sizeで表現できない場合やallocation failureは
-trapする。`storeSymbol(pointer, value)`は`value`の全bytesを外部regionへcopyし、descriptorやownershipは書き出さない。
+trapする。`Symbol.write(pointer, value)`は`value`の全bytesを外部regionへcopyし、descriptorやownershipは書き出さない。
 このobservationはmal-owned storageを新しく構成せず、`Symbol`の内部表現を理由とするallocation failureを追加しない。
-したがって`Symbol`にはcanonical memory表現も`@Symbol`もない。
+したがって`Symbol`にはcanonical memory表現も`Symbol.size`もない。
 
-同じaddressへ`storeSymbol`した後、そのbyte lengthを指定して`loadSymbol`すれば、間にwriteがない限り同じbyte
+同じaddressへ`Symbol.write`した後、そのbyte lengthを指定して`Symbol.read`すれば、間にwriteがない限り同じbyte
 sequenceを持つ別の`Symbol`を得る。このround tripはidentityやlifetimeの移動ではなく、二回のbyte copyである。
 
 必要byte数がlive regionに収まらない、read不可のregionをloadする、write不可のregionをstoreする、または
@@ -105,10 +91,11 @@ deterministically検査するには、programがlengthを別のscalarとして�
 product、sum、external opaque type、functionを直接load/storeするprimitiveはない。
 aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、既存のconstructorでmal valueとして組み立てる。
 host contractはexternal opaque typeに固有の保存・復元`extern`を別途提供できるが、それはpredefined memory
-表現を追加しない。したがってその型への`@`は引き続きerrorであり、保存表現、復元したhandleの有効性、resource
+表現を追加しない。したがってその型への`.size`は引き続きerrorであり、保存表現、復元したhandleの有効性、resource
 lifetimeはhost contractの責務である。authorityの一般則は[EngramとExtern](engrams.md#authority)に定める。
 
 ## minimality
 
 この機能はcollection、allocator、bounds policyを追加せず、indexed storage、pointer graph、Symbol fieldに共通するmechanismだけを提供する。
-採択理由とlocal algorithm corpusによる評価は[D022](../history/decisions/D022.md)に記録する。
+機構の採択理由とlocal algorithm corpusによる評価は[D022](../history/decisions/D022.md)、source syntaxの理由は
+[D037](../history/decisions/D037.md)に記録する。

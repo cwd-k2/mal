@@ -12,7 +12,7 @@ valid UTF-8も保証しない。
 支配し、source programやhostは個別のstorage identityを観測しない。値のcopyは同じimmutable byte sequenceを
 与えるが、descriptorやallocationの同一性は言語の意味に含まれない。
 
-literalのbytesはprogram imageのstatic storageに置いてよい。連結、`extern` result、`loadSymbol`などから得る
+literalのbytesはprogram imageのstatic storageに置いてよい。連結、`extern` result、`Symbol.read`などから得る
 runtime値は、host storageを参照する値ではなくmalへ受け入れられた新しい`Symbol`である。正確な境界規則は
 [EngramとExtern](engrams.md#境界のoperation)に従う。
 
@@ -50,13 +50,13 @@ storageを共有または再利用してよい。
 
 length、byte access、equalityは既存のbyte sequenceを観測するoperationであり、新しいEngramを構成しない。したがって、
 有効なoperandに対して内部表現だけを理由とするstorage allocationやallocation failureを追加してはならない。
-`storeSymbol`にも同じ規則を適用する。連続したborrow領域を要求するreference C ABIのextern parameter準備は
+`Symbol.write`にも同じ規則を適用する。連続したborrow領域を要求するreference C ABIのextern parameter準備は
 source-level operationではなく、[C host ABI](c-host-abi.md#type-mapping)が所有する境界処理である。
 
 ## mutable bytesとの分離
 
 `Symbol`の内容は変更できない。mutableな外部storageは`Ptr`またはexternal opaque typeで表し、必要なbytesを
-`loadSymbol`または`Symbol`を返す`extern`によって明示的にmalへ受け入れる。反対方向のcopyには`storeSymbol`
+`Symbol.read`または`Symbol`を返す`extern`によって明示的にmalへ受け入れる。反対方向のcopyには`Symbol.write`
 または`Symbol` parameterを持つ`extern`を使う。
 
 反復回数がboundedでない入力をすべて`Symbol`へ変換すれば、実装が回収可能と判断するまでstorageを必要とする。

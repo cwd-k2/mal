@@ -21,7 +21,7 @@ lifecycleを提供しない。
 `main :: Unit -> Int32`にはCの`main(void)`を生成する。`main :: (UInt64, Ptr) -> Int32`には
 `main(int argc, char **argv)`を生成する。`argv[1]`以降の各addressと終端NULを除いたlengthを、`MalType_Ptr`と
 `uint64_t`をpaddingなしに並べた外部descriptor列へ置き、そのcountと先頭`Ptr`をsource-level `main`へ渡す。
-argv bytesとdescriptor列は`main`のreturnまでread-onlyで有効であり、`loadSymbol`を呼ぶまでmal Symbolではない。
+argv bytesとdescriptor列は`main`のreturnまでread-onlyで有効であり、`Symbol.read`を呼ぶまでmal Symbolではない。
 
 ## generated header
 
@@ -258,8 +258,8 @@ malへtransferする。parameterまたはaccessor resultを返す場合は`clone
 同じowned descriptorを通常のC assignmentで複製してもownership shareは増えない。
 
 `MalType_Symbol`はextern call中のABI carrierであり、source-level memory表現ではない。hostがstructやdata pointerを
-外部memoryへ保存しても、後からmal Symbolとして復元できない。`loadSymbol`は外部のraw bytesとlengthを受け取り、
-新しいSymbolへcopyする。`storeSymbol`はSymbolのraw bytesだけを外部memoryへcopyする。
+外部memoryへ保存しても、後からmal Symbolとして復元できない。`Symbol.read`は外部のraw bytesとlengthを受け取り、
+新しいSymbolへcopyする。`Symbol.write`はSymbolのraw bytesだけを外部memoryへcopyする。
 
 `Ptr`は`MalType_Ptr`でby-valueに渡す。hostは`address`が指すlive region、read/write permission、lifetimeを
 operation固有のcontractとして定める。reference runtimeのnumeric scalarおよびpointer accessは`memcpy`相当であり、

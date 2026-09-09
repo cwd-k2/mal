@@ -98,7 +98,7 @@ v0.5のadmission、observation、capability transferと各leafのlifetime author
 carrier、borrow、builder、clone、move、drop、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有の`extern`が再利用可能な`Ptr` regionへbytesを書き、mal側へlengthを返し、
-保持する値だけを`loadSymbol`する形を使える。決定理由は[D031](../history/decisions/D031.md)に記録する。
+保持する値だけを`Symbol.read`する形を使える。決定理由は[D031](../history/decisions/D031.md)に記録する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../history/decisions/D015.md)に記録する。

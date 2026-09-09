@@ -27,7 +27,7 @@ Engramへ包んでもresource ownershipは移らない。
 | observation | EngramからExtern | call中にborrowするか外部storageへcopyし、malのidentityとlifetimeを渡さない |
 | capability transfer | 双方向 | `Ptr`またはexternal opaque valueを運び、referentのauthorityをExternに残す |
 
-numeric scalarの`loadT`とextern result、`loadSymbol(pointer, length)`はadmissionである。`loadSymbol`はbytesを
+numeric scalarの`T.load`とextern result、`Symbol.read(pointer, length)`はadmissionである。`Symbol.read`はbytesを
 mal-controlled storageへcopyする。scalarや`Symbol`のstoreとextern parameterはobservationである。`Symbol`
 parameterのdataはcall中だけborrowされ、hostはreturn後に保持しない。
 
@@ -35,8 +35,8 @@ backend adapterはraw host operationとmal valueの間に立つtrusted boundary 
 admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、
 contextやEngramのlifetime authorityを取得しない。
 
-`Ptr`のextern parameter/resultと`loadPtr`/`storePtr`はcapability transferである。`loadPtr`は任意のbytesを
-有効なcapabilityに変換せず、hostまたは`storePtr`が書いた有効なpointer representationだけを復元できる。
+`Ptr`のextern parameter/resultと`Ptr.load`/`Ptr.store`はcapability transferである。`Ptr.load`は任意のbytesを
+有効なcapabilityに変換せず、hostまたは`Ptr.store`が書いた有効なpointer representationだけを復元できる。
 external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
 
 external opaque valueを外部storageへ保存し、後で復元する必要がある場合、hostはその型に固有の`extern`
@@ -44,7 +44,7 @@ operationを定義できる。保存表現、有効な値の範囲、復元後�
 Externのauthorityに残り、保存や復元によってreferentのlifetimeは延長されない。malのpredefined memory
 primitiveがopaque valueの表現を定めないことは[memory primitive](memory.md#primitive)に定める。
 
-外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。`storeSymbol`が
+外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。`Symbol.write`が
 書くのはbytesだけである。Externはmal内部のidentityを生成できず、malのlifetimeを延長できない。
 
 ## composition
