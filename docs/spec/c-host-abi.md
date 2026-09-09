@@ -103,6 +103,11 @@ entryである。`MalContext *`はmal valueではなく、各adapterへ先頭par
 adapterとhostはcall終了後にcontextを保持してはならない。`mal_trap`と`mal_SymbolAdmission_*`はreference runtimeが
 提供し、adapterは後者を通じてSymbol admissionをmalへ依頼する。builder storageのauthorityは構築中もruntimeにある。
 
+reference runtimeのcontextとmanaged carrierはthread-confinedである。同じcontext、そのcontextに属するbuilder、または
+managed ownership shareを使うruntime helperを複数threadから同時に呼んではならない。adapterはextern call中に受け取った
+連続byte領域をread-onlyで並行して読めるが、callがreturnする前にjoinし、runtime helperと競合させてはならない。
+reference countとmaterialization cacheはこの直列化を前提とし、atomic synchronizationを提供しない。
+
 malのpredefined type、source-level alias、external typeはすべてCで`MalType_<name>`と綴る。host implementationは
 aliasとexternal typeを別の命名規則として記憶する必要がない。`MalRepr_Product_<id>`と`MalRepr_Sum_<id>`は
 source-level nameを持たないstructural typeのgenerated representation名であり、`MalType_`の名前とは区別する。
@@ -244,7 +249,9 @@ data pointerを持つ`MalType_Symbol`を直接作って返すことはcontract�
 
 extern parameterとして渡される非空Symbolの`data`は、直接のparameterでもproductまたはactive sum payload内でも、call中に
 `length` byteの連続領域を指す。host helperから得るborrowed Symbolにも同じ規則を適用する。mal内部のstorage表現はこのABI
-contractに含めず、compilerはextern callの前に必要な連続表現を用意する。
+contractに含めず、compilerはextern callの前に必要な連続表現を用意する。この準備はallocationでき、target sizeで
+表現できない場合またはallocation failureではhost operationを呼ぶ前にtrapする。一度用意したcacheのidentityや再利用は
+ABIから観測できない。
 
 managed valueを含むextern parameterはcall中のborrowである。extern resultではmanaged fieldごとにownership shareを一つ
 malへtransferする。parameterまたはaccessor resultを返す場合は`clone`し、owned localを明示的に移す場合は`take`する。
@@ -304,3 +311,7 @@ capabilityを含まないfailure variantを返す場合、adapterがそのcall�
 adapter自身が解放する。argument resourceと以前にtransfer済みのresourceはこのcleanupの対象ではない。
 Symbol admissionと`mal_trap`はreturnしない場合があるため、その前にcleanup不能な一時resourceを残してはならない。
 正常returnしない経路でliveなadmissionがある場合、adapterはtrapより前にdropするか、operation固有の一括cleanupへ接続する。
+
+reference countが表現範囲を超えるなど、validなsource operationの意味ではなくreference implementationの管理資源が
+尽きた場合はlanguage-level trapではなく、diagnosticを出してprocessを異常終了するimplementation resource failureとする。
+これはhostが回復できるABI operationではない。

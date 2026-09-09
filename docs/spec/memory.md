@@ -92,6 +92,7 @@ pointerの格納に必要なbyte数はtarget ABIが定め、格納されたpoint
 `loadSymbol(pointer, length)`は指定した外部regionの`length` bytesをcopyし、新しいmal-controlled `Symbol`を返す。
 `length == 0`ではpointerをdereferenceしない。lengthをtarget allocation sizeで表現できない場合やallocation failureは
 trapする。`storeSymbol(pointer, value)`は`value`の全bytesを外部regionへcopyし、descriptorやownershipは書き出さない。
+このobservationはmal-owned storageを新しく構成せず、`Symbol`の内部表現を理由とするallocation failureを追加しない。
 したがって`Symbol`にはcanonical memory表現も`@Symbol`もない。
 
 同じaddressへ`storeSymbol`した後、そのbyte lengthを指定して`loadSymbol`すれば、間にwriteがない限り同じbyte

@@ -93,19 +93,12 @@ printValue :: Int32 -> Unit := \(x :: Int32) {
 
 ## boundary transport
 
-v0.5のEngram observationとadmissionは次とする。
+v0.5のadmission、observation、capability transferと各leafのlifetime authorityは
+[Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
+carrier、borrow、builder、clone、move、drop、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
-- mal から host へ渡す `Symbol` は call 中だけ borrow され、host は return 後に参照を保持しない。
-- host側の一時byte bufferはSymbolではない。Symbolを返すsource-level operationは、callが完了する前にbytesをmal-controlled storageへcopyし、その時点で新しいSymbolを作る。返されたSymbolはhost側bufferを参照しない。
-- 返された値の意味とlifetime authorityはmalに属し、hostはmanaged identityやrootを生成しない。
-- Symbol copyのallocation sizeを表現できない場合とallocation failureはtrapする。
-
-このcopy規則は一時host bufferから返る値を安全にする。unboundedなstreaming inputでは、program固有の`extern`が
-再利用可能な`Ptr` regionへbytesを書き、mal側へlengthを返し、保持する値だけを`loadSymbol`する形を使える。
-
-host側bufferの具体的な取得、copy完了までの有効期間、copy後の解放はbackend adapter contractが定める。hostの後続変更や
-解放がSymbolへ影響してはならない。境界operationの一般則は[Engram仕様](engrams.md#境界のoperation)に、決定理由は
-[D031](../history/decisions/D031.md)に記録する。
+unboundedなstreaming inputでは、program固有の`extern`が再利用可能な`Ptr` regionへbytesを書き、mal側へlengthを返し、
+保持する値だけを`loadSymbol`する形を使える。決定理由は[D031](../history/decisions/D031.md)に記録する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../history/decisions/D015.md)に記録する。
@@ -128,10 +121,8 @@ host APIを呼ぶ。`mal_ext_*` adapterはtrusted computing baseに含まれる�
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
 
-reference C ABIはadapter内のborrowed、owned、movedを規約として区別し、managed carrierのclone、move、drop helperを
-generated headerへ出す。これはhostへEngram authorityを移すものではなく、call中の一時的なownership shareを正しく
-transferまたは解放するためのinterfaceである。詳細は[C host ABI](c-host-abi.md#ownership-operation)と
-[D034](../history/decisions/D034.md)に定める。
+reference C ABIのmanaged carrier規約は[C host ABI](c-host-abi.md#ownership-operation)だけが定める。決定理由は
+[D034](../history/decisions/D034.md)に記録する。
 
 reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは

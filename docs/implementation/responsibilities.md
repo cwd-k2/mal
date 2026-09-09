@@ -146,8 +146,10 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
 | `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
-| `c_emit/runtime/core` | allocation、reference count、frameを持つregionのcontrol arena、Symbol admission、flat/rope lifetimeとmaterialization、host-visible Symbol lifecycle operationの構成 |
-| `c_emit/runtime/symbol` | Symbol comparison、byte access、concatenation operationの構成 |
+| `c_emit/runtime/core` | runtime contextと各runtime responsibilityの構成順序 |
+| `c_emit/runtime/allocation` | allocation header、reference count、implementation resource failureの構成 |
+| `c_emit/runtime/control` | frameを持つregionのcontrol arenaとstack operationの構成 |
+| `c_emit/runtime/symbol` | Symbol lifetime、admission、byte traversal、materialization、comparison、byte access、concatenationの構成 |
 | `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
