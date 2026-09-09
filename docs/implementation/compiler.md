@@ -124,7 +124,7 @@ overflowはreference runtime固有のfatal failureであり、source semantics�
 `Symbol.read`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`Symbol.write`はSymbol bytesを外部regionへcopyする。
 `MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
 
-storage-size expressionは型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
+type-qualified `size`は型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
 C backendはfixed-width scalarの`.size`を定数へ、`Ptr.size`を`sizeof(MalType_Ptr)`へlowerする。これは
 generated Cのtargetで評価する。`Symbol`にはsource-level memory表現がないため`Symbol.size`を型検査で拒否する。
 

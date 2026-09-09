@@ -86,18 +86,16 @@ fn rejects_storage_sizes_without_a_memory_representation() {
     for text in [
         "value := Unit.size;",
         "value := Symbol.size;",
+        "Pair :: (UInt8, Symbol); value := Pair.size;",
+        "Choice :: [UInt8, Symbol]; value := Choice.size;",
         "extern Resource; value := Resource.size;",
+        "Callback :: Int32 -> Int32; value := Callback.size;",
     ] {
         let error = check_error(text);
-        assert_eq!(
-            error.message,
-            if text.contains("Unit") {
-                "type `Unit` has no predefined memory primitive `size`"
-            } else if text.contains("Symbol") {
-                "type `Symbol` has no predefined memory primitive `size`"
-            } else {
-                "type `Resource` has no predefined memory primitive `size`"
-            },
+        assert!(
+            error
+                .message
+                .contains("has no predefined memory primitive `size`"),
             "input: {text}"
         );
         assert!(error.primary.is_some(), "input: {text}");

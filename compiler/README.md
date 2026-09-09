@@ -10,7 +10,7 @@ closure conversion.
 
 The implemented language slice includes closures, products, sums, fixed-width integers, strict
 floating point, byte and `Symbol` literals, `Symbol` observation and concatenation, numeric
-conversions, target storage-size expressions, untyped `Ptr` memory access for numeric scalars and
+conversions, type-qualified target storage sizes, untyped `Ptr` memory access for numeric scalars and
 pointers, explicit `Symbol` byte admission and storage, external opaque types, and the aggregate C
 host ABI. See the [compiler responsibilities](../docs/implementation/responsibilities.md) and
 [implementation notes](../docs/implementation/compiler.md) for the current structure.

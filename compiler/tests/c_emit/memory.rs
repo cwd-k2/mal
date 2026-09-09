@@ -193,10 +193,10 @@ fn copies_symbols_between_mal_and_external_memory() {
     let store_start = generated
         .source
         .find("mal_store_symbol(")
-        .expect("generated storeSymbol helper");
+        .expect("generated Symbol.write helper");
     let store = generated.source[store_start..]
         .split_once("\n}\n")
-        .expect("complete storeSymbol helper")
+        .expect("complete Symbol.write helper")
         .0;
     assert!(store.contains("mal_symbol_copy_into"), "{store}");
     assert!(!store.contains("mal_symbol_materialize"), "{store}");
