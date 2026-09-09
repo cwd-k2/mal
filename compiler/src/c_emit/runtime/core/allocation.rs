@@ -140,6 +140,14 @@ pub(super) fn append_reference_counting(output: &mut TranslationUnit) {
                 "allocation",
                 Some(allocation_for(Expr::identifier("value"))),
             ),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_FORCE_REFERENCE_COUNT_OVERFLOW",
+            ))),
+            Statement::assignment(
+                Expr::identifier("allocation").pointer_field("references"),
+                Expr::identifier("UINT64_MAX"),
+            ),
+            Statement::directive(Directive::Endif),
             Statement::if_then(
                 Expr::equal(
                     Expr::identifier("allocation").pointer_field("references"),

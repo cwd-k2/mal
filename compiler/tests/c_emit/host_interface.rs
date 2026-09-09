@@ -352,7 +352,40 @@ MalRepr_Sum_1 mal_ext_choose(MalContext *context) {
         },
     };
 }
+
 "#,
     );
     assert!(output.status.success());
+}
+
+#[test]
+fn reports_reference_count_overflow_as_an_implementation_resource_failure() {
+    let generated = emit(
+        r#"extern inspect :: Symbol -> Unit;
+main :: Unit -> Int32 := \() {
+  extern inspect("left" + "right");
+  0;
+};"#,
+    )
+    .expect("emit reference-count overflow fixture");
+    let fixture = NativeFixture::new("reference-count-resource-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+
+MAL_DEFINE_inspect(context, value) {
+    MalType_Symbol copy = MAL_CLONE(Symbol)(context, value);
+    MAL_DROP(Symbol)(context, &copy);
+}
+"#,
+        &["-DMAL_TEST_FORCE_REFERENCE_COUNT_OVERFLOW"],
+    );
+    let output = fixture.run(executable);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success());
+    assert!(
+        stderr.contains("mal implementation resource failure: reference count overflow"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("mal trap:"), "{stderr}");
 }
