@@ -30,6 +30,22 @@ compilerの責務へ分離できたactiveなcost modelはapplication control low
 個別caseの数値はcompiler変更の採否ではなく、fixture差、source責務、backend責務を分離する証拠として読む。1 ms未満の
 caseと異なるmachine間の絶対時間は順位付けに使わない。
 
+同じ測定で目立ったcaseは次のとおり。ratioの端と絶対時間差は別に読む。
+
+| Problem | mal (ms) | direct C (ms) | Ratio | 観測 |
+|---:|---:|---:|---:|:---|
+| 032 | 65.28 | 42.43 | 1.54 | 1 ms以上で最大のC優位比率 |
+| 011 | 10.76 | 7.04 | 1.53 | 032に次ぐC優位比率 |
+| 023 | 1227.27 | 976.93 | 1.26 | 最大の絶対差、+250.34 ms |
+| 029 | 157.87 | 124.88 | 1.26 | 2番目の絶対差、+32.99 ms |
+| 056 | 4.06 | 9.26 | 0.44 | 最大のmal優位比率、-5.20 ms |
+| 045 | 56.76 | 96.83 | 0.59 | 最大のmal優位絶対差、-40.07 ms |
+| 060 | 29.66 | 35.97 | 0.82 | mal優位、-6.31 ms |
+
+032の差は既知のapplication control transition costと整合し、011はextern allocationを跨ぐloop不変loadの残差と整合する。
+023と029もnon-tail recursionをhot pathに含むが、この測定だけで同じ原因へ確定しない。mal優位caseもfixtureが同じalgorithmである
+こと以上を一般化せず、compiler ruleの根拠にする場合は最適化後IRとfocusedな変更前後比較を追加する。
+
 ## 測定経路の訂正
 
 最初の集計後、binaryの`.comment`と最適化後assemblyを監査し、mal側はGCC 15.3.0、direct C側はClang 21.1.8で
