@@ -3,7 +3,9 @@ use crate::c_emit::syntax::{
     Parameter, Statement, TranslationUnit, TypeName,
 };
 
-pub(super) fn emit() -> TranslationUnit {
+mod index;
+
+pub(super) fn emit(include_index_access: bool) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
@@ -16,12 +18,17 @@ pub(super) fn emit() -> TranslationUnit {
             AggregateField::variable("size_t", "depth"),
             AggregateField::variable("MalType_Symbol", "leaf"),
             AggregateField::variable("uint64_t", "index"),
+            AggregateField::variable("uint64_t", "position"),
+            AggregateField::variable("uint8_t", "initialized"),
         ],
         "MalSymbolLeafCursor",
     ));
     output.blank_line();
     append(&mut output, descend_definition());
     append(&mut output, advance_definition());
+    if include_index_access {
+        output.extend(index::emit());
+    }
     output
 }
 

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, FunctionId, Pattern};
@@ -20,7 +20,8 @@ mod statement;
 
 use self::analysis::{
     ApplicationGraph, ClosureUsePlan, ContinuationGraph, ControlCallMode, ControlCallPlan,
-    ControlFramePlan, ControlRegionPlan, OwnedCallPlan, OwnershipPlan, TailCallPlan,
+    ControlFramePlan, ControlRegionPlan, OwnedCallPlan, OwnershipPlan, SymbolAtCursorPlan,
+    TailCallPlan,
 };
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
@@ -44,6 +45,7 @@ pub(super) struct RuntimeNeeds {
     pub(super) shift_right: u16,
     pub(super) symbol_equality: bool,
     pub(super) symbol_at: bool,
+    pub(super) symbol_at_cursor: bool,
     pub(super) symbol_concatenate: bool,
     pub(super) symbol_concatenate_consuming_left: bool,
     pub(super) symbol_concatenate_consuming_right: bool,
@@ -77,6 +79,8 @@ pub(super) struct BodyEmitter<'a> {
     needs: RuntimeNeeds,
     next_discard: u32,
     ownership: OwnershipPlan,
+    symbol_at_cursors: SymbolAtCursorPlan,
+    active_symbol_at_cursors: HashMap<ValueId, usize>,
     closure_uses: ClosureUsePlan,
     owned_calls: OwnedCallPlan,
     ephemeral_bindings: HashSet<ValueId>,
@@ -94,8 +98,10 @@ pub(super) struct BodyEmitter<'a> {
 impl<'a> BodyEmitter<'a> {
     pub(super) fn new(program: &'a closure::Program, types: &'a TypeRegistry) -> Self {
         let ownership = OwnershipPlan::new(program);
+        let symbol_at_cursors = SymbolAtCursorPlan::new(program);
         let closure_uses = ClosureUsePlan::new(program);
         debug_assert!(ownership.is_valid(program));
+        debug_assert!(symbol_at_cursors.is_valid(program));
         debug_assert!(closure_uses.is_valid(program));
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
@@ -133,6 +139,8 @@ impl<'a> BodyEmitter<'a> {
             needs,
             next_discard: 0,
             ownership,
+            symbol_at_cursors,
+            active_symbol_at_cursors: HashMap::new(),
             closure_uses,
             owned_calls,
             ephemeral_bindings: HashSet::new(),

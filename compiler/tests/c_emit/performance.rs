@@ -51,7 +51,8 @@ main :: Unit -> Int32 := \() {
     assert!(llvm_ir.contains("mal_ext_input"), "{llvm_ir}");
     assert!(llvm_ir.contains("icmp eq i64"), "{llvm_ir}");
     assert!(!llvm_ir.contains("@mal_symbol_at("), "{llvm_ir}");
-    assert!(llvm_ir.contains("@mal_symbol_at_slow("), "{llvm_ir}");
+    assert!(!llvm_ir.contains("@mal_symbol_at_slow("), "{llvm_ir}");
+    assert!(llvm_ir.contains("MalSymbolLeafCursor"), "{llvm_ir}");
     assert!(llvm_ir.contains("load i8"), "{llvm_ir}");
 
     let executable = fixture.compile_generated_with_options(
@@ -169,38 +170,35 @@ fn projects_ephemeral_product_fields_without_storing_the_product() {
 
 #[test]
 fn tracks_rope_symbol_scan_cost() {
-    let generated = emit(
-        r#"prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
-grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
-  if (remaining == 0)
-  then { value }
-  else {
-    next := prepend(value);
-    if (#value == 0u64)
-    then { grow(next, remaining - 1) }
-    else { grow(next, remaining - 1) };
-  };
-};
-scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, index :: UInt64, total :: UInt64) {
+    let chunk = "a".repeat(300);
+    let source = format!(
+        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, index :: UInt64, total :: UInt64) {{
   if (index == #value)
-  then { total }
-  else { scan(value, index + 1u64, total + UInt64(value # index)) };
-};
-main :: Unit -> Int32 := \() {
-  value := grow("abcdefghijklmnopqrstuvwxyz", 32i64);
-  if (scan(value, 0u64, 0u64) == 6687u64) then { 0 } else { 1 };
-};"#,
-    )
-    .expect("emit rope Symbol scan");
+  then {{ total }}
+  else {{ scan(value, index + 1u64, total + UInt64(value # index)) }};
+}};
+main :: Unit -> Int32 := \() {{
+  value := "{chunk}" + "{chunk}";
+  if (scan(value, 0u64, 0u64) == 58200u64) then {{ 0 }} else {{ 1 }};
+}};"#,
+    );
+    let generated = emit(&source).expect("emit rope Symbol scan");
+    assert!(
+        generated.source.contains("mal_symbol_leaf_cursor_at("),
+        "{}",
+        generated.source
+    );
+    assert!(!generated.source.contains("mal_symbol_at_slow("));
     let fixture = NativeFixture::new("rope-symbol-scan-cost");
     let executable = fixture.compile_generated_with_options(
         generated,
         "",
         &[
-            "-DMAL_TEST_RETAIN_LIMIT=512",
-            "-DMAL_TEST_RELEASE_LIMIT=512",
+            "-DMAL_TEST_RETAIN_LIMIT=8",
+            "-DMAL_TEST_RELEASE_LIMIT=8",
             "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
-            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=128",
+            "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=8",
+            "-DMAL_TEST_SYMBOL_CURSOR_SEEK_LIMIT=8",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],
     );
@@ -210,6 +208,77 @@ main :: Unit -> Int32 := \() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn seeks_and_advances_a_rope_cursor_across_nonlocal_indices() {
+    let left = "a".repeat(300);
+    let right = "b".repeat(300);
+    let source = format!(
+        r#"probe :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, step :: UInt64, total :: UInt64) {{
+  if (step == 4u64)
+  then {{ total }}
+  else {{
+    index := if (step == 0u64)
+      then {{ 299u64 }}
+      else {{ if (step == 1u64)
+        then {{ 300u64 }}
+        else {{ if (step == 2u64) then {{ 599u64 }} else {{ 10u64 }} }};
+      }};
+    probe(value, step + 1u64, total + UInt64(value # index));
+  }};
+}};
+main :: Unit -> Int32 := \() {{
+  value := "{left}" + "{right}";
+  if (probe(value, 0u64, 0u64) == 390u64) then {{ 0 }} else {{ 1 }};
+}};"#,
+    );
+    let generated = emit(&source).expect("emit indexed rope cursor fixture");
+    assert!(generated.source.contains("mal_symbol_leaf_cursor_seek("));
+    assert!(generated.source.contains("mal_symbol_leaf_cursor_advance("));
+    assert!(!generated.source.contains("mal_symbol_at_slow("));
+
+    let fixture = NativeFixture::new("rope-symbol-cursor-indices");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
+            "-DMAL_TEST_SYMBOL_CURSOR_SEEK_LIMIT=16",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn falls_back_when_a_tail_edge_replaces_the_indexed_symbol() {
+    let generated = emit(
+        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, remaining :: UInt64, total :: UInt64) {
+  if (remaining == 0u64)
+  then { total }
+  else { byte := value # 0u64; scan(value + "x", remaining - 1u64, total + UInt64(byte)); };
+};
+main :: Unit -> Int32 := \() {
+  if (scan("a", 4u64, 0u64) == 388u64) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit changing Symbol scan");
+    assert!(!generated.source.contains("mal_symbol_leaf_cursor_at("));
+    assert!(generated.source.contains("mal_symbol_at("));
+
+    let fixture = NativeFixture::new("changing-symbol-scan-fallback");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    assert!(fixture.run(executable).status.success());
 }
 
 #[test]

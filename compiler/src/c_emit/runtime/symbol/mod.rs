@@ -14,8 +14,8 @@ pub(super) fn emit_rope_support() -> crate::c_emit::syntax::TranslationUnit {
     concatenate::emit_rope_support()
 }
 
-pub(super) fn emit_leaf_cursor() -> TranslationUnit {
-    leaf_cursor::emit()
+pub(super) fn emit_leaf_cursor(include_index_access: bool) -> TranslationUnit {
+    leaf_cursor::emit(include_index_access)
 }
 
 pub(super) fn emit_traversal() -> TranslationUnit {

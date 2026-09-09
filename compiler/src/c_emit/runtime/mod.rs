@@ -35,8 +35,10 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
     if needs.symbol_at {
         output.extend(symbol::emit_traversal());
     }
+    if needs.symbol_equality || needs.symbol_at_cursor {
+        output.extend(symbol::emit_leaf_cursor(needs.symbol_at_cursor));
+    }
     if needs.symbol_equality {
-        output.extend(symbol::emit_leaf_cursor());
         output.extend(symbol::emit_equality());
     }
     if needs.symbol_at {

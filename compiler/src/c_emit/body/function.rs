@@ -514,6 +514,22 @@ impl BodyEmitter<'_> {
                 CExpr::identifier(name),
             )));
         }
+        let cursor_sites = self
+            .symbol_at_cursors
+            .sites(function.id)
+            .collect::<Vec<_>>();
+        for (product, index) in &cursor_sites {
+            let name = symbol_at_cursor_name(*index);
+            output.push(Statement::variable("MalSymbolLeafCursor", &name, None));
+            output.push(Statement::assignment(
+                CExpr::identifier(&name).field("initialized"),
+                CExpr::named_call("UINT8_C", [CExpr::number("0")]),
+            ));
+            self.active_symbol_at_cursors.insert(*product, *index);
+        }
+        if !cursor_sites.is_empty() {
+            self.needs.symbol_at_cursor = true;
+        }
         let stable_slots = slots
             .iter()
             .enumerate()
@@ -559,6 +575,9 @@ impl BodyEmitter<'_> {
         output.push(Statement::label("mal_tail_entry", tail));
         self.parameter_owned = false;
         self.end_borrowed_bindings(borrowed);
+        for (product, _) in cursor_sites {
+            self.active_symbol_at_cursors.remove(&product);
+        }
         for id in stable_slots {
             self.direct_borrow_sources.remove(&id);
         }
@@ -596,6 +615,10 @@ impl BodyEmitter<'_> {
             )));
         }
     }
+}
+
+pub(in crate::c_emit::body) fn symbol_at_cursor_name(index: usize) -> String {
+    format!("mal_symbol_at_cursor_{index}")
 }
 
 fn direct_tail_parameter_slots(function: &closure::Function) -> Option<Vec<TailParameterSlot<'_>>> {

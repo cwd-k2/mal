@@ -4,6 +4,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Binding, Block as ClosureBlock, Operation, Pattern};
 use crate::core::ast::BinaryPrimitive;
 
+use super::function::symbol_at_cursor_name;
 use super::{BodyEmitter, ResultOwnership, pattern_type};
 
 mod control;
@@ -90,15 +91,30 @@ impl BodyEmitter<'_> {
 
         let (value, ownership) = match &consumer.operation {
             Operation::SymbolAt { .. } if elements.len() == 2 => {
-                self.needs.symbol_at = true;
+                let cursor = self.active_symbol_at_cursors.get(id).copied();
+                if cursor.is_none() {
+                    self.needs.symbol_at = true;
+                }
                 (
                     Expr::named_call(
-                        "mal_symbol_at",
-                        [
-                            Expr::identifier("mal_context"),
-                            self.emit_atom(&elements[0]),
-                            self.emit_atom(&elements[1]),
-                        ],
+                        if cursor.is_some() {
+                            "mal_symbol_leaf_cursor_at"
+                        } else {
+                            "mal_symbol_at"
+                        },
+                        if let Some(cursor) = cursor {
+                            vec![
+                                Expr::address_of(Expr::identifier(symbol_at_cursor_name(cursor))),
+                                self.emit_atom(&elements[0]),
+                                self.emit_atom(&elements[1]),
+                            ]
+                        } else {
+                            vec![
+                                Expr::identifier("mal_context"),
+                                self.emit_atom(&elements[0]),
+                                self.emit_atom(&elements[1]),
+                            ]
+                        },
                     ),
                     ResultOwnership::Borrowed,
                 )
