@@ -71,7 +71,7 @@ mal valueを得たものとして評価を続ける。
 mal は effect system を持たず、通常の関数型は pure/impure を区別しない。
 
 ```mal
-printValue :: Int32 -> Unit := \(x :: Int32) {
+printValue :: Int32 -> Unit := \(x) {
     extern printInt32(x);
     ();
 };

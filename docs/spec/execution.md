@@ -19,8 +19,8 @@ f(a(), b(), c())
 ラムダ式を評価すると関数値が生成される。関数値は概念上、ラムダのcodeと、lexically captureしたlocal valueのenvironmentからなるclosureである。environmentにはラムダ式を評価した時点の値をby-valueで保持する。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    \(y :: Int32) { x + y };
+makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
+    \(y) { x + y };
 };
 
 addTen := makeAdder(10);
@@ -32,7 +32,7 @@ result := addTen(5);
 top-level binding、predefined binding、compiler primitiveは全programから直接参照でき、closureごとのenvironmentに保存する必要はない。external symbolは通常のidentifierとして値にせず、`extern symbol(...)`の形でだけ呼び出す。
 
 ```mal
-outer := \(x :: Int32) {
+outer :: Int32 -> (Unit -> (Unit -> Int32)) := \(x) {
     middle := \() {
         \() { x };
     };
@@ -60,7 +60,7 @@ lexical captureの決定理由は[D007](../history/decisions/D007.md)に記録�
 `for` と `while` はなく、反復は再帰で表す。
 
 ```mal
-sum :: Int64 -> Int64 := \(n :: Int64) {
+sum :: Int64 -> Int64 := \(n) {
     if (n == 0)
         then { 0 }
         else { n + sum(n - 1) };

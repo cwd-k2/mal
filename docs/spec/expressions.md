@@ -26,16 +26,22 @@ pattern は identifier、`_`、product pattern からなる。pattern 内で同�
 
 ```mal
 add :: (Int32, Int32) -> Int32 :=
-    \(a :: Int32, b :: Int32) { a + b };
+    \(a, b) { a + b };
 ```
 
-parameter の型は必須。ラムダ自身に戻り型を書く構文はなく、bodyのresult expressionと、あればbinding annotationから検査する。
+lambdaは周辺から与えられる期待関数型に対して検査し、自身から関数型を推論しない。期待関数型がなければ
+compile-time errorである。bindingのRHSに直接lambdaを書く場合は、bindingの型annotationが期待型になる。
+
+期待関数型のparameter型が`Unit`ならlambdaは0 parameter、productでlambdaが複数parameterを持つなら要素数は
+一致しなければならない。1 parameterのlambdaは期待parameter型全体を受け取るため、productも一つの名前へbindingできる。
+各parameter名には対応する型を与え、bodyは期待関数型のresult型に対して検査する。resultがさらに関数型でbodyの
+result expressionがlambdaなら、この規則を再帰的に適用する。parameterごとの型annotationとlambda自身の戻り型構文はない。
 
 ラムダbodyから参照する外側のlocal bindingはby-valueでlexically captureされる。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := \(x :: Int32) {
-    \(y :: Int32) { x + y };
+makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
+    \(y) { x + y };
 };
 ```
 
@@ -47,7 +53,7 @@ captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#sco
 lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: Symbol -> Unit := \(message :: Symbol) { extern print(message) };
+log :: Symbol -> Unit := \(message) { extern print(message) };
 ```
 
 ## 関数適用
@@ -94,7 +100,7 @@ binary operationを追加しない。
 `if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
 
 ```mal
-absolute := \(x :: Int32) {
+absolute :: Int32 -> Int32 := \(x) {
     if (x < 0)
         then { -x }
         else { x };
@@ -117,7 +123,7 @@ case (x < 0)
 
 ```mal
 getOrZero :: MaybeInt32 -> Int32 :=
-    \(value :: MaybeInt32) {
+    \(value) {
         case (value)
             [0](_) { 0 }
             [1](x) { x };

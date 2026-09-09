@@ -67,7 +67,7 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
 sumType     ::= "[" type "," type ("," type)* "]"
 
 lambda      ::= "\\" "(" parameterList? ")" block
-parameter   ::= VALUE_IDENT "::" type
+parameterList ::= VALUE_IDENT ("," VALUE_IDENT)*
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
 

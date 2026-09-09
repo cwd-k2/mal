@@ -47,7 +47,7 @@ Point :: (Float64, Float64);
 extern print :: Symbol -> Unit;
 
 distance :: (Point, Point) -> Float64 :=
-    \(a :: Point, b :: Point) {
+    \(a, b) {
         (ax, ay) := a;
         (bx, by) := b;
         extern sqrt(
@@ -78,7 +78,7 @@ command-line argumentを受け取る実行可能programは、代わりに次のe
 ```mal
 Arguments :: (UInt64, Ptr);
 
-main :: Arguments -> Int32 := \(count :: UInt64, arguments :: Ptr) {
+main :: Arguments -> Int32 := \(count, arguments) {
     data := Ptr.load(arguments);
     length := UInt64.load(arguments + Ptr.size);
     first := Symbol.read(data, length);
