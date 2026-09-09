@@ -12,18 +12,18 @@ wall-clock値はconformanceではなく、同じ環境内で変更前後を比�
 
 ## 現在のbaseline
 
-2026-09-09にinteractiveな053を除くTypical90の79問を、`fa0aa09`、Clang 21.1.8の`-O2`、
+2026-09-09にinteractiveな053を除くTypical90の79問を、`75cf7ed`、Clang 21.1.8の`-O2`、
 同じmaximum-order input、warmup 3回、
 交互20 roundで比較した。比率は`mal / direct C`とし、1より大きいほどCが速い。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.04 | 1.06 |
-| 両実行時間が1 ms以上 | 66 | 1.08 | 1.07 |
-| 両実行時間が5 ms以上 | 53 | 1.10 | 1.07 |
-| 両実行時間が10 ms以上 | 46 | 1.10 | 1.09 |
+| 全非interactive問題 | 79 | 1.05 | 1.07 |
+| 両実行時間が1 ms以上 | 61 | 1.07 | 1.08 |
+| 両実行時間が5 ms以上 | 51 | 1.10 | 1.09 |
+| 両実行時間が10 ms以上 | 40 | 1.07 | 1.08 |
 
-±5%を同等とするとmalが速いものは10、同等は32、Cが速いものは37だった。規則的なnumeric/`Ptr`処理は
+±5%を同等とするとmalが速いものは11、同等は27、Cが速いものは41だった。規則的なnumeric/`Ptr`処理は
 direct Cと同等以上または近く、新しいcollection primitiveを性能だけのために追加する根拠はない。現在、profileによって
 compilerの責務へ分離できたactiveなcost modelはapplication control loweringのtransition costである。
 
