@@ -51,6 +51,10 @@ fn checks_products_destructuring_and_multiple_parameters() {
          add :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right;\n\
          };\n\
+         firstValue :: Pair -> Int32 := \\(pair) {\n\
+           (value, _) := pair;\n\
+           value;\n\
+         };\n\
          main :: Unit -> Int32 := \\() {\n\
            (first, _) := pair;\n\
            nested := ((first, 2i32), 39i32);\n\
@@ -68,6 +72,13 @@ fn checks_products_destructuring_and_multiple_parameters() {
             parameter: Box::new(Type::Product(vec![Type::Int32, Type::Int32])),
             result: Box::new(Type::Int32),
         }
+    );
+    let ExpressionKind::Lambda(first_value) = &top_binding(&program, 3).value.kind else {
+        panic!("expected lambda");
+    };
+    assert_eq!(
+        first_value.parameters[0].ty,
+        Type::Product(vec![Type::Int32, Type::UInt8])
     );
 
     assert_eq!(

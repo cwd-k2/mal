@@ -24,6 +24,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
 D022、D024、D027、D031のsource spellingはD037が置き換える。
+D007のlambda parameter source spellingはD038が置き換える。
 
 ## 後継があるhistorical record
 
