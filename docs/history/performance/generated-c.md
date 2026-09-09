@@ -175,6 +175,36 @@ managed fieldのownerは両表現ともlocal slotからframeへmoveし、resume�
 011が1.48、032が1.45、016が1.22である。両方5 ms以上のcaseに5%を超える退行はなく、C stack bound、managed owner遷移、allocation failure分類を
 維持したため、この表現を採用する。残る032の差はconstructor storageではなくstate machine側の独立したcost modelとして扱う。
 
+### frame payload exactnessとstate fusion
+
+`8e957d0`ではframe ownerをresume livenessだけから決めず、common machineがそのenvironmentをactivation間で運ぶ必要も条件に加えた。
+local direct-self machineのenvironmentは同じC activationに常駐するためframeへ複製せず、common machineだけがactive environmentを
+保存する。これは新しいlifetime規則ではなく、region、resume、common machineの既存authorityから不要なownerを除くexactness改善である。
+
+変更前後をmaximum-order input、warmup 3回、交互20 roundで比較すると、032は57.44 ms対56.27 msで1.02だった。
+既存79問では5 ms以上の54問がすべて±5%内、中央値1.00、幾何平均1.00であり、wall-clock改善はないが退行もなかった。
+生成物から未使用のenvironment field、move、destructorが消え、ownerの一意性を狭い表現で満たすため採用した。
+
+次に、local direct-self machineで全recursive edgeを通じて不変なunmanaged parameterをactivation-residentとしてframeから除く
+prototypeを作った。032のhomogeneous frameから24 byteの`Search` payloadが消え、Callgrindのinstruction referenceは
+1,319,900,408から1,231,021,853へ6.7%減った。これは採用を支持するdeterministicな証拠だった。一方、conditional branchは
+225,541,075から225,541,048、branch mispredictionは22,388,241から22,388,229で変わらず、warmup 3回、交互30 roundの
+wall-clockも56.04 ms対56.28 msで同等だった。既存79問の交互20 roundも5 ms以上の52問で中央値1.00、幾何平均0.99、
+2 faster / 50 parity / 0 slowerに留まった。parameter不変性解析とframe投影に約230行を追加しても支配的なtransition分岐を
+減らさず、独立したwall-clock効果がないためprototypeを棄却した。
+
+state fusionは、最適化後にも空のcontrol state、goto chain、またはresume dispatcherが残り、それに対応する動的分岐を
+融合によって減らせる場合を採用条件とした。`8e957d0`の032生成Cには多数のlabelと`goto`があるが、Clang 21.1.8 `-O2`後の
+hot functionには`switch`がなく、source上のgoto chainは二重loopのCFGへ統合されていた。hot functionのLLVM IRは生成側が
+24 basic block、21 branch、direct Cの`choose`が10 basic block、10 branchだったが、生成側の残存blockは候補探索、frame
+growth、push、pop、resumeを実行するblockであり、空stateではなかった。
+
+同じmaximum-order inputをCallgrind 3.27.1のbranch simulationで比較すると、生成側とdirect Cはそれぞれinstruction referenceが
+1,319,900,122対929,674,234、conditional branchが225,540,275対167,837,351、branch mispredictionが22,387,990対
+22,032,955だった。生成側の余分な分岐は予測可能だが、explicit continuationのpush、pop、復元loopそのものに属する。
+したがって単純なstate fusionの作用点と観測されたcost centerは一致せず、backend独自のfusion passは追加しない。
+次の候補には、C stack boundとowner一意性を保ったままlogical continuation一件あたりのtransition数を減らす証拠を要求する。
+
 ## 個別調査
 
 | Case | 分離した境界 | 現在の判断 |

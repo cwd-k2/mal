@@ -19,6 +19,10 @@ Status: Current work plan
 - pair比較はroundごとに先行順を反転し、runnerではなくHyperfineのprocess時間を使う。
 - 最適化後のLLVM IR、deterministic counter、wall-clockの少なくとも二つで変更理由を確認する。
 
+候補ごとに実装前に、対象とするcost center、そのcostが消えたことを示す採用条件、別のcostが支配的だと示す棄却条件を定める。
+採用条件と棄却条件は同じ観測境界で比較できる形にし、未実装であることや改善しなかったこと自体を棄却理由にしない。
+deterministic counterが改善してもwall-clockへ波及しない場合は、追加するauthorityと実装量に見合う独立した効果がなければ採用しない。
+
 ## 現在の課題
 
 activeなcompiler rewriteはない。application controlは
