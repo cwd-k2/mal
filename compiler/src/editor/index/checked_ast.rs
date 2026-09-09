@@ -5,7 +5,7 @@ use super::Index;
 impl Index {
     pub(super) fn collect_checked_top(&mut self, item: &checked::TopItem) {
         match item {
-            checked::TopItem::TypeAlias { binding, ty } => {
+            checked::TopItem::TypeAlias { binding, ty, .. } => {
                 self.type_details
                     .insert(binding.id, crate::check::type_name(ty));
             }

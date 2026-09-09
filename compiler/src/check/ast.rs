@@ -42,6 +42,8 @@ pub enum TopItem {
     TypeAlias {
         binding: TypeBinding,
         ty: Type,
+        target_alias: Option<String>,
+        element_aliases: Vec<Option<String>>,
     },
     ExternalType {
         binding: TypeBinding,

@@ -10,10 +10,17 @@ pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
     };
     for item in &program.items {
         match &item.kind {
-            checked::TopItem::TypeAlias { binding, ty } => {
+            checked::TopItem::TypeAlias {
+                binding,
+                ty,
+                target_alias,
+                element_aliases,
+            } => {
                 interface.type_aliases.push(TypeAlias {
                     name: binding.name.text.clone(),
                     ty: ty.clone(),
+                    target_alias: target_alias.clone(),
+                    element_aliases: element_aliases.clone(),
                 });
             }
             checked::TopItem::ExternalType { binding } => {

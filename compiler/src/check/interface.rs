@@ -44,7 +44,7 @@ impl Checker {
                 .external_function_parts(ty)
                 .expect("expanded external function types retain source components");
             let parameter_alias = self.alias_name(source_parameter);
-            let parameter_aliases = self.parameter_aliases(source_parameter, &parameter);
+            let parameter_aliases = self.immediate_aliases(source_parameter, &parameter);
             let result_alias = self.alias_name(source_result);
             self.values.insert(
                 binding.id,
@@ -86,7 +86,7 @@ impl Checker {
         }
     }
 
-    fn parameter_aliases(
+    pub(super) fn immediate_aliases(
         &self,
         source: &Node<resolved::TypeExpression>,
         parameter: &Type,
@@ -122,7 +122,7 @@ impl Checker {
         }
     }
 
-    fn alias_name(&self, ty: &Node<resolved::TypeExpression>) -> Option<String> {
+    pub(super) fn alias_name(&self, ty: &Node<resolved::TypeExpression>) -> Option<String> {
         match &ty.kind {
             resolved::TypeExpression::Named(reference)
                 if self.aliases.contains_key(&reference.id) =>

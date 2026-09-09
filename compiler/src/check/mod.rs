@@ -63,10 +63,20 @@ impl Checker {
         let mut items = Vec::with_capacity(program.items.len());
         for item in &program.items {
             let kind = match &item.kind {
-                resolved::TopItem::TypeAlias { binding, .. } => TopItem::TypeAlias {
-                    binding: binding.clone(),
-                    ty: self.expand_type_id(binding.id, binding.name.span)?,
-                },
+                resolved::TopItem::TypeAlias { binding, value } => {
+                    let ty = self.expand_type_id(binding.id, binding.name.span)?;
+                    let target_alias = self.alias_name(value);
+                    let element_aliases = match &ty {
+                        Type::Product(_) | Type::Sum(_) => self.immediate_aliases(value, &ty),
+                        _ => Vec::new(),
+                    };
+                    TopItem::TypeAlias {
+                        binding: binding.clone(),
+                        ty,
+                        target_alias,
+                        element_aliases,
+                    }
+                }
                 resolved::TopItem::ExternalType { binding } => TopItem::ExternalType {
                     binding: binding.clone(),
                 },
