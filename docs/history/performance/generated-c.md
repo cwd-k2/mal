@@ -12,17 +12,18 @@ wall-clock値はconformanceではなく、同じ環境内で変更前後を比�
 
 ## 現在のbaseline
 
-interactiveな053を除くTypical90の79問を、Clang 21.1.8の`-O2`、同じmaximum-order input、warmup 3回、
+2026-09-09にinteractiveな053を除くTypical90の79問を、`b0c42d3`、Clang 21.1.8の`-O2`、
+同じmaximum-order input、warmup 3回、
 交互20 roundで比較した。比率は`mal / direct C`とし、1より大きいほどCが速い。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.03 | 1.04 |
-| 両実行時間が1 ms以上 | 61 | 1.06 | 1.05 |
-| 両実行時間が5 ms以上 | 51 | 1.07 | 1.07 |
-| 両実行時間が10 ms以上 | 43 | 1.06 | 1.06 |
+| 全非interactive問題 | 79 | 1.04 | 1.07 |
+| 両実行時間が1 ms以上 | 62 | 1.08 | 1.08 |
+| 両実行時間が5 ms以上 | 52 | 1.10 | 1.10 |
+| 両実行時間が10 ms以上 | 40 | 1.08 | 1.09 |
 
-±5%を同等とするとmalが速いものは11、同等は34、Cが速いものは34だった。規則的なnumeric/`Ptr`処理は
+±5%を同等とするとmalが速いものは11、同等は32、Cが速いものは36だった。規則的なnumeric/`Ptr`処理は
 direct Cと同等以上または近く、新しいcollection primitiveを性能だけのために追加する根拠はない。現在、profileによって
 compilerの責務へ分離できたactiveなcost modelはapplication control loweringのtransition costである。
 
@@ -296,6 +297,24 @@ activationごとに`MalSymbolLeafCursor`の2,104-byte stack slotが一つ残り�
 29,824 bytesへ増えた。したがってplanはすべてのself-tail scanへ広げず、全tail edgeが同じSymbol parameterを保持するsiteに限定する。
 Symbolを置換するedge、suspension、common control、別activationは通常accessを維持し、cursorのためのretainやallocationは
 追加しない。
+
+同じ日にTypical90の79実装とC baselineをすべて再buildし、269 sampleと79 maximum-order inputの結果一致を確認してから
+交互20 roundで比較した。cursor実装前の`0b77f8b`でも79実装を同じClang optionでbuildしたところ、73 binaryはbyte単位で
+同一であり、Symbol byte accessを持つ次の6 binaryだけが変化した。変化した6問を同じround内で直接比較した比率は
+`cursor / before`であり、すべて±5%の同等範囲だった。
+
+| Problem | Cursor (ms) | Before (ms) | Ratio |
+|---:|---:|---:|---:|
+| 023 | 1182.23 | 1191.12 | 0.99 |
+| 027 | 13.77 | 14.19 | 0.97 |
+| 043 | 309.05 | 311.56 | 0.99 |
+| 047 | 432.73 | 429.24 | 1.01 |
+| 067 | 0.45 | 0.44 | 1.03 |
+| 074 | 0.46 | 0.46 | 0.99 |
+
+067と074は1 ms未満なので改善・退行の根拠にはしない。5 ms以上の4問には有意な退行がなく、syntheticな長いrope scanで
+確認した改善も、このcorpusの入力token走査を支配するほど長いropeには当たらなかった。したがって全corpus結果は
+compiler改善の独立した性能向上ではなく、既存workloadを悪化させないcross-boundary gateとして扱う。
 
 ## generated Cで確認済みの事実
 
