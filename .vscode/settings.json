@@ -1,0 +1,8 @@
+{
+    "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
+    "nixEnvSelector.useFlakes": true,
+    "nixEnvSelector.flakeShell": "default",
+    "clangd.arguments": [
+        "--query-driver=/nix/store/*-clang-wrapper-*/bin/clang"
+    ]
+}

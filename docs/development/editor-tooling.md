@@ -37,6 +37,10 @@ nu scripts/vscode-dev.nu --code-command /path/to/code
 
 GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
 
+repositoryの`.vscode/settings.json`はNix development environmentを選択し、clangdにNixのClang wrapperを
+queryさせる。`.clangd`はC sourceと生成headerをbackendと同じC11として解析する。設定を初めて受理した後、または
+Nix store pathがflake更新で変わった後は、VS Codeの`clangd: Restart language server`を実行する。
+
 手動で準備する場合は次を実行する。
 
 ```nu
