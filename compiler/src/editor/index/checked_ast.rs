@@ -27,6 +27,9 @@ impl Index<'_> {
         match pattern {
             checked::Pattern::Binding { binding, ty } => {
                 let id = self.canonical_value(binding.id);
+                if matches!(ty, checked::Type::Function { .. }) {
+                    self.functions.insert(id);
+                }
                 self.value_types.insert(id, crate::check::type_name(ty));
                 self.typed_regions
                     .push((binding.name.span, crate::check::type_name(ty)));

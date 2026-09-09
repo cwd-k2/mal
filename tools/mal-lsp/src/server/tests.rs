@@ -164,6 +164,39 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 }
 
 #[test]
+fn preserves_declared_type_aliases_in_hover() {
+    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := \\(tree, n) { n; };\n";
+    let uri = "file:///alias-hover.mal";
+    let mut server = open_document(uri, text);
+
+    let alias = request_at(
+        &mut server,
+        14,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("Tree").unwrap(),
+    );
+    assert_eq!(
+        alias["result"]["contents"]["value"],
+        "```mal\nTree :: (Int64, Ptr, Ptr)\n```\n\ntype"
+    );
+
+    let function = request_at(
+        &mut server,
+        15,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("f ::").unwrap(),
+    );
+    assert_eq!(
+        function["result"]["contents"]["value"],
+        "```mal\nf :: (Tree, Int64) -> Int64\n```\n\nfunction"
+    );
+}
+
+#[test]
 fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
     let text = "closingParen :: UInt8 := ')';";
     let uri = "file:///byte-hover.mal";

@@ -9,6 +9,7 @@ use super::{Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, Symb
 mod aliases;
 mod checked_ast;
 mod resolved_ast;
+mod type_display;
 
 pub(super) fn build(
     resolved: &resolved::Program,
@@ -24,6 +25,9 @@ struct Index<'a> {
     aliases: HashMap<resolved::ValueId, resolved::ValueId>,
     value_types: HashMap<resolved::ValueId, String>,
     type_details: HashMap<resolved::TypeId, String>,
+    type_aliases: HashMap<resolved::TypeId, crate::ast::Node<resolved::TypeExpression>>,
+    external_operation_types: HashMap<resolved::ExternalOperationId, String>,
+    functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     typed_regions: Vec<(Span, String)>,
     raw_occurrences: Vec<RawOccurrence>,
@@ -47,6 +51,9 @@ impl<'a> Index<'a> {
                 .iter()
                 .map(|&(name, id)| (id, name.to_owned()))
                 .collect(),
+            type_aliases: HashMap::new(),
+            external_operation_types: HashMap::new(),
+            functions: HashSet::new(),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
             raw_occurrences: Vec::new(),
@@ -54,6 +61,9 @@ impl<'a> Index<'a> {
         };
         for item in &resolved.items {
             index.collect_aliases_top(&item.kind);
+            if let resolved::TopItem::TypeAlias { binding, value } = &item.kind {
+                index.type_aliases.insert(binding.id, value.clone());
+            }
         }
         for item in &checked.items {
             index.collect_checked_top(&item.kind);
@@ -146,14 +156,7 @@ impl<'a> Index<'a> {
             SymbolId::Type(_) => SymbolKind::Type,
             SymbolId::ExternalOperation(_) => SymbolKind::Function,
             SymbolId::Value(id) if self.parameters.contains(&id) => SymbolKind::Parameter,
-            SymbolId::Value(id)
-                if self
-                    .value_types
-                    .get(&id)
-                    .is_some_and(|ty| ty.contains(" -> ")) =>
-            {
-                SymbolKind::Function
-            }
+            SymbolId::Value(id) if self.functions.contains(&id) => SymbolKind::Function,
             SymbolId::Value(_) => SymbolKind::Value,
         }
     }
@@ -163,19 +166,41 @@ impl<'a> Index<'a> {
             SymbolId::Type(id) => self.type_details.get(&id).cloned(),
             SymbolId::Value(id) => self.value_types.get(&id).cloned(),
             SymbolId::ExternalOperation(id) => {
-                self.checked.items.iter().find_map(|item| match &item.kind {
-                    checked::TopItem::ExternalOperation {
-                        id: item_id,
-                        parameter,
-                        result,
-                        ..
-                    } if *item_id == id => Some(format!(
-                        "{} -> {}",
-                        crate::check::type_name(parameter),
-                        crate::check::type_name(result)
-                    )),
-                    _ => None,
+                self.external_operation_types.get(&id).cloned().or_else(|| {
+                    self.checked.items.iter().find_map(|item| match &item.kind {
+                        checked::TopItem::ExternalOperation {
+                            id: item_id,
+                            parameter,
+                            result,
+                            ..
+                        } if *item_id == id => Some(format!(
+                            "{} -> {}",
+                            crate::check::type_name(parameter),
+                            crate::check::type_name(result)
+                        )),
+                        _ => None,
+                    })
                 })
+            }
+        }
+    }
+
+    fn expanded_type(
+        &self,
+        ty: &crate::ast::Node<resolved::TypeExpression>,
+    ) -> crate::ast::Node<resolved::TypeExpression> {
+        let mut expanded = ty.clone();
+        let mut seen = HashSet::new();
+        loop {
+            match &expanded.kind {
+                resolved::TypeExpression::Named(reference) if seen.insert(reference.id) => {
+                    let Some(alias) = self.type_aliases.get(&reference.id) else {
+                        return expanded;
+                    };
+                    expanded = alias.clone();
+                }
+                resolved::TypeExpression::Parenthesized(inner) => expanded = (**inner).clone(),
+                _ => return expanded,
             }
         }
     }

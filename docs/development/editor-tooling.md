@@ -11,8 +11,9 @@ Status: Current v0.5 development tooling
 `mal-lsp` processのlifecycleを扱う。repository rootから次の一commandでpinned Nix environmentへの移行、
 server build、extension dependencyのinstall、利用可能なVS Code環境に応じた起動またはinstallを行う。
 
-semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表示する。literalなど名前を持たないtyped expressionでは
-source expressionと型を表示し、hover rangeをそのexpressionへ限定する。
+semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表示する。型alias自身には右辺を一段だけ表示し、
+型注釈を持つ値には注釈内のalias名を保った型を表示する。推論された型と名前を持たないtyped expressionにはcanonical
+typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
 
 ```nu

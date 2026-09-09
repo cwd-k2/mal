@@ -6,12 +6,12 @@ fn source(text: &str) -> SourceFile {
 }
 
 #[test]
-fn reports_canonical_types_and_predefined_completions() {
+fn preserves_declared_aliases_in_symbol_types() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     let value_hover = document.hover_at(text.find("value").unwrap()).unwrap();
-    assert_eq!(value_hover.ty, "Int32");
+    assert_eq!(value_hover.ty, "Count");
     assert_eq!(value_hover.occurrence.unwrap().name, "value");
     let alias_hover = document.hover_at(text.rfind("Count").unwrap()).unwrap();
     assert_eq!(alias_hover.ty, "Int32");
@@ -34,6 +34,37 @@ fn reports_canonical_types_and_predefined_completions() {
             .iter()
             .any(|symbol| { symbol.name == "Symbol" && symbol.kind == SymbolKind::Type })
     );
+}
+
+#[test]
+fn expands_only_the_hovered_alias() {
+    let text = "Tree :: (Int64, Ptr, Ptr);\nForest :: (Tree, Tree);\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+
+    let tree = document.hover_at(text.find("Tree").unwrap()).unwrap();
+    assert_eq!(tree.ty, "(Int64, Ptr, Ptr)");
+    let forest = document.hover_at(text.find("Forest").unwrap()).unwrap();
+    assert_eq!(forest.ty, "(Tree, Tree)");
+}
+
+#[test]
+fn function_and_parameter_hovers_preserve_declared_aliases() {
+    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := \\(tree, n) { n; };\nHandler :: Tree -> Int64;\ng :: Handler := \\(tree) { 0; };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+
+    let function = document.hover_at(text.find("f ::").unwrap()).unwrap();
+    assert_eq!(function.ty, "(Tree, Int64) -> Int64");
+    assert_eq!(function.occurrence.unwrap().kind, SymbolKind::Function);
+    let tree_parameter = document.hover_at(text.find("tree").unwrap()).unwrap();
+    assert_eq!(tree_parameter.ty, "Tree");
+    let aliased_function = document.hover_at(text.find("g ::").unwrap()).unwrap();
+    assert_eq!(aliased_function.ty, "Handler");
+    assert_eq!(
+        aliased_function.occurrence.unwrap().kind,
+        SymbolKind::Function
+    );
+    let aliased_parameter = document.hover_at(text.rfind("tree").unwrap()).unwrap();
+    assert_eq!(aliased_parameter.ty, "Tree");
 }
 
 #[test]
