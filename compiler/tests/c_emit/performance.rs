@@ -214,19 +214,59 @@ main :: Unit -> Int32 := \() {
 
 #[test]
 fn compares_rope_symbols_without_materialization() {
-    let generated = emit(
-        r#"prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
-grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+    let expected = format!("{}abcdefghijklmnopqrstuvwxyz", "x".repeat(300));
+    let source = r#"prependX :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
+prependY :: Symbol -> Symbol := \(value :: Symbol) { "y" + value };
+growX :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
   if (remaining == 0)
   then { value }
-  else { grow(prepend(value), remaining - 1) };
+  else {
+    next := prependX(value);
+    if (#value == 0u64)
+    then { growX(next, remaining - 1) }
+    else { growX(next, remaining - 1) };
+  };
 };
+growY :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+  if (remaining == 0)
+  then { value }
+  else {
+    next := prependY(value);
+    if (#value == 0u64)
+    then { growY(next, remaining - 1) }
+    else { growY(next, remaining - 1) };
+  };
+};
+duplicate :: Symbol -> Symbol := \(value :: Symbol) { value + value };
 main :: Unit -> Int32 := \() {
-  value := grow("abcdefghijklmnopqrstuvwxyz", 300i64);
-  if (value == value) then { 0 } else { 1 };
-};"#,
-    )
-    .expect("emit rope Symbol equality");
+  left := growX("abcdefghijklmnopqrstuvwxyz", 300i64);
+  equal := growX("abcdefghijklmnopqrstuvwxyz", 300i64);
+  earlyMismatch := growY("abcdefghijklmnopqrstuvwxyz", 300i64);
+  lateMismatch := growX("abcdefghijklmnopqrstuvwxzz", 300i64);
+  sharedLeft := duplicate(left);
+  sharedRight := duplicate(equal);
+  if ((left == "EXPECTED") && (left == equal) && (left != earlyMismatch) &&
+      (left != lateMismatch) && (sharedLeft == sharedRight))
+  then { 0 }
+  else { 1 };
+};"#
+    .replace("EXPECTED", &expected);
+    let generated = emit(&source).expect("emit rope Symbol equality");
+    assert!(generated.source.contains("MalSymbolLeafCursor"));
+    assert!(!generated.source.contains("mal_symbol_at_slow"));
+    let equality_start = generated
+        .source
+        .find("mal_symbol_equal_slow(")
+        .expect("generated slow Symbol equality");
+    let equality = generated.source[equality_start..]
+        .split_once("\n}\n")
+        .expect("complete slow Symbol equality")
+        .0;
+    assert!(equality.contains("memcmp("), "{equality}");
+    assert!(
+        equality.contains("mal_symbol_leaf_cursor_advance"),
+        "{equality}"
+    );
     let fixture = NativeFixture::new("rope-symbol-equality-cost");
     let executable = fixture.compile_generated_with_options(
         generated,
@@ -234,6 +274,7 @@ main :: Unit -> Int32 := \() {
         &[
             "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
             "-DMAL_TEST_FORCE_MATERIALIZATION_FAILURE",
+            "-DMAL_TEST_VALIDATE_SYMBOLS",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],
     );

@@ -4,6 +4,7 @@ use crate::c_emit::syntax::{
 };
 
 mod concatenate;
+mod leaf_cursor;
 
 pub(super) fn emit_concatenate(consume_left: bool, consume_right: bool) -> FunctionDefinition {
     concatenate::emit(consume_left, consume_right)
@@ -11,6 +12,10 @@ pub(super) fn emit_concatenate(consume_left: bool, consume_right: bool) -> Funct
 
 pub(super) fn emit_rope_support() -> crate::c_emit::syntax::TranslationUnit {
     concatenate::emit_rope_support()
+}
+
+pub(super) fn emit_leaf_cursor() -> TranslationUnit {
+    leaf_cursor::emit()
 }
 
 pub(super) fn emit_traversal() -> TranslationUnit {
@@ -86,17 +91,82 @@ pub(super) fn emit_equality() -> TranslationUnit {
             ],
         ),
         Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+            Statement::variable("MalSymbolLeafCursor", "left_cursor", None),
+            Statement::assignment(
+                Expr::identifier("left_cursor").field("depth"),
+                Expr::number("0"),
+            ),
+            Statement::call(
+                "mal_symbol_leaf_cursor_descend",
+                [
+                    Expr::address_of(Expr::identifier("left_cursor")),
+                    Expr::identifier("left"),
+                ],
+            ),
+            Statement::variable("MalSymbolLeafCursor", "right_cursor", None),
+            Statement::assignment(
+                Expr::identifier("right_cursor").field("depth"),
+                Expr::number("0"),
+            ),
+            Statement::call(
+                "mal_symbol_leaf_cursor_descend",
+                [
+                    Expr::address_of(Expr::identifier("right_cursor")),
+                    Expr::identifier("right"),
+                ],
+            ),
             Statement::for_loop(
-                ForInitializer::variable("uint64_t", "index", Expr::number("0")),
+                ForInitializer::variable("uint64_t", "compared", Expr::number("0")),
                 Expr::less(
-                    Expr::identifier("index"),
+                    Expr::identifier("compared"),
                     Expr::identifier("left").field("length"),
                 ),
-                Expr::pre_increment(Expr::identifier("index")),
-                Block::new([Statement::if_then(
-                    Expr::not_equal(at_slow("left"), at_slow("right")),
-                    Block::new([Statement::return_value(uint8(0))]),
-                )]),
+                Expr::cast("void", Expr::number("0")),
+                Block::new([
+                    Statement::variable(
+                        "uint64_t",
+                        "left_remaining",
+                        Some(cursor_remaining("left_cursor")),
+                    ),
+                    Statement::variable(
+                        "uint64_t",
+                        "right_remaining",
+                        Some(cursor_remaining("right_cursor")),
+                    ),
+                    Statement::variable(
+                        "uint64_t",
+                        "count",
+                        Some(Expr::conditional(
+                            Expr::less(
+                                Expr::identifier("left_remaining"),
+                                Expr::identifier("right_remaining"),
+                            ),
+                            Expr::identifier("left_remaining"),
+                            Expr::identifier("right_remaining"),
+                        )),
+                    ),
+                    Statement::if_then(
+                        Expr::not_equal(
+                            Expr::named_call(
+                                "memcmp",
+                                [
+                                    cursor_data("left_cursor"),
+                                    cursor_data("right_cursor"),
+                                    Expr::cast("size_t", Expr::identifier("count")),
+                                ],
+                            ),
+                            Expr::number("0"),
+                        ),
+                        Block::new([Statement::return_value(uint8(0))]),
+                    ),
+                    advance_cursor("left_cursor"),
+                    advance_cursor("right_cursor"),
+                    Statement::assignment(
+                        Expr::identifier("compared"),
+                        Expr::add(Expr::identifier("compared"), Expr::identifier("count")),
+                    ),
+                ]),
             ),
             Statement::return_value(uint8(1)),
         ]),
@@ -176,13 +246,26 @@ fn uint8(value: u8) -> Expr {
     Expr::named_call("UINT8_C", [Expr::number(value.to_string())])
 }
 
-fn at_slow(name: &str) -> Expr {
-    Expr::named_call(
-        "mal_symbol_at_slow",
+fn cursor_remaining(cursor: &str) -> Expr {
+    Expr::subtract(
+        Expr::identifier(cursor).field("leaf").field("length"),
+        Expr::identifier(cursor).field("index"),
+    )
+}
+
+fn cursor_data(cursor: &str) -> Expr {
+    Expr::add(
+        Expr::identifier(cursor).field("leaf").field("data"),
+        Expr::cast("size_t", Expr::identifier(cursor).field("index")),
+    )
+}
+
+fn advance_cursor(cursor: &str) -> Statement {
+    Statement::call(
+        "mal_symbol_leaf_cursor_advance",
         [
-            Expr::identifier("context"),
-            Expr::identifier(name),
-            Expr::identifier("index"),
+            Expr::address_of(Expr::identifier(cursor)),
+            Expr::identifier("count"),
         ],
     )
 }

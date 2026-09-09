@@ -57,6 +57,9 @@ impl Declarator {
     fn render(&self, ty: &TypeName) -> String {
         match self {
             Self::Identifier(name) => ty.render_declarator(name),
+            Self::Array { name, length } => {
+                format!("{}[{length}]", ty.render_declarator(name))
+            }
             Self::FunctionPointer { name, parameters } => {
                 format!("{} (*{name})({})", ty, render_parameters(parameters))
             }

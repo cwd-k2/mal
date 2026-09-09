@@ -76,18 +76,24 @@ fn node_definition() -> FunctionDefinition {
             ))),
             Statement::if_then(
                 Expr::logical_or(
-                    Expr::not_equal(
-                        Expr::identifier("rope").pointer_field("flattened"),
-                        Expr::identifier("NULL"),
+                    Expr::logical_or(
+                        Expr::equal(Expr::identifier("left").field("length"), Expr::number("0")),
+                        Expr::equal(Expr::identifier("right").field("length"), Expr::number("0")),
                     ),
                     Expr::logical_or(
                         Expr::not_equal(
-                            Expr::identifier("rope").pointer_field("height"),
-                            node_height(),
+                            Expr::identifier("rope").pointer_field("flattened"),
+                            Expr::identifier("NULL"),
                         ),
-                        Expr::not_equal(
-                            allocation_for(Expr::identifier("rope")).pointer_field("capacity"),
-                            Expr::identifier("SIZE_MAX"),
+                        Expr::logical_or(
+                            Expr::not_equal(
+                                Expr::identifier("rope").pointer_field("height"),
+                                node_height(),
+                            ),
+                            Expr::not_equal(
+                                allocation_for(Expr::identifier("rope")).pointer_field("capacity"),
+                                Expr::identifier("SIZE_MAX"),
+                            ),
                         ),
                     ),
                 ),

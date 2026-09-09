@@ -1,6 +1,6 @@
 mod render;
 
-use super::Identifier;
+use super::{Expr, Identifier};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct TypeName {
@@ -18,6 +18,10 @@ enum TypeBase {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) enum Declarator {
     Identifier(Identifier),
+    Array {
+        name: Identifier,
+        length: Expr,
+    },
     FunctionPointer {
         name: Identifier,
         parameters: Vec<Parameter>,
@@ -112,6 +116,13 @@ impl Declarator {
             parameters: parameters.into_iter().collect(),
         }
     }
+
+    pub(in crate::c_emit) fn array(name: impl Into<Identifier>, length: Expr) -> Self {
+        Self::Array {
+            name: name.into(),
+            length,
+        }
+    }
 }
 
 impl VariableDeclaration {
@@ -130,6 +141,18 @@ impl VariableDeclaration {
         let mut declaration = Self::new(ty, name);
         declaration.is_static = true;
         declaration
+    }
+
+    pub(in crate::c_emit) fn array(
+        ty: impl Into<TypeName>,
+        name: impl Into<Identifier>,
+        length: Expr,
+    ) -> Self {
+        Self {
+            ty: ty.into(),
+            declarator: Declarator::array(name, length),
+            is_static: false,
+        }
     }
 
     pub(in crate::c_emit) fn function_pointer(

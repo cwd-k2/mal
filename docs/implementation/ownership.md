@@ -105,6 +105,7 @@ retainする。last-useのowned flat operandはreference countが1なら、left�
 `storeSymbol`は外部storageへleaf bytesを直接copyする。連続領域を要求するextern parameterだけをcall前にflattenし、そのcacheは
 rope nodeと共に解放する。extern aggregate内のSymbolも型再帰でmaterializeする。いずれの表現もsourceからは新しいimmutable
 byte sequenceとしてだけ観測され、node、cache、capacityはC host ABIのopaque ownership内部に留まる。
+comparisonのleaf cursorはdescriptorとrope nodeをborrowし、retain、release、allocation、cache mutationを行わない。
 
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。

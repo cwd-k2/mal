@@ -151,6 +151,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/runtime/core/control` | frameを持つregionのcontrol arenaとstack operationの構成 |
 | `c_emit/runtime/core/symbol` | Symbol lifetime、admission、external byte copy、materializationの構成 |
 | `c_emit/runtime/symbol` | Symbol byte traversal、comparison、byte access、concatenationの構成 |
+| `c_emit/runtime/symbol/leaf_cursor` | allocation-freeなrope leaf順走査とbounded pending pathの構成 |
 | `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 

@@ -118,6 +118,14 @@ impl AggregateField {
         ))
     }
 
+    pub(in crate::c_emit) fn array(
+        ty: impl Into<TypeName>,
+        name: impl Into<Identifier>,
+        length: Expr,
+    ) -> Self {
+        Self::Declaration(VariableDeclaration::array(ty, name, length))
+    }
+
     pub(in crate::c_emit) fn aggregate(
         kind: AggregateKind,
         fields: impl IntoIterator<Item = Self>,
