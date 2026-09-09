@@ -233,6 +233,7 @@ main :: Unit -> Int32 := \() {
         "",
         &[
             "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
+            "-DMAL_TEST_FORCE_MATERIALIZATION_FAILURE",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],
     );

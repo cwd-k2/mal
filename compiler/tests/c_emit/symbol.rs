@@ -137,7 +137,10 @@ main :: Unit -> Int32 := \() {
     let executable = fixture.compile_generated_with_options(
         generated,
         "",
-        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+        &[
+            "-DMAL_TEST_VALIDATE_SYMBOLS",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
     );
     let output = fixture.run(executable);
     assert!(
@@ -456,7 +459,10 @@ fn balances_shared_rope_concatenations_before_materialization() {
     let executable = fixture.compile_generated_with_options(
         generated,
         "",
-        &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+        &[
+            "-DMAL_TEST_VALIDATE_SYMBOLS",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
     );
     let output = fixture.run(executable);
     assert!(
@@ -643,12 +649,55 @@ MAL_DEFINE_inspect(context, direct, choice) {
     MAL_DROP(Symbol)(context, &held);
     return result;
 }
+
 "#,
         &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
     );
     let output = fixture.run(executable);
     assert!(
         output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn reports_materialization_failure_before_calling_the_host() {
+    let generated = emit(
+        r#"extern inspect :: Symbol -> Unit;
+prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
+grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+  if (remaining == 0)
+  then { value }
+  else {
+    next := prepend(value);
+    if (#value == 0u64)
+    then { grow(next, remaining - 1) }
+    else { grow(next, remaining - 1) };
+  };
+};
+main :: Unit -> Int32 := \() {
+  extern inspect(grow("abcdefghijklmnopqrstuvwxyz", 300i64));
+  0;
+};"#,
+    )
+    .expect("emit host-boundary materialization failure");
+    let fixture = NativeFixture::new("rope-host-boundary-materialization-failure");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        r#"#include "program.mal.h"
+
+MAL_DEFINE_inspect(context, value) {
+    (void)value;
+    mal_trap(context, "host operation must not be called");
+}
+"#,
+        &["-DMAL_TEST_FORCE_MATERIALIZATION_FAILURE"],
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("mal trap: allocation failed"),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );

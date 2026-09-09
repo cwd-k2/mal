@@ -1,9 +1,9 @@
 use crate::c_emit::syntax::{
-    Block, Declaration, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter,
-    Statement, TranslationUnit, TypeName,
+    Block, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
+    Parameter, PreprocessorExpr, Statement, TranslationUnit, TypeName,
 };
 
-use super::allocation_for;
+use super::{allocation_for, trap};
 
 pub(super) fn emit_support() -> TranslationUnit {
     let mut output = TranslationUnit::default();
@@ -67,23 +67,33 @@ fn node_definition() -> FunctionDefinition {
                         Initializer::designated("left", retain(Expr::identifier("left"))),
                         Initializer::designated("right", retain(Expr::identifier("right"))),
                         Initializer::designated("flattened", Expr::identifier("NULL")),
-                        Initializer::designated(
-                            "height",
-                            Expr::add(
-                                Expr::conditional(
-                                    Expr::greater(
-                                        height(Expr::identifier("left")),
-                                        height(Expr::identifier("right")),
-                                    ),
-                                    height(Expr::identifier("left")),
-                                    height(Expr::identifier("right")),
-                                ),
-                                uint8(1),
-                            ),
-                        ),
+                        Initializer::designated("height", node_height()),
                     ],
                 ),
             ),
+            Statement::directive(Directive::If(PreprocessorExpr::defined(
+                "MAL_TEST_VALIDATE_SYMBOLS",
+            ))),
+            Statement::if_then(
+                Expr::logical_or(
+                    Expr::not_equal(
+                        Expr::identifier("rope").pointer_field("flattened"),
+                        Expr::identifier("NULL"),
+                    ),
+                    Expr::logical_or(
+                        Expr::not_equal(
+                            Expr::identifier("rope").pointer_field("height"),
+                            node_height(),
+                        ),
+                        Expr::not_equal(
+                            allocation_for(Expr::identifier("rope")).pointer_field("capacity"),
+                            Expr::identifier("SIZE_MAX"),
+                        ),
+                    ),
+                ),
+                trap("invalid Symbol rope node"),
+            ),
+            Statement::directive(Directive::Endif),
             Statement::return_value(symbol(
                 Expr::add(
                     Expr::identifier("left").field("length"),
@@ -422,6 +432,20 @@ fn rope(value: Expr) -> Expr {
 
 fn height(value: Expr) -> Expr {
     Expr::named_call("mal_symbol_rope_height", [value])
+}
+
+fn node_height() -> Expr {
+    Expr::add(
+        Expr::conditional(
+            Expr::greater(
+                height(Expr::identifier("left")),
+                height(Expr::identifier("right")),
+            ),
+            height(Expr::identifier("left")),
+            height(Expr::identifier("right")),
+        ),
+        uint8(1),
+    )
 }
 
 fn retain(value: Expr) -> Expr {
