@@ -76,15 +76,35 @@ impl Directive {
                 output.push('\n');
                 output
             }
-            Self::FunctionSignatureDefine {
+            Self::FunctionItemsDefine {
                 name,
                 parameters,
-                signature,
+                declarations,
+                definitions,
+                trailing_signature,
             } => {
+                let mut replacement = String::new();
+                for declaration in declarations {
+                    replacement.push_str(&declaration.render());
+                    replacement.push_str(";\n");
+                }
+                for definition in definitions {
+                    replacement.push_str(&definition.render());
+                }
+                trailing_signature.render_macro(&mut replacement);
+
                 let mut output = format!("#define {name}(");
                 render_macro_parameters(&mut output, parameters);
                 output.push_str(") \\\n");
-                signature.render_macro(&mut output);
+                let lines: Vec<_> = replacement.lines().collect();
+                for (index, line) in lines.iter().enumerate() {
+                    output.push_str(line);
+                    if index + 1 != lines.len() && !line.ends_with(" \\") {
+                        output.push_str(" \\\n");
+                    } else if index + 1 != lines.len() {
+                        output.push('\n');
+                    }
+                }
                 output.push('\n');
                 output
             }

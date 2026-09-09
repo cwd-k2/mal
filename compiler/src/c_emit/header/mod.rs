@@ -99,9 +99,11 @@ fn emit_definition_macro(output: &mut TranslationUnit, signature: &CompilerSigna
         format!("MAL_HAS_EXTERN_{}", signature.operation_name),
         Expr::number("1"),
     ));
-    output.push(Directive::function_signature_define(
+    output.push(Directive::function_items_define(
         format!("MAL_DEFINE_{}", signature.operation_name),
         signature.parameter_names(),
+        [],
+        [],
         external_signature(signature, true),
     ));
     output.blank_line();

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use super::{Expr, FunctionSignature, Identifier, StringLiteral};
+use super::{Expr, FunctionDefinition, FunctionSignature, Identifier, StringLiteral};
 
 mod render;
 
@@ -103,10 +103,12 @@ pub(in crate::c_emit) enum Directive {
         parameters: Vec<MacroParameter>,
         replacement: Vec<PastePart>,
     },
-    FunctionSignatureDefine {
+    FunctionItemsDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
-        signature: FunctionSignature,
+        declarations: Vec<FunctionSignature>,
+        definitions: Vec<FunctionDefinition>,
+        trailing_signature: FunctionSignature,
     },
     If(PreprocessorExpr),
     Ifndef(Identifier),
@@ -235,15 +237,19 @@ impl Directive {
         }
     }
 
-    pub(in crate::c_emit) fn function_signature_define(
+    pub(in crate::c_emit) fn function_items_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        signature: FunctionSignature,
+        declarations: impl IntoIterator<Item = FunctionSignature>,
+        definitions: impl IntoIterator<Item = FunctionDefinition>,
+        trailing_signature: FunctionSignature,
     ) -> Self {
-        Self::FunctionSignatureDefine {
+        Self::FunctionItemsDefine {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
-            signature,
+            declarations: declarations.into_iter().collect(),
+            definitions: definitions.into_iter().collect(),
+            trailing_signature,
         }
     }
 
