@@ -25,14 +25,14 @@ fn checks_sum_injection_payload_and_index() {
 fn checks_case_exhaustiveness_uniqueness_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
-         get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
+         get :: Maybe -> Int32 := \\(value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](x) { y := x; y };\n\
          };",
     );
 
-    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value :: Maybe) { ";
+    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value) { ";
     assert_eq!(
         check_error(&format!("{prefix}case (value) [0](_) {{ 0 }}; }};")).message,
         "non-exhaustive case expression"
@@ -56,13 +56,13 @@ fn checks_case_exhaustiveness_uniqueness_and_result_types() {
 #[test]
 fn checks_if_condition_and_branch_types() {
     check_ok(
-        "choose :: Bool -> Int32 := \\(condition :: Bool) {\n\
+        "choose :: Bool -> Int32 := \\(condition) {\n\
            if (condition) then { 1 } else { 2 };\n\
          };",
     );
     assert_eq!(
         check_error(
-            "bad :: Int32 -> Int32 := \\(condition :: Int32) {\n\
+            "bad :: Int32 -> Int32 := \\(condition) {\n\
                if (condition) then { 1 } else { 2 };\n\
              };"
         )
@@ -71,7 +71,7 @@ fn checks_if_condition_and_branch_types() {
     );
     assert_eq!(
         check_error(
-            "bad :: Bool -> Int32 := \\(condition :: Bool) {\n\
+            "bad :: Bool -> Int32 := \\(condition) {\n\
                if (condition) then { 1 } else { () };\n\
              };"
         )

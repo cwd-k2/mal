@@ -5,7 +5,7 @@ use crate::{anf, check, closure, core, parser, resolve};
 #[test]
 fn admits_only_access_to_a_symbol_preserved_by_every_tail_edge() {
     let preserved = lower(
-        "scan :: (Symbol, UInt64) -> UInt8 := \\(value :: Symbol, index :: UInt64) {\n\
+        "scan :: (Symbol, UInt64) -> UInt8 := \\(value, index) {\n\
            if (index + 1u64 == #value)\n\
            then { value # index }\n\
            else { byte := value # index; scan(value, index + UInt64(byte)); };\n\
@@ -21,7 +21,7 @@ fn admits_only_access_to_a_symbol_preserved_by_every_tail_edge() {
     assert!(!plan.is_valid(&preserved));
 
     let replaced = lower(
-        "scan :: (Symbol, UInt64) -> UInt8 := \\(value :: Symbol, index :: UInt64) {\n\
+        "scan :: (Symbol, UInt64) -> UInt8 := \\(value, index) {\n\
            if (index + 1u64 == #value)\n\
            then { value # index }\n\
            else { byte := value # index; scan(value + \"x\", index + UInt64(byte)); };\n\

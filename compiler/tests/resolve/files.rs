@@ -45,11 +45,11 @@ fn resolves_public_names_and_keeps_private_names_per_file() {
             ),
             (
                 "left.mal",
-                "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1 }; left :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+                "_helper :: Int32 -> Int32 := \\(x) { x + 1 }; left :: Int32 -> Int32 := \\(x) { _helper(x) };",
             ),
             (
                 "right.mal",
-                "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 2 }; right :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+                "_helper :: Int32 -> Int32 := \\(x) { x + 2 }; right :: Int32 -> Int32 := \\(x) { _helper(x) };",
             ),
         ],
         &[&[(1, 0), (2, 1)], &[], &[]],
@@ -70,12 +70,9 @@ fn does_not_reexport_imported_names() {
             ("root.mal", "require \"./middle.mal\"; result := leaf(1);"),
             (
                 "middle.mal",
-                "require \"./leaf.mal\"; middle :: Int32 -> Int32 := \\(x :: Int32) { leaf(x) };",
+                "require \"./leaf.mal\"; middle :: Int32 -> Int32 := \\(x) { leaf(x) };",
             ),
-            (
-                "leaf.mal",
-                "leaf :: Int32 -> Int32 := \\(x :: Int32) { x };",
-            ),
+            ("leaf.mal", "leaf :: Int32 -> Int32 := \\(x) { x };"),
         ],
         &[&[(1, 0)], &[(2, 0)], &[]],
     );

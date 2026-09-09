@@ -70,8 +70,7 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 
 #[test]
 fn symbol_operators_report_their_result_types() {
-    let text =
-        "inspect :: Symbol -> UInt64 := \\(value :: Symbol) { #value + UInt64(value # 0); };";
+    let text = "inspect :: Symbol -> UInt64 := \\(value) { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();
@@ -82,9 +81,9 @@ fn symbol_operators_report_their_result_types() {
 
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
-    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := \\(x) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let parameter_offset = text.find("x ::").unwrap();
+    let parameter_offset = text.find("\\(x)").unwrap() + 2;
     let inner_reference_offset = text.find("{ x;").unwrap() + 2;
 
     let parameter = document.occurrence_at(parameter_offset).unwrap();
@@ -107,10 +106,15 @@ fn definition_references_and_rename_follow_capture_identity() {
 
 #[test]
 fn resolved_identity_keeps_shadowed_names_separate() {
-    let text = "first :: Int32 -> Int32 := \\(x :: Int32) { x; };\nsecond :: Int32 -> Int32 := \\(x :: Int32) { x; };\n";
+    let text =
+        "first :: Int32 -> Int32 := \\(x) { x; };\nsecond :: Int32 -> Int32 := \\(x) { x; };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let first = document.occurrence_at(text.find("x ::").unwrap()).unwrap();
-    let second = document.occurrence_at(text.rfind("x ::").unwrap()).unwrap();
+    let first = document
+        .occurrence_at(text.find("\\(x)").unwrap() + 2)
+        .unwrap();
+    let second = document
+        .occurrence_at(text.rfind("\\(x)").unwrap() + 2)
+        .unwrap();
 
     assert_ne!(first.id, second.id);
     assert_eq!(document.references(first.id, true).len(), 2);

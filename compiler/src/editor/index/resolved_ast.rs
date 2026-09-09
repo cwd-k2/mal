@@ -102,7 +102,6 @@ impl Index<'_> {
             }
             Expression::Lambda(lambda) => {
                 for parameter in &lambda.parameters {
-                    self.collect_resolved_type(&parameter.ty);
                     self.add_raw(
                         SymbolId::Value(parameter.binding.id),
                         &parameter.binding.name,

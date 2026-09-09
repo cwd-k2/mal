@@ -103,7 +103,7 @@ fn evaluates_a_callee_before_its_argument_and_application() {
 fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\
-         choose :: Bool -> Int32 := \\(flag :: Bool) {\n\
+         choose :: Bool -> Int32 := \\(flag) {\n\
            if (flag) then { extern mark() } else { 0 };\n\
          };",
     );

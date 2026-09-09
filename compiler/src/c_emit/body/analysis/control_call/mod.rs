@@ -168,8 +168,8 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(69),
             "control-call-plan.mal",
-            "helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1i32; };\n\
-             recursive :: Int32 -> Int32 := \\(n :: Int32) {\n\
+            "helper :: Int32 -> Int32 := \\(x) { x + 1i32; };\n\
+             recursive :: Int32 -> Int32 := \\(n) {\n\
                if (n == 0i32)\n\
                  then { helper(n) }\n\
                  else {\n\
@@ -177,7 +177,7 @@ mod tests {
                    helper(child);\n\
                  };\n\
              };\n\
-             tail :: Int32 -> Int32 := \\(n :: Int32) {\n\
+             tail :: Int32 -> Int32 := \\(n) {\n\
                if (n == 0i32) then { n } else { tail(n - 1i32) };\n\
              };"
             .into(),
@@ -231,12 +231,12 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(70),
             "indirect-control-cycle.mal",
-             "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {\n\
                function(value);\n\
              };\n\
-             identity :: Int32 -> Int32 := \\(value :: Int32) { value; };\n\
+             identity :: Int32 -> Int32 := \\(value) { value; };\n\
              main :: Unit -> Int32 := \\() {\n\
-               recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+               recurse :: Int32 -> Int32 := \\(value) {\n\
                  if (value == 0i32) then { 0i32 } else {\n\
                    child := apply(recurse, value - 1i32);\n\
                    child + 1i32;\n\
@@ -302,11 +302,11 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(71),
             "indirect-tail-forwarder.mal",
-            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {\n\
                function(value);\n\
              };\n\
              main :: Unit -> Int32 := \\() {\n\
-               recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+               recurse :: Int32 -> Int32 := \\(value) {\n\
                  if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
                };\n\
                recurse(2i32);\n\

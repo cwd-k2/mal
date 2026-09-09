@@ -120,11 +120,9 @@ impl Resolver {
         let result = (|| {
             let mut parameters = Vec::with_capacity(lambda.parameters.len());
             for parameter in &lambda.parameters {
-                let ty = self.resolve_type(&parameter.ty)?;
                 let binding = self.declare_value(&parameter.name, ValueOwner::Lambda(id))?;
                 parameters.push(Parameter {
                     binding,
-                    ty,
                     span: parameter.span,
                 });
             }

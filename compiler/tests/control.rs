@@ -76,7 +76,7 @@ fn reachable_states<'a>(program: &'a control::ast::Program, function: &Function)
 #[test]
 fn makes_a_directly_returned_application_a_tail_transition() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
          main :: Unit -> Int32 := \\() { identity(42i32); };",
     );
     let main = top_level_function(&program, "main");
@@ -88,8 +88,8 @@ fn makes_a_directly_returned_application_a_tail_transition() {
 #[test]
 fn records_only_caller_values_live_after_a_non_tail_call() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
-         addAfter :: Int32 -> Int32 := \\(x :: Int32) {\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
+         addAfter :: Int32 -> Int32 := \\(x) {\n\
            unused := 7i32;\n\
            called := identity(x);\n\
            called + x;\n\
@@ -112,9 +112,9 @@ fn records_only_caller_values_live_after_a_non_tail_call() {
 #[test]
 fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
-         make :: Int32 -> (Int32 -> Int32) := \\(captured :: Int32) {\n\
-           \\(argument :: Int32) {\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
+         make :: Int32 -> (Int32 -> Int32) := \\(captured) {\n\
+           \\(argument) {\n\
              called := identity(argument);\n\
              called + captured;\n\
            };\n\
@@ -137,8 +137,8 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
 #[test]
 fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
-         useChoice :: [Int32, Int32] -> Int32 := \\(choice :: [Int32, Int32]) {\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
+         useChoice :: [Int32, Int32] -> Int32 := \\(choice) {\n\
            case (choice)\n\
              [0](payload) {\n\
                called := identity(payload);\n\
@@ -169,8 +169,8 @@ fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
 #[test]
 fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
     let program = lower_ok(
-        "identity :: Symbol -> Symbol := \\(value :: Symbol) { value; };\n\
-         appendAfter :: Symbol -> Symbol := \\(prefix :: Symbol) {\n\
+        "identity :: Symbol -> Symbol := \\(value) { value; };\n\
+         appendAfter :: Symbol -> Symbol := \\(prefix) {\n\
            called := identity(\"value\");\n\
            prefix + called;\n\
          };",
@@ -192,8 +192,8 @@ fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
 #[test]
 fn propagates_tail_position_through_primitive_branches() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
-         choose :: Int32 -> Int32 := \\(x :: Int32) {\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
+         choose :: Int32 -> Int32 := \\(x) {\n\
            if (x == 0i32) then { identity(1i32) } else { identity(x) };\n\
          };",
     );

@@ -65,8 +65,8 @@ MalType_Bool mal_ext_exchange(
 fn executes_escaping_capturing_closures() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
-         makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\(y :: Int32) { x + y; };\n\
+         makeAdder :: Int32 -> (Int32 -> Int32) := \\(x) {\n\
+           \\(y) { x + y; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            addTen := makeAdder(10);\n\
@@ -84,7 +84,7 @@ fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 40;\n\
-           add := \\(value :: Int32) { base + value; };\n\
+           add :: Int32 -> Int32 := \\(value) { base + value; };\n\
            add(2) - 42;\n\
          };",
     )
@@ -121,10 +121,10 @@ fn stack_allocates_a_capturing_closure_used_only_as_a_local_callee() {
 #[test]
 fn keeps_a_symbol_closure_local_across_nonrecursive_indirect_call() {
     let generated = emit(
-        "identity :: Symbol -> Symbol := \\(value :: Symbol) { value; };\n\
-         run :: ((Symbol -> Symbol), Symbol) -> Symbol := \\(callee :: Symbol -> Symbol, value :: Symbol) {\n\
+        "identity :: Symbol -> Symbol := \\(value) { value; };\n\
+         run :: ((Symbol -> Symbol), Symbol) -> Symbol := \\(callee, value) {\n\
            prefix :: Symbol := \"x\";\n\
-           prepend := \\(suffix :: Symbol) { prefix + suffix; };\n\
+           prepend :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
            called := callee(value);\n\
            prepend(called);\n\
          };\n\
@@ -151,11 +151,11 @@ fn keeps_a_symbol_closure_local_across_nonrecursive_indirect_call() {
 #[test]
 fn heap_allocates_a_local_closure_live_across_control_suspension() {
     let generated = emit(
-        "walk :: (Int32, Int32) -> Int32 := \\(base :: Int32, depth :: Int32) {\n\
+        "walk :: (Int32, Int32) -> Int32 := \\(base, depth) {\n\
            if (depth == 0i32)\n\
              then { 0i32 }\n\
              else {\n\
-               add := \\(value :: Int32) { base + value; };\n\
+               add :: Int32 -> Int32 := \\(value) { base + value; };\n\
                child := walk(base, depth - 1i32);\n\
                add(child);\n\
              };\n\
@@ -193,11 +193,11 @@ fn heap_allocates_a_local_closure_live_across_control_suspension() {
 #[test]
 fn preserves_a_managed_capture_across_control_suspension() {
     let generated = emit(
-        "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, prefix :: Symbol) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth, prefix) {\n\
            if (depth == 0i32)\n\
              then { prefix }\n\
              else {\n\
-               append := \\(suffix :: Symbol) { prefix + suffix; };\n\
+               append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
                child := walk(depth - 1i32, prefix);\n\
                append(child);\n\
              };\n\
@@ -229,7 +229,7 @@ fn preserves_a_managed_capture_across_control_suspension() {
 #[test]
 fn emits_control_storage_only_for_programs_with_dispatch_edges() {
     let recursive = emit(
-        "depth :: Int32 -> Int32 := \\(value :: Int32) {\n\
+        "depth :: Int32 -> Int32 := \\(value) {\n\
            if (value == 0i32)\n\
              then { 0i32 }\n\
              else { 1i32 + depth(value - 1i32) };\n\
@@ -253,7 +253,7 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
     assert!(fixture.run(executable).status.success());
 
     let acyclic = emit(
-        "identity :: Int32 -> Int32 := \\(value :: Int32) { value; };\n\
+        "identity :: Int32 -> Int32 := \\(value) { value; };\n\
          main :: Unit -> Int32 := \\() { identity(0i32); };",
     )
     .expect("emit an acyclic direct call");
@@ -264,10 +264,10 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
 #[test]
 fn isolates_nested_recursive_regions_in_separate_cached_arenas() {
     let generated = emit(
-        "inner :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+        "inner :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32) then { 0i32 } else { 1i32 + inner(depth - 1i32) };\n\
          };\n\
-         outer :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+         outer :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32) then { 0i32 } else {\n\
              child := outer(depth - 1i32);\n\
              child + inner(depth);\n\
@@ -295,7 +295,7 @@ fn isolates_nested_recursive_regions_in_separate_cached_arenas() {
 #[test]
 fn emits_typed_control_frame_fields_for_live_symbols() {
     let generated = emit(
-        "recurse :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, prefix :: Symbol) {\n\
+        "recurse :: (Int32, Symbol) -> Symbol := \\(depth, prefix) {\n\
            if (depth == 0i32)\n\
              then { prefix }\n\
              else {\n\
@@ -342,7 +342,7 @@ fn keeps_a_local_recursive_environment_activation_resident() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 1;\n\
-           walk :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           walk :: Int32 -> Int32 := \\(depth) {\n\
              if (depth == 0i32) then { base } else {\n\
                child := walk(depth - 1i32);\n\
                base + child;\n\
@@ -373,7 +373,7 @@ fn keeps_a_local_recursive_environment_activation_resident() {
 #[test]
 fn lowers_deep_symbol_recursion_with_balanced_frame_ownership() {
     let generated = emit(
-        "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, value :: Symbol) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth, value) {\n\
            if (depth == 0i32)\n\
              then { value }\n\
              else {\n\
@@ -412,7 +412,7 @@ fn lowers_deep_symbol_recursion_with_balanced_frame_ownership() {
 #[test]
 fn lowers_deep_non_tail_self_recursion_without_growing_the_c_stack() {
     let generated = emit(
-        "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+        "unwind :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32)\n\
              then { 0i32 }\n\
              else { 1i32 + unwind(depth - 1i32) };\n\
@@ -435,11 +435,11 @@ fn lowers_deep_non_tail_self_recursion_without_growing_the_c_stack() {
 #[test]
 fn lowers_a_deep_indirect_tail_forwarder_without_growing_the_c_stack() {
     let generated = emit(
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {\n\
            function(value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           recurse :: Int32 -> Int32 := \\(value) {\n\
              if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
            };\n\
            recurse(300000i32);\n\
@@ -460,11 +460,11 @@ fn lowers_a_deep_indirect_tail_forwarder_without_growing_the_c_stack() {
 #[test]
 fn preserves_managed_arguments_through_a_deep_indirect_tail_forwarder() {
     let generated = emit(
-        "apply :: (((Int32, Symbol) -> Symbol), (Int32, Symbol)) -> Symbol := \\(function :: (Int32, Symbol) -> Symbol, argument :: (Int32, Symbol)) {\n\
+        "apply :: (((Int32, Symbol) -> Symbol), (Int32, Symbol)) -> Symbol := \\(function, argument) {\n\
            function(argument);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           recurse :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, value :: Symbol) {\n\
+           recurse :: (Int32, Symbol) -> Symbol := \\(depth, value) {\n\
              if (depth == 0i32) then { value } else { apply(recurse, (depth - 1i32, value)) };\n\
            };\n\
            result := recurse(50000i32, \"x\" + \"y\");\n\
@@ -490,11 +490,11 @@ fn preserves_managed_arguments_through_a_deep_indirect_tail_forwarder() {
 #[test]
 fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
     let generated = emit(
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {\n\
            function(value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           recurse :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           recurse :: Int32 -> Int32 := \\(value) {\n\
              if (value == 0i32) then { 0i32 } else {\n\
                child := apply(recurse, value - 1i32);\n\
                child + 1i32;\n\
@@ -524,14 +524,14 @@ fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
 #[test]
 fn dispatches_every_recursive_target_from_the_application_graph() {
     let generated = emit(
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {\n\
            function(value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           left :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           left :: Int32 -> Int32 := \\(value) {\n\
              if (value == 0i32) then { 0i32 } else { child := apply(left, value - 1i32); child + 1i32; };\n\
            };\n\
-           right :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           right :: Int32 -> Int32 := \\(value) {\n\
              if (value == 0i32) then { 0i32 } else { child := apply(right, value - 1i32); child + 1i32; };\n\
            };\n\
            left(100000i32) + right(100000i32) - 200000i32;\n\
@@ -562,13 +562,13 @@ fn dispatches_every_recursive_target_from_the_application_graph() {
 #[test]
 fn emits_independent_first_class_cycles_as_separate_regions() {
     let generated = emit(
-        "apply32 :: ((Int32 -> Int32), Int32) -> Int32 := \\(function :: Int32 -> Int32, value :: Int32) { function(value); };\n\
-         apply64 :: ((Int64 -> Int64), Int64) -> Int64 := \\(function :: Int64 -> Int64, value :: Int64) { function(value); };\n\
+        "apply32 :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) { function(value); };\n\
+         apply64 :: ((Int64 -> Int64), Int64) -> Int64 := \\(function, value) { function(value); };\n\
          main :: Unit -> Int32 := \\() {\n\
-           recurse32 :: Int32 -> Int32 := \\(value :: Int32) {\n\
+           recurse32 :: Int32 -> Int32 := \\(value) {\n\
              if (value == 0i32) then { 0i32 } else { child := apply32(recurse32, value - 1i32); child + 1i32; };\n\
            };\n\
-           recurse64 :: Int64 -> Int64 := \\(value :: Int64) {\n\
+           recurse64 :: Int64 -> Int64 := \\(value) {\n\
              if (value == 0i64) then { 0i64 } else { child := apply64(recurse64, value - 1i64); child + 1i64; };\n\
            };\n\
            recurse32(4i32) + Int32(recurse64(5i64)) - 9i32;\n\
@@ -586,12 +586,12 @@ fn emits_independent_first_class_cycles_as_separate_regions() {
 #[test]
 fn preserves_a_managed_capture_through_a_first_class_call_cycle() {
     let generated = emit(
-        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(function :: Int32 -> Symbol, value :: Int32) {\n\
+        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(function, value) {\n\
            function(value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            prefix := \"x\" + \"y\";\n\
-           recurse :: Int32 -> Symbol := \\(value :: Int32) {\n\
+           recurse :: Int32 -> Symbol := \\(value) {\n\
              if (value == 0i32) then { prefix } else {\n\
                child := apply(recurse, value - 1i32);\n\
                if (child == prefix) then { child } else { \"bad\" };\n\
@@ -634,7 +634,7 @@ fn preserves_a_managed_capture_through_a_first_class_call_cycle() {
 #[test]
 fn reports_control_storage_failure_as_an_implementation_resource_limit() {
     let generated = emit(
-        "unwind :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+        "unwind :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32)\n\
              then { 0i32 }\n\
              else { 1i32 + unwind(depth - 1i32) };\n\
@@ -661,7 +661,7 @@ fn reports_control_storage_failure_as_an_implementation_resource_limit() {
 #[test]
 fn resumes_multiple_non_tail_self_calls_with_product_parameters() {
     let generated = emit(
-        "tree :: (Int32, Int32) -> Int32 := \\(depth :: Int32, seed :: Int32) {\n\
+        "tree :: (Int32, Int32) -> Int32 := \\(depth, seed) {\n\
            if (depth == 0i32)\n\
              then { seed }\n\
              else {\n\
@@ -691,10 +691,10 @@ fn resumes_multiple_non_tail_self_calls_with_product_parameters() {
 #[test]
 fn emits_homogeneous_and_heterogeneous_region_storage_together() {
     let generated = emit(
-        "linear :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+        "linear :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32) then { 0i32 } else { 1i32 + linear(depth - 1i32) };\n\
          };\n\
-         tree :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+         tree :: Int32 -> Int32 := \\(depth) {\n\
            if (depth == 0i32) then { 1i32 } else {\n\
              left := tree(depth - 1i32);\n\
              right := tree(depth - 1i32);\n\
@@ -724,7 +724,7 @@ fn stack_closure_calls_use_flattened_product_entries() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 40;\n\
-           add := \\(left :: Int32, right :: Int32) { base + left + right; };\n\
+           add :: (Int32, Int32) -> Int32 := \\(left, right) { base + left + right; };\n\
            add(1, 1) - 42;\n\
          };",
     )
@@ -751,7 +751,7 @@ fn stack_closure_borrows_managed_captures_across_repeated_calls() {
     let generated = emit(
         "main :: Unit -> Int32 := \\() {\n\
            prefix := \"a\";\n\
-           append := \\(suffix :: Symbol) { prefix + suffix; };\n\
+           append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
            first := append(\"b\");\n\
            second := append(\"c\");\n\
            if (first == \"ab\" && second == \"ac\" && prefix == \"a\")\n\
@@ -775,12 +775,12 @@ fn stack_closure_borrows_managed_captures_across_repeated_calls() {
 #[test]
 fn heap_allocates_a_recursive_closure_whose_self_value_escapes_a_call() {
     let generated = emit(
-        r#"apply :: ((Int32 -> Int32), Int32) -> Int32 := \(function :: Int32 -> Int32, value :: Int32) {
+        r#"apply :: ((Int32 -> Int32), Int32) -> Int32 := \(function, value) {
   function(value);
 };
 main :: Unit -> Int32 := \() {
   offset := 1i32;
-  recurse :: Int32 -> Int32 := \(value :: Int32) {
+  recurse :: Int32 -> Int32 := \(value) {
     if (value == 0) then { offset } else { apply(recurse, value - 1) };
   };
   recurse(2) - 1;
@@ -813,7 +813,7 @@ fn transfers_a_symbol_into_an_owned_stack_closure_call() {
     let generated = emit(
         r#"main :: Unit -> Int32 := \() {
   prefix := "p";
-  append := \(value :: Symbol) { prefix + value };
+  append :: Symbol -> Symbol := \(value) { prefix + value };
   owned := "a" + "b";
   result := append(owned);
   if ((result == "pab") && (prefix == "p")) then { 0 } else { 1 };
@@ -853,8 +853,8 @@ fn transfers_a_symbol_into_an_owned_stack_closure_call() {
 #[test]
 fn transfers_owned_parameters_on_each_direct_call_branch() {
     let generated = emit(
-        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
-choose :: (Bool, Symbol) -> Symbol := \(condition :: Bool, value :: Symbol) {
+        r#"append :: Symbol -> Symbol := \(value) { value + "x" };
+choose :: (Bool, Symbol) -> Symbol := \(condition, value) {
   if (condition) then { append(value) } else { append(value) };
 };
 main :: Unit -> Int32 := \() {
@@ -898,7 +898,7 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn keeps_a_reused_direct_call_argument_borrowed() {
     let generated = emit(
-        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
+        r#"append :: Symbol -> Symbol := \(value) { value + "x" };
 main :: Unit -> Int32 := \() {
   value := "a" + "b";
   result := append(value);
@@ -925,7 +925,7 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn preserves_a_shared_allocation_when_its_descriptor_is_transferred() {
     let generated = emit(
-        r#"append :: Symbol -> Symbol := \(value :: Symbol) { value + "x" };
+        r#"append :: Symbol -> Symbol := \(value) { value + "x" };
 main :: Unit -> Int32 := \() {
   value := "a" + "b";
   alias := value;
@@ -961,7 +961,7 @@ main :: Unit -> Int32 := \() {
 fn transfers_an_active_sum_payload_from_an_owned_parameter() {
     let generated = emit(
         r#"Choice :: [Unit, Symbol];
-take :: Choice -> Symbol := \(choice :: Choice) {
+take :: Choice -> Symbol := \(choice) {
   case (choice) [0](_) { "empty" } [1](value) { value };
 };
 main :: Unit -> Int32 := \() {
@@ -1000,7 +1000,7 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn generates_an_owned_entry_for_a_non_tail_self_call() {
     let generated = emit(
-        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
   if (remaining == 0)
   then { value }
   else {
@@ -1038,12 +1038,12 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn heap_allocates_a_local_closure_that_flows_to_another_function() {
     let generated = emit(
-        "apply :: (Int32 -> Int32) -> Int32 := \\(operation :: Int32 -> Int32) {\n\
+        "apply :: (Int32 -> Int32) -> Int32 := \\(operation) {\n\
            operation(2);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 40;\n\
-           add := \\(value :: Int32) { base + value; };\n\
+           add :: Int32 -> Int32 := \\(value) { base + value; };\n\
            apply(add) - 42;\n\
          };",
     )
@@ -1064,12 +1064,12 @@ fn heap_allocates_a_local_closure_that_flows_to_another_function() {
 #[test]
 fn executes_top_level_and_local_recursive_closures() {
     let output = compile_and_run(
-        "factorial :: Int32 -> Int32 := \\(n :: Int32) {\n\
+        "factorial :: Int32 -> Int32 := \\(n) {\n\
            if (n == 0) then { 1 } else { n * factorial(n - 1) };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            base :: Int32 := 120;\n\
-           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
+           local :: Int32 -> Int32 := \\(n) {\n\
              if (n == 0) then { base } else { local(n - 1) };\n\
            };\n\
            local(3) - factorial(5);\n\
@@ -1086,8 +1086,8 @@ fn executes_top_level_and_local_recursive_closures() {
 #[test]
 fn emits_direct_calls_for_known_acyclic_functions_and_controls_recursive_edges() {
     let generated = emit(
-        "square :: Int64 -> Int64 := \\(value :: Int64) { value * value; };\n\
-         factorial :: Int64 -> Int64 := \\(value :: Int64) {\n\
+        "square :: Int64 -> Int64 := \\(value) { value * value; };\n\
+         factorial :: Int64 -> Int64 := \\(value) {\n\
            if (value == 0i64) then { 1i64 } else { value * factorial(value - 1i64) };\n\
          };\n\
          main :: Unit -> Int32 := \\() { Int32(square(factorial(3i64)) - 36i64); };",
@@ -1112,7 +1112,7 @@ fn emits_direct_calls_for_known_acyclic_functions_and_controls_recursive_edges()
 #[test]
 fn omits_closure_representation_for_direct_only_top_level_functions() {
     let generated = emit(
-        "add :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) { left + right; };\n\
+        "add :: (Int64, Int64) -> Int64 := \\(left, right) { left + right; };\n\
          main :: Unit -> Int32 := \\() { Int32(add(20i64, 22i64) - 42i64); };",
     )
     .expect("emit a direct-only top-level function");
@@ -1133,9 +1133,9 @@ fn omits_closure_representation_for_direct_only_top_level_functions() {
 #[test]
 fn keeps_closure_representation_for_first_class_top_level_functions() {
     let generated = emit(
-        "add :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) { left + right; };\n\
+        "add :: (Int64, Int64) -> Int64 := \\(left, right) { left + right; };\n\
          apply :: (((Int64, Int64) -> Int64), Int64, Int64) -> Int64 :=\n\
-           \\(operation :: (Int64, Int64) -> Int64, left :: Int64, right :: Int64) {\n\
+           \\(operation, left, right) {\n\
              operation(left, right);\n\
            };\n\
          main :: Unit -> Int32 := \\() { Int32(apply(add, 20i64, 22i64) - 42i64); };",
@@ -1154,7 +1154,7 @@ fn keeps_closure_representation_for_first_class_top_level_functions() {
 #[test]
 fn labels_generated_functions_with_top_level_source_bindings() {
     let generated = emit(
-        "double :: Int64 -> Int64 := \\(value :: Int64) { value * 2i64; };\n\
+        "double :: Int64 -> Int64 := \\(value) { value * 2i64; };\n\
          main :: Unit -> Int32 := \\() { Int32(double(21i64) - 42i64); };",
     )
     .expect("emit labeled functions");
@@ -1175,7 +1175,7 @@ fn labels_generated_functions_with_top_level_source_bindings() {
 fn destructures_product_atoms_without_copying_the_product() {
     let generated = emit(
         "Pair :: (Int64, Int64);\n\
-         sum :: Pair -> Int64 := \\(pair :: Pair) {\n\
+         sum :: Pair -> Int64 := \\(pair) {\n\
            (left, right) := pair;\n\
            left + right;\n\
          };\n\
@@ -1192,10 +1192,10 @@ fn destructures_product_atoms_without_copying_the_product() {
 #[test]
 fn passes_known_product_arguments_through_a_direct_entry() {
     let generated = emit(
-        "combine :: (Int64, Int64) -> Int64 := \\(left :: Int64, right :: Int64) {\n\
+        "combine :: (Int64, Int64) -> Int64 := \\(left, right) {\n\
            left + right;\n\
          };\n\
-         apply :: ((Int64, Int64) -> Int64) -> Int64 := \\(operation :: (Int64, Int64) -> Int64) {\n\
+         apply :: ((Int64, Int64) -> Int64) -> Int64 := \\(operation) {\n\
            operation(20i64, 22i64);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -1227,7 +1227,7 @@ fn passes_known_product_arguments_through_a_direct_entry() {
 #[test]
 fn transfers_owned_managed_products_through_a_direct_entry() {
     let generated = emit(
-        r#"join :: (Symbol, Symbol) -> Symbol := \(left :: Symbol, right :: Symbol) {
+        r#"join :: (Symbol, Symbol) -> Symbol := \(left, right) {
   left + right;
 };
 main :: Unit -> Int32 := \() {
@@ -1271,11 +1271,11 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn flattens_nested_products_only_at_known_call_entries() {
     let generated = emit(
-        "combine :: ((Int64, Int64), Int64) -> Int64 := \\(pair :: (Int64, Int64), extra :: Int64) {\n\
+        "combine :: ((Int64, Int64), Int64) -> Int64 := \\(pair, extra) {\n\
            (left, right) := pair;\n\
            left + right + extra;\n\
          };\n\
-         apply :: (((Int64, Int64), Int64) -> Int64) -> Int64 := \\(operation :: ((Int64, Int64), Int64) -> Int64) {\n\
+         apply :: (((Int64, Int64), Int64) -> Int64) -> Int64 := \\(operation) {\n\
            operation((20i64, 21i64), 1i64);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -1302,7 +1302,7 @@ fn keeps_large_product_calls_on_the_aggregate_fallback() {
         .collect::<Vec<_>>()
         .join(", ");
     let parameters = (0..17)
-        .map(|index| format!("value{index} :: Int64"))
+        .map(|index| format!("value{index}"))
         .collect::<Vec<_>>()
         .join(", ");
     let arguments = std::iter::repeat_n("0i64", 17)
@@ -1324,8 +1324,8 @@ fn keeps_large_product_calls_on_the_aggregate_fallback() {
 fn keeps_owned_large_products_on_an_aggregate_entry() {
     let mut types = vec!["Symbol"];
     types.extend(std::iter::repeat_n("Int64", 16));
-    let mut parameters = vec!["value :: Symbol".to_owned()];
-    parameters.extend((0..16).map(|index| format!("unused{index} :: Int64")));
+    let mut parameters = vec!["value".to_owned()];
+    parameters.extend((0..16).map(|index| format!("unused{index}")));
     let mut arguments = vec!["value".to_owned()];
     arguments.extend(std::iter::repeat_n("0i64".to_owned(), 16));
     let source = format!(
@@ -1363,7 +1363,7 @@ fn keeps_owned_large_products_on_an_aggregate_entry() {
 
 #[test]
 fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
-    let source = "count :: (Int64, Int64) -> Int64 := \\(remaining :: Int64, total :: Int64) {\n\
+    let source = "count :: (Int64, Int64) -> Int64 := \\(remaining, total) {\n\
            if (remaining == 0) then { total } else {\n\
              count(remaining - 1, total + 1)\n\
            };\n\
@@ -1387,7 +1387,7 @@ fn lowers_direct_tail_recursion_without_growing_the_c_stack() {
 #[test]
 fn lowers_managed_direct_tail_recursion_with_constant_stack() {
     let source = "extern input :: Unit -> Symbol;\n\
-         count :: (Symbol, Int64) -> UInt64 := \\(value :: Symbol, remaining :: Int64) {\n\
+         count :: (Symbol, Int64) -> UInt64 := \\(value, remaining) {\n\
            if (remaining == 0) then { #value } else {\n\
              count(value, remaining - 1)\n\
            };\n\
@@ -1424,7 +1424,7 @@ MalType_Symbol mal_ext_input(MalContext *context) {
 fn cleans_managed_case_bindings_on_direct_tail_edges() {
     let source = r#"Choice :: [Unit, Symbol];
 extern input :: Unit -> Symbol;
-walk :: (Choice, Int64) -> Symbol := \(choice :: Choice, remaining :: Int64) {
+walk :: (Choice, Int64) -> Symbol := \(choice, remaining) {
   case (choice)
     [0](_) { "empty" }
     [1](value) {
@@ -1466,7 +1466,7 @@ MalType_Symbol mal_ext_input(MalContext *context) {
 fn preserves_effect_order_before_a_direct_tail_call() {
     let output = compile_and_run(
         "extern step :: Int32 -> Int32;\n\
-         walk :: (Int32, Int32) -> Int32 := \\(remaining :: Int32, total :: Int32) {\n\
+         walk :: (Int32, Int32) -> Int32 := \\(remaining, total) {\n\
            if (remaining == 0) then { total } else {\n\
              walk(extern step(remaining), total + 1)\n\
            };\n\

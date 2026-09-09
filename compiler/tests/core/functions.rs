@@ -43,7 +43,7 @@ fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
 #[test]
 fn lowers_multiple_parameters_to_product_destructuring() {
     let program = lower_ok(
-        "add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+        "add :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right;\n\
          };\n\
          main :: Unit -> Int32 := \\() { add(20, 22); };",

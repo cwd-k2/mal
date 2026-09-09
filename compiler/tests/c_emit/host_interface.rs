@@ -5,7 +5,7 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     let source = "Request :: (Int32, (UInt8, Int32));\n\
          Response :: [Unit, (Int32, Int32)];\n\
          extern exchange :: Request -> Response;\n\
-         total :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+         total :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right - 42i32;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -331,7 +331,7 @@ fn preserves_duplicate_sum_members_by_tag() {
         "Pair :: (Int32, Int32);\n\
          Choice :: [Pair, Pair];\n\
          extern choose :: Unit -> Choice;\n\
-         difference :: Pair -> Int32 := \\(pair :: Pair) {\n\
+         difference :: Pair -> Int32 := \\(pair) {\n\
            (left, right) := pair;\n\
            left - right;\n\
          };\n\

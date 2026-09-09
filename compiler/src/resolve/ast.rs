@@ -178,7 +178,6 @@ pub struct Capture {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Parameter {
     pub binding: ValueBinding,
-    pub ty: Node<TypeExpression>,
     pub span: Span,
 }
 

@@ -4,7 +4,7 @@ use super::*;
 fn emits_uint64_literals_and_scalar_extern_abi() {
     let output = compile_and_run(
         "extern printUInt64 :: UInt64 -> Unit;\n\
-         capture :: UInt64 -> (Unit -> UInt64) := \\(value :: UInt64) {\n\
+         capture :: UInt64 -> (Unit -> UInt64) := \\(value) {\n\
            \\() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\

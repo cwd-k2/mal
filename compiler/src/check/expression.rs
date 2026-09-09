@@ -132,14 +132,21 @@ impl Checker {
         span: crate::source::Span,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        let expected_function = match expected {
+        let (expected_parameter, expected_result) = match expected {
             Some(Type::Function { parameter, result }) => {
-                Some((parameter.as_ref().clone(), result.as_ref().clone()))
+                (parameter.as_ref().clone(), result.as_ref().clone())
             }
             Some(other) => {
                 return Err(self.type_mismatch(other, &function_placeholder(), span));
             }
-            None => None,
+            None => {
+                return Err(
+                    Diagnostic::error("lambda requires an expected function type").with_primary(
+                        span,
+                        "add a function type annotation or use this lambda in a typed context",
+                    ),
+                );
+            }
         };
 
         let mut captures = Vec::with_capacity(lambda.captures.len());
@@ -153,9 +160,10 @@ impl Checker {
             });
         }
 
+        let parameter_types =
+            self.lambda_parameter_types(lambda.parameters.len(), &expected_parameter, span)?;
         let mut parameters = Vec::with_capacity(lambda.parameters.len());
-        for parameter in &lambda.parameters {
-            let ty = self.expand_type(&parameter.ty)?;
+        for (parameter, ty) in lambda.parameters.iter().zip(parameter_types) {
             self.values.insert(parameter.binding.id, ty.clone());
             parameters.push(Parameter {
                 binding: parameter.binding.clone(),
@@ -163,33 +171,14 @@ impl Checker {
                 span: parameter.span,
             });
         }
-        let parameter_type = parameters
-            .first()
-            .map_or(Type::Unit, |parameter| parameter.ty.clone());
-        let parameter_type = if parameters.len() > 1 {
-            Type::Product(
-                parameters
-                    .iter()
-                    .map(|parameter| parameter.ty.clone())
-                    .collect(),
-            )
-        } else {
-            parameter_type
-        };
-        if let Some((expected_parameter, _)) = &expected_function {
-            self.require_type(&parameter_type, expected_parameter, span)?;
-        }
-
         let mut items = Vec::with_capacity(lambda.body.items.len());
         for item in &lambda.body.items {
             items.push(self.check_body_item(item)?);
         }
-        let expected_result = expected_function.as_ref().map(|(_, result)| result);
-        let result = self.check_expression(&lambda.body.result, expected_result)?;
-        let result_type = result.ty.clone();
+        let result = self.check_expression(&lambda.body.result, Some(&expected_result))?;
         let ty = Type::Function {
-            parameter: Box::new(parameter_type),
-            result: Box::new(result_type),
+            parameter: Box::new(expected_parameter),
+            result: Box::new(expected_result),
         };
         Ok(Expression {
             kind: ExpressionKind::Lambda(Lambda {
@@ -206,6 +195,31 @@ impl Checker {
             ty,
             span,
         })
+    }
+
+    fn lambda_parameter_types(
+        &self,
+        count: usize,
+        expected: &Type,
+        span: crate::source::Span,
+    ) -> Result<Vec<Type>, Diagnostic> {
+        let types = match (count, expected) {
+            (0, Type::Unit) => Vec::new(),
+            (1, Type::Unit) | (0, _) => {
+                return Err(self.lambda_parameter_mismatch(expected, span));
+            }
+            (1, ty) => vec![ty.clone()],
+            (_, Type::Product(elements)) if count == elements.len() => elements.clone(),
+            _ => return Err(self.lambda_parameter_mismatch(expected, span)),
+        };
+        Ok(types)
+    }
+
+    fn lambda_parameter_mismatch(&self, expected: &Type, span: crate::source::Span) -> Diagnostic {
+        Diagnostic::error("lambda parameters do not match the expected function type").with_primary(
+            span,
+            format!("expected parameter type `{}`", type_name(expected)),
+        )
     }
 
     fn check_call(

@@ -23,7 +23,7 @@ fn rejects_mutual_recursion_as_a_forward_reference() {
 #[test]
 fn local_scope_can_shadow_predefined_and_outer_names() {
     let program = resolve_ok(
-        "main := \\(x :: Int32) {\n\
+        "main := \\(x) {\n\
            result := if (true) then {\n\
              x := 1;\n\
              false := x;\n\
@@ -53,7 +53,7 @@ fn branch_bindings_do_not_escape_their_expression_block() {
 fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     resolve_ok(
         "Choice :: [Unit, Int32];\n\
-         main := \\(value :: Choice) {\n\
+         main := \\(value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { local := item; local };\n\
@@ -62,7 +62,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
 
     let duplicate = resolve_error(
         "Choice :: [Unit, Int32];\n\
-         main := \\(value :: Choice) {\n\
+         main := \\(value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { item := 1; item };\n\

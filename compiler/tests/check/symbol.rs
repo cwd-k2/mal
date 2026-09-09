@@ -13,14 +13,14 @@ fn checks_symbol_literals_as_immutable_bytes() {
 #[test]
 fn checks_symbol_operators_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: Symbol -> UInt64 := \(value :: Symbol) { #value; };
-item :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
+        r#"length :: Symbol -> UInt64 := \(value) { #value; };
+item :: (Symbol, UInt64) -> UInt8 := \(value, index) {
   value # index;
 };
 same :: Unit -> Bool := \() { "a\0" == "a\x00"; };
 different :: Unit -> Bool := \() { "a" != "b"; };
 literal :: Unit -> UInt64 := \() { #"hoge" + UInt64("hoge" # 1); };
-concatenate :: (Symbol, Symbol) -> Symbol := \(left :: Symbol, right :: Symbol) {
+concatenate :: (Symbol, Symbol) -> Symbol := \(left, right) {
   left + right;
 };"#,
     );
@@ -57,7 +57,7 @@ concatenate :: (Symbol, Symbol) -> Symbol := \(left :: Symbol, right :: Symbol) 
 #[test]
 fn rejects_unsupported_or_mistyped_symbol_operations() {
     for text in [
-        r#"bad := \() { "a" + 1; };"#,
+        r#"bad := "a" + 1;"#,
         r#"bad := "a" < "b";"#,
         r#"bad := #1;"#,
         r#"bad := "a" # 0u8;"#,

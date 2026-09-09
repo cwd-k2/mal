@@ -37,8 +37,8 @@ fn function(program: &closure::ast::Program, id: closure::ast::FunctionId) -> &F
 #[test]
 fn lifts_capturing_lambdas_and_materializes_their_environment() {
     let program = convert_ok(
-        "makeAdder :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\(y :: Int32) { x + y; };\n\
+        "makeAdder :: Int32 -> (Int32 -> Int32) := \\(x) {\n\
+           \\(y) { x + y; };\n\
          };",
     );
     let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
@@ -78,7 +78,7 @@ fn lifts_capturing_lambdas_and_materializes_their_environment() {
 #[test]
 fn forwards_an_inferred_capture_through_every_lifted_function() {
     let program = convert_ok(
-        "outer :: Int32 -> (Unit -> (Unit -> Int32)) := \\(x :: Int32) {\n\
+        "outer :: Int32 -> (Unit -> (Unit -> Int32)) := \\(x) {\n\
            \\() {\n\
              \\() { x; };\n\
            };\n\
@@ -124,7 +124,7 @@ fn forwards_an_inferred_capture_through_every_lifted_function() {
 #[test]
 fn represents_capture_free_closures_without_environment_fields() {
     let program = convert_ok(
-        "identity :: Int32 -> Int32 := \\(value :: Int32) { value; };\n\
+        "identity :: Int32 -> Int32 := \\(value) { value; };\n\
          main :: Unit -> Int32 := \\() { identity(5); };",
     );
     assert_eq!(program.functions.len(), 2);
@@ -145,7 +145,7 @@ fn represents_capture_free_closures_without_environment_fields() {
 #[test]
 fn preserves_primitive_branches_while_lifting_functions() {
     let program = convert_ok(
-        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+        "choose :: Int32 -> Int32 := \\(value) {\n\
            if (value >= 0) then { value } else { 0 - value };\n\
          };",
     );
@@ -161,7 +161,7 @@ fn preserves_primitive_branches_while_lifting_functions() {
 fn represents_local_self_references_with_the_current_closure() {
     let program = convert_ok(
         "main :: Unit -> Int32 := \\() {\n\
-           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
+           local :: Int32 -> Int32 := \\(n) {\n\
              if (n == 0) then { 0 } else { local(n - 1) };\n\
            };\n\
            local(3);\n\

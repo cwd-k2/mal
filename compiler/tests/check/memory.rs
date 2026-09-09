@@ -4,7 +4,7 @@ use super::*;
 fn checks_ptr_extern_signatures_and_memory_primitives() {
     let program = check_ok(
         "extern memory :: Unit -> Ptr;\n\
-         useMemory :: Ptr -> UInt8 := \\(pointer :: Ptr) {\n\
+         useMemory :: Ptr -> UInt8 := \\(pointer) {\n\
            slot := pointer + 8u64;\n\
            Int64.store(slot, 42i64);\n\
            value := Int64.load(slot);\n\
@@ -33,7 +33,7 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
 #[test]
 fn checks_memory_primitives_for_every_supported_value_type() {
     let program = check_ok(
-        "useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
+        "useMemory :: Ptr -> Unit := \\(pointer) {\n\
            Int8.store(pointer, Int8.load(pointer));\n\
            Int16.store(pointer, Int16.load(pointer));\n\
            Int32.store(pointer, Int32.load(pointer));\n\
@@ -140,7 +140,7 @@ fn rejects_unknown_or_mismatched_memory_primitive_members() {
 
 #[test]
 fn rejects_calling_size_as_a_function() {
-    let error = check_error("value := \\() { UInt8.size(); };");
+    let error = check_error("value :: UInt64 := UInt8.size();");
     assert_eq!(error.message, "cannot call a non-function value");
     assert!(error.primary.is_some());
 }
@@ -148,15 +148,15 @@ fn rejects_calling_size_as_a_function() {
 #[test]
 fn rejects_mistyped_memory_operations() {
     for text in [
-        "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + 1i64; };",
-        "bad := \\() { Int64.load(0u64); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { UInt8.store(extern memory(), 1u64); (); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { Ptr.store(extern memory(), 1u64); (); };",
-        "bad := \\() { Symbol.read(0u64, 1u64); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { Symbol.write(extern memory(), 1u64); (); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { 1u64 + extern memory(); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { extern memory() + extern memory(); };",
-        "extern memory :: Unit -> Ptr; bad := \\() { 1u64 - extern memory(); };",
+        "extern memory :: Unit -> Ptr; bad := extern memory() + 1i64;",
+        "bad := Int64.load(0u64);",
+        "extern memory :: Unit -> Ptr; bad := UInt8.store(extern memory(), 1u64);",
+        "extern memory :: Unit -> Ptr; bad := Ptr.store(extern memory(), 1u64);",
+        "bad := Symbol.read(0u64, 1u64);",
+        "extern memory :: Unit -> Ptr; bad := Symbol.write(extern memory(), 1u64);",
+        "extern memory :: Unit -> Ptr; bad := 1u64 + extern memory();",
+        "extern memory :: Unit -> Ptr; bad := extern memory() + extern memory();",
+        "extern memory :: Unit -> Ptr; bad := 1u64 - extern memory();",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

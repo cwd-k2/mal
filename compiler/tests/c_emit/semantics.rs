@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn traps_when_a_closure_environment_cannot_be_allocated() {
     let generated = emit(
-        "makeClosure :: Int32 -> (Unit -> Int32) := \\(value :: Int32) {\n\
+        "makeClosure :: Int32 -> (Unit -> Int32) := \\(value) {\n\
            \\() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() { makeClosure(7)(); };",
@@ -24,7 +24,7 @@ fn traps_when_a_closure_environment_cannot_be_allocated() {
 fn preserves_short_circuit_and_eager_bool_equality_order() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
-         marked :: Int32 -> Bool := \\(value :: Int32) {\n\
+         marked :: Int32 -> Bool := \\(value) {\n\
            extern printInt32(value);\n\
            value == 1;\n\
          };\n\
@@ -43,7 +43,7 @@ fn preserves_short_circuit_and_eager_bool_equality_order() {
 #[test]
 fn emits_direct_comparison_conditions_without_tagged_bool_values() {
     let generated = emit(
-        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+        "choose :: Int32 -> Int32 := \\(value) {\n\
            if (value < 10) then { 42 } else { value };\n\
          };\n\
          main :: Unit -> Int32 := \\() { choose(9) - 42; };",
@@ -131,7 +131,7 @@ fn executes_nested_products_destructuring_and_multiple_arguments() {
     let output = compile_and_run(
         "extern mark :: Int32 -> Int32;\n\
          pair :: (Int32, Int32) := (20i32, 22i32);\n\
-         add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+         add :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -227,7 +227,7 @@ fn executes_sum_injection_and_case() {
     let output = compile_and_run(
         "Maybe :: [Unit, Int32];\n\
          extern printInt32 :: Int32 -> Unit;\n\
-         get :: Maybe -> Int32 := \\(value :: Maybe) {\n\
+         get :: Maybe -> Int32 := \\(value) {\n\
            case (value)\n\
              [0](_) { extern printInt32(100); 0 }\n\
              [1](item) { doubled := item + item; extern printInt32(doubled); doubled };\n\
@@ -310,7 +310,7 @@ fn rejects_invalid_executable_programs() {
             .contains("has no")
     );
     assert!(
-        emit("main :: Int32 -> Int32 := \\(value :: Int32) { value; };")
+        emit("main :: Int32 -> Int32 := \\(value) { value; };")
             .unwrap_err()
             .message
             .contains("wrong type")
@@ -321,11 +321,11 @@ fn rejects_invalid_executable_programs() {
 fn admits_process_arguments_as_symbols() {
     let generated = emit(
         "Arguments :: (UInt64, Ptr);\n\
-         argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments :: Ptr, index :: UInt64) {\n\
+         argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments, index) {\n\
            slot := arguments + index * (Ptr.size + UInt64.size);\n\
            Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
          };\n\
-         main :: Arguments -> Int32 := \\(count :: UInt64, arguments :: Ptr) {\n\
+         main :: Arguments -> Int32 := \\(count, arguments) {\n\
            first := argumentAt(arguments, 0u64);\n\
            second := argumentAt(arguments, 1u64);\n\
            if (count == 2u64 && first == \"alpha\" && second == \"\")\n\

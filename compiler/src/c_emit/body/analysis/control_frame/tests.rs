@@ -9,9 +9,9 @@ fn validates_exact_frame_closure_and_arena_sets() {
     let source = SourceFile::new(
         FileId::new(72),
         "control-frame-validation.mal",
-        "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, prefix :: Symbol) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth, prefix) {\n\
            if (depth == 0i32) then { prefix } else {\n\
-             append := \\(suffix :: Symbol) { prefix + suffix; };\n\
+             append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
              child := walk(depth - 1i32, prefix);\n\
              append(child);\n\
            };\n\

@@ -4,7 +4,7 @@ use super::*;
 fn emits_static_symbol_bytes_that_survive_closure_escape() {
     let output = compile_and_run(
         r#"extern inspect :: Symbol -> Unit;
-make :: Symbol -> (Unit -> Symbol) := \(value :: Symbol) {
+make :: Symbol -> (Unit -> Symbol) := \(value) {
   \() { value; };
 };
 main :: Unit -> Int32 := \() {
@@ -80,7 +80,7 @@ fn concatenates_symbols_as_immutable_bytes() {
 #[test]
 fn releases_function_local_symbols_before_the_next_call() {
     let generated = emit(
-        r#"measure :: Symbol -> UInt64 := \(suffix :: Symbol) {
+        r#"measure :: Symbol -> UInt64 := \(suffix) {
   value := "prefix" + suffix;
   #value;
 };
@@ -112,10 +112,10 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn retains_returned_and_captured_symbols_until_their_owners_are_destroyed() {
     let generated = emit(
-        r#"make :: Symbol -> Symbol := \(suffix :: Symbol) {
+        r#"make :: Symbol -> Symbol := \(suffix) {
   "prefix" + suffix;
 };
-hold :: Symbol -> (Unit -> Symbol) := \(suffix :: Symbol) {
+hold :: Symbol -> (Unit -> Symbol) := \(suffix) {
   value := make(suffix);
   \() { value; };
 };
@@ -155,26 +155,26 @@ main :: Unit -> Int32 := \() {
 fn transfers_only_last_owned_uses_through_aliases_branches_and_tail_edges() {
     let generated = emit(
         r#"extern inspect :: Symbol -> Unit;
-keepAlias :: Symbol -> Symbol := \(suffix :: Symbol) {
+keepAlias :: Symbol -> Symbol := \(suffix) {
   owned := "prefix" + suffix;
   alias := owned;
   extern inspect(owned);
   alias;
 };
-keepShared :: Symbol -> (Symbol, Symbol) := \(suffix :: Symbol) {
+keepShared :: Symbol -> (Symbol, Symbol) := \(suffix) {
   owned := "shared" + suffix;
   alias := owned;
   extended := owned + "x";
   (alias, extended);
 };
-duplicate :: Symbol -> Symbol := \(value :: Symbol) { value + value };
-choose :: (Bool, Symbol) -> Symbol := \(condition :: Bool, suffix :: Symbol) {
+duplicate :: Symbol -> Symbol := \(value) { value + value };
+choose :: (Bool, Symbol) -> Symbol := \(condition, suffix) {
   owned := "branch" + suffix;
   if (condition)
   then { selected := owned; selected }
   else { selected := owned; selected };
 };
-grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+grow :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   if (remaining == 0)
   then { value }
   else { grow(value + "x", remaining - 1) };
@@ -240,10 +240,10 @@ void mal_ext_inspect(MalContext *context, MalType_Symbol value) {
 fn retains_only_the_active_managed_sum_payload() {
     let generated = emit(
         r#"Choice :: [Unit, Symbol];
-make :: Symbol -> Choice := \(suffix :: Symbol) {
+make :: Symbol -> Choice := \(suffix) {
   Choice[1]("prefix" + suffix);
 };
-read :: Choice -> Symbol := \(choice :: Choice) {
+read :: Choice -> Symbol := \(choice) {
   case (choice)
     [0](_) { "empty" }
     [1](value) { value };
@@ -314,7 +314,7 @@ fn traps_symbol_concatenation_allocation_failure() {
 #[test]
 fn grows_a_consumed_symbol_with_bounded_allocation_operations() {
     let generated = emit(
-        r#"grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+        r#"grow :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   if (remaining == 0)
   then { value }
   else { grow(value + "x", remaining - 1) };
@@ -345,7 +345,7 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn prepends_into_a_consumed_flat_symbol_with_bounded_allocations() {
     let generated = emit(
-        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
   if (remaining == 0)
   then { value }
   else { grow(remaining - 1, "x" + value) };
@@ -385,13 +385,13 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn transfers_symbol_arguments_through_known_helper_calls() {
     let generated = emit(
-        r#"inner :: Symbol -> Symbol := \(value :: Symbol) {
+        r#"inner :: Symbol -> Symbol := \(value) {
   "x" + value;
 };
-outer :: Symbol -> Symbol := \(value :: Symbol) {
+outer :: Symbol -> Symbol := \(value) {
   inner(value);
 };
-grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
   if (remaining == 0)
   then { value }
   else { grow(remaining - 1, outer(value)) };
@@ -430,8 +430,8 @@ main :: Unit -> Int32 := \() {
 fn balances_shared_rope_concatenations_before_materialization() {
     let base = "a".repeat(300);
     let source = format!(
-        "prepend :: Symbol -> Symbol := \\(value :: Symbol) {{ \"x\" + value }};\n\
-         grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
+        "prepend :: Symbol -> Symbol := \\(value) {{ \"x\" + value }};\n\
+         grow :: (Int64, Symbol) -> Symbol := \\(remaining, value) {{\n\
            if (remaining == 0)\n\
            then {{ value }}\n\
            else {{\n\
@@ -476,16 +476,16 @@ fn balances_shared_rope_concatenations_before_materialization() {
 fn balances_mixed_shared_rope_growth_and_joins() {
     let base = "a".repeat(300);
     let source = format!(
-        "prepend :: Symbol -> Symbol := \\(value :: Symbol) {{ \"l\" + value }};\n\
-         append :: Symbol -> Symbol := \\(value :: Symbol) {{ value + \"r\" }};\n\
-         step :: Symbol -> Symbol := \\(value :: Symbol) {{\n\
+        "prepend :: Symbol -> Symbol := \\(value) {{ \"l\" + value }};\n\
+         append :: Symbol -> Symbol := \\(value) {{ value + \"r\" }};\n\
+         step :: Symbol -> Symbol := \\(value) {{\n\
            prefixed := prepend(value);\n\
            if (#value == 0u64) then {{ append(prefixed) }} else {{ append(prefixed) }};\n\
          }};\n\
-         grow :: (Int64, Symbol) -> Symbol := \\(remaining :: Int64, value :: Symbol) {{\n\
+         grow :: (Int64, Symbol) -> Symbol := \\(remaining, value) {{\n\
            if (remaining == 0) then {{ value }} else {{ grow(remaining - 1, step(value)) }};\n\
          }};\n\
-         join :: (Symbol, Symbol) -> Symbol := \\(left :: Symbol, right :: Symbol) {{ left + right }};\n\
+         join :: (Symbol, Symbol) -> Symbol := \\(left, right) {{ left + right }};\n\
          main :: Unit -> Int32 := \\() {{\n\
            left := grow(2000i64, \"{base}\");\n\
            right := grow(2000i64, \"{base}\");\n\
@@ -519,7 +519,7 @@ fn shares_repeated_subtrees_in_deeply_nested_symbol_calls() {
         expression = format!("twice({expression}, \"\")");
     }
     let source = format!(
-        "twice :: (Symbol, Symbol) -> Symbol := \\(a :: Symbol, b :: Symbol) {{ a + a + b + b }};\n\
+        "twice :: (Symbol, Symbol) -> Symbol := \\(a, b) {{ a + a + b + b }};\n\
          main :: Unit -> Int32 := \\() {{\n\
            value := {expression};\n\
            if ((#value == 262144u64) && (value # 0u64 == 'a') &&\n\
@@ -548,7 +548,7 @@ fn shares_repeated_subtrees_in_deeply_nested_symbol_calls() {
 #[test]
 fn preserves_bytes_when_switching_between_prepend_and_append_reuse() {
     let generated = emit(
-        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+        r#"grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
   if (remaining == 0)
   then { value + "tail" }
   else { grow(remaining - 1, "x" + value) };
@@ -605,10 +605,10 @@ fn materializes_rope_bytes_recursively_at_the_host_boundary() {
         r#"Choice :: [Unit, Symbol];
 Envelope :: (Symbol, Choice);
 extern inspect :: Envelope -> UInt64;
-prepend :: Symbol -> Symbol := \(value :: Symbol) {
+prepend :: Symbol -> Symbol := \(value) {
   "x" + value;
 };
-grow :: (Int64, Symbol) -> Symbol := \(remaining :: Int64, value :: Symbol) {
+grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
   if (remaining == 0)
   then { value }
   else {
@@ -665,8 +665,8 @@ MAL_DEFINE_inspect(context, direct, choice) {
 fn reports_materialization_failure_before_calling_the_host() {
     let generated = emit(
         r#"extern inspect :: Symbol -> Unit;
-prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
-grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+prepend :: Symbol -> Symbol := \(value) { "x" + value };
+grow :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   if (remaining == 0)
   then { value }
   else {
@@ -706,7 +706,7 @@ MAL_DEFINE_inspect(context, value) {
 #[test]
 fn traps_when_a_consumed_symbol_cannot_be_reallocated() {
     let generated = emit(
-        r#"appendTwice :: Symbol -> Symbol := \(value :: Symbol) {
+        r#"appendTwice :: Symbol -> Symbol := \(value) {
   first := value + "b";
   first + "c";
 };
@@ -727,7 +727,7 @@ main :: Unit -> Int32 := \() { appendTwice("a"); 0; };"#,
 #[test]
 fn traps_when_a_consumed_symbol_cannot_be_reallocated_for_prepend() {
     let generated = emit(
-        r#"prependTwice :: Symbol -> Symbol := \(value :: Symbol) {
+        r#"prependTwice :: Symbol -> Symbol := \(value) {
   first := "b" + value;
   "c" + first;
 };

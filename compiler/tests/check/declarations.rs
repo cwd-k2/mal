@@ -30,7 +30,7 @@ fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
 fn expands_aliases_and_compares_types_structurally() {
     let program = check_ok(
         "Flag :: [Unit, Unit];\n\
-         choose :: Flag -> Int32 := \\(flag :: Bool) {\n\
+         choose :: Flag -> Int32 := \\(flag) {\n\
            if (flag) then { 1 } else { 0 };\n\
          };",
     );

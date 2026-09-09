@@ -30,7 +30,7 @@ main :: Unit -> Int32 := \() { extern output(extern input() >> 1i64); 0 };"#,
 fn tracks_flat_symbol_scan_cost_and_keeps_an_optimized_ir_fixture() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
-scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, index :: UInt64, total :: UInt64) {
+scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value, index, total) {
   if (index == #value)
   then { total }
   else { scan(value, index + 1u64, total + UInt64(value # index)) };
@@ -134,7 +134,7 @@ fn borrows_a_fresh_symbol_through_an_ephemeral_access_product() {
 #[test]
 fn passes_unmanaged_ephemeral_products_directly_to_known_calls() {
     let generated = emit(
-        r#"add :: (Int64, Int64) -> Int64 := \(left :: Int64, right :: Int64) { left + right };
+        r#"add :: (Int64, Int64) -> Int64 := \(left, right) { left + right };
 main :: Unit -> Int32 := \() { Int32(add(20i64, 22i64) - 42i64) };"#,
     )
     .expect("emit an ephemeral known-call product");
@@ -172,7 +172,7 @@ fn projects_ephemeral_product_fields_without_storing_the_product() {
 fn tracks_rope_symbol_scan_cost() {
     let chunk = "a".repeat(300);
     let source = format!(
-        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, index :: UInt64, total :: UInt64) {{
+        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value, index, total) {{
   if (index == #value)
   then {{ total }}
   else {{ scan(value, index + 1u64, total + UInt64(value # index)) }};
@@ -215,7 +215,7 @@ fn seeks_and_advances_a_rope_cursor_across_nonlocal_indices() {
     let left = "a".repeat(300);
     let right = "b".repeat(300);
     let source = format!(
-        r#"probe :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, step :: UInt64, total :: UInt64) {{
+        r#"probe :: (Symbol, UInt64, UInt64) -> UInt64 := \(value, step, total) {{
   if (step == 4u64)
   then {{ total }}
   else {{
@@ -259,7 +259,7 @@ main :: Unit -> Int32 := \() {{
 #[test]
 fn falls_back_when_a_tail_edge_replaces_the_indexed_symbol() {
     let generated = emit(
-        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value :: Symbol, remaining :: UInt64, total :: UInt64) {
+        r#"scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value, remaining, total) {
   if (remaining == 0u64)
   then { total }
   else { byte := value # 0u64; scan(value + "x", remaining - 1u64, total + UInt64(byte)); };
@@ -284,9 +284,9 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn compares_rope_symbols_without_materialization() {
     let expected = format!("{}abcdefghijklmnopqrstuvwxyz", "x".repeat(300));
-    let source = r#"prependX :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
-prependY :: Symbol -> Symbol := \(value :: Symbol) { "y" + value };
-growX :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+    let source = r#"prependX :: Symbol -> Symbol := \(value) { "x" + value };
+prependY :: Symbol -> Symbol := \(value) { "y" + value };
+growX :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   if (remaining == 0)
   then { value }
   else {
@@ -296,7 +296,7 @@ growX :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
     else { growX(next, remaining - 1) };
   };
 };
-growY :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+growY :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   if (remaining == 0)
   then { value }
   else {
@@ -306,7 +306,7 @@ growY :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
     else { growY(next, remaining - 1) };
   };
 };
-duplicate :: Symbol -> Symbol := \(value :: Symbol) { value + value };
+duplicate :: Symbol -> Symbol := \(value) { value + value };
 main :: Unit -> Int32 := \() {
   left := growX("abcdefghijklmnopqrstuvwxyz", 300i64);
   equal := growX("abcdefghijklmnopqrstuvwxyz", 300i64);
@@ -359,7 +359,7 @@ main :: Unit -> Int32 := \() {
 fn tracks_transient_host_symbol_admission_cost() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
-read :: (Int64, UInt64) -> UInt64 := \(remaining :: Int64, total :: UInt64) {
+read :: (Int64, UInt64) -> UInt64 := \(remaining, total) {
   if (remaining == 0)
   then { total }
   else {
@@ -393,7 +393,7 @@ main :: Unit -> Int32 := \() {
 fn tracks_managed_aggregate_tail_state_cost() {
     let generated = emit(
         r#"State :: (Symbol, Symbol, Int64);
-walk :: State -> Symbol := \(left :: Symbol, right :: Symbol, remaining :: Int64) {
+walk :: State -> Symbol := \(left, right, remaining) {
   if (remaining == 0)
   then { left + right }
   else { walk(left, right, remaining - 1) };
@@ -439,7 +439,7 @@ main :: Unit -> Int32 := \() {
 fn keeps_nested_parameter_bindings_in_separate_tail_slots() {
     let generated = emit(
         r#"Nested :: (Symbol, Int64);
-walk :: (Nested, Int64) -> Symbol := \(state :: Nested, remaining :: Int64) {
+walk :: (Nested, Int64) -> Symbol := \(state, remaining) {
   (value, _) := state;
   if (remaining == 0)
   then { value }
@@ -468,10 +468,10 @@ main :: Unit -> Int32 := \() {
 fn borrows_invariant_nested_tail_fields_through_known_calls() {
     let generated = emit(
         r#"Nested :: (Symbol, UInt64);
-byteAt :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
+byteAt :: (Symbol, UInt64) -> UInt8 := \(value, index) {
   value # index
 };
-scan :: (Nested, UInt64, UInt64) -> UInt64 := \(state :: Nested, index :: UInt64, total :: UInt64) {
+scan :: (Nested, UInt64, UInt64) -> UInt64 := \(state, index, total) {
   (value, length) := state;
   if (index == length)
   then { total }
@@ -509,10 +509,10 @@ main :: Unit -> Int32 := \() {
 fn borrows_invariant_managed_tail_slots_through_known_calls() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
-inputByte :: (Symbol, UInt64) -> UInt8 := \(value :: Symbol, index :: UInt64) {
+inputByte :: (Symbol, UInt64) -> UInt8 := \(value, index) {
   value # index
 };
-scan :: (Symbol, UInt64, UInt64, UInt64) -> UInt64 := \(value :: Symbol, length :: UInt64, index :: UInt64, total :: UInt64) {
+scan :: (Symbol, UInt64, UInt64, UInt64) -> UInt64 := \(value, length, index, total) {
   if (index == length)
   then { total }
   else { scan(value, length, index + 1u64, total + UInt64(inputByte(value, index))) };
@@ -548,7 +548,7 @@ main :: Unit -> Int32 := \() {
 #[test]
 fn copies_a_borrowed_direct_parameter_when_it_escapes() {
     let generated = emit(
-        r#"first :: (Symbol, Int64) -> Symbol := \(value :: Symbol, ignored :: Int64) { value };
+        r#"first :: (Symbol, Int64) -> Symbol := \(value, ignored) { value };
 main :: Unit -> Int32 := \() {
   value := "a" + "b";
   result := first(value, 0i64);

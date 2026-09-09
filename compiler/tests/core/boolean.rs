@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn lowers_if_to_false_then_true_case_arms() {
     let program = lower_ok(
-        "choose :: Bool -> Int32 := \\(flag :: Bool) {\n\
+        "choose :: Bool -> Int32 := \\(flag) {\n\
            if (flag) then { value :: Int32 := 1; value } else { 0 };\n\
          };",
     );
@@ -18,7 +18,7 @@ fn lowers_if_to_false_then_true_case_arms() {
 #[test]
 fn lowers_direct_comparison_conditions_without_materializing_bool() {
     let program = lower_ok(
-        "choose :: Int32 -> Int32 := \\(value :: Int32) {\n\
+        "choose :: Int32 -> Int32 := \\(value) {\n\
            if (value < 10) then { 1 } else { 2 };\n\
          };",
     );
@@ -41,7 +41,7 @@ fn lowers_direct_comparison_conditions_without_materializing_bool() {
 fn lowers_short_circuit_operators_without_eager_right_evaluation() {
     let and_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
-         test :: Bool -> Bool := \\(flag :: Bool) {\n\
+         test :: Bool -> Bool := \\(flag) {\n\
            flag && extern observe(flag);\n\
          };",
     );
@@ -55,7 +55,7 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
 
     let or_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
-         test :: Bool -> Bool := \\(flag :: Bool) {\n\
+         test :: Bool -> Bool := \\(flag) {\n\
            flag || extern observe(flag);\n\
          };",
     );
@@ -71,7 +71,7 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
 #[test]
 fn removes_logical_not_but_retains_typed_numeric_primitives() {
     let program = lower_ok(
-        "test :: Int32 -> Bool := \\(value :: Int32) {\n\
+        "test :: Int32 -> Bool := \\(value) {\n\
            !(value + 1 < 3);\n\
          };",
     );

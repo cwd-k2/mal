@@ -12,7 +12,7 @@ fn rejects_binding_and_block_result_type_mismatches() {
 #[test]
 fn checks_function_application_and_zero_argument_unit_lowering() {
     let program = check_ok(
-        "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
+        "identity :: Int32 -> Int32 := \\(x) { x; };\n\
          thunk :: Unit -> Int32 := \\() { identity(4); };\n\
          caller :: Unit -> Int32 := \\() { thunk(); };",
     );
@@ -26,7 +26,7 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
 
     assert_eq!(
         check_error(
-            "identity :: Int32 -> Int32 := \\(x :: Int32) { x; };\n\
+            "identity :: Int32 -> Int32 := \\(x) { x; };\n\
              bad :: Int32 := identity();"
         )
         .message,
@@ -48,7 +48,7 @@ fn checks_products_destructuring_and_multiple_parameters() {
     let program = check_ok(
         "Pair :: (Int32, UInt8);\n\
          pair :: Pair := (1, 2);\n\
-         add :: (Int32, Int32) -> Int32 := \\(left :: Int32, right :: Int32) {\n\
+         add :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -83,11 +83,11 @@ fn checks_products_destructuring_and_multiple_parameters() {
 #[test]
 fn checks_top_level_and_local_self_recursion_against_the_annotation() {
     let program = check_ok(
-        "count :: Int64 -> Int64 := \\(n :: Int64) {\n\
+        "count :: Int64 -> Int64 := \\(n) {\n\
            if (n == 0) then { 0 } else { count(n - 1) };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           local :: Int32 -> Int32 := \\(n :: Int32) {\n\
+           local :: Int32 -> Int32 := \\(n) {\n\
              if (n == 0) then { 0 } else { local(n - 1) };\n\
            };\n\
            local(10);\n\
@@ -103,16 +103,41 @@ fn checks_top_level_and_local_self_recursion_against_the_annotation() {
 }
 
 #[test]
-fn rejects_recursive_lambda_that_disagrees_with_its_annotation() {
-    let error = check_error("looping :: Int32 -> Int32 := \\(n :: Int64) { looping(n); };");
-    assert_eq!(error.message, "type mismatch");
+fn requires_an_expected_function_type_and_matching_parameter_shape() {
+    assert_eq!(
+        check_error("identity := \\(value) { value; };").message,
+        "lambda requires an expected function type"
+    );
+    for text in [
+        "bad :: Unit -> Unit := \\(value) { (); };",
+        "bad :: Int32 -> Int32 := \\() { 0; };",
+        "bad :: (Int32, Int32) -> Int32 := \\(left, middle, right) { left; };",
+    ] {
+        assert_eq!(
+            check_error(text).message,
+            "lambda parameters do not match the expected function type",
+            "input: {text}"
+        );
+    }
+}
+
+#[test]
+fn checks_a_lambda_from_an_application_context() {
+    check_ok(
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(function, value) {
+         function(value);
+         };
+         main :: Unit -> Int32 := \\() {
+           apply(\\(value) { value + 1; }, 41);
+         };",
+    );
 }
 
 #[test]
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
-        "make :: Int32 -> (Int32 -> Int32) := \\(x :: Int32) {\n\
-           \\(y :: Int32) { x + y; };\n\
+        "make :: Int32 -> (Int32 -> Int32) := \\(x) {\n\
+           \\(y) { x + y; };\n\
          };",
     );
     let ExpressionKind::Lambda(outer) = &top_binding(&program, 0).value.kind else {

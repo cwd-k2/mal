@@ -149,7 +149,7 @@ fn rejects_decimal_float_literals_above_the_finite_range() {
 #[test]
 fn checks_float_arithmetic_comparison_and_negation() {
     let program = check_ok(
-        "calculate :: Float32 -> Bool := \\(value :: Float32) {\n\
+        "calculate :: Float32 -> Bool := \\(value) {\n\
            negative := -value;\n\
            result := (negative + 2.0f32) * 3.0f32 / 4.0f32;\n\
            result >= 0.0f32 && result != value;\n\
@@ -171,7 +171,7 @@ fn checks_float_arithmetic_comparison_and_negation() {
 #[test]
 fn checks_int32_and_bool_operator_families() {
     let program = check_ok(
-        "predicate :: Int32 -> Bool := \\(x :: Int32) {\n\
+        "predicate :: Int32 -> Bool := \\(x) {\n\
            !(x + 1 < 2) || false && (x == 0);\n\
          };",
     );
@@ -181,7 +181,7 @@ fn checks_int32_and_bool_operator_families() {
     assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
 
     assert_eq!(
-        check_error("bad :: Int32 -> Int32 := \\(x :: Int32) { x + true; };").message,
+        check_error("bad :: Int32 -> Int32 := \\(x) { x + true; };").message,
         "type mismatch"
     );
 }
@@ -192,10 +192,10 @@ fn checks_integer_operators_for_every_fixed_width_type() {
         "Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
     ] {
         check_ok(&format!(
-            "compute :: {name} -> {name} := \\(x :: {name}) {{\n\
+            "compute :: {name} -> {name} := \\(x) {{\n\
                ((~x + 1) * 2 - 1) / 1 % 1 << 0 >> 0 & x | x ^ x;\n\
              }};\n\
-             compare :: {name} -> Bool := \\(x :: {name}) {{\n\
+             compare :: {name} -> Bool := \\(x) {{\n\
                x < x || x <= x || x > x || x >= x || x == x || x != x;\n\
              }};"
         ));

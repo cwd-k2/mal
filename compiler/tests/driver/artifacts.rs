@@ -232,13 +232,13 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
     );
     directory.write(
         "left.mal",
-        "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1 };\n\
-         left :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := \\(x) { x + 1 };\n\
+         left :: Int32 -> Int32 := \\(x) { _helper(x) };",
     );
     directory.write(
         "right.mal",
-        "_helper :: Int32 -> Int32 := \\(x :: Int32) { x + 1 };\n\
-         right :: Int32 -> Int32 := \\(x :: Int32) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := \\(x) { x + 1 };\n\
+         right :: Int32 -> Int32 := \\(x) { _helper(x) };",
     );
     let executable = directory.join("program");
 

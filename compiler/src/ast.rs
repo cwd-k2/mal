@@ -136,7 +136,6 @@ pub struct Lambda {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Parameter {
     pub name: Name,
-    pub ty: Node<TypeExpression>,
     pub span: Span,
 }
 

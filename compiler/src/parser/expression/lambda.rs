@@ -26,13 +26,7 @@ impl Parser<'_> {
 
     fn parse_parameter(&mut self) -> Result<Parameter, Diagnostic> {
         let name = self.parse_name(&TokenKind::ValueIdentifier, "a parameter name")?;
-        let start = name.span.start();
-        self.expect(&TokenKind::DoubleColon, "`::`")?;
-        let ty = self.parse_type()?;
-        Ok(Parameter {
-            name,
-            span: self.span(start, ty.span.end()),
-            ty,
-        })
+        let span = name.span;
+        Ok(Parameter { name, span })
     }
 }

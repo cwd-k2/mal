@@ -49,7 +49,7 @@ fn preserves_symbol_literals_and_resolves_the_predefined_type() {
 fn resolves_memory_primitives_and_the_ptr_type() {
     let program = resolve_ok(
         "extern memory :: Unit -> Ptr;\n\
-         useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
+         useMemory :: Ptr -> Unit := \\(pointer) {\n\
            next := pointer + 8u64;\n\
            value := Int64.load(next);\n\
            Int64.store(next, value);\n\

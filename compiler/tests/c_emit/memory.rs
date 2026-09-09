@@ -87,10 +87,10 @@ fn executes_first_class_memory_functions_through_closure_calls() {
     let source = "Reader :: Ptr -> Int64;\n\
          Writer :: (Ptr, Int64) -> Unit;\n\
          extern memory :: Unit -> Ptr;\n\
-         readWith :: (Reader, Ptr) -> Int64 := \\(reader :: Reader, pointer :: Ptr) {\n\
+         readWith :: (Reader, Ptr) -> Int64 := \\(reader, pointer) {\n\
            reader(pointer);\n\
          };\n\
-         writeWith :: (Writer, Ptr, Int64) -> Unit := \\(writer :: Writer, pointer :: Ptr, value :: Int64) {\n\
+         writeWith :: (Writer, Ptr, Int64) -> Unit := \\(writer, pointer, value) {\n\
            writer(pointer, value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\

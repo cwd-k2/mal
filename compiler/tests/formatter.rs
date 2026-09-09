@@ -10,13 +10,12 @@ fn format(text: &str) -> String {
 
 #[test]
 fn formats_spacing_and_blocks_canonically() {
-    let formatted =
-        format("choose::Bool->Int32:=\\(condition::Bool){if(condition)then{1}else{2};};");
+    let formatted = format("choose::Bool->Int32:=\\(condition){if(condition)then{1}else{2};};");
 
     assert_eq!(
         formatted,
         concat!(
-            "choose :: Bool -> Int32 := \\(condition :: Bool) {\n",
+            "choose :: Bool -> Int32 := \\(condition) {\n",
             "    if (condition)\n",
             "    then { 1 }\n",
             "    else { 2 };\n",
@@ -59,8 +58,8 @@ fn keeps_type_qualified_primitives_attached() {
 #[test]
 fn formats_unary_and_binary_symbol_operators() {
     assert_eq!(
-        format("inspect:=\\(value::Symbol){# value+value#1u64;};"),
-        "inspect := \\(value :: Symbol) { #value + value # 1u64 };\n"
+        format("inspect:=\\(value){# value+value#1u64;};"),
+        "inspect := \\(value) { #value + value # 1u64 };\n"
     );
 }
 
@@ -102,9 +101,8 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 
 #[test]
 fn aligns_statement_case_arms_with_case() {
-    let formatted = format(
-        "pick::[Int32,UInt8]->Int32:=\\(value::[Int32,UInt8]){case(value)[0](x){x}[1](x){Int32(x)};};",
-    );
+    let formatted =
+        format("pick::[Int32,UInt8]->Int32:=\\(value){case(value)[0](x){x}[1](x){Int32(x)};};");
 
     assert!(formatted.contains(concat!(
         "    case (value)\n",
@@ -117,7 +115,7 @@ fn aligns_statement_case_arms_with_case() {
 #[test]
 fn indents_control_branches_used_as_binding_rhs() {
     let formatted = format(
-        "choose:=\\(condition::Bool,value::[Int32,Int32]){selected:=if(condition)then{1}else{2};result:=case(value)[0](x){x}[1](x){x};selected+result;};",
+        "choose:=\\(condition, value){selected:=if(condition)then{1}else{2};result:=case(value)[0](x){x}[1](x){x};selected+result;};",
     );
 
     assert!(formatted.contains(concat!(
@@ -134,12 +132,12 @@ fn indents_control_branches_used_as_binding_rhs() {
 #[test]
 fn preserves_explicit_binding_and_expression_breaks() {
     let formatted = format(
-        "first::(Int32,Int32)->Int32\n:=\\(left::Int32,right::Int32){\nresult:=left\n+right;\nextern emit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n\\(){1};",
+        "first::(Int32,Int32)->Int32\n:=\\(left, right){\nresult:=left\n+right;\nextern emit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n\\(){1};",
     );
 
     assert!(formatted.contains(concat!(
         "first :: (Int32, Int32) -> Int32\n",
-        "    := \\(left :: Int32, right :: Int32) {\n",
+        "    := \\(left, right) {\n",
         "        result := left\n",
         "            + right;\n",
         "        extern emit(\n",
@@ -191,10 +189,7 @@ fn preserves_explicit_type_and_extern_declaration_breaks() {
 
 #[test]
 fn omits_compact_result_semicolons_and_terminates_expanded_results() {
-    assert_eq!(
-        format("identity:=\\(x::Int32){x;};"),
-        "identity := \\(x :: Int32) { x };\n"
-    );
+    assert_eq!(format("identity:=\\(x){x;};"), "identity := \\(x) { x };\n");
     assert_eq!(
         format("run:=\\(){extern first();extern second()};"),
         concat!(
