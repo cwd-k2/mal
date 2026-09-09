@@ -338,6 +338,39 @@ fn emits_typed_control_frame_fields_for_live_symbols() {
 }
 
 #[test]
+fn keeps_a_local_recursive_environment_activation_resident() {
+    let generated = emit(
+        "main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 1;\n\
+           walk :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+             if (depth == 0i32) then { base } else {\n\
+               child := walk(depth - 1i32);\n\
+               base + child;\n\
+             };\n\
+           };\n\
+           walk(4i32) - 5i32;\n\
+         };",
+    )
+    .expect("emit a local recursive environment");
+
+    let frame = generated
+        .source
+        .lines()
+        .find(|line| line.contains("} MalControlFrame_"))
+        .expect("generated control frame");
+    assert!(!frame.contains("environment"));
+    assert!(!frame.contains("destroy_environment"));
+
+    let fixture = NativeFixture::new("activation-resident-recursive-environment");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &["-O2", "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
+    );
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
 fn lowers_deep_symbol_recursion_with_balanced_frame_ownership() {
     let generated = emit(
         "walk :: (Int32, Symbol) -> Symbol := \\(depth :: Int32, value :: Symbol) {\n\
@@ -569,7 +602,11 @@ fn preserves_a_managed_capture_through_a_first_class_call_cycle() {
          };",
     )
     .expect("emit a managed capture through a first-class call cycle");
-    assert!(generated.source.contains("destroy_environment;"));
+    assert!(generated
+        .source
+        .lines()
+        .any(|line| line.contains("} MalControlFrame_")
+            && line.contains("destroy_environment")));
 
     let fixture = NativeFixture::new("managed-first-class-call-cycle");
     let executable = fixture.compile_generated_with_options(

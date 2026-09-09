@@ -32,7 +32,7 @@ impl BodyEmitter<'_> {
                     frame_field_name(index),
                 )
             }));
-            if frame.needs_environment {
+            if frame.carries_environment {
                 fields.push(AggregateField::variable(
                     TypeName::const_named("void").pointer(),
                     "environment",

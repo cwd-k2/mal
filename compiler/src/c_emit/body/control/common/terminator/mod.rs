@@ -353,7 +353,7 @@ impl BodyEmitter<'_> {
             ));
         }
         self.emit_control_frame_field_moves(output, site, &frame_variable);
-        if frame.needs_environment {
+        if frame.carries_environment {
             output.push(Statement::assignment(
                 Expr::identifier(&frame_variable).pointer_field("environment"),
                 Expr::identifier(CONTROL_ENVIRONMENT),
@@ -372,7 +372,7 @@ impl BodyEmitter<'_> {
             ));
         }
         self.emit_control_activation_cleanup(output, function, local_slots);
-        if !frame.needs_environment {
+        if !frame.carries_environment {
             self.emit_release_control_environment(output);
         }
     }

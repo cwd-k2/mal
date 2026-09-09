@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::anf::ast::ValueId;
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
-use super::{ClosureUsePlan, ControlRegionId, ControlRegionPlan};
+use super::{ClosureUsePlan, ControlCallPlan, ControlRegionId, ControlRegionPlan};
 use crate::c_emit::types::TypeRegistry;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -20,7 +20,7 @@ pub(in crate::c_emit::body) struct ControlFramePlan {
 pub(in crate::c_emit::body) struct ControlFrame {
     pub(in crate::c_emit::body) resume: StateId,
     pub(in crate::c_emit::body) fields: Vec<ControlFrameField>,
-    pub(in crate::c_emit::body) needs_environment: bool,
+    pub(in crate::c_emit::body) carries_environment: bool,
 }
 
 #[derive(Clone)]
@@ -33,6 +33,7 @@ impl ControlFramePlan {
     pub(in crate::c_emit::body) fn new(
         program: &control::Program,
         regions: &ControlRegionPlan,
+        calls: &ControlCallPlan,
         types: &TypeRegistry,
         closure_uses: &ClosureUsePlan,
     ) -> Self {
@@ -40,9 +41,9 @@ impl ControlFramePlan {
         let mut closures_crossing_suspension = HashSet::new();
         for (index, state) in program.states.iter().enumerate() {
             let site = StateId(index);
-            if regions.site_region(site).is_none() {
+            let Some(region) = regions.site_region(site) else {
                 continue;
-            }
+            };
             let Terminator::Call { resume, .. } = state.terminator else {
                 continue;
             };
@@ -64,7 +65,8 @@ impl ControlFramePlan {
                             managed: types.contains_managed(&value.ty),
                         })
                         .collect(),
-                    needs_environment: resume_state.needs_environment,
+                    carries_environment: resume_state.needs_environment
+                        && calls.requires_common_control(region),
                 },
             );
         }
@@ -139,6 +141,7 @@ impl ControlFramePlan {
         &self,
         program: &control::Program,
         regions: &ControlRegionPlan,
+        calls: &ControlCallPlan,
         types: &TypeRegistry,
         closure_uses: &ClosureUsePlan,
     ) -> bool {
@@ -170,7 +173,11 @@ impl ControlFramePlan {
                     .all(|(field, live)| {
                         field.value == *live && field.managed == types.contains_managed(&live.ty)
                     })
-                && frame.needs_environment == program.states[frame.resume.0].needs_environment
+                && frame.carries_environment
+                    == (program.states[frame.resume.0].needs_environment
+                        && regions
+                            .site_region(*site)
+                            .is_some_and(|region| calls.requires_common_control(region)))
         });
         let expected_closures = expected_sites
             .iter()

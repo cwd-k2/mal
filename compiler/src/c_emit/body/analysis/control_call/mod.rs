@@ -21,6 +21,7 @@ pub(in crate::c_emit::body) enum ControlCallMode {
 pub(in crate::c_emit::body) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
     dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
+    common_regions: HashSet<ControlRegionId>,
 }
 
 impl ControlCallPlan {
@@ -79,9 +80,14 @@ impl ControlCallPlan {
                 _ => None,
             })
             .collect();
+        let common_regions = regions
+            .ids()
+            .filter(|region| region_requires_common_control(control, regions, &modes, *region))
+            .collect();
         Self {
             modes,
             dispatch_bindings,
+            common_regions,
         }
     }
 
@@ -102,26 +108,30 @@ impl ControlCallPlan {
         self.dispatch_bindings.contains(&id)
     }
 
-    pub(in crate::c_emit::body) fn requires_common_control(
-        &self,
-        program: &control::Program,
-        regions: &ControlRegionPlan,
-        region: ControlRegionId,
-    ) -> bool {
-        regions.functions(region).iter().any(|function| {
-            let entry = program
-                .functions
-                .iter()
-                .find(|candidate| candidate.id == *function)
-                .expect("region function has a control entry")
-                .entry;
-            reachable_states(program, entry).into_iter().any(|site| {
-                regions.site_region(site) == Some(region)
-                    && self.mode(site) == Some(ControlCallMode::Dispatch)
-                    && !is_direct_self_call(&program.states[site.0].terminator, *function)
-            })
-        })
+    pub(in crate::c_emit::body) fn requires_common_control(&self, region: ControlRegionId) -> bool {
+        self.common_regions.contains(&region)
     }
+}
+
+fn region_requires_common_control(
+    program: &control::Program,
+    regions: &ControlRegionPlan,
+    modes: &HashMap<StateId, ControlCallMode>,
+    region: ControlRegionId,
+) -> bool {
+    regions.functions(region).iter().any(|function| {
+        let entry = program
+            .functions
+            .iter()
+            .find(|candidate| candidate.id == *function)
+            .expect("region function has a control entry")
+            .entry;
+        reachable_states(program, entry).into_iter().any(|site| {
+            regions.site_region(site) == Some(region)
+                && modes.get(&site) == Some(&ControlCallMode::Dispatch)
+                && !is_direct_self_call(&program.states[site.0].terminator, *function)
+        })
+    })
 }
 
 fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
@@ -198,6 +208,10 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(recursive_modes.contains(&ControlCallMode::Dispatch));
         assert!(recursive_modes.contains(&ControlCallMode::Direct(helper)));
+        let recursive_region = regions
+            .function_region(recursive.id)
+            .expect("recursive function has a control region");
+        assert!(!plan.requires_common_control(recursive_region));
 
         let tail = control
             .functions
@@ -247,6 +261,12 @@ mod tests {
         let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
+
+        assert!(
+            regions
+                .ids()
+                .any(|region| plan.requires_common_control(region))
+        );
 
         assert!(control.states.iter().enumerate().any(|(index, state)| {
             let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =

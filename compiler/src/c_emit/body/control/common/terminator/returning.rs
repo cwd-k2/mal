@@ -89,7 +89,7 @@ impl BodyEmitter<'_> {
                     Statement::expression(Expr::cast("void", Expr::identifier(&frame_variable))),
                 ]);
                 self.emit_control_frame_field_restores(&mut resume, site, &frame_variable);
-                if frame.needs_environment {
+                if frame.carries_environment {
                     resume.push(Statement::assignment(
                         Expr::identifier(CONTROL_ENVIRONMENT),
                         Expr::identifier(&frame_variable).pointer_field("environment"),
@@ -161,7 +161,7 @@ impl BodyEmitter<'_> {
                 )),
             )]);
             self.emit_control_frame_field_restores(&mut resume, site, &frame_variable);
-            if frame.needs_environment {
+            if frame.carries_environment {
                 resume.push(Statement::assignment(
                     Expr::identifier(CONTROL_ENVIRONMENT),
                     Expr::identifier(&frame_variable).pointer_field("environment"),

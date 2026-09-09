@@ -31,7 +31,8 @@ function valueを含むlocal stateもcontrol machineへ移し、suspensionをま
 managed captureはenvironmentの型別destructorまで含めてretain/releaseする。引数を分解して直ちに`function(value)`を返すpureな
 known forwarderへself closureを渡すtail edgeは、forwarderを省略してdirect self tailの`goto`へfusionする。
 
-first-class functionを介してcall graph cycleを閉じるedgeは所属するcontrol regionの共通machineで実行する。callee descriptorのcode identityから
+first-class functionを介してcall graph cycleを閉じるedgeは所属するcontrol regionの共通machineで実行する。共通machineを必要とするregion集合は
+siteごとのedge modeから一度だけ導出する。callee descriptorのcode identityから
 有限なuser-function targetを選び、environment ownerとtyped argumentをtarget entryへmoveする。非tail edgeではcallerのlive valueと
 environment ownerをtyped frameへ保存し、tail edgeではframeを増やさない。cycleを閉じないindirect callとuser function以外のtargetは
 typed C callを保つ。名前のforward referenceによる相互再帰は現在のsource languageが受理しないため、この最適化の完了条件には
@@ -167,7 +168,9 @@ cycleを再判定しない。fusion済みedgeがpossible target情報から消�
 要求する根拠にはしない。
 
 suspensionはnon-tail applicationが同一region targetへcontrolを渡す場合だけ発生する。frame layout、resume live owner、environment
-owner、local closureのheap fallbackはこのsuspension site集合からだけ導出する。callee選択のために`Dispatch`を使うこと自体は
+owner、local closureのheap fallbackはこのsuspension site集合からだけ導出する。resumeがenvironmentを参照しても、direct-selfだけの
+local machineでは同じactivationのenvironmentが全遷移で維持されるためframeへ複製しない。複数entryまたはindirect edgeを持つ共通machineだけが
+active environment ownerをframeへmoveする。callee選択のために`Dispatch`を使うこと自体は
 suspensionを意味せず、region外へ通常C callするだけのindirect siteはactivation-local lifetimeを延長しない。`Symbol`を含むmanaged
 valueでもsource-level lifetime authorityは変わらず、frameが必要な場合にだけownerの一時的な保存場所がlocal slotからframeへ移る。
 
@@ -183,8 +186,9 @@ homogeneous、複数siteを持つregionはheterogeneousとframe authorityが分�
 3. edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
 4. frameとclosure lifetimeをsuspension siteから導出し、共通machine判定の複製を除く。
 5. constructor cardinalityからhomogeneousまたはheterogeneousなstack表現を導出する。
-6. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
-7. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
+6. common machine需要とresume livenessから、frameがenvironment ownerを運ぶかを導出する。
+7. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
+8. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
 
 planのconstructorとfieldはbackend module内に閉じる。全再導出validatorはdebug assertionとfocused mutation testでconstructorの
 exactnessを検査し、release compilerでは重複解析を行わない。validatorを常時実行する必要が生じるのは、planを外部入力から
@@ -212,7 +216,8 @@ Mal closureをcallbackできない現在のhost contractもこの非再入性の
 constructorが複数ならframeはcall siteごとの可変size typed payloadとし、最大variant幅のunion slotへ一律に広げない。headerの
 resume constructorとprevious offsetがframe列を復元する。constructorが一つなら同じtyped payloadだけを固定幅で並べ、`top`をslot indexとして
 既知resumeへ直接移る。pushのfast pathは`top <= capacity`不変条件の下でcompile-time frame幅を使い、growth時だけcapacityとbyte sizeの
-overflowを検査する。pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は両表現で共通とする。
+overflowを検査する。local machineのenvironmentはactivation residentとし、共通machineのactive environmentだけをframeへ保存する。
+pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は両表現で共通とする。
 
 C stack上に同時に存在するregion activationはcondensation graphのpath長でboundされ、Mal recursion depthには比例しない。
 local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、

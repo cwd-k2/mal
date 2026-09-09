@@ -133,9 +133,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/analysis/tail_call` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ`goto`遷移へfusion |
 | `c_emit/body/analysis/continuation_graph` | possible application graphからfusion済みtail edgeを除いたC continuation edgeを構成 |
 | `c_emit/body/analysis/control_region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
-| `c_emit/body/analysis/control_call` | control regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、C-call graphを非循環化 |
+| `c_emit/body/analysis/control_call` | control regionからapplicationごとのdirect、self-tail、dispatch判定とcommon machineを必要とするregion集合を導出し、C-call graphを非循環化 |
 | `c_emit/body/analysis/control_call/graph` | 導出済みdirect C-call edge集合の非循環性検査 |
-| `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要、constructor cardinalityに基づくhomogeneous regionを導出 |
+| `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要、constructor cardinalityに基づくhomogeneous region、frameが運ぶenvironment ownerを導出 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |

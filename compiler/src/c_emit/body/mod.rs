@@ -128,9 +128,20 @@ impl<'a> BodyEmitter<'a> {
                 .mode(crate::control::ast::StateId(index))
                 .is_some()
         }));
-        let control_frames =
-            ControlFramePlan::new(&control, &control_regions, types, &closure_uses);
-        debug_assert!(control_frames.is_valid(&control, &control_regions, types, &closure_uses));
+        let control_frames = ControlFramePlan::new(
+            &control,
+            &control_regions,
+            &control_calls,
+            types,
+            &closure_uses,
+        );
+        debug_assert!(control_frames.is_valid(
+            &control,
+            &control_regions,
+            &control_calls,
+            types,
+            &closure_uses
+        ));
         let needs = RuntimeNeeds {
             control_arenas: control_frames.arena_count(),
             homogeneous_control: control_frames.has_homogeneous_arenas(),
@@ -196,13 +207,7 @@ impl<'a> BodyEmitter<'a> {
     fn uses_common_control(&self, function: closure::FunctionId) -> bool {
         self.control_regions
             .function_region(function)
-            .is_some_and(|region| {
-                self.control_calls.requires_common_control(
-                    &self.control,
-                    &self.control_regions,
-                    region,
-                )
-            })
+            .is_some_and(|region| self.control_calls.requires_common_control(region))
     }
 
     fn function(&self, id: FunctionId) -> &closure::Function {
