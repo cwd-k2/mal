@@ -4,7 +4,7 @@ require "./input.mal";
 require "./database.mal";
 
 _writeResponse :: Symbol -> Unit := \(response) {
-    extern writeSymbol(response);
+    writeSymbol(response);
 };
 
 _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
@@ -25,9 +25,9 @@ _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
         case (result)
         [0](_) { _writeResponse("NOT FOUND\n") }
         [1](value) {
-            extern writeSymbol("VALUE ");
-            extern writeBytes(value);
-            extern writeSymbol("\n");
+            writeSymbol("VALUE ");
+            writeBytes(value);
+            writeSymbol("\n");
             ();
         };
     };

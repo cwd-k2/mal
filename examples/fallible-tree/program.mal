@@ -13,7 +13,7 @@ extern destroyAllocator :: Allocator -> Unit;
 // Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
 // Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
 leaf :: (Allocator, Int32) -> NodeResult := \(allocator, value) {
-    allocated := extern allocateNode(allocator, 5u64);
+    allocated := allocateNode(allocator, 5u64);
     case (allocated)
     [0](node) {
         Int32.store(node, value);
@@ -38,19 +38,19 @@ sumTree :: Ptr -> Int32 := \(node) {
 destroyTree :: (Allocator, Ptr) -> Unit := \(allocator, node) {
     isBranch := UInt8.load(node + 4u64);
     if (isBranch == 0u8)
-    then { extern releaseNode(allocator, node) }
+    then { releaseNode(allocator, node) }
     else {
         left := Ptr.load(node + 5u64);
         right := Ptr.load(node + 5u64 + Ptr.size);
         destroyTree(allocator, left);
         destroyTree(allocator, right);
-        extern releaseNode(allocator, node);
+        releaseNode(allocator, node);
     };
 };
 
 branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     \(allocator, value, left, right) {
-        allocated := extern allocateNode(allocator, 5u64 + Ptr.size * 2u64);
+        allocated := allocateNode(allocator, 5u64 + Ptr.size * 2u64);
         case (allocated)
         [0](node) {
             Int32.store(node, value);
@@ -97,7 +97,7 @@ buildTree :: Allocator -> NodeResult := \(allocator) {
 };
 
 successfulBuild :: Unit -> Bool := \() {
-    allocator := extern createAllocator(5u64);
+    allocator := createAllocator(5u64);
     result := buildTree(allocator);
     valid := case (result)
         [0](tree) {
@@ -106,12 +106,12 @@ successfulBuild :: Unit -> Bool := \() {
             total == 15;
         }
         [1](_) { false };
-    extern destroyAllocator(allocator);
+    destroyAllocator(allocator);
     valid;
 };
 
 failedBuildCleansPartialTree :: Unit -> Bool := \() {
-    allocator := extern createAllocator(3u64);
+    allocator := createAllocator(3u64);
     result := buildTree(allocator);
     failed := case (result)
         [0](tree) {
@@ -119,7 +119,7 @@ failedBuildCleansPartialTree :: Unit -> Bool := \() {
             false;
         }
         [1](_) { true };
-    extern destroyAllocator(allocator);
+    destroyAllocator(allocator);
     failed;
 };
 

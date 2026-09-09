@@ -8,7 +8,7 @@ main :: Arguments -> Int32 := \(argumentCount, arguments) {
         executeDatabase(path);
     }
     else {
-        extern writeSymbol("usage: mal-mini-database DATABASE\n");
+        writeSymbol("usage: mal-mini-database DATABASE\n");
         2;
     };
 };

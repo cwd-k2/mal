@@ -7,9 +7,9 @@ makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
 };
 
 main :: Unit -> Int32 := \() {
-    extern printInt32(1);
+    printInt32(1);
     addTen := makeAdder(10);
-    extern printInt32(addTen(5));
-    extern printInt32(2147483647 + 1);
+    printInt32(addTen(5));
+    printInt32(2147483647 + 1);
     0;
 };

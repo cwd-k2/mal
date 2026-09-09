@@ -18,7 +18,7 @@ _readByte :: Reader -> ByteRead := \(reader) {
         ByteRead[1](((file, buffer, position + 1u64), byte));
     }
     else {
-        transferred := extern readFile(file, (memory, capacity));
+        transferred := readFile(file, (memory, capacity));
         filled := (memory, capacity, transferred);
         next := (file, filled, 0u64);
         if (transferred == 0u64)
@@ -50,7 +50,7 @@ _readLineAt :: (Reader, Buffer) -> LineRead := \(reader, buffer) {
         else {
             if (length + 1u64 == capacity)
             then {
-                extern fail("query line exceeds its buffer");
+                fail("query line exceeds its buffer");
                 LineRead[1]((next, buffer));
             }
             else {

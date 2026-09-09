@@ -6,12 +6,12 @@ _queryStorageSize :: UInt64 := 257u64;
 _inputStorageSize :: UInt64 := 4096u64;
 
 executeDatabase :: Symbol -> Int32 := \(path) {
-    allocator := extern createAllocator();
-    file := extern openReadWriteCreate(path);
-    input := extern standardInput();
-    databaseStorage := extern allocateBuffer(allocator, databaseReadCapacity);
-    query := extern allocateBuffer(allocator, _queryStorageSize);
-    inputBuffer := extern allocateBuffer(allocator, _inputStorageSize);
+    allocator := createAllocator();
+    file := openReadWriteCreate(path);
+    input := standardInput();
+    databaseStorage := allocateBuffer(allocator, databaseReadCapacity);
+    query := allocateBuffer(allocator, _queryStorageSize);
+    inputBuffer := allocateBuffer(allocator, _inputStorageSize);
     loadedDatabase := readDatabaseFile(file, databaseStorage);
     (_, _, loaded) := loadedDatabase;
     database := if (loaded == 0u64)
@@ -19,13 +19,13 @@ executeDatabase :: Symbol -> Int32 := \(path) {
         else {
             if (!validateDatabase(loadedDatabase))
             then {
-                extern fail("invalid database file");
+                fail("invalid database file");
                 loadedDatabase;
             }
             else { loadedDatabase };
         };
     runQueries((input, inputBuffer, 0u64), file, database, query);
-    extern closeFile(file);
-    extern destroyAllocator(allocator);
+    closeFile(file);
+    destroyAllocator(allocator);
     0;
 };

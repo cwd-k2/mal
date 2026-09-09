@@ -22,7 +22,7 @@ readDatabaseFile :: (File, Buffer) -> Buffer := \(file, buffer) {
     if (length == capacity)
     then { buffer }
     else {
-        transferred := extern readFile(file, (memory + length, capacity - length));
+        transferred := readFile(file, (memory + length, capacity - length));
         if (transferred == 0u64)
         then { buffer }
         else { readDatabaseFile(file, (memory, capacity, length + transferred)) };
@@ -35,10 +35,10 @@ _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
         if (written == length)
         then { () }
         else {
-            transferred := extern writeFile(file, (memory + written, length - written));
+            transferred := writeFile(file, (memory + written, length - written));
             if (transferred == 0u64)
             then {
-                extern fail("file write made no progress");
+                fail("file write made no progress");
                 ();
             }
             else { _writeBytesFully(file, bytes, written + transferred) };
@@ -46,9 +46,9 @@ _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
     };
 
 saveDatabase :: (File, Buffer) -> Unit := \(file, database) {
-    extern rewindFile(file);
+    rewindFile(file);
     _writeBytesFully(file, initializedBytes(database), 0u64);
-    extern flushFile(file);
+    flushFile(file);
 };
 
 initializeDatabase :: Buffer -> Buffer := \(buffer) {

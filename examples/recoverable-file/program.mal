@@ -38,13 +38,13 @@ bufferSize :: UInt64 := 4096u64;
 
 copyContents :: (File, Buffer) -> Status := \(file, buffer) {
     (memory, capacity, _) := buffer;
-    result := extern readFile(file, (memory, capacity));
+    result := readFile(file, (memory, capacity));
     case (result)
     [0](length) {
         if (length == 0u64)
         then { Status[0](()) }
         else {
-            extern writeBytes((memory, length));
+            writeBytes((memory, length));
             copyContents(file, (memory, capacity, length));
         };
     }
@@ -62,17 +62,17 @@ finishCopy :: (Status, CloseResult) -> Status := \(copied, closed) {
 };
 
 copyPath :: Symbol -> Status := \(path) {
-    owned := extern allocateBuffer(bufferSize);
+    owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
-    opened := extern openReadOnly(path);
+    opened := openReadOnly(path);
     outcome := case (opened)
         [0](file) {
             copied := copyContents(file, buffer);
-            closed := extern closeFile(file);
+            closed := closeFile(file);
             finishCopy(copied, closed);
         }
         [1](error) { Status[1](error) };
-    extern releaseBuffer(allocation);
+    releaseBuffer(allocation);
     outcome;
 };
 
@@ -84,12 +84,12 @@ main :: Arguments -> Int32 := \(argumentCount, arguments) {
         case (result)
         [0](_) { 0 }
         [1](error) {
-            extern writeError(error);
+            writeError(error);
             1;
         };
     }
     else {
-        extern writeSymbol("usage: mal-recoverable-file FILE\n");
+        writeSymbol("usage: mal-recoverable-file FILE\n");
         2;
     };
 };
