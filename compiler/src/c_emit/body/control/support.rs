@@ -18,7 +18,11 @@ pub(super) fn control_arena_name(arena: ControlArenaId) -> String {
     format!("control_arena_{}", arena.0)
 }
 
-pub(super) fn emit_control_stack_preamble(output: &mut Block, arena: ControlArenaId) {
+pub(super) fn emit_control_stack_preamble(
+    output: &mut Block,
+    arena: ControlArenaId,
+    homogeneous: bool,
+) {
     output.push(Statement::variable(
         "MalControlStack",
         CONTROL_STACK_STORAGE,
@@ -45,10 +49,12 @@ pub(super) fn emit_control_stack_preamble(output: &mut Block, arena: ControlAren
         control_stack_field("top"),
         Expr::number("0"),
     ));
-    output.push(Statement::assignment(
-        control_stack_field("frame"),
-        Expr::number("0"),
-    ));
+    if !homogeneous {
+        output.push(Statement::assignment(
+            control_stack_field("frame"),
+            Expr::number("0"),
+        ));
+    }
 }
 
 pub(super) fn emit_control_stack_cache(output: &mut Block, arena: ControlArenaId) {

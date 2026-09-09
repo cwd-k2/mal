@@ -10,12 +10,12 @@ use super::super::analysis::ControlCallMode;
 use super::super::{
     BodyEmitter, ResultOwnership, function_name, has_direct_product_entry, pattern_type, value_name,
 };
+use super::frame_name;
 use super::ownership::{supports_local_control_type, zero_value};
 use super::support::{
     CONTROL_STACK, control_stack_field, emit_control_stack_cache, emit_control_stack_preamble,
     local_slots, reachable_states, state_label, uint8, uint32,
 };
-use super::{frame_field_name, frame_name};
 
 impl BodyEmitter<'_> {
     pub(in crate::c_emit::body) fn can_emit_local_control(
@@ -89,12 +89,14 @@ impl BodyEmitter<'_> {
         let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
         let mut body = Block::default();
         self.emit_function_preamble(&mut body, function);
-        if let Some(arena) = self
-            .control_regions
-            .function_region(function.id)
-            .and_then(|region| self.control_frames.arena(region))
+        if let Some(region) = self.control_regions.function_region(function.id)
+            && let Some(arena) = self.control_frames.arena(region)
         {
-            emit_control_stack_preamble(&mut body, arena);
+            emit_control_stack_preamble(
+                &mut body,
+                arena,
+                self.control_frames.homogeneous_frame(region).is_some(),
+            );
         }
         if let Some(parameter) = function.parameter.binding
             && self.types.contains_managed(&function.parameter.ty)
@@ -203,7 +205,6 @@ impl BodyEmitter<'_> {
                 resume,
             } => match self.control_calls.mode(site) {
                 Some(ControlCallMode::Dispatch) => {
-                    let previous = format!("mal_previous_frame_{}", site.0);
                     let frame_variable = format!("mal_frame_{}", site.0);
                     let next_parameter = format!("mal_next_parameter_{}", site.0);
                     output.push(Statement::variable(
@@ -214,18 +215,24 @@ impl BodyEmitter<'_> {
                                 .copy_value(&argument.ty, self.emit_atom(argument)),
                         ),
                     ));
-                    output.push(Statement::variable(
-                        "size_t",
-                        &previous,
-                        Some(control_stack_field("frame")),
-                    ));
+                    if !self.control_frames.frame_is_homogeneous(site) {
+                        output.push(Statement::variable(
+                            "size_t",
+                            format!("mal_previous_frame_{}", site.0),
+                            Some(control_stack_field("frame")),
+                        ));
+                    }
                     output.push(Statement::variable(
                         TypeName::named(frame_name(site)).pointer(),
                         &frame_variable,
                         Some(Expr::cast(
                             TypeName::named(frame_name(site)).pointer(),
                             Expr::named_call(
-                                "mal_control_push",
+                                if self.control_frames.frame_is_homogeneous(site) {
+                                    "mal_control_push_homogeneous"
+                                } else {
+                                    "mal_control_push"
+                                },
                                 [
                                     Expr::identifier(CONTROL_STACK),
                                     Expr::sizeof_type(frame_name(site)),
@@ -233,18 +240,24 @@ impl BodyEmitter<'_> {
                             ),
                         )),
                     ));
-                    output.push(Statement::assignment(
-                        Expr::identifier(&frame_variable)
-                            .pointer_field("header")
-                            .field("previous_frame"),
-                        Expr::identifier(previous),
-                    ));
-                    output.push(Statement::assignment(
-                        Expr::identifier(&frame_variable)
-                            .pointer_field("header")
-                            .field("resume"),
-                        uint32(resume.0),
-                    ));
+                    output.push(Statement::expression(Expr::cast(
+                        "void",
+                        Expr::identifier(&frame_variable),
+                    )));
+                    if !self.control_frames.frame_is_homogeneous(site) {
+                        output.push(Statement::assignment(
+                            Expr::identifier(&frame_variable)
+                                .pointer_field("header")
+                                .field("previous_frame"),
+                            Expr::identifier(format!("mal_previous_frame_{}", site.0)),
+                        ));
+                        output.push(Statement::assignment(
+                            Expr::identifier(&frame_variable)
+                                .pointer_field("header")
+                                .field("resume"),
+                            uint32(resume.0),
+                        ));
+                    }
                     self.emit_control_frame_field_moves(output, site, &frame_variable);
                     self.emit_control_activation_cleanup(output, function, local_slots);
                     if let Some(parameter) = function.parameter.binding {
@@ -404,6 +417,60 @@ impl BodyEmitter<'_> {
             output.push(Statement::return_value(Expr::identifier(result_name)));
             return;
         };
+        let region = self
+            .control_regions
+            .function_region(function.id)
+            .expect("local control return belongs to a region");
+        if let Some(site) = self.control_frames.homogeneous_frame(region) {
+            let frame = self
+                .control_frames
+                .frame(site)
+                .expect("homogeneous region has its frame")
+                .clone();
+            let frame_variable = format!("mal_resume_frame_{}_{}", state.0, site.0);
+            let mut resume = Block::new([
+                Statement::assignment(
+                    control_stack_field("top"),
+                    Expr::subtract(control_stack_field("top"), Expr::number("1")),
+                ),
+                Statement::variable(
+                    TypeName::named(frame_name(site)).pointer(),
+                    &frame_variable,
+                    Some(Expr::cast(
+                        TypeName::named(frame_name(site)).pointer(),
+                        Expr::add(
+                            control_stack_field("storage"),
+                            Expr::multiply(
+                                control_stack_field("top"),
+                                Expr::sizeof_type(frame_name(site)),
+                            ),
+                        ),
+                    )),
+                ),
+                Statement::expression(Expr::cast("void", Expr::identifier(&frame_variable))),
+            ]);
+            self.emit_control_frame_field_restores(&mut resume, site, &frame_variable);
+            let input = self.control.states[frame.resume.0]
+                .input
+                .as_ref()
+                .expect("resume accepts a call result")
+                .clone();
+            self.emit_control_owned_pattern_assignment(
+                &mut resume,
+                &input,
+                Expr::identifier(&result_name),
+            );
+            resume.push(Statement::goto(state_label(frame.resume)));
+            let mut root = Block::default();
+            emit_control_stack_cache(&mut root, arena);
+            root.push(Statement::return_value(Expr::identifier(result_name)));
+            output.push(Statement::if_else(
+                Expr::equal(control_stack_field("top"), Expr::number("0")),
+                root,
+                resume,
+            ));
+            return;
+        }
         let mut resume_cases = Vec::new();
         for site in &sites {
             let Some(frame) = self.control_frames.frame(*site).cloned() else {
@@ -418,18 +485,7 @@ impl BodyEmitter<'_> {
                     Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             )]);
-            for (index, field) in frame.fields.iter().enumerate() {
-                let frame_field =
-                    Expr::identifier(&frame_variable).pointer_field(frame_field_name(index));
-                resume.push(Statement::assignment(
-                    Expr::identifier(value_name(field.value.id)),
-                    frame_field.clone(),
-                ));
-                resume.push(Statement::assignment(
-                    frame_field,
-                    zero_value(self, &field.value.ty),
-                ));
-            }
+            self.emit_control_frame_field_restores(&mut resume, *site, &frame_variable);
             let input = self.control.states[frame.resume.0]
                 .input
                 .as_ref()

@@ -22,7 +22,10 @@ impl BodyEmitter<'_> {
             let Some(frame) = self.control_frames.frame(site) else {
                 continue;
             };
-            let mut fields = vec![AggregateField::variable("MalControlFrameHeader", "header")];
+            let mut fields = Vec::new();
+            if !self.control_frames.frame_is_homogeneous(site) {
+                fields.push(AggregateField::variable("MalControlFrameHeader", "header"));
+            }
             fields.extend(frame.fields.iter().enumerate().map(|(index, field)| {
                 AggregateField::variable(
                     self.types.c_type(&field.value.ty),
@@ -42,6 +45,9 @@ impl BodyEmitter<'_> {
                         Parameter::unnamed(TypeName::const_named("void").pointer()),
                     ],
                 ));
+            }
+            if fields.is_empty() {
+                fields.push(AggregateField::variable("uint8_t", "unused"));
             }
             output.push(AggregateDefinition::typedef_structure(
                 None,

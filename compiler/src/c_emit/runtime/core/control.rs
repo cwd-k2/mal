@@ -1,6 +1,24 @@
 use super::*;
 
-pub(super) fn append_control_stack(output: &mut TranslationUnit) {
+mod homogeneous;
+
+pub(super) fn append_control_stack(
+    output: &mut TranslationUnit,
+    homogeneous: bool,
+    heterogeneous: bool,
+) {
+    if heterogeneous {
+        append_heterogeneous_control_push(output);
+    }
+    if homogeneous {
+        if heterogeneous {
+            output.blank_line();
+        }
+        homogeneous::append(output);
+    }
+}
+
+fn append_heterogeneous_control_push(output: &mut TranslationUnit) {
     output.push(AggregateDefinition::typedef_structure(
         None,
         [

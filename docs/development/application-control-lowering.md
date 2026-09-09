@@ -20,7 +20,7 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 ## 実装状態
 
 control IR、backward liveness、possible application graph、tail fusion後のresidual continuation graphとrecursive SCC partition、
-typed frame layout、frame region別のgrowable control storageは実装済みである。C emitterは
+typed frame layout、continuation constructor数に応じたframe region別のgrowable control storageは実装済みである。C emitterは
 direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
 `Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
 activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
@@ -93,12 +93,17 @@ tail callの`goto`はこの遷移をC statementへfusionしたbackend specializa
 - trap時は現在の意味論どおり一般的なstack unwindを行わない。
 - externとruntime helperのC callは同期的に戻り、Mal call depthに比例するC stackを作らない。
 
-最初のreference表現は`max_align_t`境界へ丸めたframeを置く連続growable byte storageとする。control contextはcapacity、次の
-空きoffset、top frameのoffsetを持つ。pushはsize加算とalignment丸めのoverflowを検査してから必要ならstorageをgrowし、grow後に
-offsetからframe pointerを再取得する。handler間、growを伴い得るoperation間、dispatcherへのreturnをまたいでframe pointerを
-保持しない。popも保存したoffsetから直前のtopと空きoffsetを復元する。
+複数のframe constructorを持つregionは、`max_align_t`境界へ丸めたframeを置く連続growable byte storageを使う。control contextは
+capacity、次の空きoffset、top frameのoffsetを持つ。pushはsize加算とalignment丸めのoverflowを検査してから必要ならstorageをgrowし、
+grow後にoffsetからframe pointerを再取得する。popも保存したoffsetから直前のtopと空きoffsetを復元する。frame headerはresume stateと
+直前frameのoffsetを持ち、payloadはcall siteごとに異なるtyped structとする。
 
-frame headerはresume stateと直前frameのoffsetを持ち、payloadはcall siteごとに異なるtyped structとする。dispatchはgenerated
+frame constructorが一つだけのregionは、そのframe型の固定幅slot列を使う。`top`とcapacityはslot数を表し、resume stateは
+constructorから静的に決まるため、frame header、alignment丸め、直前frame offset、runtime tag dispatchを持たない。storageのbaseは
+allocatorが全object typeに必要なalignmentを満たし、`sizeof(frame)`間隔が後続slotのalignmentを保つ。どちらの表現でもhandler間、
+growを伴い得るoperation間、dispatcherへのreturnをまたいでframe pointerを保持しない。
+
+dispatchはgenerated
 program内で一意なstate tagを使う。function closureのcode identityはentry stateへ対応し、entry payloadへenvironmentとargumentを
 移してからdispatcherへcontrolを返す。C entry point、top-level initializerなどMal外部のcallerだけがdispatcherを開始してresultを
 受け取る。
@@ -143,6 +148,7 @@ control IR + closure use
   -> recursive control regions
   -> siteごとのedge mode
   -> suspension frameとclosure lifetime
+  -> constructor cardinality別のframe表現
   -> region emissionとarena需要
 ```
 
@@ -165,10 +171,10 @@ owner、local closureのheap fallbackはこのsuspension site集合からだけ�
 suspensionを意味せず、region外へ通常C callするだけのindirect siteはactivation-local lifetimeを延長しない。`Symbol`を含むmanaged
 valueでもsource-level lifetime authorityは変わらず、frameが必要な場合にだけownerの一時的な保存場所がlocal slotからframeへ移る。
 
-regionの存在、共通machineの必要性、arenaの必要性も分離する。複数entryまたはindirect region edgeがあれば共通machineを使うが、
+regionの存在、共通machineの必要性、arenaの必要性、arena表現も分離する。複数entryまたはindirect region edgeがあれば共通machineを使うが、
 tail遷移だけのregionはcontinuationを保存しないためarenaを持たない。arenaはframeを持つregionだけに割り当て、`MalContext`がcacheする
-pointerとcapacityを、各invocationだけが持つ`top`とcurrent frameから型として分ける。これらの派生値を独立したplanへ複製せず、regionと
-frameのauthorityへ問い合わせる。
+pointerとcapacityを、各invocationだけが持つ`top`とcurrent frameから型として分ける。一つのsuspension siteだけを持つregionは
+homogeneous、複数siteを持つregionはheterogeneousとframe authorityが分類し、emitterやruntimeがsite集合を再走査しない。
 
 実装と検証は次の依存順を保つ。
 
@@ -176,8 +182,9 @@ frameのauthorityへ問い合わせる。
 2. fusion可能なtail siteと渡すargumentを一度だけ構成し、残存continuation graphからregionを導出する。
 3. edge modeをregionから導出し、direct C-call graphがcondensation DAGに含まれることを検査する。
 4. frameとclosure lifetimeをsuspension siteから導出し、共通machine判定の複製を除く。
-5. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
-6. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
+5. constructor cardinalityからhomogeneousまたはheterogeneousなstack表現を導出する。
+6. cached arenaとactivation stackを別のC型にし、frameを持たないregionのarenaを生成しない。
+7. 各段階でfocusedな構造・lifetime testと全compiler testを通し、性能値は意味論・minimalityを満たした結果の回帰監視にだけ使う。
 
 planのconstructorとfieldはbackend module内に閉じる。全再導出validatorはdebug assertionとfocused mutation testでconstructorの
 exactnessを検査し、release compilerでは重複解析を行わない。validatorを常時実行する必要が生じるのは、planを外部入力から
@@ -193,18 +200,19 @@ code identityで前者だけをdispatchし、後者を通常callへfallbackす�
 各region invocationは次の状態を持つ。
 
 ```text
-Region = <program-point, values, storage, top, current-frame>
-Frame  = <resume-constructor, previous-frame, typed-live-values, environment-owner?>
+Region = <program-point, values, storage, representation-state>
+Frame  = <resume-constructor, typed-live-values, environment-owner?>
 ```
 
 frame列とsource evaluation contextの対応には`R`を使う。frameを持つregionごとに
-cached arenaを持ち、invocation中の`top`と`current-frame`はそのregion machineのC local stateにする。arenaのpointerとcapacityだけを
+cached arenaを持ち、invocation中の`top`と、heterogeneous表現だけが使う`current-frame`はregion machineのC local stateにする。arenaのpointerとcapacityだけを
 `MalContext`へ戻して次のinvocationで再利用する。region内edgeはC callしないため同じarenaへ再入せず、region間callは別arenaを使う。externから
 Mal closureをcallbackできない現在のhost contractもこの非再入性の前提である。
 
-frameは引き続きcall siteごとの可変size typed payloadとし、最大variant幅のunion slotへ一律に広げない。pushのfast pathは
-`top <= capacity`不変条件の下で残容量とcompile-time frame幅を一度比較し、growth時だけ加算、alignment、capacityのoverflowを検査する。
-grow後はoffsetからpointerを取り直す。pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は変えない。
+constructorが複数ならframeはcall siteごとの可変size typed payloadとし、最大variant幅のunion slotへ一律に広げない。headerの
+resume constructorとprevious offsetがframe列を復元する。constructorが一つなら同じtyped payloadだけを固定幅で並べ、`top`をslot indexとして
+既知resumeへ直接移る。pushのfast pathは`top <= capacity`不変条件の下でcompile-time frame幅を使い、growth時だけcapacityとbyte sizeの
+overflowを検査する。pop、managed ownerのmove、environment destructor、tail edgeでframeを増やさない規則は両表現で共通とする。
 
 C stack上に同時に存在するregion activationはcondensation graphのpath長でboundされ、Mal recursion depthには比例しない。
 local direct-self machineと複数functionを扱うcommon machineは生成moduleを分けるが、
@@ -251,7 +259,7 @@ lowering後にstate graphのbackward livenessを解き、各stateへentry時に�
 
 | 分類 | 確認する性質 |
 |---|---|
-| 構造検査 | 未処理`Call`なし、tail edgeでpushなし、C-call edge集合がacyclic、region内non-tail siteとframe集合の一致、frame fieldとresume live-inの一致、crossing closure集合とarena集合の一致 |
+| 構造検査 | 未処理`Call`なし、tail edgeでpushなし、C-call edge集合がacyclic、region内non-tail siteとframe集合の一致、frame fieldとresume live-inの一致、constructor cardinalityとstack表現の一致、crossing closure集合とarena集合の一致 |
 | semantic test | result、evaluation order、extern trace、managed lifetime、trapの一致 |
 | generated C検査 | Mal call depthに対するC stack bound、defined alignmentとsize計算、期待するfusion |
 | 実測 | wall-clock、instruction count、branch、cache、code size、resident memory |

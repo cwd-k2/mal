@@ -54,7 +54,11 @@ impl BodyEmitter<'_> {
         let mut body = Block::default();
         let arena = self.control_frames.arena(region);
         if let Some(arena) = arena {
-            emit_control_stack_preamble(&mut body, arena);
+            emit_control_stack_preamble(
+                &mut body,
+                arena,
+                self.control_frames.homogeneous_frame(region).is_some(),
+            );
         }
         body.push(Statement::variable(
             TypeName::const_named("void").pointer(),

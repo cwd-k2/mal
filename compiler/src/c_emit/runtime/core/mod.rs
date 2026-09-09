@@ -15,7 +15,12 @@ use symbol::{
     append_symbol_lifetime, append_symbol_materialization,
 };
 
-pub(super) fn emit(needs_symbol_copy: bool, control_arenas: usize) -> TranslationUnit {
+pub(super) fn emit(
+    needs_symbol_copy: bool,
+    control_arenas: usize,
+    homogeneous_control: bool,
+    heterogeneous_control: bool,
+) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     output.push(AggregateDefinition::typedef_structure(
         None,
@@ -47,14 +52,17 @@ pub(super) fn emit(needs_symbol_copy: bool, control_arenas: usize) -> Translatio
             "MalControlArena",
         ));
         output.blank_line();
+        let mut stack_fields = vec![
+            AggregateField::variable(TypeName::named("uint8_t").pointer(), "storage"),
+            AggregateField::variable("size_t", "capacity"),
+            AggregateField::variable("size_t", "top"),
+        ];
+        if heterogeneous_control {
+            stack_fields.push(AggregateField::variable("size_t", "frame"));
+        }
         output.push(AggregateDefinition::typedef_structure(
             None,
-            [
-                AggregateField::variable(TypeName::named("uint8_t").pointer(), "storage"),
-                AggregateField::variable("size_t", "capacity"),
-                AggregateField::variable("size_t", "top"),
-                AggregateField::variable("size_t", "frame"),
-            ],
+            stack_fields,
             "MalControlStack",
         ));
         output.blank_line();
@@ -100,7 +108,7 @@ pub(super) fn emit(needs_symbol_copy: bool, control_arenas: usize) -> Translatio
     append_trap(&mut output);
     append_resource_failure(&mut output);
     if control_arenas != 0 {
-        append_control_stack(&mut output);
+        append_control_stack(&mut output, homogeneous_control, heterogeneous_control);
     }
     let mut context_destroy = Block::new([
         Statement::expression(Expr::cast("void", Expr::identifier("context"))),

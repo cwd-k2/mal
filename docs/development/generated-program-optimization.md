@@ -22,7 +22,7 @@ Status: Current work plan
 ## 現在の課題
 
 activeなcompiler rewriteはない。application controlは
-[application control lowering設計](application-control-lowering.md)のpure dispatcherとregion arenaを現在の表現とする。
+[application control lowering設計](application-control-lowering.md)のconstructor cardinality別region arenaを現在の表現とする。
 新しい最適化は、authorityを分散させず、C stack boundを維持し、focused caseと既存corpusの両方で独立した改善を示す場合に限って
 この計画へ追加する。過去のbaseline、比較結果、棄却したprototypeは
 [generated C performance](../history/performance/generated-c.md#application-control-lowering実装前後)に置く。

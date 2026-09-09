@@ -165,7 +165,11 @@ fn heap_allocates_a_local_closure_live_across_control_suspension() {
     .expect("emit a closure crossing a recursive suspension");
 
     assert!(generated.source.contains("mal_control_environment_"));
-    assert!(generated.source.contains("mal_control_push("));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
     assert!(
         !generated
             .source
@@ -234,7 +238,11 @@ fn emits_control_storage_only_for_programs_with_dispatch_edges() {
     )
     .expect("emit a recursive control stack");
     assert!(recursive.source.contains("MalControlStack"));
-    assert!(recursive.source.contains("mal_control_push("));
+    assert!(
+        recursive
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
     assert!(
         recursive
             .source
@@ -302,7 +310,15 @@ fn emits_typed_control_frame_fields_for_live_symbols() {
     )
     .expect("emit a managed recursive frame");
 
-    assert!(generated.source.contains("MalControlFrameHeader header;"));
+    assert!(!generated.source.contains("MalControlFrameHeader header;"));
+    assert!(!generated.source.contains("->header.resume"));
+    assert!(!generated.source.contains("size_t frame;"));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
+    assert!(!generated.source.contains("mal_control_push("));
     assert!(generated.source.contains("MalType_Symbol field_"));
     assert!(generated.source.contains("mal_symbol_retain("));
     assert!(generated.source.contains("mal_symbol_release("));
@@ -340,7 +356,11 @@ fn lowers_deep_symbol_recursion_with_balanced_frame_ownership() {
          };",
     )
     .expect("emit deep managed control frames");
-    assert!(generated.source.contains("mal_control_push("));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
 
     let fixture = NativeFixture::new("deep-symbol-control");
     let executable = fixture.compile_generated_with_options(
@@ -368,7 +388,11 @@ fn lowers_deep_non_tail_self_recursion_without_growing_the_c_stack() {
     )
     .expect("emit deep non-tail recursion");
     assert!(generated.source.contains("goto mal_control_state_"));
-    assert!(generated.source.contains("mal_control_push("));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
 
     let fixture = NativeFixture::new("deep-non-tail-control");
     let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
@@ -448,7 +472,11 @@ fn lowers_a_deep_first_class_call_cycle_without_growing_the_c_stack() {
     )
     .expect("emit a deep first-class call cycle");
     assert!(generated.source.contains("static void mal_run_control_"));
-    assert!(generated.source.contains("mal_control_push("));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
 
     let fixture = NativeFixture::new("deep-first-class-call-cycle");
     let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
@@ -615,8 +643,41 @@ fn resumes_multiple_non_tail_self_calls_with_product_parameters() {
             .count()
             >= 2
     );
+    assert!(generated.source.matches("mal_control_push(").count() >= 2);
+    assert!(!generated.source.contains("mal_control_push_homogeneous"));
 
     let fixture = NativeFixture::new("multiple-non-tail-control");
+    let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
+    assert!(fixture.run(executable).status.success());
+}
+
+#[test]
+fn emits_homogeneous_and_heterogeneous_region_storage_together() {
+    let generated = emit(
+        "linear :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32) then { 0i32 } else { 1i32 + linear(depth - 1i32) };\n\
+         };\n\
+         tree :: Int32 -> Int32 := \\(depth :: Int32) {\n\
+           if (depth == 0i32) then { 1i32 } else {\n\
+             left := tree(depth - 1i32);\n\
+             right := tree(depth - 1i32);\n\
+             left + right;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { linear(3i32) + tree(3i32) - 11i32; };",
+    )
+    .expect("emit both control stack representations");
+
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
+    assert!(generated.source.matches("mal_control_push(").count() >= 2);
+    assert!(generated.source.contains("MalControlFrameHeader header;"));
+    assert!(generated.source.contains("size_t frame;"));
+
+    let fixture = NativeFixture::new("mixed-control-region-storage");
     let executable = fixture.compile_generated_with_options(generated, "", &["-O2"]);
     assert!(fixture.run(executable).status.success());
 }
@@ -1000,7 +1061,11 @@ fn emits_direct_calls_for_known_acyclic_functions_and_controls_recursive_edges()
             .source
             .contains("mal_function_0(mal_context, NULL,")
     );
-    assert!(generated.source.contains("mal_control_push("));
+    assert!(
+        generated
+            .source
+            .contains("mal_control_push_homogeneous(mal_control, sizeof(")
+    );
     assert!(generated.source.contains("goto mal_control_state_"));
     let fixture = NativeFixture::new("direct-known-calls");
     let executable = fixture.compile_generated(generated, "");

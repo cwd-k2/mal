@@ -36,6 +36,29 @@ impl BodyEmitter<'_> {
         }
     }
 
+    pub(super) fn emit_control_frame_field_restores(
+        &self,
+        output: &mut Block,
+        site: control::StateId,
+        frame_variable: &str,
+    ) {
+        let frame = self
+            .control_frames
+            .frame(site)
+            .expect("dispatching non-tail calls have frames");
+        for (index, field) in frame.fields.iter().enumerate() {
+            let source = Expr::identifier(frame_variable).pointer_field(frame_field_name(index));
+            output.push(Statement::assignment(
+                Expr::identifier(value_name(field.value.id)),
+                source.clone(),
+            ));
+            output.push(Statement::assignment(
+                source,
+                zero_value(self, &field.value.ty),
+            ));
+        }
+    }
+
     pub(super) fn emit_control_binding(&mut self, output: &mut Block, binding: &control::Binding) {
         if let control::Operation::MakeClosure { function, captures } = &binding.operation {
             self.emit_control_make_closure(output, &binding.pattern, *function, captures);

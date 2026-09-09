@@ -3,11 +3,10 @@ use crate::check::ast::Type;
 use crate::closure::ast as closure;
 use crate::control::ast::StateId;
 
-use super::super::super::super::{BodyEmitter, ResultOwnership, pattern_type, value_name};
-use super::super::super::ownership::zero_value;
+use super::super::super::super::{BodyEmitter, ResultOwnership, pattern_type};
+use super::super::super::frame_name;
 use super::super::super::support::control_stack_field;
 use super::super::super::support::{state_label, uint8, uint32};
-use super::super::super::{frame_field_name, frame_name};
 use super::super::{
     CONTROL_DESTROY_ENVIRONMENT, CONTROL_ENVIRONMENT, CONTROL_RESULT, common_control_done,
 };
@@ -56,6 +55,86 @@ impl BodyEmitter<'_> {
             output.append(root);
             return;
         }
+        if let Some(site) = self.control_frames.homogeneous_frame(region) {
+            let frame = self
+                .control_frames
+                .frame(site)
+                .expect("homogeneous region has its frame")
+                .clone();
+            let resume_type = self.control.states[frame.resume.0]
+                .input
+                .as_ref()
+                .map(pattern_type);
+            let resume = if resume_type == Some(result_type) {
+                let frame_variable = format!("mal_resume_frame_{}_{}", state.0, site.0);
+                let mut resume = Block::new([
+                    Statement::assignment(
+                        control_stack_field("top"),
+                        Expr::subtract(control_stack_field("top"), Expr::number("1")),
+                    ),
+                    Statement::variable(
+                        TypeName::named(frame_name(site)).pointer(),
+                        &frame_variable,
+                        Some(Expr::cast(
+                            TypeName::named(frame_name(site)).pointer(),
+                            Expr::add(
+                                control_stack_field("storage"),
+                                Expr::multiply(
+                                    control_stack_field("top"),
+                                    Expr::sizeof_type(frame_name(site)),
+                                ),
+                            ),
+                        )),
+                    ),
+                    Statement::expression(Expr::cast("void", Expr::identifier(&frame_variable))),
+                ]);
+                self.emit_control_frame_field_restores(&mut resume, site, &frame_variable);
+                if frame.needs_environment {
+                    resume.push(Statement::assignment(
+                        Expr::identifier(CONTROL_ENVIRONMENT),
+                        Expr::identifier(&frame_variable).pointer_field("environment"),
+                    ));
+                    resume.push(Statement::assignment(
+                        Expr::identifier(CONTROL_DESTROY_ENVIRONMENT),
+                        Expr::identifier(&frame_variable).pointer_field("destroy_environment"),
+                    ));
+                    resume.push(Statement::assignment(
+                        Expr::identifier(&frame_variable).pointer_field("environment"),
+                        Expr::identifier("NULL"),
+                    ));
+                    resume.push(Statement::assignment(
+                        Expr::identifier(&frame_variable).pointer_field("destroy_environment"),
+                        Expr::identifier("NULL"),
+                    ));
+                }
+                let input = self.control.states[frame.resume.0]
+                    .input
+                    .as_ref()
+                    .expect("resume accepts a call result")
+                    .clone();
+                self.emit_control_owned_pattern_assignment(
+                    &mut resume,
+                    &input,
+                    Expr::identifier(&result_name),
+                );
+                resume.push(Statement::goto(state_label(frame.resume)));
+                resume
+            } else {
+                Block::new([Statement::call(
+                    "mal_trap",
+                    [
+                        Expr::identifier("mal_context"),
+                        Expr::string("invalid control resume state"),
+                    ],
+                )])
+            };
+            output.push(Statement::if_else(
+                Expr::equal(control_stack_field("top"), Expr::number("0")),
+                root,
+                resume,
+            ));
+            return;
+        }
         let mut resume_cases = Vec::new();
         for index in 0..self.control.states.len() {
             let site = StateId(index);
@@ -81,18 +160,7 @@ impl BodyEmitter<'_> {
                     Expr::add(control_stack_field("storage"), control_stack_field("frame")),
                 )),
             )]);
-            for (field_index, field) in frame.fields.iter().enumerate() {
-                let source =
-                    Expr::identifier(&frame_variable).pointer_field(frame_field_name(field_index));
-                resume.push(Statement::assignment(
-                    Expr::identifier(value_name(field.value.id)),
-                    source.clone(),
-                ));
-                resume.push(Statement::assignment(
-                    source,
-                    zero_value(self, &field.value.ty),
-                ));
-            }
+            self.emit_control_frame_field_restores(&mut resume, site, &frame_variable);
             if frame.needs_environment {
                 resume.push(Statement::assignment(
                     Expr::identifier(CONTROL_ENVIRONMENT),

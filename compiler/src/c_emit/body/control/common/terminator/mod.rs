@@ -308,20 +308,25 @@ impl BodyEmitter<'_> {
             .control_frames
             .frame(site)
             .expect("dispatching non-tail calls have frames");
-        let previous = format!("mal_previous_frame_{}", site.0);
         let frame_variable = format!("mal_frame_{}", site.0);
-        output.push(Statement::variable(
-            "size_t",
-            &previous,
-            Some(control_stack_field("frame")),
-        ));
+        if !self.control_frames.frame_is_homogeneous(site) {
+            output.push(Statement::variable(
+                "size_t",
+                format!("mal_previous_frame_{}", site.0),
+                Some(control_stack_field("frame")),
+            ));
+        }
         output.push(Statement::variable(
             TypeName::named(frame_name(site)).pointer(),
             &frame_variable,
             Some(Expr::cast(
                 TypeName::named(frame_name(site)).pointer(),
                 Expr::named_call(
-                    "mal_control_push",
+                    if self.control_frames.frame_is_homogeneous(site) {
+                        "mal_control_push_homogeneous"
+                    } else {
+                        "mal_control_push"
+                    },
                     [
                         Expr::identifier(CONTROL_STACK),
                         Expr::sizeof_type(frame_name(site)),
@@ -329,18 +334,24 @@ impl BodyEmitter<'_> {
                 ),
             )),
         ));
-        output.push(Statement::assignment(
-            Expr::identifier(&frame_variable)
-                .pointer_field("header")
-                .field("previous_frame"),
-            Expr::identifier(previous),
-        ));
-        output.push(Statement::assignment(
-            Expr::identifier(&frame_variable)
-                .pointer_field("header")
-                .field("resume"),
-            uint32(resume.0),
-        ));
+        output.push(Statement::expression(Expr::cast(
+            "void",
+            Expr::identifier(&frame_variable),
+        )));
+        if !self.control_frames.frame_is_homogeneous(site) {
+            output.push(Statement::assignment(
+                Expr::identifier(&frame_variable)
+                    .pointer_field("header")
+                    .field("previous_frame"),
+                Expr::identifier(format!("mal_previous_frame_{}", site.0)),
+            ));
+            output.push(Statement::assignment(
+                Expr::identifier(&frame_variable)
+                    .pointer_field("header")
+                    .field("resume"),
+                uint32(resume.0),
+            ));
+        }
         self.emit_control_frame_field_moves(output, site, &frame_variable);
         if frame.needs_environment {
             output.push(Statement::assignment(

@@ -38,6 +38,8 @@ use self::pattern::pattern_type;
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
     pub(super) control_arenas: usize,
+    pub(super) homogeneous_control: bool,
+    pub(super) heterogeneous_control: bool,
     pub(super) wrap: u16,
     pub(super) divide: u16,
     pub(super) remainder: u16,
@@ -131,6 +133,8 @@ impl<'a> BodyEmitter<'a> {
         debug_assert!(control_frames.is_valid(&control, &control_regions, types, &closure_uses));
         let needs = RuntimeNeeds {
             control_arenas: control_frames.arena_count(),
+            homogeneous_control: control_frames.has_homogeneous_arenas(),
+            heterogeneous_control: control_frames.has_heterogeneous_arenas(),
             ..RuntimeNeeds::default()
         };
         Self {

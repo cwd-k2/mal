@@ -135,7 +135,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/analysis/control_region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `c_emit/body/analysis/control_call` | control regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、C-call graphを非循環化 |
 | `c_emit/body/analysis/control_call/graph` | 導出済みdirect C-call edge集合の非循環性検査 |
-| `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要を導出 |
+| `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要、constructor cardinalityに基づくhomogeneous regionを導出 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |
@@ -149,7 +149,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 | `c_emit/runtime/core` | runtime contextと各runtime responsibilityの構成順序 |
 | `c_emit/runtime/core/allocation` | allocation header、reference count、implementation resource failureの構成 |
-| `c_emit/runtime/core/control` | frameを持つregionのcontrol arenaとstack operationの構成 |
+| `c_emit/runtime/core/control` | constructor cardinalityに応じたcontrol stack helperの需要選択とheterogeneous aligned byte stackのgrowth operationを構成 |
+| `c_emit/runtime/core/control/homogeneous` | homogeneous fixed-width stackのgrowth operationを構成 |
 | `c_emit/runtime/core/symbol` | Symbol lifetime、admission、external byte copy、materializationの構成 |
 | `c_emit/runtime/symbol` | Symbol byte traversal、comparison、byte access、concatenationの構成 |
 | `c_emit/runtime/symbol/leaf_cursor` | allocation-freeなrope leaf順走査とbounded pending pathの構成 |

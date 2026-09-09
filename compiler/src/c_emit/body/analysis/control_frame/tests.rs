@@ -39,6 +39,9 @@ fn validates_exact_frame_closure_and_arena_sets() {
     assert!(!plan.frames.is_empty());
     assert!(!plan.closures_crossing_suspension.is_empty());
     assert!(!plan.region_arenas.is_empty());
+    assert_eq!(plan.homogeneous_regions.len(), 1);
+    assert!(plan.has_homogeneous_arenas());
+    assert!(!plan.has_heterogeneous_arenas());
 
     let frame_site = *plan.frames.keys().next().expect("frame site");
     let frame = plan.frames.remove(&frame_site).expect("frame");
@@ -58,6 +61,13 @@ fn validates_exact_frame_closure_and_arena_sets() {
     let arena = plan.region_arenas.remove(&region).expect("arena");
     assert!(!plan.is_valid(&control, &regions, &types, &closure_uses));
     plan.region_arenas.insert(region, arena);
+
+    let homogeneous = plan
+        .homogeneous_regions
+        .remove(&region)
+        .expect("homogeneous region");
+    assert!(!plan.is_valid(&control, &regions, &types, &closure_uses));
+    plan.homogeneous_regions.insert(region, homogeneous);
 
     assert!(plan.is_valid(&control, &regions, &types, &closure_uses));
 }

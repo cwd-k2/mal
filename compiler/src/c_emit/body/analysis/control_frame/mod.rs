@@ -13,6 +13,7 @@ pub(in crate::c_emit::body) struct ControlFramePlan {
     frames: HashMap<StateId, ControlFrame>,
     closures_crossing_suspension: HashSet<ValueId>,
     region_arenas: HashMap<ControlRegionId, ControlArenaId>,
+    homogeneous_regions: HashMap<ControlRegionId, StateId>,
 }
 
 #[derive(Clone)]
@@ -77,10 +78,21 @@ impl ControlFramePlan {
             .enumerate()
             .map(|(arena, region)| (region, ControlArenaId(arena)))
             .collect();
+        let homogeneous_regions = regions
+            .ids()
+            .filter_map(|region| {
+                let mut sites = frames
+                    .keys()
+                    .filter(|site| regions.site_region(**site) == Some(region));
+                let site = *sites.next()?;
+                sites.next().is_none().then_some((region, site))
+            })
+            .collect();
         Self {
             frames,
             closures_crossing_suspension,
             region_arenas,
+            homogeneous_regions,
         }
     }
 
@@ -96,8 +108,31 @@ impl ControlFramePlan {
         self.region_arenas.len()
     }
 
+    pub(in crate::c_emit::body) fn has_homogeneous_arenas(&self) -> bool {
+        !self.homogeneous_regions.is_empty()
+    }
+
+    pub(in crate::c_emit::body) fn has_heterogeneous_arenas(&self) -> bool {
+        self.region_arenas
+            .keys()
+            .any(|region| !self.homogeneous_regions.contains_key(region))
+    }
+
     pub(in crate::c_emit::body) fn arena(&self, region: ControlRegionId) -> Option<ControlArenaId> {
         self.region_arenas.get(&region).copied()
+    }
+
+    pub(in crate::c_emit::body) fn homogeneous_frame(
+        &self,
+        region: ControlRegionId,
+    ) -> Option<StateId> {
+        self.homogeneous_regions.get(&region).copied()
+    }
+
+    pub(in crate::c_emit::body) fn frame_is_homogeneous(&self, site: StateId) -> bool {
+        self.homogeneous_regions
+            .values()
+            .any(|candidate| *candidate == site)
     }
 
     pub(in crate::c_emit::body) fn is_valid(
@@ -158,10 +193,21 @@ impl ControlFramePlan {
             .enumerate()
             .map(|(arena, region)| (region, ControlArenaId(arena)))
             .collect::<HashMap<_, _>>();
+        let expected_homogeneous_regions = regions
+            .ids()
+            .filter_map(|region| {
+                let mut sites = expected_sites
+                    .iter()
+                    .filter(|site| regions.site_region(**site) == Some(region));
+                let site = *sites.next()?;
+                sites.next().is_none().then_some((region, site))
+            })
+            .collect::<HashMap<_, _>>();
 
         frames_match_resume_live_ins
             && self.closures_crossing_suspension == expected_closures
             && self.region_arenas == expected_arenas
+            && self.homogeneous_regions == expected_homogeneous_regions
     }
 }
 
