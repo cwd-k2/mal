@@ -51,6 +51,7 @@ pub enum TopItem {
         binding: ValueBinding,
         lambda_id: LambdaId,
         parameter: Type,
+        parameter_alias: Option<String>,
         parameter_aliases: Vec<Option<String>>,
         result: Type,
         result_alias: Option<String>,

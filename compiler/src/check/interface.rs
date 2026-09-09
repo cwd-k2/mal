@@ -7,6 +7,7 @@ use super::{Checker, ast::Type};
 #[derive(Clone)]
 pub(super) struct ExternalSignature {
     pub(super) parameter: Type,
+    pub(super) parameter_alias: Option<String>,
     pub(super) parameter_aliases: Vec<Option<String>>,
     pub(super) result: Type,
     pub(super) result_alias: Option<String>,
@@ -42,6 +43,7 @@ impl Checker {
             let (source_parameter, source_result) = self
                 .external_function_parts(ty)
                 .expect("expanded external function types retain source components");
+            let parameter_alias = self.alias_name(source_parameter);
             let parameter_aliases = self.parameter_aliases(source_parameter, &parameter);
             let result_alias = self.alias_name(source_result);
             self.values.insert(
@@ -56,6 +58,7 @@ impl Checker {
                 *id,
                 ExternalSignature {
                     parameter: *parameter,
+                    parameter_alias,
                     parameter_aliases,
                     result: *result,
                     result_alias,

@@ -85,6 +85,7 @@ impl Checker {
                         binding: binding.clone(),
                         lambda_id: *lambda_id,
                         parameter: signature.parameter.clone(),
+                        parameter_alias: signature.parameter_alias.clone(),
                         parameter_aliases: signature.parameter_aliases.clone(),
                         result: signature.result.clone(),
                         result_alias: signature.result_alias.clone(),

@@ -12,11 +12,34 @@ fn preserves_type_alias_names_as_backend_metadata() {
     assert_eq!(program.interface.type_aliases[0].name, "Flag");
     assert_eq!(program.interface.externals.len(), 1);
     assert_eq!(program.interface.externals[0].name, "choose");
+    assert_eq!(
+        program.interface.externals[0].parameter_alias.as_deref(),
+        Some("Flag")
+    );
     assert_eq!(program.bindings.len(), 2);
     let TopLevelPattern::Binding { name, .. } = &program.bindings[0].pattern else {
         panic!("expected named top-level binding");
     };
     assert_eq!(name, "choose");
+}
+
+#[test]
+fn preserves_a_product_parameter_alias_before_boundary_flattening() {
+    let program = lower_ok(
+        "Count :: UInt64;\n\
+         Payload :: (UInt8, Int32);\n\
+         Request :: (Count, Payload);\n\
+         extern exchange :: Request -> Count;\n\
+         main :: Unit -> Int32 := \\() { 0; };",
+    );
+
+    let external = &program.interface.externals[0];
+    assert_eq!(external.parameter_alias.as_deref(), Some("Request"));
+    assert_eq!(
+        external.parameter_aliases,
+        [Some("Count".into()), Some("Payload".into())]
+    );
+    assert_eq!(external.result_alias.as_deref(), Some("Count"));
 }
 
 #[test]
