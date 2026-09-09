@@ -51,7 +51,7 @@ main :: Unit -> Int32 := \() {
     assert!(llvm_ir.contains("mal_ext_input"), "{llvm_ir}");
     assert!(llvm_ir.contains("icmp eq i64"), "{llvm_ir}");
     assert!(!llvm_ir.contains("@mal_symbol_at("), "{llvm_ir}");
-    assert!(!llvm_ir.contains("@mal_symbol_at_slow("), "{llvm_ir}");
+    assert!(llvm_ir.contains("@mal_symbol_at_slow("), "{llvm_ir}");
     assert!(llvm_ir.contains("MalSymbolLeafCursor"), "{llvm_ir}");
     assert!(llvm_ir.contains("load i8"), "{llvm_ir}");
 
@@ -188,7 +188,7 @@ main :: Unit -> Int32 := \() {{
         "{}",
         generated.source
     );
-    assert!(!generated.source.contains("mal_symbol_at_slow("));
+    assert!(generated.source.contains("mal_symbol_at_slow("));
     let fixture = NativeFixture::new("rope-symbol-scan-cost");
     let executable = fixture.compile_generated_with_options(
         generated,
@@ -236,7 +236,7 @@ main :: Unit -> Int32 := \() {{
     let generated = emit(&source).expect("emit indexed rope cursor fixture");
     assert!(generated.source.contains("mal_symbol_leaf_cursor_seek("));
     assert!(generated.source.contains("mal_symbol_leaf_cursor_advance("));
-    assert!(!generated.source.contains("mal_symbol_at_slow("));
+    assert!(generated.source.contains("mal_symbol_at_slow("));
 
     let fixture = NativeFixture::new("rope-symbol-cursor-indices");
     let executable = fixture.compile_generated_with_options(

@@ -100,7 +100,7 @@ fn seek_definition() -> FunctionDefinition {
 
 fn at_definition() -> FunctionDefinition {
     FunctionDefinition::from_signature(
-        FunctionSignature::static_function(
+        FunctionSignature::static_noinline(
             "uint8_t",
             "mal_symbol_leaf_cursor_at",
             [
@@ -110,15 +110,7 @@ fn at_definition() -> FunctionDefinition {
             ],
         ),
         Block::new([
-            Statement::if_then(
-                has_data("value"),
-                Block::new([Statement::return_value(
-                    Expr::identifier("value")
-                        .field("data")
-                        .index(Expr::identifier("index")),
-                )]),
-            ),
-            Statement::if_else(needs_seek(), seek_cursor(), advance_cursor()),
+            Statement::if_else(can_use_cursor(), advance_cursor(), establish_cursor()),
             Statement::assignment(
                 Expr::identifier("cursor").pointer_field("position"),
                 Expr::identifier("index"),
@@ -158,18 +150,18 @@ fn seek_limit_check() -> Block {
     ])
 }
 
-fn needs_seek() -> Expr {
-    Expr::logical_or(
+fn can_use_cursor() -> Expr {
+    Expr::logical_and(
         Expr::equal(
             Expr::identifier("cursor").pointer_field("initialized"),
-            Expr::number("0"),
+            Expr::named_call("UINT8_C", [Expr::number("2")]),
         ),
         Expr::logical_or(
-            Expr::less(
+            Expr::equal(
                 Expr::identifier("index"),
                 Expr::identifier("cursor").pointer_field("position"),
             ),
-            Expr::greater(
+            Expr::equal(
                 Expr::identifier("index"),
                 Expr::add(
                     Expr::identifier("cursor").pointer_field("position"),
@@ -180,25 +172,54 @@ fn needs_seek() -> Expr {
     )
 }
 
-fn seek_cursor() -> Block {
-    Block::new([
-        Statement::assignment(
-            Expr::identifier("cursor").pointer_field("depth"),
-            Expr::number("0"),
-        ),
-        Statement::call(
-            "mal_symbol_leaf_cursor_seek",
-            [
-                Expr::identifier("cursor"),
-                Expr::identifier("value"),
+fn establish_cursor() -> Block {
+    Block::new([Statement::if_else(
+        Expr::logical_and(
+            Expr::equal(
+                Expr::identifier("cursor").pointer_field("initialized"),
+                Expr::named_call("UINT8_C", [Expr::number("1")]),
+            ),
+            Expr::equal(
                 Expr::identifier("index"),
-            ],
+                Expr::add(
+                    Expr::identifier("cursor").pointer_field("position"),
+                    Expr::number("1"),
+                ),
+            ),
         ),
-        Statement::assignment(
-            Expr::identifier("cursor").pointer_field("initialized"),
-            Expr::named_call("UINT8_C", [Expr::number("1")]),
-        ),
-    ])
+        Block::new([
+            Statement::assignment(
+                Expr::identifier("cursor").pointer_field("depth"),
+                Expr::number("0"),
+            ),
+            Statement::call(
+                "mal_symbol_leaf_cursor_seek",
+                [
+                    Expr::identifier("cursor"),
+                    Expr::identifier("value"),
+                    Expr::identifier("index"),
+                ],
+            ),
+            Statement::assignment(
+                Expr::identifier("cursor").pointer_field("initialized"),
+                Expr::named_call("UINT8_C", [Expr::number("2")]),
+            ),
+        ]),
+        Block::new([
+            Statement::assignment(
+                Expr::identifier("cursor").pointer_field("initialized"),
+                Expr::named_call("UINT8_C", [Expr::number("1")]),
+            ),
+            Statement::assignment(
+                Expr::identifier("cursor").pointer_field("position"),
+                Expr::identifier("index"),
+            ),
+            Statement::return_value(Expr::named_call(
+                "mal_symbol_at_slow",
+                [Expr::identifier("value"), Expr::identifier("index")],
+            )),
+        ]),
+    )])
 }
 
 fn advance_cursor() -> Block {

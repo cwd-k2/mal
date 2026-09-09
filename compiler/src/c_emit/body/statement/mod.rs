@@ -95,27 +95,30 @@ impl BodyEmitter<'_> {
                 if cursor.is_none() {
                     self.needs.symbol_at = true;
                 }
+                let symbol = self.emit_atom(&elements[0]);
+                let index = self.emit_atom(&elements[1]);
                 (
-                    Expr::named_call(
-                        if cursor.is_some() {
-                            "mal_symbol_leaf_cursor_at"
-                        } else {
-                            "mal_symbol_at"
-                        },
-                        if let Some(cursor) = cursor {
-                            vec![
-                                Expr::address_of(Expr::identifier(symbol_at_cursor_name(cursor))),
-                                self.emit_atom(&elements[0]),
-                                self.emit_atom(&elements[1]),
-                            ]
-                        } else {
-                            vec![
-                                Expr::identifier("mal_context"),
-                                self.emit_atom(&elements[0]),
-                                self.emit_atom(&elements[1]),
-                            ]
-                        },
-                    ),
+                    if let Some(cursor) = cursor {
+                        Expr::conditional(
+                            Expr::not_equal(symbol.clone().field("data"), Expr::identifier("NULL")),
+                            symbol.clone().field("data").index(index.clone()),
+                            Expr::named_call(
+                                "mal_symbol_leaf_cursor_at",
+                                [
+                                    Expr::address_of(Expr::identifier(symbol_at_cursor_name(
+                                        cursor,
+                                    ))),
+                                    symbol,
+                                    index,
+                                ],
+                            ),
+                        )
+                    } else {
+                        Expr::named_call(
+                            "mal_symbol_at",
+                            [Expr::identifier("mal_context"), symbol, index],
+                        )
+                    },
                     ResultOwnership::Borrowed,
                 )
             }

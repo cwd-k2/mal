@@ -27,13 +27,11 @@ pub(super) fn emit_traversal() -> TranslationUnit {
             "uint8_t",
             "mal_symbol_at_slow",
             [
-                context_parameter(),
                 Parameter::named("MalType_Symbol", "value"),
                 Parameter::named("uint64_t", "index"),
             ],
         ),
         Block::new([
-            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
             Statement::if_then(has_data("value"), Block::new([byte_at("value")])),
             Statement::variable(
                 TypeName::const_named("MalSymbolRope").pointer(),
@@ -53,7 +51,6 @@ pub(super) fn emit_traversal() -> TranslationUnit {
                 Block::new([Statement::return_value(Expr::named_call(
                     "mal_symbol_at_slow",
                     [
-                        Expr::identifier("context"),
                         Expr::identifier("rope").pointer_field("left"),
                         Expr::identifier("index"),
                     ],
@@ -61,7 +58,6 @@ pub(super) fn emit_traversal() -> TranslationUnit {
                 Block::new([Statement::return_value(Expr::named_call(
                     "mal_symbol_at_slow",
                     [
-                        Expr::identifier("context"),
                         Expr::identifier("rope").pointer_field("right"),
                         Expr::subtract(
                             Expr::identifier("index"),
@@ -224,14 +220,11 @@ pub(super) fn emit_at() -> TranslationUnit {
             ],
         ),
         Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
             Statement::if_then(has_data("value"), Block::new([byte_at("value")])),
             Statement::return_value(Expr::named_call(
                 "mal_symbol_at_slow",
-                [
-                    Expr::identifier("context"),
-                    Expr::identifier("value"),
-                    Expr::identifier("index"),
-                ],
+                [Expr::identifier("value"), Expr::identifier("index")],
             )),
         ]),
     ));
