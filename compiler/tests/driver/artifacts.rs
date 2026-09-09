@@ -84,7 +84,9 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     directory.write(
         "program.mal",
         "Count :: UInt64;\n\
+         Request :: (Count, Int32);\n\
          extern increment :: Count -> Count;\n\
+         extern inspect :: Request -> Count;\n\
          main :: Unit -> Int32 := \\() { Int32(increment(41u64) - 42u64); };",
     );
 
@@ -115,7 +117,10 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     let host = String::from_utf8(output.stdout).unwrap();
     assert!(host.starts_with("#include \"custom.h\"\n"));
     assert!(host.contains("MAL_DEFINE_increment(context, value)"));
+    assert!(host.contains("MAL_DEFINE_inspect(context, argument_0, argument_1)"));
     assert!(host.contains("(void)value;"));
+    assert!(host.contains("(void)argument_0;"));
+    assert!(host.contains("(void)argument_1;"));
     assert!(host.contains("external operation `increment` is not implemented"));
 
     directory.write("host.c", &host);

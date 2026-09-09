@@ -6,26 +6,53 @@ use super::{
     syntax::{Parameter, TypeName},
 };
 
-pub(super) struct HostSignature<'a> {
-    pub(super) operation_name: &'a str,
-    pub(super) result_type: TypeName,
-    parameters: Vec<HostParameter>,
+pub(super) struct ExternalSignatures<'a> {
+    pub(super) compiler: CompilerSignature<'a>,
+    pub(super) host_body: HostBodySignature<'a>,
 }
 
-struct HostParameter {
+pub(super) struct CompilerSignature<'a> {
+    pub(super) operation_name: &'a str,
+    pub(super) result_type: TypeName,
+    parameters: Vec<CompilerParameter>,
+}
+
+struct CompilerParameter {
     c_type: TypeName,
     default_name: String,
     is_context: bool,
 }
 
-impl<'a> HostSignature<'a> {
+pub(super) struct HostBodySignature<'a> {
+    pub(super) operation_name: &'a str,
+    result: HostValue<'a>,
+    parameter: Option<HostValue<'a>>,
+}
+
+struct HostValue<'a> {
+    ty: &'a Type,
+    alias: Option<&'a str>,
+}
+
+impl<'a> ExternalSignatures<'a> {
     pub(super) fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
+        let signatures = Self {
+            compiler: CompilerSignature::new(external, types),
+            host_body: HostBodySignature::new(external),
+        };
+        debug_assert!(signatures.host_body.represents(external));
+        signatures
+    }
+}
+
+impl<'a> CompilerSignature<'a> {
+    fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         let result_type = if external.result == Type::Unit {
             TypeName::named("void")
         } else {
             types.header_c_type(&external.result, external.result_alias.as_deref())
         };
-        let mut parameters = vec![HostParameter {
+        let mut parameters = vec![CompilerParameter {
             c_type: TypeName::named("MalContext").pointer(),
             default_name: "context".into(),
             is_context: true,
@@ -40,7 +67,7 @@ impl<'a> HostSignature<'a> {
                 for (index, (element, alias)) in
                     elements.iter().zip(&external.parameter_aliases).enumerate()
                 {
-                    parameters.push(HostParameter {
+                    parameters.push(CompilerParameter {
                         c_type: types.header_c_type(element, alias.as_deref()),
                         default_name: format!("argument_{index}"),
                         is_context: false,
@@ -49,7 +76,7 @@ impl<'a> HostSignature<'a> {
             }
             parameter => {
                 debug_assert_eq!(external.parameter_aliases.len(), 1);
-                parameters.push(HostParameter {
+                parameters.push(CompilerParameter {
                     c_type: types
                         .header_c_type(parameter, external.parameter_aliases[0].as_deref()),
                     default_name: "value".into(),
@@ -93,5 +120,70 @@ impl<'a> HostSignature<'a> {
                 }
             })
             .collect()
+    }
+}
+
+impl<'a> HostBodySignature<'a> {
+    fn new(external: &'a ExternalOperation) -> Self {
+        Self {
+            operation_name: &external.name,
+            result: HostValue {
+                ty: &external.result,
+                alias: external.result_alias.as_deref(),
+            },
+            parameter: (external.parameter != Type::Unit).then_some(HostValue {
+                ty: &external.parameter,
+                alias: external.parameter_alias.as_deref(),
+            }),
+        }
+    }
+
+    fn represents(&self, external: &ExternalOperation) -> bool {
+        self.operation_name == external.name
+            && self.result.ty == &external.result
+            && self.result.alias == external.result_alias.as_deref()
+            && match &self.parameter {
+                Some(parameter) => {
+                    parameter.ty == &external.parameter
+                        && parameter.alias == external.parameter_alias.as_deref()
+                }
+                None => external.parameter == Type::Unit && external.parameter_alias.is_none(),
+            }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::resolve::ast::ExternalOperationId;
+    use crate::source::{FileId, Span};
+
+    use super::*;
+
+    #[test]
+    fn separates_flattened_compiler_parameters_from_the_source_host_value() {
+        let external = ExternalOperation {
+            id: ExternalOperationId(0),
+            name: "inspect".into(),
+            parameter: Type::Product(vec![Type::UInt64, Type::Int32]),
+            parameter_alias: Some("Request".into()),
+            parameter_aliases: vec![Some("Count".into()), None],
+            result: Type::UInt64,
+            result_alias: Some("Count".into()),
+            span: Span::new(FileId::new(0), 0, 0),
+        };
+
+        let signatures = ExternalSignatures::new(&external, &TypeRegistry::default());
+
+        assert_eq!(
+            signatures.compiler.parameter_names(),
+            ["context", "argument_0", "argument_1"]
+        );
+        let parameter = signatures
+            .host_body
+            .parameter
+            .expect("one host value parameter");
+        assert_eq!(parameter.ty, &external.parameter);
+        assert_eq!(parameter.alias, Some("Request"));
+        assert_eq!(signatures.host_body.result.alias, Some("Count"));
     }
 }

@@ -1,6 +1,9 @@
 use crate::core::ast::ProgramInterface;
 
-use super::{HostTypes, TypeRegistry, host_signature::HostSignature};
+use super::{
+    HostTypes, TypeRegistry,
+    host_signature::{CompilerSignature, ExternalSignatures},
+};
 use crate::c_emit::syntax::{
     Block, Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature,
     MacroInvocation, Statement, TranslationUnit,
@@ -14,7 +17,7 @@ pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &Ho
     let signatures: Vec<_> = interface
         .externals
         .iter()
-        .map(|external| HostSignature::new(external, types))
+        .map(|external| ExternalSignatures::new(external, types))
         .collect();
     let mut output = emit_prefix();
     let mut declarations = types.header_declarations(host);
@@ -34,12 +37,12 @@ pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &Ho
 
     if !interface.externals.is_empty() {
         begin_section(&mut output, "External operations");
-        for signature in &signatures {
-            emit_external_declaration(&mut output, signature);
+        for signatures in &signatures {
+            emit_external_declaration(&mut output, &signatures.compiler);
         }
         begin_section(&mut output, "External definition helpers");
-        for signature in &signatures {
-            emit_definition_macro(&mut output, signature);
+        for signatures in &signatures {
+            emit_definition_macro(&mut output, &signatures.compiler);
         }
     }
     output.push(Directive::Endif);
@@ -53,7 +56,8 @@ pub(super) fn emit_host(
 ) -> String {
     let mut output = TranslationUnit::new([Directive::include_quoted(header_name).into()]);
     for external in &interface.externals {
-        let signature = HostSignature::new(external, types);
+        let signatures = ExternalSignatures::new(external, types);
+        let signature = &signatures.compiler;
         output.blank_line();
         let mut body = Block::default();
         for name in signature.parameter_names().into_iter().skip(1) {
@@ -68,12 +72,12 @@ pub(super) fn emit_host(
                 Expr::identifier("context"),
                 Expr::string(format!(
                     "external operation `{}` is not implemented",
-                    signature.operation_name
+                    signatures.host_body.operation_name
                 )),
             ],
         ));
         output.push(FunctionDefinition::from_macro(
-            macro_invocation(&signature),
+            macro_invocation(signature),
             body,
         ));
     }
@@ -86,11 +90,11 @@ fn begin_section(output: &mut TranslationUnit, title: &str) {
     output.blank_line();
 }
 
-fn emit_external_declaration(output: &mut TranslationUnit, signature: &HostSignature<'_>) {
+fn emit_external_declaration(output: &mut TranslationUnit, signature: &CompilerSignature<'_>) {
     output.push(Declaration::function(external_signature(signature, false)));
 }
 
-fn emit_definition_macro(output: &mut TranslationUnit, signature: &HostSignature<'_>) {
+fn emit_definition_macro(output: &mut TranslationUnit, signature: &CompilerSignature<'_>) {
     output.push(Directive::define_expr(
         format!("MAL_HAS_EXTERN_{}", signature.operation_name),
         Expr::number("1"),
@@ -103,7 +107,7 @@ fn emit_definition_macro(output: &mut TranslationUnit, signature: &HostSignature
     output.blank_line();
 }
 
-fn macro_invocation(signature: &HostSignature<'_>) -> MacroInvocation {
+fn macro_invocation(signature: &CompilerSignature<'_>) -> MacroInvocation {
     MacroInvocation::new(
         format!("MAL_DEFINE_{}", signature.operation_name),
         signature
@@ -121,7 +125,7 @@ fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, r
     output.blank_line();
 }
 
-fn external_signature(signature: &HostSignature<'_>, definition: bool) -> FunctionSignature {
+fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> FunctionSignature {
     FunctionSignature::new(
         signature.result_type.clone(),
         format!("mal_ext_{}", signature.operation_name),
