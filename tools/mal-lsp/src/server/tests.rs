@@ -192,9 +192,9 @@ fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
 }
 
 #[test]
-fn serves_hover_and_definition_for_a_storage_size_type() {
-    let text = "Byte :: UInt8;\nsize :: UInt64 := @Byte;";
-    let uri = "file:///storage-size.mal";
+fn serves_hover_and_definition_for_a_type_qualified_primitive() {
+    let text = "Byte :: UInt8;\nsize :: UInt64 := Byte.size;";
+    let uri = "file:///type-qualified-primitive.mal";
     let mut server = open_document(uri, text);
     let reference = text.rfind("Byte").unwrap();
     let declaration = text.find("Byte").unwrap();
@@ -244,7 +244,7 @@ fn serves_symbols_completion_and_semantic_tokens() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|item| item["label"] == "loadInt64" && item["kind"] == 3)
+            .any(|item| item["label"] == "false" && item["kind"] == 6)
     );
     let tokens = server.handle(json!({
         "jsonrpc": "2.0", "id": 22, "method": "textDocument/semanticTokens/full",

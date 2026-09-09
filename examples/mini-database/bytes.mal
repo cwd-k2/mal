@@ -9,7 +9,7 @@ clearBytes :: (Ptr, UInt64) -> Unit := \(memory :: Ptr, remaining :: UInt64) {
     if (remaining == 0u64)
     then { () }
     else {
-        storeUInt8(memory, 0u8);
+        UInt8.store(memory, 0u8);
         clearBytes(memory + 1u64, remaining - 1u64);
     };
 };
@@ -19,7 +19,7 @@ _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
         if (index == #expected)
         then { true }
         else {
-            loadUInt8(source + start + index) == expected # index
+            UInt8.load(source + start + index) == expected # index
                 && _rangeEqualsAt(source, start, expected, index + 1u64);
         };
     };
@@ -36,7 +36,7 @@ findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
         if (index == length)
         then { index }
         else {
-            if (loadUInt8(source + index) == byte)
+            if (UInt8.load(source + index) == byte)
             then { index }
             else { findByte(source, length, index + 1u64, byte) };
         };
@@ -47,7 +47,7 @@ memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
         if (index == length)
         then { true }
         else {
-            loadUInt8(memory + index) == loadUInt8(source + start + index)
+            UInt8.load(memory + index) == UInt8.load(source + start + index)
                 && memoryEqualsAt(memory, source, start, length, index + 1u64);
         };
     };
@@ -57,7 +57,7 @@ copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
         if (remaining == 0u64)
         then { () }
         else {
-            storeUInt8(destination, loadUInt8(source + start));
+            UInt8.store(destination, UInt8.load(source + start));
             copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64);
         };
     };

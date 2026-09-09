@@ -20,7 +20,7 @@ closingParen :: UInt8 := ')';
 
 message :: Symbol := "mal\n";
 
-pointerStorageSize :: UInt64 := @Ptr;
+pointerStorageSize :: UInt64 := Ptr.size;
 
 inspect :: Symbol -> UInt64 := \(value :: Symbol) {
     #value + UInt64(value # 1u64);

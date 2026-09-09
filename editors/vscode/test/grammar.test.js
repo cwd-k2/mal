@@ -46,21 +46,27 @@ test("keeps a closing parenthesis inside ')' in a Symbol literal token", async (
   assert.ok(closingParentheses[1].scopes.includes('punctuation.definition.mal'));
 });
 
-test('highlights the storage-size sigil and its type separately', async () => {
+test('highlights type-qualified primitives', async () => {
   const grammar = await loadGrammar();
-  const line = 'size := @Ptr + @UInt8;';
+  const line = 'size := Ptr.size + UInt8.size;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
   }));
 
-  for (const token of tokens.filter((candidate) => candidate.text === '@')) {
-    assert.ok(token.scopes.includes('keyword.operator.mal'));
+  for (const token of tokens.filter((candidate) => candidate.text === '.')) {
+    assert.ok(token.scopes.includes('punctuation.accessor.mal'));
   }
   for (const name of ['Ptr', 'UInt8']) {
     const token = tokens.find((candidate) => candidate.text === name);
     assert.ok(token.scopes.includes('entity.name.type.mal'));
   }
+  const primitiveMembers = tokens.filter(
+    (candidate) =>
+      candidate.text === 'size' &&
+      candidate.scopes.includes('support.function.builtin.mal'),
+  );
+  assert.equal(primitiveMembers.length, 2);
 });
 
 test('highlights unary and binary Symbol operators', async () => {

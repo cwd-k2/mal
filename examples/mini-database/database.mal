@@ -54,12 +54,12 @@ saveDatabase :: (File, Buffer) -> Unit := \(file :: File, database :: Buffer) {
 initializeDatabase :: Buffer -> Buffer := \(buffer :: Buffer) {
     (memory, capacity, _) := buffer;
     clearBytes(memory, _databaseSize);
-    storeUInt8(memory, 'M');
-    storeUInt8(memory + 1u64, 'A');
-    storeUInt8(memory + 2u64, 'L');
-    storeUInt8(memory + 3u64, 'D');
-    storeUInt8(memory + 4u64, 1u8);
-    storeUInt8(memory + 5u64, 64u8);
+    UInt8.store(memory, 'M');
+    UInt8.store(memory + 1u64, 'A');
+    UInt8.store(memory + 2u64, 'L');
+    UInt8.store(memory + 3u64, 'D');
+    UInt8.store(memory + 4u64, 1u8);
+    UInt8.store(memory + 5u64, 64u8);
     (memory, capacity, _databaseSize);
 };
 
@@ -72,9 +72,9 @@ _validateRecords :: (Ptr, UInt64) -> Bool := \(database :: Ptr, index :: UInt64)
     then { true }
     else {
         record := _recordAt(database, index);
-        active := loadUInt8(record);
-        keyLength := UInt64(loadUInt8(record + 1u64));
-        valueLength := UInt64(loadUInt8(record + 2u64));
+        active := UInt8.load(record);
+        keyLength := UInt64(UInt8.load(record + 1u64));
+        valueLength := UInt64(UInt8.load(record + 2u64));
         valid := (active == 0u8 || active == 1u8)
             && keyLength <= _keyCapacity
             && valueLength <= _valueCapacity
@@ -86,12 +86,12 @@ _validateRecords :: (Ptr, UInt64) -> Bool := \(database :: Ptr, index :: UInt64)
 validateDatabase :: Buffer -> Bool := \(buffer :: Buffer) {
     (database, _, length) := buffer;
     length == _databaseSize
-        && loadUInt8(database) == 'M'
-        && loadUInt8(database + 1u64) == 'A'
-        && loadUInt8(database + 2u64) == 'L'
-        && loadUInt8(database + 3u64) == 'D'
-        && loadUInt8(database + 4u64) == 1u8
-        && loadUInt8(database + 5u64) == 64u8
+        && UInt8.load(database) == 'M'
+        && UInt8.load(database + 1u64) == 'A'
+        && UInt8.load(database + 2u64) == 'L'
+        && UInt8.load(database + 3u64) == 'D'
+        && UInt8.load(database + 4u64) == 1u8
+        && UInt8.load(database + 5u64) == 64u8
         && _validateRecords(database, 0u64);
 };
 
@@ -101,8 +101,8 @@ _findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
         then { _recordCount }
         else {
             record := _recordAt(database, index);
-            matches := loadUInt8(record) == 1u8
-                && UInt64(loadUInt8(record + 1u64)) == length
+            matches := UInt8.load(record) == 1u8
+                && UInt64(UInt8.load(record + 1u64)) == length
                 && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
             if (matches)
             then { index }
@@ -114,7 +114,7 @@ _findFreeRecord :: (Ptr, UInt64) -> UInt64 := \(database :: Ptr, index :: UInt64
     if (index == _recordCount)
     then { _recordCount }
     else {
-        if (loadUInt8(_recordAt(database, index)) == 0u8)
+        if (UInt8.load(_recordAt(database, index)) == 0u8)
         then { index }
         else { _findFreeRecord(database, index + 1u64) };
     };
@@ -135,11 +135,11 @@ putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
             then { PutResult[2](()) }
             else {
                 record := _recordAt(database, slot);
-                storeUInt8(record + 1u64, UInt8(keyLength));
-                storeUInt8(record + 2u64, UInt8(valueLength));
+                UInt8.store(record + 1u64, UInt8(keyLength));
+                UInt8.store(record + 2u64, UInt8(valueLength));
                 copyRange(line, keyStart, record + 8u64, keyLength);
                 copyRange(line, valueStart, record + 24u64, valueLength);
-                storeUInt8(record, 1u8);
+                UInt8.store(record, 1u8);
                 PutResult[0](());
             };
         };
@@ -154,7 +154,7 @@ lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
         then { LookupResult[0](()) }
         else {
             record := _recordAt(database, slot);
-            valueLength := UInt64(loadUInt8(record + 2u64));
+            valueLength := UInt64(UInt8.load(record + 2u64));
             LookupResult[1]((record + 24u64, valueLength));
         };
     };
@@ -167,7 +167,7 @@ deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=
         if (slot == _recordCount)
         then { false }
         else {
-            storeUInt8(_recordAt(database, slot), 0u8);
+            UInt8.store(_recordAt(database, slot), 0u8);
             true;
         };
     };

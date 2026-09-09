@@ -4,7 +4,7 @@ require "./application.mal";
 main :: Arguments -> Int32 := \(argumentCount :: UInt64, arguments :: Ptr) {
     if (argumentCount == 1u64)
     then {
-        path := loadSymbol(loadPtr(arguments), loadUInt64(arguments + @Ptr));
+        path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
         executeDatabase(path);
     }
     else {

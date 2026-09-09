@@ -46,7 +46,7 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := \(buffer :: Buffer, value ::
         case (available)
         [0](resized) {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
-            storeSymbol(nextMemory + length, value);
+            Symbol.write(nextMemory + length, value);
             BufferResult[0]((nextAllocation, nextMemory, nextCapacityValue, required));
         }
         [1](error) { BufferResult[1](error) };
@@ -69,13 +69,13 @@ releaseBufferValue :: Buffer -> Unit := \(buffer :: Buffer) {
 writeThroughDescriptor :: Slice -> Bool := \(slice :: Slice) {
     (allocation, memory, length) := slice;
     // Shared descriptor bytes contain only Ptr memory followed by UInt64 length.
-    descriptorSize := @Ptr + @UInt64;
+    descriptorSize := Ptr.size + UInt64.size;
     allocated := extern allocateBuffer(descriptorSize, descriptorSize);
     case (allocated)
     [0](descriptor) {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-        storePtr(descriptorMemory, memory);
-        storeUInt64(descriptorMemory + @Ptr, length);
+        Ptr.store(descriptorMemory, memory);
+        UInt64.store(descriptorMemory + Ptr.size, length);
         extern writeSliceDescriptor(allocation, descriptorMemory);
         extern releaseBuffer(descriptorAllocation);
         true;

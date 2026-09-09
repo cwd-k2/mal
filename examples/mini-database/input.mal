@@ -14,7 +14,7 @@ _readByte :: Reader -> ByteRead := \(reader :: Reader) {
     (memory, capacity, length) := buffer;
     if (position < length)
     then {
-        byte := loadUInt8(memory + position);
+        byte := UInt8.load(memory + position);
         ByteRead[1](((file, buffer, position + 1u64), byte));
     }
     else {
@@ -24,7 +24,7 @@ _readByte :: Reader -> ByteRead := \(reader :: Reader) {
         if (transferred == 0u64)
         then { ByteRead[0](next) }
         else {
-            byte := loadUInt8(memory);
+            byte := UInt8.load(memory);
             ByteRead[1](((file, filled, 1u64), byte));
         };
     };
@@ -43,7 +43,7 @@ _readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buf
         (next, byte) := read;
         if (byte == '\n')
         then {
-            if (length > 0u64 && loadUInt8(line + length - 1u64) == '\r')
+            if (length > 0u64 && UInt8.load(line + length - 1u64) == '\r')
             then { LineRead[1]((next, (line, capacity, length - 1u64))) }
             else { LineRead[1]((next, buffer)) };
         }
@@ -54,7 +54,7 @@ _readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buf
                 LineRead[1]((next, buffer));
             }
             else {
-                storeUInt8(line + length, byte);
+                UInt8.store(line + length, byte);
                 _readLineAt(next, (line, capacity, length + 1u64));
             };
         };

@@ -2,9 +2,9 @@
 
 This example builds an immutable binary tree encoding in external storage. The source-level tree
 value is a `Ptr` capability, not a product or sum with a canonical memory representation. The mal
-program defines the node layout, writes and reads child pointers with `storePtr` and `loadPtr`,
+program defines the node layout, writes and reads child pointers with `Ptr.store` and `Ptr.load`,
 recursively sums the values, and releases every node. The host adapter owns only allocation and
-deallocation; the mal program obtains the target ABI's pointer storage width with `@Ptr`.
+deallocation; the mal program obtains the target ABI's pointer storage width with `Ptr.size`.
 
 From the repository root in Nushell:
 
