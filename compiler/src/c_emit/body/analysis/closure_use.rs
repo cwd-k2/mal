@@ -84,6 +84,13 @@ impl ClosureUsePlan {
             .copied()
     }
 
+    pub(in crate::c_emit::body) fn is_valid(&self, program: &closure::Program) -> bool {
+        let expected = Self::new(program);
+        self.direct == expected.direct
+            && self.top_levels == expected.top_levels
+            && self.known_top_levels == expected.known_top_levels
+    }
+
     pub(in crate::c_emit::body) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
         self.direct.contains_key(&id) && self.direct.get(&id) == self.direct.get(&source)
     }

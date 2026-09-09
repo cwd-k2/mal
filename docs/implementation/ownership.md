@@ -43,6 +43,9 @@ exhaustiveness checkで拒否する。structured operationもstatement emitter�
 求める。binding、aggregate field、function result、direct tail callの次parameterへ保存する最後の使用ではdescriptorを
 transferし、sourceを型に対応するzero状態にする。既存cleanupはzero状態を安全にdestroyできるため、branchごとにtransfer位置が
 異なっても共通のlexical cleanupを維持できる。同じoperationまたは後続処理でaliasを再使用する場合はcopyを残す。
+解析中は各`Atom` occurrenceへbackend-localなdense identityを割り当て、transfer集合はこのidentityだけを保持する。
+Rust object addressはimmutable program内のoccurrenceを照合する索引に限り、last-use authorityそのものにはしない。
+emission開始前に元programからplan全体を再導出し、occurrence集合とtransfer集合のexact matchを検査する。
 
 通常のparameter、environment field、case payloadの読取りはborrowであり、最後の使用というだけではtransferしない。direct tail
 loopが明示的にcopyして所有するparameter slotは例外であり、slot全体をdestructureするときに各fieldへownershipを分配できる。
@@ -98,10 +101,10 @@ flat allocationまたはrope nodeを指す。borrowed operandを受ける連結�
 retainする。last-useのowned flat operandはreference countが1なら、leftでは末尾capacity、rightでは先頭余白を再利用し、
 不足時は幾何的に拡張する。static、共有中、ropeのoperandはin-placeに変更しない。
 
-共有された大きなconcatはAVL-balanced rope nodeとして両operandをretainする。comparison、byte access、memory store、extern
-parameterがbytesを要求したときだけflattenし、そのcacheはrope nodeと共に解放する。extern aggregate内のSymbolも型再帰で
-materializeする。いずれの表現もsourceからは新しいimmutable byte sequenceとしてだけ観測され、node、cache、capacityは
-C host ABIのopaque ownership内部に留まる。
+共有された大きなconcatはAVL-balanced rope nodeとして両operandをretainする。comparisonとbyte accessはropeを直接走査し、
+`storeSymbol`は外部storageへleaf bytesを直接copyする。連続領域を要求するextern parameterだけをcall前にflattenし、そのcacheは
+rope nodeと共に解放する。extern aggregate内のSymbolも型再帰でmaterializeする。いずれの表現もsourceからは新しいimmutable
+byte sequenceとしてだけ観測され、node、cache、capacityはC host ABIのopaque ownership内部に留まる。
 
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
@@ -109,7 +112,8 @@ closure valueはcode pointer、environment pointer、environment destructorの�
 call以外へ流出しないlocal closureはdescriptorをmaterializeせず、environment structをstack上に置いて外側の
 bindingをborrowする。単純alias chainとclosure本体のself referenceを合わせて調べ、全referenceがcallee位置に限られる
 場合だけこの表現を使う。self closureを別functionのargumentなどの値として使う場合を含め、それ以外はreference count付き
-heap environmentへfallbackする。stack environmentはretainもdestroyもしない。
+heap environmentへfallbackする。stack environmentはretainもdestroyもしない。direct-use planは元programから再導出し、
+creator、alias、top-level、callee以外の使用を含む集合のexact matchをemission前に検査する。
 
 ## programとhost境界
 

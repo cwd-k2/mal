@@ -95,6 +95,8 @@ impl<'a> BodyEmitter<'a> {
     pub(super) fn new(program: &'a closure::Program, types: &'a TypeRegistry) -> Self {
         let ownership = OwnershipPlan::new(program);
         let closure_uses = ClosureUsePlan::new(program);
+        debug_assert!(ownership.is_valid(program));
+        debug_assert!(closure_uses.is_valid(program));
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
         let control = crate::control::lower(program);
         let applications = ApplicationGraph::new(program, &control, &closure_uses);
