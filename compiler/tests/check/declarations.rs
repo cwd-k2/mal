@@ -5,7 +5,7 @@ fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
     let program = check_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printInt32(42);\n\
+           printInt32(42);\n\
            0;\n\
          };",
     );
@@ -21,6 +21,47 @@ fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
         top_binding(&program, 1).value.ty,
         Type::Function {
             parameter: Box::new(Type::Unit),
+            result: Box::new(Type::Int32),
+        }
+    );
+}
+
+#[test]
+fn gives_external_operations_first_class_function_types() {
+    let program = check_ok(
+        "extern inspect :: Int32 -> Int32;\n\
+         apply :: (Int32 -> Int32, Int32) -> Int32 := \\(operation, value) { operation(value) };\n\
+         main :: Unit -> Int32 := \\() { apply(inspect, 42) };",
+    );
+    let ExpressionKind::Lambda(main) = &top_binding(&program, 2).value.kind else {
+        panic!("expected main lambda");
+    };
+    let ExpressionKind::Call { argument, .. } = &main.body.result.kind else {
+        panic!("expected apply call");
+    };
+    let ExpressionKind::Product(arguments) = &argument.kind else {
+        panic!("expected product argument");
+    };
+    assert_eq!(
+        arguments[0].ty,
+        Type::Function {
+            parameter: Box::new(Type::Int32),
+            result: Box::new(Type::Int32),
+        }
+    );
+}
+
+#[test]
+fn admits_external_functions_as_closed_top_level_values() {
+    let program = check_ok(
+        "extern inspect :: Int32 -> Int32;\n\
+         selected :: Int32 -> Int32 := inspect;",
+    );
+
+    assert_eq!(
+        top_binding(&program, 1).value.ty,
+        Type::Function {
+            parameter: Box::new(Type::Int32),
             result: Box::new(Type::Int32),
         }
     );
@@ -54,8 +95,8 @@ fn checks_nominal_external_opaque_types() {
          extern allocate :: UInt64 -> Mem;\n\
          extern length :: Mem -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
-           mem := extern allocate(4u64);\n\
-           Int32(extern length(mem));\n\
+           mem := allocate(4u64);\n\
+           Int32(length(mem));\n\
          };",
     );
     assert!(matches!(
@@ -78,7 +119,7 @@ fn checks_nominal_external_opaque_types() {
              extern getFile :: Unit -> File;\n\
              extern useMem :: Mem -> Unit;\n\
              main :: Unit -> Int32 := \\() {\n\
-               extern useMem(extern getFile());\n\
+               useMem(getFile());\n\
                0;\n\
              };"
         )
@@ -107,7 +148,7 @@ fn validates_extern_signatures_recursively() {
 fn rejects_effectful_top_level_initializers() {
     let error = check_error(
         "extern read :: Unit -> Int32;\n\
-         value :: Int32 := extern read();",
+         value :: Int32 := read();",
     );
     assert_eq!(error.message, "unsupported top-level initializer");
 }

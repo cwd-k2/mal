@@ -9,7 +9,7 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
            left + right - 42i32;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           response := extern exchange(20i32, (2u8, 22i32));\n\
+           response := exchange(20i32, (2u8, 22i32));\n\
            case (response)\n\
              [0](_) { 1 }\n\
              [1](pair) { total(pair) };\n\
@@ -93,7 +93,7 @@ fn exposes_managed_value_transfer_helpers_to_host_adapters() {
 Response :: [Unit, Pair];
 extern duplicate :: Symbol -> Response;
 main :: Unit -> Int32 := \() {
-  response := extern duplicate("host");
+  response := duplicate("host");
   case (response)
     [0](_) { 1 }
     [1](pair) {
@@ -154,7 +154,7 @@ fn exposes_scalar_alias_names_in_the_host_header() {
     let generated = emit(
         "Count :: UInt64;\n\
          extern increment :: Count -> Count;\n\
-         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := \\() { Int32(increment(41u64) - 42u64); };",
     )
     .expect("emit scalar alias ABI");
 
@@ -185,7 +185,7 @@ fn preserves_the_aliases_spelled_in_an_extern_declaration() {
         "FirstCount :: UInt64;\n\
          SecondCount :: UInt64;\n\
          extern increment :: FirstCount -> SecondCount;\n\
-         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := \\() { Int32(increment(41u64) - 42u64); };",
     )
     .expect("emit explicitly named scalar aliases");
 
@@ -231,7 +231,7 @@ fn generated_sum_helpers_construct_and_inspect_named_variants() {
          Choice :: [Unit, Pair];\n\
          extern inspect :: Choice -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern inspect(Choice[1]((20i32, 22i32))) - 42i32;\n\
+           inspect(Choice[1]((20i32, 22i32))) - 42i32;\n\
          };",
     )
     .expect("emit named sum helpers");
@@ -290,8 +290,8 @@ fn exposes_copyable_opaque_handles_to_the_host() {
          extern allocate :: UInt64 -> Mem;\n\
          extern combinedLength :: (Mem, Mem) -> UInt64;\n\
          main :: Unit -> Int32 := \\() {\n\
-           mem := extern allocate(21u64);\n\
-           Int32(extern combinedLength(mem, mem) - 42u64);\n\
+           mem := allocate(21u64);\n\
+           Int32(combinedLength(mem, mem) - 42u64);\n\
          };";
     let generated = emit(source).expect("emit opaque ABI");
     assert!(
@@ -336,7 +336,7 @@ fn preserves_duplicate_sum_members_by_tag() {
            left - right;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           case (extern choose())\n\
+           case (choose())\n\
              [0](pair) { difference(pair) + 1i32 }\n\
              [1](pair) { difference(pair) };\n\
          };",
@@ -363,7 +363,7 @@ fn reports_reference_count_overflow_as_an_implementation_resource_failure() {
     let generated = emit(
         r#"extern inspect :: Symbol -> Unit;
 main :: Unit -> Int32 := \() {
-  extern inspect("left" + "right");
+  inspect("left" + "right");
   0;
 };"#,
     )

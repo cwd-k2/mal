@@ -6,7 +6,7 @@ fn lexes_the_basic_host_example() {
         kinds(
             "extern printInt32 :: Int32 -> Unit;\n\
              main :: Unit -> Int32 := \\() {\n\
-               extern printInt32(42);\n\
+               printInt32(42);\n\
                0;\n\
              };",
         ),
@@ -28,7 +28,6 @@ fn lexes_the_basic_host_example() {
             TokenKind::LeftParen,
             TokenKind::RightParen,
             TokenKind::LeftBrace,
-            TokenKind::Extern,
             TokenKind::ValueIdentifier,
             TokenKind::LeftParen,
             TokenKind::Integer(IntegerLiteral {

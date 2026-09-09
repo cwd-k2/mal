@@ -98,6 +98,7 @@ impl FileResolver<'_> {
             self.resolver
                 .externals
                 .insert(name.clone(), binding.clone());
+            self.resolver.value_scopes[0].insert(name.clone(), binding.binding.clone());
         }
         for (name, binding) in &exports.values {
             if self.resolver.externals.contains_key(name)
@@ -121,10 +122,20 @@ fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
                 .types
                 .insert(binding.name.text.clone(), binding.clone());
         }
-        resolved::TopItem::ExternalOperation { id, name, .. } if is_public(&name.text) => {
-            exports
-                .externals
-                .insert(name.text.clone(), ExternalBinding { id: *id });
+        resolved::TopItem::ExternalOperation {
+            id,
+            binding,
+            lambda_id,
+            ..
+        } if is_public(&binding.name.text) => {
+            exports.externals.insert(
+                binding.name.text.clone(),
+                ExternalBinding {
+                    id: *id,
+                    binding: binding.clone(),
+                    lambda_id: *lambda_id,
+                },
+            );
         }
         resolved::TopItem::Binding(binding) => collect_pattern_exports(exports, &binding.pattern),
         _ => {}

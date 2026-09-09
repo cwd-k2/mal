@@ -18,8 +18,15 @@ fn lower_ok(text: &str) -> anf::ast::Program {
     anf::lower(&core)
 }
 
-fn top_lambda(program: &anf::ast::Program, index: usize) -> &Lambda {
-    let block = &program.bindings[index].value;
+fn top_lambda<'a>(program: &'a anf::ast::Program, name: &str) -> &'a Lambda {
+    let binding = program
+        .bindings
+        .iter()
+        .find(|binding| {
+            matches!(&binding.pattern, anf::ast::TopLevelPattern::Binding { name: candidate, .. } if candidate == name)
+        })
+        .expect("named top-level binding");
+    let block = &binding.value;
     assert_eq!(block.bindings.len(), 1);
     let Operation::Lambda(lambda) = &block.bindings[0].operation else {
         panic!("expected a top-level lambda");
@@ -40,19 +47,13 @@ fn orders_primitive_operands_left_to_right() {
         "extern left :: Unit -> Int32;\n\
          extern right :: Unit -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern left() + extern right();\n\
+           left() + right();\n\
          };",
     );
-    let bindings = &top_lambda(&program, 0).body.bindings;
+    let bindings = &top_lambda(&program, "main").body.bindings;
     assert_eq!(bindings.len(), 3);
-    assert!(matches!(
-        bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
-    ));
-    assert!(matches!(
-        bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
-    ));
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
+    assert!(matches!(bindings[1].operation, Operation::Call { .. }));
     let Operation::PrimitiveBinary {
         operator: BinaryPrimitive::Add,
         left,
@@ -82,7 +83,7 @@ fn evaluates_a_callee_before_its_argument_and_application() {
            make()(argument());\n\
          };",
     );
-    let bindings = &top_lambda(&program, 2).body.bindings;
+    let bindings = &top_lambda(&program, "main").body.bindings;
     assert_eq!(bindings.len(), 3);
     assert!(matches!(bindings[0].operation, Operation::Call { .. }));
     assert!(matches!(bindings[1].operation, Operation::Call { .. }));
@@ -104,10 +105,10 @@ fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\
          choose :: Bool -> Int32 := \\(flag) {\n\
-           if (flag) then { extern mark() } else { 0 };\n\
+           if (flag) then { mark() } else { 0 };\n\
          };",
     );
-    let body = &top_lambda(&program, 0).body;
+    let body = &top_lambda(&program, "choose").body;
     assert_eq!(body.bindings.len(), 1);
     let Operation::Case { arms, .. } = &body.bindings[0].operation else {
         panic!("expected lowered if case");
@@ -116,7 +117,7 @@ fn keeps_case_arm_effects_inside_the_selected_arm() {
     assert_eq!(arms[1].value.bindings.len(), 1);
     assert!(matches!(
         arms[1].value.bindings[0].operation,
-        Operation::ExternalCall { .. }
+        Operation::Call { .. }
     ));
 }
 
@@ -127,28 +128,19 @@ fn orders_primitive_branch_operands_before_selected_arm_effects() {
          extern right :: Unit -> Int32;\n\
          extern selected :: Unit -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           if (extern left() < extern right())\n\
-             then { extern selected() }\n\
+           if (left() < right())\n\
+             then { selected() }\n\
              else { 0 };\n\
          };",
     );
-    let bindings = &top_lambda(&program, 0).body.bindings;
+    let bindings = &top_lambda(&program, "main").body.bindings;
     assert_eq!(bindings.len(), 3);
-    assert!(matches!(
-        bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
-    ));
-    assert!(matches!(
-        bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
-    ));
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
+    assert!(matches!(bindings[1].operation, Operation::Call { .. }));
     let Operation::PrimitiveBranch { then, .. } = &bindings[2].operation else {
         panic!("expected primitive branch");
     };
-    assert!(matches!(
-        then.bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[2].id
-    ));
+    assert!(matches!(then.bindings[0].operation, Operation::Call { .. }));
 }
 
 #[test]
@@ -156,19 +148,16 @@ fn flattens_core_lets_without_losing_statement_order() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern mark();\n\
+           mark();\n\
            value :: Int32 := 7;\n\
            value;\n\
          };",
     );
     let Block {
         bindings, result, ..
-    } = &top_lambda(&program, 0).body;
+    } = &top_lambda(&program, "main").body;
     assert_eq!(bindings.len(), 3);
-    assert!(matches!(
-        bindings[0].operation,
-        Operation::ExternalCall { .. }
-    ));
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
     assert!(matches!(bindings[1].pattern, Pattern::Wildcard { .. }));
     assert!(matches!(
         bindings[2].operation,
@@ -189,20 +178,14 @@ fn evaluates_product_elements_left_to_right_before_construction() {
         "extern first :: Unit -> Int32;\n\
          extern second :: Unit -> Int32;\n\
          main :: Unit -> Int32 := \\() {\n\
-           pair := (extern first(), extern second());\n\
+           pair := (first(), second());\n\
            (left, right) := pair;\n\
            left + right;\n\
          };",
     );
-    let bindings = &top_lambda(&program, 0).body.bindings;
-    assert!(matches!(
-        bindings[0].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[0].id
-    ));
-    assert!(matches!(
-        bindings[1].operation,
-        Operation::ExternalCall { id, .. } if id == program.interface.externals[1].id
-    ));
+    let bindings = &top_lambda(&program, "main").body.bindings;
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
+    assert!(matches!(bindings[1].operation, Operation::Call { .. }));
     let Operation::Product(elements) = &bindings[2].operation else {
         panic!("expected product construction after its elements");
     };

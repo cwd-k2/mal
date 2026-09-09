@@ -88,7 +88,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | Module | Internal responsibility |
 |---|---|
 | `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
-| `parser/expression/forms` | product、call、extern call、conversion、sum injection |
+| `parser/expression/forms` | product、call、conversion、sum injection |
 | `parser/expression/lambda` | parameterとlambda bodyの構成 |
 | `parser/expression/control` | `if`、`case`、expression blockの構成 |
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |

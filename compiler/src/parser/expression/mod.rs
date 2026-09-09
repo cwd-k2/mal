@@ -106,9 +106,6 @@ impl Parser<'_> {
         if self.at(&TokenKind::Backslash) {
             return self.parse_lambda();
         }
-        if self.at(&TokenKind::Extern) {
-            return self.parse_external_call();
-        }
         if self.at(&TokenKind::TypeIdentifier) {
             return self.parse_type_leading_expression();
         }

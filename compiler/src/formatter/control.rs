@@ -57,11 +57,6 @@ fn mark_expression(
                 mark_expression(lexed, argument, false, aligned);
             }
         }
-        Expression::ExternalCall { arguments, .. } => {
-            for argument in arguments {
-                mark_expression(lexed, argument, false, aligned);
-            }
-        }
         Expression::Conversion { value, .. } | Expression::SumInjection { value, .. } => {
             mark_expression(lexed, value, false, aligned);
         }

@@ -20,13 +20,11 @@ pub(super) fn build(
     Index::new(resolved, checked).finish(file, visible)
 }
 
-struct Index<'a> {
-    checked: &'a checked::Program,
+struct Index {
     aliases: HashMap<resolved::ValueId, resolved::ValueId>,
     value_types: HashMap<resolved::ValueId, String>,
     type_details: HashMap<resolved::TypeId, String>,
     type_aliases: HashMap<resolved::TypeId, crate::ast::Node<resolved::TypeExpression>>,
-    external_operation_types: HashMap<resolved::ExternalOperationId, String>,
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     typed_regions: Vec<(Span, String)>,
@@ -41,10 +39,9 @@ struct RawOccurrence {
     role: OccurrenceRole,
 }
 
-impl<'a> Index<'a> {
-    fn new(resolved: &'a resolved::Program, checked: &'a checked::Program) -> Self {
+impl Index {
+    fn new(resolved: &resolved::Program, checked: &checked::Program) -> Self {
         let mut index = Self {
-            checked,
             aliases: HashMap::new(),
             value_types: HashMap::new(),
             type_details: crate::resolve::PREDEFINED_TYPES
@@ -52,7 +49,6 @@ impl<'a> Index<'a> {
                 .map(|&(name, id)| (id, name.to_owned()))
                 .collect(),
             type_aliases: HashMap::new(),
-            external_operation_types: HashMap::new(),
             functions: HashSet::new(),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
@@ -154,7 +150,6 @@ impl<'a> Index<'a> {
     fn kind(&self, id: SymbolId) -> SymbolKind {
         match id {
             SymbolId::Type(_) => SymbolKind::Type,
-            SymbolId::ExternalOperation(_) => SymbolKind::Function,
             SymbolId::Value(id) if self.parameters.contains(&id) => SymbolKind::Parameter,
             SymbolId::Value(id) if self.functions.contains(&id) => SymbolKind::Function,
             SymbolId::Value(_) => SymbolKind::Value,
@@ -165,23 +160,6 @@ impl<'a> Index<'a> {
         match id {
             SymbolId::Type(id) => self.type_details.get(&id).cloned(),
             SymbolId::Value(id) => self.value_types.get(&id).cloned(),
-            SymbolId::ExternalOperation(id) => {
-                self.external_operation_types.get(&id).cloned().or_else(|| {
-                    self.checked.items.iter().find_map(|item| match &item.kind {
-                        checked::TopItem::ExternalOperation {
-                            id: item_id,
-                            parameter,
-                            result,
-                            ..
-                        } if *item_id == id => Some(format!(
-                            "{} -> {}",
-                            crate::check::type_name(parameter),
-                            crate::check::type_name(result)
-                        )),
-                        _ => None,
-                    })
-                })
-            }
         }
     }
 

@@ -5,12 +5,12 @@ fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern mark();\n\
+           mark();\n\
            value :: Int32 := 7;\n\
            (value);\n\
          };",
     );
-    let first_let = lambda_body(&program.bindings[0].value);
+    let first_let = top_lambda(&program, "main");
     let ExpressionKind::Let {
         binding: statement,
         body: second_let,
@@ -19,10 +19,7 @@ fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
         panic!("expected the expression statement let");
     };
     assert!(matches!(statement.pattern, Pattern::Wildcard { .. }));
-    assert!(matches!(
-        statement.value.kind,
-        ExpressionKind::ExternalCall { .. }
-    ));
+    assert!(matches!(statement.value.kind, ExpressionKind::Call { .. }));
 
     let ExpressionKind::Let {
         binding,

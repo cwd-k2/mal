@@ -148,15 +148,15 @@ fn rejects_calling_size_as_a_function() {
 #[test]
 fn rejects_mistyped_memory_operations() {
     for text in [
-        "extern memory :: Unit -> Ptr; bad := extern memory() + 1i64;",
+        "extern memory :: Unit -> Ptr; bad := memory() + 1i64;",
         "bad := Int64.load(0u64);",
-        "extern memory :: Unit -> Ptr; bad := UInt8.store(extern memory(), 1u64);",
-        "extern memory :: Unit -> Ptr; bad := Ptr.store(extern memory(), 1u64);",
+        "extern memory :: Unit -> Ptr; bad := UInt8.store(memory(), 1u64);",
+        "extern memory :: Unit -> Ptr; bad := Ptr.store(memory(), 1u64);",
         "bad := Symbol.read(0u64, 1u64);",
-        "extern memory :: Unit -> Ptr; bad := Symbol.write(extern memory(), 1u64);",
-        "extern memory :: Unit -> Ptr; bad := 1u64 + extern memory();",
-        "extern memory :: Unit -> Ptr; bad := extern memory() + extern memory();",
-        "extern memory :: Unit -> Ptr; bad := 1u64 - extern memory();",
+        "extern memory :: Unit -> Ptr; bad := Symbol.write(memory(), 1u64);",
+        "extern memory :: Unit -> Ptr; bad := 1u64 + memory();",
+        "extern memory :: Unit -> Ptr; bad := memory() + memory();",
+        "extern memory :: Unit -> Ptr; bad := 1u64 - memory();",
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

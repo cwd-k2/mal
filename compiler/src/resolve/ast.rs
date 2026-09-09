@@ -53,12 +53,6 @@ pub struct ValueReference {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ExternalOperationReference {
-    pub id: ExternalOperationId,
-    pub name: Name,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
     pub items: Vec<Node<TopItem>>,
     pub span: Span,
@@ -75,7 +69,8 @@ pub enum TopItem {
     },
     ExternalOperation {
         id: ExternalOperationId,
-        name: Name,
+        binding: ValueBinding,
+        lambda_id: LambdaId,
         ty: Node<TypeExpression>,
     },
     Binding(Binding),
@@ -125,10 +120,6 @@ pub enum Expression {
     Lambda(Lambda),
     Call {
         callee: Box<Node<Expression>>,
-        arguments: Vec<Node<Expression>>,
-    },
-    ExternalCall {
-        operation: ExternalOperationReference,
         arguments: Vec<Node<Expression>>,
     },
     Conversion {

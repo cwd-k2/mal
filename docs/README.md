@@ -65,7 +65,7 @@ example、source commentは過去との差分ではなく、現在のruleとbeha
 
 malはstrict call-by-valueの単純型付き関数型言語である。immutable binding、関数、直積、直和、固定幅scalar、
 immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。mal内部で意味とlifetime authorityを持つ
-値をEngramと総称し、外部resourceへのcapabilityから区別する。外部世界との作用は`extern` callと明示的な
+値をEngramと総称し、外部resourceへのcapabilityから区別する。外部世界との作用はexternal operationのapplicationと明示的な
 memory accessに限定する。
 
 reference compiler `malc` はRustで実装し、最初のbackendはCを生成する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。

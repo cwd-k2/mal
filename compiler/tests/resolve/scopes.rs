@@ -39,6 +39,34 @@ fn local_scope_can_shadow_predefined_and_outer_names() {
 }
 
 #[test]
+fn external_functions_are_values_and_follow_lexical_shadowing() {
+    let program = resolve_ok(
+        "extern output :: Symbol -> Unit;\n\
+         useOutput :: (Symbol -> Unit) -> Unit := \\(operation) { operation(\"direct\") };\n\
+         main :: Unit -> Unit := \\() {\n\
+           selected := output;\n\
+           output :: Symbol -> Unit := \\(message) { (); };\n\
+           useOutput(selected);\n\
+           output(\"shadowed\");\n\
+         };",
+    );
+    let TopItem::ExternalOperation { binding, .. } = &program.items[0].kind else {
+        panic!("expected external declaration");
+    };
+    let main = top_binding(&program.items[2]);
+    let resolved::Expression::Lambda(main) = &main.value.kind else {
+        panic!("expected main lambda");
+    };
+    let resolved::BodyItem::Binding(selected) = &main.body.items[0] else {
+        panic!("expected selected binding");
+    };
+    let resolved::Expression::Reference(reference) = &selected.kind.value.kind else {
+        panic!("expected external function reference");
+    };
+    assert_eq!(reference.id, binding.id);
+}
+
+#[test]
 fn branch_bindings_do_not_escape_their_expression_block() {
     let error = resolve_error(
         "main := \\() {\n\
@@ -84,8 +112,8 @@ fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     let cases = [
         ("value :: Missing := 0;", "unknown type `Missing`"),
         (
-            "main := \\() { extern missing(); (); };",
-            "unknown external operation `missing`",
+            "main := \\() { missing(); (); };",
+            "unknown value `missing`",
         ),
         ("Bool :: Int32;", "duplicate type `Bool`"),
         ("false := 0;", "duplicate value `false`"),

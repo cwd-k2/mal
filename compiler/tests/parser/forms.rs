@@ -5,7 +5,7 @@ fn parses_parameters_and_lambda_body_items() {
     let expression = binding_value(
         "make := \\(x, y) {\n\
            sum :: Int32 := x + y;\n\
-           extern observe(sum);\n\
+           observe(sum);\n\
            outer(sum);\n\
          };",
     );

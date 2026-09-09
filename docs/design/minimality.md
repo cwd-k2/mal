@@ -35,6 +35,9 @@ controlは、利用者がすべてのmechanismをoperationごとに再定義す�
 mechanismが一つの規則から予測できる状態を指す。minimalityの比較では、primitiveやsyntaxの個数だけでなく、
 独立して発見、理解、検証しなければならないcontractと、各call siteで再判断する事項の数を小さくする。
 
+external operationのcontractは宣言に置き、applicationごとに同じ分類を再記述しない。external functionも通常の
+function valueと同じ参照、shadowing、application規則に従い、境界transportだけを宣言されたidentityから決める。
+
 例えばexternal storageでは、allocation、deallocation、region、permission、lifetimeをprogram固有の`extern`
 contractに残し、canonical scalar representationとのload/storeを共通primitiveに固定する。これによりallocation
 policyを選ぶcontrolを保ちつつ、scalar operationごとにwidth、alignment、failureをhost APIから調査する必要を

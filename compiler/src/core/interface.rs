@@ -23,7 +23,7 @@ pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
             }
             checked::TopItem::ExternalOperation {
                 id,
-                name,
+                binding,
                 parameter,
                 parameter_aliases,
                 result,
@@ -31,7 +31,7 @@ pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 ..
             } => interface.externals.push(ExternalOperation {
                 id: *id,
-                name: name.text.clone(),
+                name: binding.name.text.clone(),
                 parameter: parameter.clone(),
                 parameter_aliases: parameter_aliases.clone(),
                 result: result.clone(),

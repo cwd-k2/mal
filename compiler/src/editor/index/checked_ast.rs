@@ -2,7 +2,7 @@ use crate::check::ast as checked;
 
 use super::Index;
 
-impl Index<'_> {
+impl Index {
     pub(super) fn collect_checked_top(&mut self, item: &checked::TopItem) {
         match item {
             checked::TopItem::TypeAlias { binding, ty } => {
@@ -93,9 +93,6 @@ impl Index<'_> {
             | ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => self.collect_checked_expression(value),
             ExpressionKind::SymbolAt { argument } => self.collect_checked_expression(argument),
-            ExpressionKind::ExternalCall { argument, .. } => {
-                self.collect_checked_expression(argument);
-            }
             ExpressionKind::If {
                 condition,
                 then_branch,

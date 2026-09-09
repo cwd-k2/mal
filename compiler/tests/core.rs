@@ -24,6 +24,17 @@ fn lambda_body(expression: &Expression) -> &Expression {
     &lambda.body
 }
 
+fn top_lambda<'a>(program: &'a core::ast::Program, name: &str) -> &'a Expression {
+    let binding = program
+        .bindings
+        .iter()
+        .find(|binding| {
+            matches!(&binding.pattern, TopLevelPattern::Binding { name: candidate, .. } if candidate == name)
+        })
+        .expect("named top-level binding");
+    lambda_body(&binding.value)
+}
+
 fn case(expression: &Expression) -> (&Expression, &[core::ast::CaseArm]) {
     let ExpressionKind::Case { scrutinee, arms } = &expression.kind else {
         panic!("expected a case, found {:#?}", expression.kind);

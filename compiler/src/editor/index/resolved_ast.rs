@@ -3,7 +3,7 @@ use crate::resolve::ast as resolved;
 use super::Index;
 use crate::editor::{OccurrenceRole, SymbolId};
 
-impl Index<'_> {
+impl Index {
     pub(super) fn collect_resolved_top(&mut self, item: &resolved::TopItem) {
         match item {
             resolved::TopItem::TypeAlias { binding, value } => {
@@ -19,12 +19,13 @@ impl Index<'_> {
                 self.top_level.push(id);
                 self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
             }
-            resolved::TopItem::ExternalOperation { id, name, ty } => {
-                self.external_operation_types
-                    .insert(*id, super::type_display::type_name(ty));
-                let id = SymbolId::ExternalOperation(*id);
+            resolved::TopItem::ExternalOperation { binding, ty, .. } => {
+                self.value_types
+                    .insert(binding.id, super::type_display::type_name(ty));
+                self.functions.insert(binding.id);
+                let id = SymbolId::Value(binding.id);
                 self.top_level.push(id);
-                self.add_raw(id, name, OccurrenceRole::Declaration);
+                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
                 self.collect_resolved_type(ty);
             }
             resolved::TopItem::Binding(binding) => {
@@ -200,19 +201,6 @@ impl Index<'_> {
             }
             Expression::Call { callee, arguments } => {
                 self.collect_resolved_expression(callee);
-                for argument in arguments {
-                    self.collect_resolved_expression(argument);
-                }
-            }
-            Expression::ExternalCall {
-                operation,
-                arguments,
-            } => {
-                self.add_raw(
-                    SymbolId::ExternalOperation(operation.id),
-                    &operation.name,
-                    OccurrenceRole::Reference,
-                );
                 for argument in arguments {
                     self.collect_resolved_expression(argument);
                 }

@@ -32,18 +32,85 @@ impl Lowerer {
     }
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
-        let bindings = program
+        let mut bindings = program
             .items
             .iter()
             .filter_map(|item| match &item.kind {
-                checked::TopItem::Binding(binding) => Some(self.lower_top_level_binding(binding)),
+                checked::TopItem::ExternalOperation {
+                    id,
+                    binding,
+                    lambda_id,
+                    parameter,
+                    result,
+                    ..
+                } => Some(self.lower_external_operation(
+                    *id, binding, *lambda_id, parameter, result, item.span,
+                )),
                 _ => None,
             })
-            .collect();
+            .collect::<Vec<_>>();
+        bindings.extend(program.items.iter().filter_map(|item| match &item.kind {
+            checked::TopItem::Binding(binding) => Some(self.lower_top_level_binding(binding)),
+            _ => None,
+        }));
         Program {
             interface: lower_interface(program),
             bindings,
             span: program.span,
+        }
+    }
+
+    fn lower_external_operation(
+        &mut self,
+        id: crate::resolve::ast::ExternalOperationId,
+        binding: &crate::resolve::ast::ValueBinding,
+        lambda_id: crate::resolve::ast::LambdaId,
+        parameter: &checked::Type,
+        result: &checked::Type,
+        span: Span,
+    ) -> TopLevelBinding {
+        let parameter_binding = (parameter != &checked::Type::Unit).then(|| self.temporary());
+        let argument = parameter_binding.map_or(
+            Expression {
+                kind: ExpressionKind::Unit,
+                ty: checked::Type::Unit,
+                span,
+            },
+            |parameter_binding| self.reference(parameter_binding, parameter.clone(), span),
+        );
+        let function_type = checked::Type::Function {
+            parameter: Box::new(parameter.clone()),
+            result: Box::new(result.clone()),
+        };
+        TopLevelBinding {
+            pattern: self::ast::TopLevelPattern::Binding {
+                id: ValueId::Source(binding.id),
+                name: binding.name.text.clone(),
+                ty: function_type.clone(),
+            },
+            value: Expression {
+                kind: ExpressionKind::Lambda(Lambda {
+                    id: lambda_id,
+                    self_binding: None,
+                    captures: Vec::new(),
+                    parameter: Parameter {
+                        binding: parameter_binding,
+                        ty: parameter.clone(),
+                        span,
+                    },
+                    body: Box::new(Expression {
+                        kind: ExpressionKind::ExternalCall {
+                            id,
+                            argument: Box::new(argument),
+                        },
+                        ty: result.clone(),
+                        span,
+                    }),
+                }),
+                ty: function_type,
+                span,
+            },
+            span,
         }
     }
 
@@ -108,12 +175,6 @@ impl Lowerer {
                 primitive: *primitive,
                 argument: Box::new(self.lower_expression(argument)),
             },
-            checked::ExpressionKind::ExternalCall { id, argument, .. } => {
-                ExpressionKind::ExternalCall {
-                    id: *id,
-                    argument: Box::new(self.lower_expression(argument)),
-                }
-            }
             checked::ExpressionKind::NumericConversion { value } => {
                 ExpressionKind::NumericConversion {
                     value: Box::new(self.lower_expression(value)),

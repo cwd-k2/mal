@@ -10,7 +10,6 @@ mod index;
 pub enum SymbolId {
     Type(resolved::TypeId),
     Value(resolved::ValueId),
-    ExternalOperation(resolved::ExternalOperationId),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

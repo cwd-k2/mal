@@ -42,29 +42,23 @@ fn lowers_short_circuit_operators_without_eager_right_evaluation() {
     let and_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
          test :: Bool -> Bool := \\(flag) {\n\
-           flag && extern observe(flag);\n\
+           flag && observe(flag);\n\
          };",
     );
-    let body = lambda_body(&and_program.bindings[0].value);
+    let body = top_lambda(&and_program, "test");
     let (_, arms) = case(body);
     assert!(!injected_bool(&arms[0].value));
-    assert!(matches!(
-        arms[1].value.kind,
-        ExpressionKind::ExternalCall { .. }
-    ));
+    assert!(matches!(arms[1].value.kind, ExpressionKind::Call { .. }));
 
     let or_program = lower_ok(
         "extern observe :: Bool -> Bool;\n\
          test :: Bool -> Bool := \\(flag) {\n\
-           flag || extern observe(flag);\n\
+           flag || observe(flag);\n\
          };",
     );
-    let body = lambda_body(&or_program.bindings[0].value);
+    let body = top_lambda(&or_program, "test");
     let (_, arms) = case(body);
-    assert!(matches!(
-        arms[0].value.kind,
-        ExpressionKind::ExternalCall { .. }
-    ));
+    assert!(matches!(arms[0].value.kind, ExpressionKind::Call { .. }));
     assert!(injected_bool(&arms[1].value));
 }
 
@@ -104,10 +98,10 @@ fn binds_both_bool_equality_operands_once_before_branching() {
         "extern first :: Unit -> Bool;\n\
          extern second :: Unit -> Bool;\n\
          test :: Unit -> Bool := \\() {\n\
-           extern first() == extern second();\n\
+           first() == second();\n\
          };",
     );
-    let first_let = lambda_body(&program.bindings[0].value);
+    let first_let = top_lambda(&program, "test");
     let ExpressionKind::Let {
         binding: first,
         body: second_let,
@@ -115,10 +109,7 @@ fn binds_both_bool_equality_operands_once_before_branching() {
     else {
         panic!("left operand should be bound first");
     };
-    assert!(matches!(
-        first.value.kind,
-        ExpressionKind::ExternalCall { id, .. } if id == program.interface.externals[0].id
-    ));
+    assert!(matches!(first.value.kind, ExpressionKind::Call { .. }));
     let Pattern::Binding { id: first_id, .. } = first.pattern else {
         panic!("expected a synthetic left binding");
     };
@@ -130,10 +121,7 @@ fn binds_both_bool_equality_operands_once_before_branching() {
     else {
         panic!("right operand should be bound second");
     };
-    assert!(matches!(
-        second.value.kind,
-        ExpressionKind::ExternalCall { id, .. } if id == program.interface.externals[1].id
-    ));
+    assert!(matches!(second.value.kind, ExpressionKind::Call { .. }));
     let Pattern::Binding { id: second_id, .. } = second.pattern else {
         panic!("expected a synthetic right binding");
     };

@@ -5,7 +5,7 @@ Status: Current v0.5 profile
 ## 目的
 
 I/O、allocation、deallocation、filesystem、network、clock、randomness、process、thread、およびhost固有の
-resource operationはmalの意味論へ個別に取り込まず、program固有の`extern` callに置く。external storageへの
+resource operationはmalの意味論へ個別に取り込まず、program固有のexternal operationに置く。external storageへの
 capabilityは`Ptr`で運び、canonicalなscalar、pointer、Symbol bytesとの固定された変換には組み込みの
 [memory primitive](memory.md)を使う。
 
@@ -13,19 +13,26 @@ capabilityは`Ptr`で運び、canonicalなscalar、pointer、Symbol bytesとの�
 extern Mem;
 extern alloc :: UInt64 -> Mem;
 extern print :: Symbol -> Unit;
+
+output :: Symbol -> Unit := print;
 ```
 
-call site には必ず `extern` を書く。
+external operationは宣言によって通常のtop-level function valueとしてscopeへ入る。呼び出しには通常のapplicationを使い、
+値としてbindingしたり引数やresultとして受け渡したりできる。
 
 ```mal
-mem := extern alloc(128);
-extern print("hello");
+main :: Unit -> Unit := \() {
+    mem := alloc(128);
+    output("hello");
+};
 ```
 
-external symbol は first-class value ではない。`f := extern print;` は不正である。
+function valueの参照、binding、受け渡しだけではhost operationを実行せず、境界transportも起きない。そのfunction valueを
+applicationしたときに宣言されたhost operationを一度呼び出す。local bindingが同名のexternal operationをshadowした場合も、
+通常のlexical scopeに従う。
 
-`extern` callはExternに関わるoperationのすべてを表す分類ではなく、program固有のnamed host operationを呼ぶ
-構文である。memory primitiveもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
+external operationはExternに関わるoperationのすべてを表す分類ではなく、program固有のnamed host operationである。
+memory primitiveもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
 host symbolを呼ばない。両者を配置する規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に
 定める。
 
@@ -64,7 +71,8 @@ extern makeCallback :: Unit -> (Int32 -> Int32);
 
 ## source-level semantics
 
-external declaration は mal 側の型だけを宣言する。call の引数は通常の式と同じく左から右へ評価される。
+external declaration は mal 側の型だけを宣言する。applicationではcalleeを先に評価し、引数を通常の式と同じく
+左から右へ評価する。external function valueの評価自体にhostから観測できる作用はない。
 host operationが返り、resultのEngram部分のadmissionとExtern capabilityのtransferが完了した後、宣言された型の
 mal valueを得たものとして評価を続ける。
 
@@ -72,7 +80,7 @@ mal は effect system を持たず、通常の関数型は pure/impure を区別
 
 ```mal
 printValue :: Int32 -> Unit := \(x) {
-    extern printInt32(x);
+    printInt32(x);
     ();
 };
 ```

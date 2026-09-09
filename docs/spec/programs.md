@@ -50,16 +50,16 @@ distance :: (Point, Point) -> Float64 :=
     \(a, b) {
         (ax, ay) := a;
         (bx, by) := b;
-        extern sqrt(
+        sqrt(
             (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
         );
     };
 ```
 
-type alias と extern declaration は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
+type alias と extern declaration が導入する名前は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
 
-top-level value の RHS は、literal、product/sum、integer conversion、型で修飾したmemory primitive、lambda、および
-それらからなる作用のない closed expression に制限する。他のtop-level valueへの参照と`extern` callは認めない。
+top-level value の RHS は、literal、product/sum、integer conversion、external function、型で修飾したmemory primitive、lambda、および
+それらからなる作用のない closed expression に制限する。他のtop-level valueへの参照とfunction applicationは認めない。
 `false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある
 nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../history/decisions/D018.md)に記録する。
 

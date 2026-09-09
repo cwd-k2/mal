@@ -12,11 +12,11 @@ fn preserves_type_alias_names_as_backend_metadata() {
     assert_eq!(program.interface.type_aliases[0].name, "Flag");
     assert_eq!(program.interface.externals.len(), 1);
     assert_eq!(program.interface.externals[0].name, "choose");
-    assert_eq!(program.bindings.len(), 1);
+    assert_eq!(program.bindings.len(), 2);
     let TopLevelPattern::Binding { name, .. } = &program.bindings[0].pattern else {
         panic!("expected named top-level binding");
     };
-    assert_eq!(name, "main");
+    assert_eq!(name, "choose");
 }
 
 #[test]

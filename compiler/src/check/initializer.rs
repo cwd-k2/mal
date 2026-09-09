@@ -9,20 +9,23 @@ impl Checker {
         &self,
         expression: &Node<resolved::Expression>,
     ) -> Result<(), Diagnostic> {
-        if is_top_level_initializer(expression) {
+        if is_top_level_initializer(expression, &self.external_values) {
             Ok(())
         } else {
             Err(
                 Diagnostic::error("unsupported top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, type-qualified primitives, sums, or lambdas",
+                    "top-level values must be closed literals, external functions, type-qualified primitives, sums, or lambdas",
                 ),
             )
         }
     }
 }
 
-fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
+fn is_top_level_initializer(
+    expression: &Node<resolved::Expression>,
+    external_values: &std::collections::HashSet<resolved::ValueId>,
+) -> bool {
     match &expression.kind {
         resolved::Expression::Integer(_)
         | resolved::Expression::Float(_)
@@ -32,11 +35,18 @@ fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
+                || external_values.contains(&reference.id)
         }
-        resolved::Expression::Parenthesized(inner) => is_top_level_initializer(inner),
-        resolved::Expression::Product(elements) => elements.iter().all(is_top_level_initializer),
+        resolved::Expression::Parenthesized(inner) => {
+            is_top_level_initializer(inner, external_values)
+        }
+        resolved::Expression::Product(elements) => elements
+            .iter()
+            .all(|element| is_top_level_initializer(element, external_values)),
         resolved::Expression::SumInjection { value, .. }
-        | resolved::Expression::Conversion { value, .. } => is_top_level_initializer(value),
+        | resolved::Expression::Conversion { value, .. } => {
+            is_top_level_initializer(value, external_values)
+        }
         resolved::Expression::Lambda(_) => true,
         resolved::Expression::Unary {
             operator, operand, ..

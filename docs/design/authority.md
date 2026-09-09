@@ -41,7 +41,7 @@ product、sum、closureなどの構造はfieldごとに分類する。外側のa
 
 ## policyとmechanismを分ける
 
-Externにauthorityがあることと、source-level operationをprogram固有の`extern` callにすることは同じではない。
+Externにauthorityがあることと、source-level operationをprogram固有のexternal operationにすることは同じではない。
 resourceを取得または破棄するoperationと、region、permission、lifetime、failureなどhost固有のpolicyを決める
 operationは`extern` contractに置く。一方、既に渡されたcapabilityを使い、言語がcanonical representationを
 定めた値を固定規則でadmitまたはobserveするoperationはlanguage primitiveに置く。
@@ -65,6 +65,10 @@ mal関数がscalarと`Ptr`のprimitiveを組み合わせてcodecを実装する�
 
 この分担はcontrolを失わず、operationごとにwidth、alignment、admissionを再定義するcontractの増殖を避ける。
 同時に、bounds、allocation、lifetimeを追跡するmemory systemを暗黙に言語へ追加しない。
+
+external function valueの参照と受け渡しはmal-controlledなEngramの操作であり、それだけでは境界を越えない。
+そのfunction valueのapplicationがhost operationを実行するときに限り、parameterとresultの各leafへadmission、observation、
+capability transferを適用する。source上の専用call markerではなく、宣言されたfunction identityがcontractを選ぶ。
 
 ## mechanismを導入する条件
 

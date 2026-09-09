@@ -132,7 +132,7 @@ fn indents_control_branches_used_as_binding_rhs() {
 #[test]
 fn preserves_explicit_binding_and_expression_breaks() {
     let formatted = format(
-        "first::(Int32,Int32)->Int32\n:=\\(left, right){\nresult:=left\n+right;\nextern emit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n\\(){1};",
+        "first::(Int32,Int32)->Int32\n:=\\(left, right){\nresult:=left\n+right;\nemit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n\\(){1};",
     );
 
     assert!(formatted.contains(concat!(
@@ -140,7 +140,7 @@ fn preserves_explicit_binding_and_expression_breaks() {
         "    := \\(left, right) {\n",
         "        result := left\n",
         "            + right;\n",
-        "        extern emit(\n",
+        "        emit(\n",
         "            left,\n",
         "            right\n",
         "        );\n",
@@ -191,17 +191,17 @@ fn preserves_explicit_type_and_extern_declaration_breaks() {
 fn omits_compact_result_semicolons_and_terminates_expanded_results() {
     assert_eq!(format("identity:=\\(x){x;};"), "identity := \\(x) { x };\n");
     assert_eq!(
-        format("run:=\\(){extern first();extern second()};"),
+        format("run:=\\(){first();second()};"),
         concat!(
             "run := \\() {\n",
-            "    extern first();\n",
-            "    extern second();\n",
+            "    first();\n",
+            "    second();\n",
             "};\n",
         )
     );
     assert_eq!(
-        format("run:=\\(){extern first()// result\n};"),
-        concat!("run := \\() {\n", "    extern first(); // result\n", "};\n",)
+        format("run:=\\(){first()// result\n};"),
+        concat!("run := \\() {\n", "    first(); // result\n", "};\n",)
     );
 }
 

@@ -15,7 +15,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
-| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D034](D034.md) |
+| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D034](D034.md)、[D039](D039.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
 | `Ptr` memory primitive | [D022](D022.md)、[D024](D024.md)、[D035](D035.md)、[D037](D037.md) |
@@ -25,6 +25,7 @@ D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされて�
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
 D022、D024、D027、D031のsource spellingはD037が置き換える。
 D007のlambda parameter source spellingはD038が置き換える。
+D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換える。
 
 ## 後継があるhistorical record
 

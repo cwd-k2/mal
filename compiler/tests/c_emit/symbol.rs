@@ -8,10 +8,10 @@ make :: Symbol -> (Unit -> Symbol) := \(value) {
   \() { value; };
 };
 main :: Unit -> Int32 := \() {
-  extern inspect("あ\0\xff");
+  inspect("あ\0\xff");
   held := make("scope");
-  extern inspect(held());
-  extern inspect("");
+  inspect(held());
+  inspect("");
   0;
 };"#,
         r#"#include "program.mal.h"
@@ -158,7 +158,7 @@ fn transfers_only_last_owned_uses_through_aliases_branches_and_tail_edges() {
 keepAlias :: Symbol -> Symbol := \(suffix) {
   owned := "prefix" + suffix;
   alias := owned;
-  extern inspect(owned);
+  inspect(owned);
   alias;
 };
 keepShared :: Symbol -> (Symbol, Symbol) := \(suffix) {
@@ -621,7 +621,7 @@ grow :: (Int64, Symbol) -> Symbol := \(remaining, value) {
 main :: Unit -> Int32 := \() {
   value := grow(1000i64, "");
   choice := Choice[1](value);
-  if (extern inspect(value, choice) == 2000u64) then { 0 } else { 1 };
+  if (inspect(value, choice) == 2000u64) then { 0 } else { 1 };
 };"#,
     )
     .expect("emit recursive host materialization");
@@ -677,7 +677,7 @@ grow :: (Symbol, Int64) -> Symbol := \(value, remaining) {
   };
 };
 main :: Unit -> Int32 := \() {
-  extern inspect(grow("abcdefghijklmnopqrstuvwxyz", 300i64));
+  inspect(grow("abcdefghijklmnopqrstuvwxyz", 300i64));
   0;
 };"#,
     )
@@ -777,7 +777,7 @@ fn admits_host_bytes_as_symbols() {
     let generated = emit(
         r#"extern fetch :: Unit -> Symbol;
 main :: Unit -> Int32 := \() {
-  value := extern fetch();
+  value := fetch();
   ok := (value == "host\0\xff") && (value # 5u64 == 255u8);
   if (ok) then { 0 } else { 1 };
 };"#,
@@ -833,8 +833,7 @@ MalType_Symbol mal_ext_fetch(MalContext *context) {
 
 #[test]
 fn traps_symbol_admission_allocation_failure_and_invalid_lengths() {
-    let source =
-        "extern fetch :: Unit -> Symbol; main :: Unit -> Int32 := \\() { extern fetch(); 0; };";
+    let source = "extern fetch :: Unit -> Symbol; main :: Unit -> Int32 := \\() { fetch(); 0; };";
 
     let failure_fixture = NativeFixture::new("symbol-admission-failure");
     let failure_executable = failure_fixture.compile_generated_with_options(
@@ -906,7 +905,7 @@ MalType_Symbol mal_ext_fetch(MalContext *context) {
 fn finishes_an_empty_symbol_admission_without_leaking_reserved_storage() {
     let source = r#"extern fetch :: Unit -> Symbol;
 main :: Unit -> Int32 := \() {
-  if (extern fetch() == "") then { 0 } else { 1 };
+  if (fetch() == "") then { 0 } else { 1 };
 };"#;
     let fixture = NativeFixture::new("empty-symbol-admission");
     let executable = fixture.compile_generated_with_options(

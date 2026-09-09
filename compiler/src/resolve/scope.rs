@@ -2,8 +2,7 @@ use crate::ast;
 use crate::diagnostic::Diagnostic;
 
 use super::ast::{
-    ExternalOperationId, ExternalOperationReference, TypeBinding, TypeId, TypeReference,
-    ValueBinding, ValueId, ValueOwner,
+    ExternalOperationId, TypeBinding, TypeId, TypeReference, ValueBinding, ValueId, ValueOwner,
 };
 use super::{ExternalBinding, Resolver};
 
@@ -31,10 +30,14 @@ impl Resolver {
                     {
                         return Err(self.duplicate(name, "top-level value"));
                     }
+                    let value = self.allocate_value_binding(name, ValueOwner::TopLevel);
                     let binding = ExternalBinding {
                         id: ExternalOperationId(self.next_external),
+                        binding: value.clone(),
+                        lambda_id: self.allocate_lambda(),
                     };
                     self.next_external += 1;
+                    self.value_scopes[0].insert(name.text.clone(), value);
                     self.externals.insert(name.text.clone(), binding);
                 }
                 ast::TopItem::Binding(_) => {}
@@ -118,20 +121,6 @@ impl Resolver {
             .iter()
             .rev()
             .find_map(|scope| scope.get(text).cloned())
-    }
-
-    pub(super) fn external_reference(
-        &self,
-        name: &ast::Name,
-    ) -> Result<ExternalOperationReference, Diagnostic> {
-        let binding = self
-            .externals
-            .get(&name.text)
-            .ok_or_else(|| self.unknown(name, "external operation"))?;
-        Ok(ExternalOperationReference {
-            id: binding.id,
-            name: name.clone(),
-        })
     }
 
     pub(super) fn push_scope(&mut self) {

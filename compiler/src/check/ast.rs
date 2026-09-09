@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOperator, Name, Node, UnaryOperator};
+use crate::ast::{BinaryOperator, Node, UnaryOperator};
 use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
@@ -48,7 +48,8 @@ pub enum TopItem {
     },
     ExternalOperation {
         id: ExternalOperationId,
-        name: Name,
+        binding: ValueBinding,
+        lambda_id: LambdaId,
         parameter: Type,
         parameter_aliases: Vec<Option<String>>,
         result: Type,
@@ -115,11 +116,6 @@ pub enum ExpressionKind {
     },
     Memory {
         primitive: MemoryPrimitive,
-        argument: Box<Expression>,
-    },
-    ExternalCall {
-        id: ExternalOperationId,
-        name: Name,
         argument: Box<Expression>,
     },
     NumericConversion {

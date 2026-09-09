@@ -62,10 +62,6 @@ impl Checker {
             resolved::Expression::Call { callee, arguments } => {
                 self.check_call(callee, arguments, expression.span)?
             }
-            resolved::Expression::ExternalCall {
-                operation,
-                arguments,
-            } => self.check_external_call(operation, arguments, expression.span)?,
             resolved::Expression::Conversion { type_ref, value } => {
                 let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
                 if !is_integer(&target) && !is_float(&target) {
@@ -247,25 +243,6 @@ impl Checker {
                 callee: Box::new(callee),
                 argument: Box::new(argument),
             },
-            span,
-        })
-    }
-
-    fn check_external_call(
-        &mut self,
-        operation: &resolved::ExternalOperationReference,
-        arguments: &[Node<resolved::Expression>],
-        span: crate::source::Span,
-    ) -> Result<Expression, Diagnostic> {
-        let signature = self.external_signature(operation.id);
-        let argument = self.check_argument(arguments, &signature.parameter, span)?;
-        Ok(Expression {
-            kind: ExpressionKind::ExternalCall {
-                id: operation.id,
-                name: operation.name.clone(),
-                argument: Box::new(argument),
-            },
-            ty: signature.result,
             span,
         })
     }

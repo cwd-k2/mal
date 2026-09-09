@@ -53,7 +53,7 @@ captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#sco
 lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: Symbol -> Unit := \(message) { extern print(message) };
+log :: Symbol -> Unit := \(message) { print(message) };
 ```
 
 ## 関数適用
@@ -72,6 +72,9 @@ makeFunction()(x)
 [memory](memory.md#primitive)に列挙する`load`、`store`、`read`、`write`はpredefined functionであり、通常のfunctionと同じく
 直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
 lengthとbyte accessは[`#` operator](symbols.md#operator)で表す。
+
+external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
+実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
 
 ## 型で修飾したmemory primitive
 
@@ -263,7 +266,7 @@ product、一般の sum、function、opaque type に `==` は自動導出され�
 lambda body では式の結果を捨てられる。
 
 ```mal
-extern log("done");
+log("done");
 ```
 
-これは概念上 `_ := extern log("done");` と同じである。
+これは概念上 `_ := log("done");` と同じである。

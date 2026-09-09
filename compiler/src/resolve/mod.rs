@@ -29,6 +29,8 @@ pub fn resolve_graph(
 #[derive(Clone)]
 struct ExternalBinding {
     id: ExternalOperationId,
+    binding: ValueBinding,
+    lambda_id: LambdaId,
 }
 
 struct LambdaFrame {
@@ -128,7 +130,8 @@ impl Resolver {
                     .expect("external declarations are predeclared");
                 ast::TopItem::ExternalOperation {
                     id: external.id,
-                    name: name.clone(),
+                    binding: external.binding.clone(),
+                    lambda_id: external.lambda_id,
                     ty: self.resolve_type(ty)?,
                 }
             }

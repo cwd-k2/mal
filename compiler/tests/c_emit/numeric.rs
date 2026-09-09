@@ -8,7 +8,7 @@ fn emits_uint64_literals_and_scalar_extern_abi() {
            \\() { value; };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printUInt64(capture(18446744073709551615u64)());\n\
+           printUInt64(capture(18446744073709551615u64)());\n\
            0;\n\
          };",
         r#"#include "program.mal.h"
@@ -32,7 +32,7 @@ void mal_ext_printUInt64(MalContext *context, uint64_t value) {
 fn emits_exact_float_bits_and_scalar_extern_abi() {
     let generated = emit(
         "extern inspect :: (Float32, Float64) -> Int32;\n\
-         main :: Unit -> Int32 := \\() { extern inspect(0.1f32, -0.0f64); };",
+         main :: Unit -> Int32 := \\() { inspect(0.1f32, -0.0f64); };",
     )
     .expect("emit Float ABI");
     assert!(contains_ignoring_whitespace(

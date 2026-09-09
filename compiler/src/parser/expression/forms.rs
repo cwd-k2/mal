@@ -63,16 +63,6 @@ impl Parser<'_> {
         Ok(arguments)
     }
 
-    pub(super) fn parse_external_call(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        let start = self.expect(&TokenKind::Extern, "`extern`")?.span.start();
-        let name = self.parse_name(&TokenKind::ValueIdentifier, "an external operation name")?;
-        let arguments = self.parse_arguments()?;
-        Ok(Node::new(
-            Expression::ExternalCall { name, arguments },
-            self.span(start, self.previous_span().end()),
-        ))
-    }
-
     pub(super) fn parse_type_leading_expression(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
         let start = type_name.span.start();

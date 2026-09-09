@@ -75,7 +75,6 @@ pattern     ::= VALUE_IDENT | "_" | productPattern
 productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
 
 call        ::= expression "(" argumentList? ")"
-externCall  ::= "extern" VALUE_IDENT "(" argumentList? ")"
 product     ::= "(" expression "," expression
                 ("," expression)* ")"
 sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"

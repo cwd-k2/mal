@@ -35,7 +35,7 @@ fn emits_every_fixed_width_scalar_in_the_generated_header() {
 fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     let source = "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
-           base := extern memory();\n\
+           base := memory();\n\
            p0 := base + 1u64; Int8.store(p0, -8i8);\n\
            p1 := base + 3u64; Int16.store(p1, -16i16);\n\
            p2 := base + 6u64; Int32.store(p2, -32i32);\n\
@@ -94,7 +94,7 @@ fn executes_first_class_memory_functions_through_closure_calls() {
            writer(pointer, value);\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           pointer := extern memory();\n\
+           pointer := memory();\n\
            writeWith(Int64.store, pointer, 42i64);\n\
            Int32(readWith(Int64.load, pointer) - 42i64);\n\
          };";
@@ -119,11 +119,11 @@ fn executes_unaligned_ptr_value_access() {
     let source = "extern pointerSlot :: Unit -> Ptr;\n\
          extern target :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := extern pointerSlot() + 1u64;\n\
-           Ptr.store(slot, extern target());\n\
+           slot := pointerSlot() + 1u64;\n\
+           Ptr.store(slot, target());\n\
            stored := Ptr.load(slot);\n\
            Int32.store(stored, 42i32);\n\
-           Int32.load(extern target()) - 42;\n\
+           Int32.load(target()) - 42;\n\
          };";
     let generated = emit(source).expect("emit Ptr value access");
     assert!(generated.source.contains("mal_load_ptr"));
@@ -156,7 +156,7 @@ fn executes_target_storage_size_expressions() {
            actual := Int8.size + Int16.size + Int32.size + Int64.size\n\
              + UInt8.size + UInt16.size + UInt32.size + UInt64.size\n\
              + Float32.size + Float64.size + pointerSize;\n\
-           if (actual == extern expectedSize()) then { 0 } else { 1 };\n\
+           if (actual == expectedSize()) then { 0 } else { 1 };\n\
          };",
         r#"#include "program.mal.h"
 
@@ -174,11 +174,11 @@ fn copies_symbols_between_mal_and_external_memory() {
     let source = "extern symbolSlot :: Unit -> Ptr;\n\
          extern inspectSymbolSlot :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           slot := extern symbolSlot() + 1u64;\n\
+           slot := symbolSlot() + 1u64;\n\
            initial := Symbol.read(slot, 4u64);\n\
            held := \"held\" + \"\\0\\xff\";\n\
            Symbol.write(slot, held);\n\
-           extern inspectSymbolSlot();\n\
+           inspectSymbolSlot();\n\
            stored := Symbol.read(slot, 6u64);\n\
            if ((initial == \"seed\") && (held == \"held\\0\\xff\") &&\n\
                (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
@@ -236,7 +236,7 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
     let generated = emit(
         "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
-           pointer := extern memory();\n\
+           pointer := memory();\n\
            Int64.store(pointer, 42i64);\n\
            Int32(Int64.load(pointer) - 42i64);\n\
          };",

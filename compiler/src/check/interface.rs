@@ -18,21 +18,24 @@ impl Checker {
         program: &resolved::Program,
     ) -> Result<(), Diagnostic> {
         for item in &program.items {
-            let resolved::TopItem::ExternalOperation { id, name, ty } = &item.kind else {
+            let resolved::TopItem::ExternalOperation {
+                id, binding, ty, ..
+            } = &item.kind
+            else {
                 continue;
             };
             let signature = self.expand_type(ty)?;
             let Type::Function { parameter, result } = signature else {
                 return Err(Diagnostic::error(format!(
                     "external operation `{}` must have a function type",
-                    name.text
+                    binding.name.text
                 ))
                 .with_primary(ty.span, "expected `parameter -> result`"));
             };
             if contains_function(&parameter) || contains_function(&result) {
                 return Err(Diagnostic::error(format!(
                     "external operation `{}` uses a function value",
-                    name.text
+                    binding.name.text
                 ))
                 .with_primary(ty.span, "function types cannot cross the extern boundary"));
             }
@@ -41,6 +44,14 @@ impl Checker {
                 .expect("expanded external function types retain source components");
             let parameter_aliases = self.parameter_aliases(source_parameter, &parameter);
             let result_alias = self.alias_name(source_result);
+            self.values.insert(
+                binding.id,
+                Type::Function {
+                    parameter: parameter.clone(),
+                    result: result.clone(),
+                },
+            );
+            self.external_values.insert(binding.id);
             self.externals.insert(
                 *id,
                 ExternalSignature {
@@ -52,16 +63,6 @@ impl Checker {
             );
         }
         Ok(())
-    }
-
-    pub(super) fn external_signature(
-        &self,
-        id: resolved::ExternalOperationId,
-    ) -> ExternalSignature {
-        self.externals
-            .get(&id)
-            .cloned()
-            .expect("resolved external calls have a collected signature")
     }
 
     fn external_function_parts<'a>(

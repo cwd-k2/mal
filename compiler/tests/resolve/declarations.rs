@@ -124,7 +124,7 @@ fn type_and_external_declarations_are_visible_across_the_unit() {
          useLater :: Alias := 0;\n\
          extern run :: Alias -> Unit;\n\
          Later :: Int32;\n\
-         invoke := \\() { extern run(useLater); (); };",
+         invoke := \\() { run(useLater); (); };",
     );
     let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
         panic!("expected alias");
@@ -141,13 +141,19 @@ fn type_and_external_declarations_are_visible_across_the_unit() {
     let resolved::Expression::Lambda(lambda) = &invoke.value.kind else {
         panic!("expected lambda");
     };
-    assert!(matches!(
-        lambda.body.items[0],
-        resolved::BodyItem::Expression(ast::Node {
-            kind: resolved::Expression::ExternalCall { .. },
-            ..
-        })
-    ));
+    let resolved::BodyItem::Expression(call) = &lambda.body.items[0] else {
+        panic!("expected call");
+    };
+    let resolved::Expression::Call { callee, .. } = &call.kind else {
+        panic!("expected application");
+    };
+    let resolved::Expression::Reference(reference) = &callee.kind else {
+        panic!("expected external function reference");
+    };
+    let TopItem::ExternalOperation { binding, .. } = &program.items[2].kind else {
+        panic!("expected external declaration");
+    };
+    assert_eq!(reference.id, binding.id);
 }
 
 #[test]

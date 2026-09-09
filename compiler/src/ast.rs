@@ -94,10 +94,6 @@ pub enum Expression {
         callee: Box<Node<Expression>>,
         arguments: Vec<Node<Expression>>,
     },
-    ExternalCall {
-        name: Name,
-        arguments: Vec<Node<Expression>>,
-    },
     Conversion {
         type_name: Name,
         value: Box<Node<Expression>>,

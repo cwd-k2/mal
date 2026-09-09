@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use malc::editor::{Hover, OccurrenceRole, SemanticDocument, SymbolId, SymbolKind};
+use malc::editor::{Hover, OccurrenceRole, SemanticDocument, SymbolKind};
 use malc::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -268,7 +268,6 @@ fn hover_contents(source: &SourceFile, hover: Hover<'_>) -> String {
             format!("{} :: {}", occurrence.name, hover.ty)
         };
         let label = match (occurrence.id, occurrence.kind) {
-            (SymbolId::ExternalOperation(_), _) => "external function",
             (_, SymbolKind::Type) => "type",
             (_, SymbolKind::Function) => "function",
             (_, SymbolKind::Parameter) => "parameter",

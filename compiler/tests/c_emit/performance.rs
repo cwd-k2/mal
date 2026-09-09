@@ -16,7 +16,7 @@ fn exposes_signed_right_shift_as_an_arithmetic_shift_to_clang() {
     let generated = emit(
         r#"extern input :: Unit -> Int64;
 extern output :: Int64 -> Unit;
-main :: Unit -> Int32 := \() { extern output(extern input() >> 1i64); 0 };"#,
+main :: Unit -> Int32 := \() { output(input() >> 1i64); 0 };"#,
     )
     .expect("emit signed right shift");
     let fixture = NativeFixture::new("signed-right-shift-cost");
@@ -36,7 +36,7 @@ scan :: (Symbol, UInt64, UInt64) -> UInt64 := \(value, index, total) {
   else { scan(value, index + 1u64, total + UInt64(value # index)) };
 };
 main :: Unit -> Int32 := \() {
-  if (scan(extern input(), 0u64, 0u64) == 2847u64) then { 0 } else { 1 };
+  if (scan(input(), 0u64, 0u64) == 2847u64) then { 0 } else { 1 };
 };"#,
     )
     .expect("emit flat Symbol scan");
@@ -79,7 +79,7 @@ fn keeps_flat_symbol_equality_off_the_materialization_path() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
 main :: Unit -> Int32 := \() {
-  value := extern input();
+  value := input();
   if (value == "abcdefghijklmnopqrstuvwxyz") then { 0 } else { 1 };
 };"#,
     )
@@ -363,7 +363,7 @@ read :: (Int64, UInt64) -> UInt64 := \(remaining, total) {
   if (remaining == 0)
   then { total }
   else {
-    value := extern input();
+    value := input();
     read(remaining - 1, total + #value);
   };
 };
@@ -518,7 +518,7 @@ scan :: (Symbol, UInt64, UInt64, UInt64) -> UInt64 := \(value, length, index, to
   else { scan(value, length, index + 1u64, total + UInt64(inputByte(value, index))) };
 };
 main :: Unit -> Int32 := \() {
-  value := extern input();
+  value := input();
   if (scan(value, 4u64, 0u64, 0u64) == 394u64) then { 0 } else { 1 };
 };"#,
     )

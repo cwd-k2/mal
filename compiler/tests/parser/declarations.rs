@@ -29,7 +29,7 @@ fn parses_the_basic_host_example() {
     let program = parse_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printInt32(42);\n\
+           printInt32(42);\n\
            0;\n\
          };",
     );
@@ -52,10 +52,20 @@ fn parses_the_basic_host_example() {
     assert!(matches!(
         lambda.body.items[0],
         BodyItem::Expression(malc::ast::Node {
-            kind: Expression::ExternalCall { .. },
+            kind: Expression::Call { .. },
             ..
         })
     ));
+}
+
+#[test]
+fn rejects_extern_at_a_call_site() {
+    let source = source(
+        "extern print :: Symbol -> Unit; main :: Unit -> Unit := \\() { extern print(\"x\") };",
+    );
+    let error = parse(&source).expect_err("call-site extern should be rejected");
+
+    assert_eq!(error.message, "expected an expression");
 }
 
 #[test]

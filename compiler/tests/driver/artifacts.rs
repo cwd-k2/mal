@@ -85,7 +85,7 @@ fn emit_host_prints_compilable_external_operation_stubs() {
         "program.mal",
         "Count :: UInt64;\n\
          extern increment :: Count -> Count;\n\
-         main :: Unit -> Int32 := \\() { Int32(extern increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := \\() { Int32(increment(41u64) - 42u64); };",
     );
 
     let header_output = directory.malc([
@@ -189,7 +189,7 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
          require \"./host.c\";\n\
          require \"./helper.c\";\n\
          extern adjust :: Int32 -> Int32;\n\
-         main :: Unit -> Int32 := \\() { extern adjust(40) - 42; };",
+         main :: Unit -> Int32 := \\() { adjust(40) - 42; };",
     );
     directory.write(
         "host.c",

@@ -29,7 +29,9 @@ result := addTen(5);
 
 `result` は `15` となる。`x` の binding は immutable なので、後から別の値へ変化しない。
 
-top-level binding、predefined binding、compiler primitiveは全programから直接参照でき、closureごとのenvironmentに保存する必要はない。external symbolは通常のidentifierとして値にせず、`extern symbol(...)`の形でだけ呼び出す。
+top-level binding、external operation、predefined binding、compiler primitiveは全programから直接参照でき、closureごとの
+environmentに保存する必要はない。external operationは通常のfunction valueであり、そのapplicationがhost operationを
+実行する。参照または受け渡しだけではhost境界を越えない。
 
 ```mal
 outer :: Int32 -> (Unit -> (Unit -> Int32)) := \(x) {
@@ -124,7 +126,7 @@ pointer accessのregion、permission、lifetime違反とpointer offsetのprecond
 ```text
 e ::= variable | literal | lambda | application
     | product | sumInjection | case
-    | primitive | externCall | fix
+    | primitive | hostOperation | fix
 ```
 
 `Bool` は `[Unit, Unit]`、`if` と論理演算は `case` へ消去できる。`::` は型情報、`:=` はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する定義ではなく、表面機能を追加するときの意味論上の基準である。

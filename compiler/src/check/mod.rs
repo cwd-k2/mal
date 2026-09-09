@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
@@ -35,6 +35,7 @@ struct Checker {
     expanded_aliases: HashMap<TypeId, Type>,
     expanding: Vec<TypeId>,
     values: HashMap<ValueId, Type>,
+    external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
 }
 
@@ -47,6 +48,7 @@ impl Checker {
             expanded_aliases: HashMap::new(),
             expanding: Vec::new(),
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
+            external_values: HashSet::new(),
             externals: HashMap::new(),
         }
     }
@@ -68,14 +70,20 @@ impl Checker {
                 resolved::TopItem::ExternalType { binding } => TopItem::ExternalType {
                     binding: binding.clone(),
                 },
-                resolved::TopItem::ExternalOperation { id, name, .. } => {
+                resolved::TopItem::ExternalOperation {
+                    id,
+                    binding,
+                    lambda_id,
+                    ..
+                } => {
                     let signature = self
                         .externals
                         .get(id)
                         .expect("external signatures are collected before checking values");
                     TopItem::ExternalOperation {
                         id: *id,
-                        name: name.clone(),
+                        binding: binding.clone(),
+                        lambda_id: *lambda_id,
                         parameter: signature.parameter.clone(),
                         parameter_aliases: signature.parameter_aliases.clone(),
                         result: signature.result.clone(),

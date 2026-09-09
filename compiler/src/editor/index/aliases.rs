@@ -2,7 +2,7 @@ use crate::resolve::ast as resolved;
 
 use super::Index;
 
-impl Index<'_> {
+impl Index {
     pub(super) fn collect_aliases_top(&mut self, item: &resolved::TopItem) {
         if let resolved::TopItem::Binding(binding) = item {
             self.collect_aliases_expression(&binding.value.kind);
@@ -27,11 +27,6 @@ impl Index<'_> {
             }
             Expression::Call { callee, arguments } => {
                 self.collect_aliases_expression(&callee.kind);
-                for argument in arguments {
-                    self.collect_aliases_expression(&argument.kind);
-                }
-            }
-            Expression::ExternalCall { arguments, .. } => {
                 for argument in arguments {
                     self.collect_aliases_expression(&argument.kind);
                 }

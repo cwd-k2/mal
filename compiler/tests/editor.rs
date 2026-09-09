@@ -68,6 +68,24 @@ fn function_and_parameter_hovers_preserve_declared_aliases() {
 }
 
 #[test]
+fn external_function_references_share_the_declaration_identity() {
+    let text = "extern output :: Symbol -> Unit;\nmain :: Unit -> Unit := \\() { selected := output; selected(\"x\") };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("output").unwrap();
+    let reference_offset = text.rfind("output").unwrap();
+    let declaration = document.occurrence_at(declaration_offset).unwrap();
+    let reference = document.occurrence_at(reference_offset).unwrap();
+
+    assert_eq!(declaration.id, reference.id);
+    assert_eq!(reference.kind, SymbolKind::Function);
+    assert_eq!(reference.detail.as_deref(), Some("Symbol -> Unit"));
+    assert_eq!(
+        document.definition(reference.id).unwrap().span,
+        declaration.span
+    );
+}
+
+#[test]
 fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
     let text = "closingParen :: UInt8 := ')';";
     let literal = text.find("')'").unwrap();

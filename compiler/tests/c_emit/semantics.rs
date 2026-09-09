@@ -25,7 +25,7 @@ fn preserves_short_circuit_and_eager_bool_equality_order() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          marked :: Int32 -> Bool := \\(value) {\n\
-           extern printInt32(value);\n\
+           printInt32(value);\n\
            value == 1;\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
@@ -63,8 +63,8 @@ fn implements_wrapping_int32_arithmetic_without_signed_overflow() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printInt32(2147483647 + 1);\n\
-           extern printInt32(-2147483648 * -1);\n\
+           printInt32(2147483647 + 1);\n\
+           printInt32(-2147483648 * -1);\n\
            0;\n\
          };",
         PRINT_HOST,
@@ -136,7 +136,7 @@ fn executes_nested_products_destructuring_and_multiple_arguments() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            (first, second) := pair;\n\
-           nested := ((extern mark(first), ()), extern mark(second));\n\
+           nested := ((mark(first), ()), mark(second));\n\
            ((value, _), extra) := nested;\n\
            add(value, extra) - 42i32;\n\
          };",
@@ -229,11 +229,11 @@ fn executes_sum_injection_and_case() {
          extern printInt32 :: Int32 -> Unit;\n\
          get :: Maybe -> Int32 := \\(value) {\n\
            case (value)\n\
-             [0](_) { extern printInt32(100); 0 }\n\
-             [1](item) { doubled := item + item; extern printInt32(doubled); doubled };\n\
+             [0](_) { printInt32(100); 0 }\n\
+             [1](item) { doubled := item + item; printInt32(doubled); doubled };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printInt32(get(Maybe[1](9)));\n\
+           printInt32(get(Maybe[1](9)));\n\
            0;\n\
          };",
         PRINT_HOST,

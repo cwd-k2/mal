@@ -5,7 +5,23 @@ fn emits_the_basic_host_abi_and_executes_the_host_example() {
     let output = compile_and_run(
         "extern printInt32 :: Int32 -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
-           extern printInt32(42);\n\
+           printInt32(42);\n\
+           0;\n\
+         };",
+        PRINT_HOST,
+    );
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "42\n");
+}
+
+#[test]
+fn executes_an_external_operation_through_a_first_class_function() {
+    let output = compile_and_run(
+        "extern printInt32 :: Int32 -> Unit;\n\
+         output :: Int32 -> Unit := printInt32;\n\
+         apply :: (Int32 -> Unit, Int32) -> Unit := \\(operation, value) { operation(value) };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           apply(output, 42);\n\
            0;\n\
          };",
         PRINT_HOST,
@@ -20,7 +36,7 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
         "Envelope :: (Bool, (Bool, Int32));\n\
          extern exchange :: Envelope -> Bool;\n\
          main :: Unit -> Int32 := \\() {\n\
-           accepted := extern exchange(true, (false, 42));\n\
+           accepted := exchange(true, (false, 42));\n\
            if (accepted) then { 0 } else { 1 };\n\
          };",
     )
@@ -70,7 +86,7 @@ fn executes_escaping_capturing_closures() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            addTen := makeAdder(10);\n\
-           extern printInt32(addTen(5));\n\
+           printInt32(addTen(5));\n\
            0;\n\
          };",
         PRINT_HOST,
@@ -1393,7 +1409,7 @@ fn lowers_managed_direct_tail_recursion_with_constant_stack() {
            };\n\
          };\n\
          main :: Unit -> Int32 := \\() {\n\
-           if (count(extern input(), 1000000i64) == 1u64) then { 0 } else { 1 };\n\
+           if (count(input(), 1000000i64) == 1u64) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit managed tail-recursive C");
     assert!(generated.source.contains("goto mal_tail_entry;"));
@@ -1434,7 +1450,7 @@ walk :: (Choice, Int64) -> Symbol := \(choice, remaining) {
     };
 };
 main :: Unit -> Int32 := \() {
-  result := walk(Choice[1](extern input()), 100000i64);
+  result := walk(Choice[1](input()), 100000i64);
   if (result == "x") then { 0 } else { 1 };
 };"#;
     let generated = emit(source).expect("emit managed case tail-recursive C");
@@ -1468,7 +1484,7 @@ fn preserves_effect_order_before_a_direct_tail_call() {
         "extern step :: Int32 -> Int32;\n\
          walk :: (Int32, Int32) -> Int32 := \\(remaining, total) {\n\
            if (remaining == 0) then { total } else {\n\
-             walk(extern step(remaining), total + 1)\n\
+             walk(step(remaining), total + 1)\n\
            };\n\
          };\n\
          main :: Unit -> Int32 := \\() { walk(4, 0) - 4; };",
