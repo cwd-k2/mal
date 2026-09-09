@@ -51,14 +51,14 @@ fn resolves_memory_primitives_and_the_ptr_type() {
         "extern memory :: Unit -> Ptr;\n\
          useMemory :: Ptr -> Unit := \\(pointer :: Ptr) {\n\
            next := pointer + 8u64;\n\
-           value := loadInt64(next);\n\
-           storeInt64(next, value);\n\
-           byte := loadUInt8(next);\n\
-           storeUInt8(next, byte);\n\
-           target := loadPtr(next);\n\
-           storePtr(next, target);\n\
-           text := loadSymbol(next, 4u64);\n\
-           storeSymbol(next, text);\n\
+           value := Int64.load(next);\n\
+           Int64.store(next, value);\n\
+           byte := UInt8.load(next);\n\
+           UInt8.store(next, byte);\n\
+           target := Ptr.load(next);\n\
+           Ptr.store(next, target);\n\
+           text := Symbol.read(next, 4u64);\n\
+           Symbol.write(next, text);\n\
            ();\n\
          };",
     );
@@ -92,16 +92,16 @@ fn resolves_memory_primitives_and_the_ptr_type() {
     ));
 
     let expected = [
-        LOAD_INT64_VALUE,
-        STORE_INT64_VALUE,
-        LOAD_UINT8_VALUE,
-        STORE_UINT8_VALUE,
-        LOAD_PTR_VALUE,
-        STORE_PTR_VALUE,
-        LOAD_SYMBOL_VALUE,
-        STORE_SYMBOL_VALUE,
+        (INT64_TYPE, "load"),
+        (INT64_TYPE, "store"),
+        (UINT8_TYPE, "load"),
+        (UINT8_TYPE, "store"),
+        (PTR_TYPE, "load"),
+        (PTR_TYPE, "store"),
+        (SYMBOL_TYPE, "read"),
+        (SYMBOL_TYPE, "write"),
     ];
-    for (item, expected) in lambda.body.items.iter().skip(1).zip(expected) {
+    for (item, (expected_type, expected_member)) in lambda.body.items.iter().skip(1).zip(expected) {
         let expression = match item {
             resolved::BodyItem::Binding(binding) => &binding.kind.value,
             resolved::BodyItem::Expression(expression) => expression,
@@ -109,10 +109,11 @@ fn resolves_memory_primitives_and_the_ptr_type() {
         let resolved::Expression::Call { callee, .. } = &expression.kind else {
             panic!("expected primitive call");
         };
-        let resolved::Expression::Reference(reference) = &callee.kind else {
-            panic!("expected primitive reference");
+        let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } = &callee.kind else {
+            panic!("expected type-qualified primitive");
         };
-        assert_eq!(reference.id, expected);
+        assert_eq!(type_ref.id, expected_type);
+        assert_eq!(member.text, expected_member);
     }
 }
 
@@ -182,16 +183,16 @@ fn resolves_every_predefined_fixed_width_integer_type() {
 }
 
 #[test]
-fn resolves_the_type_in_a_storage_size_expression() {
-    let program = resolve_ok("Byte :: UInt8; size := @Byte;");
-    let resolved::Expression::StorageSize(ty) = &top_binding(&program.items[1]).value.kind else {
-        panic!("expected storage-size expression");
-    };
-    let resolved::TypeExpression::Named(reference) = &ty.kind else {
-        panic!("expected named type");
+fn resolves_the_type_in_a_type_qualified_primitive() {
+    let program = resolve_ok("Byte :: UInt8; size := Byte.size;");
+    let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } =
+        &top_binding(&program.items[1]).value.kind
+    else {
+        panic!("expected type-qualified primitive");
     };
     let TopItem::TypeAlias { binding, .. } = &program.items[0].kind else {
         panic!("expected type alias");
     };
-    assert_eq!(reference.id, binding.id);
+    assert_eq!(type_ref.id, binding.id);
+    assert_eq!(member.text, "size");
 }

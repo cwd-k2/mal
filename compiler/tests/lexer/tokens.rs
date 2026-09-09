@@ -76,7 +76,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ @ # << >>"),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ . # << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -109,7 +109,7 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::Pipe,
             TokenKind::PipePipe,
             TokenKind::Caret,
-            TokenKind::At,
+            TokenKind::Dot,
             TokenKind::Hash,
             TokenKind::ShiftLeft,
             TokenKind::ShiftRight,

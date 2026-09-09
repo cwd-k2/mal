@@ -217,11 +217,7 @@ fn predefined_symbols() -> Vec<Symbol> {
         .map(|&(name, id)| Symbol {
             id: SymbolId::Value(id),
             name: name.to_owned(),
-            kind: if id.0 >= 2 {
-                SymbolKind::Function
-            } else {
-                SymbolKind::Value
-            },
+            kind: SymbolKind::Value,
             detail: None,
             span: None,
         });

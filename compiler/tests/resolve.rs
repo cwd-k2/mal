@@ -2,10 +2,8 @@ use malc::ast;
 use malc::parser::parse;
 use malc::resolve;
 use malc::resolve::ast::{
-    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, LOAD_INT64_VALUE,
-    LOAD_PTR_VALUE, LOAD_SYMBOL_VALUE, LOAD_UINT8_VALUE, PTR_TYPE, STORE_INT64_VALUE,
-    STORE_PTR_VALUE, STORE_SYMBOL_VALUE, STORE_UINT8_VALUE, SYMBOL_TYPE, TopItem, UINT8_TYPE,
-    UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
+    self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PTR_TYPE,
+    SYMBOL_TYPE, TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };
 use malc::source::{FileId, SourceFile};
 

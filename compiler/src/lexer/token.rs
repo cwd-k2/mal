@@ -96,7 +96,7 @@ pub enum TokenKind {
     Pipe,
     PipePipe,
     Caret,
-    At,
+    Dot,
     Hash,
     ShiftLeft,
     ShiftRight,

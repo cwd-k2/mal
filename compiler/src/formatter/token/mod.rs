@@ -22,6 +22,7 @@ pub(super) enum Previous {
     Bind,
     Operator,
     Unary,
+    Dot,
     Backslash,
 }
 
@@ -107,9 +108,10 @@ impl Formatter<'_> {
                 self.write(text);
                 self.previous = Previous::Unary;
             }
-            TokenKind::At => {
+            TokenKind::Dot => {
+                self.trim_space();
                 self.write(text);
-                self.previous = Previous::Unary;
+                self.previous = Previous::Dot;
             }
             TokenKind::Hash if !self.previous.ends_expression() => {
                 self.write(text);

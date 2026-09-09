@@ -100,12 +100,6 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Symbol(value), token.span));
         }
-        if self.at(&TokenKind::At) {
-            let at = self.advance().clone();
-            let ty = self.parse_type()?;
-            let span = self.span(at.span.start(), ty.span.end());
-            return Ok(Node::new(Expression::StorageSize(ty), span));
-        }
         if self.at(&TokenKind::LeftParen) {
             return self.parse_parenthesized_expression();
         }
@@ -116,7 +110,7 @@ impl Parser<'_> {
             return self.parse_external_call();
         }
         if self.at(&TokenKind::TypeIdentifier) {
-            return self.parse_type_constructor();
+            return self.parse_type_leading_expression();
         }
         if self.at(&TokenKind::If) {
             return self.parse_if();

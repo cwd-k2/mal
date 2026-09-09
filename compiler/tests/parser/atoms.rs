@@ -32,11 +32,22 @@ fn parses_a_symbol_literal_as_bytes() {
 }
 
 #[test]
-fn parses_storage_size_as_a_type_prefix_expression() {
-    let Expression::StorageSize(ty) = binding_value("value := @Ptr;") else {
-        panic!("expected storage-size expression");
+fn parses_a_type_qualified_primitive_as_an_atomic_expression() {
+    let Expression::TypeQualifiedPrimitive { type_name, member } =
+        binding_value("value := Ptr.size;")
+    else {
+        panic!("expected type-qualified primitive");
     };
-    assert!(matches!(ty.kind, TypeExpression::Named(_)));
+    assert_eq!(type_name.text, "Ptr");
+    assert_eq!(member.text, "size");
+}
+
+#[test]
+fn rejects_general_member_access_and_non_value_members() {
+    for text in ["value := value.load;", "value := UInt8.Load;"] {
+        let error = parse(&source(text)).expect_err("member syntax should be restricted");
+        assert!(error.primary.is_some(), "input: {text}");
+    }
 }
 
 #[test]

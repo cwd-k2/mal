@@ -82,7 +82,10 @@ pub enum Expression {
     Float(DecimalFloatLiteral),
     Byte(u8),
     Symbol(Vec<u8>),
-    StorageSize(Node<TypeExpression>),
+    TypeQualifiedPrimitive {
+        type_name: Name,
+        member: Name,
+    },
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),

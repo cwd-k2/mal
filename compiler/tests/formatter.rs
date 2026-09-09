@@ -49,10 +49,10 @@ fn formats_requirements_as_a_leading_group() {
 }
 
 #[test]
-fn keeps_storage_size_attached_to_its_type() {
+fn keeps_type_qualified_primitives_attached() {
     assert_eq!(
-        format("size::UInt64:=@ Ptr+@UInt64;"),
-        "size :: UInt64 := @Ptr + @UInt64;\n"
+        format("size::UInt64:=Ptr . size+UInt64. load;"),
+        "size :: UInt64 := Ptr.size + UInt64.load;\n"
     );
 }
 

@@ -112,7 +112,6 @@ pub enum ExpressionKind {
     },
     MemoryFunction {
         primitive: MemoryPrimitive,
-        reference: ValueReference,
     },
     Memory {
         primitive: MemoryPrimitive,

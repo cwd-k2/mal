@@ -15,7 +15,7 @@ impl Checker {
             Err(
                 Diagnostic::error("unsupported top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, storage sizes, sums, or lambdas",
+                    "top-level values must be closed literals, type-qualified primitives, sums, or lambdas",
                 ),
             )
         }
@@ -28,11 +28,10 @@ fn is_top_level_initializer(expression: &Node<resolved::Expression>) -> bool {
         | resolved::Expression::Float(_)
         | resolved::Expression::Byte(_)
         | resolved::Expression::Symbol(_)
-        | resolved::Expression::StorageSize(_)
+        | resolved::Expression::TypeQualifiedPrimitive { .. }
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
-                || super::memory::memory_primitive(reference.id).is_some()
         }
         resolved::Expression::Parenthesized(inner) => is_top_level_initializer(inner),
         resolved::Expression::Product(elements) => elements.iter().all(is_top_level_initializer),

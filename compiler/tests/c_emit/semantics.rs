@@ -319,8 +319,8 @@ fn admits_process_arguments_as_symbols() {
     let generated = emit(
         "Arguments :: (UInt64, Ptr);\n\
          argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments :: Ptr, index :: UInt64) {\n\
-           slot := arguments + index * (@Ptr + @UInt64);\n\
-           loadSymbol(loadPtr(slot), loadUInt64(slot + @Ptr));\n\
+           slot := arguments + index * (Ptr.size + UInt64.size);\n\
+           Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
          };\n\
          main :: Arguments -> Int32 := \\(count :: UInt64, arguments :: Ptr) {\n\
            first := argumentAt(arguments, 0u64);\n\

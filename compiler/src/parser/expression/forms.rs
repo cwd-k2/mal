@@ -73,9 +73,20 @@ impl Parser<'_> {
         ))
     }
 
-    pub(super) fn parse_type_constructor(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a sum type name")?;
+    pub(super) fn parse_type_leading_expression(&mut self) -> Result<Node<Expression>, Diagnostic> {
+        let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
         let start = type_name.span.start();
+        if self.take(&TokenKind::Dot).is_some() {
+            let member = self.parse_name(
+                &TokenKind::ValueIdentifier,
+                "a predefined primitive name after `.`",
+            )?;
+            let end = member.span.end();
+            return Ok(Node::new(
+                Expression::TypeQualifiedPrimitive { type_name, member },
+                self.span(start, end),
+            ));
+        }
         if self.take(&TokenKind::LeftParen).is_some() {
             let value = self.parse_expression()?;
             let right = self.expect(&TokenKind::RightParen, "`)`")?;

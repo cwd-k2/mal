@@ -17,23 +17,8 @@ impl Checker {
     ) -> Result<Expression, Diagnostic> {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
-                kind: if let Some(primitive) = super::memory::memory_primitive(reference.id) {
-                    ExpressionKind::MemoryFunction {
-                        primitive,
-                        reference: reference.clone(),
-                    }
-                } else {
-                    ExpressionKind::Reference(reference.clone())
-                },
-                ty: if let Some(primitive) = super::memory::memory_primitive(reference.id) {
-                    let (parameter, result) = primitive.signature();
-                    Type::Function {
-                        parameter: Box::new(parameter),
-                        result: Box::new(result),
-                    }
-                } else {
-                    self.value_type(reference)?
-                },
+                kind: ExpressionKind::Reference(reference.clone()),
+                ty: self.value_type(reference)?,
                 span: expression.span,
             },
             resolved::Expression::Integer(literal) => {
@@ -52,19 +37,8 @@ impl Checker {
                 ty: Type::Symbol,
                 span: expression.span,
             },
-            resolved::Expression::StorageSize(source) => {
-                let measured = self.expand_type(source)?;
-                if !is_integer(&measured) && !is_float(&measured) && measured != Type::Ptr {
-                    return Err(Diagnostic::error(
-                        "type has no defined memory storage representation",
-                    )
-                    .with_primary(source.span, "storage size is not defined for this type"));
-                }
-                Expression {
-                    kind: ExpressionKind::StorageSize(measured),
-                    ty: Type::UInt64,
-                    span: expression.span,
-                }
+            resolved::Expression::TypeQualifiedPrimitive { type_ref, member } => {
+                self.check_qualified_memory_primitive(type_ref, member, expression.span)?
             }
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
@@ -240,10 +214,8 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: crate::source::Span,
     ) -> Result<Expression, Diagnostic> {
-        if let resolved::Expression::Reference(reference) = &callee.kind
-            && let Some(result) = self.check_memory_call(reference.id, arguments, span)
-        {
-            return result;
+        if let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } = &callee.kind {
+            return self.check_qualified_memory_call(type_ref, member, arguments, span);
         }
         let callee = self.check_expression(callee, None)?;
         let Type::Function { parameter, result } = &callee.ty else {

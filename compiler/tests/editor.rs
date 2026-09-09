@@ -6,7 +6,7 @@ fn source(text: &str) -> SourceFile {
 }
 
 #[test]
-fn reports_canonical_types_symbols_and_predefined_completions() {
+fn reports_canonical_types_and_predefined_completions() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
@@ -26,7 +26,7 @@ fn reports_canonical_types_symbols_and_predefined_completions() {
         document
             .completions()
             .iter()
-            .any(|symbol| { symbol.name == "loadInt64" && symbol.kind == SymbolKind::Function })
+            .any(|symbol| { symbol.name == "false" && symbol.kind == SymbolKind::Value })
     );
     assert!(
         document
@@ -49,8 +49,8 @@ fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
 }
 
 #[test]
-fn storage_size_types_support_hover_and_definition() {
-    let text = "Byte :: UInt8;\nsize :: UInt64 := @Byte;";
+fn type_qualified_primitives_support_type_hover_and_definition() {
+    let text = "Byte :: UInt8;\nsize :: UInt64 := Byte.size;";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let reference_offset = text.rfind("Byte").unwrap();
     let declaration_offset = text.find("Byte").unwrap();
@@ -131,13 +131,13 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
 
 #[test]
 fn reports_the_function_type_of_a_first_class_memory_function() {
-    let text = "reader :: Ptr -> Int64 := loadInt64;";
-    let offset = text.find("loadInt64").unwrap();
+    let text = "reader :: Ptr -> Int64 := Int64.load;";
+    let offset = text.find("load").unwrap();
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let hover = document.hover_at(offset).expect("memory function hover");
 
     assert_eq!(hover.ty, "Ptr -> Int64");
-    assert_eq!(hover.occurrence.unwrap().name, "loadInt64");
+    assert!(hover.occurrence.is_none());
 }
 
 #[test]

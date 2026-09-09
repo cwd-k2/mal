@@ -36,22 +36,22 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     let source = "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
            base := extern memory();\n\
-           p0 := base + 1u64; storeInt8(p0, -8i8);\n\
-           p1 := base + 3u64; storeInt16(p1, -16i16);\n\
-           p2 := base + 6u64; storeInt32(p2, -32i32);\n\
-           p3 := base + 11u64; storeInt64(p3, -64i64);\n\
-           p4 := base + 20u64; storeUInt8(p4, 8u8);\n\
-           p5 := base + 22u64; storeUInt16(p5, 16u16);\n\
-           p6 := base + 25u64; storeUInt32(p6, 32u32);\n\
-           p7 := base + 30u64; storeUInt64(p7, 64u64);\n\
-           p8 := base + 39u64; storeFloat32(p8, 1.5f32);\n\
+           p0 := base + 1u64; Int8.store(p0, -8i8);\n\
+           p1 := base + 3u64; Int16.store(p1, -16i16);\n\
+           p2 := base + 6u64; Int32.store(p2, -32i32);\n\
+           p3 := base + 11u64; Int64.store(p3, -64i64);\n\
+           p4 := base + 20u64; UInt8.store(p4, 8u8);\n\
+           p5 := base + 22u64; UInt16.store(p5, 16u16);\n\
+           p6 := base + 25u64; UInt32.store(p6, 32u32);\n\
+           p7 := base + 30u64; UInt64.store(p7, 64u64);\n\
+           p8 := base + 39u64; Float32.store(p8, 1.5f32);\n\
            end := base + 52u64;\n\
-           p9 := end - 8u64; storeFloat64(p9, -2.5f64);\n\
-           ok := (loadInt8(p0) == -8i8) && (loadInt16(p1) == -16i16) &&\n\
-                 (loadInt32(p2) == -32i32) && (loadInt64(p3) == -64i64) &&\n\
-                 (loadUInt8(p4) == 8u8) && (loadUInt16(p5) == 16u16) &&\n\
-                 (loadUInt32(p6) == 32u32) && (loadUInt64(p7) == 64u64) &&\n\
-                 (loadFloat32(p8) == 1.5f32) && (loadFloat64(p9) == -2.5f64);\n\
+           p9 := end - 8u64; Float64.store(p9, -2.5f64);\n\
+           ok := (Int8.load(p0) == -8i8) && (Int16.load(p1) == -16i16) &&\n\
+                 (Int32.load(p2) == -32i32) && (Int64.load(p3) == -64i64) &&\n\
+                 (UInt8.load(p4) == 8u8) && (UInt16.load(p5) == 16u16) &&\n\
+                 (UInt32.load(p6) == 32u32) && (UInt64.load(p7) == 64u64) &&\n\
+                 (Float32.load(p8) == 1.5f32) && (Float64.load(p9) == -2.5f64);\n\
            if (ok) then { 0 } else { 1 };\n\
          };";
     let generated = emit(source).expect("emit Ptr operations");
@@ -95,8 +95,8 @@ fn executes_first_class_memory_functions_through_closure_calls() {
          };\n\
          main :: Unit -> Int32 := \\() {\n\
            pointer := extern memory();\n\
-           writeWith(storeInt64, pointer, 42i64);\n\
-           Int32(readWith(loadInt64, pointer) - 42i64);\n\
+           writeWith(Int64.store, pointer, 42i64);\n\
+           Int32(readWith(Int64.load, pointer) - 42i64);\n\
          };";
     let generated = emit(source).expect("emit first-class memory functions");
     assert!(generated.source.contains("mal_memory_function_load_int64"));
@@ -120,10 +120,10 @@ fn executes_unaligned_ptr_value_access() {
          extern target :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
            slot := extern pointerSlot() + 1u64;\n\
-           storePtr(slot, extern target());\n\
-           stored := loadPtr(slot);\n\
-           storeInt32(stored, 42i32);\n\
-           loadInt32(extern target()) - 42;\n\
+           Ptr.store(slot, extern target());\n\
+           stored := Ptr.load(slot);\n\
+           Int32.store(stored, 42i32);\n\
+           Int32.load(extern target()) - 42;\n\
          };";
     let generated = emit(source).expect("emit Ptr value access");
     assert!(generated.source.contains("mal_load_ptr"));
@@ -151,11 +151,11 @@ MalType_Ptr mal_ext_target(MalContext *context) {
 fn executes_target_storage_size_expressions() {
     let output = compile_and_run(
         "extern expectedSize :: Unit -> UInt64;\n\
-         pointerSize :: UInt64 := @Ptr;\n\
+         pointerSize :: UInt64 := Ptr.size;\n\
          main :: Unit -> Int32 := \\() {\n\
-           actual := @Int8 + @Int16 + @Int32 + @Int64\n\
-             + @UInt8 + @UInt16 + @UInt32 + @UInt64\n\
-             + @Float32 + @Float64 + pointerSize;\n\
+           actual := Int8.size + Int16.size + Int32.size + Int64.size\n\
+             + UInt8.size + UInt16.size + UInt32.size + UInt64.size\n\
+             + Float32.size + Float64.size + pointerSize;\n\
            if (actual == extern expectedSize()) then { 0 } else { 1 };\n\
          };",
         r#"#include "program.mal.h"
@@ -175,11 +175,11 @@ fn copies_symbols_between_mal_and_external_memory() {
          extern inspectSymbolSlot :: Unit -> Unit;\n\
          main :: Unit -> Int32 := \\() {\n\
            slot := extern symbolSlot() + 1u64;\n\
-           initial := loadSymbol(slot, 4u64);\n\
+           initial := Symbol.read(slot, 4u64);\n\
            held := \"held\" + \"\\0\\xff\";\n\
-           storeSymbol(slot, held);\n\
+           Symbol.write(slot, held);\n\
            extern inspectSymbolSlot();\n\
-           stored := loadSymbol(slot, 6u64);\n\
+           stored := Symbol.read(slot, 6u64);\n\
            if ((initial == \"seed\") && (held == \"held\\0\\xff\") &&\n\
                (stored == \"held\\0\\xff\") && (stored # 5u64 == 255u8)) then {\n\
              0\n\
@@ -237,8 +237,8 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
         "extern memory :: Unit -> Ptr;\n\
          main :: Unit -> Int32 := \\() {\n\
            pointer := extern memory();\n\
-           storeInt64(pointer, 42i64);\n\
-           Int32(loadInt64(pointer) - 42i64);\n\
+           Int64.store(pointer, 42i64);\n\
+           Int32(Int64.load(pointer) - 42i64);\n\
          };",
     )
     .expect("emit selective memory helpers");
