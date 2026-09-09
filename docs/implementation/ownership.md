@@ -35,6 +35,12 @@ borrowを別のbinding、aggregate field、capture、branch result、function re
 ownership shareを一つ増やす。binding、branch-local pattern、closure environment、top-level storageの終端では、生成と逆順に
 型ごとのdestroy operationを呼ぶ。wildcardへ渡したowned resultも直ちにdestroyする。
 
+既存のowned slotを別のstorageへ移し、移動元のlifetimeがそこで終わる場合は、descriptorをtransferして移動元をzero状態にする。
+これはcopy可能な値に対する追加の意味ではなく、copyでownerを増やした直後に元ownerをdestroyする操作とtransition前後の
+owner数および到達可能な値が等しいC表現である。
+transferできる根拠は、通常の式ではpath-sensitiveなlast use、control suspensionではactivationの終了、owned entryではcalling
+conventionの契約というように、それぞれのlifetime authorityから導出する。
+
 expression emitterは各`Operation`のC式と`ResultOwnership`を同じinterfaceで返す。分類は`Operation`、
 `MemoryPrimitive`、managed resultを作り得るprimitiveをwildcardなしで列挙し、新しいvariantの分類漏れをRustの
 exhaustiveness checkで拒否する。structured operationもstatement emitterでowned resultを作る規約を明示する。
@@ -67,17 +73,22 @@ borrowできる。slot自身のownershipとtail edgeでのtransferは維持す�
 
 ## control frame
 
-application control loweringでhandlerがnon-tail callによりsuspendすると、callerのC activationはdispatcherへreturnする。
-resume stateのlive-inにある値だけをcall-site固有frameへ保存し、top-level bindingはprogram storageから再取得する。
+application control loweringでhandlerがrecursive region内のnon-tail callによりsuspendすると、現在のMal activationは終了する。
+local machineは同じC activation内で次stateへ移り、common machineはdispatcherへcontrolを戻すが、どちらも終了したMal
+activationのlocal slotをownerの保存場所として残さない。
+[control lowering](../development/application-control-lowering.md#control-ir)が定めたresume stateのlive-inだけをcall-site固有frameへ
+保存し、top-level bindingはprogram storageから再取得する。C backendはclosure IRのsuffixを再解析してframe fieldを増減しない。
 
-managed live bindingは型ごとのcopy operationでframe-owned fieldへ保存してから、activation側のinitialized slotを
-destroyする。resume時はfieldをzero状態にしてownerをlocal slotへmoveし、frame自体をpopする。これにより、parameterやcase payloadも
-suspension中は独立したownerを持つ。後からlast-use情報によりcopyとactivation側destroyを一つのtransferへ
-まとめてよいが、frame前後のowner数を変えてはならない。
+suspendで終了するactivationのinitialized managed slotは、そのownerをframe fieldへtransferして移動元をzero状態にする。
+このtransferは通常のlast-use最適化に依存せず、現在のactivationがcallee実行中にownerを保持できないことから導出される。
+resume時は逆にframe fieldからlocal slotへtransferし、fieldをzero状態にしてからframeをpopする。parameter、case payload、local
+bindingの別によらず、各transitionの前後で同じownership shareが一箇所だけに存在する。
 
-resume後にenvironment fieldまたはself closureを使う場合、frameはcaller environmentのownership shareも保持する。callee entryへ
-渡すenvironmentは、caller frameとは別のshareを確保してからcurrent activationを終了する。tail applicationではcaller frameを
-作らず、callee argumentとenvironmentを次entryへ移した後にcaller localをdestroyする。
+direct-selfだけのlocal machineではcaller environmentを持つC activationが全遷移を通じて存続するため、environmentは
+activation residentでありframeへ保存しない。複数entryまたはindirect edgeを扱うcommon machineではactive environmentがcalleeの
+environmentへ切り替わるため、resume stateがcaller environmentを必要とする場合だけ、そのownerとdestructorをframeへtransferする。
+callee entryへ渡すenvironment ownerはcallerのresume ownerと分離してからcurrent activationを終了する。tail applicationではcaller
+frameを作らず、callee argumentとenvironmentを次entryへ移した後にcaller localをdestroyする。
 
 call-only local closureのC stack配置は、そのclosureとborrowed captureが同じhandler activation内だけで使われる場合に限る。
 closure bindingまたはそのenvironmentがsuspensionをまたぐ場合はheap environmentへfallbackする。control frameのbyte storageが

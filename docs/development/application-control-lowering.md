@@ -22,9 +22,8 @@ block内で同期的に完了し、`Call`だけが別のMal functionへcontrol�
 control IR、backward liveness、possible application graph、tail fusion後のresidual continuation graphとrecursive SCC partition、
 typed frame layout、continuation constructor数に応じたframe region別のgrowable control storageは実装済みである。C emitterは
 direct self non-tail recursionを一つのC activation内のcontrol machineにし、live valueをtyped frameへ保存してreturn時にresumeする。
-`Symbol`とそれを含むproduct・sumは[ownership規約](../implementation/ownership.md#control-frame)どおりcopyしてframe ownerを作り、
-activation cleanup後、resume時にlocal slotへmoveする。suspendで現在のactivationを終える際はlive ownerをframeへmoveして元slotを
-zero化し、不要なretain/releaseを発生させない。
+control loweringは保存するsemantic valueの集合を定め、managed valueをlocal slot、frame、次entryの間で移すC規約は
+[ownership規約](../implementation/ownership.md#control-frame)が所有する。
 direct self tail callは`goto`へfusionし、acyclicなknown callは通常のtyped C callを保つ。
 
 function valueを含むlocal stateもcontrol machineへ移し、suspensionをまたぐclosure environmentはheap ownerとしてframeに保存する。
@@ -62,6 +61,9 @@ rest
 `rest`から参照され、call前に定義済みのvalueを`live(rest)`とする。loweringは`live(rest)`を`Frame_site`へ移し、calleeの
 codeとenvironment、argumentを次のentry stateにする。calleeのreturnはtop frameが指定する型でresultを受け取り、`x`へbindし、
 frameをpopして`rest`のprogram pointへ移る。
+
+ここで`values`と`live-values`はsource semantics上の値を表し、copy、transfer、destroyの選択を含まない。control loweringが
+continuationへ保存すべき値を定めた後、C backendが各値の現在のownerとstorage lifetimeからownership operationを導出する。
 
 calleeがfirst-class valueでも、runtimeのclosure descriptorからcodeとenvironmentを選べばよい。frame constructorを決めるのは
 callerのapplication位置なので、points-to解析やcallee候補の列挙は変換の前提ではない。有限なprogramではapplication位置が有限で
