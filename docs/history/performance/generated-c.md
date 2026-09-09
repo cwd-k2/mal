@@ -12,18 +12,18 @@ wall-clock値はconformanceではなく、同じ環境内で変更前後を比�
 
 ## 現在のbaseline
 
-2026-09-09にinteractiveな053を除くTypical90の79問を、`b0c42d3`、Clang 21.1.8の`-O2`、
+2026-09-09にinteractiveな053を除くTypical90の79問を、`fa0aa09`、Clang 21.1.8の`-O2`、
 同じmaximum-order input、warmup 3回、
 交互20 roundで比較した。比率は`mal / direct C`とし、1より大きいほどCが速い。
 
 | Population | Count | Median ratio | Geometric mean |
 |---|---:|---:|---:|
-| 全非interactive問題 | 79 | 1.04 | 1.07 |
-| 両実行時間が1 ms以上 | 62 | 1.08 | 1.08 |
-| 両実行時間が5 ms以上 | 52 | 1.10 | 1.10 |
-| 両実行時間が10 ms以上 | 40 | 1.08 | 1.09 |
+| 全非interactive問題 | 79 | 1.04 | 1.06 |
+| 両実行時間が1 ms以上 | 66 | 1.08 | 1.07 |
+| 両実行時間が5 ms以上 | 53 | 1.10 | 1.07 |
+| 両実行時間が10 ms以上 | 46 | 1.10 | 1.09 |
 
-±5%を同等とするとmalが速いものは11、同等は32、Cが速いものは36だった。規則的なnumeric/`Ptr`処理は
+±5%を同等とするとmalが速いものは10、同等は32、Cが速いものは37だった。規則的なnumeric/`Ptr`処理は
 direct Cと同等以上または近く、新しいcollection primitiveを性能だけのために追加する根拠はない。現在、profileによって
 compilerの責務へ分離できたactiveなcost modelはapplication control loweringのtransition costである。
 
@@ -148,6 +148,32 @@ production emitterとmanaged owner遷移は実装しない。
 
 prototype撤去後に残したregion arenaへのlocal pointer表現も、`0b80b98`生成物との交互30 roundでHanoiが1.01、linear unwindが
 1.00であり同等帯だった。
+
+### homogeneous frame specialization
+
+`fa0aa09`ではregion内のsuspension site集合をframe constructor authorityとし、constructorが一つだけならheaderのない固定幅slot列を
+生成するようにした。`top`とcapacityはbyte offsetではなくslot数を表し、既知resumeへ直接移る。複数constructorのregionは従来の
+aligned byte stackとtag dispatchを保つ。homogeneous-only programにはheterogeneous helper、frame header、current-frame fieldを生成しない。
+managed fieldのownerは両表現ともlocal slotからframeへmoveし、resume時にframeからlocal slotへmoveしてzero化する。
+
+変更前`ae40a20`と変更後`fa0aa09`から同じMal sourceをClang 21.1.8 `-O2`でbuildし、maximum-order input、warmup 3回、
+交互20 roundで79問を比較した。269 sampleは変更後binaryで再検証した。比率は`after / before`である。
+
+| Problem | After (ms) | Before (ms) | Ratio |
+|---:|---:|---:|---:|
+| 016 | 121.40 | 175.39 | 0.69 |
+| 032 | 82.99 | 83.19 | 1.00 |
+
+| Population | Count | Median ratio | Geometric mean | Faster / parity / slower |
+|---|---:|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.00 | 1.00 | 1 / 77 / 1 |
+| 両実行時間が5 ms以上 | 55 | 1.00 | 0.99 | 1 / 54 / 0 |
+| 両実行時間が10 ms以上 | 47 | 1.00 | 0.99 | 1 / 46 / 0 |
+
+016のhotな単一continuationではalignment丸め、previous offset、resume tag dispatchを除いた効果が明確だった。032は変更前と
+同等で、direct C比はなお1.45であり、固定幅化だけでは共通のstate transition costを除けない。更新後のdirect C比は
+011が1.48、032が1.45、016が1.22である。両方5 ms以上のcaseに5%を超える退行はなく、C stack bound、managed owner遷移、allocation failure分類を
+維持したため、この表現を採用する。残る032の差はconstructor storageではなくstate machine側の独立したcost modelとして扱う。
 
 ## 個別調査
 
