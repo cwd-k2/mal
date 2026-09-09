@@ -288,13 +288,16 @@ fn omits_numeric_precondition_traps_from_generated_c() {
     )
     .expect("emit numeric operations");
 
-    for obsolete in [
+    for forbidden_message in [
         "shift count out of range",
         "division by zero",
         "remainder by zero",
         "float-to-integer conversion out of range",
     ] {
-        assert!(!generated.source.contains(obsolete), "{obsolete}");
+        assert!(
+            !generated.source.contains(forbidden_message),
+            "{forbidden_message}"
+        );
     }
 }
 

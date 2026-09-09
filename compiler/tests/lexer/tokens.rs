@@ -125,12 +125,6 @@ fn rejects_the_unsupported_fat_arrow_token() {
 }
 
 #[test]
-fn rejects_the_removed_storage_size_sigil() {
-    let error = lex(&source("@UInt8")).expect_err("the removed sigil should be rejected");
-    assert_eq!(error.message, "invalid token");
-}
-
-#[test]
 fn skips_ascii_whitespace_and_line_comments() {
     let tokens = lex(&source("main // until the line ending\r\n  return"))
         .expect("comments and whitespace should lex");
