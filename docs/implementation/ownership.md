@@ -106,6 +106,10 @@ retainする。last-useのowned flat operandはreference countが1なら、left�
 rope nodeと共に解放する。extern aggregate内のSymbolも型再帰でmaterializeする。いずれの表現もsourceからは新しいimmutable
 byte sequenceとしてだけ観測され、node、cache、capacityはC host ABIのopaque ownership内部に留まる。
 comparisonのleaf cursorはdescriptorとrope nodeをborrowし、retain、release、allocation、cache mutationを行わない。
+byte accessでは、全direct self-tail edgeが同じSymbol parameter slotを保持することをbackend planが証明したsiteだけ、同じ
+C activationのlocal cursorを使う。最初のaccessは通常traversalとし、次のindexが連続したときにborrowed pathを構築する。
+以後の連続accessはpathを前進させ、非局所accessはcursorを無効化して通常traversalへ戻す。cursorはparameter ownerの
+destroy、activationのreturn、再帰、re-entry、suspensionを越えず、cursorのためのretainやdescriptor identity比較を行わない。
 
 closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
 であり、generic reference-count runtimeはenvironment layoutを解釈しない。
@@ -116,7 +120,8 @@ bindingをborrowする。単純alias chainとclosure本体のself referenceを�
 heap environmentへfallbackする。stack environmentはretainもdestroyもしない。direct-use planは元programから再導出し、
 creator、alias、top-level、callee以外の使用を含む集合のexact matchをdebug buildのemission前に検査する。
 
-これらのplanとcontrol region/frame planはmodule-private constructorだけから作り、fieldを外部stageへ公開しない。`is_valid`による
+これらのplan、Symbol byte access cursor plan、control region/frame planはmodule-private constructorだけから作り、fieldを
+外部stageへ公開しない。`is_valid`による
 全再導出はdebug assertionとfocused mutation testに置き、release compilerでは同じ解析を二重実行しない。release時のstage
 contractはconstructorがauthoritative inputだけからclosedなplanを返すことであり、validatorは別のruntime authorityではない。
 

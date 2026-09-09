@@ -126,6 +126,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/control/support` | reachable state、local slot、activation-local control stackとcached arenaの変換、control operation変換の補助構成 |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
+| `c_emit/body/analysis/symbol_at_cursor` | 全self-tail edgeで保持されるSymbol parameterと、そのactivation内だけでcursorを再利用できるbyte access siteの計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
 | `c_emit/body/analysis/closure_use` | local・top-level closureとself closureのuse分類、alias追跡、direct-only表現とstack environment候補の計画 |
 | `c_emit/body/analysis/application_graph` | application siteごとのcaller、known target、型互換なpossible user-function targetを構成 |
@@ -152,6 +153,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/runtime/core/symbol` | Symbol lifetime、admission、external byte copy、materializationの構成 |
 | `c_emit/runtime/symbol` | Symbol byte traversal、comparison、byte access、concatenationの構成 |
 | `c_emit/runtime/symbol/leaf_cursor` | allocation-freeなrope leaf順走査とbounded pending pathの構成 |
+| `c_emit/runtime/symbol/leaf_cursor/index` | byte indexへのseek、連続accessの検出、非局所accessの通常traversal fallbackの構成 |
 | `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 

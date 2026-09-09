@@ -274,6 +274,29 @@ scan中に`rows * count`と既存bestを比較すると、IRはscalar `smax`のu
 390.1 msへ、numeric transformを465.9 msから395.1 msへ短縮した。この根拠とstrict float testによりpublic buildへ`-O2`を
 採用した。その後Boolの0/1 specializationとproduct parameterのdirect entryを採用し、現在の全corpus baselineへ引き継いだ。
 
+### Symbol byte index cursor
+
+2026-09-09に`0b77f8b`と`b0c42d3`を、Clang 21.1.8、public buildの`-O2`とstrict float option、
+warmup 3回、先行順を反転したHyperfine 20 roundで比較した。各fixtureはstdoutなしでstatus 0が一致することをwarmup時にも
+確認した。
+
+| Access形状 | Workload | Cursor (ms) | Before (ms) | Ratio |
+|---|---|---:|---:|---:|
+| rope sequential | 300-byte leafを15回duplicateした9,830,400 bytesの全byte走査 | 86.63 | 197.91 | 0.44 |
+| rope random | 同じropeへのLCG indexによる1,000,000 access | 71.83 | 73.63 | 0.98 |
+| flat sequential | hostからadmitした9,830,400 bytesの全byte走査 | 7.20 | 7.17 | 1.00 |
+
+最初のprototypeは非局所accessごとにもcursor pathを構築し、別の交互測定でrandom fixtureを約16%退行させたため採用しなかった。
+採用版は最初のrope accessを従来traversalへ送り、連続する次indexを観測した時点でpathを一度構築する。以後の隣接accessだけを
+前進させ、非局所accessは従来traversalへ戻す。600-byteのfocused fixtureでは600回の逐次accessに対するroot seekが8回以下で
+あることをdeterministic counterで確認し、leaf境界、末尾、前方jump、後方jumpもnative executionで検査した。
+
+最適化後LLVM IRでは隣接access pathがleaf cursorの前進になり、非局所access用の`mal_symbol_at_slow` branchも残る。
+activationごとに`MalSymbolLeafCursor`の2,104-byte stack slotが一つ残り、binaryはfocused rope fixtureで25,560 bytesから
+29,824 bytesへ増えた。したがってplanはすべてのself-tail scanへ広げず、全tail edgeが同じSymbol parameterを保持するsiteに限定する。
+Symbolを置換するedge、suspension、common control、別activationは通常accessを維持し、cursorのためのretainやallocationは
+追加しない。
+
 ## generated Cで確認済みの事実
 
 self tail callは`mal_tail_entry`と`goto`へlowerされ、C stackを消費する再帰callにはなっていない。regular loopが
