@@ -1,6 +1,6 @@
 use crate::c_emit::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TranslationUnit,
-    TypeName,
+    Block, Expr, ForInitializer, FunctionDefinition, FunctionSignature, Parameter, Statement,
+    TranslationUnit, TypeName,
 };
 
 mod concatenate;
@@ -11,6 +11,66 @@ pub(super) fn emit_concatenate(consume_left: bool, consume_right: bool) -> Funct
 
 pub(super) fn emit_rope_support() -> crate::c_emit::syntax::TranslationUnit {
     concatenate::emit_rope_support()
+}
+
+pub(super) fn emit_traversal() -> TranslationUnit {
+    // Index validity belongs to the source operation contract. Traversal must
+    // not make representation an observable source of allocation failure.
+    let mut output = TranslationUnit::default();
+    output.push(function(
+        FunctionSignature::static_noinline(
+            "uint8_t",
+            "mal_symbol_at_slow",
+            [
+                context_parameter(),
+                Parameter::named("MalType_Symbol", "value"),
+                Parameter::named("uint64_t", "index"),
+            ],
+        ),
+        Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+            Statement::if_then(has_data("value"), Block::new([byte_at("value")])),
+            Statement::variable(
+                TypeName::const_named("MalSymbolRope").pointer(),
+                "rope",
+                Some(Expr::cast(
+                    TypeName::const_named("MalSymbolRope").pointer(),
+                    Expr::identifier("value").field("ownership"),
+                )),
+            ),
+            Statement::if_else(
+                Expr::less(
+                    Expr::identifier("index"),
+                    Expr::identifier("rope")
+                        .pointer_field("left")
+                        .field("length"),
+                ),
+                Block::new([Statement::return_value(Expr::named_call(
+                    "mal_symbol_at_slow",
+                    [
+                        Expr::identifier("context"),
+                        Expr::identifier("rope").pointer_field("left"),
+                        Expr::identifier("index"),
+                    ],
+                ))]),
+                Block::new([Statement::return_value(Expr::named_call(
+                    "mal_symbol_at_slow",
+                    [
+                        Expr::identifier("context"),
+                        Expr::identifier("rope").pointer_field("right"),
+                        Expr::subtract(
+                            Expr::identifier("index"),
+                            Expr::identifier("rope")
+                                .pointer_field("left")
+                                .field("length"),
+                        ),
+                    ],
+                ))]),
+            ),
+        ]),
+    ));
+    output.blank_line();
+    output
 }
 
 pub(super) fn emit_equality() -> TranslationUnit {
@@ -26,9 +86,19 @@ pub(super) fn emit_equality() -> TranslationUnit {
             ],
         ),
         Block::new([
-            materialize_if_needed("left"),
-            materialize_if_needed("right"),
-            compare_bytes(),
+            Statement::for_loop(
+                ForInitializer::variable("uint64_t", "index", Expr::number("0")),
+                Expr::less(
+                    Expr::identifier("index"),
+                    Expr::identifier("left").field("length"),
+                ),
+                Expr::pre_increment(Expr::identifier("index")),
+                Block::new([Statement::if_then(
+                    Expr::not_equal(at_slow("left"), at_slow("right")),
+                    Block::new([Statement::return_value(uint8(0))]),
+                )]),
+            ),
+            Statement::return_value(uint8(1)),
         ]),
     ));
     output.blank_line();
@@ -72,28 +142,7 @@ pub(super) fn emit_equality() -> TranslationUnit {
 }
 
 pub(super) fn emit_at() -> TranslationUnit {
-    // Index validity belongs to the source operation contract; materializing
-    // the language-owned representation remains a runtime responsibility.
     let mut output = TranslationUnit::default();
-    output.push(function(
-        FunctionSignature::static_noinline(
-            "uint8_t",
-            "mal_symbol_at_slow",
-            [
-                context_parameter(),
-                Parameter::named("MalType_Symbol", "value"),
-                Parameter::named("uint64_t", "index"),
-            ],
-        ),
-        Block::new([
-            Statement::assignment(
-                Expr::identifier("value"),
-                materialize(Expr::identifier("value")),
-            ),
-            byte_at("value"),
-        ]),
-    ));
-    output.blank_line();
     output.push(function(
         FunctionSignature::static_function(
             "uint8_t",
@@ -127,20 +176,14 @@ fn uint8(value: u8) -> Expr {
     Expr::named_call("UINT8_C", [Expr::number(value.to_string())])
 }
 
-fn materialize(value: Expr) -> Expr {
+fn at_slow(name: &str) -> Expr {
     Expr::named_call(
-        "mal_symbol_materialize",
-        [Expr::identifier("context"), value],
-    )
-}
-
-fn materialize_if_needed(name: &str) -> Statement {
-    Statement::if_then(
-        Expr::logical_not(has_data(name)),
-        Block::new([Statement::assignment(
+        "mal_symbol_at_slow",
+        [
+            Expr::identifier("context"),
             Expr::identifier(name),
-            materialize(Expr::identifier(name)),
-        )]),
+            Expr::identifier("index"),
+        ],
     )
 }
 

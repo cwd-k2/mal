@@ -190,6 +190,16 @@ fn copies_symbols_between_mal_and_external_memory() {
     let generated = emit(source).expect("emit Symbol byte copies");
     assert!(generated.source.contains("mal_load_symbol"));
     assert!(generated.source.contains("mal_store_symbol"));
+    let store_start = generated
+        .source
+        .find("mal_store_symbol(")
+        .expect("generated storeSymbol helper");
+    let store = generated.source[store_start..]
+        .split_once("\n}\n")
+        .expect("complete storeSymbol helper")
+        .0;
+    assert!(store.contains("mal_symbol_copy_into"), "{store}");
+    assert!(!store.contains("mal_symbol_materialize"), "{store}");
     let host = r#"#include "program.mal.h"
 #include <string.h>
 

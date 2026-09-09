@@ -32,6 +32,9 @@ pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
     if needs.shift_left != 0 || needs.shift_right != 0 {
         output.extend(emit_integer_shift(needs.shift_left, needs.shift_right));
     }
+    if needs.symbol_equality || needs.symbol_at {
+        output.extend(symbol::emit_traversal());
+    }
     if needs.symbol_equality {
         output.extend(symbol::emit_equality());
     }

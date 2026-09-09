@@ -95,26 +95,13 @@ pub(super) fn emit(
                 ],
             ),
             Block::new([
-                Statement::assignment(
-                    Expr::identifier("value"),
-                    Expr::named_call(
-                        "mal_symbol_materialize",
-                        [Expr::identifier("context"), Expr::identifier("value")],
-                    ),
-                ),
-                Statement::if_then(
-                    Expr::not_equal(
-                        Expr::identifier("value").field("length"),
-                        Expr::named_call("UINT64_C", [Expr::number("0")]),
-                    ),
-                    Block::new([Statement::call(
-                        "memcpy",
-                        [
-                            Expr::identifier("pointer").field("address"),
-                            Expr::identifier("value").field("data"),
-                            Expr::cast("size_t", Expr::identifier("value").field("length")),
-                        ],
-                    )]),
+                Statement::expression(Expr::cast("void", Expr::identifier("context"))),
+                Statement::call(
+                    "mal_symbol_copy_into",
+                    [
+                        Expr::identifier("value"),
+                        Expr::identifier("pointer").field("address"),
+                    ],
                 ),
                 Statement::return_value(unit()),
             ]),

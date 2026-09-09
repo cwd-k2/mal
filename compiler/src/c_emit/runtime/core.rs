@@ -87,6 +87,7 @@ pub(super) fn emit(needs_symbol_copy: bool, control_arenas: usize) -> Translatio
     output.blank_line();
 
     append_trap(&mut output);
+    append_resource_failure(&mut output);
     if control_arenas != 0 {
         append_control_stack(&mut output);
     }
@@ -168,34 +169,6 @@ fn append_control_stack(output: &mut TranslationUnit) {
         "MalControlFrameHeader",
     ));
     output.blank_line();
-    append_function(
-        output,
-        FunctionSignature::no_return(
-            "void",
-            "mal_control_resource_failure",
-            [Parameter::named(
-                TypeName::const_named("char").pointer(),
-                "message",
-            )],
-        )
-        .maybe_unused(),
-        Block::new([
-            Statement::call(
-                "fputs",
-                [
-                    Expr::string("mal implementation resource failure: "),
-                    Expr::identifier("stderr"),
-                ],
-            ),
-            Statement::call(
-                "fputs",
-                [Expr::identifier("message"), Expr::identifier("stderr")],
-            ),
-            Statement::call("fputc", [Expr::character('\n'), Expr::identifier("stderr")]),
-            Statement::call("abort", []),
-        ]),
-    );
-
     let alignment = Expr::sizeof_type("max_align_t");
     let padded_input = Expr::add(
         Expr::identifier("size"),
@@ -363,10 +336,7 @@ fn control_arena_name(arena: usize) -> String {
 }
 
 fn control_failure(message: &str) -> Block {
-    Block::new([Statement::call(
-        "mal_control_resource_failure",
-        [Expr::string(message)],
-    )])
+    resource_failure(message)
 }
 
 fn append_trap(output: &mut TranslationUnit) {
@@ -396,6 +366,36 @@ fn append_trap(output: &mut TranslationUnit) {
     );
 }
 
+fn append_resource_failure(output: &mut TranslationUnit) {
+    append_function(
+        output,
+        FunctionSignature::no_return(
+            "void",
+            "mal_resource_failure",
+            [Parameter::named(
+                TypeName::const_named("char").pointer(),
+                "message",
+            )],
+        )
+        .maybe_unused(),
+        Block::new([
+            Statement::call(
+                "fputs",
+                [
+                    Expr::string("mal implementation resource failure: "),
+                    Expr::identifier("stderr"),
+                ],
+            ),
+            Statement::call(
+                "fputs",
+                [Expr::identifier("message"), Expr::identifier("stderr")],
+            ),
+            Statement::call("fputc", [Expr::character('\n'), Expr::identifier("stderr")]),
+            Statement::call("abort", []),
+        ]),
+    );
+}
+
 fn append_allocation(output: &mut TranslationUnit) {
     append_function(
         output,
@@ -405,6 +405,7 @@ fn append_allocation(output: &mut TranslationUnit) {
             [context_parameter(), Parameter::named("size_t", "size")],
         ),
         Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
             Statement::if_then(
                 Expr::greater(
                     Expr::identifier("size"),
@@ -488,6 +489,7 @@ fn append_reference_counting(output: &mut TranslationUnit) {
             ],
         ),
         Block::new([
+            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
             Statement::directive(Directive::If(PreprocessorExpr::defined(
                 "MAL_TEST_RETAIN_LIMIT",
             ))),
@@ -509,7 +511,7 @@ fn append_reference_counting(output: &mut TranslationUnit) {
                     Expr::identifier("allocation").pointer_field("references"),
                     Expr::identifier("UINT64_MAX"),
                 ),
-                trap("reference count overflow"),
+                resource_failure("reference count overflow"),
             ),
             Statement::expression(Expr::pre_increment(
                 Expr::identifier("allocation").pointer_field("references"),
@@ -1297,6 +1299,13 @@ fn trap(message: &str) -> Block {
     Block::new([Statement::call(
         "mal_trap",
         [Expr::identifier("context"), Expr::string(message)],
+    )])
+}
+
+fn resource_failure(message: &str) -> Block {
+    Block::new([Statement::call(
+        "mal_resource_failure",
+        [Expr::string(message)],
     )])
 }
 

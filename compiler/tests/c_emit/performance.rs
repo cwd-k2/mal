@@ -199,8 +199,40 @@ main :: Unit -> Int32 := \() {
         &[
             "-DMAL_TEST_RETAIN_LIMIT=512",
             "-DMAL_TEST_RELEASE_LIMIT=512",
-            "-DMAL_TEST_MATERIALIZATION_LIMIT=128",
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
             "-DMAL_TEST_TOTAL_ALLOCATION_LIMIT=128",
+            "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
+        ],
+    );
+    let output = fixture.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn compares_rope_symbols_without_materialization() {
+    let generated = emit(
+        r#"prepend :: Symbol -> Symbol := \(value :: Symbol) { "x" + value };
+grow :: (Symbol, Int64) -> Symbol := \(value :: Symbol, remaining :: Int64) {
+  if (remaining == 0)
+  then { value }
+  else { grow(prepend(value), remaining - 1) };
+};
+main :: Unit -> Int32 := \() {
+  value := grow("abcdefghijklmnopqrstuvwxyz", 300i64);
+  if (value == value) then { 0 } else { 1 };
+};"#,
+    )
+    .expect("emit rope Symbol equality");
+    let fixture = NativeFixture::new("rope-symbol-equality-cost");
+    let executable = fixture.compile_generated_with_options(
+        generated,
+        "",
+        &[
+            "-DMAL_TEST_MATERIALIZATION_LIMIT=0",
             "-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS",
         ],
     );
