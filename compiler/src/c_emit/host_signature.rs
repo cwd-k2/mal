@@ -32,15 +32,16 @@ pub(super) struct HostBodySignature<'a> {
 struct HostValue<'a> {
     ty: &'a Type,
     alias: Option<&'a str>,
+    c_type: TypeName,
 }
 
 impl<'a> ExternalSignatures<'a> {
     pub(super) fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         let signatures = Self {
             compiler: CompilerSignature::new(external, types),
-            host_body: HostBodySignature::new(external),
+            host_body: HostBodySignature::new(external, types),
         };
-        debug_assert!(signatures.host_body.represents(external));
+        debug_assert!(signatures.host_body.represents(external, types));
         signatures
     }
 }
@@ -124,28 +125,38 @@ impl<'a> CompilerSignature<'a> {
 }
 
 impl<'a> HostBodySignature<'a> {
-    fn new(external: &'a ExternalOperation) -> Self {
+    fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         Self {
             operation_name: &external.name,
             result: HostValue {
                 ty: &external.result,
                 alias: external.result_alias.as_deref(),
+                c_type: types.host_value_c_type(&external.result, external.result_alias.as_deref()),
             },
             parameter: (external.parameter != Type::Unit).then_some(HostValue {
                 ty: &external.parameter,
                 alias: external.parameter_alias.as_deref(),
+                c_type: types
+                    .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
         }
     }
 
-    fn represents(&self, external: &ExternalOperation) -> bool {
+    fn represents(&self, external: &ExternalOperation, types: &TypeRegistry) -> bool {
         self.operation_name == external.name
             && self.result.ty == &external.result
             && self.result.alias == external.result_alias.as_deref()
+            && self.result.c_type
+                == types.host_value_c_type(&external.result, external.result_alias.as_deref())
             && match &self.parameter {
                 Some(parameter) => {
                     parameter.ty == &external.parameter
                         && parameter.alias == external.parameter_alias.as_deref()
+                        && parameter.c_type
+                            == types.host_value_c_type(
+                                &external.parameter,
+                                external.parameter_alias.as_deref(),
+                            )
                 }
                 None => external.parameter == Type::Unit && external.parameter_alias.is_none(),
             }
@@ -184,6 +195,11 @@ mod tests {
             .expect("one host value parameter");
         assert_eq!(parameter.ty, &external.parameter);
         assert_eq!(parameter.alias, Some("Request"));
+        assert_eq!(parameter.c_type, TypeName::named("mal_Request_t"));
         assert_eq!(signatures.host_body.result.alias, Some("Count"));
+        assert_eq!(
+            signatures.host_body.result.c_type,
+            TypeName::named("mal_Count_t")
+        );
     }
 }

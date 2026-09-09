@@ -47,6 +47,36 @@ impl TypeRegistry {
         }
     }
 
+    pub(super) fn host_value_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
+        if let Some(alias) = alias {
+            return TypeName::named(format!("mal_{alias}_t"));
+        }
+        if is_bool(ty) {
+            return TypeName::named("mal_Bool_t");
+        }
+        match ty {
+            Type::Unit => TypeName::named("mal_Unit_t"),
+            Type::Int8 => TypeName::named("mal_Int8_t"),
+            Type::Int16 => TypeName::named("mal_Int16_t"),
+            Type::Int32 => TypeName::named("mal_Int32_t"),
+            Type::Int64 => TypeName::named("mal_Int64_t"),
+            Type::UInt8 => TypeName::named("mal_UInt8_t"),
+            Type::UInt16 => TypeName::named("mal_UInt16_t"),
+            Type::UInt32 => TypeName::named("mal_UInt32_t"),
+            Type::UInt64 => TypeName::named("mal_UInt64_t"),
+            Type::Float32 => TypeName::named("mal_Float32_t"),
+            Type::Float64 => TypeName::named("mal_Float64_t"),
+            Type::Symbol => TypeName::named("mal_Symbol_t"),
+            Type::Ptr => TypeName::named("mal_Ptr_t"),
+            Type::External { name, .. } => TypeName::named(format!("mal_{name}_t")),
+            Type::Product(_) => TypeName::named(format!("mal_repr_product_{}_t", self.index(ty))),
+            Type::Sum(_) => TypeName::named(format!("mal_repr_sum_{}_t", self.index(ty))),
+            Type::Function { .. } => {
+                unreachable!("type checking excludes functions from extern signatures")
+            }
+        }
+    }
+
     pub(super) fn uses_float(&self) -> bool {
         self.uses_float32 || self.uses_float64
     }
@@ -181,4 +211,67 @@ impl TypeRegistry {
 
 pub(super) fn is_bool(ty: &Type) -> bool {
     matches!(ty, Type::Sum(members) if members == &[Type::Unit, Type::Unit])
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::resolve::ast::TypeId;
+
+    use super::*;
+
+    #[test]
+    fn maps_host_values_without_reusing_raw_type_names() {
+        let product = Type::Product(vec![Type::UInt64, Type::Symbol]);
+        let sum = Type::Sum(vec![Type::Unit, product.clone()]);
+        let registry = TypeRegistry {
+            aggregates: vec![product.clone(), sum.clone()],
+            ..TypeRegistry::default()
+        };
+
+        for (ty, expected) in [
+            (Type::Unit, "mal_Unit_t"),
+            (Type::Int32, "mal_Int32_t"),
+            (Type::UInt64, "mal_UInt64_t"),
+            (Type::Float64, "mal_Float64_t"),
+            (Type::Symbol, "mal_Symbol_t"),
+            (Type::Ptr, "mal_Ptr_t"),
+            (
+                Type::External {
+                    id: TypeId(3),
+                    name: "File".into(),
+                },
+                "mal_File_t",
+            ),
+        ] {
+            assert_eq!(
+                registry.host_value_c_type(&ty, None),
+                TypeName::named(expected)
+            );
+        }
+        assert_eq!(
+            registry.host_value_c_type(&product, None),
+            TypeName::named("mal_repr_product_0_t")
+        );
+        assert_eq!(
+            registry.host_value_c_type(&sum, None),
+            TypeName::named("mal_repr_sum_1_t")
+        );
+        assert_eq!(
+            registry.host_value_c_type(&Type::UInt64, Some("Count")),
+            TypeName::named("mal_Count_t")
+        );
+        assert_eq!(
+            registry.host_value_c_type(&product, Some("Packet")),
+            TypeName::named("mal_Packet_t")
+        );
+    }
+
+    #[test]
+    fn maps_bool_before_its_structural_sum_representation() {
+        let bool_type = Type::Sum(vec![Type::Unit, Type::Unit]);
+        assert_eq!(
+            TypeRegistry::default().host_value_c_type(&bool_type, None),
+            TypeName::named("mal_Bool_t")
+        );
+    }
 }
