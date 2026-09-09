@@ -1,11 +1,11 @@
 require "./host.mal";
 
-initializedBytes :: Buffer -> Bytes := \(buffer :: Buffer) {
+initializedBytes :: Buffer -> Bytes := \(buffer) {
     (memory, _, length) := buffer;
     (memory, length);
 };
 
-clearBytes :: (Ptr, UInt64) -> Unit := \(memory :: Ptr, remaining :: UInt64) {
+clearBytes :: (Ptr, UInt64) -> Unit := \(memory, remaining) {
     if (remaining == 0u64)
     then { () }
     else {
@@ -15,7 +15,7 @@ clearBytes :: (Ptr, UInt64) -> Unit := \(memory :: Ptr, remaining :: UInt64) {
 };
 
 _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
-    \(source :: Ptr, start :: UInt64, expected :: Symbol, index :: UInt64) {
+    \(source, start, expected, index) {
         if (index == #expected)
         then { true }
         else {
@@ -25,14 +25,14 @@ _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
     };
 
 rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
-    \(source :: Ptr, sourceLength :: UInt64, start :: UInt64, length :: UInt64, expected :: Symbol) {
+    \(source, sourceLength, start, length, expected) {
         length == #expected
             && start + length <= sourceLength
             && _rangeEqualsAt(source, start, expected, 0u64);
     };
 
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
-    \(source :: Ptr, length :: UInt64, index :: UInt64, byte :: UInt8) {
+    \(source, length, index, byte) {
         if (index == length)
         then { index }
         else {
@@ -43,7 +43,7 @@ findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
-    \(memory :: Ptr, source :: Ptr, start :: UInt64, length :: UInt64, index :: UInt64) {
+    \(memory, source, start, length, index) {
         if (index == length)
         then { true }
         else {
@@ -53,7 +53,7 @@ memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
     };
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
-    \(source :: Ptr, start :: UInt64, destination :: Ptr, remaining :: UInt64) {
+    \(source, start, destination, remaining) {
         if (remaining == 0u64)
         then { () }
         else {

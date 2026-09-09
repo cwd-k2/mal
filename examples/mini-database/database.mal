@@ -17,7 +17,7 @@ PutResult :: [Unit, Unit, Unit];
 // LookupResult variant 0 means absent; variant 1 carries value memory and length.
 LookupResult :: [Unit, Bytes];
 
-readDatabaseFile :: (File, Buffer) -> Buffer := \(file :: File, buffer :: Buffer) {
+readDatabaseFile :: (File, Buffer) -> Buffer := \(file, buffer) {
     (memory, capacity, length) := buffer;
     if (length == capacity)
     then { buffer }
@@ -30,7 +30,7 @@ readDatabaseFile :: (File, Buffer) -> Buffer := \(file :: File, buffer :: Buffer
 };
 
 _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
-    \(file :: File, bytes :: Bytes, written :: UInt64) {
+    \(file, bytes, written) {
         (memory, length) := bytes;
         if (written == length)
         then { () }
@@ -45,13 +45,13 @@ _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
         };
     };
 
-saveDatabase :: (File, Buffer) -> Unit := \(file :: File, database :: Buffer) {
+saveDatabase :: (File, Buffer) -> Unit := \(file, database) {
     extern rewindFile(file);
     _writeBytesFully(file, initializedBytes(database), 0u64);
     extern flushFile(file);
 };
 
-initializeDatabase :: Buffer -> Buffer := \(buffer :: Buffer) {
+initializeDatabase :: Buffer -> Buffer := \(buffer) {
     (memory, capacity, _) := buffer;
     clearBytes(memory, _databaseSize);
     UInt8.store(memory, 'M');
@@ -63,11 +63,11 @@ initializeDatabase :: Buffer -> Buffer := \(buffer :: Buffer) {
     (memory, capacity, _databaseSize);
 };
 
-_recordAt :: (Ptr, UInt64) -> Ptr := \(database :: Ptr, index :: UInt64) {
+_recordAt :: (Ptr, UInt64) -> Ptr := \(database, index) {
     database + _headerSize + index * _recordSize;
 };
 
-_validateRecords :: (Ptr, UInt64) -> Bool := \(database :: Ptr, index :: UInt64) {
+_validateRecords :: (Ptr, UInt64) -> Bool := \(database, index) {
     if (index == _recordCount)
     then { true }
     else {
@@ -83,7 +83,7 @@ _validateRecords :: (Ptr, UInt64) -> Bool := \(database :: Ptr, index :: UInt64)
     };
 };
 
-validateDatabase :: Buffer -> Bool := \(buffer :: Buffer) {
+validateDatabase :: Buffer -> Bool := \(buffer) {
     (database, _, length) := buffer;
     length == _databaseSize
         && UInt8.load(database) == 'M'
@@ -96,7 +96,7 @@ validateDatabase :: Buffer -> Bool := \(buffer :: Buffer) {
 };
 
 _findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
-    \(database :: Ptr, key :: Ptr, start :: UInt64, length :: UInt64, index :: UInt64) {
+    \(database, key, start, length, index) {
         if (index == _recordCount)
         then { _recordCount }
         else {
@@ -110,7 +110,7 @@ _findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
         };
     };
 
-_findFreeRecord :: (Ptr, UInt64) -> UInt64 := \(database :: Ptr, index :: UInt64) {
+_findFreeRecord :: (Ptr, UInt64) -> UInt64 := \(database, index) {
     if (index == _recordCount)
     then { _recordCount }
     else {
@@ -121,7 +121,7 @@ _findFreeRecord :: (Ptr, UInt64) -> UInt64 := \(database :: Ptr, index :: UInt64
 };
 
 putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
-    \(databaseBuffer :: Buffer, lineBytes :: Bytes, keyStart :: UInt64, keyLength :: UInt64, valueStart :: UInt64, valueLength :: UInt64) {
+    \(databaseBuffer, lineBytes, keyStart, keyLength, valueStart, valueLength) {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         if (keyLength == 0u64 || keyLength > _keyCapacity || valueLength > _valueCapacity)
@@ -146,7 +146,7 @@ putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
     };
 
 lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
-    \(databaseBuffer :: Buffer, lineBytes :: Bytes, keyStart :: UInt64, keyLength :: UInt64) {
+    \(databaseBuffer, lineBytes, keyStart, keyLength) {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
@@ -160,7 +160,7 @@ lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
     };
 
 deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=
-    \(databaseBuffer :: Buffer, lineBytes :: Bytes, keyStart :: UInt64, keyLength :: UInt64) {
+    \(databaseBuffer, lineBytes, keyStart, keyLength) {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);

@@ -3,12 +3,12 @@ require "./bytes.mal";
 require "./input.mal";
 require "./database.mal";
 
-_writeResponse :: Symbol -> Unit := \(response :: Symbol) {
+_writeResponse :: Symbol -> Unit := \(response) {
     extern writeSymbol(response);
 };
 
 _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
-    \(file :: File, database :: Buffer, line :: Bytes, keyStart :: UInt64, keyLength :: UInt64, valueStart :: UInt64, valueLength :: UInt64) {
+    \(file, database, line, keyStart, keyLength, valueStart, valueLength) {
         result := putRecord(database, line, keyStart, keyLength, valueStart, valueLength);
         case (result)
         [0](_) {
@@ -20,7 +20,7 @@ _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
     };
 
 _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
-    \(database :: Buffer, line :: Bytes, keyStart :: UInt64, keyLength :: UInt64) {
+    \(database, line, keyStart, keyLength) {
         result := lookupRecord(database, line, keyStart, keyLength);
         case (result)
         [0](_) { _writeResponse("NOT FOUND\n") }
@@ -33,7 +33,7 @@ _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
     };
 
 _delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
-    \(file :: File, database :: Buffer, line :: Bytes, keyStart :: UInt64, keyLength :: UInt64) {
+    \(file, database, line, keyStart, keyLength) {
         if (deleteRecord(database, line, keyStart, keyLength))
         then {
             saveDatabase(file, database);
@@ -42,7 +42,7 @@ _delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
         else { _writeResponse("NOT FOUND\n") };
     };
 
-_handleQuery :: (File, Buffer, Bytes) -> Unit := \(file :: File, database :: Buffer, lineBytes :: Bytes) {
+_handleQuery :: (File, Buffer, Bytes) -> Unit := \(file, database, lineBytes) {
     (line, length) := lineBytes;
     if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "get "))
     then {
@@ -85,7 +85,7 @@ _handleQuery :: (File, Buffer, Bytes) -> Unit := \(file :: File, database :: Buf
 };
 
 runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
-    \(reader :: Reader, file :: File, database :: Buffer, query :: Buffer) {
+    \(reader, file, database, query) {
         result := readLine(reader, query);
         case (result)
         [0](_) { () }

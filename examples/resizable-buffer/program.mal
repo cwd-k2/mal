@@ -20,7 +20,7 @@ extern writeSlice :: Slice -> Unit;
 extern writeSliceDescriptor :: (Allocation, Ptr) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
-nextCapacity :: (UInt64, UInt64) -> UInt64 := \(capacity :: UInt64, required :: UInt64) {
+nextCapacity :: (UInt64, UInt64) -> UInt64 := \(capacity, required) {
     if (capacity >= required)
     then { capacity }
     else {
@@ -30,7 +30,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := \(capacity :: UInt64, required :: 
     };
 };
 
-appendSymbol :: (Buffer, Symbol) -> BufferResult := \(buffer :: Buffer, value :: Symbol) {
+appendSymbol :: (Buffer, Symbol) -> BufferResult := \(buffer, value) {
     (allocation, memory, capacity, length) := buffer;
     additional := #value;
     if (additional > 0xffff_ffff_ffff_ffffu64 - length)
@@ -54,19 +54,19 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := \(buffer :: Buffer, value ::
 };
 
 sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
-    \(buffer :: Buffer, start :: UInt64, length :: UInt64) {
+    \(buffer, start, length) {
         (allocation, memory, _, initialized) := buffer;
         if (start <= initialized && length <= initialized - start)
         then { SliceResult[0]((allocation, memory + start, length)) }
         else { SliceResult[1](()) };
     };
 
-releaseBufferValue :: Buffer -> Unit := \(buffer :: Buffer) {
+releaseBufferValue :: Buffer -> Unit := \(buffer) {
     (allocation, _, _, _) := buffer;
     extern releaseBuffer(allocation);
 };
 
-writeThroughDescriptor :: Slice -> Bool := \(slice :: Slice) {
+writeThroughDescriptor :: Slice -> Bool := \(slice) {
     (allocation, memory, length) := slice;
     // Shared descriptor bytes contain only Ptr memory followed by UInt64 length.
     descriptorSize := Ptr.size + UInt64.size;
@@ -83,7 +83,7 @@ writeThroughDescriptor :: Slice -> Bool := \(slice :: Slice) {
     [1](_) { false };
 };
 
-finishLimitTest :: (Buffer, Bool) -> Int32 := \(buffer :: Buffer, aliasesInvalid :: Bool) {
+finishLimitTest :: (Buffer, Bool) -> Int32 := \(buffer, aliasesInvalid) {
     rejected := appendSymbol(
         buffer,
         "this append is intentionally larger than the allocation limit for the pressure test"
@@ -105,7 +105,7 @@ finishLimitTest :: (Buffer, Bool) -> Int32 := \(buffer :: Buffer, aliasesInvalid
     };
 };
 
-afterGrowth :: (Buffer, Slice) -> Int32 := \(before :: Buffer, staleSlice :: Slice) {
+afterGrowth :: (Buffer, Slice) -> Int32 := \(before, staleSlice) {
     grownResult := appendSymbol(before, "-shared-buffer");
     case (grownResult)
     [0](grown) {
@@ -135,7 +135,7 @@ afterGrowth :: (Buffer, Slice) -> Int32 := \(before :: Buffer, staleSlice :: Sli
     };
 };
 
-withInitialValue :: Buffer -> Int32 := \(initial :: Buffer) {
+withInitialValue :: Buffer -> Int32 := \(initial) {
     appended := appendSymbol(initial, "mal");
     case (appended)
     [0](buffer) {

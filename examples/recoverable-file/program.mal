@@ -36,7 +36,7 @@ Arguments :: (UInt64, Ptr);
 
 bufferSize :: UInt64 := 4096u64;
 
-copyContents :: (File, Buffer) -> Status := \(file :: File, buffer :: Buffer) {
+copyContents :: (File, Buffer) -> Status := \(file, buffer) {
     (memory, capacity, _) := buffer;
     result := extern readFile(file, (memory, capacity));
     case (result)
@@ -51,7 +51,7 @@ copyContents :: (File, Buffer) -> Status := \(file :: File, buffer :: Buffer) {
     [1](error) { Status[1](error) };
 };
 
-finishCopy :: (Status, CloseResult) -> Status := \(copied :: Status, closed :: CloseResult) {
+finishCopy :: (Status, CloseResult) -> Status := \(copied, closed) {
     case (copied)
     [0](_) {
         case (closed)
@@ -61,7 +61,7 @@ finishCopy :: (Status, CloseResult) -> Status := \(copied :: Status, closed :: C
     [1](error) { Status[1](error) };
 };
 
-copyPath :: Symbol -> Status := \(path :: Symbol) {
+copyPath :: Symbol -> Status := \(path) {
     owned := extern allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
     opened := extern openReadOnly(path);
@@ -76,7 +76,7 @@ copyPath :: Symbol -> Status := \(path :: Symbol) {
     outcome;
 };
 
-main :: Arguments -> Int32 := \(argumentCount :: UInt64, arguments :: Ptr) {
+main :: Arguments -> Int32 := \(argumentCount, arguments) {
     if (argumentCount == 1u64)
     then {
         path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));

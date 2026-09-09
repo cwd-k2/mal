@@ -9,7 +9,7 @@ LineState :: (Reader, Buffer);
 // LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
 LineRead :: [Reader, LineState];
 
-_readByte :: Reader -> ByteRead := \(reader :: Reader) {
+_readByte :: Reader -> ByteRead := \(reader) {
     (file, buffer, position) := reader;
     (memory, capacity, length) := buffer;
     if (position < length)
@@ -30,7 +30,7 @@ _readByte :: Reader -> ByteRead := \(reader :: Reader) {
     };
 };
 
-_readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
+_readLineAt :: (Reader, Buffer) -> LineRead := \(reader, buffer) {
     (line, capacity, length) := buffer;
     result := _readByte(reader);
     case (result)
@@ -61,7 +61,7 @@ _readLineAt :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buf
     };
 };
 
-readLine :: (Reader, Buffer) -> LineRead := \(reader :: Reader, buffer :: Buffer) {
+readLine :: (Reader, Buffer) -> LineRead := \(reader, buffer) {
     (line, capacity, _) := buffer;
     _readLineAt(reader, (line, capacity, 0u64));
 };

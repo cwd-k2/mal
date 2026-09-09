@@ -1,4 +1,4 @@
-sumTo :: (Int64, Int64) -> Int64 := \(remaining :: Int64, total :: Int64) {
+sumTo :: (Int64, Int64) -> Int64 := \(remaining, total) {
     if (remaining == 0)
     then { total }
     else { sumTo(remaining - 1, total + remaining) };

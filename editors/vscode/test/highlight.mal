@@ -22,17 +22,17 @@ message :: Symbol := "mal\n";
 
 pointerStorageSize :: UInt64 := Ptr.size;
 
-inspect :: Symbol -> UInt64 := \(value :: Symbol) {
+inspect :: Symbol -> UInt64 := \(value) {
     #value + UInt64(value # 1u64);
 };
 
-choose :: Bool -> Choice := \(condition :: Bool) {
+choose :: Bool -> Choice := \(condition) {
     if (condition && !false)
     then { Choice[0](42) }
     else { Choice[1](letter) };
 };
 
-select :: Choice -> Int32 := \(value :: Choice) {
+select :: Choice -> Int32 := \(value) {
     case (value)
     [0](integer) { integer }
     [1](byte) { Int32(byte) };

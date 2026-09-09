@@ -7,7 +7,7 @@ extern allocate :: UInt64 -> Mem;
 extern resize :: (Mem, UInt64) -> Response;
 extern handleBits :: Mem -> UInt64;
 
-validate :: (Mem, UInt64) -> Int32 := \(mem :: Mem, length :: UInt64) {
+validate :: (Mem, UInt64) -> Int32 := \(mem, length) {
     if (extern handleBits(mem) == 42u64 && length == 2u64)
     then { 0 }
     else { 1 };

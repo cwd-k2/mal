@@ -110,11 +110,11 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text = "make :: Int32 -> Int32 := \\(x :: Int32) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := \\(x) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
-    let parameter = text.find("x ::").unwrap();
+    let parameter = text.find("\\(x)").unwrap() + 2;
 
     let hover = request_at(&mut server, 10, "textDocument/hover", uri, text, reference);
     assert_eq!(hover["result"]["contents"]["kind"], "markdown");

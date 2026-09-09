@@ -17,7 +17,7 @@ extern receivePacket :: Socket -> ReceiveResult;
 extern closeSocket :: Socket -> Status;
 extern writeError :: UInt32 -> Unit;
 
-_reportStatus :: Status -> Bool := \(status :: Status) {
+_reportStatus :: Status -> Bool := \(status) {
     case (status)
     [0](_) { true }
     [1](error) {
@@ -26,13 +26,13 @@ _reportStatus :: Status -> Bool := \(status :: Status) {
     };
 };
 
-_isRejected :: Status -> Bool := \(status :: Status) {
+_isRejected :: Status -> Bool := \(status) {
     case (status)
     [0](_) { false }
     [1](_) { true };
 };
 
-_receiveExpected :: Socket -> Bool := \(socket :: Socket) {
+_receiveExpected :: Socket -> Bool := \(socket) {
     result := extern receivePacket(socket);
     case (result)
     [0](packet) {
