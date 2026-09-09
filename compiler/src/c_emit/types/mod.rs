@@ -274,4 +274,43 @@ mod tests {
             TypeName::named("mal_Bool_t")
         );
     }
+
+    #[test]
+    fn declares_host_aggregates_in_structural_dependency_order() {
+        let product = Type::Product(vec![Type::UInt64, Type::Symbol]);
+        let sum = Type::Sum(vec![Type::Unit, product.clone()]);
+        let registry = TypeRegistry {
+            aggregates: vec![product.clone(), sum.clone()],
+            ..TypeRegistry::default()
+        };
+        let host = HostTypes {
+            types: vec![product.clone(), sum.clone()],
+            ..HostTypes::default()
+        };
+        let aliases = [
+            crate::core::ast::TypeAlias {
+                name: "Packet".into(),
+                ty: product,
+                target_alias: None,
+                element_aliases: vec![None, None],
+            },
+            crate::core::ast::TypeAlias {
+                name: "Result".into(),
+                ty: sum,
+                target_alias: None,
+                element_aliases: vec![None, Some("Packet".into())],
+            },
+        ];
+
+        let declarations = registry.host_value_declarations(&host, &aliases).render();
+
+        assert!(
+            declarations.contains("typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;")
+        );
+        assert!(declarations.contains("typedef struct mal_detail_repr_sum_1 mal_repr_sum_1_t;"));
+        assert!(declarations.contains("typedef mal_repr_product_0_t mal_Packet_t;"));
+        assert!(declarations.contains("typedef mal_repr_sum_1_t mal_Result_t;"));
+        assert!(declarations.contains("mal_Symbol_t field_1;"));
+        assert!(declarations.contains("mal_repr_product_0_t variant_1;"));
+    }
 }

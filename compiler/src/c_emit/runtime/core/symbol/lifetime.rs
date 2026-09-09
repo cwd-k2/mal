@@ -28,7 +28,8 @@ pub(super) fn append_symbol_lifetime(output: &mut TranslationUnit) {
             "void",
             "mal_symbol_release",
             [Parameter::named("MalType_Symbol", "value")],
-        ),
+        )
+        .maybe_unused(),
         Block::new([Statement::if_then(
             Expr::not_equal(
                 Expr::identifier("value").field("ownership"),
@@ -85,76 +86,5 @@ pub(super) fn append_symbol_lifetime(output: &mut TranslationUnit) {
                 ]),
             )]),
         )]),
-    );
-}
-
-pub(super) fn append_host_symbol_lifetime(output: &mut TranslationUnit) {
-    append_function(
-        output,
-        FunctionSignature::new(
-            "MalType_Symbol",
-            "mal_Symbol_clone",
-            [
-                context_parameter(),
-                Parameter::named("MalType_Symbol", "value"),
-            ],
-        ),
-        Block::new([Statement::return_value(Expr::named_call(
-            "mal_symbol_retain",
-            [Expr::identifier("context"), Expr::identifier("value")],
-        ))]),
-    );
-    append_function(
-        output,
-        FunctionSignature::new(
-            "MalType_Symbol",
-            "mal_Symbol_take",
-            [Parameter::named(
-                TypeName::named("MalType_Symbol").pointer(),
-                "value",
-            )],
-        ),
-        Block::new([
-            Statement::variable(
-                "MalType_Symbol",
-                "result",
-                Some(Expr::dereference(Expr::identifier("value"))),
-            ),
-            Statement::assignment(
-                Expr::dereference(Expr::identifier("value")),
-                symbol([
-                    Expr::identifier("NULL"),
-                    uint64(0),
-                    Expr::identifier("NULL"),
-                ]),
-            ),
-            Statement::return_value(Expr::identifier("result")),
-        ]),
-    );
-    append_function(
-        output,
-        FunctionSignature::new(
-            "void",
-            "mal_Symbol_drop",
-            [
-                context_parameter(),
-                Parameter::named(TypeName::named("MalType_Symbol").pointer(), "value"),
-            ],
-        ),
-        Block::new([
-            Statement::expression(Expr::cast("void", Expr::identifier("context"))),
-            Statement::call(
-                "mal_symbol_release",
-                [Expr::dereference(Expr::identifier("value"))],
-            ),
-            Statement::assignment(
-                Expr::dereference(Expr::identifier("value")),
-                symbol([
-                    Expr::identifier("NULL"),
-                    uint64(0),
-                    Expr::identifier("NULL"),
-                ]),
-            ),
-        ]),
     );
 }

@@ -143,10 +143,9 @@ fn executes_nested_products_destructuring_and_multiple_arguments() {
         r#"#include "program.mal.h"
 #include <stdio.h>
 
-int32_t mal_ext_mark(MalContext *context, int32_t value) {
-    (void)context;
+MAL_DEFINE_mark(call, value) {
     printf("%d\n", value);
-    return value;
+    return mal_Int32_return(call, value);
 }
 "#,
     );

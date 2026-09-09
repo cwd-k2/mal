@@ -12,16 +12,21 @@ static const uint8_t expected[9] = {
     'm', 'a', 'l', 0xe3, 0x81, 0x82, 0x00, 0xff, '!',
 };
 
-MAL_DEFINE_receive(context) {
-    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, sizeof(received));
-    memcpy(mal_SymbolAdmission_data(&admission), received, sizeof(received));
-    return mal_SymbolAdmission_finish(context, &admission, sizeof(received));
+MAL_DEFINE_receive(call) {
+    return mal_Symbol_return(
+        call,
+        mal_Symbol_from_bytes(
+            (mal_span_t){ .data = received, .length = sizeof(received) }
+        )
+    );
 }
 
-MAL_DEFINE_send(context, value) {
-    if (mal_Symbol_length(value) != UINT64_C(9)
-        || memcmp(mal_Symbol_data(value), expected, sizeof(expected)) != 0) {
-        mal_trap(context, "unexpected Symbol bytes");
+MAL_DEFINE_send(call, value) {
+    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
+    if (bytes.length != UINT64_C(9)
+        || memcmp(bytes.data, expected, sizeof(expected)) != 0) {
+        mal_call_trap(call, "unexpected Symbol bytes");
     }
-    printf("%" PRIu64 " bytes\n", mal_Symbol_length(value));
+    printf("%" PRIu64 " bytes\n", bytes.length);
+    return mal_Unit_return(call);
 }

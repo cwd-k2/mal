@@ -3,7 +3,7 @@ use crate::core::ast::ExternalOperation;
 
 use super::{
     TypeRegistry,
-    syntax::{Parameter, TypeName},
+    syntax::{FunctionSignature, Parameter, TypeName},
 };
 
 pub(super) struct ExternalSignatures<'a> {
@@ -27,6 +27,7 @@ pub(super) struct HostBodySignature<'a> {
     pub(super) operation_name: &'a str,
     result: HostValue<'a>,
     parameter: Option<HostValue<'a>>,
+    raw_result_type: TypeName,
 }
 
 struct HostValue<'a> {
@@ -93,13 +94,6 @@ impl<'a> CompilerSignature<'a> {
         }
     }
 
-    pub(super) fn parameter_names(&self) -> Vec<&str> {
-        self.parameters
-            .iter()
-            .map(|parameter| parameter.default_name.as_str())
-            .collect()
-    }
-
     pub(super) fn parameters(&self) -> Vec<Parameter> {
         self.build_parameters(false)
     }
@@ -139,7 +133,35 @@ impl<'a> HostBodySignature<'a> {
                 c_type: types
                     .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
+            raw_result_type: if external.result == Type::Unit {
+                TypeName::named("MalType_Unit")
+            } else {
+                types.header_c_type(&external.result, external.result_alias.as_deref())
+            },
         }
+    }
+
+    pub(super) fn parameter_names(&self) -> Vec<&str> {
+        let mut names = vec!["call"];
+        if self.parameter.is_some() {
+            names.push("value");
+        }
+        names
+    }
+
+    pub(super) fn signature(&self) -> FunctionSignature {
+        let mut parameters = vec![Parameter::named(
+            TypeName::named("mal_call_t").pointer(),
+            "call",
+        )];
+        if let Some(parameter) = &self.parameter {
+            parameters.push(Parameter::named(parameter.c_type.clone(), "value"));
+        }
+        FunctionSignature::static_function(
+            self.raw_result_type.clone(),
+            format!("mal_detail_{}", self.operation_name),
+            parameters,
+        )
     }
 
     fn represents(&self, external: &ExternalOperation, types: &TypeRegistry) -> bool {
@@ -186,7 +208,12 @@ mod tests {
         let signatures = ExternalSignatures::new(&external, &TypeRegistry::default());
 
         assert_eq!(
-            signatures.compiler.parameter_names(),
+            signatures
+                .compiler
+                .parameters
+                .iter()
+                .map(|parameter| parameter.default_name.as_str())
+                .collect::<Vec<_>>(),
             ["context", "argument_0", "argument_1"]
         );
         let parameter = signatures

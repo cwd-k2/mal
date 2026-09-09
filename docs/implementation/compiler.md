@@ -111,13 +111,13 @@ typedef struct {
 
 これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
 
-Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。hostがSymbol resultを作るadapterは、
-runtime-owned admission bufferへbytesを書き、source-level external applicationを完了する前にlengthを検査してcopyなしでpublishする。runtime Symbolはflat
+Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。host bytes由来のSymbol resultは、
+terminal return中にlengthを検査してruntime-owned storageへcopyする。runtime Symbolはflat
 bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
 構築する。equalityとbyte accessはropeを直接走査し、`Symbol.write`はleaf bytesを外部storageへ直接copyする。
 equalityは二つのallocation-free leaf cursorを進め、木の分割形状が異なってもleaf単位の`memcmp`により全体をO(n)で比較する。
-cursorのpending pathはrope heightで上限づけたC stack storageであり、ownerを追加しない。reference C ABIが連続領域を要求する
-extern callの直前だけ、必要ならcontiguous bytesを一度materializeする。
+cursorのpending pathはrope heightで上限づけたC stack storageであり、ownerを追加しない。hostが
+`mal_Symbol_to_bytes`で観測したときだけ、必要ならcontiguous bytesを一度materializeする。
 `Symbol.read`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
 runtime検査しない。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。reference count
 overflowはreference runtime固有のfatal failureであり、source semanticsにはしない。

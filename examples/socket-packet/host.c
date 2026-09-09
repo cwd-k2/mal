@@ -68,33 +68,36 @@ static uint32_t read_all(int socket, uint8_t *bytes, size_t length) {
     return UINT32_C(0);
 }
 
-static int socket_fd(MAL_TYPE(Socket) socket) {
-    uintptr_t bits = MAL_OPERATION(Socket, bits)(socket);
+static int socket_fd(mal_Socket_t socket) {
+    uintptr_t bits = mal_Socket_to_bits(socket);
     return bits <= (uintptr_t)INT_MAX ? (int)bits : -1;
 }
 
-MAL_DEFINE_createSocketPair(context) {
+MAL_DEFINE_createSocketPair(call) {
     int sockets[2];
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) {
-        mal_trap(context, "cannot create socket pair");
+        mal_call_trap(call, "cannot create socket pair");
     }
-    return MAL_OPERATION(SocketPair, make)(
-        MAL_OPERATION(Socket, from_bits)((uintptr_t)sockets[0]),
-        MAL_OPERATION(Socket, from_bits)((uintptr_t)sockets[1])
+    return mal_SocketPair_return(
+        call,
+        (mal_SocketPair_t){
+            .field_0 = mal_Socket_from_bits((uintptr_t)sockets[0]),
+            .field_1 = mal_Socket_from_bits((uintptr_t)sockets[1]),
+        }
     );
 }
 
-MAL_DEFINE_sendPacket(context, socket, packet) {
-    int descriptor = socket_fd(socket);
+MAL_DEFINE_sendPacket(call, value) {
+    int descriptor = socket_fd(value.field_0);
     if (descriptor < 0) {
-        return MAL_OPERATION(Status, make_1)((uint32_t)EBADF);
+        return mal_Status_return_1(call, (uint32_t)EBADF);
     }
 
-    MAL_TYPE(UInt64) sequence = MAL_OPERATION(Packet, get_0)(packet);
-    MAL_TYPE(Symbol) payload = MAL_OPERATION(Packet, get_1)(packet);
-    uint64_t length = MAL_OPERATION(Symbol, length)(payload);
+    uint64_t sequence = value.field_1.field_0;
+    mal_span_t payload = mal_Symbol_to_bytes(call, value.field_1.field_1);
+    uint64_t length = payload.length;
     if (length > MAX_PAYLOAD_SIZE) {
-        return MAL_OPERATION(Status, make_1)((uint32_t)EMSGSIZE);
+        return mal_Status_return_1(call, (uint32_t)EMSGSIZE);
     }
 
     uint8_t header[FRAME_HEADER_SIZE];
@@ -104,70 +107,66 @@ MAL_DEFINE_sendPacket(context, socket, packet) {
     if (error == 0 && length > 0) {
         error = write_all(
             descriptor,
-            MAL_OPERATION(Symbol, data)(payload),
+            payload.data,
             (size_t)length
         );
     }
     return error == 0
-        ? MAL_OPERATION(Status, make_0)()
-        : MAL_OPERATION(Status, make_1)(error);
+        ? mal_Status_return_0(call)
+        : mal_Status_return_1(call, error);
 }
 
-MAL_DEFINE_receivePacket(context, socket) {
+MAL_DEFINE_receivePacket(call, socket) {
     int descriptor = socket_fd(socket);
     if (descriptor < 0) {
-        return MAL_OPERATION(ReceiveResult, make_1)((uint32_t)EBADF);
+        return mal_ReceiveResult_return_1(call, (uint32_t)EBADF);
     }
 
     uint8_t header[FRAME_HEADER_SIZE];
     uint32_t error = read_all(descriptor, header, sizeof(header));
     if (error != 0) {
-        return MAL_OPERATION(ReceiveResult, make_1)(error);
+        return mal_ReceiveResult_return_1(call, error);
     }
 
     uint64_t sequence = decode_uint64(header);
     uint64_t length = decode_uint64(header + 8);
     if (length > MAX_PAYLOAD_SIZE) {
-        return MAL_OPERATION(ReceiveResult, make_1)((uint32_t)EMSGSIZE);
+        return mal_ReceiveResult_return_1(call, (uint32_t)EMSGSIZE);
     }
 
-    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, length);
+    uint8_t payload[MAX_PAYLOAD_SIZE];
     if (length > 0) {
-        error = read_all(
-            descriptor,
-            mal_SymbolAdmission_data(&admission),
-            (size_t)length
-        );
+        error = read_all(descriptor, payload, (size_t)length);
         if (error != 0) {
-            mal_SymbolAdmission_drop(context, &admission);
-            return MAL_OPERATION(ReceiveResult, make_1)(error);
+            return mal_ReceiveResult_return_1(call, error);
         }
     }
 
-    MAL_TYPE(Symbol) payload = mal_SymbolAdmission_finish(
-        context,
-        &admission,
-        length
-    );
-    return MAL_OPERATION(ReceiveResult, make_0)(
-        sequence,
-        MAL_MOVE(Symbol)(&payload)
+    return mal_ReceiveResult_return_0(
+        call,
+        (mal_Packet_t){
+            .field_0 = sequence,
+            .field_1 = mal_Symbol_from_bytes(
+                (mal_span_t){ .data = payload, .length = length }
+            ),
+        }
     );
 }
 
-MAL_DEFINE_closeSocket(context, socket) {
+MAL_DEFINE_closeSocket(call, socket) {
     int descriptor = socket_fd(socket);
     if (descriptor < 0) {
-        return MAL_OPERATION(Status, make_1)((uint32_t)EBADF);
+        return mal_Status_return_1(call, (uint32_t)EBADF);
     }
     if (close(descriptor) != 0) {
-        return MAL_OPERATION(Status, make_1)(current_error());
+        return mal_Status_return_1(call, current_error());
     }
-    return MAL_OPERATION(Status, make_0)();
+    return mal_Status_return_0(call);
 }
 
-MAL_DEFINE_writeError(context, error) {
+MAL_DEFINE_writeError(call, error) {
     if (fprintf(stderr, "socket error: %" PRIu32 "\n", error) < 0) {
-        mal_trap(context, "cannot write socket error");
+        mal_call_trap(call, "cannot write socket error");
     }
+    return mal_Unit_return(call);
 }

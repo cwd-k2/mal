@@ -12,7 +12,6 @@ use self::numeric::{
 
 pub(super) fn emit(needs: &RuntimeNeeds) -> TranslationUnit {
     let mut output = core::emit(
-        needs.memory_load_symbol,
         needs.control_arenas,
         needs.homogeneous_control,
         needs.heterogeneous_control,

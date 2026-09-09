@@ -15,9 +15,9 @@ fn emits_uint64_literals_and_scalar_extern_abi() {
 #include <inttypes.h>
 #include <stdio.h>
 
-void mal_ext_printUInt64(MalContext *context, uint64_t value) {
-    (void)context;
+MAL_DEFINE_printUInt64(call, value) {
     printf("%" PRIu64 "\n", value);
+    return mal_Unit_return(call);
 }
 "#,
     );
@@ -47,14 +47,16 @@ fn emits_exact_float_bits_and_scalar_extern_abi() {
         r#"#include "program.mal.h"
 #include <string.h>
 
-int32_t mal_ext_inspect(MalContext *context, float single, double negative_zero) {
-    (void)context;
+MAL_DEFINE_inspect(call, value) {
     uint32_t single_bits;
     uint64_t double_bits;
-    memcpy(&single_bits, &single, sizeof(single_bits));
-    memcpy(&double_bits, &negative_zero, sizeof(double_bits));
-    return single_bits == UINT32_C(0x3dcccccd) &&
-           double_bits == UINT64_C(0x8000000000000000) ? INT32_C(0) : INT32_C(1);
+    memcpy(&single_bits, &value.field_0, sizeof(single_bits));
+    memcpy(&double_bits, &value.field_1, sizeof(double_bits));
+    return mal_Int32_return(
+        call,
+        single_bits == UINT32_C(0x3dcccccd) &&
+        double_bits == UINT64_C(0x8000000000000000) ? INT32_C(0) : INT32_C(1)
+    );
 }
 "#,
     );

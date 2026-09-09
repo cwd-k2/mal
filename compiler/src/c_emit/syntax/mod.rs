@@ -11,13 +11,15 @@ mod statement;
 mod translation_unit;
 mod unit;
 
-pub(super) use self::declaration::{FunctionSignature, Parameter, TypeName, VariableDeclaration};
+pub(super) use self::declaration::{
+    FunctionSignature, FunctionSpecifier, Parameter, TypeName, VariableDeclaration,
+};
 pub(super) use self::expression::{Expr, Initializer};
 pub(super) use self::literal::{NumericLiteral, StringLiteral};
 pub(super) use self::name::Identifier;
 pub(super) use self::operator::{BinaryOperator, UnaryOperator};
 pub(super) use self::preprocessor::{
-    Attribute, Directive, MacroInvocation, PastePart, Pragma, PreprocessorExpr,
+    Attribute, Directive, MacroInvocation, Pragma, PreprocessorExpr,
 };
 pub(super) use self::statement::{
     Block, ForInitializer, FunctionDefinition, Statement, SwitchCase,

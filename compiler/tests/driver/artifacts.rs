@@ -22,10 +22,10 @@ fn emit_c_writes_the_translation_unit_and_paired_header() {
     assert!(generated_c.contains("int main(void)"));
     let generated_header =
         std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
-    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000500u"));
+    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000600u"));
     assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("MalSymbolAdmission mal_SymbolAdmission_begin("));
-    assert!(generated_header.contains("MalType_Symbol mal_SymbolAdmission_finish("));
+    assert!(generated_header.contains("mal_Symbol_t mal_Symbol_from_bytes("));
+    assert!(generated_header.contains("MalType_Symbol mal_Symbol_return("));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn emit_header_writes_a_standalone_host_interface() {
     let header = std::fs::read_to_string(output_path).unwrap();
     assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
-    assert!(header.contains("#define MAL_DEFINE_increment(context, value)"));
+    assert!(header.contains("#define MAL_DEFINE_increment(call, value)"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(!directory.join("generated/program.c").exists());
 }
@@ -73,7 +73,7 @@ fn emit_header_defaults_to_the_source_directory() {
         String::from_utf8_lossy(&output.stderr)
     );
     let header = std::fs::read_to_string(directory.join("source/program.mal.h")).unwrap();
-    assert!(header.contains("#define MAL_DEFINE_print(context, value)"));
+    assert!(header.contains("#define MAL_DEFINE_print(call, value)"));
 }
 
 #[test]
@@ -116,11 +116,9 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     assert!(output.stderr.is_empty());
     let host = String::from_utf8(output.stdout).unwrap();
     assert!(host.starts_with("#include \"custom.h\"\n"));
-    assert!(host.contains("MAL_DEFINE_increment(context, value)"));
-    assert!(host.contains("MAL_DEFINE_inspect(context, argument_0, argument_1)"));
+    assert!(host.contains("MAL_DEFINE_increment(call, value)"));
+    assert!(host.contains("MAL_DEFINE_inspect(call, value)"));
     assert!(host.contains("(void)value;"));
-    assert!(host.contains("(void)argument_0;"));
-    assert!(host.contains("(void)argument_1;"));
     assert!(host.contains("external operation `increment` is not implemented"));
 
     directory.write("host.c", &host);

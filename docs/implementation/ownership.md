@@ -142,13 +142,13 @@ top-level initializerの一時値は各initializerの終了時にdestroyし、�
 argument descriptor列のruntime allocationもsource-level `main`のreturn後に解放する。
 
 extern parameterはcall中だけborrowされる。managed resultの各fieldはownership shareを一つmalへtransferしなければならない。
-Symbol resultはruntime-owned `MalSymbolAdmission`をfinishして作る。malはextern resultをowned valueとして受け取り、通常の
-binding cleanupへ接続する。finish前にreturnする経路ではadapterがadmissionをdropする。
-C adapter内のclone、move、dropとaggregate constructor/accessorの規約は[C host ABI](../spec/c-host-abi.md)を正とする。
+Mal由来のSymbol resultはterminal returnがshareを作り、host bytes由来のSymbol resultは同じ時点でmal-owned storageへcopyする。
+malはextern resultをowned valueとして受け取り、通常のbinding cleanupへ接続する。C adapter内の規約は
+[C host ABI](../spec/c-host-abi.md)を正とする。
 
-generated C自身は`MAL_CLONE`、`MAL_MOVE`、`MAL_DROP`を内部ownership primitiveとして使わない。compilerは
+compilerは
 typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous aggregateとclosureも含めて内部copy/destroyへ
-直接loweringする。ABI macroはその静的情報を持たない手書きadapterへ同じ意味契約を提供する境界APIである。
+直接loweringする。host adapterはmanaged carrierを直接操作せず、typed terminal returnへownership transferを委ねる。
 
 ## 最適化との境界
 

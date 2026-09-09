@@ -3,7 +3,8 @@ use super::*;
 #[test]
 fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     let source = "Request :: (Int32, (UInt8, Int32));\n\
-         Response :: [Unit, (Int32, Int32)];\n\
+         Pair :: (Int32, Int32);\n\
+         Response :: [Unit, Pair];\n\
          extern exchange :: Request -> Response;\n\
          total :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
            left + right - 42i32;\n\
@@ -18,12 +19,12 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     assert!(
         generated
             .header
-            .contains("typedef MalRepr_Product_1 MalType_Request;")
+            .contains("typedef mal_repr_product_1_t mal_Request_t;")
     );
     assert!(
         generated
             .header
-            .contains("typedef MalRepr_Sum_3 MalType_Response;")
+            .contains("typedef mal_repr_sum_3_t mal_Response_t;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
@@ -33,31 +34,26 @@ fn exposes_aggregate_extern_types_and_executes_the_host_round_trip() {
     assert!(
         generated
             .header
-            .contains("#define MAL_DEFINE_exchange(context, argument_0, argument_1) \\")
+            .contains("#define MAL_DEFINE_exchange(call, value) \\")
     );
-    assert!(
-        generated
-            .header
-            .contains("MalType_Response mal_ext_exchange( \\")
-    );
-    assert!(
-        generated
-            .header
-            .contains("MalContext *context MAL_DETAIL_MAYBE_UNUSED, \\")
-    );
-    assert!(generated.header.contains("MalRepr_Product_0 argument_1 \\"));
     assert!(generated.header.contains(
-        "struct MalRepr_Product_0 {\n    MalType_UInt8 field_0;\n    MalType_Int32 field_1;\n};"
+        "static MalType_Response mal_detail_exchange(mal_call_t *call, mal_Request_t value);"
     ));
-    assert!(generated.header.contains("MalRepr_Product_2 variant_1;"));
+    assert!(generated.header.contains("mal_repr_product_0_t field_1;"));
+    assert!(
+        generated.header.contains("mal_Pair_t variant_1;")
+            || generated.header.contains("mal_repr_product_2_t variant_1;")
+    );
 
     let host = r#"#include "program.mal.h"
 
-MAL_DEFINE_exchange(context, argument_0, argument_1) {
-    MAL_TYPE(Request) request = MAL_OPERATION(Request, make)(argument_0, argument_1);
-    return MAL_OPERATION(Response, make_1)(
-        MAL_OPERATION(Request, get_0)(request),
-        MAL_OPERATION(Request, get_1)(request).field_1
+MAL_DEFINE_exchange(call, value) {
+    return mal_Response_return_1(
+        call,
+        (mal_Pair_t){
+            .field_0 = value.field_0,
+            .field_1 = value.field_1.field_1,
+        }
     );
 }
 
@@ -65,29 +61,10 @@ MAL_DEFINE_exchange(context, argument_0, argument_1) {
     let fixture = NativeFixture::new("aggregate-abi");
     let executable = fixture.compile_generated(generated.clone(), host);
     assert!(fixture.run(executable).status.success());
-
-    let invalid_host = r#"#include "program.mal.h"
-
-MalType_Response mal_ext_exchange(
-    MalContext *context,
-    MalType_Int32 argument_0,
-    MalRepr_Product_0 argument_1
-) {
-    (void)context;
-    (void)argument_0;
-    (void)argument_1;
-    return (MalType_Response){ .tag = UINT32_C(99) };
-}
-"#;
-    let fixture = NativeFixture::new("aggregate-invalid-tag");
-    let executable = fixture.compile_generated(generated, invalid_host);
-    let output = fixture.run(executable);
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("mal trap: invalid sum tag"));
 }
 
 #[test]
-fn exposes_managed_value_transfer_helpers_to_host_adapters() {
+fn returns_borrowed_managed_values_through_typed_helpers() {
     let generated = emit(
         r#"Pair :: (Symbol, Symbol);
 Response :: [Unit, Pair];
@@ -102,36 +79,18 @@ main :: Unit -> Int32 := \() {
     };
 };"#,
     )
-    .expect("emit managed host ownership helpers");
+    .expect("emit managed host return helpers");
 
-    for declaration in [
-        "#define MAL_CLONE(owner) mal_##owner##_clone",
-        "#define MAL_MOVE(owner) mal_##owner##_take",
-        "#define MAL_DROP(owner) mal_##owner##_drop",
-        "MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);",
-        "MalType_Symbol mal_Symbol_take(MalType_Symbol *value);",
-        "void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);",
-    ] {
-        assert!(generated.header.contains(declaration), "{declaration}");
-    }
-    assert!(generated.header.contains("mal_Response_clone"));
-    assert!(generated.header.contains("mal_Response_take"));
-    assert!(generated.header.contains("mal_Response_drop"));
+    assert!(generated.header.contains("mal_Symbol_return"));
+    assert!(generated.header.contains("mal_Response_return_1"));
 
     let host = r#"#include "program.mal.h"
 
-MAL_DEFINE_duplicate(context, value) {
-    MalType_Symbol left = MAL_CLONE(Symbol)(context, value);
-    MalType_Symbol right = MAL_CLONE(Symbol)(context, value);
-    MalType_Response response = MAL_OPERATION(Response, make_1)(
-        MAL_MOVE(Symbol)(&left),
-        MAL_MOVE(Symbol)(&right)
+MAL_DEFINE_duplicate(call, value) {
+    return mal_Response_return_1(
+        call,
+        (mal_Pair_t){ .field_0 = value, .field_1 = value }
     );
-    MalType_Response copy = MAL_CLONE(Response)(context, response);
-    MAL_DROP(Response)(context, &response);
-    MAL_DROP(Symbol)(context, &left);
-    MAL_DROP(Symbol)(context, &right);
-    return MAL_MOVE(Response)(&copy);
 }
 "#;
     let fixture = NativeFixture::new("managed-host-ownership");
@@ -161,7 +120,7 @@ fn exposes_scalar_alias_names_in_the_host_header() {
     assert!(
         generated
             .header
-            .contains("typedef MalType_UInt64 MalType_Count;")
+            .contains("typedef mal_UInt64_t mal_Count_t;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
@@ -170,8 +129,8 @@ fn exposes_scalar_alias_names_in_the_host_header() {
 
     let host = r#"#include "program.mal.h"
 
-MAL_DEFINE_increment(context, value) {
-    return value + UINT64_C(1);
+MAL_DEFINE_increment(call, value) {
+    return mal_Count_return(call, value + UINT64_C(1));
 }
 "#;
     let fixture = NativeFixture::new("scalar-alias-abi");
@@ -225,7 +184,7 @@ fn preserves_aliases_inside_a_flattened_parameter_alias() {
 }
 
 #[test]
-fn generated_sum_helpers_construct_and_inspect_named_variants() {
+fn generated_sum_helpers_construct_and_return_named_variants() {
     let generated = emit(
         "Pair :: (Int32, Int32);\n\
          Choice :: [Unit, Pair];\n\
@@ -238,45 +197,19 @@ fn generated_sum_helpers_construct_and_inspect_named_variants() {
 
     assert!(contains_ignoring_whitespace(
         &generated.header,
-        "static inline MalType_Choice mal_Choice_make_1(MalType_Int32 value_0, \
-         MalType_Int32 value_1)"
+        "static inline MalType_Choice mal_Choice_return_1(mal_call_t *call, mal_Pair_t value)"
     ));
-    assert!(contains_ignoring_whitespace(
-        &generated.header,
-        "static inline MalType_Int32 mal_Choice_expect_1_0(MalContext *context, \
-         MalType_Choice value)"
-    ));
-    assert!(
-        generated
-            .header
-            .contains("#define MAL_TYPE(name) MalType_##name")
-    );
-    assert!(
-        generated
-            .header
-            .contains("#define MAL_OPERATION(type, operation) mal_##type##_##operation")
-    );
-    assert!(
-        generated
-            .header
-            .contains("#define MAL_TAG(type, variant) MAL_##type##_TAG_##variant")
-    );
-    assert!(
-        generated
-            .header
-            .contains("#define MAL_EXTERN(name) mal_ext_##name")
-    );
 
     let host = r#"#include "program.mal.h"
 
-MAL_DEFINE_inspect(context, value) {
-    MAL_TYPE(Choice) copy = value;
-    if (!MAL_OPERATION(Choice, is_1)(copy) ||
-        MAL_OPERATION(Choice, tag)(copy) != MAL_TAG(Choice, 1)) {
-        mal_trap(context, "expected pair");
+MAL_DEFINE_inspect(call, value) {
+    if (value.tag != mal_Choice_tag_1) {
+        mal_call_trap(call, "expected pair");
     }
-    return MAL_OPERATION(Choice, expect_1_0)(context, copy) +
-           MAL_OPERATION(Choice, expect_1_1)(context, copy);
+    return mal_Int32_return(
+        call,
+        value.payload.variant_1.field_0 + value.payload.variant_1.field_1
+    );
 }
 "#;
     let fixture = NativeFixture::new("named-sum-helpers");
@@ -297,7 +230,7 @@ fn exposes_copyable_opaque_handles_to_the_host() {
     assert!(
         generated
             .header
-            .contains("typedef struct { uintptr_t bits; } MalType_Mem;")
+            .contains("typedef struct { uintptr_t mal_detail_bits; } mal_Mem_t;")
     );
     assert!(contains_ignoring_whitespace(
         &generated.header,
@@ -306,18 +239,16 @@ fn exposes_copyable_opaque_handles_to_the_host() {
     ));
     let host = r#"#include "program.mal.h"
 
-MalType_Mem MAL_EXTERN(allocate)(MalContext *context, MalType_UInt64 value) {
-    (void)context;
-    return (MalType_Mem){ .bits = (uintptr_t)value };
+MAL_DEFINE_allocate(call, value) {
+    return mal_Mem_return(call, mal_Mem_from_bits((uintptr_t)value));
 }
 
-MalType_UInt64 mal_ext_combinedLength(
-    MalContext *context,
-    MalType_Mem first,
-    MalType_Mem second
-) {
-    (void)context;
-    return (uint64_t)first.bits + (uint64_t)second.bits;
+MAL_DEFINE_combinedLength(call, value) {
+    return mal_UInt64_return(
+        call,
+        (uint64_t)mal_Mem_to_bits(value.field_0) +
+        (uint64_t)mal_Mem_to_bits(value.field_1)
+    );
 }
 "#;
     let fixture = NativeFixture::new("opaque-abi");
@@ -342,15 +273,14 @@ fn preserves_duplicate_sum_members_by_tag() {
          };",
         r#"#include "program.mal.h"
 
-MalRepr_Sum_1 mal_ext_choose(MalContext *context) {
-    (void)context;
-    return (MalRepr_Sum_1){
-        .tag = UINT32_C(1),
-        .payload.variant_1 = {
+MAL_DEFINE_choose(call) {
+    return mal_Choice_return_1(
+        call,
+        (mal_Pair_t){
             .field_0 = INT32_C(42),
             .field_1 = INT32_C(42),
-        },
-    };
+        }
+    );
 }
 
 "#,
@@ -359,9 +289,59 @@ MalRepr_Sum_1 mal_ext_choose(MalContext *context) {
 }
 
 #[test]
+fn traps_invalid_nested_sum_tags_before_reading_the_payload() {
+    let generated = emit(
+        "Choice :: [Unit, Int32];\n\
+         Envelope :: (Choice, Int32);\n\
+         extern invalid :: Unit -> Envelope;\n\
+         main :: Unit -> Int32 := \\() { invalid(); 0; };",
+    )
+    .expect("emit nested sum validation");
+    let fixture = NativeFixture::new("invalid-nested-sum-tag");
+    let executable = fixture.compile_generated(
+        generated,
+        r#"#include "program.mal.h"
+
+MAL_DEFINE_invalid(call) {
+    mal_Envelope_t value = {
+        .field_0 = { .tag = UINT32_C(99) },
+        .field_1 = INT32_C(0),
+    };
+    return mal_Envelope_return(call, value);
+}
+"#,
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid sum tag"));
+}
+
+#[test]
+fn traps_invalid_bool_results() {
+    let generated = emit(
+        "extern invalid :: Unit -> Bool;\n\
+         main :: Unit -> Int32 := \\() { if (invalid()) then { 0 } else { 1 }; };",
+    )
+    .expect("emit Bool validation");
+    let fixture = NativeFixture::new("invalid-bool-result");
+    let executable = fixture.compile_generated(
+        generated,
+        r#"#include "program.mal.h"
+
+MAL_DEFINE_invalid(call) {
+    return mal_Bool_return(call, (mal_Bool_t)UINT8_C(2));
+}
+"#,
+    );
+    let output = fixture.run(executable);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid Bool"));
+}
+
+#[test]
 fn reports_reference_count_overflow_as_an_implementation_resource_failure() {
     let generated = emit(
-        r#"extern inspect :: Symbol -> Unit;
+        r#"extern inspect :: Symbol -> Symbol;
 main :: Unit -> Int32 := \() {
   inspect("left" + "right");
   0;
@@ -373,9 +353,8 @@ main :: Unit -> Int32 := \() {
         generated,
         r#"#include "program.mal.h"
 
-MAL_DEFINE_inspect(context, value) {
-    MalType_Symbol copy = MAL_CLONE(Symbol)(context, value);
-    MAL_DROP(Symbol)(context, &copy);
+MAL_DEFINE_inspect(call, value) {
+    return mal_Symbol_return(call, value);
 }
 "#,
         &["-DMAL_TEST_FORCE_REFERENCE_COUNT_OVERFLOW"],

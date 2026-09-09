@@ -58,14 +58,12 @@ fn represents_bool_as_zero_or_one_across_the_c_abi() {
         generated,
         r#"#include "program.mal.h"
 
-MalType_Bool mal_ext_exchange(
-    MalContext *context,
-    MalType_Bool outer,
-    MalRepr_Product_0 inner
-) {
-    (void)context;
-    return (outer == MAL_TRUE && inner.field_0 == MAL_FALSE &&
-            inner.field_1 == INT32_C(42)) ? MAL_TRUE : MAL_FALSE;
+MAL_DEFINE_exchange(call, value) {
+    return mal_Bool_return(
+        call,
+        value.field_0 == mal_true && value.field_1.field_0 == mal_false &&
+        value.field_1.field_1 == INT32_C(42) ? mal_true : mal_false
+    );
 }
 "#,
     );
@@ -1419,11 +1417,12 @@ fn lowers_managed_direct_tail_recursion_with_constant_stack() {
         generated,
         r#"#include "program.mal.h"
 
-MalType_Symbol mal_ext_input(MalContext *context) {
+MAL_DEFINE_input(call) {
     static const uint8_t bytes[] = { UINT8_C(120) };
-    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
-    mal_SymbolAdmission_data(&admission)[0] = bytes[0];
-    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
+    return mal_Symbol_return(
+        call,
+        mal_Symbol_from_bytes((mal_span_t){ .data = bytes, .length = sizeof(bytes) })
+    );
 }
 "#,
         &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
@@ -1461,11 +1460,12 @@ main :: Unit -> Int32 := \() {
         generated,
         r#"#include "program.mal.h"
 
-MalType_Symbol mal_ext_input(MalContext *context) {
+MAL_DEFINE_input(call) {
     static const uint8_t bytes[] = { UINT8_C(120) };
-    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, UINT64_C(1));
-    mal_SymbolAdmission_data(&admission)[0] = bytes[0];
-    return mal_SymbolAdmission_finish(context, &admission, UINT64_C(1));
+    return mal_Symbol_return(
+        call,
+        mal_Symbol_from_bytes((mal_span_t){ .data = bytes, .length = sizeof(bytes) })
+    );
 }
 "#,
         &["-DMAL_TEST_REQUIRE_NO_LIVE_ALLOCATIONS"],
@@ -1492,12 +1492,12 @@ fn preserves_effect_order_before_a_direct_tail_call() {
 
 static int32_t expected = INT32_C(4);
 
-int32_t mal_ext_step(MalContext *context, int32_t value) {
+MAL_DEFINE_step(call, value) {
     if (value != expected) {
-        mal_trap(context, "tail-call effect order changed");
+        mal_call_trap(call, "tail-call effect order changed");
     }
     expected -= INT32_C(1);
-    return value - INT32_C(1);
+    return mal_Int32_return(call, value - INT32_C(1));
 }
 "#,
     );

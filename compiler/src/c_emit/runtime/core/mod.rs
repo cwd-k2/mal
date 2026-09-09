@@ -10,13 +10,9 @@ mod symbol;
 
 use allocation::{append_allocation, append_reference_counting, append_resource_failure};
 use control::{append_control_stack, control_arena_name};
-use symbol::{
-    append_host_symbol_lifetime, append_symbol_admission, append_symbol_copy,
-    append_symbol_lifetime, append_symbol_materialization,
-};
+use symbol::{append_symbol_copy, append_symbol_lifetime, append_symbol_materialization};
 
 pub(super) fn emit(
-    needs_symbol_copy: bool,
     control_arenas: usize,
     homogeneous_control: bool,
     heterogeneous_control: bool,
@@ -169,11 +165,7 @@ pub(super) fn emit(
     append_allocation(&mut output);
     append_reference_counting(&mut output);
     append_symbol_lifetime(&mut output);
-    append_host_symbol_lifetime(&mut output);
-    append_symbol_admission(&mut output);
-    if needs_symbol_copy {
-        append_symbol_copy(&mut output);
-    }
+    append_symbol_copy(&mut output);
     append_symbol_materialization(&mut output);
     output
 }

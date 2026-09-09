@@ -151,7 +151,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/runtime/core/allocation` | allocation header、reference count、implementation resource failureの構成 |
 | `c_emit/runtime/core/control` | constructor cardinalityに応じたcontrol stack helperの需要選択とheterogeneous aligned byte stackのgrowth operationを構成 |
 | `c_emit/runtime/core/control/homogeneous` | homogeneous fixed-width stackのgrowth operationを構成 |
-| `c_emit/runtime/core/symbol` | Symbol lifetime、admission、external byte copy、materializationの構成 |
+| `c_emit/runtime/core/symbol` | Symbol lifetime、host byte copy、materializationの構成 |
 | `c_emit/runtime/symbol` | Symbol byte traversal、comparison、byte access、concatenationの構成 |
 | `c_emit/runtime/symbol/leaf_cursor` | allocation-freeなrope leaf順走査とbounded pending pathの構成 |
 | `c_emit/runtime/symbol/leaf_cursor/index` | byte indexへのseek、連続accessの検出、非局所accessの通常traversal fallbackの構成 |
@@ -159,7 +159,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。managed borrowとtail stateは
-`c_emit/body/analysis`と`c_emit/body`、`Symbol`の連続表現とcapacityは`c_emit/runtime`、host admission carrierは
+`c_emit/body/analysis`と`c_emit/body`、`Symbol`の連続表現は`c_emit/runtime`、host value descriptorとterminal returnは
 `c_emit/header`が所有する。着手順と計測gateは
 [generated program最適化計画](../development/generated-program-optimization.md)を正とする。
 

@@ -101,9 +101,9 @@ printValue :: Int32 -> Unit := \(x) {
 
 ## boundary transport
 
-v0.5のadmission、observation、capability transferと各leafのlifetime authorityは
+admission、observation、capability transferと各leafのlifetime authorityは
 [Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
-carrier、borrow、builder、clone、move、drop、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
+carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有の`extern`が再利用可能な`Ptr` regionへbytesを書き、mal側へlengthを返し、
 保持する値だけを`Symbol.read`する形を使える。決定理由は[D031](../history/decisions/D031.md)に記録する。
@@ -125,12 +125,12 @@ storageを複製せず、lifetimeを延長しない。詳細は[memory primitive
 `extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`Symbol` は target ABI によって引数・戻り値の渡し方が異なる。
 
 reference C backendはmal用の一貫したC representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
-host APIを呼ぶ。`mal_ext_*` adapterはtrusted computing baseに含まれるが、raw host resourceそのものではない。
+host APIを呼ぶ。generated wrapperとhost bodyはtrusted computing baseに含まれるが、raw host resourceそのものではない。
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
 
-reference C ABIのmanaged carrier規約は[C host ABI](c-host-abi.md#ownership-operation)だけが定める。決定理由は
-[D034](../history/decisions/D034.md)に記録する。
+reference C ABIのhost valueとterminal return規約は[C host ABI](c-host-abi.md#host-operation)だけが定める。決定理由は
+[D040](../history/decisions/D040.md)に記録する。
 
 reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは

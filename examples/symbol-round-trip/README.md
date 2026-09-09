@@ -2,8 +2,8 @@
 
 This example receives arbitrary bytes from a host scratch buffer, validates them with Symbol
 operators, appends a suffix with `Symbol + Symbol`, and sends the resulting Symbol to the host. The
-host writes its result into a `MalSymbolAdmission`, then finishes it as an immutable `Symbol`
-before mal observes the value. The runtime owns the construction buffer throughout admission.
+host describes its bytes with `mal_Symbol_from_bytes`; `mal_Symbol_return` copies them into an
+immutable mal-owned `Symbol` before the host body ends.
 
 From the repository root in Nushell:
 

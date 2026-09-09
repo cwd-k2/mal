@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn append_symbol_copy(output: &mut TranslationUnit) {
     append_function(
         output,
-        FunctionSignature::static_function(
+        FunctionSignature::new(
             "MalType_Symbol",
             "mal_symbol_copy_from_bytes",
             [

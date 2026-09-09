@@ -56,26 +56,6 @@ impl Directive {
                 output.push('\n');
                 output
             }
-            Self::FunctionAlias {
-                name,
-                parameters,
-                replacement,
-            } => {
-                let mut output = format!("#define {name}(");
-                render_macro_parameters(&mut output, parameters);
-                output.push_str(") ");
-                for (index, part) in replacement.iter().enumerate() {
-                    if index != 0 {
-                        output.push_str("##");
-                    }
-                    match part {
-                        PastePart::Text(value) => output.push_str(value),
-                        PastePart::Parameter(value) => output.push_str(value),
-                    }
-                }
-                output.push('\n');
-                output
-            }
             Self::FunctionItemsDefine {
                 name,
                 parameters,

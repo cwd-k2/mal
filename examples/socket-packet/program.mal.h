@@ -1,16 +1,10 @@
 #ifndef MAL_PROGRAM_MAL_H
 #define MAL_PROGRAM_MAL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
-#define MAL_C_ABI_VERSION 0x000500u
-#define MAL_TYPE(name) MalType_##name
-#define MAL_OPERATION(type, operation) mal_##type##_##operation
-#define MAL_TAG(type, variant) MAL_##type##_TAG_##variant
-#define MAL_EXTERN(name) mal_ext_##name
-#define MAL_CLONE(owner) mal_##owner##_clone
-#define MAL_MOVE(owner) mal_##owner##_take
-#define MAL_DROP(owner) mal_##owner##_drop
+#define MAL_C_ABI_VERSION 0x000600u
 
 #if defined(__clang__) || defined(__GNUC__)
 #define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
@@ -35,36 +29,96 @@ typedef float MalType_Float32;
 typedef double MalType_Float64;
 typedef struct { const uint8_t *data; uint64_t length; void *ownership; } MalType_Symbol;
 typedef struct { uint8_t *address; } MalType_Ptr;
-typedef struct { void *state; } MalSymbolAdmission;
+typedef MalType_Unit mal_Unit_t;
+typedef MalType_Bool mal_Bool_t;
+typedef MalType_Int8 mal_Int8_t;
+typedef MalType_Int16 mal_Int16_t;
+typedef MalType_Int32 mal_Int32_t;
+typedef MalType_Int64 mal_Int64_t;
+typedef MalType_UInt8 mal_UInt8_t;
+typedef MalType_UInt16 mal_UInt16_t;
+typedef MalType_UInt32 mal_UInt32_t;
+typedef MalType_UInt64 mal_UInt64_t;
+typedef MalType_Float32 mal_Float32_t;
+typedef MalType_Float64 mal_Float64_t;
+typedef void *mal_Ptr_t;
+typedef struct { MalContext *mal_detail_context; } mal_call_t;
+typedef struct { const uint8_t *data; uint64_t length; } mal_span_t;
+typedef struct { MalType_Symbol mal_detail_raw; mal_span_t mal_detail_bytes; uint8_t mal_detail_source; } mal_Symbol_t;
 
-#define MAL_FALSE (MalType_Bool)UINT8_C(0)
-#define MAL_TRUE (MalType_Bool)UINT8_C(1)
+#define mal_false (mal_Bool_t)UINT8_C(0)
+#define mal_true (mal_Bool_t)UINT8_C(1)
 
 _Noreturn void mal_trap(MalContext *context, const char *message);
-MalSymbolAdmission mal_SymbolAdmission_begin(MalContext *context, uint64_t minimum_capacity);
-uint64_t mal_SymbolAdmission_capacity(const MalSymbolAdmission *admission);
-uint8_t *mal_SymbolAdmission_data(MalSymbolAdmission *admission);
-void mal_SymbolAdmission_reserve(MalContext *context, MalSymbolAdmission *admission, uint64_t minimum_capacity);
-MalType_Symbol mal_SymbolAdmission_finish(MalContext *context, MalSymbolAdmission *admission, uint64_t length);
-void mal_SymbolAdmission_drop(MalContext *context, MalSymbolAdmission *admission);
-MalType_Symbol mal_Symbol_clone(MalContext *context, MalType_Symbol value);
-MalType_Symbol mal_Symbol_take(MalType_Symbol *value);
-void mal_Symbol_drop(MalContext *context, MalType_Symbol *value);
-
-static inline const uint8_t *mal_Symbol_data(MalType_Symbol value) {
-    return value.data;
+static inline _Noreturn void mal_call_trap(mal_call_t *call, const char *message) {
+    mal_trap(call->mal_detail_context, message);
 }
-
-static inline uint64_t mal_Symbol_length(MalType_Symbol value) {
-    return value.length;
+static inline MalType_Unit mal_Unit_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED) {
+    return (MalType_Unit){ .unused = UINT8_C(0) };
 }
-
-static inline MalType_Ptr mal_Ptr_from_address(uint8_t *address) {
-    return (MalType_Ptr){ .address = address };
+static inline MalType_Int8 mal_Int8_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int8_t value) {
+    return value;
 }
-
-static inline uint8_t *mal_Ptr_address(MalType_Ptr value) {
-    return value.address;
+static inline MalType_Int16 mal_Int16_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int16_t value) {
+    return value;
+}
+static inline MalType_Int32 mal_Int32_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int32_t value) {
+    return value;
+}
+static inline MalType_Int64 mal_Int64_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int64_t value) {
+    return value;
+}
+static inline MalType_UInt8 mal_UInt8_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt8_t value) {
+    return value;
+}
+static inline MalType_UInt16 mal_UInt16_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt16_t value) {
+    return value;
+}
+static inline MalType_UInt32 mal_UInt32_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt32_t value) {
+    return value;
+}
+static inline MalType_UInt64 mal_UInt64_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt64_t value) {
+    return value;
+}
+static inline MalType_Float32 mal_Float32_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Float32_t value) {
+    return value;
+}
+static inline MalType_Float64 mal_Float64_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Float64_t value) {
+    return value;
+}
+static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
+    if ((value != mal_false) && (value != mal_true)) {
+        mal_call_trap(call, "invalid Bool result");
+    }
+    return value;
+}
+static inline MalType_Ptr mal_Ptr_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Ptr_t value) {
+    return (MalType_Ptr){ .address = (uint8_t *)value };
+}
+MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value);
+MalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
+MalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value);
+static inline mal_Symbol_t mal_Symbol_from_bytes(mal_span_t bytes) {
+    return (mal_Symbol_t){ .mal_detail_raw = (MalType_Symbol){ 0 }, .mal_detail_bytes = bytes, .mal_detail_source = UINT8_C(1) };
+}
+static inline mal_span_t mal_Symbol_to_bytes(mal_call_t *call, mal_Symbol_t value) {
+    if (value.mal_detail_source != UINT8_C(0)) {
+        return value.mal_detail_bytes;
+    }
+    MalType_Symbol raw = mal_symbol_materialize(call->mal_detail_context, value.mal_detail_raw);
+    return (mal_span_t){ .data = raw.data, .length = raw.length };
+}
+static inline MalType_Symbol mal_detail_Symbol_return(mal_call_t *call, mal_Symbol_t value) {
+    if (value.mal_detail_source != UINT8_C(0)) {
+        if ((value.mal_detail_bytes.length != UINT64_C(0)) && (value.mal_detail_bytes.data == NULL)) {
+            mal_call_trap(call, "null Symbol data");
+        }
+        return mal_symbol_copy_from_bytes(call->mal_detail_context, value.mal_detail_bytes.data, value.mal_detail_bytes.length);
+    }
+    return mal_symbol_retain(call->mal_detail_context, value.mal_detail_raw);
+}
+static inline MalType_Symbol mal_Symbol_return(mal_call_t *call, mal_Symbol_t value) {
+    return mal_detail_Symbol_return(call, value);
 }
 
 /* Host-visible types */
@@ -113,204 +167,208 @@ typedef MalRepr_Product_0 MalType_SocketPair;
 typedef MalRepr_Sum_3 MalType_Status;
 typedef MalRepr_Sum_4 MalType_ReceiveResult;
 
+typedef struct { uintptr_t mal_detail_bits; } mal_Socket_t;
+typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
+typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
+typedef struct mal_detail_repr_product_2 mal_repr_product_2_t;
+typedef struct mal_detail_repr_sum_3 mal_repr_sum_3_t;
+typedef struct mal_detail_repr_sum_4 mal_repr_sum_4_t;
+typedef mal_repr_product_1_t mal_Packet_t;
+typedef mal_repr_product_0_t mal_SocketPair_t;
+typedef mal_repr_sum_3_t mal_Status_t;
+typedef mal_repr_sum_4_t mal_ReceiveResult_t;
+
+struct mal_detail_repr_product_0 {
+    mal_Socket_t field_0;
+    mal_Socket_t field_1;
+};
+
+struct mal_detail_repr_product_1 {
+    mal_UInt64_t field_0;
+    mal_Symbol_t field_1;
+};
+
+struct mal_detail_repr_product_2 {
+    mal_Socket_t field_0;
+    mal_repr_product_1_t field_1;
+};
+
+struct mal_detail_repr_sum_3 {
+    uint32_t tag;
+    union {
+        mal_Unit_t variant_0;
+        mal_UInt32_t variant_1;
+    } payload;
+};
+
+struct mal_detail_repr_sum_4 {
+    uint32_t tag;
+    union {
+        mal_repr_product_1_t variant_0;
+        mal_UInt32_t variant_1;
+    } payload;
+};
+
 /* Type helpers */
 
-static inline MalType_Socket mal_Socket_from_bits(uintptr_t bits) {
-    return (MalType_Socket){ .bits = bits };
+static inline MalRepr_Product_0 mal_repr_product_0_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
+    return (MalRepr_Product_0){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
 }
 
-static inline uintptr_t mal_Socket_bits(MalType_Socket value) {
-    return value.bits;
+static inline MalRepr_Product_1 mal_repr_product_1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
+    return (MalRepr_Product_1){ .field_0 = value.field_0, .field_1 = mal_detail_Symbol_return(call, value.field_1) };
 }
 
-static inline MalRepr_Product_1 mal_Repr_Product_1_clone(MalContext *context, MalRepr_Product_1 value) {
-    value.field_1 = mal_Symbol_clone(context, value.field_1);
-    return value;
+static inline MalRepr_Product_2 mal_repr_product_2_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_2_t value) {
+    return (MalRepr_Product_2){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_1){ .field_0 = value.field_1.field_0, .field_1 = mal_detail_Symbol_return(call, value.field_1.field_1) } };
 }
 
-static inline MalRepr_Product_1 mal_Repr_Product_1_take(MalRepr_Product_1 *value) {
-    MalRepr_Product_1 result = *value;
-    *value = (MalRepr_Product_1){ 0 };
-    return result;
-}
-
-static inline void mal_Repr_Product_1_drop(MalContext *context, MalRepr_Product_1 *value) {
-    mal_Symbol_drop(context, &value->field_1);
-    *value = (MalRepr_Product_1){ 0 };
-}
-
-static inline MalRepr_Product_2 mal_Repr_Product_2_clone(MalContext *context, MalRepr_Product_2 value) {
-    value.field_1 = mal_Repr_Product_1_clone(context, value.field_1);
-    return value;
-}
-
-static inline MalRepr_Product_2 mal_Repr_Product_2_take(MalRepr_Product_2 *value) {
-    MalRepr_Product_2 result = *value;
-    *value = (MalRepr_Product_2){ 0 };
-    return result;
-}
-
-static inline void mal_Repr_Product_2_drop(MalContext *context, MalRepr_Product_2 *value) {
-    mal_Repr_Product_1_drop(context, &value->field_1);
-    *value = (MalRepr_Product_2){ 0 };
-}
-
-static inline MalRepr_Sum_4 mal_Repr_Sum_4_clone(MalContext *context, MalRepr_Sum_4 value) {
+static inline mal_repr_sum_3_t mal_detail_to_host_3(mal_call_t *call, MalRepr_Sum_3 value) {
     switch (value.tag) {
         case UINT32_C(0): {
-            value.payload.variant_0 = mal_Repr_Product_1_clone(context, value.payload.variant_0);
-            break;
+            return (mal_repr_sum_3_t){ .tag = UINT32_C(0), .payload.variant_0 = value.payload.variant_0 };
         }
         case UINT32_C(1): {
-            break;
+            return (mal_repr_sum_3_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
-            mal_trap(context, "invalid sum tag");
+            mal_call_trap(call, "invalid sum tag");
         }
     }
-    return value;
 }
 
-static inline MalRepr_Sum_4 mal_Repr_Sum_4_take(MalRepr_Sum_4 *value) {
-    MalRepr_Sum_4 result = *value;
-    *value = (MalRepr_Sum_4){ 0 };
-    return result;
-}
-
-static inline void mal_Repr_Sum_4_drop(MalContext *context, MalRepr_Sum_4 *value) {
-    switch (value->tag) {
+static inline MalRepr_Sum_3 mal_detail_to_raw_3(mal_call_t *call, mal_repr_sum_3_t value) {
+    switch (value.tag) {
         case UINT32_C(0): {
-            mal_Repr_Product_1_drop(context, &value->payload.variant_0);
-            break;
+            return (MalRepr_Sum_3){ .tag = UINT32_C(0), .payload.variant_0 = (MalType_Unit){ 0 } };
         }
         case UINT32_C(1): {
-            break;
+            return (MalRepr_Sum_3){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
-            mal_trap(context, "invalid sum tag");
+            mal_call_trap(call, "invalid sum tag");
         }
     }
-    *value = (MalRepr_Sum_4){ 0 };
 }
 
-static inline MalType_Packet mal_Packet_clone(MalContext *context, MalType_Packet value) {
-    return mal_Repr_Product_1_clone(context, value);
+#define mal_repr_sum_3_tag_0 UINT32_C(0)
+static inline mal_repr_sum_3_t mal_repr_sum_3_make_0(void) {
+    return (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_Packet mal_Packet_take(MalType_Packet *value) {
-    return mal_Repr_Product_1_take(value);
+static inline MalRepr_Sum_3 mal_repr_sum_3_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_3(call, (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-static inline void mal_Packet_drop(MalContext *context, MalType_Packet *value) {
-    mal_Repr_Product_1_drop(context, value);
+#define mal_repr_sum_3_tag_1 UINT32_C(1)
+static inline mal_repr_sum_3_t mal_repr_sum_3_make_1(mal_UInt32_t value) {
+    return (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_ReceiveResult mal_ReceiveResult_clone(MalContext *context, MalType_ReceiveResult value) {
-    return mal_Repr_Sum_4_clone(context, value);
+static inline MalRepr_Sum_3 mal_repr_sum_3_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_3(call, (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_1, .payload.variant_1 = value });
 }
 
-static inline MalType_ReceiveResult mal_ReceiveResult_take(MalType_ReceiveResult *value) {
-    return mal_Repr_Sum_4_take(value);
-}
-
-static inline void mal_ReceiveResult_drop(MalContext *context, MalType_ReceiveResult *value) {
-    mal_Repr_Sum_4_drop(context, value);
-}
-
-static inline MalType_Packet mal_Packet_make(MalType_UInt64 value_0, MalType_Symbol value_1) {
-    return (MalType_Packet){ .field_0 = value_0, .field_1 = value_1 };
-}
-
-static inline MalType_UInt64 mal_Packet_get_0(MalType_Packet value) {
-    return value.field_0;
-}
-
-static inline MalType_Symbol mal_Packet_get_1(MalType_Packet value) {
-    return value.field_1;
-}
-
-static inline MalType_SocketPair mal_SocketPair_make(MalType_Socket value_0, MalType_Socket value_1) {
-    return (MalType_SocketPair){ .field_0 = value_0, .field_1 = value_1 };
-}
-
-static inline MalType_Socket mal_SocketPair_get_0(MalType_SocketPair value) {
-    return value.field_0;
-}
-
-static inline MalType_Socket mal_SocketPair_get_1(MalType_SocketPair value) {
-    return value.field_1;
-}
-
-#define MAL_Status_TAG_0 UINT32_C(0)
-#define MAL_Status_TAG_1 UINT32_C(1)
-static inline uint32_t mal_Status_tag(MalType_Status value) {
-    return value.tag;
-}
-
-static inline MalType_Bool mal_Status_is_0(MalType_Status value) {
-    return value.tag == MAL_Status_TAG_0;
-}
-
-static inline MalType_Status mal_Status_make_0(void) {
-    return (MalType_Status){ .tag = MAL_Status_TAG_0, .payload.variant_0 = (MalType_Unit){ .unused = UINT8_C(0) } };
-}
-
-static inline MalType_Bool mal_Status_is_1(MalType_Status value) {
-    return value.tag == MAL_Status_TAG_1;
-}
-
-static inline MalType_Status mal_Status_make_1(MalType_UInt32 value) {
-    return (MalType_Status){ .tag = MAL_Status_TAG_1, .payload.variant_1 = value };
-}
-
-static inline MalType_UInt32 mal_Status_expect_1(MalContext *context, MalType_Status value) {
-    if (!mal_Status_is_1(value)) {
-        mal_trap(context, "expected Status variant 1");
+static inline mal_repr_sum_4_t mal_detail_to_host_4(mal_call_t *call, MalRepr_Sum_4 value) {
+    switch (value.tag) {
+        case UINT32_C(0): {
+            return (mal_repr_sum_4_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_repr_product_1_t){ .field_0 = value.payload.variant_0.field_0, .field_1 = (mal_Symbol_t){ .mal_detail_raw = value.payload.variant_0.field_1, .mal_detail_bytes = (mal_span_t){ 0 }, .mal_detail_source = UINT8_C(0) } } };
+        }
+        case UINT32_C(1): {
+            return (mal_repr_sum_4_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+        }
+        default: {
+            mal_call_trap(call, "invalid sum tag");
+        }
     }
-    return value.payload.variant_1;
 }
 
-#define MAL_ReceiveResult_TAG_0 UINT32_C(0)
-#define MAL_ReceiveResult_TAG_1 UINT32_C(1)
-static inline uint32_t mal_ReceiveResult_tag(MalType_ReceiveResult value) {
-    return value.tag;
-}
-
-static inline MalType_Bool mal_ReceiveResult_is_0(MalType_ReceiveResult value) {
-    return value.tag == MAL_ReceiveResult_TAG_0;
-}
-
-static inline MalType_ReceiveResult mal_ReceiveResult_make_0(MalType_UInt64 value_0, MalType_Symbol value_1) {
-    return (MalType_ReceiveResult){ .tag = MAL_ReceiveResult_TAG_0, .payload.variant_0 = (MalRepr_Product_1){ .field_0 = value_0, .field_1 = value_1 } };
-}
-
-static inline MalType_UInt64 mal_ReceiveResult_expect_0_0(MalContext *context, MalType_ReceiveResult value) {
-    if (!mal_ReceiveResult_is_0(value)) {
-        mal_trap(context, "expected ReceiveResult variant 0");
+static inline MalRepr_Sum_4 mal_detail_to_raw_4(mal_call_t *call, mal_repr_sum_4_t value) {
+    switch (value.tag) {
+        case UINT32_C(0): {
+            return (MalRepr_Sum_4){ .tag = UINT32_C(0), .payload.variant_0 = (MalRepr_Product_1){ .field_0 = value.payload.variant_0.field_0, .field_1 = mal_detail_Symbol_return(call, value.payload.variant_0.field_1) } };
+        }
+        case UINT32_C(1): {
+            return (MalRepr_Sum_4){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+        }
+        default: {
+            mal_call_trap(call, "invalid sum tag");
+        }
     }
-    return value.payload.variant_0.field_0;
 }
 
-static inline MalType_Symbol mal_ReceiveResult_expect_0_1(MalContext *context, MalType_ReceiveResult value) {
-    if (!mal_ReceiveResult_is_0(value)) {
-        mal_trap(context, "expected ReceiveResult variant 0");
-    }
-    return value.payload.variant_0.field_1;
+#define mal_repr_sum_4_tag_0 UINT32_C(0)
+static inline mal_repr_sum_4_t mal_repr_sum_4_make_0(mal_repr_product_1_t value) {
+    return (mal_repr_sum_4_t){ .tag = mal_repr_sum_4_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_Bool mal_ReceiveResult_is_1(MalType_ReceiveResult value) {
-    return value.tag == MAL_ReceiveResult_TAG_1;
+static inline MalRepr_Sum_4 mal_repr_sum_4_return_0(mal_call_t *call, mal_repr_product_1_t value) {
+    return mal_detail_to_raw_4(call, (mal_repr_sum_4_t){ .tag = mal_repr_sum_4_tag_0, .payload.variant_0 = value });
 }
 
-static inline MalType_ReceiveResult mal_ReceiveResult_make_1(MalType_UInt32 value) {
-    return (MalType_ReceiveResult){ .tag = MAL_ReceiveResult_TAG_1, .payload.variant_1 = value };
+#define mal_repr_sum_4_tag_1 UINT32_C(1)
+static inline mal_repr_sum_4_t mal_repr_sum_4_make_1(mal_UInt32_t value) {
+    return (mal_repr_sum_4_t){ .tag = mal_repr_sum_4_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_UInt32 mal_ReceiveResult_expect_1(MalContext *context, MalType_ReceiveResult value) {
-    if (!mal_ReceiveResult_is_1(value)) {
-        mal_trap(context, "expected ReceiveResult variant 1");
-    }
-    return value.payload.variant_1;
+static inline MalRepr_Sum_4 mal_repr_sum_4_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_4(call, (mal_repr_sum_4_t){ .tag = mal_repr_sum_4_tag_1, .payload.variant_1 = value });
+}
+
+static inline mal_Socket_t mal_Socket_from_bits(uintptr_t bits) {
+    return (mal_Socket_t){ .mal_detail_bits = bits };
+}
+
+static inline uintptr_t mal_Socket_to_bits(mal_Socket_t value) {
+    return value.mal_detail_bits;
+}
+
+static inline MalType_Socket mal_Socket_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Socket_t value) {
+    return (MalType_Socket){ .bits = value.mal_detail_bits };
+}
+
+static inline MalType_Packet mal_Packet_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Packet_t value) {
+    return (MalRepr_Product_1){ .field_0 = value.field_0, .field_1 = mal_detail_Symbol_return(call, value.field_1) };
+}
+
+static inline MalType_SocketPair mal_SocketPair_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_SocketPair_t value) {
+    return (MalRepr_Product_0){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
+}
+
+#define mal_Status_tag_0 UINT32_C(0)
+static inline mal_Status_t mal_Status_make_0(void) {
+    return (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+}
+
+static inline MalType_Status mal_Status_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_3(call, (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+}
+
+#define mal_Status_tag_1 UINT32_C(1)
+static inline mal_Status_t mal_Status_make_1(mal_UInt32_t value) {
+    return (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value };
+}
+
+static inline MalType_Status mal_Status_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_3(call, (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value });
+}
+
+#define mal_ReceiveResult_tag_0 UINT32_C(0)
+static inline mal_ReceiveResult_t mal_ReceiveResult_make_0(mal_Packet_t value) {
+    return (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_0, .payload.variant_0 = value };
+}
+
+static inline MalType_ReceiveResult mal_ReceiveResult_return_0(mal_call_t *call, mal_Packet_t value) {
+    return mal_detail_to_raw_4(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_0, .payload.variant_0 = value });
+}
+
+#define mal_ReceiveResult_tag_1 UINT32_C(1)
+static inline mal_ReceiveResult_t mal_ReceiveResult_make_1(mal_UInt32_t value) {
+    return (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_1, .payload.variant_1 = value };
+}
+
+static inline MalType_ReceiveResult mal_ReceiveResult_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_4(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_1, .payload.variant_1 = value });
 }
 
 /* External operations */
@@ -324,38 +382,62 @@ void mal_ext_writeError(MalContext *context, MalType_UInt32 value);
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_createSocketPair 1
-#define MAL_DEFINE_createSocketPair(context) \
-MalType_SocketPair mal_ext_createSocketPair( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED \
+#define MAL_DEFINE_createSocketPair(call) \
+static MalType_SocketPair mal_detail_createSocketPair(mal_call_t *call); \
+MalType_SocketPair mal_ext_createSocketPair(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    return mal_detail_createSocketPair(&call); \
+} \
+static MalType_SocketPair mal_detail_createSocketPair( \
+    mal_call_t *call \
 )
 
 #define MAL_HAS_EXTERN_sendPacket 1
-#define MAL_DEFINE_sendPacket(context, argument_0, argument_1) \
-MalType_Status mal_ext_sendPacket( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Socket argument_0, \
-    MalType_Packet argument_1 \
+#define MAL_DEFINE_sendPacket(call, value) \
+static MalType_Status mal_detail_sendPacket(mal_call_t *call, mal_repr_product_2_t value); \
+MalType_Status mal_ext_sendPacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket argument_0, MalType_Packet argument_1) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    return mal_detail_sendPacket(&call, (mal_repr_product_2_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_1_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = (mal_Symbol_t){ .mal_detail_raw = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1, .mal_detail_bytes = (mal_span_t){ 0 }, .mal_detail_source = UINT8_C(0) } } }); \
+} \
+static MalType_Status mal_detail_sendPacket( \
+    mal_call_t *call, \
+    mal_repr_product_2_t value \
 )
 
 #define MAL_HAS_EXTERN_receivePacket 1
-#define MAL_DEFINE_receivePacket(context, value) \
-MalType_ReceiveResult mal_ext_receivePacket( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Socket value \
+#define MAL_DEFINE_receivePacket(call, value) \
+static MalType_ReceiveResult mal_detail_receivePacket(mal_call_t *call, mal_Socket_t value); \
+MalType_ReceiveResult mal_ext_receivePacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket value) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    return mal_detail_receivePacket(&call, (mal_Socket_t){ .mal_detail_bits = value.bits }); \
+} \
+static MalType_ReceiveResult mal_detail_receivePacket( \
+    mal_call_t *call, \
+    mal_Socket_t value \
 )
 
 #define MAL_HAS_EXTERN_closeSocket 1
-#define MAL_DEFINE_closeSocket(context, value) \
-MalType_Status mal_ext_closeSocket( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_Socket value \
+#define MAL_DEFINE_closeSocket(call, value) \
+static MalType_Status mal_detail_closeSocket(mal_call_t *call, mal_Socket_t value); \
+MalType_Status mal_ext_closeSocket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket value) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    return mal_detail_closeSocket(&call, (mal_Socket_t){ .mal_detail_bits = value.bits }); \
+} \
+static MalType_Status mal_detail_closeSocket( \
+    mal_call_t *call, \
+    mal_Socket_t value \
 )
 
 #define MAL_HAS_EXTERN_writeError 1
-#define MAL_DEFINE_writeError(context, value) \
-void mal_ext_writeError( \
-    MalContext *context MAL_DETAIL_MAYBE_UNUSED, \
-    MalType_UInt32 value \
+#define MAL_DEFINE_writeError(call, value) \
+static MalType_Unit mal_detail_writeError(mal_call_t *call, mal_UInt32_t value); \
+void mal_ext_writeError(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_UInt32 value) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    mal_detail_writeError(&call, value); \
+} \
+static MalType_Unit mal_detail_writeError( \
+    mal_call_t *call, \
+    mal_UInt32_t value \
 )
 
 #endif

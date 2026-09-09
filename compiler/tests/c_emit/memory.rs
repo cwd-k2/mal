@@ -71,10 +71,9 @@ fn executes_unaligned_ptr_access_for_every_numeric_scalar() {
     ));
     let host = r#"#include "program.mal.h"
 
-MalType_Ptr mal_ext_memory(MalContext *context) {
+MAL_DEFINE_memory(call) {
     static uint8_t bytes[52];
-    (void)context;
-    return (MalType_Ptr){ .address = bytes };
+    return mal_Ptr_return(call, bytes);
 }
 "#;
     let fixture = NativeFixture::new("ptr-memory");
@@ -103,10 +102,9 @@ fn executes_first_class_memory_functions_through_closure_calls() {
     assert!(generated.source.contains("mal_memory_function_store_int64"));
     let host = r#"#include "program.mal.h"
 
-MalType_Ptr mal_ext_memory(MalContext *context) {
+MAL_DEFINE_memory(call) {
     static uint8_t bytes[8];
-    (void)context;
-    return (MalType_Ptr){ .address = bytes };
+    return mal_Ptr_return(call, bytes);
 }
 "#;
     let fixture = NativeFixture::new("first-class-memory");
@@ -130,16 +128,14 @@ fn executes_unaligned_ptr_value_access() {
     assert!(generated.source.contains("mal_store_ptr"));
     let host = r#"#include "program.mal.h"
 
-MalType_Ptr mal_ext_pointerSlot(MalContext *context) {
-    static uint8_t bytes[sizeof(MalType_Ptr) + 1];
-    (void)context;
-    return mal_Ptr_from_address(bytes);
+MAL_DEFINE_pointerSlot(call) {
+    static uint8_t bytes[sizeof(mal_Ptr_t) + 1];
+    return mal_Ptr_return(call, bytes);
 }
 
-MalType_Ptr mal_ext_target(MalContext *context) {
+MAL_DEFINE_target(call) {
     static uint8_t bytes[sizeof(int32_t)];
-    (void)context;
-    return mal_Ptr_from_address(bytes);
+    return mal_Ptr_return(call, bytes);
 }
 "#;
     let fixture = NativeFixture::new("ptr-value-memory");
@@ -160,9 +156,8 @@ fn executes_target_storage_size_expressions() {
          };",
         r#"#include "program.mal.h"
 
-uint64_t mal_ext_expectedSize(MalContext *context) {
-    (void)context;
-    return UINT64_C(42) + (uint64_t)sizeof(MalType_Ptr);
+MAL_DEFINE_expectedSize(call) {
+    return mal_UInt64_return(call, UINT64_C(42) + (uint64_t)sizeof(mal_Ptr_t));
 }
 "#,
     );
@@ -205,18 +200,18 @@ fn copies_symbols_between_mal_and_external_memory() {
 
 static uint8_t slot[7];
 
-MalType_Ptr mal_ext_symbolSlot(MalContext *context) {
+MAL_DEFINE_symbolSlot(call) {
     static const uint8_t seed[] = { 's', 'e', 'e', 'd' };
-    (void)context;
     memcpy(slot + 1, seed, sizeof(seed));
-    return mal_Ptr_from_address(slot);
+    return mal_Ptr_return(call, slot);
 }
 
-void mal_ext_inspectSymbolSlot(MalContext *context) {
+MAL_DEFINE_inspectSymbolSlot(call) {
     static const uint8_t expected[] = { 'h', 'e', 'l', 'd', 0, 255 };
     if (memcmp(slot + 1, expected, sizeof(expected)) != 0) {
-        mal_trap(context, "unexpected stored Symbol bytes");
+        mal_call_trap(call, "unexpected stored Symbol bytes");
     }
+    return mal_Unit_return(call);
 }
 "#;
     let fixture = NativeFixture::new("symbol-value-memory");
@@ -256,10 +251,9 @@ fn emits_only_required_memory_helpers_and_compiles_with_optimization() {
         generated,
         r#"#include "program.mal.h"
 
-MalType_Ptr mal_ext_memory(MalContext *context) {
+MAL_DEFINE_memory(call) {
     static uint8_t bytes[8];
-    (void)context;
-    return (MalType_Ptr){ .address = bytes };
+    return mal_Ptr_return(call, bytes);
 }
 "#,
         &["-O2"],

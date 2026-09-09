@@ -2,20 +2,7 @@ use crate::c_emit::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement,
 };
 
-use super::{Directive, PastePart, PreprocessorExpr};
-
-#[test]
-fn renders_token_pasting_function_aliases() {
-    let directive = Directive::function_alias(
-        "MAL_TYPE",
-        ["name"],
-        [PastePart::text("MalType_"), PastePart::parameter("name")],
-    );
-    assert_eq!(
-        directive.render(),
-        "#define MAL_TYPE(name) MalType_##name\n"
-    );
-}
+use super::{Directive, PreprocessorExpr};
 
 #[test]
 fn renders_typed_condition_operators() {

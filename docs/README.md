@@ -32,8 +32,7 @@
 | formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
-| C host interface再設計を検討する | [C host interface再設計案](development/c-host-interface.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
-| C host interface再設計を実装する | [C host interface実装手順](development/c-host-interface-implementation.md) | [再設計案](development/c-host-interface.md)、[test方針](development/testing.md) |
+| C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [性能測定履歴](history/performance/) | [generated program最適化計画](development/generated-program-optimization.md)、[test方針](development/testing.md) |

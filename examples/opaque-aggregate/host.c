@@ -3,16 +3,17 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-MAL_DEFINE_allocate(context, value) {
-    return mal_Mem_from_bits((uintptr_t)value);
+MAL_DEFINE_allocate(call, value) {
+    return mal_Mem_return(call, mal_Mem_from_bits((uintptr_t)value));
 }
 
-MAL_DEFINE_resize(context, memory, amount) {
-    uintptr_t bits = mal_Mem_bits(memory) + (uintptr_t)amount;
+MAL_DEFINE_resize(call, value) {
+    uintptr_t bits = mal_Mem_to_bits(value.field_0) + (uintptr_t)value.field_1;
     printf("%" PRIuPTR "\n", bits);
-    return mal_Response_make_1(mal_Mem_from_bits(bits), amount);
+    value.field_0 = mal_Mem_from_bits(bits);
+    return mal_Response_return_1(call, value);
 }
 
-MAL_DEFINE_handleBits(context, memory) {
-    return (uint64_t)mal_Mem_bits(memory);
+MAL_DEFINE_handleBits(call, memory) {
+    return mal_UInt64_return(call, (uint64_t)mal_Mem_to_bits(memory));
 }

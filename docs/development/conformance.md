@@ -67,7 +67,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/c_emit.rs`） | checked-in host adapter、`socket-packet`のgenerated macro使用（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: generated headerとsymbol](../spec/c-host-abi.md#generated-header) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/c_emit.rs`） | headerをincludeするhost fixture群 |
-| [`c-host-abi`: type mapping](../spec/c-host-abi.md#type-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test、`exposes_managed_value_transfer_helpers_to_host_adapters`（`compiler/tests/c_emit.rs`） |
+| [`c-host-abi`: Host value mapping](../spec/c-host-abi.md#host-value-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/c_emit.rs`） | 各ABI round-trip test、`returns_borrowed_managed_values_through_typed_helpers`（`compiler/tests/c_emit.rs`） |
 | [`c-host-abi`: closure exclusion](../spec/c-host-abi.md#closure-exclusion) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
 | [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/c_emit.rs`） | `mal_trap`を含むnative trap tests、`socket-packet`のrecoverable payload rejection |
 

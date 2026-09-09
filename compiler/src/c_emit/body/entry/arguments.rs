@@ -115,9 +115,12 @@ impl BodyEmitter<'_> {
                         Statement::variable(
                             "MalType_Ptr",
                             "mal_data",
-                            Some(CExpr::named_call(
-                                "mal_Ptr_from_address",
-                                [CExpr::cast(TypeName::named("uint8_t").pointer(), argv())],
+                            Some(CExpr::compound_literal(
+                                "MalType_Ptr",
+                                [Initializer::designated(
+                                    "address",
+                                    CExpr::cast(TypeName::named("uint8_t").pointer(), argv()),
+                                )],
                             )),
                         ),
                         Statement::variable(
@@ -169,9 +172,12 @@ impl BodyEmitter<'_> {
                             ),
                             Initializer::designated(
                                 "field_1",
-                                CExpr::named_call(
-                                    "mal_Ptr_from_address",
-                                    [CExpr::identifier("mal_argument_storage")],
+                                CExpr::compound_literal(
+                                    "MalType_Ptr",
+                                    [Initializer::designated(
+                                        "address",
+                                        CExpr::identifier("mal_argument_storage"),
+                                    )],
                                 ),
                             ),
                         ],

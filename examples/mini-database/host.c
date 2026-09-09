@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static FILE *file_handle(MalType_File file) {
-    return (FILE *)mal_File_bits(file);
+static FILE *file_handle(mal_File_t file) {
+    return (FILE *)mal_File_to_bits(file);
 }
 
 typedef struct Allocation Allocation;
@@ -21,37 +21,44 @@ typedef struct {
     Allocation *first;
 } AllocatorHandle;
 
-static AllocatorHandle *allocator_handle(MalType_Allocator allocator) {
-    return (AllocatorHandle *)mal_Allocator_bits(allocator);
+static AllocatorHandle *allocator_handle(mal_Allocator_t allocator) {
+    return (AllocatorHandle *)mal_Allocator_to_bits(allocator);
 }
 
-MAL_DEFINE_createAllocator(context) {
+MAL_DEFINE_createAllocator(call) {
     AllocatorHandle *allocator = malloc(sizeof(*allocator));
     if (allocator == NULL) {
-        mal_trap(context, "allocator creation failed");
+        mal_call_trap(call, "allocator creation failed");
     }
     allocator->first = NULL;
-    return mal_Allocator_from_bits((uintptr_t)allocator);
+    return mal_Allocator_return(call, mal_Allocator_from_bits((uintptr_t)allocator));
 }
 
-MAL_DEFINE_allocateBuffer(context, allocator, size) {
-    if (size == 0 || size > SIZE_MAX) {
-        mal_trap(context, "invalid allocation size");
+MAL_DEFINE_allocateBuffer(call, value) {
+    if (value.field_1 == 0 || value.field_1 > SIZE_MAX) {
+        mal_call_trap(call, "invalid allocation size");
     }
     Allocation *allocation = malloc(sizeof(*allocation));
-    uint8_t *memory = malloc((size_t)size);
+    uint8_t *memory = malloc((size_t)value.field_1);
     if (allocation == NULL || memory == NULL) {
         free(allocation);
         free(memory);
-        mal_trap(context, "allocation failed");
+        mal_call_trap(call, "allocation failed");
     }
     allocation->memory = memory;
-    allocation->next = allocator_handle(allocator)->first;
-    allocator_handle(allocator)->first = allocation;
-    return mal_Buffer_make(mal_Ptr_from_address(memory), size, UINT64_C(0));
+    allocation->next = allocator_handle(value.field_0)->first;
+    allocator_handle(value.field_0)->first = allocation;
+    return mal_Buffer_return(
+        call,
+        (mal_Buffer_t){
+            .field_0 = memory,
+            .field_1 = value.field_1,
+            .field_2 = UINT64_C(0),
+        }
+    );
 }
 
-MAL_DEFINE_destroyAllocator(context, allocator) {
+MAL_DEFINE_destroyAllocator(call, allocator) {
     AllocatorHandle *handle = allocator_handle(allocator);
     Allocation *allocation = handle->first;
     while (allocation != NULL) {
@@ -61,22 +68,24 @@ MAL_DEFINE_destroyAllocator(context, allocator) {
         allocation = next;
     }
     free(handle);
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_openReadWriteCreate(context, path) {
-    uint64_t length = mal_Symbol_length(path);
+MAL_DEFINE_openReadWriteCreate(call, path) {
+    mal_span_t bytes = mal_Symbol_to_bytes(call, path);
+    uint64_t length = bytes.length;
     if (length > SIZE_MAX - 1) {
-        mal_trap(context, "file path is too long");
+        mal_call_trap(call, "file path is too long");
     }
-    if (length > 0 && memchr(mal_Symbol_data(path), '\0', (size_t)length) != NULL) {
-        mal_trap(context, "file path contains a null byte");
+    if (length > 0 && memchr(bytes.data, '\0', (size_t)length) != NULL) {
+        mal_call_trap(call, "file path contains a null byte");
     }
     char *terminated = malloc((size_t)length + 1);
     if (terminated == NULL) {
-        mal_trap(context, "file path allocation failed");
+        mal_call_trap(call, "file path allocation failed");
     }
     if (length > 0) {
-        memcpy(terminated, mal_Symbol_data(path), (size_t)length);
+        memcpy(terminated, bytes.data, (size_t)length);
     }
     terminated[length] = '\0';
     FILE *file = fopen(terminated, "r+b");
@@ -85,80 +94,87 @@ MAL_DEFINE_openReadWriteCreate(context, path) {
     }
     free(terminated);
     if (file == NULL) {
-        mal_trap(context, "cannot open file");
+        mal_call_trap(call, "cannot open file");
     }
-    return mal_File_from_bits((uintptr_t)file);
+    return mal_File_return(call, mal_File_from_bits((uintptr_t)file));
 }
 
-MAL_DEFINE_standardInput(context) {
-    return mal_File_from_bits((uintptr_t)stdin);
+MAL_DEFINE_standardInput(call) {
+    return mal_File_return(call, mal_File_from_bits((uintptr_t)stdin));
 }
 
-MAL_DEFINE_readFile(context, file, region) {
-    MalType_Ptr memory = mal_Region_get_0(region);
-    uint64_t capacity = mal_Region_get_1(region);
+MAL_DEFINE_readFile(call, value) {
+    FILE *handle = file_handle(value.field_0);
+    void *memory = value.field_1.field_0;
+    uint64_t capacity = value.field_1.field_1;
     if (capacity > SIZE_MAX) {
-        mal_trap(context, "file read capacity is too large");
+        mal_call_trap(call, "file read capacity is too large");
     }
-    FILE *handle = file_handle(file);
-    size_t length = fread(mal_Ptr_address(memory), 1, (size_t)capacity, handle);
+    size_t length = fread(memory, 1, (size_t)capacity, handle);
     if (ferror(handle)) {
-        mal_trap(context, "cannot read file");
+        mal_call_trap(call, "cannot read file");
     }
-    return (uint64_t)length;
+    return mal_UInt64_return(call, (uint64_t)length);
 }
 
-MAL_DEFINE_writeFile(context, file, bytes) {
-    MalType_Ptr memory = mal_Bytes_get_0(bytes);
-    uint64_t length = mal_Bytes_get_1(bytes);
+MAL_DEFINE_writeFile(call, value) {
+    FILE *handle = file_handle(value.field_0);
+    void *memory = value.field_1.field_0;
+    uint64_t length = value.field_1.field_1;
     if (length > SIZE_MAX) {
-        mal_trap(context, "file write length is too large");
+        mal_call_trap(call, "file write length is too large");
     }
-    FILE *handle = file_handle(file);
-    size_t written = fwrite(mal_Ptr_address(memory), 1, (size_t)length, handle);
+    size_t written = fwrite(memory, 1, (size_t)length, handle);
     if (ferror(handle)) {
-        mal_trap(context, "cannot write file");
+        mal_call_trap(call, "cannot write file");
     }
-    return (uint64_t)written;
+    return mal_UInt64_return(call, (uint64_t)written);
 }
 
-MAL_DEFINE_rewindFile(context, file) {
+MAL_DEFINE_rewindFile(call, file) {
     if (fseek(file_handle(file), 0, SEEK_SET) != 0) {
-        mal_trap(context, "cannot rewind file");
+        mal_call_trap(call, "cannot rewind file");
     }
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_flushFile(context, file) {
+MAL_DEFINE_flushFile(call, file) {
     if (fflush(file_handle(file)) != 0) {
-        mal_trap(context, "cannot flush file");
+        mal_call_trap(call, "cannot flush file");
     }
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_closeFile(context, file) {
+MAL_DEFINE_closeFile(call, file) {
     if (fclose(file_handle(file)) != 0) {
-        mal_trap(context, "cannot close file");
+        mal_call_trap(call, "cannot close file");
     }
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSymbol(context, value) {
-    uint64_t length = mal_Symbol_length(value);
+MAL_DEFINE_writeSymbol(call, value) {
+    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
+    uint64_t length = bytes.length;
     if (length > SIZE_MAX
-        || fwrite(mal_Symbol_data(value), 1, (size_t)length, stdout) != (size_t)length) {
-        mal_trap(context, "cannot write stdout");
+        || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
+        mal_call_trap(call, "cannot write stdout");
     }
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeBytes(context, memory, length) {
-    if (length > SIZE_MAX
-        || fwrite(mal_Ptr_address(memory), 1, (size_t)length, stdout) != (size_t)length) {
-        mal_trap(context, "cannot write stdout");
+MAL_DEFINE_writeBytes(call, value) {
+    if (value.field_1 > SIZE_MAX
+        || fwrite(value.field_0, 1, (size_t)value.field_1, stdout) != (size_t)value.field_1) {
+        mal_call_trap(call, "cannot write stdout");
     }
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_fail(context, message) {
-    if (mal_Symbol_length(message) > 0) {
-        fwrite(mal_Symbol_data(message), 1, (size_t)mal_Symbol_length(message), stderr);
+MAL_DEFINE_fail(call, message) {
+    mal_span_t bytes = mal_Symbol_to_bytes(call, message);
+    if (bytes.length > 0) {
+        fwrite(bytes.data, 1, (size_t)bytes.length, stderr);
         fputc('\n', stderr);
     }
-    mal_trap(context, "host rejected the database");
+    mal_call_trap(call, "host rejected the database");
 }

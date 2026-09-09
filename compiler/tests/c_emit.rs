@@ -47,8 +47,9 @@ const PRINT_HOST: &str = r#"#include "program.mal.h"
 #error "missing printInt32 capability"
 #endif
 
-MAL_DEFINE_printInt32(context, value) {
+MAL_DEFINE_printInt32(call, value) {
     printf("%d\n", value);
+    return mal_Unit_return(call);
 }
 "#;
 

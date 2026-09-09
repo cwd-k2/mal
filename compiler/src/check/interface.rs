@@ -93,31 +93,59 @@ impl Checker {
     ) -> Vec<Option<String>> {
         match parameter {
             Type::Unit => Vec::new(),
-            Type::Product(elements) => self
-                .product_element_sources(source)
-                .map(|sources| {
-                    sources
-                        .iter()
-                        .map(|source| self.alias_name(source))
-                        .collect()
-                })
-                .filter(|aliases: &Vec<_>| aliases.len() == elements.len())
-                .unwrap_or_else(|| vec![None; elements.len()]),
-            _ => vec![self.alias_name(source)],
+            Type::Product(_) => self.aggregate_aliases(source, parameter),
+            Type::Sum(_)
+            | Type::External { .. }
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+            | Type::Float32
+            | Type::Float64
+            | Type::Symbol
+            | Type::Ptr
+            | Type::Function { .. } => {
+                vec![self.alias_name(source)]
+            }
         }
     }
 
-    fn product_element_sources<'a>(
+    pub(super) fn aggregate_aliases(
+        &self,
+        source: &Node<resolved::TypeExpression>,
+        ty: &Type,
+    ) -> Vec<Option<String>> {
+        let elements = match ty {
+            Type::Product(elements) | Type::Sum(elements) => elements,
+            _ => return Vec::new(),
+        };
+        self.aggregate_element_sources(source)
+            .map(|sources| {
+                sources
+                    .iter()
+                    .map(|source| self.alias_name(source))
+                    .collect()
+            })
+            .filter(|aliases: &Vec<_>| aliases.len() == elements.len())
+            .unwrap_or_else(|| vec![None; elements.len()])
+    }
+
+    fn aggregate_element_sources<'a>(
         &'a self,
         ty: &'a Node<resolved::TypeExpression>,
     ) -> Option<&'a [Node<resolved::TypeExpression>]> {
         match &ty.kind {
-            resolved::TypeExpression::Product(elements) => Some(elements),
-            resolved::TypeExpression::Parenthesized(inner) => self.product_element_sources(inner),
+            resolved::TypeExpression::Product(elements)
+            | resolved::TypeExpression::Sum(elements) => Some(elements),
+            resolved::TypeExpression::Parenthesized(inner) => self.aggregate_element_sources(inner),
             resolved::TypeExpression::Named(reference) => self
                 .aliases
                 .get(&reference.id)
-                .and_then(|definition| self.product_element_sources(&definition.value)),
+                .and_then(|definition| self.aggregate_element_sources(&definition.value)),
             _ => None,
         }
     }

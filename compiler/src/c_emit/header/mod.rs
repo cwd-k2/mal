@@ -6,7 +6,7 @@ use super::{
 };
 use crate::c_emit::syntax::{
     Block, Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature,
-    MacroInvocation, Statement, TranslationUnit,
+    Initializer, MacroInvocation, Statement, TranslationUnit,
 };
 
 mod prefix;
@@ -22,14 +22,13 @@ pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &Ho
     let mut output = emit_prefix();
     let mut declarations = types.header_declarations(host);
     declarations.extend(types.header_alias_declarations(host, &interface.type_aliases));
+    declarations.extend(types.host_value_declarations(host, &interface.type_aliases));
     if !declarations.is_empty() {
         begin_section(&mut output, "Host-visible types");
         output.extend(declarations);
     }
 
-    let mut helpers = types.header_opaque_helpers(host);
-    helpers.extend(types.header_lifetime_helpers(host, &interface.type_aliases));
-    helpers.extend(types.header_alias_helpers(host, &interface.type_aliases));
+    let helpers = types.host_value_helpers(host, &interface.type_aliases);
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.extend(helpers);
@@ -41,8 +40,8 @@ pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &Ho
             emit_external_declaration(&mut output, &signatures.compiler);
         }
         begin_section(&mut output, "External definition helpers");
-        for signatures in &signatures {
-            emit_definition_macro(&mut output, &signatures.compiler);
+        for (external, signatures) in interface.externals.iter().zip(&signatures) {
+            emit_definition_macro(&mut output, signatures, external, types);
         }
     }
     output.push(Directive::Endif);
@@ -57,7 +56,7 @@ pub(super) fn emit_host(
     let mut output = TranslationUnit::new([Directive::include_quoted(header_name).into()]);
     for external in &interface.externals {
         let signatures = ExternalSignatures::new(external, types);
-        let signature = &signatures.compiler;
+        let signature = &signatures.host_body;
         output.blank_line();
         let mut body = Block::default();
         for name in signature.parameter_names().into_iter().skip(1) {
@@ -67,9 +66,9 @@ pub(super) fn emit_host(
             )));
         }
         body.push(Statement::call(
-            "mal_trap",
+            "mal_call_trap",
             [
-                Expr::identifier("context"),
+                Expr::identifier("call"),
                 Expr::string(format!(
                     "external operation `{}` is not implemented",
                     signatures.host_body.operation_name
@@ -77,7 +76,7 @@ pub(super) fn emit_host(
             ],
         ));
         output.push(FunctionDefinition::from_macro(
-            macro_invocation(signature),
+            host_macro_invocation(signature),
             body,
         ));
     }
@@ -94,22 +93,82 @@ fn emit_external_declaration(output: &mut TranslationUnit, signature: &CompilerS
     output.push(Declaration::function(external_signature(signature, false)));
 }
 
-fn emit_definition_macro(output: &mut TranslationUnit, signature: &CompilerSignature<'_>) {
+fn emit_definition_macro(
+    output: &mut TranslationUnit,
+    signatures: &ExternalSignatures<'_>,
+    external: &crate::core::ast::ExternalOperation,
+    types: &TypeRegistry,
+) {
+    let signature = &signatures.compiler;
     output.push(Directive::define_expr(
         format!("MAL_HAS_EXTERN_{}", signature.operation_name),
         Expr::number("1"),
     ));
     output.push(Directive::function_items_define(
         format!("MAL_DEFINE_{}", signature.operation_name),
-        signature.parameter_names(),
-        [],
-        [],
-        external_signature(signature, true),
+        signatures.host_body.parameter_names(),
+        [signatures.host_body.signature()],
+        [wrapper_definition(signatures, external, types)],
+        signatures.host_body.signature(),
     ));
     output.blank_line();
 }
 
-fn macro_invocation(signature: &CompilerSignature<'_>) -> MacroInvocation {
+fn wrapper_definition(
+    signatures: &ExternalSignatures<'_>,
+    external: &crate::core::ast::ExternalOperation,
+    types: &TypeRegistry,
+) -> FunctionDefinition {
+    let mut body = Block::new([Statement::variable(
+        "mal_call_t",
+        "call",
+        Some(Expr::compound_literal(
+            "mal_call_t",
+            [Initializer::designated(
+                "mal_detail_context",
+                Expr::identifier("context"),
+            )],
+        )),
+    )]);
+    let mut arguments = vec![Expr::address_of(Expr::identifier("call"))];
+    match &external.parameter {
+        crate::check::ast::Type::Unit => {}
+        crate::check::ast::Type::Product(elements) => {
+            let raw = Expr::compound_literal(
+                types.c_type(&external.parameter),
+                elements.iter().enumerate().map(|(field, _)| {
+                    Initializer::designated(
+                        format!("field_{field}"),
+                        Expr::identifier(format!("argument_{field}")),
+                    )
+                }),
+            );
+            arguments.push(types.raw_to_host_value(
+                &external.parameter,
+                external.parameter_alias.as_deref(),
+                Expr::address_of(Expr::identifier("call")),
+                raw,
+            ));
+        }
+        ty => arguments.push(types.raw_to_host_value(
+            ty,
+            external.parameter_alias.as_deref(),
+            Expr::address_of(Expr::identifier("call")),
+            Expr::identifier("value"),
+        )),
+    }
+    let call = Expr::named_call(format!("mal_detail_{}", external.name), arguments);
+    if external.result == crate::check::ast::Type::Unit {
+        body.push(Statement::expression(call));
+    } else {
+        body.push(Statement::return_value(call));
+    }
+    FunctionDefinition::from_signature(external_signature(&signatures.compiler, true), body)
+}
+
+fn host_macro_invocation(
+    signature: &super::host_signature::HostBodySignature<'_>,
+) -> MacroInvocation {
     MacroInvocation::new(
         format!("MAL_DEFINE_{}", signature.operation_name),
         signature
@@ -117,14 +176,6 @@ fn macro_invocation(signature: &CompilerSignature<'_>) -> MacroInvocation {
             .into_iter()
             .map(Expr::identifier),
     )
-}
-
-fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, result: Expr) {
-    output.push(FunctionDefinition::from_signature(
-        signature,
-        Block::new([Statement::return_value(result)]),
-    ));
-    output.blank_line();
 }
 
 fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> FunctionSignature {

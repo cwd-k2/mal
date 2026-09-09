@@ -34,7 +34,7 @@ malc build source.mal --output program
 - `emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。
   `--output path`で出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
 - `emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは
-  `program.mal.h`をincludeし、未実装のoperationを`mal_trap`させるため、そのまま保存して実装の開始点にできる。
+  `program.mal.h`をincludeし、未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。

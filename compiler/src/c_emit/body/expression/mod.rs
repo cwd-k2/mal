@@ -336,17 +336,14 @@ impl BodyEmitter<'_> {
             Type::Unit => {}
             Type::Product(elements) => {
                 let argument = self.emit_atom(argument);
-                arguments.extend(elements.iter().enumerate().map(|(index, element)| {
-                    self.types.materialize_symbols(
-                        element,
-                        argument.clone().field(format!("field_{index}")),
-                    )
-                }));
+                arguments.extend(
+                    elements
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| argument.clone().field(format!("field_{index}"))),
+                );
             }
-            parameter => arguments.push(
-                self.types
-                    .materialize_symbols(parameter, self.emit_atom(argument)),
-            ),
+            _ => arguments.push(self.emit_atom(argument)),
         }
         Expr::named_call(format!("mal_ext_{}", external.name), arguments)
     }

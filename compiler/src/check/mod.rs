@@ -67,7 +67,7 @@ impl Checker {
                     let ty = self.expand_type_id(binding.id, binding.name.span)?;
                     let target_alias = self.alias_name(value);
                     let element_aliases = match &ty {
-                        Type::Product(_) | Type::Sum(_) => self.immediate_aliases(value, &ty),
+                        Type::Product(_) | Type::Sum(_) => self.aggregate_aliases(value, &ty),
                         _ => Vec::new(),
                     };
                     TopItem::TypeAlias {

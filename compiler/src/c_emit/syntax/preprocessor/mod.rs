@@ -41,36 +41,6 @@ pub(in crate::c_emit) enum Pragma {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::c_emit) enum PastePart {
-    Text(TokenFragment),
-    Parameter(Identifier),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::c_emit) struct TokenFragment(String);
-
-impl TokenFragment {
-    fn new(value: String) -> Self {
-        assert!(
-            !value.is_empty()
-                && value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'),
-            "generated C token fragment is invalid: {value:?}"
-        );
-        Self(value)
-    }
-}
-
-impl Deref for TokenFragment {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::c_emit) struct MacroParameter(Identifier);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,11 +67,6 @@ pub(in crate::c_emit) enum Directive {
     Define {
         name: Identifier,
         value: Option<MacroValue>,
-    },
-    FunctionAlias {
-        name: Identifier,
-        parameters: Vec<MacroParameter>,
-        replacement: Vec<PastePart>,
     },
     FunctionItemsDefine {
         name: Identifier,
@@ -155,16 +120,6 @@ impl PreprocessorExpr {
 
     pub(in crate::c_emit) fn logical_or(left: Self, right: Self) -> Self {
         Self::binary(BinaryOperator::LogicalOr, left, right)
-    }
-}
-
-impl PastePart {
-    pub(in crate::c_emit) fn text(value: impl Into<String>) -> Self {
-        Self::Text(TokenFragment::new(value.into()))
-    }
-
-    pub(in crate::c_emit) fn parameter(name: impl Into<Identifier>) -> Self {
-        Self::Parameter(name.into())
     }
 }
 
@@ -222,18 +177,6 @@ impl Directive {
         Self::Define {
             name: name.into(),
             value: Some(MacroValue::Attribute(attribute)),
-        }
-    }
-
-    pub(in crate::c_emit) fn function_alias(
-        name: impl Into<Identifier>,
-        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        replacement: impl IntoIterator<Item = PastePart>,
-    ) -> Self {
-        Self::FunctionAlias {
-            name: name.into(),
-            parameters: parameters.into_iter().map(Into::into).collect(),
-            replacement: replacement.into_iter().collect(),
         }
     }
 

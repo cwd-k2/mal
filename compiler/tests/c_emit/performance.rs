@@ -3,11 +3,14 @@ use super::*;
 const INPUT_HOST: &str = r#"#include "program.mal.h"
 #include <string.h>
 
-MAL_DEFINE_input(context) {
+MAL_DEFINE_input(call) {
     static const uint8_t bytes[] = "abcdefghijklmnopqrstuvwxyz";
-    MalSymbolAdmission admission = mal_SymbolAdmission_begin(context, sizeof(bytes) - 1);
-    memcpy(mal_SymbolAdmission_data(&admission), bytes, sizeof(bytes) - 1);
-    return mal_SymbolAdmission_finish(context, &admission, sizeof(bytes) - 1);
+    return mal_Symbol_return(
+        call,
+        mal_Symbol_from_bytes(
+            (mal_span_t){ .data = bytes, .length = sizeof(bytes) - 1 }
+        )
+    );
 }
 "#;
 
@@ -40,11 +43,7 @@ main :: Unit -> Int32 := \() {
 };"#,
     )
     .expect("emit flat Symbol scan");
-    assert!(
-        generated
-            .source
-            .contains("static inline void mal_symbol_release(")
-    );
+    assert!(generated.source.contains("void mal_symbol_release("));
 
     let fixture = NativeFixture::new("flat-symbol-scan-cost");
     let llvm_ir = fixture.compile_generated_to_llvm_ir(generated.clone());
@@ -356,7 +355,7 @@ main :: Unit -> Int32 := \() {
 }
 
 #[test]
-fn tracks_transient_host_symbol_admission_cost() {
+fn tracks_transient_host_symbol_copy_cost() {
     let generated = emit(
         r#"extern input :: Unit -> Symbol;
 read :: (Int64, UInt64) -> UInt64 := \(remaining, total) {
@@ -371,8 +370,8 @@ main :: Unit -> Int32 := \() {
   if (read(32i64, 0u64) == 832u64) then { 0 } else { 1 };
 };"#,
     )
-    .expect("emit transient Symbol admission");
-    let fixture = NativeFixture::new("transient-symbol-admission-cost");
+    .expect("emit transient host Symbol copy");
+    let fixture = NativeFixture::new("transient-host-symbol-copy-cost");
     let executable = fixture.compile_generated_with_options(
         generated,
         INPUT_HOST,

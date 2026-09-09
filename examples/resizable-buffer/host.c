@@ -20,115 +20,98 @@ typedef struct {
     RetiredStorage *retired;
 } AllocationHandle;
 
-static AllocationHandle *allocation_handle(MalType_Allocation allocation) {
-    return (AllocationHandle *)mal_Allocation_bits(allocation);
+static AllocationHandle *allocation_handle(mal_Allocation_t allocation) {
+    return (AllocationHandle *)mal_Allocation_to_bits(allocation);
 }
 
-static MalType_BufferResult buffer_error(uint32_t error) {
-    return mal_BufferResult_make_1(error);
+static mal_Buffer_t buffer_value(AllocationHandle *handle, uint64_t length) {
+    return (mal_Buffer_t){
+        .field_0 = mal_Allocation_from_bits((uintptr_t)handle),
+        .field_1 = handle->memory,
+        .field_2 = handle->capacity,
+        .field_3 = length,
+    };
 }
 
-static MalType_BufferResult buffer_success(AllocationHandle *handle, uint64_t length) {
-    return mal_BufferResult_make_0(
-        mal_Allocation_from_bits((uintptr_t)handle),
-        mal_Ptr_from_address(handle->memory),
-        handle->capacity,
-        length
-    );
+static mal_Bool_t is_current_buffer(mal_Buffer_t buffer) {
+    AllocationHandle *handle = allocation_handle(buffer.field_0);
+    return handle->memory == buffer.field_1
+        && handle->capacity == buffer.field_2
+        && buffer.field_3 <= buffer.field_2
+        ? mal_true
+        : mal_false;
 }
 
-static MalType_Bool is_current_buffer(
-    MalType_Allocation allocation,
-    MalType_Ptr memory,
-    uint64_t capacity,
-    uint64_t length
-) {
-    AllocationHandle *handle = allocation_handle(allocation);
-    return handle->memory == mal_Ptr_address(memory)
-        && handle->capacity == capacity
-        && length <= capacity
-        ? MAL_TRUE
-        : MAL_FALSE;
-}
-
-static MalType_Bool is_current_slice(
-    MalType_Allocation allocation,
-    MalType_Ptr memory,
-    uint64_t length
-) {
-    AllocationHandle *handle = allocation_handle(allocation);
+static mal_Bool_t is_current_slice(mal_Slice_t slice) {
+    AllocationHandle *handle = allocation_handle(slice.field_0);
     uintptr_t base = (uintptr_t)handle->memory;
-    uintptr_t address = (uintptr_t)mal_Ptr_address(memory);
-    if (address < base || length > handle->capacity) {
-        return MAL_FALSE;
+    uintptr_t address = (uintptr_t)slice.field_1;
+    if (address < base || slice.field_2 > handle->capacity) {
+        return mal_false;
     }
-    return address - base <= handle->capacity - length ? MAL_TRUE : MAL_FALSE;
+    return address - base <= handle->capacity - slice.field_2 ? mal_true : mal_false;
 }
 
 static void write_current_slice(
-    MalContext *context,
-    MalType_Allocation allocation,
-    MalType_Ptr memory,
-    uint64_t length
+    mal_call_t *call,
+    mal_Slice_t slice
 ) {
-    if (!is_current_slice(allocation, memory, length)) {
-        mal_trap(context, "attempted to use a stale slice");
+    if (!is_current_slice(slice)) {
+        mal_call_trap(call, "attempted to use a stale slice");
     }
-    if (length > SIZE_MAX
-        || fwrite(mal_Ptr_address(memory), 1, (size_t)length, stdout) != (size_t)length) {
-        mal_trap(context, "cannot write stdout");
+    if (slice.field_2 > SIZE_MAX
+        || fwrite(slice.field_1, 1, (size_t)slice.field_2, stdout) != (size_t)slice.field_2) {
+        mal_call_trap(call, "cannot write stdout");
     }
 }
 
-MAL_DEFINE_allocateBuffer(context, initialCapacity, limit) {
-    if (initialCapacity == 0 || initialCapacity > limit || initialCapacity > SIZE_MAX) {
-        return buffer_error((uint32_t)EINVAL);
+MAL_DEFINE_allocateBuffer(call, value) {
+    if (value.field_0 == 0 || value.field_0 > value.field_1 || value.field_0 > SIZE_MAX) {
+        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
     }
     AllocationHandle *handle = malloc(sizeof(*handle));
-    uint8_t *memory = malloc((size_t)initialCapacity);
+    uint8_t *memory = malloc((size_t)value.field_0);
     if (handle == NULL || memory == NULL) {
         free(handle);
         free(memory);
-        return buffer_error((uint32_t)ENOMEM);
+        return mal_BufferResult_return_1(call, (uint32_t)ENOMEM);
     }
     handle->memory = memory;
-    handle->capacity = initialCapacity;
-    handle->limit = limit;
+    handle->capacity = value.field_0;
+    handle->limit = value.field_1;
     handle->retired = NULL;
-    return buffer_success(handle, UINT64_C(0));
+    return mal_BufferResult_return_0(call, buffer_value(handle, UINT64_C(0)));
 }
 
-MAL_DEFINE_resizeBuffer(context, buffer, targetCapacity) {
-    MalType_Allocation allocation = mal_Buffer_get_0(buffer);
-    MalType_Ptr memory = mal_Buffer_get_1(buffer);
-    uint64_t capacity = mal_Buffer_get_2(buffer);
-    uint64_t length = mal_Buffer_get_3(buffer);
-    if (!is_current_buffer(allocation, memory, capacity, length)) {
-        return buffer_error((uint32_t)EINVAL);
+MAL_DEFINE_resizeBuffer(call, value) {
+    mal_Buffer_t buffer = value.field_0;
+    uint64_t targetCapacity = value.field_1;
+    if (!is_current_buffer(buffer)) {
+        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
     }
-    AllocationHandle *handle = allocation_handle(allocation);
-    if (targetCapacity < length || targetCapacity > handle->limit || targetCapacity > SIZE_MAX) {
-        return buffer_error((uint32_t)EINVAL);
+    AllocationHandle *handle = allocation_handle(buffer.field_0);
+    if (targetCapacity < buffer.field_3 || targetCapacity > handle->limit || targetCapacity > SIZE_MAX) {
+        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
     }
     uint8_t *nextMemory = malloc((size_t)targetCapacity);
     RetiredStorage *retired = malloc(sizeof(*retired));
     if (nextMemory == NULL || retired == NULL) {
         free(nextMemory);
         free(retired);
-        return buffer_error((uint32_t)ENOMEM);
+        return mal_BufferResult_return_1(call, (uint32_t)ENOMEM);
     }
-    if (length > 0) {
-        memcpy(nextMemory, handle->memory, (size_t)length);
+    if (buffer.field_3 > 0) {
+        memcpy(nextMemory, handle->memory, (size_t)buffer.field_3);
     }
     retired->memory = handle->memory;
     retired->next = handle->retired;
     handle->retired = retired;
     handle->memory = nextMemory;
     handle->capacity = targetCapacity;
-    return buffer_success(handle, length);
+    return mal_BufferResult_return_0(call, buffer_value(handle, buffer.field_3));
 }
 
-MAL_DEFINE_releaseBuffer(context, allocation) {
+MAL_DEFINE_releaseBuffer(call, allocation) {
     AllocationHandle *handle = allocation_handle(allocation);
     RetiredStorage *retired = handle->retired;
     while (retired != NULL) {
@@ -139,33 +122,41 @@ MAL_DEFINE_releaseBuffer(context, allocation) {
     }
     free(handle->memory);
     free(handle);
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_isCurrentBuffer(context, allocation, memory, capacity, length) {
-    return is_current_buffer(allocation, memory, capacity, length);
+MAL_DEFINE_isCurrentBuffer(call, value) {
+    return mal_Bool_return(call, is_current_buffer(value));
 }
 
-MAL_DEFINE_isCurrentSlice(context, allocation, memory, length) {
-    return is_current_slice(allocation, memory, length);
+MAL_DEFINE_isCurrentSlice(call, value) {
+    return mal_Bool_return(call, is_current_slice(value));
 }
 
-MAL_DEFINE_writeSlice(context, allocation, memory, length) {
-    write_current_slice(context, allocation, memory, length);
+MAL_DEFINE_writeSlice(call, value) {
+    write_current_slice(call, value);
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSliceDescriptor(context, allocation, descriptor) {
-    uint8_t *address = mal_Ptr_address(descriptor);
-    MalType_Ptr memory;
+MAL_DEFINE_writeSliceDescriptor(call, value) {
+    uint8_t *address = value.field_1;
+    void *memory;
     uint64_t length;
     memcpy(&memory, address, sizeof(memory));
     memcpy(&length, address + sizeof(memory), sizeof(length));
-    write_current_slice(context, allocation, memory, length);
+    write_current_slice(
+        call,
+        (mal_Slice_t){ .field_0 = value.field_0, .field_1 = memory, .field_2 = length }
+    );
+    return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSymbol(context, value) {
-    uint64_t length = mal_Symbol_length(value);
+MAL_DEFINE_writeSymbol(call, value) {
+    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
+    uint64_t length = bytes.length;
     if (length > SIZE_MAX
-        || fwrite(mal_Symbol_data(value), 1, (size_t)length, stdout) != (size_t)length) {
-        mal_trap(context, "cannot write stdout");
+        || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
+        mal_call_trap(call, "cannot write stdout");
     }
+    return mal_Unit_return(call);
 }

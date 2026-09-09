@@ -1,9 +1,9 @@
 # C host interface再設計例
 
-Status: Accepted design examples; implementation pending; current v0.5 ABIではない
+Status: Current v0.6 examples
 
-この文書は[C host interface再設計案](c-host-interface.md)のaccepted surfaceを代表的なexternal operationへ適用する。実装済みまたは
-current ABIではない。すべてのbodyはcurrent `mal_call_t`を受け、`mal_<T>_t`を通常のC valueとして扱い、型付きresult
+この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。すべてのbodyは
+`mal_call_t`を受け、`mal_<T>_t`を通常のC valueとして扱い、型付きresult
 operationをC `return` expressionで返す。説明には`T::operation`というabstract notationを使い、C code blockには対応する
 `mal_<T>_<operation>` spellingを示す。
 

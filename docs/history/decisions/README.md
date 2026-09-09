@@ -15,11 +15,11 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
-| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D034](D034.md)、[D039](D039.md) |
+| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
 | `Ptr` memory primitive | [D022](D022.md)、[D024](D024.md)、[D035](D035.md)、[D037](D037.md) |
-| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D034](D034.md)、[D035](D035.md)、[D036](D036.md) |
+| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -40,6 +40,8 @@ D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換え
 | [D028: Engram operator](D028.md) | [D031](D031.md)で`Symbol` operationへrefine |
 | [D029: Engram concatenation](D029.md) | [D031](D031.md)で`Symbol` operationへrefine |
 | [D030: process argument descriptor](D030.md) | [D031](D031.md)でexternal descriptorへrefine |
+| [D034: C adapter ownership helper](D034.md) | [D040](D040.md) |
+| [D036: Symbol admission builder](D036.md) | [D040](D040.md) |
 | [D014: shift countを一律にtrap](D014.md) | [D035](D035.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
