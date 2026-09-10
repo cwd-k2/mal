@@ -59,5 +59,6 @@ malへの含意:
 cross-module optimizationとfunction importingを行える。したがって汎用runtimeをC sourceに保つことは、runtime callを永久に
 optimization barrierにすることを意味しない。
 
-LTOの有無でobservable semantics、public ABI、resource failure、stack boundが変わってはならない。初期実装ではnative object間の
-bridgeを正しさのbaselineにし、LTOは独立したperformance optionとして測定する。
+LTOの有無でobservable semantics、public ABI、resource failure、stack boundが変わってはならない。native object間のbridgeでも
+正しさを保つことを前提にLTOを独立して測定し、public buildへ採用した結果は
+[LLVM backend performance](../history/performance/llvm-backend.md)に記録する。

@@ -7,5 +7,6 @@ Status: Historical records
 [test policy](../../development/testing.md)を正とする。
 
 - [generated C](generated-c.md)
+- [LLVM backend](llvm-backend.md)
 - [managed Engram](managed-engrams.md)
 - [reference compiler compile-time](compiler.md)

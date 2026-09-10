@@ -16,8 +16,9 @@ Status: Current policy
 
 ## baseline
 
-比較するbinaryは同じpinned Clang、target、`-O2`、strict floating-point option、LTO設定でbuildする。ambient `CC`を継承しない。
-correctness baselineはLTOなしとし、LTOありでも同じobservable resultになることを別に確認する。
+比較するbinaryは同じpinned Clang、target、`-O2 -flto`、strict floating-point optionでbuildする。ambient `CC`を継承しない。
+public buildのcorrectness baselineはLTOを含む。LTO有無を最適化調査で比較する場合は、同じobservable resultを先に確認し、
+差分をsource責務の移動ではなくcross-translation-unit optimizationの効果として扱う。
 
 wall-clockは同じinput、warmup、run数で交互に測り、5 ms未満のcaseを採否の主根拠にしない。noiseを含む単発値ではなくmedianと範囲を残す。
 instruction count、branch、allocation counter、peak resident memory、artifact sizeなど再現しやすい第二指標を少なくとも一つ併用する。

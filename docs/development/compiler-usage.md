@@ -52,8 +52,10 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 requireされたhost C sourceと同じ`clang`でcompile、linkする。extern callはinternal pointer/out-pointer bridgeを通してpublic headerの
 C ABIへ変換する。ambient `CC`は参照せず、v0.5にはcompilerまたはoptionを差し替えるCLIはない。
 
-`build`は各artifactを`-O2`でcompileする。これはpublic buildの生成物policyであり、
-言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
+`build`は各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
+一つのlink-time optimization unitにする。これはprogram固有のLLVM IRとprogram非依存のC mechanismのsource責務を保ったまま、
+境界上の小さいhelper callを最適化するpublic buildの生成物policyである。
+このpolicyは言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
 `-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
 
 Clangを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を

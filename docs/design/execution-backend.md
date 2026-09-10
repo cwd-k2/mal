@@ -60,8 +60,9 @@ LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、o
 declarationとLLVM type、parameter attributeを生成し、双方でsignature、field、size、alignmentを再定義しない。bridge symbolは
 public headerへ出さない。
 
-runtime CをLLVM bitcodeへcompileし、generated moduleとLTOしてよい。LTOはhelperのinliningとcross-module optimizationの機会であり、
-正しさ、ABI一致、stack boundの前提にはしない。利用者がrequireしたC sourceとhost adapterはnative objectのままlinkできる。
+driverはgenerated module、runtime C、C shim、利用者がrequireしたC sourceを同じLTO unitとしてcompile、linkする。LTOは
+`mal_control_reserve_frame`のcapacity fast pathなど、責務境界に置いた小さいhelperのinliningとcross-module optimizationに使う。
+正しさ、ABI一致、stack boundはLTOへ依存させず、LTOを無効にしても同じobservable resultを保つ。
 
 ## control storage
 
