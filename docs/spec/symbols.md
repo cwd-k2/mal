@@ -53,6 +53,10 @@ length、byte access、equalityは既存のbyte sequenceを観測するoperation
 `Symbol.write`にも同じ規則を適用する。連続したborrow領域を要求するreference C ABIのextern parameter準備は
 source-level operationではなく、[C host ABI](c-host-abi.md#type-mapping)が所有する境界処理である。
 
+byte accessはimmutableなbyte valueに対する位置指定のobservationであり、`Symbol`をindexed storageとして定めるものではない。
+反復的な更新、再利用可能なbuffer、またはstorageのboundsとlifetimeを必要とするalgorithmは、次節の`Ptr`またはexternal
+opaque typeで表す。
+
 ## mutable bytesとの分離
 
 `Symbol`の内容は変更できない。mutableな外部storageは`Ptr`またはexternal opaque typeで表し、必要なbytesを
