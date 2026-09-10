@@ -109,7 +109,7 @@ host adapterはC11としてClangでcompileし、LLVM moduleも同じtoolchainの
 2. `control`をpipelineで明示的に構成し、`c_emit/body/analysis`からbackend-independentな解析を`execution`へ移す。C outputを変えない。（完了）
 3. `c_emit`のpublic interface、C syntax、runtime生成、body生成のAPIを分け、移行中のbody emitterをlegacy oracleとして隔離する。
 4. internal bridge ABI planを導入し、同じplanからC declarationとLLVM signature、parameter attributeを生成してClangでlink検査する。（pointer/out-pointer root bridgeは完了）
-5. scalarだけのfunction body、branch、direct call、tail edgeをLLVM IRへlowerし、C shimからrootを呼ぶ。（整数・浮動小数点型と`Ptr`は完了）
+5. scalarだけのfunction body、branch、direct call、tail edgeをLLVM IRへlowerし、C shimからrootを呼ぶ。（closed top-level valueを含め完了）
 6. direct-self non-tail region、homogeneous frame、managed ownerのないresumeをLLVMへ移す。（unmanagedな数値scalar frameは完了）
 7. heterogeneous frame、managed owner、closure environment、indirect recursive regionを順に移す。（完了）
 8. generated runtime logicをchecked-in C11 sourceへ移し、control、allocation、Symbol、ropeの順にRust C emitterから削除する。（LLVM artifact用core・controlとreference-counted flat `Symbol` runtimeは完了。rope、C oracle側の削除は未完了）

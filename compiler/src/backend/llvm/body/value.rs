@@ -132,14 +132,13 @@ impl FunctionEmitter<'_> {
                 })
             }
             (ty, AtomKind::Reference(Reference::Binding(id))) if !self.slots.contains_key(id) => {
-                let (constant_ty, representation) =
-                    super::plan::referenced_top_level_constant(self.execution, *id, self.types)?;
-                if constant_ty != *ty {
+                let (constant_ty, representation) = self.top_levels.get(*id)?;
+                if *constant_ty != *ty {
                     return None;
                 }
                 Some(EmittedValue {
                     ty: ty.clone(),
-                    representation,
+                    representation: representation.into(),
                     owned: false,
                 })
             }

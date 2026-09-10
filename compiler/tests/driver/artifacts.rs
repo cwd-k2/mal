@@ -59,6 +59,51 @@ fn references_closed_top_level_numeric_constants_through_llvm() {
 }
 
 #[test]
+fn references_structural_closed_top_level_values_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-structural-top-level");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Choice :: [Unit, Symbol];\n\
+         (number, text) :: (Int32, Symbol) := (-7i32, \"ok\");\n\
+         choice :: Choice := Choice[1](\"yes\");\n\
+         enabled :: Bool := true;\n\
+         reader :: Ptr -> Int64 := Int64.load;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           case (choice)\n\
+             [0](_) { 1 }\n\
+             [1](value) {\n\
+               if (enabled) then {\n\
+                 if (number == -7i32) then {\n\
+                   if (text == \"ok\" && value == \"yes\") then { 0 } else { 2 };\n\
+                 } else { 3 };\n\
+               } else { 4 };\n\
+             };\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn passes_process_arguments_through_the_llvm_entry_bridge() {
     let directory = NativeFixture::new("driver-llvm-arguments");
     let source = directory.join("program.mal");

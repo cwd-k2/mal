@@ -122,7 +122,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。managed captureを持つfirst-class function、managed productとsum、direct・indirect call、self-tail edge、recursive regionのtyped continuation frame、transportableなextern callをadmit |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
-| `backend/llvm/body/plan` | root、reachable state、slot、およびclosed top-level numeric constantのLLVM admissionを構成 |
+| `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
 | `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |

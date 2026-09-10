@@ -18,8 +18,8 @@ pub(super) mod types;
 mod value;
 
 use plan::{
-    collect_pattern_ids, collect_pattern_slot, insert_slot, main_function, pattern_value_type,
-    reachable_states, top_levels_are_supported,
+    TopLevelConstants, collect_pattern_ids, collect_pattern_slot, insert_slot, main_function,
+    pattern_value_type, reachable_states,
 };
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
@@ -43,15 +43,13 @@ pub(super) fn generate(
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
     let types = Types::new(pointer_size)?;
-    if !top_levels_are_supported(execution, types) {
-        return None;
-    }
-    let mut globals = String::new();
+    let top_levels = TopLevelConstants::new(execution, types)?;
+    let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;
     let mut uses_symbols = false;
     for function in &execution.control.functions {
-        let emitter = FunctionEmitter::new(execution, function.id, types)?;
+        let emitter = FunctionEmitter::new(execution, function.id, types, &top_levels)?;
         uses_control |= emitter.has_frames;
         uses_symbols |= emitter.uses_symbols;
         let emitted = emitter.emit()?;
@@ -82,6 +80,7 @@ struct FunctionEmitter<'a> {
     has_frames: bool,
     external_storage: Option<(usize, usize)>,
     types: Types,
+    top_levels: &'a TopLevelConstants,
     uses_symbols: bool,
     next_register: usize,
     globals: String,
@@ -107,7 +106,12 @@ struct EmittedFunction {
 }
 
 impl<'a> FunctionEmitter<'a> {
-    fn new(execution: &'a crate::execution::Program, id: FunctionId, types: Types) -> Option<Self> {
+    fn new(
+        execution: &'a crate::execution::Program,
+        id: FunctionId,
+        types: Types,
+        top_levels: &'a TopLevelConstants,
+    ) -> Option<Self> {
         let function = execution
             .control
             .functions
@@ -244,6 +248,7 @@ impl<'a> FunctionEmitter<'a> {
             has_frames: !frame_sites.is_empty(),
             external_storage,
             types,
+            top_levels,
             uses_symbols,
             next_register: 0,
             globals: String::new(),
