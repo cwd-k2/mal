@@ -179,6 +179,43 @@ fn resumes_managed_self_continuation_frames_through_llvm() {
 }
 
 #[test]
+fn runs_managed_direct_self_tail_calls_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-managed-tail");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "count :: (Symbol, Int64) -> UInt64 := \\(value, remaining) {\n\
+           if (remaining == 0i64) then { #value }\n\
+           else { count(value, remaining - 1i64) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"x\" + \"y\";\n\
+           if (count(seed, 100000i64) == 2u64) then { 0 } else { 1 };\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let directory = NativeFixture::new("driver-llvm-integers");
     let source = directory.join("program.mal");

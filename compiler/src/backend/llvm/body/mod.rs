@@ -184,16 +184,6 @@ impl<'a> FunctionEmitter<'a> {
             .any(|slot| crate::execution::ownership::is_managed(&slot.ty))
             || crate::execution::ownership::is_managed(&function.parameter.ty)
             || crate::execution::ownership::is_managed(&lowered.body.result.ty);
-        if uses_symbols
-            && states.iter().any(|site| {
-                matches!(
-                    execution.control_calls.mode(*site),
-                    Some(ControlCallMode::DirectSelfTail)
-                )
-            })
-        {
-            return None;
-        }
         Some(Self {
             execution,
             control: &execution.control,
@@ -393,12 +383,14 @@ impl<'a> FunctionEmitter<'a> {
                             .tail_calls
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
-                        let value = self.atom(argument)?;
+                        let mut value = self.atom(argument)?;
                         let parameter = self.function.parameter.binding?;
                         let slot = self.slots.get(&parameter)?.clone();
                         if slot.ty != value.ty {
                             return None;
                         }
+                        self.retain_if_borrowed(&mut value)?;
+                        self.release_local_managed();
                         let value_type = self.types.value(&slot.ty)?;
                         self.line(format!(
                             "  store {} {}, ptr %mal_slot_{}, align {}",
