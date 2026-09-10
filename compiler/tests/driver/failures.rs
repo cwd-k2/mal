@@ -110,7 +110,11 @@ fn reports_required_c_source_and_c_compiler_failures() {
     assert!(stderr.contains("malc: C compiler '"));
     assert!(stderr.contains("failed with exit status"));
 
-    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
+    directory.write(
+        "program.mal",
+        "extern missing :: Int32 -> Int32;\n\
+         main :: Unit -> Int32 := \\() { missing(0); };",
+    );
     let unavailable_compiler = directory.join("missing-clang");
     let output = directory.malc_with_env(
         [

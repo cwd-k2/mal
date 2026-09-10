@@ -38,7 +38,7 @@ malc build source.mal --output program
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
-- `build`はgenerated C/headerをtemporary directoryに作り、C compilerでlinkした実行可能fileだけを指定先へ残す。
+- `build`はbackend artifactをtemporary directoryに作り、toolchainでlinkした実行可能fileだけを指定先へ残す。LLVM移行中の対応範囲とfallbackは後述する。
 - `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
@@ -50,9 +50,13 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 別の生成結果と組み合わせない。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
 既存・生成済みartifactが残る場合がある。
 
-## C compilerと`CC`
+## Build toolchainと`CC`
 
-`build`は`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、なければ`clang`を使う。
+LLVM backendが現在admitするcaptureとexternを持たない定数`Unit -> Int32` entryは、pinned `clang`から取得したtarget tripleと
+data layoutをLLVM moduleへ設定し、generated C shimと同じ`clang`でcompile、linkする。この経路はambient `CC`を参照しない。
+
+移行中のC body oracleへfallbackするprogramでは、`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、
+なければ`clang`を使う。
 Nushellで一回だけ切り替える例は次のとおり。
 
 ```nu

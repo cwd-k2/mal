@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn builds_a_constant_main_through_the_llvm_artifact_set() {
+    let directory = NativeFixture::new("driver-llvm");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 7; };");
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(7));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

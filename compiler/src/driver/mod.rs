@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::source::{FileId, SourceFile, SourceGraph};
 
 mod graph;
+mod toolchain;
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
@@ -69,27 +70,73 @@ pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error>
 
 pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    let generated =
-        crate::pipeline::emit_c_graph(&graph).map_err(|error| Error::diagnostic(error, &graph))?;
+    let execution = crate::pipeline::lower_graph_execution(&graph)
+        .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = TemporaryDirectory::new()?;
-    let generated_path = temporary.path().join("program.c");
-    write_generated(&generated_path, generated)?;
     create_parent(output_path)?;
 
+    if crate::backend::llvm::supports(&execution) {
+        let target = toolchain::host_target()?;
+        let generated = crate::backend::llvm::generate(
+            &execution,
+            crate::backend::llvm::Target {
+                triple: &target.triple,
+                data_layout: &target.data_layout,
+            },
+        )
+        .expect("LLVM support admission and generation agree");
+        let module_path = temporary.path().join("program.ll");
+        let shim_path = temporary.path().join("program-shim.c");
+        let header_path = temporary.path().join(crate::c_emit::GENERATED_HEADER_NAME);
+        fs::write(&module_path, generated.module)
+            .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
+        fs::write(&shim_path, generated.shim)
+            .map_err(|error| Error::io("write generated C shim", &shim_path, error))?;
+        fs::write(&header_path, generated.header)
+            .map_err(|error| Error::io("write generated header", &header_path, error))?;
+        return run_compiler(
+            OsStr::new(toolchain::CLANG),
+            temporary.path(),
+            [&module_path, &shim_path],
+            graph.c_sources(),
+            output_path,
+        );
+    }
+
+    let generated = crate::backend::c::generate(&execution)
+        .map_err(|error| Error::diagnostic(error, &graph))?;
+    let generated_path = temporary.path().join("program.c");
+    write_generated(&generated_path, generated)?;
     let compiler = std::env::var_os("CC").unwrap_or_else(|| OsString::from("clang"));
-    let result = Command::new(&compiler)
+    run_compiler(
+        &compiler,
+        temporary.path(),
+        [&generated_path],
+        graph.c_sources(),
+        output_path,
+    )
+}
+
+fn run_compiler<'a>(
+    compiler: &OsStr,
+    include_directory: &Path,
+    generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
+    required_inputs: impl IntoIterator<Item = &'a PathBuf>,
+    output_path: &Path,
+) -> Result<(), Error> {
+    let result = Command::new(compiler)
         .args(C_COMPILER_OPTIONS)
         .arg("-I")
-        .arg(temporary.path())
-        .arg(&generated_path)
-        .args(graph.c_sources())
+        .arg(include_directory)
+        .args(generated_inputs)
+        .args(required_inputs)
         .arg("-o")
         .arg(output_path)
         .output()
-        .map_err(|error| Error::tool_start(&compiler, error))?;
+        .map_err(|error| Error::tool_start(compiler, error))?;
     if !result.status.success() {
         return Err(Error::tool_failure(
-            &compiler,
+            compiler,
             result.status.code(),
             &result.stderr,
         ));

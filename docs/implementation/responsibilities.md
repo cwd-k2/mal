@@ -41,6 +41,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
 | `driver` | source file、require path、temporary path、C compiler process、C build inputのownership |
+| `driver/toolchain` | pinned Clangからhost target tripleとdata layoutを取得し、LLVM/C artifactを同じtargetへcompile |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
 predefined scopeの名前とreserved identityは`resolve/predefined`の一つの宣言から生成する。resolver、type checker、
@@ -117,6 +118,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、arena需要、constructor cardinality、frameが運ぶenvironment ownerを導出 |
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、closure-converted IR上のpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
+| `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとexternを持たない定数`Unit -> Int32` entryをadmit |
+| `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |

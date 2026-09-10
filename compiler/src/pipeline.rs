@@ -81,7 +81,9 @@ fn lower_execution(source: &SourceFile) -> Result<crate::execution::Program, Dia
     Ok(crate::execution::lower(crate::closure::convert(&anf)))
 }
 
-fn lower_graph_execution(graph: &SourceGraph) -> Result<crate::execution::Program, Diagnostic> {
+pub(crate) fn lower_graph_execution(
+    graph: &SourceGraph,
+) -> Result<crate::execution::Program, Diagnostic> {
     let checked = check_graph(graph)?;
     let core = crate::core::lower(&checked);
     let anf = crate::anf::lower(&core);
