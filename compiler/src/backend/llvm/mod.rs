@@ -1,8 +1,7 @@
-use crate::check::ast::Type;
-use crate::closure::ast::{AtomKind, FunctionId, Operation, Pattern, Reference, TopLevelPattern};
-
 use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
+
+mod body;
 
 pub(crate) struct Target<'a> {
     pub(crate) triple: &'a str,
@@ -10,21 +9,25 @@ pub(crate) struct Target<'a> {
 }
 
 pub(crate) fn supports(program: &crate::execution::Program) -> bool {
-    constant_main(program).is_some() && program.lowered.interface.externals.is_empty()
+    body::generate(program).is_some()
 }
 
 pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
 ) -> Option<LlvmArtifacts> {
-    let value = constant_main(program)?;
+    let body = body::generate(program)?;
     let entry = AbiFunction::program_entry();
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndefine {} {{\nentry:\n  store i32 {}, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}()\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
+        body.definitions,
         entry.llvm_signature(),
-        value as i32,
+        match body.main {
+            crate::closure::ast::FunctionId::Lambda(id) => format!("mal_function_{}", id.0),
+            crate::closure::ast::FunctionId::Memory(_) => return None,
+        },
     );
     let shim = format!(
         "#include <stddef.h>\n#include <stdint.h>\n\n{}\n\nint main(void) {{\n    int32_t result;\n    {}(NULL, NULL, &result);\n    return result;\n}}\n",
@@ -36,54 +39,6 @@ pub(crate) fn generate(
         shim,
         header: crate::backend::c::emit_header(&program.lowered.interface),
     })
-}
-
-fn constant_main(program: &crate::execution::Program) -> Option<i128> {
-    let binding = program.lowered.bindings.iter().find(|binding| {
-        matches!(&binding.pattern, TopLevelPattern::Binding { name, .. } if name == "main")
-    })?;
-    let TopLevelPattern::Binding { ty, .. } = &binding.pattern else {
-        return None;
-    };
-    if *ty
-        != (Type::Function {
-            parameter: Box::new(Type::Unit),
-            result: Box::new(Type::Int32),
-        })
-    {
-        return None;
-    }
-    let AtomKind::Reference(Reference::Binding(result)) = binding.value.result.kind else {
-        return None;
-    };
-    let function = binding.value.bindings.iter().find_map(|binding| {
-        let Pattern::Binding { id, .. } = binding.pattern else {
-            return None;
-        };
-        match &binding.operation {
-            Operation::MakeClosure { function, captures }
-                if id == result && captures.is_empty() =>
-            {
-                Some(*function)
-            }
-            _ => None,
-        }
-    })?;
-    let FunctionId::Lambda(_) = function else {
-        return None;
-    };
-    let function = program
-        .lowered
-        .functions
-        .iter()
-        .find(|candidate| candidate.id == function)?;
-    if !function.environment.is_empty() || function.parameter.ty != Type::Unit {
-        return None;
-    }
-    match function.body.result.kind {
-        AtomKind::Integer(value) if function.body.bindings.is_empty() => Some(value),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -117,7 +72,7 @@ mod tests {
                 .module
                 .contains("target triple = \"x86_64-unknown-linux-gnu\"")
         );
-        assert!(artifacts.module.contains("store i32 7, ptr %mal_result"));
+        assert!(artifacts.module.contains("ret i32 7"));
         assert!(artifacts.shim.contains(
             "void mal_program_entry(void *mal_context, const void *mal_argument, void *mal_result);"
         ));

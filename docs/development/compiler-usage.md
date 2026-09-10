@@ -52,8 +52,9 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 
 ## Build toolchainと`CC`
 
-LLVM backendが現在admitするcaptureとexternを持たない定数`Unit -> Int32` entryは、pinned `clang`から取得したtarget tripleと
-data layoutをLLVM moduleへ設定し、generated C shimと同じ`clang`でcompile、linkする。この経路はambient `CC`を参照しない。
+LLVM backendが現在admitするcapture、extern、managed value、recursive frameを持たない`Int32`演算、比較branch、direct call、
+self-tail edgeは、pinned `clang`から取得したtarget tripleとdata layoutをLLVM moduleへ設定し、generated C shimと同じ`clang`で
+compile、linkする。この経路はambient `CC`を参照しない。
 
 移行中のC body oracleへfallbackするprogramでは、`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、
 なければ`clang`を使う。

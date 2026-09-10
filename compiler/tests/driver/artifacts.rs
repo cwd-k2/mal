@@ -28,6 +28,40 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
 }
 
 #[test]
+fn builds_scalar_control_and_tail_calls_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-control");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "increment :: Int32 -> Int32 := \\(value) { value + 1; };\n\
+         countdown :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0) then { increment(value) } else { countdown(value - 1) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { countdown(100000); };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(1));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

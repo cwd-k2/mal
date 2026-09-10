@@ -119,7 +119,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、closure-converted IR上のpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとexternを持たない定数`Unit -> Int32` entryをadmit |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcapture、extern、managed value、recursive frameを持たない`Int32`演算、比較branch、direct call、self-tail edgeをadmit |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
