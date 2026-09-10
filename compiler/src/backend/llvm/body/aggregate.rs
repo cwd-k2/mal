@@ -50,7 +50,7 @@ impl FunctionEmitter<'_> {
             return None;
         };
         let member = members.get(index)?;
-        let value = self.atom(value)?;
+        let mut value = self.atom(value)?;
         if value.ty != *member {
             return None;
         }
@@ -65,6 +65,7 @@ impl FunctionEmitter<'_> {
                 owned: false,
             });
         }
+        self.retain_if_borrowed(&mut value)?;
         let sum_type = self.types.value(result_type)?;
         let member_type = self.types.value(member)?;
         let tag = self.register();
@@ -83,7 +84,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: result,
-            owned: false,
+            owned: crate::execution::ownership::is_managed(result_type),
         })
     }
 

@@ -51,9 +51,7 @@ impl Types {
                 alignment: 1,
                 size: 1,
             }),
-            Type::Sum(elements) if !crate::execution::ownership::is_managed(ty) => {
-                self.sum(elements)
-            }
+            Type::Sum(elements) => self.sum(elements),
             _ => None,
         }
     }

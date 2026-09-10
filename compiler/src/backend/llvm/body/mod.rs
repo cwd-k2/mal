@@ -469,6 +469,12 @@ impl<'a> FunctionEmitter<'a> {
         register
     }
 
+    fn label_id(&mut self) -> usize {
+        let id = self.next_register;
+        self.next_register += 1;
+        id
+    }
+
     fn line(&mut self, line: impl AsRef<str>) {
         self.output.push_str(line.as_ref());
         self.output.push('\n');

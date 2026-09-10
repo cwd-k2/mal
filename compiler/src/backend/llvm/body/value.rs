@@ -201,26 +201,22 @@ impl FunctionEmitter<'_> {
             }
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
-                let mut retained = value.to_string();
                 for (index, element) in elements.iter().enumerate() {
                     if !crate::execution::ownership::is_managed(element) {
                         continue;
                     }
                     let field = self.register();
                     self.line(format!(
-                        "  {field} = extractvalue {} {retained}, {index}",
+                        "  {field} = extractvalue {} {value}, {index}",
                         aggregate_type.llvm
                     ));
-                    let field = self.retain_value(element, &field)?;
-                    let next = self.register();
-                    let field_type = self.types.value(element)?;
-                    self.line(format!(
-                        "  {next} = insertvalue {} {retained}, {} {field}, {index}",
-                        aggregate_type.llvm, field_type.llvm
-                    ));
-                    retained = next;
+                    self.retain_value(element, &field)?;
                 }
-                Some(retained)
+                Some(value.into())
+            }
+            Type::Sum(members) => {
+                self.emit_sum_lifetime(ty, members, value, true)?;
+                Some(value.into())
             }
             _ if !crate::execution::ownership::is_managed(ty) => Some(value.into()),
             _ => None,
@@ -246,9 +242,57 @@ impl FunctionEmitter<'_> {
                     self.release_value(element, &field)?;
                 }
             }
+            Type::Sum(members) => self.emit_sum_lifetime(ty, members, value, false)?,
             _ if crate::execution::ownership::is_managed(ty) => return None,
             _ => {}
         }
+        Some(())
+    }
+
+    fn emit_sum_lifetime(
+        &mut self,
+        ty: &Type,
+        members: &[Type],
+        value: &str,
+        retain: bool,
+    ) -> Option<()> {
+        let sum_type = self.types.value(ty)?;
+        let id = self.label_id();
+        let operation = if retain { "retain" } else { "release" };
+        let tag = self.register();
+        self.line(format!(
+            "  {tag} = extractvalue {} {value}, 0",
+            sum_type.llvm
+        ));
+        let cases = members
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("    i32 {index}, label %mal_{operation}_{id}_{index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.line(format!(
+            "  switch i32 {tag}, label %mal_{operation}_{id}_invalid [\n{cases}\n  ]"
+        ));
+        self.line(format!("mal_{operation}_{id}_invalid:"));
+        self.line("  unreachable");
+        for (index, member) in members.iter().enumerate() {
+            self.line(format!("mal_{operation}_{id}_{index}:"));
+            if crate::execution::ownership::is_managed(member) {
+                let payload = self.register();
+                self.line(format!(
+                    "  {payload} = extractvalue {} {value}, {}",
+                    sum_type.llvm,
+                    index + 1
+                ));
+                if retain {
+                    self.retain_value(member, &payload)?;
+                } else {
+                    self.release_value(member, &payload)?;
+                }
+            }
+            self.line(format!("  br label %mal_{operation}_{id}_done"));
+        }
+        self.line(format!("mal_{operation}_{id}_done:"));
         Some(())
     }
 }

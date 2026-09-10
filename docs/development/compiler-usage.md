@@ -52,11 +52,11 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 
 ## Build toolchainと`CC`
 
-LLVM backendが現在admitするcaptureを持たないunmanaged value、`Symbol`とそれを含むproduct、direct call、self-tail edge、unmanagedな
+LLVM backendが現在admitするcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、unmanagedな
 direct-self continuation frame、数値scalar・`Ptr`のextern callと数値scalar・`Ptr`のmemory primitiveは、pinned `clang`から取得したtarget tripleとdata layoutを
 LLVM moduleへ設定し、generated C shimおよびchecked-in C11 core・control runtimeと同じ`clang`でcompile、linkする。
 extern callはinternal pointer/out-pointer bridgeを通してpublic headerのC ABIへ変換する。この経路はambient `CC`を参照しない。
-managed sum、managed continuation frame、managed aggregateのexternは移行中のC body oracleへfallbackする。
+managed continuation frameとmanaged valueのexternは移行中のC body oracleへfallbackする。
 
 移行中のC body oracleへfallbackするprogramでは、`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、
 なければ`clang`を使う。

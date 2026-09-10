@@ -503,6 +503,51 @@ fn owns_symbols_nested_in_products_through_llvm() {
 }
 
 #[test]
+fn retains_only_active_managed_sum_payloads_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-symbol-sum");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Choice :: [Symbol, (UInt64, Symbol)];\n\
+         choose :: Bool -> Choice := \\(second) {\n\
+           if (second) then { Choice[1]((2u64, \"b\" + \"c\")) }\n\
+           else { Choice[0](\"a\" + \"b\") };\n\
+         };\n\
+         score :: Choice -> Int32 := \\(choice) {\n\
+           case (choice)\n\
+             [0](value) { Int32(value # 0u64) }\n\
+             [1](pair) {\n\
+               (bias, value) := pair;\n\
+               Int32(bias) + Int32(value # 1u64);\n\
+             };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           score(choose(false)) + score(choose(true)) - 198;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
