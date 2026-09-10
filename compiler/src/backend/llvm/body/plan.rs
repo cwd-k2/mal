@@ -6,7 +6,7 @@ use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPatt
 use crate::control::ast::{Program, StateId, Terminator};
 
 use super::Slot;
-use super::types::value_type;
+use super::types::Types;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<FunctionId> {
     let binding = execution.lowered.bindings.iter().find(|binding| {
@@ -83,14 +83,15 @@ pub(super) fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId
 pub(super) fn collect_pattern_slot(
     pattern: &Pattern,
     slots: &mut HashMap<ValueId, Slot>,
+    types: Types,
 ) -> Option<()> {
     match pattern {
-        Pattern::Binding { id, ty } if value_type(ty).is_some() => {
+        Pattern::Binding { id, ty } if types.value(ty).is_some() => {
             insert_slot(slots, *id, ty.clone())
         }
         Pattern::Product { elements, .. } => {
             for element in elements {
-                collect_pattern_slot(element, slots)?;
+                collect_pattern_slot(element, slots, types)?;
             }
         }
         Pattern::Wildcard { .. } => {}

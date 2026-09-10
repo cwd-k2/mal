@@ -2,7 +2,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::Atom;
 use crate::control::ast::{CaseArm, StateId};
 
-use super::types::{is_bool, value_type};
+use super::types::is_bool;
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
@@ -17,14 +17,14 @@ impl FunctionEmitter<'_> {
         if elements.len() != element_types.len() {
             return None;
         }
-        let aggregate_type = value_type(result_type)?;
+        let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
         for (index, (element, expected)) in elements.iter().zip(element_types).enumerate() {
             let element = self.atom(element)?;
             if element.ty != *expected {
                 return None;
             }
-            let element_type = value_type(expected)?;
+            let element_type = self.types.value(expected)?;
             let register = self.register();
             self.line(format!(
                 "  {register} = insertvalue {} {aggregate}, {} {}, {index}",
@@ -62,8 +62,8 @@ impl FunctionEmitter<'_> {
                 },
             });
         }
-        let sum_type = value_type(result_type)?;
-        let member_type = value_type(member)?;
+        let sum_type = self.types.value(result_type)?;
+        let member_type = self.types.value(member)?;
         let tag = self.register();
         self.line(format!(
             "  {tag} = insertvalue {} poison, i32 {index}, 0",
@@ -93,7 +93,7 @@ impl FunctionEmitter<'_> {
         let Type::Sum(members) = &scrutinee.ty else {
             return None;
         };
-        let sum_type = value_type(&scrutinee.ty)?;
+        let sum_type = self.types.value(&scrutinee.ty)?;
         let tag = if is_bool(&scrutinee.ty) {
             scrutinee.representation.clone()
         } else {

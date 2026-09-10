@@ -9,14 +9,14 @@ pub(crate) struct Target<'a> {
 }
 
 pub(crate) fn supports(program: &crate::execution::Program) -> bool {
-    body::generate(program).is_some()
+    body::supports(program)
 }
 
 pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
 ) -> Option<LlvmArtifacts> {
-    let body = body::generate(program)?;
+    let body = body::generate(program, pointer_size(target.data_layout)?)?;
     let entry = AbiFunction::program_entry();
     let external_bridges = program
         .lowered
@@ -67,6 +67,20 @@ pub(crate) fn generate(
     })
 }
 
+fn pointer_size(data_layout: &str) -> Option<usize> {
+    let bits: usize = data_layout
+        .split('-')
+        .find_map(|component| {
+            component
+                .strip_prefix("p:")
+                .or_else(|| component.strip_prefix("p0:"))
+        })
+        .map_or(Some(64), |pointer| pointer.split(':').next()?.parse().ok())?;
+    bits.is_multiple_of(8)
+        .then_some(bits / 8)
+        .filter(|bytes| (*bytes).is_power_of_two())
+}
+
 fn external_bridge(external: &crate::core::ast::ExternalOperation) -> Option<(String, String)> {
     let parameter = c_scalar_type(&external.parameter)?;
     let result = c_scalar_type(&external.result)?;
@@ -95,6 +109,7 @@ fn c_scalar_type(ty: &crate::check::ast::Type) -> Option<&'static str> {
         Type::UInt64 => Some("MalType_UInt64"),
         Type::Float32 => Some("MalType_Float32"),
         Type::Float64 => Some("MalType_Float64"),
+        Type::Ptr => Some("MalType_Ptr"),
         _ => None,
     }
 }
@@ -134,5 +149,13 @@ mod tests {
         assert!(artifacts.shim.contains(
             "void mal_program_entry(void *mal_context, const void *mal_argument, void *mal_result);"
         ));
+    }
+
+    #[test]
+    fn reads_the_default_pointer_layout_and_an_explicit_address_space_zero_layout() {
+        assert_eq!(pointer_size("e-m:e-i64:64"), Some(8));
+        assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));
+        assert_eq!(pointer_size("e-p0:128:128"), Some(16));
+        assert_eq!(pointer_size("e-p:7:8"), None);
     }
 }

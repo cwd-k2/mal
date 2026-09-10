@@ -191,7 +191,7 @@ impl MemoryPrimitive {
 }
 
 impl MemoryScalar {
-    fn ty(self) -> Type {
+    pub(crate) fn ty(self) -> Type {
         match self {
             Self::Int8 => Type::Int8,
             Self::Int16 => Type::Int16,

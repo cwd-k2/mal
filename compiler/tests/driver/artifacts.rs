@@ -376,6 +376,58 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 }
 
 #[test]
+fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-memory");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern memory :: UInt64 -> Ptr;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           base := memory(64u64);\n\
+           UInt64.store(base, 42u64);\n\
+           pointerSlot := base + UInt64.size;\n\
+           Ptr.store(pointerSlot, base);\n\
+           floatSlot := pointerSlot + Ptr.size;\n\
+           Float32.store(floatSlot, 1.5f32);\n\
+           restored := Ptr.load(pointerSlot);\n\
+           start := floatSlot - Ptr.size - UInt64.size;\n\
+           value := UInt64.load(restored) + UInt64.load(start);\n\
+           if (Float32.load(floatSlot) == 1.5f32) then { Int32(value) - 84 } else { 1 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static unsigned char storage[65];\n\
+         MAL_DEFINE_memory(call, size) {\n\
+             (void)size;\n\
+             return mal_Ptr_return(call, storage + 1);\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

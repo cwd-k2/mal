@@ -4,12 +4,13 @@ use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
-use crate::core::ast::UnaryPrimitive;
 use crate::execution::ControlCallMode;
 
 mod aggregate;
 mod bridge;
 mod frame;
+mod memory;
+mod operation;
 mod plan;
 mod scalar;
 mod types;
@@ -19,8 +20,8 @@ use plan::{
     collect_pattern_slot, insert_slot, main_function, pattern_value_type, reachable_states,
     top_levels_are_capture_free_closures,
 };
-use scalar::{arithmetic_instruction, comparison_predicate, scalar_type};
-use types::{is_bool, value_type};
+use scalar::{comparison_predicate, scalar_type};
+use types::{Types, is_bool};
 
 pub(super) struct Output {
     pub(super) definitions: String,
@@ -28,16 +29,24 @@ pub(super) struct Output {
     pub(super) uses_control: bool,
 }
 
-pub(super) fn generate(execution: &crate::execution::Program) -> Option<Output> {
+pub(super) fn supports(execution: &crate::execution::Program) -> bool {
+    generate(execution, 8).is_some()
+}
+
+pub(super) fn generate(
+    execution: &crate::execution::Program,
+    pointer_size: usize,
+) -> Option<Output> {
     let main = main_function(execution)?;
     if !top_levels_are_capture_free_closures(execution) {
         return None;
     }
 
+    let types = Types::new(pointer_size)?;
     let mut definitions = String::new();
     let mut uses_control = false;
     for function in &execution.control.functions {
-        let emitter = FunctionEmitter::new(execution, function.id)?;
+        let emitter = FunctionEmitter::new(execution, function.id, types)?;
         uses_control |= emitter.has_frames;
         definitions.push_str(&emitter.emit()?);
         definitions.push('\n');
@@ -57,7 +66,8 @@ struct FunctionEmitter<'a> {
     result_type: Type,
     slots: HashMap<ValueId, Slot>,
     has_frames: bool,
-    has_external_calls: bool,
+    external_storage: Option<(usize, usize)>,
+    types: Types,
     next_register: usize,
     output: String,
 }
@@ -74,7 +84,7 @@ struct EmittedValue {
 }
 
 impl<'a> FunctionEmitter<'a> {
-    fn new(execution: &'a crate::execution::Program, id: FunctionId) -> Option<Self> {
+    fn new(execution: &'a crate::execution::Program, id: FunctionId, types: Types) -> Option<Self> {
         let function = execution
             .control
             .functions
@@ -86,8 +96,8 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == id)?;
         if !lowered.environment.is_empty()
-            || value_type(&function.parameter.ty).is_none()
-            || value_type(&lowered.body.result.ty).is_none()
+            || types.value(&function.parameter.ty).is_none()
+            || types.value(&lowered.body.result.ty).is_none()
         {
             return None;
         }
@@ -99,10 +109,10 @@ impl<'a> FunctionEmitter<'a> {
         for state in &states {
             let state = &execution.control.states[state.0];
             if let Some(pattern) = &state.input {
-                collect_pattern_slot(pattern, &mut slots)?;
+                collect_pattern_slot(pattern, &mut slots, types)?;
             }
             for binding in &state.bindings {
-                collect_pattern_slot(&binding.pattern, &mut slots)?;
+                collect_pattern_slot(&binding.pattern, &mut slots, types)?;
             }
         }
         let frame_sites = states
@@ -120,16 +130,36 @@ impl<'a> FunctionEmitter<'a> {
                 || frame
                     .fields
                     .iter()
-                    .any(|field| field.managed || value_type(&field.value.ty).is_none())
+                    .any(|field| field.managed || types.value(&field.value.ty).is_none())
         }) {
             return None;
         }
-        let has_external_calls = states.iter().any(|site| {
+        let external_ids = states.iter().flat_map(|site| {
             execution.control.states[site.0]
                 .bindings
                 .iter()
-                .any(|binding| matches!(binding.operation, Operation::ExternalCall { .. }))
+                .filter_map(|binding| match binding.operation {
+                    Operation::ExternalCall { id, .. } => Some(id),
+                    _ => None,
+                })
         });
+        let mut external_storage = None;
+        for id in external_ids {
+            let external = execution
+                .lowered
+                .interface
+                .externals
+                .iter()
+                .find(|external| external.id == id)?;
+            for ty in [&external.parameter, &external.result] {
+                if scalar_type(ty).is_none() && *ty != Type::Ptr {
+                    return None;
+                }
+                let value = types.value(ty)?;
+                let (size, alignment) = external_storage.unwrap_or((0usize, 1usize));
+                external_storage = Some((size.max(value.size), alignment.max(value.alignment)));
+            }
+        }
         Some(Self {
             execution,
             control: &execution.control,
@@ -138,7 +168,8 @@ impl<'a> FunctionEmitter<'a> {
             states,
             slots,
             has_frames: !frame_sites.is_empty(),
-            has_external_calls,
+            external_storage,
+            types,
             next_register: 0,
             output: String::new(),
         })
@@ -148,10 +179,10 @@ impl<'a> FunctionEmitter<'a> {
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context".to_string()
         } else {
-            let parameter = value_type(&self.function.parameter.ty)?;
+            let parameter = self.types.value(&self.function.parameter.ty)?;
             format!("ptr %mal_context, {} %mal_parameter", parameter.llvm)
         };
-        let result = value_type(&self.result_type)?;
+        let result = self.types.value(&self.result_type)?;
         self.line(format!(
             "define internal {} @{}({parameter}) {{",
             result.llvm,
@@ -161,7 +192,7 @@ impl<'a> FunctionEmitter<'a> {
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
-            let value_type = value_type(&slot.ty)?;
+            let value_type = self.types.value(&slot.ty)?;
             self.line(format!(
                 "  %mal_slot_{} = alloca {}, align {}",
                 slot.index, value_type.llvm, value_type.alignment
@@ -170,13 +201,17 @@ impl<'a> FunctionEmitter<'a> {
         if self.has_frames {
             self.line("  %mal_control_top = alloca i64, align 8");
         }
-        if self.has_external_calls {
-            self.line("  %mal_bridge_argument = alloca [8 x i8], align 8");
-            self.line("  %mal_bridge_result = alloca [8 x i8], align 8");
+        if let Some((size, alignment)) = self.external_storage {
+            self.line(format!(
+                "  %mal_bridge_argument = alloca [{size} x i8], align {alignment}"
+            ));
+            self.line(format!(
+                "  %mal_bridge_result = alloca [{size} x i8], align {alignment}"
+            ));
         }
         if let Some(id) = self.function.parameter.binding {
             let slot = self.slots.get(&id)?.clone();
-            let value_type = value_type(&slot.ty)?;
+            let value_type = self.types.value(&slot.ty)?;
             self.line(format!(
                 "  store {} %mal_parameter, ptr %mal_slot_{}, align {}",
                 value_type.llvm, slot.index, value_type.alignment
@@ -205,106 +240,6 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_terminator(site, &state.terminator)
     }
 
-    fn emit_operation(
-        &mut self,
-        operation: &Operation,
-        result_type: Option<&Type>,
-    ) -> Option<Option<EmittedValue>> {
-        match operation {
-            Operation::Atom(atom) => self.atom(atom).map(Some),
-            Operation::PrimitiveUnary { operator, operand } => {
-                let operand = self.atom(operand)?;
-                let scalar = scalar_type(&operand.ty)?;
-                let register = self.register();
-                let instruction = match operator {
-                    UnaryPrimitive::Negate if scalar.floating => {
-                        format!("fneg {} {}", scalar.llvm, operand.representation)
-                    }
-                    UnaryPrimitive::Negate => {
-                        format!("sub {} 0, {}", scalar.llvm, operand.representation)
-                    }
-                    UnaryPrimitive::BitwiseNot if !scalar.floating => {
-                        format!("xor {} {}, -1", scalar.llvm, operand.representation)
-                    }
-                    UnaryPrimitive::BitwiseNot => return None,
-                };
-                self.line(format!("  {register} = {instruction}"));
-                Some(Some(EmittedValue {
-                    ty: operand.ty,
-                    representation: register,
-                }))
-            }
-            Operation::PrimitiveBinary {
-                operator,
-                left,
-                right,
-            } => {
-                let left = self.atom(left)?;
-                let right = self.atom(right)?;
-                if left.ty != right.ty {
-                    return None;
-                }
-                let scalar = scalar_type(&left.ty)?;
-                let instruction = arithmetic_instruction(*operator, scalar)?;
-                let register = self.register();
-                self.line(format!(
-                    "  {register} = {instruction} {} {}, {}",
-                    scalar.llvm, left.representation, right.representation
-                ));
-                Some(Some(EmittedValue {
-                    ty: left.ty,
-                    representation: register,
-                }))
-            }
-            Operation::NumericConversion { operand } => {
-                let operand = self.atom(operand)?;
-                let source = scalar_type(&operand.ty)?;
-                let result_type = result_type?.clone();
-                let target = scalar_type(&result_type)?;
-                if source.floating == target.floating && source.bits == target.bits {
-                    return Some(Some(EmittedValue {
-                        ty: result_type,
-                        representation: operand.representation,
-                    }));
-                }
-                let instruction = if source.floating && target.floating {
-                    if source.bits > target.bits {
-                        "fptrunc"
-                    } else {
-                        "fpext"
-                    }
-                } else if source.floating {
-                    if target.signed { "fptosi" } else { "fptoui" }
-                } else if target.floating {
-                    if source.signed { "sitofp" } else { "uitofp" }
-                } else if source.bits > target.bits {
-                    "trunc"
-                } else if source.signed {
-                    "sext"
-                } else {
-                    "zext"
-                };
-                let register = self.register();
-                self.line(format!(
-                    "  {register} = {instruction} {} {} to {}",
-                    source.llvm, operand.representation, target.llvm
-                ));
-                Some(Some(EmittedValue {
-                    ty: result_type,
-                    representation: register,
-                }))
-            }
-            Operation::ExternalCall { id, argument } => self
-                .emit_external_call(*id, argument, result_type?)
-                .map(Some),
-            Operation::Product(elements) => self.emit_product(elements, result_type?).map(Some),
-            Operation::SumInjection { index, value } => {
-                self.emit_sum(*index, value, result_type?).map(Some)
-            }
-            _ => None,
-        }
-    }
-
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
         match terminator {
             Terminator::Return(value) => {
@@ -315,7 +250,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     self.emit_frame_return(site, &value.representation)?;
                 } else {
-                    let value_type = value_type(&value.ty)?;
+                    let value_type = self.types.value(&value.ty)?;
                     self.line(format!(
                         "  ret {} {}",
                         value_type.llvm, value.representation
@@ -399,7 +334,7 @@ impl<'a> FunctionEmitter<'a> {
                         if slot.ty != value.ty {
                             return None;
                         }
-                        let value_type = value_type(&slot.ty)?;
+                        let value_type = self.types.value(&slot.ty)?;
                         self.line(format!(
                             "  store {} {}, ptr %mal_slot_{}, align {}",
                             value_type.llvm, value.representation, slot.index, value_type.alignment
@@ -408,7 +343,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, argument, true)?;
-                        let value_type = value_type(&result.ty)?;
+                        let value_type = self.types.value(&result.ty)?;
                         self.line(format!(
                             "  ret {} {}",
                             value_type.llvm, result.representation
@@ -440,7 +375,7 @@ impl<'a> FunctionEmitter<'a> {
             if argument.ty != target.parameter.ty {
                 return None;
             }
-            let value_type = value_type(&argument.ty)?;
+            let value_type = self.types.value(&argument.ty)?;
             format!(
                 "ptr %mal_context, {} {}",
                 value_type.llvm, argument.representation
@@ -453,7 +388,7 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == target.id)?;
         let result_type = lowered.body.result.ty.clone();
-        let result_value_type = value_type(&result_type)?;
+        let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
         let tail = if tail { "tail " } else { "" };
         self.line(format!(

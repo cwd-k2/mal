@@ -109,11 +109,11 @@ host adapterはC11としてClangでcompileし、LLVM moduleも同じtoolchainの
 2. `control`をpipelineで明示的に構成し、`c_emit/body/analysis`からbackend-independentな解析を`execution`へ移す。C outputを変えない。（完了）
 3. `c_emit`のpublic interface、C syntax、runtime生成、body生成のAPIを分け、移行中のbody emitterをlegacy oracleとして隔離する。
 4. internal bridge ABI planを導入し、同じplanからC declarationとLLVM signature、parameter attributeを生成してClangでlink検査する。（pointer/out-pointer root bridgeは完了）
-5. scalarだけのfunction body、branch、direct call、tail edgeをLLVM IRへlowerし、C shimからrootを呼ぶ。（整数・浮動小数点型は完了。`Ptr`は未完了）
+5. scalarだけのfunction body、branch、direct call、tail edgeをLLVM IRへlowerし、C shimからrootを呼ぶ。（整数・浮動小数点型と`Ptr`は完了）
 6. direct-self non-tail region、homogeneous frame、managed ownerのないresumeをLLVMへ移す。（unmanagedな数値scalar frameは完了）
 7. heterogeneous frame、managed owner、closure environment、indirect recursive regionを順に移す。（数値型、`Unit`、`Bool`、product、sumからなるunmanaged direct-self frameと複数constructorは完了）
 8. generated runtime logicをchecked-in C11 sourceへ移し、control、allocation、Symbol、ropeの順にRust C emitterから削除する。（LLVM artifact用core・control runtimeは完了。C oracle側の削除と他runtimeは未完了）
-9. extern、entry、terminal returnをgenerated C shimへ分離し、全host ABI fixtureを新artifact setで通す。（数値scalar externと`Unit -> Int32` entryは完了）
+9. extern、entry、terminal returnをgenerated C shimへ分離し、全host ABI fixtureを新artifact setで通す。（数値scalar・`Ptr` externと`Unit -> Int32` entryは完了）
 10. `build`をClang/LLVM artifact pipelineへ切り替え、ambient `CC`とGCC compatibilityを削除する。
 11. C body oracleとの差分検査と性能gateを通した後、legacy body emitterと`emit-c` contractを退役する。
 

@@ -23,9 +23,15 @@ impl FunctionEmitter<'_> {
         if argument.ty != external.parameter || *result_type != external.result {
             return None;
         }
-        let argument_type = scalar_type(&argument.ty)?;
+        if scalar_type(&argument.ty).is_none() && argument.ty != Type::Ptr {
+            return None;
+        }
+        let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
-        let result_scalar = scalar_type(&result_type)?;
+        if scalar_type(&result_type).is_none() && result_type != Type::Ptr {
+            return None;
+        }
+        let result_value_type = self.types.value(&result_type)?;
         self.line(format!(
             "  store {} {}, ptr %mal_bridge_argument, align {}",
             argument_type.llvm, argument.representation, argument_type.alignment
@@ -39,7 +45,7 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         self.line(format!(
             "  {register} = load {}, ptr %mal_bridge_result, align {}",
-            result_scalar.llvm, result_scalar.alignment
+            result_value_type.llvm, result_value_type.alignment
         ));
         Some(EmittedValue {
             ty: result_type,

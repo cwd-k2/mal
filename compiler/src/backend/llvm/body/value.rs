@@ -2,7 +2,6 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
 
 use super::scalar::{integer_literal, scalar_type};
-use super::types::value_type;
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
@@ -20,12 +19,16 @@ impl FunctionEmitter<'_> {
                 ty: Type::Float64,
                 representation: format!("{:.17e}", f64::from_bits(*bits)),
             }),
-            (ty, AtomKind::Reference(Reference::Binding(id))) if value_type(ty).is_some() => {
+            (Type::UInt64, AtomKind::StorageSize(measured)) => Some(EmittedValue {
+                ty: Type::UInt64,
+                representation: self.types.value(measured)?.size.to_string(),
+            }),
+            (ty, AtomKind::Reference(Reference::Binding(id))) if self.types.value(ty).is_some() => {
                 let slot = self.slots.get(id)?.clone();
                 if slot.ty != *ty {
                     return None;
                 }
-                let value_type = value_type(ty)?;
+                let value_type = self.types.value(ty)?;
                 let register = self.register();
                 self.line(format!(
                     "  {register} = load {}, ptr %mal_slot_{}, align {}",
@@ -50,13 +53,13 @@ impl FunctionEmitter<'_> {
         value: Option<&EmittedValue>,
     ) -> Option<()> {
         match pattern {
-            Pattern::Binding { id, ty } if value_type(ty).is_some() => {
+            Pattern::Binding { id, ty } if self.types.value(ty).is_some() => {
                 let value = value?;
                 if value.ty != *ty {
                     return None;
                 }
                 let slot = self.slots.get(id)?.clone();
-                let value_type = value_type(ty)?;
+                let value_type = self.types.value(ty)?;
                 self.line(format!(
                     "  store {} {}, ptr %mal_slot_{}, align {}",
                     value_type.llvm, value.representation, slot.index, value_type.alignment
@@ -70,7 +73,7 @@ impl FunctionEmitter<'_> {
                 if value.ty != *ty || elements.len() != element_types.len() {
                     return None;
                 }
-                let aggregate_type = value_type(ty)?;
+                let aggregate_type = self.types.value(ty)?;
                 for (index, (element, element_type)) in
                     elements.iter().zip(element_types).enumerate()
                 {

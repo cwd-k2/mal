@@ -2,13 +2,13 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
 
-use super::types::{ValueType, align, value_type};
+use super::types::{Types, ValueType, align};
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_frame_call(&mut self, site: StateId, argument: &Atom) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
-        let layout = FrameLayout::new(&frame)?;
+        let layout = FrameLayout::new(&frame, self.types)?;
         let top = self.register();
         self.line(format!("  {top} = load i64, ptr %mal_control_top, align 8"));
         let storage = self.register();
@@ -53,7 +53,7 @@ impl FunctionEmitter<'_> {
         }
         if let Some(parameter) = self.function.parameter.binding {
             let slot = self.slots.get(&parameter)?.clone();
-            let value_type = value_type(&slot.ty)?;
+            let value_type = self.types.value(&slot.ty)?;
             self.line(format!(
                 "  store {} {}, ptr %mal_slot_{}, align {}",
                 value_type.llvm, argument.representation, slot.index, value_type.alignment
@@ -81,7 +81,7 @@ impl FunctionEmitter<'_> {
             site.0, site.0
         ));
         self.line(format!("mal_return_done_{}:", site.0));
-        let result_type = value_type(&self.result_type)?;
+        let result_type = self.types.value(&self.result_type)?;
         self.line(format!("  ret {} {result}", result_type.llvm));
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.register();
@@ -137,7 +137,7 @@ impl FunctionEmitter<'_> {
         frame_pointer: &str,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
-        let layout = FrameLayout::new(&frame)?;
+        let layout = FrameLayout::new(&frame, self.types)?;
         self.line(format!(
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
@@ -173,7 +173,7 @@ impl FunctionEmitter<'_> {
 
     fn load_binding(&mut self, id: ValueId) -> Option<EmittedValue> {
         let slot = self.slots.get(&id)?.clone();
-        let value_type = value_type(&slot.ty)?;
+        let value_type = self.types.value(&slot.ty)?;
         let register = self.register();
         self.line(format!(
             "  {register} = load {}, ptr %mal_slot_{}, align {}",
@@ -198,11 +198,11 @@ struct FieldLayout {
 }
 
 impl FrameLayout {
-    fn new(frame: &crate::execution::ControlFrame) -> Option<Self> {
+    fn new(frame: &crate::execution::ControlFrame, types: Types) -> Option<Self> {
         let mut offset = 4usize;
         let mut fields = Vec::with_capacity(frame.fields.len());
         for field in &frame.fields {
-            let value_type = value_type(&field.value.ty)?;
+            let value_type = types.value(&field.value.ty)?;
             offset = align(offset, value_type.alignment)?;
             let size = value_type.size;
             fields.push(FieldLayout { offset, value_type });
