@@ -55,7 +55,10 @@ pub(crate) fn generate(
     let (entry_argument, entry_call) = match &body.main_parameter {
         crate::check::ast::Type::Unit => (
             String::new(),
-            format!("call i32 @{}(ptr %mal_context)", function_name(body.main)?),
+            format!(
+                "call i32 @{}(ptr %mal_context, ptr null)",
+                function_name(body.main)?
+            ),
         ),
         ty => {
             let value = types.value(ty)?;
@@ -65,7 +68,7 @@ pub(crate) fn generate(
                     value.llvm, value.alignment
                 ),
                 format!(
-                    "call i32 @{}(ptr %mal_context, {} %mal_entry_argument)",
+                    "call i32 @{}(ptr %mal_context, ptr null, {} %mal_entry_argument)",
                     function_name(body.main)?,
                     value.llvm
                 ),
@@ -73,7 +76,7 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, i64, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         control_declarations,

@@ -16,6 +16,13 @@ typedef struct MalContext {
 _Noreturn void mal_trap(MalContext *context, const char *message);
 void *mal_runtime_allocate(MalContext *context, size_t size);
 void mal_runtime_deallocate(void *allocation);
+void *mal_runtime_environment_allocate(
+    MalContext *context,
+    size_t size,
+    void (*destroy)(void *)
+);
+void *mal_runtime_environment_retain(MalContext *context, void *environment);
+void mal_runtime_environment_release(void *environment);
 void mal_control_destroy(MalContext *context);
 void *mal_control_reserve_bytes(MalContext *context, size_t required_bytes);
 void *mal_control_reserve_frame(

@@ -109,6 +109,40 @@ fn builds_scalar_control_and_tail_calls_through_llvm() {
 }
 
 #[test]
+fn calls_capture_free_first_class_functions_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-indirect-call");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+           operation(value);\n\
+         };\n\
+         increment :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
+         main :: Unit -> Int32 := \\() { apply(increment, 41i32) - 42i32; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
     let directory = NativeFixture::new("driver-llvm-frame");
     let source = directory.join("program.mal");

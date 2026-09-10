@@ -13,6 +13,24 @@ impl FunctionEmitter<'_> {
     ) -> Option<Option<EmittedValue>> {
         match operation {
             Operation::Atom(atom) => self.atom(atom).map(Some),
+            Operation::MakeClosure { function, captures } if captures.is_empty() => {
+                let result_type = result_type?.clone();
+                let Type::Function { .. } = result_type else {
+                    return None;
+                };
+                let closure_type = self.types.value(&result_type)?;
+                let with_code = self.register();
+                self.line(format!(
+                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                    closure_type.llvm,
+                    super::function_name(*function)?
+                ));
+                Some(Some(EmittedValue {
+                    ty: result_type,
+                    representation: with_code,
+                    owned: true,
+                }))
+            }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand)?;
                 let scalar = scalar_type(&operand.ty)?;

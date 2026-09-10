@@ -116,8 +116,7 @@ impl<'a> FunctionEmitter<'a> {
             .functions
             .iter()
             .find(|function| function.id == id)?;
-        if !lowered.environment.is_empty()
-            || types.value(&function.parameter.ty).is_none()
+        if types.value(&function.parameter.ty).is_none()
             || types.value(&lowered.body.result.ty).is_none()
         {
             return None;
@@ -205,10 +204,13 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit(mut self) -> Option<EmittedFunction> {
         let parameter = if self.function.parameter.ty == Type::Unit {
-            "ptr %mal_context".to_string()
+            "ptr %mal_context, ptr %mal_environment".to_string()
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            format!("ptr %mal_context, {} %mal_parameter", parameter.llvm)
+            format!(
+                "ptr %mal_context, ptr %mal_environment, {} %mal_parameter",
+                parameter.llvm
+            )
         };
         let result = self.types.value(&self.result_type)?;
         self.line(format!(
@@ -375,7 +377,16 @@ impl<'a> FunctionEmitter<'a> {
                 {
                     self.emit_frame_call(site, argument)?;
                 }
-                ControlCallMode::DirectSelfTail | ControlCallMode::Dispatch => return None,
+                ControlCallMode::Dispatch => {
+                    let Terminator::Call { callee, .. } = terminator else {
+                        unreachable!()
+                    };
+                    let result = self.emit_indirect_call(callee, argument, false)?;
+                    let input = self.control.states[resume.0].input.as_ref()?;
+                    self.store_pattern(input, Some(&result))?;
+                    self.line(format!("  br label %mal_state_{}", resume.0));
+                }
+                ControlCallMode::DirectSelfTail => return None,
             },
             Terminator::TailCall { argument, .. } => {
                 match self.execution.control_calls.mode(site)? {
@@ -409,7 +420,18 @@ impl<'a> FunctionEmitter<'a> {
                             value_type.llvm, result.representation
                         ));
                     }
-                    ControlCallMode::Dispatch => return None,
+                    ControlCallMode::Dispatch => {
+                        let Terminator::TailCall { callee, .. } = terminator else {
+                            unreachable!()
+                        };
+                        let result = self.emit_indirect_call(callee, argument, true)?;
+                        self.release_local_managed();
+                        let value_type = self.types.value(&result.ty)?;
+                        self.line(format!(
+                            "  ret {} {}",
+                            value_type.llvm, result.representation
+                        ));
+                    }
                 }
             }
             Terminator::Case { scrutinee, arms } => self.emit_case(site, scrutinee, arms)?,
@@ -429,7 +451,7 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == target)?;
         let arguments = if target.parameter.ty == Type::Unit {
-            "ptr %mal_context".into()
+            "ptr %mal_context, ptr null".into()
         } else {
             let argument = self.atom(argument)?;
             if argument.ty != target.parameter.ty {
@@ -437,7 +459,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             let value_type = self.types.value(&argument.ty)?;
             format!(
-                "ptr %mal_context, {} {}",
+                "ptr %mal_context, ptr null, {} {}",
                 value_type.llvm, argument.representation
             )
         };
@@ -460,6 +482,57 @@ impl<'a> FunctionEmitter<'a> {
             ty: result_type,
             representation: register,
             owned: crate::execution::ownership::is_managed(&lowered.body.result.ty),
+        })
+    }
+
+    fn emit_indirect_call(
+        &mut self,
+        callee: &Atom,
+        argument: &Atom,
+        tail: bool,
+    ) -> Option<EmittedValue> {
+        let callee = self.atom(callee)?;
+        let Type::Function { parameter, result } = &callee.ty else {
+            return None;
+        };
+        let closure_type = self.types.value(&callee.ty)?;
+        let code = self.register();
+        self.line(format!(
+            "  {code} = extractvalue {} {}, 0",
+            closure_type.llvm, callee.representation
+        ));
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = extractvalue {} {}, 1",
+            closure_type.llvm, callee.representation
+        ));
+        let arguments = if **parameter == Type::Unit {
+            if argument.ty != Type::Unit {
+                return None;
+            }
+            format!("ptr %mal_context, ptr {environment}")
+        } else {
+            let argument = self.atom(argument)?;
+            if argument.ty != **parameter {
+                return None;
+            }
+            let value_type = self.types.value(parameter)?;
+            format!(
+                "ptr %mal_context, ptr {environment}, {} {}",
+                value_type.llvm, argument.representation
+            )
+        };
+        let result_type = self.types.value(result)?;
+        let register = self.register();
+        let tail = if tail { "tail " } else { "" };
+        self.line(format!(
+            "  {register} = {tail}call {} {code}({arguments})",
+            result_type.llvm
+        ));
+        Some(EmittedValue {
+            ty: (**result).clone(),
+            representation: register,
+            owned: crate::execution::ownership::is_managed(result),
         })
     }
 

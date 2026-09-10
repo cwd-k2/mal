@@ -58,6 +58,42 @@ impl FunctionEmitter<'_> {
                     owned: true,
                 })
             }
+            (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
+                let value_type = self.types.value(&atom.ty)?;
+                let with_code = self.register();
+                self.line(format!(
+                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                    value_type.llvm,
+                    super::function_name(*function)?
+                ));
+                let closure = self.register();
+                self.line(format!(
+                    "  {closure} = insertvalue {} {with_code}, ptr %mal_environment, 1",
+                    value_type.llvm
+                ));
+                Some(EmittedValue {
+                    ty: atom.ty.clone(),
+                    representation: closure,
+                    owned: false,
+                })
+            }
+            (Type::Function { .. }, AtomKind::Reference(Reference::Binding(id)))
+                if !self.slots.contains_key(id) =>
+            {
+                let function = self.execution.closure_uses.direct_closure(*id)?.function;
+                let value_type = self.types.value(&atom.ty)?;
+                let closure = self.register();
+                self.line(format!(
+                    "  {closure} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                    value_type.llvm,
+                    super::function_name(function)?
+                ));
+                Some(EmittedValue {
+                    ty: atom.ty.clone(),
+                    representation: closure,
+                    owned: false,
+                })
+            }
             (ty, AtomKind::Reference(Reference::Binding(id))) if self.types.value(ty).is_some() => {
                 let slot = self.slots.get(id)?.clone();
                 if slot.ty != *ty {
@@ -203,6 +239,18 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(retained)
             }
+            Type::Function { .. } => {
+                let value_type = self.types.value(ty)?;
+                let environment = self.register();
+                self.line(format!(
+                    "  {environment} = extractvalue {} {value}, 1",
+                    value_type.llvm
+                ));
+                self.line(format!(
+                    "  call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {environment})"
+                ));
+                Some(value.into())
+            }
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
                 for (index, element) in elements.iter().enumerate() {
@@ -232,6 +280,17 @@ impl FunctionEmitter<'_> {
             Type::Symbol => self.line(format!(
                 "  call void @mal_runtime_symbol_release(ptr {value})"
             )),
+            Type::Function { .. } => {
+                let value_type = self.types.value(ty)?;
+                let environment = self.register();
+                self.line(format!(
+                    "  {environment} = extractvalue {} {value}, 1",
+                    value_type.llvm
+                ));
+                self.line(format!(
+                    "  call void @mal_runtime_environment_release(ptr {environment})"
+                ))
+            }
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
                 for (index, element) in elements.iter().enumerate() {

@@ -54,6 +54,18 @@ impl Types {
                 alignment: self.pointer_size,
                 size: self.pointer_size,
             }),
+            Type::Function { .. } => aggregate_type(vec![
+                ValueType {
+                    llvm: "ptr".into(),
+                    alignment: self.pointer_size,
+                    size: self.pointer_size,
+                },
+                ValueType {
+                    llvm: "ptr".into(),
+                    alignment: self.pointer_size,
+                    size: self.pointer_size,
+                },
+            ]),
             Type::Product(elements) => self.product(elements),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),
