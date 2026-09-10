@@ -15,8 +15,9 @@ source
   -> ANF
   -> closure conversion
   -> application control lowering
-  -> C emitter
-  -> host C compiler
+  -> execution plan
+  -> LLVM module + C shim/runtime
+  -> pinned Clang
 ```
 
 reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。

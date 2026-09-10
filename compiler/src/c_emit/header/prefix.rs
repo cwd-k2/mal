@@ -21,10 +21,7 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         Expr::number("0x000600u"),
     ));
     output.blank_line();
-    output.push(Directive::If(PreprocessorExpr::logical_or(
-        PreprocessorExpr::defined("__clang__"),
-        PreprocessorExpr::defined("__GNUC__"),
-    )));
+    output.push(Directive::If(PreprocessorExpr::defined("__clang__")));
     output.push(Directive::define_attribute(
         "MAL_DETAIL_MAYBE_UNUSED",
         Attribute::Unused,

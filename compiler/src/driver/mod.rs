@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -75,52 +75,37 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let temporary = TemporaryDirectory::new()?;
     create_parent(output_path)?;
 
-    if crate::backend::llvm::supports(&execution) {
-        let target = toolchain::host_target()?;
-        let generated = crate::backend::llvm::generate(
-            &execution,
-            crate::backend::llvm::Target {
-                triple: &target.triple,
-                data_layout: &target.data_layout,
-            },
-        )
-        .expect("LLVM support admission and generation agree");
-        let module_path = temporary.path().join("program.ll");
-        let shim_path = temporary.path().join("program-shim.c");
-        let header_path = temporary.path().join(crate::c_emit::GENERATED_HEADER_NAME);
-        fs::write(&module_path, generated.module)
-            .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
-        fs::write(&shim_path, generated.shim)
-            .map_err(|error| Error::io("write generated C shim", &shim_path, error))?;
-        fs::write(&header_path, generated.header)
-            .map_err(|error| Error::io("write generated header", &header_path, error))?;
-        let mut generated_inputs = vec![module_path, shim_path];
-        for runtime in generated.runtime {
-            let path = temporary.path().join(runtime.name);
-            fs::write(&path, runtime.contents)
-                .map_err(|error| Error::io("write runtime input", &path, error))?;
-            if path.extension() == Some(OsStr::new("c")) {
-                generated_inputs.push(path);
-            }
+    let target = toolchain::host_target()?;
+    let generated = crate::backend::llvm::generate(
+        &execution,
+        crate::backend::llvm::Target {
+            triple: &target.triple,
+            data_layout: &target.data_layout,
+        },
+    )
+    .ok_or_else(|| Error::new("malc: LLVM backend rejected an admitted program"))?;
+    let module_path = temporary.path().join("program.ll");
+    let shim_path = temporary.path().join("program-shim.c");
+    let header_path = temporary.path().join(crate::c_emit::GENERATED_HEADER_NAME);
+    fs::write(&module_path, generated.module)
+        .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
+    fs::write(&shim_path, generated.shim)
+        .map_err(|error| Error::io("write generated C shim", &shim_path, error))?;
+    fs::write(&header_path, generated.header)
+        .map_err(|error| Error::io("write generated header", &header_path, error))?;
+    let mut generated_inputs = vec![module_path, shim_path];
+    for runtime in generated.runtime {
+        let path = temporary.path().join(runtime.name);
+        fs::write(&path, runtime.contents)
+            .map_err(|error| Error::io("write runtime input", &path, error))?;
+        if path.extension() == Some(OsStr::new("c")) {
+            generated_inputs.push(path);
         }
-        return run_compiler(
-            OsStr::new(toolchain::CLANG),
-            temporary.path(),
-            generated_inputs.iter(),
-            graph.c_sources(),
-            output_path,
-        );
     }
-
-    let generated = crate::backend::c::generate(&execution)
-        .map_err(|error| Error::diagnostic(error, &graph))?;
-    let generated_path = temporary.path().join("program.c");
-    write_generated(&generated_path, generated)?;
-    let compiler = std::env::var_os("CC").unwrap_or_else(|| OsString::from("clang"));
     run_compiler(
-        &compiler,
+        OsStr::new(toolchain::CLANG),
         temporary.path(),
-        [&generated_path],
+        generated_inputs.iter(),
         graph.c_sources(),
         output_path,
     )

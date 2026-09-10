@@ -38,7 +38,7 @@ malc build source.mal --output program
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
 - `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
-- `build`はbackend artifactをtemporary directoryに作り、toolchainでlinkした実行可能fileだけを指定先へ残す。LLVM移行中の対応範囲とfallbackは後述する。
+- `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
 - `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
@@ -50,33 +50,18 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 別の生成結果と組み合わせない。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
 既存・生成済みartifactが残る場合がある。
 
-## Build toolchainと`CC`
+## Build toolchain
 
-LLVM backendが現在admitするcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、managedな
-direct-self continuation frame、transportableなextern call、process argument entry、数値scalar・`Ptr`のmemory primitiveは、pinned `clang`から取得したtarget tripleとdata layoutを
-LLVM moduleへ設定し、generated C shimおよびchecked-in C11 core・control runtimeと同じ`clang`でcompile、linkする。
-extern callはinternal pointer/out-pointer bridgeを通してpublic headerのC ABIへ変換する。この経路はambient `CC`を参照しない。
+`build`はpinned `clang`から取得したtarget tripleとdata layoutをLLVM moduleへ設定し、generated C shim、checked-in C11 runtime、
+requireされたhost C sourceと同じ`clang`でcompile、linkする。extern callはinternal pointer/out-pointer bridgeを通してpublic headerの
+C ABIへ変換する。ambient `CC`は参照せず、v0.5にはcompilerまたはoptionを差し替えるCLIはない。
 
-移行中のC body oracleへfallbackするprogramでは、`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、
-なければ`clang`を使う。
-Nushellで一回だけ切り替える例は次のとおり。
-
-```nu
-with-env { CC: /path/to/clang } {
-    malc build source.mal --output program
-}
-```
-
-`CC`は一つの実行ファイルを表し、optionを含むshell commandとして分割・評価しない。代替compilerは`malc`が
-渡すC11、warning、`-O2`、strict floating-point optionを受理し、Clangと同じtarget ABIでrequireされたC sourceを扱う必要が
-ある。v0.5にはcompiler optionを追加するCLIはない。
-
-`build`はgenerated CとrequireされたC sourceを`-O2`でcompileする。これはpublic buildの生成物policyであり、
+`build`は各artifactを`-O2`でcompileする。これはpublic buildの生成物policyであり、
 言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
 `-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
 `emit-c`はC sourceだけを生成するため、利用者がcompileするときに同じstrict floating-point profileを保つ必要がある。
 
-C compilerを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
+Clangを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
 
 ## Host adapterとshared object

@@ -72,7 +72,7 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 | `format` | `source -> lossless lexer -> parser -> formatter` | commentとliteral spellingを保持したsource text |
 | `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> c_emit` | checked host interfaceだけから生成したC headerまたはadapter stub |
 | `emit-c` | frontend `-> core -> anf -> closure -> c_emit` | 対になるC translation unitとheader |
-| `build` | `emit-c` path `-> driver -> C compiler/linker` | executableまたはexternal-boundary error |
+| `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
 
 `ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
 source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は

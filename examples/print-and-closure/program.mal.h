@@ -6,7 +6,7 @@
 
 #define MAL_C_ABI_VERSION 0x000600u
 
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
 #else
 #define MAL_DETAIL_MAYBE_UNUSED

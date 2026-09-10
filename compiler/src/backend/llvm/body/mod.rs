@@ -33,6 +33,7 @@ pub(super) struct Output {
     pub(super) uses_symbols: bool,
 }
 
+#[cfg(test)]
 pub(super) fn supports(execution: &crate::execution::Program) -> bool {
     generate(execution, 8).is_some()
 }
@@ -483,12 +484,16 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, callee, argument, true)?;
-                        self.release_local_managed();
-                        let value_type = self.types.value(&result.ty)?;
-                        self.line(format!(
-                            "  ret {} {}",
-                            value_type.llvm, result.representation
-                        ));
+                        if self.has_frames {
+                            self.emit_frame_return(site, &result)?;
+                        } else {
+                            self.release_local_managed();
+                            let value_type = self.types.value(&result.ty)?;
+                            self.line(format!(
+                                "  ret {} {}",
+                                value_type.llvm, result.representation
+                            ));
+                        }
                     }
                     ControlCallMode::Dispatch => {
                         if self.common_region.is_some()
@@ -498,12 +503,16 @@ impl<'a> FunctionEmitter<'a> {
                             self.emit_region_transition(site, callee, argument, false)?;
                         } else {
                             let result = self.emit_indirect_call(callee, argument, true)?;
-                            self.release_local_managed();
-                            let value_type = self.types.value(&result.ty)?;
-                            self.line(format!(
-                                "  ret {} {}",
-                                value_type.llvm, result.representation
-                            ));
+                            if self.has_frames {
+                                self.emit_frame_return(site, &result)?;
+                            } else {
+                                self.release_local_managed();
+                                let value_type = self.types.value(&result.ty)?;
+                                self.line(format!(
+                                    "  ret {} {}",
+                                    value_type.llvm, result.representation
+                                ));
+                            }
                         }
                     }
                 }

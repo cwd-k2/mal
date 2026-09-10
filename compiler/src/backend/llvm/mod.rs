@@ -9,6 +9,7 @@ pub(crate) struct Target<'a> {
     pub(crate) data_layout: &'a str,
 }
 
+#[cfg(test)]
 pub(crate) fn supports(program: &crate::execution::Program) -> bool {
     body::supports(program)
         && program.lowered.interface.externals.iter().all(|external| {

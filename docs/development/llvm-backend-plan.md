@@ -114,7 +114,7 @@ host adapterはC11としてClangでcompileし、LLVM moduleも同じtoolchainの
 7. heterogeneous frame、managed owner、closure environment、indirect recursive regionを順に移す。（完了）
 8. generated runtime logicをchecked-in C11 sourceへ移し、control、allocation、Symbol、ropeの順にRust C emitterから削除する。（LLVM artifact用core・controlとreference-counted flat `Symbol` runtimeは完了。rope、C oracle側の削除は未完了）
 9. extern、entry、terminal returnをgenerated C shimへ分離し、全host ABI fixtureを新artifact setで通す。（transportable typeのexternと両entry profileは完了）
-10. `build`をClang/LLVM artifact pipelineへ切り替え、ambient `CC`とGCC compatibilityを削除する。
+10. `build`をClang/LLVM artifact pipelineへ切り替え、ambient `CC`とGCC compatibilityを削除する。（完了）
 11. C body oracleとの差分検査と性能gateを通した後、legacy body emitterと`emit-c` contractを退役する。
 
 各stepは使われないfuture moduleを作らず、移したauthorityの旧constructorと再解析を同じchangeで削除する。

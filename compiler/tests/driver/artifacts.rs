@@ -495,6 +495,43 @@ fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
 }
 
 #[test]
+fn resumes_frames_when_a_recursive_branch_ends_in_a_direct_tail_call() {
+    let directory = NativeFixture::new("driver-llvm-frame-tail-exit");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "finish :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
+         unwind :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0i32) then { finish(0i32) } else {\n\
+             child := unwind(value - 1i32);\n\
+             finish(child);\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { unwind(100000i32) - 100001i32; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
     let directory = NativeFixture::new("driver-llvm-frames");
     let source = directory.join("program.mal");
