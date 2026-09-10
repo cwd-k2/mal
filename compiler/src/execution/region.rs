@@ -6,9 +6,9 @@ use crate::control::ast::{Program, StateId};
 use super::ContinuationGraph;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(in crate::c_emit::body) struct ControlRegionId(pub(in crate::c_emit::body) usize);
+pub(crate) struct ControlRegionId(pub(crate) usize);
 
-pub(in crate::c_emit::body) struct ControlRegionPlan {
+pub(crate) struct ControlRegionPlan {
     regions: Vec<ControlRegion>,
     function_regions: HashMap<FunctionId, ControlRegionId>,
     site_regions: HashMap<StateId, ControlRegionId>,
@@ -20,10 +20,7 @@ struct ControlRegion {
 }
 
 impl ControlRegionPlan {
-    pub(in crate::c_emit::body) fn new(
-        program: &Program,
-        continuations: &ContinuationGraph,
-    ) -> Self {
+    pub(crate) fn new(program: &Program, continuations: &ContinuationGraph) -> Self {
         let function_indices = program
             .functions
             .iter()
@@ -104,37 +101,27 @@ impl ControlRegionPlan {
         }
     }
 
-    pub(in crate::c_emit::body) fn ids(&self) -> impl Iterator<Item = ControlRegionId> + '_ {
+    pub(crate) fn ids(&self) -> impl Iterator<Item = ControlRegionId> + '_ {
         (0..self.regions.len()).map(ControlRegionId)
     }
 
-    pub(in crate::c_emit::body) fn functions(&self, region: ControlRegionId) -> &[FunctionId] {
+    pub(crate) fn functions(&self, region: ControlRegionId) -> &[FunctionId] {
         &self.regions[region.0].functions
     }
 
-    pub(in crate::c_emit::body) fn function_region(
-        &self,
-        function: FunctionId,
-    ) -> Option<ControlRegionId> {
+    pub(crate) fn function_region(&self, function: FunctionId) -> Option<ControlRegionId> {
         self.function_regions.get(&function).copied()
     }
 
-    pub(in crate::c_emit::body) fn site_region(&self, site: StateId) -> Option<ControlRegionId> {
+    pub(crate) fn site_region(&self, site: StateId) -> Option<ControlRegionId> {
         self.site_regions.get(&site).copied()
     }
 
-    pub(in crate::c_emit::body) fn recursive_targets(
-        &self,
-        site: StateId,
-    ) -> Option<&[FunctionId]> {
+    pub(crate) fn recursive_targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.recursive_targets.get(&site).map(Vec::as_slice)
     }
 
-    pub(in crate::c_emit::body) fn is_valid(
-        &self,
-        program: &Program,
-        continuations: &ContinuationGraph,
-    ) -> bool {
+    pub(crate) fn is_valid(&self, program: &Program, continuations: &ContinuationGraph) -> bool {
         let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
             self.recursive_targets(*site).is_some_and(|targets| {
                 targets

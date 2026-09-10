@@ -1,7 +1,7 @@
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, Terminator};
 
-pub(super) fn forwarded_self_tail_argument(
+pub(in crate::execution) fn forwarded_self_tail_argument(
     program: &closure::Program,
     state: &control::State,
     terminator: &Terminator,

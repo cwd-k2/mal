@@ -5,7 +5,7 @@ use crate::control::ast::{self as control, StateId};
 
 use super::{ControlCallMode, reachable_states};
 
-pub(super) fn direct_graph(
+pub(in crate::execution) fn direct_graph(
     program: &control::Program,
     modes: &HashMap<StateId, ControlCallMode>,
 ) -> HashMap<FunctionId, Vec<FunctionId>> {
@@ -20,7 +20,7 @@ pub(super) fn direct_graph(
     graph
 }
 
-pub(super) fn is_acyclic(
+pub(in crate::execution) fn is_acyclic(
     graph: &HashMap<FunctionId, Vec<FunctionId>>,
     nodes: impl IntoIterator<Item = FunctionId>,
 ) -> bool {

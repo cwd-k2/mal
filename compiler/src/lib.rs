@@ -11,6 +11,7 @@ pub mod core;
 pub mod diagnostic;
 pub mod driver;
 pub mod editor;
+mod execution;
 pub mod formatter;
 pub mod lexer;
 pub mod parser;

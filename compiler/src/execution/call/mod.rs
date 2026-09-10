@@ -9,23 +9,23 @@ mod graph;
 
 use graph::{direct_graph, is_acyclic};
 
-pub(super) use super::application_graph::reachable_states;
+pub(super) use super::application::reachable_states;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::c_emit::body) enum ControlCallMode {
+pub(crate) enum ControlCallMode {
     Direct(FunctionId),
     DirectSelfTail,
     Dispatch,
 }
 
-pub(in crate::c_emit::body) struct ControlCallPlan {
+pub(crate) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
     dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
     common_regions: HashSet<ControlRegionId>,
 }
 
 impl ControlCallPlan {
-    pub(in crate::c_emit::body) fn new(
+    pub(crate) fn new(
         control: &control::Program,
         applications: &ApplicationGraph,
         tail_calls: &TailCallPlan,
@@ -91,24 +91,21 @@ impl ControlCallPlan {
         }
     }
 
-    pub(in crate::c_emit::body) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
+    pub(crate) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
         self.modes.get(&site).copied()
     }
 
-    pub(in crate::c_emit::body) fn has_direct_target(&self, function: FunctionId) -> bool {
+    pub(crate) fn has_direct_target(&self, function: FunctionId) -> bool {
         self.modes
             .values()
             .any(|mode| *mode == ControlCallMode::Direct(function))
     }
 
-    pub(in crate::c_emit::body) fn needs_closure_binding(
-        &self,
-        id: crate::anf::ast::ValueId,
-    ) -> bool {
+    pub(crate) fn needs_closure_binding(&self, id: crate::anf::ast::ValueId) -> bool {
         self.dispatch_bindings.contains(&id)
     }
 
-    pub(in crate::c_emit::body) fn requires_common_control(&self, region: ControlRegionId) -> bool {
+    pub(crate) fn requires_common_control(&self, region: ControlRegionId) -> bool {
         self.common_regions.contains(&region)
     }
 }
@@ -157,7 +154,7 @@ fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::direct_function_id;
+    use super::super::direct_function_id;
     use super::super::{ClosureUsePlan, ContinuationGraph};
     use super::*;
     use crate::source::{FileId, SourceFile};

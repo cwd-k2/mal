@@ -1,21 +1,12 @@
-mod application_graph;
-mod closure_use;
-mod continuation_graph;
-mod control_call;
 mod control_frame;
-mod control_region;
 mod owned_call;
 mod ownership;
 mod symbol_at_cursor;
-mod tail_call;
 
-pub(super) use application_graph::ApplicationGraph;
-pub(super) use closure_use::ClosureUsePlan;
-pub(super) use continuation_graph::ContinuationGraph;
-pub(super) use control_call::{ControlCallMode, ControlCallPlan};
+pub(super) use crate::execution::{
+    ClosureUsePlan, ControlCallMode, ControlCallPlan, ControlRegionId, ControlRegionPlan,
+};
 pub(super) use control_frame::{ControlArenaId, ControlFramePlan};
-pub(super) use control_region::{ControlRegionId, ControlRegionPlan};
 pub(super) use owned_call::OwnedCallPlan;
 pub(super) use ownership::OwnershipPlan;
 pub(super) use symbol_at_cursor::SymbolAtCursorPlan;
-pub(super) use tail_call::TailCallPlan;

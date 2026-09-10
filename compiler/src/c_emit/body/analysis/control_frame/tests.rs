@@ -1,6 +1,6 @@
-use super::super::{ApplicationGraph, ContinuationGraph, TailCallPlan};
 use super::*;
 use crate::c_emit::types::TypeRegistry;
+use crate::execution::{ApplicationGraph, ContinuationGraph, TailCallPlan};
 use crate::source::{FileId, SourceFile};
 use crate::{anf, check, closure, control, core, parser, resolve};
 

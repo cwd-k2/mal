@@ -18,11 +18,7 @@ mod name;
 mod pattern;
 mod statement;
 
-use self::analysis::{
-    ApplicationGraph, ClosureUsePlan, ContinuationGraph, ControlCallMode, ControlCallPlan,
-    ControlFramePlan, ControlRegionPlan, OwnedCallPlan, OwnershipPlan, SymbolAtCursorPlan,
-    TailCallPlan,
-};
+use self::analysis::{ControlFramePlan, OwnedCallPlan, OwnershipPlan, SymbolAtCursorPlan};
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
@@ -34,6 +30,10 @@ use self::name::{
     stack_environment_name, value_name,
 };
 use self::pattern::pattern_type;
+use crate::execution::{
+    self, ApplicationGraph, ClosureUsePlan, ControlCallPlan, ControlRegionPlan, TailCallPlan,
+    direct_function_id,
+};
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct RuntimeNeeds {
@@ -101,33 +101,17 @@ impl<'a> BodyEmitter<'a> {
     pub(super) fn new(program: &'a closure::Program, types: &'a TypeRegistry) -> Self {
         let ownership = OwnershipPlan::new(program);
         let symbol_at_cursors = SymbolAtCursorPlan::new(program);
-        let closure_uses = ClosureUsePlan::new(program);
         debug_assert!(ownership.is_valid(program));
         debug_assert!(symbol_at_cursors.is_valid(program));
-        debug_assert!(closure_uses.is_valid(program));
+        let execution::Program {
+            control,
+            closure_uses,
+            applications,
+            tail_calls,
+            control_calls,
+            control_regions,
+        } = execution::lower(program);
         let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
-        let control = crate::control::lower(program);
-        let applications = ApplicationGraph::new(program, &control, &closure_uses);
-        let tail_calls = TailCallPlan::new(program, &control, &applications);
-        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
-        let control_regions = ControlRegionPlan::new(&control, &continuations);
-        debug_assert!(control_regions.is_valid(&control, &continuations));
-        let control_calls =
-            ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
-        debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
-            let site = crate::control::ast::StateId(index);
-            control_calls.mode(site) != Some(ControlCallMode::Dispatch)
-                || applications.targets(site).is_some()
-        }));
-        debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
-            !matches!(
-                state.terminator,
-                crate::control::ast::Terminator::Call { .. }
-                    | crate::control::ast::Terminator::TailCall { .. }
-            ) || control_calls
-                .mode(crate::control::ast::StateId(index))
-                .is_some()
-        }));
         let control_frames = ControlFramePlan::new(
             &control,
             &control_regions,
@@ -315,15 +299,5 @@ impl<'a> BodyEmitter<'a> {
 
     fn elides_top_level(&self, id: ValueId) -> bool {
         self.closure_uses.is_direct_top_level(id) && !self.control_calls.needs_closure_binding(id)
-    }
-}
-
-fn direct_function_id(closure_uses: &ClosureUsePlan, callee: &closure::Atom) -> Option<FunctionId> {
-    match callee.kind {
-        closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => Some(function),
-        closure::AtomKind::Reference(closure::Reference::Binding(id)) => closure_uses
-            .direct_closure(id)
-            .map(|target| target.function),
-        _ => None,
     }
 }

@@ -36,6 +36,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
+| `execution` | closure target、tail fusion、continuation graph、recursive region、call modeをbackend非依存の実行計画として構成 |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
@@ -107,6 +108,12 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/token/control` | `if`、`case`、block delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
+| `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
+| `execution/application` | application siteごとのcaller、known target、型互換なpossible user-function targetを構成 |
+| `execution/tail` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ遷移へfusion |
+| `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
+| `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
+| `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
@@ -128,13 +135,6 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
 | `c_emit/body/analysis/symbol_at_cursor` | 全self-tail edgeで保持されるSymbol parameterと、そのactivation内だけでcursorを再利用できるbyte access siteの計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
-| `c_emit/body/analysis/closure_use` | local・top-level closureとself closureのuse分類、alias追跡、direct-only表現とstack environment候補の計画 |
-| `c_emit/body/analysis/application_graph` | application siteごとのcaller、known target、型互換なpossible user-function targetを構成 |
-| `c_emit/body/analysis/tail_call` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ`goto`遷移へfusion |
-| `c_emit/body/analysis/continuation_graph` | possible application graphからfusion済みtail edgeを除いたC continuation edgeを構成 |
-| `c_emit/body/analysis/control_region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
-| `c_emit/body/analysis/control_call` | control regionからapplicationごとのdirect、self-tail、dispatch判定とcommon machineを必要とするregion集合を導出し、C-call graphを非循環化 |
-| `c_emit/body/analysis/control_call/graph` | 導出済みdirect C-call edge集合の非循環性検査 |
 | `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要、constructor cardinalityに基づくhomogeneous region、frameが運ぶenvironment ownerを導出 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |

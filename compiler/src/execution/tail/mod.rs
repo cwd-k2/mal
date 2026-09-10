@@ -4,19 +4,19 @@ use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
 use super::ApplicationGraph;
-use super::application_graph::reachable_states;
+use super::application::reachable_states;
 
 mod forwarder;
 
 use forwarder::forwarded_self_tail_argument;
 
-pub(in crate::c_emit::body) struct TailCallPlan {
+pub(crate) struct TailCallPlan {
     fused_sites: HashSet<StateId>,
     forwarded_self_arguments: HashMap<StateId, closure::Atom>,
 }
 
 impl TailCallPlan {
-    pub(in crate::c_emit::body) fn new(
+    pub(crate) fn new(
         closure: &closure::Program,
         control: &control::Program,
         applications: &ApplicationGraph,
@@ -43,14 +43,11 @@ impl TailCallPlan {
         }
     }
 
-    pub(in crate::c_emit::body) fn is_fused(&self, site: StateId) -> bool {
+    pub(crate) fn is_fused(&self, site: StateId) -> bool {
         self.fused_sites.contains(&site)
     }
 
-    pub(in crate::c_emit::body) fn forwarded_self_argument(
-        &self,
-        site: StateId,
-    ) -> Option<&closure::Atom> {
+    pub(crate) fn forwarded_self_argument(&self, site: StateId) -> Option<&closure::Atom> {
         self.forwarded_self_arguments.get(&site)
     }
 }

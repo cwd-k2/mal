@@ -3,10 +3,9 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::super::direct_function_id;
-use super::ClosureUsePlan;
+use super::{ClosureUsePlan, direct_function_id};
 
-pub(in crate::c_emit::body) struct ApplicationGraph {
+pub(crate) struct ApplicationGraph {
     sites: HashMap<StateId, ApplicationSite>,
 }
 
@@ -17,7 +16,7 @@ struct ApplicationSite {
 }
 
 impl ApplicationGraph {
-    pub(in crate::c_emit::body) fn new(
+    pub(crate) fn new(
         closure: &closure::Program,
         control: &control::Program,
         closure_uses: &ClosureUsePlan,
@@ -47,15 +46,15 @@ impl ApplicationGraph {
         Self { sites }
     }
 
-    pub(in crate::c_emit::body) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
+    pub(crate) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
         self.sites.get(&site).and_then(|site| site.direct_target)
     }
 
-    pub(in crate::c_emit::body) fn targets(&self, site: StateId) -> Option<&[FunctionId]> {
+    pub(crate) fn targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.sites.get(&site).map(|site| site.targets.as_slice())
     }
 
-    pub(in crate::c_emit::body) fn sites_from(
+    pub(crate) fn sites_from(
         &self,
         function: FunctionId,
     ) -> impl Iterator<Item = (StateId, &[FunctionId])> + '_ {

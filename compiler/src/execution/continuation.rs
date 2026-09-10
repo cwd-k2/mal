@@ -5,7 +5,7 @@ use crate::control::ast::{Program, StateId};
 
 use super::{ApplicationGraph, TailCallPlan};
 
-pub(in crate::c_emit::body) struct ContinuationGraph {
+pub(crate) struct ContinuationGraph {
     sites: HashMap<StateId, ContinuationSite>,
 }
 
@@ -15,7 +15,7 @@ struct ContinuationSite {
 }
 
 impl ContinuationGraph {
-    pub(in crate::c_emit::body) fn new(
+    pub(crate) fn new(
         program: &Program,
         applications: &ApplicationGraph,
         tail_calls: &TailCallPlan,
@@ -37,15 +37,15 @@ impl ContinuationGraph {
         Self { sites }
     }
 
-    pub(in crate::c_emit::body) fn caller(&self, site: StateId) -> Option<FunctionId> {
+    pub(crate) fn caller(&self, site: StateId) -> Option<FunctionId> {
         self.sites.get(&site).map(|site| site.caller)
     }
 
-    pub(in crate::c_emit::body) fn targets(&self, site: StateId) -> Option<&[FunctionId]> {
+    pub(crate) fn targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.sites.get(&site).map(|site| site.targets.as_slice())
     }
 
-    pub(in crate::c_emit::body) fn targets_from(
+    pub(crate) fn targets_from(
         &self,
         function: FunctionId,
     ) -> impl Iterator<Item = FunctionId> + '_ {

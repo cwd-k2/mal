@@ -4,19 +4,19 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Block, FunctionId, Operation, Pattern};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(in crate::c_emit::body) struct DirectClosure {
-    pub(in crate::c_emit::body) creator: ValueId,
-    pub(in crate::c_emit::body) function: FunctionId,
+pub(crate) struct DirectClosure {
+    pub(crate) creator: ValueId,
+    pub(crate) function: FunctionId,
 }
 
-pub(in crate::c_emit::body) struct ClosureUsePlan {
+pub(crate) struct ClosureUsePlan {
     direct: HashMap<ValueId, DirectClosure>,
     top_levels: HashSet<ValueId>,
     known_top_levels: HashMap<ValueId, DirectClosure>,
 }
 
 impl ClosureUsePlan {
-    pub(in crate::c_emit::body) fn new(program: &closure::Program) -> Self {
+    pub(crate) fn new(program: &closure::Program) -> Self {
         let mut candidates = HashMap::new();
         let mut top_levels = HashSet::new();
         for binding in &program.bindings {
@@ -77,45 +77,42 @@ impl ClosureUsePlan {
         }
     }
 
-    pub(in crate::c_emit::body) fn direct_closure(&self, id: ValueId) -> Option<DirectClosure> {
+    pub(crate) fn direct_closure(&self, id: ValueId) -> Option<DirectClosure> {
         self.direct
             .get(&id)
             .or_else(|| self.known_top_levels.get(&id))
             .copied()
     }
 
-    pub(in crate::c_emit::body) fn is_valid(&self, program: &closure::Program) -> bool {
+    pub(crate) fn is_valid(&self, program: &closure::Program) -> bool {
         let expected = Self::new(program);
         self.direct == expected.direct
             && self.top_levels == expected.top_levels
             && self.known_top_levels == expected.known_top_levels
     }
 
-    pub(in crate::c_emit::body) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
+    pub(crate) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
         self.direct.contains_key(&id) && self.direct.get(&id) == self.direct.get(&source)
     }
 
-    pub(in crate::c_emit::body) fn has_direct_creator(&self, function: FunctionId) -> bool {
+    pub(crate) fn has_direct_creator(&self, function: FunctionId) -> bool {
         self.direct.values().any(|candidate| {
             candidate.function == function && !self.top_levels.contains(&candidate.creator)
         })
     }
 
-    pub(in crate::c_emit::body) fn direct_creator(&self, function: FunctionId) -> Option<ValueId> {
+    pub(crate) fn direct_creator(&self, function: FunctionId) -> Option<ValueId> {
         self.direct.values().find_map(|candidate| {
             (candidate.function == function && !self.top_levels.contains(&candidate.creator))
                 .then_some(candidate.creator)
         })
     }
 
-    pub(in crate::c_emit::body) fn is_direct_top_level(&self, id: ValueId) -> bool {
+    pub(crate) fn is_direct_top_level(&self, id: ValueId) -> bool {
         self.top_levels.contains(&id) && self.direct.contains_key(&id)
     }
 
-    pub(in crate::c_emit::body) fn has_direct_top_level_function(
-        &self,
-        function: FunctionId,
-    ) -> bool {
+    pub(crate) fn has_direct_top_level_function(&self, function: FunctionId) -> bool {
         self.top_levels.iter().any(|id| {
             self.direct
                 .get(id)
