@@ -49,6 +49,11 @@ impl Types {
                 alignment: self.pointer_size,
                 size: self.pointer_size,
             }),
+            Type::External { .. } => Some(ValueType {
+                llvm: format!("i{}", self.pointer_size.checked_mul(8)?),
+                alignment: self.pointer_size,
+                size: self.pointer_size,
+            }),
             Type::Product(elements) => self.product(elements),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),

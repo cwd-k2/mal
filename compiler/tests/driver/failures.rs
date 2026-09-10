@@ -112,9 +112,11 @@ fn reports_required_c_source_and_c_compiler_failures() {
 
     directory.write(
         "program.mal",
-        "extern Handle;\n\
-         extern missing :: Handle -> Symbol;\n\
-         main :: Unit -> Int32 := \\() { 0; };",
+        "main :: Unit -> Int32 := \\() {\n\
+           base :: Int32 := 40;\n\
+           add :: Int32 -> Int32 := \\(value) { base + value; };\n\
+           add(2) - 42;\n\
+         };",
     );
     let unavailable_compiler = directory.join("missing-clang");
     let output = directory.malc_with_env(

@@ -119,7 +119,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、stage間で保持するatom identityに基づくpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、managed direct-self continuation frame、scalar・`Ptr`・managed product・managed sumのextern callをadmit |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、managed direct-self continuation frame、scalar・`Ptr`・external opaque・managed product・managed sumのextern callをadmit |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |

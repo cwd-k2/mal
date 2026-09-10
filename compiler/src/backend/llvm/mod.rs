@@ -150,7 +150,9 @@ fn external_bridge(
         Type::Symbol => format!(
             "    MalType_Symbol result = {call};\n    *(void **)mal_result = result.ownership;"
         ),
-        Type::Product(_) | Type::Sum(_) if c_scalar_type(&external.result).is_none() => {
+        Type::Product(_) | Type::Sum(_) | Type::External { .. }
+            if c_scalar_type(&external.result).is_none() =>
+        {
             let result_type = raw_types.c_type(&external.result);
             let writes =
                 marshalling.write(&external.result, "result", 0, "(MalContext *)mal_context")?;
@@ -218,6 +220,10 @@ impl<'a> BridgeMarshalling<'a> {
                     "(MalType_Symbol){{.data = mal_runtime_symbol_data({ownership}), .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}}"
                 ))
             }
+            Type::External { .. } => Some(format!(
+                "({}){{.bits = *(const uintptr_t *){pointer}}}",
+                self.raw_types.c_type(ty)
+            )),
             Type::Product(elements) => {
                 let fields = self.types.product_fields(ty)?;
                 let initializers = elements
@@ -297,6 +303,7 @@ impl<'a> BridgeMarshalling<'a> {
         match ty {
             Type::Unit => Some(format!("    *(uint8_t *){pointer} = UINT8_C(0);")),
             Type::Symbol => Some(format!("    *(void **){pointer} = {value}.ownership;")),
+            Type::External { .. } => Some(format!("    *(uintptr_t *){pointer} = {value}.bits;")),
             Type::Product(elements) => {
                 let fields = self.types.product_fields(ty)?;
                 elements
@@ -375,6 +382,7 @@ fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
 
     c_scalar_type(ty).is_some()
         || matches!(ty, Type::Unit | Type::Symbol)
+        || matches!(ty, Type::External { .. })
         || matches!(ty, Type::Product(elements) if elements.iter().all(bridge_type_supported))
         || matches!(ty, Type::Sum(elements) if elements.iter().all(bridge_type_supported))
 }
@@ -473,6 +481,7 @@ mod tests {
         for (index, source) in [
             "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };",
             "Choice :: [Unit, (UInt64, Symbol)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := \\() { 0; };",
+            "extern Handle; Choice :: [Unit, (UInt64, Handle)]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };",
         ]
         .into_iter()
         .enumerate()
