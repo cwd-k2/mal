@@ -38,6 +38,7 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     let applications = ApplicationGraph::new(&lowered, &control, &closure_uses);
     debug_assert!(applications.is_valid(&lowered, &control, &closure_uses));
     let tail_calls = TailCallPlan::new(&lowered, &control, &applications);
+    debug_assert!(tail_calls.is_valid(&lowered, &control, &applications));
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let control_regions = ControlRegionPlan::new(&control, &continuations);
     debug_assert!(control_regions.is_valid(&control, &continuations));
@@ -46,22 +47,6 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     debug_assert!(control_calls.is_valid(&control, &applications, &tail_calls, &control_regions));
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
-    debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
-        let site = crate::control::ast::StateId(index);
-        !matches!(
-            control_calls.mode(site),
-            Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
-        ) || applications.targets(site).is_some()
-    }));
-    debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
-        !matches!(
-            state.terminator,
-            crate::control::ast::Terminator::Call { .. }
-                | crate::control::ast::Terminator::TailCall { .. }
-        ) || control_calls
-            .mode(crate::control::ast::StateId(index))
-            .is_some()
-    }));
     Program {
         lowered,
         control,

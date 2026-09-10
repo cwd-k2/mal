@@ -46,6 +46,17 @@ impl TailCallPlan {
         self.fused_sites.contains(&site)
     }
 
+    pub(crate) fn is_valid(
+        &self,
+        closure: &closure::Program,
+        control: &control::Program,
+        applications: &ApplicationGraph,
+    ) -> bool {
+        let expected = Self::new(closure, control, applications);
+        self.fused_sites == expected.fused_sites
+            && self.forwarded_self_arguments == expected.forwarded_self_arguments
+    }
+
     pub(super) fn forwarded_self_arguments(&self) -> &HashMap<StateId, closure::Atom> {
         &self.forwarded_self_arguments
     }
@@ -63,4 +74,37 @@ fn is_direct_self_tail(terminator: &Terminator, function: FunctionId) -> bool {
             ..
         } if *target == function
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::execution::ClosureUsePlan;
+    use crate::source::{FileId, SourceFile};
+    use crate::{anf, check, core, parser, resolve};
+
+    #[test]
+    fn validates_the_exact_fused_tail_site_set() {
+        let source = SourceFile::new(
+            FileId::new(84),
+            "tail-plan.mal",
+            "walk :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { walk(value - 1i32) }; }; main :: Unit -> Int32 := () { walk(1i32); };"
+                .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse tail plan fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve tail plan fixture");
+        let checked = check::check(&resolved).expect("check tail plan fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let mut plan = TailCallPlan::new(&closure, &control, &applications);
+
+        assert!(plan.is_valid(&closure, &control, &applications));
+        let site = *plan.fused_sites.iter().next().expect("fused tail site");
+        plan.fused_sites.remove(&site);
+        assert!(!plan.is_valid(&closure, &control, &applications));
+    }
 }

@@ -88,12 +88,17 @@ impl ApplicationGraph {
                     return false;
                 };
                 argument.ty == **parameter
-                    && resume.is_none_or(|resume| {
-                        control.states[resume.0]
+                    && match resume {
+                        Some(resume) => control.states[resume.0]
                             .input
                             .as_ref()
-                            .is_some_and(|input| pattern_type(input) == result.as_ref())
-                    })
+                            .is_some_and(|input| pattern_type(input) == result.as_ref()),
+                        None => site_plan.caller.is_some_and(|caller| {
+                            closure.functions.iter().any(|function| {
+                                function.id == caller && function.body.result.ty == **result
+                            })
+                        }),
+                    }
                     && site_plan.targets.iter().all(|target| {
                         closure.functions.iter().any(|function| {
                             function.id == *target
