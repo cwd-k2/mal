@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -62,12 +62,33 @@ pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error>
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
-pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
+pub struct BuildOptions<'a> {
+    pub output_path: &'a Path,
+    pub artifact_directory: Option<&'a Path>,
+    pub clang_arguments: &'a [OsString],
+}
+
+pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
     let execution = crate::pipeline::lower_graph_execution(&graph)
         .map_err(|error| Error::diagnostic(error, &graph))?;
-    let temporary = TemporaryDirectory::new()?;
-    create_parent(output_path)?;
+    let temporary = options
+        .artifact_directory
+        .is_none()
+        .then(TemporaryDirectory::new)
+        .transpose()?;
+    let build_directory = match options.artifact_directory {
+        Some(path) => {
+            fs::create_dir_all(path)
+                .map_err(|error| Error::io("create artifact directory", path, error))?;
+            path
+        }
+        None => temporary
+            .as_ref()
+            .expect("temporary directory exists when artifacts are not retained")
+            .path(),
+    };
+    create_parent(options.output_path)?;
 
     let target = toolchain::host_target()?;
     let generated = crate::backend::llvm::generate(
@@ -78,11 +99,9 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
         },
     )
     .ok_or_else(|| Error::new("malc: LLVM backend rejected an admitted program"))?;
-    let module_path = temporary.path().join("program.ll");
-    let shim_path = temporary.path().join("program-shim.c");
-    let header_path = temporary
-        .path()
-        .join(crate::backend::c::GENERATED_HEADER_NAME);
+    let module_path = build_directory.join("program.ll");
+    let shim_path = build_directory.join("program-shim.c");
+    let header_path = build_directory.join(crate::backend::c::GENERATED_HEADER_NAME);
     fs::write(&module_path, generated.module)
         .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
     fs::write(&shim_path, generated.shim)
@@ -91,7 +110,7 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
         .map_err(|error| Error::io("write generated header", &header_path, error))?;
     let mut generated_inputs = vec![module_path, shim_path];
     for runtime in generated.runtime {
-        let path = temporary.path().join(runtime.name);
+        let path = build_directory.join(runtime.name);
         fs::write(&path, runtime.contents)
             .map_err(|error| Error::io("write runtime input", &path, error))?;
         if path.extension() == Some(OsStr::new("c")) {
@@ -100,26 +119,33 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     }
     run_compiler(
         OsStr::new(toolchain::CLANG),
-        temporary.path(),
+        build_directory,
+        &header_path,
         generated_inputs.iter(),
         graph.c_sources(),
-        output_path,
+        options.clang_arguments,
+        options.output_path,
     )
 }
 
 fn run_compiler<'a>(
     compiler: &OsStr,
     include_directory: &Path,
+    generated_header: &Path,
     generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
     required_inputs: impl IntoIterator<Item = &'a PathBuf>,
+    additional_arguments: &[OsString],
     output_path: &Path,
 ) -> Result<(), Error> {
     let result = Command::new(compiler)
         .args(C_COMPILER_OPTIONS)
         .arg("-I")
         .arg(include_directory)
+        .arg("-include")
+        .arg(generated_header)
         .args(generated_inputs)
         .args(required_inputs)
+        .args(additional_arguments)
         .arg("-o")
         .arg(output_path)
         .output()

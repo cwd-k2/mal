@@ -39,3 +39,10 @@ bounded native stackの前提にはしない。なお、この時点の`runtime/
 
 raw measurementはignored scratch treeの`.scratch/typical90/performance/*/llvm-results.json`と
 `.scratch/typical90/performance/llvm-results.md`に保存した。
+
+## 2026-09-10 — external library入力を含む全79問
+
+repeatableな`--clang-arg`を追加した変更で009と018へ`-lm`を渡し、全269 sampleと79 maximum-order inputのstdoutを検証した。
+同じ3 warmup、交互20回で追加測定した009はMal 84.86 ms、direct C 72.58 msで1.17倍、018はともに0.90 msで同等だった。
+既存77問と合わせた中央値は1.03倍、幾何平均は1.06倍で、LTO採用判断は変わらない。両方5 ms以上の51問では中央値1.07倍、
+幾何平均1.08倍だった。

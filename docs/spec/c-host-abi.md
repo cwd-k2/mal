@@ -10,7 +10,9 @@ Status: Current v0.6 profile
 
 reference compilerはmal sourceからprogram固有headerを生成し、`build`ではLLVM module、C shim、C runtimeを構成する。host implementationはheaderを
 includeし、生成artifactと同じtarget ABIでcompileする。`.mal` sourceから推移的にrequireされた`.c` fileは`build`のlink入力に
-なる。既存libraryには薄いC adapterを介して接続する。
+なる。build時には今回生成したheaderをC translation unitへ先に読み込み、host sourceの隣にある保存済みheaderが生成物を
+置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、archive、include path、macroなどの
+toolchain argumentはreference compilerの明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
 
 generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
 

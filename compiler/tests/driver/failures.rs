@@ -99,14 +99,20 @@ fn reports_required_c_source_and_c_compiler_failures() {
         "require \"./broken.c\";\nmain :: Unit -> Int32 := \\() { 0; };",
     );
     directory.write("broken.c", "this is not C\n");
+    let artifacts = directory.join("failed-artifacts");
     let output = directory.malc([
         OsStr::new("build"),
         source.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
     ]);
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("malc: C compiler '"));
     assert!(stderr.contains("failed with exit status"));
+    assert!(artifacts.join("program.ll").is_file());
+    assert!(artifacts.join("program-shim.c").is_file());
+    assert!(artifacts.join("program.mal.h").is_file());
 }

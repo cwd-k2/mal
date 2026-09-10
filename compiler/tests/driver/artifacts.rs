@@ -28,6 +28,73 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
 }
 
 #[test]
+fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
+    let directory = NativeFixture::new("driver-retained-artifacts");
+    let source = directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern sine :: Float64 -> Float64;\n\
+         main :: Unit -> Int32 := \\() { if (sine(0.0) == 0.0) then { 0 } else { 1 }; };",
+    );
+    directory.write(
+        "program.mal.h",
+        "#ifndef MAL_PROGRAM_MAL_H\n\
+         #define MAL_PROGRAM_MAL_H\n\
+         #error stale adjacent header must not be used\n\
+         #endif\n",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         #include <math.h>\n\
+         static volatile double zero;\n\
+         MAL_DEFINE_sine(call, value) {\n\
+           return mal_Float64_return(call, sin(value + zero));\n\
+         }\n",
+    );
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-fno-builtin-sin"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-lm"),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    assert!(
+        std::fs::read_to_string(artifacts.join("program.ll"))
+            .unwrap()
+            .contains("target triple")
+    );
+    assert!(
+        std::fs::read_to_string(artifacts.join("program-shim.c"))
+            .unwrap()
+            .contains("mal_bridge_external_0")
+    );
+    assert!(
+        std::fs::read_to_string(artifacts.join("program.mal.h"))
+            .unwrap()
+            .contains("MAL_DEFINE_sine")
+    );
+    for runtime in ["runtime.h", "core.c", "control.c", "symbol.c"] {
+        assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
+    }
+}
+
+#[test]
 fn references_closed_top_level_numeric_constants_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-top-level-constant");
     let source = directory.join("program.mal");

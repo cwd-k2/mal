@@ -25,6 +25,8 @@ malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
 malc build source.mal --output program
+malc build source.mal --output program --artifact-dir artifacts
+malc build source.mal --output program --clang-arg '-lm'
 ```
 
 - `check`はsourceを型検査し、成功時には生成物を作らない。
@@ -38,6 +40,9 @@ malc build source.mal --output program
   `emit-header`と同様に`main` bindingは要求しない。
 - `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
 - `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
+- `build --artifact-dir directory`は、通常temporaryなbackend生成物とruntime入力を指定directoryへ書き、build後も保持する。
+  Clangが失敗した場合も保持する。同じ名前のfileは置き換えるが、directory内の他のfileは変更しない。
+- `build --clang-arg argument`は追加のClang argumentを一つ渡す。必要な数だけ繰り返せる。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
 `Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
@@ -50,13 +55,19 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 
 `build`はpinned `clang`から取得したtarget tripleとdata layoutをLLVM moduleへ設定し、generated C shim、checked-in C11 runtime、
 requireされたhost C sourceと同じ`clang`でcompile、linkする。extern callはinternal pointer/out-pointer bridgeを通してpublic headerの
-C ABIへ変換する。ambient `CC`は参照せず、v0.5にはcompilerまたはoptionを差し替えるCLIはない。
+C ABIへ変換する。ambient `CC`は参照せず、compiler自体を差し替えるCLIはない。
 
 `build`は各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
 一つのlink-time optimization unitにする。これはprogram固有のLLVM IRとprogram非依存のC mechanismのsource責務を保ったまま、
 境界上の小さいhelper callを最適化するpublic buildの生成物policyである。
 このpolicyは言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
 `-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
+
+追加の`--clang-arg`はgenerated inputとrequireされたC sourceの後、compilerが所有する最後の`-o`より前に、指定順で渡す。
+したがって`--clang-arg '-lm'`、`--clang-arg '-L/path' --clang-arg '-lname'`、追加のobjectまたはarchive、Cのinclude pathや
+macro optionを利用できる。これは明示的なexternal build authorityであり、argumentのtarget compatibility、順序、外部fileの
+lifetime、およびlanguage semanticsを変えるoptionを渡さない責任は呼出し側が持つ。追加argumentはMal sourceのrequire graphや
+別のbuildへ伝播しない。
 
 Clangを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
@@ -67,9 +78,11 @@ host C sourceは対象programが生成した`program.mal.h`をincludeし、LLVM 
 `.mal` fileからhost C sourceをrequireする。
 新しいadapterは`malc emit-host source.mal | save host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
 編集済みの`host.c`に対して再実行してはならない。
-`build`はtemporary header directoryをinclude pathへ加えるため、requireされたhost C sourceはそのheaderを直接includeできる。
+`build`は生成直後のheaderを各C translation unitへpreincludeし、同名の隣接headerが今回の生成物を置き換えないようにする。
+host sourceの明示的な`#include "program.mal.h"`は単独でのeditor supportとcompileのために維持する。
 
-shared objectの入力、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
+Mal sourceのrequirementとしてのshared object、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
+link時に必要なshared libraryは`--clang-arg`で明示する。
 `Ptr`を受け渡すadapterは、live region、permission、lifetimeを
 [memory contract](../spec/memory.md)に従って定める。
 
@@ -79,6 +92,8 @@ generated headerとbuild artifactのsource compatibilityまたはbinary compatib
 配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
+`--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`、
+`symbol.c`を保持する。これらはtoolchainとtargetに依存するinspection用artifactであり、version間の互換性を保証しない。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。
 mal programのtrapはstderrへ理由を出して異常終了するが、portableなprocess exit codeは定めない。

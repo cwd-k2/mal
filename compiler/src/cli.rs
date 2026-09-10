@@ -12,7 +12,7 @@ Usage:
   malc format <source.mal>
   malc emit-header <source.mal> [--output <program.mal.h>]
   malc emit-host <source.mal> [--header <header-name>]
-  malc build <source.mal> --output <program>
+  malc build <source.mal> --output <program> [--artifact-dir <directory>] [--clang-arg <argument>]...
 ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -150,6 +150,8 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
         return usage_error("build requires a source path");
     };
     let mut output = None;
+    let mut artifact_directory = None;
+    let mut clang_arguments = Vec::new();
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -163,6 +165,12 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             if output.replace(PathBuf::from(value)).is_some() {
                 return usage_error("--output may only be specified once");
             }
+        } else if option == OsStr::new("--artifact-dir") {
+            if artifact_directory.replace(PathBuf::from(value)).is_some() {
+                return usage_error("--artifact-dir may only be specified once");
+            }
+        } else if option == OsStr::new("--clang-arg") {
+            clang_arguments.push(value.clone());
         } else {
             return usage_error(&format!(
                 "unknown build option '{}'",
@@ -174,7 +182,14 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
     let Some(output) = output else {
         return usage_error("build requires --output");
     };
-    match crate::driver::build(PathBuf::from(source).as_path(), &output) {
+    match crate::driver::build(
+        PathBuf::from(source).as_path(),
+        crate::driver::BuildOptions {
+            output_path: &output,
+            artifact_directory: artifact_directory.as_deref(),
+            clang_arguments: &clang_arguments,
+        },
+    ) {
         Ok(()) => Outcome::success(String::new()),
         Err(error) => Outcome::compile_error(error),
     }
@@ -242,6 +257,23 @@ mod tests {
         ]));
         assert_eq!(outcome.status, ExitStatus::UsageError);
         assert!(outcome.stderr.contains("only be specified once"));
+
+        let outcome = execute(args(&[
+            "build",
+            "sample.mal",
+            "--output",
+            "program",
+            "--artifact-dir",
+            "artifacts",
+            "--artifact-dir",
+            "other",
+        ]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(
+            outcome
+                .stderr
+                .contains("--artifact-dir may only be specified once")
+        );
     }
 
     #[test]

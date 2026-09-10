@@ -42,7 +42,7 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | C runtime | allocation、reference count機構、control storage growth、Symbol flat storageと操作、fatal resource failure |
 | Generated C shim | process entry、LLVM moduleのroot呼出し、extern call marshalling、terminal return、public valueと内部valueの変換 |
 | Generated C header | host-visible type、operation definition macro、observer、constructor、public C ABI version |
-| Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink |
+| Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
 owner moveは実行計画の一部である。Symbol storageやreference count更新は別programでも同じmechanismなのでC runtimeに属する。
