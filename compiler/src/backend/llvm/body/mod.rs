@@ -171,7 +171,8 @@ impl<'a> FunctionEmitter<'a> {
                 .iter()
                 .find(|external| external.id == id)?;
             for ty in [&external.parameter, &external.result] {
-                if scalar_type(ty).is_none() && *ty != Type::Ptr {
+                if scalar_type(ty).is_none() && !matches!(ty, Type::Unit | Type::Ptr | Type::Symbol)
+                {
                     return None;
                 }
                 let value = types.value(ty)?;

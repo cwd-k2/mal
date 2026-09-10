@@ -542,6 +542,58 @@ fn owns_flat_symbols_across_direct_llvm_calls() {
 }
 
 #[test]
+fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
+    let directory = NativeFixture::new("driver-llvm-symbol-extern");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern inspect :: Symbol -> UInt8;\n\
+         extern fetch :: Unit -> Symbol;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"x\" + \"y\";\n\
+           if (inspect(seed) == 1u8) then { Int32(fetch() # 1u64) - 107 }\n\
+           else { 1 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_inspect(call, value) {\n\
+             mal_span_t bytes = mal_Symbol_to_bytes(call, value);\n\
+             return (uint8_t)(bytes.length == 2 && bytes.data[0] == 'x' && bytes.data[1] == 'y');\n\
+         }\n\
+         MAL_DEFINE_fetch(call) {\n\
+             static const uint8_t bytes[] = {'o', 'k'};\n\
+             return mal_Symbol_return(\n\
+                 call,\n\
+                 mal_Symbol_from_bytes((mal_span_t){.data = bytes, .length = sizeof(bytes)})\n\
+             );\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_symbols_nested_in_products_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-symbol-product");
     let source = directory.join("program.mal");

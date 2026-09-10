@@ -60,10 +60,16 @@ pub(crate) fn generate(
             crate::closure::ast::FunctionId::Memory(_) => return None,
         },
     );
+    let symbol_bridge_runtime = if body.uses_symbols {
+        "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    (void)context;\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
+    } else {
+        ""
+    };
     let shim = format!(
-        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n{}\n\n{}\n\nint main(void) {{\n    MalContext context = {{0}};\n    int32_t result;\n    {}(&context, NULL, &result);\n    mal_control_destroy(&context);\n    return result;\n}}\n",
+        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n{}\n\n{}\n\n{}\nint main(void) {{\n    MalContext context = {{0}};\n    int32_t result;\n    {}(&context, NULL, &result);\n    mal_control_destroy(&context);\n    return result;\n}}\n",
         entry.c_declaration(),
         external_definitions,
+        symbol_bridge_runtime,
         entry.name(),
     );
     Some(LlvmArtifacts {
@@ -89,16 +95,45 @@ fn pointer_size(data_layout: &str) -> Option<usize> {
 }
 
 fn external_bridge(external: &crate::core::ast::ExternalOperation) -> Option<(String, String)> {
-    let parameter = c_scalar_type(&external.parameter)?;
-    let result = c_scalar_type(&external.result)?;
     let bridge = AbiFunction::external_bridge(external.id);
     let llvm = format!("declare {}", bridge.llvm_signature());
     let signature = bridge.c_declaration();
     let signature = signature.strip_suffix(';')?;
-    let c = format!(
-        "{signature} {{\n    *({result} *)mal_result = mal_ext_{}(\n        (MalContext *)mal_context,\n        *(const {parameter} *)mal_argument\n    );\n}}",
+    let (parameter, argument) = match &external.parameter {
+        crate::check::ast::Type::Unit => (
+            "    (void)mal_argument;\n".into(),
+            String::new(),
+        ),
+        crate::check::ast::Type::Symbol => (
+            "    const void *ownership = *(const void *const *)mal_argument;\n    MalType_Symbol parameter = {\n        .data = mal_runtime_symbol_data(ownership),\n        .length = mal_runtime_symbol_length(ownership),\n        .ownership = (void *)ownership,\n    };\n"
+                .into(),
+            ", parameter".into(),
+        ),
+        ty => {
+            let parameter = c_scalar_type(ty)?;
+            (
+                String::new(),
+                format!(", *(const {parameter} *)mal_argument"),
+            )
+        }
+    };
+    let call = format!(
+        "mal_ext_{}((MalContext *)mal_context{argument})",
         external.name
     );
+    let result = match &external.result {
+        crate::check::ast::Type::Unit => {
+            format!("    {call};\n    *(uint8_t *)mal_result = UINT8_C(0);")
+        }
+        crate::check::ast::Type::Symbol => format!(
+            "    MalType_Symbol result = {call};\n    *(void **)mal_result = result.ownership;"
+        ),
+        ty => {
+            let result = c_scalar_type(ty)?;
+            format!("    *({result} *)mal_result = {call};")
+        }
+    };
+    let c = format!("{signature} {{\n{parameter}{result}\n}}");
     Some((llvm, c))
 }
 

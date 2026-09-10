@@ -28,6 +28,7 @@ void *mal_control_reserve_slots(
 void *mal_control_storage(MalContext *context);
 
 uint64_t mal_runtime_symbol_length(const void *symbol);
+const uint8_t *mal_runtime_symbol_data(const void *symbol);
 uint8_t mal_runtime_symbol_at(const void *symbol, uint64_t index);
 void *mal_runtime_symbol_retain(MalContext *context, const void *symbol);
 void mal_runtime_symbol_release(const void *symbol);

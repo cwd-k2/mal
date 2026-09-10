@@ -23,12 +23,16 @@ impl FunctionEmitter<'_> {
         if argument.ty != external.parameter || *result_type != external.result {
             return None;
         }
-        if scalar_type(&argument.ty).is_none() && argument.ty != Type::Ptr {
+        if scalar_type(&argument.ty).is_none()
+            && !matches!(argument.ty, Type::Unit | Type::Ptr | Type::Symbol)
+        {
             return None;
         }
         let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
-        if scalar_type(&result_type).is_none() && result_type != Type::Ptr {
+        if scalar_type(&result_type).is_none()
+            && !matches!(result_type, Type::Unit | Type::Ptr | Type::Symbol)
+        {
             return None;
         }
         let result_value_type = self.types.value(&result_type)?;
@@ -48,9 +52,9 @@ impl FunctionEmitter<'_> {
             result_value_type.llvm, result_value_type.alignment
         ));
         Some(EmittedValue {
+            owned: crate::execution::ownership::is_managed(&result_type),
             ty: result_type,
             representation: register,
-            owned: false,
         })
     }
 }

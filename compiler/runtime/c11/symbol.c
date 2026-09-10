@@ -29,6 +29,10 @@ uint64_t mal_runtime_symbol_length(const void *value) {
     return value == NULL ? 0 : ((const MalSymbol *)value)->length;
 }
 
+const uint8_t *mal_runtime_symbol_data(const void *value) {
+    return value == NULL ? NULL : ((const MalSymbol *)value)->bytes;
+}
+
 uint8_t mal_runtime_symbol_at(const void *value, uint64_t index) {
     return ((const MalSymbol *)value)->bytes[index];
 }
