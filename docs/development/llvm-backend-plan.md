@@ -111,7 +111,7 @@ host adapterはC11としてClangでcompileし、LLVM moduleも同じtoolchainの
 4. internal bridge ABI planを導入し、同じplanからC declarationとLLVM signature、parameter attributeを生成してClangでlink検査する。（pointer/out-pointer root bridgeは完了）
 5. scalarだけのfunction body、branch、direct call、tail edgeをLLVM IRへlowerし、C shimからrootを呼ぶ。（`Int32` subsetは完了。他のscalar型とoperationは未完了）
 6. direct-self non-tail region、homogeneous frame、managed ownerのないresumeをLLVMへ移す。（`Int32` frameは完了）
-7. heterogeneous frame、managed owner、closure environment、indirect recursive regionを順に移す。
+7. heterogeneous frame、managed owner、closure environment、indirect recursive regionを順に移す。（unmanaged `Int32` direct-self frameの複数constructorは完了）
 8. generated runtime logicをchecked-in C11 sourceへ移し、control、allocation、Symbol、ropeの順にRust C emitterから削除する。（LLVM artifact用control runtimeは完了。C oracle側の削除と他runtimeは未完了）
 9. extern、entry、terminal returnをgenerated C shimへ分離し、全host ABI fixtureを新artifact setで通す。
 10. `build`をClang/LLVM artifact pipelineへ切り替え、ambient `CC`とGCC compatibilityを削除する。

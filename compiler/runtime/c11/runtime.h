@@ -9,6 +9,12 @@ typedef struct {
 } MalControlArena;
 
 void mal_control_destroy(MalControlArena *arena);
+void *mal_control_reserve_bytes(MalControlArena *arena, size_t required_bytes);
+void *mal_control_reserve_frame(
+    MalControlArena *arena,
+    size_t current_bytes,
+    size_t frame_size
+);
 void *mal_control_reserve_slots(
     MalControlArena *arena,
     size_t required_slots,

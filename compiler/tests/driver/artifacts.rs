@@ -98,6 +98,47 @@ fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
 }
 
 #[test]
+fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
+    let directory = NativeFixture::new("driver-llvm-frames");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "walk :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0) then { 0 } else {\n\
+             if (value == 1) then {\n\
+               rest := walk(value - 1);\n\
+               rest + 1;\n\
+             } else {\n\
+               rest := walk(value - 1);\n\
+               rest + 1;\n\
+             };\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { walk(10000) - 10000; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

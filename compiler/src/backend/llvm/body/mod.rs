@@ -136,21 +136,18 @@ impl<'a> FunctionEmitter<'a> {
             .filter(|site| execution.control_frames.frame(**site).is_some())
             .copied()
             .collect::<Vec<_>>();
-        if frame_sites.len() > 1
-            || frame_sites.iter().any(|site| {
-                let frame = execution
-                    .control_frames
-                    .frame(*site)
-                    .expect("collected frame site");
-                execution.applications.direct_target(*site) != Some(id)
-                    || !execution.control_frames.frame_is_homogeneous(*site)
-                    || frame.carries_environment
-                    || frame
-                        .fields
-                        .iter()
-                        .any(|field| field.managed || field.value.ty != Type::Int32)
-            })
-        {
+        if frame_sites.iter().any(|site| {
+            let frame = execution
+                .control_frames
+                .frame(*site)
+                .expect("collected frame site");
+            execution.applications.direct_target(*site) != Some(id)
+                || frame.carries_environment
+                || frame
+                    .fields
+                    .iter()
+                    .any(|field| field.managed || field.value.ty != Type::Int32)
+        }) {
             return None;
         }
         Some(Self {

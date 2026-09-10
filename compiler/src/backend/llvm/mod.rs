@@ -19,7 +19,7 @@ pub(crate) fn generate(
     let body = body::generate(program)?;
     let entry = AbiFunction::program_entry();
     let control_declarations = if body.uses_control {
-        "declare ptr @mal_control_reserve_slots(ptr, i64, i64)\ndeclare ptr @mal_control_storage(ptr)\n\n"
+        "declare ptr @mal_control_reserve_frame(ptr, i64, i64)\ndeclare ptr @mal_control_storage(ptr)\n\n"
     } else {
         ""
     };
