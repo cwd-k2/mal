@@ -428,6 +428,43 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
 }
 
 #[test]
+fn owns_flat_symbols_across_direct_llvm_calls() {
+    let directory = NativeFixture::new("driver-llvm-symbol");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "check :: Symbol -> Int32 := \\(value) {\n\
+           if (#value == 2u64) then {\n\
+             if (value == \"ab\") then {\n\
+               if (value != \"ac\") then { 0 } else { 1 };\n\
+             } else { 2 };\n\
+           } else { 3 };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { joined := \"a\" + \"b\"; check(joined); };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

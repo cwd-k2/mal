@@ -40,12 +40,19 @@ pub(crate) fn generate(
     } else {
         ""
     };
+    let symbol_declarations = if body.uses_symbols {
+        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
+    } else {
+        ""
+    };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}\n\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}{}\n{}\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         control_declarations,
+        symbol_declarations,
         external_declarations,
+        body.globals,
         body.definitions,
         entry.llvm_signature(),
         match body.main {

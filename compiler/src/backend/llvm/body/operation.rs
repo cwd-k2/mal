@@ -33,6 +33,7 @@ impl FunctionEmitter<'_> {
                 Some(Some(EmittedValue {
                     ty: operand.ty,
                     representation: register,
+                    owned: false,
                 }))
             }
             Operation::PrimitiveBinary {
@@ -40,6 +41,12 @@ impl FunctionEmitter<'_> {
                 left,
                 right,
             } => {
+                if *operator == crate::core::ast::BinaryPrimitive::Add
+                    && left.ty == Type::Symbol
+                    && right.ty == Type::Symbol
+                {
+                    return self.emit_symbol_concatenate(left, right).map(Some);
+                }
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
                 if left.ty != right.ty {
@@ -55,6 +62,7 @@ impl FunctionEmitter<'_> {
                 Some(Some(EmittedValue {
                     ty: left.ty,
                     representation: register,
+                    owned: false,
                 }))
             }
             Operation::NumericConversion { operand } => {
@@ -66,6 +74,7 @@ impl FunctionEmitter<'_> {
                     return Some(Some(EmittedValue {
                         ty: result_type,
                         representation: operand.representation,
+                        owned: false,
                     }));
                 }
                 let instruction = if source.floating && target.floating {
@@ -93,8 +102,11 @@ impl FunctionEmitter<'_> {
                 Some(Some(EmittedValue {
                     ty: result_type,
                     representation: register,
+                    owned: false,
                 }))
             }
+            Operation::SymbolLength { value } => self.emit_symbol_length(value).map(Some),
+            Operation::SymbolAt { argument } => self.emit_symbol_at(argument).map(Some),
             Operation::ExternalCall { id, argument } => self
                 .emit_external_call(*id, argument, result_type?)
                 .map(Some),

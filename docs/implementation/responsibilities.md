@@ -119,7 +119,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、stage間で保持するatom identityに基づくpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとmanaged valueを持たない数値型、`Ptr`、`Unit`、`Bool`、product、sumの構築・分解・分岐、direct call、self-tail edge、direct-self continuation frameと、数値scalar・`Ptr`のextern callをadmit |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureを持たないunmanaged valueと単独の`Symbol`、direct call、self-tail edge、unmanaged direct-self continuation frame、数値scalar・`Ptr`のextern callをadmit。managed aggregate、managed frame、`Symbol` externは未admit |
 | `backend/llvm/body/types` | LLVM内のunmanaged value type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
@@ -128,6 +128,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
+| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat `Symbol`、観測、連結、外部byte copyを実装。rope表現への置換は同じruntime責務内に留める |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |

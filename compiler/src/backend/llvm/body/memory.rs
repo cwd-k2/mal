@@ -37,13 +37,40 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: Type::Ptr,
                     representation: result,
+                    owned: false,
                 })
             }
             MemoryPrimitive::Load(scalar) => self.emit_load(&argument, scalar.ty()),
             MemoryPrimitive::LoadPtr => self.emit_load(&argument, Type::Ptr),
             MemoryPrimitive::Store(scalar) => self.emit_store(&argument, &scalar.ty()),
             MemoryPrimitive::StorePtr => self.emit_store(&argument, &Type::Ptr),
-            MemoryPrimitive::LoadSymbol | MemoryPrimitive::StoreSymbol => None,
+            MemoryPrimitive::LoadSymbol => {
+                let [pointer, length] =
+                    self.product_fields(&argument, [&Type::Ptr, &Type::UInt64])?;
+                let result = self.register();
+                self.line(format!(
+                    "  {result} = call ptr @mal_runtime_symbol_read(ptr %mal_context, ptr {}, i64 {})",
+                    pointer.representation, length.representation
+                ));
+                Some(EmittedValue {
+                    ty: Type::Symbol,
+                    representation: result,
+                    owned: true,
+                })
+            }
+            MemoryPrimitive::StoreSymbol => {
+                let [pointer, symbol] =
+                    self.product_fields(&argument, [&Type::Ptr, &Type::Symbol])?;
+                self.line(format!(
+                    "  call void @mal_runtime_symbol_write(ptr {}, ptr {})",
+                    pointer.representation, symbol.representation
+                ));
+                Some(EmittedValue {
+                    ty: Type::Unit,
+                    representation: "0".into(),
+                    owned: false,
+                })
+            }
         }
     }
 
@@ -60,6 +87,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty,
             representation: result,
+            owned: false,
         })
     }
 
@@ -73,10 +101,11 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::Unit,
             representation: "0".into(),
+            owned: false,
         })
     }
 
-    fn product_fields<const N: usize>(
+    pub(super) fn product_fields<const N: usize>(
         &mut self,
         product: &EmittedValue,
         expected: [&Type; N],
@@ -98,6 +127,7 @@ impl FunctionEmitter<'_> {
             fields.push(EmittedValue {
                 ty: ty.clone(),
                 representation: field,
+                owned: false,
             });
         }
         fields.try_into().ok()

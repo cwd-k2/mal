@@ -13,6 +13,7 @@ mod memory;
 mod operation;
 mod plan;
 mod scalar;
+mod symbol;
 mod types;
 mod value;
 
@@ -24,9 +25,11 @@ use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
 
 pub(super) struct Output {
+    pub(super) globals: String,
     pub(super) definitions: String,
     pub(super) main: FunctionId,
     pub(super) uses_control: bool,
+    pub(super) uses_symbols: bool,
 }
 
 pub(super) fn supports(execution: &crate::execution::Program) -> bool {
@@ -43,18 +46,25 @@ pub(super) fn generate(
     }
 
     let types = Types::new(pointer_size)?;
+    let mut globals = String::new();
     let mut definitions = String::new();
     let mut uses_control = false;
+    let mut uses_symbols = false;
     for function in &execution.control.functions {
         let emitter = FunctionEmitter::new(execution, function.id, types)?;
         uses_control |= emitter.has_frames;
-        definitions.push_str(&emitter.emit()?);
+        uses_symbols |= emitter.uses_symbols;
+        let emitted = emitter.emit()?;
+        globals.push_str(&emitted.globals);
+        definitions.push_str(&emitted.definition);
         definitions.push('\n');
     }
     Some(Output {
+        globals,
         definitions,
         main,
         uses_control,
+        uses_symbols,
     })
 }
 
@@ -68,7 +78,9 @@ struct FunctionEmitter<'a> {
     has_frames: bool,
     external_storage: Option<(usize, usize)>,
     types: Types,
+    uses_symbols: bool,
     next_register: usize,
+    globals: String,
     output: String,
 }
 
@@ -78,9 +90,16 @@ pub(super) struct Slot {
     ty: Type,
 }
 
+#[derive(Clone)]
 struct EmittedValue {
     ty: Type,
     representation: String,
+    owned: bool,
+}
+
+struct EmittedFunction {
+    globals: String,
+    definition: String,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -160,6 +179,19 @@ impl<'a> FunctionEmitter<'a> {
                 external_storage = Some((size.max(value.size), alignment.max(value.alignment)));
             }
         }
+        let uses_symbols = slots.values().any(|slot| slot.ty == Type::Symbol)
+            || function.parameter.ty == Type::Symbol
+            || lowered.body.result.ty == Type::Symbol;
+        if uses_symbols
+            && states.iter().any(|site| {
+                matches!(
+                    execution.control_calls.mode(*site),
+                    Some(ControlCallMode::DirectSelfTail)
+                )
+            })
+        {
+            return None;
+        }
         Some(Self {
             execution,
             control: &execution.control,
@@ -170,12 +202,14 @@ impl<'a> FunctionEmitter<'a> {
             has_frames: !frame_sites.is_empty(),
             external_storage,
             types,
+            uses_symbols,
             next_register: 0,
+            globals: String::new(),
             output: String::new(),
         })
     }
 
-    fn emit(mut self) -> Option<String> {
+    fn emit(mut self) -> Option<EmittedFunction> {
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context".to_string()
         } else {
@@ -197,6 +231,12 @@ impl<'a> FunctionEmitter<'a> {
                 "  %mal_slot_{} = alloca {}, align {}",
                 slot.index, value_type.llvm, value_type.alignment
             ));
+            if slot.ty == Type::Symbol {
+                self.line(format!(
+                    "  store ptr null, ptr %mal_slot_{}, align {}",
+                    slot.index, value_type.alignment
+                ));
+            }
         }
         if self.has_frames {
             self.line("  %mal_control_top = alloca i64, align 8");
@@ -226,7 +266,10 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_state(site)?;
         }
         self.line("}");
-        Some(self.output)
+        Some(EmittedFunction {
+            globals: self.globals,
+            definition: self.output,
+        })
     }
 
     fn emit_state(&mut self, site: StateId) -> Option<()> {
@@ -243,13 +286,15 @@ impl<'a> FunctionEmitter<'a> {
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
         match terminator {
             Terminator::Return(value) => {
-                let value = self.atom(value)?;
+                let mut value = self.atom(value)?;
+                self.retain_symbol_if_borrowed(&mut value)?;
                 if self.has_frames {
                     if value.ty != self.result_type {
                         return None;
                     }
                     self.emit_frame_return(site, &value.representation)?;
                 } else {
+                    self.release_local_symbols();
                     let value_type = self.types.value(&value.ty)?;
                     self.line(format!(
                         "  ret {} {}",
@@ -279,7 +324,19 @@ impl<'a> FunctionEmitter<'a> {
                     return None;
                 }
                 let condition = self.register();
-                if is_bool(&left.ty) {
+                if left.ty == Type::Symbol {
+                    let equality = self.register();
+                    self.line(format!(
+                        "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, ptr {})",
+                        left.representation, right.representation
+                    ));
+                    let predicate = match operator {
+                        crate::core::ast::BinaryPrimitive::Equal => "ne",
+                        crate::core::ast::BinaryPrimitive::NotEqual => "eq",
+                        _ => return None,
+                    };
+                    self.line(format!("  {condition} = icmp {predicate} i8 {equality}, 0"));
+                } else if is_bool(&left.ty) {
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => "eq",
                         crate::core::ast::BinaryPrimitive::NotEqual => "ne",
@@ -343,6 +400,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, argument, true)?;
+                        self.release_local_symbols();
                         let value_type = self.types.value(&result.ty)?;
                         self.line(format!(
                             "  ret {} {}",
@@ -399,6 +457,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(EmittedValue {
             ty: result_type,
             representation: register,
+            owned: lowered.body.result.ty == Type::Symbol,
         })
     }
 

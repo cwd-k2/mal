@@ -165,6 +165,7 @@ impl FunctionEmitter<'_> {
             Some(&EmittedValue {
                 ty: self.result_type.clone(),
                 representation: result.into(),
+                owned: false,
             }),
         )?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));
@@ -182,6 +183,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: slot.ty,
             representation: register,
+            owned: false,
         })
     }
 }

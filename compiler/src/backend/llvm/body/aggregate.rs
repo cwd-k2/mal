@@ -35,6 +35,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: aggregate,
+            owned: false,
         })
     }
 
@@ -60,6 +61,7 @@ impl FunctionEmitter<'_> {
                     1 => "true".into(),
                     _ => return None,
                 },
+                owned: false,
             });
         }
         let sum_type = self.types.value(result_type)?;
@@ -80,6 +82,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: result,
+            owned: false,
         })
     }
 
@@ -128,6 +131,7 @@ impl FunctionEmitter<'_> {
                 EmittedValue {
                     ty: Type::Unit,
                     representation: "0".into(),
+                    owned: false,
                 }
             } else {
                 let payload = self.register();
@@ -140,6 +144,7 @@ impl FunctionEmitter<'_> {
                 EmittedValue {
                     ty: member.clone(),
                     representation: payload,
+                    owned: false,
                 }
             };
             let input = self.control.states[arm.target.0].input.as_ref()?;

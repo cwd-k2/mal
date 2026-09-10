@@ -50,6 +50,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type,
             representation: register,
+            owned: false,
         })
     }
 }
