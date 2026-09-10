@@ -3,13 +3,13 @@ use std::collections::{HashMap, HashSet};
 use crate::anf::ast::ValueId;
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
+use super::ownership::is_managed;
 use super::{ClosureUsePlan, ControlCallPlan, ControlRegionId, ControlRegionPlan};
-use crate::c_emit::types::TypeRegistry;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(in crate::c_emit::body) struct ControlArenaId(pub(in crate::c_emit::body) usize);
+pub(crate) struct ControlArenaId(pub(crate) usize);
 
-pub(in crate::c_emit::body) struct ControlFramePlan {
+pub(crate) struct ControlFramePlan {
     frames: HashMap<StateId, ControlFrame>,
     closures_crossing_suspension: HashSet<ValueId>,
     region_arenas: HashMap<ControlRegionId, ControlArenaId>,
@@ -17,24 +17,23 @@ pub(in crate::c_emit::body) struct ControlFramePlan {
 }
 
 #[derive(Clone)]
-pub(in crate::c_emit::body) struct ControlFrame {
-    pub(in crate::c_emit::body) resume: StateId,
-    pub(in crate::c_emit::body) fields: Vec<ControlFrameField>,
-    pub(in crate::c_emit::body) carries_environment: bool,
+pub(crate) struct ControlFrame {
+    pub(crate) resume: StateId,
+    pub(crate) fields: Vec<ControlFrameField>,
+    pub(crate) carries_environment: bool,
 }
 
 #[derive(Clone)]
-pub(in crate::c_emit::body) struct ControlFrameField {
-    pub(in crate::c_emit::body) value: LiveValue,
-    pub(in crate::c_emit::body) managed: bool,
+pub(crate) struct ControlFrameField {
+    pub(crate) value: LiveValue,
+    pub(crate) managed: bool,
 }
 
 impl ControlFramePlan {
-    pub(in crate::c_emit::body) fn new(
+    pub(crate) fn new(
         program: &control::Program,
         regions: &ControlRegionPlan,
         calls: &ControlCallPlan,
-        types: &TypeRegistry,
         closure_uses: &ClosureUsePlan,
     ) -> Self {
         let mut frames = HashMap::new();
@@ -62,7 +61,7 @@ impl ControlFramePlan {
                         .iter()
                         .map(|value| ControlFrameField {
                             value: value.clone(),
-                            managed: types.contains_managed(&value.ty),
+                            managed: is_managed(&value.ty),
                         })
                         .collect(),
                     carries_environment: resume_state.needs_environment
@@ -98,51 +97,47 @@ impl ControlFramePlan {
         }
     }
 
-    pub(in crate::c_emit::body) fn frame(&self, site: StateId) -> Option<&ControlFrame> {
+    pub(crate) fn frame(&self, site: StateId) -> Option<&ControlFrame> {
         self.frames.get(&site)
     }
 
-    pub(in crate::c_emit::body) fn closure_crosses_suspension(&self, id: ValueId) -> bool {
+    pub(crate) fn closure_crosses_suspension(&self, id: ValueId) -> bool {
         self.closures_crossing_suspension.contains(&id)
     }
 
-    pub(in crate::c_emit::body) fn arena_count(&self) -> usize {
+    pub(crate) fn arena_count(&self) -> usize {
         self.region_arenas.len()
     }
 
-    pub(in crate::c_emit::body) fn has_homogeneous_arenas(&self) -> bool {
+    pub(crate) fn has_homogeneous_arenas(&self) -> bool {
         !self.homogeneous_regions.is_empty()
     }
 
-    pub(in crate::c_emit::body) fn has_heterogeneous_arenas(&self) -> bool {
+    pub(crate) fn has_heterogeneous_arenas(&self) -> bool {
         self.region_arenas
             .keys()
             .any(|region| !self.homogeneous_regions.contains_key(region))
     }
 
-    pub(in crate::c_emit::body) fn arena(&self, region: ControlRegionId) -> Option<ControlArenaId> {
+    pub(crate) fn arena(&self, region: ControlRegionId) -> Option<ControlArenaId> {
         self.region_arenas.get(&region).copied()
     }
 
-    pub(in crate::c_emit::body) fn homogeneous_frame(
-        &self,
-        region: ControlRegionId,
-    ) -> Option<StateId> {
+    pub(crate) fn homogeneous_frame(&self, region: ControlRegionId) -> Option<StateId> {
         self.homogeneous_regions.get(&region).copied()
     }
 
-    pub(in crate::c_emit::body) fn frame_is_homogeneous(&self, site: StateId) -> bool {
+    pub(crate) fn frame_is_homogeneous(&self, site: StateId) -> bool {
         self.homogeneous_regions
             .values()
             .any(|candidate| *candidate == site)
     }
 
-    pub(in crate::c_emit::body) fn is_valid(
+    pub(crate) fn is_valid(
         &self,
         program: &control::Program,
         regions: &ControlRegionPlan,
         calls: &ControlCallPlan,
-        types: &TypeRegistry,
         closure_uses: &ClosureUsePlan,
     ) -> bool {
         let expected_sites = program
@@ -171,7 +166,7 @@ impl ControlFramePlan {
                     .iter()
                     .zip(&program.states[frame.resume.0].live)
                     .all(|(field, live)| {
-                        field.value == *live && field.managed == types.contains_managed(&live.ty)
+                        field.value == *live && field.managed == is_managed(&live.ty)
                     })
                 && frame.carries_environment
                     == (program.states[frame.resume.0].needs_environment

@@ -6,14 +6,14 @@ use crate::closure::ast::{self as closure, Atom, AtomKind, Block, Operation, Pat
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct AtomOccurrenceId(usize);
 
-pub(in crate::c_emit::body) struct OwnershipPlan {
+pub(crate) struct OwnershipPlan {
     occurrences: HashMap<*const Atom, AtomOccurrenceId>,
     last_owned_uses: HashSet<AtomOccurrenceId>,
     last_parameter_uses: HashSet<AtomOccurrenceId>,
 }
 
 impl OwnershipPlan {
-    pub(in crate::c_emit::body) fn new(program: &closure::Program) -> Self {
+    pub(crate) fn new(program: &closure::Program) -> Self {
         let mut plan = Self {
             occurrences: HashMap::new(),
             last_owned_uses: HashSet::new(),
@@ -44,7 +44,7 @@ impl OwnershipPlan {
         plan
     }
 
-    pub(in crate::c_emit::body) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
+    pub(crate) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
         let Some(occurrence) = self.occurrences.get(&std::ptr::from_ref(atom)) else {
             return false;
         };
@@ -52,7 +52,7 @@ impl OwnershipPlan {
             || (parameter_owned && self.last_parameter_uses.contains(occurrence))
     }
 
-    pub(in crate::c_emit::body) fn is_valid(&self, program: &closure::Program) -> bool {
+    pub(crate) fn is_valid(&self, program: &closure::Program) -> bool {
         let expected = Self::new(program);
         self.occurrences == expected.occurrences
             && self.last_owned_uses == expected.last_owned_uses

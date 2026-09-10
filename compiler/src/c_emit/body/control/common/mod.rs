@@ -92,8 +92,8 @@ impl BodyEmitter<'_> {
                     Some(zero_value(self, &function.parameter.ty)),
                 ));
             }
-            let sites = reachable_states(&self.control, self.control_function(function.id).entry);
-            for (id, ty) in local_slots(&self.control, &sites, function.parameter.binding) {
+            let sites = reachable_states(self.control, self.control_function(function.id).entry);
+            for (id, ty) in local_slots(self.control, &sites, function.parameter.binding) {
                 if declared.insert(id) {
                     body.push(Statement::variable(
                         self.types.c_type(&ty),
@@ -138,8 +138,8 @@ impl BodyEmitter<'_> {
 
         for function in &functions {
             let control_function = self.control_function(function.id).clone();
-            let sites = reachable_states(&self.control, control_function.entry);
-            let slots = local_slots(&self.control, &sites, function.parameter.binding);
+            let sites = reachable_states(self.control, control_function.entry);
+            let slots = local_slots(self.control, &sites, function.parameter.binding);
             for site in sites {
                 let state = self.control.states[site.0].clone();
                 let mut state_body = Block::default();

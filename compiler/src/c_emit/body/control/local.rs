@@ -39,7 +39,7 @@ impl BodyEmitter<'_> {
             return false;
         };
         let mut has_control = false;
-        for site in reachable_states(&self.control, control_function.entry) {
+        for site in reachable_states(self.control, control_function.entry) {
             let state = &self.control.states[site.0];
             if state
                 .input
@@ -85,8 +85,8 @@ impl BodyEmitter<'_> {
             .find(|candidate| candidate.id == function.id)
             .expect("control lowering preserves function identities")
             .clone();
-        let sites = reachable_states(&self.control, control_function.entry);
-        let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
+        let sites = reachable_states(self.control, control_function.entry);
+        let local_slots = local_slots(self.control, &sites, function.parameter.binding);
         let mut body = Block::default();
         self.emit_function_preamble(&mut body, function);
         if let Some(region) = self.control_regions.function_region(function.id)
@@ -390,8 +390,8 @@ impl BodyEmitter<'_> {
         ownership: ResultOwnership,
     ) {
         let entry = self.control_function(function.id).entry;
-        let sites = reachable_states(&self.control, entry);
-        let local_slots = local_slots(&self.control, &sites, function.parameter.binding);
+        let sites = reachable_states(self.control, entry);
+        let local_slots = local_slots(self.control, &sites, function.parameter.binding);
         let result_name = format!("mal_control_result_{}", state.0);
         let result = if ownership == ResultOwnership::Owned {
             result

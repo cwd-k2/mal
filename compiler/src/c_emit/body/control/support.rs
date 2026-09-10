@@ -5,7 +5,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::{self as closure, Pattern};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::super::analysis::ControlArenaId;
+use crate::execution::ControlArenaId;
 
 pub(super) const CONTROL_STACK: &str = "mal_control";
 const CONTROL_STACK_STORAGE: &str = "mal_control_storage";

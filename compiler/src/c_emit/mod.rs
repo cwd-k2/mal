@@ -23,10 +23,16 @@ pub struct Output {
 }
 
 pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
-    let main = find_main(program)?;
+    let execution = crate::execution::lower(program.clone());
+    emit_execution(&execution)
+}
+
+pub(crate) fn emit_execution(program: &crate::execution::Program) -> Result<Output, Diagnostic> {
+    let lowered = &program.lowered;
+    let main = find_main(lowered)?;
     let mut types = TypeRegistry::default();
-    let host = HostTypes::collect(&program.interface, &mut types);
-    types.collect_program_body(program);
+    let host = HostTypes::collect(&lowered.interface, &mut types);
+    types.collect_program_body(lowered);
     let mut emitter = BodyEmitter::new(program, &types);
     let body = emitter.emit(main);
 
@@ -64,7 +70,7 @@ pub fn emit(program: &Program) -> Result<Output, Diagnostic> {
 
     Ok(Output {
         source: source.render(),
-        header: header::emit(&program.interface, &types, &host),
+        header: header::emit(&lowered.interface, &types, &host),
     })
 }
 

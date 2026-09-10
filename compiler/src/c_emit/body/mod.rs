@@ -18,7 +18,7 @@ mod name;
 mod pattern;
 mod statement;
 
-use self::analysis::{ControlFramePlan, OwnedCallPlan, OwnershipPlan, SymbolAtCursorPlan};
+use self::analysis::{OwnedCallPlan, SymbolAtCursorPlan};
 use self::call::{
     flattened_product_types, flattened_product_values, has_direct_product_entry,
     has_direct_tail_call,
@@ -31,8 +31,8 @@ use self::name::{
 };
 use self::pattern::pattern_type;
 use crate::execution::{
-    self, ApplicationGraph, ClosureUsePlan, ControlCallPlan, ControlRegionPlan, TailCallPlan,
-    direct_function_id,
+    self, ApplicationGraph, ClosureUsePlan, ControlCallPlan, ControlFramePlan, ControlRegionPlan,
+    OwnershipPlan, TailCallPlan, direct_function_id,
 };
 
 #[derive(Clone, Copy, Default)]
@@ -80,52 +80,37 @@ pub(super) struct BodyEmitter<'a> {
     types: &'a TypeRegistry,
     needs: RuntimeNeeds,
     next_discard: u32,
-    ownership: OwnershipPlan,
+    ownership: &'a OwnershipPlan,
     symbol_at_cursors: SymbolAtCursorPlan,
     active_symbol_at_cursors: HashMap<ValueId, usize>,
-    closure_uses: ClosureUsePlan,
+    closure_uses: &'a ClosureUsePlan,
     owned_calls: OwnedCallPlan,
     ephemeral_bindings: HashSet<ValueId>,
     borrowed_bindings: HashSet<ValueId>,
     direct_borrow_sources: HashSet<ValueId>,
     parameter_owned: bool,
-    control: crate::control::ast::Program,
-    applications: ApplicationGraph,
-    tail_calls: TailCallPlan,
-    control_calls: ControlCallPlan,
-    control_regions: ControlRegionPlan,
-    control_frames: ControlFramePlan,
+    control: &'a crate::control::ast::Program,
+    applications: &'a ApplicationGraph,
+    tail_calls: &'a TailCallPlan,
+    control_calls: &'a ControlCallPlan,
+    control_regions: &'a ControlRegionPlan,
+    control_frames: &'a ControlFramePlan,
 }
 
 impl<'a> BodyEmitter<'a> {
-    pub(super) fn new(program: &'a closure::Program, types: &'a TypeRegistry) -> Self {
-        let ownership = OwnershipPlan::new(program);
+    pub(super) fn new(execution: &'a execution::Program, types: &'a TypeRegistry) -> Self {
+        let program = &execution.lowered;
+        let ownership = &execution.ownership;
         let symbol_at_cursors = SymbolAtCursorPlan::new(program);
-        debug_assert!(ownership.is_valid(program));
         debug_assert!(symbol_at_cursors.is_valid(program));
-        let execution::Program {
-            control,
-            closure_uses,
-            applications,
-            tail_calls,
-            control_calls,
-            control_regions,
-        } = execution::lower(program);
-        let owned_calls = OwnedCallPlan::new(program, types, &ownership, &closure_uses);
-        let control_frames = ControlFramePlan::new(
-            &control,
-            &control_regions,
-            &control_calls,
-            types,
-            &closure_uses,
-        );
-        debug_assert!(control_frames.is_valid(
-            &control,
-            &control_regions,
-            &control_calls,
-            types,
-            &closure_uses
-        ));
+        let control = &execution.control;
+        let closure_uses = &execution.closure_uses;
+        let applications = &execution.applications;
+        let tail_calls = &execution.tail_calls;
+        let control_calls = &execution.control_calls;
+        let control_regions = &execution.control_regions;
+        let control_frames = &execution.control_frames;
+        let owned_calls = OwnedCallPlan::new(program, types, ownership, closure_uses);
         let needs = RuntimeNeeds {
             control_arenas: control_frames.arena_count(),
             homogeneous_control: control_frames.has_homogeneous_arenas(),
@@ -203,7 +188,7 @@ impl<'a> BodyEmitter<'a> {
     }
 
     fn direct_function(&self, callee: &closure::Atom) -> Option<(FunctionId, super::syntax::Expr)> {
-        let function = direct_function_id(&self.closure_uses, callee)?;
+        let function = direct_function_id(self.closure_uses, callee)?;
         match callee.kind {
             closure::AtomKind::Reference(closure::Reference::SelfClosure(function)) => {
                 Some((function, super::syntax::Expr::identifier("mal_environment")))

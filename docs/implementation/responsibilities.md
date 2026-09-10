@@ -36,7 +36,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
-| `execution` | closure target、tail fusion、continuation graph、recursive region、call modeをbackend非依存の実行計画として構成 |
+| `execution` | closure-converted programを保持し、closure target、tail fusion、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
 | `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
@@ -114,6 +114,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
+| `execution/frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、arena需要、constructor cardinality、frameが運ぶenvironment ownerを導出 |
+| `execution/ownership` | 型がmanaged ownerを含むかの分類と、closure-converted IR上のpath-sensitiveなlast-use、transfer可否を構成 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
@@ -132,10 +134,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `c_emit/body/control/ownership` | control local slotとframe間のmanaged owner copy、move、cleanupの構成 |
 | `c_emit/body/control/support` | reachable state、local slot、activation-local control stackとcached arenaの変換、control operation変換の補助構成 |
 | `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
-| `c_emit/body/analysis/ownership` | closure-converted IR上のpath-sensitiveなlast-use解析とtransfer可否の計画 |
 | `c_emit/body/analysis/symbol_at_cursor` | 全self-tail edgeで保持されるSymbol parameterと、そのactivation内だけでcursorを再利用できるbyte access siteの計画 |
 | `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
-| `c_emit/body/analysis/control_frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、frameを持つregionのarena需要、constructor cardinalityに基づくhomogeneous region、frameが運ぶenvironment ownerを導出 |
 | `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
 | `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
 | `c_emit/body/entry` | program initializerとentry pointの構成 |

@@ -33,13 +33,13 @@ pub fn check_graph(graph: &SourceGraph) -> Result<crate::check::ast::Program, Di
 }
 
 pub fn emit_c(source: &SourceFile) -> Result<crate::c_emit::Output, Diagnostic> {
-    let closure = lower_for_c(source)?;
-    crate::c_emit::emit(&closure)
+    let execution = lower_execution(source)?;
+    crate::c_emit::emit_execution(&execution)
 }
 
 pub fn emit_c_graph(graph: &SourceGraph) -> Result<crate::c_emit::Output, Diagnostic> {
-    let closure = lower_graph_for_c(graph)?;
-    crate::c_emit::emit(&closure)
+    let execution = lower_graph_execution(graph)?;
+    crate::c_emit::emit_execution(&execution)
 }
 
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
@@ -74,16 +74,16 @@ fn lower_graph_interface(
     Ok(crate::core::lower_interface(&checked))
 }
 
-fn lower_for_c(source: &SourceFile) -> Result<crate::closure::ast::Program, Diagnostic> {
+fn lower_execution(source: &SourceFile) -> Result<crate::execution::Program, Diagnostic> {
     let checked = check(source)?;
     let core = crate::core::lower(&checked);
     let anf = crate::anf::lower(&core);
-    Ok(crate::closure::convert(&anf))
+    Ok(crate::execution::lower(crate::closure::convert(&anf)))
 }
 
-fn lower_graph_for_c(graph: &SourceGraph) -> Result<crate::closure::ast::Program, Diagnostic> {
+fn lower_graph_execution(graph: &SourceGraph) -> Result<crate::execution::Program, Diagnostic> {
     let checked = check_graph(graph)?;
     let core = crate::core::lower(&checked);
     let anf = crate::anf::lower(&core);
-    Ok(crate::closure::convert(&anf))
+    Ok(crate::execution::lower(crate::closure::convert(&anf)))
 }
