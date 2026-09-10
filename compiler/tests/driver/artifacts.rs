@@ -257,6 +257,44 @@ fn builds_strict_float_arithmetic_and_nan_comparisons_through_llvm() {
 }
 
 #[test]
+fn resumes_mixed_numeric_scalar_frames_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-scalar-frame");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "sum :: Float64 -> Float64 := \\(value) {\n\
+           if (value == 0.0f64) then { 0.0f64 } else {\n\
+             narrow := Int16(value);\n\
+             wide := UInt64(value);\n\
+             rest := sum(value - 1.0f64);\n\
+             rest + Float64(narrow) + Float64(wide);\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { Int32(sum(10000.0f64) - 100010000.0f64); };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

@@ -2,20 +2,22 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
 
+use super::scalar::{ScalarType, scalar_type};
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_frame_call(&mut self, site: StateId, argument: &Atom) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
-        let frame_size = frame_size(frame.fields.len())?;
+        let layout = FrameLayout::new(&frame)?;
         let top = self.register();
         self.line(format!("  {top} = load i64, ptr %mal_control_top, align 8"));
         let storage = self.register();
         self.line(format!(
-            "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, i64 {top}, i64 {frame_size})"
+            "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, i64 {top}, i64 {})",
+            layout.size
         ));
         let next_top = self.register();
-        self.line(format!("  {next_top} = add i64 {top}, {frame_size}"));
+        self.line(format!("  {next_top} = add i64 {top}, {}", layout.size));
         let frame_pointer = self.register();
         self.line(format!(
             "  {frame_pointer} = getelementptr i8, ptr {storage}, i64 {top}"
@@ -24,34 +26,41 @@ impl FunctionEmitter<'_> {
             "  store i32 {}, ptr {frame_pointer}, align 4",
             site.0
         ));
-        for (index, field) in frame.fields.iter().enumerate() {
+        for (field, layout) in frame.fields.iter().zip(&layout.fields) {
             let value = self.load_binding(field.value.id)?;
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-                4 + index * 4
+                layout.offset
             ));
-            self.line(format!("  store i32 {value}, ptr {pointer}, align 4"));
+            self.line(format!(
+                "  store {} {}, ptr {pointer}, align {}",
+                layout.scalar.llvm, value.representation, layout.scalar.alignment
+            ));
         }
         let footer = self.register();
         self.line(format!(
             "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-            frame_size - 8
+            layout.footer
         ));
         self.line(format!("  store i64 {top}, ptr {footer}, align 8"));
         self.line(format!(
             "  store i64 {next_top}, ptr %mal_control_top, align 8"
         ));
         let argument = self.atom(argument)?;
-        if argument.ty != crate::check::ast::Type::Int32 {
+        if argument.ty != self.function.parameter.ty {
             return None;
         }
-        let parameter = self.function.parameter.binding?;
-        let slot = self.slots.get(&parameter)?.clone();
-        self.line(format!(
-            "  store i32 {}, ptr %mal_slot_{}, align 4",
-            argument.representation, slot.index
-        ));
+        if let Some(parameter) = self.function.parameter.binding {
+            let slot = self.slots.get(&parameter)?.clone();
+            let scalar = scalar_type(&slot.ty)?;
+            self.line(format!(
+                "  store {} {}, ptr %mal_slot_{}, align {}",
+                scalar.llvm, argument.representation, slot.index, scalar.alignment
+            ));
+        } else if self.function.parameter.ty != crate::check::ast::Type::Unit {
+            return None;
+        }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
         Some(())
     }
@@ -72,7 +81,8 @@ impl FunctionEmitter<'_> {
             site.0, site.0
         ));
         self.line(format!("mal_return_done_{}:", site.0));
-        self.line(format!("  ret i32 {result}"));
+        let result_scalar = scalar_type(&self.result_type)?;
+        self.line(format!("  ret {} {result}", result_scalar.llvm));
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.register();
         self.line(format!(
@@ -127,29 +137,33 @@ impl FunctionEmitter<'_> {
         frame_pointer: &str,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
+        let layout = FrameLayout::new(&frame)?;
         self.line(format!(
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
         ));
-        for (index, field) in frame.fields.iter().enumerate() {
+        for (field, layout) in frame.fields.iter().zip(&layout.fields) {
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-                4 + index * 4
+                layout.offset
             ));
             let value = self.register();
-            self.line(format!("  {value} = load i32, ptr {pointer}, align 4"));
+            self.line(format!(
+                "  {value} = load {}, ptr {pointer}, align {}",
+                layout.scalar.llvm, layout.scalar.alignment
+            ));
             let slot = self.slots.get(&field.value.id)?.clone();
             self.line(format!(
-                "  store i32 {value}, ptr %mal_slot_{}, align 4",
-                slot.index
+                "  store {} {value}, ptr %mal_slot_{}, align {}",
+                layout.scalar.llvm, slot.index, layout.scalar.alignment
             ));
         }
         let input = self.control.states[frame.resume.0].input.as_ref()?;
         self.store_pattern(
             input,
             Some(&EmittedValue {
-                ty: crate::check::ast::Type::Int32,
+                ty: self.result_type.clone(),
                 representation: result.into(),
             }),
         )?;
@@ -157,22 +171,54 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    fn load_binding(&mut self, id: ValueId) -> Option<String> {
+    fn load_binding(&mut self, id: ValueId) -> Option<EmittedValue> {
         let slot = self.slots.get(&id)?.clone();
-        if slot.ty != crate::check::ast::Type::Int32 {
-            return None;
-        }
+        let scalar = scalar_type(&slot.ty)?;
         let register = self.register();
         self.line(format!(
-            "  {register} = load i32, ptr %mal_slot_{}, align 4",
-            slot.index
+            "  {register} = load {}, ptr %mal_slot_{}, align {}",
+            scalar.llvm, slot.index, scalar.alignment
         ));
-        Some(register)
+        Some(EmittedValue {
+            ty: slot.ty,
+            representation: register,
+        })
     }
 }
 
-fn frame_size(field_count: usize) -> Option<usize> {
-    let payload = 4usize.checked_add(field_count.checked_mul(4)?)?;
-    let with_padding = payload.checked_add(7)? & !7;
-    with_padding.checked_add(8)
+struct FrameLayout {
+    fields: Vec<FieldLayout>,
+    footer: usize,
+    size: usize,
+}
+
+struct FieldLayout {
+    offset: usize,
+    scalar: ScalarType,
+}
+
+impl FrameLayout {
+    fn new(frame: &crate::execution::ControlFrame) -> Option<Self> {
+        let mut offset = 4usize;
+        let mut fields = Vec::with_capacity(frame.fields.len());
+        for field in &frame.fields {
+            let scalar = scalar_type(&field.value.ty)?;
+            offset = align(offset, scalar.alignment.into())?;
+            fields.push(FieldLayout { offset, scalar });
+            offset = offset.checked_add(usize::from(scalar.bits) / 8)?;
+        }
+        let footer = align(offset, 8)?;
+        let size = footer.checked_add(8)?;
+        Some(Self {
+            fields,
+            footer,
+            size,
+        })
+    }
+}
+
+fn align(value: usize, alignment: usize) -> Option<usize> {
+    value
+        .checked_add(alignment.checked_sub(1)?)
+        .map(|value| value & !(alignment - 1))
 }

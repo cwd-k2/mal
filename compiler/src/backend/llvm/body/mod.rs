@@ -115,7 +115,7 @@ impl<'a> FunctionEmitter<'a> {
                 || frame
                     .fields
                     .iter()
-                    .any(|field| field.managed || field.value.ty != Type::Int32)
+                    .any(|field| field.managed || scalar_type(&field.value.ty).is_none())
         }) {
             return None;
         }
@@ -340,7 +340,7 @@ impl<'a> FunctionEmitter<'a> {
             Terminator::Return(value) => {
                 let value = self.atom(value)?;
                 if self.has_frames {
-                    if value.ty != Type::Int32 {
+                    if value.ty != self.result_type {
                         return None;
                     }
                     self.emit_frame_return(site, &value.representation)?;

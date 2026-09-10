@@ -13,7 +13,7 @@ pub(crate) use application::ApplicationGraph;
 pub(crate) use call::{ControlCallMode, ControlCallPlan};
 pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
-pub(crate) use frame::{ControlArenaId, ControlFramePlan};
+pub(crate) use frame::{ControlArenaId, ControlFrame, ControlFramePlan};
 pub(crate) use ownership::OwnershipPlan;
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 pub(crate) use tail::TailCallPlan;
