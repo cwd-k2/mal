@@ -168,13 +168,10 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn release_local_managed(&mut self) {
-        let parameter = self.function.parameter.binding;
         let mut slots = self
             .slots
             .iter()
-            .filter(|(id, slot)| {
-                crate::execution::ownership::is_managed(&slot.ty) && Some(**id) != parameter
-            })
+            .filter(|(_, slot)| crate::execution::ownership::is_managed(&slot.ty))
             .map(|(_, slot)| slot.clone())
             .collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
@@ -187,6 +184,10 @@ impl FunctionEmitter<'_> {
             ));
             self.release_value(&slot.ty, &value)
                 .expect("managed slot is supported");
+            self.line(format!(
+                "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
+                value_type.llvm, slot.index, value_type.alignment
+            ));
         }
     }
 

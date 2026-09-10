@@ -139,6 +139,46 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
 }
 
 #[test]
+fn resumes_managed_self_continuation_frames_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-managed-frame");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "walk :: (Int32, Symbol) -> Symbol := \\(depth, value) {\n\
+           if (depth == 0i32) then { value } else {\n\
+             resumed := walk(depth - 1i32, value);\n\
+             if (resumed # 0u64 == 120u8) then { resumed } else { \"bad\" };\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"x\" + \"y\";\n\
+           result := walk(10000i32, seed);\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let directory = NativeFixture::new("driver-llvm-integers");
     let source = directory.join("program.mal");

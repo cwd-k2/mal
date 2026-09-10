@@ -27,7 +27,8 @@ impl FunctionEmitter<'_> {
             site.0
         ));
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
-            let value = self.load_binding(field.value.id)?;
+            let mut value = self.load_binding(field.value.id)?;
+            self.retain_if_borrowed(&mut value)?;
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
@@ -47,10 +48,12 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  store i64 {next_top}, ptr %mal_control_top, align 8"
         ));
-        let argument = self.atom(argument)?;
+        let mut argument = self.atom(argument)?;
         if argument.ty != self.function.parameter.ty {
             return None;
         }
+        self.retain_if_borrowed(&mut argument)?;
+        self.release_local_managed();
         if let Some(parameter) = self.function.parameter.binding {
             let slot = self.slots.get(&parameter)?.clone();
             let value_type = self.types.value(&slot.ty)?;
@@ -65,13 +68,14 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    pub(super) fn emit_frame_return(&mut self, site: StateId, result: &str) -> Option<()> {
+    pub(super) fn emit_frame_return(&mut self, site: StateId, result: &EmittedValue) -> Option<()> {
         let frame_sites = self
             .states
             .iter()
             .filter(|candidate| self.execution.control_frames.frame(**candidate).is_some())
             .copied()
             .collect::<Vec<_>>();
+        self.release_local_managed();
         let top = self.register();
         self.line(format!("  {top} = load i64, ptr %mal_control_top, align 8"));
         let finished = self.register();
@@ -82,7 +86,10 @@ impl FunctionEmitter<'_> {
         ));
         self.line(format!("mal_return_done_{}:", site.0));
         let result_type = self.types.value(&self.result_type)?;
-        self.line(format!("  ret {} {result}", result_type.llvm));
+        self.line(format!(
+            "  ret {} {}",
+            result_type.llvm, result.representation
+        ));
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.register();
         self.line(format!(
@@ -133,7 +140,7 @@ impl FunctionEmitter<'_> {
         &mut self,
         return_site: StateId,
         frame_site: StateId,
-        result: &str,
+        result: &EmittedValue,
         frame_pointer: &str,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
@@ -164,8 +171,8 @@ impl FunctionEmitter<'_> {
             input,
             Some(&EmittedValue {
                 ty: self.result_type.clone(),
-                representation: result.into(),
-                owned: false,
+                representation: result.representation.clone(),
+                owned: true,
             }),
         )?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));

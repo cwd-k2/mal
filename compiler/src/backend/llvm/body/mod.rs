@@ -149,7 +149,7 @@ impl<'a> FunctionEmitter<'a> {
                 || frame
                     .fields
                     .iter()
-                    .any(|field| field.managed || types.value(&field.value.ty).is_none())
+                    .any(|field| types.value(&field.value.ty).is_none())
         }) {
             return None;
         }
@@ -254,9 +254,15 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(id) = self.function.parameter.binding {
             let slot = self.slots.get(&id)?.clone();
             let value_type = self.types.value(&slot.ty)?;
+            let mut parameter = EmittedValue {
+                ty: slot.ty.clone(),
+                representation: "%mal_parameter".into(),
+                owned: false,
+            };
+            self.retain_if_borrowed(&mut parameter)?;
             self.line(format!(
-                "  store {} %mal_parameter, ptr %mal_slot_{}, align {}",
-                value_type.llvm, slot.index, value_type.alignment
+                "  store {} {}, ptr %mal_slot_{}, align {}",
+                value_type.llvm, parameter.representation, slot.index, value_type.alignment
             ));
         }
         if self.has_frames {
@@ -294,7 +300,7 @@ impl<'a> FunctionEmitter<'a> {
                     if value.ty != self.result_type {
                         return None;
                     }
-                    self.emit_frame_return(site, &value.representation)?;
+                    self.emit_frame_return(site, &value)?;
                 } else {
                     self.release_local_managed();
                     let value_type = self.types.value(&value.ty)?;

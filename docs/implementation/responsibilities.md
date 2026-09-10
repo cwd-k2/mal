@@ -119,10 +119,11 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、stage間で保持するatom identityに基づくpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、unmanaged direct-self continuation frame、数値scalar・`Ptr`のextern callをadmit。managed frame、managed valueのexternは未admit |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureを持たないvalue、managed productとsum、direct call、self-tail edge、managed direct-self continuation frame、数値scalar・`Ptr`のextern callをadmit。managed valueのexternは未admit |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
+| `backend/llvm/body/frame` | direct-self continuation frameのtarget layoutと、suspend/resume時のlive owner transferを構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Ptr`のbyte offsetと、unalignedな数値scalar・pointer load/storeをLLVM memory operationへ変換 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
