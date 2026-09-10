@@ -20,7 +20,6 @@ pub(crate) use tail::TailCallPlan;
 pub(crate) struct Program {
     pub(crate) lowered: closure_ast::Program,
     pub(crate) control: crate::control::ast::Program,
-    pub(crate) closure_uses: ClosureUsePlan,
     pub(crate) applications: ApplicationGraph,
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
@@ -58,7 +57,6 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     Program {
         lowered,
         control,
-        closure_uses,
         applications,
         control_calls,
         control_regions,

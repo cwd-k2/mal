@@ -114,23 +114,6 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
-            (Type::Function { .. }, AtomKind::Reference(Reference::Binding(id)))
-                if !self.slots.contains_key(id) =>
-            {
-                let function = self.execution.closure_uses.direct_closure(*id)?.function;
-                let value_type = self.types.value(&atom.ty)?;
-                let closure = self.register();
-                self.line(format!(
-                    "  {closure} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                    value_type.llvm,
-                    super::function_name(function)?
-                ));
-                Some(EmittedValue {
-                    ty: atom.ty.clone(),
-                    representation: closure,
-                    owned: false,
-                })
-            }
             (ty, AtomKind::Reference(Reference::Binding(id))) if !self.slots.contains_key(id) => {
                 let (constant_ty, representation) = self.top_levels.get(*id)?;
                 if *constant_ty != *ty {
