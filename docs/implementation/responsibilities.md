@@ -131,7 +131,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
-| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat `Symbol`、観測、連結、外部byte copy、C shim用のborrowed byte viewを実装 |
+| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted persistent `Symbol` storage、allocation-freeな観測と外部byte copy、平衡連結、C host境界での遅延materializationを実装 |
 | `backend/c/syntax` | public headerとhost stubが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
@@ -142,7 +142,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
-`backend/llvm`、`Symbol`の連続表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
+`backend/llvm`、`Symbol`のstorage表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
 [generated program最適化計画](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

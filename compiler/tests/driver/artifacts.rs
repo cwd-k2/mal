@@ -1324,7 +1324,7 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
 }
 
 #[test]
-fn owns_flat_symbols_across_direct_llvm_calls() {
+fn owns_symbols_across_direct_llvm_calls() {
     let directory = NativeFixture::new("driver-llvm-symbol");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -1351,6 +1351,66 @@ fn owns_flat_symbols_across_direct_llvm_calls() {
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
+    let directory = NativeFixture::new("driver-llvm-symbol-rope");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern inspect :: Symbol -> UInt64;\n\
+         append :: (Int32, Symbol) -> Symbol := \\(remaining, value) {\n\
+           if (remaining == 0i32)\n\
+           then { value }\n\
+           else { append(remaining - 1i32, value + \"x\") };\n\
+         };\n\
+         prepend :: (Int32, Symbol) -> Symbol := \\(remaining, value) {\n\
+           if (remaining == 0i32)\n\
+           then { value }\n\
+           else { prepend(remaining - 1i32, \"x\" + value) };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           left := append(10000i32, \"\");\n\
+           right := prepend(10000i32, \"\");\n\
+           if (left == right)\n\
+           then {\n\
+             if (left # 9999u64 == 120u8)\n\
+             then { Int32(inspect(left)) - 10000i32 }\n\
+             else { 2i32 };\n\
+           }\n\
+           else { 1i32 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_inspect(call, value) {\n\
+             mal_span_t bytes = mal_Symbol_to_bytes(call, value);\n\
+             for (uint64_t index = 0; index < bytes.length; ++index) {\n\
+                 if (bytes.data[index] != 'x') {\n\
+                     return mal_UInt64_return(call, UINT64_C(0));\n\
+                 }\n\
+             }\n\
+             return mal_UInt64_return(call, bytes.length);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
 
     assert!(
         output.status.success(),

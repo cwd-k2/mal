@@ -107,7 +107,7 @@ pub(crate) fn generate(
         entry_call,
     );
     let symbol_bridge_runtime = if body.uses_symbol_runtime {
-        "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    (void)context;\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
+        "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    value.data = mal_runtime_symbol_data(context, value.ownership);\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(context, ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
     } else {
         ""
     };
@@ -266,7 +266,7 @@ impl<'a> BridgeMarshalling<'a> {
             Type::Symbol => {
                 let ownership = format!("*(void *const *){pointer}");
                 Some(format!(
-                    "(MalType_Symbol){{.data = mal_runtime_symbol_data({ownership}), .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}}"
+                    "mal_symbol_materialize({context}, (MalType_Symbol){{.data = NULL, .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}})"
                 ))
             }
             Type::External { .. } => Some(format!(

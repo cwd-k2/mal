@@ -191,19 +191,8 @@ impl TopLevelConstants {
             AtomKind::Symbol(bytes) if bytes.is_empty() => "null".into(),
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
-                let contents = bytes
-                    .iter()
-                    .map(|byte| match byte {
-                        0x20..=0x21 | 0x23..=0x5b | 0x5d..=0x7e => (*byte as char).to_string(),
-                        _ => format!("\\{byte:02X}"),
-                    })
-                    .collect::<String>();
-                self.globals.push_str(&format!(
-                    "@{name} = private constant {{ i64, i64, [{} x i8] }} {{ i64 -1, i64 {}, [{} x i8] c\"{contents}\" }}, align 8\n",
-                    bytes.len(),
-                    bytes.len(),
-                    bytes.len()
-                ));
+                self.globals
+                    .push_str(&super::symbol::literal_definition(&name, bytes));
                 format!("@{name}")
             }
             AtomKind::Unit if atom.ty == Type::Unit => "0".into(),

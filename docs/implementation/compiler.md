@@ -98,8 +98,9 @@ program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM
 ties-to-evenを満たすLLVM instructionを選ぶ。
 
 productはLLVM struct、sumはtagと最大payloadを収めるstruct、Boolは`i1`で表現する。Symbol literalはLLVM moduleのstatic
-storageを参照し、動的なSymbolはC11 runtimeのreference-counted flat storageを使う。連結、比較、byte access、外部memoryとの
-copyは汎用runtime operationへ委ねる。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。
+leafを参照し、動的なSymbolはC11 runtimeのreference-counted persistent leaf/rope storageを使う。連結、比較、byte access、外部memoryとの
+copyは汎用runtime operationへ委ね、連続byte viewはC host境界で要求された場合だけmaterializeする。targetで表現不能なallocation sizeと
+allocation failureはmal trapへ写像する。
 
 extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置き、LLVM rootを`(UInt64, Ptr)`で呼ぶ。

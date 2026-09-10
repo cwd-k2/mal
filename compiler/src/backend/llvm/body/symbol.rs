@@ -4,6 +4,22 @@ use crate::control::ast::{Operation, Terminator};
 
 use super::{EmittedValue, FunctionEmitter};
 
+pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
+    let contents = bytes
+        .iter()
+        .map(|byte| match byte {
+            0x20..=0x21 | 0x23..=0x5b | 0x5d..=0x7e => (*byte as char).to_string(),
+            _ => format!("\\{byte:02X}"),
+        })
+        .collect::<String>();
+    format!(
+        "@{name} = private constant {{ i64, i64, i8, i8, [6 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, i8 0, [6 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align 8\n",
+        bytes.len(),
+        bytes.len(),
+        bytes.len()
+    )
+}
+
 pub(super) fn program_uses_runtime(execution: &crate::execution::Program) -> bool {
     execution
         .lowered
