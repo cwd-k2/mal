@@ -3,7 +3,7 @@ require "./host.c";
 extern receive :: Unit -> Symbol;
 extern send :: Symbol -> Unit;
 
-main :: Unit -> Int32 := \() {
+main :: Unit -> Int32 := () {
     value := receive();
     valid := #value == 8u64 && value # 3u64 == 227u8 && value # 6u64 == 0u8 && value # 7u64 == 255u8 && value == "malあ\0\xff";
     send(value + "!");

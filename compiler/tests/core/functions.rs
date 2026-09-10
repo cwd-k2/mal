@@ -4,7 +4,7 @@ use super::*;
 fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            mark();\n\
            value :: Int32 := 7;\n\
            (value);\n\
@@ -40,10 +40,10 @@ fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
 #[test]
 fn lowers_multiple_parameters_to_product_destructuring() {
     let program = lower_ok(
-        "add :: (Int32, Int32) -> Int32 := \\(left, right) {\n\
+        "add :: (Int32, Int32) -> Int32 := (left, right) {\n\
            left + right;\n\
          };\n\
-         main :: Unit -> Int32 := \\() { add(20, 22); };",
+         main :: Unit -> Int32 := () { add(20, 22); };",
     );
     let ExpressionKind::Lambda(add) = &program.bindings[0].value.kind else {
         panic!("expected add lambda");

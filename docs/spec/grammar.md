@@ -16,7 +16,7 @@ file-private visibilityを表せる。local identifierでも同じspellingを認
 wildcard専用でidentifierではない。
 
 空白はASCII space、tab、CR、LFとする。commentは`//`からCR、LF、またはsource末尾までであり、block commentはない。
-keywordはidentifier全体が`require`、`extern`、`if`、`then`、`else`、`case`のいずれかと一致するときだけ認識する。
+keywordはidentifier全体が`require`、`extern`、`if`、`then`、`else`のいずれかと一致するときだけ認識する。
 Unicode identifierとtrailing commaは認めない。
 
 ## numeric separator
@@ -66,8 +66,8 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | sumType
 sumType     ::= "[" type "," type ("," type)* "]"
 
-lambda      ::= "\\" "(" parameterList? ")" block
-parameterList ::= VALUE_IDENT ("," VALUE_IDENT)*
+lambda      ::= "(" lambdaParameter? ")" block
+lambdaParameter ::= pattern ("," pattern)*
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
 
@@ -75,9 +75,13 @@ pattern     ::= VALUE_IDENT | "_" | productPattern
 productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
 
 call        ::= expression "(" argumentList? ")"
+continuationApplication ::= expression "[" expression
+                            ("," expression)* "]"
+unitApplication ::= "[" expression "]"
 product     ::= "(" expression "," expression
                 ("," expression)* ")"
-sumInjection ::= TYPE_IDENT "[" INTEGER "]" "(" expression ")"
+typeApplication ::= TYPE_IDENT "(" expression ")"
+                  | expression "[" TYPE_IDENT "]"
 typeQualifiedPrimitive ::= TYPE_IDENT "." VALUE_IDENT
 symbolLength ::= "#" expression
 symbolByteAccess ::= expression "#" expression
@@ -93,9 +97,6 @@ byteUnit    ::= printableAsciiExceptQuoteOrBackslash
 ifExpr      ::= "if" "(" expression ")"
                 "then" block
                 "else" block
-
-caseExpr    ::= "case" "(" expression ")" caseArm+
-caseArm     ::= "[" INTEGER "]" "(" pattern ")" block
 ```
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
@@ -108,7 +109,7 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 
 | level | operator | associativity |
 |---|---|---|
-| call | `f(...)` | left |
+| application | `f(...)`、`value[...]` | left |
 | Symbol length | `#value` | right |
 | Symbol byte access | `value # index` | non-associative |
 | unary | `- ! ~` | right |
@@ -131,6 +132,10 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 前後に空白を置かない。この形はmoduleやnamespaceのqualified name、field access、method、user-defined
 associated itemを導入しない。認める型とprimitiveの組は[memory primitive](memory.md)に定める。
 
+`T(value)`と`value[T]`は同じtype applicationである。numeric型`T`ならnumeric conversion、直和型`T`かつ
+`value`がcompile-time integer literalなら該当indexのinjection functionを表す。後者へ通常のapplicationを
+続けた`i[T](payload)`と`payload[i[T]]`は同じ直和値を構築する。
+
 `#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。
 
@@ -148,4 +153,6 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 
 ## 存在しない構文
 
-v0.5 は `let`、`var`、`mut`、`const`、`fn`、return statement、loop、`break`、`continue`、record、class、method、enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、exception を持たない。
+v0.5は`let`、`var`、`mut`、`const`、`fn`、`case`、return statement、loop、`break`、`continue`、record、
+class、method、nominal enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、
+exceptionを持たない。

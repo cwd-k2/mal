@@ -4,7 +4,7 @@ use super::*;
 fn checks_sum_injection_payload_and_index() {
     let program = check_ok(
         "Maybe :: [Unit, Int32];\n\
-         some :: Maybe := Maybe[1](42);",
+         some :: Maybe := 1[Maybe](42);",
     );
     assert_eq!(
         top_binding(&program, 1).value.ty,
@@ -12,11 +12,11 @@ fn checks_sum_injection_payload_and_index() {
     );
 
     assert_eq!(
-        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := Maybe[2](0);").message,
+        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 2[Maybe](0);").message,
         "sum variant index is out of range"
     );
     assert_eq!(
-        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := Maybe[0](0);").message,
+        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 0[Maybe](0);").message,
         "type mismatch"
     );
 }
@@ -25,14 +25,14 @@ fn checks_sum_injection_payload_and_index() {
 fn checks_case_exhaustiveness_uniqueness_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
-         get :: Maybe -> Int32 := \\(value) {\n\
+         get :: Maybe -> Int32 := (value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](x) { y := x; y };\n\
          };",
     );
 
-    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := \\(value) { ";
+    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := (value) { ";
     assert_eq!(
         check_error(&format!("{prefix}case (value) [0](_) {{ 0 }}; }};")).message,
         "non-exhaustive case expression"
@@ -56,13 +56,13 @@ fn checks_case_exhaustiveness_uniqueness_and_result_types() {
 #[test]
 fn checks_if_condition_and_branch_types() {
     check_ok(
-        "choose :: Bool -> Int32 := \\(condition) {\n\
+        "choose :: Bool -> Int32 := (condition) {\n\
            if (condition) then { 1 } else { 2 };\n\
          };",
     );
     assert_eq!(
         check_error(
-            "bad :: Int32 -> Int32 := \\(condition) {\n\
+            "bad :: Int32 -> Int32 := (condition) {\n\
                if (condition) then { 1 } else { 2 };\n\
              };"
         )
@@ -71,7 +71,7 @@ fn checks_if_condition_and_branch_types() {
     );
     assert_eq!(
         check_error(
-            "bad :: Bool -> Int32 := \\(condition) {\n\
+            "bad :: Bool -> Int32 := (condition) {\n\
                if (condition) then { 1 } else { () };\n\
              };"
         )

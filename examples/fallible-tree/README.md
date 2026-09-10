@@ -6,7 +6,7 @@ the successful path. A three-node limit fails after a complete left subtree has 
 
 The mal program treats constructor arguments as logically owned. `branchOwned` either transfers both
 children into a new parent or recursively destroys both after allocation failure. Higher construction
-layers likewise destroy every completed subtree before propagating `NodeResult[1]`.
+layers likewise destroy every completed subtree before propagating `1[NodeResult]`.
 
 The host tracks every live node and traps if `destroyAllocator` is called before all nodes have been
 released. This makes partial-construction leaks observable in the end-to-end test. The protocol is

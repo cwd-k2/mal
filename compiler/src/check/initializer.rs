@@ -47,6 +47,14 @@ fn is_top_level_initializer(
         | resolved::Expression::Conversion { value, .. } => {
             is_top_level_initializer(value, external_values)
         }
+        resolved::Expression::Call { callee, arguments }
+            if matches!(callee.kind, resolved::Expression::Conversion { .. }) =>
+        {
+            is_top_level_initializer(callee, external_values)
+                && arguments
+                    .iter()
+                    .all(|argument| is_top_level_initializer(argument, external_values))
+        }
         resolved::Expression::Lambda(_) => true,
         resolved::Expression::Unary {
             operator, operand, ..

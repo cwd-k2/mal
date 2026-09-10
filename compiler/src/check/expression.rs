@@ -391,6 +391,16 @@ impl Checker {
             );
         };
         let argument = self.check_argument(arguments, parameter, span)?;
+        if let ExpressionKind::InjectionConstructor { index, .. } = callee.kind {
+            return Ok(Expression {
+                ty: result.as_ref().clone(),
+                kind: ExpressionKind::SumInjection {
+                    index,
+                    value: Box::new(argument),
+                },
+                span,
+            });
+        }
         Ok(Expression {
             ty: result.as_ref().clone(),
             kind: ExpressionKind::Call {

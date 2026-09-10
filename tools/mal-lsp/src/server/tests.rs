@@ -110,11 +110,11 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text = "make :: Int32 -> Int32 := \\(x) {\n  inner :: Unit -> Int32 := \\() { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := (x) {\n  inner :: Unit -> Int32 := () { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
-    let parameter = text.find("\\(x)").unwrap() + 2;
+    let parameter = text.find("(x)").unwrap() + 1;
 
     let hover = request_at(&mut server, 10, "textDocument/hover", uri, text, reference);
     assert_eq!(hover["result"]["contents"]["kind"], "markdown");
@@ -165,7 +165,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 
 #[test]
 fn preserves_declared_type_aliases_in_hover() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := \\(tree, n) { n; };\n";
+    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) { n; };\n";
     let uri = "file:///alias-hover.mal";
     let mut server = open_document(uri, text);
 
@@ -296,7 +296,7 @@ fn serves_cross_file_semantics_from_open_dependency_buffers() {
     let library_path = files.write("library.mal", "diskValue :: Int32 := 0;");
     let root_uri = path_to_uri(&root_path);
     let library_uri = path_to_uri(&library_path);
-    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := \\() { publicValue; };\n";
+    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () { publicValue; };\n";
     let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
     let mut server = Server::new();
     let root_opened = server.handle(did_open(&root_uri, root_text));

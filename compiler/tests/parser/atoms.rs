@@ -51,13 +51,13 @@ fn rejects_general_member_access_and_non_value_members() {
 }
 
 #[test]
-fn distinguishes_numeric_conversion_from_sum_injection() {
+fn parses_prefix_conversion_and_postfix_constructor_application() {
     assert!(matches!(
         binding_value("value := UInt8(1i8);"),
         Expression::Conversion { .. }
     ));
-    assert!(matches!(
-        binding_value("value := Maybe[1](1);"),
-        Expression::SumInjection { .. }
-    ));
+    let Expression::Call { callee, .. } = binding_value("value := 1[Maybe](1);") else {
+        panic!("expected constructor application");
+    };
+    assert!(matches!(callee.kind, Expression::Conversion { .. }));
 }

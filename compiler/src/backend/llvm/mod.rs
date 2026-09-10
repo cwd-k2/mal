@@ -468,7 +468,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(75),
             "llvm-constant.mal",
-            "main :: Unit -> Int32 := \\() { 7; };".into(),
+            "main :: Unit -> Int32 := () { 7; };".into(),
         );
         let checked = crate::pipeline::check(&source).expect("check LLVM fixture");
         let core = crate::core::lower(&checked);
@@ -508,8 +508,8 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(79),
             "llvm-32-bit-control.mal",
-            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
-             sum :: Int32 -> Int32 := \\(value) {\n\
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) { operation(value); };\n\
+             sum :: Int32 -> Int32 := (value) {\n\
                if (value == 0i32)\n\
                then { 0i32 }\n\
                else {\n\
@@ -517,7 +517,7 @@ mod tests {
                  value + rest;\n\
                };\n\
              };\n\
-             main :: Unit -> Int32 := \\() { sum(4i32); };"
+             main :: Unit -> Int32 := () { sum(4i32); };"
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check 32-bit control fixture");
@@ -559,11 +559,11 @@ mod tests {
     #[test]
     fn admits_product_external_calls() {
         for (index, source) in [
-            "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, 2u64)); };",
-            "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := \\() { if (inspect(true)) then { 0 } else { 1 }; };",
-            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, \"x\")); };",
-            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := \\() { (value, _) := inspect(1u64, \"x\"); Int32(value); };",
-            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := \\() { (number, text) := exchange(41u64, \"a\" + \"b\"); Int32(number); };",
+            "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := () { Int32(inspect(1u64, 2u64)); };",
+            "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := () { if (inspect(true)) then { 0 } else { 1 }; };",
+            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := () { Int32(inspect(1u64, \"x\")); };",
+            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := () { (value, _) := inspect(1u64, \"x\"); Int32(value); };",
+            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () { (number, text) := exchange(41u64, \"a\" + \"b\"); Int32(number); };",
         ]
         .into_iter()
         .enumerate()
@@ -581,9 +581,9 @@ mod tests {
     #[test]
     fn admits_sum_external_calls_recursively() {
         for (index, source) in [
-            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };",
-            "Choice :: [Unit, (UInt64, Symbol)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := \\() { 0; };",
-            "extern Handle; Choice :: [Unit, (UInt64, Handle)]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };",
+            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () { 0; };",
+            "Choice :: [Unit, (UInt64, Symbol)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := () { 0; };",
+            "extern Handle; Choice :: [Unit, (UInt64, Handle)]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () { 0; };",
         ]
         .into_iter()
         .enumerate()

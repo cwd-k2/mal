@@ -10,7 +10,7 @@ fn reports_source_and_output_filesystem_failures() {
     assert!(stderr.contains("malc: cannot read"));
     assert!(stderr.contains(missing.to_string_lossy().as_ref()));
 
-    let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
+    let source = directory.write("program.mal", "main :: Unit -> Int32 := () { 0; };");
     directory.write("blocked", "not a directory");
     let generated = directory.join("blocked/program.mal.h");
     let output = directory.malc([
@@ -79,7 +79,7 @@ fn reports_required_c_source_and_c_compiler_failures() {
     let directory = NativeFixture::new("driver-failure");
     let source = directory.write(
         "program.mal",
-        "require \"./missing-host.c\";\nmain :: Unit -> Int32 := \\() { 0; };",
+        "require \"./missing-host.c\";\nmain :: Unit -> Int32 := () { 0; };",
     );
     let executable = directory.join("program");
     let arguments = [
@@ -96,7 +96,7 @@ fn reports_required_c_source_and_c_compiler_failures() {
 
     directory.write(
         "program.mal",
-        "require \"./broken.c\";\nmain :: Unit -> Int32 := \\() { 0; };",
+        "require \"./broken.c\";\nmain :: Unit -> Int32 := () { 0; };",
     );
     directory.write("broken.c", "this is not C\n");
     let artifacts = directory.join("failed-artifacts");

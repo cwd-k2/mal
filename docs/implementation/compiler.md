@@ -69,7 +69,7 @@ checked programからcore境界で、type alias、external type、external opera
 
 複数parameter/argumentはproduct parameter/application、0 parameter/argumentは`Unit`へlowerする。blockの末尾式はbody resultへ、sequential bindingはnested letまたはlambda applicationへ落とせる。
 
-surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
+surface `if`、`!`、`&&`、`||`、Bool equalityは、operandを一度だけ左から右へ評価するsum eliminationとtemporary bindingへ
 desugarする。直ちにbranchとして消費する数値・Symbol comparisonはtyped core以降で専用のprimitive branchとして保持し、
 backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はLLVM backendで
 0/1の`i1`へ写像する。

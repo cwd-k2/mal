@@ -5,7 +5,7 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
     let directory = NativeFixture::new("driver-llvm");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
-    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 7; };");
+    directory.write("program.mal", "main :: Unit -> Int32 := () { 7; };");
 
     let unavailable = directory.join("must-not-be-used");
     let output = directory.malc_with_env(
@@ -34,7 +34,7 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
         "program.mal",
         "require \"./host.c\";\n\
          extern sine :: Float64 -> Float64;\n\
-         main :: Unit -> Int32 := \\() { if (sine(0.0) == 0.0) then { 0 } else { 1 }; };",
+         main :: Unit -> Int32 := () { if (sine(0.0) == 0.0) then { 0 } else { 1 }; };",
     );
     directory.write(
         "program.mal.h",
@@ -108,7 +108,7 @@ fn references_closed_top_level_numeric_constants_through_llvm() {
     directory.write(
         "program.mal",
         "answer :: UInt64 := UInt64(42);\n\
-         main :: Unit -> Int32 := \\() { Int32(answer) - 42; };",
+         main :: Unit -> Int32 := () { Int32(answer) - 42; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -140,10 +140,10 @@ fn references_structural_closed_top_level_values_through_llvm() {
         "program.mal",
         "Choice :: [Unit, Symbol];\n\
          (number, text) :: (Int32, Symbol) := (-7i32, \"ok\");\n\
-         choice :: Choice := Choice[1](\"yes\");\n\
+         choice :: Choice := 1[Choice](\"yes\");\n\
          enabled :: Bool := true;\n\
          reader :: Ptr -> Int64 := Int64.load;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            case (choice)\n\
              [0](_) { 1 }\n\
              [1](value) {\n\
@@ -184,11 +184,11 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
     directory.write(
         "program.mal",
         "Arguments :: (UInt64, Ptr);\n\
-         argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments, index) {\n\
+         argumentAt :: (Ptr, UInt64) -> Symbol := (arguments, index) {\n\
            slot := arguments + index * (Ptr.size + UInt64.size);\n\
            Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
          };\n\
-         main :: Arguments -> Int32 := \\(count, arguments) {\n\
+         main :: Arguments -> Int32 := (count, arguments) {\n\
            first := argumentAt(arguments, 0u64);\n\
            second := argumentAt(arguments, 1u64);\n\
            if (count == 2u64) then {\n\
@@ -230,11 +230,11 @@ fn builds_scalar_control_and_tail_calls_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "increment :: Int32 -> Int32 := \\(value) { value + 1; };\n\
-         countdown :: Int32 -> Int32 := \\(value) {\n\
+        "increment :: Int32 -> Int32 := (value) { value + 1; };\n\
+         countdown :: Int32 -> Int32 := (value) {\n\
            if (value == 0) then { increment(value) } else { countdown(value - 1) };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { countdown(100000); };",
+         main :: Unit -> Int32 := () { countdown(100000); };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -264,11 +264,11 @@ fn calls_capture_free_first_class_functions_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
            operation(value);\n\
          };\n\
-         increment :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
-         main :: Unit -> Int32 := \\() { apply(increment, 41i32) - 42i32; };",
+         increment :: Int32 -> Int32 := (value) { value + 1i32; };\n\
+         main :: Unit -> Int32 := () { apply(increment, 41i32) - 42i32; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -302,9 +302,9 @@ fn calls_first_class_memory_functions_through_llvm() {
          Reader :: Ptr -> Int64;\n\
          Writer :: (Ptr, Int64) -> Unit;\n\
          extern memory :: Unit -> Ptr;\n\
-         readWith :: (Reader, Ptr) -> Int64 := \\(reader, pointer) { reader(pointer); };\n\
-         writeWith :: (Writer, Ptr, Int64) -> Unit := \\(writer, pointer, value) { writer(pointer, value); };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         readWith :: (Reader, Ptr) -> Int64 := (reader, pointer) { reader(pointer); };\n\
+         writeWith :: (Writer, Ptr, Int64) -> Unit := (writer, pointer, value) { writer(pointer, value); };\n\
+         main :: Unit -> Int32 := () {\n\
            pointer := memory();\n\
            writeWith(Int64.store, pointer, 42i64);\n\
            Int32(readWith(Int64.load, pointer) - 42i64);\n\
@@ -347,9 +347,9 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
         "require \"./host.c\";\n\
          Reader :: Ptr -> Int64;\n\
          extern memory :: Unit -> Ptr;\n\
-         apply :: (Reader, Ptr) -> Int64 := \\(reader, pointer) { reader(pointer); };\n\
-         recurse :: Ptr -> Int64 := \\(pointer) { apply(recurse, pointer); };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         apply :: (Reader, Ptr) -> Int64 := (reader, pointer) { reader(pointer); };\n\
+         recurse :: Ptr -> Int64 := (pointer) { apply(recurse, pointer); };\n\
+         main :: Unit -> Int32 := () {\n\
            pointer := memory();\n\
            Int64.store(pointer, 42i64);\n\
            Int32(apply(Int64.load, pointer) - 42i64);\n\
@@ -391,14 +391,14 @@ fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
         "program.mal",
         "require \"./host.c\";\n\
          extern touch :: Unit -> Unit;\n\
-         apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(operation, value) {\n\
+         apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) {\n\
            touch();\n\
            operation(value);\n\
          };\n\
-         recurse :: Int32 -> Symbol := \\(value) { apply(recurse, value); };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         recurse :: Int32 -> Symbol := (value) { apply(recurse, value); };\n\
+         main :: Unit -> Int32 := () {\n\
            prefix := \"x\" + \"y\";\n\
-           identity :: Int32 -> Symbol := \\(value) { prefix; };\n\
+           identity :: Int32 -> Symbol := (value) { prefix; };\n\
            result := apply(identity, 0i32);\n\
            Int32(result # 1u64) - 121i32;\n\
          };",
@@ -441,9 +441,9 @@ fn runs_deep_first_class_call_cycles_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := \\() {\n\
-           recurse :: Int32 -> Int32 := \\(value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := () {\n\
+           recurse :: Int32 -> Int32 := (value) {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else {\n\
@@ -482,10 +482,10 @@ fn preserves_managed_environments_through_llvm_first_class_cycles() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := \\() {\n\
+        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := () {\n\
            prefix := \"x\" + \"y\";\n\
-           recurse :: Int32 -> Symbol := \\(value) {\n\
+           recurse :: Int32 -> Symbol := (value) {\n\
              if (value == 0i32)\n\
              then { prefix }\n\
              else {\n\
@@ -527,14 +527,14 @@ fn dispatches_all_recursive_closure_targets_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := \\() {\n\
-           left :: Int32 -> Int32 := \\(value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := () {\n\
+           left :: Int32 -> Int32 := (value) {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else { child := apply(left, value - 1i32); child + 1i32; };\n\
            };\n\
-           right :: Int32 -> Int32 := \\(value) {\n\
+           right :: Int32 -> Int32 := (value) {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else { child := apply(right, value - 1i32); child + 1i32; };\n\
@@ -570,9 +570,9 @@ fn owns_capturing_closure_environments_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := \\() {\n\
+        "main :: Unit -> Int32 := () {\n\
            base :: Int32 := 40;\n\
-           add :: Int32 -> Int32 := \\(value) { base + value; };\n\
+           add :: Int32 -> Int32 := (value) { base + value; };\n\
            add(2) - 42;\n\
          };",
     );
@@ -604,14 +604,14 @@ fn calls_escaping_closures_with_managed_captures_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "makePrefix :: Symbol -> (Symbol -> Symbol) := \\(prefix) {\n\
-           append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
+        "makePrefix :: Symbol -> (Symbol -> Symbol) := (prefix) {\n\
+           append :: Symbol -> Symbol := (suffix) { prefix + suffix; };\n\
            append;\n\
          };\n\
-         apply :: ((Symbol -> Symbol), Symbol) -> Symbol := \\(operation, value) {\n\
+         apply :: ((Symbol -> Symbol), Symbol) -> Symbol := (operation, value) {\n\
            operation(value);\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            append := makePrefix(\"a\" + \"b\");\n\
            result := apply(append, \"c\" + \"d\");\n\
            if (result == \"abcd\") then { 0 } else { 1 };\n\
@@ -646,13 +646,13 @@ fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
     let artifacts = directory.join("artifacts");
     directory.write(
         "program.mal",
-        "sum :: Int32 -> Int32 := \\(value) {\n\
+        "sum :: Int32 -> Int32 := (value) {\n\
            if (value == 0) then { 0 } else {\n\
              rest := sum(value - 1);\n\
              value + rest;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { sum(10000) - 50005000; };",
+         main :: Unit -> Int32 := () { sum(10000) - 50005000; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -686,7 +686,7 @@ fn resumes_single_constructor_frames_without_live_payloads() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "countdown :: Int32 -> Int32 := \\(value) {\n\
+        "countdown :: Int32 -> Int32 := (value) {\n\
            if (value == 0i32)\n\
            then { 0i32 }\n\
            else {\n\
@@ -694,7 +694,7 @@ fn resumes_single_constructor_frames_without_live_payloads() {
              0i32;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { countdown(100000i32); };",
+         main :: Unit -> Int32 := () { countdown(100000i32); };",
     );
 
     let output = directory.malc([
@@ -719,7 +719,7 @@ fn preserves_outer_frames_across_a_nested_recursive_region() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "inner :: Int64 -> Int64 := \\(n) {\n\
+        "inner :: Int64 -> Int64 := (n) {\n\
            if (n == 0i64)\n\
            then { 0i64 }\n\
            else {\n\
@@ -727,7 +727,7 @@ fn preserves_outer_frames_across_a_nested_recursive_region() {
              n + rest;\n\
            };\n\
          };\n\
-         outer :: Int32 -> Int64 := \\(n) {\n\
+         outer :: Int32 -> Int64 := (n) {\n\
            if (n == 0i32)\n\
            then { inner(100i64) }\n\
            else {\n\
@@ -735,7 +735,7 @@ fn preserves_outer_frames_across_a_nested_recursive_region() {
              Int64(n) + rest;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { Int32(outer(20i32)) - 5260i32; };",
+         main :: Unit -> Int32 := () { Int32(outer(20i32)) - 5260i32; };",
     );
 
     let output = directory.malc([
@@ -760,14 +760,14 @@ fn resumes_frames_when_a_recursive_branch_ends_in_a_direct_tail_call() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "finish :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
-         unwind :: Int32 -> Int32 := \\(value) {\n\
+        "finish :: Int32 -> Int32 := (value) { value + 1i32; };\n\
+         unwind :: Int32 -> Int32 := (value) {\n\
            if (value == 0i32) then { finish(0i32) } else {\n\
              child := unwind(value - 1i32);\n\
              finish(child);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { unwind(100000i32) - 100001i32; };",
+         main :: Unit -> Int32 := () { unwind(100000i32) - 100001i32; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -798,7 +798,7 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
     let artifacts = directory.join("artifacts");
     directory.write(
         "program.mal",
-        "walk :: Int32 -> Int32 := \\(value) {\n\
+        "walk :: Int32 -> Int32 := (value) {\n\
            if (value == 0) then { 0 } else {\n\
              if (value == 1) then {\n\
                rest := walk(value - 1);\n\
@@ -809,7 +809,7 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
              };\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { walk(10000) - 10000; };",
+         main :: Unit -> Int32 := () { walk(10000) - 10000; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -845,12 +845,12 @@ fn calls_a_native_target_from_an_indirect_recursive_region_site() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
            called := operation(value);\n\
            called + 0i32;\n\
          };\n\
-         identity :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
-         recurse :: Int32 -> Int32 := \\(value) {\n\
+         identity :: Int32 -> Int32 := (value) { value + 1i32; };\n\
+         recurse :: Int32 -> Int32 := (value) {\n\
            if (value == 0i32)\n\
            then { 0i32 }\n\
            else {\n\
@@ -858,7 +858,7 @@ fn calls_a_native_target_from_an_indirect_recursive_region_site() {
              child + 1i32;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { apply(identity, 41i32) - 42i32; };",
+         main :: Unit -> Int32 := () { apply(identity, 41i32) - 42i32; };",
     );
 
     let output = directory.malc([
@@ -884,11 +884,11 @@ fn transfers_a_managed_native_target_result_back_into_a_recursive_region() {
     directory.write(
         "program.mal",
         "Packet :: (Int32, Symbol);\n\
-         apply :: ((Packet -> Packet), Packet) -> Packet := \\(operation, value) {\n\
+         apply :: ((Packet -> Packet), Packet) -> Packet := (operation, value) {\n\
            operation(value);\n\
          };\n\
-         identity :: Packet -> Packet := \\(value) { value; };\n\
-         recurse :: Packet -> Packet := \\(value) {\n\
+         identity :: Packet -> Packet := (value) { value; };\n\
+         recurse :: Packet -> Packet := (value) {\n\
            (remaining, text) := value;\n\
            if (remaining == 0i32)\n\
            then { value }\n\
@@ -898,7 +898,7 @@ fn transfers_a_managed_native_target_result_back_into_a_recursive_region() {
              (next + 1i32, result + \"!\");\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            seed := \"a\" + \"b\";\n\
            (_, result) := apply(identity, (0i32, seed));\n\
            if (result == \"ab\")\n\
@@ -929,13 +929,13 @@ fn resumes_managed_self_continuation_frames_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "walk :: (Int32, Symbol) -> Symbol := \\(depth, value) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := (depth, value) {\n\
            if (depth == 0i32) then { value } else {\n\
              resumed := walk(depth - 1i32, value);\n\
              if (resumed # 0u64 == 120u8) then { resumed } else { \"bad\" };\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            seed := \"x\" + \"y\";\n\
            result := walk(10000i32, seed);\n\
            Int32(result # 1u64) - 121i32;\n\
@@ -969,11 +969,11 @@ fn runs_managed_direct_self_tail_calls_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "count :: (Symbol, Int64) -> UInt64 := \\(value, remaining) {\n\
+        "count :: (Symbol, Int64) -> UInt64 := (value, remaining) {\n\
            if (remaining == 0i64) then { #value }\n\
            else { count(value, remaining - 1i64) };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            seed := \"x\" + \"y\";\n\
            if (count(seed, 100000i64) == 2u64) then { 0 } else { 1 };\n\
          };",
@@ -1006,28 +1006,28 @@ fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "signed8 :: Int8 -> Int32 := \\(value) {\n\
+        "signed8 :: Int8 -> Int32 := (value) {\n\
            next := value + 1i8; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         signed16 :: Int16 -> Int32 := \\(value) {\n\
+         signed16 :: Int16 -> Int32 := (value) {\n\
            next := value + 1i16; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         signed64 :: Int64 -> Int32 := \\(value) {\n\
+         signed64 :: Int64 -> Int32 := (value) {\n\
            next := value + 1i64; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         unsigned8 :: UInt8 -> Int32 := \\(value) {\n\
+         unsigned8 :: UInt8 -> Int32 := (value) {\n\
            next := value + 1u8; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         unsigned16 :: UInt16 -> Int32 := \\(value) {\n\
+         unsigned16 :: UInt16 -> Int32 := (value) {\n\
            next := value + 1u16; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         unsigned32 :: UInt32 -> Int32 := \\(value) {\n\
+         unsigned32 :: UInt32 -> Int32 := (value) {\n\
            next := value + 1u32; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         unsigned64 :: UInt64 -> Int32 := \\(value) {\n\
+         unsigned64 :: UInt64 -> Int32 := (value) {\n\
            next := value + 1u64; if (next < value) then { 1 } else { 0 };\n\
          };\n\
-         signedOps :: Int64 -> Int32 := \\(value) {\n\
+         signedOps :: Int64 -> Int32 := (value) {\n\
            quotient := value / 2i64;\n\
            remainder := value % 2i64;\n\
            shifted := (value << 1i64) >> 1i64;\n\
@@ -1037,12 +1037,12 @@ fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
              } else { 0 };\n\
            } else { 0 };\n\
          };\n\
-         unsignedOps :: UInt64 -> Int32 := \\(value) {\n\
+         unsignedOps :: UInt64 -> Int32 := (value) {\n\
            shifted := (value << 1u64) >> 1u64;\n\
            remainder := shifted % 3u64;\n\
            if (remainder == 1u64) then { 1 } else { 0 };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            signed8(127i8) + signed16(32767i16) + signed64(9223372036854775807i64) +\n\
            unsigned8(255u8) + unsigned16(65535u16) +\n\
            unsigned32(4294967295u32) + unsigned64(18446744073709551615u64) +\n\
@@ -1078,20 +1078,20 @@ fn builds_strict_float_arithmetic_and_nan_comparisons_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "check32 :: Float32 -> Int32 := \\(value) {\n\
+        "check32 :: Float32 -> Int32 := (value) {\n\
            result := value * 2.0f32 + 0.5f32;\n\
            if (result == 3.5f32) then { 1 } else { 0 };\n\
          };\n\
-         check64 :: Float64 -> Int32 := \\(value) {\n\
+         check64 :: Float64 -> Int32 := (value) {\n\
            result := -(value / 2.0f64);\n\
            if (result <= -0.75f64) then { 1 } else { 0 };\n\
          };\n\
-         checkNaN :: Float64 -> Int32 := \\(value) {\n\
+         checkNaN :: Float64 -> Int32 := (value) {\n\
            zero := value - value;\n\
            nan := zero / zero;\n\
            if (nan != nan) then { 1 } else { 0 };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            check32(1.5f32) + check64(1.5f64) + checkNaN(1.0f64) +\n\
            Int32(Float64(3)) + Int32(Float32(1.75f64)) - 7;\n\
          };",
@@ -1124,7 +1124,7 @@ fn resumes_mixed_numeric_scalar_frames_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "sum :: Float64 -> Float64 := \\(value) {\n\
+        "sum :: Float64 -> Float64 := (value) {\n\
            if (value == 0.0f64) then { 0.0f64 } else {\n\
              narrow := Int16(value);\n\
              wide := UInt64(value);\n\
@@ -1132,7 +1132,7 @@ fn resumes_mixed_numeric_scalar_frames_through_llvm() {
              rest + Float64(narrow) + Float64(wide);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { Int32(sum(10000.0f64) - 100010000.0f64); };",
+         main :: Unit -> Int32 := () { Int32(sum(10000.0f64) - 100010000.0f64); };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -1162,13 +1162,13 @@ fn constructs_and_resumes_unmanaged_products_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "build :: Int32 -> (Int16, UInt64) := \\(remaining) {\n\
+        "build :: Int32 -> (Int16, UInt64) := (remaining) {\n\
            if (remaining == 0) then { (0i16, 0u64) } else {\n\
              (narrow, wide) := build(remaining - 1);\n\
              (narrow + 1i16, wide + 1u64);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            (narrow, wide) := build(10000);\n\
            Int32(narrow) + Int32(wide) - 20000;\n\
          };",
@@ -1202,15 +1202,15 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
     directory.write(
         "program.mal",
         "Choice :: [Int16, (UInt32, UInt64)];\n\
-         choose :: Bool -> Choice := \\(flag) {\n\
-           if (flag) then { Choice[1]((20u32, 22u64)) } else { Choice[0](42i16) };\n\
+         choose :: Bool -> Choice := (flag) {\n\
+           if (flag) then { 1[Choice]((20u32, 22u64)) } else { 0[Choice](42i16) };\n\
          };\n\
-         score :: Choice -> Int32 := \\(choice) {\n\
+         score :: Choice -> Int32 := (choice) {\n\
            case (choice)\n\
              [0](value) { Int32(value) }\n\
              [1](pair) { (left, right) := pair; Int32(left) + Int32(right) };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            flag := true != false;\n\
            score(choose(false)) + score(choose(flag)) - 84;\n\
          };",
@@ -1245,7 +1245,7 @@ fn preserves_short_circuit_effect_order_through_llvm() {
         "program.mal",
         "require \"./host.c\";\n\
          extern forbidden :: Unit -> Bool;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            if (false && forbidden()) then { 1 } else { 0 };\n\
          };",
     );
@@ -1286,7 +1286,7 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
         "program.mal",
         "require \"./host.c\";\n\
          extern memory :: UInt64 -> Ptr;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            base := memory(64u64);\n\
            UInt64.store(base, 42u64);\n\
            pointerSlot := base + UInt64.size;\n\
@@ -1336,7 +1336,7 @@ fn owns_symbols_across_direct_llvm_calls() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "check :: Symbol -> Int32 := \\(value) {\n\
+        "check :: Symbol -> Int32 := (value) {\n\
            if (#value == 2u64)\n\
            then {\n\
              if (value == \"ab\")\n\
@@ -1349,7 +1349,7 @@ fn owns_symbols_across_direct_llvm_calls() {
            }\n\
            else { 3 };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {
+         main :: Unit -> Int32 := () {
            joined := \"a\" + \"b\";
            extended := joined + \"c\";
            if (check(joined) == 0i32)
@@ -1393,17 +1393,17 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
         "require \"./host.c\";\n\
          extern inspect :: Symbol -> UInt64;\n\
          extern allocationCount :: Unit -> UInt64;\n\
-         append :: (Int32, Symbol) -> Symbol := \\(remaining, value) {\n\
+         append :: (Int32, Symbol) -> Symbol := (remaining, value) {\n\
            if (remaining == 0i32)\n\
            then { value }\n\
            else { append(remaining - 1i32, value + \"x\") };\n\
          };\n\
-         prepend :: (Int32, Symbol) -> Symbol := \\(remaining, value) {\n\
+         prepend :: (Int32, Symbol) -> Symbol := (remaining, value) {\n\
            if (remaining == 0i32)\n\
            then { value }\n\
            else { prepend(remaining - 1i32, \"x\" + value) };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            left := append(10000i32, \"\");\n\
            right := prepend(10000i32, \"\");\n\
            middle := \"a\" + \"b\";\n\
@@ -1513,10 +1513,10 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     let closure_directory = NativeFixture::new("driver-llvm-closure-runtime-dependencies");
     let closure_source = closure_directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
            operation(value);\n\
          };\n\
-         main :: Unit -> Int32 := \\() { apply(\\(value) { value; }, 0i32); };",
+         main :: Unit -> Int32 := () { apply((value) { value; }, 0i32); };",
     );
     let closure_executable = closure_directory.join("program");
     let closure_artifacts = closure_directory.join("artifacts");
@@ -1539,7 +1539,7 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     let symbol_directory = NativeFixture::new("driver-llvm-discarded-symbol-operation");
     let symbol_source = symbol_directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := \\() { discarded := \"a\" + \"b\"; 0i32; };",
+        "main :: Unit -> Int32 := () { discarded := \"a\" + \"b\"; 0i32; };",
     );
     let symbol_executable = symbol_directory.join("program");
     let symbol_artifacts = symbol_directory.join("artifacts");
@@ -1567,7 +1567,7 @@ fn reuses_owned_symbols_across_empty_concatenation() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := \\() {\n\
+        "main :: Unit -> Int32 := () {\n\
            value := \"a\" + \"b\";\n\
            left := \"\" + value;\n\
            right := value + \"\";\n\
@@ -1602,7 +1602,7 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
         "require \"./host.c\";\n\
          extern inspect :: Symbol -> UInt8;\n\
          extern fetch :: Unit -> Symbol;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            seed := \"x\" + \"y\";\n\
            if (inspect(seed) == 1u8) then { Int32(fetch() # 1u64) - 107 }\n\
            else { 1 };\n\
@@ -1654,7 +1654,7 @@ fn marshals_managed_products_through_the_public_c_abi() {
         "require \"./host.c\";\n\
          Packet :: (UInt64, Symbol);\n\
          extern exchange :: Packet -> Packet;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            (number, text) := exchange(41u64, \"a\" + \"b\");\n\
            if (number == 42u64) then {\n\
              if (text == \"ab\") then { 0 } else { 1 };\n\
@@ -1707,8 +1707,8 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
          Choice :: [Unit, (UInt64, Symbol)];\n\
          Envelope :: (UInt8, Choice);\n\
          extern exchange :: Envelope -> Envelope;\n\
-         main :: Unit -> Int32 := \\() {\n\
-           (number, choice) := exchange(41u8, Choice[1]((7u64, \"a\" + \"b\")));\n\
+         main :: Unit -> Int32 := () {\n\
+           (number, choice) := exchange(41u8, 1[Choice]((7u64, \"a\" + \"b\")));\n\
            case (choice)\n\
              [0](_) { 1 }\n\
              [1](packet) {\n\
@@ -1775,8 +1775,8 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
          extern create :: UInt64 -> Handle;\n\
          extern exchange :: Choice -> Choice;\n\
          extern inspect :: Handle -> UInt64;\n\
-         main :: Unit -> Int32 := \\() {\n\
-           choice := exchange(Choice[1]((1u8, create(40u64))));\n\
+         main :: Unit -> Int32 := () {\n\
+           choice := exchange(1[Choice]((1u8, create(40u64))));\n\
            case (choice)\n\
              [0](_) { 1 }\n\
              [1](packet) {\n\
@@ -1837,11 +1837,11 @@ fn owns_symbols_nested_in_products_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := \\(input) {\n\
+        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := (input) {\n\
            (value, index) := input;\n\
            (value, value # index);\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            joined := \"ab\" + \"cd\";\n\
            (copy, byte) := inspect(joined, 2u64);\n\
            if (copy == \"abcd\") then { Int32(byte) - 99 } else { 1 };\n\
@@ -1876,11 +1876,11 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
     directory.write(
         "program.mal",
         "Choice :: [Symbol, (UInt64, Symbol)];\n\
-         choose :: Bool -> Choice := \\(second) {\n\
-           if (second) then { Choice[1]((2u64, \"b\" + \"c\")) }\n\
-           else { Choice[0](\"a\" + \"b\") };\n\
+         choose :: Bool -> Choice := (second) {\n\
+           if (second) then { 1[Choice]((2u64, \"b\" + \"c\")) }\n\
+           else { 0[Choice](\"a\" + \"b\") };\n\
          };\n\
-         score :: Choice -> Int32 := \\(choice) {\n\
+         score :: Choice -> Int32 := (choice) {\n\
            case (choice)\n\
              [0](value) { Int32(value # 0u64) }\n\
              [1](pair) {\n\
@@ -1888,7 +1888,7 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
                Int32(bias) + Int32(value # 1u64);\n\
              };\n\
          };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            score(choose(false)) + score(choose(true)) - 198;\n\
          };",
     );
@@ -1972,7 +1972,7 @@ fn emit_host_prints_compilable_external_operation_stubs() {
          Request :: (Count, Int32);\n\
          extern increment :: Count -> Count;\n\
          extern inspect :: Request -> Count;\n\
-         main :: Unit -> Int32 := \\() { Int32(increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := () { Int32(increment(41u64) - 42u64); };",
     );
 
     let header_output = directory.malc([
@@ -2077,7 +2077,7 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
          require \"./host.c\";\n\
          require \"./helper.c\";\n\
          extern adjust :: Int32 -> Int32;\n\
-         main :: Unit -> Int32 := \\() { adjust(40) - 42; };",
+         main :: Unit -> Int32 := () { adjust(40) - 42; };",
     );
     directory.write(
         "host.c",
@@ -2120,17 +2120,17 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
         "require \"./left.mal\";\n\
          require \"./left.mal\";\n\
          require \"./right.mal\";\n\
-         main :: Unit -> Int32 := \\() { left(39) + right(1) - 42 };",
+         main :: Unit -> Int32 := () { left(39) + right(1) - 42 };",
     );
     directory.write(
         "left.mal",
-        "_helper :: Int32 -> Int32 := \\(x) { x + 1 };\n\
-         left :: Int32 -> Int32 := \\(x) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := (x) { x + 1 };\n\
+         left :: Int32 -> Int32 := (x) { _helper(x) };",
     );
     directory.write(
         "right.mal",
-        "_helper :: Int32 -> Int32 := \\(x) { x + 1 };\n\
-         right :: Int32 -> Int32 := \\(x) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := (x) { x + 1 };\n\
+         right :: Int32 -> Int32 := (x) { _helper(x) };",
     );
     let executable = directory.join("program");
 
@@ -2154,7 +2154,7 @@ fn source_graph_overlays_open_mal_buffers() {
     let directory = NativeFixture::new("driver-overlays");
     let source = directory.write("program.mal", "not the open buffer");
     let dependency = directory.join("library.mal");
-    let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := \\() { value - 42; };";
+    let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := () { value - 42; };";
     let dependency_text = "value :: Int32 := 42;";
     let overlays =
         std::collections::HashMap::from([(dependency.clone(), dependency_text.to_owned())]);

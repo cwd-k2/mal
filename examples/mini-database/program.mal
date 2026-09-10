@@ -1,7 +1,7 @@
 require "./host.mal";
 require "./application.mal";
 
-main :: Arguments -> Int32 := \(argumentCount, arguments) {
+main :: Arguments -> Int32 := (argumentCount, arguments) {
     if (argumentCount == 1u64)
     then {
         path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));

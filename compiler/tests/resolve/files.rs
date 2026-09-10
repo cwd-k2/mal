@@ -45,11 +45,11 @@ fn resolves_public_names_and_keeps_private_names_per_file() {
             ),
             (
                 "left.mal",
-                "_helper :: Int32 -> Int32 := \\(x) { x + 1 }; left :: Int32 -> Int32 := \\(x) { _helper(x) };",
+                "_helper :: Int32 -> Int32 := (x) { x + 1 }; left :: Int32 -> Int32 := (x) { _helper(x) };",
             ),
             (
                 "right.mal",
-                "_helper :: Int32 -> Int32 := \\(x) { x + 2 }; right :: Int32 -> Int32 := \\(x) { _helper(x) };",
+                "_helper :: Int32 -> Int32 := (x) { x + 2 }; right :: Int32 -> Int32 := (x) { _helper(x) };",
             ),
         ],
         &[&[(1, 0), (2, 1)], &[], &[]],
@@ -70,9 +70,9 @@ fn does_not_reexport_imported_names() {
             ("root.mal", "require \"./middle.mal\"; result := leaf(1);"),
             (
                 "middle.mal",
-                "require \"./leaf.mal\"; middle :: Int32 -> Int32 := \\(x) { leaf(x) };",
+                "require \"./leaf.mal\"; middle :: Int32 -> Int32 := (x) { leaf(x) };",
             ),
-            ("leaf.mal", "leaf :: Int32 -> Int32 := \\(x) { x };"),
+            ("leaf.mal", "leaf :: Int32 -> Int32 := (x) { x };"),
         ],
         &[&[(1, 0)], &[(2, 0)], &[]],
     );
@@ -101,7 +101,7 @@ fn rejects_conflicting_imports_and_dependency_entry_points() {
     let (graph, parsed) = make_graph(
         &[
             ("root.mal", "require \"./dependency.mal\";"),
-            ("dependency.mal", "main :: Unit -> Int32 := \\() { 0 };"),
+            ("dependency.mal", "main :: Unit -> Int32 := () { 0 };"),
         ],
         &[&[(1, 0)], &[] as &[(u32, usize)]],
     );

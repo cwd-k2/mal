@@ -17,7 +17,7 @@ extern receivePacket :: Socket -> ReceiveResult;
 extern closeSocket :: Socket -> Status;
 extern writeError :: UInt32 -> Unit;
 
-_reportStatus :: Status -> Bool := \(status) {
+_reportStatus :: Status -> Bool := (status) {
     case (status)
     [0](_) { true }
     [1](error) {
@@ -26,13 +26,13 @@ _reportStatus :: Status -> Bool := \(status) {
     };
 };
 
-_isRejected :: Status -> Bool := \(status) {
+_isRejected :: Status -> Bool := (status) {
     case (status)
     [0](_) { false }
     [1](_) { true };
 };
 
-_receiveExpected :: Socket -> Bool := \(socket) {
+_receiveExpected :: Socket -> Bool := (socket) {
     result := receivePacket(socket);
     case (result)
     [0](packet) {
@@ -45,7 +45,7 @@ _receiveExpected :: Socket -> Bool := \(socket) {
     };
 };
 
-main :: Unit -> Int32 := \() {
+main :: Unit -> Int32 := () {
     pair := createSocketPair();
     (sender, receiver) := pair;
     chunk := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";

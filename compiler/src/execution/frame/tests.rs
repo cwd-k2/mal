@@ -8,16 +8,16 @@ fn validates_exact_frame_sites_and_payloads() {
     let source = SourceFile::new(
         FileId::new(72),
         "control-frame-validation.mal",
-        "walk :: (Int32, Symbol) -> Symbol := \\(depth, prefix) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := (depth, prefix) {\n\
            if (depth == 0i32)\n\
            then { prefix }\n\
            else {\n\
-             append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
+             append :: Symbol -> Symbol := (suffix) { prefix + suffix; };\n\
              child := walk(depth - 1i32, prefix);\n\
              append(child);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { Int32(#walk(2i32, \"x\")) - 3i32; };"
+         main :: Unit -> Int32 := () { Int32(#walk(2i32, \"x\")) - 3i32; };"
             .into(),
     );
     let parsed = parser::parse(&source).expect("parse control frame fixture");

@@ -5,7 +5,7 @@ require "./query.mal";
 _queryStorageSize :: UInt64 := 257u64;
 _inputStorageSize :: UInt64 := 4096u64;
 
-executeDatabase :: Symbol -> Int32 := \(path) {
+executeDatabase :: Symbol -> Int32 := (path) {
     allocator := createAllocator();
     file := openReadWriteCreate(path);
     input := standardInput();

@@ -4,13 +4,18 @@ Status: Current v0.5 profile
 
 ## 評価戦略
 
-mal は strict call-by-value である。式、引数、lambda body は source order で左から右、上から下へ評価する。
+malはstrict call-by-valueである。applicationは表記にかかわらずvalueを先に、continuationを後に評価する。
+product要素、primitive operand、lambda bodyはsource orderで左から右、上から下へ評価する。
 
 ```mal
 f(a(), b(), c())
 ```
 
-では `f`、`a()`、`b()`、`c()`、application の順になる。通常の関数が `extern` を呼び得るため、compiler は観測可能な順序を変更してはならない。
+では`a()`、`b()`、`c()`、`f`、applicationの順になる。`(a(), b(), c())[f]`も同じ順序である。通常の関数が
+`extern`を呼び得るため、compilerは観測可能な順序を変更してはならない。
+
+二つ以上のcontinuationによる直和除去はscrutineeを一度評価し、active variantに対応するcontinuationだけを評価して
+payloadへ適用する。選択されないcontinuationを評価してはならない。
 
 ## scope と closure
 
@@ -19,8 +24,8 @@ f(a(), b(), c())
 ラムダ式を評価すると関数値が生成される。関数値は概念上、ラムダのcodeと、lexically captureしたlocal valueのenvironmentからなるclosureである。environmentにはラムダ式を評価した時点の値をby-valueで保持する。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
-    \(y) { x + y };
+makeAdder :: Int32 -> (Int32 -> Int32) := (x) {
+    (y) { x + y };
 };
 
 addTen := makeAdder(10);
@@ -34,9 +39,9 @@ environmentに保存する必要はない。external operationは通常のfuncti
 実行する。参照または受け渡しだけではhost境界を越えない。
 
 ```mal
-outer :: Int32 -> (Unit -> (Unit -> Int32)) := \(x) {
-    middle := \() {
-        \() { x };
+outer :: Int32 -> (Unit -> (Unit -> Int32)) := (x) {
+    middle := () {
+        () { x };
     };
 
     middle;
@@ -62,7 +67,7 @@ lexical captureの決定理由は[D007](../history/decisions/D007.md)に記録�
 `for` と `while` はなく、反復は再帰で表す。
 
 ```mal
-sum :: Int64 -> Int64 := \(n) {
+sum :: Int64 -> Int64 := (n) {
     if (n == 0)
         then { 0 }
         else { n + sum(n - 1) };
@@ -125,8 +130,10 @@ pointer accessのregion、permission、lifetime違反とpointer offsetのprecond
 
 ```text
 e ::= variable | literal | lambda | application
-    | product | sumInjection | case
+    | product | sumInjection | sumElimination
     | primitive | hostOperation | fix
 ```
 
-`Bool` は `[Unit, Unit]`、`if` と論理演算は `case` へ消去できる。`::` は型情報、`:=` はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する定義ではなく、表面機能を追加するときの意味論上の基準である。
+`f(a)`と`a[f]`は同じapplicationである。`Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
+`::`は型情報、`:=`はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する
+定義ではなく、表面機能を追加するときの意味論上の基準である。

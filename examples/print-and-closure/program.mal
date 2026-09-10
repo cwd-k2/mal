@@ -2,11 +2,11 @@ require "./host.c";
 
 extern printInt32 :: Int32 -> Unit;
 
-makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
-    \(y) { x + y };
+makeAdder :: Int32 -> (Int32 -> Int32) := (x) {
+    (y) { x + y };
 };
 
-main :: Unit -> Int32 := \() {
+main :: Unit -> Int32 := () {
     printInt32(1);
     addTen := makeAdder(10);
     printInt32(addTen(5));

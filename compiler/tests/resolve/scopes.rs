@@ -4,7 +4,7 @@ use super::*;
 fn local_bindings_enter_scope_only_after_their_initializer() {
     for text in [
         "first := second; second := 2;",
-        "main := \\() { x := x; x; };",
+        "main := () { x := x; x; };",
     ] {
         let error = resolve_error(text);
         assert!(error.message.starts_with("unknown value"), "input: {text}");
@@ -14,8 +14,8 @@ fn local_bindings_enter_scope_only_after_their_initializer() {
 #[test]
 fn rejects_mutual_recursion_as_a_forward_reference() {
     let error = resolve_error(
-        "first :: Unit -> Unit := \\() { second(); };\n\
-         second :: Unit -> Unit := \\() { first(); };",
+        "first :: Unit -> Unit := () { second(); };\n\
+         second :: Unit -> Unit := () { first(); };",
     );
     assert_eq!(error.message, "unknown value `second`");
 }
@@ -23,7 +23,7 @@ fn rejects_mutual_recursion_as_a_forward_reference() {
 #[test]
 fn local_scope_can_shadow_predefined_and_outer_names() {
     let program = resolve_ok(
-        "main := \\(x) {\n\
+        "main := (x) {\n\
            result := if (true) then {\n\
              x := 1;\n\
              false := x;\n\
@@ -42,10 +42,10 @@ fn local_scope_can_shadow_predefined_and_outer_names() {
 fn external_functions_are_values_and_follow_lexical_shadowing() {
     let program = resolve_ok(
         "extern output :: Symbol -> Unit;\n\
-         useOutput :: (Symbol -> Unit) -> Unit := \\(operation) { operation(\"direct\") };\n\
-         main :: Unit -> Unit := \\() {\n\
+         useOutput :: (Symbol -> Unit) -> Unit := (operation) { operation(\"direct\") };\n\
+         main :: Unit -> Unit := () {\n\
            selected := output;\n\
-           output :: Symbol -> Unit := \\(message) { (); };\n\
+           output :: Symbol -> Unit := (message) { (); };\n\
            useOutput(selected);\n\
            output(\"shadowed\");\n\
          };",
@@ -69,7 +69,7 @@ fn external_functions_are_values_and_follow_lexical_shadowing() {
 #[test]
 fn branch_bindings_do_not_escape_their_expression_block() {
     let error = resolve_error(
-        "main := \\() {\n\
+        "main := () {\n\
            if (true) then { local := 1; local } else { 0 };\n\
            local;\n\
          };",
@@ -81,7 +81,7 @@ fn branch_bindings_do_not_escape_their_expression_block() {
 fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     resolve_ok(
         "Choice :: [Unit, Int32];\n\
-         main := \\(value) {\n\
+         main := (value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { local := item; local };\n\
@@ -90,7 +90,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
 
     let duplicate = resolve_error(
         "Choice :: [Unit, Int32];\n\
-         main := \\(value) {\n\
+         main := (value) {\n\
            case (value)\n\
              [0](_) { 0 }\n\
              [1](item) { item := 1; item };\n\
@@ -99,7 +99,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
     assert!(duplicate.message.starts_with("duplicate value"));
 
     let escaped = resolve_error(
-        "main := \\() {\n\
+        "main := () {\n\
            case (true) [0](_) { local := 1; local } [1](_) { 0 };\n\
            local;\n\
          };",
@@ -111,10 +111,7 @@ fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
 fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
     let cases = [
         ("value :: Missing := 0;", "unknown type `Missing`"),
-        (
-            "main := \\() { missing(); (); };",
-            "unknown value `missing`",
-        ),
+        ("main := () { missing(); (); };", "unknown value `missing`"),
         ("Bool :: Int32;", "duplicate type `Bool`"),
         ("false := 0;", "duplicate value `false`"),
         (

@@ -26,22 +26,22 @@ pattern は identifier、`_`、product pattern からなる。pattern 内で同�
 
 ```mal
 add :: (Int32, Int32) -> Int32 :=
-    \(a, b) { a + b };
+    (a, b) { a + b };
 ```
 
 lambdaは周辺から与えられる期待関数型に対して検査し、自身から関数型を推論しない。期待関数型がなければ
 compile-time errorである。bindingのRHSに直接lambdaを書く場合は、bindingの型annotationが期待型になる。
 
-期待関数型のparameter型が`Unit`ならlambdaは0 parameter、productでlambdaが複数parameterを持つなら要素数は
-一致しなければならない。1 parameterのlambdaは期待parameter型全体を受け取るため、productも一つの名前へbindingできる。
-各parameter名には対応する型を与え、bodyは期待関数型のresult型に対して検査する。resultがさらに関数型でbodyの
+期待関数型のparameter型が`Unit`ならlambdaは空pattern、そうでなければ括弧内のpatternをparameter型に対して検査する。
+`(a, b)`はproduct parameterを分解し、`(value)`はparameter型全体を一つの名前へbindingする。`_`とnested product
+patternもbindingと同じ意味を持つ。bodyは期待関数型のresult型に対して検査する。resultがさらに関数型でbodyの
 result expressionがlambdaなら、この規則を再帰的に適用する。parameterごとの型annotationとlambda自身の戻り型構文はない。
 
 ラムダbodyから参照する外側のlocal bindingはby-valueでlexically captureされる。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := \(x) {
-    \(y) { x + y };
+makeAdder :: Int32 -> (Int32 -> Int32) := (x) {
+    (y) { x + y };
 };
 ```
 
@@ -50,24 +50,29 @@ top-level binding、predefined binding、compiler primitiveはenvironmentへcapt
 
 captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#scope-と-closure)に従う。
 
-lambda、`if` branch、`case` armのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
+lambdaと`if` branchのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。
+最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
 ```mal
-log :: Symbol -> Unit := \(message) { print(message) };
+log :: Symbol -> Unit := (message) { print(message) };
 ```
 
-## 関数適用
+## application
 
-適用には必ず `()` を使う。
+applicationはcontinuationを先に書く`f(a)`とvalueを先に書く`a[f]`のどちらでも表せる。
 
 ```mal
 f()
 f(x)
 f(x, y)
 makeFunction()(x)
+x[f]
+x[f][g]
 ```
 
-`f()` は意味上 `f(())`、`f(a, b)` は `f((a, b))` へ lower できる。callee を先に評価し、続いて引数を左から右へ評価する。
+`f(a)`と`a[f]`、`f()`と`()[f]`はそれぞれ同じapplicationである。`[f]`は`()[f]`のUnit valueを省略した形、
+`f(a, b)`は`f((a, b))`である。表記にかかわらずvalueを先に、continuationを後に評価してからapplicationする。
+したがって`g(f(a))`、`g(a[f])`、`f(a)[g]`、`a[f][g]`は同じ評価と結果を持つ。
 
 [memory](memory.md#primitive)に列挙する`load`、`store`、`read`、`write`はpredefined functionであり、通常のfunctionと同じく
 直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
@@ -84,7 +89,7 @@ storage幅をbyte数で表す`UInt64`のtarget constantであり、通常のfunc
 canonical object representationではなくraw bytesをcopyするfirst-class functionである。
 
 ```mal
-descriptorSize :: Unit -> UInt64 := \() {
+descriptorSize :: Unit -> UInt64 := () {
     Ptr.size + UInt64.size + UInt8.size;
 };
 
@@ -100,10 +105,11 @@ binary operationを追加しない。
 
 ## if
 
-`if` は `Bool` に対する `case` の surface syntax であり、core term ではない。condition の括弧、`then`、`else` はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
+`if`は`Bool`に対するcontinuation applicationのsurface syntaxであり、core termではない。conditionの括弧、
+`then`、`else`はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
 
 ```mal
-absolute :: Int32 -> Int32 := \(x) {
+absolute :: Int32 -> Int32 := (x) {
     if (x < 0)
         then { -x }
         else { x };
@@ -112,30 +118,35 @@ absolute :: Int32 -> Int32 := \(x) {
 
 condition は `Bool`、すなわち構造的に `[Unit, Unit]` と等しい型でなければならない。両 branch の結果型は同一でなければならない。branch 内の binding はその branch にだけ scope を持ち、最後の式が branch の値になる。
 
-上の形は次へ desugar する。condition は一度だけ、branch より先に評価する。
+上の形は次へdesugarする。conditionは一度だけ、選択したbranchより先に評価する。
 
 ```mal
-case (x < 0)
-    [0](_) { x }
-    [1](_) { -x }
+(x < 0)[
+    () { x },
+    () { -x }
+]
 ```
 
 `then` は `Bool` の index 1、`else` は index 0 に対応する。`else if` 専用構文はなく、必要なら `else` block の結果に別の `if` を置く。
 
-## case
+## 直和の除去
 
 ```mal
 getOrZero :: MaybeInt32 -> Int32 :=
-    \(value) {
-        case (value)
-            [0](_) { 0 }
-            [1](x) { x };
+    (value) {
+        value[
+            () { 0 },
+            (x) { x }
+        ];
     };
 ```
 
-scrutinee の括弧は必須であり、直和型でなければならない。arm の pattern は該当 index の項型に対して検査する。arm は exhaustive、index は重複なし、全 block の結果型は同一でなければならない。
+二つ以上のcontinuationを持つ`value[f, g, ...]`は直和を除去する。valueはcontinuationより先に一度だけ評価する。
+continuation数は直和の項数と一致し、位置`i`のcontinuationは第`i`項をparameterとするfunctionでなければならない。
+すべてのresult型は同一である。active variantに対応するcontinuationだけを評価してpayloadへ適用し、他は評価しない。
 
-arm の block は `if` の branch と同じ expression block であり、0 個以上の binding または expression statement と最後の結果式からなる。pattern binding と block 内の binding は arm ごとの同じ scope に属し、その arm の外から参照できない。
+一つのcontinuationを持つ`value[f]`はvalueの型にかかわらず通常のapplicationである。直和を一つのfunctionへ渡す場合も
+この規則を使い、直和除去との違いはcontinuation数から一意に決まる。
 
 ## literal
 
@@ -215,16 +226,18 @@ Symbol:   Symbol + Symbol, == !=
 `Symbol + Symbol`はbyte sequenceを連結して`Symbol`を返す。完全な規則は
 [Symbol](symbols.md#operator)に定める。
 
-Bool operator は core primitive ではなく `case` へ desugar する。特に `&&` と `||` は左 operand を一度だけ先に評価し、必要な場合だけ右 operand を評価する。
+Bool operatorはcore primitiveではなくcontinuation applicationへdesugarする。特に`&&`と`||`は左operandを一度だけ
+先に評価し、必要な場合だけ右operandを評価する。
 
 ```mal
 a && b
 ```
 
 ```mal
-case (a)
-    [0](_) { false }
-    [1](_) { b }
+a[
+    () { false },
+    () { b }
+]
 ```
 
 ```mal
@@ -232,21 +245,25 @@ a || b
 ```
 
 ```mal
-case (a)
-    [0](_) { b }
-    [1](_) { true }
+a[
+    () { b },
+    () { true }
+]
 ```
 
-`!`、Bool の `==` と `!=` も同様に、一つまたは二つの exhaustive `case` へ desugarできる。Bool equality の両 operand は通常の operator と同じく、case 分岐より前に左から右へ必ず評価する。これらの演算子は評価を省略または重複させてはならない。
+`!`、Boolの`==`と`!=`も同様に、一つまたは二つのexhaustiveなcontinuation applicationへdesugarできる。
+Bool equalityの両operandは通常のoperatorと同じく、分岐より前に左から右へ必ず評価する。これらの演算子は評価を
+省略または重複させてはならない。
 
 組み込み数値型を conversion form として使える。
 
 ```mal
 y := Int32(x);
 z := Float64(y);
+x := x[Int32];
 ```
 
-これは数値変換であり、bit reinterpretationではない。
+`T(value)`と`value[T]`は同じ数値変換であり、bit reinterpretationではない。
 
 - `Float32`から`Float64`への変換は正確である。
 - `Float64`から`Float32`へはround-to-nearest, ties-to-evenで丸める。

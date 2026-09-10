@@ -46,7 +46,7 @@ fn orders_primitive_operands_left_to_right() {
     let program = lower_ok(
         "extern left :: Unit -> Int32;\n\
          extern right :: Unit -> Int32;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            left() + right();\n\
          };",
     );
@@ -75,11 +75,11 @@ fn orders_primitive_operands_left_to_right() {
 #[test]
 fn evaluates_an_argument_before_its_callee_and_application() {
     let program = lower_ok(
-        "make :: Unit -> (Unit -> Int32) := \\() {\n\
-           \\() { 4; };\n\
+        "make :: Unit -> (Unit -> Int32) := () {\n\
+           () { 4; };\n\
          };\n\
-         argument :: Unit -> Unit := \\() { (); };\n\
-         main :: Unit -> Int32 := \\() {\n\
+         argument :: Unit -> Unit := () { (); };\n\
+         main :: Unit -> Int32 := () {\n\
            make()(argument());\n\
          };",
     );
@@ -104,7 +104,7 @@ fn evaluates_an_argument_before_its_callee_and_application() {
 fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\
-         choose :: Bool -> Int32 := \\(flag) {\n\
+         choose :: Bool -> Int32 := (flag) {\n\
            if (flag) then { mark() } else { 0 };\n\
          };",
     );
@@ -127,7 +127,7 @@ fn orders_primitive_branch_operands_before_selected_arm_effects() {
         "extern left :: Unit -> Int32;\n\
          extern right :: Unit -> Int32;\n\
          extern selected :: Unit -> Int32;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            if (left() < right())\n\
              then { selected() }\n\
              else { 0 };\n\
@@ -147,7 +147,7 @@ fn orders_primitive_branch_operands_before_selected_arm_effects() {
 fn flattens_core_lets_without_losing_statement_order() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            mark();\n\
            value :: Int32 := 7;\n\
            value;\n\
@@ -177,7 +177,7 @@ fn evaluates_product_elements_left_to_right_before_construction() {
     let program = lower_ok(
         "extern first :: Unit -> Int32;\n\
          extern second :: Unit -> Int32;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            pair := (first(), second());\n\
            (left, right) := pair;\n\
            left + right;\n\

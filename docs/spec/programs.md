@@ -47,7 +47,7 @@ Point :: (Float64, Float64);
 extern print :: Symbol -> Unit;
 
 distance :: (Point, Point) -> Float64 :=
-    \(a, b) {
+    (a, b) {
         (ax, ay) := a;
         (bx, by) := b;
         sqrt(
@@ -68,7 +68,7 @@ nested lambda は外側lambdaのlocalをlexically captureできる。詳細と�
 実行可能 program のroot fileは次のbindingを一つ持つ。requireされるfileに`main`を宣言してはならない。
 
 ```mal
-main :: Unit -> Int32 := \() { 0 };
+main :: Unit -> Int32 := () { 0 };
 ```
 
 backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointはv0.5の言語仕様外である。
@@ -78,7 +78,7 @@ command-line argumentを受け取る実行可能programは、代わりに次のe
 ```mal
 Arguments :: (UInt64, Ptr);
 
-main :: Arguments -> Int32 := \(count, arguments) {
+main :: Arguments -> Int32 := (count, arguments) {
     data := Ptr.load(arguments);
     length := UInt64.load(arguments + Ptr.size);
     first := Symbol.read(data, length);

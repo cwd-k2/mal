@@ -10,7 +10,7 @@ file名はpublic contractではない。現在の責務は[compilerの責務境�
 non-tail recursionではcallee resultを使うまでcallerの`n`を保持する。
 
 ```mal
-sum :: UInt64 -> UInt64 := \(n) {
+sum :: UInt64 -> UInt64 := (n) {
     if n == 0 {
         0
     } else {

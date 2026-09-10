@@ -28,7 +28,7 @@ fn rejects_requirements_after_top_level_items() {
 fn parses_the_basic_host_example() {
     let program = parse_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
-         main :: Unit -> Int32 := \\() {\n\
+         main :: Unit -> Int32 := () {\n\
            printInt32(42);\n\
            0;\n\
          };",
@@ -61,7 +61,7 @@ fn parses_the_basic_host_example() {
 #[test]
 fn rejects_extern_at_a_call_site() {
     let source = source(
-        "extern print :: Symbol -> Unit; main :: Unit -> Unit := \\() { extern print(\"x\") };",
+        "extern print :: Symbol -> Unit; main :: Unit -> Unit := () { extern print(\"x\") };",
     );
     let error = parse(&source).expect_err("call-site extern should be rejected");
 

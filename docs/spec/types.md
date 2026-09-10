@@ -71,19 +71,21 @@ origin :: Point := (0.0, 0.0);
 ```mal
 MaybeInt32 :: [Unit, Int32];
 
-none := MaybeInt32[0](());
-some := MaybeInt32[1](42);
+none := 0[MaybeInt32]();
+some := 1[MaybeInt32](42);
 ```
 
 同じ型を複数の項に置いてよい。
 
 ```mal
 Choice :: [Int32, Int32];
-a := Choice[0](42);
-b := Choice[1](42);
+a := 0[Choice](42);
+b := 1[Choice](42);
 ```
 
-`a` と `b` は異なる variant である。injection index は compile-time integer literal でなければならず、範囲外は compile-time error になる。
+`i[S]`と`S(i)`は、直和型`S`の第`i`項から`S`への同じinjection functionを表す。上の構築はそれぞれ
+`42[0[Choice]]`、`42[1[Choice]]`とも書ける。injection indexはcompile-time integer literalでなければならず、
+範囲外はcompile-time errorになる。
 
 直和は二項以上でなければならない。`[]`と`[A]`はv0.5では不正であり、将来のために予約する。
 
@@ -94,7 +96,8 @@ Flat :: [A, B, C];
 Nested :: [A, [B, C]];
 ```
 
-`case` は全 index を重複なく処理し、全 arm が同じ結果型を持たなければならない。
+直和値の除去には、型の項順に全continuationを並べる。continuationは対応する項型をparameterとし、すべて同じ
+result型を持たなければならない。
 
 ## predefined Bool
 
@@ -103,8 +106,8 @@ Nested :: [A, [B, C]];
 ```mal
 Bool :: [Unit, Unit];
 
-false :: Bool := Bool[0](());
-true :: Bool := Bool[1](());
+false :: Bool := 0[Bool]();
+true :: Bool := 1[Bool]();
 ```
 
 これらはsource fileより外側のpredefined scopeに存在するものとして名前解決する。各source fileのtop-levelで`Bool`、
@@ -125,7 +128,7 @@ Size :: (Float64, Float64);
 
 `Point`、`Size`、`(Float64, Float64)` は同じ型である。alias は新しい runtime representation や nominal identity を作らない。recursive alias は認めない。
 
-直和 injection に書かれた alias 名は、型検査時にその alias が表す直和型へ展開される。alias 自体に runtime identity は残らない。
+直和 injection constructor に書かれた alias 名は、型検査時にその alias が表す直和型へ展開される。alias 自体に runtime identity は残らない。
 
 ## 関数型
 

@@ -21,7 +21,7 @@ external operationは宣言によって通常のtop-level function valueとし�
 値としてbindingしたり引数やresultとして受け渡したりできる。
 
 ```mal
-main :: Unit -> Unit := \() {
+main :: Unit -> Unit := () {
     mem := alloc(128);
     output("hello");
 };
@@ -71,15 +71,15 @@ extern makeCallback :: Unit -> (Int32 -> Int32);
 
 ## source-level semantics
 
-external declaration は mal 側の型だけを宣言する。applicationではcalleeを先に評価し、引数を通常の式と同じく
-左から右へ評価する。external function valueの評価自体にhostから観測できる作用はない。
+external declarationはmal側の型だけを宣言する。applicationでは引数を通常の式と同じく左から右へ評価し、
+continuationであるcalleeをその後に評価する。external function valueの評価自体にhostから観測できる作用はない。
 host operationが返り、resultのEngram部分のadmissionとExtern capabilityのtransferが完了した後、宣言された型の
 mal valueを得たものとして評価を続ける。
 
 mal は effect system を持たず、通常の関数型は pure/impure を区別しない。
 
 ```mal
-printValue :: Int32 -> Unit := \(x) {
+printValue :: Int32 -> Unit := (x) {
     printInt32(x);
     ();
 };

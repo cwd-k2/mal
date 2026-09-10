@@ -89,9 +89,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | Module | Internal responsibility |
 |---|---|
 | `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
-| `parser/expression/forms` | product、call、conversion、sum injection |
+| `parser/expression/forms` | product、双方向application、conversion、sum injection constructor |
 | `parser/expression/lambda` | parameterとlambda bodyの構成 |
-| `parser/expression/control` | `if`、`case`、expression blockの構成 |
+| `parser/expression/control` | `if`とexpression blockの構成 |
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
@@ -103,9 +103,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
 | `check/float/big_uint` | decimal float roundingだけが使うdependency-freeの非負多倍長整数演算 |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
-| `formatter/control` | block positionとRHSにある`if`、`case`の事前分類 |
+| `formatter/control` | block positionとRHSにある`if`の事前分類 |
 | `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
-| `formatter/token/control` | `if`、`case`、block delimiterの出力state遷移 |
+| `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |

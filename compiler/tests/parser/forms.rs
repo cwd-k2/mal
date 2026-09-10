@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn parses_parameters_and_lambda_body_items() {
     let expression = binding_value(
-        "make := \\(x, y) {\n\
+        "make := (x, y) {\n\
            sum :: Int32 := x + y;\n\
            observe(sum);\n\
            outer(sum);\n\
@@ -77,7 +77,7 @@ fn parses_if_blocks_with_local_bindings() {
 #[test]
 fn parses_sum_injection_and_case_arms() {
     let expression = binding_value(
-        "value := case (MaybeInt32[1](42))\n\
+        "value := case (1[MaybeInt32](42))\n\
            [0](_) { 0 }\n\
            [1](x) {\n\
              y := x;\n\
@@ -87,7 +87,7 @@ fn parses_sum_injection_and_case_arms() {
     let Expression::Case { scrutinee, arms } = expression else {
         panic!("expected case expression");
     };
-    assert!(matches!(scrutinee.kind, Expression::SumInjection { .. }));
+    assert!(matches!(scrutinee.kind, Expression::Call { .. }));
     assert_eq!(arms.len(), 2);
     assert!(matches!(arms[0].pattern.kind, Pattern::Wildcard));
     assert!(matches!(arms[1].pattern.kind, Pattern::Name(_)));
@@ -120,10 +120,10 @@ fn rejects_single_member_sums_and_trailing_commas() {
 #[test]
 fn accepts_block_results_with_or_without_a_terminal_semicolon() {
     for text in [
-        "value := \\() { 0 };",
-        "value := \\() { 0; };",
-        "value := \\() { if (true) then { 0; } else { 1 }; };",
-        "value := \\() { case (Bool[0](())) [0](_) { 0 } [1](_) { 1; }; };",
+        "value := () { 0 };",
+        "value := () { 0; };",
+        "value := () { if (true) then { 0; } else { 1 }; };",
+        "value := () { case (0[Bool](())) [0](_) { 0 } [1](_) { 1; }; };",
     ] {
         assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
     }
@@ -131,7 +131,7 @@ fn accepts_block_results_with_or_without_a_terminal_semicolon() {
 
 #[test]
 fn rejects_a_lambda_without_a_result_expression() {
-    for text in ["value := \\() {};", "value := \\() { item := 0; };"] {
+    for text in ["value := () {};", "value := () { item := 0; };"] {
         let source = source(text);
         let error = parse(&source).expect_err("a result expression is required");
         assert_eq!(error.message, "expected a block result expression");
@@ -140,6 +140,6 @@ fn rejects_a_lambda_without_a_result_expression() {
 
 #[test]
 fn treats_return_as_an_ordinary_identifier() {
-    assert!(parse(&source("value := \\() { return := 1; return; };")).is_ok());
-    assert!(parse(&source("value := \\() { return 1; };")).is_err());
+    assert!(parse(&source("value := () { return := 1; return; };")).is_ok());
+    assert!(parse(&source("value := () { return 1; };")).is_err());
 }

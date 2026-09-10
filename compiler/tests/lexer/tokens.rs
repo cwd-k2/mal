@@ -5,7 +5,7 @@ fn lexes_the_basic_host_example() {
     assert_eq!(
         kinds(
             "extern printInt32 :: Int32 -> Unit;\n\
-             main :: Unit -> Int32 := \\() {\n\
+             main :: Unit -> Int32 := () {\n\
                printInt32(42);\n\
                0;\n\
              };",

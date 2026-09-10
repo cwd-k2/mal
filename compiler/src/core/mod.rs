@@ -184,15 +184,24 @@ impl Lowerer {
                 let checked::Type::Function { parameter, result } = &expression.ty else {
                     unreachable!("an injection constructor has a function type");
                 };
-                let parameter_id = self.temporary();
-                let value =
-                    self.reference(parameter_id, parameter.as_ref().clone(), expression.span);
+                let parameter_binding =
+                    (parameter.as_ref() != &checked::Type::Unit).then(|| self.temporary());
+                let value = parameter_binding.map_or(
+                    Expression {
+                        kind: ExpressionKind::Unit,
+                        ty: checked::Type::Unit,
+                        span: expression.span,
+                    },
+                    |parameter_id| {
+                        self.reference(parameter_id, parameter.as_ref().clone(), expression.span)
+                    },
+                );
                 ExpressionKind::Lambda(Lambda {
                     id: *lambda_id,
                     self_binding: None,
                     captures: Vec::new(),
                     parameter: Parameter {
-                        binding: Some(parameter_id),
+                        binding: parameter_binding,
                         ty: parameter.as_ref().clone(),
                         span: expression.span,
                     },
