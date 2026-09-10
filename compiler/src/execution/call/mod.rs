@@ -126,14 +126,16 @@ mod tests {
             "helper :: Int32 -> Int32 := \\(x) { x + 1i32; };\n\
              recursive :: Int32 -> Int32 := \\(n) {\n\
                if (n == 0i32)\n\
-                 then { helper(n) }\n\
-                 else {\n\
+               then { helper(n) }\n\
+               else {\n\
                    child := recursive(n - 1i32);\n\
                    helper(child);\n\
                  };\n\
              };\n\
              tail :: Int32 -> Int32 := \\(n) {\n\
-               if (n == 0i32) then { n } else { tail(n - 1i32) };\n\
+               if (n == 0i32)\n\
+               then { n }\n\
+               else { tail(n - 1i32) };\n\
              };"
             .into(),
         );
@@ -192,7 +194,9 @@ mod tests {
              identity :: Int32 -> Int32 := \\(value) { value; };\n\
              main :: Unit -> Int32 := \\() {\n\
                recurse :: Int32 -> Int32 := \\(value) {\n\
-                 if (value == 0i32) then { 0i32 } else {\n\
+                 if (value == 0i32)\n\
+                 then { 0i32 }\n\
+                 else {\n\
                    child := apply(recurse, value - 1i32);\n\
                    child + 1i32;\n\
                  };\n\
@@ -262,7 +266,9 @@ mod tests {
              };\n\
              main :: Unit -> Int32 := \\() {\n\
                recurse :: Int32 -> Int32 := \\(value) {\n\
-                 if (value == 0i32) then { 0i32 } else { apply(recurse, value - 1i32) };\n\
+                 if (value == 0i32)\n\
+                 then { 0i32 }\n\
+                 else { apply(recurse, value - 1i32) };\n\
                };\n\
                recurse(2i32);\n\
              };"

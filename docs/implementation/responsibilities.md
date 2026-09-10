@@ -109,7 +109,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
-| `execution/application` | application siteごとのcaller、known target、型互換なpossible user-function targetを構成 |
+| `execution/application` | application siteごとのcaller、known target、型互換なpossible internal function targetを構成 |
 | `execution/tail` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ遷移へfusion |
 | `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |

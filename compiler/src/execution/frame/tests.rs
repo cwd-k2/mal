@@ -9,7 +9,9 @@ fn validates_exact_frame_sites_and_payloads() {
         FileId::new(72),
         "control-frame-validation.mal",
         "walk :: (Int32, Symbol) -> Symbol := \\(depth, prefix) {\n\
-           if (depth == 0i32) then { prefix } else {\n\
+           if (depth == 0i32)\n\
+           then { prefix }\n\
+           else {\n\
              append :: Symbol -> Symbol := \\(suffix) { prefix + suffix; };\n\
              child := walk(depth - 1i32, prefix);\n\
              append(child);\n\

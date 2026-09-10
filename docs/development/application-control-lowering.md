@@ -23,7 +23,7 @@ control IR + closure use
   -> suspension frame
 ```
 
-possible application graphは各applicationのcaller、known target、および型互換な有限のuser-function target集合を所有する。
+possible application graphは各applicationのcaller、known target、および型互換な有限のinternal function target集合を所有する。
 tail fusionはcallerのcontinuationをそのまま渡すdirect self edgeとpureなknown forwarderだけを除き、possible target情報自体は保持する。
 residual graphのrecursive SCCをcontrol regionとし、region内edgeだけが明示的なstate遷移になる。
 

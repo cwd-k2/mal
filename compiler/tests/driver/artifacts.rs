@@ -386,7 +386,9 @@ fn runs_deep_first_class_call_cycles_through_llvm() {
         "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
          main :: Unit -> Int32 := \\() {\n\
            recurse :: Int32 -> Int32 := \\(value) {\n\
-             if (value == 0i32) then { 0i32 } else {\n\
+             if (value == 0i32)\n\
+             then { 0i32 }\n\
+             else {\n\
                child := apply(recurse, value - 1i32);\n\
                child + 1i32;\n\
              };\n\
@@ -426,9 +428,13 @@ fn preserves_managed_environments_through_llvm_first_class_cycles() {
          main :: Unit -> Int32 := \\() {\n\
            prefix := \"x\" + \"y\";\n\
            recurse :: Int32 -> Symbol := \\(value) {\n\
-             if (value == 0i32) then { prefix } else {\n\
+             if (value == 0i32)\n\
+             then { prefix }\n\
+             else {\n\
                child := apply(recurse, value - 1i32);\n\
-               if (child == prefix) then { child } else { \"bad\" };\n\
+               if (child == prefix)\n\
+               then { child }\n\
+               else { \"bad\" };\n\
              };\n\
            };\n\
            result := recurse(50000i32);\n\
@@ -466,10 +472,14 @@ fn dispatches_all_recursive_closure_targets_through_llvm() {
         "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
          main :: Unit -> Int32 := \\() {\n\
            left :: Int32 -> Int32 := \\(value) {\n\
-             if (value == 0i32) then { 0i32 } else { child := apply(left, value - 1i32); child + 1i32; };\n\
+             if (value == 0i32)\n\
+             then { 0i32 }\n\
+             else { child := apply(left, value - 1i32); child + 1i32; };\n\
            };\n\
            right :: Int32 -> Int32 := \\(value) {\n\
-             if (value == 0i32) then { 0i32 } else { child := apply(right, value - 1i32); child + 1i32; };\n\
+             if (value == 0i32)\n\
+             then { 0i32 }\n\
+             else { child := apply(right, value - 1i32); child + 1i32; };\n\
            };\n\
            left(100000i32) + right(100000i32) - 200000i32;\n\
          };",
