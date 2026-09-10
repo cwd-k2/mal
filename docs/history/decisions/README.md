@@ -9,7 +9,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 
 | Area | Decisions |
 |---|---|
-| compiler | [D002](D002.md) |
+| compiler | [D002](D002.md)、[D041](D041.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | sum、Bool、`if`、`case` | [D004](D004.md)、[D005](D005.md)、[D023](D023.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |
@@ -26,6 +26,7 @@ D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrap�
 D022、D024、D027、D031のsource spellingはD037が置き換える。
 D007のlambda parameter source spellingはD038が置き換える。
 D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換える。
+D041はD002のRust compilerと最初のC backendを維持し、次のexecution backend境界を追加する。
 
 ## 後継があるhistorical record
 

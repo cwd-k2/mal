@@ -70,6 +70,9 @@ malへの含意:
 - source closureのenvironmentとcontrol frameは異なるlifetimeを持つ。前者はfunction valueのlexical data、後者は未完了の
   evaluation contextとして別々のstageに所有させる。
 
+LLVM IRのstack、tail call、coroutine、C ABI、LTOをbackend選択へ適用した調査は
+[LLVM execution backend調査](llvm-backend.md)に分離する。
+
 ## ABI、Symbol、resource
 
 [WebAssembly Component Model Canonical ABI](https://github.com/webassembly/component-model/blob/main/design/mvp/CanonicalABI.md) は scalar 以外の値を component 境界で渡すために、layout、allocation、post-return など多くの規則を必要とする。[Component Model overview](https://component-model.bytecodealliance.org/advanced/canonical-abi.html) も、string や composite type には wire representation と ownership rule が必要だと説明する。

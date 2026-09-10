@@ -115,6 +115,17 @@ control storageはEngramまたはclosure environmentではなく、Mal program�
 `size_t`で表現不能な場合とallocation failureは`mal_trap`へ写像せず、理由を示して`abort()`するimplementation resource failureと
 する。trapを捕捉できない現在のprofileではprocessの異常終了という観測は同じだが、言語上のallocation ruleとは分類を混同しない。
 
+## LLVM execution backendへの移行
+
+[実行backendの責務境界](../design/execution-backend.md)に従い、control IRから導くprogram固有の実行計画はLLVM IRへ移す。
+現在はbackend-independentなstateとlivenessを`control`が構成し、application graph、recursive region、frame planは
+`c_emit/body/analysis`が構成する。移行時は後者のうちC layoutに依存しない解析結果だけをcommon loweringへ移し、C用とLLVM用に
+同じSCC、site mode、live ownerを再導出しない。具体的なC structまたはLLVM type、alignment、growth helperは各backendに残す。
+
+LLVM backendもこの文書のabstract machine、tail edgeでframeを増やさない規則、non-tail recursive regionの明示continuation
+storage、managed ownerの一意性を維持する。現在のC refinementは実装完了までsemantic oracleとして残す。LLVM固有の根拠は
+[LLVM backend調査](../research/llvm-backend.md)に置く。
+
 ## backend specialization
 
 一般control IRをsemantic authorityとし、C表現は証明できる範囲で戻す。すべてのapplicationをcontrol IRへlowerすることは、すべての

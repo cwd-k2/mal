@@ -31,6 +31,10 @@ activeなcompiler rewriteはない。application controlは
 この計画へ追加する。過去のbaseline、比較結果、棄却したprototypeは
 [generated C performance](../history/performance/generated-c.md#application-control-lowering実装前後)に置く。
 
+LLVM IRを直接生成する変更はC生成物の局所rewriteではなくbackend移行である。このqueueへ混ぜず、責務と移行条件は
+[実行backendの責務境界](../design/execution-backend.md)と
+[application control lowering](application-control-lowering.md#llvm-execution-backendへの移行)で管理する。
+
 queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。
 
 ## 共通の完了条件
