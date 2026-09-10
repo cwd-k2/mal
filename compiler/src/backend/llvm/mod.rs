@@ -508,11 +508,12 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(79),
             "llvm-32-bit-control.mal",
-            "sum :: Int32 -> Int32 := \\(value) {\n\
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
+             sum :: Int32 -> Int32 := \\(value) {\n\
                if (value == 0i32)\n\
                then { 0i32 }\n\
                else {\n\
-                 rest := sum(value - 1i32);\n\
+                 rest := apply(sum, value - 1i32);\n\
                  value + rest;\n\
                };\n\
              };\n\
@@ -542,6 +543,16 @@ mod tests {
             artifacts
                 .module
                 .contains("%mal_control_top = alloca i32, align 4")
+        );
+        assert!(
+            artifacts
+                .module
+                .contains("%mal_active_environment = alloca ptr, align 4")
+        );
+        assert!(
+            !artifacts
+                .module
+                .contains("ptr %mal_active_environment, align 8")
         );
     }
 

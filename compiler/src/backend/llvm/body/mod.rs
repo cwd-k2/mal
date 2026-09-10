@@ -301,13 +301,17 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
         if self.common_region.is_some() {
-            self.line("  %mal_active_environment = alloca ptr, align 8");
+            self.line(format!(
+                "  %mal_active_environment = alloca ptr, align {}",
+                self.types.pointer_size()
+            ));
             let environment = self.register();
             self.line(format!(
                 "  {environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr %mal_environment)"
             ));
             self.line(format!(
-                "  store ptr {environment}, ptr %mal_active_environment, align 8"
+                "  store ptr {environment}, ptr %mal_active_environment, align {}",
+                self.types.pointer_size()
             ));
         }
         if let Some((size, alignment)) = self.external_storage {
@@ -696,7 +700,8 @@ impl<'a> FunctionEmitter<'a> {
         }
         let environment = self.register();
         self.line(format!(
-            "  {environment} = load ptr, ptr %mal_active_environment, align 8"
+            "  {environment} = load ptr, ptr %mal_active_environment, align {}",
+            self.types.pointer_size()
         ));
         environment
     }
