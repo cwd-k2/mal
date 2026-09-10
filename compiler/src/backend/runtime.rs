@@ -1,6 +1,6 @@
 use super::artifact::RuntimeSource;
 
-pub(crate) fn control() -> [RuntimeSource; 4] {
+pub(crate) fn control() -> [RuntimeSource; 5] {
     [
         RuntimeSource {
             name: "runtime.h",
@@ -17,6 +17,10 @@ pub(crate) fn control() -> [RuntimeSource; 4] {
         RuntimeSource {
             name: "symbol.c",
             contents: include_str!("../../runtime/c11/symbol.c"),
+        },
+        RuntimeSource {
+            name: "symbol_internal.h",
+            contents: include_str!("../../runtime/c11/symbol_internal.h"),
         },
     ]
 }

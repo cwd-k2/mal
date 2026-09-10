@@ -89,7 +89,13 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
             .unwrap()
             .contains("MAL_DEFINE_sine")
     );
-    for runtime in ["runtime.h", "core.c", "control.c", "symbol.c"] {
+    for runtime in [
+        "runtime.h",
+        "core.c",
+        "control.c",
+        "symbol.c",
+        "symbol_internal.h",
+    ] {
         assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
     }
 }
@@ -1400,21 +1406,28 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
          main :: Unit -> Int32 := \\() {\n\
            left := append(10000i32, \"\");\n\
            right := prepend(10000i32, \"\");\n\
-           if (left == right)\n\
+           middle := \"a\" + \"b\";\n\
+           prefixed := \"x\" + middle;\n\
+           mixed := prefixed + \"c\";\n\
+           if (mixed == \"xabc\")\n\
            then {\n\
-             if (left # 9999u64 == 120u8)\n\
+             if (left == right)\n\
              then {\n\
-               if (inspect(left) == 10000u64)\n\
+               if (left # 9999u64 == 120u8)\n\
                then {\n\
-                 if (allocationCount() <= 32u64)\n\
-                 then { 0i32 }\n\
-                 else { 3i32 };\n\
+                 if (inspect(left) == 10000u64)\n\
+                 then {\n\
+                   if (allocationCount() <= 32u64)\n\
+                   then { 0i32 }\n\
+                   else { 3i32 };\n\
+                 }\n\
+                 else { 4i32 };\n\
                }\n\
-               else { 4i32 };\n\
+               else { 2i32 };\n\
              }\n\
-             else { 2i32 };\n\
+             else { 1i32 };\n\
            }\n\
-           else { 1i32 };\n\
+           else { 5i32 };\n\
          };",
     );
     directory.write(

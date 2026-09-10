@@ -133,6 +133,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
 | `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat/rope `Symbol` storage、allocation-freeな観測と外部byte copy、平衡連結、一意なflat storageの再利用、C host境界での遅延materializationを実装 |
+| `runtime/c11/symbol_internal.h` | C runtime内のprivate `Symbol` carrier、LLVM static leafと共有するheader layout、cursor stateを宣言 |
 | `backend/c/syntax` | public headerとhost stubが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
