@@ -46,8 +46,8 @@ impl TailCallPlan {
         self.fused_sites.contains(&site)
     }
 
-    pub(crate) fn into_forwarded_self_arguments(self) -> HashMap<StateId, closure::Atom> {
-        self.forwarded_self_arguments
+    pub(super) fn forwarded_self_arguments(&self) -> &HashMap<StateId, closure::Atom> {
+        &self.forwarded_self_arguments
     }
 }
 

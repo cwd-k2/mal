@@ -36,11 +36,14 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     let parameters = ParameterPlan::new(&control);
     debug_assert!(parameters.is_valid(&control));
     let applications = ApplicationGraph::new(&lowered, &control, &closure_uses);
+    debug_assert!(applications.is_valid(&lowered, &control, &closure_uses));
     let tail_calls = TailCallPlan::new(&lowered, &control, &applications);
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let control_regions = ControlRegionPlan::new(&control, &continuations);
     debug_assert!(control_regions.is_valid(&control, &continuations));
-    let control_calls = ControlCallPlan::new(&control, &applications, tail_calls, &control_regions);
+    let control_calls =
+        ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
+    debug_assert!(control_calls.is_valid(&control, &applications, &tail_calls, &control_regions));
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
     debug_assert!(control.states.iter().enumerate().all(|(index, _)| {

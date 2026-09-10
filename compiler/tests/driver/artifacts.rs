@@ -1203,6 +1203,43 @@ fn hands_direct_self_arguments_to_wildcard_parameters() {
 }
 
 #[test]
+fn self_tail_transition_in_a_common_machine_uses_the_active_function_entry() {
+    let directory = NativeFixture::new("driver-llvm-common-self-tail-entry");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
+           called := operation(value);\n\
+           called + 0i32;\n\
+         };\n\
+         recurse :: Int32 -> Int32 := (value) {\n\
+           if (value == 0i32) then { 0i32 } else {\n\
+             if (value == 1i32) then { recurse(0i32) } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               child + 1i32;\n\
+             };\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () { apply(recurse, 1i32); };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let directory = NativeFixture::new("driver-llvm-integers");
     let source = directory.join("program.mal");

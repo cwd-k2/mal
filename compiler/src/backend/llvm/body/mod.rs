@@ -171,7 +171,9 @@ impl<'a> FunctionEmitter<'a> {
                 .iter()
                 .find(|candidate| candidate.id == *function_id)?;
             let mut ids = Vec::new();
-            if let Some(id) = region_function.parameter.binding {
+            if let ParameterDestination::Bind(id) =
+                execution.parameters.destination(*function_id)?
+            {
                 insert_slot(&mut slots, id, region_function.parameter.ty.clone());
                 ids.push(id);
             }

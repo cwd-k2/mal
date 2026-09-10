@@ -71,10 +71,24 @@ impl ControlFramePlan {
         }
 
         self.frames.iter().all(|(site, frame)| {
-            matches!(
-                program.states[site.0].terminator,
-                Terminator::Call { resume, .. } if resume == frame.resume
-            ) && frame.fields.len() == program.states[frame.resume.0].live.len()
+            let Terminator::Call { callee, resume, .. } = &program.states[site.0].terminator else {
+                return false;
+            };
+            let crate::check::ast::Type::Function { result, .. } = &callee.ty else {
+                return false;
+            };
+            *resume == frame.resume
+                && matches!(
+                    calls.mode(*site),
+                    Some(
+                        super::ControlCallMode::DirectRegion(_) | super::ControlCallMode::Dispatch
+                    )
+                )
+                && program.states[frame.resume.0]
+                    .input
+                    .as_ref()
+                    .is_some_and(|input| pattern_type(input) == result.as_ref())
+                && frame.fields.len() == program.states[frame.resume.0].live.len()
                 && frame
                     .fields
                     .iter()
@@ -86,6 +100,14 @@ impl ControlFramePlan {
                             .site_region(*site)
                             .is_some_and(|region| calls.requires_common_control(region)))
         })
+    }
+}
+
+fn pattern_type(pattern: &crate::closure::ast::Pattern) -> &crate::check::ast::Type {
+    match pattern {
+        crate::closure::ast::Pattern::Binding { ty, .. }
+        | crate::closure::ast::Pattern::Wildcard { ty, .. }
+        | crate::closure::ast::Pattern::Product { ty, .. } => ty,
     }
 }
 

@@ -32,15 +32,20 @@ fn validates_exact_frame_sites_and_payloads() {
     let tail_calls = TailCallPlan::new(&closure, &control, &applications);
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let regions = ControlRegionPlan::new(&control, &continuations);
-    let calls = ControlCallPlan::new(&control, &applications, tail_calls, &regions);
+    let calls = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
     let mut plan = ControlFramePlan::new(&control, &regions, &calls);
 
     assert!(plan.is_valid(&control, &regions, &calls));
     assert!(!plan.frames.is_empty());
 
     let frame_site = *plan.frames.keys().next().expect("frame site");
-    let frame = plan.frames.remove(&frame_site).expect("frame");
+    let mut frame = plan.frames.remove(&frame_site).expect("frame");
     assert!(!plan.is_valid(&control, &regions, &calls));
+    let resume = frame.resume;
+    frame.resume = control.functions[0].entry;
+    plan.frames.insert(frame_site, frame.clone());
+    assert!(!plan.is_valid(&control, &regions, &calls));
+    frame.resume = resume;
     plan.frames.insert(frame_site, frame);
     assert!(plan.is_valid(&control, &regions, &calls));
 }
