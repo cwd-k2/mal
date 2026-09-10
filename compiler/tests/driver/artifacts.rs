@@ -1237,6 +1237,47 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 }
 
 #[test]
+fn runs_first_class_sum_constructors_and_postfix_application_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-first-class-sum-constructor");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Choice :: [Unit, Int32];\n\
+         none :: Unit -> Choice := 0[Choice];\n\
+         some :: Int32 -> Choice := 1[Choice];\n\
+         score :: Choice -> Int32 := (choice) {\n\
+           choice[\n\
+           () { 0 },\n\
+           (value) { value }\n\
+           ];\n\
+         };\n\
+         main :: Unit -> Int32 := () {\n\
+           score([none]) + score(41[some]) - 41;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn preserves_short_circuit_effect_order_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-short-circuit");
     let source = directory.join("program.mal");
