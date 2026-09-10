@@ -135,20 +135,19 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
 }
 
 #[test]
-fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
+fn keeps_sum_payloads_local_but_saves_them_across_continuation_calls() {
     let program = lower_ok(
         "identity :: Int32 -> Int32 := (x) { x; };\n\
          useChoice :: [Int32, Int32] -> Int32 := (choice) {\n\
-           case (choice)\n\
-             [0](payload) {\n\
+           choice[\n\
+             (payload) {\n\
                called := identity(payload);\n\
                called + payload;\n\
-             }\n\
-             [1](payload) { payload };\n\
+             },\n\
+             (payload) { payload }];\n\
          };",
     );
     let function = top_level_function(&program, "useChoice");
-    let states = reachable_states(&program, function);
     let Terminator::Case { arms, .. } = &program.states[function.entry.0].terminator else {
         panic!("function should enter through the case dispatch");
     };
@@ -156,7 +155,8 @@ fn keeps_case_payloads_local_but_saves_them_across_calls_in_the_arm() {
         arms.iter()
             .all(|arm| program.states[arm.target.0].input.is_some())
     );
-    let resume = states
+    let resume = program
+        .states
         .iter()
         .find_map(|state| match &state.terminator {
             Terminator::Call { resume, .. } => Some(&program.states[resume.0]),

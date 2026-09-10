@@ -118,6 +118,61 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 }
 
 #[test]
+fn sum_constructor_type_references_navigate_to_the_alias() {
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := 1[Choice];\nread :: Unit -> Choice := () { make(1) };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("Choice").unwrap();
+    let constructor_offset = text.find("1[Choice]").unwrap() + 2;
+    let reference = document
+        .occurrence_at(constructor_offset)
+        .expect("constructor type reference");
+
+    assert_eq!(reference.kind, SymbolKind::Type);
+    assert_eq!(reference.role, OccurrenceRole::Reference);
+    assert_eq!(
+        document.definition(reference.id).unwrap().span.start(),
+        declaration_offset
+    );
+    assert_eq!(document.references(reference.id, true).len(), 4);
+    assert_eq!(document.rename_spans(constructor_offset).unwrap().len(), 4);
+    assert_eq!(
+        document.hover_at(constructor_offset).unwrap().ty,
+        "[Unit, Payload]"
+    );
+    assert_eq!(
+        document.hover_at(text.find("make ::").unwrap()).unwrap().ty,
+        "Payload -> Choice"
+    );
+    assert_eq!(
+        document
+            .hover_at(text.rfind("make(1)").unwrap() + 4)
+            .unwrap()
+            .ty,
+        "[Unit, Int32]"
+    );
+}
+
+#[test]
+fn sum_continuation_parameters_keep_declaration_identity() {
+    let text = "Choice :: [Unit, Int32];\nread :: Choice -> Int32 := (choice) { choice[\n() { 0 },\n(payload) { payload }\n] };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("(payload)").unwrap() + 1;
+    let reference_offset = text.rfind("payload").unwrap();
+    let declaration = document
+        .occurrence_at(declaration_offset)
+        .expect("continuation parameter");
+    let reference = document
+        .occurrence_at(reference_offset)
+        .expect("continuation parameter reference");
+
+    assert_eq!(declaration.kind, SymbolKind::Parameter);
+    assert_eq!(declaration.role, OccurrenceRole::Declaration);
+    assert_eq!(reference.id, declaration.id);
+    assert_eq!(document.references(declaration.id, true).len(), 2);
+    assert_eq!(document.rename_spans(reference_offset).unwrap().len(), 2);
+}
+
+#[test]
 fn symbol_operators_report_their_result_types() {
     let text = "inspect :: Symbol -> UInt64 := (value) { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");

@@ -271,10 +271,6 @@ impl Lowerer {
                     expression.span,
                 );
             }
-            checked::ExpressionKind::Case { scrutinee, arms } => ExpressionKind::Case {
-                scrutinee: Box::new(self.lower_expression(scrutinee)),
-                arms: arms.iter().map(|arm| self.lower_case_arm(arm)).collect(),
-            },
             checked::ExpressionKind::Unary { operator, operand } => {
                 if operator.kind == UnaryOperator::LogicalNot {
                     return self.lower_logical_not(operand, expression.span);
@@ -411,15 +407,6 @@ impl Lowerer {
             };
         }
         body
-    }
-
-    fn lower_case_arm(&mut self, arm: &checked::CaseArm) -> CaseArm {
-        CaseArm {
-            index: arm.index,
-            pattern: self.lower_pattern(&arm.pattern),
-            value: self.lower_body(&arm.body.items, &arm.body.result),
-            span: arm.span,
-        }
     }
 
     fn case(

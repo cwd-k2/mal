@@ -39,39 +39,43 @@ bufferSize :: UInt64 := 4096u64;
 copyContents :: (File, Buffer) -> Status := (file, buffer) {
     (memory, capacity, _) := buffer;
     result := readFile(file, (memory, capacity));
-    case (result)
-    [0](length) {
+    result[
+    (length) {
         if (length == 0u64)
         then { 0[Status](()) }
         else {
             writeBytes((memory, length));
             copyContents(file, (memory, capacity, length));
         };
-    }
-    [1](error) { 1[Status](error) };
+    },
+    (error) { 1[Status](error) }
+    ];
 };
 
 finishCopy :: (Status, CloseResult) -> Status := (copied, closed) {
-    case (copied)
-    [0](_) {
-        case (closed)
-        [0](_) { 0[Status](()) }
-        [1](error) { 1[Status](error) };
-    }
-    [1](error) { 1[Status](error) };
+    copied[
+    () {
+        closed[
+        () { 0[Status](()) },
+        (error) { 1[Status](error) }
+        ];
+    },
+    (error) { 1[Status](error) }
+    ];
 };
 
 copyPath :: Symbol -> Status := (path) {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
     opened := openReadOnly(path);
-    outcome := case (opened)
-        [0](file) {
+    outcome := opened[
+        (file) {
             copied := copyContents(file, buffer);
             closed := closeFile(file);
             finishCopy(copied, closed);
-        }
-        [1](error) { 1[Status](error) };
+        },
+        (error) { 1[Status](error) }
+    ];
     releaseBuffer(allocation);
     outcome;
 };
@@ -81,12 +85,13 @@ main :: Arguments -> Int32 := (argumentCount, arguments) {
     then {
         path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
         result := copyPath(path);
-        case (result)
-        [0](_) { 0 }
-        [1](error) {
+        result[
+        () { 0 },
+        (error) {
             writeError(error);
             1;
-        };
+        }
+        ];
     }
     else {
         writeSymbol("usage: mal-recoverable-file FILE\n");

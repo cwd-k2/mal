@@ -1,12 +1,11 @@
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
-use crate::lexer::IntegerLiteral;
 use crate::resolve::ast as resolved;
 
 use super::Checker;
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Type};
 use super::float::is_float;
-use super::integer::{is_integer, parse_index};
+use super::integer::is_integer;
 use super::types::{function_placeholder, type_name};
 
 impl Checker {
@@ -129,11 +128,6 @@ impl Checker {
                         }
                     }
                 }
-                resolved::Expression::SumInjection {
-                    type_ref,
-                    index,
-                    value,
-                } => self.check_sum_injection(type_ref, index, value, expression.span)?,
                 resolved::Expression::If {
                     condition,
                     then_branch,
@@ -145,9 +139,6 @@ impl Checker {
                     expression.span,
                     expected,
                 )?,
-                resolved::Expression::Case { scrutinee, arms } => {
-                    self.check_case(scrutinee, arms, expression.span, expected)?
-                }
                 resolved::Expression::Unary { operator, operand } => {
                     self.check_unary(operator, operand, expression.span, expected)?
                 }
@@ -429,41 +420,6 @@ impl Checker {
             [argument] => self.check_expression(argument, Some(parameter)),
             _ => self.check_product(arguments, span, Some(parameter)),
         }
-    }
-
-    fn check_sum_injection(
-        &mut self,
-        type_ref: &resolved::TypeReference,
-        index: &Node<IntegerLiteral>,
-        value: &Node<resolved::Expression>,
-        span: crate::source::Span,
-    ) -> Result<Expression, Diagnostic> {
-        let ty = self.expand_type_id(type_ref.id, type_ref.name.span)?;
-        let Type::Sum(members) = &ty else {
-            return Err(
-                Diagnostic::error(format!("`{}` is not a sum type", type_ref.name.text))
-                    .with_primary(
-                        type_ref.name.span,
-                        format!("this names `{}`", type_name(&ty)),
-                    ),
-            );
-        };
-        let index_value = parse_index(&index.kind, index.span)?;
-        let member = members.get(index_value).ok_or_else(|| {
-            Diagnostic::error("sum variant index is out of range").with_primary(
-                index.span,
-                format!("this sum has {} variants", members.len()),
-            )
-        })?;
-        let value = self.check_expression(value, Some(member))?;
-        Ok(Expression {
-            kind: ExpressionKind::SumInjection {
-                index: index_value,
-                value: Box::new(value),
-            },
-            ty,
-            span,
-        })
     }
 
     fn require_type(

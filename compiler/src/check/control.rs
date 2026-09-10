@@ -1,13 +1,10 @@
-use std::collections::HashSet;
-
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
 
 use super::Checker;
-use super::ast::{CaseArm, Expression, ExpressionBlock, ExpressionKind, Type};
-use super::integer::parse_index;
-use super::types::{bool_type, type_name};
+use super::ast::{Expression, ExpressionBlock, ExpressionKind, Type};
+use super::types::bool_type;
 
 impl Checker {
     pub(super) fn check_if(
@@ -47,62 +44,6 @@ impl Checker {
             items,
             result: Box::new(self.check_expression(&block.result, expected)?),
             span: block.span,
-        })
-    }
-
-    pub(super) fn check_case(
-        &mut self,
-        scrutinee: &Node<resolved::Expression>,
-        arms: &[resolved::CaseArm],
-        span: crate::source::Span,
-        expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
-        let scrutinee = self.check_expression(scrutinee, None)?;
-        let Type::Sum(members) = &scrutinee.ty else {
-            return Err(Diagnostic::error("case requires a sum value").with_primary(
-                scrutinee.span,
-                format!("this has type `{}`", type_name(&scrutinee.ty)),
-            ));
-        };
-        let members = members.clone();
-        let mut seen = HashSet::new();
-        let mut checked_arms = Vec::with_capacity(arms.len());
-        let mut result_type = expected.cloned();
-        for arm in arms {
-            let index = parse_index(&arm.index.kind, arm.index.span)?;
-            let member = members.get(index).ok_or_else(|| {
-                Diagnostic::error("case variant index is out of range").with_primary(
-                    arm.index.span,
-                    format!("this sum has {} variants", members.len()),
-                )
-            })?;
-            if !seen.insert(index) {
-                return Err(
-                    Diagnostic::error(format!("duplicate case arm for variant {index}"))
-                        .with_primary(arm.index.span, "this variant was already handled"),
-                );
-            }
-            let pattern = self.check_pattern(&arm.pattern, member)?;
-            let body = self.check_expression_block(&arm.body, result_type.as_ref())?;
-            result_type.get_or_insert_with(|| body.result.ty.clone());
-            checked_arms.push(CaseArm {
-                index,
-                pattern,
-                body,
-                span: arm.span,
-            });
-        }
-        if seen.len() != members.len() {
-            return Err(Diagnostic::error("non-exhaustive case expression")
-                .with_primary(span, "every sum variant must have one arm"));
-        }
-        Ok(Expression {
-            kind: ExpressionKind::Case {
-                scrutinee: Box::new(scrutinee),
-                arms: checked_arms,
-            },
-            ty: result_type.expect("the parser requires at least one case arm"),
-            span,
         })
     }
 }

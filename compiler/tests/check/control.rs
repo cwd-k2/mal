@@ -22,33 +22,26 @@ fn checks_sum_injection_payload_and_index() {
 }
 
 #[test]
-fn checks_case_exhaustiveness_uniqueness_and_result_types() {
+fn checks_sum_elimination_arity_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
          get :: Maybe -> Int32 := (value) {\n\
-           case (value)\n\
-             [0](_) { 0 }\n\
-             [1](x) { y := x; y };\n\
+           value[\n\
+             () { 0 },\n\
+             (x) { y := x; y }];\n\
          };",
     );
 
     let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := (value) { ";
     assert_eq!(
-        check_error(&format!("{prefix}case (value) [0](_) {{ 0 }}; }};")).message,
-        "non-exhaustive case expression"
-    );
-    assert!(
         check_error(&format!(
-            "{prefix}case (value) [0](_) {{ 0 }} [0](_) {{ 1 }} [1](x) {{ x }}; }};"
-        ))
-        .message
-        .starts_with("duplicate case arm")
-    );
-    assert_eq!(
-        check_error(&format!(
-            "{prefix}case (value) [0](_) {{ () }} [1](x) {{ x }}; }};"
+            "{prefix}value[() {{ 0 }}, (x) {{ x }}, (_) {{ 1 }}]; }};"
         ))
         .message,
+        "sum continuation count does not match its type"
+    );
+    assert_eq!(
+        check_error(&format!("{prefix}value[() {{ () }}, (x) {{ x }}]; }};")).message,
         "type mismatch"
     );
 }

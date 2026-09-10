@@ -16,8 +16,9 @@ Status: Current v0.5 tooling policy
 - それ以外のblockはbraceと内容を別の行に置き、resultを含む各行を`;`で終える。
 - `if`のconditionの後で改行する。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を
   `if`と同じindentに置き、bindingなどのRHSにある`if`では一段深いcontinuation indentに置く。
-- 複数continuationのapplicationはvalueの後で改行し、continuationを一段深く揃える。各lambda bodyのblockは
-  通常のlambdaと同じ規則で整形する。
+- 複数continuationのapplicationはvalueの後で改行する。block直下のexpressionとして行頭から始まる場合は
+  continuationと閉じ`]`をvalueと同じindentに置き、bindingなどのRHSにある場合はcontinuationだけを一段深くし、
+  閉じ`]`をbindingと同じindentへ戻す。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。
 - sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingは
   前後のitemと1空行で分け、連続するそれ以外のbindingへformatterだけを理由とする空行を追加しない。
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上

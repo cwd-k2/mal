@@ -4,7 +4,13 @@ use super::Formatter;
 
 mod control;
 
-pub(super) use self::control::{CaseStage, IfStage};
+pub(super) use self::control::IfStage;
+
+pub(super) struct BracketLayout {
+    multiline: bool,
+    indent_delta: usize,
+    align_sum_continuations: Option<bool>,
+}
 
 #[derive(Clone, Copy)]
 pub(super) enum Previous {
@@ -23,7 +29,6 @@ pub(super) enum Previous {
     Operator,
     Unary,
     Dot,
-    Backslash,
 }
 
 impl Previous {
@@ -40,10 +45,19 @@ impl Formatter<'_> {
         if self.blocks.omit[token_index] {
             return;
         }
-        self.finish_completed_control(kind);
+        self.finish_completed_control();
         if self.pending_newline {
             self.newline();
             self.pending_newline = false;
+        }
+        if matches!(kind, TokenKind::RightBracket)
+            && let Some(layout) = self.brackets.pop()
+            && layout.multiline
+        {
+            self.indent = self.indent.saturating_sub(layout.indent_delta);
+        }
+        if self.controls.should_break_before_sum_token(token_index) {
+            self.newline();
         }
         self.preserve_source_break(kind);
         match kind {
@@ -76,23 +90,21 @@ impl Formatter<'_> {
                 self.write_right_paren(text);
             }
             TokenKind::LeftBracket => {
-                if matches!(self.previous, Previous::RightParen | Previous::RightBrace) {
-                    self.newline();
-                }
                 self.write(text);
+                let alignment = self.controls.sum_continuation_alignment(token_index);
+                let indent_delta = alignment.map_or(0, |aligned| usize::from(!aligned));
+                self.indent += indent_delta;
+                self.brackets.push(BracketLayout {
+                    multiline: alignment.is_some(),
+                    indent_delta,
+                    align_sum_continuations: alignment,
+                });
                 self.previous = Previous::LeftBracket;
             }
             TokenKind::RightBracket => {
                 self.trim_space();
                 self.write(text);
                 self.previous = Previous::RightBracket;
-            }
-            TokenKind::Backslash => {
-                if self.previous.ends_expression() {
-                    self.space();
-                }
-                self.write(text);
-                self.previous = Previous::Backslash;
             }
             TokenKind::Minus if !self.previous.ends_expression() => {
                 if matches!(self.previous, Previous::Keyword) {
@@ -158,9 +170,6 @@ impl Formatter<'_> {
             TokenKind::If => {
                 self.write_if(token_index, text);
             }
-            TokenKind::Case => {
-                self.write_case(token_index, text);
-            }
             TokenKind::Require | TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
                 if matches!(
                     self.previous,
@@ -212,6 +221,24 @@ impl Formatter<'_> {
             return;
         }
         if self.line_start {
+            return;
+        }
+
+        if matches!(self.previous, Previous::LeftBracket) {
+            if let Some(layout) = self.brackets.last_mut()
+                && !layout.multiline
+            {
+                layout.multiline = true;
+                layout.indent_delta = usize::from(layout.align_sum_continuations != Some(true));
+                self.indent += layout.indent_delta;
+            }
+            self.newline();
+            return;
+        }
+        if self.brackets.last().is_some_and(|layout| layout.multiline)
+            && (matches!(self.previous, Previous::Comma) || matches!(kind, TokenKind::RightBracket))
+        {
+            self.newline();
             return;
         }
 

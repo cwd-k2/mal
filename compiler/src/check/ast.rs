@@ -141,10 +141,6 @@ pub enum ExpressionKind {
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
     },
-    Case {
-        scrutinee: Box<Expression>,
-        arms: Vec<CaseArm>,
-    },
     Unary {
         operator: Node<UnaryOperator>,
         operand: Box<Expression>,
@@ -250,12 +246,4 @@ pub struct ExpressionBlock {
 pub enum BodyItem {
     Binding(Binding),
     Expression(Expression),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaseArm {
-    pub index: usize,
-    pub pattern: Pattern,
-    pub body: ExpressionBlock,
-    pub span: Span,
 }

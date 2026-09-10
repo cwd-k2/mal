@@ -16,7 +16,8 @@ validate :: (Mem, UInt64) -> Int32 := (mem, length) {
 main :: Unit -> Int32 := () {
     mem := allocate(40u64);
     response := resize(mem, 2u64);
-    case (response)
-    [0](_) { 1 }
-    [1](result) { validate(result) };
+    response[
+    () { 1 },
+    (result) { validate(result) }
+    ];
 };

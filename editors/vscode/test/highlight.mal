@@ -22,18 +22,19 @@ message :: Symbol := "mal\n";
 
 pointerStorageSize :: UInt64 := Ptr.size;
 
-inspect :: Symbol -> UInt64 := \(value) {
+inspect :: Symbol -> UInt64 := (value) {
     #value + UInt64(value # 1u64);
 };
 
-choose :: Bool -> Choice := \(condition) {
+choose :: Bool -> Choice := (condition) {
     if (condition && !false)
-    then { Choice[0](42) }
-    else { Choice[1](letter) };
+    then { 0[Choice](42) }
+    else { 1[Choice](letter) };
 };
 
-select :: Choice -> Int32 := \(value) {
-    case (value)
-    [0](integer) { integer }
-    [1](byte) { Int32(byte) };
+select :: Choice -> Int32 := (value) {
+    value[
+    (integer) { integer },
+    (byte) { Int32(byte) }
+    ];
 };

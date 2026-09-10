@@ -14,13 +14,14 @@ extern destroyAllocator :: Allocator -> Unit;
 // Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
 leaf :: (Allocator, Int32) -> NodeResult := (allocator, value) {
     allocated := allocateNode(allocator, 5u64);
-    case (allocated)
-    [0](node) {
+    allocated[
+    (node) {
         Int32.store(node, value);
         UInt8.store(node + 4u64, 0u8);
         0[NodeResult](node);
-    }
-    [1](_) { 1[NodeResult](()) };
+    },
+    () { 1[NodeResult](()) }
+    ];
 };
 
 sumTree :: Ptr -> Int32 := (node) {
@@ -51,61 +52,67 @@ destroyTree :: (Allocator, Ptr) -> Unit := (allocator, node) {
 branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     (allocator, value, left, right) {
         allocated := allocateNode(allocator, 5u64 + Ptr.size * 2u64);
-        case (allocated)
-        [0](node) {
+        allocated[
+        (node) {
             Int32.store(node, value);
             UInt8.store(node + 4u64, 1u8);
             Ptr.store(node + 5u64, left);
             Ptr.store(node + 5u64 + Ptr.size, right);
             0[NodeResult](node);
-        }
-        [1](_) {
+        },
+        () {
             destroyTree(allocator, left);
             destroyTree(allocator, right);
             1[NodeResult](());
-        };
+        }
+        ];
     };
 
 buildLeft :: Allocator -> NodeResult := (allocator) {
     first := leaf(allocator, 3);
-    case (first)
-    [0](left) {
+    first[
+    (left) {
         second := leaf(allocator, 4);
-        case (second)
-        [0](right) { branchOwned(allocator, 2, left, right) }
-        [1](_) {
+        second[
+        (right) { branchOwned(allocator, 2, left, right) },
+        () {
             destroyTree(allocator, left);
             1[NodeResult](());
-        };
-    }
-    [1](_) { 1[NodeResult](()) };
+        }
+        ];
+    },
+    () { 1[NodeResult](()) }
+    ];
 };
 
 buildTree :: Allocator -> NodeResult := (allocator) {
     leftResult := buildLeft(allocator);
-    case (leftResult)
-    [0](left) {
+    leftResult[
+    (left) {
         rightResult := leaf(allocator, 5);
-        case (rightResult)
-        [0](right) { branchOwned(allocator, 1, left, right) }
-        [1](_) {
+        rightResult[
+        (right) { branchOwned(allocator, 1, left, right) },
+        () {
             destroyTree(allocator, left);
             1[NodeResult](());
-        };
-    }
-    [1](_) { 1[NodeResult](()) };
+        }
+        ];
+    },
+    () { 1[NodeResult](()) }
+    ];
 };
 
 successfulBuild :: Unit -> Bool := () {
     allocator := createAllocator(5u64);
     result := buildTree(allocator);
-    valid := case (result)
-        [0](tree) {
+    valid := result[
+        (tree) {
             total := sumTree(tree);
             destroyTree(allocator, tree);
             total == 15;
-        }
-        [1](_) { false };
+        },
+        () { false }
+    ];
     destroyAllocator(allocator);
     valid;
 };
@@ -113,12 +120,13 @@ successfulBuild :: Unit -> Bool := () {
 failedBuildCleansPartialTree :: Unit -> Bool := () {
     allocator := createAllocator(3u64);
     result := buildTree(allocator);
-    failed := case (result)
-        [0](tree) {
+    failed := result[
+        (tree) {
             destroyTree(allocator, tree);
             false;
-        }
-        [1](_) { true };
+        },
+        () { true }
+    ];
     destroyAllocator(allocator);
     failed;
 };

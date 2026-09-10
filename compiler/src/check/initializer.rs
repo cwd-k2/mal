@@ -43,8 +43,7 @@ fn is_top_level_initializer(
         resolved::Expression::Product(elements) => elements
             .iter()
             .all(|element| is_top_level_initializer(element, external_values)),
-        resolved::Expression::SumInjection { value, .. }
-        | resolved::Expression::Conversion { value, .. } => {
+        resolved::Expression::Conversion { value, .. } => {
             is_top_level_initializer(value, external_values)
         }
         resolved::Expression::Call { callee, arguments }

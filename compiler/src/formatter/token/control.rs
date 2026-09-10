@@ -1,5 +1,3 @@
-use crate::lexer::TokenKind;
-
 use super::Previous;
 use crate::formatter::Formatter;
 
@@ -13,29 +11,8 @@ pub(in crate::formatter) enum IfStage {
     Finished(bool),
 }
 
-pub(in crate::formatter) enum CaseStage {
-    Keyword(bool),
-    Scrutinee(usize, bool),
-    Arms(usize, bool),
-    AwaitArmOrEnd(usize, bool),
-}
-
 impl Formatter<'_> {
-    pub(super) fn finish_completed_control(&mut self, kind: &TokenKind) {
-        if let Some(CaseStage::AwaitArmOrEnd(arms_indent, continuation)) = self.cases.last() {
-            if matches!(kind, TokenKind::LeftBracket) {
-                let arms_indent = *arms_indent;
-                let continuation = *continuation;
-                *self.cases.last_mut().expect("matched case") =
-                    CaseStage::Arms(arms_indent, continuation);
-            } else {
-                let continuation = *continuation;
-                self.cases.pop();
-                if continuation {
-                    self.indent = self.indent.saturating_sub(1);
-                }
-            }
-        }
+    pub(super) fn finish_completed_control(&mut self) {
         if let Some(IfStage::Finished(continuation)) = self.ifs.last() {
             let continuation = *continuation;
             self.ifs.pop();
@@ -67,7 +44,6 @@ impl Formatter<'_> {
             self.space();
             self.write(text);
             self.finish_if_branch(self.indent);
-            self.finish_case_arm();
             self.previous = Previous::RightBrace;
             return;
         }
@@ -80,7 +56,6 @@ impl Formatter<'_> {
         self.newline();
         self.write(text);
         self.finish_if_branch(closing_indent);
-        self.finish_case_arm();
         self.previous = Previous::RightBrace;
     }
 
@@ -90,31 +65,12 @@ impl Formatter<'_> {
         }
         self.write(text);
         self.paren_depth += 1;
-        if let Some(CaseStage::Keyword(continuation)) = self.cases.last() {
-            let continuation = *continuation;
-            *self.cases.last_mut().expect("matched case keyword") =
-                CaseStage::Scrutinee(self.paren_depth, continuation);
-        }
         self.previous = Previous::LeftParen;
     }
 
     pub(super) fn write_right_paren(&mut self, text: &str) {
         self.trim_space();
         self.write(text);
-        if matches!(
-            self.cases.last(),
-            Some(CaseStage::Scrutinee(depth, _)) if *depth == self.paren_depth
-        ) {
-            let continuation = match self.cases.last().expect("matched case scrutinee") {
-                CaseStage::Scrutinee(_, continuation) => *continuation,
-                _ => unreachable!("matched case scrutinee"),
-            };
-            if continuation {
-                self.indent += 1;
-            }
-            *self.cases.last_mut().expect("matched case scrutinee") =
-                CaseStage::Arms(self.indent, continuation);
-        }
         self.paren_depth = self.paren_depth.saturating_sub(1);
         self.previous = Previous::RightParen;
     }
@@ -149,14 +105,6 @@ impl Formatter<'_> {
         self.write(text);
         self.ifs
             .push(IfStage::Condition(!self.controls.is_aligned(token_index)));
-        self.previous = Previous::Keyword;
-    }
-
-    pub(super) fn write_case(&mut self, token_index: usize, text: &str) {
-        self.space_before_control_keyword();
-        self.write(text);
-        self.cases
-            .push(CaseStage::Keyword(!self.controls.is_aligned(token_index)));
         self.previous = Previous::Keyword;
     }
 
@@ -202,17 +150,6 @@ impl Formatter<'_> {
                 }
                 _ => {}
             }
-        }
-    }
-
-    fn finish_case_arm(&mut self) {
-        if let Some(CaseStage::Arms(arms_indent, continuation)) = self.cases.last()
-            && self.indent == *arms_indent
-        {
-            let arms_indent = *arms_indent;
-            let continuation = *continuation;
-            *self.cases.last_mut().expect("matched case arms") =
-                CaseStage::AwaitArmOrEnd(arms_indent, continuation);
         }
     }
 }

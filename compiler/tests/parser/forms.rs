@@ -75,25 +75,30 @@ fn parses_if_blocks_with_local_bindings() {
 }
 
 #[test]
-fn parses_sum_injection_and_case_arms() {
+fn parses_sum_constructor_and_elimination_continuations() {
     let expression = binding_value(
-        "value := case (1[MaybeInt32](42))\n\
-           [0](_) { 0 }\n\
-           [1](x) {\n\
+        "value := 1[MaybeInt32](42)[\n\
+           () { 0 },\n\
+           (x) {\n\
              y := x;\n\
              y\n\
-           };",
+           }];",
     );
-    let Expression::Case { scrutinee, arms } = expression else {
-        panic!("expected case expression");
+    let Expression::ContinuationApplication {
+        value,
+        continuations,
+    } = expression
+    else {
+        panic!("expected continuation application");
     };
-    assert!(matches!(scrutinee.kind, Expression::Call { .. }));
-    assert_eq!(arms.len(), 2);
-    assert!(matches!(arms[0].pattern.kind, Pattern::Wildcard));
-    assert!(matches!(arms[1].pattern.kind, Pattern::Name(_)));
-    assert!(arms[0].body.items.is_empty());
-    assert_eq!(arms[1].body.items.len(), 1);
-    assert!(matches!(arms[1].body.result.kind, Expression::Name(_)));
+    assert!(matches!(value.kind, Expression::Call { .. }));
+    assert_eq!(continuations.len(), 2);
+    assert!(matches!(continuations[0].kind, Expression::Lambda(_)));
+    let Expression::Lambda(second) = &continuations[1].kind else {
+        panic!("expected lambda continuation");
+    };
+    assert_eq!(second.body.items.len(), 1);
+    assert!(matches!(second.body.result.kind, Expression::Name(_)));
 }
 
 #[test]
@@ -123,7 +128,7 @@ fn accepts_block_results_with_or_without_a_terminal_semicolon() {
         "value := () { 0 };",
         "value := () { 0; };",
         "value := () { if (true) then { 0; } else { 1 }; };",
-        "value := () { case (0[Bool](())) [0](_) { 0 } [1](_) { 1; }; };",
+        "value := () { 0[Bool]()[() { 0 }, () { 1; }]; };",
     ] {
         assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
     }

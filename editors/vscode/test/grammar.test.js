@@ -106,3 +106,18 @@ test('highlights requirements and private identifiers', async () => {
       .scopes.includes('entity.name.type.mal'),
   );
 });
+
+test('treats removed case as an ordinary value identifier', async () => {
+  const grammar = await loadGrammar();
+  const line = 'case := value;';
+  const token = grammar
+    .tokenizeLine(line)
+    .tokens.map((candidate) => ({
+      text: line.slice(candidate.startIndex, candidate.endIndex),
+      scopes: candidate.scopes,
+    }))
+    .find((candidate) => candidate.text === 'case');
+
+  assert.ok(token.scopes.includes('variable.other.mal'));
+  assert.ok(!token.scopes.includes('keyword.control.mal'));
+});

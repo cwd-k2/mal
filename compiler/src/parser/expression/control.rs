@@ -1,4 +1,4 @@
-use crate::ast::{BodyItem, CaseArm, Expression, ExpressionBlock, Node};
+use crate::ast::{BodyItem, Expression, ExpressionBlock, Node};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::TokenKind;
 
@@ -64,43 +64,5 @@ impl Parser<'_> {
                 span: self.join(left.span, right.span),
             });
         }
-    }
-
-    pub(super) fn parse_case(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        let start = self.expect(&TokenKind::Case, "`case`")?.span.start();
-        self.expect(&TokenKind::LeftParen, "`(`")?;
-        let scrutinee = self.parse_expression()?;
-        self.expect(&TokenKind::RightParen, "`)`")?;
-        let mut arms = Vec::new();
-        while self.at(&TokenKind::LeftBracket) {
-            arms.push(self.parse_case_arm()?);
-        }
-        if arms.is_empty() {
-            return Err(self.expected("at least one case arm"));
-        }
-        let end = arms.last().expect("case has at least one arm").span.end();
-        Ok(Node::new(
-            Expression::Case {
-                scrutinee: Box::new(scrutinee),
-                arms,
-            },
-            self.span(start, end),
-        ))
-    }
-
-    fn parse_case_arm(&mut self) -> Result<CaseArm, Diagnostic> {
-        let start = self.expect(&TokenKind::LeftBracket, "`[`")?.span.start();
-        let index = self.parse_integer("a case variant index")?;
-        self.expect(&TokenKind::RightBracket, "`]`")?;
-        self.expect(&TokenKind::LeftParen, "`(`")?;
-        let pattern = self.parse_pattern()?;
-        self.expect(&TokenKind::RightParen, "`)`")?;
-        let body = self.parse_expression_block()?;
-        Ok(CaseArm {
-            index,
-            pattern,
-            span: self.span(start, body.span.end()),
-            body,
-        })
     }
 }

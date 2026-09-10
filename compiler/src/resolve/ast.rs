@@ -131,19 +131,10 @@ pub enum Expression {
         lambda_id: LambdaId,
         value: Box<Node<Expression>>,
     },
-    SumInjection {
-        type_ref: TypeReference,
-        index: Node<IntegerLiteral>,
-        value: Box<Node<Expression>>,
-    },
     If {
         condition: Box<Node<Expression>>,
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
-    },
-    Case {
-        scrutinee: Box<Node<Expression>>,
-        arms: Vec<CaseArm>,
     },
     Unary {
         operator: Node<UnaryOperator>,
@@ -189,12 +180,4 @@ pub struct ExpressionBlock {
 pub enum BodyItem {
     Binding(Node<Binding>),
     Expression(Node<Expression>),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaseArm {
-    pub index: Node<IntegerLiteral>,
-    pub pattern: Node<Pattern>,
-    pub body: ExpressionBlock,
-    pub span: Span,
 }

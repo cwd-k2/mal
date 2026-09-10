@@ -33,13 +33,13 @@ _readByte :: Reader -> ByteRead := (reader) {
 _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
     (line, capacity, length) := buffer;
     result := _readByte(reader);
-    case (result)
-    [0](next) {
+    result[
+    (next) {
         if (length == 0u64)
         then { 0[LineRead](next) }
         else { 1[LineRead]((next, buffer)) };
-    }
-    [1](read) {
+    },
+    (read) {
         (next, byte) := read;
         if (byte == '\n')
         then {
@@ -58,7 +58,8 @@ _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
                 _readLineAt(next, (line, capacity, length + 1u64));
             };
         };
-    };
+    }
+    ];
 };
 
 readLine :: (Reader, Buffer) -> LineRead := (reader, buffer) {

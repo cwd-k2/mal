@@ -195,9 +195,6 @@ impl Index {
             }
             Expression::Conversion {
                 type_ref, value, ..
-            }
-            | Expression::SumInjection {
-                type_ref, value, ..
             } => {
                 self.add_raw(
                     SymbolId::Type(type_ref.id),
@@ -214,13 +211,6 @@ impl Index {
                 self.collect_resolved_expression(condition);
                 self.collect_resolved_body(&then_branch.items, &then_branch.result);
                 self.collect_resolved_body(&else_branch.items, &else_branch.result);
-            }
-            Expression::Case { scrutinee, arms } => {
-                self.collect_resolved_expression(scrutinee);
-                for arm in arms {
-                    self.collect_resolved_pattern(&arm.pattern, false);
-                    self.collect_resolved_body(&arm.body.items, &arm.body.result);
-                }
             }
             Expression::Unary { operand, .. } => self.collect_resolved_expression(operand),
             Expression::Binary { left, right, .. } => {

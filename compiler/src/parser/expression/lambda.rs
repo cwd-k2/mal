@@ -6,9 +6,7 @@ use super::super::Parser;
 
 impl Parser<'_> {
     pub(super) fn parse_lambda(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        let start = self
-            .take(&TokenKind::Backslash)
-            .map_or_else(|| self.current().span.start(), |token| token.span.start());
+        let start = self.current().span.start();
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let parameter = self.parse_lambda_parameter()?.map(Box::new);
         self.expect(&TokenKind::RightParen, "`)`")?;
@@ -45,9 +43,6 @@ impl Parser<'_> {
     }
 
     pub(super) fn at_lambda(&self) -> bool {
-        if self.at(&TokenKind::Backslash) {
-            return true;
-        }
         if !self.at(&TokenKind::LeftParen) {
             return false;
         }

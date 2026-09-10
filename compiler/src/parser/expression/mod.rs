@@ -1,6 +1,6 @@
 use crate::ast::{BinaryOperator, Expression, Node, UnaryOperator};
 use crate::diagnostic::Diagnostic;
-use crate::lexer::{IntegerLiteral, TokenKind};
+use crate::lexer::TokenKind;
 
 use super::Parser;
 
@@ -119,20 +119,7 @@ impl Parser<'_> {
         if self.at(&TokenKind::If) {
             return self.parse_if();
         }
-        if self.at(&TokenKind::Case) {
-            return self.parse_case();
-        }
         Err(self.expected("an expression"))
-    }
-
-    fn parse_integer(&mut self, expected: &str) -> Result<Node<IntegerLiteral>, Diagnostic> {
-        let token = self
-            .advance_if_integer()
-            .ok_or_else(|| self.expected(expected))?;
-        let TokenKind::Integer(value) = token.kind else {
-            unreachable!();
-        };
-        Ok(Node::new(value, token.span))
     }
 
     fn binary_operator(&self) -> Option<(BinaryOperator, u8, bool)> {

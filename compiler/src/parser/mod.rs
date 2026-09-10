@@ -253,10 +253,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn advance_if_integer(&mut self) -> Option<Token> {
-        matches!(self.current().kind, TokenKind::Integer(_)).then(|| self.advance().clone())
-    }
-
     fn advance(&mut self) -> &'a Token {
         let token = self.current();
         if self.position + 1 < self.tokens.len() {

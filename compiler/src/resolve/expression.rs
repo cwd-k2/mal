@@ -3,8 +3,7 @@ use crate::diagnostic::Diagnostic;
 
 use super::Resolver;
 use super::ast::{
-    BodyItem, Capture, CaseArm, Expression, ExpressionBlock, Lambda, LambdaBody, ValueOwner,
-    ValueReference,
+    BodyItem, Capture, Expression, ExpressionBlock, Lambda, LambdaBody, ValueOwner, ValueReference,
 };
 
 impl Resolver {
@@ -59,15 +58,6 @@ impl Resolver {
                 lambda_id: self.allocate_lambda(),
                 value: Box::new(self.resolve_expression(value)?),
             },
-            ast::Expression::SumInjection {
-                type_name,
-                index,
-                value,
-            } => Expression::SumInjection {
-                type_ref: self.type_reference(type_name)?,
-                index: index.clone(),
-                value: Box::new(self.resolve_expression(value)?),
-            },
             ast::Expression::If {
                 condition,
                 then_branch,
@@ -76,13 +66,6 @@ impl Resolver {
                 condition: Box::new(self.resolve_expression(condition)?),
                 then_branch: self.resolve_expression_block(then_branch)?,
                 else_branch: self.resolve_expression_block(else_branch)?,
-            },
-            ast::Expression::Case { scrutinee, arms } => Expression::Case {
-                scrutinee: Box::new(self.resolve_expression(scrutinee)?),
-                arms: arms
-                    .iter()
-                    .map(|arm| self.resolve_case_arm(arm))
-                    .collect::<Result<_, _>>()?,
             },
             ast::Expression::Unary { operator, operand } => Expression::Unary {
                 operator: operator.clone(),
@@ -201,21 +184,6 @@ impl Resolver {
             result: Box::new(self.resolve_expression(&block.result)?),
             span: block.span,
         })
-    }
-
-    fn resolve_case_arm(&mut self, arm: &ast::CaseArm) -> Result<CaseArm, Diagnostic> {
-        self.push_scope();
-        let result = (|| {
-            let owner = self.local_owner(arm.pattern.span)?;
-            Ok(CaseArm {
-                index: arm.index.clone(),
-                pattern: self.declare_pattern(&arm.pattern, owner)?,
-                body: self.resolve_expression_block_contents(&arm.body)?,
-                span: arm.span,
-            })
-        })();
-        self.pop_scope();
-        result
     }
 
     fn resolve_value_reference(&mut self, name: &ast::Name) -> Result<ValueReference, Diagnostic> {

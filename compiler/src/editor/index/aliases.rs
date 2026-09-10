@@ -40,7 +40,7 @@ impl Index {
                     self.collect_aliases_expression(&continuation.kind);
                 }
             }
-            Expression::Conversion { value, .. } | Expression::SumInjection { value, .. } => {
+            Expression::Conversion { value, .. } => {
                 self.collect_aliases_expression(&value.kind);
             }
             Expression::If {
@@ -51,12 +51,6 @@ impl Index {
                 self.collect_aliases_expression(&condition.kind);
                 self.collect_aliases_body(&then_branch.items, &then_branch.result.kind);
                 self.collect_aliases_body(&else_branch.items, &else_branch.result.kind);
-            }
-            Expression::Case { scrutinee, arms } => {
-                self.collect_aliases_expression(&scrutinee.kind);
-                for arm in arms {
-                    self.collect_aliases_body(&arm.body.items, &arm.body.result.kind);
-                }
             }
             Expression::Unary { operand, .. } => self.collect_aliases_expression(&operand.kind),
             Expression::Binary { left, right, .. } => {

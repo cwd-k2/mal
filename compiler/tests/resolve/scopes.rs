@@ -78,29 +78,29 @@ fn branch_bindings_do_not_escape_their_expression_block() {
 }
 
 #[test]
-fn case_pattern_and_block_bindings_share_an_arm_local_scope() {
+fn continuation_parameter_and_block_bindings_share_a_local_scope() {
     resolve_ok(
         "Choice :: [Unit, Int32];\n\
          main := (value) {\n\
-           case (value)\n\
-             [0](_) { 0 }\n\
-             [1](item) { local := item; local };\n\
+           value[\n\
+             () { 0 },\n\
+             (item) { local := item; local }];\n\
          };",
     );
 
     let duplicate = resolve_error(
         "Choice :: [Unit, Int32];\n\
          main := (value) {\n\
-           case (value)\n\
-             [0](_) { 0 }\n\
-             [1](item) { item := 1; item };\n\
+           value[\n\
+             () { 0 },\n\
+             (item) { item := 1; item }];\n\
          };",
     );
     assert!(duplicate.message.starts_with("duplicate value"));
 
     let escaped = resolve_error(
         "main := () {\n\
-           case (true) [0](_) { local := 1; local } [1](_) { 0 };\n\
+           true[() { local := 1; local }, () { 0 }];\n\
            local;\n\
          };",
     );

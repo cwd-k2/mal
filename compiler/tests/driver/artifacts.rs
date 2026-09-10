@@ -144,15 +144,15 @@ fn references_structural_closed_top_level_values_through_llvm() {
          enabled :: Bool := true;\n\
          reader :: Ptr -> Int64 := Int64.load;\n\
          main :: Unit -> Int32 := () {\n\
-           case (choice)\n\
-             [0](_) { 1 }\n\
-             [1](value) {\n\
+           choice[\n\
+             () { 1 },\n\
+             (value) {\n\
                if (enabled) then {\n\
                  if (number == -7i32) then {\n\
                    if (text == \"ok\" && value == \"yes\") then { 0 } else { 2 };\n\
                  } else { 3 };\n\
                } else { 4 };\n\
-             };\n\
+             }]\n\
          };",
     );
 
@@ -1206,9 +1206,9 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
            if (flag) then { 1[Choice]((20u32, 22u64)) } else { 0[Choice](42i16) };\n\
          };\n\
          score :: Choice -> Int32 := (choice) {\n\
-           case (choice)\n\
-             [0](value) { Int32(value) }\n\
-             [1](pair) { (left, right) := pair; Int32(left) + Int32(right) };\n\
+           choice[\n\
+             (value) { Int32(value) },\n\
+             (pair) { (left, right) := pair; Int32(left) + Int32(right) }];\n\
          };\n\
          main :: Unit -> Int32 := () {\n\
            flag := true != false;\n\
@@ -1709,16 +1709,16 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
          extern exchange :: Envelope -> Envelope;\n\
          main :: Unit -> Int32 := () {\n\
            (number, choice) := exchange(41u8, 1[Choice]((7u64, \"a\" + \"b\")));\n\
-           case (choice)\n\
-             [0](_) { 1 }\n\
-             [1](packet) {\n\
+           choice[\n\
+             () { 1 },\n\
+             (packet) {\n\
                (bias, text) := packet;\n\
                if (number == 42u8) then {\n\
                  if (bias == 7u64) then {\n\
                    if (text == \"ab\") then { 0 } else { 2 };\n\
                  } else { 3 };\n\
                } else { 4 };\n\
-             };\n\
+             }];\n\
          };",
     );
     directory.write(
@@ -1777,12 +1777,12 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
          extern inspect :: Handle -> UInt64;\n\
          main :: Unit -> Int32 := () {\n\
            choice := exchange(1[Choice]((1u8, create(40u64))));\n\
-           case (choice)\n\
-             [0](_) { 1 }\n\
-             [1](packet) {\n\
+           choice[\n\
+             () { 1 },\n\
+             (packet) {\n\
                (bias, handle) := packet;\n\
                Int32(inspect(handle) + UInt64(bias) - 42u64);\n\
-             };\n\
+             }];\n\
          };",
     );
     directory.write(
@@ -1881,12 +1881,12 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
            else { 0[Choice](\"a\" + \"b\") };\n\
          };\n\
          score :: Choice -> Int32 := (choice) {\n\
-           case (choice)\n\
-             [0](value) { Int32(value # 0u64) }\n\
-             [1](pair) {\n\
+           choice[\n\
+             (value) { Int32(value # 0u64) },\n\
+             (pair) {\n\
                (bias, value) := pair;\n\
                Int32(bias) + Int32(value # 1u64);\n\
-             };\n\
+             }];\n\
          };\n\
          main :: Unit -> Int32 := () {\n\
            score(choose(false)) + score(choose(true)) - 198;\n\

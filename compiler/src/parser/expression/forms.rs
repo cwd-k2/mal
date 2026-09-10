@@ -142,19 +142,9 @@ impl Parser<'_> {
                 self.span(start, right.span.end()),
             ));
         }
-        self.expect(&TokenKind::LeftBracket, "`[` after a sum type name")?;
-        let index = self.parse_integer("a sum variant index")?;
-        self.expect(&TokenKind::RightBracket, "`]`")?;
-        self.expect(&TokenKind::LeftParen, "`(`")?;
-        let value = self.parse_expression()?;
-        let right = self.expect(&TokenKind::RightParen, "`)`")?;
-        Ok(Node::new(
-            Expression::SumInjection {
-                type_name,
-                index,
-                value: Box::new(value),
-            },
-            self.span(start, right.span.end()),
+        Err(self.error_here(
+            "expected a type application or qualified primitive",
+            "use `T(value)`, `value[T]`, or `T.member`",
         ))
     }
 }

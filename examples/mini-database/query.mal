@@ -10,26 +10,28 @@ _writeResponse :: Symbol -> Unit := (response) {
 _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
     (file, database, line, keyStart, keyLength, valueStart, valueLength) {
         result := putRecord(database, line, keyStart, keyLength, valueStart, valueLength);
-        case (result)
-        [0](_) {
+        result[
+        () {
             saveDatabase(file, database);
             _writeResponse("OK\n");
-        }
-        [1](_) { _writeResponse("ERROR key<=16 value<=40\n") }
-        [2](_) { _writeResponse("ERROR database full\n") };
+        },
+        () { _writeResponse("ERROR key<=16 value<=40\n") },
+        () { _writeResponse("ERROR database full\n") }
+        ];
     };
 
 _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
     (database, line, keyStart, keyLength) {
         result := lookupRecord(database, line, keyStart, keyLength);
-        case (result)
-        [0](_) { _writeResponse("NOT FOUND\n") }
-        [1](value) {
+        result[
+        () { _writeResponse("NOT FOUND\n") },
+        (value) {
             writeSymbol("VALUE ");
             writeBytes(value);
             writeSymbol("\n");
             ();
-        };
+        }
+        ];
     };
 
 _delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
@@ -87,9 +89,9 @@ _handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes) {
 runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
     (reader, file, database, query) {
         result := readLine(reader, query);
-        case (result)
-        [0](_) { () }
-        [1](state) {
+        result[
+        (_) { () },
+        (state) {
             (next, lineBuffer) := state;
             lineBytes := initializedBytes(lineBuffer);
             (line, length) := lineBytes;
@@ -99,5 +101,6 @@ runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
                 _handleQuery(file, database, lineBytes);
                 runQueries(next, file, database, query);
             };
-        };
+        }
+        ];
     };

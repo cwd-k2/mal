@@ -9,7 +9,7 @@ mod token;
 
 use self::control::ControlLayout;
 use self::layout::{BlockLayout, top_level_breaks};
-use self::token::{CaseStage, IfStage, Previous};
+use self::token::{BracketLayout, IfStage, Previous};
 
 pub fn format(source: &SourceFile) -> Result<String, Diagnostic> {
     let lexed = crate::lexer::lex_lossless(source)?;
@@ -30,7 +30,7 @@ struct Formatter<'a> {
     previous: Previous,
     ifs: Vec<IfStage>,
     paren_depth: usize,
-    cases: Vec<CaseStage>,
+    brackets: Vec<BracketLayout>,
     brace_depth: usize,
     binding_continuations: Vec<usize>,
     controls: ControlLayout,
@@ -54,7 +54,7 @@ impl<'a> Formatter<'a> {
             previous: Previous::None,
             ifs: Vec::new(),
             paren_depth: 0,
-            cases: Vec::new(),
+            brackets: Vec::new(),
             brace_depth: 0,
             binding_continuations: Vec::new(),
             controls: ControlLayout::new(lexed, program),

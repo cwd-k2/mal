@@ -110,7 +110,8 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text = "make :: Int32 -> Int32 := (x) {\n  inner :: Unit -> Int32 := () { x; };\n  inner();\n};\n";
+    let text =
+        "make :: Int32 -> Int32 := (x) {\n  inner :: Unit -> Int32 := () { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
@@ -193,6 +194,54 @@ fn preserves_declared_type_aliases_in_hover() {
     assert_eq!(
         function["result"]["contents"]["value"],
         "```mal\nf :: (Tree, Int64) -> Int64\n```\n\nfunction"
+    );
+}
+
+#[test]
+fn expands_a_sum_constructor_type_hover_by_exactly_one_alias_layer() {
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := 1[Choice];\nread :: Unit -> Choice := () { make(1) };\n";
+    let uri = "file:///sum-constructor-hover.mal";
+    let mut server = open_document(uri, text);
+    let constructor = text.find("1[Choice]").unwrap() + 2;
+    let hover = request_at(
+        &mut server,
+        16,
+        "textDocument/hover",
+        uri,
+        text,
+        constructor,
+    );
+
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```mal\nChoice :: [Unit, Payload]\n```\n\ntype"
+    );
+
+    let function = request_at(
+        &mut server,
+        17,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("make ::").unwrap(),
+    );
+    assert_eq!(
+        function["result"]["contents"]["value"],
+        "```mal\nmake :: Payload -> Choice\n```\n\nfunction"
+    );
+
+    let call = text.rfind("make(1)").unwrap();
+    let result = request_at(
+        &mut server,
+        18,
+        "textDocument/hover",
+        uri,
+        text,
+        call + "make".len(),
+    );
+    assert_eq!(
+        result["result"]["contents"]["value"],
+        "```mal\nmake(1) :: [Unit, Int32]\n```"
     );
 }
 

@@ -100,14 +100,14 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 }
 
 #[test]
-fn aligns_statement_case_arms_with_case() {
-    let formatted =
-        format("pick::[Int32,UInt8]->Int32:=(value){case(value)[0](x){x}[1](x){Int32(x)};};");
+fn aligns_multiline_sum_continuations_with_the_value() {
+    let formatted = format("pick::[Int32,UInt8]->Int32:=(value){value[(x){x},(x){Int32(x)}];};");
 
     assert!(formatted.contains(concat!(
-        "    case (value)\n",
-        "    [0](x) { x }\n",
-        "    [1](x) { Int32(x) };\n",
+        "    value[\n",
+        "    (x) { x },\n",
+        "    (x) { Int32(x) }\n",
+        "    ];\n",
     )));
     assert_eq!(format(&formatted), formatted);
 }
@@ -115,18 +115,24 @@ fn aligns_statement_case_arms_with_case() {
 #[test]
 fn indents_control_branches_used_as_binding_rhs() {
     let formatted = format(
-        "choose:=(condition, value){selected:=if(condition)then{1}else{2};result:=case(value)[0](x){x}[1](x){x};selected+result;};",
+        "choose:=(condition, value){selected:=if(condition)then{1}else{2};result:=value[(x){x},(x){x}];selected+result;};",
     );
 
     assert!(formatted.contains(concat!(
         "    selected := if (condition)\n",
         "        then { 1 }\n",
         "        else { 2 };\n",
-        "    result := case (value)\n",
-        "        [0](x) { x }\n",
-        "        [1](x) { x };\n",
+        "    result := value[\n",
+        "        (x) { x },\n",
+        "        (x) { x }\n",
+        "    ];\n",
     )));
     assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn keeps_single_continuation_chains_inline() {
+    assert_eq!(format("result:=value[f][g];"), "result := value[f][g];\n");
 }
 
 #[test]

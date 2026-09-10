@@ -108,13 +108,6 @@ impl Index {
                 self.collect_checked_body(&then_branch.items, &then_branch.result);
                 self.collect_checked_body(&else_branch.items, &else_branch.result);
             }
-            ExpressionKind::Case { scrutinee, arms } => {
-                self.collect_checked_expression(scrutinee);
-                for arm in arms {
-                    self.collect_checked_pattern(&arm.pattern);
-                    self.collect_checked_body(&arm.body.items, &arm.body.result);
-                }
-            }
             ExpressionKind::Unary { operand, .. } => self.collect_checked_expression(operand),
             ExpressionKind::Binary { left, right, .. } => {
                 self.collect_checked_expression(left);

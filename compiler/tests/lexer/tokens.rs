@@ -24,7 +24,6 @@ fn lexes_the_basic_host_example() {
             TokenKind::Arrow,
             TokenKind::TypeIdentifier,
             TokenKind::Bind,
-            TokenKind::Backslash,
             TokenKind::LeftParen,
             TokenKind::RightParen,
             TokenKind::LeftBrace,
@@ -64,7 +63,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
             TokenKind::ValueIdentifier,
             TokenKind::Then,
             TokenKind::Else,
-            TokenKind::Case,
+            TokenKind::ValueIdentifier,
             TokenKind::ValueIdentifier,
             TokenKind::Extern,
             TokenKind::Eof,
@@ -75,7 +74,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> \\ + - * / % ! != == ~ & && | || ^ . # << >>"),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> + - * / % ! != == ~ & && | || ^ . # << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -93,7 +92,6 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::DoubleColon,
             TokenKind::Bind,
             TokenKind::Arrow,
-            TokenKind::Backslash,
             TokenKind::Plus,
             TokenKind::Minus,
             TokenKind::Star,
@@ -121,6 +119,12 @@ fn lexes_every_operator_and_delimiter() {
 fn rejects_the_unsupported_fat_arrow_token() {
     let error = lex(&source("=>")).expect_err("the unsupported token should be rejected");
     assert_eq!(error.message, "invalid token");
+}
+
+#[test]
+fn rejects_the_removed_lambda_introducer() {
+    let error = lex(&source(r"\() { 0 }")).expect_err("backslash should not be a token");
+    assert_eq!(error.message, "unexpected character");
 }
 
 #[test]
