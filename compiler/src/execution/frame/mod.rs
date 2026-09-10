@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
-use super::ownership::is_managed;
 use super::{ControlCallPlan, ControlRegionPlan};
 
 pub(crate) struct ControlFramePlan {
@@ -12,14 +11,8 @@ pub(crate) struct ControlFramePlan {
 #[derive(Clone)]
 pub(crate) struct ControlFrame {
     pub(crate) resume: StateId,
-    pub(crate) fields: Vec<ControlFrameField>,
+    pub(crate) fields: Vec<LiveValue>,
     pub(crate) carries_environment: bool,
-}
-
-#[derive(Clone)]
-pub(crate) struct ControlFrameField {
-    pub(crate) value: LiveValue,
-    pub(crate) managed: bool,
 }
 
 impl ControlFramePlan {
@@ -42,14 +35,7 @@ impl ControlFramePlan {
                 site,
                 ControlFrame {
                     resume,
-                    fields: resume_state
-                        .live
-                        .iter()
-                        .map(|value| ControlFrameField {
-                            value: value.clone(),
-                            managed: is_managed(&value.ty),
-                        })
-                        .collect(),
+                    fields: resume_state.live.clone(),
                     carries_environment: resume_state.needs_environment
                         && calls.requires_common_control(region),
                 },
@@ -93,9 +79,7 @@ impl ControlFramePlan {
                     .fields
                     .iter()
                     .zip(&program.states[frame.resume.0].live)
-                    .all(|(field, live)| {
-                        field.value == *live && field.managed == is_managed(&live.ty)
-                    })
+                    .all(|(field, live)| field == live)
                 && frame.carries_environment
                     == (program.states[frame.resume.0].needs_environment
                         && regions

@@ -3,13 +3,12 @@ use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{
     Atom, EnvironmentField, FunctionId, Parameter, Pattern, TopLevelPattern,
 };
-use crate::core::ast::{BinaryPrimitive, ProgramInterface, UnaryPrimitive};
+use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 use crate::resolve::ast::ExternalOperationId;
 use crate::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
-    pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
     pub states: Vec<State>,

@@ -14,6 +14,7 @@ pub(super) use super::application::reachable_states;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ControlCallMode {
     Direct(FunctionId),
+    DirectRegion(FunctionId),
     DirectSelfTail,
     Dispatch,
 }
@@ -31,36 +32,20 @@ impl ControlCallPlan {
         regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
-        for binding in &control.bindings {
-            for site in reachable_states(control, binding.entry) {
-                if application_callee(&control.states[site.0].terminator).is_none() {
-                    continue;
-                }
-                let mode = applications
+        for (site, caller) in applications.sites() {
+            let mode = if caller.is_some() && tail_calls.is_fused(site) {
+                ControlCallMode::DirectSelfTail
+            } else if caller.is_some() && regions.site_region(site).is_some() {
+                applications
                     .direct_target(site)
-                    .map(ControlCallMode::Direct)
-                    .unwrap_or(ControlCallMode::Dispatch);
-                modes.insert(site, mode);
-            }
-        }
-
-        for function in &control.functions {
-            for site in reachable_states(control, function.entry) {
-                let state = &control.states[site.0];
-                let terminator = &state.terminator;
-                if application_callee(terminator).is_none() {
-                    continue;
-                }
-                if tail_calls.is_fused(site) {
-                    modes.insert(site, ControlCallMode::DirectSelfTail);
-                } else if regions.site_region(site).is_some() {
-                    modes.insert(site, ControlCallMode::Dispatch);
-                } else if let Some(callee) = applications.direct_target(site) {
-                    modes.insert(site, ControlCallMode::Direct(callee));
-                } else {
-                    modes.insert(site, ControlCallMode::Dispatch);
-                }
-            }
+                    .map(ControlCallMode::DirectRegion)
+                    .unwrap_or(ControlCallMode::Dispatch)
+            } else if let Some(callee) = applications.direct_target(site) {
+                ControlCallMode::Direct(callee)
+            } else {
+                ControlCallMode::Dispatch
+            };
+            modes.insert(site, mode);
         }
 
         let direct_graph = direct_graph(control, &modes);
@@ -102,17 +87,13 @@ fn region_requires_common_control(
             .entry;
         reachable_states(program, entry).into_iter().any(|site| {
             regions.site_region(site) == Some(region)
-                && modes.get(&site) == Some(&ControlCallMode::Dispatch)
+                && matches!(
+                    modes.get(&site),
+                    Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
+                )
                 && !is_direct_self_call(&program.states[site.0].terminator, *function)
         })
     })
-}
-
-fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
-    match terminator {
-        Terminator::Call { callee, .. } | Terminator::TailCall { callee, .. } => Some(callee),
-        _ => None,
-    }
 }
 
 fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
@@ -180,7 +161,7 @@ mod tests {
             .into_iter()
             .filter_map(|site| plan.mode(site))
             .collect::<Vec<_>>();
-        assert!(recursive_modes.contains(&ControlCallMode::Dispatch));
+        assert!(recursive_modes.contains(&ControlCallMode::DirectRegion(recursive.id)));
         assert!(recursive_modes.contains(&ControlCallMode::Direct(helper)));
         let recursive_region = regions
             .function_region(recursive.id)
@@ -249,7 +230,7 @@ mod tests {
                 return false;
             };
             direct_function_id(&uses, callee) == Some(apply)
-                && plan.mode(StateId(index)) == Some(ControlCallMode::Dispatch)
+                && plan.mode(StateId(index)) == Some(ControlCallMode::DirectRegion(apply))
                 && regions.site_region(StateId(index)).is_some()
         }));
         assert!(control.states.iter().enumerate().any(|(index, state)| {

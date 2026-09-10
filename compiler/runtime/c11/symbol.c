@@ -72,17 +72,16 @@ void *mal_runtime_symbol_concatenate(MalContext *context, const void *left, cons
     if (left_length > UINT64_MAX - right_length) {
         mal_trap(context, "symbol length overflow");
     }
+    if (left_length == 0) {
+        return mal_runtime_symbol_retain(context, right);
+    }
+    if (right_length == 0) {
+        return mal_runtime_symbol_retain(context, left);
+    }
     uint64_t length = left_length + right_length;
-    if (length == 0) {
-        return NULL;
-    }
     MalSymbol *result = mal_symbol_allocate(context, length);
-    if (left_length != 0) {
-        memcpy(result->bytes, ((const MalSymbol *)left)->bytes, (size_t)left_length);
-    }
-    if (right_length != 0) {
-        memcpy(result->bytes + left_length, ((const MalSymbol *)right)->bytes, (size_t)right_length);
-    }
+    memcpy(result->bytes, ((const MalSymbol *)left)->bytes, (size_t)left_length);
+    memcpy(result->bytes + left_length, ((const MalSymbol *)right)->bytes, (size_t)right_length);
     return result;
 }
 

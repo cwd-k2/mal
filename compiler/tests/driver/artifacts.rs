@@ -530,6 +530,7 @@ fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
     let directory = NativeFixture::new("driver-llvm-frame");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
     directory.write(
         "program.mal",
         "sum :: Int32 -> Int32 := \\(value) {\n\
@@ -548,10 +549,88 @@ fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
             source.as_os_str(),
             OsStr::new("--output"),
             executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
         ],
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(!module.contains("mal_invalid_frame_"));
+}
+
+#[test]
+fn resumes_single_constructor_frames_without_live_payloads() {
+    let directory = NativeFixture::new("driver-llvm-empty-frame");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "countdown :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0i32)\n\
+           then { 0i32 }\n\
+           else {\n\
+             ignored := countdown(value - 1i32);\n\
+             0i32;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { countdown(100000i32); };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn preserves_outer_frames_across_a_nested_recursive_region() {
+    let directory = NativeFixture::new("driver-llvm-nested-control-regions");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "inner :: Int64 -> Int64 := \\(n) {\n\
+           if (n == 0i64)\n\
+           then { 0i64 }\n\
+           else {\n\
+             rest := inner(n - 1i64);\n\
+             n + rest;\n\
+           };\n\
+         };\n\
+         outer :: Int32 -> Int64 := \\(n) {\n\
+           if (n == 0i32)\n\
+           then { inner(100i64) }\n\
+           else {\n\
+             rest := outer(n - 1i32);\n\
+             Int64(n) + rest;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { Int32(outer(20i32)) - 5260i32; };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
 
     assert!(
         output.status.success(),
@@ -603,6 +682,7 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
     let directory = NativeFixture::new("driver-llvm-frames");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
     directory.write(
         "program.mal",
         "walk :: Int32 -> Int32 := \\(value) {\n\
@@ -626,10 +706,100 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
             source.as_os_str(),
             OsStr::new("--output"),
             executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
         ],
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(module.contains("mal_invalid_frame_"));
+    assert!(module.contains("i32 0, label %mal_frame_"));
+    assert!(module.contains("i32 1, label %mal_frame_"));
+}
+
+#[test]
+fn calls_a_native_target_from_an_indirect_recursive_region_site() {
+    let directory = NativeFixture::new("driver-llvm-region-native-target");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+           called := operation(value);\n\
+           called + 0i32;\n\
+         };\n\
+         identity :: Int32 -> Int32 := \\(value) { value + 1i32; };\n\
+         recurse :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0i32)\n\
+           then { 0i32 }\n\
+           else {\n\
+             child := apply(recurse, value - 1i32);\n\
+             child + 1i32;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { apply(identity, 41i32) - 42i32; };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn transfers_a_managed_native_target_result_back_into_a_recursive_region() {
+    let directory = NativeFixture::new("driver-llvm-region-managed-native-target");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Packet :: (Int32, Symbol);\n\
+         apply :: ((Packet -> Packet), Packet) -> Packet := \\(operation, value) {\n\
+           operation(value);\n\
+         };\n\
+         identity :: Packet -> Packet := \\(value) { value; };\n\
+         recurse :: Packet -> Packet := \\(value) {\n\
+           (remaining, text) := value;\n\
+           if (remaining == 0i32)\n\
+           then { value }\n\
+           else {\n\
+             child := apply(recurse, (remaining - 1i32, text));\n\
+             (next, result) := child;\n\
+             (next + 1i32, result + \"!\");\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           seed := \"a\" + \"b\";\n\
+           (_, result) := apply(identity, (0i32, seed));\n\
+           if (result == \"ab\")\n\
+           then { 0i32 }\n\
+           else { 1i32 };\n\
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
 
     assert!(
         output.status.success(),
@@ -1074,6 +1244,90 @@ fn owns_flat_symbols_across_direct_llvm_calls() {
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn derives_symbol_runtime_dependencies_from_symbol_operations() {
+    let closure_directory = NativeFixture::new("driver-llvm-closure-runtime-dependencies");
+    let closure_source = closure_directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+           operation(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { apply(\\(value) { value; }, 0i32); };",
+    );
+    let closure_executable = closure_directory.join("program");
+    let closure_artifacts = closure_directory.join("artifacts");
+    let closure_output = closure_directory.malc([
+        OsStr::new("build"),
+        closure_source.as_os_str(),
+        OsStr::new("--output"),
+        closure_executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        closure_artifacts.as_os_str(),
+    ]);
+    assert!(
+        closure_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&closure_output.stderr)
+    );
+    let closure_module = std::fs::read_to_string(closure_artifacts.join("program.ll")).unwrap();
+    assert!(!closure_module.contains("mal_runtime_symbol_"));
+
+    let symbol_directory = NativeFixture::new("driver-llvm-discarded-symbol-operation");
+    let symbol_source = symbol_directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := \\() { discarded := \"a\" + \"b\"; 0i32; };",
+    );
+    let symbol_executable = symbol_directory.join("program");
+    let symbol_artifacts = symbol_directory.join("artifacts");
+    let symbol_output = symbol_directory.malc([
+        OsStr::new("build"),
+        symbol_source.as_os_str(),
+        OsStr::new("--output"),
+        symbol_executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        symbol_artifacts.as_os_str(),
+    ]);
+    assert!(
+        symbol_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&symbol_output.stderr)
+    );
+    let symbol_module = std::fs::read_to_string(symbol_artifacts.join("program.ll")).unwrap();
+    assert!(symbol_module.contains("declare ptr @mal_runtime_symbol_concatenate"));
+}
+
+#[test]
+fn reuses_owned_symbols_across_empty_concatenation() {
+    let directory = NativeFixture::new("driver-llvm-symbol-empty-concatenation");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := \\() {\n\
+           value := \"a\" + \"b\";\n\
+           left := \"\" + value;\n\
+           right := value + \"\";\n\
+           if (left == right)\n\
+           then { Int32(value # 1u64) - 98i32 }\n\
+           else { 1i32 };\n\
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
 
     assert!(
         output.status.success(),

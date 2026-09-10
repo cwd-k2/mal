@@ -24,16 +24,10 @@ void *mal_runtime_environment_allocate(
 void *mal_runtime_environment_retain(MalContext *context, void *environment);
 void mal_runtime_environment_release(void *environment);
 void mal_control_destroy(MalContext *context);
-void *mal_control_reserve_bytes(MalContext *context, size_t required_bytes);
 void *mal_control_reserve_frame(
     MalContext *context,
     size_t current_bytes,
     size_t frame_size
-);
-void *mal_control_reserve_slots(
-    MalContext *context,
-    size_t required_slots,
-    size_t slot_size
 );
 void *mal_control_storage(MalContext *context);
 

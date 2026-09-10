@@ -30,7 +30,7 @@ pub(super) struct Output {
     pub(super) main: FunctionId,
     pub(super) main_parameter: Type,
     pub(super) uses_control: bool,
-    pub(super) uses_symbols: bool,
+    pub(super) uses_symbol_runtime: bool,
 }
 
 #[cfg(test)]
@@ -48,11 +48,9 @@ pub(super) fn generate(
     let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;
-    let mut uses_symbols = false;
     for function in &execution.control.functions {
         let emitter = FunctionEmitter::new(execution, function.id, types, &top_levels)?;
-        uses_control |= emitter.has_frames;
-        uses_symbols |= emitter.uses_symbols;
+        uses_control |= !emitter.frame_sites.is_empty();
         let emitted = emitter.emit()?;
         globals.push_str(&emitted.globals);
         definitions.push_str(&emitted.definition);
@@ -64,7 +62,7 @@ pub(super) fn generate(
         main,
         main_parameter,
         uses_control,
-        uses_symbols,
+        uses_symbol_runtime: symbol::program_uses_runtime(execution),
     })
 }
 
@@ -75,14 +73,14 @@ struct FunctionEmitter<'a> {
     current_function: FunctionId,
     common_region: Option<ControlRegionId>,
     states: Vec<StateId>,
+    state_functions: HashMap<StateId, FunctionId>,
     result_type: Type,
     slots: HashMap<ValueId, Slot>,
     function_slots: HashMap<FunctionId, Vec<ValueId>>,
-    has_frames: bool,
+    frame_sites: Vec<StateId>,
     external_storage: Option<(usize, usize)>,
     types: Types,
     top_levels: &'a TopLevelConstants,
-    uses_symbols: bool,
     next_register: usize,
     globals: String,
     output: String,
@@ -136,9 +134,9 @@ impl<'a> FunctionEmitter<'a> {
             || vec![id],
             |region| execution.control_regions.functions(region).to_vec(),
         );
-        let states = functions
+        let function_states = functions
             .iter()
-            .flat_map(|function| {
+            .map(|function| {
                 let entry = execution
                     .control
                     .functions
@@ -146,18 +144,28 @@ impl<'a> FunctionEmitter<'a> {
                     .find(|candidate| candidate.id == *function)
                     .expect("control region function has an entry")
                     .entry;
-                reachable_states(&execution.control, entry)
+                (*function, reachable_states(&execution.control, entry))
             })
             .collect::<Vec<_>>();
+        let states = function_states
+            .iter()
+            .flat_map(|(_, states)| states.iter().copied())
+            .collect::<Vec<_>>();
+        let state_functions = function_states
+            .iter()
+            .flat_map(|(function, states)| states.iter().map(|state| (*state, *function)))
+            .collect::<HashMap<_, _>>();
+        if state_functions.len() != states.len() {
+            return None;
+        }
         let mut slots = HashMap::new();
         let mut function_slots = HashMap::new();
-        for function_id in &functions {
+        for (function_id, function_states) in &function_states {
             let region_function = execution
                 .control
                 .functions
                 .iter()
                 .find(|candidate| candidate.id == *function_id)?;
-            let function_states = reachable_states(&execution.control, region_function.entry);
             let mut ids = Vec::new();
             if let Some(id) = region_function.parameter.binding {
                 insert_slot(&mut slots, id, region_function.parameter.ty.clone());
@@ -201,7 +209,7 @@ impl<'a> FunctionEmitter<'a> {
                 || frame
                     .fields
                     .iter()
-                    .any(|field| types.value(&field.value.ty).is_none())
+                    .any(|field| types.value(&field.ty).is_none())
         }) {
             return None;
         }
@@ -231,11 +239,6 @@ impl<'a> FunctionEmitter<'a> {
                 external_storage = Some((size.max(value.size), alignment.max(value.alignment)));
             }
         }
-        let uses_symbols = slots
-            .values()
-            .any(|slot| crate::execution::ownership::is_managed(&slot.ty))
-            || crate::execution::ownership::is_managed(&function.parameter.ty)
-            || crate::execution::ownership::is_managed(&lowered.body.result.ty);
         Some(Self {
             execution,
             control: &execution.control,
@@ -244,13 +247,13 @@ impl<'a> FunctionEmitter<'a> {
             common_region,
             result_type: lowered.body.result.ty.clone(),
             states,
+            state_functions,
             slots,
             function_slots,
-            has_frames: !frame_sites.is_empty(),
+            frame_sites,
             external_storage,
             types,
             top_levels,
-            uses_symbols,
             next_register: 0,
             globals: String::new(),
             output: String::new(),
@@ -260,11 +263,11 @@ impl<'a> FunctionEmitter<'a> {
     fn emit(mut self) -> Option<EmittedFunction> {
         self.emit_environment_destructor()?;
         let parameter = if self.function.parameter.ty == Type::Unit {
-            "ptr %mal_context, ptr %mal_environment".to_string()
+            "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
             format!(
-                "ptr %mal_context, ptr %mal_environment, {} %mal_parameter",
+                "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
                 parameter.llvm
             )
         };
@@ -275,6 +278,13 @@ impl<'a> FunctionEmitter<'a> {
             function_name(self.function.id)?
         ));
         self.line("entry:");
+        if !self.frame_sites.is_empty() {
+            self.line(format!(
+                "  %mal_control_base = load {}, ptr %mal_control_top, align {}",
+                self.types.pointer_integer()?,
+                self.types.pointer_size()
+            ));
+        }
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
@@ -289,9 +299,6 @@ impl<'a> FunctionEmitter<'a> {
                     value_type.llvm, slot.index, value_type.alignment
                 ));
             }
-        }
-        if self.has_frames {
-            self.line("  %mal_control_top = alloca i64, align 8");
         }
         if self.common_region.is_some() {
             self.line("  %mal_active_environment = alloca ptr, align 8");
@@ -325,9 +332,6 @@ impl<'a> FunctionEmitter<'a> {
                 value_type.llvm, parameter.representation, slot.index, value_type.alignment
             ));
         }
-        if self.has_frames {
-            self.line("  store i64 0, ptr %mal_control_top, align 8");
-        }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 
         for site in self.states.clone() {
@@ -357,7 +361,7 @@ impl<'a> FunctionEmitter<'a> {
             Terminator::Return(value) => {
                 let mut value = self.atom(value)?;
                 self.retain_if_borrowed(&mut value)?;
-                if self.has_frames {
+                if !self.frame_sites.is_empty() {
                     let result_type = self.current_result_type()?;
                     if value.ty != result_type {
                         return None;
@@ -447,6 +451,11 @@ impl<'a> FunctionEmitter<'a> {
                 {
                     self.emit_frame_call(site, callee, argument)?;
                 }
+                ControlCallMode::DirectRegion(_)
+                    if self.execution.control_frames.frame(site).is_some() =>
+                {
+                    self.emit_frame_call(site, callee, argument)?;
+                }
                 ControlCallMode::Dispatch => {
                     let Terminator::Call { callee, .. } = terminator else {
                         unreachable!()
@@ -457,6 +466,7 @@ impl<'a> FunctionEmitter<'a> {
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }
                 ControlCallMode::DirectSelfTail => return None,
+                ControlCallMode::DirectRegion(_) => return None,
             },
             Terminator::TailCall { callee, argument } => {
                 match self.execution.control_calls.mode(site)? {
@@ -484,7 +494,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, callee, argument, true)?;
-                        if self.has_frames {
+                        if !self.frame_sites.is_empty() {
                             self.emit_frame_return(site, &result)?;
                         } else {
                             self.release_local_managed();
@@ -495,6 +505,9 @@ impl<'a> FunctionEmitter<'a> {
                             ));
                         }
                     }
+                    ControlCallMode::DirectRegion(_) => {
+                        self.emit_region_transition(site, callee, argument, false)?;
+                    }
                     ControlCallMode::Dispatch => {
                         if self.common_region.is_some()
                             && self.execution.control_regions.site_region(site)
@@ -503,7 +516,7 @@ impl<'a> FunctionEmitter<'a> {
                             self.emit_region_transition(site, callee, argument, false)?;
                         } else {
                             let result = self.emit_indirect_call(callee, argument, true)?;
-                            if self.has_frames {
+                            if !self.frame_sites.is_empty() {
                                 self.emit_frame_return(site, &result)?;
                             } else {
                                 self.release_local_managed();
@@ -542,7 +555,7 @@ impl<'a> FunctionEmitter<'a> {
             closure_type.llvm, callee.representation
         ));
         let arguments = if target.parameter.ty == Type::Unit {
-            format!("ptr %mal_context, ptr {environment}")
+            format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
             let argument = self.atom(argument)?;
             if argument.ty != target.parameter.ty {
@@ -550,7 +563,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             let value_type = self.types.value(&argument.ty)?;
             format!(
-                "ptr %mal_context, ptr {environment}, {} {}",
+                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
                 value_type.llvm, argument.representation
             )
         };
@@ -631,7 +644,7 @@ impl<'a> FunctionEmitter<'a> {
             if argument.ty != Type::Unit {
                 return None;
             }
-            format!("ptr %mal_context, ptr {environment}")
+            format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
             let argument = self.atom(argument)?;
             if argument.ty != **parameter {
@@ -639,7 +652,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             let value_type = self.types.value(parameter)?;
             format!(
-                "ptr %mal_context, ptr {environment}, {} {}",
+                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
                 value_type.llvm, argument.representation
             )
         };
@@ -674,11 +687,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn function_for_state(&self, site: StateId) -> Option<FunctionId> {
-        self.control.functions.iter().find_map(|function| {
-            reachable_states(self.control, function.entry)
-                .contains(&site)
-                .then_some(function.id)
-        })
+        self.state_functions.get(&site).copied()
     }
 
     fn active_environment(&mut self) -> String {

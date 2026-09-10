@@ -43,8 +43,10 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
     debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
         let site = crate::control::ast::StateId(index);
-        control_calls.mode(site) != Some(ControlCallMode::Dispatch)
-            || applications.targets(site).is_some()
+        !matches!(
+            control_calls.mode(site),
+            Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
+        ) || applications.targets(site).is_some()
     }));
     debug_assert!(control.states.iter().enumerate().all(|(index, state)| {
         !matches!(

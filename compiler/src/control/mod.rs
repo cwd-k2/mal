@@ -62,7 +62,6 @@ impl Lowerer {
             })
             .collect();
         Program {
-            interface: program.interface.clone(),
             bindings,
             functions,
             states: self.states,
@@ -283,33 +282,25 @@ impl Lowerer {
         let end = self.states.len();
         let mut live_in = vec![HashSet::new(); end - start];
         let mut environment_in = vec![false; end - start];
-        loop {
-            let mut changed = false;
-            for index in (start..end).rev() {
-                let state = &self.states[index];
-                let (uses, definitions, uses_environment) = state_facts(state);
-                let mut next = uses;
-                let mut next_environment = uses_environment;
-                for successor in successors(&state.terminator) {
-                    debug_assert!((start..end).contains(&successor.0));
-                    next.extend(
-                        live_in[successor.0 - start]
-                            .iter()
-                            .filter(|id| !definitions.contains(id))
-                            .copied(),
-                    );
-                    next_environment |= environment_in[successor.0 - start];
-                }
-                let slot = index - start;
-                if live_in[slot] != next || environment_in[slot] != next_environment {
-                    live_in[slot] = next;
-                    environment_in[slot] = next_environment;
-                    changed = true;
-                }
+        for index in start..end {
+            let state = &self.states[index];
+            let (mut next, definitions, uses_environment) = state_facts(state);
+            let mut next_environment = uses_environment;
+            for successor in successors(&state.terminator) {
+                debug_assert!(
+                    (start..index).contains(&successor.0),
+                    "control successors are emitted before their predecessors"
+                );
+                next.extend(
+                    live_in[successor.0 - start]
+                        .iter()
+                        .filter(|id| !definitions.contains(id))
+                        .copied(),
+                );
+                next_environment |= environment_in[successor.0 - start];
             }
-            if !changed {
-                break;
-            }
+            live_in[index - start] = next;
+            environment_in[index - start] = next_environment;
         }
 
         for index in start..end {

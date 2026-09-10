@@ -1,7 +1,116 @@
 use crate::check::ast::Type;
 use crate::closure::ast::Atom;
+use crate::control::ast::{Operation, Terminator};
 
 use super::{EmittedValue, FunctionEmitter};
+
+pub(super) fn program_uses_runtime(execution: &crate::execution::Program) -> bool {
+    execution
+        .lowered
+        .interface
+        .externals
+        .iter()
+        .any(|external| {
+            type_contains_value(&external.parameter) || type_contains_value(&external.result)
+        })
+        || execution.control.functions.iter().any(|function| {
+            function
+                .environment
+                .iter()
+                .any(|field| type_contains_value(&field.ty))
+                || type_contains_value(&function.parameter.ty)
+        })
+        || execution.control.states.iter().any(|state| {
+            state.input.as_ref().is_some_and(pattern_contains_value)
+                || state
+                    .live
+                    .iter()
+                    .any(|value| type_contains_value(&value.ty))
+                || state.bindings.iter().any(|binding| {
+                    pattern_contains_value(&binding.pattern)
+                        || operation_uses_runtime(&binding.operation)
+                })
+                || terminator_uses_runtime(&state.terminator)
+        })
+}
+
+fn type_contains_value(ty: &Type) -> bool {
+    match ty {
+        Type::Symbol => true,
+        Type::Product(elements) | Type::Sum(elements) => elements.iter().any(type_contains_value),
+        Type::Unit
+        | Type::Int8
+        | Type::Int16
+        | Type::Int32
+        | Type::Int64
+        | Type::UInt8
+        | Type::UInt16
+        | Type::UInt32
+        | Type::UInt64
+        | Type::Float32
+        | Type::Float64
+        | Type::Ptr
+        | Type::External { .. }
+        | Type::Function { .. } => false,
+    }
+}
+
+fn atom_contains_value(atom: &Atom) -> bool {
+    type_contains_value(&atom.ty)
+}
+
+fn pattern_contains_value(pattern: &crate::closure::ast::Pattern) -> bool {
+    match pattern {
+        crate::closure::ast::Pattern::Binding { ty, .. }
+        | crate::closure::ast::Pattern::Wildcard { ty, .. }
+        | crate::closure::ast::Pattern::Product { ty, .. } => type_contains_value(ty),
+    }
+}
+
+fn operation_uses_runtime(operation: &Operation) -> bool {
+    match operation {
+        Operation::Atom(atom)
+        | Operation::SymbolLength { value: atom }
+        | Operation::NumericConversion { operand: atom }
+        | Operation::SumInjection { value: atom, .. }
+        | Operation::ExternalCall { argument: atom, .. } => atom_contains_value(atom),
+        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
+            captures.iter().any(atom_contains_value)
+        }
+        Operation::SymbolAt { .. } => true,
+        Operation::Memory {
+            primitive:
+                crate::check::ast::MemoryPrimitive::LoadSymbol
+                | crate::check::ast::MemoryPrimitive::StoreSymbol,
+            ..
+        } => true,
+        Operation::Memory { argument, .. } => atom_contains_value(argument),
+        Operation::PrimitiveUnary { operand, .. } => atom_contains_value(operand),
+        Operation::PrimitiveBinary { left, right, .. } => {
+            atom_contains_value(left) || atom_contains_value(right)
+        }
+    }
+}
+
+fn terminator_uses_runtime(terminator: &Terminator) -> bool {
+    match terminator {
+        Terminator::Return(atom)
+        | Terminator::Case {
+            scrutinee: atom, ..
+        } => atom_contains_value(atom),
+        Terminator::Goto(_) => false,
+        Terminator::Jump { value, .. } => atom_contains_value(value),
+        Terminator::Call {
+            callee, argument, ..
+        }
+        | Terminator::TailCall { callee, argument } => {
+            atom_contains_value(callee) || atom_contains_value(argument)
+        }
+        Terminator::PrimitiveBranch { left, right, .. } => {
+            atom_contains_value(left) || atom_contains_value(right)
+        }
+    }
+}
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_symbol_length(&mut self, value: &Atom) -> Option<EmittedValue> {

@@ -62,6 +62,10 @@ impl ApplicationGraph {
             (site.caller == Some(function)).then_some((*id, site.targets.as_slice()))
         })
     }
+
+    pub(crate) fn sites(&self) -> impl Iterator<Item = (StateId, Option<FunctionId>)> + '_ {
+        self.sites.iter().map(|(id, site)| (*id, site.caller))
+    }
 }
 
 fn collect_sites(

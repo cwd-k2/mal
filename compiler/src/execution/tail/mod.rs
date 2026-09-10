@@ -4,7 +4,6 @@ use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
 use super::ApplicationGraph;
-use super::application::reachable_states;
 
 mod forwarder;
 
@@ -24,7 +23,7 @@ impl TailCallPlan {
         let mut fused_sites = HashSet::new();
         let mut forwarded_self_arguments = HashMap::new();
         for function in &control.functions {
-            for site in reachable_states(control, function.entry) {
+            for (site, _) in applications.sites_from(function.id) {
                 let state = &control.states[site.0];
                 let terminator = &state.terminator;
                 if let Some(argument) = applications.direct_target(site).and_then(|forwarder| {

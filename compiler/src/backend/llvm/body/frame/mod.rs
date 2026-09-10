@@ -3,8 +3,11 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
 
-use super::types::{Types, ValueType, align};
 use super::{EmittedValue, FunctionEmitter};
+
+mod layout;
+
+use layout::FrameLayout;
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_frame_call(
@@ -14,26 +17,38 @@ impl FunctionEmitter<'_> {
         argument: &Atom,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
-        let layout = FrameLayout::new(&frame, self.types)?;
+        let tagged = self.frame_sites.len() != 1;
+        let layout = FrameLayout::new(&frame, self.types, tagged)?;
+        let index_type = self.types.pointer_integer()?;
         let top = self.register();
-        self.line(format!("  {top} = load i64, ptr %mal_control_top, align 8"));
+        self.line(format!(
+            "  {top} = load {index_type}, ptr %mal_control_top, align {}",
+            self.types.pointer_size()
+        ));
         let storage = self.register();
         self.line(format!(
-            "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, i64 {top}, i64 {})",
+            "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {})",
             layout.size
         ));
         let next_top = self.register();
-        self.line(format!("  {next_top} = add i64 {top}, {}", layout.size));
+        self.line(format!(
+            "  {next_top} = add {index_type} {top}, {}",
+            layout.size
+        ));
         let frame_pointer = self.register();
         self.line(format!(
-            "  {frame_pointer} = getelementptr i8, ptr {storage}, i64 {top}"
+            "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {top}"
         ));
-        self.line(format!(
-            "  store i32 {}, ptr {frame_pointer}, align 4",
-            site.0
-        ));
+        if tagged {
+            let tag = self
+                .frame_sites
+                .iter()
+                .position(|candidate| *candidate == site)
+                .and_then(|tag| u32::try_from(tag).ok())?;
+            self.line(format!("  store i32 {tag}, ptr {frame_pointer}, align 4"));
+        }
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
-            let mut value = self.load_binding(field.value.id)?;
+            let mut value = self.load_binding(field.id)?;
             self.retain_if_borrowed(&mut value)?;
             let pointer = self.register();
             self.line(format!(
@@ -56,14 +71,19 @@ impl FunctionEmitter<'_> {
                 self.types.pointer_size()
             ));
         }
-        let footer = self.register();
+        if let Some(offset) = layout.footer {
+            let footer = self.register();
+            self.line(format!(
+                "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
+            ));
+            self.line(format!(
+                "  store {index_type} {top}, ptr {footer}, align {}",
+                self.types.pointer_size()
+            ));
+        }
         self.line(format!(
-            "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-            layout.footer
-        ));
-        self.line(format!("  store i64 {top}, ptr {footer}, align 8"));
-        self.line(format!(
-            "  store i64 {next_top}, ptr %mal_control_top, align 8"
+            "  store {index_type} {next_top}, ptr %mal_control_top, align {}",
+            self.types.pointer_size()
         ));
         if self.common_region.is_some() {
             self.emit_region_transition(site, callee, argument, frame.carries_environment)
@@ -97,15 +117,26 @@ impl FunctionEmitter<'_> {
         preserve_environment: bool,
     ) -> Option<()> {
         let callee = self.atom(callee)?;
-        let Type::Function { parameter, .. } = &callee.ty else {
+        let Type::Function { parameter, result } = &callee.ty else {
             return None;
         };
         let closure_type = self.types.value(&callee.ty)?;
-        let code = self.register();
-        self.line(format!(
-            "  {code} = extractvalue {} {}, 0",
-            closure_type.llvm, callee.representation
-        ));
+        let direct_target = match self.execution.control_calls.mode(site)? {
+            crate::execution::ControlCallMode::DirectRegion(target) => Some(target),
+            crate::execution::ControlCallMode::Dispatch => None,
+            crate::execution::ControlCallMode::Direct(_)
+            | crate::execution::ControlCallMode::DirectSelfTail => return None,
+        };
+        let code = if direct_target.is_none() {
+            let code = self.register();
+            self.line(format!(
+                "  {code} = extractvalue {} {}, 0",
+                closure_type.llvm, callee.representation
+            ));
+            Some(code)
+        } else {
+            None
+        };
         let environment = self.register();
         self.line(format!(
             "  {environment} = extractvalue {} {}, 1",
@@ -136,7 +167,20 @@ impl FunctionEmitter<'_> {
             .control_regions
             .recursive_targets(site)?
             .to_vec();
-        self.emit_region_dispatch(site, &targets, &code, &argument)
+        if let Some(target) = direct_target {
+            if !targets.contains(&target) {
+                return None;
+            }
+            return self.emit_region_target(target, &argument);
+        }
+        self.emit_region_dispatch(
+            site,
+            &targets,
+            code.as_deref()?,
+            &retained_environment,
+            &argument,
+            result,
+        )
     }
 
     fn emit_region_dispatch(
@@ -144,7 +188,9 @@ impl FunctionEmitter<'_> {
         site: StateId,
         targets: &[FunctionId],
         code: &str,
+        environment: &str,
         argument: &EmittedValue,
+        result: &Type,
     ) -> Option<()> {
         for (index, target) in targets.iter().enumerate() {
             let matched = self.register();
@@ -159,46 +205,87 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!("{next}:"));
         }
-        self.line("  unreachable");
-        for (index, target) in targets.iter().enumerate() {
-            let function = self
-                .control
-                .functions
-                .iter()
-                .find(|function| function.id == *target)?;
-            let entry = function.entry;
-            let parameter = function.parameter.clone();
-            self.line(format!("mal_region_target_{}_{index}:", site.0));
-            if let Some(binding) = parameter.binding {
-                let slot = self.slots.get(&binding)?.clone();
-                if slot.ty != argument.ty {
-                    return None;
-                }
-                let value_type = self.types.value(&slot.ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, argument.representation, slot.index, value_type.alignment
-                ));
-            } else if parameter.ty != Type::Unit {
-                return None;
+        let has_native_target = self
+            .execution
+            .applications
+            .targets(site)?
+            .iter()
+            .any(|target| !targets.contains(target));
+        if has_native_target {
+            let result_type = self.types.value(result)?;
+            let arguments = if argument.ty == Type::Unit {
+                format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
+            } else {
+                let argument_type = self.types.value(&argument.ty)?;
+                format!(
+                    "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
+                    argument_type.llvm, argument.representation
+                )
+            };
+            let returned = self.register();
+            self.line(format!(
+                "  {returned} = call {} {code}({arguments})",
+                result_type.llvm
+            ));
+            if argument.owned {
+                self.release_value(&argument.ty, &argument.representation)?;
             }
-            self.line(format!("  br label %mal_state_{}", entry.0));
+            self.emit_frame_return(
+                site,
+                &EmittedValue {
+                    ty: result.clone(),
+                    representation: returned,
+                    owned: crate::execution::ownership::is_managed(result),
+                },
+            )?;
+        } else {
+            self.line("  unreachable");
+        }
+        for (index, target) in targets.iter().enumerate() {
+            self.line(format!("mal_region_target_{}_{index}:", site.0));
+            self.emit_region_target(*target, argument)?;
         }
         Some(())
     }
 
-    pub(super) fn emit_frame_return(&mut self, site: StateId, result: &EmittedValue) -> Option<()> {
-        let frame_sites = self
-            .states
+    fn emit_region_target(&mut self, target: FunctionId, argument: &EmittedValue) -> Option<()> {
+        let function = self
+            .control
+            .functions
             .iter()
-            .filter(|candidate| self.execution.control_frames.frame(**candidate).is_some())
-            .copied()
-            .collect::<Vec<_>>();
+            .find(|function| function.id == target)?;
+        let entry = function.entry;
+        let parameter = function.parameter.clone();
+        if let Some(binding) = parameter.binding {
+            let slot = self.slots.get(&binding)?.clone();
+            if slot.ty != argument.ty {
+                return None;
+            }
+            let value_type = self.types.value(&slot.ty)?;
+            self.line(format!(
+                "  store {} {}, ptr %mal_slot_{}, align {}",
+                value_type.llvm, argument.representation, slot.index, value_type.alignment
+            ));
+        } else if parameter.ty != Type::Unit {
+            return None;
+        }
+        self.line(format!("  br label %mal_state_{}", entry.0));
+        Some(())
+    }
+
+    pub(super) fn emit_frame_return(&mut self, site: StateId, result: &EmittedValue) -> Option<()> {
+        let frame_sites = self.frame_sites.clone();
+        let index_type = self.types.pointer_integer()?;
         self.release_local_managed();
         let top = self.register();
-        self.line(format!("  {top} = load i64, ptr %mal_control_top, align 8"));
+        self.line(format!(
+            "  {top} = load {index_type}, ptr %mal_control_top, align {}",
+            self.types.pointer_size()
+        ));
         let finished = self.register();
-        self.line(format!("  {finished} = icmp eq i64 {top}, 0"));
+        self.line(format!(
+            "  {finished} = icmp eq {index_type} {top}, %mal_control_base"
+        ));
         self.line(format!(
             "  br i1 {finished}, label %mal_return_done_{}, label %mal_return_pop_{}",
             site.0, site.0
@@ -224,22 +311,55 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
         ));
+        if let [frame_site] = frame_sites.as_slice() {
+            let frame = self.execution.control_frames.frame(*frame_site)?.clone();
+            let layout = FrameLayout::new(&frame, self.types, false)?;
+            let previous_top = self.register();
+            self.line(format!(
+                "  {previous_top} = sub {index_type} {top}, {}",
+                layout.size
+            ));
+            self.line(format!(
+                "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
+                self.types.pointer_size()
+            ));
+            let frame_pointer = self.register();
+            self.line(format!(
+                "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
+            ));
+            if self.common_region.is_some() {
+                let active = self.active_environment();
+                self.line(format!(
+                    "  call void @mal_runtime_environment_release(ptr {active})"
+                ));
+            }
+            self.line(format!(
+                "  br label %mal_frame_{}_from_{}",
+                frame_site.0, site.0
+            ));
+            return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
+        }
         let footer_offset = self.register();
-        self.line(format!("  {footer_offset} = sub i64 {top}, 8"));
+        self.line(format!(
+            "  {footer_offset} = sub {index_type} {top}, {}",
+            self.types.pointer_size()
+        ));
         let footer = self.register();
         self.line(format!(
-            "  {footer} = getelementptr i8, ptr {storage}, i64 {footer_offset}"
+            "  {footer} = getelementptr i8, ptr {storage}, {index_type} {footer_offset}"
         ));
         let previous_top = self.register();
         self.line(format!(
-            "  {previous_top} = load i64, ptr {footer}, align 8"
+            "  {previous_top} = load {index_type}, ptr {footer}, align {}",
+            self.types.pointer_size()
         ));
         self.line(format!(
-            "  store i64 {previous_top}, ptr %mal_control_top, align 8"
+            "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
+            self.types.pointer_size()
         ));
         let frame_pointer = self.register();
         self.line(format!(
-            "  {frame_pointer} = getelementptr i8, ptr {storage}, i64 {previous_top}"
+            "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
         ));
         if self.common_region.is_some() {
             let active = self.active_environment();
@@ -251,13 +371,16 @@ impl FunctionEmitter<'_> {
         self.line(format!("  {tag} = load i32, ptr {frame_pointer}, align 4"));
         let cases = frame_sites
             .iter()
-            .map(|frame_site| {
-                format!(
-                    "    i32 {}, label %mal_frame_{}_from_{}",
-                    frame_site.0, frame_site.0, site.0
-                )
+            .enumerate()
+            .map(|(tag, frame_site)| {
+                u32::try_from(tag).ok().map(|tag| {
+                    format!(
+                        "    i32 {}, label %mal_frame_{}_from_{}",
+                        tag, frame_site.0, site.0
+                    )
+                })
             })
-            .collect::<Vec<_>>()
+            .collect::<Option<Vec<_>>>()?
             .join("\n");
         self.line(format!(
             "  switch i32 {tag}, label %mal_invalid_frame_{0} [\n{cases}\n  ]",
@@ -266,7 +389,7 @@ impl FunctionEmitter<'_> {
         self.line(format!("mal_invalid_frame_{}:", site.0));
         self.line("  unreachable");
         for frame_site in frame_sites {
-            self.emit_frame_resume(site, frame_site, result, &frame_pointer)?;
+            self.emit_frame_resume(site, frame_site, result, &frame_pointer, true)?;
         }
         Some(())
     }
@@ -277,9 +400,10 @@ impl FunctionEmitter<'_> {
         frame_site: StateId,
         result: &EmittedValue,
         frame_pointer: &str,
+        tagged: bool,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
-        let layout = FrameLayout::new(&frame, self.types)?;
+        let layout = FrameLayout::new(&frame, self.types, tagged)?;
         self.line(format!(
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
@@ -295,7 +419,7 @@ impl FunctionEmitter<'_> {
                 "  {value} = load {}, ptr {pointer}, align {}",
                 layout.value_type.llvm, layout.value_type.alignment
             ));
-            let slot = self.slots.get(&field.value.id)?.clone();
+            let slot = self.slots.get(&field.id)?.clone();
             self.line(format!(
                 "  store {} {value}, ptr %mal_slot_{}, align {}",
                 layout.value_type.llvm, slot.index, layout.value_type.alignment
@@ -346,48 +470,6 @@ impl FunctionEmitter<'_> {
             ty: slot.ty,
             representation: register,
             owned: false,
-        })
-    }
-}
-
-struct FrameLayout {
-    fields: Vec<FieldLayout>,
-    environment: Option<usize>,
-    footer: usize,
-    size: usize,
-}
-
-struct FieldLayout {
-    offset: usize,
-    value_type: ValueType,
-}
-
-impl FrameLayout {
-    fn new(frame: &crate::execution::ControlFrame, types: Types) -> Option<Self> {
-        let mut offset = 4usize;
-        let mut fields = Vec::with_capacity(frame.fields.len());
-        for field in &frame.fields {
-            let value_type = types.value(&field.value.ty)?;
-            offset = align(offset, value_type.alignment)?;
-            let size = value_type.size;
-            fields.push(FieldLayout { offset, value_type });
-            offset = offset.checked_add(size)?;
-        }
-        let environment = if frame.carries_environment {
-            offset = align(offset, types.pointer_size())?;
-            let field = offset;
-            offset = offset.checked_add(types.pointer_size())?;
-            Some(field)
-        } else {
-            None
-        };
-        let footer = align(offset, 8)?;
-        let size = footer.checked_add(8)?;
-        Some(Self {
-            fields,
-            environment,
-            footer,
-            size,
         })
     }
 }

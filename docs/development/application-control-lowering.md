@@ -9,6 +9,8 @@ Status: Current implementation design
 ## authority
 
 `control`はMal function callをstate terminatorへ分離し、stateごとのbackward livenessと`needs_environment`を構成する。
+function内のcontrol graphは再帰edgeを含まず、lowererはsuccessorをpredecessorより先に構成する。この順序により
+livenessは一回のbackward dataflow passで確定し、applicationによる再帰は後続のexecution planだけが扱う。
 `execution`はこの表現とclosure-use情報から次を一方向に導出する。
 
 ```text
@@ -25,9 +27,10 @@ possible application graphは各applicationのcaller、known target、および�
 tail fusionはcallerのcontinuationをそのまま渡すdirect self edgeとpureなknown forwarderだけを除き、possible target情報自体は保持する。
 residual graphのrecursive SCCをcontrol regionとし、region内edgeだけが明示的なstate遷移になる。
 
-call modeは次の三つである。
+call modeは次の四つである。
 
 - `Direct`: condensation graph上の非循環なnative call。
+- `DirectRegion`: 静的に既知の同一recursive region内targetへのstate遷移。
 - `DirectSelfTail`: parameter slotを更新して同じentry stateへ戻るframeなしの遷移。
 - `Dispatch`: first-class calleeのcode identityで有限targetを選ぶ。region内targetならstate遷移、region外targetならindirect native callになる。
 
@@ -45,10 +48,13 @@ storageのcapacity、growth、overflow、releaseはC runtime、tag、layout、ow
 
 複数entryまたはindirect recursive edgeを持つregionでは、各公開entry型に対応するwrapper bodyが同じregion state集合を実行する。
 callee closureからcode pointerとenvironmentを取り出し、application graphが列挙したtargetだけへdispatchする。target parameterへargumentを
-移してからtarget entryへbranchする。列挙外のcode identityは到達不能なcompiler invariant違反である。
+移してから、同じregionのtargetならentry stateへbranchし、region外のtargetなら非循環なnative callとして呼ぶ。application graphの
+列挙外にあるcode identityだけが到達不能なcompiler invariant違反である。
 
 non-tail遷移ではcaller live valueをframeへ移し、必要ならcaller environment ownerもframeへ移す。callee return時はframe tagからresume
-stateを選び、fieldとenvironmentをlocal slotへ戻してresultをresume inputへ移す。stackが空ならroot resultをnative callerへ返す。
+stateを選び、fieldとenvironmentをlocal slotへ戻してresultをresume inputへ移す。program entryが一つのcontrol topをinternal callへ渡し、
+各recursive region invocationはentry時のtopをbaseとして保持する。topがそのbaseへ戻ったらresultをnative callerへ返すため、外側regionの
+frameを保持したまま別regionを呼んでも同じarena上で互いのframeを解釈しない。
 
 ## ownerと失敗
 

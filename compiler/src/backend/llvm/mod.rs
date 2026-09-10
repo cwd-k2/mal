@@ -44,21 +44,36 @@ pub(crate) fn generate(
         .collect::<Vec<_>>()
         .join("\n\n");
     let control_declarations = if body.uses_control {
-        "declare ptr @mal_control_reserve_frame(ptr, i64, i64)\ndeclare ptr @mal_control_storage(ptr)\n\n"
+        format!(
+            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\n\n",
+            types.pointer_integer()?
+        )
     } else {
-        ""
+        String::new()
     };
-    let symbol_declarations = if body.uses_symbols {
+    let symbol_declarations = if body.uses_symbol_runtime {
         "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
     } else {
         ""
+    };
+    let (control_entry, control_top) = if body.uses_control {
+        (
+            format!(
+                "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n",
+                types.pointer_integer()?,
+                types.pointer_size()
+            ),
+            "%mal_control_top",
+        )
+    } else {
+        (String::new(), "null")
     };
     let (entry_argument, entry_call) = match &body.main_parameter {
         crate::check::ast::Type::Unit => (
             String::new(),
             format!(
-                "call i32 @{}(ptr %mal_context, ptr null)",
-                function_name(body.main)?
+                "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",
+                function_name(body.main)?,
             ),
         ),
         ty => {
@@ -69,7 +84,7 @@ pub(crate) fn generate(
                     value.llvm, value.alignment
                 ),
                 format!(
-                    "call i32 @{}(ptr %mal_context, ptr null, {} %mal_entry_argument)",
+                    "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",
                     function_name(body.main)?,
                     value.llvm
                 ),
@@ -77,7 +92,7 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         types.pointer_integer()?,
@@ -87,10 +102,11 @@ pub(crate) fn generate(
         body.globals,
         body.definitions,
         entry.llvm_signature(),
+        control_entry,
         entry_argument,
         entry_call,
     );
-    let symbol_bridge_runtime = if body.uses_symbols {
+    let symbol_bridge_runtime = if body.uses_symbol_runtime {
         "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    (void)context;\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
     } else {
         ""
@@ -485,6 +501,48 @@ mod tests {
         assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));
         assert_eq!(pointer_size("e-p0:128:128"), Some(16));
         assert_eq!(pointer_size("e-p:7:8"), None);
+    }
+
+    #[test]
+    fn uses_the_target_size_type_for_control_storage_offsets() {
+        let source = SourceFile::new(
+            FileId::new(79),
+            "llvm-32-bit-control.mal",
+            "sum :: Int32 -> Int32 := \\(value) {\n\
+               if (value == 0i32)\n\
+               then { 0i32 }\n\
+               else {\n\
+                 rest := sum(value - 1i32);\n\
+                 value + rest;\n\
+               };\n\
+             };\n\
+             main :: Unit -> Int32 := \\() { sum(4i32); };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check 32-bit control fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution = crate::execution::lower(closure);
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "i386-unknown-linux-gnu",
+                data_layout: "e-p:32:32-i64:64",
+            },
+        )
+        .expect("32-bit control fixture is supported");
+
+        assert!(
+            artifacts
+                .module
+                .contains("declare ptr @mal_control_reserve_frame(ptr, i32, i32)")
+        );
+        assert!(
+            artifacts
+                .module
+                .contains("%mal_control_top = alloca i32, align 4")
+        );
     }
 
     #[test]
