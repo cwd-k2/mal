@@ -9,13 +9,17 @@ pub(super) struct ValueType {
     pub(super) size: usize,
 }
 
+pub(in crate::backend::llvm) struct Field {
+    pub(in crate::backend::llvm) offset: usize,
+}
+
 #[derive(Clone, Copy)]
-pub(super) struct Types {
+pub(in crate::backend::llvm) struct Types {
     pointer_size: usize,
 }
 
 impl Types {
-    pub(super) fn new(pointer_size: usize) -> Option<Self> {
+    pub(in crate::backend::llvm) fn new(pointer_size: usize) -> Option<Self> {
         pointer_size
             .is_power_of_two()
             .then_some(Self { pointer_size })
@@ -57,12 +61,7 @@ impl Types {
     }
 
     fn product(self, elements: &[Type]) -> Option<ValueType> {
-        aggregate_type(
-            elements
-                .iter()
-                .map(|element| self.value(element))
-                .collect::<Option<Vec<_>>>()?,
-        )
+        aggregate_type(self.fields(elements)?)
     }
 
     fn sum(self, elements: &[Type]) -> Option<ValueType> {
@@ -78,6 +77,17 @@ impl Types {
                 .collect::<Option<Vec<_>>>()?,
         );
         aggregate_type(fields)
+    }
+
+    pub(in crate::backend::llvm) fn product_fields(self, ty: &Type) -> Option<Vec<Field>> {
+        let Type::Product(elements) = ty else {
+            return None;
+        };
+        field_layouts(&self.fields(elements)?)
+    }
+
+    fn fields(self, elements: &[Type]) -> Option<Vec<ValueType>> {
+        elements.iter().map(|element| self.value(element)).collect()
     }
 }
 
@@ -104,6 +114,19 @@ fn aggregate_type(fields: Vec<ValueType>) -> Option<ValueType> {
         alignment,
         size: align(size, alignment)?,
     })
+}
+
+fn field_layouts(fields: &[ValueType]) -> Option<Vec<Field>> {
+    let mut offset = 0usize;
+    fields
+        .iter()
+        .map(|value_type| {
+            offset = align(offset, value_type.alignment)?;
+            let field = Field { offset };
+            offset = offset.checked_add(value_type.size)?;
+            Some(field)
+        })
+        .collect()
 }
 
 pub(super) fn is_bool(ty: &Type) -> bool {

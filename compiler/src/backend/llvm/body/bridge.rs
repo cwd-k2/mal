@@ -24,14 +24,20 @@ impl FunctionEmitter<'_> {
             return None;
         }
         if scalar_type(&argument.ty).is_none()
-            && !matches!(argument.ty, Type::Unit | Type::Ptr | Type::Symbol)
+            && !matches!(
+                argument.ty,
+                Type::Unit | Type::Ptr | Type::Symbol | Type::Product(_)
+            )
         {
             return None;
         }
         let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
         if scalar_type(&result_type).is_none()
-            && !matches!(result_type, Type::Unit | Type::Ptr | Type::Symbol)
+            && !matches!(
+                result_type,
+                Type::Unit | Type::Ptr | Type::Symbol | Type::Product(_)
+            )
         {
             return None;
         }

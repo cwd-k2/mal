@@ -14,7 +14,7 @@ mod operation;
 mod plan;
 mod scalar;
 mod symbol;
-mod types;
+pub(super) mod types;
 mod value;
 
 use plan::{
@@ -171,7 +171,8 @@ impl<'a> FunctionEmitter<'a> {
                 .iter()
                 .find(|external| external.id == id)?;
             for ty in [&external.parameter, &external.result] {
-                if scalar_type(ty).is_none() && !matches!(ty, Type::Unit | Type::Ptr | Type::Symbol)
+                if scalar_type(ty).is_none()
+                    && !matches!(ty, Type::Unit | Type::Ptr | Type::Symbol | Type::Product(_))
                 {
                     return None;
                 }

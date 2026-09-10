@@ -594,6 +594,58 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
 }
 
 #[test]
+fn marshals_managed_products_through_the_public_c_abi() {
+    let directory = NativeFixture::new("driver-llvm-product-extern");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Packet :: (UInt64, Symbol);\n\
+         extern exchange :: Packet -> Packet;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           (number, text) := exchange(41u64, \"a\" + \"b\");\n\
+           if (number == 42u64) then {\n\
+             if (text == \"ab\") then { 0 } else { 1 };\n\
+           } else { 2 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_exchange(call, value) {\n\
+             mal_span_t bytes = mal_Symbol_to_bytes(call, value.field_1);\n\
+             if (bytes.length != 2 || bytes.data[0] != 'a' || bytes.data[1] != 'b') {\n\
+                 mal_call_trap(call, \"unexpected packet\");\n\
+             }\n\
+             return mal_Packet_return(\n\
+                 call,\n\
+                 (mal_Packet_t){.field_0 = value.field_0 + 1, .field_1 = value.field_1}\n\
+             );\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_symbols_nested_in_products_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-symbol-product");
     let source = directory.join("program.mal");

@@ -16,14 +16,16 @@ pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
 ) -> Option<LlvmArtifacts> {
-    let body = body::generate(program, pointer_size(target.data_layout)?)?;
+    let pointer_size = pointer_size(target.data_layout)?;
+    let body = body::generate(program, pointer_size)?;
     let entry = AbiFunction::program_entry();
+    let raw_types = crate::c_emit::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
         .lowered
         .interface
         .externals
         .iter()
-        .map(external_bridge)
+        .map(|external| external_bridge(external, pointer_size, &raw_types))
         .collect::<Option<Vec<_>>>()?;
     let external_declarations = external_bridges
         .iter()
@@ -94,40 +96,56 @@ fn pointer_size(data_layout: &str) -> Option<usize> {
         .filter(|bytes| (*bytes).is_power_of_two())
 }
 
-fn external_bridge(external: &crate::core::ast::ExternalOperation) -> Option<(String, String)> {
+fn external_bridge(
+    external: &crate::core::ast::ExternalOperation,
+    pointer_size: usize,
+    raw_types: &crate::c_emit::RawHostTypes,
+) -> Option<(String, String)> {
+    use crate::check::ast::Type;
+
+    let types = body::types::Types::new(pointer_size)?;
     let bridge = AbiFunction::external_bridge(external.id);
     let llvm = format!("declare {}", bridge.llvm_signature());
     let signature = bridge.c_declaration();
     let signature = signature.strip_suffix(';')?;
-    let (parameter, argument) = match &external.parameter {
-        crate::check::ast::Type::Unit => (
-            "    (void)mal_argument;\n".into(),
-            String::new(),
-        ),
-        crate::check::ast::Type::Symbol => (
-            "    const void *ownership = *(const void *const *)mal_argument;\n    MalType_Symbol parameter = {\n        .data = mal_runtime_symbol_data(ownership),\n        .length = mal_runtime_symbol_length(ownership),\n        .ownership = (void *)ownership,\n    };\n"
-                .into(),
-            ", parameter".into(),
-        ),
-        ty => {
-            let parameter = c_scalar_type(ty)?;
-            (
-                String::new(),
-                format!(", *(const {parameter} *)mal_argument"),
-            )
+    let (parameter, arguments) = match &external.parameter {
+        Type::Unit => ("    (void)mal_argument;\n".into(), Vec::new()),
+        Type::Product(elements) => {
+            let fields = types.product_fields(&external.parameter)?;
+            let arguments = elements
+                .iter()
+                .zip(fields)
+                .map(|(element, field)| {
+                    read_bridge_value(element, "mal_argument", field.offset, types, raw_types)
+                })
+                .collect::<Option<Vec<_>>>()?;
+            (String::new(), arguments)
         }
+        ty => (
+            String::new(),
+            vec![read_bridge_value(ty, "mal_argument", 0, types, raw_types)?],
+        ),
     };
+    let argument = arguments
+        .iter()
+        .map(|argument| format!(", {argument}"))
+        .collect::<String>();
     let call = format!(
         "mal_ext_{}((MalContext *)mal_context{argument})",
         external.name
     );
     let result = match &external.result {
-        crate::check::ast::Type::Unit => {
+        Type::Unit => {
             format!("    {call};\n    *(uint8_t *)mal_result = UINT8_C(0);")
         }
-        crate::check::ast::Type::Symbol => format!(
+        Type::Symbol => format!(
             "    MalType_Symbol result = {call};\n    *(void **)mal_result = result.ownership;"
         ),
+        Type::Product(_) => {
+            let result_type = raw_types.c_type(&external.result);
+            let writes = write_bridge_value(&external.result, "result", 0, types)?;
+            format!("    {result_type} result = {call};\n{writes}")
+        }
         ty => {
             let result = c_scalar_type(ty)?;
             format!("    *({result} *)mal_result = {call};")
@@ -135,6 +153,97 @@ fn external_bridge(external: &crate::core::ast::ExternalOperation) -> Option<(St
     };
     let c = format!("{signature} {{\n{parameter}{result}\n}}");
     Some((llvm, c))
+}
+
+fn read_bridge_value(
+    ty: &crate::check::ast::Type,
+    base: &str,
+    offset: usize,
+    types: body::types::Types,
+    raw_types: &crate::c_emit::RawHostTypes,
+) -> Option<String> {
+    use crate::check::ast::Type;
+
+    let pointer = bridge_pointer(base, offset, true);
+    match ty {
+        Type::Unit => Some("(MalType_Unit){.unused = UINT8_C(0)}".into()),
+        Type::Symbol => {
+            let ownership = format!("*(void *const *){pointer}");
+            Some(format!(
+                "(MalType_Symbol){{.data = mal_runtime_symbol_data({ownership}), .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}}"
+            ))
+        }
+        Type::Product(elements) => {
+            let fields = types.product_fields(ty)?;
+            let initializers = elements
+                .iter()
+                .zip(fields)
+                .enumerate()
+                .map(|(index, (element, field))| {
+                    Some(format!(
+                        ".field_{index} = {}",
+                        read_bridge_value(
+                            element,
+                            base,
+                            offset.checked_add(field.offset)?,
+                            types,
+                            raw_types,
+                        )?
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()?
+                .join(", ");
+            Some(format!("({}){{{initializers}}}", raw_types.c_type(ty)))
+        }
+        _ => {
+            let c_type = c_scalar_type(ty)?;
+            Some(format!("*(const {c_type} *){pointer}"))
+        }
+    }
+}
+
+fn write_bridge_value(
+    ty: &crate::check::ast::Type,
+    value: &str,
+    offset: usize,
+    types: body::types::Types,
+) -> Option<String> {
+    use crate::check::ast::Type;
+
+    let pointer = bridge_pointer("mal_result", offset, false);
+    match ty {
+        Type::Unit => Some(format!("    *(uint8_t *){pointer} = UINT8_C(0);")),
+        Type::Symbol => Some(format!("    *(void **){pointer} = {value}.ownership;")),
+        Type::Product(elements) => {
+            let fields = types.product_fields(ty)?;
+            elements
+                .iter()
+                .zip(fields)
+                .enumerate()
+                .map(|(index, (element, field))| {
+                    write_bridge_value(
+                        element,
+                        &format!("{value}.field_{index}"),
+                        offset.checked_add(field.offset)?,
+                        types,
+                    )
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(|writes| writes.join("\n"))
+        }
+        _ => {
+            let c_type = c_scalar_type(ty)?;
+            Some(format!("    *({c_type} *){pointer} = {value};"))
+        }
+    }
+}
+
+fn bridge_pointer(base: &str, offset: usize, read_only: bool) -> String {
+    let qualifier = if read_only { "const " } else { "" };
+    if offset == 0 {
+        return format!("(({qualifier}unsigned char *){base})");
+    }
+    format!("(({qualifier}unsigned char *){base} + {offset})")
 }
 
 fn c_scalar_type(ty: &crate::check::ast::Type) -> Option<&'static str> {
@@ -199,5 +308,26 @@ mod tests {
         assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));
         assert_eq!(pointer_size("e-p0:128:128"), Some(16));
         assert_eq!(pointer_size("e-p:7:8"), None);
+    }
+
+    #[test]
+    fn admits_product_external_calls() {
+        for (index, source) in [
+            "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, 2u64)); };",
+            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, \"x\")); };",
+            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := \\() { (value, _) := inspect(1u64, \"x\"); Int32(value); };",
+            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := \\() { (number, text) := exchange(41u64, \"a\" + \"b\"); Int32(number); };",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let source = SourceFile::new(FileId::new(76), "product-extern.mal", source.into());
+            let checked = crate::pipeline::check(&source).expect("check product extern fixture");
+            let core = crate::core::lower(&checked);
+            let anf = crate::anf::lower(&core);
+            let closure = crate::closure::convert(&anf);
+            let execution = crate::execution::lower(closure);
+            assert!(supports(&execution), "unsupported fixture {index}");
+        }
     }
 }

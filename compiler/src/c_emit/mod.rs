@@ -80,6 +80,22 @@ pub fn emit_header(interface: &ProgramInterface) -> String {
     header::emit(interface, &types, &host)
 }
 
+pub(crate) struct RawHostTypes {
+    types: TypeRegistry,
+}
+
+impl RawHostTypes {
+    pub(crate) fn new(interface: &ProgramInterface) -> Self {
+        let mut types = TypeRegistry::default();
+        let _host = HostTypes::collect(interface, &mut types);
+        Self { types }
+    }
+
+    pub(crate) fn c_type(&self, ty: &crate::check::ast::Type) -> String {
+        self.types.c_type(ty).to_string()
+    }
+}
+
 pub fn emit_host(interface: &ProgramInterface, header_name: &str) -> Result<String, Diagnostic> {
     if !is_valid_header_name(header_name) {
         return Err(Diagnostic::error(
