@@ -22,13 +22,14 @@ pub(crate) enum ControlCallMode {
 pub(crate) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
     common_regions: HashSet<ControlRegionId>,
+    forwarded_self_arguments: HashMap<StateId, closure::Atom>,
 }
 
 impl ControlCallPlan {
     pub(crate) fn new(
         control: &control::Program,
         applications: &ApplicationGraph,
-        tail_calls: &TailCallPlan,
+        tail_calls: TailCallPlan,
         regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
@@ -57,9 +58,11 @@ impl ControlCallPlan {
             .ids()
             .filter(|region| region_requires_common_control(control, regions, &modes, *region))
             .collect();
+        let forwarded_self_arguments = tail_calls.into_forwarded_self_arguments();
         Self {
             modes,
             common_regions,
+            forwarded_self_arguments,
         }
     }
 
@@ -69,6 +72,10 @@ impl ControlCallPlan {
 
     pub(crate) fn requires_common_control(&self, region: ControlRegionId) -> bool {
         self.common_regions.contains(&region)
+    }
+
+    pub(crate) fn forwarded_self_argument(&self, site: StateId) -> Option<&closure::Atom> {
+        self.forwarded_self_arguments.get(&site)
     }
 }
 
@@ -151,7 +158,7 @@ mod tests {
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
         let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let plan = ControlCallPlan::new(&control, &applications, tail_calls, &regions);
 
         let helper = top_level_function_id(&closure, "helper");
         let recursive = control
@@ -217,7 +224,7 @@ mod tests {
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
         let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let plan = ControlCallPlan::new(&control, &applications, tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
 
@@ -286,7 +293,7 @@ mod tests {
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
         let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let plan = ControlCallPlan::new(&control, &applications, tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
 
         assert!(regions.ids().next().is_none());
@@ -299,7 +306,7 @@ mod tests {
             direct_function_id(&uses, callee) == Some(apply)
                 && applications.direct_target(site) == Some(apply)
                 && plan.mode(site) == Some(ControlCallMode::DirectSelfTail)
-                && tail_calls.forwarded_self_argument(site).is_some()
+                && plan.forwarded_self_argument(site).is_some()
         }));
         assert!(control.states.iter().enumerate().any(|(index, state)| {
             let (Terminator::TailCall { callee, .. } | Terminator::Call { callee, .. }) =

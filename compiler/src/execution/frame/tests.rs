@@ -32,7 +32,7 @@ fn validates_exact_frame_sites_and_payloads() {
     let tail_calls = TailCallPlan::new(&closure, &control, &applications);
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let regions = ControlRegionPlan::new(&control, &continuations);
-    let calls = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+    let calls = ControlCallPlan::new(&control, &applications, tail_calls, &regions);
     let mut plan = ControlFramePlan::new(&control, &regions, &calls);
 
     assert!(plan.is_valid(&control, &regions, &calls));

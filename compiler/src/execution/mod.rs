@@ -22,7 +22,6 @@ pub(crate) struct Program {
     pub(crate) control: crate::control::ast::Program,
     pub(crate) closure_uses: ClosureUsePlan,
     pub(crate) applications: ApplicationGraph,
-    pub(crate) tail_calls: TailCallPlan,
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
@@ -37,8 +36,7 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let control_regions = ControlRegionPlan::new(&control, &continuations);
     debug_assert!(control_regions.is_valid(&control, &continuations));
-    let control_calls =
-        ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
+    let control_calls = ControlCallPlan::new(&control, &applications, tail_calls, &control_regions);
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
     debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
@@ -62,7 +60,6 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
         control,
         closure_uses,
         applications,
-        tail_calls,
         control_calls,
         control_regions,
         control_frames,

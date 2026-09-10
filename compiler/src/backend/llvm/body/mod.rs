@@ -468,7 +468,7 @@ impl<'a> FunctionEmitter<'a> {
                     ControlCallMode::DirectSelfTail => {
                         let argument = self
                             .execution
-                            .tail_calls
+                            .control_calls
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
                         let mut value = self.atom(argument)?;
