@@ -72,6 +72,9 @@ control storageはMal programから到達不能なimplementation storageであ�
 
 ## 検証
 
+call mode、parameter handoff、frame resume、managed ownerを横断する現在の作業順序と完了条件は
+[application control境界監査計画](application-control-boundary-audit.md)に置く。
+
 - 全application siteにcall modeがあり、direct native call graphがacyclicである。
 - region内non-tail siteとframe集合、frame fieldとresume live-inが一致する。
 - tail edgeがframeを増やさず、深いself recursionとfirst-class cycleでnative stack使用量がdepthに比例しない。
