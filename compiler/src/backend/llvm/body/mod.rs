@@ -365,20 +365,11 @@ impl<'a> FunctionEmitter<'a> {
             Terminator::Return(value) => {
                 let mut value = self.atom(value)?;
                 self.retain_if_borrowed(&mut value)?;
-                if !self.frame_sites.is_empty() {
-                    let result_type = self.current_result_type()?;
-                    if value.ty != result_type {
-                        return None;
-                    }
-                    self.emit_frame_return(site, &value)?;
-                } else {
-                    self.release_local_managed();
-                    let value_type = self.types.value(&value.ty)?;
-                    self.line(format!(
-                        "  ret {} {}",
-                        value_type.llvm, value.representation
-                    ));
+                let result_type = self.current_result_type()?;
+                if value.ty != result_type {
+                    return None;
                 }
+                self.emit_continuation_return(site, &value)?;
             }
             Terminator::Goto(target) => {
                 self.line(format!("  br label %mal_state_{}", target.0));
@@ -498,16 +489,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, callee, argument, true)?;
-                        if !self.frame_sites.is_empty() {
-                            self.emit_frame_return(site, &result)?;
-                        } else {
-                            self.release_local_managed();
-                            let value_type = self.types.value(&result.ty)?;
-                            self.line(format!(
-                                "  ret {} {}",
-                                value_type.llvm, result.representation
-                            ));
-                        }
+                        self.emit_continuation_return(site, &result)?;
                     }
                     ControlCallMode::DirectRegion(_) => {
                         self.emit_region_transition(site, callee, argument, false)?;
@@ -520,16 +502,7 @@ impl<'a> FunctionEmitter<'a> {
                             self.emit_region_transition(site, callee, argument, false)?;
                         } else {
                             let result = self.emit_indirect_call(callee, argument, true)?;
-                            if !self.frame_sites.is_empty() {
-                                self.emit_frame_return(site, &result)?;
-                            } else {
-                                self.release_local_managed();
-                                let value_type = self.types.value(&result.ty)?;
-                                self.line(format!(
-                                    "  ret {} {}",
-                                    value_type.llvm, result.representation
-                                ));
-                            }
+                            self.emit_continuation_return(site, &result)?;
                         }
                     }
                 }

@@ -377,6 +377,58 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
 }
 
 #[test]
+fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
+    let directory = NativeFixture::new("driver-llvm-tail-region-native-target");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern touch :: Unit -> Unit;\n\
+         apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(operation, value) {\n\
+           touch();\n\
+           operation(value);\n\
+         };\n\
+         recurse :: Int32 -> Symbol := \\(value) { apply(recurse, value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           prefix := \"x\" + \"y\";\n\
+           identity :: Int32 -> Symbol := \\(value) { prefix; };\n\
+           result := apply(identity, 0i32);\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_touch(call) { return mal_Unit_return(call); }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = directory.run(executable);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn runs_deep_first_class_call_cycles_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-first-class-cycle");
     let source = directory.join("program.mal");

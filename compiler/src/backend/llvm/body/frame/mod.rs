@@ -230,7 +230,7 @@ impl FunctionEmitter<'_> {
             if argument.owned {
                 self.release_value(&argument.ty, &argument.representation)?;
             }
-            self.emit_frame_return(
+            self.emit_continuation_return(
                 site,
                 &EmittedValue {
                     ty: result.clone(),
@@ -273,10 +273,31 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    pub(super) fn emit_frame_return(&mut self, site: StateId, result: &EmittedValue) -> Option<()> {
+    pub(super) fn emit_continuation_return(
+        &mut self,
+        site: StateId,
+        result: &EmittedValue,
+    ) -> Option<()> {
         let frame_sites = self.frame_sites.clone();
-        let index_type = self.types.pointer_integer()?;
         self.release_local_managed();
+        if frame_sites.is_empty() {
+            if self.common_region.is_some() {
+                let environment = self.active_environment();
+                self.line(format!(
+                    "  call void @mal_runtime_environment_release(ptr {environment})"
+                ));
+            }
+            if result.ty != self.result_type {
+                return None;
+            }
+            let result_type = self.types.value(&self.result_type)?;
+            self.line(format!(
+                "  ret {} {}",
+                result_type.llvm, result.representation
+            ));
+            return Some(());
+        }
+        let index_type = self.types.pointer_integer()?;
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr %mal_control_top, align {}",
