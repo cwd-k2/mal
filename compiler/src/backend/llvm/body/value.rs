@@ -233,6 +233,10 @@ impl FunctionEmitter<'_> {
         if !crate::execution::ownership::is_managed(&slot.ty) {
             return Some(());
         }
+        self.release_slot(&slot)
+    }
+
+    fn release_slot(&mut self, slot: &super::Slot) -> Option<()> {
         let value_type = self.types.value(&slot.ty)?;
         let value = self.register();
         self.line(format!(
@@ -259,18 +263,7 @@ impl FunctionEmitter<'_> {
             .collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
-            let value = self.register();
-            let value_type = self.types.value(&slot.ty).expect("managed representation");
-            self.line(format!(
-                "  {value} = load {}, ptr %mal_slot_{}, align {}",
-                value_type.llvm, slot.index, value_type.alignment
-            ));
-            self.release_value(&slot.ty, &value)
-                .expect("managed slot is supported");
-            self.line(format!(
-                "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
-                value_type.llvm, slot.index, value_type.alignment
-            ));
+            self.release_slot(&slot).expect("managed slot is supported");
         }
     }
 

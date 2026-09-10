@@ -26,7 +26,7 @@ impl Plan {
                 for binding in state.bindings.iter().rev() {
                     remove_pattern_bindings(&binding.pattern, &mut live);
                     visit_operation_atoms(&binding.operation, |atom| {
-                        insert_binding(atom, &mut live)
+                        insert_managed_binding(atom, &mut live)
                     });
                 }
                 if let Some(input) = &state.input {
@@ -48,7 +48,9 @@ impl Plan {
             let mut live = terminator_live(&state.terminator, &live_in);
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
                 let mut used = HashSet::new();
-                visit_operation_atoms(&binding.operation, |atom| insert_binding(atom, &mut used));
+                visit_operation_atoms(&binding.operation, |atom| {
+                    insert_managed_binding(atom, &mut used)
+                });
                 let dead = used
                     .iter()
                     .filter(|id| !live.contains(id))
@@ -79,7 +81,9 @@ impl Plan {
                     }
                 }
                 remove_pattern_bindings(&binding.pattern, &mut live);
-                visit_operation_atoms(&binding.operation, |atom| insert_binding(atom, &mut live));
+                visit_operation_atoms(&binding.operation, |atom| {
+                    insert_managed_binding(atom, &mut live)
+                });
             }
         }
         Self {
@@ -106,8 +110,10 @@ fn binding_id(atom: &Atom) -> Option<ValueId> {
     }
 }
 
-fn insert_binding(atom: &Atom, live: &mut HashSet<ValueId>) {
-    if let Some(id) = binding_id(atom) {
+fn insert_managed_binding(atom: &Atom, live: &mut HashSet<ValueId>) {
+    if crate::execution::ownership::is_managed(&atom.ty)
+        && let Some(id) = binding_id(atom)
+    {
         live.insert(id);
     }
 }
@@ -128,22 +134,29 @@ fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {
 
 fn terminator_live(terminator: &Terminator, live_in: &[HashSet<ValueId>]) -> HashSet<ValueId> {
     let mut live = HashSet::new();
-    for successor in terminator_successors(terminator) {
+    visit_terminator_successors(terminator, |successor| {
         live.extend(live_in[successor.0].iter().copied());
-    }
-    visit_terminator_atoms(terminator, |atom| insert_binding(atom, &mut live));
+    });
+    visit_terminator_atoms(terminator, |atom| insert_managed_binding(atom, &mut live));
     live
 }
 
-fn terminator_successors(terminator: &Terminator) -> Vec<StateId> {
+fn visit_terminator_successors(terminator: &Terminator, mut visit: impl FnMut(StateId)) {
     match terminator {
-        Terminator::Goto(target) | Terminator::Jump { target, .. } => vec![*target],
-        Terminator::Call { resume, .. } => vec![*resume],
-        Terminator::Case { arms, .. } => arms.iter().map(|arm| arm.target).collect(),
+        Terminator::Goto(target) | Terminator::Jump { target, .. } => visit(*target),
+        Terminator::Call { resume, .. } => visit(*resume),
+        Terminator::Case { arms, .. } => {
+            for arm in arms {
+                visit(arm.target);
+            }
+        }
         Terminator::PrimitiveBranch {
             otherwise, then, ..
-        } => vec![*otherwise, *then],
-        Terminator::Return(_) | Terminator::TailCall { .. } => Vec::new(),
+        } => {
+            visit(*otherwise);
+            visit(*then);
+        }
+        Terminator::Return(_) | Terminator::TailCall { .. } => {}
     }
 }
 
