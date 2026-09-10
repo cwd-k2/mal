@@ -53,13 +53,16 @@ Extern resourceのpolicyへ拡張しない。
 言語の性質を説明するための核は次とする。
 
 ```text
-variable, lambda, application
+variable, lambda, value/continuation application
 Unit
-product, sum, case
+product, sum
 primitive scalar
 ```
 
-`Bool` は `[Unit, Unit]`、`if` は `case`、`binding` はlambda/applicationへ消去できる。blockの末尾式はlambdaの結果である。`fix`/自己再帰を足すと停止性を失い、`extern`を足すとhostとの観測可能な作用が生まれるため、純粋な核とは分けて考える。
+`f(a)`と`a[f]`は同じapplication、直和の除去は複数continuationへのapplicationである。`Bool`は
+`[Unit, Unit]`、`if`はBoolへのcontinuation application、`binding`はlambda/applicationへ消去できる。
+blockの末尾式はlambdaの結果である。`fix`/自己再帰を足すと停止性を失い、`extern`を足すとhostとの
+観測可能な作用が生まれるため、純粋な核とは分けて考える。
 
 product と sum は数学的にさらに encoding できる場合があるが、mal には parametric polymorphism がない。利用者が型ごとの encoding を繰り返さず data を表現するには、両方を primitive として残す価値がある。
 

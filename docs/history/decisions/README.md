@@ -11,7 +11,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 |---|---|
 | compiler | [D002](D002.md)、[D041](D041.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
-| sum、Bool、`if`、`case` | [D004](D004.md)、[D005](D005.md)、[D023](D023.md) |
+| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D042](D042.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
@@ -27,6 +27,7 @@ D022、D024、D027、D031のsource spellingはD037が置き換える。
 D007のlambda parameter source spellingはD038が置き換える。
 D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換える。
 D041はD002のRust compilerを維持し、最初のC execution backendをLLVM backendへ置き換える。
+D042はD004のsum injection spelling、D005の`case`による説明、D023のsource syntaxを置き換える。
 
 ## 後継があるhistorical record
 
@@ -44,6 +45,7 @@ D041はD002のRust compilerを維持し、最初のC execution backendをLLVM ba
 | [D034: C adapter ownership helper](D034.md) | [D040](D040.md) |
 | [D036: Symbol admission builder](D036.md) | [D040](D040.md) |
 | [D014: shift countを一律にtrap](D014.md) | [D035](D035.md) |
+| [D023: index付き`case` arm](D023.md) | [D042](D042.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../../spec/)を確認する。
