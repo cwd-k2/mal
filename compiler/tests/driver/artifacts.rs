@@ -220,6 +220,125 @@ fn calls_first_class_memory_functions_through_llvm() {
 }
 
 #[test]
+fn runs_deep_first_class_call_cycles_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-first-class-cycle");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse :: Int32 -> Int32 := \\(value) {\n\
+             if (value == 0i32) then { 0i32 } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               child + 1i32;\n\
+             };\n\
+           };\n\
+           recurse(300000i32) - 300000i32;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn preserves_managed_environments_through_llvm_first_class_cycles() {
+    let directory = NativeFixture::new("driver-llvm-managed-first-class-cycle");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := \\(operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           prefix := \"x\" + \"y\";\n\
+           recurse :: Int32 -> Symbol := \\(value) {\n\
+             if (value == 0i32) then { prefix } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               if (child == prefix) then { child } else { \"bad\" };\n\
+             };\n\
+           };\n\
+           result := recurse(50000i32);\n\
+           Int32(result # 1u64) - 121i32;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn dispatches_all_recursive_closure_targets_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-recursive-targets");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) { operation(value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           left :: Int32 -> Int32 := \\(value) {\n\
+             if (value == 0i32) then { 0i32 } else { child := apply(left, value - 1i32); child + 1i32; };\n\
+           };\n\
+           right :: Int32 -> Int32 := \\(value) {\n\
+             if (value == 0i32) then { 0i32 } else { child := apply(right, value - 1i32); child + 1i32; };\n\
+           };\n\
+           left(100000i32) + right(100000i32) - 200000i32;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_capturing_closure_environments_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-capturing-closure");
     let source = directory.join("program.mal");

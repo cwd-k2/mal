@@ -38,7 +38,11 @@ impl FunctionEmitter<'_> {
                         owned: true,
                     });
                 }
-                let name = format!("mal_symbol_literal_{}", atom.id.0);
+                let name = format!(
+                    "mal_symbol_literal_{}_{}",
+                    super::function_number(self.function.id)?,
+                    atom.id.0
+                );
                 let contents = bytes
                     .iter()
                     .map(|byte| match byte {
@@ -66,10 +70,11 @@ impl FunctionEmitter<'_> {
                     value_type.llvm,
                     super::function_name(*function)?
                 ));
+                let environment = self.active_environment();
                 let closure = self.register();
                 self.line(format!(
-                    "  {closure} = insertvalue {} {with_code}, ptr %mal_environment, 1",
-                    value_type.llvm
+                    "  {closure} = insertvalue {} {with_code}, ptr {environment}, 1",
+                    value_type.llvm,
                 ));
                 Some(EmittedValue {
                     ty: atom.ty.clone(),
@@ -78,12 +83,13 @@ impl FunctionEmitter<'_> {
                 })
             }
             (ty, AtomKind::Reference(Reference::EnvironmentField(index))) => {
-                let field = self.function.environment.get(*index)?;
+                let function = self.current_function()?;
+                let field = function.environment.get(*index)?;
                 if field.ty != *ty {
                     return None;
                 }
                 let environment_type = Type::Product(
-                    self.function
+                    function
                         .environment
                         .iter()
                         .map(|field| field.ty.clone())
@@ -91,9 +97,10 @@ impl FunctionEmitter<'_> {
                 );
                 let fields = self.types.product_fields(&environment_type)?;
                 let offset = fields.get(*index)?.offset;
+                let environment = self.active_environment();
                 let pointer = self.register();
                 self.line(format!(
-                    "  {pointer} = getelementptr i8, ptr %mal_environment, i64 {offset}"
+                    "  {pointer} = getelementptr i8, ptr {environment}, i64 {offset}"
                 ));
                 let value_type = self.types.value(ty)?;
                 let value = self.register();
@@ -250,10 +257,13 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn release_local_managed(&mut self) {
         let mut slots = self
-            .slots
-            .iter()
-            .filter(|(_, slot)| crate::execution::ownership::is_managed(&slot.ty))
-            .map(|(_, slot)| slot.clone())
+            .function_slots
+            .get(&self.current_function)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.slots.get(id))
+            .filter(|slot| crate::execution::ownership::is_managed(&slot.ty))
+            .cloned()
             .collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {

@@ -1,12 +1,18 @@
 use crate::anf::ast::ValueId;
-use crate::closure::ast::Atom;
+use crate::check::ast::Type;
+use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
 
 use super::types::{Types, ValueType, align};
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
-    pub(super) fn emit_frame_call(&mut self, site: StateId, argument: &Atom) -> Option<()> {
+    pub(super) fn emit_frame_call(
+        &mut self,
+        site: StateId,
+        callee: &Atom,
+        argument: &Atom,
+    ) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
         let layout = FrameLayout::new(&frame, self.types)?;
         let top = self.register();
@@ -39,6 +45,17 @@ impl FunctionEmitter<'_> {
                 layout.value_type.llvm, value.representation, layout.value_type.alignment
             ));
         }
+        if let Some(offset) = layout.environment {
+            let environment = self.active_environment();
+            let pointer = self.register();
+            self.line(format!(
+                "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
+            ));
+            self.line(format!(
+                "  store ptr {environment}, ptr {pointer}, align {}",
+                self.types.pointer_size()
+            ));
+        }
         let footer = self.register();
         self.line(format!(
             "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
@@ -48,23 +65,125 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  store i64 {next_top}, ptr %mal_control_top, align 8"
         ));
+        if self.common_region.is_some() {
+            self.emit_region_transition(site, callee, argument, frame.carries_environment)
+        } else {
+            let mut argument = self.atom(argument)?;
+            if argument.ty != self.function.parameter.ty {
+                return None;
+            }
+            self.retain_if_borrowed(&mut argument)?;
+            self.release_local_managed();
+            if let Some(parameter) = self.function.parameter.binding {
+                let slot = self.slots.get(&parameter)?.clone();
+                let value_type = self.types.value(&slot.ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, argument.representation, slot.index, value_type.alignment
+                ));
+            } else if self.function.parameter.ty != Type::Unit {
+                return None;
+            }
+            self.line(format!("  br label %mal_state_{}", self.function.entry.0));
+            Some(())
+        }
+    }
+
+    pub(super) fn emit_region_transition(
+        &mut self,
+        site: StateId,
+        callee: &Atom,
+        argument: &Atom,
+        preserve_environment: bool,
+    ) -> Option<()> {
+        let callee = self.atom(callee)?;
+        let Type::Function { parameter, .. } = &callee.ty else {
+            return None;
+        };
+        let closure_type = self.types.value(&callee.ty)?;
+        let code = self.register();
+        self.line(format!(
+            "  {code} = extractvalue {} {}, 0",
+            closure_type.llvm, callee.representation
+        ));
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = extractvalue {} {}, 1",
+            closure_type.llvm, callee.representation
+        ));
+        let retained_environment = self.register();
+        self.line(format!(
+            "  {retained_environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {environment})"
+        ));
         let mut argument = self.atom(argument)?;
-        if argument.ty != self.function.parameter.ty {
+        if argument.ty != **parameter {
             return None;
         }
         self.retain_if_borrowed(&mut argument)?;
         self.release_local_managed();
-        if let Some(parameter) = self.function.parameter.binding {
-            let slot = self.slots.get(&parameter)?.clone();
-            let value_type = self.types.value(&slot.ty)?;
+        if !preserve_environment {
+            let previous = self.active_environment();
             self.line(format!(
-                "  store {} {}, ptr %mal_slot_{}, align {}",
-                value_type.llvm, argument.representation, slot.index, value_type.alignment
+                "  call void @mal_runtime_environment_release(ptr {previous})"
             ));
-        } else if self.function.parameter.ty != crate::check::ast::Type::Unit {
-            return None;
         }
-        self.line(format!("  br label %mal_state_{}", self.function.entry.0));
+        self.line(format!(
+            "  store ptr {retained_environment}, ptr %mal_active_environment, align {}",
+            self.types.pointer_size()
+        ));
+        let targets = self
+            .execution
+            .control_regions
+            .recursive_targets(site)?
+            .to_vec();
+        self.emit_region_dispatch(site, &targets, &code, &argument)
+    }
+
+    fn emit_region_dispatch(
+        &mut self,
+        site: StateId,
+        targets: &[FunctionId],
+        code: &str,
+        argument: &EmittedValue,
+    ) -> Option<()> {
+        for (index, target) in targets.iter().enumerate() {
+            let matched = self.register();
+            self.line(format!(
+                "  {matched} = icmp eq ptr {code}, @{}",
+                super::function_name(*target)?
+            ));
+            let next = format!("mal_region_dispatch_{}_{}", site.0, index);
+            self.line(format!(
+                "  br i1 {matched}, label %mal_region_target_{}_{index}, label %{next}",
+                site.0
+            ));
+            self.line(format!("{next}:"));
+        }
+        self.line("  unreachable");
+        for (index, target) in targets.iter().enumerate() {
+            let function = self
+                .control
+                .functions
+                .iter()
+                .find(|function| function.id == *target)?;
+            let entry = function.entry;
+            let parameter = function.parameter.clone();
+            self.line(format!("mal_region_target_{}_{index}:", site.0));
+            if let Some(binding) = parameter.binding {
+                let slot = self.slots.get(&binding)?.clone();
+                if slot.ty != argument.ty {
+                    return None;
+                }
+                let value_type = self.types.value(&slot.ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, argument.representation, slot.index, value_type.alignment
+                ));
+            } else if parameter.ty != Type::Unit {
+                return None;
+            }
+            self.line(format!("  br label %mal_state_{}", entry.0));
+        }
         Some(())
     }
 
@@ -85,11 +204,21 @@ impl FunctionEmitter<'_> {
             site.0, site.0
         ));
         self.line(format!("mal_return_done_{}:", site.0));
-        let result_type = self.types.value(&self.result_type)?;
-        self.line(format!(
-            "  ret {} {}",
-            result_type.llvm, result.representation
-        ));
+        if self.common_region.is_some() {
+            let environment = self.active_environment();
+            self.line(format!(
+                "  call void @mal_runtime_environment_release(ptr {environment})"
+            ));
+        }
+        if result.ty == self.result_type {
+            let result_type = self.types.value(&self.result_type)?;
+            self.line(format!(
+                "  ret {} {}",
+                result_type.llvm, result.representation
+            ));
+        } else {
+            self.line("  unreachable");
+        }
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.register();
         self.line(format!(
@@ -112,6 +241,12 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {frame_pointer} = getelementptr i8, ptr {storage}, i64 {previous_top}"
         ));
+        if self.common_region.is_some() {
+            let active = self.active_environment();
+            self.line(format!(
+                "  call void @mal_runtime_environment_release(ptr {active})"
+            ));
+        }
         let tag = self.register();
         self.line(format!("  {tag} = load i32, ptr {frame_pointer}, align 4"));
         let cases = frame_sites
@@ -166,11 +301,31 @@ impl FunctionEmitter<'_> {
                 layout.value_type.llvm, slot.index, layout.value_type.alignment
             ));
         }
+        if self.common_region.is_some() {
+            let environment = if let Some(offset) = layout.environment {
+                let pointer = self.register();
+                self.line(format!(
+                    "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
+                ));
+                let environment = self.register();
+                self.line(format!(
+                    "  {environment} = load ptr, ptr {pointer}, align {}",
+                    self.types.pointer_size()
+                ));
+                environment
+            } else {
+                "null".into()
+            };
+            self.line(format!(
+                "  store ptr {environment}, ptr %mal_active_environment, align {}",
+                self.types.pointer_size()
+            ));
+        }
         let input = self.control.states[frame.resume.0].input.as_ref()?;
         self.store_pattern(
             input,
             Some(&EmittedValue {
-                ty: self.result_type.clone(),
+                ty: result.ty.clone(),
                 representation: result.representation.clone(),
                 owned: true,
             }),
@@ -197,6 +352,7 @@ impl FunctionEmitter<'_> {
 
 struct FrameLayout {
     fields: Vec<FieldLayout>,
+    environment: Option<usize>,
     footer: usize,
     size: usize,
 }
@@ -217,10 +373,19 @@ impl FrameLayout {
             fields.push(FieldLayout { offset, value_type });
             offset = offset.checked_add(size)?;
         }
+        let environment = if frame.carries_environment {
+            offset = align(offset, types.pointer_size())?;
+            let field = offset;
+            offset = offset.checked_add(types.pointer_size())?;
+            Some(field)
+        } else {
+            None
+        };
         let footer = align(offset, 8)?;
         let size = footer.checked_add(8)?;
         Some(Self {
             fields,
+            environment,
             footer,
             size,
         })

@@ -109,35 +109,4 @@ fn reports_required_c_source_and_c_compiler_failures() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("malc: C compiler '"));
     assert!(stderr.contains("failed with exit status"));
-
-    directory.write(
-        "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
-           operation(value);\n\
-         };\n\
-         main :: Unit -> Int32 := \\() {\n\
-           recurse :: Int32 -> Int32 := \\(value) {\n\
-             if (value == 0i32) then { 0i32 } else {\n\
-               child := apply(recurse, value - 1i32);\n\
-               child + 1i32;\n\
-             };\n\
-           };\n\
-           recurse(2i32) - 2i32;\n\
-         };",
-    );
-    let unavailable_compiler = directory.join("missing-clang");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable_compiler.as_os_str(),
-    );
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("malc: cannot run C compiler"));
-    assert!(stderr.contains(unavailable_compiler.to_string_lossy().as_ref()));
 }

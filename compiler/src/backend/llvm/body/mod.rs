@@ -4,7 +4,7 @@ use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
-use crate::execution::ControlCallMode;
+use crate::execution::{ControlCallMode, ControlRegionId};
 
 mod aggregate;
 mod bridge;
@@ -18,8 +18,8 @@ pub(super) mod types;
 mod value;
 
 use plan::{
-    collect_pattern_slot, insert_slot, main_function, pattern_value_type, reachable_states,
-    top_levels_are_supported,
+    collect_pattern_ids, collect_pattern_slot, insert_slot, main_function, pattern_value_type,
+    reachable_states, top_levels_are_supported,
 };
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
@@ -73,9 +73,12 @@ struct FunctionEmitter<'a> {
     execution: &'a crate::execution::Program,
     control: &'a Program,
     function: &'a crate::control::ast::Function,
+    current_function: FunctionId,
+    common_region: Option<ControlRegionId>,
     states: Vec<StateId>,
     result_type: Type,
     slots: HashMap<ValueId, Slot>,
+    function_slots: HashMap<FunctionId, Vec<ValueId>>,
     has_frames: bool,
     external_storage: Option<(usize, usize)>,
     types: Types,
@@ -120,19 +123,59 @@ impl<'a> FunctionEmitter<'a> {
         {
             return None;
         }
-        let states = reachable_states(&execution.control, function.entry);
+        let common_region = execution
+            .control_regions
+            .function_region(id)
+            .filter(|region| execution.control_calls.requires_common_control(*region));
+        let functions = common_region.map_or_else(
+            || vec![id],
+            |region| execution.control_regions.functions(region).to_vec(),
+        );
+        let states = functions
+            .iter()
+            .flat_map(|function| {
+                let entry = execution
+                    .control
+                    .functions
+                    .iter()
+                    .find(|candidate| candidate.id == *function)
+                    .expect("control region function has an entry")
+                    .entry;
+                reachable_states(&execution.control, entry)
+            })
+            .collect::<Vec<_>>();
         let mut slots = HashMap::new();
-        if let Some(id) = function.parameter.binding {
-            insert_slot(&mut slots, id, function.parameter.ty.clone());
-        }
-        for state in &states {
-            let state = &execution.control.states[state.0];
-            if let Some(pattern) = &state.input {
-                collect_pattern_slot(pattern, &mut slots, types)?;
+        let mut function_slots = HashMap::new();
+        for function_id in &functions {
+            let region_function = execution
+                .control
+                .functions
+                .iter()
+                .find(|candidate| candidate.id == *function_id)?;
+            let function_states = reachable_states(&execution.control, region_function.entry);
+            let mut ids = Vec::new();
+            if let Some(id) = region_function.parameter.binding {
+                insert_slot(&mut slots, id, region_function.parameter.ty.clone());
+                ids.push(id);
             }
-            for binding in &state.bindings {
-                collect_pattern_slot(&binding.pattern, &mut slots, types)?;
+            for state in function_states {
+                let state = &execution.control.states[state.0];
+                if let Some(pattern) = &state.input {
+                    collect_pattern_slot(pattern, &mut slots, types)?;
+                    collect_pattern_ids(pattern, &mut ids);
+                }
+                for binding in &state.bindings {
+                    collect_pattern_slot(&binding.pattern, &mut slots, types)?;
+                    collect_pattern_ids(&binding.pattern, &mut ids);
+                }
             }
+            let mut unique = Vec::new();
+            for id in ids {
+                if !unique.contains(&id) {
+                    unique.push(id);
+                }
+            }
+            function_slots.insert(*function_id, unique);
         }
         let frame_sites = states
             .iter()
@@ -144,8 +187,12 @@ impl<'a> FunctionEmitter<'a> {
                 .control_frames
                 .frame(*site)
                 .expect("collected frame site");
-            execution.applications.direct_target(*site) != Some(id)
-                || frame.carries_environment
+            (common_region.is_none()
+                && (execution.applications.direct_target(*site) != Some(id)
+                    || frame.carries_environment))
+                || common_region.is_some_and(|region| {
+                    execution.control_regions.site_region(*site) != Some(region)
+                })
                 || frame
                     .fields
                     .iter()
@@ -188,9 +235,12 @@ impl<'a> FunctionEmitter<'a> {
             execution,
             control: &execution.control,
             function,
+            current_function: id,
+            common_region,
             result_type: lowered.body.result.ty.clone(),
             states,
             slots,
+            function_slots,
             has_frames: !frame_sites.is_empty(),
             external_storage,
             types,
@@ -237,6 +287,16 @@ impl<'a> FunctionEmitter<'a> {
         if self.has_frames {
             self.line("  %mal_control_top = alloca i64, align 8");
         }
+        if self.common_region.is_some() {
+            self.line("  %mal_active_environment = alloca ptr, align 8");
+            let environment = self.register();
+            self.line(format!(
+                "  {environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr %mal_environment)"
+            ));
+            self.line(format!(
+                "  store ptr {environment}, ptr %mal_active_environment, align 8"
+            ));
+        }
         if let Some((size, alignment)) = self.external_storage {
             self.line(format!(
                 "  %mal_bridge_argument = alloca [{size} x i8], align {alignment}"
@@ -275,6 +335,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit_state(&mut self, site: StateId) -> Option<()> {
+        self.current_function = self.function_for_state(site)?;
         let state = &self.control.states[site.0];
         self.line(format!("mal_state_{}:", site.0));
         for binding in &state.bindings {
@@ -291,7 +352,8 @@ impl<'a> FunctionEmitter<'a> {
                 let mut value = self.atom(value)?;
                 self.retain_if_borrowed(&mut value)?;
                 if self.has_frames {
-                    if value.ty != self.result_type {
+                    let result_type = self.current_result_type()?;
+                    if value.ty != result_type {
                         return None;
                     }
                     self.emit_frame_return(site, &value)?;
@@ -377,7 +439,7 @@ impl<'a> FunctionEmitter<'a> {
                 ControlCallMode::Dispatch
                     if self.execution.control_frames.frame(site).is_some() =>
                 {
-                    self.emit_frame_call(site, argument)?;
+                    self.emit_frame_call(site, callee, argument)?;
                 }
                 ControlCallMode::Dispatch => {
                     let Terminator::Call { callee, .. } = terminator else {
@@ -399,7 +461,8 @@ impl<'a> FunctionEmitter<'a> {
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
                         let mut value = self.atom(argument)?;
-                        let parameter = self.function.parameter.binding?;
+                        let function = self.current_function()?;
+                        let parameter = function.parameter.binding?;
                         let slot = self.slots.get(&parameter)?.clone();
                         if slot.ty != value.ty {
                             return None;
@@ -423,16 +486,20 @@ impl<'a> FunctionEmitter<'a> {
                         ));
                     }
                     ControlCallMode::Dispatch => {
-                        let Terminator::TailCall { callee, .. } = terminator else {
-                            unreachable!()
-                        };
-                        let result = self.emit_indirect_call(callee, argument, true)?;
-                        self.release_local_managed();
-                        let value_type = self.types.value(&result.ty)?;
-                        self.line(format!(
-                            "  ret {} {}",
-                            value_type.llvm, result.representation
-                        ));
+                        if self.common_region.is_some()
+                            && self.execution.control_regions.site_region(site)
+                                == self.common_region
+                        {
+                            self.emit_region_transition(site, callee, argument, false)?;
+                        } else {
+                            let result = self.emit_indirect_call(callee, argument, true)?;
+                            self.release_local_managed();
+                            let value_type = self.types.value(&result.ty)?;
+                            self.line(format!(
+                                "  ret {} {}",
+                                value_type.llvm, result.representation
+                            ));
+                        }
                     }
                 }
             }
@@ -574,6 +641,41 @@ impl<'a> FunctionEmitter<'a> {
             representation: register,
             owned: crate::execution::ownership::is_managed(result),
         })
+    }
+
+    fn current_function(&self) -> Option<&crate::control::ast::Function> {
+        self.control
+            .functions
+            .iter()
+            .find(|function| function.id == self.current_function)
+    }
+
+    fn current_result_type(&self) -> Option<Type> {
+        self.execution
+            .lowered
+            .functions
+            .iter()
+            .find(|function| function.id == self.current_function)
+            .map(|function| function.body.result.ty.clone())
+    }
+
+    fn function_for_state(&self, site: StateId) -> Option<FunctionId> {
+        self.control.functions.iter().find_map(|function| {
+            reachable_states(self.control, function.entry)
+                .contains(&site)
+                .then_some(function.id)
+        })
+    }
+
+    fn active_environment(&mut self) -> String {
+        if self.common_region.is_none() {
+            return "%mal_environment".into();
+        }
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = load ptr, ptr %mal_active_environment, align 8"
+        ));
+        environment
     }
 
     fn register(&mut self) -> String {

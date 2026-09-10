@@ -81,6 +81,10 @@ impl Types {
         Some(format!("i{}", self.pointer_size.checked_mul(8)?))
     }
 
+    pub(in crate::backend::llvm) fn pointer_size(self) -> usize {
+        self.pointer_size
+    }
+
     fn product(self, elements: &[Type]) -> Option<ValueType> {
         aggregate_type(self.fields(elements)?)
     }
