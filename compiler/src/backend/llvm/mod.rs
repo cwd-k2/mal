@@ -10,6 +10,9 @@ pub(crate) struct Target<'a> {
 
 pub(crate) fn supports(program: &crate::execution::Program) -> bool {
     body::supports(program)
+        && program.lowered.interface.externals.iter().all(|external| {
+            bridge_type_supported(&external.parameter) && bridge_type_supported(&external.result)
+        })
 }
 
 pub(crate) fn generate(
@@ -246,9 +249,20 @@ fn bridge_pointer(base: &str, offset: usize, read_only: bool) -> String {
     format!("(({qualifier}unsigned char *){base} + {offset})")
 }
 
+fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
+    use crate::check::ast::Type;
+
+    c_scalar_type(ty).is_some()
+        || matches!(ty, Type::Unit | Type::Symbol)
+        || matches!(ty, Type::Product(elements) if elements.iter().all(bridge_type_supported))
+}
+
 fn c_scalar_type(ty: &crate::check::ast::Type) -> Option<&'static str> {
     use crate::check::ast::Type;
 
+    if body::types::is_bool(ty) {
+        return Some("MalType_Bool");
+    }
     match ty {
         Type::Int8 => Some("MalType_Int8"),
         Type::Int16 => Some("MalType_Int16"),
@@ -314,6 +328,7 @@ mod tests {
     fn admits_product_external_calls() {
         for (index, source) in [
             "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, 2u64)); };",
+            "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := \\() { if (inspect(true)) then { 0 } else { 1 }; };",
             "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := \\() { Int32(inspect(1u64, \"x\")); };",
             "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := \\() { (value, _) := inspect(1u64, \"x\"); Int32(value); };",
             "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := \\() { (number, text) := exchange(41u64, \"a\" + \"b\"); Int32(number); };",
@@ -329,5 +344,21 @@ mod tests {
             let execution = crate::execution::lower(closure);
             assert!(supports(&execution), "unsupported fixture {index}");
         }
+    }
+
+    #[test]
+    fn rejects_sum_externals_before_artifact_generation() {
+        let source = SourceFile::new(
+            FileId::new(77),
+            "sum-extern.mal",
+            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check sum extern fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution = crate::execution::lower(closure);
+
+        assert!(!supports(&execution));
     }
 }

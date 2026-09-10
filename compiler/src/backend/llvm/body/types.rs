@@ -129,7 +129,7 @@ fn field_layouts(fields: &[ValueType]) -> Option<Vec<Field>> {
         .collect()
 }
 
-pub(super) fn is_bool(ty: &Type) -> bool {
+pub(in crate::backend::llvm) fn is_bool(ty: &Type) -> bool {
     matches!(ty, Type::Sum(elements) if elements == &[Type::Unit, Type::Unit])
 }
 

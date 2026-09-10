@@ -2,7 +2,6 @@ use crate::check::ast::Type;
 use crate::closure::ast::Atom;
 use crate::resolve::ast::ExternalOperationId;
 
-use super::scalar::scalar_type;
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
@@ -23,22 +22,12 @@ impl FunctionEmitter<'_> {
         if argument.ty != external.parameter || *result_type != external.result {
             return None;
         }
-        if scalar_type(&argument.ty).is_none()
-            && !matches!(
-                argument.ty,
-                Type::Unit | Type::Ptr | Type::Symbol | Type::Product(_)
-            )
-        {
+        if !crate::backend::llvm::bridge_type_supported(&argument.ty) {
             return None;
         }
         let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
-        if scalar_type(&result_type).is_none()
-            && !matches!(
-                result_type,
-                Type::Unit | Type::Ptr | Type::Symbol | Type::Product(_)
-            )
-        {
+        if !crate::backend::llvm::bridge_type_supported(&result_type) {
             return None;
         }
         let result_value_type = self.types.value(&result_type)?;
