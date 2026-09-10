@@ -14,12 +14,15 @@ impl FunctionEmitter<'_> {
             }),
             (Type::Float32, AtomKind::Float(bits)) => Some(EmittedValue {
                 ty: Type::Float32,
-                representation: format!("{:.9e}", f32::from_bits(*bits as u32)),
+                representation: format!(
+                    "0x{:016X}",
+                    (f32::from_bits(*bits as u32) as f64).to_bits()
+                ),
                 owned: false,
             }),
             (Type::Float64, AtomKind::Float(bits)) => Some(EmittedValue {
                 ty: Type::Float64,
-                representation: format!("{:.17e}", f64::from_bits(*bits)),
+                representation: format!("0x{bits:016X}"),
                 owned: false,
             }),
             (Type::UInt64, AtomKind::StorageSize(measured)) => Some(EmittedValue {
