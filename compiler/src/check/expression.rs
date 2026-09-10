@@ -241,7 +241,6 @@ impl Checker {
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
         if continuations.len() == 1
-            && super::integer::is_contextual_integer(value)
             && !matches!(continuations[0].kind, resolved::Expression::Lambda(_))
         {
             let continuation = self.check_expression(&continuations[0], None)?;

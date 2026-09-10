@@ -143,6 +143,7 @@ fn checks_a_lambda_from_an_application_context() {
          };
          main :: Unit -> Int32 := () {
            apply((value) { value + 1; }, 41);
+           ((value) { value + 1; }, 41)[apply];
          };",
     );
 }
