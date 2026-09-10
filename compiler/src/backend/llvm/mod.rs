@@ -2,6 +2,7 @@ use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
 
 mod body;
+mod shim;
 
 pub(crate) struct Target<'a> {
     pub(crate) triple: &'a str,
@@ -21,6 +22,7 @@ pub(crate) fn generate(
 ) -> Option<LlvmArtifacts> {
     let pointer_size = pointer_size(target.data_layout)?;
     let body = body::generate(program, pointer_size)?;
+    let types = body::types::Types::new(pointer_size)?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::c_emit::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
@@ -50,8 +52,28 @@ pub(crate) fn generate(
     } else {
         ""
     };
+    let (entry_argument, entry_call) = match &body.main_parameter {
+        crate::check::ast::Type::Unit => (
+            String::new(),
+            format!("call i32 @{}(ptr %mal_context)", function_name(body.main)?),
+        ),
+        ty => {
+            let value = types.value(ty)?;
+            (
+                format!(
+                    "  %mal_entry_argument = load {}, ptr %mal_argument, align {}\n",
+                    value.llvm, value.alignment
+                ),
+                format!(
+                    "call i32 @{}(ptr %mal_context, {} %mal_entry_argument)",
+                    function_name(body.main)?,
+                    value.llvm
+                ),
+            )
+        }
+    };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}{}\n{}\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         control_declarations,
@@ -60,22 +82,21 @@ pub(crate) fn generate(
         body.globals,
         body.definitions,
         entry.llvm_signature(),
-        match body.main {
-            crate::closure::ast::FunctionId::Lambda(id) => format!("mal_function_{}", id.0),
-            crate::closure::ast::FunctionId::Memory(_) => return None,
-        },
+        entry_argument,
+        entry_call,
     );
     let symbol_bridge_runtime = if body.uses_symbols {
         "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    (void)context;\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
     } else {
         ""
     };
+    let main = shim::entry_main(&body.main_parameter, types, entry.name())?;
     let shim = format!(
-        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n{}\n\n{}\n\n{}\nint main(void) {{\n    MalContext context = {{0}};\n    int32_t result;\n    {}(&context, NULL, &result);\n    mal_control_destroy(&context);\n    return result;\n}}\n",
+        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n#include <string.h>\n\n{}\n\n{}\n\n{}\n{}",
         entry.c_declaration(),
         external_definitions,
         symbol_bridge_runtime,
-        entry.name(),
+        main,
     );
     Some(LlvmArtifacts {
         module,
@@ -83,6 +104,13 @@ pub(crate) fn generate(
         header: crate::backend::c::emit_header(&program.lowered.interface),
         runtime: crate::backend::runtime::control().into(),
     })
+}
+
+fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
+    match id {
+        crate::closure::ast::FunctionId::Lambda(id) => Some(format!("mal_function_{}", id.0)),
+        crate::closure::ast::FunctionId::Memory(_) => None,
+    }
 }
 
 fn pointer_size(data_layout: &str) -> Option<usize> {

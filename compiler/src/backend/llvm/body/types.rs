@@ -3,10 +3,10 @@ use crate::check::ast::Type;
 use super::scalar::scalar_type;
 
 #[derive(Clone)]
-pub(super) struct ValueType {
-    pub(super) llvm: String,
-    pub(super) alignment: usize,
-    pub(super) size: usize,
+pub(in crate::backend::llvm) struct ValueType {
+    pub(in crate::backend::llvm) llvm: String,
+    pub(in crate::backend::llvm) alignment: usize,
+    pub(in crate::backend::llvm) size: usize,
 }
 
 pub(in crate::backend::llvm) struct Field {
@@ -25,7 +25,7 @@ impl Types {
             .then_some(Self { pointer_size })
     }
 
-    pub(super) fn value(self, ty: &Type) -> Option<ValueType> {
+    pub(in crate::backend::llvm) fn value(self, ty: &Type) -> Option<ValueType> {
         if let Some(scalar) = scalar_type(ty) {
             return Some(ValueType {
                 llvm: scalar.llvm.into(),

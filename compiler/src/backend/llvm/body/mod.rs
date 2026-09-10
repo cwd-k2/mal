@@ -28,6 +28,7 @@ pub(super) struct Output {
     pub(super) globals: String,
     pub(super) definitions: String,
     pub(super) main: FunctionId,
+    pub(super) main_parameter: Type,
     pub(super) uses_control: bool,
     pub(super) uses_symbols: bool,
 }
@@ -40,7 +41,7 @@ pub(super) fn generate(
     execution: &crate::execution::Program,
     pointer_size: usize,
 ) -> Option<Output> {
-    let main = main_function(execution)?;
+    let (main, main_parameter) = main_function(execution)?;
     if !top_levels_are_capture_free_closures(execution) {
         return None;
     }
@@ -63,6 +64,7 @@ pub(super) fn generate(
         globals,
         definitions,
         main,
+        main_parameter,
         uses_control,
         uses_symbols,
     })

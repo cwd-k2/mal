@@ -28,6 +28,53 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
 }
 
 #[test]
+fn passes_process_arguments_through_the_llvm_entry_bridge() {
+    let directory = NativeFixture::new("driver-llvm-arguments");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Arguments :: (UInt64, Ptr);\n\
+         argumentAt :: (Ptr, UInt64) -> Symbol := \\(arguments, index) {\n\
+           slot := arguments + index * (Ptr.size + UInt64.size);\n\
+           Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
+         };\n\
+         main :: Arguments -> Int32 := \\(count, arguments) {\n\
+           first := argumentAt(arguments, 0u64);\n\
+           second := argumentAt(arguments, 1u64);\n\
+           if (count == 2u64) then {\n\
+             if (first == \"alpha\") then {\n\
+               if (second == \"\") then { 0 } else { 1 };\n\
+             } else { 2 };\n\
+           } else { 3 };\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = std::process::Command::new(executable)
+        .args(["alpha", ""])
+        .output()
+        .expect("run argument-aware LLVM executable");
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
 fn builds_scalar_control_and_tail_calls_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-control");
     let source = directory.join("program.mal");

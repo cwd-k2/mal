@@ -8,22 +8,23 @@ use crate::control::ast::{Program, StateId, Terminator};
 use super::Slot;
 use super::types::Types;
 
-pub(super) fn main_function(execution: &crate::execution::Program) -> Option<FunctionId> {
+pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
     let binding = execution.lowered.bindings.iter().find(|binding| {
         matches!(&binding.pattern, TopLevelPattern::Binding { name, .. } if name == "main")
     })?;
     let TopLevelPattern::Binding { ty, .. } = &binding.pattern else {
         return None;
     };
-    if *ty
-        != (Type::Function {
-            parameter: Box::new(Type::Unit),
-            result: Box::new(Type::Int32),
-        })
+    let Type::Function { parameter, result } = ty else {
+        return None;
+    };
+    if **result != Type::Int32
+        || (**parameter != Type::Unit
+            && **parameter != Type::Product(vec![Type::UInt64, Type::Ptr]))
     {
         return None;
     }
-    closure_binding_function(binding)
+    Some((closure_binding_function(binding)?, (**parameter).clone()))
 }
 
 pub(super) fn top_levels_are_capture_free_closures(execution: &crate::execution::Program) -> bool {
