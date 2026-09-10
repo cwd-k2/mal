@@ -8,18 +8,22 @@ typedef struct {
     size_t capacity;
 } MalControlArena;
 
-void mal_control_destroy(MalControlArena *arena);
-void *mal_control_reserve_bytes(MalControlArena *arena, size_t required_bytes);
+typedef struct MalContext {
+    MalControlArena control;
+} MalContext;
+
+void mal_control_destroy(MalContext *context);
+void *mal_control_reserve_bytes(MalContext *context, size_t required_bytes);
 void *mal_control_reserve_frame(
-    MalControlArena *arena,
+    MalContext *context,
     size_t current_bytes,
     size_t frame_size
 );
 void *mal_control_reserve_slots(
-    MalControlArena *arena,
+    MalContext *context,
     size_t required_slots,
     size_t slot_size
 );
-void *mal_control_storage(MalControlArena *arena);
+void *mal_control_storage(MalContext *context);
 
 #endif

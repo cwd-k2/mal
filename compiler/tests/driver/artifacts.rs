@@ -211,6 +211,52 @@ fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
 }
 
 #[test]
+fn builds_strict_float_arithmetic_and_nan_comparisons_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-float");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "check32 :: Float32 -> Int32 := \\(value) {\n\
+           result := value * 2.0f32 + 0.5f32;\n\
+           if (result == 3.5f32) then { 1 } else { 0 };\n\
+         };\n\
+         check64 :: Float64 -> Int32 := \\(value) {\n\
+           result := -(value / 2.0f64);\n\
+           if (result <= -0.75f64) then { 1 } else { 0 };\n\
+         };\n\
+         checkNaN :: Float64 -> Int32 := \\(value) {\n\
+           zero := value - value;\n\
+           nan := zero / zero;\n\
+           if (nan != nan) then { 1 } else { 0 };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           check32(1.5f32) + check64(1.5f64) + checkNaN(1.0f64) +\n\
+           Int32(Float64(3)) + Int32(Float32(1.75f64)) - 7;\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");
@@ -408,9 +454,8 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
         "host.c",
         "#include \"program.mal.h\"\n\
          int32_t host_increment(int32_t value);\n\
-         int32_t mal_ext_adjust(MalContext *context, int32_t value) {\n\
-             (void)context;\n\
-             return host_increment(value);\n\
+         MAL_DEFINE_adjust(call, value) {\n\
+             return mal_Int32_return(call, host_increment(value));\n\
          }\n",
     );
     directory.write(
@@ -419,12 +464,17 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
          int32_t host_increment(int32_t value) { return value + 2; }\n",
     );
 
-    let output = directory.malc([
-        OsStr::new("build"),
-        source.as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
     assert!(
         output.status.success(),
         "{}",

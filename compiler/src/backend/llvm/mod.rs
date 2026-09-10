@@ -18,16 +18,34 @@ pub(crate) fn generate(
 ) -> Option<LlvmArtifacts> {
     let body = body::generate(program)?;
     let entry = AbiFunction::program_entry();
+    let external_bridges = program
+        .lowered
+        .interface
+        .externals
+        .iter()
+        .map(external_bridge)
+        .collect::<Option<Vec<_>>>()?;
+    let external_declarations = external_bridges
+        .iter()
+        .map(|bridge| bridge.0.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let external_definitions = external_bridges
+        .iter()
+        .map(|bridge| bridge.1.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
     let control_declarations = if body.uses_control {
         "declare ptr @mal_control_reserve_frame(ptr, i64, i64)\ndeclare ptr @mal_control_storage(ptr)\n\n"
     } else {
         ""
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}\n\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         control_declarations,
+        external_declarations,
         body.definitions,
         entry.llvm_signature(),
         match body.main {
@@ -36,8 +54,9 @@ pub(crate) fn generate(
         },
     );
     let shim = format!(
-        "#include \"runtime.h\"\n\n#include <stdint.h>\n\n{}\n\nint main(void) {{\n    MalControlArena arena = {{0}};\n    int32_t result;\n    {}(&arena, NULL, &result);\n    mal_control_destroy(&arena);\n    return result;\n}}\n",
+        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n{}\n\n{}\n\nint main(void) {{\n    MalContext context = {{0}};\n    int32_t result;\n    {}(&context, NULL, &result);\n    mal_control_destroy(&context);\n    return result;\n}}\n",
         entry.c_declaration(),
+        external_definitions,
         entry.name(),
     );
     Some(LlvmArtifacts {
@@ -46,6 +65,38 @@ pub(crate) fn generate(
         header: crate::backend::c::emit_header(&program.lowered.interface),
         runtime: crate::backend::runtime::control().into(),
     })
+}
+
+fn external_bridge(external: &crate::core::ast::ExternalOperation) -> Option<(String, String)> {
+    let parameter = c_scalar_type(&external.parameter)?;
+    let result = c_scalar_type(&external.result)?;
+    let bridge = AbiFunction::external_bridge(external.id);
+    let llvm = format!("declare {}", bridge.llvm_signature());
+    let signature = bridge.c_declaration();
+    let signature = signature.strip_suffix(';')?;
+    let c = format!(
+        "{signature} {{\n    *({result} *)mal_result = mal_ext_{}(\n        (MalContext *)mal_context,\n        *(const {parameter} *)mal_argument\n    );\n}}",
+        external.name
+    );
+    Some((llvm, c))
+}
+
+fn c_scalar_type(ty: &crate::check::ast::Type) -> Option<&'static str> {
+    use crate::check::ast::Type;
+
+    match ty {
+        Type::Int8 => Some("MalType_Int8"),
+        Type::Int16 => Some("MalType_Int16"),
+        Type::Int32 => Some("MalType_Int32"),
+        Type::Int64 => Some("MalType_Int64"),
+        Type::UInt8 => Some("MalType_UInt8"),
+        Type::UInt16 => Some("MalType_UInt16"),
+        Type::UInt32 => Some("MalType_UInt32"),
+        Type::UInt64 => Some("MalType_UInt64"),
+        Type::Float32 => Some("MalType_Float32"),
+        Type::Float64 => Some("MalType_Float64"),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

@@ -10,14 +10,14 @@ struct PointerParameter {
 }
 
 pub(crate) struct Function {
-    name: &'static str,
+    name: String,
     parameters: [PointerParameter; 3],
 }
 
 impl Function {
     pub(crate) fn program_entry() -> Self {
         Self {
-            name: "mal_program_entry",
+            name: "mal_program_entry".into(),
             parameters: [
                 PointerParameter {
                     name: "context",
@@ -35,8 +35,14 @@ impl Function {
         }
     }
 
+    pub(crate) fn external_bridge(id: crate::resolve::ast::ExternalOperationId) -> Self {
+        let mut function = Self::program_entry();
+        function.name = format!("mal_bridge_external_{}", id.0);
+        function
+    }
+
     pub(crate) fn name(&self) -> &str {
-        self.name
+        &self.name
     }
 
     pub(crate) fn c_declaration(&self) -> String {

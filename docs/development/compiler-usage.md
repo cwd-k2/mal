@@ -52,9 +52,10 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 
 ## Build toolchainと`CC`
 
-LLVM backendが現在admitするcapture、extern、managed valueを持たない全整数型の演算、変換、比較branch、direct call、
-self-tail edgeと、`Int32` direct-self continuation frameは、pinned `clang`から取得したtarget tripleとdata layoutをLLVM moduleへ設定し、
-generated C shimおよびchecked-in C11 control runtimeと同じ`clang`でcompile、linkする。この経路はambient `CC`を参照しない。
+LLVM backendが現在admitするcaptureとmanaged valueを持たない整数・浮動小数点型の演算、変換、比較branch、direct call、
+self-tail edge、direct-self continuation frameと数値scalarのextern callは、pinned `clang`から取得したtarget tripleとdata layoutを
+LLVM moduleへ設定し、generated C shimおよびchecked-in C11 core・control runtimeと同じ`clang`でcompile、linkする。
+extern callはinternal pointer/out-pointer bridgeを通してpublic headerのC ABIへ変換する。この経路はambient `CC`を参照しない。
 
 移行中のC body oracleへfallbackするprogramでは、`CC`があればその値をC compilerの実行ファイル名またはpathとして使い、
 なければ`clang`を使う。

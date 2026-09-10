@@ -25,9 +25,7 @@ pub(super) struct Output {
 
 pub(super) fn generate(execution: &crate::execution::Program) -> Option<Output> {
     let main = main_function(execution)?;
-    if !execution.lowered.interface.externals.is_empty()
-        || !top_levels_are_capture_free_closures(execution)
-    {
+    if !top_levels_are_capture_free_closures(execution) {
         return None;
     }
 
@@ -54,6 +52,7 @@ struct FunctionEmitter<'a> {
     result_type: Type,
     slots: HashMap<ValueId, Slot>,
     has_frames: bool,
+    has_external_calls: bool,
     next_register: usize,
     output: String,
 }
@@ -120,6 +119,12 @@ impl<'a> FunctionEmitter<'a> {
         }) {
             return None;
         }
+        let has_external_calls = states.iter().any(|site| {
+            execution.control.states[site.0]
+                .bindings
+                .iter()
+                .any(|binding| matches!(binding.operation, Operation::ExternalCall { .. }))
+        });
         Some(Self {
             execution,
             control: &execution.control,
@@ -128,6 +133,7 @@ impl<'a> FunctionEmitter<'a> {
             states,
             slots,
             has_frames: !frame_sites.is_empty(),
+            has_external_calls,
             next_register: 0,
             output: String::new(),
         })
@@ -156,6 +162,10 @@ impl<'a> FunctionEmitter<'a> {
         }
         if self.has_frames {
             self.line("  %mal_control_top = alloca i64, align 8");
+        }
+        if self.has_external_calls {
+            self.line("  %mal_bridge_argument = alloca [8 x i8], align 8");
+            self.line("  %mal_bridge_result = alloca [8 x i8], align 8");
         }
         if let Some(id) = self.function.parameter.binding {
             let slot = self.slots.get(&id)?.clone();
@@ -200,12 +210,16 @@ impl<'a> FunctionEmitter<'a> {
                 let scalar = scalar_type(&operand.ty)?;
                 let register = self.register();
                 let instruction = match operator {
+                    UnaryPrimitive::Negate if scalar.floating => {
+                        format!("fneg {} {}", scalar.llvm, operand.representation)
+                    }
                     UnaryPrimitive::Negate => {
                         format!("sub {} 0, {}", scalar.llvm, operand.representation)
                     }
-                    UnaryPrimitive::BitwiseNot => {
+                    UnaryPrimitive::BitwiseNot if !scalar.floating => {
                         format!("xor {} {}, -1", scalar.llvm, operand.representation)
                     }
+                    UnaryPrimitive::BitwiseNot => return None,
                 };
                 self.line(format!("  {register} = {instruction}"));
                 Some(Some(EmittedValue {
@@ -224,7 +238,7 @@ impl<'a> FunctionEmitter<'a> {
                     return None;
                 }
                 let scalar = scalar_type(&left.ty)?;
-                let instruction = arithmetic_instruction(*operator, scalar.signed)?;
+                let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
                 self.line(format!(
                     "  {register} = {instruction} {} {}, {}",
@@ -240,13 +254,23 @@ impl<'a> FunctionEmitter<'a> {
                 let source = scalar_type(&operand.ty)?;
                 let result_type = result_type?.clone();
                 let target = scalar_type(&result_type)?;
-                if source.bits == target.bits {
+                if source.floating == target.floating && source.bits == target.bits {
                     return Some(Some(EmittedValue {
                         ty: result_type,
                         representation: operand.representation,
                     }));
                 }
-                let instruction = if source.bits > target.bits {
+                let instruction = if source.floating && target.floating {
+                    if source.bits > target.bits {
+                        "fptrunc"
+                    } else {
+                        "fpext"
+                    }
+                } else if source.floating {
+                    if target.signed { "fptosi" } else { "fptoui" }
+                } else if target.floating {
+                    if source.signed { "sitofp" } else { "uitofp" }
+                } else if source.bits > target.bits {
                     "trunc"
                 } else if source.signed {
                     "sext"
@@ -263,8 +287,52 @@ impl<'a> FunctionEmitter<'a> {
                     representation: register,
                 }))
             }
+            Operation::ExternalCall { id, argument } => self
+                .emit_external_call(*id, argument, result_type?)
+                .map(Some),
             _ => None,
         }
+    }
+
+    fn emit_external_call(
+        &mut self,
+        id: crate::resolve::ast::ExternalOperationId,
+        argument: &Atom,
+        result_type: &Type,
+    ) -> Option<EmittedValue> {
+        let external = self
+            .execution
+            .lowered
+            .interface
+            .externals
+            .iter()
+            .find(|external| external.id == id)?;
+        let argument = self.atom(argument)?;
+        if argument.ty != external.parameter || *result_type != external.result {
+            return None;
+        }
+        let argument_type = scalar_type(&argument.ty)?;
+        let result_type = result_type.clone();
+        let result_scalar = scalar_type(&result_type)?;
+        self.line(format!(
+            "  store {} {}, ptr %mal_bridge_argument, align {}",
+            argument_type.llvm, argument.representation, argument_type.alignment
+        ));
+        let bridge = crate::backend::abi::Function::external_bridge(id);
+        let call = bridge
+            .llvm_signature()
+            .replace("%mal_argument", "%mal_bridge_argument")
+            .replace("%mal_result", "%mal_bridge_result");
+        self.line(format!("  call {call}"));
+        let register = self.register();
+        self.line(format!(
+            "  {register} = load {}, ptr %mal_bridge_result, align {}",
+            result_scalar.llvm, result_scalar.alignment
+        ));
+        Some(EmittedValue {
+            ty: result_type,
+            representation: register,
+        })
     }
 
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
@@ -304,10 +372,11 @@ impl<'a> FunctionEmitter<'a> {
                     return None;
                 }
                 let scalar = scalar_type(&left.ty)?;
-                let predicate = predicate.for_signedness(scalar.signed);
+                let predicate = predicate.for_scalar(scalar);
                 let condition = self.register();
+                let instruction = if scalar.floating { "fcmp" } else { "icmp" };
                 self.line(format!(
-                    "  {condition} = icmp {predicate} {} {}, {}",
+                    "  {condition} = {instruction} {predicate} {} {}, {}",
                     scalar.llvm, left.representation, right.representation
                 ));
                 self.line(format!(
@@ -415,6 +484,14 @@ impl<'a> FunctionEmitter<'a> {
             (ty, AtomKind::Integer(value)) if scalar_type(ty).is_some() => Some(EmittedValue {
                 ty: ty.clone(),
                 representation: integer_literal(ty, *value)?,
+            }),
+            (Type::Float32, AtomKind::Float(bits)) => Some(EmittedValue {
+                ty: Type::Float32,
+                representation: format!("{:.9e}", f32::from_bits(*bits as u32)),
+            }),
+            (Type::Float64, AtomKind::Float(bits)) => Some(EmittedValue {
+                ty: Type::Float64,
+                representation: format!("{:.17e}", f64::from_bits(*bits)),
             }),
             (ty, AtomKind::Reference(Reference::Binding(id))) if scalar_type(ty).is_some() => {
                 let slot = self.slots.get(id)?.clone();
