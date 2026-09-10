@@ -94,10 +94,19 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
             .map_err(|error| Error::io("write generated C shim", &shim_path, error))?;
         fs::write(&header_path, generated.header)
             .map_err(|error| Error::io("write generated header", &header_path, error))?;
+        let mut generated_inputs = vec![module_path, shim_path];
+        for runtime in generated.runtime {
+            let path = temporary.path().join(runtime.name);
+            fs::write(&path, runtime.contents)
+                .map_err(|error| Error::io("write runtime input", &path, error))?;
+            if path.extension() == Some(OsStr::new("c")) {
+                generated_inputs.push(path);
+            }
+        }
         return run_compiler(
             OsStr::new(toolchain::CLANG),
             temporary.path(),
-            [&module_path, &shim_path],
+            generated_inputs.iter(),
             graph.c_sources(),
             output_path,
         );

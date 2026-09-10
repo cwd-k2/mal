@@ -62,6 +62,42 @@ fn builds_scalar_control_and_tail_calls_through_llvm() {
 }
 
 #[test]
+fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
+    let directory = NativeFixture::new("driver-llvm-frame");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "sum :: Int32 -> Int32 := \\(value) {\n\
+           if (value == 0) then { 0 } else {\n\
+             rest := sum(value - 1);\n\
+             value + rest;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := \\() { sum(10000) - 50005000; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

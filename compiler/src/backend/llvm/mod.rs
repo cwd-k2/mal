@@ -18,10 +18,16 @@ pub(crate) fn generate(
 ) -> Option<LlvmArtifacts> {
     let body = body::generate(program)?;
     let entry = AbiFunction::program_entry();
+    let control_declarations = if body.uses_control {
+        "declare ptr @mal_control_reserve_slots(ptr, i64, i64)\ndeclare ptr @mal_control_storage(ptr)\n\n"
+    } else {
+        ""
+    };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}()\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\n{}{}define {} {{\nentry:\n  %mal_entry_result = call i32 @{}(ptr %mal_context)\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
+        control_declarations,
         body.definitions,
         entry.llvm_signature(),
         match body.main {
@@ -30,7 +36,7 @@ pub(crate) fn generate(
         },
     );
     let shim = format!(
-        "#include <stddef.h>\n#include <stdint.h>\n\n{}\n\nint main(void) {{\n    int32_t result;\n    {}(NULL, NULL, &result);\n    return result;\n}}\n",
+        "#include \"runtime.h\"\n\n#include <stdint.h>\n\n{}\n\nint main(void) {{\n    MalControlArena arena = {{0}};\n    int32_t result;\n    {}(&arena, NULL, &result);\n    mal_control_destroy(&arena);\n    return result;\n}}\n",
         entry.c_declaration(),
         entry.name(),
     );
@@ -38,6 +44,7 @@ pub(crate) fn generate(
         module,
         shim,
         header: crate::backend::c::emit_header(&program.lowered.interface),
+        runtime: crate::backend::runtime::control().into(),
     })
 }
 

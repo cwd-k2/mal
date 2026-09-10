@@ -7,26 +7,35 @@ use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
 use crate::execution::ControlCallMode;
 
+mod frame;
+
 pub(super) struct Output {
     pub(super) definitions: String,
     pub(super) main: FunctionId,
+    pub(super) uses_control: bool,
 }
 
 pub(super) fn generate(execution: &crate::execution::Program) -> Option<Output> {
     let main = main_function(execution)?;
     if !execution.lowered.interface.externals.is_empty()
         || !top_levels_are_capture_free_closures(execution)
-        || !execution.control_frames.is_empty()
     {
         return None;
     }
 
     let mut definitions = String::new();
+    let mut uses_control = false;
     for function in &execution.control.functions {
-        definitions.push_str(&FunctionEmitter::new(execution, function.id)?.emit()?);
+        let emitter = FunctionEmitter::new(execution, function.id)?;
+        uses_control |= emitter.has_frames;
+        definitions.push_str(&emitter.emit()?);
         definitions.push('\n');
     }
-    Some(Output { definitions, main })
+    Some(Output {
+        definitions,
+        main,
+        uses_control,
+    })
 }
 
 fn main_function(execution: &crate::execution::Program) -> Option<FunctionId> {
@@ -85,6 +94,7 @@ struct FunctionEmitter<'a> {
     function: &'a crate::control::ast::Function,
     states: Vec<StateId>,
     slots: HashMap<ValueId, usize>,
+    has_frames: bool,
     next_register: usize,
     output: String,
 }
@@ -121,21 +131,44 @@ impl<'a> FunctionEmitter<'a> {
                 collect_pattern_slot(&binding.pattern, &mut slots)?;
             }
         }
+        let frame_sites = states
+            .iter()
+            .filter(|site| execution.control_frames.frame(**site).is_some())
+            .copied()
+            .collect::<Vec<_>>();
+        if frame_sites.len() > 1
+            || frame_sites.iter().any(|site| {
+                let frame = execution
+                    .control_frames
+                    .frame(*site)
+                    .expect("collected frame site");
+                execution.applications.direct_target(*site) != Some(id)
+                    || !execution.control_frames.frame_is_homogeneous(*site)
+                    || frame.carries_environment
+                    || frame
+                        .fields
+                        .iter()
+                        .any(|field| field.managed || field.value.ty != Type::Int32)
+            })
+        {
+            return None;
+        }
         Some(Self {
             execution,
             control: &execution.control,
             function,
             states,
             slots,
+            has_frames: !frame_sites.is_empty(),
             next_register: 0,
             output: String::new(),
         })
     }
 
     fn emit(mut self) -> Option<String> {
-        let parameter = match self.function.parameter.ty {
-            Type::Unit => String::new(),
-            Type::Int32 => "i32 %mal_parameter".into(),
+        let parameter: String = match self.function.parameter.ty {
+            Type::Unit => "ptr %mal_context".into(),
+            Type::Int32 => "ptr %mal_context, i32 %mal_parameter".into(),
             _ => return None,
         };
         self.line(format!(
@@ -148,11 +181,17 @@ impl<'a> FunctionEmitter<'a> {
         for slot in slots {
             self.line(format!("  %mal_slot_{slot} = alloca i32, align 4"));
         }
+        if self.has_frames {
+            self.line("  %mal_control_top = alloca i64, align 8");
+        }
         if let Some(id) = self.function.parameter.binding {
             let slot = self.slots[&id];
             self.line(format!(
                 "  store i32 %mal_parameter, ptr %mal_slot_{slot}, align 4"
             ));
+        }
+        if self.has_frames {
+            self.line("  store i64 0, ptr %mal_control_top, align 8");
         }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 
@@ -206,7 +245,11 @@ impl<'a> FunctionEmitter<'a> {
         match terminator {
             Terminator::Return(value) => {
                 let value = self.atom(value)?;
-                self.line(format!("  ret i32 {value}"));
+                if self.has_frames {
+                    self.emit_frame_return(site, &value)?;
+                } else {
+                    self.line(format!("  ret i32 {value}"));
+                }
             }
             Terminator::Goto(target) => {
                 self.line(format!("  br label %mal_state_{}", target.0));
@@ -238,16 +281,20 @@ impl<'a> FunctionEmitter<'a> {
             }
             Terminator::Call {
                 argument, resume, ..
-            } => {
-                let ControlCallMode::Direct(target) = self.execution.control_calls.mode(site)?
-                else {
-                    return None;
-                };
-                let result = self.emit_call(target, argument, false)?;
-                let input = self.control.states[resume.0].input.as_ref()?;
-                self.store_pattern(input, Some(&result))?;
-                self.line(format!("  br label %mal_state_{}", resume.0));
-            }
+            } => match self.execution.control_calls.mode(site)? {
+                ControlCallMode::Direct(target) => {
+                    let result = self.emit_call(target, argument, false)?;
+                    let input = self.control.states[resume.0].input.as_ref()?;
+                    self.store_pattern(input, Some(&result))?;
+                    self.line(format!("  br label %mal_state_{}", resume.0));
+                }
+                ControlCallMode::Dispatch
+                    if self.execution.control_frames.frame(site).is_some() =>
+                {
+                    self.emit_frame_call(site, argument)?;
+                }
+                ControlCallMode::DirectSelfTail | ControlCallMode::Dispatch => return None,
+            },
             Terminator::TailCall { argument, .. } => {
                 match self.execution.control_calls.mode(site)? {
                     ControlCallMode::DirectSelfTail => {
@@ -283,8 +330,8 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == target)?;
         let arguments = match target.parameter.ty {
-            Type::Unit => String::new(),
-            Type::Int32 => format!("i32 {}", self.atom(argument)?),
+            Type::Unit => "ptr %mal_context".into(),
+            Type::Int32 => format!("ptr %mal_context, i32 {}", self.atom(argument)?),
             _ => return None,
         };
         let register = self.register();
@@ -419,14 +466,4 @@ fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId> {
         }
     }
     states
-}
-
-trait FramePlanExt {
-    fn is_empty(&self) -> bool;
-}
-
-impl FramePlanExt for crate::execution::ControlFramePlan {
-    fn is_empty(&self) -> bool {
-        self.arena_count() == 0
-    }
 }
