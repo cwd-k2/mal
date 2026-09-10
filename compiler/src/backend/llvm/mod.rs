@@ -107,6 +107,7 @@ fn external_bridge(
     use crate::check::ast::Type;
 
     let types = body::types::Types::new(pointer_size)?;
+    let mut marshalling = BridgeMarshalling::new(external.id.0, types, raw_types);
     let bridge = AbiFunction::external_bridge(external.id);
     let llvm = format!("declare {}", bridge.llvm_signature());
     let signature = bridge.c_declaration();
@@ -119,14 +120,19 @@ fn external_bridge(
                 .iter()
                 .zip(fields)
                 .map(|(element, field)| {
-                    read_bridge_value(element, "mal_argument", field.offset, types, raw_types)
+                    marshalling.read(
+                        element,
+                        "mal_argument",
+                        field.offset,
+                        "(MalContext *)mal_context",
+                    )
                 })
                 .collect::<Option<Vec<_>>>()?;
             (String::new(), arguments)
         }
         ty => (
             String::new(),
-            vec![read_bridge_value(ty, "mal_argument", 0, types, raw_types)?],
+            vec![marshalling.read(ty, "mal_argument", 0, "(MalContext *)mal_context")?],
         ),
     };
     let argument = arguments
@@ -144,9 +150,10 @@ fn external_bridge(
         Type::Symbol => format!(
             "    MalType_Symbol result = {call};\n    *(void **)mal_result = result.ownership;"
         ),
-        Type::Product(_) => {
+        Type::Product(_) | Type::Sum(_) if c_scalar_type(&external.result).is_none() => {
             let result_type = raw_types.c_type(&external.result);
-            let writes = write_bridge_value(&external.result, "result", 0, types)?;
+            let writes =
+                marshalling.write(&external.result, "result", 0, "(MalContext *)mal_context")?;
             format!("    {result_type} result = {call};\n{writes}")
         }
         ty => {
@@ -154,90 +161,204 @@ fn external_bridge(
             format!("    *({result} *)mal_result = {call};")
         }
     };
-    let c = format!("{signature} {{\n{parameter}{result}\n}}");
+    let c = format!(
+        "{}{signature} {{\n{parameter}{result}\n}}",
+        marshalling.helpers
+    );
     Some((llvm, c))
 }
 
-fn read_bridge_value(
-    ty: &crate::check::ast::Type,
-    base: &str,
-    offset: usize,
+struct BridgeMarshalling<'a> {
+    external: u32,
     types: body::types::Types,
-    raw_types: &crate::c_emit::RawHostTypes,
-) -> Option<String> {
-    use crate::check::ast::Type;
-
-    let pointer = bridge_pointer(base, offset, true);
-    match ty {
-        Type::Unit => Some("(MalType_Unit){.unused = UINT8_C(0)}".into()),
-        Type::Symbol => {
-            let ownership = format!("*(void *const *){pointer}");
-            Some(format!(
-                "(MalType_Symbol){{.data = mal_runtime_symbol_data({ownership}), .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}}"
-            ))
-        }
-        Type::Product(elements) => {
-            let fields = types.product_fields(ty)?;
-            let initializers = elements
-                .iter()
-                .zip(fields)
-                .enumerate()
-                .map(|(index, (element, field))| {
-                    Some(format!(
-                        ".field_{index} = {}",
-                        read_bridge_value(
-                            element,
-                            base,
-                            offset.checked_add(field.offset)?,
-                            types,
-                            raw_types,
-                        )?
-                    ))
-                })
-                .collect::<Option<Vec<_>>>()?
-                .join(", ");
-            Some(format!("({}){{{initializers}}}", raw_types.c_type(ty)))
-        }
-        _ => {
-            let c_type = c_scalar_type(ty)?;
-            Some(format!("*(const {c_type} *){pointer}"))
-        }
-    }
+    raw_types: &'a crate::c_emit::RawHostTypes,
+    next_helper: usize,
+    helpers: String,
 }
 
-fn write_bridge_value(
-    ty: &crate::check::ast::Type,
-    value: &str,
-    offset: usize,
-    types: body::types::Types,
-) -> Option<String> {
-    use crate::check::ast::Type;
+impl<'a> BridgeMarshalling<'a> {
+    fn new(
+        external: u32,
+        types: body::types::Types,
+        raw_types: &'a crate::c_emit::RawHostTypes,
+    ) -> Self {
+        Self {
+            external,
+            types,
+            raw_types,
+            next_helper: 0,
+            helpers: String::new(),
+        }
+    }
 
-    let pointer = bridge_pointer("mal_result", offset, false);
-    match ty {
-        Type::Unit => Some(format!("    *(uint8_t *){pointer} = UINT8_C(0);")),
-        Type::Symbol => Some(format!("    *(void **){pointer} = {value}.ownership;")),
-        Type::Product(elements) => {
-            let fields = types.product_fields(ty)?;
-            elements
-                .iter()
-                .zip(fields)
-                .enumerate()
-                .map(|(index, (element, field))| {
-                    write_bridge_value(
-                        element,
-                        &format!("{value}.field_{index}"),
-                        offset.checked_add(field.offset)?,
-                        types,
-                    )
-                })
-                .collect::<Option<Vec<_>>>()
-                .map(|writes| writes.join("\n"))
+    fn helper_name(&mut self, direction: &str) -> String {
+        let helper = self.next_helper;
+        self.next_helper += 1;
+        format!(
+            "mal_bridge_external_{}_{}_sum_{}",
+            self.external, direction, helper
+        )
+    }
+
+    fn read(
+        &mut self,
+        ty: &crate::check::ast::Type,
+        base: &str,
+        offset: usize,
+        context: &str,
+    ) -> Option<String> {
+        use crate::check::ast::Type;
+
+        let pointer = bridge_pointer(base, offset, true);
+        match ty {
+            Type::Unit => Some("(MalType_Unit){.unused = UINT8_C(0)}".into()),
+            Type::Symbol => {
+                let ownership = format!("*(void *const *){pointer}");
+                Some(format!(
+                    "(MalType_Symbol){{.data = mal_runtime_symbol_data({ownership}), .length = mal_runtime_symbol_length({ownership}), .ownership = {ownership}}}"
+                ))
+            }
+            Type::Product(elements) => {
+                let fields = self.types.product_fields(ty)?;
+                let initializers = elements
+                    .iter()
+                    .zip(fields)
+                    .enumerate()
+                    .map(|(index, (element, field))| {
+                        Some(format!(
+                            ".field_{index} = {}",
+                            self.read(element, base, offset.checked_add(field.offset)?, context)?
+                        ))
+                    })
+                    .collect::<Option<Vec<_>>>()?
+                    .join(", ");
+                Some(format!("({}){{{initializers}}}", self.raw_types.c_type(ty)))
+            }
+            Type::Sum(elements) if !body::types::is_bool(ty) => {
+                self.read_sum(ty, elements, &pointer, context)
+            }
+            _ => {
+                let c_type = c_scalar_type(ty)?;
+                Some(format!("*(const {c_type} *){pointer}"))
+            }
         }
-        _ => {
-            let c_type = c_scalar_type(ty)?;
-            Some(format!("    *({c_type} *){pointer} = {value};"))
+    }
+
+    fn read_sum(
+        &mut self,
+        ty: &crate::check::ast::Type,
+        elements: &[crate::check::ast::Type],
+        pointer: &str,
+        context: &str,
+    ) -> Option<String> {
+        let helper = self.helper_name("read");
+        let c_type = self.raw_types.c_type(ty);
+        let fields = self.types.sum_fields(ty)?;
+        let tag_offset = fields.first()?.offset;
+        let cases = elements
+            .iter()
+            .zip(fields.into_iter().skip(1))
+            .enumerate()
+            .map(|(index, (element, field))| {
+                Some(format!(
+                    "    case UINT32_C({index}):\n        return ({c_type}){{.tag = UINT32_C({index}), .payload.variant_{index} = {}}};",
+                    self.read(element, "value", field.offset, "context")?
+                ))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join("\n");
+        self.helpers.push_str(&format!(
+            "static {c_type} {helper}(MalContext *context, const unsigned char *value) {{\n    uint32_t tag = *(const uint32_t *)(value + {tag_offset});\n    switch (tag) {{\n{cases}\n    default:\n        mal_trap(context, \"invalid sum tag at LLVM bridge\");\n    }}\n}}\n\n"
+        ));
+        Some(format!("{helper}({context}, {pointer})"))
+    }
+
+    fn write(
+        &mut self,
+        ty: &crate::check::ast::Type,
+        value: &str,
+        offset: usize,
+        context: &str,
+    ) -> Option<String> {
+        self.write_at(ty, "mal_result", value, offset, context)
+    }
+
+    fn write_at(
+        &mut self,
+        ty: &crate::check::ast::Type,
+        base: &str,
+        value: &str,
+        offset: usize,
+        context: &str,
+    ) -> Option<String> {
+        use crate::check::ast::Type;
+
+        let pointer = bridge_pointer(base, offset, false);
+        match ty {
+            Type::Unit => Some(format!("    *(uint8_t *){pointer} = UINT8_C(0);")),
+            Type::Symbol => Some(format!("    *(void **){pointer} = {value}.ownership;")),
+            Type::Product(elements) => {
+                let fields = self.types.product_fields(ty)?;
+                elements
+                    .iter()
+                    .zip(fields)
+                    .enumerate()
+                    .map(|(index, (element, field))| {
+                        self.write_at(
+                            element,
+                            base,
+                            &format!("{value}.field_{index}"),
+                            offset.checked_add(field.offset)?,
+                            context,
+                        )
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .map(|writes| writes.join("\n"))
+            }
+            Type::Sum(elements) if !body::types::is_bool(ty) => {
+                self.write_sum(ty, elements, value, &pointer, context)
+            }
+            _ => {
+                let c_type = c_scalar_type(ty)?;
+                Some(format!("    *({c_type} *){pointer} = {value};"))
+            }
         }
+    }
+
+    fn write_sum(
+        &mut self,
+        ty: &crate::check::ast::Type,
+        elements: &[crate::check::ast::Type],
+        value: &str,
+        pointer: &str,
+        context: &str,
+    ) -> Option<String> {
+        let helper = self.helper_name("write");
+        let c_type = self.raw_types.c_type(ty);
+        let fields = self.types.sum_fields(ty)?;
+        let tag_offset = fields.first()?.offset;
+        let cases = elements
+            .iter()
+            .zip(fields.into_iter().skip(1))
+            .enumerate()
+            .map(|(index, (element, field))| {
+                let writes = self.write_at(
+                    element,
+                    "value",
+                    &format!("input.payload.variant_{index}"),
+                    field.offset,
+                    "context",
+                )?;
+                Some(format!(
+                    "    case UINT32_C({index}):\n{writes}\n        return;"
+                ))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join("\n");
+        self.helpers.push_str(&format!(
+            "static void {helper}(MalContext *context, unsigned char *value, {c_type} input) {{\n    *(uint32_t *)(value + {tag_offset}) = input.tag;\n    switch (input.tag) {{\n{cases}\n    default:\n        mal_trap(context, \"invalid sum tag at LLVM bridge\");\n    }}\n}}\n\n"
+        ));
+        Some(format!("    {helper}({context}, {pointer}, {value});"))
     }
 }
 
@@ -255,6 +376,7 @@ fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
     c_scalar_type(ty).is_some()
         || matches!(ty, Type::Unit | Type::Symbol)
         || matches!(ty, Type::Product(elements) if elements.iter().all(bridge_type_supported))
+        || matches!(ty, Type::Sum(elements) if elements.iter().all(bridge_type_supported))
 }
 
 fn c_scalar_type(ty: &crate::check::ast::Type) -> Option<&'static str> {
@@ -347,18 +469,21 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sum_externals_before_artifact_generation() {
-        let source = SourceFile::new(
-            FileId::new(77),
-            "sum-extern.mal",
-            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };".into(),
-        );
-        let checked = crate::pipeline::check(&source).expect("check sum extern fixture");
-        let core = crate::core::lower(&checked);
-        let anf = crate::anf::lower(&core);
-        let closure = crate::closure::convert(&anf);
-        let execution = crate::execution::lower(closure);
-
-        assert!(!supports(&execution));
+    fn admits_sum_external_calls_recursively() {
+        for (index, source) in [
+            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := \\() { 0; };",
+            "Choice :: [Unit, (UInt64, Symbol)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := \\() { 0; };",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let source = SourceFile::new(FileId::new(77), "sum-extern.mal", source.into());
+            let checked = crate::pipeline::check(&source).expect("check sum extern fixture");
+            let core = crate::core::lower(&checked);
+            let anf = crate::anf::lower(&core);
+            let closure = crate::closure::convert(&anf);
+            let execution = crate::execution::lower(closure);
+            assert!(supports(&execution), "unsupported fixture {index}");
+        }
     }
 }

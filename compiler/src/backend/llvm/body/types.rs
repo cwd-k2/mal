@@ -86,6 +86,19 @@ impl Types {
         field_layouts(&self.fields(elements)?)
     }
 
+    pub(in crate::backend::llvm) fn sum_fields(self, ty: &Type) -> Option<Vec<Field>> {
+        let Type::Sum(elements) = ty else {
+            return None;
+        };
+        let mut fields = vec![ValueType {
+            llvm: "i32".into(),
+            alignment: 4,
+            size: 4,
+        }];
+        fields.extend(self.fields(elements)?);
+        field_layouts(&fields)
+    }
+
     fn fields(self, elements: &[Type]) -> Option<Vec<ValueType>> {
         elements.iter().map(|element| self.value(element)).collect()
     }

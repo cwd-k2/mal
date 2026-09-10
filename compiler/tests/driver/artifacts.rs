@@ -646,6 +646,71 @@ fn marshals_managed_products_through_the_public_c_abi() {
 }
 
 #[test]
+fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
+    let directory = NativeFixture::new("driver-llvm-sum-extern");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Choice :: [Unit, (UInt64, Symbol)];\n\
+         Envelope :: (UInt8, Choice);\n\
+         extern exchange :: Envelope -> Envelope;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           (number, choice) := exchange(41u8, Choice[1]((7u64, \"a\" + \"b\")));\n\
+           case (choice)\n\
+             [0](_) { 1 }\n\
+             [1](packet) {\n\
+               (bias, text) := packet;\n\
+               if (number == 42u8) then {\n\
+                 if (bias == 7u64) then {\n\
+                   if (text == \"ab\") then { 0 } else { 2 };\n\
+                 } else { 3 };\n\
+               } else { 4 };\n\
+             };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_exchange(call, value) {\n\
+             if (value.field_1.tag != mal_Choice_tag_1) {\n\
+                 mal_call_trap(call, \"unexpected choice\");\n\
+             }\n\
+             mal_span_t bytes = mal_Symbol_to_bytes(\n\
+                 call, value.field_1.payload.variant_1.field_1\n\
+             );\n\
+             if (bytes.length != 2 || bytes.data[0] != 'a' || bytes.data[1] != 'b') {\n\
+                 mal_call_trap(call, \"unexpected payload\");\n\
+             }\n\
+             return mal_Envelope_return(\n\
+                 call,\n\
+                 (mal_Envelope_t){.field_0 = value.field_0 + 1, .field_1 = value.field_1}\n\
+             );\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_symbols_nested_in_products_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-symbol-product");
     let source = directory.join("program.mal");
