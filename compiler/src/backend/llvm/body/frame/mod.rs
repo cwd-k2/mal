@@ -256,9 +256,12 @@ impl FunctionEmitter<'_> {
             .find(|function| function.id == target)?;
         let entry = function.entry;
         let parameter = function.parameter.clone();
+        if parameter.ty != argument.ty {
+            return None;
+        }
         if let Some(binding) = parameter.binding {
             let slot = self.slots.get(&binding)?.clone();
-            if slot.ty != argument.ty {
+            if slot.ty != parameter.ty {
                 return None;
             }
             let value_type = self.types.value(&slot.ty)?;
@@ -266,8 +269,8 @@ impl FunctionEmitter<'_> {
                 "  store {} {}, ptr %mal_slot_{}, align {}",
                 value_type.llvm, argument.representation, slot.index, value_type.alignment
             ));
-        } else if parameter.ty != Type::Unit {
-            return None;
+        } else if parameter.ty != Type::Unit && argument.owned {
+            self.release_value(&argument.ty, &argument.representation)?;
         }
         self.line(format!("  br label %mal_state_{}", entry.0));
         Some(())
@@ -429,6 +432,11 @@ impl FunctionEmitter<'_> {
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
         ));
+        let input = self.control.states[frame.resume.0].input.as_ref()?;
+        if super::pattern_value_type(input) != Some(&result.ty) {
+            self.line("  unreachable");
+            return Some(());
+        }
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
             let pointer = self.register();
             self.line(format!(
@@ -466,7 +474,6 @@ impl FunctionEmitter<'_> {
                 self.types.pointer_size()
             ));
         }
-        let input = self.control.states[frame.resume.0].input.as_ref()?;
         self.store_pattern(
             input,
             Some(&EmittedValue {

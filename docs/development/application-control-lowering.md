@@ -51,6 +51,11 @@ callee closureからcode pointerとenvironmentを取り出し、application grap
 移してから、同じregionのtargetならentry stateへbranchし、region外のtargetなら非循環なnative callとして呼ぶ。application graphの
 列挙外にあるcode identityだけが到達不能なcompiler invariant違反である。
 
+一つのregionは異なるparameter型とresult型のfunctionを含み得る。dispatchで選ばれたtargetのparameter型はapplication graphが保証する。
+parameter patternがwildcardならentry slotはなく、遷移が受け取ったmanaged argumentをreleaseしてからbodyへ進む。共通machineが各return
+siteと各frame tagの組合せを列挙するとき、frameのresume input型とreturn value型が異なる組合せは、型の一致するcallからそのframeが積まれる
+というcontrol planの規則により到達不能である。backendはこの組合せをresumeとして再解釈せず、target IRの`unreachable`にする。
+
 non-tail遷移ではcaller live valueをframeへ移し、必要ならcaller environment ownerもframeへ移す。callee return時はframe tagからresume
 stateを選び、fieldとenvironmentをlocal slotへ戻してresultをresume inputへ移す。program entryが一つのcontrol topをinternal callへ渡し、
 各recursive region invocationはentry時のtopをbaseとして保持する。topがそのbaseへ戻ったらresultをnative callerへ返すため、外側regionの
@@ -71,6 +76,7 @@ control storageはMal programから到達不能なimplementation storageであ�
 - region内non-tail siteとframe集合、frame fieldとresume live-inが一致する。
 - tail edgeがframeを増やさず、深いself recursionとfirst-class cycleでnative stack使用量がdepthに比例しない。
 - heterogeneous frame、managed field、environment owner、複数target dispatchを実行testで確認する。
+- heterogeneous result型を持つ共通region、wildcard parameterへのmanaged argument、同じ構造型を持つ異なる役割のfunctionを確認する。
 - frame storage growth後にpointerを再取得し、result、evaluation order、extern trace、trap、managed lifetimeを保持する。
 
 host callback、exception、asyncなどMal functionのcontinuationを新たに外部へ運ぶ機能を追加する場合は、このmachineのauthority変更として
