@@ -226,6 +226,27 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
+    pub(super) fn release_dead_slot(&mut self, id: crate::anf::ast::ValueId) -> Option<()> {
+        let Some(slot) = self.slots.get(&id).cloned() else {
+            return Some(());
+        };
+        if !crate::execution::ownership::is_managed(&slot.ty) {
+            return Some(());
+        }
+        let value_type = self.types.value(&slot.ty)?;
+        let value = self.register();
+        self.line(format!(
+            "  {value} = load {}, ptr %mal_slot_{}, align {}",
+            value_type.llvm, slot.index, value_type.alignment
+        ));
+        self.release_value(&slot.ty, &value)?;
+        self.line(format!(
+            "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
+            value_type.llvm, slot.index, value_type.alignment
+        ));
+        Some(())
+    }
+
     pub(super) fn release_local_managed(&mut self) {
         let mut slots = self
             .function_slots

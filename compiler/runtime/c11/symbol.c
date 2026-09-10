@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { MAL_SYMBOL_LEAF, MAL_SYMBOL_ROPE } MalSymbolKind;
+typedef enum { MAL_SYMBOL_STATIC, MAL_SYMBOL_FLAT, MAL_SYMBOL_ROPE } MalSymbolKind;
+
+enum { MAL_SYMBOL_FLAT_CONCATENATION_LIMIT = 256 };
 
 typedef struct MalSymbol {
     uint64_t references;
@@ -17,7 +19,13 @@ typedef struct MalSymbol {
 typedef struct {
     MalSymbol header;
     unsigned char bytes[];
-} MalSymbolLeaf;
+} MalSymbolStatic;
+
+typedef struct {
+    MalSymbol header;
+    size_t capacity;
+    unsigned char bytes[];
+} MalSymbolFlat;
 
 typedef struct {
     MalSymbol header;
@@ -29,7 +37,7 @@ typedef struct {
 typedef struct {
     const MalSymbolRope *pending[UINT8_MAX + 1];
     size_t depth;
-    const MalSymbolLeaf *leaf;
+    const MalSymbol *leaf;
     uint64_t index;
 } MalSymbolCursor;
 
@@ -43,7 +51,7 @@ _Static_assert(offsetof(MalSymbol, references) == 0, "symbol reference offset mi
 _Static_assert(offsetof(MalSymbol, length) == 8, "symbol length offset mismatch");
 _Static_assert(offsetof(MalSymbol, kind) == 16, "symbol kind offset mismatch");
 _Static_assert(offsetof(MalSymbol, height) == 17, "symbol height offset mismatch");
-_Static_assert(offsetof(MalSymbolLeaf, bytes) == 24, "symbol byte offset mismatch");
+_Static_assert(offsetof(MalSymbolStatic, bytes) == 24, "symbol byte offset mismatch");
 
 static void *mal_symbol_allocate(MalContext *context, size_t size) {
     void *allocation = malloc(size);
@@ -53,17 +61,30 @@ static void *mal_symbol_allocate(MalContext *context, size_t size) {
     return allocation;
 }
 
-static MalSymbolLeaf *mal_symbol_leaf_allocate(MalContext *context, uint64_t length) {
-    if (length > SIZE_MAX - sizeof(MalSymbolLeaf)) {
+static size_t mal_symbol_size(MalContext *context, uint64_t length) {
+    size_t size = (size_t)length;
+    if ((uint64_t)size != length) {
         mal_trap(context, "symbol allocation size overflow");
     }
-    MalSymbolLeaf *leaf = mal_symbol_allocate(context, sizeof(MalSymbolLeaf) + (size_t)length);
-    leaf->header = (MalSymbol){1, length, MAL_SYMBOL_LEAF, 0, {0}};
-    return leaf;
+    return size;
+}
+
+static MalSymbolFlat *mal_symbol_flat_allocate(
+    MalContext *context,
+    uint64_t length,
+    size_t capacity
+) {
+    if (capacity > SIZE_MAX - sizeof(MalSymbolFlat)) {
+        mal_trap(context, "symbol allocation size overflow");
+    }
+    MalSymbolFlat *flat = mal_symbol_allocate(context, sizeof(MalSymbolFlat) + capacity);
+    flat->header = (MalSymbol){1, length, MAL_SYMBOL_FLAT, 0, {0}};
+    flat->capacity = capacity;
+    return flat;
 }
 
 static uint8_t mal_symbol_height(const MalSymbol *symbol) {
-    return symbol == NULL ? 0 : symbol->height;
+    return symbol == NULL || symbol->kind != MAL_SYMBOL_ROPE ? 0 : symbol->height;
 }
 
 static MalSymbol *mal_symbol_node(MalContext *context, MalSymbol *left, MalSymbol *right) {
@@ -175,13 +196,20 @@ static void mal_symbol_cursor_descend(MalSymbolCursor *cursor, const MalSymbol *
         cursor->pending[cursor->depth++] = rope;
         symbol = rope->left;
     }
-    cursor->leaf = (const MalSymbolLeaf *)symbol;
+    cursor->leaf = symbol;
     cursor->index = 0;
+}
+
+static const unsigned char *mal_symbol_leaf_bytes(const MalSymbol *symbol) {
+    if (symbol->kind == MAL_SYMBOL_STATIC) {
+        return ((const MalSymbolStatic *)symbol)->bytes;
+    }
+    return ((const MalSymbolFlat *)symbol)->bytes;
 }
 
 static void mal_symbol_cursor_advance(MalSymbolCursor *cursor, uint64_t count) {
     cursor->index += count;
-    if (cursor->index == cursor->leaf->header.length && cursor->depth != 0) {
+    if (cursor->index == cursor->leaf->length && cursor->depth != 0) {
         const MalSymbolRope *rope = cursor->pending[--cursor->depth];
         mal_symbol_cursor_descend(cursor, rope->right);
     }
@@ -196,15 +224,12 @@ const uint8_t *mal_runtime_symbol_data(MalContext *context, void *value) {
         return NULL;
     }
     MalSymbol *symbol = value;
-    if (symbol->kind == MAL_SYMBOL_LEAF) {
-        return ((MalSymbolLeaf *)symbol)->bytes;
+    if (symbol->kind != MAL_SYMBOL_ROPE) {
+        return mal_symbol_leaf_bytes(symbol);
     }
     MalSymbolRope *rope = (MalSymbolRope *)symbol;
     if (rope->materialized == NULL) {
-        if (symbol->length > SIZE_MAX) {
-            mal_trap(context, "symbol materialization size overflow");
-        }
-        rope->materialized = mal_symbol_allocate(context, (size_t)symbol->length);
+        rope->materialized = mal_symbol_allocate(context, mal_symbol_size(context, symbol->length));
         mal_runtime_symbol_write(rope->materialized, symbol);
     }
     return rope->materialized;
@@ -221,7 +246,7 @@ uint8_t mal_runtime_symbol_at(const void *value, uint64_t index) {
             symbol = rope->right;
         }
     }
-    return ((const MalSymbolLeaf *)symbol)->bytes[index];
+    return mal_symbol_leaf_bytes(symbol)[index];
 }
 
 void *mal_runtime_symbol_retain(MalContext *context, const void *value) {
@@ -230,6 +255,62 @@ void *mal_runtime_symbol_retain(MalContext *context, const void *value) {
 
 void mal_runtime_symbol_release(const void *value) {
     mal_symbol_owner_release((MalSymbol *)value);
+}
+
+static size_t mal_symbol_capacity(MalContext *context, uint64_t length) {
+    size_t required = mal_symbol_size(context, length);
+    size_t capacity = 16;
+    while (capacity < required) {
+        if (capacity > SIZE_MAX / 2) {
+            return required;
+        }
+        capacity *= 2;
+    }
+    return capacity;
+}
+
+static MalSymbol *mal_symbol_flat_concatenate(
+    MalContext *context,
+    const MalSymbol *left,
+    const MalSymbol *right,
+    uint64_t length
+) {
+    MalSymbolFlat *result = mal_symbol_flat_allocate(
+        context,
+        length,
+        mal_symbol_capacity(context, length)
+    );
+    mal_runtime_symbol_write(result->bytes, left);
+    mal_runtime_symbol_write(result->bytes + left->length, right);
+    return &result->header;
+}
+
+static MalSymbolFlat *mal_symbol_flat_reserve(
+    MalContext *context,
+    MalSymbolFlat *flat,
+    uint64_t length
+) {
+    size_t required = mal_symbol_size(context, length);
+    if (required <= flat->capacity) {
+        return flat;
+    }
+    size_t capacity = flat->capacity;
+    while (capacity < required) {
+        if (capacity > SIZE_MAX / 2) {
+            capacity = required;
+            break;
+        }
+        capacity *= 2;
+    }
+    if (capacity > SIZE_MAX - sizeof(MalSymbolFlat)) {
+        mal_trap(context, "symbol allocation size overflow");
+    }
+    MalSymbolFlat *resized = realloc(flat, sizeof(MalSymbolFlat) + capacity);
+    if (resized == NULL) {
+        mal_trap(context, "symbol allocation failed");
+    }
+    resized->capacity = capacity;
+    return resized;
 }
 
 void *mal_runtime_symbol_concatenate(MalContext *context, const void *left, const void *right) {
@@ -244,7 +325,78 @@ void *mal_runtime_symbol_concatenate(MalContext *context, const void *left, cons
     if (right_length == 0) {
         return mal_symbol_owner_retain(context, (MalSymbol *)left);
     }
+    uint64_t length = left_length + right_length;
+    if (length <= MAL_SYMBOL_FLAT_CONCATENATION_LIMIT) {
+        return mal_symbol_flat_concatenate(context, left, right, length);
+    }
     return mal_symbol_join(context, (MalSymbol *)left, (MalSymbol *)right);
+}
+
+void *mal_runtime_symbol_concatenate_consuming_left(
+    MalContext *context,
+    void *left_value,
+    const void *right_value
+) {
+    MalSymbol *left = left_value;
+    const MalSymbol *right = right_value;
+    uint64_t left_length = mal_runtime_symbol_length(left);
+    uint64_t right_length = mal_runtime_symbol_length(right);
+    if (left_length > UINT64_MAX - right_length) {
+        mal_trap(context, "symbol length overflow");
+    }
+    if (left_length == 0) {
+        mal_symbol_owner_release(left);
+        return mal_symbol_owner_retain(context, (MalSymbol *)right);
+    }
+    if (right_length == 0) {
+        return left;
+    }
+    uint64_t length = left_length + right_length;
+    if (left->kind == MAL_SYMBOL_FLAT && left->references == 1) {
+        MalSymbolFlat *flat = mal_symbol_flat_reserve(context, (MalSymbolFlat *)left, length);
+        mal_runtime_symbol_write(flat->bytes + left_length, right);
+        flat->header.length = length;
+        return &flat->header;
+    }
+    MalSymbol *result = length <= MAL_SYMBOL_FLAT_CONCATENATION_LIMIT
+        ? mal_symbol_flat_concatenate(context, left, right, length)
+        : mal_symbol_join(context, left, (MalSymbol *)right);
+    mal_symbol_owner_release(left);
+    return result;
+}
+
+void *mal_runtime_symbol_concatenate_consuming_right(
+    MalContext *context,
+    const void *left_value,
+    void *right_value
+) {
+    const MalSymbol *left = left_value;
+    MalSymbol *right = right_value;
+    uint64_t left_length = mal_runtime_symbol_length(left);
+    uint64_t right_length = mal_runtime_symbol_length(right);
+    if (left_length > UINT64_MAX - right_length) {
+        mal_trap(context, "symbol length overflow");
+    }
+    if (left_length == 0) {
+        return right;
+    }
+    if (right_length == 0) {
+        mal_symbol_owner_release(right);
+        return mal_symbol_owner_retain(context, (MalSymbol *)left);
+    }
+    uint64_t length = left_length + right_length;
+    if (right->kind == MAL_SYMBOL_FLAT && right->references == 1) {
+        MalSymbolFlat *flat = mal_symbol_flat_reserve(context, (MalSymbolFlat *)right, length);
+        memmove(flat->bytes + left_length, flat->bytes, (size_t)right_length);
+        mal_runtime_symbol_write(flat->bytes, left);
+        flat->header.length = length;
+        return &flat->header;
+    }
+    MalSymbol *result = length <= MAL_SYMBOL_FLAT_CONCATENATION_LIMIT
+        ? mal_symbol_flat_concatenate(context, left, right, length)
+        : mal_symbol_join(context, (MalSymbol *)left, right);
+    mal_symbol_owner_release(right);
+    return result;
 }
 
 uint8_t mal_runtime_symbol_equal(const void *left, const void *right) {
@@ -261,12 +413,12 @@ uint8_t mal_runtime_symbol_equal(const void *left, const void *right) {
     mal_symbol_cursor_descend(&right_cursor, right);
     uint64_t compared = 0;
     while (compared < length) {
-        uint64_t left_remaining = left_cursor.leaf->header.length - left_cursor.index;
-        uint64_t right_remaining = right_cursor.leaf->header.length - right_cursor.index;
+        uint64_t left_remaining = left_cursor.leaf->length - left_cursor.index;
+        uint64_t right_remaining = right_cursor.leaf->length - right_cursor.index;
         uint64_t count = left_remaining < right_remaining ? left_remaining : right_remaining;
         if (memcmp(
-                left_cursor.leaf->bytes + left_cursor.index,
-                right_cursor.leaf->bytes + right_cursor.index,
+                mal_symbol_leaf_bytes(left_cursor.leaf) + left_cursor.index,
+                mal_symbol_leaf_bytes(right_cursor.leaf) + right_cursor.index,
                 (size_t)count
             ) != 0) {
             return 0;
@@ -282,7 +434,8 @@ void *mal_runtime_symbol_read(MalContext *context, const void *source, uint64_t 
     if (length == 0) {
         return NULL;
     }
-    MalSymbolLeaf *result = mal_symbol_leaf_allocate(context, length);
+    size_t size = mal_symbol_size(context, length);
+    MalSymbolFlat *result = mal_symbol_flat_allocate(context, length, size);
     memcpy(result->bytes, source, (size_t)length);
     return &result->header;
 }
@@ -296,10 +449,10 @@ void mal_runtime_symbol_write(void *destination, const void *value) {
     mal_symbol_cursor_descend(&cursor, value);
     uint64_t written = 0;
     while (written < length) {
-        uint64_t count = cursor.leaf->header.length - cursor.index;
+        uint64_t count = cursor.leaf->length - cursor.index;
         memcpy(
             (unsigned char *)destination + written,
-            cursor.leaf->bytes + cursor.index,
+            mal_symbol_leaf_bytes(cursor.leaf) + cursor.index,
             (size_t)count
         );
         written += count;

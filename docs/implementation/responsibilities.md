@@ -124,6 +124,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
+| `backend/llvm/body/ownership` | control CFGのbackward livenessからbinding後のdead ownerと`Symbol` concatへmoveできるoperandを導出 |
 | `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Ptr`のbyte offsetと、unalignedな数値scalar・pointer load/storeをLLVM memory operationへ変換 |
@@ -131,7 +132,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
-| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted persistent `Symbol` storage、allocation-freeな観測と外部byte copy、平衡連結、C host境界での遅延materializationを実装 |
+| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat/rope `Symbol` storage、allocation-freeな観測と外部byte copy、平衡連結、一意なflat storageの再利用、C host境界での遅延materializationを実装 |
 | `backend/c/syntax` | public headerとhost stubが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |

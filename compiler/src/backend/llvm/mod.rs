@@ -52,7 +52,7 @@ pub(crate) fn generate(
         String::new()
     };
     let symbol_declarations = if body.uses_symbol_runtime {
-        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
+        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
     } else {
         ""
     };

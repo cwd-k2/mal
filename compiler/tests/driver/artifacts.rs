@@ -1331,13 +1331,29 @@ fn owns_symbols_across_direct_llvm_calls() {
     directory.write(
         "program.mal",
         "check :: Symbol -> Int32 := \\(value) {\n\
-           if (#value == 2u64) then {\n\
-             if (value == \"ab\") then {\n\
-               if (value != \"ac\") then { 0 } else { 1 };\n\
-             } else { 2 };\n\
-           } else { 3 };\n\
+           if (#value == 2u64)\n\
+           then {\n\
+             if (value == \"ab\")\n\
+             then {\n\
+               if (value != \"ac\")\n\
+               then { 0 }\n\
+               else { 1 };\n\
+             }\n\
+             else { 2 };\n\
+           }\n\
+           else { 3 };\n\
          };\n\
-         main :: Unit -> Int32 := \\() { joined := \"a\" + \"b\"; check(joined); };",
+         main :: Unit -> Int32 := \\() {
+           joined := \"a\" + \"b\";
+           extended := joined + \"c\";
+           if (check(joined) == 0i32)
+           then {
+             if (extended == \"abc\")
+             then { 0i32 }
+             else { 4i32 };
+           }
+           else { 5i32 };
+         };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -1365,10 +1381,12 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
     let directory = NativeFixture::new("driver-llvm-symbol-rope");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
          extern inspect :: Symbol -> UInt64;\n\
+         extern allocationCount :: Unit -> UInt64;\n\
          append :: (Int32, Symbol) -> Symbol := \\(remaining, value) {\n\
            if (remaining == 0i32)\n\
            then { value }\n\
@@ -1385,7 +1403,15 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
            if (left == right)\n\
            then {\n\
              if (left # 9999u64 == 120u8)\n\
-             then { Int32(inspect(left)) - 10000i32 }\n\
+             then {\n\
+               if (inspect(left) == 10000u64)\n\
+               then {\n\
+                 if (allocationCount() <= 32u64)\n\
+                 then { 0i32 }\n\
+                 else { 3i32 };\n\
+               }\n\
+               else { 4i32 };\n\
+             }\n\
              else { 2i32 };\n\
            }\n\
            else { 1i32 };\n\
@@ -1394,6 +1420,41 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
+         #include <stdlib.h>\n\
+         static uint64_t live_allocations;\n\
+         static uint64_t total_allocations;\n\
+         void *__real_malloc(size_t size);\n\
+         void *__real_realloc(void *allocation, size_t size);\n\
+         void __real_free(void *allocation);\n\
+         void *__wrap_malloc(size_t size) {\n\
+             void *allocation = __real_malloc(size);\n\
+             if (allocation != NULL) {\n\
+                 ++live_allocations;\n\
+                 ++total_allocations;\n\
+             }\n\
+             return allocation;\n\
+         }\n\
+         void *__wrap_realloc(void *allocation, size_t size) {\n\
+             void *resized = __real_realloc(allocation, size);\n\
+             if (resized != NULL) {\n\
+                 if (allocation == NULL) {\n\
+                     ++live_allocations;\n\
+                 }\n\
+                 ++total_allocations;\n\
+             }\n\
+             return resized;\n\
+         }\n\
+         void __wrap_free(void *allocation) {\n\
+             if (allocation != NULL) {\n\
+                 --live_allocations;\n\
+             }\n\
+             __real_free(allocation);\n\
+         }\n\
+         __attribute__((destructor)) static void check_allocations(void) {\n\
+             if (live_allocations != 0) {\n\
+                 _Exit(99);\n\
+             }\n\
+         }\n\
          MAL_DEFINE_inspect(call, value) {\n\
              mal_span_t bytes = mal_Symbol_to_bytes(call, value);\n\
              for (uint64_t index = 0; index < bytes.length; ++index) {\n\
@@ -1402,6 +1463,9 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
                  }\n\
              }\n\
              return mal_UInt64_return(call, bytes.length);\n\
+         }\n\
+         MAL_DEFINE_allocationCount(call) {\n\
+             return mal_UInt64_return(call, total_allocations);\n\
          }\n",
     );
 
@@ -1410,6 +1474,14 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
         source.as_os_str(),
         OsStr::new("--output"),
         executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=malloc"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=realloc"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=free"),
     ]);
 
     assert!(
@@ -1418,6 +1490,9 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(directory.run(executable).status.code(), Some(0));
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_right"));
 }
 
 #[test]

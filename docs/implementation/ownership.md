@@ -20,6 +20,10 @@ managed local slotはzero状態で初期化する。borrowed atomをslot、aggre
 slotの旧値をreleaseしてから新しいshareを格納する。operationが新しいownerを返す場合はそのshareを直接移せる。wildcardがowned resultを
 捨てる場合は直ちにreleaseする。
 
+control CFGのbackward livenessでbinding後にdeadとなるlocal ownerは、operation resultを保存してborrowを終えた直後にreleaseしてslotを
+zeroにする。`Symbol` concatのoperandがそのsiteでdeadならshareをruntimeへmoveし、runtimeは一意なflat storageを再利用できる。両operandが
+同じbindingならmoveせず、後続pathにuseがあるownerをreference countから推測して消費しない。
+
 function returnではresult shareを確保してからactivation-local slotをreleaseする。tail transitionでも次argumentと次environmentを先に
 確保し、その後に現在のlocalとenvironmentをreleaseする。aliasを早く解放しないため、この順序を変えてはならない。
 

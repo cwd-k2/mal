@@ -11,6 +11,7 @@ mod bridge;
 mod frame;
 mod memory;
 mod operation;
+mod ownership;
 mod plan;
 mod scalar;
 mod symbol;
@@ -45,11 +46,12 @@ pub(super) fn generate(
     let (main, main_parameter) = main_function(execution)?;
     let types = Types::new(pointer_size)?;
     let top_levels = TopLevelConstants::new(execution, types)?;
+    let ownership = ownership::Plan::new(&execution.control);
     let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;
     for function in &execution.control.functions {
-        let emitter = FunctionEmitter::new(execution, function.id, types, &top_levels)?;
+        let emitter = FunctionEmitter::new(execution, function.id, types, &top_levels, &ownership)?;
         uses_control |= !emitter.frame_sites.is_empty();
         let emitted = emitter.emit()?;
         globals.push_str(&emitted.globals);
@@ -81,6 +83,7 @@ struct FunctionEmitter<'a> {
     external_storage: Option<(usize, usize)>,
     types: Types,
     top_levels: &'a TopLevelConstants,
+    ownership: &'a ownership::Plan,
     next_register: usize,
     globals: String,
     output: String,
@@ -110,6 +113,7 @@ impl<'a> FunctionEmitter<'a> {
         id: FunctionId,
         types: Types,
         top_levels: &'a TopLevelConstants,
+        ownership: &'a ownership::Plan,
     ) -> Option<Self> {
         let function = execution
             .control
@@ -254,6 +258,7 @@ impl<'a> FunctionEmitter<'a> {
             external_storage,
             types,
             top_levels,
+            ownership,
             next_register: 0,
             globals: String::new(),
             output: String::new(),
@@ -352,10 +357,18 @@ impl<'a> FunctionEmitter<'a> {
         self.current_function = self.function_for_state(site)?;
         let state = &self.control.states[site.0];
         self.line(format!("mal_state_{}:", site.0));
-        for binding in &state.bindings {
-            let value =
-                self.emit_operation(&binding.operation, pattern_value_type(&binding.pattern))?;
+        for (binding_index, binding) in state.bindings.iter().enumerate() {
+            let value = self.emit_operation(
+                &binding.operation,
+                pattern_value_type(&binding.pattern),
+                self.ownership.consumption(site, binding_index),
+            )?;
             self.store_pattern(&binding.pattern, value.as_ref())?;
+            let mut dead = self.ownership.dead_values(site, binding_index).to_vec();
+            dead.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
+            for id in dead {
+                self.release_dead_slot(id)?;
+            }
         }
         self.emit_terminator(site, &state.terminator)
     }

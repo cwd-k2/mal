@@ -1,7 +1,8 @@
 use crate::check::ast::Type;
-use crate::closure::ast::Atom;
+use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, Terminator};
 
+use super::ownership::Consumption;
 use super::{EmittedValue, FunctionEmitter};
 
 pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
@@ -165,21 +166,65 @@ impl FunctionEmitter<'_> {
         &mut self,
         left: &Atom,
         right: &Atom,
+        consumption: Option<Consumption>,
     ) -> Option<EmittedValue> {
-        let left = self.atom(left)?;
-        let right = self.atom(right)?;
+        let consume_left =
+            matches!(consumption, Some(Consumption::Left)) && self.atom_has_slot(left);
+        let consume_right =
+            matches!(consumption, Some(Consumption::Right)) && self.atom_has_slot(right);
+        let left = if consume_left {
+            self.take_symbol(left)?
+        } else {
+            self.atom(left)?
+        };
+        let right = if consume_right {
+            self.take_symbol(right)?
+        } else {
+            self.atom(right)?
+        };
         if left.ty != Type::Symbol || right.ty != Type::Symbol {
             return None;
         }
         let result = self.register();
+        let operation = if consume_left {
+            "mal_runtime_symbol_concatenate_consuming_left"
+        } else if consume_right {
+            "mal_runtime_symbol_concatenate_consuming_right"
+        } else {
+            "mal_runtime_symbol_concatenate"
+        };
         self.line(format!(
-            "  {result} = call ptr @mal_runtime_symbol_concatenate(ptr %mal_context, ptr {}, ptr {})",
+            "  {result} = call ptr @{operation}(ptr %mal_context, ptr {}, ptr {})",
             left.representation, right.representation
         ));
         Some(EmittedValue {
             ty: Type::Symbol,
             representation: result,
             owned: true,
+        })
+    }
+
+    fn atom_has_slot(&self, atom: &Atom) -> bool {
+        matches!(atom.kind, AtomKind::Reference(Reference::Binding(id)) if self.slots.contains_key(&id))
+    }
+
+    fn take_symbol(&mut self, atom: &Atom) -> Option<EmittedValue> {
+        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+            return None;
+        };
+        let slot = self.slots.get(&id)?;
+        if slot.ty != Type::Symbol {
+            return None;
+        }
+        let slot_index = slot.index;
+        let value = self.atom(atom)?;
+        self.line(format!(
+            "  store ptr null, ptr %mal_slot_{slot_index}, align {}",
+            self.types.pointer_size()
+        ));
+        Some(EmittedValue {
+            owned: true,
+            ..value
         })
     }
 }

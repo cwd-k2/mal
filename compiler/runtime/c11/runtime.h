@@ -37,6 +37,16 @@ uint8_t mal_runtime_symbol_at(const void *symbol, uint64_t index);
 void *mal_runtime_symbol_retain(MalContext *context, const void *symbol);
 void mal_runtime_symbol_release(const void *symbol);
 void *mal_runtime_symbol_concatenate(MalContext *context, const void *left, const void *right);
+void *mal_runtime_symbol_concatenate_consuming_left(
+    MalContext *context,
+    void *left,
+    const void *right
+);
+void *mal_runtime_symbol_concatenate_consuming_right(
+    MalContext *context,
+    const void *left,
+    void *right
+);
 uint8_t mal_runtime_symbol_equal(const void *left, const void *right);
 void *mal_runtime_symbol_read(MalContext *context, const void *source, uint64_t length);
 void mal_runtime_symbol_write(void *destination, const void *symbol);
