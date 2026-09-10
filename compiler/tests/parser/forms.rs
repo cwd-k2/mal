@@ -12,10 +12,43 @@ fn parses_parameters_and_lambda_body_items() {
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
     };
-    assert_eq!(lambda.parameters.len(), 2);
+    assert!(matches!(
+        lambda.parameter.as_deref(),
+        Some(malc::ast::Node {
+            kind: Pattern::Product(elements),
+            ..
+        }) if elements.len() == 2
+    ));
     assert!(matches!(lambda.body.items[0], BodyItem::Binding(_)));
     assert!(matches!(lambda.body.items[1], BodyItem::Expression(_)));
     assert!(matches!(lambda.body.result.kind, Expression::Call { .. }));
+}
+
+#[test]
+fn parses_lambda_patterns_without_an_introducer() {
+    let expression = binding_value("make := ((x, _), y) { x + y };");
+    let Expression::Lambda(lambda) = expression else {
+        panic!("expected lambda");
+    };
+    assert!(matches!(
+        lambda.parameter.as_deref(),
+        Some(malc::ast::Node {
+            kind: Pattern::Product(elements),
+            ..
+        }) if elements.len() == 2
+    ));
+}
+
+#[test]
+fn parses_postfix_and_unit_continuation_applications() {
+    for text in ["value := 1[convert];", "value := [initialize];"] {
+        assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
+    }
+    let expression = binding_value("value := choice[first, second];");
+    let Expression::ContinuationApplication { continuations, .. } = expression else {
+        panic!("expected continuation application");
+    };
+    assert_eq!(continuations.len(), 2);
 }
 
 #[test]

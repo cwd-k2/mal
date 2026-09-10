@@ -115,32 +115,11 @@ impl Index {
         parameter_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
         result_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
     ) {
-        let parameter_types = parameter_type.and_then(|ty| {
-            if lambda.parameters.len() == 1 {
-                return Some(vec![ty.clone()]);
+        if let Some(parameter) = &lambda.parameter {
+            if let Some(parameter_type) = parameter_type {
+                self.apply_declared_pattern_type(parameter, parameter_type);
             }
-            let expanded = self.expanded_type(ty);
-            match expanded.kind {
-                resolved::TypeExpression::Product(types)
-                    if types.len() == lambda.parameters.len() =>
-                {
-                    Some(types)
-                }
-                _ => None,
-            }
-        });
-        for (index, parameter) in lambda.parameters.iter().enumerate() {
-            if let Some(ty) = parameter_types.as_ref().and_then(|types| types.get(index)) {
-                self.value_types.insert(
-                    self.canonical_value(parameter.binding.id),
-                    super::type_display::type_name(ty),
-                );
-            }
-            self.add_raw(
-                SymbolId::Value(parameter.binding.id),
-                &parameter.binding.name,
-                OccurrenceRole::Declaration,
-            );
+            self.collect_resolved_pattern(parameter, false);
         }
         for item in &lambda.body.items {
             match item {
@@ -205,7 +184,18 @@ impl Index {
                     self.collect_resolved_expression(argument);
                 }
             }
-            Expression::Conversion { type_ref, value }
+            Expression::ContinuationApplication {
+                value,
+                continuations,
+            } => {
+                self.collect_resolved_expression(value);
+                for continuation in continuations {
+                    self.collect_resolved_expression(continuation);
+                }
+            }
+            Expression::Conversion {
+                type_ref, value, ..
+            }
             | Expression::SumInjection {
                 type_ref, value, ..
             } => {

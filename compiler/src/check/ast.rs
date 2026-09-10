@@ -124,6 +124,14 @@ pub enum ExpressionKind {
     NumericConversion {
         value: Box<Expression>,
     },
+    InjectionConstructor {
+        lambda_id: LambdaId,
+        index: usize,
+    },
+    SumElimination {
+        scrutinee: Box<Expression>,
+        continuations: Vec<Expression>,
+    },
     SumInjection {
         index: usize,
         value: Box<Expression>,
@@ -212,7 +220,8 @@ pub struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
-    pub parameters: Vec<Parameter>,
+    pub parameter: Option<Box<Pattern>>,
+    pub parameter_type: Type,
     pub body: LambdaBody,
 }
 
@@ -221,13 +230,6 @@ pub struct Capture {
     pub source: ValueReference,
     pub binding: ValueBinding,
     pub ty: Type,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Parameter {
-    pub binding: ValueBinding,
-    pub ty: Type,
-    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

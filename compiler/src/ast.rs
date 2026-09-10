@@ -94,6 +94,10 @@ pub enum Expression {
         callee: Box<Node<Expression>>,
         arguments: Vec<Node<Expression>>,
     },
+    ContinuationApplication {
+        value: Box<Node<Expression>>,
+        continuations: Vec<Node<Expression>>,
+    },
     Conversion {
         type_name: Name,
         value: Box<Node<Expression>>,
@@ -125,14 +129,8 @@ pub enum Expression {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
-    pub parameters: Vec<Parameter>,
+    pub parameter: Option<Box<Node<Pattern>>>,
     pub body: LambdaBody,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Parameter {
-    pub name: Name,
-    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

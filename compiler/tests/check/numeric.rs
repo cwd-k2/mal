@@ -231,9 +231,9 @@ fn checks_modulo_integer_conversions() {
             .contains("requires a numeric value")
     );
     assert!(
-        check_error("value := Bool(1i8);")
+        check_error("value := Bool(());")
             .message
-            .contains("requires a numeric type")
+            .contains("requires a variant index")
     );
 }
 

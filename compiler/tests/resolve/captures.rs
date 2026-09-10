@@ -1,5 +1,15 @@
 use super::*;
 
+fn parameter_binding(lambda: &resolved::Lambda) -> &resolved::ValueBinding {
+    let Some(parameter) = &lambda.parameter else {
+        panic!("expected a parameter");
+    };
+    let resolved::Pattern::Binding(binding) = &parameter.kind else {
+        panic!("expected a binding parameter");
+    };
+    binding
+}
+
 #[test]
 fn capture_sources_and_environment_bindings_have_distinct_identities() {
     let program = resolve_ok(
@@ -14,7 +24,7 @@ fn capture_sources_and_environment_bindings_have_distinct_identities() {
         panic!("expected inner lambda");
     };
     assert_eq!(inner.captures.len(), 1);
-    assert_eq!(inner.captures[0].source.id, outer.parameters[0].binding.id);
+    assert_eq!(inner.captures[0].source.id, parameter_binding(outer).id);
     assert_ne!(inner.captures[0].source.id, inner.captures[0].binding.id);
     assert_eq!(
         inner.captures[0].binding.owner,
@@ -48,7 +58,7 @@ fn nested_capture_is_inferred_and_forwarded_at_every_lambda_boundary() {
     let resolved::Expression::Lambda(inner) = &middle.body.result.kind else {
         panic!("expected inner lambda");
     };
-    assert_eq!(middle.captures[0].source.id, outer.parameters[0].binding.id);
+    assert_eq!(middle.captures[0].source.id, parameter_binding(outer).id);
     assert_eq!(inner.captures[0].source.id, middle.captures[0].binding.id);
 }
 
@@ -125,7 +135,7 @@ fn infers_an_outer_local_reference() {
         panic!("expected inner lambda");
     };
     assert_eq!(inner.captures.len(), 1);
-    assert_eq!(inner.captures[0].source.id, outer.parameters[0].binding.id);
+    assert_eq!(inner.captures[0].source.id, parameter_binding(outer).id);
 }
 
 #[test]

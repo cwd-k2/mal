@@ -132,8 +132,8 @@ impl Lowerer {
                 self.operation_block(expression, Operation::Lambda(lambda))
             }
             core::ExpressionKind::Call { callee, argument } => {
-                let (mut builder, callee) = self.lower_operand(callee);
-                let argument = builder.append(self, argument);
+                let (mut builder, argument) = self.lower_operand(argument);
+                let callee = builder.append(self, callee);
                 builder.finish(self, expression, Operation::Call { callee, argument })
             }
             core::ExpressionKind::SymbolLength { value } => {

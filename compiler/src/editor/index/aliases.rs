@@ -31,6 +31,15 @@ impl Index {
                     self.collect_aliases_expression(&argument.kind);
                 }
             }
+            Expression::ContinuationApplication {
+                value,
+                continuations,
+            } => {
+                self.collect_aliases_expression(&value.kind);
+                for continuation in continuations {
+                    self.collect_aliases_expression(&continuation.kind);
+                }
+            }
             Expression::Conversion { value, .. } | Expression::SumInjection { value, .. } => {
                 self.collect_aliases_expression(&value.kind);
             }

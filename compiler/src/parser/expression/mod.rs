@@ -21,6 +21,10 @@ impl Parser<'_> {
                 left = self.parse_call(left)?;
                 continue;
             }
+            if self.at(&TokenKind::LeftBracket) && 23 >= minimum {
+                left = self.parse_continuation_application(left)?;
+                continue;
+            }
             let Some((operator, precedence, is_non_associative)) = self.binary_operator() else {
                 break;
             };
@@ -100,11 +104,14 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Symbol(value), token.span));
         }
+        if self.at(&TokenKind::LeftBracket) {
+            return self.parse_unit_continuation_application();
+        }
+        if self.at_lambda() {
+            return self.parse_lambda();
+        }
         if self.at(&TokenKind::LeftParen) {
             return self.parse_parenthesized_expression();
-        }
-        if self.at(&TokenKind::Backslash) {
-            return self.parse_lambda();
         }
         if self.at(&TokenKind::TypeIdentifier) {
             return self.parse_type_leading_expression();

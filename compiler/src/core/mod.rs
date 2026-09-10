@@ -180,6 +180,69 @@ impl Lowerer {
                     value: Box::new(self.lower_expression(value)),
                 }
             }
+            checked::ExpressionKind::InjectionConstructor { lambda_id, index } => {
+                let checked::Type::Function { parameter, result } = &expression.ty else {
+                    unreachable!("an injection constructor has a function type");
+                };
+                let parameter_id = self.temporary();
+                let value =
+                    self.reference(parameter_id, parameter.as_ref().clone(), expression.span);
+                ExpressionKind::Lambda(Lambda {
+                    id: *lambda_id,
+                    self_binding: None,
+                    captures: Vec::new(),
+                    parameter: Parameter {
+                        binding: Some(parameter_id),
+                        ty: parameter.as_ref().clone(),
+                        span: expression.span,
+                    },
+                    body: Box::new(Expression {
+                        kind: ExpressionKind::SumInjection {
+                            index: *index,
+                            value: Box::new(value),
+                        },
+                        ty: result.as_ref().clone(),
+                        span: expression.span,
+                    }),
+                })
+            }
+            checked::ExpressionKind::SumElimination {
+                scrutinee,
+                continuations,
+            } => {
+                let checked::Type::Sum(members) = &scrutinee.ty else {
+                    unreachable!("sum elimination has a sum scrutinee");
+                };
+                let arms = continuations
+                    .iter()
+                    .zip(members)
+                    .enumerate()
+                    .map(|(index, (continuation, member))| {
+                        let payload_id = self.temporary();
+                        let payload = self.reference(payload_id, member.clone(), continuation.span);
+                        CaseArm {
+                            index,
+                            pattern: Pattern::Binding {
+                                id: payload_id,
+                                ty: member.clone(),
+                            },
+                            value: Expression {
+                                kind: ExpressionKind::Call {
+                                    callee: Box::new(self.lower_expression(continuation)),
+                                    argument: Box::new(payload),
+                                },
+                                ty: expression.ty.clone(),
+                                span: continuation.span,
+                            },
+                            span: continuation.span,
+                        }
+                    })
+                    .collect();
+                ExpressionKind::Case {
+                    scrutinee: Box::new(self.lower_expression(scrutinee)),
+                    arms,
+                }
+            }
             checked::ExpressionKind::SumInjection { index, value } => {
                 ExpressionKind::SumInjection {
                     index: *index,
@@ -253,37 +316,17 @@ impl Lowerer {
     }
 
     fn lower_lambda(&mut self, lambda: &checked::Lambda) -> Lambda {
-        let parameter_type = match lambda.parameters.as_slice() {
-            [] => checked::Type::Unit,
-            [parameter] => parameter.ty.clone(),
-            parameters => checked::Type::Product(
-                parameters
-                    .iter()
-                    .map(|parameter| parameter.ty.clone())
-                    .collect(),
-            ),
-        };
-        let parameter_binding = match lambda.parameters.as_slice() {
-            [] => None,
-            [parameter] => Some(ValueId::Source(parameter.binding.id)),
-            _ => Some(self.temporary()),
+        let parameter_type = lambda.parameter_type.clone();
+        let parameter_binding = match lambda.parameter.as_deref() {
+            None | Some(checked::Pattern::Wildcard { .. }) => None,
+            Some(checked::Pattern::Binding { binding, .. }) => Some(ValueId::Source(binding.id)),
+            Some(checked::Pattern::Product { .. }) => Some(self.temporary()),
         };
         let mut body = self.lower_body(&lambda.body.items, &lambda.body.result);
-        if lambda.parameters.len() > 1 {
-            let parameter_id = parameter_binding.expect("multiple parameters use a product value");
+        if let Some(pattern @ checked::Pattern::Product { .. }) = lambda.parameter.as_deref() {
+            let parameter_id = parameter_binding.expect("a product pattern uses a product value");
             let destructuring = Binding {
-                pattern: Pattern::Product {
-                    elements: lambda
-                        .parameters
-                        .iter()
-                        .map(|parameter| Pattern::Binding {
-                            id: ValueId::Source(parameter.binding.id),
-                            ty: parameter.ty.clone(),
-                        })
-                        .collect(),
-                    ty: parameter_type.clone(),
-                    span: lambda.body.span,
-                },
+                pattern: self.lower_pattern(pattern),
                 value: self.reference(parameter_id, parameter_type.clone(), lambda.body.span),
                 span: lambda.body.span,
             };
@@ -312,10 +355,14 @@ impl Lowerer {
             parameter: Parameter {
                 binding: parameter_binding,
                 ty: parameter_type,
-                span: lambda
-                    .parameters
-                    .first()
-                    .map_or(lambda.body.span, |parameter| parameter.span),
+                span: lambda.parameter.as_deref().map_or(
+                    lambda.body.span,
+                    |pattern| match pattern {
+                        checked::Pattern::Binding { binding, .. } => binding.name.span,
+                        checked::Pattern::Wildcard { span, .. }
+                        | checked::Pattern::Product { span, .. } => *span,
+                    },
+                ),
             },
             body: Box::new(body),
         }

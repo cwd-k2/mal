@@ -4,7 +4,7 @@ use crate::lexer::IntegerLiteral;
 use crate::resolve::ast as resolved;
 
 use super::Checker;
-use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Parameter, Type};
+use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Type};
 use super::float::is_float;
 use super::integer::{is_integer, parse_index};
 use super::types::{function_placeholder, type_name};
@@ -15,107 +15,148 @@ impl Checker {
         expression: &Node<resolved::Expression>,
         expected: Option<&Type>,
     ) -> Result<Expression, Diagnostic> {
-        let checked = match &expression.kind {
-            resolved::Expression::Reference(reference) => Expression {
-                kind: ExpressionKind::Reference(reference.clone()),
-                ty: self.value_type(reference)?,
-                span: expression.span,
-            },
-            resolved::Expression::Integer(literal) => {
-                self.check_integer(literal, expression.span, expected)?
-            }
-            resolved::Expression::Float(literal) => {
-                self.check_float(literal, expression.span, expected)?
-            }
-            resolved::Expression::Byte(value) => Expression {
-                kind: ExpressionKind::Integer(i128::from(*value)),
-                ty: Type::UInt8,
-                span: expression.span,
-            },
-            resolved::Expression::Symbol(value) => Expression {
-                kind: ExpressionKind::Symbol(value.clone()),
-                ty: Type::Symbol,
-                span: expression.span,
-            },
-            resolved::Expression::TypeQualifiedPrimitive { type_ref, member } => {
-                self.check_qualified_memory_primitive(type_ref, member, expression.span)?
-            }
-            resolved::Expression::Unit => Expression {
-                kind: ExpressionKind::Unit,
-                ty: Type::Unit,
-                span: expression.span,
-            },
-            resolved::Expression::Parenthesized(inner) => {
-                let inner = self.check_expression(inner, expected)?;
-                Expression {
-                    ty: inner.ty.clone(),
-                    kind: ExpressionKind::Parenthesized(Box::new(inner)),
+        let checked =
+            match &expression.kind {
+                resolved::Expression::Reference(reference) => Expression {
+                    kind: ExpressionKind::Reference(reference.clone()),
+                    ty: self.value_type(reference)?,
                     span: expression.span,
+                },
+                resolved::Expression::Integer(literal) => {
+                    self.check_integer(literal, expression.span, expected)?
                 }
-            }
-            resolved::Expression::Product(elements) => {
-                self.check_product(elements, expression.span, expected)?
-            }
-            resolved::Expression::Lambda(lambda) => {
-                self.check_lambda(lambda, expression.span, expected)?
-            }
-            resolved::Expression::Call { callee, arguments } => {
-                self.check_call(callee, arguments, expression.span)?
-            }
-            resolved::Expression::Conversion { type_ref, value } => {
-                let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
-                if !is_integer(&target) && !is_float(&target) {
-                    return Err(
-                        Diagnostic::error("numeric conversion requires a numeric type")
-                            .with_primary(type_ref.name.span, "this is not a numeric type"),
-                    );
+                resolved::Expression::Float(literal) => {
+                    self.check_float(literal, expression.span, expected)?
                 }
-                let value = self.check_expression(value, None)?;
-                if !is_integer(&value.ty) && !is_float(&value.ty) {
-                    return Err(
-                        Diagnostic::error("numeric conversion requires a numeric value")
+                resolved::Expression::Byte(value) => Expression {
+                    kind: ExpressionKind::Integer(i128::from(*value)),
+                    ty: Type::UInt8,
+                    span: expression.span,
+                },
+                resolved::Expression::Symbol(value) => Expression {
+                    kind: ExpressionKind::Symbol(value.clone()),
+                    ty: Type::Symbol,
+                    span: expression.span,
+                },
+                resolved::Expression::TypeQualifiedPrimitive { type_ref, member } => {
+                    self.check_qualified_memory_primitive(type_ref, member, expression.span)?
+                }
+                resolved::Expression::Unit => Expression {
+                    kind: ExpressionKind::Unit,
+                    ty: Type::Unit,
+                    span: expression.span,
+                },
+                resolved::Expression::Parenthesized(inner) => {
+                    let inner = self.check_expression(inner, expected)?;
+                    Expression {
+                        ty: inner.ty.clone(),
+                        kind: ExpressionKind::Parenthesized(Box::new(inner)),
+                        span: expression.span,
+                    }
+                }
+                resolved::Expression::Product(elements) => {
+                    self.check_product(elements, expression.span, expected)?
+                }
+                resolved::Expression::Lambda(lambda) => {
+                    self.check_lambda(lambda, expression.span, expected)?
+                }
+                resolved::Expression::Call { callee, arguments } => {
+                    self.check_call(callee, arguments, expression.span)?
+                }
+                resolved::Expression::ContinuationApplication {
+                    value,
+                    continuations,
+                } => self.check_continuation_application(
+                    value,
+                    continuations,
+                    expression.span,
+                    expected,
+                )?,
+                resolved::Expression::Conversion {
+                    type_ref,
+                    lambda_id,
+                    value,
+                } => {
+                    let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
+                    if let Type::Sum(members) = &target {
+                        let resolved::Expression::Integer(index) = &value.kind else {
+                            return Err(Diagnostic::error(
+                                "sum constructor requires a variant index",
+                            )
+                            .with_primary(value.span, "use a compile-time integer literal here"));
+                        };
+                        let index = super::integer::parse_index(index, value.span)?;
+                        let member = members.get(index).ok_or_else(|| {
+                            Diagnostic::error("sum variant index is out of range").with_primary(
+                                value.span,
+                                format!("this sum has {} variants", members.len()),
+                            )
+                        })?;
+                        Expression {
+                            kind: ExpressionKind::InjectionConstructor {
+                                lambda_id: *lambda_id,
+                                index,
+                            },
+                            ty: Type::Function {
+                                parameter: Box::new(member.clone()),
+                                result: Box::new(target.clone()),
+                            },
+                            span: expression.span,
+                        }
+                    } else {
+                        if !is_integer(&target) && !is_float(&target) {
+                            return Err(Diagnostic::error(
+                                "numeric conversion requires a numeric type",
+                            )
+                            .with_primary(type_ref.name.span, "this is not a numeric type"));
+                        }
+                        let value = self.check_expression(value, None)?;
+                        if !is_integer(&value.ty) && !is_float(&value.ty) {
+                            return Err(Diagnostic::error(
+                                "numeric conversion requires a numeric value",
+                            )
                             .with_primary(
                                 value.span,
                                 format!("this has type `{}`", type_name(&value.ty)),
-                            ),
-                    );
+                            ));
+                        }
+                        Expression {
+                            kind: ExpressionKind::NumericConversion {
+                                value: Box::new(value),
+                            },
+                            ty: target,
+                            span: expression.span,
+                        }
+                    }
                 }
-                Expression {
-                    kind: ExpressionKind::NumericConversion {
-                        value: Box::new(value),
-                    },
-                    ty: target,
-                    span: expression.span,
+                resolved::Expression::SumInjection {
+                    type_ref,
+                    index,
+                    value,
+                } => self.check_sum_injection(type_ref, index, value, expression.span)?,
+                resolved::Expression::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => self.check_if(
+                    condition,
+                    then_branch,
+                    else_branch,
+                    expression.span,
+                    expected,
+                )?,
+                resolved::Expression::Case { scrutinee, arms } => {
+                    self.check_case(scrutinee, arms, expression.span, expected)?
                 }
-            }
-            resolved::Expression::SumInjection {
-                type_ref,
-                index,
-                value,
-            } => self.check_sum_injection(type_ref, index, value, expression.span)?,
-            resolved::Expression::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => self.check_if(
-                condition,
-                then_branch,
-                else_branch,
-                expression.span,
-                expected,
-            )?,
-            resolved::Expression::Case { scrutinee, arms } => {
-                self.check_case(scrutinee, arms, expression.span, expected)?
-            }
-            resolved::Expression::Unary { operator, operand } => {
-                self.check_unary(operator, operand, expression.span, expected)?
-            }
-            resolved::Expression::Binary {
-                operator,
-                left,
-                right,
-            } => self.check_binary(operator, left, right, expression.span, expected)?,
-        };
+                resolved::Expression::Unary { operator, operand } => {
+                    self.check_unary(operator, operand, expression.span, expected)?
+                }
+                resolved::Expression::Binary {
+                    operator,
+                    left,
+                    right,
+                } => self.check_binary(operator, left, right, expression.span, expected)?,
+            };
         if let Some(expected) = expected {
             self.require_type(&checked.ty, expected, checked.span)?;
         }
@@ -145,6 +186,16 @@ impl Checker {
             }
         };
 
+        self.check_lambda_against(lambda, span, expected_parameter, Some(&expected_result))
+    }
+
+    fn check_lambda_against(
+        &mut self,
+        lambda: &resolved::Lambda,
+        span: crate::source::Span,
+        expected_parameter: Type,
+        expected_result: Option<&Type>,
+    ) -> Result<Expression, Diagnostic> {
         let mut captures = Vec::with_capacity(lambda.captures.len());
         for capture in &lambda.captures {
             let ty = self.value_type(&capture.source)?;
@@ -156,32 +207,30 @@ impl Checker {
             });
         }
 
-        let parameter_types =
-            self.lambda_parameter_types(lambda.parameters.len(), &expected_parameter, span)?;
-        let mut parameters = Vec::with_capacity(lambda.parameters.len());
-        for (parameter, ty) in lambda.parameters.iter().zip(parameter_types) {
-            self.values.insert(parameter.binding.id, ty.clone());
-            parameters.push(Parameter {
-                binding: parameter.binding.clone(),
-                ty,
-                span: parameter.span,
-            });
-        }
+        let parameter = match &lambda.parameter {
+            Some(parameter) if expected_parameter != Type::Unit => Some(Box::new(
+                self.check_pattern(parameter, &expected_parameter)?,
+            )),
+            None if expected_parameter == Type::Unit => None,
+            _ => return Err(self.lambda_parameter_mismatch(&expected_parameter, span)),
+        };
         let mut items = Vec::with_capacity(lambda.body.items.len());
         for item in &lambda.body.items {
             items.push(self.check_body_item(item)?);
         }
-        let result = self.check_expression(&lambda.body.result, Some(&expected_result))?;
+        let result = self.check_expression(&lambda.body.result, expected_result)?;
+        let result_type = result.ty.clone();
         let ty = Type::Function {
-            parameter: Box::new(expected_parameter),
-            result: Box::new(expected_result),
+            parameter: Box::new(expected_parameter.clone()),
+            result: Box::new(result_type),
         };
         Ok(Expression {
             kind: ExpressionKind::Lambda(Lambda {
                 id: lambda.id,
                 self_binding: lambda.self_binding,
                 captures,
-                parameters,
+                parameter,
+                parameter_type: expected_parameter,
                 body: LambdaBody {
                     items,
                     result: Box::new(result),
@@ -193,22 +242,127 @@ impl Checker {
         })
     }
 
-    fn lambda_parameter_types(
-        &self,
-        count: usize,
-        expected: &Type,
+    fn check_continuation_application(
+        &mut self,
+        value: &Node<resolved::Expression>,
+        continuations: &[Node<resolved::Expression>],
         span: crate::source::Span,
-    ) -> Result<Vec<Type>, Diagnostic> {
-        let types = match (count, expected) {
-            (0, Type::Unit) => Vec::new(),
-            (1, Type::Unit) | (0, _) => {
-                return Err(self.lambda_parameter_mismatch(expected, span));
+        expected: Option<&Type>,
+    ) -> Result<Expression, Diagnostic> {
+        if continuations.len() == 1
+            && super::integer::is_contextual_integer(value)
+            && !matches!(continuations[0].kind, resolved::Expression::Lambda(_))
+        {
+            let continuation = self.check_expression(&continuations[0], None)?;
+            let Type::Function { parameter, result } = &continuation.ty else {
+                return Err(
+                    Diagnostic::error("continuation must be a function").with_primary(
+                        continuation.span,
+                        format!("this has type `{}`", type_name(&continuation.ty)),
+                    ),
+                );
+            };
+            if let Some(expected) = expected {
+                self.require_type(result, expected, continuation.span)?;
             }
-            (1, ty) => vec![ty.clone()],
-            (_, Type::Product(elements)) if count == elements.len() => elements.clone(),
-            _ => return Err(self.lambda_parameter_mismatch(expected, span)),
+            let result = result.as_ref().clone();
+            let value = self.check_expression(value, Some(parameter))?;
+            return Ok(Expression {
+                kind: ExpressionKind::Call {
+                    callee: Box::new(continuation),
+                    argument: Box::new(value),
+                },
+                ty: result,
+                span,
+            });
+        }
+        let value = self.check_expression(value, None)?;
+        if continuations.len() == 1 {
+            let continuation = self.check_continuation(&continuations[0], &value.ty, expected)?;
+            let Type::Function { result, .. } = &continuation.ty else {
+                unreachable!("checked continuation has a function type");
+            };
+            let result = result.as_ref().clone();
+            return Ok(Expression {
+                kind: ExpressionKind::Call {
+                    callee: Box::new(continuation),
+                    argument: Box::new(value),
+                },
+                ty: result,
+                span,
+            });
+        }
+        let Type::Sum(members) = &value.ty else {
+            return Err(
+                Diagnostic::error("multiple continuations require a sum value").with_primary(
+                    value.span,
+                    format!("this has type `{}`", type_name(&value.ty)),
+                ),
+            );
         };
-        Ok(types)
+        let members = members.clone();
+        if continuations.len() != members.len() {
+            return Err(
+                Diagnostic::error("sum continuation count does not match its type").with_primary(
+                    span,
+                    format!(
+                        "expected {} continuations, found {}",
+                        members.len(),
+                        continuations.len()
+                    ),
+                ),
+            );
+        }
+        let mut result_type = expected.cloned();
+        let mut checked = Vec::with_capacity(continuations.len());
+        for (continuation, member) in continuations.iter().zip(&members) {
+            let continuation =
+                self.check_continuation(continuation, member, result_type.as_ref())?;
+            let Type::Function { result, .. } = &continuation.ty else {
+                unreachable!("checked continuation has a function type");
+            };
+            result_type.get_or_insert_with(|| result.as_ref().clone());
+            checked.push(continuation);
+        }
+        Ok(Expression {
+            kind: ExpressionKind::SumElimination {
+                scrutinee: Box::new(value),
+                continuations: checked,
+            },
+            ty: result_type.expect("a sum has at least two continuations"),
+            span,
+        })
+    }
+
+    fn check_continuation(
+        &mut self,
+        continuation: &Node<resolved::Expression>,
+        parameter: &Type,
+        result: Option<&Type>,
+    ) -> Result<Expression, Diagnostic> {
+        let checked = match &continuation.kind {
+            resolved::Expression::Lambda(lambda) => {
+                self.check_lambda_against(lambda, continuation.span, parameter.clone(), result)?
+            }
+            _ => self.check_expression(continuation, None)?,
+        };
+        let Type::Function {
+            parameter: actual_parameter,
+            result: actual_result,
+        } = &checked.ty
+        else {
+            return Err(
+                Diagnostic::error("sum continuation must be a function").with_primary(
+                    checked.span,
+                    format!("this has type `{}`", type_name(&checked.ty)),
+                ),
+            );
+        };
+        self.require_type(actual_parameter, parameter, checked.span)?;
+        if let Some(result) = result {
+            self.require_type(actual_result, result, checked.span)?;
+        }
+        Ok(checked)
     }
 
     fn lambda_parameter_mismatch(&self, expected: &Type, span: crate::source::Span) -> Diagnostic {

@@ -58,7 +58,8 @@ impl Index {
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
             }
-            ExpressionKind::MemoryFunction { .. } => {}
+            ExpressionKind::MemoryFunction { .. } | ExpressionKind::InjectionConstructor { .. } => {
+            }
             ExpressionKind::Product(elements) => {
                 for element in elements {
                     self.collect_checked_expression(element);
@@ -72,19 +73,24 @@ impl Index {
                         crate::check::type_name(&capture.ty),
                     );
                 }
-                for parameter in &lambda.parameters {
-                    let id = self.canonical_value(parameter.binding.id);
-                    self.parameters.insert(id);
-                    self.value_types
-                        .insert(id, crate::check::type_name(&parameter.ty));
-                    self.typed_regions
-                        .push((parameter.span, crate::check::type_name(&parameter.ty)));
+                if let Some(parameter) = &lambda.parameter {
+                    self.collect_checked_pattern(parameter);
+                    self.mark_parameter_bindings(parameter);
                 }
                 self.collect_checked_body(&lambda.body.items, &lambda.body.result);
             }
             ExpressionKind::Call { callee, argument } => {
                 self.collect_checked_expression(callee);
                 self.collect_checked_expression(argument);
+            }
+            ExpressionKind::SumElimination {
+                scrutinee,
+                continuations,
+            } => {
+                self.collect_checked_expression(scrutinee);
+                for continuation in continuations {
+                    self.collect_checked_expression(continuation);
+                }
             }
             ExpressionKind::SymbolLength { value }
             | ExpressionKind::Memory {
@@ -119,6 +125,21 @@ impl Index {
             | ExpressionKind::Symbol(_)
             | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
+        }
+    }
+
+    fn mark_parameter_bindings(&mut self, pattern: &checked::Pattern) {
+        match pattern {
+            checked::Pattern::Binding { binding, .. } => {
+                let id = self.canonical_value(binding.id);
+                self.parameters.insert(id);
+            }
+            checked::Pattern::Product { elements, .. } => {
+                for element in elements {
+                    self.mark_parameter_bindings(element);
+                }
+            }
+            checked::Pattern::Wildcard { .. } => {}
         }
     }
 

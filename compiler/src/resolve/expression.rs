@@ -3,8 +3,8 @@ use crate::diagnostic::Diagnostic;
 
 use super::Resolver;
 use super::ast::{
-    BodyItem, Capture, CaseArm, Expression, ExpressionBlock, Lambda, LambdaBody, Parameter,
-    ValueOwner, ValueReference,
+    BodyItem, Capture, CaseArm, Expression, ExpressionBlock, Lambda, LambdaBody, ValueOwner,
+    ValueReference,
 };
 
 impl Resolver {
@@ -44,8 +44,19 @@ impl Resolver {
                     .map(|argument| self.resolve_expression(argument))
                     .collect::<Result<_, _>>()?,
             },
+            ast::Expression::ContinuationApplication {
+                value,
+                continuations,
+            } => Expression::ContinuationApplication {
+                value: Box::new(self.resolve_expression(value)?),
+                continuations: continuations
+                    .iter()
+                    .map(|continuation| self.resolve_expression(continuation))
+                    .collect::<Result<_, _>>()?,
+            },
             ast::Expression::Conversion { type_name, value } => Expression::Conversion {
                 type_ref: self.type_reference(type_name)?,
+                lambda_id: self.allocate_lambda(),
                 value: Box::new(self.resolve_expression(value)?),
             },
             ast::Expression::SumInjection {
@@ -111,14 +122,12 @@ impl Resolver {
             captured_sources: std::collections::HashMap::new(),
         });
         let result = (|| {
-            let mut parameters = Vec::with_capacity(lambda.parameters.len());
-            for parameter in &lambda.parameters {
-                let binding = self.declare_value(&parameter.name, ValueOwner::Lambda(id))?;
-                parameters.push(Parameter {
-                    binding,
-                    span: parameter.span,
-                });
-            }
+            let parameter = lambda
+                .parameter
+                .as_ref()
+                .map(|parameter| self.declare_pattern(parameter, ValueOwner::Lambda(id)))
+                .transpose()?
+                .map(Box::new);
             let body = self.resolve_lambda_body(&lambda.body)?;
             let captures = std::mem::take(
                 &mut self
@@ -131,7 +140,7 @@ impl Resolver {
                 id,
                 self_binding: self_binding.map(|binding| binding.id),
                 captures,
-                parameters,
+                parameter,
                 body,
             })
         })();

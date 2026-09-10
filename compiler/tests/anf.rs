@@ -73,7 +73,7 @@ fn orders_primitive_operands_left_to_right() {
 }
 
 #[test]
-fn evaluates_a_callee_before_its_argument_and_application() {
+fn evaluates_an_argument_before_its_callee_and_application() {
     let program = lower_ok(
         "make :: Unit -> (Unit -> Int32) := \\() {\n\
            \\() { 4; };\n\
@@ -92,11 +92,11 @@ fn evaluates_a_callee_before_its_argument_and_application() {
     };
     assert!(matches!(
         callee.kind,
-        AtomKind::Reference(id) if id == binding_id(&bindings[0])
+        AtomKind::Reference(id) if id == binding_id(&bindings[1])
     ));
     assert!(matches!(
         argument.kind,
-        AtomKind::Reference(id) if id == binding_id(&bindings[1])
+        AtomKind::Reference(id) if id == binding_id(&bindings[0])
     ));
 }
 

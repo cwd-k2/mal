@@ -50,6 +50,60 @@ impl Parser<'_> {
         ))
     }
 
+    pub(super) fn parse_continuation_application(
+        &mut self,
+        value: Node<Expression>,
+    ) -> Result<Node<Expression>, Diagnostic> {
+        let start = value.span.start();
+        self.expect(&TokenKind::LeftBracket, "`[`")?;
+        if self.at(&TokenKind::TypeIdentifier) {
+            let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
+            let right = self.expect(&TokenKind::RightBracket, "`]` after a construction type")?;
+            return Ok(Node::new(
+                Expression::Conversion {
+                    type_name,
+                    value: Box::new(value),
+                },
+                self.span(start, right.span.end()),
+            ));
+        }
+        let continuations = self.parse_continuations()?;
+        let right = self.expect(&TokenKind::RightBracket, "`]`")?;
+        Ok(Node::new(
+            Expression::ContinuationApplication {
+                value: Box::new(value),
+                continuations,
+            },
+            self.span(start, right.span.end()),
+        ))
+    }
+
+    pub(super) fn parse_unit_continuation_application(
+        &mut self,
+    ) -> Result<Node<Expression>, Diagnostic> {
+        let left = self.expect(&TokenKind::LeftBracket, "`[`")?;
+        let continuations = self.parse_continuations()?;
+        let right = self.expect(&TokenKind::RightBracket, "`]`")?;
+        Ok(Node::new(
+            Expression::ContinuationApplication {
+                value: Box::new(Node::new(Expression::Unit, left.span)),
+                continuations,
+            },
+            self.join(left.span, right.span),
+        ))
+    }
+
+    fn parse_continuations(&mut self) -> Result<Vec<Node<Expression>>, Diagnostic> {
+        if self.at(&TokenKind::RightBracket) {
+            return Err(self.expected("at least one continuation"));
+        }
+        let mut continuations = vec![self.parse_expression()?];
+        while self.take(&TokenKind::Comma).is_some() {
+            continuations.push(self.parse_expression()?);
+        }
+        Ok(continuations)
+    }
+
     fn parse_arguments(&mut self) -> Result<Vec<Node<Expression>>, Diagnostic> {
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let mut arguments = Vec::new();

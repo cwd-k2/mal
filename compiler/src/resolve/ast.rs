@@ -122,8 +122,13 @@ pub enum Expression {
         callee: Box<Node<Expression>>,
         arguments: Vec<Node<Expression>>,
     },
+    ContinuationApplication {
+        value: Box<Node<Expression>>,
+        continuations: Vec<Node<Expression>>,
+    },
     Conversion {
         type_ref: TypeReference,
+        lambda_id: LambdaId,
         value: Box<Node<Expression>>,
     },
     SumInjection {
@@ -156,7 +161,7 @@ pub struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
-    pub parameters: Vec<Parameter>,
+    pub parameter: Option<Box<Node<Pattern>>>,
     pub body: LambdaBody,
 }
 
@@ -164,12 +169,6 @@ pub struct Lambda {
 pub struct Capture {
     pub source: ValueReference,
     pub binding: ValueBinding,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Parameter {
-    pub binding: ValueBinding,
-    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

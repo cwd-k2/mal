@@ -77,7 +77,7 @@ fn checks_products_destructuring_and_multiple_parameters() {
         panic!("expected lambda");
     };
     assert_eq!(
-        first_value.parameters[0].ty,
+        first_value.parameter_type,
         Type::Product(vec![Type::Int32, Type::UInt8])
     );
 
@@ -122,7 +122,6 @@ fn requires_an_expected_function_type_and_matching_parameter_shape() {
     for text in [
         "bad :: Unit -> Unit := \\(value) { (); };",
         "bad :: Int32 -> Int32 := \\() { 0; };",
-        "bad :: (Int32, Int32) -> Int32 := \\(left, middle, right) { left; };",
     ] {
         assert_eq!(
             check_error(text).message,
@@ -130,6 +129,10 @@ fn requires_an_expected_function_type_and_matching_parameter_shape() {
             "input: {text}"
         );
     }
+    assert_eq!(
+        check_error("bad :: (Int32, Int32) -> Int32 := \\(left, middle, right) { left; };").message,
+        "product pattern has the wrong arity"
+    );
 }
 
 #[test]
@@ -141,6 +144,48 @@ fn checks_a_lambda_from_an_application_context() {
          main :: Unit -> Int32 := \\() {
            apply(\\(value) { value + 1; }, 41);
          };",
+    );
+}
+
+#[test]
+fn checks_postfix_application_and_sum_continuations() {
+    check_ok(
+        "Choice :: [Int32, Symbol];
+         first :: Int32 -> Choice := 0[Choice];
+         second :: Symbol -> Choice := Choice(1);
+         identity :: Int32 -> Int32 := (value) { value };
+         choose :: Choice -> Int32 := (choice) {
+           choice[(value) { value }, (symbol) { Int32(#symbol) }]
+         };
+         initialize :: Unit -> Int32 := () { 42 };
+         main :: Unit -> Int32 := () {
+           forward := identity(42);
+           backward := 42[identity];
+           initialized := [initialize];
+           forward + backward - initialized
+         };",
+    );
+}
+
+#[test]
+fn rejects_invalid_sum_continuations_and_constructors() {
+    assert_eq!(
+        check_error("Choice :: [Unit, Int32]; bad := 2[Choice];").message,
+        "sum variant index is out of range"
+    );
+    assert_eq!(
+        check_error(
+            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) { choice[() { 0 }] };"
+        )
+        .message,
+        "lambda parameters do not match the expected function type"
+    );
+    assert_eq!(
+        check_error(
+            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) { choice[() { 0 }, (value) { value }, (value) { value }] };"
+        )
+        .message,
+        "sum continuation count does not match its type"
     );
 }
 
@@ -158,7 +203,7 @@ fn propagates_types_through_capture_bindings() {
         panic!("expected inner lambda");
     };
     assert_eq!(inner.captures[0].ty, Type::Int32);
-    assert_eq!(inner.parameters[0].ty, Type::Int32);
+    assert_eq!(inner.parameter_type, Type::Int32);
 }
 
 #[test]

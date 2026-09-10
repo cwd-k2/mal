@@ -57,6 +57,15 @@ fn mark_expression(
                 mark_expression(lexed, argument, false, aligned);
             }
         }
+        Expression::ContinuationApplication {
+            value,
+            continuations,
+        } => {
+            mark_expression(lexed, value, false, aligned);
+            for continuation in continuations {
+                mark_expression(lexed, continuation, false, aligned);
+            }
+        }
         Expression::Conversion { value, .. } | Expression::SumInjection { value, .. } => {
             mark_expression(lexed, value, false, aligned);
         }

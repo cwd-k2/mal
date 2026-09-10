@@ -47,7 +47,7 @@ fn parses_the_basic_host_example() {
     let Expression::Lambda(lambda) = &main.value.kind else {
         panic!("expected main lambda");
     };
-    assert!(lambda.parameters.is_empty());
+    assert!(lambda.parameter.is_none());
     assert_eq!(lambda.body.items.len(), 1);
     assert!(matches!(
         lambda.body.items[0],
