@@ -27,7 +27,10 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
     Some((closure_binding_function(binding)?, (**parameter).clone()))
 }
 
-pub(super) fn top_levels_are_capture_free_closures(execution: &crate::execution::Program) -> bool {
+pub(super) fn top_levels_are_supported(
+    execution: &crate::execution::Program,
+    types: Types,
+) -> bool {
     execution.lowered.bindings.iter().all(|binding| {
         closure_binding_function(binding).is_some_and(|function| {
             execution
@@ -36,8 +39,113 @@ pub(super) fn top_levels_are_capture_free_closures(execution: &crate::execution:
                 .iter()
                 .find(|candidate| candidate.id == function)
                 .is_some_and(|function| function.environment.is_empty())
-        })
+        }) || top_level_constant(binding, types).is_some()
     })
+}
+
+pub(super) fn referenced_top_level_constant(
+    execution: &crate::execution::Program,
+    id: ValueId,
+    types: Types,
+) -> Option<(Type, String)> {
+    execution.lowered.bindings.iter().find_map(|binding| {
+        matches!(binding.pattern, TopLevelPattern::Binding { id: candidate, .. } if candidate == id)
+            .then(|| top_level_constant(binding, types))?
+    })
+}
+
+fn top_level_constant(
+    binding: &crate::closure::ast::TopLevelBinding,
+    types: Types,
+) -> Option<(Type, String)> {
+    use crate::closure::ast::Operation;
+
+    let TopLevelPattern::Binding { ty, .. } = &binding.pattern else {
+        return None;
+    };
+    if matches!(ty, Type::Function { .. }) {
+        return None;
+    }
+    let mut values = HashMap::new();
+    for binding in &binding.value.bindings {
+        let Pattern::Binding { id, ty } = &binding.pattern else {
+            return None;
+        };
+        let value = match &binding.operation {
+            Operation::Atom(atom) => constant_atom(atom, &values, types)?,
+            Operation::NumericConversion { operand } => {
+                let (source_ty, source) = constant_atom(operand, &values, types)?;
+                let source_type = super::scalar::scalar_type(&source_ty)?;
+                let target_type = super::scalar::scalar_type(ty)?;
+                if source_type.floating == target_type.floating
+                    && source_type.bits == target_type.bits
+                {
+                    (ty.clone(), source)
+                } else {
+                    let instruction = if source_type.floating && target_type.floating {
+                        if source_type.bits > target_type.bits {
+                            "fptrunc"
+                        } else {
+                            "fpext"
+                        }
+                    } else if source_type.floating {
+                        if target_type.signed {
+                            "fptosi"
+                        } else {
+                            "fptoui"
+                        }
+                    } else if target_type.floating {
+                        if source_type.signed {
+                            "sitofp"
+                        } else {
+                            "uitofp"
+                        }
+                    } else if source_type.bits > target_type.bits {
+                        "trunc"
+                    } else if source_type.signed {
+                        "sext"
+                    } else {
+                        "zext"
+                    };
+                    (
+                        ty.clone(),
+                        format!(
+                            "{instruction} ({} {source} to {})",
+                            source_type.llvm, target_type.llvm
+                        ),
+                    )
+                }
+            }
+            _ => return None,
+        };
+        if value.0 != *ty {
+            return None;
+        }
+        values.insert(*id, value);
+    }
+    let value = constant_atom(&binding.value.result, &values, types)?;
+    (value.0 == *ty).then_some(value)
+}
+
+fn constant_atom(
+    atom: &crate::closure::ast::Atom,
+    values: &HashMap<ValueId, (Type, String)>,
+    types: Types,
+) -> Option<(Type, String)> {
+    let value = match &atom.kind {
+        AtomKind::Integer(value) => super::scalar::integer_literal(&atom.ty, *value)?,
+        AtomKind::Float(bits) if atom.ty == Type::Float32 => {
+            format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
+        }
+        AtomKind::Float(bits) if atom.ty == Type::Float64 => format!("0x{bits:016X}"),
+        AtomKind::StorageSize(measured) if atom.ty == Type::UInt64 => {
+            types.value(measured)?.size.to_string()
+        }
+        AtomKind::Unit if atom.ty == Type::Unit => "0".into(),
+        AtomKind::Reference(Reference::Binding(id)) => return values.get(id).cloned(),
+        _ => return None,
+    };
+    Some((atom.ty.clone(), value))
 }
 
 fn closure_binding_function(binding: &crate::closure::ast::TopLevelBinding) -> Option<FunctionId> {

@@ -28,6 +28,37 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
 }
 
 #[test]
+fn references_closed_top_level_numeric_constants_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-top-level-constant");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "answer :: UInt64 := UInt64(42);\n\
+         main :: Unit -> Int32 := \\() { Int32(answer) - 42; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn passes_process_arguments_through_the_llvm_entry_bridge() {
     let directory = NativeFixture::new("driver-llvm-arguments");
     let source = directory.join("program.mal");

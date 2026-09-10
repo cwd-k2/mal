@@ -19,7 +19,7 @@ mod value;
 
 use plan::{
     collect_pattern_slot, insert_slot, main_function, pattern_value_type, reachable_states,
-    top_levels_are_capture_free_closures,
+    top_levels_are_supported,
 };
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
@@ -42,11 +42,10 @@ pub(super) fn generate(
     pointer_size: usize,
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
-    if !top_levels_are_capture_free_closures(execution) {
+    let types = Types::new(pointer_size)?;
+    if !top_levels_are_supported(execution, types) {
         return None;
     }
-
-    let types = Types::new(pointer_size)?;
     let mut globals = String::new();
     let mut definitions = String::new();
     let mut uses_control = false;
