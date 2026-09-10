@@ -609,6 +609,47 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 }
 
 #[test]
+fn preserves_short_circuit_effect_order_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-short-circuit");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern forbidden :: Unit -> Bool;\n\
+         main :: Unit -> Int32 := \\() {\n\
+           if (false && forbidden()) then { 1 } else { 0 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_forbidden(call) {\n\
+             mal_call_trap(call, \"short-circuit operand was evaluated\");\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-memory");
     let source = directory.join("program.mal");

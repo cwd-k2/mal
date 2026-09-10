@@ -116,6 +116,46 @@ impl FunctionEmitter<'_> {
                 if left.ty != right.ty {
                     return None;
                 }
+                if result_type.is_some_and(super::types::is_bool) {
+                    let register = self.register();
+                    if left.ty == Type::Symbol {
+                        let equality = self.register();
+                        self.line(format!(
+                            "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, ptr {})",
+                            left.representation, right.representation
+                        ));
+                        let predicate = match operator {
+                            crate::core::ast::BinaryPrimitive::Equal => "ne",
+                            crate::core::ast::BinaryPrimitive::NotEqual => "eq",
+                            _ => return None,
+                        };
+                        self.line(format!("  {register} = icmp {predicate} i8 {equality}, 0"));
+                    } else if super::types::is_bool(&left.ty) {
+                        let predicate = match operator {
+                            crate::core::ast::BinaryPrimitive::Equal => "eq",
+                            crate::core::ast::BinaryPrimitive::NotEqual => "ne",
+                            _ => return None,
+                        };
+                        self.line(format!(
+                            "  {register} = icmp {predicate} i1 {}, {}",
+                            left.representation, right.representation
+                        ));
+                    } else {
+                        let scalar = scalar_type(&left.ty)?;
+                        let predicate =
+                            super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
+                        let instruction = if scalar.floating { "fcmp" } else { "icmp" };
+                        self.line(format!(
+                            "  {register} = {instruction} {predicate} {} {}, {}",
+                            scalar.llvm, left.representation, right.representation
+                        ));
+                    }
+                    return Some(Some(EmittedValue {
+                        ty: result_type?.clone(),
+                        representation: register,
+                        owned: false,
+                    }));
+                }
                 let scalar = scalar_type(&left.ty)?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
