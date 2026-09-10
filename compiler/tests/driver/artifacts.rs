@@ -174,6 +174,52 @@ fn calls_capture_free_first_class_functions_through_llvm() {
 }
 
 #[test]
+fn calls_first_class_memory_functions_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-memory-function");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Reader :: Ptr -> Int64;\n\
+         Writer :: (Ptr, Int64) -> Unit;\n\
+         extern memory :: Unit -> Ptr;\n\
+         readWith :: (Reader, Ptr) -> Int64 := \\(reader, pointer) { reader(pointer); };\n\
+         writeWith :: (Writer, Ptr, Int64) -> Unit := \\(writer, pointer, value) { writer(pointer, value); };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           pointer := memory();\n\
+           writeWith(Int64.store, pointer, 42i64);\n\
+           Int32(readWith(Int64.load, pointer) - 42i64);\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static unsigned char storage[8];\n\
+         MAL_DEFINE_memory(call) { return mal_Ptr_return(call, storage); }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_capturing_closure_environments_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-capturing-closure");
     let source = directory.join("program.mal");
