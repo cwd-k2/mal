@@ -203,6 +203,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit(mut self) -> Option<EmittedFunction> {
+        self.emit_environment_destructor()?;
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context, ptr %mal_environment".to_string()
         } else {
@@ -364,10 +365,12 @@ impl<'a> FunctionEmitter<'a> {
                 ));
             }
             Terminator::Call {
-                argument, resume, ..
+                callee,
+                argument,
+                resume,
             } => match self.execution.control_calls.mode(site)? {
                 ControlCallMode::Direct(target) => {
-                    let result = self.emit_call(target, argument, false)?;
+                    let result = self.emit_call(target, callee, argument, false)?;
                     let input = self.control.states[resume.0].input.as_ref()?;
                     self.store_pattern(input, Some(&result))?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
@@ -388,7 +391,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 ControlCallMode::DirectSelfTail => return None,
             },
-            Terminator::TailCall { argument, .. } => {
+            Terminator::TailCall { callee, argument } => {
                 match self.execution.control_calls.mode(site)? {
                     ControlCallMode::DirectSelfTail => {
                         let argument = self
@@ -412,7 +415,7 @@ impl<'a> FunctionEmitter<'a> {
                         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
-                        let result = self.emit_call(target, argument, true)?;
+                        let result = self.emit_call(target, callee, argument, true)?;
                         self.release_local_managed();
                         let value_type = self.types.value(&result.ty)?;
                         self.line(format!(
@@ -442,6 +445,7 @@ impl<'a> FunctionEmitter<'a> {
     fn emit_call(
         &mut self,
         target: FunctionId,
+        callee: &Atom,
         argument: &Atom,
         tail: bool,
     ) -> Option<EmittedValue> {
@@ -450,8 +454,15 @@ impl<'a> FunctionEmitter<'a> {
             .functions
             .iter()
             .find(|function| function.id == target)?;
+        let callee = self.atom(callee)?;
+        let closure_type = self.types.value(&callee.ty)?;
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = extractvalue {} {}, 1",
+            closure_type.llvm, callee.representation
+        ));
         let arguments = if target.parameter.ty == Type::Unit {
-            "ptr %mal_context, ptr null".into()
+            format!("ptr %mal_context, ptr {environment}")
         } else {
             let argument = self.atom(argument)?;
             if argument.ty != target.parameter.ty {
@@ -459,7 +470,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             let value_type = self.types.value(&argument.ty)?;
             format!(
-                "ptr %mal_context, ptr null, {} {}",
+                "ptr %mal_context, ptr {environment}, {} {}",
                 value_type.llvm, argument.representation
             )
         };
@@ -483,6 +494,36 @@ impl<'a> FunctionEmitter<'a> {
             representation: register,
             owned: crate::execution::ownership::is_managed(&lowered.body.result.ty),
         })
+    }
+
+    fn emit_environment_destructor(&mut self) -> Option<()> {
+        if self.function.environment.is_empty() {
+            return Some(());
+        }
+        let environment_type = Type::Product(
+            self.function
+                .environment
+                .iter()
+                .map(|field| field.ty.clone())
+                .collect(),
+        );
+        let value_type = self.types.value(&environment_type)?;
+        self.line(format!(
+            "define internal void @mal_destroy_environment_{}(ptr %mal_environment) {{",
+            function_number(self.function.id)?
+        ));
+        self.line("entry:");
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = load {}, ptr %mal_environment, align {}",
+            value_type.llvm, value_type.alignment
+        ));
+        self.release_value(&environment_type, &environment)?;
+        self.line("  ret void");
+        self.line("}");
+        self.line("");
+        self.next_register = 0;
+        Some(())
     }
 
     fn emit_indirect_call(
@@ -555,8 +596,12 @@ impl<'a> FunctionEmitter<'a> {
 }
 
 fn function_name(id: FunctionId) -> Option<String> {
+    Some(format!("mal_function_{}", function_number(id)?))
+}
+
+fn function_number(id: FunctionId) -> Option<u32> {
     match id {
-        FunctionId::Lambda(id) => Some(format!("mal_function_{}", id.0)),
+        FunctionId::Lambda(id) => Some(id.0),
         FunctionId::Memory(_) => None,
     }
 }

@@ -13,9 +13,9 @@ impl FunctionEmitter<'_> {
     ) -> Option<Option<EmittedValue>> {
         match operation {
             Operation::Atom(atom) => self.atom(atom).map(Some),
-            Operation::MakeClosure { function, captures } if captures.is_empty() => {
+            Operation::MakeClosure { function, captures } => {
                 let result_type = result_type?.clone();
-                let Type::Function { .. } = result_type else {
+                let Type::Function { .. } = &result_type else {
                     return None;
                 };
                 let closure_type = self.types.value(&result_type)?;
@@ -25,9 +25,55 @@ impl FunctionEmitter<'_> {
                     closure_type.llvm,
                     super::function_name(*function)?
                 ));
+                let target = self
+                    .execution
+                    .lowered
+                    .functions
+                    .iter()
+                    .find(|candidate| candidate.id == *function)?;
+                if captures.len() != target.environment.len()
+                    || captures
+                        .iter()
+                        .zip(&target.environment)
+                        .any(|(capture, field)| capture.ty != field.ty)
+                {
+                    return None;
+                }
+                let closure = if captures.is_empty() {
+                    with_code
+                } else {
+                    let environment_type = Type::Product(
+                        target
+                            .environment
+                            .iter()
+                            .map(|field| field.ty.clone())
+                            .collect(),
+                    );
+                    let environment_value = self.emit_product(captures, &environment_type)?;
+                    let environment_layout = self.types.value(&environment_type)?;
+                    let environment = self.register();
+                    self.line(format!(
+                        "  {environment} = call ptr @mal_runtime_environment_allocate(ptr %mal_context, {} {}, ptr @mal_destroy_environment_{})",
+                        self.types.pointer_integer()?,
+                        environment_layout.size,
+                        super::function_number(*function)?
+                    ));
+                    self.line(format!(
+                        "  store {} {}, ptr {environment}, align {}",
+                        environment_layout.llvm,
+                        environment_value.representation,
+                        environment_layout.alignment
+                    ));
+                    let closure = self.register();
+                    self.line(format!(
+                        "  {closure} = insertvalue {} {with_code}, ptr {environment}, 1",
+                        closure_type.llvm
+                    ));
+                    closure
+                };
                 Some(Some(EmittedValue {
                     ty: result_type,
-                    representation: with_code,
+                    representation: closure,
                     owned: true,
                 }))
             }
@@ -138,7 +184,6 @@ impl FunctionEmitter<'_> {
             Operation::SumInjection { index, value } => {
                 self.emit_sum(*index, value, result_type?).map(Some)
             }
-            _ => None,
         }
     }
 }

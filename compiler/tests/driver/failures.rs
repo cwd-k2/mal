@@ -112,10 +112,17 @@ fn reports_required_c_source_and_c_compiler_failures() {
 
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := \\() {\n\
-           base :: Int32 := 40;\n\
-           add :: Int32 -> Int32 := \\(value) { base + value; };\n\
-           add(2) - 42;\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := \\(operation, value) {\n\
+           operation(value);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           recurse :: Int32 -> Int32 := \\(value) {\n\
+             if (value == 0i32) then { 0i32 } else {\n\
+               child := apply(recurse, value - 1i32);\n\
+               child + 1i32;\n\
+             };\n\
+           };\n\
+           recurse(2i32) - 2i32;\n\
          };",
     );
     let unavailable_compiler = directory.join("missing-clang");

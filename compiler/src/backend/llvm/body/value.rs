@@ -77,6 +77,36 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
+            (ty, AtomKind::Reference(Reference::EnvironmentField(index))) => {
+                let field = self.function.environment.get(*index)?;
+                if field.ty != *ty {
+                    return None;
+                }
+                let environment_type = Type::Product(
+                    self.function
+                        .environment
+                        .iter()
+                        .map(|field| field.ty.clone())
+                        .collect(),
+                );
+                let fields = self.types.product_fields(&environment_type)?;
+                let offset = fields.get(*index)?.offset;
+                let pointer = self.register();
+                self.line(format!(
+                    "  {pointer} = getelementptr i8, ptr %mal_environment, i64 {offset}"
+                ));
+                let value_type = self.types.value(ty)?;
+                let value = self.register();
+                self.line(format!(
+                    "  {value} = load {}, ptr {pointer}, align {}",
+                    value_type.llvm, value_type.alignment
+                ));
+                Some(EmittedValue {
+                    ty: ty.clone(),
+                    representation: value,
+                    owned: false,
+                })
+            }
             (Type::Function { .. }, AtomKind::Reference(Reference::Binding(id)))
                 if !self.slots.contains_key(id) =>
             {
@@ -275,7 +305,7 @@ impl FunctionEmitter<'_> {
         }
     }
 
-    fn release_value(&mut self, ty: &Type, value: &str) -> Option<()> {
+    pub(super) fn release_value(&mut self, ty: &Type, value: &str) -> Option<()> {
         match ty {
             Type::Symbol => self.line(format!(
                 "  call void @mal_runtime_symbol_release(ptr {value})"
