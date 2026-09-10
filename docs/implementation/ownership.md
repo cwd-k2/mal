@@ -27,6 +27,15 @@ zeroにする。`Symbol` concatのoperandがそのsiteでdeadならshareをrunti
 function returnではresult shareを確保してからactivation-local slotをreleaseする。tail transitionでも次argumentと次environmentを先に
 確保し、その後に現在のlocalとenvironmentをreleaseする。aliasを早く解放しないため、この順序を変えてはならない。
 
+## parameter handoff
+
+`execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として一度だけ決める。LLVM backendはこのdestinationを受け、
+parameter patternのbinding有無を再解釈しない。
+
+region外のnative callではcallerがargument ownerをcallのreturnまで保持する。calleeの`Bind` prologueはmanaged argumentをretainしてlocal
+slotへ保存し、`Discard`は新しいshareを作らない。region内遷移と`DirectSelfTail`では、次のactivation用argument shareをcaller cleanupより
+先に確保する。`Bind`はそのshareをslotへ移し、`Discard`は一度releaseする。
+
 ## closure environment
 
 capturing closureの生成時にtarget固有のenvironment storageをruntimeから確保し、capture fieldごとにownership shareを保存する。

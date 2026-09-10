@@ -207,7 +207,7 @@ impl<'a> FunctionEmitter<'a> {
                 .frame(*site)
                 .expect("collected frame site");
             (common_region.is_none()
-                && (execution.applications.direct_target(*site) != Some(id)
+                && (execution.control_calls.mode(*site) != Some(ControlCallMode::DirectRegion(id))
                     || frame.carries_environment))
                 || common_region.is_some_and(|region| {
                     execution.control_regions.site_region(*site) != Some(region)

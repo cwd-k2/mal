@@ -20,7 +20,8 @@ control IR + closure use
   -> residual continuation graph
   -> recursive control region
   -> siteごとのcall mode
-  -> suspension frame
+  -> parameter destination
+  -> suspension frame + return/frame relation
 ```
 
 possible application graphは各applicationのcaller、known target、および型互換な有限のinternal function target集合を所有する。
@@ -34,11 +35,15 @@ call modeは次の四つである。
 - `DirectSelfTail`: parameter slotを更新して同じentry stateへ戻るframeなしの遷移。
 - `Dispatch`: first-class calleeのcode identityで有限targetを選ぶ。region内targetならstate遷移、region外targetならindirect native callになる。
 
+function parameterのcontrol bindingは`execution/parameter`がcall mode共通の`Bind(slot)`または`Discard`へ変換する。backendは
+parameter patternを再解釈せず、このdestinationをtarget固有のowner operationとstorageへ変換する。
+
 ## continuation frame
 
 同じregion内のnon-tail callだけがcallerをsuspendする。frameはresume state、resume時に必要なlive value、および共通regionで必要な
 active closure environment ownerを保持する。frame field集合はresume stateのlive-inと一致し、backendがclosure IR suffixを再走査して
-増減してはならない。top-level valueはconstant planから再取得できるためframeへ保存しない。
+増減してはならない。top-level valueはconstant planから再取得できるためframeへ保存しない。`execution/frame/resume`は同じcontrol
+machineに属するreturn siteとframe tagだけを組にし、result型とresume input型が一致する組を`Resume`、それ以外を`Unreachable`とする。
 
 tail edgeはframeをpushしない。region外callはnative stackを使ってよいが、region condensation graphが非循環なのでMal recursion depthに
 比例したnative recursionを作らない。region内non-tail recursionはprogram固有のtyped frameをgenericなgrowable byte storageへ積む。
@@ -52,9 +57,8 @@ callee closureからcode pointerとenvironmentを取り出し、application grap
 列挙外にあるcode identityだけが到達不能なcompiler invariant違反である。
 
 一つのregionは異なるparameter型とresult型のfunctionを含み得る。dispatchで選ばれたtargetのparameter型はapplication graphが保証する。
-parameter patternがwildcardならentry slotはなく、遷移が受け取ったmanaged argumentをreleaseしてからbodyへ進む。共通machineが各return
-siteと各frame tagの組合せを列挙するとき、frameのresume input型とreturn value型が異なる組合せは、型の一致するcallからそのframeが積まれる
-というcontrol planの規則により到達不能である。backendはこの組合せをresumeとして再解釈せず、target IRの`unreachable`にする。
+parameter destinationが`Discard`ならentry slotはなく、遷移が受け取ったmanaged argumentをreleaseしてからbodyへ進む。共通machineが
+各return siteと各frame tagの組合せを列挙するとき、frame planが`Unreachable`とした組だけをtarget IRの`unreachable`にする。
 
 non-tail遷移ではcaller live valueをframeへ移し、必要ならcaller environment ownerもframeへ移す。callee return時はframe tagからresume
 stateを選び、fieldとenvironmentをlocal slotへ戻してresultをresume inputへ移す。program entryが一つのcontrol topをinternal callへ渡し、
@@ -72,8 +76,8 @@ control storageはMal programから到達不能なimplementation storageであ�
 
 ## 検証
 
-call mode、parameter handoff、frame resume、managed ownerを横断する現在の作業順序と完了条件は
-[application control境界監査計画](application-control-boundary-audit.md)に置く。
+executionの各materialized planはauthorityから期待集合を再構成する`is_valid`を持ち、debug buildとfocused testでapplication target、
+tail fusion、region、call mode、parameter destination、frame payload、return/frame relationの完全性を検査する。
 
 - 全application siteにcall modeがあり、direct native call graphがacyclicである。
 - region内non-tail siteとframe集合、frame fieldとresume live-inが一致する。
