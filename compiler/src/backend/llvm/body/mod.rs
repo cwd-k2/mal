@@ -2,20 +2,25 @@ use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
-use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference};
+use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::core::ast::UnaryPrimitive;
 use crate::execution::ControlCallMode;
 
+mod aggregate;
+mod bridge;
 mod frame;
 mod plan;
 mod scalar;
+mod types;
+mod value;
 
 use plan::{
     collect_pattern_slot, insert_slot, main_function, pattern_value_type, reachable_states,
     top_levels_are_capture_free_closures,
 };
-use scalar::{arithmetic_instruction, comparison_predicate, integer_literal, scalar_type};
+use scalar::{arithmetic_instruction, comparison_predicate, scalar_type};
+use types::{is_bool, value_type};
 
 pub(super) struct Output {
     pub(super) definitions: String,
@@ -81,8 +86,8 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == id)?;
         if !lowered.environment.is_empty()
-            || !is_scalar_parameter(&function.parameter.ty)
-            || scalar_type(&lowered.body.result.ty).is_none()
+            || value_type(&function.parameter.ty).is_none()
+            || value_type(&lowered.body.result.ty).is_none()
         {
             return None;
         }
@@ -115,7 +120,7 @@ impl<'a> FunctionEmitter<'a> {
                 || frame
                     .fields
                     .iter()
-                    .any(|field| field.managed || scalar_type(&field.value.ty).is_none())
+                    .any(|field| field.managed || value_type(&field.value.ty).is_none())
         }) {
             return None;
         }
@@ -140,11 +145,13 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit(mut self) -> Option<String> {
-        let parameter = scalar_type(&self.function.parameter.ty).map_or_else(
-            || Some("ptr %mal_context".to_string()),
-            |scalar| Some(format!("ptr %mal_context, {} %mal_parameter", scalar.llvm)),
-        )?;
-        let result = scalar_type(&self.result_type)?;
+        let parameter = if self.function.parameter.ty == Type::Unit {
+            "ptr %mal_context".to_string()
+        } else {
+            let parameter = value_type(&self.function.parameter.ty)?;
+            format!("ptr %mal_context, {} %mal_parameter", parameter.llvm)
+        };
+        let result = value_type(&self.result_type)?;
         self.line(format!(
             "define internal {} @{}({parameter}) {{",
             result.llvm,
@@ -154,10 +161,10 @@ impl<'a> FunctionEmitter<'a> {
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
-            let scalar = scalar_type(&slot.ty)?;
+            let value_type = value_type(&slot.ty)?;
             self.line(format!(
                 "  %mal_slot_{} = alloca {}, align {}",
-                slot.index, scalar.llvm, scalar.alignment
+                slot.index, value_type.llvm, value_type.alignment
             ));
         }
         if self.has_frames {
@@ -169,10 +176,10 @@ impl<'a> FunctionEmitter<'a> {
         }
         if let Some(id) = self.function.parameter.binding {
             let slot = self.slots.get(&id)?.clone();
-            let scalar = scalar_type(&slot.ty)?;
+            let value_type = value_type(&slot.ty)?;
             self.line(format!(
                 "  store {} %mal_parameter, ptr %mal_slot_{}, align {}",
-                scalar.llvm, slot.index, scalar.alignment
+                value_type.llvm, slot.index, value_type.alignment
             ));
         }
         if self.has_frames {
@@ -290,49 +297,12 @@ impl<'a> FunctionEmitter<'a> {
             Operation::ExternalCall { id, argument } => self
                 .emit_external_call(*id, argument, result_type?)
                 .map(Some),
+            Operation::Product(elements) => self.emit_product(elements, result_type?).map(Some),
+            Operation::SumInjection { index, value } => {
+                self.emit_sum(*index, value, result_type?).map(Some)
+            }
             _ => None,
         }
-    }
-
-    fn emit_external_call(
-        &mut self,
-        id: crate::resolve::ast::ExternalOperationId,
-        argument: &Atom,
-        result_type: &Type,
-    ) -> Option<EmittedValue> {
-        let external = self
-            .execution
-            .lowered
-            .interface
-            .externals
-            .iter()
-            .find(|external| external.id == id)?;
-        let argument = self.atom(argument)?;
-        if argument.ty != external.parameter || *result_type != external.result {
-            return None;
-        }
-        let argument_type = scalar_type(&argument.ty)?;
-        let result_type = result_type.clone();
-        let result_scalar = scalar_type(&result_type)?;
-        self.line(format!(
-            "  store {} {}, ptr %mal_bridge_argument, align {}",
-            argument_type.llvm, argument.representation, argument_type.alignment
-        ));
-        let bridge = crate::backend::abi::Function::external_bridge(id);
-        let call = bridge
-            .llvm_signature()
-            .replace("%mal_argument", "%mal_bridge_argument")
-            .replace("%mal_result", "%mal_bridge_result");
-        self.line(format!("  call {call}"));
-        let register = self.register();
-        self.line(format!(
-            "  {register} = load {}, ptr %mal_bridge_result, align {}",
-            result_scalar.llvm, result_scalar.alignment
-        ));
-        Some(EmittedValue {
-            ty: result_type,
-            representation: register,
-        })
     }
 
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
@@ -345,8 +315,11 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     self.emit_frame_return(site, &value.representation)?;
                 } else {
-                    let scalar = scalar_type(&value.ty)?;
-                    self.line(format!("  ret {} {}", scalar.llvm, value.representation));
+                    let value_type = value_type(&value.ty)?;
+                    self.line(format!(
+                        "  ret {} {}",
+                        value_type.llvm, value.representation
+                    ));
                 }
             }
             Terminator::Goto(target) => {
@@ -365,20 +338,32 @@ impl<'a> FunctionEmitter<'a> {
                 otherwise,
                 then,
             } => {
-                let predicate = comparison_predicate(*operator)?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
                 if left.ty != right.ty {
                     return None;
                 }
-                let scalar = scalar_type(&left.ty)?;
-                let predicate = predicate.for_scalar(scalar);
                 let condition = self.register();
-                let instruction = if scalar.floating { "fcmp" } else { "icmp" };
-                self.line(format!(
-                    "  {condition} = {instruction} {predicate} {} {}, {}",
-                    scalar.llvm, left.representation, right.representation
-                ));
+                if is_bool(&left.ty) {
+                    let predicate = match operator {
+                        crate::core::ast::BinaryPrimitive::Equal => "eq",
+                        crate::core::ast::BinaryPrimitive::NotEqual => "ne",
+                        _ => return None,
+                    };
+                    self.line(format!(
+                        "  {condition} = icmp {predicate} i1 {}, {}",
+                        left.representation, right.representation
+                    ));
+                } else {
+                    let predicate = comparison_predicate(*operator)?;
+                    let scalar = scalar_type(&left.ty)?;
+                    let predicate = predicate.for_scalar(scalar);
+                    let instruction = if scalar.floating { "fcmp" } else { "icmp" };
+                    self.line(format!(
+                        "  {condition} = {instruction} {predicate} {} {}, {}",
+                        scalar.llvm, left.representation, right.representation
+                    ));
+                }
                 self.line(format!(
                     "  br i1 {condition}, label %mal_state_{}, label %mal_state_{}",
                     then.0, otherwise.0
@@ -414,22 +399,25 @@ impl<'a> FunctionEmitter<'a> {
                         if slot.ty != value.ty {
                             return None;
                         }
-                        let scalar = scalar_type(&slot.ty)?;
+                        let value_type = value_type(&slot.ty)?;
                         self.line(format!(
                             "  store {} {}, ptr %mal_slot_{}, align {}",
-                            scalar.llvm, value.representation, slot.index, scalar.alignment
+                            value_type.llvm, value.representation, slot.index, value_type.alignment
                         ));
                         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, argument, true)?;
-                        let scalar = scalar_type(&result.ty)?;
-                        self.line(format!("  ret {} {}", scalar.llvm, result.representation));
+                        let value_type = value_type(&result.ty)?;
+                        self.line(format!(
+                            "  ret {} {}",
+                            value_type.llvm, result.representation
+                        ));
                     }
                     ControlCallMode::Dispatch => return None,
                 }
             }
-            Terminator::Case { .. } => return None,
+            Terminator::Case { scrutinee, arms } => self.emit_case(site, scrutinee, arms)?,
         }
         Some(())
     }
@@ -452,10 +440,10 @@ impl<'a> FunctionEmitter<'a> {
             if argument.ty != target.parameter.ty {
                 return None;
             }
-            let scalar = scalar_type(&argument.ty)?;
+            let value_type = value_type(&argument.ty)?;
             format!(
                 "ptr %mal_context, {} {}",
-                scalar.llvm, argument.representation
+                value_type.llvm, argument.representation
             )
         };
         let lowered = self
@@ -465,76 +453,18 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .find(|function| function.id == target.id)?;
         let result_type = lowered.body.result.ty.clone();
-        let result_scalar = scalar_type(&result_type)?;
+        let result_value_type = value_type(&result_type)?;
         let register = self.register();
         let tail = if tail { "tail " } else { "" };
         self.line(format!(
             "  {register} = {tail}call {} @{}({arguments})",
-            result_scalar.llvm,
+            result_value_type.llvm,
             function_name(target.id)?
         ));
         Some(EmittedValue {
             ty: result_type,
             representation: register,
         })
-    }
-
-    fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
-        match (&atom.ty, &atom.kind) {
-            (ty, AtomKind::Integer(value)) if scalar_type(ty).is_some() => Some(EmittedValue {
-                ty: ty.clone(),
-                representation: integer_literal(ty, *value)?,
-            }),
-            (Type::Float32, AtomKind::Float(bits)) => Some(EmittedValue {
-                ty: Type::Float32,
-                representation: format!("{:.9e}", f32::from_bits(*bits as u32)),
-            }),
-            (Type::Float64, AtomKind::Float(bits)) => Some(EmittedValue {
-                ty: Type::Float64,
-                representation: format!("{:.17e}", f64::from_bits(*bits)),
-            }),
-            (ty, AtomKind::Reference(Reference::Binding(id))) if scalar_type(ty).is_some() => {
-                let slot = self.slots.get(id)?.clone();
-                if slot.ty != *ty {
-                    return None;
-                }
-                let scalar = scalar_type(ty)?;
-                let register = self.register();
-                self.line(format!(
-                    "  {register} = load {}, ptr %mal_slot_{}, align {}",
-                    scalar.llvm, slot.index, scalar.alignment
-                ));
-                Some(EmittedValue {
-                    ty: ty.clone(),
-                    representation: register,
-                })
-            }
-            (Type::Unit, AtomKind::Unit) => Some(EmittedValue {
-                ty: Type::Unit,
-                representation: String::new(),
-            }),
-            _ => None,
-        }
-    }
-
-    fn store_pattern(&mut self, pattern: &Pattern, value: Option<&EmittedValue>) -> Option<()> {
-        match pattern {
-            Pattern::Binding { id, ty } if scalar_type(ty).is_some() => {
-                let value = value?;
-                if value.ty != *ty {
-                    return None;
-                }
-                let slot = self.slots.get(id)?.clone();
-                let scalar = scalar_type(ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    scalar.llvm, value.representation, slot.index, scalar.alignment
-                ));
-            }
-            Pattern::Binding { ty: Type::Unit, .. } | Pattern::Wildcard { .. } => {}
-            _ => return None,
-        }
-        Some(())
     }
 
     fn register(&mut self) -> String {
@@ -547,10 +477,6 @@ impl<'a> FunctionEmitter<'a> {
         self.output.push_str(line.as_ref());
         self.output.push('\n');
     }
-}
-
-fn is_scalar_parameter(ty: &Type) -> bool {
-    *ty == Type::Unit || scalar_type(ty).is_some()
 }
 
 fn function_name(id: FunctionId) -> Option<String> {

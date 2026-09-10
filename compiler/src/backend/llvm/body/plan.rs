@@ -6,7 +6,7 @@ use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPatt
 use crate::control::ast::{Program, StateId, Terminator};
 
 use super::Slot;
-use super::scalar::scalar_type;
+use super::types::value_type;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<FunctionId> {
     let binding = execution.lowered.bindings.iter().find(|binding| {
@@ -85,10 +85,15 @@ pub(super) fn collect_pattern_slot(
     slots: &mut HashMap<ValueId, Slot>,
 ) -> Option<()> {
     match pattern {
-        Pattern::Binding { id, ty } if scalar_type(ty).is_some() => {
+        Pattern::Binding { id, ty } if value_type(ty).is_some() => {
             insert_slot(slots, *id, ty.clone())
         }
-        Pattern::Binding { ty: Type::Unit, .. } | Pattern::Wildcard { .. } => {}
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_pattern_slot(element, slots)?;
+            }
+        }
+        Pattern::Wildcard { .. } => {}
         _ => return None,
     }
     Some(())
@@ -108,7 +113,8 @@ pub(super) fn insert_slot(slots: &mut HashMap<ValueId, Slot>, id: ValueId, ty: T
 
 pub(super) fn pattern_value_type(pattern: &Pattern) -> Option<&Type> {
     match pattern {
-        Pattern::Binding { ty, .. } | Pattern::Wildcard { ty, .. } => Some(ty),
-        Pattern::Product { .. } => None,
+        Pattern::Binding { ty, .. }
+        | Pattern::Wildcard { ty, .. }
+        | Pattern::Product { ty, .. } => Some(ty),
     }
 }

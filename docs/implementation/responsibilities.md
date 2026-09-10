@@ -119,7 +119,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/ownership` | 型がmanaged ownerを含むかの分類と、closure-converted IR上のpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとmanaged valueを持たない整数・浮動小数点型の演算、変換、比較branch、direct call、self-tail edge、direct-self continuation frameと、数値scalarのextern callをadmit |
+| `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとmanaged valueを持たない数値型、`Unit`、`Bool`、product、sumの構築・分解・分岐、direct call、self-tail edge、direct-self continuation frameと、数値scalarのextern callをadmit |
+| `backend/llvm/body/types` | LLVM内のunmanaged value type、size、alignment、structural representationを構成 |
+| `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |

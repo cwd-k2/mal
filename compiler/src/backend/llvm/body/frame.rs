@@ -2,7 +2,7 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
 
-use super::scalar::{ScalarType, scalar_type};
+use super::types::{ValueType, align, value_type};
 use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
@@ -35,7 +35,7 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!(
                 "  store {} {}, ptr {pointer}, align {}",
-                layout.scalar.llvm, value.representation, layout.scalar.alignment
+                layout.value_type.llvm, value.representation, layout.value_type.alignment
             ));
         }
         let footer = self.register();
@@ -53,10 +53,10 @@ impl FunctionEmitter<'_> {
         }
         if let Some(parameter) = self.function.parameter.binding {
             let slot = self.slots.get(&parameter)?.clone();
-            let scalar = scalar_type(&slot.ty)?;
+            let value_type = value_type(&slot.ty)?;
             self.line(format!(
                 "  store {} {}, ptr %mal_slot_{}, align {}",
-                scalar.llvm, argument.representation, slot.index, scalar.alignment
+                value_type.llvm, argument.representation, slot.index, value_type.alignment
             ));
         } else if self.function.parameter.ty != crate::check::ast::Type::Unit {
             return None;
@@ -81,8 +81,8 @@ impl FunctionEmitter<'_> {
             site.0, site.0
         ));
         self.line(format!("mal_return_done_{}:", site.0));
-        let result_scalar = scalar_type(&self.result_type)?;
-        self.line(format!("  ret {} {result}", result_scalar.llvm));
+        let result_type = value_type(&self.result_type)?;
+        self.line(format!("  ret {} {result}", result_type.llvm));
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.register();
         self.line(format!(
@@ -151,12 +151,12 @@ impl FunctionEmitter<'_> {
             let value = self.register();
             self.line(format!(
                 "  {value} = load {}, ptr {pointer}, align {}",
-                layout.scalar.llvm, layout.scalar.alignment
+                layout.value_type.llvm, layout.value_type.alignment
             ));
             let slot = self.slots.get(&field.value.id)?.clone();
             self.line(format!(
                 "  store {} {value}, ptr %mal_slot_{}, align {}",
-                layout.scalar.llvm, slot.index, layout.scalar.alignment
+                layout.value_type.llvm, slot.index, layout.value_type.alignment
             ));
         }
         let input = self.control.states[frame.resume.0].input.as_ref()?;
@@ -173,11 +173,11 @@ impl FunctionEmitter<'_> {
 
     fn load_binding(&mut self, id: ValueId) -> Option<EmittedValue> {
         let slot = self.slots.get(&id)?.clone();
-        let scalar = scalar_type(&slot.ty)?;
+        let value_type = value_type(&slot.ty)?;
         let register = self.register();
         self.line(format!(
             "  {register} = load {}, ptr %mal_slot_{}, align {}",
-            scalar.llvm, slot.index, scalar.alignment
+            value_type.llvm, slot.index, value_type.alignment
         ));
         Some(EmittedValue {
             ty: slot.ty,
@@ -194,7 +194,7 @@ struct FrameLayout {
 
 struct FieldLayout {
     offset: usize,
-    scalar: ScalarType,
+    value_type: ValueType,
 }
 
 impl FrameLayout {
@@ -202,10 +202,11 @@ impl FrameLayout {
         let mut offset = 4usize;
         let mut fields = Vec::with_capacity(frame.fields.len());
         for field in &frame.fields {
-            let scalar = scalar_type(&field.value.ty)?;
-            offset = align(offset, scalar.alignment.into())?;
-            fields.push(FieldLayout { offset, scalar });
-            offset = offset.checked_add(usize::from(scalar.bits) / 8)?;
+            let value_type = value_type(&field.value.ty)?;
+            offset = align(offset, value_type.alignment)?;
+            let size = value_type.size;
+            fields.push(FieldLayout { offset, value_type });
+            offset = offset.checked_add(size)?;
         }
         let footer = align(offset, 8)?;
         let size = footer.checked_add(8)?;
@@ -215,10 +216,4 @@ impl FrameLayout {
             size,
         })
     }
-}
-
-fn align(value: usize, alignment: usize) -> Option<usize> {
-    value
-        .checked_add(alignment.checked_sub(1)?)
-        .map(|value| value & !(alignment - 1))
 }
