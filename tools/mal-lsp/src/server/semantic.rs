@@ -44,8 +44,12 @@ struct RenameParams {
 
 impl Server {
     pub(super) fn hover(&mut self, id: Value, params: Value) -> Value {
-        let Some((source, semantic, offset)) = self.position_request(&params) else {
-            return error(id, -32602, "invalid position or document is not open");
+        let (source, semantic, offset) = match self.position_request(&params) {
+            SemanticRequest::Ready(value) => value,
+            SemanticRequest::Unavailable => return success(id, Value::Null),
+            SemanticRequest::Invalid => {
+                return error(id, -32602, "invalid position or document is not open");
+            }
         };
         let Some(hover) = semantic.hover_at(offset) else {
             return success(id, Value::Null);
@@ -60,8 +64,12 @@ impl Server {
     }
 
     pub(super) fn definition(&mut self, id: Value, params: Value) -> Value {
-        let Some((_, semantic, offset)) = self.position_request(&params) else {
-            return error(id, -32602, "invalid position or document is not open");
+        let (_, semantic, offset) = match self.position_request(&params) {
+            SemanticRequest::Ready(value) => value,
+            SemanticRequest::Unavailable => return success(id, Value::Null),
+            SemanticRequest::Invalid => {
+                return error(id, -32602, "invalid position or document is not open");
+            }
         };
         let Some(span) = semantic
             .occurrence_at(offset)
@@ -81,11 +89,14 @@ impl Server {
         let Ok(request) = serde_json::from_value::<ReferenceParams>(params) else {
             return error(id, -32602, "invalid reference parameters");
         };
-        let Some((_, semantic, offset)) =
-            self.semantic_at(&request.text_document.uri, request.position)
-        else {
-            return error(id, -32602, "invalid position or document is not open");
-        };
+        let (_, semantic, offset) =
+            match self.semantic_at(&request.text_document.uri, request.position) {
+                SemanticRequest::Ready(value) => value,
+                SemanticRequest::Unavailable => return success(id, json!([])),
+                SemanticRequest::Invalid => {
+                    return error(id, -32602, "invalid position or document is not open");
+                }
+            };
         let Some(occurrence) = semantic.occurrence_at(offset) else {
             return success(id, json!([]));
         };
@@ -108,11 +119,14 @@ impl Server {
         let Ok(request) = serde_json::from_value::<RenameParams>(params) else {
             return error(id, -32602, "invalid rename parameters");
         };
-        let Some((_, semantic, offset)) =
-            self.semantic_at(&request.text_document.uri, request.position)
-        else {
-            return error(id, -32602, "invalid position or document is not open");
-        };
+        let (_, semantic, offset) =
+            match self.semantic_at(&request.text_document.uri, request.position) {
+                SemanticRequest::Ready(value) => value,
+                SemanticRequest::Unavailable => return success(id, Value::Null),
+                SemanticRequest::Invalid => {
+                    return error(id, -32602, "invalid position or document is not open");
+                }
+            };
         let Some(spans) = semantic.rename_spans(offset) else {
             return success(id, Value::Null);
         };
@@ -130,8 +144,12 @@ impl Server {
     }
 
     pub(super) fn document_symbols(&mut self, id: Value, params: Value) -> Value {
-        let Some((source, semantic)) = self.document_request(&params) else {
-            return error(id, -32602, "invalid parameters or document is not open");
+        let (source, semantic) = match self.document_request(&params) {
+            SemanticRequest::Ready(value) => value,
+            SemanticRequest::Unavailable => return success(id, json!([])),
+            SemanticRequest::Invalid => {
+                return error(id, -32602, "invalid parameters or document is not open");
+            }
         };
         let symbols = semantic
             .document_symbols()
@@ -151,8 +169,12 @@ impl Server {
     }
 
     pub(super) fn completion(&mut self, id: Value, params: Value) -> Value {
-        let Some((_, semantic)) = self.document_request(&params) else {
-            return error(id, -32602, "invalid parameters or document is not open");
+        let (_, semantic) = match self.document_request(&params) {
+            SemanticRequest::Ready(value) => value,
+            SemanticRequest::Unavailable => return success(id, json!([])),
+            SemanticRequest::Invalid => {
+                return error(id, -32602, "invalid parameters or document is not open");
+            }
         };
         let items = semantic
             .completions()
@@ -169,8 +191,12 @@ impl Server {
     }
 
     pub(super) fn semantic_tokens(&mut self, id: Value, params: Value) -> Value {
-        let Some((source, semantic)) = self.document_request(&params) else {
-            return error(id, -32602, "invalid parameters or document is not open");
+        let (source, semantic) = match self.document_request(&params) {
+            SemanticRequest::Ready(value) => value,
+            SemanticRequest::Unavailable => return success(id, json!({"data": []})),
+            SemanticRequest::Invalid => {
+                return error(id, -32602, "invalid parameters or document is not open");
+            }
         };
         let mut data = Vec::with_capacity(semantic.occurrences().len() * 5);
         let mut previous = Utf16Position {
@@ -208,8 +234,10 @@ impl Server {
     fn position_request(
         &mut self,
         params: &Value,
-    ) -> Option<(SourceFile, &SemanticDocument, usize)> {
-        let request = serde_json::from_value::<PositionParams>(params.clone()).ok()?;
+    ) -> SemanticRequest<(SourceFile, &SemanticDocument, usize)> {
+        let Ok(request) = serde_json::from_value::<PositionParams>(params.clone()) else {
+            return SemanticRequest::Invalid;
+        };
         self.semantic_at(&request.text_document.uri, request.position)
     }
 
@@ -217,30 +245,52 @@ impl Server {
         &mut self,
         uri: &str,
         position: Position,
-    ) -> Option<(SourceFile, &SemanticDocument, usize)> {
-        if !self.ensure_analyzed(uri) {
-            return None;
-        }
-        let document = self.documents.get_mut(uri)?;
+    ) -> SemanticRequest<(SourceFile, &SemanticDocument, usize)> {
+        let Some(document) = self.documents.get(uri) else {
+            return SemanticRequest::Invalid;
+        };
         let source = document.source(uri);
-        let offset = source.byte_offset_utf16(Utf16Position {
+        let Some(offset) = source.byte_offset_utf16(Utf16Position {
             line: position.line,
             character: position.character,
-        })?;
-        let semantic = document.semantic()?;
-        Some((source, semantic, offset))
+        }) else {
+            return SemanticRequest::Invalid;
+        };
+        if !self.ensure_analyzed(uri) {
+            return SemanticRequest::Unavailable;
+        }
+        let Some(document) = self.documents.get_mut(uri) else {
+            return SemanticRequest::Invalid;
+        };
+        let source = document.source(uri);
+        let Some(semantic) = document.semantic() else {
+            return SemanticRequest::Unavailable;
+        };
+        SemanticRequest::Ready((source, semantic, offset))
     }
 
-    fn document_request(&mut self, params: &Value) -> Option<(SourceFile, &SemanticDocument)> {
-        let identifier = serde_json::from_value::<DocumentRequest>(params.clone()).ok()?;
+    fn document_request(
+        &mut self,
+        params: &Value,
+    ) -> SemanticRequest<(SourceFile, &SemanticDocument)> {
+        let Ok(identifier) = serde_json::from_value::<DocumentRequest>(params.clone()) else {
+            return SemanticRequest::Invalid;
+        };
         let uri = identifier.text_document.uri;
-        if !self.ensure_analyzed(&uri) {
-            return None;
+        if !self.documents.contains_key(&uri) {
+            return SemanticRequest::Invalid;
         }
-        let document = self.documents.get_mut(&uri)?;
+        if !self.ensure_analyzed(&uri) {
+            return SemanticRequest::Unavailable;
+        }
+        let Some(document) = self.documents.get_mut(&uri) else {
+            return SemanticRequest::Invalid;
+        };
         let source = document.source(&uri);
-        let semantic = document.semantic()?;
-        Some((source, semantic))
+        let Some(semantic) = document.semantic() else {
+            return SemanticRequest::Unavailable;
+        };
+        SemanticRequest::Ready((source, semantic))
     }
 
     fn span_location(&self, root_uri: &str, span: Span) -> Option<(String, Value)> {
@@ -258,6 +308,12 @@ impl Server {
         );
         Some((uri, span_range(&source, span)))
     }
+}
+
+enum SemanticRequest<T> {
+    Ready(T),
+    Unavailable,
+    Invalid,
 }
 
 fn hover_contents(source: &SourceFile, hover: Hover<'_>) -> String {

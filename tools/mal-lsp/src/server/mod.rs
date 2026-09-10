@@ -25,6 +25,13 @@ struct Document {
     analysis: Option<malc::pipeline::Analysis>,
     graph: Option<SourceGraph>,
     semantic: Option<malc::editor::SemanticDocument>,
+    analysis_current: bool,
+    published_diagnostics: Option<PublishedDiagnostics>,
+}
+
+struct PublishedDiagnostics {
+    version: i64,
+    diagnostics: Vec<Value>,
 }
 
 #[derive(Deserialize)]
@@ -163,6 +170,8 @@ impl Server {
                             analysis: None,
                             graph: None,
                             semantic: None,
+                            analysis_current: false,
+                            published_diagnostics: None,
                         },
                     );
                     self.invalidate_analyses();
@@ -173,6 +182,7 @@ impl Server {
                 if let Ok(params) = serde_json::from_value::<DidChangeParams>(params)
                     && let Some(text) = params.content_changes.last()
                     && let Some(document) = self.documents.get_mut(&params.text_document.uri)
+                    && params.text_document.version > document.version
                 {
                     document.version = params.text_document.version;
                     document.text.clone_from(&text.text);
@@ -191,7 +201,9 @@ impl Server {
                     self.invalidate_analyses();
                     let remaining = self.documents.keys().cloned().collect::<Vec<_>>();
                     for uri in remaining {
-                        messages.push(self.diagnostics(&uri));
+                        if let Some(message) = self.diagnostics(&uri) {
+                            messages.push(message);
+                        }
                     }
                 }
             }
@@ -200,10 +212,27 @@ impl Server {
         Outcome { messages, exit }
     }
 
-    fn diagnostics(&mut self, uri: &str) -> Value {
+    fn diagnostics(&mut self, uri: &str) -> Option<Value> {
         let diagnostics = self.analyze_document(uri);
-        let document = self.documents.get(uri).expect("open document");
-        publish_diagnostics(uri, Some(document.version), diagnostics)
+        let document = self.documents.get_mut(uri).expect("open document");
+        let unchanged = document
+            .published_diagnostics
+            .as_ref()
+            .is_some_and(|published| {
+                published.version == document.version && published.diagnostics == diagnostics
+            });
+        if unchanged {
+            return None;
+        }
+        document.published_diagnostics = Some(PublishedDiagnostics {
+            version: document.version,
+            diagnostics: diagnostics.clone(),
+        });
+        Some(publish_diagnostics(
+            uri,
+            Some(document.version),
+            diagnostics,
+        ))
     }
 
     fn invalidate_analyses(&mut self) {
@@ -211,11 +240,14 @@ impl Server {
             document.analysis = None;
             document.graph = None;
             document.semantic = None;
+            document.analysis_current = false;
         }
     }
 
     fn publish_workspace_diagnostics(&mut self, primary: &str, messages: &mut Vec<Value>) {
-        messages.push(self.diagnostics(primary));
+        if let Some(message) = self.diagnostics(primary) {
+            messages.push(message);
+        }
         let mut remaining = self
             .documents
             .keys()
@@ -224,7 +256,9 @@ impl Server {
             .collect::<Vec<_>>();
         remaining.sort();
         for uri in remaining {
-            messages.push(self.diagnostics(&uri));
+            if let Some(message) = self.diagnostics(&uri) {
+                messages.push(message);
+            }
         }
     }
 
@@ -235,6 +269,7 @@ impl Server {
             .filter_map(|(uri, document)| Some((uri_to_path(uri)?, document.text.clone())))
             .collect::<HashMap<_, _>>();
         let document = self.documents.get_mut(uri).expect("open document");
+        document.analysis_current = true;
         let Some(path) = uri_to_path(uri) else {
             return document.analyze_single(uri);
         };
@@ -274,12 +309,10 @@ impl Server {
     }
 
     fn ensure_analyzed(&mut self, uri: &str) -> bool {
-        if self
-            .documents
-            .get(uri)
-            .is_some_and(|document| document.analysis.is_some())
+        if let Some(document) = self.documents.get(uri)
+            && document.analysis_current
         {
-            return true;
+            return document.analysis.is_some();
         }
         self.analyze_document(uri);
         self.documents
