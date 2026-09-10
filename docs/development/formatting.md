@@ -31,3 +31,9 @@ line commentのcontentsと順序を保持する。tokenと同じsource lineに�
 
 numeric separator、suffix、byte/Symbol escapeを含むliteralのbyte spellingは変更しない。formatterは
 malformed sourceを補正せず、lexerまたはparserのstructured diagnosticを返す。
+
+## application notation
+
+通常のfunction applicationは`f(a)`を標準styleとする。意味論上同じ`a[f]`は、値をcontinuationへ渡すことが主題の箇所、または
+`value[normalize][measure]`のように動詞的な変換を左から右へ並べるpipelineで使う。curried application、複数argument、通常の
+domain operationではprefix形を基本とする。formatterは両表記を相互変換せず、sourceが選んだ向きを保持する。
