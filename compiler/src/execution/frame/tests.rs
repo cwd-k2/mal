@@ -30,7 +30,7 @@ fn validates_exact_frame_sites_and_payloads() {
     let closure_uses = ClosureUsePlan::new(&closure);
     let applications = ApplicationGraph::new(&closure, &control, &closure_uses);
     let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-    let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+    let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let regions = ControlRegionPlan::new(&control, &continuations);
     let calls = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
     let mut plan = ControlFramePlan::new(&control, &regions, &calls);

@@ -20,7 +20,7 @@ struct ControlRegion {
 }
 
 impl ControlRegionPlan {
-    pub(crate) fn new(program: &Program, continuations: &ContinuationGraph) -> Self {
+    pub(crate) fn new(program: &Program, continuations: &ContinuationGraph<'_>) -> Self {
         let function_indices = program
             .functions
             .iter()
@@ -121,7 +121,11 @@ impl ControlRegionPlan {
         self.recursive_targets.get(&site).map(Vec::as_slice)
     }
 
-    pub(crate) fn is_valid(&self, program: &Program, continuations: &ContinuationGraph) -> bool {
+    pub(crate) fn is_valid(
+        &self,
+        program: &Program,
+        continuations: &ContinuationGraph<'_>,
+    ) -> bool {
         let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
             self.recursive_targets(*site).is_some_and(|targets| {
                 targets

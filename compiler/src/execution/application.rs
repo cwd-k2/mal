@@ -50,6 +50,10 @@ impl ApplicationGraph {
         self.sites.get(&site).and_then(|site| site.direct_target)
     }
 
+    pub(crate) fn caller(&self, site: StateId) -> Option<FunctionId> {
+        self.sites.get(&site).and_then(|site| site.caller)
+    }
+
     pub(crate) fn targets(&self, site: StateId) -> Option<&[FunctionId]> {
         self.sites.get(&site).map(|site| site.targets.as_slice())
     }

@@ -149,7 +149,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
         let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
 
@@ -215,7 +215,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
         let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");
@@ -284,7 +284,7 @@ mod tests {
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
         let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+        let continuations = ContinuationGraph::new(&applications, &tail_calls);
         let regions = ControlRegionPlan::new(&control, &continuations);
         let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
         let apply = top_level_function_id(&closure, "apply");

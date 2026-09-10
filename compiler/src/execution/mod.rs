@@ -34,7 +34,7 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     let control = crate::control::lower(&lowered);
     let applications = ApplicationGraph::new(&lowered, &control, &closure_uses);
     let tail_calls = TailCallPlan::new(&lowered, &control, &applications);
-    let continuations = ContinuationGraph::new(&control, &applications, &tail_calls);
+    let continuations = ContinuationGraph::new(&applications, &tail_calls);
     let control_regions = ControlRegionPlan::new(&control, &continuations);
     debug_assert!(control_regions.is_valid(&control, &continuations));
     let control_calls =
