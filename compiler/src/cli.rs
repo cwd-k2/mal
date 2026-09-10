@@ -12,7 +12,6 @@ Usage:
   malc format <source.mal>
   malc emit-header <source.mal> [--output <program.mal.h>]
   malc emit-host <source.mal> [--header <header-name>]
-  malc emit-c <source.mal> --output <program.c>
   malc build <source.mal> --output <program>
 ";
 
@@ -91,7 +90,6 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
         }
         [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
         [command, rest @ ..] if command == OsStr::new("emit-host") => execute_emit_host(rest),
-        [command, rest @ ..] if command == OsStr::new("emit-c") => execute_emit_c(rest),
         [command, rest @ ..] if command == OsStr::new("build") => execute_build(rest),
         _ => usage_error("unknown command or invalid arguments"),
     }
@@ -142,22 +140,6 @@ fn execute_emit_header(arguments: &[OsString]) -> Outcome {
     };
     match crate::driver::emit_header(PathBuf::from(source).as_path(), &output) {
         Ok(()) => Outcome::success(String::new()),
-        Err(error) => Outcome::compile_error(error),
-    }
-}
-
-fn execute_emit_c(arguments: &[OsString]) -> Outcome {
-    let [source, option, output] = arguments else {
-        return usage_error("emit-c requires a source and --output path");
-    };
-    if option != OsStr::new("--output") {
-        return usage_error("emit-c requires --output after the source path");
-    }
-    match crate::driver::emit_c(
-        PathBuf::from(source).as_path(),
-        PathBuf::from(output).as_path(),
-    ) {
-        Ok(_) => Outcome::success(String::new()),
         Err(error) => Outcome::compile_error(error),
     }
 }

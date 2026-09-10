@@ -6,13 +6,10 @@ use crate::check::ast::Type;
 
 mod collect;
 mod host;
-mod lifetime;
 
 #[derive(Default)]
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
-    uses_float32: bool,
-    uses_float64: bool,
 }
 
 #[derive(Default)]
@@ -75,22 +72,6 @@ impl TypeRegistry {
                 unreachable!("type checking excludes functions from extern signatures")
             }
         }
-    }
-
-    pub(super) fn uses_float(&self) -> bool {
-        self.uses_float32 || self.uses_float64
-    }
-
-    pub(super) fn uses_float32(&self) -> bool {
-        self.uses_float32
-    }
-
-    pub(super) fn uses_float64(&self) -> bool {
-        self.uses_float64
-    }
-
-    pub(super) fn source_declarations(&self, host: &HostTypes) -> TranslationUnit {
-        self.declarations(host, false)
     }
 
     fn declarations(&self, host: &HostTypes, public: bool) -> TranslationUnit {
@@ -225,7 +206,6 @@ mod tests {
         let sum = Type::Sum(vec![Type::Unit, product.clone()]);
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
-            ..TypeRegistry::default()
         };
 
         for (ty, expected) in [
@@ -281,7 +261,6 @@ mod tests {
         let sum = Type::Sum(vec![Type::Unit, product.clone()]);
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
-            ..TypeRegistry::default()
         };
         let host = HostTypes {
             types: vec![product.clone(), sum.clone()],

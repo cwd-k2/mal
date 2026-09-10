@@ -1,47 +1,39 @@
-# generated program最適化計画
+# generated program最適化policy
 
-Status: Current work plan
+Status: Current policy
 
-この文書はreference C backendが生成するprogramの未解決なruntime性能課題、着手順、完了条件を管理する。
-測定値と解決済みの経緯は[generated C performance](../history/performance/generated-c.md)、managed valueの正しさは
-[Engram ownership](../implementation/ownership.md)、言語とhostのauthorityは
-[EngramとExtern](../spec/engrams.md)を正とする。
+この文書はLLVM backendとchecked-in C runtimeの最適化を採用するgateを定める。言語semanticsは[`spec/`](../spec/)、control表現は
+[application control lowering](application-control-lowering.md)、検証commandは[test policy](testing.md)を正とする。過去のgenerated Cに
+対する測定と判断は[performance history](../history/performance/generated-c.md)に保存する。
 
-## 制約
+## 優先順位
 
-- operandとeffectの評価順を保持する。
-- source preconditionを満たすprogramへ新しいfailureを加えない。
-- `Symbol`とclosureのidentity、到達可能性、lifetime authorityをmalに残す。
-- `Ptr`のregion、permission、alias、alignmentをbackendが推測しない。
-- first-class function callとextern ABIに必要なgeneric representationを、direct callだけの測定から削除しない。
-- narrow integer representationは、全operationの値域とwrap semanticsを証明できる場合だけ使う。
-- wall-clock比較の両binaryは同じC compiler identityとoptionでbuildし、ambient `CC`を継承しない。
-- pair比較はroundごとに先行順を反転し、runnerではなくHyperfineのprocess時間を使う。
-- 最適化後のLLVM IR、deterministic counter、wall-clockの少なくとも二つで変更理由を確認する。
+1. result、effect order、trap、owner lifetime、bounded native stackを保持する。
+2. program固有のpolicyをLLVM、program非依存のmechanismをC runtimeに置く責務境界を保持する。
+3. 実行時間、allocation、code size、compile timeのうちworkloadで支配的なcostを減らす。
 
-候補ごとに実装前に、対象とするcost center、そのcostが消えたことを示す採用条件、別のcostが支配的だと示す棄却条件を定める。
-採用条件と棄却条件は同じ観測境界で比較できる形にし、未実装であることや改善しなかったこと自体を棄却理由にしない。
-deterministic counterが改善してもwall-clockへ波及しない場合は、追加するauthorityと実装量に見合う独立した効果がなければ採用しない。
+未計測の複雑化、特定fixtureだけのspecial case、LLVM optimizerが既に安定して行う局所変換の再実装は採用しない。
 
-## 現在の課題
+## baseline
 
-activeなcompiler rewriteはない。application controlは
-[application control lowering設計](application-control-lowering.md)のconstructor cardinality別region arenaを現在の表現とする。
-新しい最適化は、authorityを分散させず、C stack boundを維持し、focused caseと既存corpusの両方で独立した改善を示す場合に限って
-この計画へ追加する。過去のbaseline、比較結果、棄却したprototypeは
-[generated C performance](../history/performance/generated-c.md#application-control-lowering実装前後)に置く。
+比較するbinaryは同じpinned Clang、target、`-O2`、strict floating-point option、LTO設定でbuildする。ambient `CC`を継承しない。
+correctness baselineはLTOなしとし、LTOありでも同じobservable resultになることを別に確認する。
 
-LLVM IRを直接生成する変更はC生成物の局所rewriteではなくbackend移行である。このqueueへ混ぜず、責務と移行条件は
-[実行backendの責務境界](../design/execution-backend.md)と
-[application control lowering](application-control-lowering.md#llvm-execution-backendへの移行)で管理する。
+wall-clockは同じinput、warmup、run数で交互に測り、5 ms未満のcaseを採否の主根拠にしない。noiseを含む単発値ではなくmedianと範囲を残す。
+instruction count、branch、allocation counter、peak resident memory、artifact sizeなど再現しやすい第二指標を少なくとも一つ併用する。
 
-queue化とmemoizationは評価順または計算量を変える別のalgorithmなので、このcost modelには含めない。
+## workload
 
-## 共通の完了条件
+- scalar arithmeticとbranch
+- direct call、self-tail loop、deep non-tail unwind
+- first-class call cycleとheterogeneous frame
+- flat `Symbol`のread、comparison、concatenation
+- managed product、sum、closure environment、extern round trip
+- checked-in example corpus
 
-一つのcost modelごとにfocused generated-C test、native execution、通常のcompiler testを通す。managed lifetimeへ触れる変更は
-[managed Engram性能記録](../history/performance/managed-engrams.md)の通常・sanitizer pressure suiteも通す。ABI変更はgenerated header、host helper、
-repository内adapterを同時に更新する。
+意味論fixtureとperformance fixtureを兼用してよいが、期待resultとresource invariantを先に固定する。performance差だけを理由に検証を弱めない。
 
-wall-clockでは同じinput、stdout、C compiler、optimization option、warmup/run数を揃え、5 ms未満のcaseを採否の主根拠にしない。改善が
-focused caseだけに留まる場合は、複雑さとcode sizeに見合う独立した利用形状があるまで採用しない。
+## 記録
+
+採用または棄却に将来の実装判断へ必要な情報がある場合は、日付、commit、環境、command、workload、raw measurement、判断を
+`docs/history/performance/`へ記録する。active documentへ時系列statusを残さない。

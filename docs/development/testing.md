@@ -26,11 +26,11 @@ behaviorの領域ごとにchild moduleへ分ける。source fileと同様、行�
 | lexer | tokenとlexical error | lexerからparserへ渡す代表的source |
 | parser | accepted ASTとsyntax rejection | parseからname resolutionまで |
 | resolve、check | name、capture、typeのpositive/negative case | typed coreまでの代表的program |
-| lowering | typed inputに対するevaluation orderと表現 | C emissionまでの代表的program |
-| C backend、ABI | emitted unit/headerとABI rule | 生成Cを実際のClangでcompile/link/execute |
+| lowering | typed inputに対するevaluation orderと表現 | LLVM artifact生成までの代表的program |
+| LLVM backend、C ABI | emitted LLVM module/headerとABI rule | LLVM module、C shim、C runtimeを実際のClangでcompile/link/execute |
 | driver、CLI | argument、filesystem、process failure、exit status | public `malc` command |
 
-format boundaryでは実際のconverterを使う。特にC backendはCらしい文字列を比較するだけで完了とせず、
+format boundaryでは実際のconverterを使う。特にLLVM backendはIRらしい文字列を比較するだけで完了とせず、
 warningを有効にしたClangで生成物をcompileする。invalid inputのtestは、後段が失敗することではなく、
 そのinputを所有するstageが拒否することを確認する。
 

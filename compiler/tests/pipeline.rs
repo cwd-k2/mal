@@ -22,19 +22,6 @@ fn preserves_structured_frontend_diagnostics() {
 }
 
 #[test]
-fn emits_c_from_in_memory_source() {
-    let source = SourceFile::new(
-        FileId::new(103),
-        "memory.mal",
-        "main :: Unit -> Int32 := \\() { 0; };".into(),
-    );
-
-    let output = malc::pipeline::emit_c(&source).expect("C output");
-    assert!(output.source.contains("int main(void)"));
-    assert!(output.header.contains("MAL_C_ABI_VERSION"));
-}
-
-#[test]
 fn emits_host_stubs_with_a_validated_header_name() {
     let source = SourceFile::new(
         FileId::new(104),

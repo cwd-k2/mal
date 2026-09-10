@@ -12,9 +12,9 @@ fn reports_source_and_output_filesystem_failures() {
 
     let source = directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
     directory.write("blocked", "not a directory");
-    let generated = directory.join("blocked/program.c");
+    let generated = directory.join("blocked/program.mal.h");
     let output = directory.malc([
-        OsStr::new("emit-c"),
+        OsStr::new("emit-header"),
         source.as_os_str(),
         OsStr::new("--output"),
         generated.as_os_str(),

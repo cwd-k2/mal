@@ -3,7 +3,7 @@
 Status: Illustrative
 
 この文書は[実行backendの責務境界](../design/execution-backend.md)を具体的な生成物へ写した例を示す。identifier、helper signature、
-file名はpublic contractではない。実装順は[LLVM backend実装計画](llvm-backend-plan.md)を正とする。
+file名はpublic contractではない。現在の責務は[compilerの責務境界](../implementation/responsibilities.md)を正とする。
 
 ## 入力例
 
@@ -26,7 +26,7 @@ backendは概ね次のartifactを構成する。
 program.ll          program固有の実行計画
 program-shim.c      process entryとextern marshalling
 program.mal.h       host向けpublic C interface
-runtime C objects   allocation、control storage、Symbol、rope
+runtime C objects   allocation、control storage、Symbol
 ```
 
 ## LLVM module
@@ -37,13 +37,11 @@ runtime C objects   allocation、control storage、Symbol、rope
 target triple = "..."
 target datalayout = "..."
 
-declare ptr @mal_control_arena(ptr, i32)
-declare ptr @mal_control_reserve_slots(ptr, i64, i64, i64)
+declare ptr @mal_control_reserve_frame(ptr, i64, i64)
 declare ptr @mal_control_storage(ptr)
 
 define internal void @mal_sum(ptr %context, i64 %initial_n, ptr %result_out) {
 entry:
-  %arena = call ptr @mal_control_arena(ptr %context, i32 0)
   br label %descend
 
 descend:
@@ -53,10 +51,9 @@ descend:
   br i1 %is_zero, label %unwind, label %push
 
 push:
-  %next_top = add i64 %top, 1
-  %storage = call ptr @mal_control_reserve_slots(
-      ptr %arena, i64 %next_top, i64 8, i64 8)
-  %slot = getelementptr i64, ptr %storage, i64 %top
+  %next_top = add i64 %top, 8
+  %storage = call ptr @mal_control_reserve_frame(ptr %context, i64 %top, i64 8)
+  %slot = getelementptr i8, ptr %storage, i64 %top
   store i64 %n, ptr %slot, align 8
   %next_n = sub i64 %n, 1
   br label %descend
@@ -68,9 +65,9 @@ unwind:
   br i1 %finished, label %done, label %resume
 
 resume:
-  %previous_top = sub i64 %resume_top, 1
-  %current_storage = call ptr @mal_control_storage(ptr %arena)
-  %frame = getelementptr i64, ptr %current_storage, i64 %previous_top
+  %previous_top = sub i64 %resume_top, 8
+  %current_storage = call ptr @mal_control_storage(ptr %context)
+  %frame = getelementptr i8, ptr %current_storage, i64 %previous_top
   %saved_n = load i64, ptr %frame, align 8
   %next_result = add i64 %result, %saved_n
   br label %unwind
@@ -81,7 +78,7 @@ done:
 }
 ```
 
-`n`、`top`、`result`はSSA valueであり、arenaだけがunboundedなcontinuation storageである。既知のstate遷移は直接`br`し、
+`n`、`top`、`result`はSSA valueであり、contextのcontrol storageだけがunboundedなcontinuation storageである。既知のstate遷移は直接`br`し、
 first-class calleeなどruntime選択が必要なsiteだけ`switch`する。integerのwrapを保存するoperationへ根拠なく`nsw`または`nuw`を
 付けない。
 
@@ -100,17 +97,13 @@ capacityとgrowthだけを扱う。
 control runtimeはframeの意味を知らない汎用C11 implementationにする。
 
 ```c
-typedef struct {
-    unsigned char *storage;
-    size_t capacity;
-} MalControlArena;
-
-void *mal_control_reserve_slots(
-    MalControlArena *arena,
-    uint64_t required_slots,
-    uint64_t slot_size,
-    uint64_t slot_align
+void *mal_control_reserve_frame(
+    MalContext *context,
+    uint64_t current_bytes,
+    uint64_t frame_size
 );
+
+void *mal_control_storage(MalContext *context);
 ```
 
 overflow、allocation、alignment、growth failureはruntimeが検査する。LLVM側はgrowthを伴い得るcall後に古いstorage pointerを

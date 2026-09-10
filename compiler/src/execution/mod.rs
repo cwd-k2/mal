@@ -13,8 +13,7 @@ pub(crate) use application::ApplicationGraph;
 pub(crate) use call::{ControlCallMode, ControlCallPlan};
 pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
-pub(crate) use frame::{ControlArenaId, ControlFrame, ControlFramePlan};
-pub(crate) use ownership::OwnershipPlan;
+pub(crate) use frame::{ControlFrame, ControlFramePlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 pub(crate) use tail::TailCallPlan;
 
@@ -27,12 +26,9 @@ pub(crate) struct Program {
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
-    pub(crate) ownership: OwnershipPlan,
 }
 
 pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
-    let ownership = OwnershipPlan::new(&lowered);
-    debug_assert!(ownership.is_valid(&lowered));
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));
     let control = crate::control::lower(&lowered);
@@ -43,14 +39,8 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     debug_assert!(control_regions.is_valid(&control, &continuations));
     let control_calls =
         ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
-    let control_frames =
-        ControlFramePlan::new(&control, &control_regions, &control_calls, &closure_uses);
-    debug_assert!(control_frames.is_valid(
-        &control,
-        &control_regions,
-        &control_calls,
-        &closure_uses
-    ));
+    let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
+    debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
     debug_assert!(control.states.iter().enumerate().all(|(index, _)| {
         let site = crate::control::ast::StateId(index);
         control_calls.mode(site) != Some(ControlCallMode::Dispatch)
@@ -74,7 +64,6 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
         control_calls,
         control_regions,
         control_frames,
-        ownership,
     }
 }
 

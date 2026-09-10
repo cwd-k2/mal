@@ -124,7 +124,7 @@ storageを複製せず、lifetimeを延長しない。詳細は[memory primitive
 
 `extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`Symbol` は target ABI によって引数・戻り値の渡し方が異なる。
 
-reference C backendはmal用の一貫したC representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
+reference compilerはmal用の一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
 host APIを呼ぶ。generated wrapperとhost bodyはtrusted computing baseに含まれるが、raw host resourceそのものではない。
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。

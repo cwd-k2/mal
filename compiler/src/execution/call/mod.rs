@@ -20,7 +20,6 @@ pub(crate) enum ControlCallMode {
 
 pub(crate) struct ControlCallPlan {
     modes: HashMap<StateId, ControlCallMode>,
-    dispatch_bindings: HashSet<crate::anf::ast::ValueId>,
     common_regions: HashSet<ControlRegionId>,
 }
 
@@ -69,40 +68,18 @@ impl ControlCallPlan {
             &direct_graph,
             control.functions.iter().map(|function| function.id)
         ));
-        let dispatch_bindings = control
-            .states
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| modes.get(&StateId(*index)) == Some(&ControlCallMode::Dispatch))
-            .filter_map(|(_, state)| application_callee(&state.terminator))
-            .filter_map(|callee| match callee.kind {
-                AtomKind::Reference(Reference::Binding(id)) => Some(id),
-                _ => None,
-            })
-            .collect();
         let common_regions = regions
             .ids()
             .filter(|region| region_requires_common_control(control, regions, &modes, *region))
             .collect();
         Self {
             modes,
-            dispatch_bindings,
             common_regions,
         }
     }
 
     pub(crate) fn mode(&self, site: StateId) -> Option<ControlCallMode> {
         self.modes.get(&site).copied()
-    }
-
-    pub(crate) fn has_direct_target(&self, function: FunctionId) -> bool {
-        self.modes
-            .values()
-            .any(|mode| *mode == ControlCallMode::Direct(function))
-    }
-
-    pub(crate) fn needs_closure_binding(&self, id: crate::anf::ast::ValueId) -> bool {
-        self.dispatch_bindings.contains(&id)
     }
 
     pub(crate) fn requires_common_control(&self, region: ControlRegionId) -> bool {

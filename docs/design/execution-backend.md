@@ -1,6 +1,6 @@
 # 実行backendの責務境界
 
-Status: Accepted design; implementation pending
+Status: Current implementation design
 
 この文書はreference compilerが記述programを実行物へ変換するときのLLVM IR、C runtime、public C interfaceの
 責務境界を定める。採択理由は[D041](../history/decisions/D041.md)、現在実装のmodule配置は
@@ -39,13 +39,13 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 |---|---|
 | Execution plan | application graph、tail fusion、recursive SCC、edge mode、resume liveness、frameが運ぶsemantic valueとowner |
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
-| C runtime | allocation、reference count機構、control arena growth、Symbol flat storage、rope、materialization、汎用memory helper、fatal resource failure |
+| C runtime | allocation、reference count機構、control storage growth、Symbol flat storageと操作、fatal resource failure |
 | Generated C shim | process entry、LLVM moduleのroot呼出し、extern call marshalling、terminal return、public valueと内部valueの変換 |
 | Generated C header | host-visible type、operation definition macro、observer、constructor、public C ABI version |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
-owner moveは実行計画の一部である。rope balancingやreference count更新は別programでも同じmechanismなのでC runtimeに属する。
+owner moveは実行計画の一部である。Symbol storageやreference count更新は別programでも同じmechanismなのでC runtimeに属する。
 program固有のclosure environment destructorはfield型と順序を知るためLLVM IRに置き、generic allocation headerのreleaseは
 C runtimeを呼ぶ。
 
@@ -85,9 +85,5 @@ LLVM moduleはdriverが選んだtarget tripleとdata layoutを持ち、同じtar
 bitcodeをtargetおよびLLVM versionから独立した配布形式とは扱わない。永続的なpublic artifactはC headerと最終objectまたは
 executableであり、IR出力を公開する場合は使用toolchainとtargetに結びつくdiagnostic/development artifactとする。
 
-artifactの具体像は[LLVM backend生成物例](../development/llvm-backend-artifacts.md)、module移行と検証順は
-[LLVM backend実装計画](../development/llvm-backend-plan.md)に置く。
-
-最初の実装は既存C backendをsemantic oracleとして残し、同じchecked programから得たresult、extern trace、trap、managed lifetime、
-native stack boundを差分検査する。direct LLVM化の採否は、Clangが既存generated Cから作る最適化後IRとも比較し、IRを直接生成した
-事実だけを性能改善と数えない。
+artifactの具体像は[LLVM backend生成物例](../development/llvm-backend-artifacts.md)、採用後の最適化gateは
+[generated program最適化policy](../development/generated-program-optimization.md)に置く。

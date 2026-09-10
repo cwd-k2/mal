@@ -53,7 +53,7 @@ MAL_DEFINE_sequenceOf(call, packet) {
 }
 ```
 
-どちらも`mal_Packet_t`を受ける。`sequenceOf`はSymbol bytesを要求しないためropeをmaterializeしない。
+どちらも`mal_Packet_t`を受ける。`sequenceOf`はSymbol bytesを要求しないためbyte viewを取得しない。
 
 ## Sum observation
 
@@ -307,7 +307,7 @@ unfinished outputのcleanup stateを必要とするため、基本のstateless `
 - parameter、local、nested field、result descriptionは同じ`mal_<T>_t`規則を使う。
 - authorityを必要とするoperationだけが`mal_call_t *`を受け取る。
 - scalar、product、sum、Symbolのresultは同じC `return` patternを使う。
-- Symbolのprovenance、raw carrier、flat/rope、reference count、admission stateをhost codeへ出さない。
+- Symbolのprovenance、raw carrier、storage表現、reference count、admission stateをhost codeへ出さない。
 - productは通常のC valueとしてcopy、変更、再構成できる。
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。
 - Symbol viewとExtern capabilityで異なるlifetimeをaggregateのleafごとに適用する。

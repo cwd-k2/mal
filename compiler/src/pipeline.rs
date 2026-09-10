@@ -32,16 +32,6 @@ pub fn check_graph(graph: &SourceGraph) -> Result<crate::check::ast::Program, Di
     analyze_graph(graph).map(|analysis| analysis.checked)
 }
 
-pub fn emit_c(source: &SourceFile) -> Result<crate::c_emit::Output, Diagnostic> {
-    let execution = lower_execution(source)?;
-    crate::backend::c::generate(&execution)
-}
-
-pub fn emit_c_graph(graph: &SourceGraph) -> Result<crate::c_emit::Output, Diagnostic> {
-    let execution = lower_graph_execution(graph)?;
-    crate::backend::c::generate(&execution)
-}
-
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
     Ok(crate::backend::c::emit_header(&interface))
@@ -72,13 +62,6 @@ fn lower_graph_interface(
 ) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {
     let checked = check_graph(graph)?;
     Ok(crate::core::lower_interface(&checked))
-}
-
-fn lower_execution(source: &SourceFile) -> Result<crate::execution::Program, Diagnostic> {
-    let checked = check(source)?;
-    let core = crate::core::lower(&checked);
-    let anf = crate::anf::lower(&core);
-    Ok(crate::execution::lower(crate::closure::convert(&anf)))
 }
 
 pub(crate) fn lower_graph_execution(

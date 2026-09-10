@@ -37,7 +37,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `execution` | closure-converted programを保持し、closure target、tail fusion、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
-| `c_emit` | typed lowered programからC translation unitとheaderへの変換 |
+| `c_emit` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
 | `driver` | source file、require path、temporary path、C compiler process、C build inputのownership |
@@ -71,13 +71,12 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 | editor semantic query | frontendのresolved programとchecked program `-> editor` | source identityに基づくsemantic index |
 | `format` | `source -> lossless lexer -> parser -> formatter` | commentとliteral spellingを保持したsource text |
 | `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> c_emit` | checked host interfaceだけから生成したC headerまたはadapter stub |
-| `emit-c` | frontend `-> core -> anf -> closure -> c_emit` | 対になるC translation unitとheader |
 | `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
 
 `ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
 source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は
-value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。C translation unitを生成する経路では同じ
-`ProgramInterface`をlowered executable bodyと一緒に運ぶ。
+value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。`build`では同じ`ProgramInterface`をLLVM executable bodyと
+C shimの共通ABI planへ渡す。
 
 `pipeline`はin-memory source graphから上記stageを構成し、filesystemやprocessを扱わない。`driver`はrequire pathを解決して
 source graphへadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
@@ -115,9 +114,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
-| `execution/frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、arena需要、constructor cardinality、frameが運ぶenvironment ownerを導出 |
-| `execution/ownership` | 型がmanaged ownerを含むかの分類と、stage間で保持するatom identityに基づくpath-sensitiveなlast-use、transfer可否を構成 |
-| `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
+| `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
+| `execution/ownership` | 型がmanaged ownerを含むかをbackend間で共通に分類 |
+| `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。managed captureを持つfirst-class function、managed productとsum、direct・indirect call、self-tail edge、recursive regionのtyped continuation frame、transportableなextern callをadmit |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
@@ -132,52 +131,18 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
-| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat `Symbol`、観測、連結、外部byte copy、C shim用のborrowed byte viewを実装。rope表現への置換は同じruntime責務内に留める |
+| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat `Symbol`、観測、連結、外部byte copy、C shim用のborrowed byte viewを実装 |
 | `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
 | `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
 | `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identityとC typeへのmapping |
-| `c_emit/types/collect` | lowered programから必要なstructural representationを収集する走査 |
-| `c_emit/types/lifetime` | managed typeの分類、internal aggregate copy/destroy、extern前のSymbol materializationの構成 |
+| `c_emit/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを収集する走査 |
 | `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
-| `c_emit/types/host/product`、`c_emit/types/host/sum` | host-visible aggregateのconstructor、observer、checked projectionの構成 |
-| `c_emit/types/host/lifetime` | host-visible managed carrierのclone/take/drop operationの構成 |
-| `c_emit/body` | lowered function bodyからC definition群を構成するstateとdispatch |
-| `c_emit/body/control` | typed control frame宣言とcontrol emissionのmodule境界 |
-| `c_emit/body/control/local` | direct selfだけからなるcontrol regionのC definition構成 |
-| `c_emit/body/control/common` | 複数entryまたはindirect edgeを持つcontrol regionのentry、wrapper、region別C activationの構成 |
-| `c_emit/body/control/common/terminator` | region machine内のstate terminator、dispatch、resume、returnの構成 |
-| `c_emit/body/control/common/terminator/returning` | typed resultのroot返却とframe resume、active environment ownerのrelease |
-| `c_emit/body/control/ownership` | control local slotとframe間のmanaged owner copy、move、cleanupの構成 |
-| `c_emit/body/control/support` | reachable state、local slot、activation-local control stackとcached arenaの変換、control operation変換の補助構成 |
-| `c_emit/body/name` | lowered identityから衝突しないC identifierへのmapping |
-| `c_emit/body/analysis/symbol_at_cursor` | 全self-tail edgeで保持されるSymbol parameterと、そのactivation内だけでcursorを再利用できるbyte access siteの計画 |
-| `c_emit/body/analysis/owned_call` | last-use argumentを受け取るowned direct entryのcall graph上の需要計画 |
-| `c_emit/body/call` | direct call、tail call、flattened product argumentの解析 |
-| `c_emit/body/function` | closure environment、indirect/direct function definitionの構成 |
-| `c_emit/body/entry` | program initializerとentry pointの構成 |
-| `c_emit/body/entry/arguments` | process argumentからMal entry argumentへのmarshalling |
-| `c_emit/body/expression` | operationからC expressionへのdispatch |
-| `c_emit/body/expression/primitive` | numeric、comparison、Symbol primitiveのC semantics |
-| `c_emit/body/expression/atom` | typed atomのC representation |
-| `c_emit/body/statement` | binding operationからstatement emissionへのdispatch |
-| `c_emit/body/statement/control` | branch、case、direct tail recursionのcontrol flow |
-| `c_emit/body/statement/result` | result bindingとclosure environmentのmaterialization |
+| `c_emit/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
 | `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
-| `c_emit/runtime/core` | runtime contextと各runtime responsibilityの構成順序 |
-| `c_emit/runtime/core/allocation` | allocation header、reference count、implementation resource failureの構成 |
-| `c_emit/runtime/core/control` | constructor cardinalityに応じたcontrol stack helperの需要選択とheterogeneous aligned byte stackのgrowth operationを構成 |
-| `c_emit/runtime/core/control/homogeneous` | homogeneous fixed-width stackのgrowth operationを構成 |
-| `c_emit/runtime/core/symbol` | Symbol lifetime、host byte copy、materializationの構成 |
-| `c_emit/runtime/symbol` | Symbol byte traversal、comparison、byte access、concatenationの構成 |
-| `c_emit/runtime/symbol/leaf_cursor` | allocation-freeなrope leaf順走査とbounded pending pathの構成 |
-| `c_emit/runtime/symbol/leaf_cursor/index` | byte indexへのseek、連続accessの検出、非局所accessの通常traversal fallbackの構成 |
-| `c_emit/runtime/symbol/concatenate` | borrowed/consuming concat、unique flat buffer拡張、balanced rope構築の構成 |
-| `c_emit/runtime/numeric/conversion` | checked numeric conversionとarithmetic trap helperの構成 |
 
-generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。managed borrowとtail stateは
-`c_emit/body/analysis`と`c_emit/body`、`Symbol`の連続表現は`c_emit/runtime`、host value descriptorとterminal returnは
-`c_emit/header`が所有する。着手順と計測gateは
+generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
+`backend/llvm`、`Symbol`の連続表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`c_emit/header`が所有する。着手順と計測gateは
 [generated program最適化計画](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

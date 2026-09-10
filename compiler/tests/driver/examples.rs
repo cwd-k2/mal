@@ -96,20 +96,6 @@ fn symbol_round_trip_example_copies_and_concatenates_bytes() {
         String::from_utf8_lossy(&checked.stderr)
     );
 
-    let emitted = directory.join("generated/program.c");
-    let output = directory.malc([
-        OsStr::new("emit-c"),
-        program.as_os_str(),
-        OsStr::new("--output"),
-        emitted.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(emitted.is_file());
-
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
@@ -325,24 +311,6 @@ fn tail_recursion_example_executes_a_large_direct_tail_call() {
         String::from_utf8_lossy(&checked.stderr)
     );
 
-    let emitted = directory.join("generated/program.c");
-    let output = directory.malc([
-        OsStr::new("emit-c"),
-        example.as_os_str(),
-        OsStr::new("--output"),
-        emitted.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        std::fs::read_to_string(&emitted)
-            .expect("read generated C")
-            .contains("goto mal_tail_entry;")
-    );
-
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
@@ -443,22 +411,6 @@ fn strict_float_example_preserves_bits_across_the_host_abi() {
         "{}",
         String::from_utf8_lossy(&checked.stderr)
     );
-
-    let emitted = directory.join("generated/program.c");
-    let output = directory.malc([
-        OsStr::new("emit-c"),
-        program.as_os_str(),
-        OsStr::new("--output"),
-        emitted.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let generated = std::fs::read_to_string(&emitted).expect("read generated C");
-    assert!(generated.contains("_Static_assert(FLT_RADIX == 2"));
-    assert!(generated.contains("#pragma STDC FP_CONTRACT OFF"));
 
     let executable = directory.join("example");
     let output = directory.malc([

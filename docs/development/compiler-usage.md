@@ -12,8 +12,8 @@ v0.5 development profileで検証し対応する環境は、repositoryの`flake.
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
-generated CとheaderはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
-subnormal、`FLT_EVAL_METHOD == 0`を要求し、generated Cが満たさないtargetをcompile-timeに拒否する。
+C shim、runtime、generated header、host sourceはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
+subnormal、`FLT_EVAL_METHOD == 0`を要求し、満たさないtargetをcompile-timeに拒否する。
 他のOS、architecture、C compilerはv0.5 development profileの検証対象外である。
 
 ## Command
@@ -24,7 +24,6 @@ malc format source.mal
 malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
-malc emit-c source.mal --output generated/program.c
 malc build source.mal --output program
 ```
 
@@ -37,7 +36,6 @@ malc build source.mal --output program
   `program.mal.h`をincludeし、未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
-- `emit-c`は指定したC translation unitと、同じdirectoryの固定名`program.mal.h`を生成する。
 - `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
 - `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
 
@@ -45,9 +43,7 @@ malc build source.mal --output program
 `Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
 contractは[program specification](../spec/programs.md#entry-point)に定める。
 
-親directoryは必要に応じて作成し、同名の出力は置き換える。二つの`emit-c`出力を同じdirectoryへ置くと
-`program.mal.h`が衝突するため、programごとにdirectoryを分ける。Cとheaderは一組として扱い、一方だけを
-別の生成結果と組み合わせない。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
+親directoryは必要に応じて作成し、同名の出力は置き換える。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
 既存・生成済みartifactが残る場合がある。
 
 ## Build toolchain
@@ -59,14 +55,13 @@ C ABIへ変換する。ambient `CC`は参照せず、v0.5にはcompilerまたは
 `build`は各artifactを`-O2`でcompileする。これはpublic buildの生成物policyであり、
 言語semanticsがC optimizer固有のundefined behaviorに依存することを許可しない。`-fno-fast-math`、
 `-ffp-contract=off`、`-frounding-math`、`-fexcess-precision=standard`は`-O2`と同時に渡す。
-`emit-c`はC sourceだけを生成するため、利用者がcompileするときに同じstrict floating-point profileを保つ必要がある。
 
 Clangを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
 
 ## Host adapterとshared object
 
-host C sourceは対象programが生成した`program.mal.h`をincludeし、generated Cと同じtarget ABIでcompileする。対応する
+host C sourceは対象programが生成した`program.mal.h`をincludeし、LLVM moduleとshimと同じtarget ABIでcompileする。対応する
 `.mal` fileからhost C sourceをrequireする。
 新しいadapterは`malc emit-host source.mal | save host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
 編集済みの`host.c`に対して再実行してはならない。
@@ -78,7 +73,7 @@ shared objectの入力、`dlopen`、実行時symbol discovery、plugin lifecycle
 
 ## 生成物policy
 
-generated C/headerのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。
+generated headerとbuild artifactのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。
 配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。

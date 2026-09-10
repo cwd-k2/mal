@@ -46,13 +46,6 @@ pub fn format(source_path: &Path) -> Result<String, Error> {
     crate::formatter::format(&source).map_err(|error| Error::diagnostic(error, &source))
 }
 
-pub fn emit_c(source_path: &Path, output_path: &Path) -> Result<PathBuf, Error> {
-    let graph = graph::load(source_path)?;
-    let generated =
-        crate::pipeline::emit_c_graph(&graph).map_err(|error| Error::diagnostic(error, &graph))?;
-    write_generated(output_path, generated)
-}
-
 pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
     let header = crate::pipeline::emit_header_graph(&graph)
@@ -136,16 +129,6 @@ fn run_compiler<'a>(
         ));
     }
     Ok(())
-}
-
-fn write_generated(output_path: &Path, generated: crate::c_emit::Output) -> Result<PathBuf, Error> {
-    create_parent(output_path)?;
-    fs::write(output_path, generated.source)
-        .map_err(|error| Error::io("write generated C", output_path, error))?;
-    let header_path = output_path.with_file_name(crate::c_emit::GENERATED_HEADER_NAME);
-    fs::write(&header_path, generated.header)
-        .map_err(|error| Error::io("write generated header", &header_path, error))?;
-    Ok(header_path)
 }
 
 fn create_parent(path: &Path) -> Result<(), Error> {

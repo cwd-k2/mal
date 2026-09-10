@@ -1338,34 +1338,6 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
 }
 
 #[test]
-fn emit_c_writes_the_translation_unit_and_paired_header() {
-    let directory = NativeFixture::new("driver");
-    let source = directory.join("program.mal");
-    let output_path = directory.join("generated/program.c");
-    directory.write("program.mal", "main :: Unit -> Int32 := \\() { 0; };");
-    let output = directory.malc([
-        OsStr::new("emit-c"),
-        source.as_os_str(),
-        OsStr::new("--output"),
-        output_path.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let generated_c = std::fs::read_to_string(output_path).unwrap();
-    assert!(generated_c.starts_with("#include \"program.mal.h\"\n"));
-    assert!(generated_c.contains("int main(void)"));
-    let generated_header =
-        std::fs::read_to_string(directory.join("generated/program.mal.h")).unwrap();
-    assert!(generated_header.contains("#define MAL_C_ABI_VERSION 0x000600u"));
-    assert!(generated_header.contains("_Noreturn void mal_trap("));
-    assert!(generated_header.contains("mal_Symbol_t mal_Symbol_from_bytes("));
-    assert!(generated_header.contains("MalType_Symbol mal_Symbol_return("));
-}
-
-#[test]
 fn emit_header_writes_a_standalone_host_interface() {
     let directory = NativeFixture::new("driver-header");
     let source = directory.join("program.mal");

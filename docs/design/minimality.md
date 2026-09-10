@@ -71,7 +71,7 @@ product と sum は数学的にさらに encoding できる場合があるが、
 
 1. 既存の lambda、application、product、sum、primitive、extern の組合せでは何が不自然か。
 2. surface syntax だけでなく型規則と評価規則を一段落で説明できるか。
-3. reference C backendでrepresentationを説明でき、別backendを不必要に妨げないか。
+3. reference compilerのexecution representationで説明でき、別backendを不必要に妨げないか。
 4. hidden allocation、GC、lifetime analysis を要求しないか。要求するなら、それを言語の責務として認めるか。
 5. 一つ以上の conformance test で境界を固定できるか。
 6. value、storage、resourceのauthorityと、境界を越えるoperationを説明できるか。

@@ -26,7 +26,7 @@ D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrap�
 D022、D024、D027、D031のsource spellingはD037が置き換える。
 D007のlambda parameter source spellingはD038が置き換える。
 D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換える。
-D041はD002のRust compilerと最初のC backendを維持し、次のexecution backend境界を追加する。
+D041はD002のRust compilerを維持し、最初のC execution backendをLLVM backendへ置き換える。
 
 ## 後継があるhistorical record
 

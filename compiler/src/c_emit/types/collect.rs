@@ -1,38 +1,12 @@
 use crate::check::ast::Type;
-use crate::closure::ast::{self as closure, Atom, Operation, Pattern, TopLevelPattern};
 use crate::core::ast::ProgramInterface;
 
 use super::{HostTypes, TypeRegistry, is_bool};
 
 impl TypeRegistry {
-    pub(in crate::c_emit) fn collect_program_body(&mut self, program: &closure::Program) {
-        for binding in &program.bindings {
-            self.collect_top_pattern(&binding.pattern);
-            self.collect_block(&binding.value);
-        }
-        for function in &program.functions {
-            for field in &function.environment {
-                self.collect(&field.ty);
-            }
-            self.collect(&function.parameter.ty);
-            self.collect_block(&function.body);
-        }
-    }
-
     fn collect(&mut self, ty: &Type) {
         if is_bool(ty) {
             return;
-        }
-        match ty {
-            Type::Float32 => {
-                self.uses_float32 = true;
-                return;
-            }
-            Type::Float64 => {
-                self.uses_float64 = true;
-                return;
-            }
-            _ => {}
         }
         match ty {
             Type::Product(elements) | Type::Sum(elements) => {
@@ -40,9 +14,8 @@ impl TypeRegistry {
                     self.collect(element);
                 }
             }
-            Type::Function { parameter, result } => {
-                self.collect(parameter);
-                self.collect(result);
+            Type::Function { .. } => {
+                unreachable!("type checking excludes functions from extern signatures")
             }
             Type::External { .. }
             | Type::Unit
@@ -114,90 +87,5 @@ impl HostTypes {
 
     pub(super) fn contains(&self, ty: &Type) -> bool {
         self.types.contains(ty)
-    }
-}
-
-impl TypeRegistry {
-    fn collect_top_pattern(&mut self, pattern: &TopLevelPattern) {
-        match pattern {
-            TopLevelPattern::Binding { ty, .. } | TopLevelPattern::Wildcard { ty, .. } => {
-                self.collect(ty);
-            }
-            TopLevelPattern::Product { ty, .. } => self.collect(ty),
-        }
-    }
-
-    fn collect_pattern(&mut self, pattern: &Pattern) {
-        match pattern {
-            Pattern::Binding { ty, .. }
-            | Pattern::Wildcard { ty, .. }
-            | Pattern::Product { ty, .. } => self.collect(ty),
-        }
-    }
-
-    fn collect_atom(&mut self, atom: &Atom) {
-        self.collect(&atom.ty);
-    }
-
-    fn collect_block(&mut self, block: &closure::Block) {
-        for binding in &block.bindings {
-            self.collect_pattern(&binding.pattern);
-            self.collect_operation(&binding.operation);
-        }
-        self.collect_atom(&block.result);
-    }
-
-    fn collect_operation(&mut self, operation: &Operation) {
-        match operation {
-            Operation::Atom(atom) => self.collect_atom(atom),
-            Operation::Product(elements) => {
-                for element in elements {
-                    self.collect_atom(element);
-                }
-            }
-            Operation::MakeClosure { captures, .. } => {
-                for capture in captures {
-                    self.collect_atom(capture);
-                }
-            }
-            Operation::Call { callee, argument } => {
-                self.collect_atom(callee);
-                self.collect_atom(argument);
-            }
-            Operation::SymbolLength { value } => self.collect_atom(value),
-            Operation::SymbolAt { argument } => self.collect_atom(argument),
-            Operation::Memory { argument, .. } => self.collect_atom(argument),
-            Operation::ExternalCall { argument, .. }
-            | Operation::NumericConversion { operand: argument }
-            | Operation::SumInjection {
-                value: argument, ..
-            }
-            | Operation::PrimitiveUnary {
-                operand: argument, ..
-            } => self.collect_atom(argument),
-            Operation::Case { scrutinee, arms } => {
-                self.collect_atom(scrutinee);
-                for arm in arms {
-                    self.collect_pattern(&arm.pattern);
-                    self.collect_block(&arm.value);
-                }
-            }
-            Operation::PrimitiveBranch {
-                left,
-                right,
-                otherwise,
-                then,
-                ..
-            } => {
-                self.collect_atom(left);
-                self.collect_atom(right);
-                self.collect_block(otherwise);
-                self.collect_block(then);
-            }
-            Operation::PrimitiveBinary { left, right, .. } => {
-                self.collect_atom(left);
-                self.collect_atom(right);
-            }
-        }
     }
 }

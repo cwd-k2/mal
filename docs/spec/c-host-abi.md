@@ -8,11 +8,11 @@ Status: Current v0.6 profile
 
 ## Build model
 
-reference compilerはmal sourceからC translation unitとprogram固有headerを生成する。host implementationはheaderを
-includeし、生成Cと同じtarget ABIでcompileする。`.mal` sourceから推移的にrequireされた`.c` fileは`build`のlink入力に
+reference compilerはmal sourceからprogram固有headerを生成し、`build`ではLLVM module、C shim、C runtimeを構成する。host implementationはheaderを
+includeし、生成artifactと同じtarget ABIでcompileする。`.mal` sourceから推移的にrequireされた`.c` fileは`build`のlink入力に
 なる。既存libraryには薄いC adapterを介して接続する。
 
-generated C/headerは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
+generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
 
 ```c
 #define MAL_C_ABI_VERSION 0x000600u
@@ -96,8 +96,8 @@ parameterはborrowedで、call中だけ観測またはresultへ返せる。
 mal_span_t bytes = mal_Symbol_to_bytes(call, value);
 ```
 
-`mal_Symbol_to_bytes`が返すspanはcall中だけread-onlyで有効である。Mal由来のropeは、このoperationを呼んだときに必要なら
-materializeする。観測しないparameterはmaterializeしない。hostはspanのpointerを保持、変更、解放してはならない。
+`mal_Symbol_to_bytes`が返すspanはcall中だけread-onlyで有効である。runtimeは必要ならこのoperationで連続したbyte列を
+materializeする。観測しないparameterにはこの処理を行わない。hostはspanのpointerを保持、変更、解放してはならない。
 
 host bytesからはpure descriptorを作る。
 
@@ -129,5 +129,5 @@ reference runtimeのcontextとmanaged valueはthread-confinedである。同じc
 function、constantに使う。`MAL_DEFINE_<name>`が展開するcompiler-facing declarationと`mal_detail_` memberは実装detailであり、
 host contractとして直接参照してはならない。
 
-generated C/headerのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。host sourceと`.mal`
+generated headerおよびlinked artifactのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。host sourceと`.mal`
 sourceをauthorityとし、compiler更新後には生成物を組で再生成する。

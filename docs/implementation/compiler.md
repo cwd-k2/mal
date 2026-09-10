@@ -51,7 +51,7 @@ capture順は最初のlexical参照順とする。top-level/predefined binding�
 
 integer/float literal は最初から `Int64`/`Float64` に固定せず、期待型を受け取れる literal node として検査する。期待型がなければ default を適用する。
 
-decimal float literalはhost parserやC compilerのdecimal conversionへ意味を委ねず、数学的な十進値から目的のbinary32/binary64 bit patternへties-to-evenで正しく丸める。C emitterはそのbit patternを失わず再現できる表現を出力する。finite rangeをoverflowするliteralは診断する。
+decimal float literalはhost parserやC compilerのdecimal conversionへ意味を委ねず、数学的な十進値から目的のbinary32/binary64 bit patternへties-to-evenで正しく丸める。LLVM backendはそのbit patternを16進定数として保持する。finite rangeをoverflowするliteralは診断する。
 
 lexer は byte literal を token 化するときに escape を decodeし、exactly one byteであることを検査する。AST以降では値と`UInt8`型を持つinteger literalとして扱ってよい。
 
@@ -71,12 +71,12 @@ checked programからcore境界で、type alias、external type、external opera
 
 surface `if`、`!`、`&&`、`||`、Bool equality は、operand を一度だけ左から右へ評価する `case` と temporary binding へ
 desugarする。直ちにbranchとして消費する数値・Symbol comparisonはtyped core以降で専用のprimitive branchとして保持し、
-C backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はC backendで0/1の
-`uint8_t`へ写像する。
+backendでBool valueをmaterializeしない。値として必要なcomparison resultと構造的な`[Unit, Unit]`はLLVM backendで
+0/1の`i1`へ写像する。
 
 Symbol operatorの`#value`と`value # index`は型検査後にそれぞれSymbol lengthとbyte accessの
 専用core operationへlowerする。`Symbol + Symbol`はleft、rightの順に一度ずつ評価するbinary primitiveとして保持し、
-C backendでmanaged storageを確保してbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
+LLVM backendからruntimeのmanaged storageを使ってbytesを連結する。いずれもpredefined value lookupや通常のfunction callは経由しない。
 
 ```mal
 f(g(x), h(y))
@@ -91,86 +91,38 @@ c := f(a, b)
 c
 ```
 
-## C backend
+## LLVM backendとC境界
 
-scalar は `<stdint.h>` の固定幅型へ写像する。signed `+ - *` は、対応する unsigned 型で演算して bit pattern を signed 型へ戻すなど、C の signed overflow に依存しない実装にする。
+program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM整数幅または`float`/`double`へ写像し、整数の
+`+ - *`はwrap semanticsを保つ。浮動小数点演算にはfast-math flagを付けず、変換はsource-level preconditionと
+ties-to-evenを満たすLLVM instructionを選ぶ。
 
-extern symbol、generated header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
+productはLLVM struct、sumはtagと最大payloadを収めるstruct、Boolは`i1`で表現する。Symbol literalはLLVM moduleのstatic
+storageを参照し、動的なSymbolはC11 runtimeのreference-counted flat storageを使う。連結、比較、byte access、外部memoryとの
+copyは汎用runtime operationへ委ねる。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。
 
-argument-aware entry pointではCの`argv[1]`以降のaddressとlengthを外部descriptor列へ置き、`(UInt64, Ptr)`として
-source-level `main`を呼ぶ。Symbolへのcopyはsourceが`Symbol.read`を呼ぶ時点で行い、entry専用のcollection型は持たない。
+extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
+argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置き、LLVM rootを`(UInt64, Ptr)`で呼ぶ。
 
-product は compiler-generated struct、sum は tag と payload union、Symbol は概念上 pointer と length に lower できる。
+type-qualified `size`は型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。fixed-width scalarの
+sizeは定数とし、`Ptr.size`はtarget data layoutから求める。`Symbol.size`は型検査で拒否する。
 
-```c
-typedef struct {
-    const uint8_t *data;
-    uint64_t length;
-    void *ownership;
-} MalType_Symbol;
-```
+function valueはcode pointerとenvironment pointerの組へlowerする。captureを持つlambdaごとにimmutable environmentを生成し、
+capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
 
-これは source language に pointer があることを意味しない。descriptorの複製はbytesを複製しない。aggregate ABI と lifetime は [`extern` contract](../spec/extern.md) に従う。
+call siteのcalleeがtop-level lambda、現在のself closure、またはidentityを追跡できるlocal closureならdirect entryへ進み、
+runtime選択が必要なcalleeだけ共通closure entryからindirect callする。
 
-Symbol literalのdataは生成物のstatic storageへ置き、`ownership`をnullにする。host bytes由来のSymbol resultは、
-terminal return中にlengthを検査してruntime-owned storageへcopyする。runtime Symbolはflat
-bufferまたは平衡ropeで保持する。一意なflat operandのconsuming concatはcapacityを再利用し、共有された大きなconcatはropeを
-構築する。equalityとbyte accessはropeを直接走査し、`Symbol.write`はleaf bytesを外部storageへ直接copyする。
-equalityは二つのallocation-free leaf cursorを進め、木の分割形状が異なってもleaf単位の`memcmp`により全体をO(n)で比較する。
-cursorのpending pathはrope heightで上限づけたC stack storageであり、ownerを追加しない。hostが
-`mal_Symbol_to_bytes`で観測したときだけ、必要ならcontiguous bytesを一度materializeする。
-`Symbol.read`のresultはflat allocationを使う。concatenation lengthとbyte indexはsource-level preconditionとして
-runtime検査しない。targetで表現不能なallocation sizeとallocation failureはmal trapへ写像する。reference count
-overflowはreference runtime固有のfatal failureであり、source semanticsにはしない。
+managed valueはprogram固有の型を知るLLVM側がretain、transfer、releaseする。productとsumにはfield単位で再帰適用し、
+closure environmentの最後のreleaseではcaptureを逆順に破棄する。tail edgeはLLVM basic block間の遷移にし、non-tailな
+recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
+LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
-`Symbol.read`は外部regionから指定lengthのbytesをmanaged storageへcopyし、`Symbol.write`はSymbol bytesを外部regionへcopyする。
-`MalType_Symbol` descriptor自体をsource-level memoryへload/storeしない。
+`Ptr`はLLVMの`ptr`へlowerし、`+`と`-`はbyte offsetとして扱う。数値scalarとpointerのload/storeは`align 1`のmemory operationを
+使い、unaligned accessを許す。直接参照とfirst-class memory functionは同じoperationへ到達する。region、permission、lifetimeは
+typed IRへ補わず、source-levelの[`memory` contract](../spec/memory.md)として保持する。
 
-type-qualified `size`は型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。
-C backendはfixed-width scalarの`.size`を定数へ、`Ptr.size`を`sizeof(MalType_Ptr)`へlowerする。これは
-generated Cのtargetで評価する。`Symbol`にはsource-level memory表現がないため`Symbol.size`を型検査で拒否する。
-
-function value は概念上 code pointer と environment pointer の組へ lower する。capture を持つラムダごとに immutable environment struct と、environment pointer を追加引数として受け取る C function を生成する。capture-free lambda は environment を持たない表現へ最適化してよいが、同じ mal function type の値として呼べる共通の calling convention を保つ。
-
-call siteのcalleeがimmutableなtop-level lambda、現在のself closure、またはcall以外へ流出しないlocal closureと
-静的に分かる場合、C backendはclosureのfunction pointerを経由せず生成functionを直接callする。local closureの
-単純aliasも同じidentityとして追跡するが、return、aggregate格納、capture、別関数への引数のいずれかに使われれば
-共通function-value calling conventionへfallbackする。
-
-known direct callのmanaged argumentがowned bindingのlast useなら、compilerは必要なcalleeだけにowned entryを生成する。
-callerはargumentをentryへtransferし、calleeはparameterをreturn、aggregate field、consuming primitive、次のowned direct callへ
-再transferできる。owned entryを必要とするcalleeはcall graph上で推移的に求める。borrowed entryとindirect function callの
-calling conventionは維持し、source-level function typeにはownershipを追加しない。
-
-callにしか使われないcapturing local closureはenvironmentをC stack上に構築し、captureは外側のlexical
-lifetime内でborrowする。callee位置にある直接の自己参照はこの条件を保つが、自己参照をreturn、aggregate、capture、
-argumentなどのfunction valueとして使う場合はheapへfallbackする。stack配置ではclosure descriptor、reference count、
-environment destructorを生成しない。通常のheap closureと同じenvironment pointer引数を使うため、function bodyのcloneは
-不要である。これらの区別はsourceから観測できない。
-
-product値をproduct patternで分解するだけのbindingは、C backendでproduct全体の一時copyを作らず、元の値のfieldから
-直接bindingを生成する。product parameterを持つ既知関数にはleaf fieldを個別に受けるdirect entryを生成し、共通closure
-entryはaggregateを受けるthunkとして残す。direct entryのleaf数は16個までとし、それを超える場合はaggregate entryへ
-fallbackする。product resultとfirst-class function callはtarget C ABIへ委ねる。
-
-`Ptr`はC backendで`uint8_t *`をfieldに持つ`MalType_Ptr`へlowerする。pointerに対する`+`と`-`はbyte addressを移動し、
-targetでのrepresentabilityとregion内に収まることはsource-level preconditionとしてruntime検査しない。scalar load/storeはalignmentに依存しない`memcpy`相当の
-runtime helperへlowerする。直接callはhelper operationへ直接lowerし、function valueとして参照された場合は同じ
-operationを実行するcapture-free closure entryを生成する。region、permission、lifetimeはtyped IRに補わず、source-levelの
-[`memory` contract](../spec/memory.md)として保持する。
-
-reference runtimeはclosure environmentとruntime Symbol bytesにreference count付きallocationを提供する。C emitterはparameterと
-既存値をborrowし、resultをowned transferとして扱い、managed bindingへcopy/destroyを生成する。productとsumはfieldへ再帰適用する。
-closure environmentの最後のreleaseではcaptureを逆順にdestroyする。詳細は
-[C backendのEngram ownership](ownership.md)を正とする。
-
-C representationの収集では、`TypeRegistry`がtranslation unit全体で一意なstructural type IDとFloat利用状況を
-所有し、`HostTypes`がextern signatureから到達できる型とexternal opaque type名だけを所有する。headerとsourceは
-同じ`TypeRegistry`を参照するため、公開aggregateと内部aggregateの名前を別々に採番しない。
-
-Float32/64を提供するtargetでは、binary32/binary64、subnormal、ties-to-evenの各要件をcompile-timeまたはtoolchain設定で確認する。C compilerのfast-math、式の再結合、implicit FMA contraction、型より広い中間精度によってmalの結果を変えてはならない。
-
-floatからintegerへのC castは、source-levelのfiniteかつ値域内というpreconditionのもとで直接実行する。
-integerからfloat、およびFloat64からFloat32への変換も、C implementation任せでties-to-evenを保証できないtargetではhelperまたは
-別のloweringを用いる。現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書には
-test一覧を重複させない。
+C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
+identityを所有し、`HostTypes`は公開型とexternal opaque type名を分類する。C shimとheaderは同じregistryを参照する。LLVM moduleと
+C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使い、LLVM aggregate表現をpublic C ABIへ公開しない。
+現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書にはtest一覧を重複させない。

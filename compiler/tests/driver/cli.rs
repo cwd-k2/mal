@@ -8,6 +8,7 @@ fn public_cli_reports_help_version_and_usage_status() {
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap(), malc::cli::HELP);
     assert!(output.stderr.is_empty());
+    assert!(!malc::cli::HELP.contains("emit-c"));
 
     let output = directory.malc([OsStr::new("--version")]);
     assert!(output.status.success());
@@ -24,6 +25,9 @@ fn public_cli_reports_help_version_and_usage_status() {
         String::from_utf8(output.stderr).unwrap(),
         "malc: unknown command or invalid arguments\nTry 'malc --help' for usage.\n"
     );
+
+    let output = directory.malc([OsStr::new("emit-c"), OsStr::new("program.mal")]);
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]

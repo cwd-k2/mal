@@ -15,8 +15,7 @@ fn main() {
     let checked = malc::check::check(&resolved).expect("benchmark source must check");
     let core = malc::core::lower(&checked);
     let anf = malc::anf::lower(&core);
-    let closure = malc::closure::convert(&anf);
-    malc::c_emit::emit(&closure).expect("benchmark source must emit C");
+    malc::closure::convert(&anf);
     malc::editor::analyze(&source).expect("benchmark source must support editor analysis");
 
     println!("source_bytes={}", source.text().len());
@@ -30,7 +29,6 @@ fn main() {
     measure("core", || malc::core::lower(black_box(&checked)));
     measure("anf", || malc::anf::lower(black_box(&core)));
     measure("closure", || malc::closure::convert(black_box(&anf)));
-    measure("c_emit", || malc::c_emit::emit(black_box(&closure)));
     measure("pipeline_check", || {
         malc::pipeline::check(black_box(&source))
     });

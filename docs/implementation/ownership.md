@@ -1,162 +1,56 @@
-# C backendのEngram ownership
+# managed value ownership
 
-Status: Current implementation contract
+Status: Current implementation policy
 
-この文書はreference C backendがmanaged Engramの保持と解放を生成する規約を定める。source-levelの意味と
-authorityは[Engram仕様](../spec/engrams.md)、hostとの受け渡しは[C host ABI](../spec/c-host-abi.md)を正とする。
+この文書はLLVM execution backendとC host boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
+[Engram specification](../spec/engrams.md)、host carrierのcontractは[C host ABI](../spec/c-host-abi.md)を正とする。
 
-## 保証範囲
+## managed type
 
-v0.5が受理するprogramとtrusted C adapter contractの範囲では、各managed ownerはlocal slot、closure environment、
-top-level storage、typed continuation frameのいずれか一箇所に属する。copyはownerを一つ増やし、transferは移動元をzero状態にし、
-scope、activation、programの終端では対応するownerを一度だけ解放する。last-use transfer、owned direct call、consuming `Symbol` concatも
-この規約の特殊化であり、別のownership authorityを持たない。
+`Symbol`とfunction closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、`Unit`、`Ptr`、
+external opaque valueはownerを持たない。この分類は`execution::ownership`が一箇所で提供する。
 
-将来、managed cycle、thread間共有、host resourceの自動解放などを言語またはABIへ追加する場合は、その新しい範囲に
-対するownership設計を別途行う。これは現在のv0.5 ownership実装の未完成部分ではない。
+LLVM内の`Symbol`はruntime allocationへのpointer、closureはcode pointerとnullable environment pointerの組である。productは各field、sumは
+active payloadだけについて同じ規則を再帰的に適用する。literalのstatic `Symbol`とnull environmentに対するretain/releaseは安全な
+no-opである。
 
-## 対象
+## slotとoperation
 
-`Symbol`とcaptureを持つfunction valueはruntime storageを参照する。productとsumはfieldを再帰的に調べ、これらを
-含む場合だけmanaged valueとして扱う。`Unit`、numeric scalar、`Ptr`、external opaque value、およびcapture-free
-function valueは個別に解放するstorageを持たない。
+managed local slotはzero状態で初期化する。borrowed atomをslot、aggregate、return、frame、または次のactivationへ保存するときは先にretainし、
+slotの旧値をreleaseしてから新しいshareを格納する。operationが新しいownerを返す場合はそのshareを直接移せる。wildcardがowned resultを
+捨てる場合は直ちにreleaseする。
 
-Extern resourceのownershipはこの仕組みに含めない。`Ptr`のreferentやexternal opaque handleをcloseまたはfreeする
-責務はoperation固有のhost contractに属する。
+function returnではresult shareを確保してからactivation-local slotをreleaseする。tail transitionでも次argumentと次environmentを先に
+確保し、その後に現在のlocalとenvironmentをreleaseする。aliasを早く解放しないため、この順序を変えてはならない。
 
-## generated Cの規約
+## closure environment
 
-値の受け渡しは次の二つへ統一する。
+capturing closureの生成時にtarget固有のenvironment storageをruntimeから確保し、capture fieldごとにownership shareを保存する。
+environment headerはreference countとtarget固有destructorを持つ。最後のclosure shareをreleaseするとdestructorがmanaged captureを再帰的に
+releaseし、environment storageを解放する。
 
-- function parameter、capture fieldの読取り、既存bindingへの参照、case payloadはborrowである。
-- function result、runtime operation result、bindingが保持するmanaged valueはownである。
-
-borrowを別のbinding、aggregate field、capture、branch result、function resultへ保存するときは、型ごとのcopy operationで
-ownership shareを一つ増やす。binding、branch-local pattern、closure environment、top-level storageの終端では、生成と逆順に
-型ごとのdestroy operationを呼ぶ。wildcardへ渡したowned resultも直ちにdestroyする。
-
-既存のowned slotを別のstorageへ移し、移動元のlifetimeがそこで終わる場合は、descriptorをtransferして移動元をzero状態にする。
-これはcopy可能な値に対する追加の意味ではなく、copyでownerを増やした直後に元ownerをdestroyする操作とtransition前後の
-owner数および到達可能な値が等しいC表現である。
-transferできる根拠は、通常の式ではpath-sensitiveなlast use、control suspensionではactivationの終了、owned entryではcalling
-conventionの契約というように、それぞれのlifetime authorityから導出する。
-
-expression emitterは各`Operation`のC式と`ResultOwnership`を同じinterfaceで返す。分類は`Operation`、
-`MemoryPrimitive`、managed resultを作り得るprimitiveをwildcardなしで列挙し、新しいvariantの分類漏れをRustの
-exhaustiveness checkで拒否する。structured operationもstatement emitterでowned resultを作る規約を明示する。
-
-`c_emit`は型付きclosure-converted IRを逆向きに走査し、lexical blockとbranchごとにlocal owned bindingの最後の使用を
-求める。binding、aggregate field、function result、direct tail callの次parameterへ保存する最後の使用ではdescriptorを
-transferし、sourceを型に対応するzero状態にする。既存cleanupはzero状態を安全にdestroyできるため、branchごとにtransfer位置が
-異なっても共通のlexical cleanupを維持できる。同じoperationまたは後続処理でaliasを再使用する場合はcopyを残す。
-解析中は各`Atom` occurrenceへbackend-localなdense identityを割り当て、transfer集合はこのidentityだけを保持する。
-Rust object addressはimmutable program内のoccurrenceを照合する索引に限り、last-use authorityそのものにはしない。
-debug buildではemission開始前に元programからplan全体を再導出し、occurrence集合とtransfer集合のexact matchを検査する。
-
-通常のparameter、environment field、case payloadの読取りはborrowであり、最後の使用というだけではtransferしない。direct tail
-loopが明示的にcopyして所有するparameter slotは例外であり、slot全体をdestructureするときに各fieldへownershipを分配できる。
-解析とmaterializationは`c_emit/body`に閉じ、lexer、parser、language IRへbackendのlifetime policyを追加しない。
-
-known direct callでは、callerがmanaged argument全体を所有し、そのbindingの最後の使用である場合だけowned entryへdescriptorを
-transferする。owned entryのparameterはlocal owned bindingと同じlast-use規則に従い、return、aggregate、primitive、次のknown
-direct callへ再transferできる。owned sum全体のlast-useである`case`はactive payloadへownershipを移す。calleeを静的に
-特定できないfunction value callと、call後にもargument bindingを使う経路は
-borrowed entryを維持する。borrowed entryはmanaged parameterと、その冒頭でdestructureしたfieldをcopyせずに参照し、resultなどへ
-escapeするときだけcopyする。これはgenerated C内部のcalling conventionであり、source typeとC host ABIには露出しない。
-
-direct self tail callではfunction parameterをloop全体のowned slotとして保持する。各tail edgeは次のparameterを先にcopyまたは
-last-use transferで確保し、そのpathでliveなbindingを内側から逆順にdestroyして現在のparameterをdestroyした後、次のparameterを
-slotへtransferしてloop entryへ戻る。通常returnもresultを先にcopyまたはtransferしてから同じcleanupを行う。これによりmanaged valueを
-含む場合も、参照先を早く解放せず、iterationごとのownership shareを残さず、C stackを増やさない。
-すべてのtail edgeが同じslotをそのまま次状態へ渡す場合、そのslotと冒頭でdestructureしたfieldはloop中のknown direct callへ
-borrowできる。slot自身のownershipとtail edgeでのtransferは維持する。
+capture-free closureはnull environmentを使う。self closureは実行中のactive environmentをborrowし、escapeする保存先でretainする。
 
 ## control frame
 
-application control loweringでhandlerがrecursive region内のnon-tail callによりsuspendすると、現在のMal activationは終了する。
-local machineは同じC activation内で次stateへ移り、common machineはdispatcherへcontrolを戻すが、どちらも終了したMal
-activationのlocal slotをownerの保存場所として残さない。
-[control lowering](../development/application-control-lowering.md#control-ir)が定めたresume stateのlive-inだけをcall-site固有frameへ
-保存し、top-level bindingはprogram storageから再取得する。C backendはclosure IRのsuffixを再解析してframe fieldを増減しない。
+recursive regionのnon-tail callではresume live-inのmanaged fieldをretainしてframeへ保存する。共通regionでresume後もenvironmentが必要なら
+caller environment ownerをframeへ移す。calleeへ渡すargumentとenvironmentを確保してからcaller localをcleanupする。
 
-suspendで終了するactivationのinitialized managed slotは、そのownerをframe fieldへtransferして移動元をzero状態にする。
-このtransferは通常のlast-use最適化に依存せず、現在のactivationがcallee実行中にownerを保持できないことから導出される。
-resume時は逆にframe fieldからlocal slotへtransferし、fieldをzero状態にしてからframeをpopする。parameter、case payload、local
-bindingの別によらず、各transitionの前後で同じownership shareが一箇所だけに存在する。
+return時はcallee localとactive environmentをreleaseし、frame fieldとcaller environmentをresume activationへ移す。terminal returnでは
+root result以外のlocal、active environment、control storageを解放する。tail edgeはframe shareを作らない。
 
-direct-selfだけのlocal machineではcaller environmentを持つC activationが全遷移を通じて存続するため、environmentは
-activation residentでありframeへ保存しない。複数entryまたはindirect edgeを扱うcommon machineではactive environmentがcalleeの
-environmentへ切り替わるため、resume stateがcaller environmentを必要とする場合だけ、そのownerとdestructorをframeへtransferする。
-callee entryへ渡すenvironment ownerはcallerのresume ownerと分離してからcurrent activationを終了する。tail applicationではcaller
-frameを作らず、callee argumentとenvironmentを次entryへ移した後にcaller localをdestroyする。
+## host boundary
 
-call-only local closureのC stack配置は、そのclosureとborrowed captureが同じhandler activation内だけで使われる場合に限る。
-closure bindingまたはそのenvironmentがsuspensionをまたぐ場合はheap environmentへfallbackする。control frameのbyte storageが
-移動し得るため、frame内captureのaddressをclosure environmentとして公開する最適化は行わない。
+extern parameterはcall中だけborrowされる。hostが保持する場合はpublic helperのcontractに従ってcopyする。managed resultはinternal
+pointer/out-pointer bridgeがMal ownerへ変換する。`Symbol` resultはruntime ownership pointerとして受け入れ、aggregateとsumはactive fieldだけを
+再帰的に変換する。invalid Boolまたはsum tagはpayloadを読む前にtrapする。
 
-trapではcontrol frameをunwindせず、processを直ちに異常終了する。control storageのcapacity不足は
-Engram allocation trapではなくimplementation resource failureであり、managed fieldの通常cleanupを開始しない。
+C shimがprocess argumentから作るdescriptorとargument bytesはborrowed external storageであり、`main`のreturnまでだけ有効である。
+`Symbol.read`を呼んだ時点でruntime-owned bytesへcopyする。
 
-## 型ごとのoperation
+## 検証
 
-| 型 | copy | destroy |
-|---|---|---|
-| `Symbol` | ownership pointerをretain | ownership pointerをreleaseし、最後ならbytesを解放 |
-| captureを持つfunction | environmentをretain | environmentをreleaseし、最後ならcaptureを逆順にdestroyして解放 |
-| product | managed fieldをsource orderでcopy | managed fieldを逆順にdestroy |
-| sum | active payloadだけをcopy | active payloadだけをdestroy |
-| その他 | C value copy | no-op |
-
-`Symbol` literalはstatic storageを参照しownership pointerを持たない。runtime生成Symbolのownershipはreference count付きの
-flat allocationまたはrope nodeを指す。borrowed operandを受ける連結が既存descriptorを返す場合は、result contractを満たすため
-retainする。last-useのowned flat operandはreference countが1なら、leftでは末尾capacity、rightでは先頭余白を再利用し、
-不足時は幾何的に拡張する。static、共有中、ropeのoperandはin-placeに変更しない。
-
-共有された大きなconcatはAVL-balanced rope nodeとして両operandをretainする。comparisonとbyte accessはropeを直接走査し、
-`Symbol.write`は外部storageへleaf bytesを直接copyする。連続領域を要求するextern parameterだけをcall前にflattenし、そのcacheは
-rope nodeと共に解放する。extern aggregate内のSymbolも型再帰でmaterializeする。いずれの表現もsourceからは新しいimmutable
-byte sequenceとしてだけ観測され、node、cache、capacityはC host ABIのopaque ownership内部に留まる。
-comparisonのleaf cursorはdescriptorとrope nodeをborrowし、retain、release、allocation、cache mutationを行わない。
-byte accessでは、全direct self-tail edgeが同じSymbol parameter slotを保持することをbackend planが証明したsiteだけ、同じ
-C activationのlocal cursorを使う。最初のaccessは通常traversalとし、次のindexが連続したときにborrowed pathを構築する。
-以後の連続accessはpathを前進させ、非局所accessはcursorを無効化して通常traversalへ戻す。cursorはparameter ownerの
-destroy、activationのreturn、再帰、re-entry、suspensionを越えず、cursorのためのretainやdescriptor identity比較を行わない。
-
-closure valueはcode pointer、environment pointer、environment destructorの組である。destructorはcapture型を知る生成function
-であり、generic reference-count runtimeはenvironment layoutを解釈しない。
-
-call以外へ流出しないlocal closureはdescriptorをmaterializeせず、environment structをstack上に置いて外側の
-bindingをborrowする。単純alias chainとclosure本体のself referenceを合わせて調べ、全referenceがcallee位置に限られる
-場合だけこの表現を使う。self closureを別functionのargumentなどの値として使う場合を含め、それ以外はreference count付き
-heap environmentへfallbackする。stack environmentはretainもdestroyもしない。direct-use planは元programから再導出し、
-creator、alias、top-level、callee以外の使用を含む集合のexact matchをdebug buildのemission前に検査する。
-
-これらのplan、Symbol byte access cursor plan、control region/frame planはmodule-private constructorだけから作り、fieldを
-外部stageへ公開しない。`is_valid`による
-全再導出はdebug assertionとfocused mutation testに置き、release compilerでは同じ解析を二重実行しない。release時のstage
-contractはconstructorがauthoritative inputだけからclosedなplanを返すことであり、validatorは別のruntime authorityではない。
-
-## programとhost境界
-
-top-level initializerの一時値は各initializerの終了時にdestroyし、保存したtop-level値は`main`のreturn後に逆順でdestroyする。
-argument descriptor列のruntime allocationもsource-level `main`のreturn後に解放する。
-
-extern parameterはcall中だけborrowされる。managed resultの各fieldはownership shareを一つmalへtransferしなければならない。
-Mal由来のSymbol resultはterminal returnがshareを作り、host bytes由来のSymbol resultは同じ時点でmal-owned storageへcopyする。
-malはextern resultをowned valueとして受け取り、通常のbinding cleanupへ接続する。C adapter内の規約は
-[C host ABI](../spec/c-host-abi.md)を正とする。
-
-compilerは
-typed IR上のborrow/ownを静的に知り、hostへ公開されないanonymous aggregateとclosureも含めて内部copy/destroyへ
-直接loweringする。host adapterはmanaged carrierを直接操作せず、typed terminal returnへownership transferを委ねる。
-
-## 最適化との境界
-
-immutabilityによりcopyはreferentの複製ではなくretainでよく、cleanup順序によって値の内容は変わらない。closureの
-local-use解析や将来のregion化も、この文書のborrow/result contractを変えずに行う。
-
-slice、hash cache、operation memoizationは値表現または計算量の最適化であり、ownershipの正しさとは分離する。rope nodeと
-flatten cacheは上記のcopy/destroy contractに従う。descriptor addressの同一性はsourceから観測できず、再利用可能性もあるため、
-memoization keyのsource-level意味には使わない。
-
-過去の測定baselineは[managed Engram性能記録](../history/performance/managed-engrams.md)に置く。
+- managed slot、aggregate、sum、closure capture、frame、extern bridgeの各境界でretain/releaseの対応を実行testで確認する。
+- deep self recursionとfirst-class cycleでowner数がdepthに比例して残らないことを確認する。
+- activeでないsum payloadへretain、release、readを行わない。
+- allocation counterを使うfixtureはnormal return後にlive allocationがないことを確認する。

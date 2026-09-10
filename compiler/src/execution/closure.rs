@@ -90,35 +90,6 @@ impl ClosureUsePlan {
             && self.top_levels == expected.top_levels
             && self.known_top_levels == expected.known_top_levels
     }
-
-    pub(crate) fn is_direct_alias(&self, id: ValueId, source: ValueId) -> bool {
-        self.direct.contains_key(&id) && self.direct.get(&id) == self.direct.get(&source)
-    }
-
-    pub(crate) fn has_direct_creator(&self, function: FunctionId) -> bool {
-        self.direct.values().any(|candidate| {
-            candidate.function == function && !self.top_levels.contains(&candidate.creator)
-        })
-    }
-
-    pub(crate) fn direct_creator(&self, function: FunctionId) -> Option<ValueId> {
-        self.direct.values().find_map(|candidate| {
-            (candidate.function == function && !self.top_levels.contains(&candidate.creator))
-                .then_some(candidate.creator)
-        })
-    }
-
-    pub(crate) fn is_direct_top_level(&self, id: ValueId) -> bool {
-        self.top_levels.contains(&id) && self.direct.contains_key(&id)
-    }
-
-    pub(crate) fn has_direct_top_level_function(&self, function: FunctionId) -> bool {
-        self.top_levels.iter().any(|id| {
-            self.direct
-                .get(id)
-                .is_some_and(|candidate| candidate.function == function)
-        })
-    }
 }
 
 fn top_level_candidate(binding: &closure::TopLevelBinding) -> Option<DirectClosure> {

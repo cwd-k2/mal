@@ -18,7 +18,7 @@ file種別はpathの末尾にある`.mal`または`.c`で決める。`.mal` requ
 同じcanonical pathへ複数経路から到達しても一つのsource fileとして扱い、`.mal` requirementのcycleはcompile-time
 errorとする。
 
-`.c` requirementは名前を導入せず、reference C backendのbuild inputへ推移的に追加する。同じcanonical pathのC sourceは
+`.c` requirementは名前を導入せず、reference compilerのC build inputへ推移的に追加する。同じcanonical pathのC sourceは
 一度だけcompileする。`.c` requirementの意味は[C host ABI](c-host-abi.md#build-model)に定める。package名、探索path、remote
 dependency、namespace、一般的なqualified name、require alias、selective importは持たない。memory primitiveの
 `TYPE_IDENT.VALUE_IDENT`だけは[式仕様](expressions.md#型で修飾したmemory-primitive)に定める。
