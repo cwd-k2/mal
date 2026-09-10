@@ -34,32 +34,32 @@ pub fn check_graph(graph: &SourceGraph) -> Result<crate::check::ast::Program, Di
 
 pub fn emit_c(source: &SourceFile) -> Result<crate::c_emit::Output, Diagnostic> {
     let execution = lower_execution(source)?;
-    crate::c_emit::emit_execution(&execution)
+    crate::backend::c::generate(&execution)
 }
 
 pub fn emit_c_graph(graph: &SourceGraph) -> Result<crate::c_emit::Output, Diagnostic> {
     let execution = lower_graph_execution(graph)?;
-    crate::c_emit::emit_execution(&execution)
+    crate::backend::c::generate(&execution)
 }
 
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
-    Ok(crate::c_emit::emit_header(&interface))
+    Ok(crate::backend::c::emit_header(&interface))
 }
 
 pub fn emit_header_graph(graph: &SourceGraph) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
-    Ok(crate::c_emit::emit_header(&interface))
+    Ok(crate::backend::c::emit_header(&interface))
 }
 
 pub fn emit_host(source: &SourceFile, header_name: &str) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
-    crate::c_emit::emit_host(&interface, header_name)
+    crate::backend::c::emit_host(&interface, header_name)
 }
 
 pub fn emit_host_graph(graph: &SourceGraph, header_name: &str) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
-    crate::c_emit::emit_host(&interface, header_name)
+    crate::backend::c::emit_host(&interface, header_name)
 }
 
 fn lower_interface(source: &SourceFile) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {

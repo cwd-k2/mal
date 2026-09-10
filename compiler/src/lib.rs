@@ -2,6 +2,7 @@
 
 pub mod anf;
 pub mod ast;
+mod backend;
 pub mod c_emit;
 pub mod check;
 pub mod cli;
