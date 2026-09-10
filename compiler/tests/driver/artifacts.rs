@@ -465,6 +465,44 @@ fn owns_flat_symbols_across_direct_llvm_calls() {
 }
 
 #[test]
+fn owns_symbols_nested_in_products_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-symbol-product");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := \\(input) {\n\
+           (value, index) := input;\n\
+           (value, value # index);\n\
+         };\n\
+         main :: Unit -> Int32 := \\() {\n\
+           joined := \"ab\" + \"cd\";\n\
+           (copy, byte) := inspect(joined, 2u64);\n\
+           if (copy == \"abcd\") then { Int32(byte) - 99 } else { 1 };\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn emit_c_writes_the_translation_unit_and_paired_header() {
     let directory = NativeFixture::new("driver");
     let source = directory.join("program.mal");

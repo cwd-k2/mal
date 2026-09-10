@@ -87,30 +87,23 @@ impl FunctionEmitter<'_> {
         value: Option<&EmittedValue>,
     ) -> Option<()> {
         match pattern {
-            Pattern::Binding {
-                id,
-                ty: Type::Symbol,
-            } => {
+            Pattern::Binding { id, ty } if crate::execution::ownership::is_managed(ty) => {
                 let mut value = value?.clone();
-                if value.ty != Type::Symbol {
+                if value.ty != *ty {
                     return None;
                 }
-                self.retain_symbol_if_borrowed(&mut value)?;
+                self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
                 let previous = self.register();
+                let value_type = self.types.value(ty)?;
                 self.line(format!(
-                    "  {previous} = load ptr, ptr %mal_slot_{}, align {}",
-                    slot.index,
-                    self.types.value(&Type::Symbol)?.alignment
+                    "  {previous} = load {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, slot.index, value_type.alignment
                 ));
+                self.release_value(ty, &previous)?;
                 self.line(format!(
-                    "  call void @mal_runtime_symbol_release(ptr {previous})"
-                ));
-                self.line(format!(
-                    "  store ptr {}, ptr %mal_slot_{}, align {}",
-                    value.representation,
-                    slot.index,
-                    self.types.value(&Type::Symbol)?.alignment
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, value.representation, slot.index, value_type.alignment
                 ));
             }
             Pattern::Binding { id, ty } if self.types.value(ty).is_some() => {
@@ -147,19 +140,17 @@ impl FunctionEmitter<'_> {
                         Some(&EmittedValue {
                             ty: element_type.clone(),
                             representation: register,
-                            owned: false,
+                            owned: value.owned
+                                && crate::execution::ownership::is_managed(element_type),
                         }),
                     )?;
                 }
             }
             Pattern::Wildcard { ty, .. } => {
-                if *ty == Type::Symbol {
+                if crate::execution::ownership::is_managed(ty) {
                     let value = value?;
                     if value.owned {
-                        self.line(format!(
-                            "  call void @mal_runtime_symbol_release(ptr {})",
-                            value.representation
-                        ));
+                        self.release_value(ty, &value.representation)?;
                     }
                 }
             }
@@ -168,41 +159,96 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    pub(super) fn retain_symbol_if_borrowed(&mut self, value: &mut EmittedValue) -> Option<()> {
-        if value.ty == Type::Symbol && !value.owned {
-            let retained = self.register();
-            self.line(format!(
-                "  {retained} = call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {})",
-                value.representation
-            ));
-            value.representation = retained;
+    pub(super) fn retain_if_borrowed(&mut self, value: &mut EmittedValue) -> Option<()> {
+        if crate::execution::ownership::is_managed(&value.ty) && !value.owned {
+            value.representation = self.retain_value(&value.ty, &value.representation)?;
             value.owned = true;
         }
         Some(())
     }
 
-    pub(super) fn release_local_symbols(&mut self) {
+    pub(super) fn release_local_managed(&mut self) {
         let parameter = self.function.parameter.binding;
         let mut slots = self
             .slots
             .iter()
-            .filter(|(id, slot)| slot.ty == Type::Symbol && Some(**id) != parameter)
+            .filter(|(id, slot)| {
+                crate::execution::ownership::is_managed(&slot.ty) && Some(**id) != parameter
+            })
             .map(|(_, slot)| slot.clone())
             .collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
             let value = self.register();
+            let value_type = self.types.value(&slot.ty).expect("managed representation");
             self.line(format!(
-                "  {value} = load ptr, ptr %mal_slot_{}, align {}",
-                slot.index,
-                self.types
-                    .value(&Type::Symbol)
-                    .expect("Symbol representation")
-                    .alignment
+                "  {value} = load {}, ptr %mal_slot_{}, align {}",
+                value_type.llvm, slot.index, value_type.alignment
             ));
-            self.line(format!(
-                "  call void @mal_runtime_symbol_release(ptr {value})"
-            ));
+            self.release_value(&slot.ty, &value)
+                .expect("managed slot is supported");
         }
+    }
+
+    fn retain_value(&mut self, ty: &Type, value: &str) -> Option<String> {
+        match ty {
+            Type::Symbol => {
+                let retained = self.register();
+                self.line(format!(
+                    "  {retained} = call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {value})"
+                ));
+                Some(retained)
+            }
+            Type::Product(elements) => {
+                let aggregate_type = self.types.value(ty)?;
+                let mut retained = value.to_string();
+                for (index, element) in elements.iter().enumerate() {
+                    if !crate::execution::ownership::is_managed(element) {
+                        continue;
+                    }
+                    let field = self.register();
+                    self.line(format!(
+                        "  {field} = extractvalue {} {retained}, {index}",
+                        aggregate_type.llvm
+                    ));
+                    let field = self.retain_value(element, &field)?;
+                    let next = self.register();
+                    let field_type = self.types.value(element)?;
+                    self.line(format!(
+                        "  {next} = insertvalue {} {retained}, {} {field}, {index}",
+                        aggregate_type.llvm, field_type.llvm
+                    ));
+                    retained = next;
+                }
+                Some(retained)
+            }
+            _ if !crate::execution::ownership::is_managed(ty) => Some(value.into()),
+            _ => None,
+        }
+    }
+
+    fn release_value(&mut self, ty: &Type, value: &str) -> Option<()> {
+        match ty {
+            Type::Symbol => self.line(format!(
+                "  call void @mal_runtime_symbol_release(ptr {value})"
+            )),
+            Type::Product(elements) => {
+                let aggregate_type = self.types.value(ty)?;
+                for (index, element) in elements.iter().enumerate() {
+                    if !crate::execution::ownership::is_managed(element) {
+                        continue;
+                    }
+                    let field = self.register();
+                    self.line(format!(
+                        "  {field} = extractvalue {} {value}, {index}",
+                        aggregate_type.llvm
+                    ));
+                    self.release_value(element, &field)?;
+                }
+            }
+            _ if crate::execution::ownership::is_managed(ty) => return None,
+            _ => {}
+        }
+        Some(())
     }
 }

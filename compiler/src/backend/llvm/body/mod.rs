@@ -179,9 +179,11 @@ impl<'a> FunctionEmitter<'a> {
                 external_storage = Some((size.max(value.size), alignment.max(value.alignment)));
             }
         }
-        let uses_symbols = slots.values().any(|slot| slot.ty == Type::Symbol)
-            || function.parameter.ty == Type::Symbol
-            || lowered.body.result.ty == Type::Symbol;
+        let uses_symbols = slots
+            .values()
+            .any(|slot| crate::execution::ownership::is_managed(&slot.ty))
+            || crate::execution::ownership::is_managed(&function.parameter.ty)
+            || crate::execution::ownership::is_managed(&lowered.body.result.ty);
         if uses_symbols
             && states.iter().any(|site| {
                 matches!(
@@ -231,10 +233,10 @@ impl<'a> FunctionEmitter<'a> {
                 "  %mal_slot_{} = alloca {}, align {}",
                 slot.index, value_type.llvm, value_type.alignment
             ));
-            if slot.ty == Type::Symbol {
+            if crate::execution::ownership::is_managed(&slot.ty) {
                 self.line(format!(
-                    "  store ptr null, ptr %mal_slot_{}, align {}",
-                    slot.index, value_type.alignment
+                    "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, slot.index, value_type.alignment
                 ));
             }
         }
@@ -287,14 +289,14 @@ impl<'a> FunctionEmitter<'a> {
         match terminator {
             Terminator::Return(value) => {
                 let mut value = self.atom(value)?;
-                self.retain_symbol_if_borrowed(&mut value)?;
+                self.retain_if_borrowed(&mut value)?;
                 if self.has_frames {
                     if value.ty != self.result_type {
                         return None;
                     }
                     self.emit_frame_return(site, &value.representation)?;
                 } else {
-                    self.release_local_symbols();
+                    self.release_local_managed();
                     let value_type = self.types.value(&value.ty)?;
                     self.line(format!(
                         "  ret {} {}",
@@ -400,7 +402,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, argument, true)?;
-                        self.release_local_symbols();
+                        self.release_local_managed();
                         let value_type = self.types.value(&result.ty)?;
                         self.line(format!(
                             "  ret {} {}",
@@ -457,7 +459,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(EmittedValue {
             ty: result_type,
             representation: register,
-            owned: lowered.body.result.ty == Type::Symbol,
+            owned: crate::execution::ownership::is_managed(&lowered.body.result.ty),
         })
     }
 

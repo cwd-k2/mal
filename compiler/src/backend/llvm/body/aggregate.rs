@@ -20,10 +20,11 @@ impl FunctionEmitter<'_> {
         let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
         for (index, (element, expected)) in elements.iter().zip(element_types).enumerate() {
-            let element = self.atom(element)?;
+            let mut element = self.atom(element)?;
             if element.ty != *expected {
                 return None;
             }
+            self.retain_if_borrowed(&mut element)?;
             let element_type = self.types.value(expected)?;
             let register = self.register();
             self.line(format!(
@@ -35,7 +36,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: aggregate,
-            owned: false,
+            owned: crate::execution::ownership::is_managed(result_type),
         })
     }
 

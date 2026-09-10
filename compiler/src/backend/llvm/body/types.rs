@@ -45,9 +45,7 @@ impl Types {
                 alignment: self.pointer_size,
                 size: self.pointer_size,
             }),
-            Type::Product(elements) if !crate::execution::ownership::is_managed(ty) => {
-                self.product(elements)
-            }
+            Type::Product(elements) => self.product(elements),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),
                 alignment: 1,
