@@ -14,7 +14,7 @@ pub(crate) use application::ApplicationGraph;
 pub(crate) use call::{ControlCallMode, ControlCallPlan};
 pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
-pub(crate) use frame::{ControlFrame, ControlFramePlan};
+pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 pub(crate) use tail::TailCallPlan;

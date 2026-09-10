@@ -4,11 +4,16 @@ use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
 use super::{ControlCallPlan, ControlRegionPlan};
 
+mod resume;
+
+pub(crate) use resume::FrameResume;
+
 pub(crate) struct ControlFramePlan {
     frames: HashMap<StateId, ControlFrame>,
+    resumes: resume::Plan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ControlFrame {
     pub(crate) resume: StateId,
     pub(crate) fields: Vec<LiveValue>,
@@ -41,11 +46,16 @@ impl ControlFramePlan {
                 },
             );
         }
-        Self { frames }
+        let resumes = resume::Plan::new(program, regions, calls, &frames);
+        Self { frames, resumes }
     }
 
     pub(crate) fn frame(&self, site: StateId) -> Option<&ControlFrame> {
         self.frames.get(&site)
+    }
+
+    pub(crate) fn resume(&self, exit: StateId, frame: StateId) -> Option<FrameResume> {
+        self.resumes.disposition(exit, frame)
     }
 
     pub(crate) fn is_valid(
@@ -70,36 +80,39 @@ impl ControlFramePlan {
             return false;
         }
 
-        self.frames.iter().all(|(site, frame)| {
-            let Terminator::Call { callee, resume, .. } = &program.states[site.0].terminator else {
-                return false;
-            };
-            let crate::check::ast::Type::Function { result, .. } = &callee.ty else {
-                return false;
-            };
-            *resume == frame.resume
-                && matches!(
-                    calls.mode(*site),
-                    Some(
-                        super::ControlCallMode::DirectRegion(_) | super::ControlCallMode::Dispatch
+        self.resumes.is_valid(program, regions, calls, &self.frames)
+            && self.frames.iter().all(|(site, frame)| {
+                let Terminator::Call { callee, resume, .. } = &program.states[site.0].terminator
+                else {
+                    return false;
+                };
+                let crate::check::ast::Type::Function { result, .. } = &callee.ty else {
+                    return false;
+                };
+                *resume == frame.resume
+                    && matches!(
+                        calls.mode(*site),
+                        Some(
+                            super::ControlCallMode::DirectRegion(_)
+                                | super::ControlCallMode::Dispatch
+                        )
                     )
-                )
-                && program.states[frame.resume.0]
-                    .input
-                    .as_ref()
-                    .is_some_and(|input| pattern_type(input) == result.as_ref())
-                && frame.fields.len() == program.states[frame.resume.0].live.len()
-                && frame
-                    .fields
-                    .iter()
-                    .zip(&program.states[frame.resume.0].live)
-                    .all(|(field, live)| field == live)
-                && frame.carries_environment
-                    == (program.states[frame.resume.0].needs_environment
-                        && regions
-                            .site_region(*site)
-                            .is_some_and(|region| calls.requires_common_control(region)))
-        })
+                    && program.states[frame.resume.0]
+                        .input
+                        .as_ref()
+                        .is_some_and(|input| pattern_type(input) == result.as_ref())
+                    && frame.fields.len() == program.states[frame.resume.0].live.len()
+                    && frame
+                        .fields
+                        .iter()
+                        .zip(&program.states[frame.resume.0].live)
+                        .all(|(field, live)| field == live)
+                    && frame.carries_environment
+                        == (program.states[frame.resume.0].needs_environment
+                            && regions
+                                .site_region(*site)
+                                .is_some_and(|region| calls.requires_common_control(region)))
+            })
     }
 }
 

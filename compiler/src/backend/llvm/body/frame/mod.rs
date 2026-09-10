@@ -407,11 +407,18 @@ impl FunctionEmitter<'_> {
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
         ));
-        let input = self.control.states[frame.resume.0].input.as_ref()?;
-        if super::pattern_value_type(input) != Some(&result.ty) {
-            self.line("  unreachable");
-            return Some(());
+        match self
+            .execution
+            .control_frames
+            .resume(return_site, frame_site)?
+        {
+            crate::execution::FrameResume::Resume => {}
+            crate::execution::FrameResume::Unreachable => {
+                self.line("  unreachable");
+                return Some(());
+            }
         }
+        let input = self.control.states[frame.resume.0].input.as_ref()?;
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
             let pointer = self.register();
             self.line(format!(
