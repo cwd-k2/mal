@@ -124,7 +124,7 @@ fn rejects_the_unsupported_fat_arrow_token() {
 #[test]
 fn rejects_the_removed_lambda_introducer() {
     let error = lex(&source(r"\() { 0 }")).expect_err("backslash should not be a token");
-    assert_eq!(error.message, "unexpected character");
+    assert_eq!(error.message, "invalid token");
 }
 
 #[test]
