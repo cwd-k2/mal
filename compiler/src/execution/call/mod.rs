@@ -334,8 +334,10 @@ mod tests {
             else {
                 return false;
             };
+            let site = StateId(index);
             direct_function_id(&uses, callee).is_none()
-                && regions.site_region(StateId(index)).is_none()
+                && regions.site_region(site).is_none()
+                && plan.mode(site) == Some(ControlCallMode::Dispatch)
         }));
     }
 
