@@ -2,7 +2,7 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
 
-use super::FunctionEmitter;
+use super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_frame_call(&mut self, site: StateId, argument: &Atom) -> Option<()> {
@@ -43,10 +43,14 @@ impl FunctionEmitter<'_> {
             "  store i64 {next_top}, ptr %mal_control_top, align 8"
         ));
         let argument = self.atom(argument)?;
+        if argument.ty != crate::check::ast::Type::Int32 {
+            return None;
+        }
         let parameter = self.function.parameter.binding?;
-        let slot = self.slots[&parameter];
+        let slot = self.slots.get(&parameter)?.clone();
         self.line(format!(
-            "  store i32 {argument}, ptr %mal_slot_{slot}, align 4"
+            "  store i32 {}, ptr %mal_slot_{}, align 4",
+            argument.representation, slot.index
         ));
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
         Some(())
@@ -135,22 +139,33 @@ impl FunctionEmitter<'_> {
             ));
             let value = self.register();
             self.line(format!("  {value} = load i32, ptr {pointer}, align 4"));
-            let slot = self.slots[&field.value.id];
+            let slot = self.slots.get(&field.value.id)?.clone();
             self.line(format!(
-                "  store i32 {value}, ptr %mal_slot_{slot}, align 4"
+                "  store i32 {value}, ptr %mal_slot_{}, align 4",
+                slot.index
             ));
         }
         let input = self.control.states[frame.resume.0].input.as_ref()?;
-        self.store_pattern(input, Some(result))?;
+        self.store_pattern(
+            input,
+            Some(&EmittedValue {
+                ty: crate::check::ast::Type::Int32,
+                representation: result.into(),
+            }),
+        )?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));
         Some(())
     }
 
     fn load_binding(&mut self, id: ValueId) -> Option<String> {
-        let slot = self.slots.get(&id).copied()?;
+        let slot = self.slots.get(&id)?.clone();
+        if slot.ty != crate::check::ast::Type::Int32 {
+            return None;
+        }
         let register = self.register();
         self.line(format!(
-            "  {register} = load i32, ptr %mal_slot_{slot}, align 4"
+            "  {register} = load i32, ptr %mal_slot_{}, align 4",
+            slot.index
         ));
         Some(register)
     }

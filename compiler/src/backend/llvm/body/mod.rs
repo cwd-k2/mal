@@ -1,13 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
-use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference, TopLevelPattern};
+use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
-use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
+use crate::core::ast::UnaryPrimitive;
 use crate::execution::ControlCallMode;
 
 mod frame;
+mod plan;
+mod scalar;
+
+use plan::{
+    collect_pattern_slot, insert_slot, main_function, pattern_value_type, reachable_states,
+    top_levels_are_capture_free_closures,
+};
+use scalar::{arithmetic_instruction, comparison_predicate, integer_literal, scalar_type};
 
 pub(super) struct Output {
     pub(super) definitions: String,
@@ -38,65 +46,27 @@ pub(super) fn generate(execution: &crate::execution::Program) -> Option<Output> 
     })
 }
 
-fn main_function(execution: &crate::execution::Program) -> Option<FunctionId> {
-    let binding = execution.lowered.bindings.iter().find(|binding| {
-        matches!(&binding.pattern, TopLevelPattern::Binding { name, .. } if name == "main")
-    })?;
-    let TopLevelPattern::Binding { ty, .. } = &binding.pattern else {
-        return None;
-    };
-    if *ty
-        != (Type::Function {
-            parameter: Box::new(Type::Unit),
-            result: Box::new(Type::Int32),
-        })
-    {
-        return None;
-    }
-    closure_binding_function(binding)
-}
-
-fn top_levels_are_capture_free_closures(execution: &crate::execution::Program) -> bool {
-    execution.lowered.bindings.iter().all(|binding| {
-        closure_binding_function(binding).is_some_and(|function| {
-            execution
-                .lowered
-                .functions
-                .iter()
-                .find(|candidate| candidate.id == function)
-                .is_some_and(|function| function.environment.is_empty())
-        })
-    })
-}
-
-fn closure_binding_function(binding: &crate::closure::ast::TopLevelBinding) -> Option<FunctionId> {
-    let AtomKind::Reference(Reference::Binding(result)) = binding.value.result.kind else {
-        return None;
-    };
-    binding.value.bindings.iter().find_map(|binding| {
-        let Pattern::Binding { id, .. } = binding.pattern else {
-            return None;
-        };
-        match &binding.operation {
-            crate::closure::ast::Operation::MakeClosure { function, captures }
-                if id == result && captures.is_empty() =>
-            {
-                Some(*function)
-            }
-            _ => None,
-        }
-    })
-}
-
 struct FunctionEmitter<'a> {
     execution: &'a crate::execution::Program,
     control: &'a Program,
     function: &'a crate::control::ast::Function,
     states: Vec<StateId>,
-    slots: HashMap<ValueId, usize>,
+    result_type: Type,
+    slots: HashMap<ValueId, Slot>,
     has_frames: bool,
     next_register: usize,
     output: String,
+}
+
+#[derive(Clone)]
+pub(super) struct Slot {
+    index: usize,
+    ty: Type,
+}
+
+struct EmittedValue {
+    ty: Type,
+    representation: String,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -113,14 +83,14 @@ impl<'a> FunctionEmitter<'a> {
             .find(|function| function.id == id)?;
         if !lowered.environment.is_empty()
             || !is_scalar_parameter(&function.parameter.ty)
-            || function_result_type(lowered) != Some(&Type::Int32)
+            || scalar_type(&lowered.body.result.ty).is_none()
         {
             return None;
         }
         let states = reachable_states(&execution.control, function.entry);
         let mut slots = HashMap::new();
         if let Some(id) = function.parameter.binding {
-            insert_slot(&mut slots, id);
+            insert_slot(&mut slots, id, function.parameter.ty.clone());
         }
         for state in &states {
             let state = &execution.control.states[state.0];
@@ -154,6 +124,7 @@ impl<'a> FunctionEmitter<'a> {
             execution,
             control: &execution.control,
             function,
+            result_type: lowered.body.result.ty.clone(),
             states,
             slots,
             has_frames: !frame_sites.is_empty(),
@@ -163,28 +134,35 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit(mut self) -> Option<String> {
-        let parameter: String = match self.function.parameter.ty {
-            Type::Unit => "ptr %mal_context".into(),
-            Type::Int32 => "ptr %mal_context, i32 %mal_parameter".into(),
-            _ => return None,
-        };
+        let parameter = scalar_type(&self.function.parameter.ty).map_or_else(
+            || Some("ptr %mal_context".to_string()),
+            |scalar| Some(format!("ptr %mal_context, {} %mal_parameter", scalar.llvm)),
+        )?;
+        let result = scalar_type(&self.result_type)?;
         self.line(format!(
-            "define internal i32 @{}({parameter}) {{",
+            "define internal {} @{}({parameter}) {{",
+            result.llvm,
             function_name(self.function.id)?
         ));
         self.line("entry:");
-        let mut slots = self.slots.values().copied().collect::<Vec<_>>();
-        slots.sort_unstable();
+        let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
+        slots.sort_by_key(|slot| slot.index);
         for slot in slots {
-            self.line(format!("  %mal_slot_{slot} = alloca i32, align 4"));
+            let scalar = scalar_type(&slot.ty)?;
+            self.line(format!(
+                "  %mal_slot_{} = alloca {}, align {}",
+                slot.index, scalar.llvm, scalar.alignment
+            ));
         }
         if self.has_frames {
             self.line("  %mal_control_top = alloca i64, align 8");
         }
         if let Some(id) = self.function.parameter.binding {
-            let slot = self.slots[&id];
+            let slot = self.slots.get(&id)?.clone();
+            let scalar = scalar_type(&slot.ty)?;
             self.line(format!(
-                "  store i32 %mal_parameter, ptr %mal_slot_{slot}, align 4"
+                "  store {} %mal_parameter, ptr %mal_slot_{}, align {}",
+                scalar.llvm, slot.index, scalar.alignment
             ));
         }
         if self.has_frames {
@@ -203,36 +181,87 @@ impl<'a> FunctionEmitter<'a> {
         let state = &self.control.states[site.0];
         self.line(format!("mal_state_{}:", site.0));
         for binding in &state.bindings {
-            let value = self.emit_operation(&binding.operation)?;
-            self.store_pattern(&binding.pattern, value.as_deref())?;
+            let value =
+                self.emit_operation(&binding.operation, pattern_value_type(&binding.pattern))?;
+            self.store_pattern(&binding.pattern, value.as_ref())?;
         }
         self.emit_terminator(site, &state.terminator)
     }
 
-    fn emit_operation(&mut self, operation: &Operation) -> Option<Option<String>> {
+    fn emit_operation(
+        &mut self,
+        operation: &Operation,
+        result_type: Option<&Type>,
+    ) -> Option<Option<EmittedValue>> {
         match operation {
             Operation::Atom(atom) => self.atom(atom).map(Some),
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand)?;
+                let scalar = scalar_type(&operand.ty)?;
                 let register = self.register();
                 let instruction = match operator {
-                    UnaryPrimitive::Negate => format!("sub i32 0, {operand}"),
-                    UnaryPrimitive::BitwiseNot => format!("xor i32 {operand}, -1"),
+                    UnaryPrimitive::Negate => {
+                        format!("sub {} 0, {}", scalar.llvm, operand.representation)
+                    }
+                    UnaryPrimitive::BitwiseNot => {
+                        format!("xor {} {}, -1", scalar.llvm, operand.representation)
+                    }
                 };
                 self.line(format!("  {register} = {instruction}"));
-                Some(Some(register))
+                Some(Some(EmittedValue {
+                    ty: operand.ty,
+                    representation: register,
+                }))
             }
             Operation::PrimitiveBinary {
                 operator,
                 left,
                 right,
             } => {
-                let instruction = arithmetic_instruction(*operator)?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
+                if left.ty != right.ty {
+                    return None;
+                }
+                let scalar = scalar_type(&left.ty)?;
+                let instruction = arithmetic_instruction(*operator, scalar.signed)?;
                 let register = self.register();
-                self.line(format!("  {register} = {instruction} i32 {left}, {right}"));
-                Some(Some(register))
+                self.line(format!(
+                    "  {register} = {instruction} {} {}, {}",
+                    scalar.llvm, left.representation, right.representation
+                ));
+                Some(Some(EmittedValue {
+                    ty: left.ty,
+                    representation: register,
+                }))
+            }
+            Operation::NumericConversion { operand } => {
+                let operand = self.atom(operand)?;
+                let source = scalar_type(&operand.ty)?;
+                let result_type = result_type?.clone();
+                let target = scalar_type(&result_type)?;
+                if source.bits == target.bits {
+                    return Some(Some(EmittedValue {
+                        ty: result_type,
+                        representation: operand.representation,
+                    }));
+                }
+                let instruction = if source.bits > target.bits {
+                    "trunc"
+                } else if source.signed {
+                    "sext"
+                } else {
+                    "zext"
+                };
+                let register = self.register();
+                self.line(format!(
+                    "  {register} = {instruction} {} {} to {}",
+                    source.llvm, operand.representation, target.llvm
+                ));
+                Some(Some(EmittedValue {
+                    ty: result_type,
+                    representation: register,
+                }))
             }
             _ => None,
         }
@@ -243,9 +272,13 @@ impl<'a> FunctionEmitter<'a> {
             Terminator::Return(value) => {
                 let value = self.atom(value)?;
                 if self.has_frames {
-                    self.emit_frame_return(site, &value)?;
+                    if value.ty != Type::Int32 {
+                        return None;
+                    }
+                    self.emit_frame_return(site, &value.representation)?;
                 } else {
-                    self.line(format!("  ret i32 {value}"));
+                    let scalar = scalar_type(&value.ty)?;
+                    self.line(format!("  ret {} {}", scalar.llvm, value.representation));
                 }
             }
             Terminator::Goto(target) => {
@@ -267,9 +300,15 @@ impl<'a> FunctionEmitter<'a> {
                 let predicate = comparison_predicate(*operator)?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
+                if left.ty != right.ty {
+                    return None;
+                }
+                let scalar = scalar_type(&left.ty)?;
+                let predicate = predicate.for_signedness(scalar.signed);
                 let condition = self.register();
                 self.line(format!(
-                    "  {condition} = icmp {predicate} i32 {left}, {right}"
+                    "  {condition} = icmp {predicate} {} {}, {}",
+                    scalar.llvm, left.representation, right.representation
                 ));
                 self.line(format!(
                     "  br i1 {condition}, label %mal_state_{}, label %mal_state_{}",
@@ -302,15 +341,21 @@ impl<'a> FunctionEmitter<'a> {
                             .unwrap_or(argument);
                         let value = self.atom(argument)?;
                         let parameter = self.function.parameter.binding?;
-                        let slot = self.slots[&parameter];
+                        let slot = self.slots.get(&parameter)?.clone();
+                        if slot.ty != value.ty {
+                            return None;
+                        }
+                        let scalar = scalar_type(&slot.ty)?;
                         self.line(format!(
-                            "  store i32 {value}, ptr %mal_slot_{slot}, align 4"
+                            "  store {} {}, ptr %mal_slot_{}, align {}",
+                            scalar.llvm, value.representation, slot.index, scalar.alignment
                         ));
                         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, argument, true)?;
-                        self.line(format!("  ret i32 {result}"));
+                        let scalar = scalar_type(&result.ty)?;
+                        self.line(format!("  ret {} {}", scalar.llvm, result.representation));
                     }
                     ControlCallMode::Dispatch => return None,
                 }
@@ -320,52 +365,93 @@ impl<'a> FunctionEmitter<'a> {
         Some(())
     }
 
-    fn emit_call(&mut self, target: FunctionId, argument: &Atom, tail: bool) -> Option<String> {
+    fn emit_call(
+        &mut self,
+        target: FunctionId,
+        argument: &Atom,
+        tail: bool,
+    ) -> Option<EmittedValue> {
         let target = self
             .control
             .functions
             .iter()
             .find(|function| function.id == target)?;
-        let arguments = match target.parameter.ty {
-            Type::Unit => "ptr %mal_context".into(),
-            Type::Int32 => format!("ptr %mal_context, i32 {}", self.atom(argument)?),
-            _ => return None,
+        let arguments = if target.parameter.ty == Type::Unit {
+            "ptr %mal_context".into()
+        } else {
+            let argument = self.atom(argument)?;
+            if argument.ty != target.parameter.ty {
+                return None;
+            }
+            let scalar = scalar_type(&argument.ty)?;
+            format!(
+                "ptr %mal_context, {} {}",
+                scalar.llvm, argument.representation
+            )
         };
+        let lowered = self
+            .execution
+            .lowered
+            .functions
+            .iter()
+            .find(|function| function.id == target.id)?;
+        let result_type = lowered.body.result.ty.clone();
+        let result_scalar = scalar_type(&result_type)?;
         let register = self.register();
         let tail = if tail { "tail " } else { "" };
         self.line(format!(
-            "  {register} = {tail}call i32 @{}({arguments})",
+            "  {register} = {tail}call {} @{}({arguments})",
+            result_scalar.llvm,
             function_name(target.id)?
         ));
-        Some(register)
+        Some(EmittedValue {
+            ty: result_type,
+            representation: register,
+        })
     }
 
-    fn atom(&mut self, atom: &Atom) -> Option<String> {
+    fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
         match (&atom.ty, &atom.kind) {
-            (Type::Int32, AtomKind::Integer(value)) => Some((*value as i32).to_string()),
-            (Type::Int32, AtomKind::Reference(Reference::Binding(id))) => {
-                let slot = self.slots.get(id).copied()?;
+            (ty, AtomKind::Integer(value)) if scalar_type(ty).is_some() => Some(EmittedValue {
+                ty: ty.clone(),
+                representation: integer_literal(ty, *value)?,
+            }),
+            (ty, AtomKind::Reference(Reference::Binding(id))) if scalar_type(ty).is_some() => {
+                let slot = self.slots.get(id)?.clone();
+                if slot.ty != *ty {
+                    return None;
+                }
+                let scalar = scalar_type(ty)?;
                 let register = self.register();
                 self.line(format!(
-                    "  {register} = load i32, ptr %mal_slot_{slot}, align 4"
+                    "  {register} = load {}, ptr %mal_slot_{}, align {}",
+                    scalar.llvm, slot.index, scalar.alignment
                 ));
-                Some(register)
+                Some(EmittedValue {
+                    ty: ty.clone(),
+                    representation: register,
+                })
             }
-            (Type::Unit, AtomKind::Unit) => Some(String::new()),
+            (Type::Unit, AtomKind::Unit) => Some(EmittedValue {
+                ty: Type::Unit,
+                representation: String::new(),
+            }),
             _ => None,
         }
     }
 
-    fn store_pattern(&mut self, pattern: &Pattern, value: Option<&str>) -> Option<()> {
+    fn store_pattern(&mut self, pattern: &Pattern, value: Option<&EmittedValue>) -> Option<()> {
         match pattern {
-            Pattern::Binding {
-                id,
-                ty: Type::Int32,
-            } => {
-                let slot = self.slots[id];
+            Pattern::Binding { id, ty } if scalar_type(ty).is_some() => {
+                let value = value?;
+                if value.ty != *ty {
+                    return None;
+                }
+                let slot = self.slots.get(id)?.clone();
+                let scalar = scalar_type(ty)?;
                 self.line(format!(
-                    "  store i32 {}, ptr %mal_slot_{slot}, align 4",
-                    value?
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    scalar.llvm, value.representation, slot.index, scalar.alignment
                 ));
             }
             Pattern::Binding { ty: Type::Unit, .. } | Pattern::Wildcard { .. } => {}
@@ -386,54 +472,8 @@ impl<'a> FunctionEmitter<'a> {
     }
 }
 
-fn function_result_type(function: &crate::closure::ast::Function) -> Option<&Type> {
-    Some(&function.body.result.ty)
-}
-
 fn is_scalar_parameter(ty: &Type) -> bool {
-    matches!(ty, Type::Unit | Type::Int32)
-}
-
-fn collect_pattern_slot(pattern: &Pattern, slots: &mut HashMap<ValueId, usize>) -> Option<()> {
-    match pattern {
-        Pattern::Binding {
-            id,
-            ty: Type::Int32,
-        } => insert_slot(slots, *id),
-        Pattern::Binding { ty: Type::Unit, .. } | Pattern::Wildcard { .. } => {}
-        _ => return None,
-    }
-    Some(())
-}
-
-fn insert_slot(slots: &mut HashMap<ValueId, usize>, id: ValueId) {
-    if !slots.contains_key(&id) {
-        slots.insert(id, slots.len());
-    }
-}
-
-fn arithmetic_instruction(operator: BinaryPrimitive) -> Option<&'static str> {
-    match operator {
-        BinaryPrimitive::Multiply => Some("mul"),
-        BinaryPrimitive::Add => Some("add"),
-        BinaryPrimitive::Subtract => Some("sub"),
-        BinaryPrimitive::BitwiseAnd => Some("and"),
-        BinaryPrimitive::BitwiseXor => Some("xor"),
-        BinaryPrimitive::BitwiseOr => Some("or"),
-        _ => None,
-    }
-}
-
-fn comparison_predicate(operator: BinaryPrimitive) -> Option<&'static str> {
-    match operator {
-        BinaryPrimitive::Less => Some("slt"),
-        BinaryPrimitive::LessEqual => Some("sle"),
-        BinaryPrimitive::Greater => Some("sgt"),
-        BinaryPrimitive::GreaterEqual => Some("sge"),
-        BinaryPrimitive::Equal => Some("eq"),
-        BinaryPrimitive::NotEqual => Some("ne"),
-        _ => None,
-    }
+    *ty == Type::Unit || scalar_type(ty).is_some()
 }
 
 fn function_name(id: FunctionId) -> Option<String> {
@@ -441,26 +481,4 @@ fn function_name(id: FunctionId) -> Option<String> {
         FunctionId::Lambda(id) => Some(format!("mal_function_{}", id.0)),
         FunctionId::Memory(_) => None,
     }
-}
-
-fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId> {
-    let mut pending = vec![entry];
-    let mut seen = HashSet::new();
-    let mut states = Vec::new();
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        states.push(id);
-        match &program.states[id.0].terminator {
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => pending.extend(arms.iter().map(|arm| arm.target)),
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-        }
-    }
-    states
 }
