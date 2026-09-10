@@ -1,21 +1,20 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{self as closure, Atom, AtomKind, Block, Operation, Pattern, Reference};
-
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct AtomOccurrenceId(usize);
+use crate::closure::ast::{
+    self as closure, Atom, AtomId, AtomKind, Block, Operation, Pattern, Reference,
+};
 
 pub(crate) struct OwnershipPlan {
-    occurrences: HashMap<*const Atom, AtomOccurrenceId>,
-    last_owned_uses: HashSet<AtomOccurrenceId>,
-    last_parameter_uses: HashSet<AtomOccurrenceId>,
+    occurrences: HashSet<AtomId>,
+    last_owned_uses: HashSet<AtomId>,
+    last_parameter_uses: HashSet<AtomId>,
 }
 
 impl OwnershipPlan {
     pub(crate) fn new(program: &closure::Program) -> Self {
         let mut plan = Self {
-            occurrences: HashMap::new(),
+            occurrences: HashSet::new(),
             last_owned_uses: HashSet::new(),
             last_parameter_uses: HashSet::new(),
         };
@@ -45,11 +44,11 @@ impl OwnershipPlan {
     }
 
     pub(crate) fn can_transfer(&self, atom: &Atom, parameter_owned: bool) -> bool {
-        let Some(occurrence) = self.occurrences.get(&std::ptr::from_ref(atom)) else {
+        if !self.occurrences.contains(&atom.id) {
             return false;
-        };
-        self.last_owned_uses.contains(occurrence)
-            || (parameter_owned && self.last_parameter_uses.contains(occurrence))
+        }
+        self.last_owned_uses.contains(&atom.id)
+            || (parameter_owned && self.last_parameter_uses.contains(&atom.id))
     }
 
     pub(crate) fn is_valid(&self, program: &closure::Program) -> bool {
@@ -62,8 +61,8 @@ impl OwnershipPlan {
 
 fn analyze_locals(
     block: &Block,
-    occurrences: &mut HashMap<*const Atom, AtomOccurrenceId>,
-    transfers: &mut HashSet<AtomOccurrenceId>,
+    occurrences: &mut HashSet<AtomId>,
+    transfers: &mut HashSet<AtomId>,
 ) {
     let mut owned = HashSet::new();
     collect_owned_bindings(block, &mut owned);
@@ -73,8 +72,8 @@ fn analyze_locals(
 fn analyze_parameter(
     block: &Block,
     parameter: ValueId,
-    occurrences: &mut HashMap<*const Atom, AtomOccurrenceId>,
-    transfers: &mut HashSet<AtomOccurrenceId>,
+    occurrences: &mut HashSet<AtomId>,
+    transfers: &mut HashSet<AtomId>,
 ) {
     analyze_block(
         block,
@@ -89,8 +88,8 @@ fn analyze_block(
     block: &Block,
     owned: &HashSet<ValueId>,
     live_after: &mut HashSet<ValueId>,
-    occurrences: &mut HashMap<*const Atom, AtomOccurrenceId>,
-    transfers: &mut HashSet<AtomOccurrenceId>,
+    occurrences: &mut HashSet<AtomId>,
+    transfers: &mut HashSet<AtomId>,
 ) {
     analyze_atom(&block.result, owned, live_after, occurrences, transfers);
     for binding in block.bindings.iter().rev() {
@@ -109,8 +108,8 @@ fn analyze_operation(
     operation: &Operation,
     owned: &HashSet<ValueId>,
     live_after: &mut HashSet<ValueId>,
-    occurrences: &mut HashMap<*const Atom, AtomOccurrenceId>,
-    transfers: &mut HashSet<AtomOccurrenceId>,
+    occurrences: &mut HashSet<AtomId>,
+    transfers: &mut HashSet<AtomId>,
 ) {
     match operation {
         Operation::Atom(atom)
@@ -180,16 +179,15 @@ fn analyze_atom(
     atom: &Atom,
     owned: &HashSet<ValueId>,
     live_after: &mut HashSet<ValueId>,
-    occurrences: &mut HashMap<*const Atom, AtomOccurrenceId>,
-    transfers: &mut HashSet<AtomOccurrenceId>,
+    occurrences: &mut HashSet<AtomId>,
+    transfers: &mut HashSet<AtomId>,
 ) {
-    let next = AtomOccurrenceId(occurrences.len());
-    let occurrence = *occurrences.entry(std::ptr::from_ref(atom)).or_insert(next);
+    occurrences.insert(atom.id);
     let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
         return;
     };
     if owned.contains(&id) && !live_after.contains(&id) {
-        transfers.insert(occurrence);
+        transfers.insert(atom.id);
     }
     live_after.insert(id);
 }

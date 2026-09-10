@@ -96,10 +96,14 @@ pub enum Pattern {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Atom {
+    pub id: AtomId,
     pub kind: AtomKind,
     pub ty: Type,
     pub span: Span,
 }
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct AtomId(pub usize);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AtomKind {

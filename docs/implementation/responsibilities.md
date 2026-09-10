@@ -116,7 +116,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、suspensionをまたぐclosure lifetime、arena需要、constructor cardinality、frameが運ぶenvironment ownerを導出 |
-| `execution/ownership` | 型がmanaged ownerを含むかの分類と、closure-converted IR上のpath-sensitiveなlast-use、transfer可否を構成 |
+| `execution/ownership` | 型がmanaged ownerを含むかの分類と、stage間で保持するatom identityに基づくpath-sensitiveなlast-use、transfer可否を構成 |
 | `backend/c` | 移行中のC body oracle、public C header、host stubを各pipeline use caseへ公開 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。現在はcaptureとmanaged valueを持たない数値型、`Ptr`、`Unit`、`Bool`、product、sumの構築・分解・分岐、direct call、self-tail edge、direct-self continuation frameと、数値scalar・`Ptr`のextern callをadmit |

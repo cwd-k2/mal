@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, Operation, Parameter,
-    Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Atom, AtomId, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, Operation,
+    Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -15,12 +15,14 @@ pub fn convert(program: &anf::Program) -> Program {
 
 struct Converter {
     functions: Vec<Function>,
+    next_atom: usize,
 }
 
 impl Converter {
     fn new() -> Self {
         Self {
             functions: Vec::new(),
+            next_atom: 0,
         }
     }
 
@@ -262,6 +264,8 @@ impl Converter {
         let (parameter_type, result_type) = primitive.signature();
         let parameter = anf::ValueId::MemoryParameter(primitive);
         let result = anf::ValueId::MemoryResult(primitive);
+        let argument_atom = self.atom_id();
+        let result_atom = self.atom_id();
         self.functions.push(Function {
             id,
             environment: Vec::new(),
@@ -279,6 +283,7 @@ impl Converter {
                     operation: Operation::Memory {
                         primitive,
                         argument: Atom {
+                            id: argument_atom,
                             kind: AtomKind::Reference(Reference::Binding(parameter)),
                             ty: parameter_type,
                             span,
@@ -287,6 +292,7 @@ impl Converter {
                     span,
                 }],
                 result: Atom {
+                    id: result_atom,
                     kind: AtomKind::Reference(Reference::Binding(result)),
                     ty: result_type,
                     span,
@@ -332,7 +338,7 @@ impl Converter {
     }
 
     fn convert_atom(
-        &self,
+        &mut self,
         atom: &anf::Atom,
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Atom {
@@ -345,6 +351,7 @@ impl Converter {
             anf::AtomKind::Unit => AtomKind::Unit,
         };
         Atom {
+            id: self.atom_id(),
             kind,
             ty: atom.ty.clone(),
             span: atom.span,
@@ -352,13 +359,14 @@ impl Converter {
     }
 
     fn reference_atom(
-        &self,
+        &mut self,
         id: anf::ValueId,
         ty: crate::check::ast::Type,
         span: crate::source::Span,
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Atom {
         Atom {
+            id: self.atom_id(),
             kind: self.reference_kind(id, environment),
             ty,
             span,
@@ -374,5 +382,11 @@ impl Converter {
             Some(reference) => AtomKind::Reference(*reference),
             None => AtomKind::Reference(Reference::Binding(id)),
         }
+    }
+
+    fn atom_id(&mut self) -> AtomId {
+        let id = AtomId(self.next_atom);
+        self.next_atom += 1;
+        id
     }
 }
