@@ -3,7 +3,6 @@
 pub mod anf;
 pub mod ast;
 mod backend;
-mod c_emit;
 pub mod check;
 pub mod cli;
 pub mod closure;

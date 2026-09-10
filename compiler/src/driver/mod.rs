@@ -79,7 +79,9 @@ pub fn build(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     .ok_or_else(|| Error::new("malc: LLVM backend rejected an admitted program"))?;
     let module_path = temporary.path().join("program.ll");
     let shim_path = temporary.path().join("program-shim.c");
-    let header_path = temporary.path().join(crate::c_emit::GENERATED_HEADER_NAME);
+    let header_path = temporary
+        .path()
+        .join(crate::backend::c::GENERATED_HEADER_NAME);
     fs::write(&module_path, generated.module)
         .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
     fs::write(&shim_path, generated.shim)

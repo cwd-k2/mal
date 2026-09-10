@@ -37,7 +37,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `execution` | closure-converted programを保持し、closure target、tail fusion、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
-| `c_emit` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
+| `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
 | `driver` | source file、require path、temporary path、C compiler process、C build inputのownership |
@@ -70,12 +70,12 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 | `check`、diagnostic | `source -> lexer -> parser -> resolve -> check` | checked programまたはstructured diagnostic |
 | editor semantic query | frontendのresolved programとchecked program `-> editor` | source identityに基づくsemantic index |
 | `format` | `source -> lossless lexer -> parser -> formatter` | commentとliteral spellingを保持したsource text |
-| `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> c_emit` | checked host interfaceだけから生成したC headerまたはadapter stub |
+| `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> backend/c` | checked host interfaceだけから生成したC headerまたはadapter stub |
 | `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
 
 `ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
 source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は
-value bindingをlowerせず、このmetadataを直接`c_emit`へ渡す。`build`では同じ`ProgramInterface`をLLVM executable bodyと
+value bindingをlowerせず、このmetadataを直接`backend/c`へ渡す。`build`では同じ`ProgramInterface`をLLVM executable bodyと
 C shimの共通ABI planへ渡す。
 
 `pipeline`はin-memory source graphから上記stageを構成し、filesystemやprocessを扱わない。`driver`はrequire pathを解決して
@@ -132,17 +132,17 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
 | `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat `Symbol`、観測、連結、外部byte copy、C shim用のborrowed byte viewを実装 |
-| `c_emit/syntax` | C translation unit、declaration、expression、statement、definition、preprocessor構文のRust内DSL。構文nodeは最終renderまで保持する |
-| `c_emit/syntax/name`、`c_emit/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
-| `c_emit/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
-| `c_emit/types::TypeRegistry` | translation unit全体のstructural representation identityとC typeへのmapping |
-| `c_emit/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを収集する走査 |
-| `c_emit/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
-| `c_emit/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
-| `c_emit/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
+| `backend/c/syntax` | public headerとhost stubが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
+| `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
+| `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
+| `backend/c/types::TypeRegistry` | host interface全体のstructural representation identityとC typeへのmapping |
+| `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを収集する走査 |
+| `backend/c/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
+| `backend/c/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
+| `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
-`backend/llvm`、`Symbol`の連続表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`c_emit/header`が所有する。着手順と計測gateは
+`backend/llvm`、`Symbol`の連続表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
 [generated program最適化計画](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

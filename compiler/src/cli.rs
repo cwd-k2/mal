@@ -97,12 +97,12 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
 
 fn execute_emit_host(arguments: &[OsString]) -> Outcome {
     let (source, header_name) = match arguments {
-        [source] => (source, crate::c_emit::GENERATED_HEADER_NAME),
+        [source] => (source, crate::backend::c::GENERATED_HEADER_NAME),
         [source, option, header_name] if option == OsStr::new("--header") => {
             let Some(header_name) = header_name.to_str() else {
                 return usage_error("emit-host header name must be valid UTF-8");
             };
-            if !crate::c_emit::is_valid_header_name(header_name) {
+            if !crate::backend::c::is_valid_header_name(header_name) {
                 return usage_error("emit-host header name is not valid in a quoted C include");
             }
             (source, header_name)
@@ -124,7 +124,8 @@ fn execute_emit_host(arguments: &[OsString]) -> Outcome {
 fn execute_emit_header(arguments: &[OsString]) -> Outcome {
     let (source, output) = match arguments {
         [source] => {
-            let output = PathBuf::from(source).with_file_name(crate::c_emit::GENERATED_HEADER_NAME);
+            let output =
+                PathBuf::from(source).with_file_name(crate::backend::c::GENERATED_HEADER_NAME);
             (source, output)
         }
         [source, option, output] if option == OsStr::new("--output") => {

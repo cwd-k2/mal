@@ -25,7 +25,7 @@ pub(crate) fn generate(
     let body = body::generate(program, pointer_size)?;
     let types = body::types::Types::new(pointer_size)?;
     let entry = AbiFunction::program_entry();
-    let raw_types = crate::c_emit::RawHostTypes::new(&program.lowered.interface);
+    let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
         .lowered
         .interface
@@ -135,7 +135,7 @@ fn pointer_size(data_layout: &str) -> Option<usize> {
 fn external_bridge(
     external: &crate::core::ast::ExternalOperation,
     pointer_size: usize,
-    raw_types: &crate::c_emit::RawHostTypes,
+    raw_types: &crate::backend::c::RawHostTypes,
 ) -> Option<(String, String)> {
     use crate::check::ast::Type;
 
@@ -206,7 +206,7 @@ fn external_bridge(
 struct BridgeMarshalling<'a> {
     external: u32,
     types: body::types::Types,
-    raw_types: &'a crate::c_emit::RawHostTypes,
+    raw_types: &'a crate::backend::c::RawHostTypes,
     next_helper: usize,
     helpers: String,
 }
@@ -215,7 +215,7 @@ impl<'a> BridgeMarshalling<'a> {
     fn new(
         external: u32,
         types: body::types::Types,
-        raw_types: &'a crate::c_emit::RawHostTypes,
+        raw_types: &'a crate::backend::c::RawHostTypes,
     ) -> Self {
         Self {
             external,
