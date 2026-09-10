@@ -6,6 +6,7 @@ mod closure;
 mod continuation;
 mod frame;
 pub(crate) mod ownership;
+mod parameter;
 mod region;
 mod tail;
 
@@ -14,6 +15,7 @@ pub(crate) use call::{ControlCallMode, ControlCallPlan};
 pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use frame::{ControlFrame, ControlFramePlan};
+pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 pub(crate) use tail::TailCallPlan;
 
@@ -21,6 +23,7 @@ pub(crate) struct Program {
     pub(crate) lowered: closure_ast::Program,
     pub(crate) control: crate::control::ast::Program,
     pub(crate) applications: ApplicationGraph,
+    pub(crate) parameters: ParameterPlan,
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
@@ -30,6 +33,8 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));
     let control = crate::control::lower(&lowered);
+    let parameters = ParameterPlan::new(&control);
+    debug_assert!(parameters.is_valid(&control));
     let applications = ApplicationGraph::new(&lowered, &control, &closure_uses);
     let tail_calls = TailCallPlan::new(&lowered, &control, &applications);
     let continuations = ContinuationGraph::new(&applications, &tail_calls);
@@ -58,6 +63,7 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
         lowered,
         control,
         applications,
+        parameters,
         control_calls,
         control_regions,
         control_frames,

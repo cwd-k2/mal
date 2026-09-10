@@ -1121,6 +1121,88 @@ fn runs_managed_direct_self_tail_calls_through_llvm() {
 }
 
 #[test]
+fn hands_direct_self_arguments_to_wildcard_parameters() {
+    let directory = NativeFixture::new("driver-llvm-self-wildcard");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern again :: Unit -> Bool;\n\
+         make :: Int32 -> (Unit -> Int32) := (value) { () { value }; };\n\
+         unmanagedFrame :: Int32 -> Int32 := (_) {\n\
+           if (again()) then { child := unmanagedFrame(1i32); child + 1i32; }\n\
+           else { 0i32 };\n\
+         };\n\
+         managedFrame :: (Unit -> Int32) -> Int32 := (_) {\n\
+           if (again()) then { child := managedFrame(make(1i32)); child + 1i32; }\n\
+           else { 0i32 };\n\
+         };\n\
+         unmanagedTail :: Int32 -> Int32 := (_) {\n\
+           if (again()) then { unmanagedTail(1i32) } else { 0i32 };\n\
+         };\n\
+         managedTail :: (Unit -> Int32) -> Int32 := (_) {\n\
+           if (again()) then { managedTail(make(1i32)) } else { 0i32 };\n\
+         };\n\
+         main :: Unit -> Int32 := () {\n\
+           framed := unmanagedFrame(0i32) + managedFrame(make(0i32));\n\
+           framed + unmanagedTail(0i32) + managedTail(make(0i32)) - 2i32;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         #include <stdlib.h>\n\
+         static unsigned long calls;\n\
+         static unsigned long live_allocations;\n\
+         void *__real_malloc(size_t size);\n\
+         void *__real_realloc(void *allocation, size_t size);\n\
+         void __real_free(void *allocation);\n\
+         void *__wrap_malloc(size_t size) {\n\
+           void *allocation = __real_malloc(size);\n\
+           if (allocation != NULL) { ++live_allocations; }\n\
+           return allocation;\n\
+         }\n\
+         void *__wrap_realloc(void *allocation, size_t size) {\n\
+           void *resized = __real_realloc(allocation, size);\n\
+           if (resized != NULL && allocation == NULL) { ++live_allocations; }\n\
+           return resized;\n\
+         }\n\
+         void __wrap_free(void *allocation) {\n\
+           if (allocation != NULL) { --live_allocations; }\n\
+           __real_free(allocation);\n\
+         }\n\
+         __attribute__((destructor)) static void check_allocations(void) {\n\
+           if (live_allocations != 0) { _Exit(99); }\n\
+         }\n\
+         MAL_DEFINE_again(call) {\n\
+           ++calls;\n\
+           return mal_Bool_return(call, (calls & 1UL) != 0 ? mal_true : mal_false);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=malloc"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=realloc"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=free"),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let directory = NativeFixture::new("driver-llvm-integers");
     let source = directory.join("program.mal");

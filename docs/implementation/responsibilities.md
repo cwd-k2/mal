@@ -114,6 +114,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
+| `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/ownership` | 型がmanaged ownerを含むかをbackend間で共通に分類 |
 | `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |

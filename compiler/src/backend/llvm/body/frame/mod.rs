@@ -94,16 +94,7 @@ impl FunctionEmitter<'_> {
             }
             self.retain_if_borrowed(&mut argument)?;
             self.release_local_managed();
-            if let Some(parameter) = self.function.parameter.binding {
-                let slot = self.slots.get(&parameter)?.clone();
-                let value_type = self.types.value(&slot.ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, argument.representation, slot.index, value_type.alignment
-                ));
-            } else if self.function.parameter.ty != Type::Unit {
-                return None;
-            }
+            self.emit_parameter_handoff(self.function.id, &argument)?;
             self.line(format!("  br label %mal_state_{}", self.function.entry.0));
             Some(())
         }
@@ -255,23 +246,7 @@ impl FunctionEmitter<'_> {
             .iter()
             .find(|function| function.id == target)?;
         let entry = function.entry;
-        let parameter = function.parameter.clone();
-        if parameter.ty != argument.ty {
-            return None;
-        }
-        if let Some(binding) = parameter.binding {
-            let slot = self.slots.get(&binding)?.clone();
-            if slot.ty != parameter.ty {
-                return None;
-            }
-            let value_type = self.types.value(&slot.ty)?;
-            self.line(format!(
-                "  store {} {}, ptr %mal_slot_{}, align {}",
-                value_type.llvm, argument.representation, slot.index, value_type.alignment
-            ));
-        } else if parameter.ty != Type::Unit && argument.owned {
-            self.release_value(&argument.ty, &argument.representation)?;
-        }
+        self.emit_parameter_handoff(target, argument)?;
         self.line(format!("  br label %mal_state_{}", entry.0));
         Some(())
     }

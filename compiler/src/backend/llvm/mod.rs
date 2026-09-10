@@ -496,6 +496,32 @@ mod tests {
     }
 
     #[test]
+    fn admits_direct_self_handoffs_to_wildcard_parameters() {
+        for (index, source) in [
+            "extern again :: Unit -> Bool; walk :: Int32 -> Int32 := (_) { if (again()) then { child := walk(1i32); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () { walk(0i32); };",
+            "extern again :: Unit -> Bool; make :: Int32 -> (Unit -> Int32) := (value) { () { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) { if (again()) then { child := walk(make(1i32)); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () { walk(make(0i32)); };",
+            "extern again :: Unit -> Bool; walk :: Int32 -> Int32 := (_) { if (again()) then { walk(1i32) } else { 0i32 }; }; main :: Unit -> Int32 := () { walk(0i32); };",
+            "extern again :: Unit -> Bool; make :: Int32 -> (Unit -> Int32) := (value) { () { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) { if (again()) then { walk(make(1i32)) } else { 0i32 }; }; main :: Unit -> Int32 := () { walk(make(0i32)); };",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let source = SourceFile::new(
+                FileId::new(80),
+                "direct-self-wildcard.mal",
+                source.into(),
+            );
+            let checked = crate::pipeline::check(&source).expect("check wildcard fixture");
+            let core = crate::core::lower(&checked);
+            let anf = crate::anf::lower(&core);
+            let closure = crate::closure::convert(&anf);
+            let execution = crate::execution::lower(closure);
+
+            assert!(supports(&execution), "unsupported wildcard fixture {index}");
+        }
+    }
+
+    #[test]
     fn reads_the_default_pointer_layout_and_an_explicit_address_space_zero_layout() {
         assert_eq!(pointer_size("e-m:e-i64:64"), Some(8));
         assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));

@@ -4,7 +4,7 @@ use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
-use crate::execution::{ControlCallMode, ControlRegionId};
+use crate::execution::{ControlCallMode, ControlRegionId, ParameterDestination};
 
 mod aggregate;
 mod bridge;
@@ -327,19 +327,16 @@ impl<'a> FunctionEmitter<'a> {
                 "  %mal_bridge_result = alloca [{size} x i8], align {alignment}"
             ));
         }
-        if let Some(id) = self.function.parameter.binding {
-            let slot = self.slots.get(&id)?.clone();
-            let value_type = self.types.value(&slot.ty)?;
+        if let ParameterDestination::Bind(_) =
+            self.execution.parameters.destination(self.function.id)?
+        {
             let mut parameter = EmittedValue {
-                ty: slot.ty.clone(),
+                ty: self.function.parameter.ty.clone(),
                 representation: "%mal_parameter".into(),
                 owned: false,
             };
             self.retain_if_borrowed(&mut parameter)?;
-            self.line(format!(
-                "  store {} {}, ptr %mal_slot_{}, align {}",
-                value_type.llvm, parameter.representation, slot.index, value_type.alignment
-            ));
+            self.emit_parameter_handoff(self.function.id, &parameter)?;
         }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 
@@ -485,20 +482,14 @@ impl<'a> FunctionEmitter<'a> {
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
                         let mut value = self.atom(argument)?;
-                        let function = self.current_function()?;
-                        let parameter = function.parameter.binding?;
-                        let slot = self.slots.get(&parameter)?.clone();
-                        if slot.ty != value.ty {
+                        let function = self.current_function()?.clone();
+                        if function.parameter.ty != value.ty {
                             return None;
                         }
                         self.retain_if_borrowed(&mut value)?;
                         self.release_local_managed();
-                        let value_type = self.types.value(&slot.ty)?;
-                        self.line(format!(
-                            "  store {} {}, ptr %mal_slot_{}, align {}",
-                            value_type.llvm, value.representation, slot.index, value_type.alignment
-                        ));
-                        self.line(format!("  br label %mal_state_{}", self.function.entry.0));
+                        self.emit_parameter_handoff(function.id, &value)?;
+                        self.line(format!("  br label %mal_state_{}", function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(target, callee, argument, true)?;
@@ -577,6 +568,37 @@ impl<'a> FunctionEmitter<'a> {
             representation: register,
             owned: crate::execution::ownership::is_managed(&lowered.body.result.ty),
         })
+    }
+
+    fn emit_parameter_handoff(&mut self, target: FunctionId, value: &EmittedValue) -> Option<()> {
+        let function = self
+            .control
+            .functions
+            .iter()
+            .find(|function| function.id == target)?;
+        if function.parameter.ty != value.ty
+            || (crate::execution::ownership::is_managed(&value.ty) && !value.owned)
+        {
+            return None;
+        }
+        match self.execution.parameters.destination(target)? {
+            ParameterDestination::Bind(binding) => {
+                let slot = self.slots.get(&binding)?.clone();
+                if slot.ty != value.ty {
+                    return None;
+                }
+                let value_type = self.types.value(&slot.ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, value.representation, slot.index, value_type.alignment
+                ));
+            }
+            ParameterDestination::Discard if value.owned => {
+                self.release_value(&value.ty, &value.representation)?;
+            }
+            ParameterDestination::Discard => {}
+        }
+        Some(())
     }
 
     fn emit_environment_destructor(&mut self) -> Option<()> {
