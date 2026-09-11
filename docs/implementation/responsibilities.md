@@ -151,6 +151,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを収集する走査 |
 | `backend/c/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
 | `backend/c/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
+| `backend/c/types/host/declaration` | host adapter内部表現とpublic C headerに必要なhost-visible type declarationを構成 |
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
