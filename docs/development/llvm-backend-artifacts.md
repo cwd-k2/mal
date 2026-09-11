@@ -115,23 +115,22 @@ LLVM moduleはhost-visible aggregateを直接C ABIで渡さない。program root
 
 ```c
 extern void mal_program_entry(
-    MalContext *context,
+    void *context,
     const void *argument,
-    void *result_out
+    void *result
 );
 
-int main(int argc, char **argv) {
-    MalContext context;
-    MalEntryArgument argument;
-    MalEntryResult result;
-
-    mal_context_initialize(&context);
-    mal_prepare_arguments(&argument, argc, argv);
-    mal_program_entry(&context, &argument, &result);
-    mal_context_destroy(&context);
-    return mal_result_exit_status(&result);
+int main(void) {
+    MalContext context = {0};
+    int32_t result;
+    mal_program_entry(&context, NULL, &result);
+    mal_control_destroy(&context);
+    return result;
 }
 ```
+
+`(UInt64, Ptr) -> Int32` entryではshimが`argv[1]`以降をpointerとbyte lengthのdescriptor列へ変換し、target data layoutに
+従って構成したargument storageを第二parameterへ渡す。いずれのentry形でも第三parameterは`Int32` resultの格納先である。
 
 extern callもLLVMからgenerated C bridgeを呼び、bridgeがpublic host valueへの変換とterminal returnを実行する。host implementationは
 `program.mal.h`の`MAL_DEFINE_<name>`だけを使い、LLVM module、bridge signature、runtime carrierを参照しない。

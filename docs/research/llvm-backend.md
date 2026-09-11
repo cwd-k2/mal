@@ -35,7 +35,6 @@ malへの含意:
 - generated function、frame type、helperは外部公開が必要なもの以外をmodule内へ閉じる。
 - known state transitionは直接branchにし、動的callee選択だけをdispatcherへ集める。
 - explicit continuation arenaと、SSAへ昇格可能なactivation-local slotを同じstorageとして扱わない。
-- 既存generated CをClangでLLVM IRへ変換し、direct backendのIR shapeと比較する。
 
 ## C ABIとtarget
 

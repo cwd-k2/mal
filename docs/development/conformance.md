@@ -67,10 +67,10 @@ rootを示し、実体が同名の子moduleに分割されている場合を含�
 | [`extern`: boundary transport](../spec/extern.md#boundary-transport) | P/E: Symbol型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/driver/artifacts.rs`）、`socket-packet` example（`compiler/tests/driver.rs`） |
 | [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/driver/artifacts.rs`） | checked-in host adapter、`socket-packet`のgenerated macro使用（`compiler/tests/driver.rs`） |
 | [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
-| [`c-host-abi`: generated headerとsymbol](../spec/c-host-abi.md#generated-header) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/driver/artifacts.rs`） | headerをincludeするhost fixture群 |
+| [`c-host-abi`: Host operationとSymbol](../spec/c-host-abi.md#host-operation) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/driver/artifacts.rs`） | headerをincludeするhost fixture群 |
 | [`c-host-abi`: Host value mapping](../spec/c-host-abi.md#host-value-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/driver/artifacts.rs`） | 各ABI round-trip test、`bridges_symbol_parameters_and_results_through_the_public_c_abi`（`compiler/tests/driver/artifacts.rs`） |
-| [`c-host-abi`: closure exclusion](../spec/c-host-abi.md#closure-exclusion) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
-| [`c-host-abi`: failure](../spec/c-host-abi.md#failure) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/driver/artifacts.rs`） | `mal_trap`を含むnative trap tests、`socket-packet`のrecoverable payload rejection |
+| [`extern`: closure exclusion](../spec/extern.md#transportable-type) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
+| [`c-host-abi`: failure](../spec/c-host-abi.md#failureとconcurrency) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/driver/artifacts.rs`） | `mal_trap`を含むnative trap tests、`socket-packet`のrecoverable payload rejection |
 
 ## Programと字句・文法
 

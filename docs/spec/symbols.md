@@ -51,7 +51,7 @@ storageを共有または再利用してよい。
 length、byte access、equalityは既存のbyte sequenceを観測するoperationであり、新しいEngramを構成しない。したがって、
 有効なoperandに対して内部表現だけを理由とするstorage allocationやallocation failureを追加してはならない。
 `Symbol.write`にも同じ規則を適用する。連続したborrow領域を要求するreference C ABIのextern parameter準備は
-source-level operationではなく、[C host ABI](c-host-abi.md#type-mapping)が所有する境界処理である。
+source-level operationではなく、[C host ABI](c-host-abi.md#host-value-mapping)が所有する境界処理である。
 
 byte accessはimmutableなbyte valueに対する位置指定のobservationであり、`Symbol`をindexed storageとして定めるものではない。
 反復的な更新、再利用可能なbuffer、またはstorageのboundsとlifetimeを必要とするalgorithmは、次節の`Ptr`またはexternal

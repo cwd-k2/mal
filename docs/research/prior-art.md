@@ -11,7 +11,7 @@ Status: Informative
 mal への含意:
 
 - product/sum 自体は小さく明瞭な型規則を持てる。
-- exhaustive case は単なる利便性ではなく、stuck state を避ける中心規則になる。
+- exhaustiveなsum eliminationは単なる利便性ではなく、stuck stateを避ける中心規則になる。
 - `extern` と trap は「必ず value または step」という純粋な progress の外側に、明示した結果として加えるべきである。
 
 ## 整数と trap
@@ -23,7 +23,7 @@ mal への含意:
 - signed/unsigned の representation と interpretation を分ければ、二の補数 wrap を backend 非依存に定義しやすい。
 - division、conversion、shift の edge case は「target の挙動に従う」ではなく個別に列挙する必要がある。
 
-[LLVM の UB/poison 解説](https://llvm.org/docs/UndefinedBehavior.html) では `nsw` 付き演算の overflow が poison を作る。これは、mal の wrap semantics を LLVM/C backend の signed operation へ無条件に写せないことの確認材料になる。
+[LLVM の UB/poison 解説](https://llvm.org/docs/UndefinedBehavior.html) では `nsw` 付き演算の overflow が poison を作る。これは、mal の wrap semantics を LLVM instructionやC runtimeのsigned operationへ無条件に写せないことの確認材料になる。
 
 ## 浮動小数点
 

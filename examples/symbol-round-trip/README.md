@@ -9,7 +9,6 @@ From the repository root in Nushell:
 
 ```nu
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/symbol-round-trip/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- emit-c examples/symbol-round-trip/program.mal --output /tmp/mal-symbol-round-trip.c
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/symbol-round-trip/program.mal --output /tmp/mal-symbol-round-trip
 /tmp/mal-symbol-round-trip
 ```
