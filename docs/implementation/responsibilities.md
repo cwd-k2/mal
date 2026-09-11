@@ -99,6 +99,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `resolve/expression` | expression、transitive capture、lambda-local return authorityの解決とcapture拒否 |
 | `check` | program順序、value environment、return target、checked itemの構成 |
 | `check/control` | `if`と`when`の`Value` / `Abrupt` completion joinを構成 |
+| `check/lambda` | expected function型に対するparameter、return binder arity、lambda body completionを検査 |
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
 | `check/interface` | extern transport検査とsource-level alias metadata |
 | `check/initializer` | top-level closed-value admission |
@@ -110,6 +111,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
+| `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
+| `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |

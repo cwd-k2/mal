@@ -12,6 +12,7 @@ mod float;
 mod initializer;
 mod integer;
 mod interface;
+mod lambda;
 mod memory;
 mod operator;
 mod product;

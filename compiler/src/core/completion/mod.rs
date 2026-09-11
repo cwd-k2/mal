@@ -1,10 +1,15 @@
-use crate::ast::{BinaryOperator, UnaryOperator};
+use crate::ast::BinaryOperator;
 use crate::check::ast as checked;
 
 use super::Lowerer;
 use super::ast::{Binding, Expression, ExpressionKind, Pattern};
 
 type Continuation<'a> = dyn FnMut(&mut Lowerer, Expression) -> Expression + 'a;
+
+mod presence;
+mod value;
+
+use presence::contains_control;
 
 impl Lowerer {
     pub(super) fn lower_lambda_body(
@@ -449,151 +454,5 @@ impl Lowerer {
             )
         };
         self.lower_value_with(left, result_type, &mut next)
-    }
-
-    fn lower_unary_value(
-        &mut self,
-        operator: UnaryOperator,
-        operand: Expression,
-        source: &checked::Expression,
-    ) -> Expression {
-        match operator {
-            UnaryOperator::LogicalNot => self.case(
-                operand,
-                vec![
-                    self.wildcard_arm(0, self.bool_value(true, source.span), source.span),
-                    self.wildcard_arm(1, self.bool_value(false, source.span), source.span),
-                ],
-                source.ty.clone(),
-                source.span,
-            ),
-            UnaryOperator::Negate | UnaryOperator::BitwiseNot => Expression {
-                kind: ExpressionKind::PrimitiveUnary {
-                    operator: if operator == UnaryOperator::Negate {
-                        super::ast::UnaryPrimitive::Negate
-                    } else {
-                        super::ast::UnaryPrimitive::BitwiseNot
-                    },
-                    operand: Box::new(operand),
-                },
-                ty: source.ty.clone(),
-                span: source.span,
-            },
-            UnaryOperator::SymbolLength => unreachable!("symbol length has a dedicated node"),
-        }
-    }
-
-    fn lower_binary_value(
-        &mut self,
-        operator: BinaryOperator,
-        left: Expression,
-        right: Expression,
-        source: &checked::Expression,
-    ) -> Expression {
-        if matches!(operator, BinaryOperator::Equal | BinaryOperator::NotEqual)
-            && left.ty == super::bool::bool_type()
-        {
-            let left_id = self.temporary();
-            let right_id = self.temporary();
-            let equal = operator == BinaryOperator::Equal;
-            let compare_right = |lowerer: &Lowerer, zero, one| {
-                lowerer.case(
-                    lowerer.reference(right_id, super::bool::bool_type(), source.span),
-                    vec![
-                        lowerer.wildcard_arm(0, lowerer.bool_value(zero, source.span), source.span),
-                        lowerer.wildcard_arm(1, lowerer.bool_value(one, source.span), source.span),
-                    ],
-                    super::bool::bool_type(),
-                    source.span,
-                )
-            };
-            let comparison = self.case(
-                self.reference(left_id, super::bool::bool_type(), source.span),
-                vec![
-                    self.wildcard_arm(0, compare_right(self, equal, !equal), source.span),
-                    self.wildcard_arm(1, compare_right(self, !equal, equal), source.span),
-                ],
-                super::bool::bool_type(),
-                source.span,
-            );
-            let bind = |id, value: Expression, body: Expression| Expression {
-                kind: ExpressionKind::Let {
-                    binding: Box::new(Binding {
-                        pattern: Pattern::Binding {
-                            id,
-                            ty: super::bool::bool_type(),
-                        },
-                        value,
-                        span: source.span,
-                    }),
-                    body: Box::new(body),
-                },
-                ty: super::bool::bool_type(),
-                span: source.span,
-            };
-            return bind(left_id, left, bind(right_id, right, comparison));
-        }
-        Expression {
-            kind: ExpressionKind::PrimitiveBinary {
-                operator: super::primitive::lower_binary_primitive(operator),
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-            ty: source.ty.clone(),
-            span: source.span,
-        }
-    }
-}
-
-fn contains_control(value: &checked::Expression) -> bool {
-    use checked::ExpressionKind;
-    match &value.kind {
-        ExpressionKind::Parenthesized(inner) => contains_control(inner),
-        ExpressionKind::Product(elements) => elements.iter().any(contains_control),
-        ExpressionKind::Call { callee, argument } => {
-            contains_control(callee) || contains_control(argument)
-        }
-        ExpressionKind::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            contains_control(condition)
-                || block_contains_control(then_branch)
-                || block_contains_control(else_branch)
-        }
-        ExpressionKind::Unary { operand, .. }
-        | ExpressionKind::SymbolLength { value: operand }
-        | ExpressionKind::NumericConversion { value: operand }
-        | ExpressionKind::SumInjection { value: operand, .. } => contains_control(operand),
-        ExpressionKind::Binary { left, right, .. } => {
-            contains_control(left) || contains_control(right)
-        }
-        ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
-            contains_control(argument)
-        }
-        ExpressionKind::SumElimination {
-            scrutinee,
-            continuations,
-        } => contains_control(scrutinee) || continuations.iter().any(contains_control),
-        ExpressionKind::Lambda(_)
-        | ExpressionKind::Reference(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::Float(_)
-        | ExpressionKind::Symbol(_)
-        | ExpressionKind::StorageSize(_)
-        | ExpressionKind::Unit
-        | ExpressionKind::MemoryFunction { .. }
-        | ExpressionKind::InjectionConstructor { .. } => false,
-    }
-}
-
-fn block_contains_control(block: &checked::ExpressionBlock) -> bool {
-    block.items.iter().any(|item| match item {
-        checked::BodyItem::Binding(binding) => contains_control(&binding.value),
-        checked::BodyItem::Expression(value) => contains_control(value),
-    }) || match block.result.as_ref() {
-        checked::Completion::Value(value) => contains_control(value),
-        checked::Completion::Abrupt(_) => true,
     }
 }
