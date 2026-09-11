@@ -34,6 +34,7 @@
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
+| CPS計算と明示的control portの試験設計を読む | [CPS計算と明示的control port](design/cps-control.md) | [最小性](design/minimality.md)、[application control lowering](development/application-control-lowering.md) |
 | C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
