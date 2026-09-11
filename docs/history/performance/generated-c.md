@@ -10,7 +10,7 @@ Status: Historical measurement record
 wall-clock値はconformanceではなく、同じ環境内で変更前後を比較するための観測値である。時間そのものをCI testへ
 固定しない。behavior、generated Cの構造、同一machineでの反復比率を分けて検証する。
 
-## 現在のbaseline
+## 最終baseline
 
 2026-09-09にinteractiveな053を除くTypical90の79問を、`75cf7ed`、Clang 21.1.8の`-O2`、
 同じmaximum-order input、warmup 3回、
@@ -56,7 +56,7 @@ runnerがmal側にもClang 21.1.8を明示するよう訂正し、同じmaximum-
 両方を同じClang、`-O2`、public buildのstrict float optionでbuildした。
 
 最初の再測定はHyperfineが一方のbinaryを20回すべて実行してから他方を実行する順序だった。043を含む長時間caseで、先行する
-command groupにhost負荷の時間変動が偏ることを確認したため、現在値は1回ずつのHyperfine測定を20 round行い、roundごとに
+command groupにhost負荷の時間変動が偏ることを確認したため、この記録の採用値は1回ずつのHyperfine測定を20 round行い、roundごとに
 mal/Cの先行順を反転したものを正とする。Nushellから直接測った経過時間は短時間caseへ数msのrunner costを加えたため採用せず、
 process時間は各Hyperfine invocationに測らせる。
 
@@ -67,7 +67,7 @@ process時間は各Hyperfine invocationに測らせる。
 027のhost adapterはadmission中のdataとcapacityをbyte loop外で保持し、C側もtokenごとの動的admissionと、その後のrecord処理を
 分離した。
 
-mixed-toolchainで得た比率は調査候補の発見にだけ使い、現在値やcompiler改善幅には使わない。source、生成物、Hyperfine JSONなどの
+mixed-toolchainで得た比率は調査候補の発見にだけ使い、採用値やcompiler改善幅には使わない。source、生成物、Hyperfine JSONなどの
 raw artifactはlocalの`.scratch/`に置き、tracked repositoryには含めない。
 
 ## application control lowering実装前後

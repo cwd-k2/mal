@@ -46,12 +46,12 @@ analysisとindexを破棄する。diagnosticだけを必要とするchangeでは
 parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側は
 [generated C performance記録](generated-c.md)の再検討条件を満たす新しいhotspotがないため変更しない。
 
-## 未解決の入力深度
+## 2026-09-05に確認した入力深度
 
-一つのblockで、直前のbindingを参照する単純なbindingを512個直列に並べて`emit-c`まで処理すると、
-reference compilerがRust threadのstack overflowでabortすることを確認している。通常のdiagnostic経路を通らない
-compiler processの異常終了なので、入力規模の性能問題ではなくrobustness defectとして扱う。
+一つのblockで、直前のbindingを参照する単純なbindingを512個直列に並べて当時の`emit-c`まで処理すると、
+reference compilerがRust threadのstack overflowでabortすることを確認した。通常のdiagnostic経路を通らない
+compiler processの異常終了なので、この記録では入力規模の性能問題ではなくrobustness defectとして分類した。
 
-修正時は、どのstageの再帰がsource上のbinding数に比例して深くなるかを切り分ける。十分に大きい直列blockを
-正常にcompileするかstructured diagnosticとして拒否し、processをabortしないことをregression testの完了条件とする。
+解消条件は、どのstageの再帰がsource上のbinding数に比例して深くなるかを切り分け、十分に大きい直列blockを
+正常にcompileするかstructured diagnosticとして拒否し、processをabortしないregression testを置くこととした。
 この調査はgenerated programのSymbol表現とは独立に行う。
