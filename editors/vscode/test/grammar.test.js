@@ -107,16 +107,16 @@ test('highlights requirements and private identifiers', async () => {
   );
 });
 
-test('treats removed case as an ordinary value identifier', async () => {
+test('classifies lowercase names outside the keyword set as value identifiers', async () => {
   const grammar = await loadGrammar();
-  const line = 'case := value;';
+  const line = 'ordinary := value;';
   const token = grammar
     .tokenizeLine(line)
     .tokens.map((candidate) => ({
       text: line.slice(candidate.startIndex, candidate.endIndex),
       scopes: candidate.scopes,
     }))
-    .find((candidate) => candidate.text === 'case');
+    .find((candidate) => candidate.text === 'ordinary');
 
   assert.ok(token.scopes.includes('variable.other.mal'));
   assert.ok(!token.scopes.includes('keyword.control.mal'));
