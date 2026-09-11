@@ -57,7 +57,9 @@ variant injectionと通常returnへlowerし、呼出側は既存のexhaustive co
 4. 空直和の除去を既存のproduct・sum規則の端点として閉じる`Empty`
 
 各単位の採否には、parse、name resolution、型規則、評価規則、lowering、およびpositive・negative・edge caseのfocused testを要求する。
-return binderはcore loweringで既存のreturn edgeへ変換し、extern interfaceへ到達する表現には残らない。
+return binderと`Abrupt`はcore loweringの入力境界で消去する。coreはlambda bodyを通常のvalue expression、branch、sum injection、
+zero-arm caseへ変換し、後段のcontrol loweringが通常のlambda resultを既存のreturn terminatorへ接続する。source-levelのbinderと
+completion judgmentはANF以降へ渡さない。
 
 ## 単一return binder
 
@@ -182,6 +184,10 @@ join(Abrupt, Value(T))   = Value(T)
 join(Abrupt, Abrupt)     = Abrupt
 ```
 
+checked ASTは`Value` expressionと`Abrupt` control expressionを異なるvariantとして保持する。`Abrupt`へ期待型や仮のvalue typeを
+付けず、optional type fieldやflagで両者を兼用しない。core loweringはこの区別を受け取る唯一の後段であり、lexicalな後続を
+組み替えて通常のcore expressionへ変換する。
+
 異なる二つの`Value`型は従来どおりtype errorになる。return binder applicationとempty eliminationは`Abrupt`になる。
 return binder groupを持つlambda bodyは`Abrupt`だけを受理し、binderのない従来lambda bodyは期待result型`B`に対する`Value(B)`を
 要求する。したがってbinderを宣言したlambdaは、すべてのreachable pathをreturn binder applicationまたはempty eliminationで
@@ -197,7 +203,7 @@ argument、return、aggregate、binding RHS、またはclosure capture位置で�
 
 ## early returnとwhen
 
-`when`はfunctionではなく、Boolに対するUnit control expressionとする。
+`when`は予約語であり、functionやvalue identifierではなく、Boolに対するUnit control expressionを開始する。
 
 ```text
 whenExpr ::= "when" "(" expression ")" block
@@ -250,14 +256,15 @@ zero binderは暗黙のfallthroughやbottom valueを導入せず、function resu
 
 | Stage | Proposed responsibility |
 |---|---|
+| `lexer` | `when`をkeywordとしてtoken化する |
 | `parser` / `ast` | return binder group、`when`、empty typeとzero-continuation applicationのsource構造をadmitする |
 | `resolve` | return binderのidentityとscopeを構成し、lexical captureを拒否する |
-| `check` | result型に対するbinder数とparameter型、使用位置、`Abrupt` judgment、`when`、`Empty`を検査する |
+| `check` | result型に対するbinder数とparameter型、使用位置、`when`、`Empty`を検査し、`Value`と`Abrupt`を異なるchecked variantへadmitする |
 | `formatter` | checkerの型分類に依存せず、ASTが保持するreturn binder group、`when`、empty syntaxを出力する |
-| `core` / `anf` | single returnを既存return edge、multiple returnをsum injectionとreturn、`when`を`if`へlowerして評価順を固定する |
-| `control` | admission済みのreturnとempty eliminationを既存terminatorへ変換する |
+| `core` | lexicalな後続を組み替え、single returnをlambda result、multiple returnをsum injectionとlambda result、`when`をbranch、empty eliminationをzero-arm caseへlowerして評価順を固定する |
+| `anf` / `closure` / `control` | source-levelのbinderや`Abrupt`を再解釈せず、通常のcore expressionとzero-arm caseを既存のcontrol表現へlowerする |
 
-`execution`以降は通常function call、sum value、sum eliminationだけを受け取る。
+`execution`以降は通常function call、sum value、sum eliminationだけを受け取り、return binderやcompletion judgmentを受け取らない。
 
 単一return、sum return、curried境界、`when`、`Empty`の各単位でpositive、negative、evaluation orderをfocused testにする。
 binderを宣言したbodyのfallthrough、return後のsource item、binderの保存・返却・argument化・closure capture、binder数不一致、
