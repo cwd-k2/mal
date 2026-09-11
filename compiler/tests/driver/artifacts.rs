@@ -32,7 +32,9 @@ fn selects_optimization_profiles_at_the_public_build_boundary() {
     let directory = NativeFixture::new("driver-optimization-profile");
     let source = directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := () { left := \"a\" + \"b\"; text := left + \"c\"; Int32(#text) - 3i32; };",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); };\n\
+         walk :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { apply(walk, value - 1i32) }; };\n\
+         main :: Unit -> Int32 := () { left := \"a\" + \"b\"; text := left + \"c\"; Int32(#text) - 3i32 + walk(Int32(#text)); };",
     );
     let baseline = directory.join("baseline");
     let production = directory.join("production");

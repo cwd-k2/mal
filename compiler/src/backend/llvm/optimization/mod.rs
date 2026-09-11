@@ -5,6 +5,11 @@ use crate::control::ast::StateId;
 mod symbol_concat;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Technique {
+    SymbolConcatReuse,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct OptimizationSet(u8);
 
 impl OptimizationSet {
@@ -13,11 +18,15 @@ impl OptimizationSet {
     }
 
     pub(crate) const fn production() -> Self {
-        Self(1)
+        Self::none().with(Technique::SymbolConcatReuse)
     }
 
-    const fn symbol_concat_reuse(self) -> bool {
-        self.0 & 1 != 0
+    pub(crate) const fn with(self, technique: Technique) -> Self {
+        Self(self.0 | (1 << technique as u8))
+    }
+
+    const fn contains(self, technique: Technique) -> bool {
+        self.0 & (1 << technique as u8) != 0
     }
 }
 
@@ -38,7 +47,7 @@ impl OptimizationPlan {
         ownership: &super::body::ownership::Plan,
         enabled: OptimizationSet,
     ) -> Self {
-        let symbol_concatenations = if enabled.symbol_concat_reuse() {
+        let symbol_concatenations = if enabled.contains(Technique::SymbolConcatReuse) {
             symbol_concat::plan(control, ownership)
         } else {
             HashMap::new()
@@ -84,7 +93,7 @@ mod tests {
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);
         let ownership = super::super::body::ownership::Plan::new(&control);
-        let enabled = OptimizationSet::production();
+        let enabled = OptimizationSet::none().with(Technique::SymbolConcatReuse);
         let mut plan = OptimizationPlan::new(&control, &ownership, enabled);
 
         assert!(plan.is_valid(&control, &ownership, enabled));

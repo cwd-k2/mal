@@ -15,6 +15,10 @@ focused testと、影響する境界を代表するtestが通ったときに完�
 6. end-to-end caseは少数に保ち、[`spec/`](../spec/)のcontractから選ぶ。
 7. testが作るtemporary file、directory、process、生成物はtestが所有し、必ずcleanupする。
 
+optional optimizationは空集合の`baseline`を通常のcorrectness pathとする。各techniqueは単独のdecision testを持ち、採用済み集合は
+`production` profileとしてbaselineと同じobservable result、effect order、trap、owner終状態、bounded native stackを保つことを
+representativeなcross-boundary testで確認する。performance固有のresource上限や生成形状を検査するtestだけがproductionを明示する。
+
 大きいintegration test targetは、共通helperとprocess起動回数を管理できるようtarget自体は維持しつつ、検査する
 behaviorの領域ごとにchild moduleへ分ける。source fileと同様、行数だけを満たす分割や番号付きfileは作らない。
 

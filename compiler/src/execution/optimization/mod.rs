@@ -25,15 +25,13 @@ impl OptimizationSet {
     }
 
     pub(crate) const fn production() -> Self {
-        Self(
-            (1 << Technique::DirectCall as u8)
-                | (1 << Technique::SelfTail as u8)
-                | (1 << Technique::TailForwarder as u8),
-        )
+        Self::none()
+            .with(Technique::DirectCall)
+            .with(Technique::SelfTail)
+            .with(Technique::TailForwarder)
     }
 
-    #[cfg(test)]
-    const fn with(self, technique: Technique) -> Self {
+    pub(crate) const fn with(self, technique: Technique) -> Self {
         Self(self.0 | (1 << technique as u8))
     }
 
@@ -162,5 +160,59 @@ mod tests {
         assert!(plan.forwarded_self_arguments.is_empty());
         assert!(plan.direct_targets.is_empty());
         assert!(plan.is_valid(&closure, &control, &applications, OptimizationSet::none()));
+    }
+
+    #[test]
+    fn composes_each_execution_technique_independently() {
+        let source = SourceFile::new(
+            FileId::new(89),
+            "independent-execution-techniques.mal",
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); };\n\
+             direct :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { direct(value - 1i32) }; };\n\
+             forwarded :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { apply(forwarded, value - 1i32) }; };\n\
+             main :: Unit -> Int32 := () { direct(1i32) + forwarded(1i32); };"
+                .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse independent technique fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve independent technique fixture");
+        let checked = check::check(&resolved).expect("check independent technique fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+
+        let direct = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::none().with(Technique::DirectCall),
+        );
+        assert!(!direct.direct_targets.is_empty());
+        assert!(direct.fused_sites.is_empty());
+
+        let self_tail = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::none().with(Technique::SelfTail),
+        );
+        assert!(self_tail.direct_targets.is_empty());
+        assert!(!self_tail.fused_sites.is_empty());
+        assert!(self_tail.forwarded_self_arguments.is_empty());
+
+        let forwarder = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::none().with(Technique::TailForwarder),
+        );
+        assert!(forwarder.direct_targets.is_empty());
+        assert!(!forwarder.forwarded_self_arguments.is_empty());
+        assert_eq!(
+            forwarder.fused_sites,
+            forwarder.forwarded_self_arguments.keys().copied().collect()
+        );
     }
 }

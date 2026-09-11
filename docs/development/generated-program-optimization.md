@@ -28,6 +28,19 @@ LLVM backendではowner lifetimeのfactとstorage再利用のdecisionを分け�
 dead operandをmoveする選択だけをoptional techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、
 inliningは独自実装せずpinned LLVMへ委ねる。
 
+## technique追加contract
+
+新しいtechniqueは次を同じ変更で満たす。
+
+1. 対象のauthorityを持つstageの`optimization/`直下に、一つの適用規則だけを所有するmoduleを置く。
+2. stageの`Technique`と`OptimizationSet::production`へ採用を明示し、空集合および単独集合を構成可能に保つ。
+3. semantic inputを変更せず、集約`OptimizationPlan`へ後段が既存contractで読めるdecisionを追加する。
+4. authorityからdecision集合を再構成するexact validatorを追加する。
+5. 不適用、単独適用、baselineとのobservable behavior一致、productionで狙ったcostが減ることをそれぞれ適切なboundaryで検証する。
+
+techniqueの無効化でprogram admission、型、ABI、runtime contractが変わる場合はこのcontractを満たさない。新しいsemantic factまたはbackend
+capabilityが必要なら、そのownerの通常planを先に拡張し、optimization moduleへ事実の推論を代行させない。
+
 ## correctness baseline
 
 public `build`は既定で空のexecution technique集合、空のLLVM technique集合、Clang `-O0`、LTOなしの`baseline` profileを使う。
