@@ -139,6 +139,9 @@ impl Checker {
                     expression.span,
                     expected,
                 )?,
+                resolved::Expression::When { condition, body } => {
+                    self.check_when(condition, body, expression.span)?
+                }
                 resolved::Expression::Unary { operator, operand } => {
                     self.check_unary(operator, operand, expression.span, expected)?
                 }

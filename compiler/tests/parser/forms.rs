@@ -25,6 +25,47 @@ fn parses_parameters_and_lambda_body_items() {
 }
 
 #[test]
+fn parses_return_binders_when_and_empty_forms() {
+    let expression = binding_value(
+        "choose :: Bool -> [] := (condition)[done, failed] { when (condition) { done() }; failed() };",
+    );
+    let Expression::Lambda(lambda) = expression else {
+        panic!("expected lambda");
+    };
+    assert_eq!(
+        lambda
+            .return_binders
+            .as_ref()
+            .expect("return binder group")
+            .len(),
+        2
+    );
+    assert!(matches!(
+        lambda.body.items[0],
+        BodyItem::Expression(malc::ast::Node {
+            kind: Expression::When { .. },
+            ..
+        })
+    ));
+
+    let program = parse_ok("Empty :: []; never :: Unit -> Empty := ()[] { never()[] }; ");
+    let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
+        panic!("expected type alias");
+    };
+    assert!(matches!(&value.kind, TypeExpression::Sum(members) if members.is_empty()));
+    let TopItem::Binding(binding) = &program.items[1].kind else {
+        panic!("expected binding");
+    };
+    let Expression::Lambda(lambda) = &binding.value.kind else {
+        panic!("expected lambda");
+    };
+    assert!(lambda.return_binders.as_ref().is_some_and(Vec::is_empty));
+    assert!(
+        matches!(&lambda.body.result.kind, Expression::ContinuationApplication { continuations, .. } if continuations.is_empty())
+    );
+}
+
+#[test]
 fn parses_lambda_patterns_from_parameter_lists() {
     let expression = binding_value("make := ((x, _), y) { x + y };");
     let Expression::Lambda(lambda) = expression else {

@@ -25,6 +25,7 @@ pub enum ValueOwner {
     Predefined,
     TopLevel,
     Lambda(LambdaId),
+    Return(LambdaId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,6 +137,10 @@ pub enum Expression {
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
     },
+    When {
+        condition: Box<Node<Expression>>,
+        body: ExpressionBlock,
+    },
     Unary {
         operator: Node<UnaryOperator>,
         operand: Box<Node<Expression>>,
@@ -153,6 +158,7 @@ pub struct Lambda {
     pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
     pub parameter: Option<Box<Node<Pattern>>>,
+    pub return_binders: Option<Vec<ValueBinding>>,
     pub body: LambdaBody,
 }
 

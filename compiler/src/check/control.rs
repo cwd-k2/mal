@@ -7,6 +7,35 @@ use super::ast::{Expression, ExpressionBlock, ExpressionKind, Type};
 use super::types::bool_type;
 
 impl Checker {
+    pub(super) fn check_when(
+        &mut self,
+        condition: &Node<resolved::Expression>,
+        body: &resolved::ExpressionBlock,
+        span: crate::source::Span,
+    ) -> Result<Expression, Diagnostic> {
+        let bool_type = bool_type();
+        let condition = self.check_expression(condition, Some(&bool_type))?;
+        let body = self.check_expression_block(body, Some(&Type::Unit))?;
+        let unit = Expression {
+            kind: ExpressionKind::Unit,
+            ty: Type::Unit,
+            span,
+        };
+        Ok(Expression {
+            kind: ExpressionKind::If {
+                condition: Box::new(condition),
+                then_branch: body,
+                else_branch: ExpressionBlock {
+                    items: Vec::new(),
+                    result: Box::new(unit),
+                    span,
+                },
+            },
+            ty: Type::Unit,
+            span,
+        })
+    }
+
     pub(super) fn check_if(
         &mut self,
         condition: &Node<resolved::Expression>,

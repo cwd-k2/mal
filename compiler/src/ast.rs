@@ -107,6 +107,10 @@ pub enum Expression {
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
     },
+    When {
+        condition: Box<Node<Expression>>,
+        body: ExpressionBlock,
+    },
     Unary {
         operator: Node<UnaryOperator>,
         operand: Box<Node<Expression>>,
@@ -121,6 +125,7 @@ pub enum Expression {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub parameter: Option<Box<Node<Pattern>>>,
+    pub return_binders: Option<Vec<Name>>,
     pub body: LambdaBody,
 }
 

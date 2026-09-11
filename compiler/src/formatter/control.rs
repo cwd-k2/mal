@@ -101,6 +101,11 @@ impl ControlLayout {
                 self.mark_block(lexed, then_branch);
                 self.mark_block(lexed, else_branch);
             }
+            Expression::When { condition, body } => {
+                self.mark_control_start(lexed, expression, block_position);
+                self.mark_expression(lexed, condition, false);
+                self.mark_block(lexed, body);
+            }
             Expression::Unary { operand, .. } => self.mark_expression(lexed, operand, false),
             Expression::Binary { left, right, .. } => {
                 self.mark_expression(lexed, left, false);

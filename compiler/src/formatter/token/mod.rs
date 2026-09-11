@@ -170,7 +170,11 @@ impl Formatter<'_> {
             TokenKind::If => {
                 self.write_if(token_index, text);
             }
-            TokenKind::Require | TokenKind::Extern | TokenKind::Then | TokenKind::Else => {
+            TokenKind::Require
+            | TokenKind::Extern
+            | TokenKind::When
+            | TokenKind::Then
+            | TokenKind::Else => {
                 if matches!(
                     self.previous,
                     Previous::Word

@@ -25,6 +25,22 @@ impl Parser<'_> {
         ))
     }
 
+    pub(super) fn parse_when(&mut self) -> Result<Node<Expression>, Diagnostic> {
+        let start = self.expect(&TokenKind::When, "`when`")?.span.start();
+        self.expect(&TokenKind::LeftParen, "`(`")?;
+        let condition = self.parse_expression()?;
+        self.expect(&TokenKind::RightParen, "`)`")?;
+        let body = self.parse_expression_block()?;
+        let span = self.span(start, body.span.end());
+        Ok(Node::new(
+            Expression::When {
+                condition: Box::new(condition),
+                body,
+            },
+            span,
+        ))
+    }
+
     pub(in crate::parser) fn parse_expression_block(
         &mut self,
     ) -> Result<ExpressionBlock, Diagnostic> {

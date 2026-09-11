@@ -109,6 +109,7 @@ impl<'a> Lexer<'a> {
             "require" => TokenKind::Require,
             "extern" => TokenKind::Extern,
             "if" => TokenKind::If,
+            "when" => TokenKind::When,
             "then" => TokenKind::Then,
             "else" => TokenKind::Else,
             _ if self.bytes[start].is_ascii_uppercase() => TokenKind::TypeIdentifier,

@@ -136,6 +136,22 @@ fn keeps_single_continuation_chains_inline() {
 }
 
 #[test]
+fn formats_explicit_return_surface_forms() {
+    let formatted =
+        format("absolute::Int32->Int32:=(x)[return]{when(x>=0){return(x)};return(-x)};");
+    assert_eq!(
+        formatted,
+        concat!(
+            "absolute :: Int32 -> Int32 := (x)[return] {\n",
+            "    when (x >= 0) { return(x) };\n",
+            "    return(-x);\n",
+            "};\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_explicit_binding_and_expression_breaks() {
     let formatted = format(
         "first::(Int32,Int32)->Int32\n:=(left, right){\nresult:=left\n+right;\nemit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n(){1};",

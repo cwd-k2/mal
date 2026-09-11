@@ -52,6 +52,10 @@ impl Index {
                 self.collect_aliases_body(&then_branch.items, &then_branch.result.kind);
                 self.collect_aliases_body(&else_branch.items, &else_branch.result.kind);
             }
+            Expression::When { condition, body } => {
+                self.collect_aliases_expression(&condition.kind);
+                self.collect_aliases_body(&body.items, &body.result.kind);
+            }
             Expression::Unary { operand, .. } => self.collect_aliases_expression(&operand.kind),
             Expression::Binary { left, right, .. } => {
                 self.collect_aliases_expression(&left.kind);

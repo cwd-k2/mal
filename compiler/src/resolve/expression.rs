@@ -67,6 +67,10 @@ impl Resolver {
                 then_branch: self.resolve_expression_block(then_branch)?,
                 else_branch: self.resolve_expression_block(else_branch)?,
             },
+            ast::Expression::When { condition, body } => Expression::When {
+                condition: Box::new(self.resolve_expression(condition)?),
+                body: self.resolve_expression_block(body)?,
+            },
             ast::Expression::Unary { operator, operand } => Expression::Unary {
                 operator: operator.clone(),
                 operand: Box::new(self.resolve_expression(operand)?),
@@ -111,6 +115,16 @@ impl Resolver {
                 .map(|parameter| self.declare_pattern(parameter, ValueOwner::Lambda(id)))
                 .transpose()?
                 .map(Box::new);
+            let return_binders = lambda
+                .return_binders
+                .as_ref()
+                .map(|binders| {
+                    binders
+                        .iter()
+                        .map(|name| self.declare_value(name, ValueOwner::Return(id)))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?;
             let body = self.resolve_lambda_body(&lambda.body)?;
             let captures = std::mem::take(
                 &mut self
@@ -124,6 +138,7 @@ impl Resolver {
                 self_binding: self_binding.map(|binding| binding.id),
                 captures,
                 parameter,
+                return_binders,
                 body,
             })
         })();
@@ -190,6 +205,16 @@ impl Resolver {
         let mut binding = self
             .lookup_value(&name.text)
             .ok_or_else(|| self.unknown(name, "value"))?;
+        if let ValueOwner::Return(owner) = binding.owner
+            && Some(owner) != self.current_lambda
+        {
+            return Err(
+                Diagnostic::error("return binder cannot be captured").with_primary(
+                    name.span,
+                    "this binder belongs to an enclosing lambda invocation",
+                ),
+            );
+        }
         if let ValueOwner::Lambda(owner) = binding.owner
             && Some(owner) != self.current_lambda
             && self.recursive_lambda != self.current_lambda.map(|lambda| (lambda, binding.id))

@@ -95,7 +95,7 @@ impl Parser<'_> {
 
     fn parse_continuations(&mut self) -> Result<Vec<Node<Expression>>, Diagnostic> {
         if self.at(&TokenKind::RightBracket) {
-            return Err(self.expected("at least one continuation"));
+            return Ok(Vec::new());
         }
         let mut continuations = vec![self.parse_expression()?];
         while self.take(&TokenKind::Comma).is_some() {

@@ -161,6 +161,12 @@ impl<'a> Parser<'a> {
             ));
         }
         if let Some(left) = self.take(&TokenKind::LeftBracket) {
+            if let Some(right) = self.take(&TokenKind::RightBracket) {
+                return Ok(Node::new(
+                    TypeExpression::Sum(Vec::new()),
+                    self.join(left.span, right.span),
+                ));
+            }
             let first = self.parse_type()?;
             self.expect(&TokenKind::Comma, "`,` after the first sum member")?;
             let mut members = vec![first, self.parse_type()?];

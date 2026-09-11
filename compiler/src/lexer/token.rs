@@ -62,6 +62,7 @@ pub enum TokenKind {
     Require,
     Extern,
     If,
+    When,
     Then,
     Else,
     Underscore,

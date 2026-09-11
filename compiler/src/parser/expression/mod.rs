@@ -119,6 +119,9 @@ impl Parser<'_> {
         if self.at(&TokenKind::If) {
             return self.parse_if();
         }
+        if self.at(&TokenKind::When) {
+            return self.parse_when();
+        }
         Err(self.expected("an expression"))
     }
 

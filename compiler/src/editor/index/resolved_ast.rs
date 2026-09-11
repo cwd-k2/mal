@@ -212,6 +212,10 @@ impl Index {
                 self.collect_resolved_body(&then_branch.items, &then_branch.result);
                 self.collect_resolved_body(&else_branch.items, &else_branch.result);
             }
+            Expression::When { condition, body } => {
+                self.collect_resolved_expression(condition);
+                self.collect_resolved_body(&body.items, &body.result);
+            }
             Expression::Unary { operand, .. } => self.collect_resolved_expression(operand),
             Expression::Binary { left, right, .. } => {
                 self.collect_resolved_expression(left);
