@@ -2,6 +2,15 @@
     "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
     "nixEnvSelector.useFlakes": true,
     "nixEnvSelector.flakeShell": "default",
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/compiler/Cargo.toml",
+        "${workspaceFolder}/tools/mal-lsp/Cargo.toml"
+    ],
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.check.allTargets": true,
+    "rust-analyzer.check.extraArgs": [
+        "--locked"
+    ],
     "clangd.arguments": [
         "--query-driver=/nix/store/*-clang-wrapper-*/bin/clang"
     ]

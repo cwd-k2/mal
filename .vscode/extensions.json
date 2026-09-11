@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "arrterian.nix-env-selector",
+        "rust-lang.rust-analyzer",
+        "llvm-vs-code-extensions.vscode-clangd"
+    ]
+}

@@ -37,9 +37,12 @@ nu scripts/vscode-dev.nu --code-command /path/to/code
 
 GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
 
-repositoryの`.vscode/settings.json`はNix development environmentを選択し、clangdにNixのClang wrapperを
-queryさせる。`.clangd`はC sourceと生成headerをbackendと同じC11として解析する。設定を初めて受理した後、または
-Nix store pathがflake更新で変わった後は、VS Codeの`clangd: Restart language server`を実行する。
+repositoryの`.vscode/settings.json`はNix development environmentを選択し、`compiler`と`mal-lsp`の二つの
+Cargo manifestを`rust-analyzer`へ明示する。保存時検査は両projectのall-target Clippyを`--locked`で実行する。
+同じ設定はclangdにNixのClang wrapperをqueryさせ、`.clangd`はC sourceと生成headerをbackendと同じC11として解析する。
+`.vscode/extensions.json`はこの環境選択、Rust、Cの各extensionを推奨する。設定を初めて受理した後、またはNix store pathが
+flake更新で変わった後は、VS Codeをreloadする。個別に更新する場合は`rust-analyzer: Restart server`または
+`clangd: Restart language server`を実行する。
 
 手動で準備する場合は次を実行する。
 
