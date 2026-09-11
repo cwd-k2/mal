@@ -73,10 +73,13 @@ floating-point environmentの要件は[D019](../history/decisions/D019.md)に定
 
 `mal_false`と`mal_true`だけがvalidな`mal_Bool_t`である。`mal_Bool_return`はそれ以外をtrapする。
 
-productはsource orderの`field_<index>`を持つ。sumは`uint32_t tag`と`payload.variant_<index>`を持ち、tagは0始まりである。
+productはsource orderの`field_<index>`を持つ。二項以上のsumは`uint32_t tag`と`payload.variant_<index>`を持ち、tagは0始まりである。
 sum helperは`mal_<Type>_tag_<variant>`、pure constructor `mal_<Type>_make_<variant>`、terminal
 `mal_<Type>_return_<variant>`を生成する。parameterとして受けたsumのtagはvalidである。hostがresult内に直接構成した
 nested sumはterminal loweringがactive payloadを読む前にtagを検査し、不正値をtrapする。
+
+空直和`[]`のC carrierは`uint32_t tag`だけを持ち、payload、constructor、terminal return helperを持たない。validなtagは存在せず、
+hostから`[]`を返す正常完了も存在しない。carrierを宣言できることは値を構築するauthorityをhostへ与えない。
 
 source aliasはtransparentであり、新しいruntime representationを作らない。extern declarationとalias定義に明記された
 alias spellingだけをhost signatureとmember helperへ保存し、構造的一致から別名を推測しない。

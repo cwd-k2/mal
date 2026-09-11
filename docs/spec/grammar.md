@@ -16,7 +16,7 @@ file-private visibilityを表せる。local identifierでも同じspellingを認
 wildcard専用でidentifierではない。
 
 空白はASCII space、tab、CR、LFとする。commentは`//`からCR、LF、またはsource末尾までであり、block commentはない。
-keywordはidentifier全体が`require`、`extern`、`if`、`then`、`else`のいずれかと一致するときだけ認識する。
+keywordはidentifier全体が`require`、`extern`、`if`、`when`、`then`、`else`のいずれかと一致するときだけ認識する。
 Unicode identifierとtrailing commaは認めない。
 
 ## numeric separator
@@ -64,10 +64,12 @@ functionType ::= atomicType ("->" functionType)?
 atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | "(" type "," type ("," type)* ")"
               | sumType
-sumType     ::= "[" type "," type ("," type)* "]"
+sumType     ::= "[" "]" | "[" type "," type ("," type)* "]"
 
-lambda      ::= "(" lambdaParameter? ")" block
+lambda      ::= "(" lambdaParameter? ")" returnBinderGroup? block
 lambdaParameter ::= pattern ("," pattern)*
+returnBinderGroup ::= "[" "]"
+                    | "[" VALUE_IDENT ("," VALUE_IDENT)* "]"
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
 
@@ -75,7 +77,8 @@ pattern     ::= VALUE_IDENT | "_" | productPattern
 productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
 
 call        ::= expression "(" argumentList? ")"
-continuationApplication ::= expression "[" expression
+continuationApplication ::= expression "[" "]"
+                          | expression "[" expression
                             ("," expression)* "]"
 unitApplication ::= "[" expression "]"
 product     ::= "(" expression "," expression
@@ -97,6 +100,7 @@ byteUnit    ::= printableAsciiExceptQuoteOrBackslash
 ifExpr      ::= "if" "(" expression ")"
                 "then" block
                 "else" block
+whenExpr    ::= "when" "(" expression ")" block
 ```
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
@@ -139,7 +143,8 @@ associated itemを導入しない。認める型とprimitiveの組は[memory pri
 `#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。
 
-`[]` と `[A]` は直和型として不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
+`[]`は空直和、`[A]`は不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
+return binder group、`when`、zero-continuation applicationの意味は[明示的returnとcompletion](control.md)に定める。
 
 decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
 `DEC_DIGITS EXPONENT FLOAT_SUFFIX?`、または`DEC_DIGITS FLOAT_SUFFIX`のいずれかである。
@@ -156,3 +161,5 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 v0.5は`let`、`var`、`mut`、`const`、`fn`、`case`、return statement、loop、`break`、`continue`、record、
 class、method、nominal enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、
 exceptionを持たない。
+
+return binder applicationはstatementではなくcontrol expressionであり、`return`という予約語も存在しない。

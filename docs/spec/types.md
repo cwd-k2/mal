@@ -13,6 +13,7 @@ T ::=
   | Symbol
   | Ptr
   | (T, T, ...)
+  | []
   | [T, T, ...]
   | T -> T
   | ExternalType
@@ -87,7 +88,8 @@ b := 1[Choice](42);
 `42[0[Choice]]`、`42[1[Choice]]`とも書ける。injection indexはcompile-time integer literalでなければならず、
 範囲外はcompile-time errorになる。
 
-直和は二項以上でなければならない。`[]`と`[A]`はv0.5では不正であり、将来のために予約する。
+空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は従来どおり各項の値を持つ。
+`[]`のeliminationとcompletion規則は[明示的returnとcompletion](control.md#empty)に定める。
 
 n-ary sum と nested sum は異なる型である。
 

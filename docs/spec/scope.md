@@ -11,6 +11,7 @@ mal の責務は次に限定する。
 - lambda and application
 - product and sum
 - surface `if` and exhaustive sum continuation application
+- explicit lambda-local return binder、`when`、empty sum elimination
 - self recursion
 - fixed-width numeric, logical, and bit operations
 - language-intrinsic immutable `Symbol`
@@ -30,7 +31,7 @@ v0.5は次を言語機能として持たない。
 - struct、record、enum、class、method
 - interface、trait
 - generic、template、macro、reflection
-- exception、async/await、effect system
+- exception、async/await、effect system、first-class continuation
 - operator overloading
 - array and standard collections
 - standard library and allocator

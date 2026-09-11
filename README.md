@@ -1,7 +1,7 @@
 # mal
 
 mal is a small, strictly evaluated, statically typed functional language. Its v0.5 development
-profile combines immutable bindings, lexical closures, products and sums, fixed-width numeric
+profile combines immutable bindings, lexical closures, explicit returns, products and sums, fixed-width numeric
 types, immutable byte-valued `Symbol`s, explicit external effects, and untyped `Ptr` memory access.
 The language keeps allocation, files, networking, clocks, randomness, and other platform policy on
 the host side of an explicit `extern` boundary.

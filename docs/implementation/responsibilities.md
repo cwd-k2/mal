@@ -90,14 +90,15 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | Module | Internal responsibility |
 |---|---|
 | `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
-| `parser/expression/forms` | product、双方向application、conversion、sum injection constructor |
-| `parser/expression/lambda` | parameterとlambda bodyの構成 |
-| `parser/expression/control` | `if`とexpression blockの構成 |
+| `parser/expression/forms` | product、双方向application、conversion、sum injection constructor、zero-continuation application |
+| `parser/expression/lambda` | parameter、return binder group、lambda bodyの構成 |
+| `parser/expression/control` | `if`、`when`、expression blockの構成 |
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
-| `resolve/expression` | expression、transitive capture、lambda-local ownershipの解決 |
-| `check` | program順序、value environment、checked itemの構成 |
+| `resolve/expression` | expression、transitive capture、lambda-local return authorityの解決とcapture拒否 |
+| `check` | program順序、value environment、return target、checked itemの構成 |
+| `check/control` | `if`と`when`の`Value` / `Abrupt` completion joinを構成 |
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
 | `check/interface` | extern transport検査とsource-level alias metadata |
 | `check/initializer` | top-level closed-value admission |
@@ -108,6 +109,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
+| `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |

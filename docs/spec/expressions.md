@@ -53,6 +53,9 @@ captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#sco
 lambdaと`if` branchのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。
 最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
 
+lambdaは通常のresult expressionに代えてreturn binder groupを宣言できる。この場合のscope、型、全pathのcompletion条件は
+[明示的returnとcompletion](control.md#return-binder)に定める。
+
 ```mal
 log :: Symbol -> Unit := (message) { print(message) };
 ```
@@ -147,6 +150,8 @@ continuation数は直和の項数と一致し、位置`i`のcontinuationは第`i
 
 一つのcontinuationを持つ`value[f]`はvalueの型にかかわらず通常のapplicationである。直和を一つのfunctionへ渡す場合も
 この規則を使い、直和除去との違いはcontinuation数から一意に決まる。
+
+continuationを持たない`value[]`は空直和のeliminationであり、[completion規則](control.md#empty)に従う。
 
 ## literal
 

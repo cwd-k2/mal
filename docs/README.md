@@ -18,11 +18,12 @@
 6. [Symbol](spec/symbols.md)
 7. [memory primitive](spec/memory.md)
 8. [式と binding](spec/expressions.md)
-9. [実行意味論](spec/execution.md)
-10. [`extern` 境界](spec/extern.md)
-11. [C host ABI](spec/c-host-abi.md)
-12. [プログラム構造](spec/programs.md)
-13. [字句・文法](spec/grammar.md)
+9. [明示的returnとcompletion](spec/control.md)
+10. [実行意味論](spec/execution.md)
+11. [`extern` 境界](spec/extern.md)
+12. [C host ABI](spec/c-host-abi.md)
+13. [プログラム構造](spec/programs.md)
+14. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
@@ -34,7 +35,7 @@
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
-| CPSに基づく明示的returnの試験設計を読む | [CPSに基づく通常関数の明示的return binder](design/cps-return.md) | [最小性](design/minimality.md)、[式とbinding](spec/expressions.md) |
+| 明示的returnを使う | [明示的returnとcompletion](spec/control.md) | [採択理由](design/cps-return.md)、[式とbinding](spec/expressions.md) |
 | C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
@@ -67,7 +68,7 @@ example、source commentは過去との差分ではなく、現在のruleとbeha
 
 ## v0.5 の短い定義
 
-- malはstrict call-by-valueの単純型付き関数型言語であり、immutable binding、関数、直積、直和、固定幅scalar、
+- malはstrict call-by-valueの単純型付き関数型言語であり、immutable binding、関数、明示的return、直積、直和、固定幅scalar、
   immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。
 - mal内部で意味とlifetime authorityを持つ値をEngramと総称し、外部resourceへのcapabilityから区別する。
 - 外部世界との作用はexternal operationのapplicationと明示的なmemory accessに限定する。allocation、deallocation、I/O、

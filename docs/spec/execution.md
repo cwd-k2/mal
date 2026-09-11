@@ -17,6 +17,9 @@ f(a(), b(), c())
 二つ以上のcontinuationによる直和除去はscrutineeを一度評価し、active variantに対応するcontinuationだけを評価して
 payloadへ適用する。選択されないcontinuationを評価してはならない。
 
+明示的returnを含む式でも同じ順序を使う。`Abrupt`より前に完了した評価は保持し、同じpathで後にある評価は行わない。
+完全なcompletion規則は[明示的returnとcompletion](control.md#completion-judgment)に定める。
+
 ## scope と closure
 
 ラムダはlexical scopeを持ち、bodyから参照する外側のparameterとlocal bindingをcaptureする。
@@ -137,3 +140,4 @@ e ::= variable | literal | lambda | application
 `f(a)`と`a[f]`は同じapplicationである。`Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
 `::`は型情報、`:=`はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する
 定義ではなく、表面機能を追加するときの意味論上の基準である。
+return binder、`when`、`Abrupt`もcore境界でlambda result、sum injection・elimination、branchへ消去する。
