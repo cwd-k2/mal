@@ -42,7 +42,8 @@ Cargo manifestを`rust-analyzer`へ明示する。保存時検査は両project�
 同じ設定はclangdにNixのClang wrapperをqueryさせ、`.clangd`はC sourceと生成headerをbackendと同じC11として解析する。
 `.vscode/extensions.json`はこの環境選択、Rust、Cの各extensionを推奨する。設定を初めて受理した後、またはNix store pathが
 flake更新で変わった後は、VS Codeをreloadする。個別に更新する場合は`rust-analyzer: Restart server`または
-`clangd: Restart language server`を実行する。
+`clangd: Restart language server`を実行する。workspaceではdevelopment toolの内部listenerを自動公開しないよう
+remote port auto-forwardingを無効にする。必要なportはPorts viewから明示的にforwardする。
 
 手動で準備する場合は次を実行する。
 
