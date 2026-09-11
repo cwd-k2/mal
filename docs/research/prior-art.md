@@ -88,8 +88,9 @@ malへの含意:
 - 一般のoperation clause `Y -> (S -> R) -> R`は固定された`R`を返せるため、resumptionを0回または複数回使える。
 - malの`Y => S` portはhandler自体を`forall R. Y -> (S -> R) -> R`とanswer-polymorphicにし、resumption applicationをabortiveにする。
   これは一般のalgebraic handlerを、正常pathでresumptionを末尾に一度使うfragmentへ制限する。
-- `Y -> S` portはresumptionをhandlerへ渡さず、`h(y)`の正常returnをproducerの残りへ一度渡す。pure、total、parametricな範囲では
-  `Y => S`と同型だが、通常returnと明示的なcontrol transferの違いはsourceとABIに残す。
+- 通常関数`h : Y -> S`は`resume(h(y))`によってcontrol handlerへ埋め込める。逆に`g : Y => S`はanswer typeを`S`、handlerを
+  identityにした`g(y)[identity]`で通常関数へ戻せる。trap、diverge、external operationも両変換で保存できるため、同型な通常関数用の
+  別port kindは必要ない。
 - resumptionはnon-escapingなone-shot frameで実装し、multi-shot、frame clone、二回目のresumeに対するruntime recoveryは導入しない。
 
 LLVM IRのstack、tail call、coroutine、C ABI、LTOをbackend選択へ適用した調査は

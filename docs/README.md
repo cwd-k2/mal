@@ -46,7 +46,7 @@
 | 場所 | 役割 |
 |---|---|
 | `spec/` | 利用者と実装者が従う規範的仕様 |
-| `design/` | 採択済み判断の理由、後継関係、変更時に残す選択肢 |
+| `design/` | 現在の設計policy、採択済み判断の理由、およびstatusを明示した試験設計 |
 | `implementation/` | compiler/backend の現在の責務と構成 |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
 | `research/` | 外部仕様・先行事例から得た根拠 |
