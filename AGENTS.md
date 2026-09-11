@@ -26,6 +26,18 @@ document one responsibility and link to the document that owns a rule instead of
 - Remove stale status, contradictory guidance, and obsolete planning text in the change that makes it
   obsolete. Git records implementation chronology; active documentation describes current truth.
 
+Choose prose, lists, and tables by the relationship among the information, not by a preferred visual
+style.
+
+- Use prose for a single statement, or when sentence-to-sentence flow carries reasoning,
+  qualification, or context.
+- Use a list when the content is primarily two or more parallel facts, conditions, steps, or choices
+  that readers may need to scan or compare.
+- Keep list items parallel and concise. If each item needs its own reasoning, use paragraphs or
+  subsections instead of hiding essays inside bullets.
+- Do not create a one-item list or add introductory and concluding prose that merely repeats a list.
+- Use a table only when readers need to compare the same fields across multiple entries.
+
 Keep source comments in English. Comments document purpose, caller-facing contracts, non-obvious
 constraints, invariants, or reasons. Do not narrate syntax or restate identifiers and assertions. Put
 cross-file design and unfinished work in the responsible document rather than `TODO` or `FIXME`

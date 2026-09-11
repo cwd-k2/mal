@@ -6,20 +6,18 @@ Status: Current v0.5 profile
 
 mal の責務は次に限定する。
 
-```text
-value and type
-immutable binding
-lambda and application
-product and sum
-surface if and exhaustive sum continuation application
-self recursion
-fixed-width numeric, logical, and bit operations
-language-intrinsic immutable Symbol
-Symbol byte concatenation
-typed numeric scalar and pointer access through untyped Ptr
-extern boundary
-optional process argument entry
-```
+- value and type
+- immutable binding
+- lambda and application
+- product and sum
+- surface `if` and exhaustive sum continuation application
+- self recursion
+- fixed-width numeric, logical, and bit operations
+- language-intrinsic immutable `Symbol`
+- `Symbol` byte concatenation
+- typed numeric scalar and pointer access through untyped `Ptr`
+- extern boundary
+- optional process argument entry
 
 何をもって最小とするかは[最小性の方針](../design/minimality.md)で定める。
 
@@ -27,21 +25,16 @@ optional process argument entry
 
 v0.5は次を言語機能として持たない。
 
-```text
-mutable variable, typed Ptr<T>, reference
-GC, ownership, borrow
-
-struct, record, enum, class, method
-interface, trait
-
-generic, template, macro, reflection
-exception, async/await, effect system
-operator overloading
-
-array and standard collections
-standard library and allocator
-package manager
-```
+- mutable variable、typed `Ptr<T>`、reference
+- GC、ownership、borrow
+- struct、record、enum、class、method
+- interface、trait
+- generic、template、macro、reflection
+- exception、async/await、effect system
+- operator overloading
+- array and standard collections
+- standard library and allocator
+- package manager
 
 この一覧は「実装がまだない」のではなく、v0.5 programが依存できないという規範的な範囲である。
 

@@ -66,13 +66,12 @@ example、source commentは過去との差分ではなく、現在のruleとbeha
 
 ## v0.5 の短い定義
 
-malはstrict call-by-valueの単純型付き関数型言語である。immutable binding、関数、直積、直和、固定幅scalar、
-immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。mal内部で意味とlifetime authorityを持つ
-値をEngramと総称し、外部resourceへのcapabilityから区別する。外部世界との作用はexternal operationのapplicationと明示的な
-memory accessに限定する。
-
-reference compiler `malc` はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、
-program非依存の機構をC11 runtimeへ変換する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
-v0.5 development profileが現在生成するC host ABI versionは`0x000600`であり、source language versionとは独立に番号を持つ。
-
-allocation、deallocation、I/O、ファイル、ネットワーク、時刻、乱数、threadはhost側の責務とする。
+- malはstrict call-by-valueの単純型付き関数型言語であり、immutable binding、関数、直積、直和、固定幅scalar、
+  immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。
+- mal内部で意味とlifetime authorityを持つ値をEngramと総称し、外部resourceへのcapabilityから区別する。
+- 外部世界との作用はexternal operationのapplicationと明示的なmemory accessに限定する。allocation、deallocation、I/O、
+  ファイル、ネットワーク、時刻、乱数、threadはhost側の責務とする。
+- reference compiler `malc`はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、program非依存の
+  機構をC11 runtimeへ変換する。
+- extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
+- v0.5 development profileが現在生成するC host ABI versionは`0x000600`であり、source language versionとは独立に番号を持つ。
