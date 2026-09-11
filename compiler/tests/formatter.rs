@@ -152,6 +152,47 @@ fn formats_explicit_return_surface_forms() {
 }
 
 #[test]
+fn formats_sum_and_empty_return_binder_groups() {
+    let formatted = format(
+        "Result::[Int32,Symbol];compute::Bool->Result:=(enabled)[ok,err]{when(enabled){ok(42)};err(\"disabled\")};never::Unit->[]:=()[]{never()[]};",
+    );
+    assert_eq!(
+        formatted,
+        concat!(
+            "Result :: [Int32, Symbol];\n",
+            "\n",
+            "compute :: Bool -> Result := (enabled)[ok, err] {\n",
+            "    when (enabled) { ok(42) };\n",
+            "    err(\"disabled\");\n",
+            "};\n",
+            "\n",
+            "never :: Unit -> [] := ()[] { never()[] };\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn cps_return_examples_are_canonical_and_idempotent() {
+    let repository = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent");
+    for relative in [
+        "examples/resizable-buffer/program.mal",
+        "examples/mini-database/database.mal",
+    ] {
+        let text = std::fs::read_to_string(repository.join(relative)).expect("example source");
+        let formatted = format(&text);
+        assert_eq!(formatted, text, "{relative} must use canonical formatting");
+        assert_eq!(
+            format(&formatted),
+            formatted,
+            "{relative} must be idempotent"
+        );
+    }
+}
+
+#[test]
 fn preserves_explicit_binding_and_expression_breaks() {
     let formatted = format(
         "first::(Int32,Int32)->Int32\n:=(left, right){\nresult:=left\n+right;\nemit(\nleft,\nright\n);\nresult\n};\nsecond::Unit->Int32:=\n(){1};",

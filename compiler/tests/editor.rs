@@ -173,6 +173,55 @@ fn sum_continuation_parameters_keep_declaration_identity() {
 }
 
 #[test]
+fn return_binders_support_hover_definition_references_and_rename() {
+    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled)[ok, err] { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result)[return] { return(result) };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let ok_declaration_offset = text.find("[ok").unwrap() + 1;
+    let ok_reference_offset = text.rfind("ok(42)").unwrap();
+    let err_declaration_offset = text.find("err]").unwrap();
+    let err_reference_offset = text.rfind("err(\"").unwrap();
+
+    let ok = document.occurrence_at(ok_declaration_offset).unwrap();
+    assert_eq!(ok.kind, SymbolKind::Parameter);
+    assert_eq!(ok.role, OccurrenceRole::Declaration);
+    assert_eq!(
+        document.hover_at(ok_declaration_offset).unwrap().ty,
+        "Payload"
+    );
+    assert_eq!(
+        document.occurrence_at(ok_reference_offset).unwrap().id,
+        ok.id
+    );
+    assert_eq!(document.definition(ok.id).unwrap().span, ok.span);
+    assert_eq!(document.references(ok.id, true).len(), 2);
+    assert_eq!(document.rename_spans(ok_reference_offset).unwrap().len(), 2);
+
+    let err = document.occurrence_at(err_declaration_offset).unwrap();
+    assert_eq!(err.kind, SymbolKind::Parameter);
+    assert_eq!(
+        document.hover_at(err_reference_offset).unwrap().ty,
+        "Symbol"
+    );
+    assert_eq!(
+        document.occurrence_at(err_reference_offset).unwrap().id,
+        err.id
+    );
+
+    let return_declaration_offset = text.find("[return]").unwrap() + 1;
+    let return_reference_offset = text.rfind("return(result)").unwrap();
+    let return_binder = document.occurrence_at(return_declaration_offset).unwrap();
+    assert_eq!(return_binder.kind, SymbolKind::Parameter);
+    assert_eq!(
+        document.hover_at(return_reference_offset).unwrap().ty,
+        "Result"
+    );
+    assert_eq!(
+        document.occurrence_at(return_reference_offset).unwrap().id,
+        return_binder.id
+    );
+}
+
+#[test]
 fn symbol_operators_report_their_result_types() {
     let text = "inspect :: Symbol -> UInt64 := (value) { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");

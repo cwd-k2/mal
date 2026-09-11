@@ -109,6 +109,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/control` | block positionとRHSにある`if`の事前分類 |
 | `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
+| `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集 |
+| `editor/index/checked_ast` | checked expressionとlambda-local binderのcanonical typeをsemantic indexへ収集 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |

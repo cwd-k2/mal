@@ -121,6 +121,36 @@ impl Index {
             }
             self.collect_resolved_pattern(parameter, false);
         }
+        if let Some(return_binders) = &lambda.return_binders {
+            match return_binders.as_slice() {
+                [] => {}
+                [binding] => {
+                    if let Some(result_type) = result_type {
+                        self.value_types.insert(
+                            self.canonical_value(binding.id),
+                            super::type_display::type_name(result_type),
+                        );
+                    }
+                }
+                bindings => {
+                    if let Some(result_type) = result_type
+                        && let resolved::TypeExpression::Sum(members) =
+                            self.expanded_type(result_type).kind
+                    {
+                        for (binding, member) in bindings.iter().zip(&members) {
+                            self.value_types.insert(
+                                self.canonical_value(binding.id),
+                                super::type_display::type_name(member),
+                            );
+                        }
+                    }
+                }
+            }
+            for binding in return_binders {
+                let id = SymbolId::Value(self.canonical_value(binding.id));
+                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+            }
+        }
         for item in &lambda.body.items {
             match item {
                 resolved::BodyItem::Binding(binding) => {

@@ -77,6 +77,16 @@ impl Index {
                     self.collect_checked_pattern(parameter);
                     self.mark_parameter_bindings(parameter);
                 }
+                if let Some(return_binders) = &lambda.return_binders {
+                    for binder in return_binders {
+                        let id = self.canonical_value(binder.binding.id);
+                        let parameter_type = crate::check::type_name(&binder.parameter_type);
+                        self.parameters.insert(id);
+                        self.value_types.insert(id, parameter_type.clone());
+                        self.typed_regions
+                            .push((binder.binding.name.span, parameter_type));
+                    }
+                }
                 self.collect_checked_body(&lambda.body.items, &lambda.body.result);
             }
             ExpressionKind::Call { callee, argument } => {
