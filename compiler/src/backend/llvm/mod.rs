@@ -474,7 +474,8 @@ mod tests {
         let core = crate::core::lower(&checked);
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let execution = crate::execution::lower(closure);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
         let artifacts = generate(
             &execution,
             Target {
@@ -515,10 +516,36 @@ mod tests {
             let core = crate::core::lower(&checked);
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
-            let execution = crate::execution::lower(closure);
+            let execution = crate::execution::lower(
+                closure,
+                crate::execution::OptimizationSet::production(),
+            );
 
             assert!(supports(&execution), "unsupported wildcard fixture {index}");
         }
+    }
+
+    #[test]
+    fn admits_recursive_control_without_optional_execution_techniques() {
+        let source = SourceFile::new(
+            FileId::new(86),
+            "baseline-recursion.mal",
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); };\n\
+             main :: Unit -> Int32 := () {\n\
+               walk :: Int32 -> Int32 := (value) {\n\
+                 if (value == 0i32) then { 0i32 } else { apply(walk, value - 1i32) };\n\
+               };\n\
+               walk(4i32);\n\
+             };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check baseline fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution = crate::execution::lower(closure, crate::execution::OptimizationSet::none());
+
+        assert!(supports(&execution));
     }
 
     #[test]
@@ -550,7 +577,8 @@ mod tests {
         let core = crate::core::lower(&checked);
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let execution = crate::execution::lower(closure);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
         let artifacts = generate(
             &execution,
             Target {
@@ -599,7 +627,10 @@ mod tests {
             let core = crate::core::lower(&checked);
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
-            let execution = crate::execution::lower(closure);
+            let execution = crate::execution::lower(
+                closure,
+                crate::execution::OptimizationSet::production(),
+            );
             assert!(supports(&execution), "unsupported fixture {index}");
         }
     }
@@ -619,7 +650,10 @@ mod tests {
             let core = crate::core::lower(&checked);
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
-            let execution = crate::execution::lower(closure);
+            let execution = crate::execution::lower(
+                closure,
+                crate::execution::OptimizationSet::production(),
+            );
             assert!(supports(&execution), "unsupported fixture {index}");
         }
     }

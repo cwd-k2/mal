@@ -66,11 +66,22 @@ pub struct BuildOptions<'a> {
     pub output_path: &'a Path,
     pub artifact_directory: Option<&'a Path>,
     pub clang_arguments: &'a [OsString],
+    pub optimization: OptimizationProfile,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OptimizationProfile {
+    Baseline,
+    Production,
 }
 
 pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    let execution = crate::pipeline::lower_graph_execution(&graph)
+    let execution_optimizations = match options.optimization {
+        OptimizationProfile::Baseline => crate::execution::OptimizationSet::none(),
+        OptimizationProfile::Production => crate::execution::OptimizationSet::production(),
+    };
+    let execution = crate::pipeline::lower_graph_execution(&graph, execution_optimizations)
         .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = options
         .artifact_directory

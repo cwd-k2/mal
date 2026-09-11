@@ -188,6 +188,7 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             output_path: &output,
             artifact_directory: artifact_directory.as_deref(),
             clang_arguments: &clang_arguments,
+            optimization: crate::driver::OptimizationProfile::Production,
         },
     ) {
         Ok(()) => Outcome::success(String::new()),

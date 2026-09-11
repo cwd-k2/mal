@@ -16,7 +16,7 @@ livenessは一回のbackward dataflow passで確定し、applicationによる再
 ```text
 control IR + closure use
   -> possible application graph
-  -> fused self-tail transition
+  -> optional execution optimization decision
   -> residual continuation graph
   -> recursive control region
   -> siteごとのcall mode
@@ -25,7 +25,10 @@ control IR + closure use
 ```
 
 possible application graphは各applicationのcaller、known target、および型互換な有限のinternal function target集合を所有する。
-tail fusionはcallerのcontinuationをそのまま渡すdirect self edgeとpureなknown forwarderだけを除き、possible target情報自体は保持する。
+`execution/optimization`はpossible application graphを変更せず、明示的に有効化されたdirect call、direct self-tail fusion、pureなknown
+tail forwarder fusionのdecisionだけを構成する。空のoptimization setはdecisionを一つも作らず、すべてのadmitted programをgenericな
+dispatchとrecursive regionで実行できるbaselineである。tail fusionはcallerのcontinuationをそのまま渡すedgeだけを除き、possible
+target情報自体は保持する。
 residual graphのrecursive SCCをcontrol regionとし、region内edgeだけが明示的なstate遷移になる。
 
 call modeは次の四つである。
@@ -77,9 +80,14 @@ control storageはMal programから到達不能なimplementation storageであ�
 ## 検証
 
 executionの各materialized planはauthorityから期待集合を再構成する`is_valid`を持ち、debug buildとfocused testでapplication target、
-tail fusion、region、call mode、parameter destination、frame payload、return/frame relationの完全性を検査する。
+選択済みoptimization decision、region、call mode、parameter destination、frame payload、return/frame relationの完全性を検査する。
+
+各execution optimization techniqueは自身の適用条件だけを所有する。集約planは有効なtechnique集合を入力として再構成でき、後段は
+technique identityではなく選択されたcontinuation elisionとdirect targetだけを読む。techniqueを追加するために後段のplan型やbackend
+contractの変更が必要なら、単なるoptimizationではなくexecution authorityの変更として扱う。
 
 - 全application siteにcall modeがあり、direct native call graphがacyclicである。
+- 空のoptimization setと各techniqueの単独有効化で同じresult、effect order、trap、owner lifetime、bounded native stackを保持する。
 - region内non-tail siteとframe集合、frame fieldとresume live-inが一致する。
 - tail edgeがframeを増やさず、深いself recursionとfirst-class cycleでnative stack使用量がdepthに比例しない。
 - heterogeneous frame、managed field、environment owner、複数target dispatchを実行testで確認する。

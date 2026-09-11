@@ -36,7 +36,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
-| `execution` | closure-converted programを保持し、closure target、tail fusion、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
+| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
@@ -110,8 +110,11 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
 | `execution/application` | application siteごとのcaller、known target、型互換なpossible internal function targetを構成 |
-| `execution/tail` | direct self tailとpureなknown tail forwarderをcaller continuationと同じ遷移へfusion |
-| `execution/continuation` | possible application graphからfusion済みtail edgeを除いたcontinuation edgeを構成 |
+| `execution/optimization` | 空集合でも成立するexecution baselineに対し、有効化された個別techniqueのprogram固有decisionを構成し、競合しない一つのplanへ集約 |
+| `execution/optimization/self_tail` | direct self tailをcaller continuationと同じ遷移へfusionできるsiteを判定 |
+| `execution/optimization/tail_forwarder` | pureなknown tail forwarderをcaller continuationと同じ遷移へfusionできるsiteとargumentを判定 |
+| `execution/optimization/direct_call` | semantic application factからknown targetをdirect call decisionへ選択 |
+| `execution/continuation` | possible application graphから選択済みcontinuation elisionを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |

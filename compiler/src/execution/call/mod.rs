@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::{ApplicationGraph, ControlRegionId, ControlRegionPlan, TailCallPlan};
+use super::{ApplicationGraph, ControlRegionId, ControlRegionPlan, OptimizationPlan};
 
 mod graph;
 
@@ -29,19 +29,19 @@ impl ControlCallPlan {
     pub(crate) fn new(
         control: &control::Program,
         applications: &ApplicationGraph,
-        tail_calls: &TailCallPlan,
+        optimizations: &OptimizationPlan,
         regions: &ControlRegionPlan,
     ) -> Self {
         let mut modes = HashMap::new();
         for (site, caller) in applications.sites() {
-            let mode = if caller.is_some() && tail_calls.is_fused(site) {
+            let mode = if caller.is_some() && optimizations.is_fused(site) {
                 ControlCallMode::DirectSelfTail
             } else if caller.is_some() && regions.site_region(site).is_some() {
-                applications
+                optimizations
                     .direct_target(site)
                     .map(ControlCallMode::DirectRegion)
                     .unwrap_or(ControlCallMode::Dispatch)
-            } else if let Some(callee) = applications.direct_target(site) {
+            } else if let Some(callee) = optimizations.direct_target(site) {
                 ControlCallMode::Direct(callee)
             } else {
                 ControlCallMode::Dispatch
@@ -58,7 +58,7 @@ impl ControlCallPlan {
             .ids()
             .filter(|region| region_requires_common_control(control, regions, &modes, *region))
             .collect();
-        let forwarded_self_arguments = tail_calls.forwarded_self_arguments().clone();
+        let forwarded_self_arguments = optimizations.forwarded_self_arguments().clone();
         Self {
             modes,
             common_regions,
@@ -82,10 +82,10 @@ impl ControlCallPlan {
         &self,
         control: &control::Program,
         applications: &ApplicationGraph,
-        tail_calls: &TailCallPlan,
+        optimizations: &OptimizationPlan,
         regions: &ControlRegionPlan,
     ) -> bool {
-        let expected = Self::new(control, applications, tail_calls, regions);
+        let expected = Self::new(control, applications, optimizations, regions);
         self.modes == expected.modes
             && self.common_regions == expected.common_regions
             && self.forwarded_self_arguments == expected.forwarded_self_arguments
@@ -133,7 +133,7 @@ fn is_direct_self_call(terminator: &Terminator, caller: FunctionId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::super::direct_function_id;
-    use super::super::{ClosureUsePlan, ContinuationGraph};
+    use super::super::{ClosureUsePlan, ContinuationGraph, OptimizationSet};
     use super::*;
     use crate::source::{FileId, SourceFile};
     use crate::{anf, check, closure, control, core, parser, resolve};
@@ -168,10 +168,15 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&applications, &tail_calls);
+        let optimizations = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::production(),
+        );
+        let continuations = ContinuationGraph::new(&applications, &optimizations);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let mut plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let mut plan = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
 
         let helper = top_level_function_id(&closure, "helper");
         let recursive = control
@@ -202,12 +207,12 @@ mod tests {
                 .any(|mode| mode == ControlCallMode::DirectSelfTail)
         );
 
-        assert!(plan.is_valid(&control, &applications, &tail_calls, &regions));
+        assert!(plan.is_valid(&control, &applications, &optimizations, &regions));
         let site = *plan.modes.keys().next().expect("application mode");
         let mode = plan.modes.remove(&site).expect("application mode");
-        assert!(!plan.is_valid(&control, &applications, &tail_calls, &regions));
+        assert!(!plan.is_valid(&control, &applications, &optimizations, &regions));
         plan.modes.insert(site, mode);
-        assert!(plan.is_valid(&control, &applications, &tail_calls, &regions));
+        assert!(plan.is_valid(&control, &applications, &optimizations, &regions));
     }
 
     #[test]
@@ -241,10 +246,15 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&applications, &tail_calls);
+        let optimizations = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::production(),
+        );
+        let continuations = ContinuationGraph::new(&applications, &optimizations);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let plan = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
         let apply = top_level_function_id(&closure, "apply");
         let identity = top_level_function_id(&closure, "identity");
 
@@ -310,10 +320,15 @@ mod tests {
         let control = control::lower(&closure);
         let uses = ClosureUsePlan::new(&closure);
         let applications = ApplicationGraph::new(&closure, &control, &uses);
-        let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-        let continuations = ContinuationGraph::new(&applications, &tail_calls);
+        let optimizations = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::production(),
+        );
+        let continuations = ContinuationGraph::new(&applications, &optimizations);
         let regions = ControlRegionPlan::new(&control, &continuations);
-        let plan = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+        let plan = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
         let apply = top_level_function_id(&closure, "apply");
 
         assert!(regions.ids().next().is_none());

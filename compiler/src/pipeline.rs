@@ -66,9 +66,13 @@ fn lower_graph_interface(
 
 pub(crate) fn lower_graph_execution(
     graph: &SourceGraph,
+    optimizations: crate::execution::OptimizationSet,
 ) -> Result<crate::execution::Program, Diagnostic> {
     let checked = check_graph(graph)?;
     let core = crate::core::lower(&checked);
     let anf = crate::anf::lower(&core);
-    Ok(crate::execution::lower(crate::closure::convert(&anf)))
+    Ok(crate::execution::lower(
+        crate::closure::convert(&anf),
+        optimizations,
+    ))
 }

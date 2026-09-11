@@ -5,19 +5,19 @@ mod call;
 mod closure;
 mod continuation;
 mod frame;
+mod optimization;
 pub(crate) mod ownership;
 mod parameter;
 mod region;
-mod tail;
 
 pub(crate) use application::ApplicationGraph;
 pub(crate) use call::{ControlCallMode, ControlCallPlan};
 pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
+pub(crate) use optimization::{OptimizationPlan, OptimizationSet};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
-pub(crate) use tail::TailCallPlan;
 
 pub(crate) struct Program {
     pub(crate) lowered: closure_ast::Program,
@@ -29,7 +29,7 @@ pub(crate) struct Program {
     pub(crate) control_frames: ControlFramePlan,
 }
 
-pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
+pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));
     let control = crate::control::lower(&lowered);
@@ -37,14 +37,19 @@ pub(crate) fn lower(lowered: closure_ast::Program) -> Program {
     debug_assert!(parameters.is_valid(&control));
     let applications = ApplicationGraph::new(&lowered, &control, &closure_uses);
     debug_assert!(applications.is_valid(&lowered, &control, &closure_uses));
-    let tail_calls = TailCallPlan::new(&lowered, &control, &applications);
-    debug_assert!(tail_calls.is_valid(&lowered, &control, &applications));
-    let continuations = ContinuationGraph::new(&applications, &tail_calls);
+    let optimizations = OptimizationPlan::new(&lowered, &control, &applications, enabled);
+    debug_assert!(optimizations.is_valid(&lowered, &control, &applications, enabled));
+    let continuations = ContinuationGraph::new(&applications, &optimizations);
     let control_regions = ControlRegionPlan::new(&control, &continuations);
     debug_assert!(control_regions.is_valid(&control, &continuations));
     let control_calls =
-        ControlCallPlan::new(&control, &applications, &tail_calls, &control_regions);
-    debug_assert!(control_calls.is_valid(&control, &applications, &tail_calls, &control_regions));
+        ControlCallPlan::new(&control, &applications, &optimizations, &control_regions);
+    debug_assert!(control_calls.is_valid(
+        &control,
+        &applications,
+        &optimizations,
+        &control_regions
+    ));
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
     Program {

@@ -1,7 +1,41 @@
-use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
-use crate::control::ast::{self as control, Terminator};
+use std::collections::HashMap;
 
-pub(in crate::execution) fn forwarded_self_tail_argument(
+use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};
+use crate::control::ast::{self as control, StateId, Terminator};
+
+use super::super::ApplicationGraph;
+
+pub(super) fn plan(
+    program: &closure::Program,
+    control: &control::Program,
+    applications: &ApplicationGraph,
+) -> HashMap<StateId, closure::Atom> {
+    control
+        .functions
+        .iter()
+        .flat_map(|function| {
+            applications
+                .sites_from(function.id)
+                .filter_map(|(site, _)| {
+                    let state = &control.states[site.0];
+                    applications
+                        .direct_target(site)
+                        .and_then(|forwarder| {
+                            forwarded_self_tail_argument(
+                                program,
+                                state,
+                                &state.terminator,
+                                function.id,
+                                forwarder,
+                            )
+                        })
+                        .map(|argument| (site, argument))
+                })
+        })
+        .collect()
+}
+
+fn forwarded_self_tail_argument(
     program: &closure::Program,
     state: &control::State,
     terminator: &Terminator,

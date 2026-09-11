@@ -1,5 +1,7 @@
 use super::*;
-use crate::execution::{ApplicationGraph, ClosureUsePlan, ContinuationGraph, TailCallPlan};
+use crate::execution::{
+    ApplicationGraph, ClosureUsePlan, ContinuationGraph, OptimizationPlan, OptimizationSet,
+};
 use crate::source::{FileId, SourceFile};
 use crate::{anf, check, closure, control, core, parser, resolve};
 
@@ -29,10 +31,15 @@ fn validates_exact_frame_sites_and_payloads() {
     let control = control::lower(&closure);
     let closure_uses = ClosureUsePlan::new(&closure);
     let applications = ApplicationGraph::new(&closure, &control, &closure_uses);
-    let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-    let continuations = ContinuationGraph::new(&applications, &tail_calls);
+    let optimizations = OptimizationPlan::new(
+        &closure,
+        &control,
+        &applications,
+        OptimizationSet::production(),
+    );
+    let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
-    let calls = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+    let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
     let mut plan = ControlFramePlan::new(&control, &regions, &calls);
 
     assert!(plan.is_valid(&control, &regions, &calls));
@@ -98,10 +105,15 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
     let control = control::lower(&closure);
     let closure_uses = ClosureUsePlan::new(&closure);
     let applications = ApplicationGraph::new(&closure, &control, &closure_uses);
-    let tail_calls = TailCallPlan::new(&closure, &control, &applications);
-    let continuations = ContinuationGraph::new(&applications, &tail_calls);
+    let optimizations = OptimizationPlan::new(
+        &closure,
+        &control,
+        &applications,
+        OptimizationSet::production(),
+    );
+    let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
-    let calls = ControlCallPlan::new(&control, &applications, &tail_calls, &regions);
+    let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
     let plan = ControlFramePlan::new(&control, &regions, &calls);
 
     assert!(plan.is_valid(&control, &regions, &calls));
