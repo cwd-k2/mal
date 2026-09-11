@@ -156,7 +156,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
 `backend/llvm`、`Symbol`のstorage表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
-[generated program最適化計画](../development/generated-program-optimization.md)を正とする。
+[generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure
 

@@ -2,7 +2,7 @@
 
 Status: Historical measurement record
 
-2026-09-09にrepositoryのNix development environment、`x86_64-unknown-linux-gnu`、Clang 21.1.8でv0.6の
+2026-09-09にrepositoryのNix development environment、`x86_64-unknown-linux-gnu`、Clang 21.1.8でC ABI `0x000600`の
 `socket-packet` generated headerを測定した。
 
 | Host value | `sizeof` | `_Alignof` |
