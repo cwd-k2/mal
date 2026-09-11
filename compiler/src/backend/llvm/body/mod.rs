@@ -11,7 +11,7 @@ mod bridge;
 mod frame;
 mod memory;
 mod operation;
-mod ownership;
+pub(in crate::backend::llvm) mod ownership;
 mod plan;
 mod scalar;
 mod symbol;
@@ -36,22 +36,38 @@ pub(super) struct Output {
 
 #[cfg(test)]
 pub(super) fn supports(execution: &crate::execution::Program) -> bool {
-    generate(execution, 8).is_some()
+    generate(
+        execution,
+        8,
+        super::optimization::OptimizationSet::production(),
+    )
+    .is_some()
 }
 
 pub(super) fn generate(
     execution: &crate::execution::Program,
     pointer_size: usize,
+    enabled: super::optimization::OptimizationSet,
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
     let types = Types::new(pointer_size)?;
     let top_levels = TopLevelConstants::new(execution, types)?;
     let ownership = ownership::Plan::new(&execution.control);
+    let optimizations =
+        super::optimization::OptimizationPlan::new(&execution.control, &ownership, enabled);
+    debug_assert!(optimizations.is_valid(&execution.control, &ownership, enabled));
     let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;
     for function in &execution.control.functions {
-        let emitter = FunctionEmitter::new(execution, function.id, types, &top_levels, &ownership)?;
+        let emitter = FunctionEmitter::new(
+            execution,
+            function.id,
+            types,
+            &top_levels,
+            &ownership,
+            &optimizations,
+        )?;
         uses_control |= !emitter.frame_sites.is_empty();
         let emitted = emitter.emit()?;
         globals.push_str(&emitted.globals);
@@ -84,6 +100,7 @@ struct FunctionEmitter<'a> {
     types: Types,
     top_levels: &'a TopLevelConstants,
     ownership: &'a ownership::Plan,
+    optimizations: &'a super::optimization::OptimizationPlan,
     next_register: usize,
     globals: String,
     output: String,
@@ -114,6 +131,7 @@ impl<'a> FunctionEmitter<'a> {
         types: Types,
         top_levels: &'a TopLevelConstants,
         ownership: &'a ownership::Plan,
+        optimizations: &'a super::optimization::OptimizationPlan,
     ) -> Option<Self> {
         let function = execution
             .control
@@ -261,6 +279,7 @@ impl<'a> FunctionEmitter<'a> {
             types,
             top_levels,
             ownership,
+            optimizations,
             next_register: 0,
             globals: String::new(),
             output: String::new(),
@@ -360,7 +379,7 @@ impl<'a> FunctionEmitter<'a> {
             let value = self.emit_operation(
                 &binding.operation,
                 pattern_value_type(&binding.pattern),
-                self.ownership.consumption(site, binding_index),
+                self.optimizations.symbol_concat_mode(site, binding_index),
             )?;
             self.store_pattern(&binding.pattern, value.as_ref())?;
             let mut dead = self.ownership.dead_values(site, binding_index).to_vec();

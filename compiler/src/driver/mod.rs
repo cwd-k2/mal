@@ -81,6 +81,10 @@ pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error>
         OptimizationProfile::Baseline => crate::execution::OptimizationSet::none(),
         OptimizationProfile::Production => crate::execution::OptimizationSet::production(),
     };
+    let llvm_optimizations = match options.optimization {
+        OptimizationProfile::Baseline => crate::backend::llvm::OptimizationSet::none(),
+        OptimizationProfile::Production => crate::backend::llvm::OptimizationSet::production(),
+    };
     let execution = crate::pipeline::lower_graph_execution(&graph, execution_optimizations)
         .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = options
@@ -108,6 +112,7 @@ pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error>
             triple: &target.triple,
             data_layout: &target.data_layout,
         },
+        llvm_optimizations,
     )
     .ok_or_else(|| Error::new("malc: LLVM backend rejected an admitted program"))?;
     let module_path = build_directory.join("program.ll");

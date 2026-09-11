@@ -2,7 +2,10 @@ use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
 
 mod body;
+mod optimization;
 mod shim;
+
+pub(crate) use optimization::OptimizationSet;
 
 pub(crate) struct Target<'a> {
     pub(crate) triple: &'a str,
@@ -20,9 +23,10 @@ pub(crate) fn supports(program: &crate::execution::Program) -> bool {
 pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
+    optimizations: OptimizationSet,
 ) -> Option<LlvmArtifacts> {
     let pointer_size = pointer_size(target.data_layout)?;
-    let body = body::generate(program, pointer_size)?;
+    let body = body::generate(program, pointer_size, optimizations)?;
     let types = body::types::Types::new(pointer_size)?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
@@ -482,6 +486,7 @@ mod tests {
                 triple: "x86_64-unknown-linux-gnu",
                 data_layout: "e-p:64:64",
             },
+            OptimizationSet::production(),
         )
         .expect("constant main is supported");
 
@@ -549,6 +554,46 @@ mod tests {
     }
 
     #[test]
+    fn selects_symbol_storage_reuse_only_when_enabled() {
+        let source = SourceFile::new(
+            FileId::new(87),
+            "symbol-concat-optimization.mal",
+            "main :: Unit -> Int32 := () { prefix := \"a\" + \"b\"; text := prefix + \"c\"; Int32(#text); };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check Symbol concat fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let target = || Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        };
+        let baseline = generate(&execution, target(), OptimizationSet::none())
+            .expect("baseline Symbol concat is supported");
+        let optimized = generate(&execution, target(), OptimizationSet::production())
+            .expect("optimized Symbol concat is supported");
+
+        assert!(
+            !baseline
+                .module
+                .contains("call ptr @mal_runtime_symbol_concatenate_consuming_left")
+        );
+        assert!(
+            baseline
+                .module
+                .contains("call ptr @mal_runtime_symbol_concatenate(")
+        );
+        assert!(
+            optimized
+                .module
+                .contains("call ptr @mal_runtime_symbol_concatenate_consuming_left")
+        );
+    }
+
+    #[test]
     fn reads_the_default_pointer_layout_and_an_explicit_address_space_zero_layout() {
         assert_eq!(pointer_size("e-m:e-i64:64"), Some(8));
         assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));
@@ -585,6 +630,7 @@ mod tests {
                 triple: "i386-unknown-linux-gnu",
                 data_layout: "e-p:32:32-i64:64",
             },
+            OptimizationSet::production(),
         )
         .expect("32-bit control fixture is supported");
 

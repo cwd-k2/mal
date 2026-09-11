@@ -1,23 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
 use crate::control::ast::{Operation, StateId, Terminator};
 
-pub(super) struct Plan {
-    consumptions: HashMap<(StateId, usize), Consumption>,
+pub(in crate::backend::llvm) struct Plan {
     dead_values: HashMap<(StateId, usize), Vec<ValueId>>,
 }
 
-#[derive(Clone, Copy)]
-pub(super) enum Consumption {
-    Left,
-    Right,
-}
-
 impl Plan {
-    pub(super) fn new(control: &crate::control::ast::Program) -> Self {
+    pub(in crate::backend::llvm) fn new(control: &crate::control::ast::Program) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
         loop {
             let mut changed = false;
@@ -42,7 +34,6 @@ impl Plan {
             }
         }
 
-        let mut consumptions = HashMap::new();
         let mut dead_values = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
             let mut live = terminator_live(&state.terminator, &live_in);
@@ -59,44 +50,20 @@ impl Plan {
                 if !dead.is_empty() {
                     dead_values.insert((StateId(state_index), binding_index), dead.clone());
                 }
-                if let Operation::PrimitiveBinary {
-                    operator: crate::core::ast::BinaryPrimitive::Add,
-                    left,
-                    right,
-                } = &binding.operation
-                    && left.ty == Type::Symbol
-                    && right.ty == Type::Symbol
-                {
-                    let left_dead = binding_id(left).is_some_and(|id| dead.contains(&id));
-                    let right_dead = binding_id(right).is_some_and(|id| dead.contains(&id));
-                    let consumption = if left_dead && binding_id(left) != binding_id(right) {
-                        Some(Consumption::Left)
-                    } else if right_dead && binding_id(left) != binding_id(right) {
-                        Some(Consumption::Right)
-                    } else {
-                        None
-                    };
-                    if let Some(consumption) = consumption {
-                        consumptions.insert((StateId(state_index), binding_index), consumption);
-                    }
-                }
                 remove_pattern_bindings(&binding.pattern, &mut live);
                 visit_operation_atoms(&binding.operation, |atom| {
                     insert_managed_binding(atom, &mut live)
                 });
             }
         }
-        Self {
-            consumptions,
-            dead_values,
-        }
+        Self { dead_values }
     }
 
-    pub(super) fn consumption(&self, state: StateId, binding: usize) -> Option<Consumption> {
-        self.consumptions.get(&(state, binding)).copied()
-    }
-
-    pub(super) fn dead_values(&self, state: StateId, binding: usize) -> &[ValueId] {
+    pub(in crate::backend::llvm) fn dead_values(
+        &self,
+        state: StateId,
+        binding: usize,
+    ) -> &[ValueId] {
         self.dead_values
             .get(&(state, binding))
             .map_or(&[], Vec::as_slice)

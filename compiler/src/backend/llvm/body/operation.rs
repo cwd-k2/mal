@@ -10,7 +10,7 @@ impl FunctionEmitter<'_> {
         &mut self,
         operation: &Operation,
         result_type: Option<&Type>,
-        symbol_consumption: Option<super::ownership::Consumption>,
+        symbol_concat: super::super::optimization::SymbolConcatMode,
     ) -> Option<Option<EmittedValue>> {
         match operation {
             Operation::Atom(atom) => self.atom(atom).map(Some),
@@ -111,7 +111,7 @@ impl FunctionEmitter<'_> {
                     && right.ty == Type::Symbol
                 {
                     return self
-                        .emit_symbol_concatenate(left, right, symbol_consumption)
+                        .emit_symbol_concatenate(left, right, symbol_concat)
                         .map(Some);
                 }
                 let left = self.atom(left)?;

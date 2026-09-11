@@ -2,7 +2,6 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, Terminator};
 
-use super::ownership::Consumption;
 use super::{EmittedValue, FunctionEmitter};
 
 pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
@@ -166,12 +165,12 @@ impl FunctionEmitter<'_> {
         &mut self,
         left: &Atom,
         right: &Atom,
-        consumption: Option<Consumption>,
+        mode: super::super::optimization::SymbolConcatMode,
     ) -> Option<EmittedValue> {
-        let consume_left =
-            matches!(consumption, Some(Consumption::Left)) && self.atom_has_slot(left);
-        let consume_right =
-            matches!(consumption, Some(Consumption::Right)) && self.atom_has_slot(right);
+        use super::super::optimization::SymbolConcatMode;
+
+        let consume_left = mode == SymbolConcatMode::ConsumeLeft && self.atom_has_slot(left);
+        let consume_right = mode == SymbolConcatMode::ConsumeRight && self.atom_has_slot(right);
         let left = if consume_left {
             self.take_symbol(left)?
         } else {

@@ -129,7 +129,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
-| `backend/llvm/body/ownership` | control CFGのbackward livenessからbinding後のdead ownerと`Symbol` concatへmoveできるoperandを導出 |
+| `backend/llvm/body/ownership` | control CFGのbackward livenessからbinding後にresponsibilityを失うdead ownerを導出 |
+| `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、有効化されたtarget固有techniqueのemission decisionを構成 |
+| `backend/llvm/optimization/symbol_concat` | dead owner factから`Symbol` concatへmoveしてよいoperandを選択し、storage再利用可能なruntime operationを指示 |
 | `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Ptr`のbyte offsetと、unalignedな数値scalar・pointer load/storeをLLVM memory operationへ変換 |

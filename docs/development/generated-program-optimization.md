@@ -14,6 +14,20 @@ Status: Current policy
 
 未計測の複雑化、特定fixtureだけのspecial case、LLVM optimizerが既に安定して行う局所変換の再実装は採用しない。
 
+## 構成
+
+最適化は対象のauthorityを持つstage内で個別techniqueとして定義する。`execution/optimization`はcontinuationとcall selection、
+`backend/llvm/optimization`はadmitted execution planを変更しないtarget固有のemission decisionを所有する。driverは各stageへ有効な
+technique集合を明示的に渡す。後段はtechnique identityではなく、所有stageが検証したplanだけを読む。
+
+空のtechnique集合は全admitted programを実行できるbaselineである。production集合は採用済みtechniqueの明示的な合成であり、別の
+意味論や別のbackend contractを持たない。新しいtechniqueが既存plan型または無関係なstageの変更を要求する場合は、optimization追加ではなく
+authority境界の変更として先に検討する。
+
+LLVM backendではowner lifetimeのfactとstorage再利用のdecisionを分ける。dead ownerのreleaseは設定によらず行い、`Symbol` concatへ
+dead operandをmoveする選択だけをoptional techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、
+inliningは独自実装せずpinned LLVMへ委ねる。
+
 ## baseline
 
 比較するbinaryは同じpinned Clang、target、`-O2 -flto`、strict floating-point optionでbuildする。ambient `CC`を継承しない。
