@@ -6,9 +6,13 @@ fn public_cli_reports_help_version_and_usage_status() {
 
     let output = directory.malc(std::iter::empty::<&OsStr>());
     assert!(output.status.success());
-    assert_eq!(String::from_utf8(output.stdout).unwrap(), malc::cli::HELP);
+    let help = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(help, malc::cli::HELP);
     assert!(output.stderr.is_empty());
-    assert!(!malc::cli::HELP.contains("emit-c"));
+    assert!(!help.contains("emit-c"));
+    assert!(help.contains("Optimization profile [default: production]"));
+    assert!(help.contains("Executable output path (required)"));
+    assert!(help.contains("Add a Clang argument; may be repeated"));
 
     let output = directory.malc([OsStr::new("--version")]);
     assert!(output.status.success());

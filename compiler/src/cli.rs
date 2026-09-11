@@ -6,13 +6,32 @@ use crate::version_line;
 pub const HELP: &str = "malc — reference compiler for mal v0.5
 
 Usage:
+  malc <command> [options]
   malc --help
   malc --version
-  malc check <source.mal>
-  malc format <source.mal>
-  malc emit-header <source.mal> [--output <program.mal.h>]
-  malc emit-host <source.mal> [--header <header-name>]
-  malc build <source.mal> --output <program> [--optimization <baseline|production>] [--artifact-dir <directory>] [--clang-arg <argument>]...
+
+Commands:
+  check <source.mal>        Check a program without producing artifacts
+  format <source.mal>       Write canonical source to stdout
+  emit-header <source.mal>  Write the C host header
+  emit-host <source.mal>    Write a C host implementation template to stdout
+  build <source.mal>        Build an executable with production optimization
+
+emit-header options:
+  --output <program.mal.h>  Write the header to this path
+
+emit-host options:
+  --header <header-name>    Include this generated header name
+
+build options:
+  --output <program>                         Executable output path (required)
+  --optimization <baseline|production>       Optimization profile [default: production]
+  --artifact-dir <directory>                 Keep generated build artifacts here
+  --clang-arg <argument>                     Add a Clang argument; may be repeated
+
+Global options:
+  -h, --help     Print help
+  -V, --version  Print version
 ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
