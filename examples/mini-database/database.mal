@@ -22,10 +22,14 @@ LookupResult :: [Unit, Bytes];
 // Fill the buffer until it reaches capacity or the file reports EOF.
 readDatabaseFile :: (File, Buffer) -> Buffer := (file, buffer)[return] {
     (memory, capacity, length) := buffer;
-    when (length == capacity) { return(buffer) };
+    when (length == capacity) {
+        return(buffer);
+    };
 
     transferred := readFile(file, (memory + length, capacity - length));
-    when (transferred == 0u64) { return(buffer) };
+    when (transferred == 0u64) {
+        return(buffer);
+    };
 
     return(readDatabaseFile(file, (memory, capacity, length + transferred)));
 };
@@ -33,7 +37,9 @@ readDatabaseFile :: (File, Buffer) -> Buffer := (file, buffer)[return] {
 _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
     (file, bytes, written)[return] {
         (memory, length) := bytes;
-        when (written == length) { return(()) };
+        when (written == length) {
+            return(());
+        };
 
         transferred := writeFile(file, (memory + written, length - written));
         when (transferred == 0u64) {
@@ -69,7 +75,9 @@ _recordAt :: (Ptr, UInt64) -> Ptr := (database, index) {
 };
 
 _validateRecords :: (Ptr, UInt64) -> Bool := (database, index)[return] {
-    when (index == _recordCount) { return(true) };
+    when (index == _recordCount) {
+        return(true);
+    };
 
     record := _recordAt(database, index);
     active := UInt8.load(record);
@@ -79,7 +87,9 @@ _validateRecords :: (Ptr, UInt64) -> Bool := (database, index)[return] {
         && keyLength <= _keyCapacity
         && valueLength <= _valueCapacity
         && (active == 0u8 || keyLength > 0u64);
-    when (!valid) { return(false) };
+    when (!valid) {
+        return(false);
+    };
 
     return(_validateRecords(database, index + 1u64));
 };
@@ -100,20 +110,28 @@ validateDatabase :: Buffer -> Bool := (buffer) {
 
 _findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
     (database, key, start, length, index)[return] {
-        when (index == _recordCount) { return(_recordCount) };
+        when (index == _recordCount) {
+            return(_recordCount);
+        };
 
         record := _recordAt(database, index);
         matches := UInt8.load(record) == 1u8
             && UInt64(UInt8.load(record + 1u64)) == length
             && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
-        when (matches) { return(index) };
+        when (matches) {
+            return(index);
+        };
 
         return(_findRecord(database, key, start, length, index + 1u64));
     };
 
 _findFreeRecord :: (Ptr, UInt64) -> UInt64 := (database, index)[return] {
-    when (index == _recordCount) { return(_recordCount) };
-    when (UInt8.load(_recordAt(database, index)) == 0u8) { return(index) };
+    when (index == _recordCount) {
+        return(_recordCount);
+    };
+    when (UInt8.load(_recordAt(database, index)) == 0u8) {
+        return(index);
+    };
 
     return(_findFreeRecord(database, index + 1u64));
 };
@@ -130,7 +148,9 @@ putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
         slot := if (existing == _recordCount)
             then { _findFreeRecord(database, 0u64) }
             else { existing };
-        when (slot == _recordCount) { full() };
+        when (slot == _recordCount) {
+            full();
+        };
 
         // Write payload lengths and bytes before marking the slot active.
         record := _recordAt(database, slot);
@@ -147,7 +167,9 @@ lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
-        when (slot == _recordCount) { absent() };
+        when (slot == _recordCount) {
+            absent();
+        };
 
         record := _recordAt(database, slot);
         valueLength := UInt64(UInt8.load(record + 2u64));
@@ -159,7 +181,9 @@ deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
-        when (slot == _recordCount) { return(false) };
+        when (slot == _recordCount) {
+            return(false);
+        };
 
         UInt8.store(_recordAt(database, slot), 0u8);
         return(true);

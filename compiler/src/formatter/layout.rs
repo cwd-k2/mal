@@ -65,7 +65,8 @@ impl BlockLayout {
                 .location(lexed.tokens[left].span.start())
                 .zip(source.location(lexed.tokens[right].span.end()))
                 .is_some_and(|(left, right)| left.line == right.line);
-            let is_compact = is_single_line
+            let is_compact = !starts_when_block(&lexed.tokens, left)
+                && is_single_line
                 && !has_nested_block
                 && !has_comment
                 && (semicolons.is_empty()
@@ -89,6 +90,30 @@ impl BlockLayout {
             terminate,
         }
     }
+}
+
+fn starts_when_block(tokens: &[crate::lexer::Token], left_brace: usize) -> bool {
+    let Some(right_parenthesis) = left_brace.checked_sub(1) else {
+        return false;
+    };
+    if !matches!(tokens[right_parenthesis].kind, TokenKind::RightParen) {
+        return false;
+    }
+
+    let mut depth = 0_usize;
+    for index in (0..=right_parenthesis).rev() {
+        match tokens[index].kind {
+            TokenKind::RightParen => depth += 1,
+            TokenKind::LeftParen => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return index > 0 && matches!(tokens[index - 1].kind, TokenKind::When);
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 pub(super) fn top_level_breaks(

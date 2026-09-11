@@ -143,7 +143,9 @@ fn formats_explicit_return_surface_forms() {
         formatted,
         concat!(
             "absolute :: Int32 -> Int32 := (x)[return] {\n",
-            "    when (x >= 0) { return(x) };\n",
+            "    when (x >= 0) {\n",
+            "        return(x);\n",
+            "    };\n",
             "    return(-x);\n",
             "};\n",
         )
@@ -162,7 +164,9 @@ fn formats_sum_and_empty_return_binder_groups() {
             "Result :: [Int32, Symbol];\n",
             "\n",
             "compute :: Bool -> Result := (enabled)[ok, err] {\n",
-            "    when (enabled) { ok(42) };\n",
+            "    when (enabled) {\n",
+            "        ok(42);\n",
+            "    };\n",
             "    err(\"disabled\");\n",
             "};\n",
             "\n",
@@ -200,7 +204,9 @@ fn keeps_nested_compact_control_inside_its_enclosing_branch() {
     );
     assert!(formatted.contains(concat!(
         "        else {\n",
-        "            when (condition) { noop() };\n",
+        "            when (condition) {\n",
+        "                noop();\n",
+        "            };\n",
         "            2;\n",
         "        };\n",
     )));

@@ -1,5 +1,7 @@
 sumTo :: (Int64, Int64) -> Int64 := (remaining, total)[return] {
-    when (remaining == 0) { return(total) };
+    when (remaining == 0) {
+        return(total);
+    };
     return(sumTo(remaining - 1, total + remaining));
 };
 

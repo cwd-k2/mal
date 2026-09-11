@@ -20,7 +20,9 @@ executeDatabase :: Symbol -> Int32 := (path) {
     database := if (loaded == 0u64)
         then { initializeDatabase(loadedDatabase) }
         else {
-            when (!validateDatabase(loadedDatabase)) { fail("invalid database file") };
+            when (!validateDatabase(loadedDatabase)) {
+                fail("invalid database file");
+            };
             loadedDatabase;
         };
 

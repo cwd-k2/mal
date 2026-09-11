@@ -31,7 +31,9 @@ _readByte :: Reader -> ByteRead := (reader)[eof, read] {
     transferred := readFile(file, (memory, capacity));
     filled := (memory, capacity, transferred);
     next := (file, filled, 0u64);
-    when (transferred == 0u64) { eof(next) };
+    when (transferred == 0u64) {
+        eof(next);
+    };
 
     byte := UInt8.load(memory);
     read(((file, filled, 1u64), byte));
@@ -42,7 +44,9 @@ _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
     result := _readByte(reader);
     result[
     (next)[return] {
-        when (length == 0u64) { return(_lineAtEof(next)) };
+        when (length == 0u64) {
+            return(_lineAtEof(next));
+        };
         return(_lineReady((next, buffer)));
     },
     (read)[return] {

@@ -8,7 +8,9 @@ initializedBytes :: Buffer -> Bytes := (buffer) {
 
 // These recursive byte operations advance one byte and reduce their remaining range.
 clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] {
-    when (remaining == 0u64) { return(()) };
+    when (remaining == 0u64) {
+        return(());
+    };
 
     UInt8.store(memory, 0u8);
     return(clearBytes(memory + 1u64, remaining - 1u64));
@@ -16,8 +18,12 @@ clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] {
 
 _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
     (source, start, expected, index)[return] {
-        when (index == #expected) { return(true) };
-        when (UInt8.load(source + start + index) != expected # index) { return(false) };
+        when (index == #expected) {
+            return(true);
+        };
+        when (UInt8.load(source + start + index) != expected # index) {
+            return(false);
+        };
 
         return(_rangeEqualsAt(source, start, expected, index + 1u64));
     };
@@ -31,15 +37,21 @@ rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
 
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
     (source, length, index, byte)[return] {
-        when (index == length) { return(index) };
-        when (UInt8.load(source + index) == byte) { return(index) };
+        when (index == length) {
+            return(index);
+        };
+        when (UInt8.load(source + index) == byte) {
+            return(index);
+        };
 
         return(findByte(source, length, index + 1u64, byte));
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
     (memory, source, start, length, index)[return] {
-        when (index == length) { return(true) };
+        when (index == length) {
+            return(true);
+        };
         when (UInt8.load(memory + index) != UInt8.load(source + start + index)) {
             return(false);
         };
@@ -49,7 +61,9 @@ memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
     (source, start, destination, remaining)[return] {
-        when (remaining == 0u64) { return(()) };
+        when (remaining == 0u64) {
+            return(());
+        };
 
         UInt8.store(destination, UInt8.load(source + start));
         return(copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64));

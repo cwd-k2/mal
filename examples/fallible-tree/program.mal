@@ -27,7 +27,9 @@ leaf :: (Allocator, Int32) -> NodeResult := (allocator, value) {
 sumTree :: Ptr -> Int32 := (node)[return] {
     value := Int32.load(node);
     isBranch := UInt8.load(node + 4u64);
-    when (isBranch == 0u8) { return(value) };
+    when (isBranch == 0u8) {
+        return(value);
+    };
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
@@ -36,7 +38,9 @@ sumTree :: Ptr -> Int32 := (node)[return] {
 
 destroyTree :: (Allocator, Ptr) -> Unit := (allocator, node)[return] {
     isBranch := UInt8.load(node + 4u64);
-    when (isBranch == 0u8) { return(releaseNode(allocator, node)) };
+    when (isBranch == 0u8) {
+        return(releaseNode(allocator, node));
+    };
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
