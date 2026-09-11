@@ -31,7 +31,8 @@ runtime C objects   allocation、control storage、Symbol
 
 ## LLVM module
 
-一つのframe constructorだけを持つregionは固定幅slotを使える。次は意味を示すためerror pathと一部のattributeを省略したIRである。
+一つのframe constructorだけを持つregionは固定幅slotを使える。次は現行artifactの形を示す模式的なIRであり、register番号、
+state番号、error path、一部のattributeを省略している。
 
 ```llvm
 target triple = "..."
@@ -40,45 +41,54 @@ target datalayout = "..."
 declare ptr @mal_control_reserve_frame(ptr, i64, i64)
 declare ptr @mal_control_storage(ptr)
 
-define internal void @mal_sum(ptr %context, i64 %initial_n, ptr %result_out) {
+define internal i64 @mal_function_0(
+    ptr %mal_context,
+    ptr %mal_control_top,
+    ptr %mal_environment,
+    i64 %mal_parameter
+) {
 entry:
+  %mal_control_base = load i64, ptr %mal_control_top, align 8
   br label %descend
 
 descend:
-  %n = phi i64 [ %initial_n, %entry ], [ %next_n, %push ]
-  %top = phi i64 [ 0, %entry ], [ %next_top, %push ]
+  %n = phi i64 [ %mal_parameter, %entry ], [ %next_n, %push ]
   %is_zero = icmp eq i64 %n, 0
   br i1 %is_zero, label %unwind, label %push
 
 push:
+  %top = load i64, ptr %mal_control_top, align 8
+  %storage = call ptr @mal_control_reserve_frame(ptr %mal_context, i64 %top, i64 8)
   %next_top = add i64 %top, 8
-  %storage = call ptr @mal_control_reserve_frame(ptr %context, i64 %top, i64 8)
   %slot = getelementptr i8, ptr %storage, i64 %top
   store i64 %n, ptr %slot, align 8
+  store i64 %next_top, ptr %mal_control_top, align 8
   %next_n = sub i64 %n, 1
   br label %descend
 
 unwind:
   %result = phi i64 [ 0, %descend ], [ %next_result, %resume ]
-  %resume_top = phi i64 [ %top, %descend ], [ %previous_top, %resume ]
-  %finished = icmp eq i64 %resume_top, 0
+  %resume_top = load i64, ptr %mal_control_top, align 8
+  %finished = icmp eq i64 %resume_top, %mal_control_base
   br i1 %finished, label %done, label %resume
 
 resume:
   %previous_top = sub i64 %resume_top, 8
-  %current_storage = call ptr @mal_control_storage(ptr %context)
+  %current_storage = call ptr @mal_control_storage(ptr %mal_context)
   %frame = getelementptr i8, ptr %current_storage, i64 %previous_top
   %saved_n = load i64, ptr %frame, align 8
+  store i64 %previous_top, ptr %mal_control_top, align 8
   %next_result = add i64 %result, %saved_n
   br label %unwind
 
 done:
-  store i64 %result, ptr %result_out, align 8
-  ret void
+  ret i64 %result
 }
 ```
 
-`n`、`top`、`result`はSSA valueであり、contextのcontrol storageだけがunboundedなcontinuation storageである。既知のstate遷移は直接`br`し、
+`n`と`result`はSSA valueであり、`%mal_control_top`が指すoffsetを介してcontextのcontrol storageだけがunboundedなcontinuation
+storageになる。内部Mal functionはLLVM valueを直接返し、C shimとのroot bridgeだけがopaque pointerとresult out-pointerを使う。
+既知のstate遷移は直接`br`し、
 first-class calleeなどruntime選択が必要なsiteだけ`switch`する。integerのwrapを保存するoperationへ根拠なく`nsw`または`nuw`を
 付けない。
 
