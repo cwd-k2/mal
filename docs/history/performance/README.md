@@ -8,5 +8,6 @@ Status: Historical records
 
 - [generated C](generated-c.md)
 - [LLVM backend](llvm-backend.md)
+- [C host ABI](c-host-abi.md)
 - [managed Engram](managed-engrams.md)
 - [reference compiler compile-time](compiler.md)
