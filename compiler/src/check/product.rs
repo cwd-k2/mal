@@ -1,10 +1,9 @@
 use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
 use crate::source::Span;
 
-use super::Checker;
 use super::ast::{Expression, ExpressionKind, Type};
+use super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
     pub(super) fn check_product(
@@ -12,26 +11,41 @@ impl Checker {
         elements: &[Node<resolved::Expression>],
         span: Span,
         expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         let expected_elements = match expected {
             Some(Type::Product(expected_elements)) if elements.len() == expected_elements.len() => {
                 Some(expected_elements)
             }
             _ => None,
         };
-        let elements = elements
-            .iter()
-            .enumerate()
-            .map(|(index, element)| {
-                self.check_expression(
-                    element,
-                    expected_elements.and_then(|elements| elements.get(index)),
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut checked = Vec::with_capacity(elements.len());
+        for (index, element) in elements.iter().enumerate() {
+            match self.check_expression(
+                element,
+                expected_elements.and_then(|elements| elements.get(index)),
+            ) {
+                Ok(value) => checked.push(value),
+                Err(CheckFailure::Abrupt(_)) if index + 1 < elements.len() => {
+                    return Err(crate::diagnostic::Diagnostic::error(
+                        "unreachable expression after abrupt completion",
+                    )
+                    .with_primary(
+                        elements[index + 1].span,
+                        "this expression cannot be reached",
+                    )
+                    .into());
+                }
+                Err(CheckFailure::Abrupt(abrupt)) => {
+                    return Err(CheckFailure::Abrupt(Box::new(
+                        (*abrupt).preceded_by(checked),
+                    )));
+                }
+                Err(error) => return Err(error),
+            }
+        }
         Ok(Expression {
-            ty: Type::Product(elements.iter().map(|element| element.ty.clone()).collect()),
-            kind: ExpressionKind::Product(elements),
+            ty: Type::Product(checked.iter().map(|element| element.ty.clone()).collect()),
+            kind: ExpressionKind::Product(checked),
             span,
         })
     }

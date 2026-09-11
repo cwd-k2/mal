@@ -23,9 +23,9 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
     let ExpressionKind::Lambda(function) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
     };
-    assert_eq!(function.body.result.ty, Type::UInt8);
+    assert_eq!(completion_value(&function.body.result).ty, Type::UInt8);
     assert!(matches!(
-        function.body.result.kind,
+        completion_value(&function.body.result).kind,
         ExpressionKind::Memory { .. }
     ));
 }
@@ -78,7 +78,7 @@ fn checks_storage_sizes_for_scalar_and_ptr_types() {
     let ExpressionKind::Lambda(function) = &top_binding(&program, 2).value.kind else {
         panic!("expected lambda");
     };
-    assert_eq!(function.body.result.ty, Type::UInt64);
+    assert_eq!(completion_value(&function.body.result).ty, Type::UInt64);
 }
 
 #[test]

@@ -21,13 +21,35 @@ pub fn type_name(ty: &ast::Type) -> String {
     types::type_name(ty)
 }
 
-use self::ast::{Binding, BodyItem, Pattern, Program, TopItem, Type};
+use self::ast::{AbruptExpression, Binding, BodyItem, Completion, Pattern, Program, TopItem, Type};
 use self::interface::ExternalSignature;
 use self::types::AliasDefinition;
 
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
-    Checker::new().check_program(program)
+    Checker::new()
+        .check_program(program)
+        .map_err(|error| match error {
+            CheckFailure::Diagnostic(diagnostic) => diagnostic,
+            CheckFailure::Abrupt(abrupt) => Diagnostic::error("abrupt completion outside a lambda")
+                .with_primary(
+                    abrupt.span,
+                    "this control expression has no return boundary",
+                ),
+        })
 }
+
+enum CheckFailure {
+    Diagnostic(Diagnostic),
+    Abrupt(Box<AbruptExpression>),
+}
+
+impl From<Diagnostic> for CheckFailure {
+    fn from(value: Diagnostic) -> Self {
+        Self::Diagnostic(value)
+    }
+}
+
+type CheckResult<T> = Result<T, CheckFailure>;
 
 struct Checker {
     aliases: HashMap<TypeId, AliasDefinition>,
@@ -37,6 +59,14 @@ struct Checker {
     values: HashMap<ValueId, Type>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
+    return_targets: HashMap<ValueId, ReturnTarget>,
+}
+
+#[derive(Clone)]
+struct ReturnTarget {
+    parameter: Type,
+    result: Type,
+    variant: Option<usize>,
 }
 
 impl Checker {
@@ -50,10 +80,11 @@ impl Checker {
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
             external_values: HashSet::new(),
             externals: HashMap::new(),
+            return_targets: HashMap::new(),
         }
     }
 
-    fn check_program(mut self, program: &resolved::Program) -> Result<Program, Diagnostic> {
+    fn check_program(mut self, program: &resolved::Program) -> CheckResult<Program> {
         self.collect_aliases(program);
         for definition in self.aliases.values().cloned().collect::<Vec<_>>() {
             self.expand_type_id(definition.binding.id, definition.binding.name.span)?;
@@ -115,11 +146,7 @@ impl Checker {
         })
     }
 
-    fn check_binding(
-        &mut self,
-        binding: &resolved::Binding,
-        span: Span,
-    ) -> Result<Binding, Diagnostic> {
+    fn check_binding(&mut self, binding: &resolved::Binding, span: Span) -> CheckResult<Binding> {
         let annotation = binding
             .annotation
             .as_ref()
@@ -134,7 +161,17 @@ impl Checker {
         {
             self.values.insert(pattern_binding.id, annotation.clone());
         }
-        let value = self.check_expression(&binding.value, annotation.as_ref())?;
+        let value = match self.check_value_expression(&binding.value, annotation.as_ref()) {
+            Ok(value) => value,
+            Err(CheckFailure::Abrupt(abrupt)) => {
+                return Err(
+                    Diagnostic::error("binding initializer must produce a value")
+                        .with_primary(abrupt.span, "this initializer completes abruptly")
+                        .into(),
+                );
+            }
+            Err(error) => return Err(error),
+        };
         let pattern = self.check_pattern(&binding.pattern, &value.ty)?;
         Ok(Binding {
             pattern,
@@ -148,7 +185,7 @@ impl Checker {
         &mut self,
         pattern: &Node<resolved::Pattern>,
         ty: &Type,
-    ) -> Result<Pattern, Diagnostic> {
+    ) -> CheckResult<Pattern> {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) => {
                 self.values.insert(binding.id, ty.clone());
@@ -164,10 +201,12 @@ impl Checker {
             resolved::Pattern::Product(elements) => {
                 let Type::Product(element_types) = ty else {
                     return Err(
-                        Diagnostic::error("product pattern requires a product value").with_primary(
-                            pattern.span,
-                            format!("this value has type `{}`", types::type_name(ty)),
-                        ),
+                        Diagnostic::error("product pattern requires a product value")
+                            .with_primary(
+                                pattern.span,
+                                format!("this value has type `{}`", types::type_name(ty)),
+                            )
+                            .into(),
                     );
                 };
                 if elements.len() != element_types.len() {
@@ -179,7 +218,8 @@ impl Checker {
                                 element_types.len(),
                                 elements.len()
                             ),
-                        ));
+                        )
+                        .into());
                 }
                 Ok(Pattern::Product {
                     elements: elements
@@ -194,18 +234,22 @@ impl Checker {
         }
     }
 
-    fn check_body_item(&mut self, item: &resolved::BodyItem) -> Result<BodyItem, Diagnostic> {
+    fn check_body_item(&mut self, item: &resolved::BodyItem) -> CheckResult<BodyItem> {
         match item {
             resolved::BodyItem::Binding(binding) => Ok(BodyItem::Binding(
                 self.check_binding(&binding.kind, binding.span)?,
             )),
             resolved::BodyItem::Expression(expression) => Ok(BodyItem::Expression(
-                self.check_expression(expression, None)?,
+                self.check_value_expression(expression, None)?,
             )),
         }
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
+        if self.return_targets.contains_key(&reference.id) {
+            return Err(Diagnostic::error("return binder is not a value")
+                .with_primary(reference.name.span, "call this binder in callee position"));
+        }
         self.values.get(&reference.id).cloned().ok_or_else(|| {
             Diagnostic::error(format!(
                 "value `{}` has no inferred type",
@@ -213,5 +257,25 @@ impl Checker {
             ))
             .with_primary(reference.name.span, "its binding is not available here")
         })
+    }
+
+    fn check_completion(
+        &mut self,
+        expression: &Node<resolved::Expression>,
+        expected: Option<&Type>,
+    ) -> Result<Completion, Diagnostic> {
+        match self.check_expression(expression, expected) {
+            Ok(value) => Ok(Completion::Value(value)),
+            Err(CheckFailure::Abrupt(abrupt)) => Ok(Completion::Abrupt(*abrupt)),
+            Err(CheckFailure::Diagnostic(diagnostic)) => Err(diagnostic),
+        }
+    }
+
+    fn check_value_expression(
+        &mut self,
+        expression: &Node<resolved::Expression>,
+        expected: Option<&Type>,
+    ) -> CheckResult<self::ast::Expression> {
+        self.check_expression(expression, expected)
     }
 }

@@ -3,14 +3,14 @@ use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
 use crate::source::Span;
 
-use super::Checker;
-use super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
+use super::ast::{Completion, Expression, ExpressionBlock, ExpressionKind, MemoryPrimitive, Type};
 use super::float::{is_contextual_float, is_float};
 use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
     parse_magnitude, unparenthesized_integer,
 };
 use super::types::{bool_type, type_name};
+use super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
     pub(super) fn check_unary(
@@ -19,7 +19,7 @@ impl Checker {
         operand: &Node<resolved::Expression>,
         span: Span,
         expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         if operator.kind == UnaryOperator::SymbolLength {
             let value = self.check_expression(operand, Some(&Type::Symbol))?;
             return Ok(Expression {
@@ -57,10 +57,12 @@ impl Checker {
             )?;
             if !is_integer(&operand.ty) && !is_float(&operand.ty) {
                 return Err(
-                    Diagnostic::error("numeric negation requires a numeric value").with_primary(
-                        operand.span,
-                        format!("this has type `{}`", type_name(&operand.ty)),
-                    ),
+                    Diagnostic::error("numeric negation requires a numeric value")
+                        .with_primary(
+                            operand.span,
+                            format!("this has type `{}`", type_name(&operand.ty)),
+                        )
+                        .into(),
                 );
             }
             let operand_type = operand.ty.clone();
@@ -78,10 +80,12 @@ impl Checker {
                 self.check_expression(operand, expected.filter(|expected| is_integer(expected)))?;
             if !is_integer(&operand.ty) {
                 return Err(
-                    Diagnostic::error("integer unary operator requires an integer").with_primary(
-                        operand.span,
-                        format!("this has type `{}`", type_name(&operand.ty)),
-                    ),
+                    Diagnostic::error("integer unary operator requires an integer")
+                        .with_primary(
+                            operand.span,
+                            format!("this has type `{}`", type_name(&operand.ty)),
+                        )
+                        .into(),
                 );
             }
             let operand_type = operand.ty.clone();
@@ -113,10 +117,10 @@ impl Checker {
         right: &Node<resolved::Expression>,
         span: Span,
         expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         if operator.kind == BinaryOperator::SymbolAt {
-            let left = self.check_expression(left, Some(&Type::Symbol))?;
-            let right = self.check_expression(right, Some(&Type::UInt64))?;
+            let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
+            let right = self.check_after(vec![left.clone()], right, Some(&Type::UInt64))?;
             return Ok(Expression {
                 kind: ExpressionKind::SymbolAt {
                     argument: Box::new(Expression {
@@ -160,12 +164,20 @@ impl Checker {
                 let left_contextual = is_contextual_integer(left) || is_contextual_float(left);
                 let right_contextual = is_contextual_integer(right) || is_contextual_float(right);
                 let (left, right) = if left_contextual && !right_contextual {
-                    let right = self.check_expression(right, None)?;
-                    let left = self.check_expression(left, Some(&right.ty))?;
+                    let right = match self.check_expression(right, None) {
+                        Err(CheckFailure::Abrupt(abrupt)) => {
+                            let left = self.check_expression(left, None)?;
+                            return Err(CheckFailure::Abrupt(Box::new(
+                                (*abrupt).preceded_by(vec![left]),
+                            )));
+                        }
+                        result => result?,
+                    };
+                    let left = self.check_before(left, Some(&right.ty), right.span)?;
                     (left, right)
                 } else {
-                    let left = self.check_expression(left, None)?;
-                    let right = self.check_expression(right, Some(&left.ty))?;
+                    let left = self.check_before(left, None, right.span)?;
+                    let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
                     (left, right)
                 };
                 if !is_integer(&left.ty)
@@ -177,15 +189,14 @@ impl Checker {
                         .with_primary(
                             left.span,
                             format!("this has type `{}`", type_name(&left.ty)),
-                        ));
+                        )
+                        .into());
                 }
                 (left, right, bool_type())
             }
-            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => (
-                self.check_expression(left, Some(&bool_type()))?,
-                self.check_expression(right, Some(&bool_type()))?,
-                bool_type(),
-            ),
+            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
+                return self.check_logical(operator, left, right, span);
+            }
             BinaryOperator::ShiftLeft
             | BinaryOperator::ShiftRight
             | BinaryOperator::BitwiseAnd
@@ -217,14 +228,14 @@ impl Checker {
         right: &Node<resolved::Expression>,
         span: Span,
         expected: Option<&Type>,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         let pointer_primitive = match operator.kind {
             BinaryOperator::Add => MemoryPrimitive::OffsetForward,
             BinaryOperator::Subtract => MemoryPrimitive::OffsetBackward,
             _ => unreachable!("caller selects addition or subtraction"),
         };
         if expected == Some(&Type::Ptr) {
-            let left = self.check_expression(left, Some(&Type::Ptr))?;
+            let left = self.check_before(left, Some(&Type::Ptr), right.span)?;
             return self.check_pointer_offset(pointer_primitive, left, right, span);
         }
         if operator.kind == BinaryOperator::Add && expected == Some(&Type::Symbol) {
@@ -239,12 +250,12 @@ impl Checker {
         {
             self.check_numeric_operands(left, right, expected_numeric)?
         } else {
-            let left = self.check_expression(left, None)?;
+            let left = self.check_before(left, None, right.span)?;
             if left.ty == Type::Ptr {
                 return self.check_pointer_offset(pointer_primitive, left, right, span);
             }
             if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
-                let right = self.check_expression(right, Some(&Type::Symbol))?;
+                let right = self.check_after(vec![left.clone()], right, Some(&Type::Symbol))?;
                 return Ok(Expression {
                     kind: ExpressionKind::Binary {
                         operator: operator.clone(),
@@ -255,13 +266,15 @@ impl Checker {
                     span,
                 });
             }
-            let right = self.check_expression(right, Some(&left.ty))?;
+            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
             if !is_integer(&left.ty) && !is_float(&left.ty) {
                 return Err(
-                    Diagnostic::error("numeric operator requires numeric operands").with_primary(
-                        left.span,
-                        format!("this has type `{}`", type_name(&left.ty)),
-                    ),
+                    Diagnostic::error("numeric operator requires numeric operands")
+                        .with_primary(
+                            left.span,
+                            format!("this has type `{}`", type_name(&left.ty)),
+                        )
+                        .into(),
                 );
             }
             (left, right)
@@ -284,9 +297,9 @@ impl Checker {
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
         span: Span,
-    ) -> Result<Expression, Diagnostic> {
-        let left = self.check_expression(left, Some(&Type::Symbol))?;
-        let right = self.check_expression(right, Some(&Type::Symbol))?;
+    ) -> CheckResult<Expression> {
+        let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
+        let right = self.check_after(vec![left.clone()], right, Some(&Type::Symbol))?;
         Ok(Expression {
             kind: ExpressionKind::Binary {
                 operator: operator.clone(),
@@ -304,8 +317,8 @@ impl Checker {
         left: Expression,
         right: &Node<resolved::Expression>,
         span: Span,
-    ) -> Result<Expression, Diagnostic> {
-        let right = self.check_expression(right, Some(&Type::UInt64))?;
+    ) -> CheckResult<Expression> {
+        let right = self.check_after(vec![left.clone()], right, Some(&Type::UInt64))?;
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive,
@@ -325,31 +338,100 @@ impl Checker {
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
         expected: Option<&Type>,
-    ) -> Result<(Expression, Expression), Diagnostic> {
+    ) -> CheckResult<(Expression, Expression)> {
         let left_contextual = is_contextual_integer(left) || is_contextual_float(left);
         let right_contextual = is_contextual_integer(right) || is_contextual_float(right);
         let (left, right) = if let Some(expected) = expected {
-            (
-                self.check_expression(left, Some(expected))?,
-                self.check_expression(right, Some(expected))?,
-            )
+            let left = self.check_before(left, Some(expected), right.span)?;
+            let right = self.check_after(vec![left.clone()], right, Some(expected))?;
+            (left, right)
         } else if left_contextual && !right_contextual {
-            let right = self.check_expression(right, None)?;
-            let left = self.check_expression(left, Some(&right.ty))?;
+            let right = match self.check_expression(right, None) {
+                Err(CheckFailure::Abrupt(abrupt)) => {
+                    let left = self.check_expression(left, None)?;
+                    return Err(CheckFailure::Abrupt(Box::new(
+                        (*abrupt).preceded_by(vec![left]),
+                    )));
+                }
+                result => result?,
+            };
+            let left = self.check_before(left, Some(&right.ty), right.span)?;
             (left, right)
         } else {
-            let left = self.check_expression(left, None)?;
-            let right = self.check_expression(right, Some(&left.ty))?;
+            let left = self.check_before(left, None, right.span)?;
+            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
             (left, right)
         };
         if !is_integer(&left.ty) && !is_float(&left.ty) {
             return Err(
-                Diagnostic::error("numeric operator requires numeric operands").with_primary(
-                    left.span,
-                    format!("this has type `{}`", type_name(&left.ty)),
-                ),
+                Diagnostic::error("numeric operator requires numeric operands")
+                    .with_primary(
+                        left.span,
+                        format!("this has type `{}`", type_name(&left.ty)),
+                    )
+                    .into(),
             );
         }
         Ok((left, right))
+    }
+
+    fn check_logical(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let ty = bool_type();
+        let left = self.check_before(left, Some(&ty), right.span)?;
+        match self.check_expression(right, Some(&ty)) {
+            Ok(right) => Ok(Expression {
+                kind: ExpressionKind::Binary {
+                    operator: operator.clone(),
+                    left: Box::new(left),
+                    right: Box::new(right),
+                },
+                ty,
+                span,
+            }),
+            Err(CheckFailure::Abrupt(abrupt)) => {
+                let constant = |index| Expression {
+                    kind: ExpressionKind::SumInjection {
+                        index,
+                        value: Box::new(Expression {
+                            kind: ExpressionKind::Unit,
+                            ty: Type::Unit,
+                            span,
+                        }),
+                    },
+                    ty: ty.clone(),
+                    span,
+                };
+                let abrupt = Completion::Abrupt(*abrupt);
+                let (otherwise, then) = if operator.kind == BinaryOperator::LogicalAnd {
+                    (Completion::Value(constant(0)), abrupt)
+                } else {
+                    (abrupt, Completion::Value(constant(1)))
+                };
+                Ok(Expression {
+                    kind: ExpressionKind::If {
+                        condition: Box::new(left),
+                        then_branch: ExpressionBlock {
+                            items: Vec::new(),
+                            result: Box::new(then),
+                            span,
+                        },
+                        else_branch: ExpressionBlock {
+                            items: Vec::new(),
+                            result: Box::new(otherwise),
+                            span,
+                        },
+                    },
+                    ty,
+                    span,
+                })
+            }
+            Err(error) => Err(error),
+        }
     }
 }

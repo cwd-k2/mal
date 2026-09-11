@@ -200,7 +200,7 @@ fn propagates_types_through_capture_bindings() {
     let ExpressionKind::Lambda(outer) = &top_binding(&program, 0).value.kind else {
         panic!("expected outer lambda");
     };
-    let ExpressionKind::Lambda(inner) = &outer.body.result.kind else {
+    let ExpressionKind::Lambda(inner) = &completion_value(&outer.body.result).kind else {
         panic!("expected inner lambda");
     };
     assert_eq!(inner.captures[0].ty, Type::Int32);

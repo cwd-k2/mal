@@ -218,3 +218,23 @@ fn rejects_parameter_and_same_scope_binding_collisions() {
         );
     }
 }
+
+#[test]
+fn keeps_return_binders_local_to_their_invocation() {
+    assert_eq!(
+        resolve_error(
+            "outer :: Unit -> (Unit -> Int32) := ()[return] { return(() { return(1) }) };"
+        )
+        .message,
+        "return binder cannot be captured"
+    );
+    for text in [
+        "bad :: Int32 -> Int32 := (value)[value] { value(1) };",
+        "bad :: Unit -> Int32 := ()[return, return] { return(1) };",
+    ] {
+        assert!(
+            resolve_error(text).message.starts_with("duplicate value"),
+            "input: {text}"
+        );
+    }
+}

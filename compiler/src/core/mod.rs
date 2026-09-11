@@ -5,6 +5,7 @@ use crate::source::Span;
 
 pub mod ast;
 mod bool;
+mod completion;
 mod interface;
 mod pattern;
 mod primitive;
@@ -327,7 +328,8 @@ impl Lowerer {
             Some(checked::Pattern::Binding { binding, .. }) => Some(ValueId::Source(binding.id)),
             Some(checked::Pattern::Product { .. }) => Some(self.temporary()),
         };
-        let mut body = self.lower_body(&lambda.body.items, &lambda.body.result);
+        let mut body =
+            self.lower_lambda_body(&lambda.body.items, &lambda.body.result, &lambda.result_type);
         if let Some(pattern @ checked::Pattern::Product { .. }) = lambda.parameter.as_deref() {
             let parameter_id = parameter_binding.expect("a product pattern uses a product value");
             let destructuring = Binding {
@@ -376,8 +378,11 @@ impl Lowerer {
     fn lower_body(
         &mut self,
         items: &[checked::BodyItem],
-        result: &checked::Expression,
+        result: &checked::Completion,
     ) -> Expression {
+        let checked::Completion::Value(result) = result else {
+            unreachable!("direct lowering only receives value-completing blocks");
+        };
         let mut body = self.lower_expression(result);
         for item in items.iter().rev() {
             let binding = match item {

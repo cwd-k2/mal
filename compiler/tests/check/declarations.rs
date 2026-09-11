@@ -36,7 +36,7 @@ fn gives_external_operations_first_class_function_types() {
     let ExpressionKind::Lambda(main) = &top_binding(&program, 2).value.kind else {
         panic!("expected main lambda");
     };
-    let ExpressionKind::Call { argument, .. } = &main.body.result.kind else {
+    let ExpressionKind::Call { argument, .. } = &completion_value(&main.body.result).kind else {
         panic!("expected apply call");
     };
     let ExpressionKind::Product(arguments) = &argument.kind else {

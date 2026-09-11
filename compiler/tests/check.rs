@@ -31,6 +31,13 @@ fn top_binding(program: &check::ast::Program, index: usize) -> &check::ast::Bind
     binding
 }
 
+fn completion_value(completion: &check::ast::Completion) -> &check::ast::Expression {
+    let check::ast::Completion::Value(value) = completion else {
+        panic!("expected value completion");
+    };
+    value
+}
+
 #[path = "check/control.rs"]
 mod control;
 #[path = "check/declarations.rs"]

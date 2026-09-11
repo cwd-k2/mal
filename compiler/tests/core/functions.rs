@@ -66,3 +66,38 @@ fn lowers_multiple_parameters_to_product_destructuring() {
     };
     assert!(matches!(argument.kind, ExpressionKind::Product(_)));
 }
+
+#[test]
+fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
+    let program = lower_ok(
+        "absolute :: Int32 -> Int32 := (x)[return] {\n\
+           when (x >= 0) { return(x) };\n\
+           return(-x)\n\
+         };",
+    );
+    let body = top_lambda(&program, "absolute");
+    let ExpressionKind::Case { arms, .. } = &body.kind else {
+        panic!("when should lower to a branch over the remaining continuation");
+    };
+    let ExpressionKind::Let {
+        body: remaining, ..
+    } = &arms[0].value.kind
+    else {
+        panic!("fallthrough should discard when's Unit before continuing");
+    };
+    assert!(matches!(
+        remaining.kind,
+        ExpressionKind::PrimitiveUnary { .. }
+    ));
+    assert!(matches!(arms[1].value.kind, ExpressionKind::Reference(_)));
+}
+
+#[test]
+fn lowers_empty_elimination_to_a_zero_arm_case() {
+    let program = lower_ok("never :: Unit -> [] := ()[] { never()[] };");
+    let body = top_lambda(&program, "never");
+    let ExpressionKind::Case { arms, .. } = &body.kind else {
+        panic!("expected empty case");
+    };
+    assert!(arms.is_empty());
+}

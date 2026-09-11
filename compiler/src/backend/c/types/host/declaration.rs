@@ -57,11 +57,10 @@ impl TypeRegistry {
                         )
                     }),
                 )),
-                Type::Sum(members) => output.push(AggregateDefinition::structure(
-                    format!("mal_detail_repr_sum_{index}"),
-                    [
-                        AggregateField::variable("uint32_t", "tag"),
-                        AggregateField::aggregate(
+                Type::Sum(members) => {
+                    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
+                    if !members.is_empty() {
+                        fields.push(AggregateField::aggregate(
                             crate::backend::c::syntax::AggregateKind::Union,
                             members.iter().enumerate().map(|(variant, ty)| {
                                 AggregateField::variable(
@@ -70,9 +69,13 @@ impl TypeRegistry {
                                 )
                             }),
                             "payload",
-                        ),
-                    ],
-                )),
+                        ));
+                    }
+                    output.push(AggregateDefinition::structure(
+                        format!("mal_detail_repr_sum_{index}"),
+                        fields,
+                    ));
+                }
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             }

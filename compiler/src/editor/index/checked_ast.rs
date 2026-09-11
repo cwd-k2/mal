@@ -136,7 +136,7 @@ impl Index {
         }
     }
 
-    fn collect_checked_body(&mut self, items: &[checked::BodyItem], result: &checked::Expression) {
+    fn collect_checked_body(&mut self, items: &[checked::BodyItem], result: &checked::Completion) {
         for item in items {
             match item {
                 checked::BodyItem::Binding(binding) => self.collect_checked_binding(binding),
@@ -145,6 +145,34 @@ impl Index {
                 }
             }
         }
-        self.collect_checked_expression(result);
+        self.collect_checked_completion(result);
+    }
+
+    fn collect_checked_completion(&mut self, completion: &checked::Completion) {
+        match completion {
+            checked::Completion::Value(expression) => self.collect_checked_expression(expression),
+            checked::Completion::Abrupt(abrupt) => {
+                for expression in &abrupt.preceding {
+                    self.collect_checked_expression(expression);
+                }
+                match &abrupt.kind {
+                    checked::AbruptExpressionKind::Return { value } => {
+                        self.collect_checked_expression(value);
+                    }
+                    checked::AbruptExpressionKind::EmptyElimination { scrutinee } => {
+                        self.collect_checked_expression(scrutinee);
+                    }
+                    checked::AbruptExpressionKind::If {
+                        condition,
+                        then_branch,
+                        else_branch,
+                    } => {
+                        self.collect_checked_expression(condition);
+                        self.collect_checked_body(&then_branch.items, &then_branch.result);
+                        self.collect_checked_body(&else_branch.items, &else_branch.result);
+                    }
+                }
+            }
+        }
     }
 }

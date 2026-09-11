@@ -126,18 +126,22 @@ impl TypeRegistry {
                     output.blank_line();
                 }
                 Type::Sum(members) => {
-                    let variants = members.iter().enumerate().map(|(member_index, member)| {
-                        AggregateField::variable(
-                            self.c_type(member),
-                            format!("variant_{member_index}"),
-                        )
-                    });
+                    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
+                    if !members.is_empty() {
+                        fields.push(AggregateField::aggregate(
+                            AggregateKind::Union,
+                            members.iter().enumerate().map(|(member_index, member)| {
+                                AggregateField::variable(
+                                    self.c_type(member),
+                                    format!("variant_{member_index}"),
+                                )
+                            }),
+                            "payload",
+                        ));
+                    }
                     output.push(AggregateDefinition::structure(
                         format!("MalRepr_Sum_{index}"),
-                        [
-                            AggregateField::variable("uint32_t", "tag"),
-                            AggregateField::aggregate(AggregateKind::Union, variants, "payload"),
-                        ],
+                        fields,
                     ));
                     output.blank_line();
                 }

@@ -94,6 +94,42 @@ pub struct Expression {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Completion {
+    Value(Expression),
+    Abrupt(AbruptExpression),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AbruptExpression {
+    pub preceding: Vec<Expression>,
+    pub kind: AbruptExpressionKind,
+    pub span: Span,
+}
+
+impl AbruptExpression {
+    pub fn preceded_by(mut self, mut values: Vec<Expression>) -> Self {
+        values.append(&mut self.preceding);
+        self.preceding = values;
+        self
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AbruptExpressionKind {
+    Return {
+        value: Box<Expression>,
+    },
+    EmptyElimination {
+        scrutinee: Box<Expression>,
+    },
+    If {
+        condition: Box<Expression>,
+        then_branch: ExpressionBlock,
+        else_branch: ExpressionBlock,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind {
     Reference(ValueReference),
     Integer(i128),
@@ -218,7 +254,16 @@ pub struct Lambda {
     pub captures: Vec<Capture>,
     pub parameter: Option<Box<Pattern>>,
     pub parameter_type: Type,
+    pub result_type: Type,
+    pub return_binders: Option<Vec<ReturnBinder>>,
     pub body: LambdaBody,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReturnBinder {
+    pub binding: ValueBinding,
+    pub parameter_type: Type,
+    pub variant: Option<usize>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -231,14 +276,14 @@ pub struct Capture {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LambdaBody {
     pub items: Vec<BodyItem>,
-    pub result: Box<Expression>,
+    pub result: Box<Completion>,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpressionBlock {
     pub items: Vec<BodyItem>,
-    pub result: Box<Expression>,
+    pub result: Box<Completion>,
     pub span: Span,
 }
 

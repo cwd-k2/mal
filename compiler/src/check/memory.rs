@@ -3,9 +3,9 @@ use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{self as resolved};
 use crate::source::Span;
 
-use super::Checker;
 use super::ast::{Expression, ExpressionKind, MemoryPrimitive, MemoryScalar, Type};
 use super::types::type_name;
+use super::{CheckResult, Checker};
 
 enum QualifiedPrimitive {
     Size(Type),
@@ -18,7 +18,7 @@ impl Checker {
         type_ref: &resolved::TypeReference,
         member: &Name,
         span: Span,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         match self.qualified_memory_primitive(type_ref, member)? {
             QualifiedPrimitive::Size(ty) => Ok(Expression {
                 kind: ExpressionKind::StorageSize(ty),
@@ -45,11 +45,12 @@ impl Checker {
         member: &Name,
         arguments: &[Node<resolved::Expression>],
         span: Span,
-    ) -> Result<Expression, Diagnostic> {
+    ) -> CheckResult<Expression> {
         let qualified = self.qualified_memory_primitive(type_ref, member)?;
         let QualifiedPrimitive::Function(primitive) = qualified else {
             return Err(Diagnostic::error("cannot call a non-function value")
-                .with_primary(member.span, "`size` is a `UInt64` constant"));
+                .with_primary(member.span, "`size` is a `UInt64` constant")
+                .into());
         };
         let (parameter, result) = primitive.signature();
         let argument = self.check_argument(arguments, &parameter, span)?;

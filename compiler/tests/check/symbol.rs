@@ -28,14 +28,14 @@ concatenate :: (Symbol, Symbol) -> Symbol := (left, right) {
         panic!("expected lambda");
     };
     assert!(matches!(
-        length.body.result.kind,
+        completion_value(&length.body.result).kind,
         ExpressionKind::SymbolLength { .. }
     ));
     let ExpressionKind::Lambda(item) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
     };
     assert!(matches!(
-        item.body.result.kind,
+        completion_value(&item.body.result).kind,
         ExpressionKind::SymbolAt { .. }
     ));
     for index in 2..=3 {

@@ -4,9 +4,9 @@ use crate::lexer::{IntegerLiteral, IntegerSuffix};
 use crate::resolve::ast as resolved;
 use crate::source::Span;
 
-use super::Checker;
 use super::ast::{Expression, ExpressionKind, Type};
 use super::types::type_name;
+use super::{CheckResult, Checker};
 
 impl Checker {
     pub(super) fn check_integer(
@@ -43,27 +43,36 @@ impl Checker {
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
         expected: Option<&Type>,
-    ) -> Result<(Expression, Expression), Diagnostic> {
+    ) -> CheckResult<(Expression, Expression)> {
         let (left, right) = if let Some(expected) = expected {
-            (
-                self.check_expression(left, Some(expected))?,
-                self.check_expression(right, Some(expected))?,
-            )
+            let left = self.check_before(left, Some(expected), right.span)?;
+            let right = self.check_after(vec![left.clone()], right, Some(expected))?;
+            (left, right)
         } else if is_contextual_integer(left) && !is_contextual_integer(right) {
-            let right = self.check_expression(right, None)?;
-            let left = self.check_expression(left, Some(&right.ty))?;
+            let right = match self.check_expression(right, None) {
+                Err(super::CheckFailure::Abrupt(abrupt)) => {
+                    let left = self.check_expression(left, None)?;
+                    return Err(super::CheckFailure::Abrupt(Box::new(
+                        (*abrupt).preceded_by(vec![left]),
+                    )));
+                }
+                result => result?,
+            };
+            let left = self.check_before(left, Some(&right.ty), right.span)?;
             (left, right)
         } else {
-            let left = self.check_expression(left, None)?;
-            let right = self.check_expression(right, Some(&left.ty))?;
+            let left = self.check_before(left, None, right.span)?;
+            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
             (left, right)
         };
         if !is_integer(&left.ty) {
             return Err(
-                Diagnostic::error("integer operator requires integer operands").with_primary(
-                    left.span,
-                    format!("this has type `{}`", type_name(&left.ty)),
-                ),
+                Diagnostic::error("integer operator requires integer operands")
+                    .with_primary(
+                        left.span,
+                        format!("this has type `{}`", type_name(&left.ty)),
+                    )
+                    .into(),
             );
         }
         Ok((left, right))
