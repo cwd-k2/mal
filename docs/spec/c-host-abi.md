@@ -1,8 +1,9 @@
 # C host ABI
 
-Status: Current v0.6 profile
+Status: Current ABI 0x000600 for the mal v0.5 development profile
 
-この文書はreference compilerが生成するC host interfaceを定める。言語側のextern semanticsは
+この文書はmal v0.5のreference compilerが生成するC host interfaceを定める。`0x000600`はC ABI自体の
+versionであり、source languageのversionではない。言語側のextern semanticsは
 [`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
 別backendはsource-level semanticsを保つ限り別のABIを使用できる。
 

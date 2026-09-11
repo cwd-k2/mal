@@ -73,5 +73,6 @@ memory accessに限定する。
 
 reference compiler `malc` はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、
 program非依存の機構をC11 runtimeへ変換する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
+v0.5 development profileが現在生成するC host ABI versionは`0x000600`であり、source language versionとは独立に番号を持つ。
 
 allocation、deallocation、I/O、ファイル、ネットワーク、時刻、乱数、threadはhost側の責務とする。

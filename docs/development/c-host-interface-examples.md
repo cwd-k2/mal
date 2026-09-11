@@ -1,6 +1,6 @@
-# C host interface再設計例
+# C host interface例
 
-Status: Current v0.6 examples
+Status: Current ABI 0x000600 examples for the mal v0.5 development profile
 
 この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。すべてのbodyは
 `mal_call_t`を受け、`mal_<T>_t`を通常のC valueとして扱い、型付きresult
@@ -296,11 +296,6 @@ MAL_DEFINE_inspectMixed(call, mixed) {
 `bytes`とSymbol valueはcallを越えて保持しない。scalarは通常のcopyであり、Handleの保持可否はそのExtern contractが定める。
 Handleを保持してもreferent lifetimeは自動では延長しない。
 
-## Optional direct Symbol output
-
-基本経路のcopyが独立したcost centerだと測定された場合だけ、result-owned storageへ直接書くadvanced pathを検討する。この経路は
-unfinished outputのcleanup stateを必要とするため、基本のstateless `mal_call_t`とは分ける。
-
 ## Exampleから確認する性質
 
 - bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
@@ -312,4 +307,4 @@ unfinished outputのcleanup stateを必要とするため、基本のstateless `
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。
 - Symbol viewとExtern capabilityで異なるlifetimeをaggregateのleafごとに適用する。
 - Engram result constructionとExtern cleanupを統合しない。
-- `frame`、`Observe` namespace、専用return carrier、generic owner listを要求しない。
+- host implementationはgenerated headerが公開する型とhelperだけを必要とする。
