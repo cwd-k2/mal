@@ -47,10 +47,12 @@
           rustc
           rustfmt
           clippy
+          sccache
           clang
           lld
           nodejs
         ];
+        RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
       };
     };
 }
