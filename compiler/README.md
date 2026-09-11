@@ -2,11 +2,11 @@
 
 Rust reference compiler for mal v0.5.
 
-The compiler implements the pipeline from source loading through native C compilation and linking.
-It also exposes frontend analysis, formatting, host-interface generation, and C emission as separate
-in-memory paths. Host header and adapter generation consume the checked `ProgramInterface` without
-lowering executable value bodies; C translation-unit generation continues through core, ANF, and
-closure conversion.
+The compiler implements the pipeline from source loading through LLVM module generation, C11
+shim/runtime compilation, and native linking. It also exposes frontend analysis, formatting, and
+host-interface generation as separate in-memory paths. Host header and adapter generation consume
+the checked `ProgramInterface` without lowering executable value bodies; executable generation
+continues through core, ANF, closure conversion, application control planning, and LLVM lowering.
 
 The implemented language slice includes closures, products, sums, fixed-width integers, strict
 floating point, byte and `Symbol` literals, `Symbol` observation and concatenation, numeric

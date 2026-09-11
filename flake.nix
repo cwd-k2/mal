@@ -47,6 +47,7 @@
           rustc
           rustfmt
           clippy
+          rust-analyzer
           sccache
           clang
           lld
