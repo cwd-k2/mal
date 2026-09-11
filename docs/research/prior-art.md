@@ -70,29 +70,6 @@ malへの含意:
 - source closureのenvironmentとcontrol frameは異なるlifetimeを持つ。前者はfunction valueのlexical data、後者は未完了の
   evaluation contextとして別々のstageに所有させる。
 
-### algebraic effectとresumption
-
-[Handling Algebraic Effects](https://homepages.inf.ed.ac.uk/gdp/publications/handling-algebraic-effects.pdf)は、計算をvalueのreturnまたは
-operationとその後続からなるfree modelとして扱い、handlerを別のmodelへのhomomorphismとして与える。operation clauseがoperationの
-parameterと残りの計算を受け取る形は、送出型`Y`と応答型`S`を持つoperationをanswer type `R`で
-`Y -> (S -> R) -> R`へ展開する根拠になる。[Programming with Algebraic Effects and Handlers](https://arxiv.org/abs/1203.1539)は、
-同じ仕組みからexception、state、backtracking、cooperative threadなどを構成できることを例示している。
-
-[Retrofitting Effect Handlers onto OCaml](https://arxiv.org/abs/2104.00250)は、effect handlerへperform siteからhandlerまでのdelimited
-continuationを渡し、stack segmentとして効率よく扱う実装を示す。[OCamlのeffect handler仕様](https://ocaml.org/manual/5.2/effects.html)は
-continuationをone-shotとし、二回目のresumeをruntime errorにする。one-shotはoperation handler自体のapplication回数ではなく、
-一回のoperationが捕捉したcontinuationを再開できる回数の制約である。
-
-malへの含意:
-
-- 一般のoperation clause `Y -> (S -> R) -> R`は固定された`R`を返せるため、resumptionを0回または複数回使える。
-- malの`Y => S` portはhandler自体を`forall R. Y -> (S -> R) -> R`とanswer-polymorphicにし、resumption applicationをabortiveにする。
-  これは一般のalgebraic handlerを、正常pathでresumptionを末尾に一度使うfragmentへ制限する。
-- 通常関数`h : Y -> S`は`resume(h(y))`によってcontrol handlerへ埋め込める。逆に`g : Y => S`はanswer typeを`S`、handlerを
-  identityにした`g(y)[identity]`で通常関数へ戻せる。trap、diverge、external operationも両変換で保存できるため、同型な通常関数用の
-  別port kindは必要ない。
-- resumptionはnon-escapingなone-shot frameで実装し、multi-shot、frame clone、二回目のresumeに対するruntime recoveryは導入しない。
-
 LLVM IRのstack、tail call、coroutine、C ABI、LTOをbackend選択へ適用した調査は
 [LLVM execution backend調査](llvm-backend.md)に分離する。
 
