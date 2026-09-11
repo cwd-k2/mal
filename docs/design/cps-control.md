@@ -14,6 +14,7 @@ surfaceからearly exitと限定されたresumptionを記述する試験設計�
 - control port名はlocal bindingであり、型のnominal identityにしない。
 - resumable portは位置と送出型・再開型だけで構造的に区別する。
 - handlerはdeepであり、resumptionは通常のfunctionと同じく複数回applicationできる。
+- answer typeとresumptionのruntime ownershipはsaturated call siteが決める。
 - linear typeと暗黙のgeneral stack captureは導入しない。
 - control functionだけを明示的なcontrol representationへlowerし、通常関数を置き換えない。
 
@@ -27,8 +28,10 @@ effect row、general async、externを越えるresumption transport、およびc
 B => A = forall R. B -> (A -> R) -> R
 ```
 
-answer type `R`はsurface syntaxへ公開しない。`=>` applicationのhandler result型から一つの`R`を決め、全handlerが同じ
-result型を持つことを検査する。以前の`B -> *A`はmetatheory上の説明にだけ使い、`*A`をsource typeやruntime valueにしない。
+answer type `R`はsurface syntaxへ公開しない。各saturated applicationがhandler result型から一つの具体的な`R`を決め、全handlerが
+同じresult型を持つことを検査する。同じcontrol functionを別のsiteから異なる`R`で呼んでよい。calleeは`R`の値、型表現、layoutを
+受け取らず、call siteが構成したopaqueなhandlerまたはresumptionへtail transferするだけである。以前の`B -> *A`はmetatheory上の
+説明にだけ使い、`*A`をsource typeやruntime valueにしない。
 
 `=>`は非結合とし、control functionをparameterまたはresultに置く場合は括弧を要求する。
 
@@ -119,6 +122,14 @@ produce(input)[
 `f : B => A`なら`f(x)[g]`全体が一つのapplicationであり、`f(x)`単独は式にならない。したがって`g(f(x))`も不正とする。
 `f : B -> A`については、従来どおり`f(x)[g]`と`g(f(x))`を同じapplication chainとして扱う。
 
+handlerはsignatureと同数を位置順に指定し、省略、追加、部分適用を認めない。評価はvalue argument、callee、handlerのsource順で行い、
+すべてがvalueになってからcallee bodyを開始する。通常の直和除去でactive continuationだけを評価する規則は、calleeの実行前に
+control environment全体を設置するこのapplicationには適用しない。
+
+型検査では、`f : B => Delta`と`x : B`に対してsite固有の`R`を一つ導入し、各portを`R`について展開したhandler型で検査する。
+周囲に期待型があればそれを`R`に使い、なければhandler bodyまたは既知のhandler functionのresultから決める。解けない場合や
+handler間で一致しない場合はcompile-time errorとし、default answer typeは設けない。全handlerの検査後、application全体の型を`R`とする。
+
 parserとcheckerは、calleeのarrowを確定する前に`f(x)`を独立した通常applicationとして確定してはならない。formatterとdiagnosticも
 `=>` callの二つのargument groupを一つの構文単位として扱う。
 
@@ -154,6 +165,16 @@ operationを呼ぶ側では`yield(y)`が`S`で再開するため、`Y <- S`と�
 lift_R(f)(y, resume) = resume(f(y))
 ```
 
+このliftは通常関数をresumable handler slotへ置くときの専用adaptationとして利用できる。また、外側のresumable port `outer`を
+内側の同型portのhandler位置へ書くforwardingは、概念上次へeta-expandする。plain exitのforwardingはbinderをそのまま渡す。
+
+```text
+(y)[resume] {
+    s := outer(y);
+    resume(s)
+}
+```
+
 逆変換は固定された`R`について一般には存在しない。handlerはresumeを0回または複数回呼び、具体的な`R`を結合できるためである。
 純粋、全域、answer-parametricでresumeをちょうど一度使う`forall R. Y =>_R S`だけに限定すれば、`R = S`とidentity continuationを
 選ぶことで`Y -> S`へ戻せる。この限定された同型は、通常関数とresumable portを同一の型constructorにする理由にはしない。
@@ -172,9 +193,11 @@ handle E[yield(y)] with h
   = h(y, (s) { handle E[s] with h })
 ```
 
-resumptionは0回、1回、複数回applicationできる。multi-shot invocationは捕捉地点以降のexternal operationも呼び出しごとに
-再実行し、通常のstrict evaluation orderに従う。resumptionがescapeせず各pathで高々一度だけtail applicationされると証明できる
-場合だけ、compilerは観測可能な意味を変えずlinearなcontrol frameへ最適化してよい。
+resumptionはcall siteが決めた具体的な`S -> R`を持つfirst-class functionであり、handlerから返すclosureへcaptureしてもよい。
+0回、1回、複数回applicationできる。multi-shot invocationは捕捉地点以降のexternal operationも呼び出しごとに再実行し、通常の
+strict evaluation orderに従う。answer scopeからescapeしたresumptionとcaptureは、その値が到達可能な間call siteのmanaged ownerを
+保持する。resumptionがescapeせず各pathで高々一度だけtail applicationされると証明できる場合だけ、compilerは観測可能な意味を
+変えずlinearなcontrol frameへ最適化してよい。
 
 ## early exitとwhen
 
@@ -203,15 +226,18 @@ classify :: Int32 => Symbol :=
 
 ## 空のsignature
 
-現行仕様で予約されている`[]`を空直和`Empty`、`value[]`をzero-continuation eliminationへ使う案は未決のまま残す。
-control signatureとしての`B => []`はterminal portを持たず、正常完了する有限計算を構成できない。`[A]`を一項直和にするか、
-`B => A`だけをcanonical spellingとして予約を維持するかも別途決める。
+この試験では、現行仕様で予約されている`[]`を値型の位置では空直和`Empty`、control signatureの位置ではzero-port signatureとする。
+`value[]`はzero-continuation elimination、`f(value)[]`はzero-handlerのsaturated applicationである。control signature `B => []`は
+terminal portを持たず、正常完了する有限計算を構成できない。
+
+`[A]`は一項直和として導入せず、不正なまま予約する。一つのcontinuationが通常applicationを意味する既存規則と衝突し、型として
+`A`と同一視しても表現力を増やさないためである。単一portのcanonical spellingには`B => A`を使う。
 
 `[]`は値を持たない型、`Abrupt`は現在のpathが通常完了しないというcheckerの判定であり、同一ではない。`empty[]`による
-Empty eliminationと、zero-handlerのsaturated application `f(value)[]`はともに`Abrupt`を生む。概念上は次が成り立つ。
+Empty eliminationと、zero-handlerのsaturated application `f(value)[]`はともに`Abrupt`を生む。zero-port signatureの展開は次になる。
 
 ```text
-B => [] = forall R. B -> ([] -> R) -> R ~= forall R. B -> R
+B => [] = forall R. B -> R
 ```
 
 したがって`(value)[] { ... }`で定義するcontrol functionはdiverge、trap、または別のzero-exit callへtail-forwardする以外に
@@ -223,11 +249,15 @@ B => [] = forall R. B -> ([] -> R) -> R ~= forall R. B -> R
 frameは一つのarenaへpushされ、return時にpopする。region外callはnative stackを使えるため、この表現から任意のdynamic stack
 suffixを直接captureしてはならない。
 
+各saturated call siteは具体的な`R`に対するhandler bridge、resume target、frame ownershipを構成する。callee側のcontrol ABIはそれらを
+opaqueなtail-transfer targetとして扱い、answer valueをcallee共通の表現へeraseしない。first-class control functionの呼出先が
+静的に一つへ決まらない場合も、signatureは同一なのでtarget dispatchとanswer-specific bridgeを分離できる。control functionを
+`extern`として宣言することとresumptionをhostへtransportすることは、別のABIが定まるまで拒否する。
+
 最初の段階は単一または複数のabortive exit、`Abrupt` join、`when`、saturated `=>` callを実装する。次の段階で`Y <- S`、
 `(value)[resume]`、deep forwarding、multi-shotをpersistent closureまたは同等のbaseline表現で実装する。最後にone-shotと証明できる
 siteのarena frame化をoptional optimizationとして評価する。
 
-実装前に、answer-polymorphicなfirst-class control functionのinternal ABI、handler expressionの評価順、port forwardingの
-concrete lowering、resumptionが保持するmanaged ownerと各invocationのshare規則、およびextern transportを拒否する境界を決める。
-各段階はpositive、negative、evaluation order、managed capture、深い再帰をfocused testで固定し、resumable段階では同じresumptionを
-0回、1回、複数回使うcaseと各回のextern traceを追加する。
+実装時にはport forwardingのconcrete loweringと、persistent ownerを各resumption invocationがshareする規則をrepresentation invariant
+として固定する。各段階はpositive、negative、evaluation order、managed capture、深い再帰をfocused testで固定し、resumable段階では
+同じresumptionを0回、1回、複数回使うcase、handlerからescapeするcase、各回のextern traceを追加する。
