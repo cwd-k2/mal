@@ -121,42 +121,35 @@ _findFreeRecord :: (Ptr, UInt64) -> UInt64 := (database, index) {
 };
 
 putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
-    (databaseBuffer, lineBytes, keyStart, keyLength, valueStart, valueLength) {
+    (databaseBuffer, lineBytes, keyStart, keyLength, valueStart, valueLength)[stored, invalid, full] {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
-        if (keyLength == 0u64 || keyLength > _keyCapacity || valueLength > _valueCapacity)
-        then { 1[PutResult](()) }
-        else {
-            existing := _findRecord(database, line, keyStart, keyLength, 0u64);
-            slot := if (existing == _recordCount)
-                then { _findFreeRecord(database, 0u64) }
-                else { existing };
-            if (slot == _recordCount)
-            then { 2[PutResult](()) }
-            else {
-                record := _recordAt(database, slot);
-                UInt8.store(record + 1u64, UInt8(keyLength));
-                UInt8.store(record + 2u64, UInt8(valueLength));
-                copyRange(line, keyStart, record + 8u64, keyLength);
-                copyRange(line, valueStart, record + 24u64, valueLength);
-                UInt8.store(record, 1u8);
-                0[PutResult](());
-            };
+        when (keyLength == 0u64 || keyLength > _keyCapacity || valueLength > _valueCapacity) {
+            invalid();
         };
+        existing := _findRecord(database, line, keyStart, keyLength, 0u64);
+        slot := if (existing == _recordCount)
+            then { _findFreeRecord(database, 0u64) }
+            else { existing };
+        when (slot == _recordCount) { full() };
+        record := _recordAt(database, slot);
+        UInt8.store(record + 1u64, UInt8(keyLength));
+        UInt8.store(record + 2u64, UInt8(valueLength));
+        copyRange(line, keyStart, record + 8u64, keyLength);
+        copyRange(line, valueStart, record + 24u64, valueLength);
+        UInt8.store(record, 1u8);
+        stored();
     };
 
 lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
-    (databaseBuffer, lineBytes, keyStart, keyLength) {
+    (databaseBuffer, lineBytes, keyStart, keyLength)[absent, found] {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
-        if (slot == _recordCount)
-        then { 0[LookupResult](()) }
-        else {
-            record := _recordAt(database, slot);
-            valueLength := UInt64(UInt8.load(record + 2u64));
-            1[LookupResult]((record + 24u64, valueLength));
-        };
+        when (slot == _recordCount) { absent() };
+        record := _recordAt(database, slot);
+        valueLength := UInt64(UInt8.load(record + 2u64));
+        found((record + 24u64, valueLength));
     };
 
 deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=

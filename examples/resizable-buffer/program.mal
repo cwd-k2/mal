@@ -20,46 +20,43 @@ extern writeSlice :: Slice -> Unit;
 extern writeSliceDescriptor :: (Allocation, Ptr) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
-nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required) {
-    if (capacity >= required)
-    then { capacity }
-    else {
-        if (capacity > 0x7fff_ffff_ffff_ffffu64)
-        then { required }
-        else { nextCapacity(capacity * 2u64, required) };
-    };
+nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
+    when (capacity >= required) { return(capacity) };
+    when (capacity > 0x7fff_ffff_ffff_ffffu64) { return(required) };
+    return(nextCapacity(capacity * 2u64, required));
 };
 
-appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) {
+appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
     (allocation, memory, capacity, length) := buffer;
     additional := #value;
-    if (additional > 0xffff_ffff_ffff_ffffu64 - length)
-    then { 1[BufferResult](1u32) }
-    else {
-        required := length + additional;
-        available := if (required <= capacity)
-            then { 0[BufferResult](buffer) }
-            else {
-                target := nextCapacity(capacity, required);
-                resizeBuffer(buffer, target);
-            };
-        available[
+    when (additional > 0xffff_ffff_ffff_ffffu64 - length) {
+        return(1[BufferResult](1u32));
+    };
+    required := length + additional;
+    available := if (required <= capacity)
+        then { 0[BufferResult](buffer) }
+        else {
+            target := nextCapacity(capacity, required);
+            resizeBuffer(buffer, target);
+        };
+    result := available[
         (resized) {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
             Symbol.write(nextMemory + length, value);
             0[BufferResult]((nextAllocation, nextMemory, nextCapacityValue, required));
         },
         (error) { 1[BufferResult](error) }
-        ];
-    };
+    ];
+    return(result);
 };
 
 sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
-    (buffer, start, length) {
+    (buffer, start, length)[slice, invalid] {
         (allocation, memory, _, initialized) := buffer;
-        if (start <= initialized && length <= initialized - start)
-        then { 0[SliceResult]((allocation, memory + start, length)) }
-        else { 1[SliceResult](()) };
+        when (start <= initialized && length <= initialized - start) {
+            slice((allocation, memory + start, length));
+        };
+        invalid();
     };
 
 releaseBufferValue :: Buffer -> Unit := (buffer) {

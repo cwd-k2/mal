@@ -285,6 +285,21 @@ fn mini_database_example_persists_queries_across_processes() {
         "NOT FOUND\n".repeat(400)
     );
 
+    let mut fill_input = String::from("put key-that-is-longer-than-sixteen value\n");
+    for index in 0..64 {
+        fill_input.push_str(&format!("put key{index} value{index}\n"));
+    }
+    fill_input.push_str("quit\n");
+    let output = run_session(&fill_input);
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!(
+            "ERROR key<=16 value<=40\n{}ERROR database full\n",
+            "OK\n".repeat(63)
+        )
+    );
+
     let overlong_line = format!("{}\n", "x".repeat(257));
     let output = run_session(&overlong_line);
     assert!(!output.status.success());
