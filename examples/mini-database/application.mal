@@ -6,25 +6,27 @@ _queryStorageSize :: UInt64 := 257u64;
 _inputStorageSize :: UInt64 := 4096u64;
 
 executeDatabase :: Symbol -> Int32 := (path) {
+    // Acquire process-lifetime resources before deriving any borrowed memory views.
     allocator := createAllocator();
     file := openReadWriteCreate(path);
     input := standardInput();
+
     databaseStorage := allocateBuffer(allocator, databaseReadCapacity);
     query := allocateBuffer(allocator, _queryStorageSize);
     inputBuffer := allocateBuffer(allocator, _inputStorageSize);
+
     loadedDatabase := readDatabaseFile(file, databaseStorage);
     (_, _, loaded) := loadedDatabase;
     database := if (loaded == 0u64)
         then { initializeDatabase(loadedDatabase) }
         else {
-            if (!validateDatabase(loadedDatabase))
-            then {
-                fail("invalid database file");
-                loadedDatabase;
-            }
-            else { loadedDatabase };
+            when (!validateDatabase(loadedDatabase)) { fail("invalid database file") };
+            loadedDatabase;
         };
+
     runQueries((input, inputBuffer, 0u64), file, database, query);
+
+    // No buffer view may be used after destroying its allocator.
     closeFile(file);
     destroyAllocator(allocator);
     0;

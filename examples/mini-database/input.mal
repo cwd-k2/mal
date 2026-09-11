@@ -4,60 +4,65 @@ require "./host.mal";
 Reader :: (File, Buffer, UInt64);
 // ByteRead variant 0 carries the reader at EOF; variant 1 carries the next reader and byte.
 ByteRead :: [Reader, (Reader, UInt8)];
+
 // LineState fields: 0 next reader, 1 initialized line buffer.
 LineState :: (Reader, Buffer);
 // LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
 LineRead :: [Reader, LineState];
 
-_readByte :: Reader -> ByteRead := (reader) {
+_lineAtEof :: Reader -> LineRead := (reader)[eof, ready] {
+    eof(reader);
+};
+
+_lineReady :: LineState -> LineRead := (state)[eof, ready] {
+    ready(state);
+};
+
+// Return buffered data first; refill only when the cursor reaches initialized bytes.
+_readByte :: Reader -> ByteRead := (reader)[eof, read] {
     (file, buffer, position) := reader;
     (memory, capacity, length) := buffer;
-    if (position < length)
-    then {
+
+    when (position < length) {
         byte := UInt8.load(memory + position);
-        1[ByteRead](((file, buffer, position + 1u64), byte));
-    }
-    else {
-        transferred := readFile(file, (memory, capacity));
-        filled := (memory, capacity, transferred);
-        next := (file, filled, 0u64);
-        if (transferred == 0u64)
-        then { 0[ByteRead](next) }
-        else {
-            byte := UInt8.load(memory);
-            1[ByteRead](((file, filled, 1u64), byte));
-        };
+        read(((file, buffer, position + 1u64), byte));
     };
+
+    transferred := readFile(file, (memory, capacity));
+    filled := (memory, capacity, transferred);
+    next := (file, filled, 0u64);
+    when (transferred == 0u64) { eof(next) };
+
+    byte := UInt8.load(memory);
+    read(((file, filled, 1u64), byte));
 };
 
 _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
     (line, capacity, length) := buffer;
     result := _readByte(reader);
     result[
-    (next) {
-        if (length == 0u64)
-        then { 0[LineRead](next) }
-        else { 1[LineRead]((next, buffer)) };
+    (next)[return] {
+        when (length == 0u64) { return(_lineAtEof(next)) };
+        return(_lineReady((next, buffer)));
     },
-    (read) {
+    (read)[return] {
         (next, byte) := read;
-        if (byte == '\n')
-        then {
-            if (length > 0u64 && UInt8.load(line + length - 1u64) == '\r')
-            then { 1[LineRead]((next, (line, capacity, length - 1u64))) }
-            else { 1[LineRead]((next, buffer)) };
-        }
-        else {
-            if (length + 1u64 == capacity)
-            then {
-                fail("query line exceeds its buffer");
-                1[LineRead]((next, buffer));
-            }
-            else {
-                UInt8.store(line + length, byte);
-                _readLineAt(next, (line, capacity, length + 1u64));
+
+        // A completed line excludes LF and an optional preceding CR.
+        when (byte == '\n') {
+            when (length > 0u64 && UInt8.load(line + length - 1u64) == '\r') {
+                return(_lineReady((next, (line, capacity, length - 1u64))));
             };
+            return(_lineReady((next, buffer)));
         };
+
+        when (length + 1u64 == capacity) {
+            fail("query line exceeds its buffer");
+            return(_lineReady((next, buffer)));
+        };
+
+        UInt8.store(line + length, byte);
+        return(_readLineAt(next, (line, capacity, length + 1u64)));
     }
     ];
 };

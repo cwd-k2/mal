@@ -36,19 +36,20 @@ Arguments :: (UInt64, Ptr);
 
 bufferSize :: UInt64 := 4096u64;
 
+_completed :: Unit -> Status := ()[complete, failed] {
+    complete();
+};
+
 copyContents :: (File, Buffer) -> Status := (file, buffer) {
     (memory, capacity, _) := buffer;
     result := readFile(file, (memory, capacity));
     result[
-    (length) {
-        if (length == 0u64)
-        then { 0[Status](()) }
-        else {
-            writeBytes((memory, length));
-            copyContents(file, (memory, capacity, length));
-        };
+    (length)[return] {
+        when (length == 0u64) { return(_completed()) };
+        writeBytes((memory, length));
+        return(copyContents(file, (memory, capacity, length)));
     },
-    (error) { 1[Status](error) }
+    (error)[complete, failed] { failed(error) }
     ];
 };
 
@@ -56,11 +57,11 @@ finishCopy :: (Status, CloseResult) -> Status := (copied, closed) {
     copied[
     () {
         closed[
-        () { 0[Status](()) },
-        (error) { 1[Status](error) }
+        ()[complete, failed] { complete() },
+        (error)[complete, failed] { failed(error) }
         ];
     },
-    (error) { 1[Status](error) }
+    (error)[complete, failed] { failed(error) }
     ];
 };
 
@@ -74,27 +75,26 @@ copyPath :: Symbol -> Status := (path) {
             closed := closeFile(file);
             finishCopy(copied, closed);
         },
-        (error) { 1[Status](error) }
+        (error)[complete, failed] { failed(error) }
     ];
     releaseBuffer(allocation);
     outcome;
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments) {
-    if (argumentCount == 1u64)
-    then {
-        path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
-        result := copyPath(path);
-        result[
+main :: Arguments -> Int32 := (argumentCount, arguments)[return] {
+    when (argumentCount != 1u64) {
+        writeSymbol("usage: mal-recoverable-file FILE\n");
+        return(2);
+    };
+
+    path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
+    result := copyPath(path);
+    status :: Int32 := result[
         () { 0 },
         (error) {
             writeError(error);
             1;
         }
-        ];
-    }
-    else {
-        writeSymbol("usage: mal-recoverable-file FILE\n");
-        2;
-    };
+    ];
+    return(status);
 };

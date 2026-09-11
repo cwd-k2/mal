@@ -1,27 +1,25 @@
 require "./host.mal";
 
+// Convert a writable buffer descriptor into the initialized read-only view.
 initializedBytes :: Buffer -> Bytes := (buffer) {
     (memory, _, length) := buffer;
     (memory, length);
 };
 
-clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining) {
-    if (remaining == 0u64)
-    then { () }
-    else {
-        UInt8.store(memory, 0u8);
-        clearBytes(memory + 1u64, remaining - 1u64);
-    };
+// These recursive byte operations advance one byte and reduce their remaining range.
+clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] {
+    when (remaining == 0u64) { return(()) };
+
+    UInt8.store(memory, 0u8);
+    return(clearBytes(memory + 1u64, remaining - 1u64));
 };
 
 _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
-    (source, start, expected, index) {
-        if (index == #expected)
-        then { true }
-        else {
-            UInt8.load(source + start + index) == expected # index
-                && _rangeEqualsAt(source, start, expected, index + 1u64);
-        };
+    (source, start, expected, index)[return] {
+        when (index == #expected) { return(true) };
+        when (UInt8.load(source + start + index) != expected # index) { return(false) };
+
+        return(_rangeEqualsAt(source, start, expected, index + 1u64));
     };
 
 rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
@@ -32,32 +30,27 @@ rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
     };
 
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
-    (source, length, index, byte) {
-        if (index == length)
-        then { index }
-        else {
-            if (UInt8.load(source + index) == byte)
-            then { index }
-            else { findByte(source, length, index + 1u64, byte) };
-        };
+    (source, length, index, byte)[return] {
+        when (index == length) { return(index) };
+        when (UInt8.load(source + index) == byte) { return(index) };
+
+        return(findByte(source, length, index + 1u64, byte));
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
-    (memory, source, start, length, index) {
-        if (index == length)
-        then { true }
-        else {
-            UInt8.load(memory + index) == UInt8.load(source + start + index)
-                && memoryEqualsAt(memory, source, start, length, index + 1u64);
+    (memory, source, start, length, index)[return] {
+        when (index == length) { return(true) };
+        when (UInt8.load(memory + index) != UInt8.load(source + start + index)) {
+            return(false);
         };
+
+        return(memoryEqualsAt(memory, source, start, length, index + 1u64));
     };
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
-    (source, start, destination, remaining) {
-        if (remaining == 0u64)
-        then { () }
-        else {
-            UInt8.store(destination, UInt8.load(source + start));
-            copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64);
-        };
+    (source, start, destination, remaining)[return] {
+        when (remaining == 0u64) { return(()) };
+
+        UInt8.store(destination, UInt8.load(source + start));
+        return(copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64));
     };

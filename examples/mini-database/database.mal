@@ -3,6 +3,7 @@ require "./bytes.mal";
 
 databaseReadCapacity :: UInt64 := 4113u64;
 
+// One byte beyond the file size lets validation distinguish a complete file from an oversized one.
 _databaseSize :: UInt64 := 4112u64;
 _headerSize :: UInt64 := 16u64;
 _recordSize :: UInt64 := 64u64;
@@ -12,37 +13,35 @@ _valueCapacity :: UInt64 := 40u64;
 
 // File bytes are a 16-byte header followed by 64 records of 64 bytes.
 // Record offsets are 0 active, 1 key length, 2 value length, 8 key, and 24 value.
+
 // PutResult variants are 0 stored, 1 invalid input, and 2 full storage.
 PutResult :: [Unit, Unit, Unit];
 // LookupResult variant 0 means absent; variant 1 carries value memory and length.
 LookupResult :: [Unit, Bytes];
 
-readDatabaseFile :: (File, Buffer) -> Buffer := (file, buffer) {
+// Fill the buffer until it reaches capacity or the file reports EOF.
+readDatabaseFile :: (File, Buffer) -> Buffer := (file, buffer)[return] {
     (memory, capacity, length) := buffer;
-    if (length == capacity)
-    then { buffer }
-    else {
-        transferred := readFile(file, (memory + length, capacity - length));
-        if (transferred == 0u64)
-        then { buffer }
-        else { readDatabaseFile(file, (memory, capacity, length + transferred)) };
-    };
+    when (length == capacity) { return(buffer) };
+
+    transferred := readFile(file, (memory + length, capacity - length));
+    when (transferred == 0u64) { return(buffer) };
+
+    return(readDatabaseFile(file, (memory, capacity, length + transferred)));
 };
 
 _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
-    (file, bytes, written) {
+    (file, bytes, written)[return] {
         (memory, length) := bytes;
-        if (written == length)
-        then { () }
-        else {
-            transferred := writeFile(file, (memory + written, length - written));
-            if (transferred == 0u64)
-            then {
-                fail("file write made no progress");
-                ();
-            }
-            else { _writeBytesFully(file, bytes, written + transferred) };
+        when (written == length) { return(()) };
+
+        transferred := writeFile(file, (memory + written, length - written));
+        when (transferred == 0u64) {
+            fail("file write made no progress");
+            return(());
         };
+
+        return(_writeBytesFully(file, bytes, written + transferred));
     };
 
 saveDatabase :: (File, Buffer) -> Unit := (file, database) {
@@ -53,6 +52,8 @@ saveDatabase :: (File, Buffer) -> Unit := (file, database) {
 
 initializeDatabase :: Buffer -> Buffer := (buffer) {
     (memory, capacity, _) := buffer;
+
+    // Clear record storage before publishing the header magic and format version.
     clearBytes(memory, _databaseSize);
     UInt8.store(memory, 'M');
     UInt8.store(memory + 1u64, 'A');
@@ -67,24 +68,26 @@ _recordAt :: (Ptr, UInt64) -> Ptr := (database, index) {
     database + _headerSize + index * _recordSize;
 };
 
-_validateRecords :: (Ptr, UInt64) -> Bool := (database, index) {
-    if (index == _recordCount)
-    then { true }
-    else {
-        record := _recordAt(database, index);
-        active := UInt8.load(record);
-        keyLength := UInt64(UInt8.load(record + 1u64));
-        valueLength := UInt64(UInt8.load(record + 2u64));
-        valid := (active == 0u8 || active == 1u8)
-            && keyLength <= _keyCapacity
-            && valueLength <= _valueCapacity
-            && (active == 0u8 || keyLength > 0u64);
-        valid && _validateRecords(database, index + 1u64);
-    };
+_validateRecords :: (Ptr, UInt64) -> Bool := (database, index)[return] {
+    when (index == _recordCount) { return(true) };
+
+    record := _recordAt(database, index);
+    active := UInt8.load(record);
+    keyLength := UInt64(UInt8.load(record + 1u64));
+    valueLength := UInt64(UInt8.load(record + 2u64));
+    valid := (active == 0u8 || active == 1u8)
+        && keyLength <= _keyCapacity
+        && valueLength <= _valueCapacity
+        && (active == 0u8 || keyLength > 0u64);
+    when (!valid) { return(false) };
+
+    return(_validateRecords(database, index + 1u64));
 };
 
 validateDatabase :: Buffer -> Bool := (buffer) {
     (database, _, length) := buffer;
+
+    // Validate fixed header fields before walking any record metadata.
     length == _databaseSize
         && UInt8.load(database) == 'M'
         && UInt8.load(database + 1u64) == 'A'
@@ -96,28 +99,23 @@ validateDatabase :: Buffer -> Bool := (buffer) {
 };
 
 _findRecord :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> UInt64 :=
-    (database, key, start, length, index) {
-        if (index == _recordCount)
-        then { _recordCount }
-        else {
-            record := _recordAt(database, index);
-            matches := UInt8.load(record) == 1u8
-                && UInt64(UInt8.load(record + 1u64)) == length
-                && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
-            if (matches)
-            then { index }
-            else { _findRecord(database, key, start, length, index + 1u64) };
-        };
+    (database, key, start, length, index)[return] {
+        when (index == _recordCount) { return(_recordCount) };
+
+        record := _recordAt(database, index);
+        matches := UInt8.load(record) == 1u8
+            && UInt64(UInt8.load(record + 1u64)) == length
+            && memoryEqualsAt(record + 8u64, key, start, length, 0u64);
+        when (matches) { return(index) };
+
+        return(_findRecord(database, key, start, length, index + 1u64));
     };
 
-_findFreeRecord :: (Ptr, UInt64) -> UInt64 := (database, index) {
-    if (index == _recordCount)
-    then { _recordCount }
-    else {
-        if (UInt8.load(_recordAt(database, index)) == 0u8)
-        then { index }
-        else { _findFreeRecord(database, index + 1u64) };
-    };
+_findFreeRecord :: (Ptr, UInt64) -> UInt64 := (database, index)[return] {
+    when (index == _recordCount) { return(_recordCount) };
+    when (UInt8.load(_recordAt(database, index)) == 0u8) { return(index) };
+
+    return(_findFreeRecord(database, index + 1u64));
 };
 
 putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
@@ -127,11 +125,14 @@ putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
         when (keyLength == 0u64 || keyLength > _keyCapacity || valueLength > _valueCapacity) {
             invalid();
         };
+
         existing := _findRecord(database, line, keyStart, keyLength, 0u64);
         slot := if (existing == _recordCount)
             then { _findFreeRecord(database, 0u64) }
             else { existing };
         when (slot == _recordCount) { full() };
+
+        // Write payload lengths and bytes before marking the slot active.
         record := _recordAt(database, slot);
         UInt8.store(record + 1u64, UInt8(keyLength));
         UInt8.store(record + 2u64, UInt8(valueLength));
@@ -147,20 +148,19 @@ lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
         when (slot == _recordCount) { absent() };
+
         record := _recordAt(database, slot);
         valueLength := UInt64(UInt8.load(record + 2u64));
         found((record + 24u64, valueLength));
     };
 
 deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=
-    (databaseBuffer, lineBytes, keyStart, keyLength) {
+    (databaseBuffer, lineBytes, keyStart, keyLength)[return] {
         (database, _, _) := databaseBuffer;
         (line, _) := lineBytes;
         slot := _findRecord(database, line, keyStart, keyLength, 0u64);
-        if (slot == _recordCount)
-        then { false }
-        else {
-            UInt8.store(_recordAt(database, slot), 0u8);
-            true;
-        };
+        when (slot == _recordCount) { return(false) };
+
+        UInt8.store(_recordAt(database, slot), 0u8);
+        return(true);
     };

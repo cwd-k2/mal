@@ -1,7 +1,6 @@
-sumTo :: (Int64, Int64) -> Int64 := (remaining, total) {
-    if (remaining == 0)
-    then { total }
-    else { sumTo(remaining - 1, total + remaining) };
+sumTo :: (Int64, Int64) -> Int64 := (remaining, total)[return] {
+    when (remaining == 0) { return(total) };
+    return(sumTo(remaining - 1, total + remaining));
 };
 
 main :: Unit -> Int32 := () {

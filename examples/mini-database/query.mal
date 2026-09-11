@@ -3,6 +3,7 @@ require "./bytes.mal";
 require "./input.mal";
 require "./database.mal";
 
+// Response helpers are the only query-layer operations that write user-visible protocol text.
 _writeResponse :: Symbol -> Unit := (response) {
     writeSymbol(response);
 };
@@ -10,6 +11,7 @@ _writeResponse :: Symbol -> Unit := (response) {
 _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
     (file, database, line, keyStart, keyLength, valueStart, valueLength) {
         result := putRecord(database, line, keyStart, keyLength, valueStart, valueLength);
+
         result[
         () {
             saveDatabase(file, database);
@@ -23,6 +25,7 @@ _put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
 _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
     (database, line, keyStart, keyLength) {
         result := lookupRecord(database, line, keyStart, keyLength);
+
         result[
         () { _writeResponse("NOT FOUND\n") },
         (value) {
@@ -44,46 +47,45 @@ _delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
         else { _writeResponse("NOT FOUND\n") };
     };
 
-_handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes) {
+// Dispatch one complete line. Each recognized command returns before testing later commands.
+_handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes)[return] {
     (line, length) := lineBytes;
-    if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "get "))
-    then {
+
+    when (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "get ")) {
         keyLength := length - 4u64;
         extraSpace := findByte(line, length, 4u64, ' ');
-        if (keyLength == 0u64 || extraSpace != length)
-        then { _writeResponse("ERROR usage: get KEY\n") }
-        else { _get(database, lineBytes, 4u64, keyLength) };
-    }
-    else {
-        if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "del "))
-        then {
-            keyLength := length - 4u64;
-            extraSpace := findByte(line, length, 4u64, ' ');
-            if (keyLength == 0u64 || extraSpace != length)
-            then { _writeResponse("ERROR usage: del KEY\n") }
-            else { _delete(file, database, lineBytes, 4u64, keyLength) };
-        }
-        else {
-            if (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "put "))
-            then {
-                separator := findByte(line, length, 4u64, ' ');
-                if (separator == length || separator == 4u64)
-                then { _writeResponse("ERROR usage: put KEY VALUE\n") }
-                else {
-                    _put(
-                        file,
-                        database,
-                        lineBytes,
-                        4u64,
-                        separator - 4u64,
-                        separator + 1u64,
-                        length - separator - 1u64
-                    );
-                };
-            }
-            else { _writeResponse("ERROR commands: put/get/del/quit\n") };
+        when (keyLength == 0u64 || extraSpace != length) {
+            return(_writeResponse("ERROR usage: get KEY\n"));
         };
+        return(_get(database, lineBytes, 4u64, keyLength));
     };
+
+    when (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "del ")) {
+        keyLength := length - 4u64;
+        extraSpace := findByte(line, length, 4u64, ' ');
+        when (keyLength == 0u64 || extraSpace != length) {
+            return(_writeResponse("ERROR usage: del KEY\n"));
+        };
+        return(_delete(file, database, lineBytes, 4u64, keyLength));
+    };
+
+    when (length >= 4u64 && rangeEquals(line, length, 0u64, 4u64, "put ")) {
+        separator := findByte(line, length, 4u64, ' ');
+        when (separator == length || separator == 4u64) {
+            return(_writeResponse("ERROR usage: put KEY VALUE\n"));
+        };
+        return(_put(
+            file,
+            database,
+            lineBytes,
+            4u64,
+            separator - 4u64,
+            separator + 1u64,
+            length - separator - 1u64
+        ));
+    };
+
+    return(_writeResponse("ERROR commands: put/get/del/quit\n"));
 };
 
 runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
@@ -91,16 +93,17 @@ runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
         result := readLine(reader, query);
         result[
         (_) { () },
-        (state) {
+        (state)[return] {
             (next, lineBuffer) := state;
             lineBytes := initializedBytes(lineBuffer);
             (line, length) := lineBytes;
-            if (length == 0u64 || rangeEquals(line, length, 0u64, length, "quit"))
-            then { () }
-            else {
-                _handleQuery(file, database, lineBytes);
-                runQueries(next, file, database, query);
+
+            when (length == 0u64 || rangeEquals(line, length, 0u64, length, "quit")) {
+                return(());
             };
+
+            _handleQuery(file, database, lineBytes);
+            return(runQueries(next, file, database, query));
         }
         ];
     };
