@@ -16,6 +16,7 @@ versions.
 The pinned development environment is provided by Nix. From the repository root in Nushell:
 
 ```nu
+nix run . -- --help
 nix develop
 cargo test --manifest-path compiler/Cargo.toml
 cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal

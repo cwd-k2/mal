@@ -16,6 +16,24 @@ C shim、runtime、generated header、host sourceはC11を要求する。Float�
 subnormal、`FLT_EVAL_METHOD == 0`を要求し、満たさないtargetをcompile-timeに拒否する。
 他のOS、architecture、C compilerはv0.5 development profileの検証対象外である。
 
+## Nix flake
+
+repository flakeは`x86_64-linux`向けに`packages.default`と`packages.malc`を同じcompiler packageとして公開する。
+packageは`malc`が`build`時に起動するpinned Clangをruntime closureと`PATH`に含むため、呼出し側が別途Clangを用意する必要はない。
+`apps.default`と`apps.malc`はそのpackageの`malc`を起動する。
+
+repository rootでは次の形でpackageをbuildまたは実行できる。
+
+```nu
+nix build .#malc
+nix run .#malc -- --help
+nix run . -- build source.mal --output program
+```
+
+別のflakeはこのflakeをinputに置き、`inputs.mal.packages.x86_64-linux.malc`をpackageとして参照できる。`checks.malc`は同じ
+derivationをbuildし、Cargo testを含むpackage検証を`nix flake check`へ接続する。対応systemは上記development profileと同じ
+`x86_64-linux`だけであり、他system向けoutputを暗黙に宣言しない。
+
 ## Command
 
 ```nu
