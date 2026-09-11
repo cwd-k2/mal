@@ -25,7 +25,7 @@ malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
 malc build source.mal --output program
-malc build source.mal --output program --optimization production
+malc build source.mal --output program --optimization baseline
 malc build source.mal --output program --artifact-dir artifacts
 malc build source.mal --output program --clang-arg '-lm'
 ```
@@ -40,8 +40,8 @@ malc build source.mal --output program --clang-arg '-lm'
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
 - `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
-- `build`は既定で`baseline` profileを使う。`--optimization production`は採用済みのexecution、LLVM emission、toolchain
-  techniqueを明示的に有効化する。同じoptionは一度だけ指定できる。
+- `build`は既定で`production` profileを使い、正しさと採用gateを満たしたexecution、LLVM emission、toolchain techniqueをすべて
+  有効化する。`--optimization baseline`はdebugと差分検証のためoptional techniqueを外す。同じoptionは一度だけ指定できる。
 - `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
 - `build --artifact-dir directory`は、通常temporaryなbackend生成物とruntime入力を指定directoryへ書き、build後も保持する。
   Clangが失敗した場合も保持する。同じ名前のfileは置き換えるが、directory内の他のfileは変更しない。
@@ -60,10 +60,10 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 requireされたhost C sourceと同じ`clang`でcompile、linkする。extern callはinternal pointer/out-pointer bridgeを通してpublic headerの
 C ABIへ変換する。ambient `CC`は参照せず、compiler自体を差し替えるCLIはない。
 
-`baseline` profileはoptionalなcompiler techniqueを使わず、Clangへ`-O0`を渡してLTO unitを作らない。Nix toolchainがambientに指定する
+明示的な`baseline` profileはoptionalなcompiler techniqueを使わず、Clangへ`-O0`を渡してLTO unitを作らない。Nix toolchainがambientに指定する
 `_FORTIFY_SOURCE`の`-O0` warningだけは`-Wno-error=#warnings`でerrorから外す。その他のwarningは`-Werror`のままである。
 
-`production` profileは各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
+既定の`production` profileは各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
 一つのlink-time optimization unitにする。これはprogram固有のLLVM IRとprogram非依存のC mechanismのsource責務を保ったまま、境界上の
 小さいhelper callを最適化する生成物policyである。どちらのprofileも`-fno-fast-math`、`-ffp-contract=off`、`-frounding-math`、
 `-fexcess-precision=standard`を渡し、言語semanticsをC optimizer固有のundefined behaviorへ依存させない。

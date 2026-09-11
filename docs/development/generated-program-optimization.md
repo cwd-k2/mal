@@ -43,10 +43,11 @@ capabilityが必要なら、そのownerの通常planを先に拡張し、optimiz
 
 ## correctness baseline
 
-public `build`は既定で空のexecution technique集合、空のLLVM technique集合、Clang `-O0`、LTOなしの`baseline` profileを使う。
-`--optimization production`だけが採用済みtechniqueとClang `-O2 -flto`を有効にする。両profileは同じpinned Clang、target、strict
-floating-point optionを使い、ambient `CC`を継承しない。result、effect trace、trap、owner終状態、bounded native stackはbaselineで
-成立し、productionとの差分に依存しない。
+public `build`は既定で採用済みのexecution technique集合、LLVM technique集合、Clang `-O2 -flto`からなる`production` profileを使う。
+利用者がcompiler内部の選択を知らなくても、採用gateを満たした最良の構成を得ることをsurface contractとする。明示的な
+`--optimization baseline`は空のcompiler technique集合、Clang `-O0`、LTOなしでdebugと差分検証を行う経路である。両profileは同じpinned
+Clang、target、strict floating-point optionを使い、ambient `CC`を継承しない。result、effect trace、trap、owner終状態、bounded native
+stackはbaselineでも成立し、productionとの差分に依存しない。
 
 性能の採否ではproduction profileを比較対象とする。LTO有無を調査する場合は同じobservable resultを先に確認し、差分をsource責務の移動ではなく
 cross-translation-unit optimizationの効果として扱う。

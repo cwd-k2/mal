@@ -42,19 +42,21 @@ fn selects_optimization_profiles_at_the_public_build_boundary() {
     let production_artifacts = directory.join("production-artifacts");
 
     for (profile, executable, artifacts) in [
-        ("baseline", &baseline, &baseline_artifacts),
-        ("production", &production, &production_artifacts),
+        (Some("baseline"), &baseline, &baseline_artifacts),
+        (None, &production, &production_artifacts),
     ] {
-        let output = directory.malc([
+        let mut arguments = vec![
             OsStr::new("build"),
             source.as_os_str(),
             OsStr::new("--output"),
             executable.as_os_str(),
             OsStr::new("--artifact-dir"),
             artifacts.as_os_str(),
-            OsStr::new("--optimization"),
-            OsStr::new(profile),
-        ]);
+        ];
+        if let Some(profile) = profile {
+            arguments.extend([OsStr::new("--optimization"), OsStr::new(profile)]);
+        }
+        let output = directory.malc(arguments);
         assert!(
             output.status.success(),
             "{}",
