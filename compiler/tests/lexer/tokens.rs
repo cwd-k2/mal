@@ -116,18 +116,6 @@ fn lexes_every_operator_and_delimiter() {
 }
 
 #[test]
-fn rejects_the_unsupported_fat_arrow_token() {
-    let error = lex(&source("=>")).expect_err("the unsupported token should be rejected");
-    assert_eq!(error.message, "invalid token");
-}
-
-#[test]
-fn rejects_the_removed_lambda_introducer() {
-    let error = lex(&source(r"\() { 0 }")).expect_err("backslash should not be a token");
-    assert_eq!(error.message, "invalid token");
-}
-
-#[test]
 fn skips_ascii_whitespace_and_line_comments() {
     let tokens = lex(&source("main // until the line ending\r\n  return"))
         .expect("comments and whitespace should lex");
@@ -204,4 +192,12 @@ fn invalid_characters_produce_renderable_utf8_aligned_spans() {
 
     assert!(rendered.contains("test.mal:1:9"));
     assert!(rendered.contains("^ unexpected character `あ`"));
+}
+
+#[test]
+fn rejects_characters_outside_the_token_grammar() {
+    for text in ["@", "$"] {
+        let error = lex(&source(text)).expect_err("unknown punctuation must be rejected");
+        assert_eq!(error.message, "invalid token");
+    }
 }

@@ -53,7 +53,7 @@ C runtimeを呼ぶ。
 
 public host interfaceは現在のC ABIを維持し、LLVM IRの型、calling convention、frame、closure carrierを公開しない。LLVMはCより
 低水準であり、`ccc`を指定するだけではsource-level C aggregateのtarget ABI loweringをfrontendに代わって構成しない。このため
-初期backendはhost-visible product、sum、SymbolをLLVM function signatureで直接受け渡さない。
+reference backendはhost-visible product、sum、SymbolをLLVM function signatureで直接受け渡さない。
 
 LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、opaque pointer、input pointer、result out-pointerを
 基本とする。fixed-width scalarをsignatureで直接渡す場合や共有record layoutが必要な場合は、一つのbackend ABI planからC
@@ -78,7 +78,7 @@ refineする。
 既知のstate遷移はLLVM basic blockへの直接branchにし、runtime target選択が必要な箇所だけdispatchする。全遷移を一つのcentral
 dispatcherへ戻すことや、多数のpredecessorを持つblockを無条件に作ることをbackendの正しさの条件にしない。
 
-LLVM coroutine intrinsicは初期backendに使わない。malは外部resume、suspended coroutine identity、destroy operationを必要とせず、
+LLVM coroutine intrinsicはreference backendに使わない。malは外部resume、suspended coroutine identity、destroy operationを必要とせず、
 recursive regionではcoroutine frame allocationのelisionも通常期待できない。既存control IRのframeとresumeを直接lowerする。
 
 ## targetとartifact

@@ -80,7 +80,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`programs`: entry point](../spec/programs.md#entry-point) | P/N/E: `builds_a_constant_main_through_the_llvm_artifact_set`、`passes_process_arguments_through_the_llvm_entry_bridge`（`compiler/tests/driver/artifacts.rs`） | public `build` example tests（`compiler/tests/driver.rs`） |
 | [`grammar`: sourceとidentifier](../spec/grammar.md#source-と-identifier) | P/N/E: keyword、whitespace/comment、identifier、UTF-8 diagnostic tests（`compiler/tests/lexer.rs`、`compiler/src/source.rs`） | frontendを通る全native test |
 | [`grammar`: numeric separator](../spec/grammar.md#numeric-separator) | P/N/E: numeric separator tests（`compiler/tests/lexer.rs`） | `integer-and-byte`、`strict-float` examples（`compiler/tests/driver.rs`） |
-| [`grammar`: 文法概要](../spec/grammar.md#文法概要) | P/N/E: parser suite（`compiler/tests/parser.rs`）、`rejects_the_unsupported_fat_arrow_token`（`compiler/tests/lexer.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
+| [`grammar`: 文法概要](../spec/grammar.md#文法概要) | P/N/E: parser suite（`compiler/tests/parser.rs`）、`lexes_every_operator_and_delimiter`、`rejects_characters_outside_the_token_grammar`（`compiler/tests/lexer.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
 | [`grammar`: operator precedence](../spec/grammar.md#operator-precedence) | P/N/E: precedence、call binding、non-associative rejection（`compiler/tests/parser.rs`） | integer/float/Bool operator native tests（`compiler/tests/driver/artifacts.rs`） |
 | [`grammar`: 存在しない構文](../spec/grammar.md#存在しない構文) | N: unknown token/nameとsyntax rejection（`compiler/tests/lexer.rs`、`compiler/tests/parser.rs`、`compiler/tests/resolve.rs`） | — |
 

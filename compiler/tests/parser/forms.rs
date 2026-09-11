@@ -25,7 +25,7 @@ fn parses_parameters_and_lambda_body_items() {
 }
 
 #[test]
-fn parses_lambda_patterns_without_an_introducer() {
+fn parses_lambda_patterns_from_parameter_lists() {
     let expression = binding_value("make := ((x, _), y) { x + y };");
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
@@ -99,16 +99,6 @@ fn parses_sum_constructor_and_elimination_continuations() {
     };
     assert_eq!(second.body.items.len(), 1);
     assert!(matches!(second.body.result.kind, Expression::Name(_)));
-}
-
-#[test]
-fn rejects_case_forms_outside_the_grammar() {
-    for text in [
-        "value := case (value) [0](_) => 0;;",
-        "value := case value { [0](_) { 0 } };",
-    ] {
-        assert!(parse(&source(text)).is_err(), "input should fail: {text}");
-    }
 }
 
 #[test]

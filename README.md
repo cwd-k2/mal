@@ -6,10 +6,10 @@ types, immutable byte-valued `Symbol`s, explicit external effects, and untyped `
 The language keeps allocation, files, networking, clocks, randomness, and other platform policy on
 the host side of an explicit `extern` boundary.
 
-The repository contains the Rust reference compiler (`malc`), a C11 backend and generated host
-interface, checked examples, a formatter, an LSP server, and VS Code support. The current profile is
-under development; generated C and host ABI compatibility are not guaranteed across compiler
-versions.
+The repository contains the Rust reference compiler (`malc`), an LLVM execution backend with a C11
+runtime and generated host interface, checked examples, a formatter, an LSP server, and VS Code
+support. The current profile is under development; generated artifacts and host ABI compatibility
+are not guaranteed across compiler versions.
 
 ## Start here
 

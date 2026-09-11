@@ -71,6 +71,7 @@ immutable byte値`Symbol`、型なし`Ptr`によるmemory accessを持つ。mal�
 値をEngramと総称し、外部resourceへのcapabilityから区別する。外部世界との作用はexternal operationのapplicationと明示的な
 memory accessに限定する。
 
-reference compiler `malc` はRustで実装し、最初のbackendはCを生成する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
+reference compiler `malc` はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、
+program非依存の機構をC11 runtimeへ変換する。extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
 
 allocation、deallocation、I/O、ファイル、ネットワーク、時刻、乱数、threadはhost側の責務とする。
