@@ -118,7 +118,7 @@ fn rejects_bad_numeric_separators_with_the_literal_span() {
 }
 
 #[test]
-fn rejects_invalid_radix_digits_and_unsupported_suffixes() {
+fn rejects_invalid_radix_digits_and_malformed_suffixes() {
     for text in [
         "0x", "0b2", "12Byte", "12Int32", "12UInt8", "12i32x", "1Float32",
     ] {

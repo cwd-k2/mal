@@ -150,5 +150,5 @@ fn rejects_effectful_top_level_initializers() {
         "extern read :: Unit -> Int32;\n\
          value :: Int32 := read();",
     );
-    assert_eq!(error.message, "unsupported top-level initializer");
+    assert_eq!(error.message, "invalid top-level initializer");
 }

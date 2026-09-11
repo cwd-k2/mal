@@ -55,7 +55,7 @@ concatenate :: (Symbol, Symbol) -> Symbol := (left, right) {
 }
 
 #[test]
-fn rejects_unsupported_or_mistyped_symbol_operations() {
+fn rejects_invalid_symbol_operations() {
     for text in [
         r#"bad := "a" + 1;"#,
         r#"bad := "a" < "b";"#,

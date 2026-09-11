@@ -45,18 +45,19 @@ fn reports_missing_and_cyclic_requirements_at_the_declaration() {
 }
 
 #[test]
-fn rejects_empty_and_unsupported_requirement_paths() {
+fn rejects_empty_paths_and_non_source_extensions() {
     let directory = NativeFixture::new("driver-invalid-requirement");
     let empty = directory.write("empty.mal", "require \"\";\n");
     let output = directory.malc([OsStr::new("check"), empty.as_os_str()]);
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("expected a non-empty relative path"));
 
-    let unsupported = directory.write("unsupported.mal", "require \"./data.txt\";\n");
-    let output = directory.malc([OsStr::new("check"), unsupported.as_os_str()]);
+    let invalid = directory.write("invalid-extension.mal", "require \"./data.txt\";\n");
+    let output = directory.malc([OsStr::new("check"), invalid.as_os_str()]);
     assert_eq!(output.status.code(), Some(1));
     assert!(
-        String::from_utf8_lossy(&output.stderr).contains("error: unsupported requirement type")
+        String::from_utf8_lossy(&output.stderr)
+            .contains("error: invalid requirement path extension")
     );
 }
 

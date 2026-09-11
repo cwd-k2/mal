@@ -110,7 +110,7 @@ impl<'a> Builder<'a> {
                 Some("mal") => RequirementKind::Mal,
                 Some("c") => RequirementKind::C,
                 _ => {
-                    let diagnostic = Diagnostic::error("unsupported requirement type")
+                    let diagnostic = Diagnostic::error("invalid requirement path extension")
                         .with_primary(required.kind.path_span, "expected a `.mal` or `.c` path");
                     return Err(Error::diagnostic(diagnostic, &self.files));
                 }

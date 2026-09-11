@@ -7,7 +7,8 @@ Status: Current v0.5 evidence
 
 表の`P`はpositive、`N`はnegative、`E`はedge、`X`はbackend artifactをcompileして実行するnative testを表す。
 `—`は、その節が言語外の範囲や文書上の責務を定め、該当する実行時挙動を持たないことを表す。
-test名はRustのtest function名であり、同じ行のfileに属する。
+test名はRustのtest function名である。`compiler/tests/*.rs`はCargo integration test targetの
+rootを示し、実体が同名の子moduleに分割されている場合を含む。
 
 ## 言語の範囲と型
 
@@ -20,7 +21,7 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | [`scope`: standard libraryとfile](../spec/scope.md#standard-library-と-file) | require grammarとpath rejection（`compiler/tests/parser.rs`、`compiler/tests/driver.rs`） | `build_compiles_required_host_inputs_and_produces_an_executable`（`compiler/tests/driver.rs`） |
 | [`scope`: 設計原則](../spec/scope.md#設計原則) | 以下の型・`extern` ABI対応行で検証 | 以下のABI testで検証 |
 | [`types`: scalarと型の構成](../spec/types.md#型の構成) | P/N/E: `checks_all_fixed_width_literal_boundaries_and_byte_literals`、`checks_float_arithmetic_comparison_and_negation`（`compiler/tests/check.rs`） | `emit_header_writes_a_standalone_host_interface`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: Symbol](../spec/types.md#symbol) | P/N: `checks_symbol_literals_as_immutable_bytes`、`rejects_unsupported_or_mistyped_symbol_operations`（`compiler/tests/check.rs`） | `owns_flat_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
+| [`types`: Symbol](../spec/types.md#symbol) | P/N: `checks_symbol_literals_as_immutable_bytes`、`rejects_invalid_symbol_operations`（`compiler/tests/check.rs`） | `owns_flat_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
 | [`memory`: Ptr、storage幅、primitive](../spec/memory.md) | P/N/E: `resolves_memory_primitives_and_the_ptr_type`、`resolves_the_type_in_a_type_qualified_primitive`（`compiler/tests/resolve.rs`）、`checks_ptr_extern_signatures_and_memory_primitives`、`checks_memory_primitives_for_every_supported_value_type`、`gives_every_memory_function_a_first_class_function_type`、`checks_storage_sizes_for_scalar_and_ptr_types`、`rejects_storage_sizes_without_a_memory_representation`、`rejects_mistyped_memory_operations`（`compiler/tests/check.rs`） | `accesses_unaligned_scalar_and_pointer_storage_through_llvm`、`owns_symbols_nested_in_products_through_llvm`、`calls_first_class_memory_functions_through_llvm`（`compiler/tests/driver/artifacts.rs`）、`pointer-tree` example（`compiler/tests/driver.rs`） |
 | [`types`: Unit](../spec/types.md#unit) | P/E: `checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `build_compiles_required_host_inputs_and_produces_an_executable`（`compiler/tests/driver/artifacts.rs`） |
 | [`types`: 直積](../spec/types.md#直積) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`） | `constructs_and_resumes_unmanaged_products_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
@@ -56,9 +57,9 @@ test名はRustのtest function名であり、同じ行のfileに属する。
 | 規範 | P / N / E | X |
 |---|---|---|
 | [`engrams`: authorityと境界](../spec/engrams.md) | P/N: transportable type、`Symbol.size` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission、`owns_flat_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests、`owns_capturing_closure_environments_through_llvm`、`retains_only_active_managed_sum_payloads_through_llvm`、`retains_only_active_managed_sum_payloads_through_llvm`、`runs_managed_direct_self_tail_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
+| [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests、`owns_capturing_closure_environments_through_llvm`、`retains_only_active_managed_sum_payloads_through_llvm`、`runs_managed_direct_self_tail_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
 | [`symbols`: literal](../spec/symbols.md#literal) | P/N/E: Symbol literal lexer tests（`compiler/tests/lexer.rs`） | `owns_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: operator](../spec/symbols.md#operator) | P/N/E: `parses_symbol_length_and_byte_access_with_access_precedence`、`rejects_chained_symbol_byte_access`（`compiler/tests/parser.rs`）、`checks_symbol_operators_and_byte_wise_equality`、`rejects_unsupported_or_mistyped_symbol_operations`（`compiler/tests/check.rs`） | `owns_symbols_across_direct_llvm_calls`、`balances_persistent_symbols_and_materializes_only_at_the_host_boundary`、precondition trap非生成、allocation failure tests（`compiler/tests/driver/artifacts.rs`） |
+| [`symbols`: operator](../spec/symbols.md#operator) | P/N/E: `parses_symbol_length_and_byte_access_with_access_precedence`、`rejects_chained_symbol_byte_access`（`compiler/tests/parser.rs`）、`checks_symbol_operators_and_byte_wise_equality`、`rejects_invalid_symbol_operations`（`compiler/tests/check.rs`） | `owns_symbols_across_direct_llvm_calls`、`balances_persistent_symbols_and_materializes_only_at_the_host_boundary`、precondition trap非生成、allocation failure tests（`compiler/tests/driver/artifacts.rs`） |
 | [`symbols`: mutable bytesとの分離](../spec/symbols.md#mutable-bytesとの分離) | P/N: opaque typeとunsupported operation tests（`compiler/tests/check.rs`） | `symbol-round-trip` example（`compiler/tests/driver.rs`） |
 | [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | host adapterを持つchecked-in example（`compiler/tests/driver.rs`） |
 | [`extern`: transportable type](../spec/extern.md#transportable-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/driver/artifacts.rs`） |
