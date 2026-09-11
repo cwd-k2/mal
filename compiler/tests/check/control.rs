@@ -150,3 +150,17 @@ fn preserves_completion_through_strict_and_short_circuit_contexts() {
         "unreachable expression after abrupt completion"
     );
 }
+
+#[test]
+fn reports_the_first_item_after_abrupt_completion_as_unreachable() {
+    let text = "bad :: Unit -> Int32 := ()[return] { return(1); 2; 3 };";
+    let diagnostic = check_error(text);
+    assert_eq!(
+        diagnostic.message,
+        "unreachable code after abrupt completion"
+    );
+    assert_eq!(
+        diagnostic.primary.expect("primary label").span.start(),
+        text.find("2; 3").expect("unreachable expression")
+    );
+}

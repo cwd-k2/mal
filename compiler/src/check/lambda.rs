@@ -3,7 +3,7 @@ use crate::resolve::ast as resolved;
 
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, ReturnBinder, Type};
 use super::types::{function_placeholder, type_name};
-use super::{CheckFailure, CheckResult, Checker, ReturnTarget};
+use super::{CheckResult, Checker, ReturnTarget};
 
 impl Checker {
     pub(super) fn check_lambda(
@@ -65,19 +65,17 @@ impl Checker {
                     .into());
             }
         };
-        let declared_result = if lambda.return_binders.is_some() {
-            Some(expected_result.cloned().ok_or_else(|| {
-                Diagnostic::error("return binder requires an expected function result type")
-                    .with_primary(span, "use this lambda in a fully typed context")
-            })?)
-        } else {
-            expected_result.cloned()
+        let declared_result = expected_result.cloned();
+        let return_binders = match &lambda.return_binders {
+            None => None,
+            Some(bindings) => {
+                let result = declared_result.as_ref().ok_or_else(|| {
+                    Diagnostic::error("return binder requires an expected function result type")
+                        .with_primary(span, "use this lambda in a fully typed context")
+                })?;
+                Some(self.check_return_binders(bindings, result, lambda.body.span)?)
+            }
         };
-        let return_binders = declared_result
-            .as_ref()
-            .map(|result| self.check_return_binders(lambda, result))
-            .transpose()?
-            .flatten();
         if let Some(binders) = &return_binders {
             let result = declared_result.as_ref().expect("return binder result");
             for binder in binders {
@@ -92,33 +90,9 @@ impl Checker {
             }
         }
 
-        let body_result = (|| {
-            let mut items = Vec::with_capacity(lambda.body.items.len());
-            for item in &lambda.body.items {
-                match self.check_body_item(item) {
-                    Ok(item) => items.push(item),
-                    Err(CheckFailure::Abrupt(abrupt)) => {
-                        return Err(Diagnostic::error(
-                            "unreachable code after abrupt completion",
-                        )
-                        .with_primary(
-                            lambda.body.result.span,
-                            format!(
-                                "this expression cannot be reached after control leaves at byte {}",
-                                abrupt.span.start()
-                            ),
-                        )
-                        .into());
-                    }
-                    Err(error) => return Err(error),
-                }
-            }
-            let result = match self.check_expression(&lambda.body.result, declared_result.as_ref())
-            {
-                Ok(value) => super::ast::Completion::Value(value),
-                Err(CheckFailure::Abrupt(abrupt)) => super::ast::Completion::Abrupt(*abrupt),
-                Err(error) => return Err(error),
-            };
+        let body_result: CheckResult<_> = (|| {
+            let items = self.check_body_items(&lambda.body.items, lambda.body.result.span)?;
+            let result = self.check_completion(&lambda.body.result, declared_result.as_ref())?;
             Ok((items, result))
         })();
         if let Some(binders) = &return_binders {
@@ -176,22 +150,17 @@ impl Checker {
 
     fn check_return_binders(
         &self,
-        lambda: &resolved::Lambda,
+        bindings: &[resolved::ValueBinding],
         result: &Type,
-    ) -> CheckResult<Option<Vec<ReturnBinder>>> {
-        let Some(bindings) = &lambda.return_binders else {
-            return Ok(None);
-        };
-        let binders = match bindings.as_slice() {
+        body_span: crate::source::Span,
+    ) -> CheckResult<Vec<ReturnBinder>> {
+        Ok(match bindings {
             [] => {
                 if !matches!(result, Type::Sum(members) if members.is_empty()) {
                     return Err(Diagnostic::error(
                         "empty return binder group requires `[]` result",
                     )
-                    .with_primary(
-                        lambda.body.span,
-                        format!("result type is `{}`", type_name(result)),
-                    )
+                    .with_primary(body_span, format!("result type is `{}`", type_name(result)))
                     .into());
                 }
                 Vec::new()
@@ -213,7 +182,7 @@ impl Checker {
                     return Err(
                         Diagnostic::error("multiple return binders require a sum result")
                             .with_primary(
-                                lambda.body.span,
+                                body_span,
                                 format!("result type is `{}`", type_name(result)),
                             )
                             .into(),
@@ -224,7 +193,7 @@ impl Checker {
                         "return binder count does not match the sum result",
                     )
                     .with_primary(
-                        lambda.body.span,
+                        body_span,
                         format!(
                             "expected {} binders, found {}",
                             members.len(),
@@ -244,8 +213,7 @@ impl Checker {
                     })
                     .collect()
             }
-        };
-        Ok(Some(binders))
+        })
     }
 
     fn lambda_parameter_mismatch(&self, expected: &Type, span: crate::source::Span) -> Diagnostic {

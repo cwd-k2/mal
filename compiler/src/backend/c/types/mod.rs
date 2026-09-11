@@ -126,22 +126,9 @@ impl TypeRegistry {
                     output.blank_line();
                 }
                 Type::Sum(members) => {
-                    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
-                    if !members.is_empty() {
-                        fields.push(AggregateField::aggregate(
-                            AggregateKind::Union,
-                            members.iter().enumerate().map(|(member_index, member)| {
-                                AggregateField::variable(
-                                    self.c_type(member),
-                                    format!("variant_{member_index}"),
-                                )
-                            }),
-                            "payload",
-                        ));
-                    }
                     output.push(AggregateDefinition::structure(
                         format!("MalRepr_Sum_{index}"),
-                        fields,
+                        sum_representation_fields(members, |member| self.c_type(member)),
                     ));
                     output.blank_line();
                 }
@@ -192,6 +179,23 @@ impl TypeRegistry {
         }
         output
     }
+}
+
+fn sum_representation_fields(
+    members: &[Type],
+    c_type: impl Fn(&Type) -> TypeName,
+) -> Vec<AggregateField> {
+    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
+    if !members.is_empty() {
+        fields.push(AggregateField::aggregate(
+            AggregateKind::Union,
+            members.iter().enumerate().map(|(index, member)| {
+                AggregateField::variable(c_type(member), format!("variant_{index}"))
+            }),
+            "payload",
+        ));
+    }
+    fields
 }
 
 pub(super) fn is_bool(ty: &Type) -> bool {

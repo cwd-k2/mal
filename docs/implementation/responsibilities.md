@@ -97,7 +97,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
 | `resolve/expression` | expression、transitive capture、lambda-local return authorityの解決とcapture拒否 |
-| `check` | program順序、value environment、return target、checked itemの構成 |
+| `check` | program順序、value environment、return target、body item列の到達可能性、checked itemの構成 |
 | `check/control` | `if`と`when`の`Value` / `Abrupt` completion joinを構成 |
 | `check/lambda` | expected function型に対するparameter、return binder arity、lambda body completionを検査 |
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |

@@ -94,29 +94,8 @@ impl Checker {
         block: &resolved::ExpressionBlock,
         expected: Option<&Type>,
     ) -> CheckResult<ExpressionBlock> {
-        let mut items = Vec::with_capacity(block.items.len());
-        for item in &block.items {
-            match self.check_body_item(item) {
-                Ok(item) => items.push(item),
-                Err(CheckFailure::Abrupt(abrupt)) => {
-                    return Err(CheckFailure::Diagnostic(
-                        crate::diagnostic::Diagnostic::error(
-                            "unreachable code after abrupt completion",
-                        )
-                        .with_primary(
-                            block.result.span,
-                            format!(
-                                "this expression cannot be reached after control leaves at byte {}",
-                                abrupt.span.start()
-                            ),
-                        ),
-                    ));
-                }
-                Err(error) => return Err(error),
-            }
-        }
         Ok(ExpressionBlock {
-            items,
+            items: self.check_body_items(&block.items, block.result.span)?,
             result: Box::new(self.check_completion(&block.result, expected)?),
             span: block.span,
         })

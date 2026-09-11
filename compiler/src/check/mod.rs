@@ -246,6 +246,39 @@ impl Checker {
         }
     }
 
+    fn check_body_items(
+        &mut self,
+        items: &[resolved::BodyItem],
+        result_span: crate::source::Span,
+    ) -> CheckResult<Vec<BodyItem>> {
+        let mut checked = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            match self.check_body_item(item) {
+                Ok(item) => checked.push(item),
+                Err(CheckFailure::Abrupt(abrupt)) => {
+                    let unreachable_span = items
+                        .get(index + 1)
+                        .map(|item| match item {
+                            resolved::BodyItem::Binding(binding) => binding.span,
+                            resolved::BodyItem::Expression(expression) => expression.span,
+                        })
+                        .unwrap_or(result_span);
+                    return Err(Diagnostic::error("unreachable code after abrupt completion")
+                        .with_primary(
+                            unreachable_span,
+                            format!(
+                                "this expression cannot be reached after control leaves at byte {}",
+                                abrupt.span.start()
+                            ),
+                        )
+                        .into());
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(checked)
+    }
+
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
         if self.return_targets.contains_key(&reference.id) {
             return Err(Diagnostic::error("return binder is not a value")

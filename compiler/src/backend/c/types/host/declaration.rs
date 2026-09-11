@@ -4,7 +4,7 @@ use crate::backend::c::syntax::{
 use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
 
-use super::super::{HostTypes, TypeRegistry, is_bool};
+use super::super::{HostTypes, TypeRegistry, is_bool, sum_representation_fields};
 
 impl TypeRegistry {
     pub(in crate::backend::c) fn host_value_declarations(
@@ -58,22 +58,11 @@ impl TypeRegistry {
                     }),
                 )),
                 Type::Sum(members) => {
-                    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
-                    if !members.is_empty() {
-                        fields.push(AggregateField::aggregate(
-                            crate::backend::c::syntax::AggregateKind::Union,
-                            members.iter().enumerate().map(|(variant, ty)| {
-                                AggregateField::variable(
-                                    self.host_value_c_type(ty, None),
-                                    format!("variant_{variant}"),
-                                )
-                            }),
-                            "payload",
-                        ));
-                    }
                     output.push(AggregateDefinition::structure(
                         format!("mal_detail_repr_sum_{index}"),
-                        fields,
+                        sum_representation_fields(members, |member| {
+                            self.host_value_c_type(member, None)
+                        }),
                     ));
                 }
                 Type::Function { .. } => continue,
