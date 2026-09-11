@@ -28,6 +28,47 @@ fn builds_a_constant_main_through_the_llvm_artifact_set() {
 }
 
 #[test]
+fn selects_optimization_profiles_at_the_public_build_boundary() {
+    let directory = NativeFixture::new("driver-optimization-profile");
+    let source = directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () { left := \"a\" + \"b\"; text := left + \"c\"; Int32(#text) - 3i32; };",
+    );
+    let baseline = directory.join("baseline");
+    let production = directory.join("production");
+    let baseline_artifacts = directory.join("baseline-artifacts");
+    let production_artifacts = directory.join("production-artifacts");
+
+    for (profile, executable, artifacts) in [
+        ("baseline", &baseline, &baseline_artifacts),
+        ("production", &production, &production_artifacts),
+    ] {
+        let output = directory.malc([
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(profile),
+        ]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(executable).status.code(), Some(0));
+    }
+
+    let baseline_module = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
+    let production_module =
+        std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
+    assert!(!baseline_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(production_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+}
+
+#[test]
 fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
     let directory = NativeFixture::new("driver-retained-artifacts");
     let source = directory.write(
@@ -1848,6 +1889,8 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
         executable.as_os_str(),
         OsStr::new("--artifact-dir"),
         artifacts.as_os_str(),
+        OsStr::new("--optimization"),
+        OsStr::new("production"),
         OsStr::new("--clang-arg"),
         OsStr::new("-Wl,--wrap=malloc"),
         OsStr::new("--clang-arg"),

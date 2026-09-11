@@ -3,6 +3,10 @@ use std::process::Command;
 
 use super::Error;
 
+mod optimization;
+
+pub(super) use optimization::OptimizationProfile;
+
 pub(super) const CLANG: &str = "clang";
 
 pub(super) struct Target {

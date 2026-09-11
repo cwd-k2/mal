@@ -12,7 +12,7 @@ Usage:
   malc format <source.mal>
   malc emit-header <source.mal> [--output <program.mal.h>]
   malc emit-host <source.mal> [--header <header-name>]
-  malc build <source.mal> --output <program> [--artifact-dir <directory>] [--clang-arg <argument>]...
+  malc build <source.mal> --output <program> [--optimization <baseline|production>] [--artifact-dir <directory>] [--clang-arg <argument>]...
 ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -152,6 +152,7 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
     let mut output = None;
     let mut artifact_directory = None;
     let mut clang_arguments = Vec::new();
+    let mut optimization = None;
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -171,6 +172,17 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             }
         } else if option == OsStr::new("--clang-arg") {
             clang_arguments.push(value.clone());
+        } else if option == OsStr::new("--optimization") {
+            let profile = if value == OsStr::new("baseline") {
+                crate::driver::OptimizationProfile::Baseline
+            } else if value == OsStr::new("production") {
+                crate::driver::OptimizationProfile::Production
+            } else {
+                return usage_error("--optimization must be 'baseline' or 'production'");
+            };
+            if optimization.replace(profile).is_some() {
+                return usage_error("--optimization may only be specified once");
+            }
         } else {
             return usage_error(&format!(
                 "unknown build option '{}'",
@@ -188,7 +200,7 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             output_path: &output,
             artifact_directory: artifact_directory.as_deref(),
             clang_arguments: &clang_arguments,
-            optimization: crate::driver::OptimizationProfile::Production,
+            optimization: optimization.unwrap_or(crate::driver::OptimizationProfile::Baseline),
         },
     ) {
         Ok(()) => Outcome::success(String::new()),
@@ -274,6 +286,21 @@ mod tests {
             outcome
                 .stderr
                 .contains("--artifact-dir may only be specified once")
+        );
+
+        let outcome = execute(args(&[
+            "build",
+            "sample.mal",
+            "--output",
+            "program",
+            "--optimization",
+            "fast",
+        ]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(
+            outcome
+                .stderr
+                .contains("must be 'baseline' or 'production'")
         );
     }
 

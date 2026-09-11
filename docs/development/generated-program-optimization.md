@@ -28,11 +28,15 @@ LLVM backendではowner lifetimeのfactとstorage再利用のdecisionを分け�
 dead operandをmoveする選択だけをoptional techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、
 inliningは独自実装せずpinned LLVMへ委ねる。
 
-## baseline
+## correctness baseline
 
-比較するbinaryは同じpinned Clang、target、`-O2 -flto`、strict floating-point optionでbuildする。ambient `CC`を継承しない。
-public buildのcorrectness baselineはLTOを含む。LTO有無を最適化調査で比較する場合は、同じobservable resultを先に確認し、
-差分をsource責務の移動ではなくcross-translation-unit optimizationの効果として扱う。
+public `build`は既定で空のexecution technique集合、空のLLVM technique集合、Clang `-O0`、LTOなしの`baseline` profileを使う。
+`--optimization production`だけが採用済みtechniqueとClang `-O2 -flto`を有効にする。両profileは同じpinned Clang、target、strict
+floating-point optionを使い、ambient `CC`を継承しない。result、effect trace、trap、owner終状態、bounded native stackはbaselineで
+成立し、productionとの差分に依存しない。
+
+性能の採否ではproduction profileを比較対象とする。LTO有無を調査する場合は同じobservable resultを先に確認し、差分をsource責務の移動ではなく
+cross-translation-unit optimizationの効果として扱う。
 
 wall-clockは同じinput、warmup、run数で交互に測り、5 ms未満のcaseを採否の主根拠にしない。noiseを含む単発値ではなくmedianと範囲を残す。
 instruction count、branch、allocation counter、peak resident memory、artifact sizeなど再現しやすい第二指標を少なくとも一つ併用する。

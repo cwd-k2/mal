@@ -107,11 +107,13 @@ fn region_requires_common_control(
             .entry;
         reachable_states(program, entry).into_iter().any(|site| {
             regions.site_region(site) == Some(region)
-                && matches!(
-                    modes.get(&site),
-                    Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
-                )
-                && !is_direct_self_call(&program.states[site.0].terminator, *function)
+                && match modes.get(&site) {
+                    Some(ControlCallMode::Dispatch) => true,
+                    Some(ControlCallMode::DirectRegion(_)) => {
+                        !is_direct_self_call(&program.states[site.0].terminator, *function)
+                    }
+                    _ => false,
+                }
         })
     })
 }

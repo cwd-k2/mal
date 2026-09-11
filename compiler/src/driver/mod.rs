@@ -13,14 +13,12 @@ mod toolchain;
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
-const C_COMPILER_OPTIONS: &[&str] = &[
+const C_COMPILER_REQUIRED_OPTIONS: &[&str] = &[
     "-std=c11",
     "-Wall",
     "-Wextra",
     "-Werror",
     "-pedantic",
-    "-O2",
-    "-flto",
     "-fno-fast-math",
     "-ffp-contract=off",
     "-frounding-math",
@@ -85,6 +83,10 @@ pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error>
         OptimizationProfile::Baseline => crate::backend::llvm::OptimizationSet::none(),
         OptimizationProfile::Production => crate::backend::llvm::OptimizationSet::production(),
     };
+    let toolchain_optimization = match options.optimization {
+        OptimizationProfile::Baseline => toolchain::OptimizationProfile::Baseline,
+        OptimizationProfile::Production => toolchain::OptimizationProfile::Production,
+    };
     let execution = crate::pipeline::lower_graph_execution(&graph, execution_optimizations)
         .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = options
@@ -134,27 +136,29 @@ pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error>
         }
     }
     run_compiler(
-        OsStr::new(toolchain::CLANG),
         build_directory,
         &header_path,
         generated_inputs.iter(),
         graph.c_sources(),
         options.clang_arguments,
+        toolchain_optimization,
         options.output_path,
     )
 }
 
 fn run_compiler<'a>(
-    compiler: &OsStr,
     include_directory: &Path,
     generated_header: &Path,
     generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
     required_inputs: impl IntoIterator<Item = &'a PathBuf>,
     additional_arguments: &[OsString],
+    optimization: toolchain::OptimizationProfile,
     output_path: &Path,
 ) -> Result<(), Error> {
+    let compiler = OsStr::new(toolchain::CLANG);
     let result = Command::new(compiler)
-        .args(C_COMPILER_OPTIONS)
+        .args(C_COMPILER_REQUIRED_OPTIONS)
+        .args(optimization.arguments())
         .arg("-I")
         .arg(include_directory)
         .arg("-include")
@@ -272,20 +276,18 @@ impl std::error::Error for Error {}
 
 #[cfg(test)]
 mod tests {
-    use super::C_COMPILER_OPTIONS;
+    use super::C_COMPILER_REQUIRED_OPTIONS;
 
     #[test]
-    fn public_build_uses_optimization_with_the_strict_float_profile() {
+    fn compiler_required_options_only_own_admission_and_semantics() {
         assert_eq!(
-            C_COMPILER_OPTIONS,
+            C_COMPILER_REQUIRED_OPTIONS,
             [
                 "-std=c11",
                 "-Wall",
                 "-Wextra",
                 "-Werror",
                 "-pedantic",
-                "-O2",
-                "-flto",
                 "-fno-fast-math",
                 "-ffp-contract=off",
                 "-frounding-math",

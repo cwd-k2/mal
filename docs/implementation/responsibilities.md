@@ -40,8 +40,9 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
-| `driver` | source file、require path、temporary path、C compiler process、C build inputのownership |
+| `driver` | source file、require path、temporary path、C compiler process、C build input、およびbuild optimization profileの選択 |
 | `driver/toolchain` | pinned Clangからhost target tripleとdata layoutを取得し、LLVM/C artifactを同じtargetへcompile |
+| `driver/toolchain/optimization` | semantic correctness optionから独立したbaselineまたはproductionのClang optimization argumentを構成 |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
 
 predefined scopeの名前とreserved identityは`resolve/predefined`の一つの宣言から生成する。resolver、type checker、
