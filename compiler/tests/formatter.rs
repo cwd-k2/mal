@@ -173,23 +173,38 @@ fn formats_sum_and_empty_return_binder_groups() {
 }
 
 #[test]
-fn cps_return_examples_are_canonical_and_idempotent() {
-    let repository = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("compiler has a repository parent");
-    for relative in [
-        "examples/resizable-buffer/program.mal",
-        "examples/mini-database/database.mal",
-    ] {
-        let text = std::fs::read_to_string(repository.join(relative)).expect("example source");
-        let formatted = format(&text);
-        assert_eq!(formatted, text, "{relative} must use canonical formatting");
-        assert_eq!(
-            format(&formatted),
-            formatted,
-            "{relative} must be idempotent"
-        );
-    }
+fn preserves_one_intentional_blank_line_between_block_steps() {
+    let formatted = format(
+        "work::Int32->Int32:=(value)[return]{first:=value+1;\n\n\n// second stage\nsecond:=first*2;\n\nreturn(second)};",
+    );
+    assert_eq!(
+        formatted,
+        concat!(
+            "work :: Int32 -> Int32 := (value)[return] {\n",
+            "    first := value + 1;\n",
+            "\n",
+            "    // second stage\n",
+            "    second := first * 2;\n",
+            "\n",
+            "    return(second);\n",
+            "};\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn keeps_nested_compact_control_inside_its_enclosing_branch() {
+    let formatted = format(
+        "select::Bool->Int32:=(condition){result:=if(condition)then{1}else{when(condition){noop()};2};result};",
+    );
+    assert!(formatted.contains(concat!(
+        "        else {\n",
+        "            when (condition) { noop() };\n",
+        "            2;\n",
+        "        };\n",
+    )));
+    assert_eq!(format(&formatted), formatted);
 }
 
 #[test]

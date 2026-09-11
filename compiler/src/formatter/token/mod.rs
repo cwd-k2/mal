@@ -50,6 +50,11 @@ impl Formatter<'_> {
             self.newline();
             self.pending_newline = false;
         }
+        if self.should_preserve_blank_line()
+            && !matches!(kind, TokenKind::RightBrace | TokenKind::Else)
+        {
+            self.blank_line();
+        }
         if matches!(kind, TokenKind::RightBracket)
             && let Some(layout) = self.brackets.pop()
             && layout.multiline

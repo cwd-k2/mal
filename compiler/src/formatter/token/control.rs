@@ -27,23 +27,24 @@ impl Formatter<'_> {
         self.write(text);
         self.brace_depth += 1;
         if self.blocks.compact[token_index] {
-            self.enter_if_branch(self.indent);
+            self.enter_if_branch(self.brace_depth);
             self.space();
             self.previous = Previous::LeftBrace;
             return;
         }
         self.indent += 1;
-        self.enter_if_branch(self.indent);
+        self.enter_if_branch(self.brace_depth);
         self.newline();
         self.previous = Previous::LeftBrace;
     }
 
     pub(super) fn write_right_brace(&mut self, token_index: usize, text: &str) {
         self.brace_depth = self.brace_depth.saturating_sub(1);
+        let closing_depth = self.brace_depth + 1;
         if self.blocks.compact[token_index] {
             self.space();
             self.write(text);
-            self.finish_if_branch(self.indent);
+            self.finish_if_branch(closing_depth);
             self.previous = Previous::RightBrace;
             return;
         }
@@ -51,11 +52,10 @@ impl Formatter<'_> {
             self.trim_space();
             self.write(";");
         }
-        let closing_indent = self.indent;
         self.indent = self.indent.saturating_sub(1);
         self.newline();
         self.write(text);
-        self.finish_if_branch(closing_indent);
+        self.finish_if_branch(closing_depth);
         self.previous = Previous::RightBrace;
     }
 
@@ -121,30 +121,30 @@ impl Formatter<'_> {
         }
     }
 
-    fn enter_if_branch(&mut self, indent: usize) {
+    fn enter_if_branch(&mut self, depth: usize) {
         if let Some(stage) = self.ifs.last_mut() {
             match stage {
                 IfStage::ThenKeyword(continuation) => {
-                    *stage = IfStage::ThenBranch(indent, *continuation);
+                    *stage = IfStage::ThenBranch(depth, *continuation);
                 }
                 IfStage::ElseKeyword(continuation) => {
-                    *stage = IfStage::ElseBranch(indent, *continuation);
+                    *stage = IfStage::ElseBranch(depth, *continuation);
                 }
                 _ => {}
             }
         }
     }
 
-    fn finish_if_branch(&mut self, closing_indent: usize) {
+    fn finish_if_branch(&mut self, closing_depth: usize) {
         if let Some(stage) = self.ifs.last_mut() {
             match stage {
-                IfStage::ThenBranch(branch_indent, continuation)
-                    if *branch_indent == closing_indent =>
+                IfStage::ThenBranch(branch_depth, continuation)
+                    if *branch_depth == closing_depth =>
                 {
                     *stage = IfStage::AwaitElse(*continuation);
                 }
-                IfStage::ElseBranch(branch_indent, continuation)
-                    if *branch_indent == closing_indent =>
+                IfStage::ElseBranch(branch_depth, continuation)
+                    if *branch_depth == closing_depth =>
                 {
                     *stage = IfStage::Finished(*continuation);
                 }

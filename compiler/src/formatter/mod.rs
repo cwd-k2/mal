@@ -25,6 +25,7 @@ struct Formatter<'a> {
     indent: usize,
     line_start: bool,
     source_break: bool,
+    source_blank_line: bool,
     pending_newline: bool,
     source_line_indent: Option<usize>,
     previous: Previous,
@@ -49,6 +50,7 @@ impl<'a> Formatter<'a> {
             indent: 0,
             line_start: true,
             source_break: false,
+            source_blank_line: false,
             pending_newline: false,
             source_line_indent: None,
             previous: Previous::None,
@@ -70,7 +72,9 @@ impl<'a> Formatter<'a> {
             let text = &self.source.text()[lexeme.span.start()..lexeme.span.end()];
             match lexeme.kind {
                 LexemeKind::Whitespace => {
-                    self.source_break |= text.bytes().any(|byte| matches!(byte, b'\r' | b'\n'));
+                    let line_breaks = line_break_count(text);
+                    self.source_break |= line_breaks > 0;
+                    self.source_blank_line |= line_breaks > 1;
                 }
                 LexemeKind::LineComment => self.write_comment(text),
                 LexemeKind::Token => {
@@ -79,6 +83,7 @@ impl<'a> Formatter<'a> {
                     self.token_index += 1;
                     self.write_token(token_index, kind, text);
                     self.source_break = false;
+                    self.source_blank_line = false;
                 }
             }
         }
@@ -115,7 +120,9 @@ impl<'a> Formatter<'a> {
             self.write(";");
             self.blocks.terminate[self.token_index] = false;
         }
-        if self.source_break {
+        if self.should_preserve_blank_line() {
+            self.blank_line();
+        } else if self.source_break {
             self.newline();
         } else if !self.line_start {
             self.space();
@@ -123,6 +130,7 @@ impl<'a> Formatter<'a> {
         self.write(text);
         self.newline();
         self.source_break = false;
+        self.source_blank_line = false;
         self.pending_newline = false;
     }
 
@@ -154,4 +162,34 @@ impl<'a> Formatter<'a> {
         }
         self.line_start = true;
     }
+
+    fn blank_line(&mut self) {
+        self.newline();
+        if !self.output.is_empty() && !self.output.ends_with("\n\n") {
+            self.output.push('\n');
+        }
+    }
+
+    fn should_preserve_blank_line(&self) -> bool {
+        self.source_blank_line
+            && matches!(self.previous, Previous::Semicolon | Previous::RightBrace)
+    }
+}
+
+fn line_break_count(text: &str) -> usize {
+    let bytes = text.as_bytes();
+    let mut count = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' => {
+                count += 1;
+                index += usize::from(bytes.get(index + 1) == Some(&b'\n'));
+            }
+            b'\n' => count += 1,
+            _ => {}
+        }
+        index += 1;
+    }
+    count
 }

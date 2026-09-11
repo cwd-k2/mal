@@ -107,7 +107,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/float/big_uint` | decimal float roundingだけが使うdependency-freeの非負多倍長整数演算 |
 | `formatter/layout` | block compactnessとtop-level groupの事前計算 |
 | `formatter/control` | block positionとRHSにある`if`の事前分類 |
-| `formatter/token` | 一般tokenのspacingとsource上の明示的なline breakの保持 |
+| `formatter/token` | 一般tokenのspacing、式内の明示的なline break、statementとtop-level group間の一つの空行の保持 |
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集 |
 | `editor/index/checked_ast` | checked expressionとlambda-local binderのcanonical typeをsemantic indexへ収集 |
