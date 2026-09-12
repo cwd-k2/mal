@@ -36,7 +36,7 @@ sumTree :: Ptr -> Int32 := (node)[return] {
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: (Allocator, Ptr) -> Unit := (allocator, node)[return] {
+destroyTree :: (Ptr, Allocator) -> Unit := (node, allocator)[return] {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
@@ -44,8 +44,8 @@ destroyTree :: (Allocator, Ptr) -> Unit := (allocator, node)[return] {
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
-    allocator.destroyTree(left);
-    allocator.destroyTree(right);
+    left.destroyTree(allocator);
+    right.destroyTree(allocator);
     return(allocator.releaseNode(node));
 };
 
@@ -61,22 +61,22 @@ branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
             created(node);
         },
         ()[created, failed] {
-            allocator.destroyTree(left);
-            allocator.destroyTree(right);
+            left.destroyTree(allocator);
+            right.destroyTree(allocator);
             failed();
         }
         ];
     };
 
 buildLeft :: Allocator -> NodeResult := (allocator) {
-    first := allocator.leaf(3);
+    first := leaf(allocator, 3);
     first[
     (left) {
-        second := allocator.leaf(4);
+        second := leaf(allocator, 4);
         second[
-        (right) { allocator.branchOwned(2, left, right) },
+        (right) { branchOwned(allocator, 2, left, right) },
         ()[created, failed] {
-            allocator.destroyTree(left);
+            left.destroyTree(allocator);
             failed();
         }
         ];
@@ -86,14 +86,14 @@ buildLeft :: Allocator -> NodeResult := (allocator) {
 };
 
 buildTree :: Allocator -> NodeResult := (allocator) {
-    leftResult := allocator.buildLeft();
+    leftResult := buildLeft(allocator);
     leftResult[
     (left) {
-        rightResult := allocator.leaf(5);
+        rightResult := leaf(allocator, 5);
         rightResult[
-        (right) { allocator.branchOwned(1, left, right) },
+        (right) { branchOwned(allocator, 1, left, right) },
         ()[created, failed] {
-            allocator.destroyTree(left);
+            left.destroyTree(allocator);
             failed();
         }
         ];
@@ -104,11 +104,11 @@ buildTree :: Allocator -> NodeResult := (allocator) {
 
 successfulBuild :: Unit -> Bool := () {
     allocator := createAllocator(5u64);
-    result := allocator.buildTree();
+    result := buildTree(allocator);
     valid := result[
         (tree) {
             total := tree.sumTree();
-            allocator.destroyTree(tree);
+            tree.destroyTree(allocator);
             total == 15;
         },
         () { false }
@@ -119,10 +119,10 @@ successfulBuild :: Unit -> Bool := () {
 
 failedBuildCleansPartialTree :: Unit -> Bool := () {
     allocator := createAllocator(3u64);
-    result := allocator.buildTree();
+    result := buildTree(allocator);
     failed := result[
         (tree) {
-            allocator.destroyTree(tree);
+            tree.destroyTree(allocator);
             false;
         },
         () { true }

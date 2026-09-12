@@ -35,7 +35,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
     when (capacity > 0x7fff_ffff_ffff_ffffu64) {
         return(required);
     };
-    return((capacity * 2u64).nextCapacity(required));
+    return(nextCapacity(capacity * 2u64, required));
 };
 
 appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
@@ -48,7 +48,7 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
     available := if (required <= capacity)
         then { _bufferSuccess(buffer) }
         else {
-            target := capacity.nextCapacity(required);
+            target := nextCapacity(capacity, required);
             buffer.resizeBuffer(target);
         };
     result :: BufferResult := available[
@@ -86,7 +86,7 @@ writeThroughDescriptor :: Slice -> Bool := (slice) {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
         Ptr.store(descriptorMemory, memory);
         UInt64.store(descriptorMemory + Ptr.size, length);
-        allocation.writeSliceDescriptor(descriptorMemory);
+        writeSliceDescriptor(allocation, descriptorMemory);
         descriptorAllocation.releaseBuffer();
         true;
     },
@@ -128,7 +128,7 @@ afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) {
             if (currentSlice.writeThroughDescriptor())
             then {
                 writeSymbol("\n");
-                grown.finishLimitTest(aliasesInvalid);
+                finishLimitTest(grown, aliasesInvalid);
             }
             else {
                 grown.releaseBufferValue();
@@ -164,7 +164,7 @@ withInitialValue :: Buffer -> Int32 := (initial) {
             (slice) {
                 slice.writeSlice();
                 writeSymbol("\n");
-                buffer.afterGrowth(slice);
+                afterGrowth(buffer, slice);
             },
             () {
                 buffer.releaseBufferValue();
@@ -184,7 +184,7 @@ withInitialValue :: Buffer -> Int32 := (initial) {
 main :: Unit -> Int32 := () {
     allocated := allocateBuffer(4u64, 64u64);
     allocated[
-    (buffer) { buffer.withInitialValue() },
+    (buffer) { withInitialValue(buffer) },
     (_) { 7 }
     ];
 };

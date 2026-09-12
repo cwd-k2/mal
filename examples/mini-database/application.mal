@@ -8,7 +8,7 @@ _inputStorageSize :: UInt64 := 4096u64;
 executeDatabase :: Symbol -> Int32 := (path) {
     // Acquire process-lifetime resources before deriving any borrowed memory views.
     allocator := createAllocator();
-    file := path.openReadWriteCreate();
+    file := openReadWriteCreate(path);
     input := standardInput();
 
     databaseStorage := allocator.allocateBuffer(databaseReadCapacity);

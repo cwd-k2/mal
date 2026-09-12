@@ -70,12 +70,12 @@ finishCopy :: (Status, CloseResult) -> Status := (copied, closed) {
 copyPath :: Symbol -> Status := (path) {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
-    opened := path.openReadOnly();
+    opened := openReadOnly(path);
     outcome := opened[
         (file) {
             copied := file.copyContents(buffer);
             closed := file.closeFile();
-            copied.finishCopy(closed);
+            finishCopy(copied, closed);
         },
         (error)[complete, failed] { failed(error) }
     ];
@@ -90,7 +90,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments)[return] {
     };
 
     path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
-    result := path.copyPath();
+    result := copyPath(path);
     status :: Int32 := result[
         () { 0 },
         (error) {
