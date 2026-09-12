@@ -1,5 +1,6 @@
 use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
+use std::fmt;
 
 mod body;
 mod host_bridge;
@@ -11,6 +12,28 @@ pub(crate) use optimization::OptimizationSet;
 pub(crate) struct Target<'a> {
     pub(crate) triple: &'a str,
     pub(crate) data_layout: &'a str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum Error {
+    InvalidTargetDataLayout,
+    InconsistentExecutionPlan(&'static str),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidTargetDataLayout => {
+                formatter.write_str("target data layout does not define a supported pointer size")
+            }
+            Self::InconsistentExecutionPlan(phase) => {
+                write!(
+                    formatter,
+                    "admitted execution plan is inconsistent during {phase}"
+                )
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -26,10 +49,12 @@ pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
     optimizations: OptimizationSet,
-) -> Option<LlvmArtifacts> {
-    let pointer_size = pointer_size(target.data_layout)?;
-    let body = body::generate(program, pointer_size, optimizations)?;
-    let types = body::types::Types::new(pointer_size)?;
+) -> Result<LlvmArtifacts, Error> {
+    let pointer_size = pointer_size(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
+    let body = body::generate(program, pointer_size, optimizations)
+        .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
+    let types = body::types::Types::new(pointer_size)
+        .ok_or(Error::InconsistentExecutionPlan("target type construction"))?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
@@ -37,8 +62,11 @@ pub(crate) fn generate(
         .interface
         .externals
         .iter()
-        .map(|external| host_bridge::generate(external, pointer_size, &raw_types))
-        .collect::<Option<Vec<_>>>()?;
+        .map(|external| {
+            host_bridge::generate(external, pointer_size, &raw_types)
+                .ok_or(Error::InconsistentExecutionPlan("extern bridge emission"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let external_declarations = external_bridges
         .iter()
         .map(|bridge| bridge.llvm_declaration.as_str())
@@ -52,7 +80,9 @@ pub(crate) fn generate(
     let control_declarations = if body.uses_control {
         format!(
             "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\n\n",
-            types.pointer_integer()?
+            types
+                .pointer_integer()
+                .ok_or(Error::InconsistentExecutionPlan("control ABI construction"))?
         )
     } else {
         String::new()
@@ -66,7 +96,11 @@ pub(crate) fn generate(
         (
             format!(
                 "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n",
-                types.pointer_integer()?,
+                types
+                    .pointer_integer()
+                    .ok_or(Error::InconsistentExecutionPlan(
+                        "control entry construction"
+                    ))?,
                 types.pointer_size()
             ),
             "%mal_control_top",
@@ -79,11 +113,14 @@ pub(crate) fn generate(
             String::new(),
             format!(
                 "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",
-                function_name(body.main)?,
+                function_name(body.main)
+                    .ok_or(Error::InconsistentExecutionPlan("entry function selection"))?,
             ),
         ),
         ty => {
-            let value = types.value(ty)?;
+            let value = types
+                .value(ty)
+                .ok_or(Error::InconsistentExecutionPlan("entry argument layout"))?;
             (
                 format!(
                     "  %mal_entry_argument = load {}, ptr %mal_argument, align {}\n",
@@ -91,7 +128,8 @@ pub(crate) fn generate(
                 ),
                 format!(
                     "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",
-                    function_name(body.main)?,
+                    function_name(body.main)
+                        .ok_or(Error::InconsistentExecutionPlan("entry function selection"))?,
                     value.llvm
                 ),
             )
@@ -101,7 +139,9 @@ pub(crate) fn generate(
         "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
-        types.pointer_integer()?,
+        types
+            .pointer_integer()
+            .ok_or(Error::InconsistentExecutionPlan("runtime ABI construction"))?,
         control_declarations,
         symbol_declarations,
         external_declarations,
@@ -117,7 +157,9 @@ pub(crate) fn generate(
     } else {
         String::new()
     };
-    let main = shim::entry_main(&body.main_parameter, types, entry.name())?.render();
+    let main = shim::entry_main(&body.main_parameter, types, entry.name())
+        .ok_or(Error::InconsistentExecutionPlan("process entry emission"))?
+        .render();
     let entry_declaration =
         crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();
     let shim = format!(
@@ -127,7 +169,7 @@ pub(crate) fn generate(
         symbol_bridge_runtime,
         main,
     );
-    Some(LlvmArtifacts {
+    Ok(LlvmArtifacts {
         module,
         shim,
         header: crate::backend::c::emit_header(&program.lowered.interface),
@@ -187,6 +229,18 @@ mod tests {
             OptimizationSet::production(),
         )
         .expect("constant main is supported");
+
+        assert!(matches!(
+            generate(
+                &execution,
+                Target {
+                    triple: "x86_64-unknown-linux-gnu",
+                    data_layout: "e-p:7:8",
+                },
+                OptimizationSet::production(),
+            ),
+            Err(Error::InvalidTargetDataLayout)
+        ));
 
         assert!(
             artifacts

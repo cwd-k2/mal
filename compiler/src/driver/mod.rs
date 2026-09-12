@@ -116,7 +116,7 @@ pub fn build(source_path: &Path, options: BuildOptions<'_>) -> Result<(), Error>
         },
         llvm_optimizations,
     )
-    .ok_or_else(|| Error::new("malc: LLVM backend rejected an admitted program"))?;
+    .map_err(Error::backend)?;
     let module_path = build_directory.join("program.ll");
     let shim_path = build_directory.join("program-shim.c");
     let header_path = build_directory.join(crate::backend::c::GENERATED_HEADER_NAME);
@@ -263,6 +263,10 @@ impl Error {
             "malc: C compiler '{}' failed with {status}\n{details}",
             tool.to_string_lossy()
         ))
+    }
+
+    fn backend(error: crate::backend::llvm::Error) -> Self {
+        Self::new(format!("malc: LLVM backend failure: {error}"))
     }
 }
 
