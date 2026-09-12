@@ -40,8 +40,9 @@ mutable byte bufferはSymbolではなく、`Ptr`とlength、または必要に�
 
 ## Ptr
 
-`Ptr`は型なしのdata address型である。要素型、length、ownershipは持たず、memory accessにはpredefinedな
-numeric scalarとpointerのobject representation、およびSymbol byte copy operationを使う。完全な規則は[memory primitive](memory.md)に定める。
+`Ptr`はordinary byte-addressable external storageへのopaque data pointer capabilityである。要素型、length、ownershipは
+持たず、numeric addressとしての観測やintegerとの変換はできない。memory accessにはpredefinedなnumeric scalarとpointerの
+storage operation、およびSymbol byte copy operationを使う。完全な規則は[memory primitive](memory.md)に定める。
 
 ## Unit
 

@@ -58,6 +58,13 @@ load/storeはprimitiveになる。`Ptr`はExtern-owned storageへの組み込み
 変えない。primitiveはstorage policyを決めず、`Ptr`を提供したcontractが定めるregion、permission、lifetimeを
 引き継ぐ。
 
+`Ptr`は任意のExtern resourceに共通するhandleではなく、hostがordinary byte-addressable storageとして直接公開した
+regionへのopaque data pointerである。hostはresourceを`Ptr`として返すことで、permissionの範囲内で標準memory operationを
+使うcontractを選ぶ。
+C ABIでpointerとして運ばれても直接memory accessの対象でないfile、socket、directory、deviceなどはexternal opaque
+typeとし、そのoperationは`extern` contractに残す。carrierのC表現ではなく、公開するoperation semanticsが両者を
+分ける。
+
 productとsumにはcanonical memory representationを与えない。したがって型だけから`loadTree`や`storeTree`は
 導けない。external storage上のtag、field offset、pointer graph、invalid representationをprogramが定める場合は、
 mal関数がscalarと`Ptr`のprimitiveを組み合わせてcodecを実装する。host library固有のrepresentationやatomicityが
