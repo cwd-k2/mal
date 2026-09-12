@@ -1,0 +1,324 @@
+use super::*;
+
+#[test]
+fn builds_a_constant_main_through_the_llvm_artifact_set() {
+    let directory = NativeFixture::new("driver-llvm");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write("program.mal", "main :: Unit -> Int32 := () { 7; };");
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(7));
+}
+
+#[test]
+fn executes_explicit_and_sum_returns_through_the_existing_calling_convention() {
+    let directory = NativeFixture::new("driver-cps-return");
+    let source = directory.write(
+        "program.mal",
+        "Choice :: [Int32, Int32];\n\
+         choose :: Bool -> Choice := (condition)[yes, no] {\n\
+           when (condition) { yes(40) };\n\
+           no(1)\n\
+         };\n\
+         addTwo :: Int32 -> Int32 := (value)[return] {\n\
+           return(1 + if (value == 40) then { return(42) } else { value + 1 })\n\
+         };\n\
+         main :: Unit -> Int32 := () {\n\
+           choose(true)[(value) { addTwo(value) }, (value) { value }]\n\
+         };",
+    );
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(42));
+}
+
+#[test]
+fn compiles_empty_elimination_as_an_unreachable_zero_arm_case() {
+    let directory = NativeFixture::new("driver-empty-return");
+    let source = directory.write(
+        "program.mal",
+        "never :: Unit -> [] := ()[] { never()[] };\n\
+         main :: Unit -> Int32 := () { 0 };",
+    );
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn selects_optimization_profiles_at_the_public_build_boundary() {
+    let directory = NativeFixture::new("driver-optimization-profile");
+    let source = directory.write(
+        "program.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); };\n\
+         walk :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { apply(walk, value - 1i32) }; };\n\
+         main :: Unit -> Int32 := () { left := \"a\" + \"b\"; text := left + \"c\"; Int32(#text) - 3i32 + walk(Int32(#text)); };",
+    );
+    let baseline = directory.join("baseline");
+    let production = directory.join("production");
+    let baseline_artifacts = directory.join("baseline-artifacts");
+    let production_artifacts = directory.join("production-artifacts");
+
+    for (profile, executable, artifacts) in [
+        (Some("baseline"), &baseline, &baseline_artifacts),
+        (None, &production, &production_artifacts),
+    ] {
+        let mut arguments = vec![
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
+        ];
+        if let Some(profile) = profile {
+            arguments.extend([OsStr::new("--optimization"), OsStr::new(profile)]);
+        }
+        let output = directory.malc(arguments);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(executable).status.code(), Some(0));
+    }
+
+    let baseline_module = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
+    let production_module =
+        std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
+    assert!(!baseline_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(production_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+}
+
+#[test]
+fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
+    let directory = NativeFixture::new("driver-retained-artifacts");
+    let source = directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern sine :: Float64 -> Float64;\n\
+         main :: Unit -> Int32 := () { if (sine(0.0) == 0.0) then { 0 } else { 1 }; };",
+    );
+    directory.write(
+        "program.mal.h",
+        "#ifndef MAL_PROGRAM_MAL_H\n\
+         #define MAL_PROGRAM_MAL_H\n\
+         #error stale adjacent header must not be used\n\
+         #endif\n",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         #include <math.h>\n\
+         static volatile double zero;\n\
+         MAL_DEFINE_sine(call, value) {\n\
+           return mal_Float64_return(call, sin(value + zero));\n\
+         }\n",
+    );
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-fno-builtin-sin"),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-lm"),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    assert!(
+        std::fs::read_to_string(artifacts.join("program.ll"))
+            .unwrap()
+            .contains("target triple")
+    );
+    assert!(
+        std::fs::read_to_string(artifacts.join("program-shim.c"))
+            .unwrap()
+            .contains("mal_bridge_external_0")
+    );
+    assert!(
+        std::fs::read_to_string(artifacts.join("program.mal.h"))
+            .unwrap()
+            .contains("MAL_DEFINE_sine")
+    );
+    for runtime in [
+        "runtime.h",
+        "core.c",
+        "control.c",
+        "symbol.c",
+        "symbol_internal.h",
+    ] {
+        assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
+    }
+}
+
+#[test]
+fn references_closed_top_level_numeric_constants_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-top-level-constant");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "answer :: UInt64 := UInt64(42);\n\
+         main :: Unit -> Int32 := () { Int32(answer) - 42; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn references_structural_closed_top_level_values_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-structural-top-level");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Choice :: [Unit, Symbol];\n\
+         (number, text) :: (Int32, Symbol) := (-7i32, \"ok\");\n\
+         choice :: Choice := 1[Choice](\"yes\");\n\
+         enabled :: Bool := true;\n\
+         reader :: Ptr -> Int64 := Int64.load;\n\
+         main :: Unit -> Int32 := () {\n\
+           choice[\n\
+             () { 1 },\n\
+             (value) {\n\
+               if (enabled) then {\n\
+                 if (number == -7i32) then {\n\
+                   if (text == \"ok\" && value == \"yes\") then { 0 } else { 2 };\n\
+                 } else { 3 };\n\
+               } else { 4 };\n\
+             }]\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn passes_process_arguments_through_the_llvm_entry_bridge() {
+    let directory = NativeFixture::new("driver-llvm-arguments");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "Arguments :: (UInt64, Ptr);\n\
+         argumentAt :: (Ptr, UInt64) -> Symbol := (arguments, index) {\n\
+           slot := arguments + index * (Ptr.size + UInt64.size);\n\
+           Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
+         };\n\
+         main :: Arguments -> Int32 := (count, arguments) {\n\
+           first := argumentAt(arguments, 0u64);\n\
+           second := argumentAt(arguments, 1u64);\n\
+           if (count == 2u64) then {\n\
+             if (first == \"alpha\") then {\n\
+               if (second == \"\") then { 0 } else { 1 };\n\
+             } else { 2 };\n\
+           } else { 3 };\n\
+         };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = std::process::Command::new(executable)
+        .args(["alpha", ""])
+        .output()
+        .expect("run argument-aware LLVM executable");
+    assert_eq!(output.status.code(), Some(0));
+}

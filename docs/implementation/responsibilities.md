@@ -137,6 +137,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
+| `backend/llvm/body/setup` | function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
+| `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
+| `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
 | `backend/llvm/body/ownership` | control CFGのbackward livenessからbinding後にresponsibilityを失うdead ownerを導出 |
