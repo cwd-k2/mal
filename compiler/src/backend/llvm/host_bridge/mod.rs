@@ -1,3 +1,5 @@
+mod plan;
+
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
@@ -17,25 +19,25 @@ pub(super) fn generate(
     raw_types: &crate::backend::c::RawHostTypes,
 ) -> Option<Bridge> {
     let types = body::types::Types::new(pointer_size)?;
-    let mut marshalling = Marshalling::new(external.id.0, types, raw_types);
+    let parameter = plan::Value::new(&external.parameter, types)?;
+    let result = plan::Value::new(&external.result, types)?;
+    let mut marshalling = Marshalling::new(external.id.0, raw_types);
     let bridge = AbiFunction::external_bridge(external.id);
     let llvm_declaration = format!("declare {}", bridge.llvm_signature());
-    let (mut statements, arguments) = match &external.parameter {
-        Type::Unit => (
+    let (mut statements, arguments) = match &parameter.kind {
+        plan::Kind::Unit => (
             vec![Statement::expression(Expr::cast(
                 "void",
                 identifier("mal_argument"),
             ))],
             Vec::new(),
         ),
-        Type::Product(elements) => {
-            let fields = types.product_fields(&external.parameter)?;
-            let arguments = elements
+        plan::Kind::Product(fields) => {
+            let arguments = fields
                 .iter()
-                .zip(fields)
-                .map(|(element, field)| {
+                .map(|field| {
                     marshalling.read(
-                        element,
+                        &field.value,
                         identifier("mal_argument"),
                         field.offset,
                         context_cast(),
@@ -44,16 +46,16 @@ pub(super) fn generate(
                 .collect::<Option<Vec<_>>>()?;
             (Vec::new(), arguments)
         }
-        ty => (
+        _ => (
             Vec::new(),
-            vec![marshalling.read(ty, identifier("mal_argument"), 0, context_cast())?],
+            vec![marshalling.read(&parameter, identifier("mal_argument"), 0, context_cast())?],
         ),
     };
     let mut call_arguments = vec![context_cast()];
     call_arguments.extend(arguments);
     let call = Expr::named_call(format!("mal_ext_{}", external.name), call_arguments);
-    match &external.result {
-        Type::Unit => {
+    match &result.kind {
+        plan::Kind::Unit => {
             statements.push(Statement::expression(call));
             statements.push(store(
                 "uint8_t",
@@ -61,7 +63,7 @@ pub(super) fn generate(
                 Expr::named_call("UINT8_C", [number(0)]),
             ));
         }
-        Type::Symbol => {
+        plan::Kind::Symbol => {
             statements.push(variable("MalType_Symbol", "result", Some(call)));
             statements.push(store(
                 TypeName::named("void").pointer(),
@@ -69,23 +71,25 @@ pub(super) fn generate(
                 identifier("result").field("ownership"),
             ));
         }
-        Type::Product(_) | Type::Sum(_) | Type::External { .. }
-            if c_scalar_type(&external.result).is_none() =>
-        {
+        plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
             statements.push(variable(
                 raw_types.c_type(&external.result),
                 "result",
                 Some(call),
             ));
             statements.extend(marshalling.write(
-                &external.result,
+                &result,
                 identifier("result"),
                 0,
                 context_cast(),
             )?);
         }
-        ty => {
-            statements.push(store(c_scalar_type(ty)?, identifier("mal_result"), call));
+        plan::Kind::Scalar => {
+            statements.push(store(
+                c_scalar_type(result.ty)?,
+                identifier("mal_result"),
+                call,
+            ));
         }
     }
     marshalling.helpers.blank_line();
@@ -101,21 +105,15 @@ pub(super) fn generate(
 
 struct Marshalling<'a> {
     external: u32,
-    types: body::types::Types,
     raw_types: &'a crate::backend::c::RawHostTypes,
     next_helper: usize,
     helpers: TranslationUnit,
 }
 
 impl<'a> Marshalling<'a> {
-    fn new(
-        external: u32,
-        types: body::types::Types,
-        raw_types: &'a crate::backend::c::RawHostTypes,
-    ) -> Self {
+    fn new(external: u32, raw_types: &'a crate::backend::c::RawHostTypes) -> Self {
         Self {
             external,
-            types,
             raw_types,
             next_helper: 0,
             helpers: TranslationUnit::default(),
@@ -131,17 +129,23 @@ impl<'a> Marshalling<'a> {
         )
     }
 
-    fn read(&mut self, ty: &Type, base: Expr, offset: usize, context: Expr) -> Option<Expr> {
+    fn read(
+        &mut self,
+        value: &plan::Value<'_>,
+        base: Expr,
+        offset: usize,
+        context: Expr,
+    ) -> Option<Expr> {
         let pointer = bridge_pointer(base.clone(), offset, true);
-        match ty {
-            Type::Unit => Some(Expr::compound_literal(
+        match &value.kind {
+            plan::Kind::Unit => Some(Expr::compound_literal(
                 "MalType_Unit",
                 [Initializer::designated(
                     "unused",
                     Expr::named_call("UINT8_C", [number(0)]),
                 )],
             )),
-            Type::Symbol => {
+            plan::Kind::Symbol => {
                 let ownership = load(TypeName::named("void").const_pointer().pointer(), pointer);
                 Some(Expr::named_call(
                     "mal_symbol_materialize",
@@ -164,24 +168,22 @@ impl<'a> Marshalling<'a> {
                     ],
                 ))
             }
-            Type::External { .. } => Some(Expr::compound_literal(
-                self.raw_types.c_type(ty),
+            plan::Kind::External => Some(Expr::compound_literal(
+                self.raw_types.c_type(value.ty),
                 [Initializer::designated(
                     "bits",
                     load(TypeName::const_named("uintptr_t").pointer(), pointer),
                 )],
             )),
-            Type::Product(elements) => {
-                let fields = self.types.product_fields(ty)?;
-                let initializers = elements
+            plan::Kind::Product(fields) => {
+                let initializers = fields
                     .iter()
-                    .zip(fields)
                     .enumerate()
-                    .map(|(index, (element, field))| {
+                    .map(|(index, field)| {
                         Some(Initializer::designated(
                             format!("field_{index}"),
                             self.read(
-                                element,
+                                &field.value,
                                 base.clone(),
                                 offset.checked_add(field.offset)?,
                                 context.clone(),
@@ -190,15 +192,16 @@ impl<'a> Marshalling<'a> {
                     })
                     .collect::<Option<Vec<_>>>()?;
                 Some(Expr::compound_literal(
-                    self.raw_types.c_type(ty),
+                    self.raw_types.c_type(value.ty),
                     initializers,
                 ))
             }
-            Type::Sum(elements) if !body::types::is_bool(ty) => {
-                self.read_sum(ty, elements, pointer, context)
-            }
-            _ => Some(load(
-                TypeName::const_named(c_scalar_type(ty)?).pointer(),
+            plan::Kind::Sum {
+                tag_offset,
+                variants,
+            } => self.read_sum(value.ty, *tag_offset, variants, pointer, context),
+            plan::Kind::Scalar => Some(load(
+                TypeName::const_named(c_scalar_type(value.ty)?).pointer(),
                 pointer,
             )),
         }
@@ -207,19 +210,17 @@ impl<'a> Marshalling<'a> {
     fn read_sum(
         &mut self,
         ty: &Type,
-        elements: &[Type],
+        tag_offset: usize,
+        variants: &[plan::Field<'_>],
         pointer: Expr,
         context: Expr,
     ) -> Option<Expr> {
         let helper = self.helper_name("read");
         let c_type = self.raw_types.c_type(ty);
-        let fields = self.types.sum_fields(ty)?;
-        let tag_offset = fields.first()?.offset;
-        let cases = elements
+        let cases = variants
             .iter()
-            .zip(fields.into_iter().skip(1))
             .enumerate()
-            .map(|(index, (element, field))| {
+            .map(|(index, field)| {
                 Some(SwitchCase::case(
                     Expr::named_call("UINT32_C", [number(index)]),
                     Block::new([Statement::return_value(Expr::compound_literal(
@@ -232,7 +233,7 @@ impl<'a> Marshalling<'a> {
                             Initializer::designated_path(
                                 ["payload", &format!("variant_{index}")],
                                 self.read(
-                                    element,
+                                    &field.value,
                                     identifier("value"),
                                     field.offset,
                                     identifier("context"),
@@ -276,41 +277,40 @@ impl<'a> Marshalling<'a> {
 
     fn write(
         &mut self,
-        ty: &Type,
+        plan: &plan::Value<'_>,
         value: Expr,
         offset: usize,
         context: Expr,
     ) -> Option<Vec<Statement>> {
-        self.write_at(ty, identifier("mal_result"), value, offset, context)
+        self.write_at(plan, identifier("mal_result"), value, offset, context)
     }
 
     fn write_at(
         &mut self,
-        ty: &Type,
+        plan: &plan::Value<'_>,
         base: Expr,
         value: Expr,
         offset: usize,
         context: Expr,
     ) -> Option<Vec<Statement>> {
         let pointer = bridge_pointer(base.clone(), offset, false);
-        match ty {
-            Type::Unit => Some(vec![store(
+        match &plan.kind {
+            plan::Kind::Unit => Some(vec![store(
                 "uint8_t",
                 pointer,
                 Expr::named_call("UINT8_C", [number(0)]),
             )]),
-            Type::Symbol => Some(vec![store(
+            plan::Kind::Symbol => Some(vec![store(
                 TypeName::named("void").pointer(),
                 pointer,
                 value.field("ownership"),
             )]),
-            Type::External { .. } => Some(vec![store("uintptr_t", pointer, value.field("bits"))]),
-            Type::Product(elements) => {
-                let fields = self.types.product_fields(ty)?;
+            plan::Kind::External => Some(vec![store("uintptr_t", pointer, value.field("bits"))]),
+            plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
-                for (index, (element, field)) in elements.iter().zip(fields).enumerate() {
+                for (index, field) in fields.iter().enumerate() {
                     statements.extend(self.write_at(
-                        element,
+                        &field.value,
                         base.clone(),
                         value.clone().field(format!("field_{index}")),
                         offset.checked_add(field.offset)?,
@@ -319,30 +319,31 @@ impl<'a> Marshalling<'a> {
                 }
                 Some(statements)
             }
-            Type::Sum(elements) if !body::types::is_bool(ty) => self
-                .write_sum(ty, elements, value, pointer, context)
+            plan::Kind::Sum {
+                tag_offset,
+                variants,
+            } => self
+                .write_sum(plan.ty, *tag_offset, variants, value, pointer, context)
                 .map(|call| vec![call]),
-            _ => Some(vec![store(c_scalar_type(ty)?, pointer, value)]),
+            plan::Kind::Scalar => Some(vec![store(c_scalar_type(plan.ty)?, pointer, value)]),
         }
     }
 
     fn write_sum(
         &mut self,
         ty: &Type,
-        elements: &[Type],
+        tag_offset: usize,
+        variants: &[plan::Field<'_>],
         value: Expr,
         pointer: Expr,
         context: Expr,
     ) -> Option<Statement> {
         let helper = self.helper_name("write");
         let c_type = self.raw_types.c_type(ty);
-        let fields = self.types.sum_fields(ty)?;
-        let tag_offset = fields.first()?.offset;
         let mut cases = Vec::new();
-        for (index, (element, field)) in elements.iter().zip(fields.into_iter().skip(1)).enumerate()
-        {
+        for (index, field) in variants.iter().enumerate() {
             let mut statements = self.write_at(
-                element,
+                &field.value,
                 identifier("value"),
                 identifier("input")
                     .field("payload")

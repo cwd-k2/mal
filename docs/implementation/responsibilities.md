@@ -133,7 +133,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。managed captureを持つfirst-class function、managed productとsum、direct・indirect call、self-tail edge、recursive regionのtyped continuation frame、transportableなextern callをadmit |
-| `backend/llvm/host_bridge` | extern parameterとresultについて、LLVM value storageとpublic C host valueの間の再帰的marshallingを構成 |
+| `backend/llvm/host_bridge/plan` | extern parameterとresultについて、LLVM value storageの再帰的layoutとmarshalling traversalをC emissionより先に確定 |
+| `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
