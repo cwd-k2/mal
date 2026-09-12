@@ -8,28 +8,28 @@ _inputStorageSize :: UInt64 := 4096u64;
 executeDatabase :: Symbol -> Int32 := (path) {
     // Acquire process-lifetime resources before deriving any borrowed memory views.
     allocator := createAllocator();
-    file := openReadWriteCreate(path);
+    file := path.openReadWriteCreate();
     input := standardInput();
 
-    databaseStorage := allocateBuffer(allocator, databaseReadCapacity);
-    query := allocateBuffer(allocator, _queryStorageSize);
-    inputBuffer := allocateBuffer(allocator, _inputStorageSize);
+    databaseStorage := allocator.allocateBuffer(databaseReadCapacity);
+    query := allocator.allocateBuffer(_queryStorageSize);
+    inputBuffer := allocator.allocateBuffer(_inputStorageSize);
 
-    loadedDatabase := readDatabaseFile(file, databaseStorage);
+    loadedDatabase := file.readDatabaseFile(databaseStorage);
     (_, _, loaded) := loadedDatabase;
     database := if (loaded == 0u64)
-        then { initializeDatabase(loadedDatabase) }
+        then { loadedDatabase.initializeDatabase() }
         else {
-            when (!validateDatabase(loadedDatabase)) {
+            when (!loadedDatabase.validateDatabase()) {
                 fail("invalid database file");
             };
             loadedDatabase;
         };
 
-    runQueries((input, inputBuffer, 0u64), file, database, query);
+    (input, inputBuffer, 0u64).runQueries(file, database, query);
 
     // No buffer view may be used after destroying its allocator.
-    closeFile(file);
-    destroyAllocator(allocator);
+    file.closeFile();
+    allocator.destroyAllocator();
     0;
 };

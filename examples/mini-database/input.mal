@@ -41,13 +41,13 @@ _readByte :: Reader -> ByteRead := (reader)[eof, read] {
 
 _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
     (line, capacity, length) := buffer;
-    result := _readByte(reader);
+    result := reader._readByte();
     result[
     (next)[return] {
         when (length == 0u64) {
-            return(_lineAtEof(next));
+            return(next._lineAtEof());
         };
-        return(_lineReady((next, buffer)));
+        return((next, buffer)._lineReady());
     },
     (read)[return] {
         (next, byte) := read;
@@ -55,23 +55,23 @@ _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) {
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
             when (length > 0u64 && UInt8.load(line + length - 1u64) == '\r') {
-                return(_lineReady((next, (line, capacity, length - 1u64))));
+                return((next, (line, capacity, length - 1u64))._lineReady());
             };
-            return(_lineReady((next, buffer)));
+            return((next, buffer)._lineReady());
         };
 
         when (length + 1u64 == capacity) {
             fail("query line exceeds its buffer");
-            return(_lineReady((next, buffer)));
+            return((next, buffer)._lineReady());
         };
 
         UInt8.store(line + length, byte);
-        return(_readLineAt(next, (line, capacity, length + 1u64)));
+        return(next._readLineAt((line, capacity, length + 1u64)));
     }
     ];
 };
 
 readLine :: (Reader, Buffer) -> LineRead := (reader, buffer) {
     (line, capacity, _) := buffer;
-    _readLineAt(reader, (line, capacity, 0u64));
+    reader._readLineAt((line, capacity, 0u64));
 };

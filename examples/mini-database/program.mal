@@ -9,5 +9,5 @@ main :: Arguments -> Int32 := (argumentCount, arguments)[return] {
     };
 
     path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
-    return(executeDatabase(path));
+    return(path.executeDatabase());
 };

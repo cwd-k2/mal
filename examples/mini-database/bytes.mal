@@ -13,7 +13,7 @@ clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] {
     };
 
     UInt8.store(memory, 0u8);
-    return(clearBytes(memory + 1u64, remaining - 1u64));
+    return((memory + 1u64).clearBytes(remaining - 1u64));
 };
 
 _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
@@ -25,14 +25,14 @@ _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
             return(false);
         };
 
-        return(_rangeEqualsAt(source, start, expected, index + 1u64));
+        return(source._rangeEqualsAt(start, expected, index + 1u64));
     };
 
 rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
     (source, sourceLength, start, length, expected) {
         length == #expected
             && start + length <= sourceLength
-            && _rangeEqualsAt(source, start, expected, 0u64);
+            && source._rangeEqualsAt(start, expected, 0u64);
     };
 
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
@@ -44,7 +44,7 @@ findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
             return(index);
         };
 
-        return(findByte(source, length, index + 1u64, byte));
+        return(source.findByte(length, index + 1u64, byte));
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
@@ -56,7 +56,7 @@ memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
             return(false);
         };
 
-        return(memoryEqualsAt(memory, source, start, length, index + 1u64));
+        return(memory.memoryEqualsAt(source, start, length, index + 1u64));
     };
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
@@ -66,5 +66,5 @@ copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
         };
 
         UInt8.store(destination, UInt8.load(source + start));
-        return(copyRange(source, start + 1u64, destination + 1u64, remaining - 1u64));
+        return(source.copyRange(start + 1u64, destination + 1u64, remaining - 1u64));
     };
