@@ -30,7 +30,7 @@ sumTree :: Ptr -> Int32 := (node)[return] {
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
-    return(value + sumTree(left) + sumTree(right));
+    return(value + left.sumTree() + right.sumTree());
 };
 
 destroyTree :: Ptr -> Unit := (node)[return] {
@@ -41,15 +41,15 @@ destroyTree :: Ptr -> Unit := (node)[return] {
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
-    destroyTree(left);
-    destroyTree(right);
-    return(release(node));
+    left.destroyTree();
+    right.destroyTree();
+    return(node.release());
 };
 
 main :: Unit -> Int32 := () {
     left := branch(2, leaf(3), leaf(4));
     tree := branch(1, left, leaf(5));
-    total := sumTree(tree);
-    destroyTree(tree);
+    total := tree.sumTree();
+    tree.destroyTree();
     total - 15;
 };

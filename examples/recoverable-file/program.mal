@@ -42,14 +42,14 @@ _completed :: Unit -> Status := ()[complete, failed] {
 
 copyContents :: (File, Buffer) -> Status := (file, buffer) {
     (memory, capacity, _) := buffer;
-    result := readFile(file, (memory, capacity));
+    result := file.readFile((memory, capacity));
     result[
     (length)[return] {
         when (length == 0u64) {
             return(_completed());
         };
         writeBytes((memory, length));
-        return(copyContents(file, (memory, capacity, length)));
+        return(file.copyContents((memory, capacity, length)));
     },
     (error)[complete, failed] { failed(error) }
     ];
@@ -70,16 +70,16 @@ finishCopy :: (Status, CloseResult) -> Status := (copied, closed) {
 copyPath :: Symbol -> Status := (path) {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
-    opened := openReadOnly(path);
+    opened := path.openReadOnly();
     outcome := opened[
         (file) {
-            copied := copyContents(file, buffer);
-            closed := closeFile(file);
-            finishCopy(copied, closed);
+            copied := file.copyContents(buffer);
+            closed := file.closeFile();
+            copied.finishCopy(closed);
         },
         (error)[complete, failed] { failed(error) }
     ];
-    releaseBuffer(allocation);
+    allocation.releaseBuffer();
     outcome;
 };
 
@@ -90,7 +90,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments)[return] {
     };
 
     path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
-    result := copyPath(path);
+    result := path.copyPath();
     status :: Int32 := result[
         () { 0 },
         (error) {

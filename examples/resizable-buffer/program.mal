@@ -35,7 +35,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
     when (capacity > 0x7fff_ffff_ffff_ffffu64) {
         return(required);
     };
-    return(nextCapacity(capacity * 2u64, required));
+    return((capacity * 2u64).nextCapacity(required));
 };
 
 appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
@@ -48,8 +48,8 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
     available := if (required <= capacity)
         then { _bufferSuccess(buffer) }
         else {
-            target := nextCapacity(capacity, required);
-            resizeBuffer(buffer, target);
+            target := capacity.nextCapacity(required);
+            buffer.resizeBuffer(target);
         };
     result :: BufferResult := available[
         (resized)[success, failure] {
@@ -73,7 +73,7 @@ sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
 
 releaseBufferValue :: Buffer -> Unit := (buffer) {
     (allocation, _, _, _) := buffer;
-    releaseBuffer(allocation);
+    allocation.releaseBuffer();
 };
 
 writeThroughDescriptor :: Slice -> Bool := (slice) {
@@ -86,8 +86,8 @@ writeThroughDescriptor :: Slice -> Bool := (slice) {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
         Ptr.store(descriptorMemory, memory);
         UInt64.store(descriptorMemory + Ptr.size, length);
-        writeSliceDescriptor(allocation, descriptorMemory);
-        releaseBuffer(descriptorAllocation);
+        allocation.writeSliceDescriptor(descriptorMemory);
+        descriptorAllocation.releaseBuffer();
         true;
     },
     (_) { false }
@@ -95,18 +95,17 @@ writeThroughDescriptor :: Slice -> Bool := (slice) {
 };
 
 finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) {
-    rejected := appendSymbol(
-        buffer,
+    rejected := buffer.appendSymbol(
         "this append is intentionally larger than the allocation limit for the pressure test"
     );
     rejected[
     (unexpected) {
-        releaseBufferValue(unexpected);
+        unexpected.releaseBufferValue();
         5;
     },
     (_) {
-        current := isCurrentBuffer(buffer);
-        releaseBufferValue(buffer);
+        current := buffer.isCurrentBuffer();
+        buffer.releaseBufferValue();
         if (aliasesInvalid && current)
         then {
             writeSymbol("resize rejected\n");
@@ -118,57 +117,57 @@ finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) {
 };
 
 afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) {
-    grownResult := appendSymbol(before, "-shared-buffer");
+    grownResult := before.appendSymbol("-shared-buffer");
     grownResult[
     (grown) {
-        aliasesInvalid := !isCurrentBuffer(before) && !isCurrentSlice(staleSlice);
+        aliasesInvalid := !before.isCurrentBuffer() && !staleSlice.isCurrentSlice();
         (_, _, _, length) := grown;
-        sliceResult := sliceBuffer(grown, 0u64, length);
+        sliceResult := grown.sliceBuffer(0u64, length);
         sliceResult[
         (currentSlice) {
-            if (writeThroughDescriptor(currentSlice))
+            if (currentSlice.writeThroughDescriptor())
             then {
                 writeSymbol("\n");
-                finishLimitTest(grown, aliasesInvalid);
+                grown.finishLimitTest(aliasesInvalid);
             }
             else {
-                releaseBufferValue(grown);
+                grown.releaseBufferValue();
                 4;
             };
         },
         () {
-            releaseBufferValue(grown);
+            grown.releaseBufferValue();
             4;
         }
         ];
     },
     (_) {
-        releaseBufferValue(before);
+        before.releaseBufferValue();
         3;
     }
     ];
 };
 
 withInitialValue :: Buffer -> Int32 := (initial) {
-    appended := appendSymbol(initial, "mal");
+    appended := initial.appendSymbol("mal");
     appended[
     (buffer) {
-        invalidSlice := sliceBuffer(buffer, 2u64, 2u64);
+        invalidSlice := buffer.sliceBuffer(2u64, 2u64);
         invalidSlice[
         (_) {
-            releaseBufferValue(buffer);
+            buffer.releaseBufferValue();
             8;
         },
         () {
-            sliceResult := sliceBuffer(buffer, 1u64, 2u64);
+            sliceResult := buffer.sliceBuffer(1u64, 2u64);
             sliceResult[
             (slice) {
-                writeSlice(slice);
+                slice.writeSlice();
                 writeSymbol("\n");
-                afterGrowth(buffer, slice);
+                buffer.afterGrowth(slice);
             },
             () {
-                releaseBufferValue(buffer);
+                buffer.releaseBufferValue();
                 2;
             }
             ];
@@ -176,7 +175,7 @@ withInitialValue :: Buffer -> Int32 := (initial) {
         ];
     },
     (_) {
-        releaseBufferValue(initial);
+        initial.releaseBufferValue();
         1;
     }
     ];
@@ -185,7 +184,7 @@ withInitialValue :: Buffer -> Int32 := (initial) {
 main :: Unit -> Int32 := () {
     allocated := allocateBuffer(4u64, 64u64);
     allocated[
-    (buffer) { withInitialValue(buffer) },
+    (buffer) { buffer.withInitialValue() },
     (_) { 7 }
     ];
 };

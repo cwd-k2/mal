@@ -13,7 +13,7 @@ extern destroyAllocator :: Allocator -> Unit;
 // Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
 // Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
 leaf :: (Allocator, Int32) -> NodeResult := (allocator, value) {
-    allocated := allocateNode(allocator, 5u64);
+    allocated := allocator.allocateNode(5u64);
     allocated[
     (node)[created, failed] {
         Int32.store(node, value);
@@ -33,25 +33,25 @@ sumTree :: Ptr -> Int32 := (node)[return] {
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
-    return(value + sumTree(left) + sumTree(right));
+    return(value + left.sumTree() + right.sumTree());
 };
 
 destroyTree :: (Allocator, Ptr) -> Unit := (allocator, node)[return] {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
-        return(releaseNode(allocator, node));
+        return(allocator.releaseNode(node));
     };
 
     left := Ptr.load(node + 5u64);
     right := Ptr.load(node + 5u64 + Ptr.size);
-    destroyTree(allocator, left);
-    destroyTree(allocator, right);
-    return(releaseNode(allocator, node));
+    allocator.destroyTree(left);
+    allocator.destroyTree(right);
+    return(allocator.releaseNode(node));
 };
 
 branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     (allocator, value, left, right) {
-        allocated := allocateNode(allocator, 5u64 + Ptr.size * 2u64);
+        allocated := allocator.allocateNode(5u64 + Ptr.size * 2u64);
         allocated[
         (node)[created, failed] {
             Int32.store(node, value);
@@ -61,22 +61,22 @@ branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
             created(node);
         },
         ()[created, failed] {
-            destroyTree(allocator, left);
-            destroyTree(allocator, right);
+            allocator.destroyTree(left);
+            allocator.destroyTree(right);
             failed();
         }
         ];
     };
 
 buildLeft :: Allocator -> NodeResult := (allocator) {
-    first := leaf(allocator, 3);
+    first := allocator.leaf(3);
     first[
     (left) {
-        second := leaf(allocator, 4);
+        second := allocator.leaf(4);
         second[
-        (right) { branchOwned(allocator, 2, left, right) },
+        (right) { allocator.branchOwned(2, left, right) },
         ()[created, failed] {
-            destroyTree(allocator, left);
+            allocator.destroyTree(left);
             failed();
         }
         ];
@@ -86,14 +86,14 @@ buildLeft :: Allocator -> NodeResult := (allocator) {
 };
 
 buildTree :: Allocator -> NodeResult := (allocator) {
-    leftResult := buildLeft(allocator);
+    leftResult := allocator.buildLeft();
     leftResult[
     (left) {
-        rightResult := leaf(allocator, 5);
+        rightResult := allocator.leaf(5);
         rightResult[
-        (right) { branchOwned(allocator, 1, left, right) },
+        (right) { allocator.branchOwned(1, left, right) },
         ()[created, failed] {
-            destroyTree(allocator, left);
+            allocator.destroyTree(left);
             failed();
         }
         ];
@@ -104,30 +104,30 @@ buildTree :: Allocator -> NodeResult := (allocator) {
 
 successfulBuild :: Unit -> Bool := () {
     allocator := createAllocator(5u64);
-    result := buildTree(allocator);
+    result := allocator.buildTree();
     valid := result[
         (tree) {
-            total := sumTree(tree);
-            destroyTree(allocator, tree);
+            total := tree.sumTree();
+            allocator.destroyTree(tree);
             total == 15;
         },
         () { false }
     ];
-    destroyAllocator(allocator);
+    allocator.destroyAllocator();
     valid;
 };
 
 failedBuildCleansPartialTree :: Unit -> Bool := () {
     allocator := createAllocator(3u64);
-    result := buildTree(allocator);
+    result := allocator.buildTree();
     failed := result[
         (tree) {
-            destroyTree(allocator, tree);
+            allocator.destroyTree(tree);
             false;
         },
         () { true }
     ];
-    destroyAllocator(allocator);
+    allocator.destroyAllocator();
     failed;
 };
 
