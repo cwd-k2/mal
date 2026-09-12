@@ -42,6 +42,7 @@ malc format source.mal
 malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
+malc emit-atcoder source.mal --output Main.cpp
 malc build source.mal --output program
 malc build source.mal --output program --optimization baseline
 malc build source.mal --output program --artifact-dir artifacts
@@ -57,6 +58,10 @@ malc build source.mal --output program --clang-arg '-lm'
   `program.mal.h`をincludeし、未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。
   `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
   `emit-header`と同様に`main` bindingは要求しない。
+- `emit-atcoder`はmal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのassemblyをglobal `asm`で
+  運ぶ単一のC++ sourceを生成する。提出内容を読めるよう、rootと推移的にrequireしたmal moduleのsourceを先頭へ
+  行commentとしてそのまま置く。AtCoderでは`C++23 (GCC)`または`C++23 (Clang)`を選び、生成した
+  `Main.cpp`全体を提出する。
 - `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
 - `build`は既定で`production` profileを使い、正しさと採用gateを満たしたexecution、LLVM emission、toolchain techniqueをすべて
   有効化する。`--optimization baseline`はdebugと差分検証のためoptional techniqueを外す。同じoptionは一度だけ指定できる。
@@ -64,6 +69,7 @@ malc build source.mal --output program --clang-arg '-lm'
 - `build --artifact-dir directory`は、通常temporaryなbackend生成物とruntime入力を指定directoryへ書き、build後も保持する。
   Clangが失敗した場合も保持する。同じ名前のfileは置き換えるが、directory内の他のfileは変更しない。
 - `build --clang-arg argument`は追加のClang argumentを一つ渡す。必要な数だけ繰り返せる。
+- `emit-atcoder`は`build`と同じ`--output`、`--optimization`、`--artifact-dir`、`--clang-arg`を受け取る。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
 `Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
@@ -92,6 +98,11 @@ macro optionを利用できる。これは明示的なexternal build authority�
 lifetime、およびlanguage semanticsを変えるoptionを渡さない責任は呼出し側が持つ。追加argumentはMal sourceのrequire graphや
 別のbuildへ伝播しない。
 
+`emit-atcoder`は同じtargetと入力を`-flto`で一つのassemblyへまとめるため、pinned LLDの`--lto-emit-asm`を使う。
+生成するC++ sourceはx86_64 LinuxのC ABIに依存し、別architecture向けのportable sourceではない。libcやlibmのように
+assemblyから未定義symbolとして参照するlibraryは提出先のC++ link環境にも必要である。任意のlocal shared libraryを
+提出fileへ埋め込む機能ではない。
+
 Clangを起動できない場合と、compilerまたはlinkerがnon-zeroで終了した場合、`malc`は失敗し、診断を
 stderrへ出す。後者ではtoolchainのstderrも保持する。
 
@@ -116,7 +127,8 @@ generated headerとbuild artifactのsource compatibilityまたはbinary compatib
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
 `--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`、
-`symbol.c`を保持する。これらはtoolchainとtargetに依存するinspection用artifactであり、version間の互換性を保証しない。
+`symbol.c`を保持する。`emit-atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
+inspection用artifactであり、version間の互換性を保証しない。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。
 mal programのtrapはstderrへ理由を出して異常終了するが、portableなprocess exit codeは定めない。

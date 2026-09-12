@@ -73,6 +73,7 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 | `format` | `source -> lossless lexer -> parser -> formatter` | commentとliteral spellingを保持したsource text |
 | `emit-header`、`emit-host` | frontend `-> core::ProgramInterface -> backend/c` | checked host interfaceだけから生成したC headerまたはadapter stub |
 | `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
+| `emit-atcoder` | `build`と同じ生成入力 `-> pinned Clang/LLD -> assembly carrier` | mal sourceをcommentに保持した単一C++ sourceまたはexternal-boundary error |
 
 `ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
 source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は

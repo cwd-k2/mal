@@ -15,6 +15,7 @@ Commands:
   format <source.mal>       Write canonical source to stdout
   emit-header <source.mal>  Write the C host header
   emit-host <source.mal>    Write a C host implementation template to stdout
+  emit-atcoder <source.mal> Write one C++ source for an AtCoder submission
   build <source.mal>        Build an executable with production optimization
 
 emit-header options:
@@ -25,6 +26,12 @@ emit-host options:
 
 build options:
   --output <program>                         Executable output path (required)
+  --optimization <baseline|production>       Optimization profile [default: production]
+  --artifact-dir <directory>                 Keep generated build artifacts here
+  --clang-arg <argument>                     Add a Clang argument; may be repeated
+
+emit-atcoder options:
+  --output <Main.cpp>                        Submission output path (required)
   --optimization <baseline|production>       Optimization profile [default: production]
   --artifact-dir <directory>                 Keep generated build artifacts here
   --clang-arg <argument>                     Add a Clang argument; may be repeated
@@ -109,7 +116,12 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
         }
         [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
         [command, rest @ ..] if command == OsStr::new("emit-host") => execute_emit_host(rest),
-        [command, rest @ ..] if command == OsStr::new("build") => execute_build(rest),
+        [command, rest @ ..] if command == OsStr::new("build") => {
+            execute_build(rest, BuildKind::Executable)
+        }
+        [command, rest @ ..] if command == OsStr::new("emit-atcoder") => {
+            execute_build(rest, BuildKind::AtCoder)
+        }
         _ => usage_error("unknown command or invalid arguments"),
     }
 }
@@ -164,9 +176,24 @@ fn execute_emit_header(arguments: &[OsString]) -> Outcome {
     }
 }
 
-fn execute_build(arguments: &[OsString]) -> Outcome {
+#[derive(Clone, Copy)]
+enum BuildKind {
+    Executable,
+    AtCoder,
+}
+
+impl BuildKind {
+    const fn command(self) -> &'static str {
+        match self {
+            Self::Executable => "build",
+            Self::AtCoder => "emit-atcoder",
+        }
+    }
+}
+
+fn execute_build(arguments: &[OsString], kind: BuildKind) -> Outcome {
     let Some(source) = arguments.first() else {
-        return usage_error("build requires a source path");
+        return usage_error(&format!("{} requires a source path", kind.command()));
     };
     let mut output = None;
     let mut artifact_directory = None;
@@ -204,24 +231,39 @@ fn execute_build(arguments: &[OsString]) -> Outcome {
             }
         } else {
             return usage_error(&format!(
-                "unknown build option '{}'",
+                "unknown {} option '{}'",
+                kind.command(),
                 option.to_string_lossy()
             ));
         }
         index += 2;
     }
     let Some(output) = output else {
-        return usage_error("build requires --output");
+        return usage_error(&format!("{} requires --output", kind.command()));
     };
-    match crate::driver::build(
-        PathBuf::from(source).as_path(),
-        crate::driver::BuildOptions {
-            output_path: &output,
-            artifact_directory: artifact_directory.as_deref(),
-            clang_arguments: &clang_arguments,
-            optimization: optimization.unwrap_or(crate::driver::OptimizationProfile::Production),
-        },
-    ) {
+    let source = PathBuf::from(source);
+    let optimization = optimization.unwrap_or(crate::driver::OptimizationProfile::Production);
+    let result = match kind {
+        BuildKind::Executable => crate::driver::build(
+            &source,
+            crate::driver::BuildOptions {
+                output_path: &output,
+                artifact_directory: artifact_directory.as_deref(),
+                clang_arguments: &clang_arguments,
+                optimization,
+            },
+        ),
+        BuildKind::AtCoder => crate::driver::emit_atcoder(
+            &source,
+            crate::driver::BuildOptions {
+                output_path: &output,
+                artifact_directory: artifact_directory.as_deref(),
+                clang_arguments: &clang_arguments,
+                optimization,
+            },
+        ),
+    };
+    match result {
         Ok(()) => Outcome::success(String::new()),
         Err(error) => Outcome::compile_error(error),
     }
@@ -320,6 +362,25 @@ mod tests {
             outcome
                 .stderr
                 .contains("must be 'baseline' or 'production'")
+        );
+
+        let outcome = execute(args(&["emit-atcoder", "sample.mal"]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(outcome.stderr.contains("emit-atcoder requires --output"));
+
+        let outcome = execute(args(&[
+            "emit-atcoder",
+            "sample.mal",
+            "--output",
+            "Main.cpp",
+            "--target",
+            "other",
+        ]));
+        assert_eq!(outcome.status, ExitStatus::UsageError);
+        assert!(
+            outcome
+                .stderr
+                .contains("unknown emit-atcoder option '--target'")
         );
     }
 

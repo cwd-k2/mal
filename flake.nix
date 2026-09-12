@@ -15,10 +15,10 @@
         buildAndTestSubdir = "compiler";
         cargoLock.lockFile = ./compiler/Cargo.lock;
         nativeBuildInputs = [ pkgs.makeWrapper ];
-        nativeCheckInputs = [ pkgs.clang ];
+        nativeCheckInputs = [ pkgs.clang pkgs.lld ];
         postInstall = ''
           wrapProgram $out/bin/malc \
-            --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.clang ]}
+            --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.clang pkgs.lld ]}
           install -Dm644 $src/LICENSE $out/share/licenses/malc/LICENSE
         '';
         meta = {

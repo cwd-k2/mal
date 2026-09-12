@@ -21,6 +21,7 @@ nix develop
 cargo test --manifest-path compiler/Cargo.toml
 cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal
 cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-example
+cargo run --manifest-path compiler/Cargo.toml -- emit-atcoder examples/print-and-closure/program.mal --output /tmp/Main.cpp
 /tmp/mal-example
 ```
 
