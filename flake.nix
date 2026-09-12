@@ -22,6 +22,35 @@
         '';
         meta.mainProgram = "malc";
       };
+      mal-lsp = pkgs.rustPlatform.buildRustPackage {
+        pname = "mal-lsp";
+        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        src = ./.;
+        cargoRoot = "tools/mal-lsp";
+        buildAndTestSubdir = "tools/mal-lsp";
+        cargoLock.lockFile = ./tools/mal-lsp/Cargo.lock;
+        meta.mainProgram = "mal-lsp";
+      };
+      vscode-check = pkgs.buildNpmPackage {
+        pname = "mal-language-support-check";
+        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        src = ./editors/vscode;
+        npmDepsHash = "sha256-MWI0HAKkzwb7yNeEw/WoplgkpqCBR6K0RrDUqbQeU+o=";
+        npmRebuildFlags = [ "--ignore-scripts" ];
+        dontNpmBuild = true;
+        doCheck = true;
+        checkPhase = ''
+          runHook preCheck
+          npm test
+          runHook postCheck
+        '';
+        installPhase = ''
+          runHook preInstall
+          mkdir -p $out
+          touch $out/passed
+          runHook postInstall
+        '';
+      };
       malcApp = {
         type = "app";
         program = "${malc}/bin/malc";
@@ -31,7 +60,7 @@
     {
       packages.${system} = {
         default = malc;
-        inherit malc;
+        inherit malc mal-lsp;
       };
 
       apps.${system} = {
@@ -39,7 +68,9 @@
         malc = malcApp;
       };
 
-      checks.${system}.malc = malc;
+      checks.${system} = {
+        inherit malc mal-lsp vscode-check;
+      };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [

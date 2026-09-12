@@ -40,7 +40,17 @@ warningを有効にしたClangで生成物をcompileする。invalid inputのtes
 
 ## Commands
 
-repository rootで`nix develop`へ入り、`compiler/`から次を実行する。
+repository全体の完了判定は、rootでpinned environmentから一つのcheck scriptを実行する。
+
+```nu
+nix develop
+nu scripts/check.nu
+```
+
+このscriptはcompiler、language server、VS Code extension、VSIX package、Nix flakeを順に検証する。VS Codeの
+`node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。
+
+compilerだけを変更中にfocused verificationを行う場合は、`compiler/`から次を実行する。
 
 ```nu
 cargo fmt --check
@@ -51,8 +61,7 @@ cargo test
 development shellは`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo projectとtoolchainを使い、
 完了判定では上記の全targetに対するClippyをwarning-freeにする。
 
-rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定する。Nix development environmentまたは
-flake inputを変更した場合は、rootで`nix flake check`も実行する。
+rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定する。
 
 `tools/mal-lsp/`を変更した場合はrepository rootで次も実行する。
 
@@ -62,8 +71,8 @@ cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- 
 cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
 ```
 
-`editors/vscode/`のclient lifecycleを変更した場合はdependencyをinstallした上で次を実行する。VSIX生成経路を
-変更した場合は、serverを同梱したpackageも生成できることを確認する。
+`editors/vscode/`のfocused verificationは次で行う。完了時のrepository checkではdependency install、server同梱、
+package生成も常に実行する。
 
 ```nu
 nu scripts/vscode-dev.nu --prepare-only
