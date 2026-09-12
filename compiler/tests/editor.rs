@@ -86,6 +86,32 @@ fn external_function_references_share_the_declaration_identity() {
 }
 
 #[test]
+fn receiver_first_callees_support_function_editor_features() {
+    let text = "add :: (Int32, Int32) -> Int32 := (left, right) { left + right };\n\
+                main :: Unit -> Int32 := () { 40i32.add(2) };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("add ::").unwrap();
+    let reference_offset = text.rfind(".add(").unwrap() + 1;
+    let reference = document
+        .occurrence_at(reference_offset)
+        .expect("receiver-first callee reference");
+
+    assert_eq!(reference.kind, SymbolKind::Function);
+    assert_eq!(reference.role, OccurrenceRole::Reference);
+    assert_eq!(reference.detail.as_deref(), Some("(Int32, Int32) -> Int32"));
+    assert_eq!(
+        document.hover_at(reference_offset).unwrap().span,
+        reference.span
+    );
+    assert_eq!(
+        document.definition(reference.id).unwrap().span.start(),
+        declaration_offset
+    );
+    assert_eq!(document.references(reference.id, true).len(), 2);
+    assert_eq!(document.rename_spans(reference_offset).unwrap().len(), 2);
+}
+
+#[test]
 fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
     let text = "closingParen :: UInt8 := ')';";
     let literal = text.find("')'").unwrap();

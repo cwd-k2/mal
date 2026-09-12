@@ -15,6 +15,9 @@ semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表�
 型注釈を持つ値には注釈内のalias名を保った型を表示する。推論された型と名前を持たないtyped expressionにはcanonical
 typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
+TextMate grammarはreceiver-first applicationのcalleeをfunction、`.§をaccessor punctuationとして分類する。
+semantic analysisではcalleeを通常のfunction referenceとして扱い、hover、definition、references、rename、
+semantic tokenに同じdeclaration identityを使う。
 
 ```nu
 nu scripts/vscode-dev.nu

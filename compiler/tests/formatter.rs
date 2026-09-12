@@ -64,6 +64,23 @@ fn keeps_receiver_first_calls_attached() {
 }
 
 #[test]
+fn preserves_receiver_first_call_chain_breaks() {
+    assert_eq!(
+        format(
+            "result := source\n\
+             .transform(option)\n\
+             .finish();\n\
+             size := UInt8\n\
+             .size;"
+        ),
+        "result := source\n\
+         \x20   .transform(option)\n\
+         \x20   .finish();\n\
+         size := UInt8.size;\n"
+    );
+}
+
+#[test]
 fn formats_unary_and_binary_symbol_operators() {
     assert_eq!(
         format("inspect:=(value){# value+value#1u64;};"),

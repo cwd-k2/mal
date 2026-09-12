@@ -24,6 +24,8 @@ Status: Current v0.5 tooling policy
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
   曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで
   一段深くし、それ以外のcontinuation行も一段深くする。
+- receiver-first applicationの`.§直前にあるsource改行は一段深いchain継続として保つ。
+  型で修飾したprimitiveの`T.member`は分割せず同じ行に置く。
 
 line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。
@@ -37,4 +39,5 @@ malformed sourceを補正せず、lexerまたはparserのstructured diagnostic�
 通常のfunction applicationは`f(a)`を標準styleとする。意味論上同じ`a[f]`は、値をcontinuationへ渡すことが主題の箇所、または
 `value[normalize][measure]`のように動詞的な変換を左から右へ並べるpipelineで使う。receiverを処理の主題として保つ
 domain operationや複数引数のpipelineでは`value.transform(option)`のreceiver-first形を使える。この形はfield accessではなく、
-parenthesized argument listを必須とする。formatterはapplication表記を相互変換せず、sourceが選んだ向きを保持する。
+parenthesized argument listを必須とする。formatterはapplication表記を相互変換せず、sourceが選んだ向きと明示的な
+receiver-first chain改行を保持する。

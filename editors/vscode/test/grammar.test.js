@@ -69,6 +69,23 @@ test('highlights type-qualified primitives', async () => {
   assert.equal(primitiveMembers.length, 2);
 });
 
+test('highlights receiver-first callees as functions', async () => {
+  const grammar = await loadGrammar();
+  const line = 'result := source.transform(1).finish();';
+  const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
+    text: line.slice(token.startIndex, token.endIndex),
+    scopes: token.scopes,
+  }));
+
+  for (const token of tokens.filter((candidate) => candidate.text === '.')) {
+    assert.ok(token.scopes.includes('punctuation.accessor.mal'));
+  }
+  for (const name of ['transform', 'finish']) {
+    const token = tokens.find((candidate) => candidate.text === name);
+    assert.ok(token.scopes.includes('entity.name.function.mal'));
+  }
+});
+
 test('highlights unary and binary Symbol operators', async () => {
   const grammar = await loadGrammar();
   const line = 'length := #value; byte := value # 1u64;';

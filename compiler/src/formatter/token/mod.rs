@@ -64,7 +64,7 @@ impl Formatter<'_> {
         if self.controls.should_break_before_sum_token(token_index) {
             self.newline();
         }
-        self.preserve_source_break(kind);
+        self.preserve_source_break(token_index, kind);
         match kind {
             TokenKind::LeftBrace => {
                 self.write_left_brace(token_index, text);
@@ -217,7 +217,7 @@ impl Formatter<'_> {
         }
     }
 
-    fn preserve_source_break(&mut self, kind: &TokenKind) {
+    fn preserve_source_break(&mut self, token_index: usize, kind: &TokenKind) {
         if !self.source_break {
             return;
         }
@@ -251,11 +251,19 @@ impl Formatter<'_> {
             return;
         }
 
+        let receiver_call = matches!(kind, TokenKind::Dot)
+            && !matches!(
+                self.lexed
+                    .tokens
+                    .get(token_index.saturating_sub(1))
+                    .map(|token| &token.kind),
+                Some(TokenKind::TypeIdentifier)
+            );
         let binary_before = is_breakable_operator(kind) && self.previous.ends_expression();
         let binary_after = matches!(self.previous, Previous::Operator);
         let list_item = matches!(self.previous, Previous::LeftParen | Previous::Comma);
         let list_end = matches!(kind, TokenKind::RightParen | TokenKind::RightBracket);
-        if binary_before || binary_after || list_item || list_end {
+        if receiver_call || binary_before || binary_after || list_item || list_end {
             self.newline();
             self.source_line_indent = Some(self.indent + usize::from(!list_end));
         }

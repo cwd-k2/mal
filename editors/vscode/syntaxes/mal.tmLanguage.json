@@ -13,6 +13,7 @@
     { "include": "#keywords" },
     { "include": "#languageConstants" },
     { "include": "#typeQualifiedPrimitives" },
+    { "include": "#receiverFirstCalls" },
     { "include": "#types" },
     { "include": "#wildcard" },
     { "include": "#operators" },
@@ -121,6 +122,17 @@
             "1": { "name": "entity.name.type.mal" },
             "2": { "name": "punctuation.accessor.mal" },
             "3": { "name": "support.function.builtin.mal" }
+          }
+        }
+      ]
+    },
+    "receiverFirstCalls": {
+      "patterns": [
+        {
+          "match": "(\\.)(_?[a-z][A-Za-z0-9]*)(?=\\s*\\()",
+          "captures": {
+            "1": { "name": "punctuation.accessor.mal" },
+            "2": { "name": "entity.name.function.mal" }
           }
         }
       ]
