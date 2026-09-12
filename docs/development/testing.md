@@ -14,6 +14,7 @@ focused testと、影響する境界を代表するtestが通ったときに完�
 5. stageやexternal toolの境界を跨ぐ変更では、各stageを直接testし、代表的なcross-boundary pathを一つ加える。
 6. end-to-end caseは少数に保ち、[`spec/`](../spec/)のcontractから選ぶ。
 7. testが作るtemporary file、directory、process、生成物はtestが所有し、必ずcleanupする。
+8. totality、idempotence、layoutの組合せは、固定入力から生成する有限でdeterministicなcorpusで検査する。
 
 optional optimizationは空集合の`baseline`を通常のcorrectness pathとする。各techniqueは単独のdecision testを持ち、採用済み集合は
 `production` profileとしてbaselineと同じobservable result、effect order、trap、owner終状態、bounded native stackを保つことを

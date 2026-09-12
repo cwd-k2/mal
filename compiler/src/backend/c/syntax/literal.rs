@@ -96,4 +96,19 @@ mod tests {
 
         assert_eq!(output, "\"\\001a\\343\\201\\202\"");
     }
+
+    #[test]
+    fn renders_every_ascii_byte_as_an_unambiguous_c_string_token() {
+        for byte in 0_u8..=127 {
+            let mut output = String::new();
+            StringLiteral::new(char::from(byte).to_string()).render(&mut output);
+
+            assert!(output.is_ascii(), "byte: {byte}");
+            assert!(
+                output.starts_with('"') && output.ends_with('"'),
+                "byte: {byte}"
+            );
+            assert!(!output.contains("\\x"), "byte: {byte}");
+        }
+    }
 }

@@ -134,7 +134,13 @@ fn socket_packet_example_transfers_a_managed_packet_through_the_host() {
     );
 
     let output = directory.run(executable);
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "status: {}\nstdout: {}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(output.stdout.is_empty());
     assert!(output.stderr.is_empty());
 }

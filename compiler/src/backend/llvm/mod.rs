@@ -346,11 +346,16 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_default_pointer_layout_and_an_explicit_address_space_zero_layout() {
+    fn reads_supported_pointer_widths_from_target_data_layouts() {
         assert_eq!(pointer_size("e-m:e-i64:64"), Some(8));
-        assert_eq!(pointer_size("e-p:32:32-i64:64"), Some(4));
-        assert_eq!(pointer_size("e-p0:128:128"), Some(16));
-        assert_eq!(pointer_size("e-p:7:8"), None);
+        for bits in 0_usize..=256 {
+            let bytes = bits / 8;
+            let expected = (bits.is_multiple_of(8) && bytes.is_power_of_two()).then_some(bytes);
+            assert_eq!(pointer_size(&format!("e-p:{bits}:{bits}")), expected);
+            assert_eq!(pointer_size(&format!("e-p0:{bits}:{bits}")), expected);
+        }
+        assert_eq!(pointer_size("e-p1:32:32-p0:64:64"), Some(8));
+        assert_eq!(pointer_size("e-p:invalid:64"), None);
     }
 
     #[test]
