@@ -19,8 +19,12 @@
         postInstall = ''
           wrapProgram $out/bin/malc \
             --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.clang ]}
+          install -Dm644 $src/LICENSE $out/share/licenses/malc/LICENSE
         '';
-        meta.mainProgram = "malc";
+        meta = {
+          mainProgram = "malc";
+          license = with pkgs.lib.licenses; [ mit mit0 ];
+        };
       };
       mal-lsp = pkgs.rustPlatform.buildRustPackage {
         pname = "mal-lsp";
@@ -29,13 +33,19 @@
         cargoRoot = "tools/mal-lsp";
         buildAndTestSubdir = "tools/mal-lsp";
         cargoLock.lockFile = ./tools/mal-lsp/Cargo.lock;
-        meta.mainProgram = "mal-lsp";
+        postInstall = ''
+          install -Dm644 $src/LICENSE $out/share/licenses/mal-lsp/LICENSE
+        '';
+        meta = {
+          mainProgram = "mal-lsp";
+          license = with pkgs.lib.licenses; [ mit mit0 ];
+        };
       };
       vscode-check = pkgs.buildNpmPackage {
         pname = "mal-language-support-check";
         version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
         src = ./editors/vscode;
-        npmDepsHash = "sha256-MWI0HAKkzwb7yNeEw/WoplgkpqCBR6K0RrDUqbQeU+o=";
+        npmDepsHash = "sha256-AimvSkY/IpOuZeQk4Km2PeL/RKSN+2pm9crKJeHheUI=";
         npmRebuildFlags = [ "--ignore-scripts" ];
         dontNpmBuild = true;
         doCheck = true;

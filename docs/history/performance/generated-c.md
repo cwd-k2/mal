@@ -12,7 +12,7 @@ wall-clock値はconformanceではなく、同じ環境内で変更前後を比�
 
 ## 最終baseline
 
-2026-09-09にinteractiveな053を除くTypical90の79問を、`75cf7ed`、Clang 21.1.8の`-O2`、
+2026-09-09にlocal algorithm corpusのinteractive caseを除く79 caseを、`75cf7ed`、Clang 21.1.8の`-O2`、
 同じmaximum-order input、warmup 3回、
 交互20 roundで比較した。比率は`mal / direct C`とし、1より大きいほどCが速い。
 
@@ -32,7 +32,7 @@ caseと異なるmachine間の絶対時間は順位付けに使わない。
 
 同じ測定で目立ったcaseは次のとおり。ratioの端と絶対時間差は別に読む。
 
-| Problem | mal (ms) | direct C (ms) | Ratio | 観測 |
+| Case | mal (ms) | direct C (ms) | Ratio | 観測 |
 |---:|---:|---:|---:|:---|
 | 032 | 65.28 | 42.43 | 1.54 | 1 ms以上で最大のC優位比率 |
 | 011 | 10.76 | 7.04 | 1.53 | 032に次ぐC優位比率 |
@@ -370,12 +370,12 @@ activationごとに`MalSymbolLeafCursor`の2,104-byte stack slotが一つ残り�
 Symbolを置換するedge、suspension、common control、別activationは通常accessを維持し、cursorのためのretainやallocationは
 追加しない。
 
-同じ日にTypical90の79実装とC baselineをすべて再buildし、269 sampleと79 maximum-order inputの結果一致を確認してから
+同じ日にlocal corpusの79実装とC baselineをすべて再buildし、269 sampleと79 maximum-order inputの結果一致を確認してから
 交互20 roundで比較した。cursor実装前の`0b77f8b`でも79実装を同じClang optionでbuildしたところ、73 binaryはbyte単位で
 同一であり、Symbol byte accessを持つ次の6 binaryだけが変化した。変化した6問を同じround内で直接比較した比率は
 `cursor / before`であり、すべて±5%の同等範囲だった。
 
-| Problem | Cursor (ms) | Before (ms) | Ratio |
+| Case | Cursor (ms) | Before (ms) | Ratio |
 |---:|---:|---:|---:|
 | 023 | 1182.23 | 1191.12 | 0.99 |
 | 027 | 13.77 | 14.19 | 0.97 |
@@ -491,16 +491,10 @@ out parameter entryを追加しても、全fieldを使うcallではwriteを減�
 
 通常のcompiler検証は[test policy](../../development/testing.md)に従う。
 
-local corpusの具体的な検証commandはraw artifactと同じ場所で管理する。
+local corpusの具体的な検証commandは、ignored scratch tree内でraw artifactと同じ場所に管理する。
 
 performance comparisonでは各variantを同じinput、同じstdout検査、同じoptimization optionで準備し、shell起動costを
-除いて反復する。pair比較はroundごとに先行順を反転し、各process時間をHyperfineで測る。local corpusでは次の形とする。
-
-```nu
-nu .scratch/typical90/performance/benchmark-pair.nu \
-    maximum.in current-results.json ./solution ./baseline \
-    --warmup 3 --runs 20
-```
+除いて反復する。pair比較はroundごとに先行順を反転し、各process時間をHyperfineで測る。
 
 測定結果を更新するときは、日付、toolchain、workload、warmup/run数、stdout検証の有無を一緒に記録する。
 

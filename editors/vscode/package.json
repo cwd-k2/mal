@@ -4,6 +4,7 @@
   "description": "Language support and semantic tooling for mal",
   "version": "0.1.0",
   "publisher": "mal-project",
+  "license": "MIT",
   "private": true,
   "engines": {
     "vscode": "^1.82.0"

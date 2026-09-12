@@ -59,7 +59,7 @@ nu .scratch/pressure/run.nu --sanitize
 ```
 
 2026-09-07時点では両方が全caseを通過した。`symbol-growth`の1万byte構築は約9,999回のallocationからtest上限32回以内に
-減少し、`closure-churn`の20万environment allocationは0になった。実用algorithmではTypical90の269 sampleと
+減少し、`closure-churn`の20万environment allocationは0になった。local algorithm corpusでは269 sampleと
 maximum-order 79 checksがpublic `malc build`経路を通過した。絶対時間はCIの合否条件にせず、同一環境の変更前後だけを
 比較する。
 

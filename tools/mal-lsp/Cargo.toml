@@ -3,7 +3,7 @@ name = "mal-lsp"
 version = "0.1.0-dev"
 edition = "2024"
 description = "Language server for mal"
-license = "UNLICENSED"
+license = "MIT"
 publish = false
 
 [dependencies]

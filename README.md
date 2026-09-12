@@ -36,3 +36,12 @@ Use [`docs/README.md`](docs/README.md) as the documentation index. In particular
 
 Repository-level documentation outside `docs/` is written in English. Normative, design,
 implementation, and development documentation under `docs/` is written in Japanese.
+
+## License
+
+This repository is licensed under the [MIT License](LICENSE), except for the C11 runtime under
+[`compiler/runtime/c11/`](compiler/runtime/c11/), which is licensed under the
+[MIT No Attribution License](compiler/runtime/c11/LICENSE). The runtime is incorporated into
+programs produced by `malc`; MIT-0 permits distributing those copies without an attribution
+condition. These licenses do not claim rights in source programs merely because they are compiled
+with `malc`.

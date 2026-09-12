@@ -9,8 +9,8 @@ Status: Historical record
 ## 2026-09-10 — public buildへのLTO採用
 
 測定対象は`65310cb`を基点とするLLVM backendと、この変更で追加した`-flto`である。pinned environmentの
-Clang 21.1.8、Hyperfine 1.20.0、Nushell 0.114.1を使った。Typical 90のうち、interactiveな053、platform `libm`を
-linker inputに要する009と018を除く77問を対象とした。各Mal programはpublic `malc build`、direct C baselineは同じ
+Clang 21.1.8、Hyperfine 1.20.0、Nushell 0.114.1を使った。local algorithm corpusのうち、interactive caseとplatform `libm`を
+linker inputに要する2 caseを除く77 caseを対象とした。各Mal programはpublic `malc build`、direct C baselineは同じ
 Clangの`-O2`とstrict floating-point optionでbuildした。
 
 全263 sampleのstdoutと77 maximum-order inputのMal/direct C間stdoutが一致した後、各組を3回warmupし、実行順を交互に変えて
@@ -37,8 +37,7 @@ program固有のframe layoutと遷移をLLVMに、program非依存のstorage gro
 bounded native stackの前提にはしない。なお、この時点の`runtime/c11/symbol.c`はreference-counted flat storageであり、rope実装は
 含まない。Symbol連結の表現変更はこのLTO判断とは別に測定、設計する。
 
-raw measurementはignored scratch treeの`.scratch/typical90/performance/*/llvm-results.json`と
-`.scratch/typical90/performance/llvm-results.md`に保存した。
+raw measurementはcorpusと同じignored scratch treeに保存した。
 
 ## 2026-09-10 — external library入力を含む全79問
 
