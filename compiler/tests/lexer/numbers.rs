@@ -94,7 +94,7 @@ fn lexes_decimal_float_forms_and_separators() {
 
 #[test]
 fn rejects_malformed_decimal_float_literals() {
-    for text in ["1.", "1e", "1e+", "1.0i32", "1.0f32x"] {
+    for text in ["1.", "1.\n5", "1e", "1e+", "1.0i32", "1.0f32x"] {
         let error = lex(&source(text)).expect_err("float literal should be rejected");
         assert_eq!(error.message, "invalid float literal", "input: {text}");
     }

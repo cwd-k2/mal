@@ -118,6 +118,12 @@ fn requires_parentheses_on_receiver_first_calls() {
 }
 
 #[test]
+fn rejects_a_decimal_point_split_before_its_fraction() {
+    let error = parse(&source("value := 1\n.5;")).expect_err("a split decimal must not parse");
+    assert_eq!(error.message, "expected a function name after `.`");
+}
+
+#[test]
 fn parses_if_blocks_with_local_bindings() {
     let expression = binding_value(
         "value := if (condition) then {\n\

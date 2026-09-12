@@ -81,6 +81,11 @@ fn preserves_receiver_first_call_chain_breaks() {
 }
 
 #[test]
+fn keeps_decimal_points_inside_float_tokens() {
+    assert_eq!(format("value:=1.25f32;"), "value := 1.25f32;\n");
+}
+
+#[test]
 fn formats_unary_and_binary_symbol_operators() {
     assert_eq!(
         format("inspect:=(value){# value+value#1u64;};"),
