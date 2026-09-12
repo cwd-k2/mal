@@ -93,6 +93,31 @@ fn parses_postfix_and_unit_continuation_applications() {
 }
 
 #[test]
+fn parses_receiver_first_calls_as_normal_calls() {
+    let Expression::Call { callee, arguments } =
+        binding_value("value := source.decode(1).finish();")
+    else {
+        panic!("expected the outer receiver-first call");
+    };
+    assert!(matches!(&callee.kind, Expression::Name(name) if name.text == "finish"));
+    assert_eq!(arguments.len(), 1);
+
+    let Expression::Call { callee, arguments } = &arguments[0].kind else {
+        panic!("expected the inner receiver-first call");
+    };
+    assert!(matches!(&callee.kind, Expression::Name(name) if name.text == "decode"));
+    assert_eq!(arguments.len(), 2);
+    assert!(matches!(&arguments[0].kind, Expression::Name(name) if name.text == "source"));
+    assert!(matches!(arguments[1].kind, Expression::Integer(_)));
+}
+
+#[test]
+fn requires_parentheses_on_receiver_first_calls() {
+    let error = parse(&source("value := source.decode;")).expect_err("a call requires parentheses");
+    assert_eq!(error.message, "expected `(`");
+}
+
+#[test]
 fn parses_if_blocks_with_local_bindings() {
     let expression = binding_value(
         "value := if (condition) then {\n\

@@ -56,6 +56,14 @@ fn keeps_type_qualified_primitives_attached() {
 }
 
 #[test]
+fn keeps_receiver_first_calls_attached() {
+    assert_eq!(
+        format("result:=source . transform ( 1,2 ) . finish ( );"),
+        "result := source.transform(1, 2).finish();\n"
+    );
+}
+
+#[test]
 fn formats_unary_and_binary_symbol_operators() {
     assert_eq!(
         format("inspect:=(value){# value+value#1u64;};"),

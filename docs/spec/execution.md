@@ -13,6 +13,7 @@ f(a(), b(), c())
 
 では`a()`、`b()`、`c()`、`f`、applicationの順になる。`(a(), b(), c())[f]`も同じ順序である。通常の関数が
 `extern`を呼び得るため、compilerは観測可能な順序を変更してはならない。
+receiver-firstの`a().f(b(), c())`も同じapplicationへ変換し、`a()`、`b()`、`c()`、`f`、applicationの順になる。
 
 二つ以上のcontinuationによる直和除去はscrutineeを一度評価し、active variantに対応するcontinuationだけを評価して
 payloadへ適用する。選択されないcontinuationを評価してはならない。
@@ -137,7 +138,8 @@ e ::= variable | literal | lambda | application
     | primitive | hostOperation | fix
 ```
 
-`f(a)`と`a[f]`は同じapplicationである。`Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
+`f(a)`、`a[f]`、`a.f()`は同じapplicationである。複数引数の`a.f(b, c)`は`f(a, b, c)`へ消去する。
+`Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
 `::`は型情報、`:=`はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する
 定義ではなく、表面機能を追加するときの意味論上の基準である。
 return binder、`when`、`Abrupt`もcore境界でlambda result、sum injection・elimination、branchへ消去する。

@@ -169,6 +169,19 @@ fn checks_postfix_application_and_sum_continuations() {
 }
 
 #[test]
+fn checks_receiver_first_calls_with_ordinary_function_bindings() {
+    check_ok(
+        "add :: (Int32, Int32) -> Int32 := (left, right) { left + right };\n\
+         apply :: (((Int32, Int32) -> Int32), Int32) -> Int32 := (operation, value) {\n\
+           value.operation(1)\n\
+         };\n\
+         main :: Unit -> Int32 := () {\n\
+           40i32.add(1).add(1) - apply(add, 41)\n\
+         };",
+    );
+}
+
+#[test]
 fn rejects_invalid_sum_continuations_and_constructors() {
     assert_eq!(
         check_error("Choice :: [Unit, Int32]; bad := 2[Choice];").message,

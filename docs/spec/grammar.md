@@ -77,6 +77,7 @@ pattern     ::= VALUE_IDENT | "_" | productPattern
 productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
 
 call        ::= expression "(" argumentList? ")"
+receiverCall ::= expression "." VALUE_IDENT "(" argumentList? ")"
 continuationApplication ::= expression "[" "]"
                           | expression "[" expression
                             ("," expression)* "]"
@@ -113,7 +114,7 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 
 | level | operator | associativity |
 |---|---|---|
-| application | `f(...)`、`value[...]` | left |
+| application | `f(...)`、`value[...]`、`value.f(...)` | left |
 | Symbol length | `#value` | right |
 | Symbol byte access | `value # index` | non-associative |
 | unary | `- ! ~` | right |
@@ -135,6 +136,10 @@ lambda bodyが参照する外側のlocal valueはlexically captureされる。�
 `TYPE_IDENT.VALUE_IDENT`は型で修飾したpredefined primitiveを表す一つのatomic expressionである。`.`の
 前後に空白を置かない。この形はmoduleやnamespaceのqualified name、field access、method、user-defined
 associated itemを導入しない。認める型とprimitiveの組は[memory primitive](memory.md)に定める。
+
+`expression.VALUE_IDENT(arguments)`はreceiver-first applicationであり、`VALUE_IDENT(expression, arguments)`と
+同じapplicationを表す。callee名は通常のlexical scopeだけから解決し、receiverの型によるmemberやfunctionの
+探索は行わない。parenthesized argument listは必須であり、`expression.VALUE_IDENT`だけの形は認めない。
 
 `T(value)`と`value[T]`は同じtype applicationである。numeric型`T`ならnumeric conversion、直和型`T`かつ
 `value`がcompile-time integer literalなら該当indexのinjection functionを表す。後者へ通常のapplicationを
@@ -159,7 +164,7 @@ byte literal の raw character は ASCII `0x20` から `0x7e` のうち single q
 ## 存在しない構文
 
 v0.5は`let`、`var`、`mut`、`const`、`fn`、`case`、return statement、loop、`break`、`continue`、record、
-class、method、nominal enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、
+class、method、field access、nominal enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、
 exceptionを持たない。
 
 return binder applicationはstatementではなくcontrol expressionであり、`return`という予約語も存在しない。

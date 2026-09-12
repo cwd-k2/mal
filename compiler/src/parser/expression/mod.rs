@@ -25,6 +25,10 @@ impl Parser<'_> {
                 left = self.parse_continuation_application(left)?;
                 continue;
             }
+            if self.at(&TokenKind::Dot) && 23 >= minimum {
+                left = self.parse_receiver_call(left)?;
+                continue;
+            }
             let Some((operator, precedence, is_non_associative)) = self.binary_operator() else {
                 break;
             };

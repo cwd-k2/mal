@@ -11,7 +11,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 |---|---|
 | compiler | [D002](D002.md)、[D041](D041.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
-| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D042](D042.md) |
+| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D042](D042.md)、[D043](D043.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |

@@ -1,4 +1,36 @@
 use super::*;
+
+#[test]
+fn runs_receiver_first_calls_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-receiver-first-call");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "add :: (Int32, Int32) -> Int32 := (left, right) { left + right; };\n\
+         main :: Unit -> Int32 := () { 40i32.add(1i32).add(1i32) - 42i32; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
 #[test]
 fn builds_scalar_control_and_tail_calls_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-control");

@@ -63,6 +63,8 @@ log :: Symbol -> Unit := (message) { print(message) };
 ## application
 
 applicationはcontinuationを先に書く`f(a)`とvalueを先に書く`a[f]`のどちらでも表せる。
+calleeがvalue nameであるapplicationは、receiver-first application（UFCS）として第一引数を先に書く
+`a.f(...)`でも表せる。
 
 ```mal
 f()
@@ -71,11 +73,21 @@ f(x, y)
 makeFunction()(x)
 x[f]
 x[f][g]
+x.f()
+x.f(y)
+x.f(y).g()
 ```
 
 `f(a)`と`a[f]`、`f()`と`()[f]`はそれぞれ同じapplicationである。`[f]`は`()[f]`のUnit valueを省略した形、
 `f(a, b)`は`f((a, b))`である。表記にかかわらずvalueを先に、continuationを後に評価してからapplicationする。
 したがって`g(f(a))`、`g(a[f])`、`f(a)[g]`、`a[f][g]`は同じ評価と結果を持つ。
+
+receiver-first applicationの`a.f()`は`f(a)`、`a.f(b, c)`は`f(a, b, c)`と同じapplicationである。
+`f`はreceiverの型から探索せず、source位置で通常のvalue nameとして解決してから既存のfunction application型規則を
+適用する。receiver、残りの引数、calleeの順に評価する。
+
+`.`、value name、parenthesized argument listは全体で一つのapplication suffixである。`a.f`はexpressionではなく、
+field access、property、method value、bound functionを導入しない。
 
 [memory](memory.md#primitive)に列挙する`load`、`store`、`read`、`write`はpredefined functionであり、通常のfunctionと同じく
 直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
@@ -99,7 +111,8 @@ descriptorSize :: Unit -> UInt64 := () {
 readUInt64 :: Ptr -> UInt64 := UInt64.load;
 ```
 
-`.`の形は一般のmodule、member、methodを導入せず、memory仕様が列挙するpredefined primitiveに限定する。
+parenthesized argument listを伴わない`T.member`の形は、一般のmodule、member、methodを導入せず、memory仕様が
+列挙するpredefined primitiveに限定する。
 transparent aliasは展開したcanonical typeによって利用できるprimitiveを決める。完全な型、署名、動作は
 [memory primitive](memory.md)に定める。
 

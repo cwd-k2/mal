@@ -101,6 +101,40 @@ fn evaluates_an_argument_before_its_callee_and_application() {
 }
 
 #[test]
+fn evaluates_a_receiver_before_remaining_receiver_call_arguments() {
+    let program = lower_ok(
+        "extern receiver :: Unit -> Int32;\n\
+         extern argument :: Unit -> Int32;\n\
+         combine :: (Int32, Int32) -> Int32 := (left, right) { left + right };\n\
+         main :: Unit -> Int32 := () {\n\
+           receiver().combine(argument());\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, "main").body.bindings;
+    assert_eq!(bindings.len(), 4);
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
+    assert!(matches!(bindings[1].operation, Operation::Call { .. }));
+    let Operation::Product(elements) = &bindings[2].operation else {
+        panic!("expected the receiver and argument product");
+    };
+    assert!(matches!(
+        elements[0].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[0])
+    ));
+    assert!(matches!(
+        elements[1].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[1])
+    ));
+    let Operation::Call { argument, .. } = &bindings[3].operation else {
+        panic!("expected the receiver-first application");
+    };
+    assert!(matches!(
+        argument.kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[2])
+    ));
+}
+
+#[test]
 fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\

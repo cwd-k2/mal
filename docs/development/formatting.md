@@ -35,5 +35,6 @@ malformed sourceを補正せず、lexerまたはparserのstructured diagnostic�
 ## application notation
 
 通常のfunction applicationは`f(a)`を標準styleとする。意味論上同じ`a[f]`は、値をcontinuationへ渡すことが主題の箇所、または
-`value[normalize][measure]`のように動詞的な変換を左から右へ並べるpipelineで使う。curried application、複数argument、通常の
-domain operationではprefix形を基本とする。formatterは両表記を相互変換せず、sourceが選んだ向きを保持する。
+`value[normalize][measure]`のように動詞的な変換を左から右へ並べるpipelineで使う。receiverを処理の主題として保つ
+domain operationや複数引数のpipelineでは`value.transform(option)`のreceiver-first形を使える。この形はfield accessではなく、
+parenthesized argument listを必須とする。formatterはapplication表記を相互変換せず、sourceが選んだ向きを保持する。
