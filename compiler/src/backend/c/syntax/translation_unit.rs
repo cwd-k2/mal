@@ -1,7 +1,7 @@
 use super::{AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum UnitItem {
+pub(in crate::backend) enum UnitItem {
     Aggregate(AggregateDefinition),
     Comment(Comment),
     Declaration(Declaration),
@@ -11,36 +11,36 @@ pub(in crate::backend::c) enum UnitItem {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(in crate::backend::c) struct TranslationUnit {
+pub(in crate::backend) struct TranslationUnit {
     items: Vec<UnitItem>,
 }
 
 impl TranslationUnit {
-    pub(in crate::backend::c) fn new(items: impl IntoIterator<Item = UnitItem>) -> Self {
+    pub(in crate::backend) fn new(items: impl IntoIterator<Item = UnitItem>) -> Self {
         Self {
             items: items.into_iter().collect(),
         }
     }
 
-    pub(in crate::backend::c) fn push(&mut self, item: impl Into<UnitItem>) {
+    pub(in crate::backend) fn push(&mut self, item: impl Into<UnitItem>) {
         self.items.push(item.into());
     }
 
-    pub(in crate::backend::c) fn extend(&mut self, other: Self) {
+    pub(in crate::backend) fn extend(&mut self, other: Self) {
         self.items.extend(other.items);
     }
 
-    pub(in crate::backend::c) fn blank_line(&mut self) {
+    pub(in crate::backend) fn blank_line(&mut self) {
         if !self.items.is_empty() && !matches!(self.items.last(), Some(UnitItem::BlankLine)) {
             self.items.push(UnitItem::BlankLine);
         }
     }
 
-    pub(in crate::backend::c) fn is_empty(&self) -> bool {
+    pub(in crate::backend) fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
         for item in &self.items {
             match item {

@@ -45,20 +45,21 @@ impl Function {
         &self.name
     }
 
-    pub(crate) fn c_declaration(&self) -> String {
+    pub(in crate::backend) fn c_signature(&self) -> crate::backend::c::syntax::FunctionSignature {
+        use crate::backend::c::syntax::{FunctionSignature, Parameter, TypeName};
+
         let parameters = self
             .parameters
             .iter()
             .map(|parameter| {
-                let qualifier = match parameter.access {
-                    PointerAccess::ReadOnly => "const ",
-                    PointerAccess::ReadWrite => "",
+                let ty = match parameter.access {
+                    PointerAccess::ReadOnly => TypeName::const_named("void").pointer(),
+                    PointerAccess::ReadWrite => TypeName::named("void").pointer(),
                 };
-                format!("{qualifier}void *mal_{}", parameter.name)
+                Parameter::named(ty, format!("mal_{}", parameter.name))
             })
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("void {}({parameters});", self.name)
+            .collect::<Vec<_>>();
+        FunctionSignature::new("void", self.name.clone(), parameters)
     }
 
     pub(crate) fn llvm_signature(&self) -> String {

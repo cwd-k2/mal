@@ -1,12 +1,12 @@
 mod render;
 
-use super::Identifier;
+use super::{Expr, Identifier};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct TypeName {
+pub(in crate::backend) struct TypeName {
     base: TypeBase,
     is_const: bool,
-    pointer_depth: usize,
+    pointer_const: Vec<bool>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,8 +16,12 @@ enum TypeBase {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum Declarator {
+pub(in crate::backend) enum Declarator {
     Identifier(Identifier),
+    Array {
+        name: Identifier,
+        size: Box<Expr>,
+    },
     FunctionPointer {
         name: Identifier,
         parameters: Vec<Parameter>,
@@ -25,28 +29,29 @@ pub(in crate::backend::c) enum Declarator {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct VariableDeclaration {
+pub(in crate::backend) struct VariableDeclaration {
     ty: TypeName,
     declarator: Declarator,
     is_static: bool,
+    alignment: Option<Box<Expr>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct Parameter {
+pub(in crate::backend) struct Parameter {
     ty: TypeName,
     name: Option<Identifier>,
     maybe_unused: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum FunctionSpecifier {
+pub(in crate::backend) enum FunctionSpecifier {
     Static,
     Inline,
     NoReturn,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct FunctionSignature {
+pub(in crate::backend) struct FunctionSignature {
     specifiers: Vec<FunctionSpecifier>,
     result: TypeName,
     name: Identifier,
@@ -54,32 +59,37 @@ pub(in crate::backend::c) struct FunctionSignature {
 }
 
 impl TypeName {
-    pub(in crate::backend::c) fn named(base: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn named(base: impl Into<Identifier>) -> Self {
         Self {
             base: TypeBase::Named(base.into()),
             is_const: false,
-            pointer_depth: 0,
+            pointer_const: Vec::new(),
         }
     }
 
-    pub(in crate::backend::c) fn const_named(base: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn const_named(base: impl Into<Identifier>) -> Self {
         Self {
             base: TypeBase::Named(base.into()),
             is_const: true,
-            pointer_depth: 0,
+            pointer_const: Vec::new(),
         }
     }
 
-    pub(in crate::backend::c) fn pointer(mut self) -> Self {
-        self.pointer_depth += 1;
+    pub(in crate::backend) fn pointer(mut self) -> Self {
+        self.pointer_const.push(false);
         self
     }
 
-    pub(in crate::backend::c) fn structure(tag: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn const_pointer(mut self) -> Self {
+        self.pointer_const.push(true);
+        self
+    }
+
+    pub(in crate::backend) fn structure(tag: impl Into<Identifier>) -> Self {
         Self {
             base: TypeBase::Struct(tag.into()),
             is_const: false,
-            pointer_depth: 0,
+            pointer_const: Vec::new(),
         }
     }
 }
@@ -97,11 +107,11 @@ impl From<String> for TypeName {
 }
 
 impl Declarator {
-    pub(in crate::backend::c) fn identifier(name: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn identifier(name: impl Into<Identifier>) -> Self {
         Self::Identifier(name.into())
     }
 
-    pub(in crate::backend::c) fn function_pointer(
+    pub(in crate::backend) fn function_pointer(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,
     ) -> Self {
@@ -113,15 +123,37 @@ impl Declarator {
 }
 
 impl VariableDeclaration {
-    pub(in crate::backend::c) fn new(ty: impl Into<TypeName>, name: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn new(ty: impl Into<TypeName>, name: impl Into<Identifier>) -> Self {
         Self {
             ty: ty.into(),
             declarator: Declarator::identifier(name),
             is_static: false,
+            alignment: None,
         }
     }
 
-    pub(in crate::backend::c) fn function_pointer(
+    pub(in crate::backend) fn array(
+        ty: impl Into<TypeName>,
+        name: impl Into<Identifier>,
+        size: Expr,
+    ) -> Self {
+        Self {
+            ty: ty.into(),
+            declarator: Declarator::Array {
+                name: name.into(),
+                size: Box::new(size),
+            },
+            is_static: false,
+            alignment: None,
+        }
+    }
+
+    pub(in crate::backend) fn aligned(mut self, alignment: Expr) -> Self {
+        self.alignment = Some(Box::new(alignment));
+        self
+    }
+
+    pub(in crate::backend) fn function_pointer(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,
@@ -130,15 +162,13 @@ impl VariableDeclaration {
             ty: result.into(),
             declarator: Declarator::function_pointer(name, parameters),
             is_static: false,
+            alignment: None,
         }
     }
 }
 
 impl Parameter {
-    pub(in crate::backend::c) fn named(
-        ty: impl Into<TypeName>,
-        name: impl Into<Identifier>,
-    ) -> Self {
+    pub(in crate::backend) fn named(ty: impl Into<TypeName>, name: impl Into<Identifier>) -> Self {
         Self {
             ty: ty.into(),
             name: Some(name.into()),
@@ -146,7 +176,7 @@ impl Parameter {
         }
     }
 
-    pub(in crate::backend::c) fn unnamed(ty: impl Into<TypeName>) -> Self {
+    pub(in crate::backend) fn unnamed(ty: impl Into<TypeName>) -> Self {
         Self {
             ty: ty.into(),
             name: None,
@@ -154,14 +184,14 @@ impl Parameter {
         }
     }
 
-    pub(in crate::backend::c) fn maybe_unused(mut self) -> Self {
+    pub(in crate::backend) fn maybe_unused(mut self) -> Self {
         self.maybe_unused = true;
         self
     }
 }
 
 impl FunctionSignature {
-    pub(in crate::backend::c) fn new(
+    pub(in crate::backend) fn new(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,
@@ -174,7 +204,7 @@ impl FunctionSignature {
         }
     }
 
-    pub(in crate::backend::c) fn with_specifiers(
+    pub(in crate::backend) fn with_specifiers(
         mut self,
         specifiers: impl IntoIterator<Item = FunctionSpecifier>,
     ) -> Self {
@@ -182,7 +212,7 @@ impl FunctionSignature {
         self
     }
 
-    pub(in crate::backend::c) fn static_function(
+    pub(in crate::backend) fn static_function(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,
@@ -190,7 +220,7 @@ impl FunctionSignature {
         Self::new(result, name, parameters).with_specifiers([FunctionSpecifier::Static])
     }
 
-    pub(in crate::backend::c) fn static_inline(
+    pub(in crate::backend) fn static_inline(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,
@@ -199,7 +229,7 @@ impl FunctionSignature {
             .with_specifiers([FunctionSpecifier::Static, FunctionSpecifier::Inline])
     }
 
-    pub(in crate::backend::c) fn no_return(
+    pub(in crate::backend) fn no_return(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = Parameter>,

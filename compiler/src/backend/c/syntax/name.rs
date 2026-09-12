@@ -2,7 +2,7 @@ use std::fmt;
 use std::ops::Deref;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct Identifier(String);
+pub(in crate::backend) struct Identifier(String);
 
 impl Identifier {
     fn new(value: String) -> Self {

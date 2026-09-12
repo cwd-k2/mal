@@ -1,10 +1,10 @@
 use std::ops::Deref;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct NumericLiteral(String);
+pub(in crate::backend) struct NumericLiteral(String);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct StringLiteral(String);
+pub(in crate::backend) struct StringLiteral(String);
 
 impl NumericLiteral {
     fn new(value: String) -> Self {
@@ -37,7 +37,7 @@ impl From<String> for NumericLiteral {
 }
 
 impl StringLiteral {
-    pub(in crate::backend::c) fn new(value: impl Into<String>) -> Self {
+    pub(in crate::backend) fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
@@ -45,19 +45,18 @@ impl StringLiteral {
         use std::fmt::Write as _;
 
         output.push('"');
-        for character in self.0.chars() {
-            match character {
-                '"' => output.push_str("\\\""),
-                '\\' => output.push_str("\\\\"),
-                '\n' => output.push_str("\\n"),
-                '\r' => output.push_str("\\r"),
-                '\t' => output.push_str("\\t"),
-                character if character.is_ascii_graphic() || character == ' ' => {
-                    output.push(character);
+        for byte in self.0.bytes() {
+            match byte {
+                b'"' => output.push_str("\\\""),
+                b'\\' => output.push_str("\\\\"),
+                b'\n' => output.push_str("\\n"),
+                b'\r' => output.push_str("\\r"),
+                b'\t' => output.push_str("\\t"),
+                byte if byte.is_ascii_graphic() || byte == b' ' => {
+                    output.push(char::from(byte));
                 }
-                character => {
-                    write!(output, "\\x{:02x}", u32::from(character))
-                        .expect("writing generated C cannot fail");
+                byte => {
+                    write!(output, "\\{byte:03o}").expect("writing generated C cannot fail");
                 }
             }
         }
@@ -78,7 +77,7 @@ fn is_numeric_token(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_numeric_token;
+    use super::{StringLiteral, is_numeric_token};
 
     #[test]
     fn admits_one_numeric_preprocessing_token() {
@@ -88,5 +87,13 @@ mod tests {
         for fragment in ["", "value", "1 + 2", "1; abort()", "-1", "1+2"] {
             assert!(!is_numeric_token(fragment), "{fragment}");
         }
+    }
+
+    #[test]
+    fn escapes_utf8_and_control_bytes_without_hex_escape_capture() {
+        let mut output = String::new();
+        StringLiteral::new("\u{1}aあ").render(&mut output);
+
+        assert_eq!(output, "\"\\001a\\343\\201\\202\"");
     }
 }

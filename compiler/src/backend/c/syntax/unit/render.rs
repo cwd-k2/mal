@@ -1,7 +1,7 @@
 use super::*;
 
 impl Declaration {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let declaration = match self {
             Self::Function(signature) => signature.render(),
             Self::TypeAlias { source, alias } => {
@@ -13,13 +13,13 @@ impl Declaration {
 }
 
 impl Comment {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         format!("/* {} */\n", self.0.replace("*/", "* /"))
     }
 }
 
 impl AggregateDefinition {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
         if self.is_typedef {
             output.push_str("typedef ");

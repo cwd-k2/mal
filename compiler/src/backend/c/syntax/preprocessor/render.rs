@@ -13,7 +13,7 @@ impl PreprocessorExpr {
 }
 
 impl Directive {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         match self {
             Self::IncludeQuoted(path) => format!("#include \"{path}\"\n"),
             Self::IncludeSystem(path) => format!("#include <{path}>\n"),
@@ -79,7 +79,7 @@ impl Directive {
 }
 
 impl MacroInvocation {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = format!("{}(", self.name);
         for (index, argument) in self.arguments.iter().enumerate() {
             if index != 0 {

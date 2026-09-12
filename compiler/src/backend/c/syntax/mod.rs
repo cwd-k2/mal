@@ -11,16 +11,18 @@ mod statement;
 mod translation_unit;
 mod unit;
 
-pub(super) use self::declaration::{
+pub(in crate::backend) use self::declaration::{
     FunctionSignature, FunctionSpecifier, Parameter, TypeName, VariableDeclaration,
 };
-pub(super) use self::expression::{Expr, Initializer};
-pub(super) use self::literal::{NumericLiteral, StringLiteral};
-pub(super) use self::name::Identifier;
-pub(super) use self::operator::{BinaryOperator, UnaryOperator};
-pub(super) use self::preprocessor::{Attribute, Directive, MacroInvocation, PreprocessorExpr};
-pub(super) use self::statement::{Block, FunctionDefinition, Statement, SwitchCase};
-pub(super) use self::translation_unit::TranslationUnit;
-pub(super) use self::unit::{
+pub(in crate::backend) use self::expression::{Expr, Initializer};
+pub(in crate::backend) use self::literal::{NumericLiteral, StringLiteral};
+pub(in crate::backend) use self::name::Identifier;
+pub(in crate::backend) use self::operator::{BinaryOperator, UnaryOperator};
+pub(in crate::backend) use self::preprocessor::{
+    Attribute, Directive, MacroInvocation, PreprocessorExpr,
+};
+pub(in crate::backend) use self::statement::{Block, FunctionDefinition, Statement, SwitchCase};
+pub(in crate::backend) use self::translation_unit::TranslationUnit;
+pub(in crate::backend) use self::unit::{
     AggregateDefinition, AggregateField, AggregateKind, Comment, Declaration,
 };

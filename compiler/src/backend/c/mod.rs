@@ -3,7 +3,7 @@ use crate::diagnostic::Diagnostic;
 
 mod header;
 mod host_signature;
-mod syntax;
+pub(in crate::backend) mod syntax;
 mod types;
 
 use self::types::{HostTypes, TypeRegistry};

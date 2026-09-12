@@ -3,18 +3,21 @@ use std::fmt::{self, Display, Formatter};
 use super::*;
 
 impl TypeName {
-    pub(in crate::backend::c) fn render_declarator(&self, declarator: &str) -> String {
+    pub(in crate::backend) fn render_declarator(&self, declarator: &str) -> String {
         let mut output = String::new();
         if self.is_const {
             output.push_str("const ");
         }
         self.base.render(&mut output);
-        if self.pointer_depth == 0 {
+        if self.pointer_const.is_empty() {
             output.push(' ');
         } else {
             output.push(' ');
-            for _ in 0..self.pointer_depth {
+            for is_const in &self.pointer_const {
                 output.push('*');
+                if *is_const {
+                    output.push_str("const ");
+                }
             }
         }
         output.push_str(declarator);
@@ -31,10 +34,13 @@ impl Display for TypeName {
             TypeBase::Named(name) => formatter.write_str(name)?,
             TypeBase::Struct(tag) => write!(formatter, "struct {tag}")?,
         }
-        if self.pointer_depth != 0 {
+        if !self.pointer_const.is_empty() {
             formatter.write_str(" ")?;
-            for _ in 0..self.pointer_depth {
+            for is_const in &self.pointer_const {
                 formatter.write_str("*")?;
+                if *is_const {
+                    formatter.write_str("const ")?;
+                }
             }
         }
         Ok(())
@@ -57,6 +63,7 @@ impl Declarator {
     fn render(&self, ty: &TypeName) -> String {
         match self {
             Self::Identifier(name) => ty.render_declarator(name),
+            Self::Array { name, size } => format!("{}[{size}]", ty.render_declarator(name)),
             Self::FunctionPointer { name, parameters } => {
                 format!("{} (*{name})({})", ty, render_parameters(parameters))
             }
@@ -65,18 +72,22 @@ impl Declarator {
 }
 
 impl VariableDeclaration {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let declaration = self.declarator.render(&self.ty);
-        if self.is_static {
-            format!("static {declaration}")
-        } else {
-            declaration
+        let mut output = String::new();
+        if let Some(alignment) = &self.alignment {
+            output.push_str(&format!("_Alignas({alignment}) "));
         }
+        if self.is_static {
+            output.push_str("static ");
+        }
+        output.push_str(&declaration);
+        output
     }
 }
 
 impl Parameter {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = match &self.name {
             Some(name) => self.ty.render_declarator(name),
             None => self.ty.to_string(),
@@ -99,7 +110,7 @@ impl FunctionSpecifier {
 }
 
 impl FunctionSignature {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
         for specifier in &self.specifiers {
             output.push_str(match specifier {
@@ -115,7 +126,7 @@ impl FunctionSignature {
         output
     }
 
-    pub(in crate::backend::c) fn render_macro(&self, output: &mut String) {
+    pub(in crate::backend) fn render_macro(&self, output: &mut String) {
         for specifier in &self.specifiers {
             output.push_str(specifier.spelling());
             output.push(' ');

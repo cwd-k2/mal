@@ -1,7 +1,7 @@
 use super::*;
 
 impl Statement {
-    pub(in crate::backend::c) fn render(&self, output: &mut String, depth: usize) {
+    pub(in crate::backend) fn render(&self, output: &mut String, depth: usize) {
         match self {
             Self::VariableDeclaration {
                 declaration,
@@ -26,12 +26,35 @@ impl Statement {
                 value.render(output);
                 output.push_str(";\n");
             }
+            Self::ReturnVoid => {
+                write_indent(output, depth);
+                output.push_str("return;\n");
+            }
             Self::If { condition, then } => {
                 write_indent(output, depth);
                 output.push_str("if (");
                 condition.render(output);
                 output.push_str(") ");
                 then.render_braced(output, depth);
+            }
+            Self::For {
+                initializer,
+                initial_value,
+                condition,
+                step,
+                body,
+            } => {
+                write_indent(output, depth);
+                output.push_str("for (");
+                output.push_str(&initializer.render());
+                output.push_str(" = ");
+                initial_value.render(output);
+                output.push_str("; ");
+                condition.render(output);
+                output.push_str("; ");
+                step.render(output);
+                output.push_str(") ");
+                body.render_braced(output, depth);
             }
             Self::Switch { value, cases } => {
                 write_indent(output, depth);
@@ -79,7 +102,7 @@ impl SwitchCase {
 }
 
 impl FunctionDefinition {
-    pub(in crate::backend::c) fn render(&self) -> String {
+    pub(in crate::backend) fn render(&self) -> String {
         let mut output = match &self.header {
             FunctionHeader::Signature(signature) => signature.render(),
             FunctionHeader::MacroInvocation(invocation) => invocation.render(),

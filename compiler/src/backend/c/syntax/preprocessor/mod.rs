@@ -5,26 +5,26 @@ use super::{Expr, FunctionDefinition, FunctionSignature, Identifier};
 mod render;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum PreprocessorExpr {
+pub(in crate::backend) enum PreprocessorExpr {
     Defined(Identifier),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum MacroValue {
+pub(in crate::backend) enum MacroValue {
     Expression(Expr),
     Attribute(Attribute),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum Attribute {
+pub(in crate::backend) enum Attribute {
     Unused,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct MacroParameter(Identifier);
+pub(in crate::backend) struct MacroParameter(Identifier);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct IncludePath(String);
+pub(in crate::backend) struct IncludePath(String);
 
 impl Deref for IncludePath {
     type Target = str;
@@ -41,7 +41,7 @@ impl std::fmt::Display for IncludePath {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) enum Directive {
+pub(in crate::backend) enum Directive {
     IncludeQuoted(IncludePath),
     IncludeSystem(IncludePath),
     Define {
@@ -62,13 +62,13 @@ pub(in crate::backend::c) enum Directive {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::c) struct MacroInvocation {
+pub(in crate::backend) struct MacroInvocation {
     name: Identifier,
     arguments: Vec<Expr>,
 }
 
 impl PreprocessorExpr {
-    pub(in crate::backend::c) fn defined(name: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn defined(name: impl Into<Identifier>) -> Self {
         Self::Defined(name.into())
     }
 }
@@ -86,37 +86,37 @@ impl From<String> for MacroParameter {
 }
 
 impl Directive {
-    pub(in crate::backend::c) fn include_quoted(path: impl Into<String>) -> Self {
+    pub(in crate::backend) fn include_quoted(path: impl Into<String>) -> Self {
         let path = path.into();
         assert!(Self::is_valid_quoted_include(&path));
         Self::IncludeQuoted(IncludePath(path))
     }
 
-    pub(in crate::backend::c) fn include_system(path: impl Into<String>) -> Self {
+    pub(in crate::backend) fn include_system(path: impl Into<String>) -> Self {
         let path = path.into();
         assert!(is_valid_include_path(&path, ['<', '>']));
         Self::IncludeSystem(IncludePath(path))
     }
 
-    pub(in crate::backend::c) fn is_valid_quoted_include(path: &str) -> bool {
+    pub(in crate::backend) fn is_valid_quoted_include(path: &str) -> bool {
         is_valid_include_path(path, ['"', '\\'])
     }
 
-    pub(in crate::backend::c) fn define_empty(name: impl Into<Identifier>) -> Self {
+    pub(in crate::backend) fn define_empty(name: impl Into<Identifier>) -> Self {
         Self::Define {
             name: name.into(),
             value: None,
         }
     }
 
-    pub(in crate::backend::c) fn define_expr(name: impl Into<Identifier>, value: Expr) -> Self {
+    pub(in crate::backend) fn define_expr(name: impl Into<Identifier>, value: Expr) -> Self {
         Self::Define {
             name: name.into(),
             value: Some(MacroValue::Expression(value)),
         }
     }
 
-    pub(in crate::backend::c) fn define_attribute(
+    pub(in crate::backend) fn define_attribute(
         name: impl Into<Identifier>,
         attribute: Attribute,
     ) -> Self {
@@ -126,7 +126,7 @@ impl Directive {
         }
     }
 
-    pub(in crate::backend::c) fn function_items_define(
+    pub(in crate::backend) fn function_items_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
         declarations: impl IntoIterator<Item = FunctionSignature>,
@@ -151,7 +151,7 @@ fn is_valid_include_path(path: &str, forbidden: [char; 2]) -> bool {
 }
 
 impl MacroInvocation {
-    pub(in crate::backend::c) fn new(
+    pub(in crate::backend) fn new(
         name: impl Into<Identifier>,
         arguments: impl IntoIterator<Item = Expr>,
     ) -> Self {

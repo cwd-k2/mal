@@ -41,12 +41,12 @@ pub(crate) fn generate(
         .collect::<Option<Vec<_>>>()?;
     let external_declarations = external_bridges
         .iter()
-        .map(|bridge| bridge.0.as_str())
+        .map(|bridge| bridge.llvm_declaration.as_str())
         .collect::<Vec<_>>()
         .join("\n");
     let external_definitions = external_bridges
         .iter()
-        .map(|bridge| bridge.1.as_str())
+        .map(|bridge| bridge.c_definitions.render())
         .collect::<Vec<_>>()
         .join("\n\n");
     let control_declarations = if body.uses_control {
@@ -113,14 +113,16 @@ pub(crate) fn generate(
         entry_call,
     );
     let symbol_bridge_runtime = if body.uses_symbol_runtime {
-        "MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value) {\n    value.data = mal_runtime_symbol_data(context, value.ownership);\n    return value;\n}\n\nMalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length) {\n    void *ownership = mal_runtime_symbol_read(context, data, length);\n    return (MalType_Symbol){\n        .data = mal_runtime_symbol_data(context, ownership),\n        .length = length,\n        .ownership = ownership,\n    };\n}\n\nMalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value) {\n    value.ownership = mal_runtime_symbol_retain(context, value.ownership);\n    return value;\n}\n"
+        shim::symbol_bridge_runtime()
     } else {
-        ""
+        String::new()
     };
-    let main = shim::entry_main(&body.main_parameter, types, entry.name())?;
+    let main = shim::entry_main(&body.main_parameter, types, entry.name())?.render();
+    let entry_declaration =
+        crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();
     let shim = format!(
         "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n#include <string.h>\n\n{}\n\n{}\n\n{}\n{}",
-        entry.c_declaration(),
+        entry_declaration.trim_end(),
         external_definitions,
         symbol_bridge_runtime,
         main,

@@ -30,6 +30,12 @@ impl Expr {
                 output.push_str(if *indirect { "->" } else { "." });
                 output.push_str(name);
             }
+            Self::Subscript { value, index } => {
+                value.render_postfix_operand(output);
+                output.push('[');
+                index.render(output);
+                output.push(']');
+            }
             Self::Cast { ty, value } => {
                 write!(output, "({ty})").expect("writing generated C cannot fail");
                 value.render_unary_operand(output);
@@ -46,6 +52,32 @@ impl Expr {
                 left.render_binary_operand(output);
                 write!(output, " {} ", operator.symbol()).expect("writing generated C cannot fail");
                 right.render_binary_operand(output);
+            }
+            Self::Conditional {
+                condition,
+                then,
+                otherwise,
+            } => {
+                condition.render_binary_operand(output);
+                output.push_str(" ? ");
+                then.render_binary_operand(output);
+                output.push_str(" : ");
+                otherwise.render_binary_operand(output);
+            }
+            Self::SizeofValue(value) => {
+                output.push_str("sizeof(");
+                value.render(output);
+                output.push(')');
+            }
+            Self::InitializerList(values) => {
+                output.push_str("{ ");
+                for (index, value) in values.iter().enumerate() {
+                    if index != 0 {
+                        output.push_str(", ");
+                    }
+                    value.render(output);
+                }
+                output.push_str(" }");
             }
             Self::CompoundLiteral { ty, fields } => {
                 write!(output, "({ty}){{ ").expect("writing generated C cannot fail");
@@ -68,6 +100,8 @@ impl Expr {
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
+                | Self::Subscript { .. }
+                | Self::SizeofValue(_)
         ) {
             self.render(output);
         } else {
@@ -85,7 +119,9 @@ impl Expr {
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
+                | Self::Subscript { .. }
                 | Self::Cast { .. }
+                | Self::SizeofValue(_)
         ) {
             self.render(output);
         } else {
@@ -96,7 +132,7 @@ impl Expr {
     }
 
     fn render_binary_operand(&self, output: &mut String) {
-        if matches!(self, Self::Binary { .. }) {
+        if matches!(self, Self::Binary { .. } | Self::Conditional { .. }) {
             output.push('(');
             self.render(output);
             output.push(')');
