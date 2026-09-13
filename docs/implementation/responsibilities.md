@@ -39,7 +39,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
-| `editor` | resolved identity、source上のdeclaration/referenceと型注釈の表示、checked canonical typeをeditor queryへ構成 |
+| `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
 | `driver` | source file、require path、temporary path、C compiler process、C build input、およびbuild optimization profileの選択 |
 | `driver/toolchain` | pinned Clangからhost target tripleとdata layoutを取得し、LLVM/C artifactを同じtargetへcompile |
 | `driver/toolchain/optimization` | semantic correctness optionから独立したbaselineまたはproductionのClang optimization argumentを構成 |
@@ -112,6 +112,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集 |
 | `editor/index/checked_ast` | checked expressionとlambda-local binderのcanonical typeをsemantic indexへ収集 |
+| `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類とtop-level function候補を提供するsyntax indexを構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |

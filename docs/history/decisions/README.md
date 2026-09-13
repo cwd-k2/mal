@@ -10,6 +10,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | Area | Decisions |
 |---|---|
 | compiler | [D002](D002.md)、[D041](D041.md) |
+| editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D042](D042.md)、[D043](D043.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |

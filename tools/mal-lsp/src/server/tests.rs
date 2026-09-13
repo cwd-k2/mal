@@ -19,6 +19,10 @@ fn initializes_with_full_sync_utf16_and_formatting() {
     assert_eq!(capabilities["hoverProvider"], true);
     assert_eq!(capabilities["definitionProvider"], true);
     assert_eq!(
+        capabilities["completionProvider"]["triggerCharacters"],
+        json!(["."])
+    );
+    assert_eq!(
         capabilities["semanticTokensProvider"]["legend"]["tokenTypes"],
         json!(["type", "variable", "parameter", "function"])
     );
@@ -142,7 +146,6 @@ fn returns_no_semantic_result_while_the_current_source_is_invalid() {
     for (id, method, empty) in [
         (12, "textDocument/documentSymbol", json!([])),
         (13, "textDocument/completion", json!([])),
-        (14, "textDocument/semanticTokens/full", json!({"data": []})),
     ] {
         let outcome = server.handle(json!({
             "jsonrpc": "2.0", "id": id, "method": method,
@@ -151,6 +154,17 @@ fn returns_no_semantic_result_while_the_current_source_is_invalid() {
         assert_eq!(outcome.messages[0]["result"], empty);
         assert!(outcome.messages[0].get("error").is_none());
     }
+    let tokens = server.handle(json!({
+        "jsonrpc": "2.0", "id": 14, "method": "textDocument/semanticTokens/full",
+        "params": {"textDocument": {"uri": uri}}
+    }));
+    assert_eq!(
+        tokens.messages[0]["result"]["data"]
+            .as_array()
+            .unwrap()
+            .len(),
+        20
+    );
     assert!(server.documents[uri].analysis_current);
 }
 
@@ -426,6 +440,85 @@ fn serves_symbols_completion_and_semantic_tokens() {
     assert!(!data.is_empty());
     assert_eq!(data.len() % 5, 0);
     assert!(data.chunks(5).any(|token| token[3] == 0 && token[4] == 1));
+}
+
+#[test]
+fn completes_lexical_functions_after_an_incomplete_receiver_suffix() {
+    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) { value + option };\n\
+                count :: Int32 := 1;\n\
+                main :: Unit -> Int32 := () { count. };\n";
+    let uri = "file:///receiver-completion.mal";
+    let mut server = open_document(uri, text);
+    let completion = request_at(
+        &mut server,
+        23,
+        "textDocument/completion",
+        uri,
+        text,
+        text.rfind('.').unwrap() + 1,
+    );
+    let items = completion["result"].as_array().unwrap();
+
+    assert!(items.iter().any(|item| item["label"] == "transform"));
+    assert!(!items.iter().any(|item| item["label"] == "count"));
+}
+
+#[test]
+fn limits_receiver_completion_to_functions_in_a_valid_document() {
+    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) { value + option };\n\
+                count :: Int32 := 1;\n\
+                main :: Unit -> Int32 := () { count.transform(1) };\n";
+    let uri = "file:///valid-receiver-completion.mal";
+    let mut server = open_document(uri, text);
+    let completion = request_at(
+        &mut server,
+        24,
+        "textDocument/completion",
+        uri,
+        text,
+        text.rfind(".transform").unwrap() + 1,
+    );
+    let items = completion["result"].as_array().unwrap();
+
+    assert!(items.iter().any(|item| item["label"] == "transform"));
+    assert!(!items.iter().any(|item| item["label"] == "count"));
+    assert!(!items.iter().any(|item| item["label"] == "false"));
+}
+
+#[test]
+fn completes_visible_dependency_functions_from_an_invalid_root() {
+    let files = TestFiles::new();
+    let root_text = "require \"library.mal\";\n\
+                     local :: Int32 -> Int32 := (value) { value };\n\
+                     count :: Int32 := 1;\n\
+                     main :: Unit -> Int32 := () { count.par };\n";
+    let root_path = files.write("program.mal", root_text);
+    files.write(
+        "library.mal",
+        "publicFunction :: Int32 -> Int32 := (value) { value };\n\
+         _privateFunction :: Int32 -> Int32 := (value) { value };\n",
+    );
+    let root_uri = path_to_uri(&root_path);
+    let mut server = open_document(&root_uri, root_text);
+    let completion = request_at(
+        &mut server,
+        24,
+        "textDocument/completion",
+        &root_uri,
+        root_text,
+        root_text.rfind(".par").unwrap() + 4,
+    );
+    let labels = completion["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["label"].as_str().unwrap())
+        .collect::<Vec<_>>();
+
+    assert!(labels.contains(&"local"));
+    assert!(labels.contains(&"publicFunction"), "{labels:?}");
+    assert!(!labels.contains(&"_privateFunction"));
+    assert!(!labels.contains(&"count"));
 }
 
 #[test]

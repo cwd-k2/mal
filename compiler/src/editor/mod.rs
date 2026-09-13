@@ -5,6 +5,9 @@ use std::collections::HashSet;
 use crate::source::{FileId, SourceFile, SourceGraph, Span};
 
 mod index;
+mod syntax;
+
+pub use syntax::{SyntaxDocument, SyntaxToken};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SymbolId {
@@ -64,6 +67,10 @@ pub struct SemanticDocument {
 pub fn analyze(source: &SourceFile) -> Result<SemanticDocument, Diagnostic> {
     let analysis = crate::pipeline::analyze(source)?;
     Ok(from_analysis_for_file(&analysis, source.id()))
+}
+
+pub fn analyze_syntax(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic> {
+    syntax::analyze(source)
 }
 
 pub fn from_analysis(analysis: &crate::pipeline::Analysis) -> SemanticDocument {

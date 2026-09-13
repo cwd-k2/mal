@@ -15,7 +15,7 @@ semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表�
 型注釈を持つ値には注釈内のalias名を保った型を表示する。推論された型と名前を持たないtyped expressionにはcanonical
 typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
-TextMate grammarはreceiver-first applicationのcalleeをfunction、`.§をaccessor punctuationとして分類する。
+TextMate grammarはreceiver-first applicationのcalleeをfunction、`.`をaccessor punctuationとして分類する。
 semantic analysisではcalleeを通常のfunction referenceとして扱い、hover、definition、references、rename、
 semantic tokenに同じdeclaration identityを使う。
 
@@ -78,6 +78,9 @@ document symbol、completion、semantic tokenを提供する。semantic request�
 `.mal` file境界を跨ぐ。document symbolとsemantic tokenはrequest対象fileだけを返し、completionはそのfile自身の名前と
 直接requireしたfileの公開名を返す。
 
+`.`はcompletion triggerである。`receiver.`と`receiver.partialName`ではcurrent sourceのsyntax indexと直接requireしたfileから
+lexical function候補を返す。receiverの型による候補探索や絞り込みは行わない。
+
 open中の`.mal` fileはdisk上の内容よりbufferを優先する。bufferのopen、change、close時にはopen documentのanalysisを
 invalidateし、依存するsource graphを含めてdiagnosticを再生成する。変更されたdocumentには現在のversionを付けたdiagnosticを
 publishし、修正後は空のdiagnosticをpublishして以前の表示を消す。再解析した他のopen documentについては、document versionと
@@ -85,7 +88,9 @@ diagnostic内容が直前のpublishから変わった場合だけpublishする�
 現在以下のversionを持つchange notificationは古いbuffer内容を復元しないよう無視する。
 
 frontend analysisに失敗したversionでは、そのversionに対するsemantic requestをJSON-RPC errorにせず、hover、definition、renameは
-結果なし、references、document symbol、completion、semantic tokenは空の結果として返す。一度失敗した同一versionをsemantic
+結果なし、referencesとdocument symbolは空の結果として返す。semantic tokenはcurrent sourceのsyntax indexによる分類へfallbackし、
+completionは上記のreceiver-first contextに限ってsyntax indexから候補を返す。一度失敗した同一versionをsemantic
 requestごとに再解析しない。直前に成功したversionのsemantic indexは、編集やrequire先の変更で名前解決や型が変化している可能性が
-あるため再利用しない。このためinvalid sourceの一部に対するsemantic resultは現在の対象外である。これを提供する場合は、parser、
-resolver、checkerがrecovery済み領域と依存関係を明示する別のadmitted表現を導入し、古いspanの推測による対応付けは行わない。
+あるため再利用しない。syntax fallbackは型、parameter identity、参照先を推測せず、現在のtokenとtop-level function declarationだけを
+扱う。それ以上のpartial semantic resultには、parser、resolver、checkerがrecovery済み領域と依存関係を明示する別のadmitted表現を
+導入する。

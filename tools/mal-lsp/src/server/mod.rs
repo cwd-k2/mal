@@ -113,7 +113,7 @@ impl Server {
                         "referencesProvider": true,
                         "renameProvider": true,
                         "documentSymbolProvider": true,
-                        "completionProvider": {},
+                        "completionProvider": {"triggerCharacters": ["."]},
                         "semanticTokensProvider": {
                             "legend": {
                                 "tokenTypes": ["type", "variable", "parameter", "function"],
