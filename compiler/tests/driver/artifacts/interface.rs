@@ -122,6 +122,7 @@ fn checked_in_example_headers_match_the_compiler() {
     let examples = [
         "fallible-tree",
         "integer-and-byte",
+        "json-query",
         "mini-database",
         "opaque-aggregate",
         "pointer-tree",

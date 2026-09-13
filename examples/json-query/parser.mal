@@ -1,0 +1,330 @@
+// Cursor fields: 0 complete input, 1 next unread byte.
+Cursor :: (Symbol, UInt64);
+// Stats fields: 0 JSON value count, 1 maximum value depth.
+Stats :: (UInt64, UInt64);
+Parsed :: (Cursor, Stats);
+ParseResult :: [Symbol, Parsed];
+// Scan carries the next cursor and an empty success message or a non-empty error message.
+Scan :: (Cursor, Symbol);
+// ParserState fields: 0 cursor, 1 packed frames, 2 frame depth, 3 statistics.
+ParserState :: (Cursor, UInt64, UInt64, Stats);
+
+// Each parser frame occupies one hexadecimal digit. The root frame leaves room for 15 containers.
+_arrayFirst :: UInt64 := 1u64;
+_arrayValue :: UInt64 := 2u64;
+_arrayNext :: UInt64 := 3u64;
+_objectFirst :: UInt64 := 4u64;
+_objectKey :: UInt64 := 5u64;
+_objectColon :: UInt64 := 6u64;
+_objectValue :: UInt64 := 7u64;
+_objectNext :: UInt64 := 8u64;
+_rootValue :: UInt64 := 9u64;
+_rootDone :: UInt64 := 10u64;
+
+_parseFailure :: Symbol -> ParseResult := (message)[failure, success] {
+    failure(message);
+};
+
+_parseSuccess :: Parsed -> ParseResult := (parsed)[failure, success] {
+    success(parsed);
+};
+
+_isWhitespace :: UInt8 -> Bool := (byte) {
+    byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
+};
+
+_isDigit :: UInt8 -> Bool := (byte) {
+    byte >= '0' && byte <= '9';
+};
+
+_isNonzeroDigit :: UInt8 -> Bool := (byte) {
+    byte >= '1' && byte <= '9';
+};
+
+_isHexDigit :: UInt8 -> Bool := (byte) {
+    byte._isDigit()
+        || (byte >= 'a' && byte <= 'f')
+        || (byte >= 'A' && byte <= 'F');
+};
+
+_advance :: Cursor -> Cursor := (cursor) {
+    (source, index) := cursor;
+    (source, index + 1u64);
+};
+
+_skipWhitespace :: Cursor -> Cursor := (cursor)[return] {
+    (source, index) := cursor;
+    when (index == #source) {
+        return(cursor);
+    };
+    when ((source # index)._isWhitespace()) {
+        return((source, index + 1u64)._skipWhitespace());
+    };
+    return(cursor);
+};
+
+_includeValue :: (Stats, UInt64) -> Stats := (stats, depth) {
+    (count, maximumDepth) := stats;
+    nextDepth := if (maximumDepth >= depth)
+        then { maximumDepth }
+        else { depth };
+    (count + 1u64, nextDepth);
+};
+
+_readFrame :: UInt64 -> UInt64 := (frames) {
+    frames % 16u64;
+};
+
+_replaceFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) {
+    frames / 16u64 * 16u64 + frame;
+};
+
+_pushFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) {
+    frames * 16u64 + frame;
+};
+
+_popFrame :: UInt64 -> UInt64 := (frames) {
+    frames / 16u64;
+};
+
+_completeValue :: UInt64 -> UInt64 := (frames) {
+    frame := frames._readFrame();
+    if (frame == _arrayFirst || frame == _arrayValue)
+    then { frames._replaceFrame(_arrayNext) }
+    else {
+        if (frame == _objectValue)
+        then { frames._replaceFrame(_objectNext) }
+        else { frames._replaceFrame(_rootDone) };
+    };
+};
+
+_matchesAt :: (Symbol, UInt64, Symbol, UInt64) -> Bool :=
+    (source, start, expected, offset)[return] {
+        when (offset == #expected) {
+            return(true);
+        };
+        when (start + offset == #source || source # (start + offset) != expected # offset) {
+            return(false);
+        };
+        return(source._matchesAt(start, expected, offset + 1u64));
+    };
+
+_consumeLiteral :: (Cursor, Symbol) -> Scan := (cursor, expected) {
+    (source, index) := cursor;
+    if (source._matchesAt(index, expected, 0u64))
+    then { ((source, index + #expected), "") }
+    else { (cursor, "invalid JSON literal") };
+};
+
+_hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
+    (source, index, remaining)[return] {
+        when (remaining == 0u64) {
+            return(true);
+        };
+        when (index == #source || !(source # index)._isHexDigit()) {
+            return(false);
+        };
+        return(source._hasHexDigits(index + 1u64, remaining - 1u64));
+    };
+
+_scanString :: Cursor -> Scan := (cursor)[return] {
+    (source, index) := cursor;
+    when (index == #source) {
+        return((cursor, "unterminated JSON string"));
+    };
+    byte := source # index;
+    when (byte == '"') {
+        return(((source, index + 1u64), ""));
+    };
+    when (byte < 0x20u8) {
+        return((cursor, "control byte in JSON string"));
+    };
+    when (byte != '\\') {
+        return((source, index + 1u64)._scanString());
+    };
+
+    escapeIndex := index + 1u64;
+    when (escapeIndex == #source) {
+        return((cursor, "unterminated JSON escape"));
+    };
+    escaped := source # escapeIndex;
+    simple := escaped == '"'
+        || escaped == '\\'
+        || escaped == '/'
+        || escaped == 'b'
+        || escaped == 'f'
+        || escaped == 'n'
+        || escaped == 'r'
+        || escaped == 't';
+    when (simple) {
+        return((source, escapeIndex + 1u64)._scanString());
+    };
+    when (escaped == 'u' && source._hasHexDigits(escapeIndex + 1u64, 4u64)) {
+        return((source, escapeIndex + 5u64)._scanString());
+    };
+    return((cursor, "invalid JSON escape"));
+};
+
+_scanDigits :: Cursor -> Cursor := (cursor)[return] {
+    (source, index) := cursor;
+    when (index == #source || !(source # index)._isDigit()) {
+        return(cursor);
+    };
+    return((source, index + 1u64)._scanDigits());
+};
+
+_scanNumber :: Cursor -> Scan := (cursor)[return] {
+    (source, start) := cursor;
+    unsigned := if (source # start == '-')
+        then { (source, start + 1u64) }
+        else { cursor };
+    (number, integerStart) := unsigned;
+    when (integerStart == #number) {
+        return((cursor, "incomplete JSON number"));
+    };
+
+    first := number # integerStart;
+    integerEnd := if (first == '0')
+        then { (number, integerStart + 1u64) }
+        else {
+            when (!first._isNonzeroDigit()) {
+                return((cursor, "invalid JSON number"));
+            };
+            (number, integerStart + 1u64)._scanDigits();
+        };
+
+    (afterInteger, integerEndIndex) := integerEnd;
+    afterFraction := if (integerEndIndex < #afterInteger && afterInteger # integerEndIndex == '.')
+        then {
+            fractionStart := integerEndIndex + 1u64;
+            when (fractionStart == #afterInteger || !(afterInteger # fractionStart)._isDigit()) {
+                return((cursor, "invalid JSON fraction"));
+            };
+            (afterInteger, fractionStart + 1u64)._scanDigits();
+        }
+        else { integerEnd };
+
+    (afterDecimal, decimalEnd) := afterFraction;
+    exponent := decimalEnd < #afterDecimal
+        && (afterDecimal # decimalEnd == 'e' || afterDecimal # decimalEnd == 'E');
+    afterExponent := if (exponent)
+        then {
+            exponentStart := decimalEnd + 1u64;
+            when (exponentStart == #afterDecimal) {
+                return((cursor, "incomplete JSON exponent"));
+            };
+            signedStart := if (afterDecimal # exponentStart == '+' || afterDecimal # exponentStart == '-')
+                then { exponentStart + 1u64 }
+                else { exponentStart };
+            when (signedStart == #afterDecimal || !(afterDecimal # signedStart)._isDigit()) {
+                return((cursor, "invalid JSON exponent"));
+            };
+            (afterDecimal, signedStart + 1u64)._scanDigits();
+        }
+        else { afterFraction };
+    return((afterExponent, ""));
+};
+
+_parse :: ParserState -> ParseResult := (state)[return] {
+    (untrimmed, frames, frameDepth, stats) := state;
+    cursor := untrimmed._skipWhitespace();
+    (source, index) := cursor;
+    frame := frames._readFrame();
+
+    when (frame == _rootDone) {
+        if (index == #source)
+        then { return(_parseSuccess((cursor, stats))) }
+        else { return(_parseFailure("trailing bytes after JSON value")) };
+    };
+    when (index == #source) {
+        return(_parseFailure("expected JSON value or closing delimiter"));
+    };
+
+    byte := source # index;
+    when (frame == _arrayNext) {
+        when (byte == ']') {
+            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+        };
+        when (byte == ',') {
+            return(_parse((cursor._advance(), frames._replaceFrame(_arrayValue), frameDepth, stats)));
+        };
+        return(_parseFailure("expected comma or closing bracket"));
+    };
+    when (frame == _objectNext) {
+        when (byte == '}') {
+            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+        };
+        when (byte == ',') {
+            return(_parse((cursor._advance(), frames._replaceFrame(_objectKey), frameDepth, stats)));
+        };
+        return(_parseFailure("expected comma or closing brace"));
+    };
+    when (frame == _objectColon) {
+        when (byte != ':') {
+            return(_parseFailure("expected colon after object key"));
+        };
+        return(_parse((cursor._advance(), frames._replaceFrame(_objectValue), frameDepth, stats)));
+    };
+    when (frame == _objectFirst || frame == _objectKey) {
+        when (frame == _objectFirst && byte == '}') {
+            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+        };
+        when (byte != '"') {
+            return(_parseFailure("expected JSON object key"));
+        };
+        (afterKey, keyError) := cursor._advance()._scanString();
+        when (#keyError != 0u64) {
+            return(_parseFailure(keyError));
+        };
+        return(_parse((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats)));
+    };
+    when (frame == _arrayFirst && byte == ']') {
+        return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+    };
+
+    nextFrames := frames._completeValue();
+    // Object keys are syntax rather than JSON values, so only this value path updates statistics.
+    nextStats := stats._includeValue(frameDepth);
+    when (byte == '[' || byte == '{') {
+        when (frameDepth == 16u64) {
+            return(_parseFailure("JSON nesting exceeds 15 containers"));
+        };
+        childFrame := if (byte == '[')
+            then { _arrayFirst }
+            else { _objectFirst };
+        return(_parse((cursor._advance(), nextFrames._pushFrame(childFrame), frameDepth + 1u64, nextStats)));
+    };
+    when (byte == '"') {
+        (afterString, stringError) := cursor._advance()._scanString();
+        when (#stringError != 0u64) {
+            return(_parseFailure(stringError));
+        };
+        return(_parse((afterString, nextFrames, frameDepth, nextStats)));
+    };
+    when (byte == 't' || byte == 'f' || byte == 'n') {
+        literal := if (byte == 't')
+            then { "true" }
+            else {
+                if (byte == 'f')
+                then { "false" }
+                else { "null" };
+            };
+        (afterLiteral, literalError) := cursor._consumeLiteral(literal);
+        when (#literalError != 0u64) {
+            return(_parseFailure(literalError));
+        };
+        return(_parse((afterLiteral, nextFrames, frameDepth, nextStats)));
+    };
+    when (byte == '-' || byte._isDigit()) {
+        (afterNumber, numberError) := cursor._scanNumber();
+        when (#numberError != 0u64) {
+            return(_parseFailure(numberError));
+        };
+        return(_parse((afterNumber, nextFrames, frameDepth, nextStats)));
+    };
+    return(_parseFailure("expected JSON value"));
+};
+
+parseDocument :: Symbol -> ParseResult := (source) {
+    ((source, 0u64), _rootValue, 1u64, (0u64, 0u64))._parse();
+};

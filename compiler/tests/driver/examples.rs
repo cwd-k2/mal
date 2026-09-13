@@ -318,6 +318,76 @@ fn mini_database_example_persists_queries_across_processes() {
 }
 
 #[test]
+fn json_query_example_parses_stdin_and_selects_an_argument_query() {
+    let directory = NativeFixture::new("json-query");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/json-query");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        example.join("program.mal").as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let run_query = |query: &str, input: &str| {
+        let mut child = Command::new(&executable)
+            .arg(query)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("run JSON query example");
+        child
+            .stdin
+            .take()
+            .expect("open JSON query stdin")
+            .write_all(input.as_bytes())
+            .expect("write JSON query input");
+        child.wait_with_output().expect("wait for JSON query")
+    };
+
+    let document = r#"{"name":"mal","items":[true,null,35]}"#;
+    let output = run_query("count", document);
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"{\"ok\":true,\"count\":6}\n");
+    assert!(output.stderr.is_empty());
+
+    let output = run_query("depth", document);
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"{\"ok\":true,\"depth\":3}\n");
+    assert!(output.stderr.is_empty());
+
+    let output = run_query("count", r#"{"escaped":"line\n\u3042","number":-1.25e+3}"#);
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"{\"ok\":true,\"count\":3}\n");
+
+    let output = run_query("count", "[1,]");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        output.stdout,
+        b"{\"ok\":false,\"error\":\"expected JSON value\"}\n"
+    );
+
+    let output = Command::new(&executable)
+        .arg("unknown")
+        .output()
+        .expect("run unknown JSON query");
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        output.stdout,
+        b"{\"ok\":false,\"error\":\"query must be count or depth\"}\n"
+    );
+}
+
+#[test]
 fn tail_recursion_example_executes_a_large_direct_tail_call() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))

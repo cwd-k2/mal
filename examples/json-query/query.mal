@@ -1,0 +1,20 @@
+Query :: [Unit, Unit];
+QueryResult :: [Symbol, Query];
+
+_countQuery :: Unit -> Query := ()[count, depth] {
+    count();
+};
+
+_depthQuery :: Unit -> Query := ()[count, depth] {
+    depth();
+};
+
+parseQuery :: Symbol -> QueryResult := (text)[failure, success] {
+    when (text == "count") {
+        success(_countQuery());
+    };
+    when (text == "depth") {
+        success(_depthQuery());
+    };
+    failure("query must be count or depth");
+};

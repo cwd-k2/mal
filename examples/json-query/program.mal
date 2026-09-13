@@ -1,0 +1,47 @@
+require "./host.mal";
+require "./parser.mal";
+require "./query.mal";
+require "./render.mal";
+
+_readArgument :: Ptr -> Symbol := (arguments) {
+    Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
+};
+
+_reportParseError :: Symbol -> Int32 := (message) {
+    writeStdout(message.renderError() + "\n");
+    1;
+};
+
+_runQuery :: Query -> Int32 := (query) {
+    parsed := readStdin().parseDocument();
+    parsed[
+    _reportParseError,
+    (value) {
+        (_, stats) := value;
+        renderer := query[
+            renderCount,
+            renderDepth
+        ];
+        writeStdout(stats[renderer] + "\n");
+        0;
+    }
+    ];
+};
+
+main :: Arguments -> Int32 := (argumentCount, arguments) {
+    if (argumentCount != 1u64)
+    then {
+        writeStdout("{\"ok\":false,\"error\":\"usage: mal-json-query count|depth\"}\n");
+        2;
+    }
+    else {
+        query := arguments._readArgument().parseQuery();
+        query[
+        (message) {
+            writeStdout(message.renderError() + "\n");
+            2;
+        },
+        _runQuery
+        ];
+    };
+};

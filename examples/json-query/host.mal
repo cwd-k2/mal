@@ -1,0 +1,7 @@
+require "./host.c";
+
+Arguments :: (UInt64, Ptr);
+
+extern readStdin :: Unit -> Symbol;
+extern symbolFromByte :: UInt8 -> Symbol;
+extern writeStdout :: Symbol -> Unit;
