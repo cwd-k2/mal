@@ -34,90 +34,74 @@ impl ControlLayout {
         self.sum_break_before[token_index]
     }
 
-    fn mark_block(&mut self, lexed: &Lexed, block: &ExpressionBlock) {
-        for item in &block.items {
-            match item {
-                BodyItem::Binding(binding) => {
-                    self.mark_expression(lexed, &binding.kind.value, false);
-                }
-                BodyItem::Expression(expression) => {
-                    self.mark_expression(lexed, expression, true);
-                }
-            }
-        }
-        self.mark_expression(lexed, &block.result, true);
-    }
-
     fn mark_expression(
         &mut self,
         lexed: &Lexed,
         expression: &Node<Expression>,
         block_position: bool,
     ) {
-        match &expression.kind {
-            Expression::Parenthesized(inner) => {
-                self.mark_expression(lexed, inner, block_position);
-            }
-            Expression::Product(fields) => {
-                for field in fields {
-                    self.mark_expression(lexed, field, false);
+        let mut pending = vec![(expression, block_position)];
+        while let Some((expression, block_position)) = pending.pop() {
+            match &expression.kind {
+                Expression::Parenthesized(inner) => pending.push((inner, block_position)),
+                Expression::Product(fields) => {
+                    pending.extend(fields.iter().rev().map(|field| (field, false)));
                 }
-            }
-            Expression::Lambda(lambda) => self.mark_block(lexed, &lambda.body),
-            Expression::Call { callee, arguments } => {
-                self.mark_expression(lexed, callee, false);
-                for argument in arguments {
-                    self.mark_expression(lexed, argument, false);
+                Expression::Lambda(lambda) => push_block(&mut pending, &lambda.body),
+                Expression::Call { callee, arguments } => {
+                    pending.extend(arguments.iter().rev().map(|argument| (argument, false)));
+                    pending.push((callee, false));
                 }
-            }
-            Expression::ContinuationApplication {
-                value,
-                continuations,
-            } => {
-                if continuations.len() >= 2 {
-                    self.mark_sum_continuation(
-                        lexed,
-                        expression,
-                        value,
-                        continuations,
-                        block_position,
+                Expression::ContinuationApplication {
+                    value,
+                    continuations,
+                } => {
+                    if continuations.len() >= 2 {
+                        self.mark_sum_continuation(
+                            lexed,
+                            expression,
+                            value,
+                            continuations,
+                            block_position,
+                        );
+                    }
+                    pending.extend(
+                        continuations
+                            .iter()
+                            .rev()
+                            .map(|continuation| (continuation, false)),
                     );
+                    pending.push((value, false));
                 }
-                self.mark_expression(lexed, value, false);
-                for continuation in continuations {
-                    self.mark_expression(lexed, continuation, false);
+                Expression::Conversion { value, .. } => pending.push((value, false)),
+                Expression::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    self.mark_control_start(lexed, expression, block_position);
+                    push_block(&mut pending, else_branch);
+                    push_block(&mut pending, then_branch);
+                    pending.push((condition, false));
                 }
+                Expression::When { condition, body } => {
+                    self.mark_control_start(lexed, expression, block_position);
+                    push_block(&mut pending, body);
+                    pending.push((condition, false));
+                }
+                Expression::Unary { operand, .. } => pending.push((operand, false)),
+                Expression::Binary { left, right, .. } => {
+                    pending.push((right, false));
+                    pending.push((left, false));
+                }
+                Expression::Name(_)
+                | Expression::Integer(_)
+                | Expression::Float(_)
+                | Expression::Byte(_)
+                | Expression::Symbol(_)
+                | Expression::TypeQualifiedPrimitive { .. }
+                | Expression::Unit => {}
             }
-            Expression::Conversion { value, .. } => {
-                self.mark_expression(lexed, value, false);
-            }
-            Expression::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                self.mark_control_start(lexed, expression, block_position);
-                self.mark_expression(lexed, condition, false);
-                self.mark_block(lexed, then_branch);
-                self.mark_block(lexed, else_branch);
-            }
-            Expression::When { condition, body } => {
-                self.mark_control_start(lexed, expression, block_position);
-                self.mark_expression(lexed, condition, false);
-                self.mark_block(lexed, body);
-            }
-            Expression::Unary { operand, .. } => self.mark_expression(lexed, operand, false),
-            Expression::Binary { left, right, .. } => {
-                self.mark_expression(lexed, left, false);
-                self.mark_expression(lexed, right, false);
-            }
-            Expression::Name(_)
-            | Expression::Integer(_)
-            | Expression::Float(_)
-            | Expression::Byte(_)
-            | Expression::Symbol(_)
-            | Expression::TypeQualifiedPrimitive { .. }
-            | Expression::Unit => {}
         }
     }
 
@@ -173,4 +157,12 @@ impl ControlLayout {
             self.aligned[index] = true;
         }
     }
+}
+
+fn push_block<'a>(pending: &mut Vec<(&'a Node<Expression>, bool)>, block: &'a ExpressionBlock) {
+    pending.push((&block.result, true));
+    pending.extend(block.items.iter().rev().map(|item| match item {
+        BodyItem::Binding(binding) => (&binding.kind.value, false),
+        BodyItem::Expression(expression) => (expression, true),
+    }));
 }

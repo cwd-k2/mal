@@ -108,7 +108,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
 | `check/float/big_uint` | 有界化したdecimal coefficientのroundingだけが使うdependency-freeの非負多倍長整数演算 |
 | `formatter/layout` | block compactness、常に展開する`when` body、top-level groupの事前計算 |
-| `formatter/control` | block positionとRHSにある`if`の事前分類 |
+| `formatter/control` | source ASTを反復走査し、block positionとRHSにある`if`を事前分類 |
 | `formatter/token` | 一般tokenのspacing、式内の明示的なline break、statementとtop-level group間の一つの空行の保持 |
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
 | `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集 |

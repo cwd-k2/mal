@@ -337,3 +337,15 @@ fn formats_many_independent_blocks_in_one_pass() {
 
     assert_eq!(formatted.matches(" :: Unit -> Int32 :=").count(), count);
 }
+
+#[test]
+fn formats_long_left_associative_expressions_without_host_recursion() {
+    let expression = std::iter::repeat_n("0i32", 4_096)
+        .collect::<Vec<_>>()
+        .join("+");
+    let input = format!("main::Unit->Int32:=(){{{expression};}};");
+
+    let formatted = format(&input);
+
+    assert_eq!(formatted.matches(" + ").count(), 4_095);
+}
