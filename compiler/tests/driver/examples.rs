@@ -369,6 +369,19 @@ fn json_query_example_parses_stdin_and_selects_an_argument_query() {
     assert!(output.status.success());
     assert_eq!(output.stdout, b"{\"ok\":true,\"count\":3}\n");
 
+    let deepest_supported = format!("{}0{}", "[".repeat(15), "]".repeat(15));
+    let output = run_query("depth", &deepest_supported);
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"{\"ok\":true,\"depth\":16}\n");
+
+    let beyond_fixed_stack = format!("{}0{}", "[".repeat(16), "]".repeat(16));
+    let output = run_query("depth", &beyond_fixed_stack);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        output.stdout,
+        b"{\"ok\":false,\"error\":\"JSON nesting exceeds 15 containers\"}\n"
+    );
+
     let output = run_query("count", "[1,]");
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(
