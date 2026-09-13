@@ -75,14 +75,18 @@ impl Checker {
         &'a Node<resolved::TypeExpression>,
         &'a Node<resolved::TypeExpression>,
     )> {
-        match &ty.kind {
-            resolved::TypeExpression::Function { parameter, result } => Some((parameter, result)),
-            resolved::TypeExpression::Parenthesized(inner) => self.external_function_parts(inner),
-            resolved::TypeExpression::Named(reference) => self
-                .aliases
-                .get(&reference.id)
-                .and_then(|definition| self.external_function_parts(&definition.value)),
-            _ => None,
+        let mut current = ty;
+        loop {
+            match &current.kind {
+                resolved::TypeExpression::Function { parameter, result } => {
+                    return Some((parameter, result));
+                }
+                resolved::TypeExpression::Parenthesized(inner) => current = inner,
+                resolved::TypeExpression::Named(reference) => {
+                    current = &self.aliases.get(&reference.id)?.value;
+                }
+                _ => return None,
+            }
         }
     }
 
@@ -138,15 +142,17 @@ impl Checker {
         &'a self,
         ty: &'a Node<resolved::TypeExpression>,
     ) -> Option<&'a [Node<resolved::TypeExpression>]> {
-        match &ty.kind {
-            resolved::TypeExpression::Product(elements)
-            | resolved::TypeExpression::Sum(elements) => Some(elements),
-            resolved::TypeExpression::Parenthesized(inner) => self.aggregate_element_sources(inner),
-            resolved::TypeExpression::Named(reference) => self
-                .aliases
-                .get(&reference.id)
-                .and_then(|definition| self.aggregate_element_sources(&definition.value)),
-            _ => None,
+        let mut current = ty;
+        loop {
+            match &current.kind {
+                resolved::TypeExpression::Product(elements)
+                | resolved::TypeExpression::Sum(elements) => return Some(elements),
+                resolved::TypeExpression::Parenthesized(inner) => current = inner,
+                resolved::TypeExpression::Named(reference) => {
+                    current = &self.aliases.get(&reference.id)?.value;
+                }
+                _ => return None,
+            }
         }
     }
 

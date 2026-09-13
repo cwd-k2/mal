@@ -103,7 +103,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `check/lambda` | expected function型に対するparameter、return binder arity、lambda body completionを検査 |
 | `check/operator` | operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansionと表示 |
-| `check/interface` | extern transport検査とsource-level alias metadata |
+| `check/interface` | extern transport検査とalias dependencyを反復的に辿るsource-level metadata抽出 |
 | `check/initializer` | top-level closed-value admission |
 | `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
 | `check/float/big_uint` | decimal float roundingだけが使うdependency-freeの非負多倍長整数演算 |

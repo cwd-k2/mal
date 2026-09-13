@@ -106,7 +106,12 @@ fn expands_long_alias_dependency_chains_without_host_recursion() {
     for index in 0..4096 {
         source.push_str(&format!("Alias{index} :: Alias{};\n", index + 1));
     }
-    source.push_str("Alias4096 :: UInt8;\nvalue :: Alias0 := 1u8;");
+    source.push_str(
+        "Alias4096 :: (UInt8, UInt8);\n\
+         Operation :: Alias0 -> Alias0;\n\
+         extern exchange :: Operation;\n\
+         value :: Alias0 := (1u8, 2u8);",
+    );
 
     check_ok(&source);
 }
