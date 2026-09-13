@@ -55,6 +55,13 @@ struct Builder<'a> {
     overlays: &'a HashMap<PathBuf, &'a str>,
 }
 
+struct PendingFile {
+    path: PathBuf,
+    id: FileId,
+    requirements: std::vec::IntoIter<crate::ast::Node<crate::ast::Requirement>>,
+    requested_by: Option<(FileId, crate::source::Span)>,
+}
+
 impl<'a> Builder<'a> {
     fn new(overlays: &'a HashMap<PathBuf, &'a str>) -> Self {
         Self {
@@ -87,19 +94,22 @@ impl<'a> Builder<'a> {
             None => {}
         }
 
-        let id = FileId::new(self.files.len() as u32);
-        let source = self.overlays.get(path).map_or_else(
-            || SourceFile::load(id, path).map_err(Error::source),
-            |text| Ok(SourceFile::new(id, path, (*text).to_owned())),
-        )?;
-        let parsed =
-            crate::parser::parse(&source).map_err(|error| Error::diagnostic(error, &source))?;
-        self.states.insert(path.to_owned(), State::Loading);
-        self.files.push(source);
-        self.requirements.push(Vec::new());
+        let root = self.begin_mal(path, None)?;
+        let root_id = root.id;
+        let mut pending = vec![root];
 
-        for required in parsed.requirements {
-            let source = &self.files[id.index() as usize];
+        while let Some(frame) = pending.last_mut() {
+            let Some(required) = frame.requirements.next() else {
+                let completed = pending.pop().expect("pending file exists");
+                self.states
+                    .insert(completed.path, State::Loaded(completed.id));
+                if let Some((importer, span)) = completed.requested_by {
+                    self.add_mal_requirement(importer, completed.id, span);
+                }
+                continue;
+            };
+            let importer = frame.id;
+            let source = &self.files[importer.index() as usize];
             let required_path =
                 requirement_path(source, &required.kind.path, required.kind.path_span)
                     .map_err(|error| Error::diagnostic(error, &self.files))?;
@@ -123,16 +133,24 @@ impl<'a> Builder<'a> {
                         self.overlays,
                     )
                     .map_err(|error| Error::diagnostic(error, &self.files))?;
-                    let dependency = self.load_mal(&canonical, Some(required.kind.path_span))?;
-                    let requirements = &mut self.requirements[id.index() as usize];
-                    if !requirements
-                        .iter()
-                        .any(|requirement| requirement.target == dependency)
-                    {
-                        requirements.push(SourceRequirement {
-                            target: dependency,
-                            span: required.kind.path_span,
-                        });
+                    match self.states.get(&canonical).copied() {
+                        Some(State::Loaded(dependency)) => {
+                            self.add_mal_requirement(importer, dependency, required.kind.path_span)
+                        }
+                        Some(State::Loading) => {
+                            let diagnostic = Diagnostic::error("cyclic `.mal` requirement")
+                                .with_primary(
+                                    required.kind.path_span,
+                                    format!(
+                                        "this reaches `{}` while it is still loading",
+                                        canonical.display()
+                                    ),
+                                );
+                            return Err(Error::diagnostic(diagnostic, &self.files));
+                        }
+                        None => pending.push(
+                            self.begin_mal(&canonical, Some((importer, required.kind.path_span)))?,
+                        ),
                     }
                 }
                 RequirementKind::C => {
@@ -145,8 +163,48 @@ impl<'a> Builder<'a> {
                 }
             }
         }
-        self.states.insert(path.to_owned(), State::Loaded(id));
-        Ok(id)
+        Ok(root_id)
+    }
+
+    fn begin_mal(
+        &mut self,
+        path: &Path,
+        requested_by: Option<(FileId, crate::source::Span)>,
+    ) -> Result<PendingFile, Error> {
+        let id = FileId::new(self.files.len() as u32);
+        let source = self.overlays.get(path).map_or_else(
+            || SourceFile::load(id, path).map_err(Error::source),
+            |text| Ok(SourceFile::new(id, path, (*text).to_owned())),
+        )?;
+        let parsed =
+            crate::parser::parse(&source).map_err(|error| Error::diagnostic(error, &source))?;
+        self.states.insert(path.to_owned(), State::Loading);
+        self.files.push(source);
+        self.requirements.push(Vec::new());
+        Ok(PendingFile {
+            path: path.to_owned(),
+            id,
+            requirements: parsed.requirements.into_iter(),
+            requested_by,
+        })
+    }
+
+    fn add_mal_requirement(
+        &mut self,
+        importer: FileId,
+        dependency: FileId,
+        span: crate::source::Span,
+    ) {
+        let requirements = &mut self.requirements[importer.index() as usize];
+        if !requirements
+            .iter()
+            .any(|requirement| requirement.target == dependency)
+        {
+            requirements.push(SourceRequirement {
+                target: dependency,
+                span,
+            });
+        }
     }
 }
 
@@ -203,5 +261,32 @@ fn canonicalize_mal_requirement(
         Ok(path) => Ok(path),
         Err(_) if overlays.contains_key(path) => Ok(path.to_owned()),
         Err(_) => canonicalize_requirement(path, span),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loads_deep_requirement_chains_without_host_recursion() {
+        let directory = Path::new("/tmp/malc-deep-source-graph");
+        let depth = 4096;
+        let overlays = (0..depth)
+            .map(|index| {
+                let path = directory.join(format!("file{index}.mal"));
+                let text = if index + 1 == depth {
+                    "value := 0;".to_owned()
+                } else {
+                    format!("require \"./file{}.mal\"; value{index} := 0;", index + 1)
+                };
+                (path, text)
+            })
+            .collect::<HashMap<_, _>>();
+        let root = directory.join("file0.mal");
+
+        let graph = load_with_overlays(&root, &overlays[&root], &overlays).unwrap();
+
+        assert_eq!(graph.files().len(), depth);
     }
 }

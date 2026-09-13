@@ -108,3 +108,39 @@ fn rejects_conflicting_imports_and_dependency_entry_points() {
     let error = malc::resolve::resolve_graph(&graph, &parsed).unwrap_err();
     assert_eq!(error.message, "`main` declared outside the root file");
 }
+
+#[test]
+fn resolves_deep_requirement_chains_without_host_recursion() {
+    let depth = 4096;
+    let files = (0..depth)
+        .map(|index| {
+            let text = if index + 1 == depth {
+                format!("value{index} := 0;")
+            } else {
+                format!("require \"./file{}.mal\"; value{index} := 0;", index + 1)
+            };
+            SourceFile::new(FileId::new(index as u32), format!("file{index}.mal"), text)
+        })
+        .collect::<Vec<_>>();
+    let parsed = files
+        .iter()
+        .map(|source| malc::parser::parse(source).unwrap())
+        .collect::<Vec<_>>();
+    let requirements = (0..depth)
+        .map(|index| {
+            if index + 1 == depth {
+                Vec::new()
+            } else {
+                vec![SourceRequirement {
+                    target: FileId::new((index + 1) as u32),
+                    span: parsed[index].requirements[0].kind.path_span,
+                }]
+            }
+        })
+        .collect();
+    let graph = SourceGraph::new(FileId::new(0), files, requirements, Vec::new());
+
+    let resolved = malc::resolve::resolve_graph(&graph, &parsed).unwrap();
+
+    assert_eq!(resolved.items.len(), depth);
+}

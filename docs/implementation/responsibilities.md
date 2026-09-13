@@ -115,6 +115,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類とtop-level function候補を提供するsyntax indexを構成 |
 | `editor/syntax/declaration` | current tokenからtop-level function declarationを保守的に分類 |
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
+| `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
