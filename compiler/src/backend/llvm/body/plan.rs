@@ -34,10 +34,16 @@ pub(super) struct TopLevelConstants {
 }
 
 #[derive(Clone)]
-struct Constant {
-    ty: Type,
-    representation: String,
-    product: Option<Vec<Constant>>,
+pub(super) struct Constant {
+    pub(super) ty: Type,
+    kind: ConstantKind,
+}
+
+#[derive(Clone)]
+enum ConstantKind {
+    Value(String),
+    Product(Vec<Constant>),
+    Sum { index: usize, value: Box<Constant> },
 }
 
 impl TopLevelConstants {
@@ -64,9 +70,8 @@ impl TopLevelConstants {
         &self.globals
     }
 
-    pub(super) fn get(&self, id: ValueId) -> Option<(&Type, &str)> {
-        let value = self.values.get(&id)?;
-        Some((&value.ty, &value.representation))
+    pub(super) fn get(&self, id: ValueId) -> Option<&Constant> {
+        self.values.get(&id)
     }
 
     fn operation(
@@ -81,11 +86,10 @@ impl TopLevelConstants {
             Operation::Atom(atom) => self.atom(atom, values)?,
             Operation::MakeClosure { function, captures } if captures.is_empty() => Constant {
                 ty: result_type.clone(),
-                representation: format!(
+                kind: ConstantKind::Value(format!(
                     "{{ ptr @{}, ptr null }}",
                     super::function_name(*function)?
-                ),
-                product: None,
+                )),
             },
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand, values)?;
@@ -108,8 +112,7 @@ impl TopLevelConstants {
                     .collect::<Option<Vec<_>>>()?;
                 Constant {
                     ty: result_type.clone(),
-                    representation: aggregate_constant(&elements, self.types()),
-                    product: Some(elements),
+                    kind: ConstantKind::Product(elements),
                 }
             }
             Operation::SumInjection { index, value } => {
@@ -121,31 +124,21 @@ impl TopLevelConstants {
                 if value.ty != *member {
                     return None;
                 }
-                let representation = if super::types::is_bool(result_type) {
+                let kind = if super::types::is_bool(result_type) {
                     match index {
-                        0 => "false".into(),
-                        1 => "true".into(),
+                        0 => ConstantKind::Value("false".into()),
+                        1 => ConstantKind::Value("true".into()),
                         _ => return None,
                     }
                 } else {
-                    let fields = members
-                        .iter()
-                        .enumerate()
-                        .map(|(member_index, ty)| {
-                            let llvm = self.types().value(ty)?.llvm;
-                            Some(if member_index == *index {
-                                format!("{llvm} {}", value.representation)
-                            } else {
-                                format!("{llvm} poison")
-                            })
-                        })
-                        .collect::<Option<Vec<_>>>()?;
-                    format!("{{ i32 {index}, {} }}", fields.join(", "))
+                    ConstantKind::Sum {
+                        index: *index,
+                        value: Box::new(value),
+                    }
                 };
                 Constant {
                     ty: result_type.clone(),
-                    representation,
-                    product: None,
+                    kind,
                 }
             }
             Operation::PrimitiveUnary { operator, operand } => {
@@ -153,20 +146,21 @@ impl TopLevelConstants {
                 let scalar = super::scalar::scalar_type(&operand.ty)?;
                 let representation = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
-                        format!("fneg ({} {})", scalar.llvm, operand.representation)
+                        format!("fneg ({} {})", scalar.llvm, operand.representation()?)
                     }
                     crate::core::ast::UnaryPrimitive::Negate => {
                         format!(
                             "sub ({} 0, {} {})",
-                            scalar.llvm, scalar.llvm, operand.representation
+                            scalar.llvm,
+                            scalar.llvm,
+                            operand.representation()?
                         )
                     }
                     _ => return None,
                 };
                 Constant {
                     ty: operand.ty,
-                    representation,
-                    product: None,
+                    kind: ConstantKind::Value(representation),
                 }
             }
             _ => return None,
@@ -201,8 +195,7 @@ impl TopLevelConstants {
         };
         Some(Constant {
             ty: atom.ty.clone(),
-            representation,
-            product: None,
+            kind: ConstantKind::Value(representation),
         })
     }
 
@@ -246,7 +239,9 @@ fn bind_pattern(
         }
         Pattern::Wildcard { .. } => {}
         Pattern::Product { elements, .. } => {
-            let fields = value.product?;
+            let ConstantKind::Product(fields) = value.kind else {
+                return None;
+            };
             if fields.len() != elements.len() {
                 return None;
             }
@@ -277,7 +272,9 @@ fn bind_top_pattern(
         }
         TopLevelPattern::Wildcard { .. } => {}
         TopLevelPattern::Product { elements, .. } => {
-            let fields = value.product?;
+            let ConstantKind::Product(fields) = value.kind else {
+                return None;
+            };
             if fields.len() != elements.len() {
                 return None;
             }
@@ -289,31 +286,38 @@ fn bind_top_pattern(
     Some(())
 }
 
-fn aggregate_constant(elements: &[Constant], types: Types) -> String {
-    format!(
-        "{{ {} }}",
-        elements
-            .iter()
-            .map(|element| {
-                format!(
-                    "{} {}",
-                    types
-                        .value(&element.ty)
-                        .expect("admitted constant type")
-                        .llvm,
-                    element.representation
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
+impl Constant {
+    fn representation(&self) -> Option<&str> {
+        let ConstantKind::Value(value) = &self.kind else {
+            return None;
+        };
+        Some(value)
+    }
+
+    pub(super) fn product(&self) -> Option<&[Constant]> {
+        let ConstantKind::Product(elements) = &self.kind else {
+            return None;
+        };
+        Some(elements)
+    }
+
+    pub(super) fn sum(&self) -> Option<(usize, &Constant)> {
+        let ConstantKind::Sum { index, value } = &self.kind else {
+            return None;
+        };
+        Some((*index, value))
+    }
+
+    pub(super) fn value(&self) -> Option<&str> {
+        self.representation()
+    }
 }
 
 fn numeric_conversion(operand: Constant, result_type: &Type) -> Option<Constant> {
     let source = super::scalar::scalar_type(&operand.ty)?;
     let target = super::scalar::scalar_type(result_type)?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
-        operand.representation
+        operand.representation()?.into()
     } else {
         let instruction = if source.floating && target.floating {
             if source.bits > target.bits {
@@ -334,13 +338,14 @@ fn numeric_conversion(operand: Constant, result_type: &Type) -> Option<Constant>
         };
         format!(
             "{instruction} ({} {} to {})",
-            source.llvm, operand.representation, target.llvm
+            source.llvm,
+            operand.representation()?,
+            target.llvm
         )
     };
     Some(Constant {
         ty: result_type.clone(),
-        representation,
-        product: None,
+        kind: ConstantKind::Value(representation),
     })
 }
 

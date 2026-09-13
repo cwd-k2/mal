@@ -104,15 +104,11 @@ impl FunctionEmitter<'_> {
                 })
             }
             (ty, AtomKind::Reference(Reference::Binding(id))) if !self.slots.contains_key(id) => {
-                let (constant_ty, representation) = self.top_levels.get(*id)?;
-                if *constant_ty != *ty {
+                let constant = self.top_levels.get(*id)?.clone();
+                if constant.ty != *ty {
                     return None;
                 }
-                Some(EmittedValue {
-                    ty: ty.clone(),
-                    representation: representation.into(),
-                    owned: false,
-                })
+                self.constant(constant)
             }
             (ty, AtomKind::Reference(Reference::Binding(id))) if self.types.value(ty).is_some() => {
                 let slot = self.slots.get(id)?.clone();
@@ -138,6 +134,47 @@ impl FunctionEmitter<'_> {
             }),
             _ => None,
         }
+    }
+
+    fn constant(&mut self, constant: super::plan::Constant) -> Option<EmittedValue> {
+        if let Some(value) = constant.value() {
+            return Some(EmittedValue {
+                ty: constant.ty.clone(),
+                representation: value.into(),
+                owned: false,
+            });
+        }
+        if let Some(elements) = constant.product() {
+            let Type::Product(types) = &constant.ty else {
+                return None;
+            };
+            if elements.len() != types.len() {
+                return None;
+            }
+            let aggregate_type = self.types.value(&constant.ty)?;
+            let mut aggregate = "poison".to_owned();
+            for (index, (element, expected)) in elements.iter().zip(types.iter()).enumerate() {
+                let element = self.constant(element.clone())?;
+                if element.ty != *expected {
+                    return None;
+                }
+                let element_type = self.types.value(expected)?;
+                let register = self.register();
+                self.line(format!(
+                    "  {register} = insertvalue {} {aggregate}, {} {}, {index}",
+                    aggregate_type.llvm, element_type.llvm, element.representation
+                ));
+                aggregate = register;
+            }
+            return Some(EmittedValue {
+                ty: constant.ty,
+                representation: aggregate,
+                owned: false,
+            });
+        }
+        let (index, value) = constant.sum()?;
+        let value = self.constant(value.clone())?;
+        self.emit_sum_value(index, value, &constant.ty, false)
     }
 
     pub(super) fn store_pattern(
@@ -378,12 +415,7 @@ impl FunctionEmitter<'_> {
         for (index, member) in members.iter().enumerate() {
             self.line(format!("mal_{operation}_{id}_{index}:"));
             if crate::execution::ownership::is_managed(member) {
-                let payload = self.register();
-                self.line(format!(
-                    "  {payload} = extractvalue {} {value}, {}",
-                    sum_type.llvm,
-                    index + 1
-                ));
+                let payload = self.emit_sum_payload(ty, member, value)?;
                 if retain {
                     self.retain_value(member, &payload)?;
                 } else {

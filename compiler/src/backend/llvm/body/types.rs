@@ -1,4 +1,6 @@
-use crate::check::ast::Type;
+use std::collections::HashMap;
+
+use crate::check::ast::{SharedTypeId, Type};
 
 use super::scalar::scalar_type;
 
@@ -9,6 +11,7 @@ pub(in crate::backend::llvm) struct ValueType {
     pub(in crate::backend::llvm) size: usize,
 }
 
+#[derive(Clone, Copy)]
 pub(in crate::backend::llvm) struct Field {
     pub(in crate::backend::llvm) offset: usize,
 }
@@ -26,6 +29,17 @@ impl Types {
     }
 
     pub(in crate::backend::llvm) fn value(self, ty: &Type) -> Option<ValueType> {
+        self.value_cached(ty, &mut HashMap::new())
+    }
+
+    fn value_cached(
+        self,
+        ty: &Type,
+        cache: &mut HashMap<SharedTypeId, ValueType>,
+    ) -> Option<ValueType> {
+        if let Some(value) = ty.shared_id().and_then(|id| cache.get(&id)) {
+            return Some(value.clone());
+        }
         if let Some(scalar) = scalar_type(ty) {
             return Some(ValueType {
                 llvm: scalar.llvm.into(),
@@ -33,7 +47,7 @@ impl Types {
                 size: usize::from(scalar.bits) / 8,
             });
         }
-        match ty {
+        let value = match ty {
             Type::Unit => Some(ValueType {
                 llvm: "i8".into(),
                 alignment: 1,
@@ -66,15 +80,19 @@ impl Types {
                     size: self.pointer_size,
                 },
             ]),
-            Type::Product(elements) => self.product(elements),
+            Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),
                 alignment: 1,
                 size: 1,
             }),
-            Type::Sum(elements) => self.sum(elements),
+            Type::Sum(elements) => self.sum(elements, cache),
             _ => None,
+        }?;
+        if let Some(id) = ty.shared_id() {
+            cache.insert(id, value.clone());
         }
+        Some(value)
     }
 
     pub(in crate::backend::llvm) fn pointer_integer(self) -> Option<String> {
@@ -85,22 +103,27 @@ impl Types {
         self.pointer_size
     }
 
-    fn product(self, elements: &[Type]) -> Option<ValueType> {
-        aggregate_type(self.fields(elements)?)
+    fn product(
+        self,
+        elements: &[Type],
+        cache: &mut HashMap<SharedTypeId, ValueType>,
+    ) -> Option<ValueType> {
+        aggregate_type(self.fields(elements, cache)?)
     }
 
-    fn sum(self, elements: &[Type]) -> Option<ValueType> {
+    fn sum(
+        self,
+        elements: &[Type],
+        cache: &mut HashMap<SharedTypeId, ValueType>,
+    ) -> Option<ValueType> {
         let mut fields = vec![ValueType {
             llvm: "i32".into(),
             alignment: 4,
             size: 4,
         }];
-        fields.extend(
-            elements
-                .iter()
-                .map(|element| self.value(element))
-                .collect::<Option<Vec<_>>>()?,
-        );
+        if let Some(payload) = self.sum_payload(elements, cache)? {
+            fields.push(payload);
+        }
         aggregate_type(fields)
     }
 
@@ -108,24 +131,57 @@ impl Types {
         let Type::Product(elements) = ty else {
             return None;
         };
-        field_layouts(&self.fields(elements)?)
+        field_layouts(&self.fields(elements, &mut HashMap::new())?)
     }
 
     pub(in crate::backend::llvm) fn sum_fields(self, ty: &Type) -> Option<Vec<Field>> {
         let Type::Sum(elements) = ty else {
             return None;
         };
-        let mut fields = vec![ValueType {
+        let tag = ValueType {
             llvm: "i32".into(),
             alignment: 4,
             size: 4,
-        }];
-        fields.extend(self.fields(elements)?);
-        field_layouts(&fields)
+        };
+        let Some(payload) = self.sum_payload(elements, &mut HashMap::new())? else {
+            return field_layouts(&[tag]);
+        };
+        let layouts = field_layouts(&[tag, payload])?;
+        let payload_offset = layouts.get(1)?.offset;
+        let mut variants = vec![layouts[0]];
+        variants.extend((0..elements.len()).map(|_| Field {
+            offset: payload_offset,
+        }));
+        Some(variants)
     }
 
-    fn fields(self, elements: &[Type]) -> Option<Vec<ValueType>> {
-        elements.iter().map(|element| self.value(element)).collect()
+    fn fields(
+        self,
+        elements: &[Type],
+        cache: &mut HashMap<SharedTypeId, ValueType>,
+    ) -> Option<Vec<ValueType>> {
+        elements
+            .iter()
+            .map(|element| self.value_cached(element, cache))
+            .collect()
+    }
+
+    fn sum_payload(
+        self,
+        elements: &[Type],
+        cache: &mut HashMap<SharedTypeId, ValueType>,
+    ) -> Option<Option<ValueType>> {
+        let size = elements
+            .iter()
+            .map(|element| self.value_cached(element, cache).map(|value| value.size))
+            .collect::<Option<Vec<_>>>()?
+            .into_iter()
+            .max();
+        Some(size.map(|size| ValueType {
+            llvm: format!("[{size} x i8]"),
+            alignment: 1,
+            size,
+        }))
     }
 }
 
@@ -175,4 +231,38 @@ pub(super) fn align(value: usize, alignment: usize) -> Option<usize> {
     value
         .checked_add(alignment.checked_sub(1)?)
         .map(|value| value & !(alignment - 1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sums_use_one_maximum_sized_payload_region() {
+        let types = Types::new(8).unwrap();
+        let ty = Type::Sum(vec![Type::UInt8, Type::UInt64].into());
+
+        let value = types.value(&ty).unwrap();
+        let fields = types.sum_fields(&ty).unwrap();
+
+        assert_eq!(value.llvm, "{ i32, [8 x i8] }");
+        assert_eq!(value.size, 12);
+        assert_eq!(
+            fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
+            [0, 4, 4]
+        );
+    }
+
+    #[test]
+    fn lays_out_shared_sum_dags_once_per_node() {
+        let mut ty = Type::Unit;
+        for _ in 0..64 {
+            ty = Type::Sum(vec![ty.clone(), ty].into());
+        }
+
+        let value = Types::new(8).unwrap().value(&ty).unwrap();
+
+        assert_eq!(value.size, 256);
+        assert!(value.llvm.len() < 1_500);
+    }
 }

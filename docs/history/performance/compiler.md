@@ -65,3 +65,13 @@ resolveとcheckを反復走査へ変更し、core境界で中間結果をsource�
 parse、resolve、check、core、ANF、closure conversion、execution planning、LLVM emissionまでをdebug test threadで完走する
 regression testを置いた。これは括弧による明示的な構文nestの上限緩和ではなく、平坦に記述できるoperator列を内部treeの
 形だけで制限しないための変更である。
+
+## 2026-09-13 sum layout
+
+LLVM表現がsumのtagに続けて全variant型をfieldとして並べていたため、値sizeが最大payloadではなく全payloadの総和になり、
+共有された同型variantを持つaliasではlayout計算とLLVM type文字列も重複していた。C host表現は既にunionを使用しており、
+implementation文書が定める表現とも一致していなかった。
+
+LLVM表現をtagと最大payload長のbyte regionへ変更し、全variant offsetを同じpayload先頭へ写した。layout計算は共有型nodeを
+memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 byteから12 byteとなり、同じ直前型を二variantに持つ
+64段のsum DAGは256 byte、LLVM type文字列1,500 byte未満として計算できることを回帰テストにした。

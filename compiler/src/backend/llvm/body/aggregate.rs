@@ -46,11 +46,21 @@ impl FunctionEmitter<'_> {
         value: &Atom,
         result_type: &Type,
     ) -> Option<EmittedValue> {
+        let value = self.atom(value)?;
+        self.emit_sum_value(index, value, result_type, true)
+    }
+
+    pub(super) fn emit_sum_value(
+        &mut self,
+        index: usize,
+        mut value: EmittedValue,
+        result_type: &Type,
+        retain_borrowed: bool,
+    ) -> Option<EmittedValue> {
         let Type::Sum(members) = result_type else {
             return None;
         };
         let member = members.get(index)?;
-        let mut value = self.atom(value)?;
         if value.ty != *member {
             return None;
         }
@@ -65,21 +75,38 @@ impl FunctionEmitter<'_> {
                 owned: false,
             });
         }
-        self.retain_if_borrowed(&mut value)?;
+        if retain_borrowed {
+            self.retain_if_borrowed(&mut value)?;
+        }
         let sum_type = self.types.value(result_type)?;
         let member_type = self.types.value(member)?;
         let tag = self.register();
         self.line(format!(
-            "  {tag} = insertvalue {} poison, i32 {index}, 0",
+            "  {tag} = insertvalue {} zeroinitializer, i32 {index}, 0",
             sum_type.llvm
+        ));
+        let storage = self.register();
+        self.line(format!(
+            "  {storage} = alloca {}, align {}",
+            sum_type.llvm, sum_type.alignment
+        ));
+        self.line(format!(
+            "  store {} {tag}, ptr {storage}, align {}",
+            sum_type.llvm, sum_type.alignment
+        ));
+        let payload = self.register();
+        self.line(format!(
+            "  {payload} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
+            sum_type.llvm
+        ));
+        self.line(format!(
+            "  store {} {}, ptr {payload}, align 1",
+            member_type.llvm, value.representation
         ));
         let result = self.register();
         self.line(format!(
-            "  {result} = insertvalue {} {tag}, {} {}, {}",
-            sum_type.llvm,
-            member_type.llvm,
-            value.representation,
-            index + 1
+            "  {result} = load {}, ptr {storage}, align {}",
+            sum_type.llvm, sum_type.alignment
         ));
         Some(EmittedValue {
             ty: result_type.clone(),
@@ -136,13 +163,8 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 }
             } else {
-                let payload = self.register();
-                self.line(format!(
-                    "  {payload} = extractvalue {} {}, {}",
-                    sum_type.llvm,
-                    scrutinee.representation,
-                    arm.index + 1
-                ));
+                let payload =
+                    self.emit_sum_payload(&scrutinee.ty, member, &scrutinee.representation)?;
                 EmittedValue {
                     ty: member.clone(),
                     representation: payload,
@@ -154,5 +176,35 @@ impl FunctionEmitter<'_> {
             self.line(format!("  br label %mal_state_{}", arm.target.0));
         }
         Some(())
+    }
+
+    pub(super) fn emit_sum_payload(
+        &mut self,
+        sum: &Type,
+        member: &Type,
+        value: &str,
+    ) -> Option<String> {
+        let sum_type = self.types.value(sum)?;
+        let member_type = self.types.value(member)?;
+        let storage = self.register();
+        self.line(format!(
+            "  {storage} = alloca {}, align {}",
+            sum_type.llvm, sum_type.alignment
+        ));
+        self.line(format!(
+            "  store {} {value}, ptr {storage}, align {}",
+            sum_type.llvm, sum_type.alignment
+        ));
+        let pointer = self.register();
+        self.line(format!(
+            "  {pointer} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
+            sum_type.llvm
+        ));
+        let payload = self.register();
+        self.line(format!(
+            "  {payload} = load {}, ptr {pointer}, align 1",
+            member_type.llvm
+        ));
+        Some(payload)
     }
 }
