@@ -24,32 +24,57 @@ pub(in crate::execution) fn is_acyclic(
     graph: &HashMap<FunctionId, Vec<FunctionId>>,
     nodes: impl IntoIterator<Item = FunctionId>,
 ) -> bool {
-    fn visit(
-        graph: &HashMap<FunctionId, Vec<FunctionId>>,
-        current: FunctionId,
-        active: &mut HashSet<FunctionId>,
-        finished: &mut HashSet<FunctionId>,
-    ) -> bool {
-        if finished.contains(&current) {
-            return true;
-        }
-        if !active.insert(current) {
-            return false;
-        }
-        if graph.get(&current).is_some_and(|next| {
-            next.iter()
-                .any(|target| !visit(graph, *target, active, finished))
-        }) {
-            return false;
-        }
-        active.remove(&current);
-        finished.insert(current);
-        true
-    }
-
     let mut active = HashSet::new();
     let mut finished = HashSet::new();
-    nodes
-        .into_iter()
-        .all(|node| visit(graph, node, &mut active, &mut finished))
+    for root in nodes {
+        if finished.contains(&root) {
+            continue;
+        }
+        active.insert(root);
+        let mut pending = vec![(root, 0_usize)];
+        while let Some((node, next_target)) = pending.last_mut() {
+            if let Some(target) = graph
+                .get(node)
+                .and_then(|targets| targets.get(*next_target))
+            {
+                *next_target += 1;
+                if finished.contains(target) {
+                    continue;
+                }
+                if !active.insert(*target) {
+                    return false;
+                }
+                pending.push((*target, 0));
+                continue;
+            }
+            let (node, _) = pending.pop().expect("pending function exists");
+            active.remove(&node);
+            finished.insert(node);
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resolve::ast::LambdaId;
+
+    fn function(index: u32) -> FunctionId {
+        FunctionId::Lambda(LambdaId(index))
+    }
+
+    #[test]
+    fn checks_deep_call_graphs_without_host_recursion() {
+        let count = 100_000_u32;
+        let graph = (0..count - 1)
+            .map(|index| (function(index), vec![function(index + 1)]))
+            .collect::<HashMap<_, _>>();
+
+        assert!(is_acyclic(&graph, (0..count).map(function)));
+
+        let mut cyclic = graph;
+        cyclic.insert(function(count - 1), vec![function(0)]);
+        assert!(!is_acyclic(&cyclic, (0..count).map(function)));
+    }
 }
