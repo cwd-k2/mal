@@ -325,3 +325,15 @@ fn rejects_malformed_source() {
     assert_eq!(diagnostic.message, "expected an expression");
     assert!(diagnostic.primary.is_some());
 }
+
+#[test]
+fn formats_many_independent_blocks_in_one_pass() {
+    let count = 4_096;
+    let input = (0..count)
+        .map(|index| format!("function{index}::Unit->Int32:=(){{0i32;}};\n"))
+        .collect::<String>();
+
+    let formatted = format(&input);
+
+    assert_eq!(formatted.matches(" :: Unit -> Int32 :=").count(), count);
+}

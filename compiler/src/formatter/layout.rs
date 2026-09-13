@@ -10,15 +10,15 @@ pub(super) struct BlockLayout {
 
 impl BlockLayout {
     pub(super) fn new(source: &SourceFile, lexed: &Lexed) -> Self {
-        let mut matching = vec![None; lexed.tokens.len()];
-        let mut stack = Vec::new();
+        let mut matching_parentheses = vec![None; lexed.tokens.len()];
+        let mut parentheses = Vec::new();
         for (index, token) in lexed.tokens.iter().enumerate() {
             match token.kind {
-                TokenKind::LeftBrace => stack.push(index),
-                TokenKind::RightBrace => {
-                    if let Some(left) = stack.pop() {
-                        matching[left] = Some(index);
-                        matching[index] = Some(left);
+                TokenKind::LeftParen => parentheses.push(index),
+                TokenKind::RightParen => {
+                    if let Some(left) = parentheses.pop() {
+                        matching_parentheses[left] = Some(index);
+                        matching_parentheses[index] = Some(left);
                     }
                 }
                 _ => {}
@@ -28,53 +28,59 @@ impl BlockLayout {
         let mut compact = vec![false; lexed.tokens.len()];
         let mut omit = vec![false; lexed.tokens.len()];
         let mut terminate = vec![false; lexed.tokens.len()];
-        for left in 0..lexed.tokens.len() {
-            let Some(right) = matching[left] else {
-                continue;
-            };
-            if left > right {
+        let comments = lexed
+            .lexemes
+            .iter()
+            .filter(|lexeme| matches!(lexeme.kind, LexemeKind::LineComment))
+            .map(|lexeme| lexeme.span)
+            .collect::<Vec<_>>();
+        let mut blocks = Vec::<OpenBlock>::new();
+        for (index, token) in lexed.tokens.iter().enumerate() {
+            if matches!(token.kind, TokenKind::LeftBrace) {
+                if let Some(parent) = blocks.last_mut() {
+                    parent.has_nested = true;
+                }
+                blocks.push(OpenBlock {
+                    left: index,
+                    has_nested: false,
+                    semicolons: Vec::new(),
+                });
                 continue;
             }
-            let has_nested_block = lexed.tokens[left + 1..right]
-                .iter()
-                .any(|token| matches!(token.kind, TokenKind::LeftBrace));
-            let has_comment = lexed.lexemes.iter().any(|lexeme| {
-                matches!(lexeme.kind, LexemeKind::LineComment)
-                    && lexeme.span.start() > lexed.tokens[left].span.end()
-                    && lexeme.span.end() < lexed.tokens[right].span.start()
-            });
-            let mut depth = 0_usize;
-            let semicolons = lexed.tokens[left + 1..right]
-                .iter()
-                .enumerate()
-                .filter_map(|(offset, token)| match token.kind {
-                    TokenKind::LeftBrace => {
-                        depth += 1;
-                        None
-                    }
-                    TokenKind::RightBrace => {
-                        depth = depth.saturating_sub(1);
-                        None
-                    }
-                    TokenKind::Semicolon if depth == 0 => Some(left + 1 + offset),
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
+            if matches!(token.kind, TokenKind::Semicolon) {
+                if let Some(block) = blocks.last_mut() {
+                    block.semicolons.push(index);
+                }
+                continue;
+            }
+            if !matches!(token.kind, TokenKind::RightBrace) {
+                continue;
+            }
+            let Some(block) = blocks.pop() else {
+                continue;
+            };
+            let left = block.left;
+            let right = index;
+            let first_comment = comments
+                .partition_point(|comment| comment.start() <= lexed.tokens[left].span.end());
+            let has_comment = comments
+                .get(first_comment)
+                .is_some_and(|comment| comment.end() < lexed.tokens[right].span.start());
             let last = right.checked_sub(1);
             let is_single_line = source
                 .location(lexed.tokens[left].span.start())
                 .zip(source.location(lexed.tokens[right].span.end()))
                 .is_some_and(|(left, right)| left.line == right.line);
-            let is_compact = !starts_when_block(&lexed.tokens, left)
+            let is_compact = !starts_when_block(&lexed.tokens, &matching_parentheses, left)
                 && is_single_line
-                && !has_nested_block
+                && !block.has_nested
                 && !has_comment
-                && (semicolons.is_empty()
-                    || semicolons.len() == 1 && semicolons.first().copied() == last);
+                && (block.semicolons.is_empty()
+                    || block.semicolons.len() == 1 && block.semicolons.first().copied() == last);
             compact[left] = is_compact;
             compact[right] = is_compact;
             if is_compact {
-                if let Some(index) = semicolons.first() {
+                if let Some(index) = block.semicolons.first() {
                     omit[*index] = true;
                 }
             } else if last
@@ -92,28 +98,26 @@ impl BlockLayout {
     }
 }
 
-fn starts_when_block(tokens: &[crate::lexer::Token], left_brace: usize) -> bool {
+struct OpenBlock {
+    left: usize,
+    has_nested: bool,
+    semicolons: Vec<usize>,
+}
+
+fn starts_when_block(
+    tokens: &[crate::lexer::Token],
+    matching_parentheses: &[Option<usize>],
+    left_brace: usize,
+) -> bool {
     let Some(right_parenthesis) = left_brace.checked_sub(1) else {
         return false;
     };
     if !matches!(tokens[right_parenthesis].kind, TokenKind::RightParen) {
         return false;
     }
-
-    let mut depth = 0_usize;
-    for index in (0..=right_parenthesis).rev() {
-        match tokens[index].kind {
-            TokenKind::RightParen => depth += 1,
-            TokenKind::LeftParen => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    return index > 0 && matches!(tokens[index - 1].kind, TokenKind::When);
-                }
-            }
-            _ => {}
-        }
-    }
-    false
+    matching_parentheses[right_parenthesis]
+        .and_then(|left| left.checked_sub(1))
+        .is_some_and(|before| matches!(tokens[before].kind, TokenKind::When))
 }
 
 pub(super) fn top_level_breaks(

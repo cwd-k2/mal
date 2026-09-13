@@ -129,13 +129,17 @@ impl ControlLayout {
         continuations: &[Node<Expression>],
         block_position: bool,
     ) {
-        let Some(bracket) = lexed.tokens.iter().position(|token| {
-            token.span.start() >= value.span.end()
-                && token.span.end() <= expression.span.end()
-                && matches!(token.kind, TokenKind::LeftBracket)
-        }) else {
+        let start = lexed
+            .tokens
+            .partition_point(|token| token.span.start() < value.span.end());
+        let Some(offset) = lexed.tokens[start..]
+            .iter()
+            .take_while(|token| token.span.end() <= expression.span.end())
+            .position(|token| matches!(token.kind, TokenKind::LeftBracket))
+        else {
             return;
         };
+        let bracket = start + offset;
         self.sum_continuations[bracket] = Some(block_position);
         for continuation in continuations {
             if let Ok(index) = lexed
