@@ -1,7 +1,9 @@
 require "./host.c";
 
+// The process ABI supplies a count and a pointer to packed (Ptr, UInt64) argument descriptors.
 Arguments :: (UInt64, Ptr);
 
+// Keeping byte I/O in this small host interface leaves parsing and rendering in mal.
 extern readStdin :: Unit -> Symbol;
 extern symbolFromByte :: UInt8 -> Symbol;
 extern writeStdout :: Symbol -> Unit;

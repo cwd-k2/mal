@@ -3,13 +3,16 @@ Cursor :: (Symbol, UInt64);
 // Stats fields: 0 JSON value count, 1 maximum value depth.
 Stats :: (UInt64, UInt64);
 Parsed :: (Cursor, Stats);
+// Variant 0 is an error message; variant 1 is the remaining cursor and accumulated statistics.
 ParseResult :: [Symbol, Parsed];
 // Scan carries the next cursor and an empty success message or a non-empty error message.
 Scan :: (Cursor, Symbol);
 // ParserState fields: 0 cursor, 1 packed frames, 2 frame depth, 3 statistics.
 ParserState :: (Cursor, UInt64, UInt64, Stats);
 
-// Each parser frame occupies one hexadecimal digit. The root frame leaves room for 15 containers.
+// The least-significant hexadecimal digit is the active frame. Parent frames act as explicit
+// return addresses, replacing mutually recursive array, object, and value parser functions.
+// The root frame occupies one digit, intentionally leaving room for 15 nested containers.
 _arrayFirst :: UInt64 := 1u64;
 _arrayValue :: UInt64 := 2u64;
 _arrayNext :: UInt64 := 3u64;
@@ -21,6 +24,7 @@ _objectNext :: UInt64 := 8u64;
 _rootValue :: UInt64 := 9u64;
 _rootDone :: UInt64 := 10u64;
 
+// Sum constructors arrive as the two continuation parameters of the result type.
 _parseFailure :: Symbol -> ParseResult := (message)[failure, success] {
     failure(message);
 };
@@ -71,6 +75,7 @@ _includeValue :: (Stats, UInt64) -> Stats := (stats, depth) {
     (count + 1u64, nextDepth);
 };
 
+// Reading and replacing affect only the active frame; pushing and popping move the active end.
 _readFrame :: UInt64 -> UInt64 := (frames) {
     frames % 16u64;
 };
@@ -87,6 +92,7 @@ _popFrame :: UInt64 -> UInt64 := (frames) {
     frames / 16u64;
 };
 
+// Completing a value rewrites its parent frame to the state that accepts a delimiter next.
 _completeValue :: UInt64 -> UInt64 := (frames) {
     frame := frames._readFrame();
     if (frame == _arrayFirst || frame == _arrayValue)
@@ -127,6 +133,7 @@ _hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
         return(source._hasHexDigits(index + 1u64, remaining - 1u64));
     };
 
+// The cursor starts after the opening quote. This validates escapes without decoding the string.
 _scanString :: Cursor -> Scan := (cursor)[return] {
     (source, index) := cursor;
     when (index == #source) {
@@ -173,6 +180,8 @@ _scanDigits :: Cursor -> Cursor := (cursor)[return] {
     return((source, index + 1u64)._scanDigits());
 };
 
+// JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
+// require at least one digit without converting the numeric value.
 _scanNumber :: Cursor -> Scan := (cursor)[return] {
     (source, start) := cursor;
     unsigned := if (source # start == '-')
@@ -225,6 +234,9 @@ _scanNumber :: Cursor -> Scan := (cursor)[return] {
     return((afterExponent, ""));
 };
 
+// This single tail-recursive dispatcher executes the state at the top of the packed frame stack.
+// Every transition either consumes input, changes the active state, pops a completed container, or
+// returns a result, so malformed input cannot make an unchanged state loop forever.
 _parse :: ParserState -> ParseResult := (state)[return] {
     (untrimmed, frames, frameDepth, stats) := state;
     cursor := untrimmed._skipWhitespace();
@@ -241,6 +253,8 @@ _parse :: ParserState -> ParseResult := (state)[return] {
     };
 
     byte := source # index;
+    // Delimiter states run before value recognition, preventing commas and closers from becoming
+    // accidental values and distinguishing the first element from later elements.
     when (frame == _arrayNext) {
         when (byte == ']') {
             return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
@@ -292,6 +306,7 @@ _parse :: ParserState -> ParseResult := (state)[return] {
         childFrame := if (byte == '[')
             then { _arrayFirst }
             else { _objectFirst };
+        // nextFrames preserves the enclosing return state while childFrame becomes active.
         return(_parse((cursor._advance(), nextFrames._pushFrame(childFrame), frameDepth + 1u64, nextStats)));
     };
     when (byte == '"') {
@@ -325,6 +340,7 @@ _parse :: ParserState -> ParseResult := (state)[return] {
     return(_parseFailure("expected JSON value"));
 };
 
+// The root sentinel makes trailing non-whitespace bytes an error after exactly one JSON value.
 parseDocument :: Symbol -> ParseResult := (source) {
     ((source, 0u64), _rootValue, 1u64, (0u64, 0u64))._parse();
 };

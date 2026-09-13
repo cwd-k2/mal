@@ -3,6 +3,7 @@ require "./parser.mal";
 require "./query.mal";
 require "./render.mal";
 
+// Each process argument descriptor stores its byte pointer followed by its UInt64 length.
 _readArgument :: Ptr -> Symbol := (arguments) {
     Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
 };
@@ -14,10 +15,12 @@ _reportParseError :: Symbol -> Int32 := (message) {
 
 _runQuery :: Query -> Int32 := (query) {
     parsed := readStdin().parseDocument();
+    // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
     parsed[
     _reportParseError,
     (value) {
         (_, stats) := value;
+        // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
         renderer := query[
             renderCount,
             renderDepth

@@ -8,6 +8,7 @@ MAL_DEFINE_readStdin(call) {
     size_t length = 0;
     size_t capacity = 0;
 
+    /* The host owns this growable buffer; the terminal Symbol return copies its bytes into mal. */
     for (;;) {
         if (length == capacity) {
             size_t next_capacity = capacity == 0 ? 4096 : capacity * 2;
@@ -45,6 +46,7 @@ MAL_DEFINE_readStdin(call) {
 
 MAL_DEFINE_symbolFromByte(call, value) {
     uint8_t byte = value;
+    /* The return helper copies this one-byte stack buffer before the adapter returns. */
     return mal_Symbol_return(
         call,
         mal_Symbol_from_bytes((mal_span_t){ .data = &byte, .length = 1 })
@@ -52,6 +54,7 @@ MAL_DEFINE_symbolFromByte(call, value) {
 }
 
 MAL_DEFINE_writeStdout(call, value) {
+    /* Symbol bytes are borrowed for this call and remain owned by mal. */
     mal_span_t bytes = mal_Symbol_to_bytes(call, value);
     if (bytes.length > 0
         && fwrite(bytes.data, 1, (size_t)bytes.length, stdout) != (size_t)bytes.length) {

@@ -1,6 +1,7 @@
 require "./host.mal";
 require "./parser.mal";
 
+// Decimal rendering recurses on the quotient and appends the least-significant digit on return.
 _renderDecimal :: UInt64 -> Symbol := (value) {
     digit := symbolFromByte(UInt8('0') + UInt8(value % 10u64));
     if (value < 10u64)
@@ -8,6 +9,7 @@ _renderDecimal :: UInt64 -> Symbol := (value) {
     else { (value / 10u64)._renderDecimal() + digit };
 };
 
+// These factories make both case arms produce the same first-class Stats -> Symbol value.
 renderCount :: Unit -> (Stats -> Symbol) := () {
     (stats) {
         (count, _) := stats;
