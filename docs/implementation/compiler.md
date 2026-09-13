@@ -132,4 +132,6 @@ typed IRへ補わず、source-levelの[`memory` contract](../spec/memory.md)と�
 C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
 identityを所有し、`HostTypes`は公開型とexternal opaque type名を分類する。C shimとheaderは同じregistryを参照する。LLVM moduleと
 C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使い、LLVM aggregate表現をpublic C ABIへ公開しない。
+extern marshallingのlayout planとsum helperはcanonical type DAGの共有nodeごとに一度だけ構成し、同じsubtypeへの複数の辺で
+再生成しない。
 現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書にはtest一覧を重複させない。

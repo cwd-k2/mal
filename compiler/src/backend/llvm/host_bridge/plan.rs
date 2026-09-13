@@ -1,4 +1,6 @@
-use crate::check::ast::Type;
+use std::{collections::HashMap, rc::Rc};
+
+use crate::check::ast::{SharedTypeId, Type};
 
 use super::body::types::{self, Types};
 
@@ -21,16 +23,27 @@ pub(super) enum Kind<'a> {
 
 pub(super) struct Field<'a> {
     pub(super) offset: usize,
-    pub(super) value: Value<'a>,
+    pub(super) value: Rc<Value<'a>>,
 }
 
 impl<'a> Value<'a> {
-    pub(super) fn new(ty: &'a Type, types: Types) -> Option<Self> {
+    pub(super) fn new(ty: &'a Type, types: Types) -> Option<Rc<Self>> {
+        Self::new_cached(ty, types, &mut HashMap::new())
+    }
+
+    fn new_cached(
+        ty: &'a Type,
+        types: Types,
+        cache: &mut HashMap<SharedTypeId, Rc<Self>>,
+    ) -> Option<Rc<Self>> {
+        if let Some(value) = ty.shared_id().and_then(|id| cache.get(&id)) {
+            return Some(value.clone());
+        }
         let kind = match ty {
             Type::Unit => Kind::Unit,
             Type::Symbol => Kind::Symbol,
             Type::External { .. } => Kind::External,
-            Type::Product(elements) => Kind::Product(product_fields(ty, elements, types)?),
+            Type::Product(elements) => Kind::Product(product_fields(ty, elements, types, cache)?),
             Type::Sum(elements) if !types::is_bool(ty) => {
                 let layouts = types.sum_fields(ty)?;
                 Kind::Sum {
@@ -41,7 +54,7 @@ impl<'a> Value<'a> {
                         .map(|(element, layout)| {
                             Some(Field {
                                 offset: layout.offset,
-                                value: Value::new(element, types)?,
+                                value: Self::new_cached(element, types, cache)?,
                             })
                         })
                         .collect::<Option<Vec<_>>>()?,
@@ -50,11 +63,20 @@ impl<'a> Value<'a> {
             Type::Function { .. } => return None,
             _ => Kind::Scalar,
         };
-        Some(Self { ty, kind })
+        let value = Rc::new(Self { ty, kind });
+        if let Some(id) = ty.shared_id() {
+            cache.insert(id, value.clone());
+        }
+        Some(value)
     }
 }
 
-fn product_fields<'a>(ty: &Type, elements: &'a [Type], types: Types) -> Option<Vec<Field<'a>>> {
+fn product_fields<'a>(
+    ty: &Type,
+    elements: &'a [Type],
+    types: Types,
+    cache: &mut HashMap<SharedTypeId, Rc<Value<'a>>>,
+) -> Option<Vec<Field<'a>>> {
     let layouts = types.product_fields(ty)?;
     elements
         .iter()
@@ -62,7 +84,7 @@ fn product_fields<'a>(ty: &Type, elements: &'a [Type], types: Types) -> Option<V
         .map(|(element, layout)| {
             Some(Field {
                 offset: layout.offset,
-                value: Value::new(element, types)?,
+                value: Value::new_cached(element, types, cache)?,
             })
         })
         .collect()
@@ -83,7 +105,7 @@ mod tests {
             .into(),
         );
         let value = Value::new(&ty, Types::new(8).expect("target types")).expect("value plan");
-        let Kind::Product(fields) = value.kind else {
+        let Kind::Product(fields) = &value.kind else {
             panic!("product plan");
         };
 
@@ -107,18 +129,46 @@ mod tests {
         let Kind::Sum {
             tag_offset,
             variants,
-        } = value.kind
+        } = &value.kind
         else {
             panic!("sum plan");
         };
 
-        assert_eq!(tag_offset, 0);
+        assert_eq!(*tag_offset, 0);
         assert_eq!(
             variants
                 .iter()
                 .map(|field| field.offset)
                 .collect::<Vec<_>>(),
             [4, 4]
+        );
+    }
+
+    #[test]
+    fn shares_repeated_marshalling_subplans() {
+        let mut ty = Type::UInt8;
+        for _ in 0..64 {
+            ty = Type::Sum(vec![ty.clone(), ty].into());
+        }
+        let mut value = Value::new(&ty, Types::new(8).unwrap()).unwrap();
+
+        for depth in 0..63 {
+            let Kind::Sum { variants, .. } = &value.kind else {
+                panic!("nested sum plan");
+            };
+            assert!(
+                Rc::ptr_eq(&variants[0].value, &variants[1].value),
+                "unshared plan at depth {depth}"
+            );
+            value = variants[0].value.clone();
+        }
+        let Kind::Sum { variants, .. } = &value.kind else {
+            panic!("leaf sum plan");
+        };
+        assert!(
+            variants
+                .iter()
+                .all(|variant| matches!(&variant.value.kind, Kind::Scalar))
         );
     }
 }

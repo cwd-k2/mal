@@ -1,12 +1,14 @@
 mod plan;
 
+use std::collections::HashMap;
+
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
     Statement, SwitchCase, TranslationUnit, TypeName,
 };
-use crate::check::ast::Type;
+use crate::check::ast::{SharedTypeId, Type};
 
 pub(super) struct Bridge {
     pub(super) llvm_declaration: String,
@@ -107,6 +109,8 @@ struct Marshalling<'a> {
     external: u32,
     raw_types: &'a crate::backend::c::RawHostTypes,
     next_helper: usize,
+    read_helpers: HashMap<SharedTypeId, String>,
+    write_helpers: HashMap<SharedTypeId, String>,
     helpers: TranslationUnit,
 }
 
@@ -116,6 +120,8 @@ impl<'a> Marshalling<'a> {
             external,
             raw_types,
             next_helper: 0,
+            read_helpers: HashMap::new(),
+            write_helpers: HashMap::new(),
             helpers: TranslationUnit::default(),
         }
     }
@@ -215,7 +221,13 @@ impl<'a> Marshalling<'a> {
         pointer: Expr,
         context: Expr,
     ) -> Option<Expr> {
+        if let Some(helper) = ty.shared_id().and_then(|id| self.read_helpers.get(&id)) {
+            return Some(Expr::named_call(helper.clone(), [context, pointer]));
+        }
         let helper = self.helper_name("read");
+        if let Some(id) = ty.shared_id() {
+            self.read_helpers.insert(id, helper.clone());
+        }
         let c_type = self.raw_types.c_type(ty);
         let cases = variants
             .iter()
@@ -338,7 +350,13 @@ impl<'a> Marshalling<'a> {
         pointer: Expr,
         context: Expr,
     ) -> Option<Statement> {
+        if let Some(helper) = ty.shared_id().and_then(|id| self.write_helpers.get(&id)) {
+            return Some(Statement::call(helper.clone(), [context, pointer, value]));
+        }
         let helper = self.helper_name("write");
+        if let Some(id) = ty.shared_id() {
+            self.write_helpers.insert(id, helper.clone());
+        }
         let c_type = self.raw_types.c_type(ty);
         let mut cases = Vec::new();
         for (index, field) in variants.iter().enumerate() {

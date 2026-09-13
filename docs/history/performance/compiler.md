@@ -75,3 +75,8 @@ implementation文書が定める表現とも一致していなかった。
 LLVM表現をtagと最大payload長のbyte regionへ変更し、全variant offsetを同じpayload先頭へ写した。layout計算は共有型nodeを
 memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 byteから12 byteとなり、同じ直前型を二variantに持つ
 64段のsum DAGは256 byte、LLVM type文字列1,500 byte未満として計算できることを回帰テストにした。
+
+同じDAGをextern signatureに使う場合、当初のC shim生成は各辺からmarshalling planとsum helperを再構成していたため、
+内部layoutを共有しても生成量が指数的に増加した。planを共有node identityでinternし、read/write helperも方向別に一度だけ
+生成するよう変更した。直前の型を二variantに持つ16段のextern sumについて、生成shimを250,000 byte未満かつwrite helper
+16個とする回帰テストを置いた。
