@@ -14,6 +14,10 @@ impl Parser<'_> {
     }
 
     fn parse_expression_bp(&mut self, minimum: u8) -> Result<Node<Expression>, Diagnostic> {
+        self.within_syntax_nesting(|parser| parser.parse_expression_bp_inner(minimum))
+    }
+
+    fn parse_expression_bp_inner(&mut self, minimum: u8) -> Result<Node<Expression>, Diagnostic> {
         let mut left = self.parse_prefix()?;
         let mut non_associative = None;
         loop {

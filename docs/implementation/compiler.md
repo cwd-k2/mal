@@ -135,3 +135,13 @@ C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使�
 extern marshallingのlayout planとsum helperはcanonical type DAGの共有nodeごとに一度だけ構成し、同じsubtypeへの複数の辺で
 再生成しない。
 現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書にはtest一覧を重複させない。
+
+## 入力の構造上限
+
+reference compilerは再帰的な構文構造を一つのparse中で64 levelまで受理し、それを超える入力をsource span付きdiagnosticで
+拒否する。対象は括弧、lambda、control form、prefix operator、右結合function型、nested patternなど、構文木そのものの深さに
+なる構成である。top-level item、block item、argument、aggregate element、左結合operatorのような平坦な列の長さはこの上限へ
+数えず、各stageが反復走査する。
+
+この値はmalの意味論ではなくreference compilerのresource limitであり、実行時のtrap条件ではない。採択理由は
+[D045](../history/decisions/D045.md)に記録する。

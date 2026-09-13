@@ -20,6 +20,33 @@ fn binding_value(text: &str) -> Expression {
     binding.value.kind
 }
 
+#[test]
+fn accepts_ordinary_nesting_and_rejects_excessive_nesting() {
+    let ordinary = format!(
+        "main :: Unit -> Int32 := () {{ {}0i32{}; }};",
+        "(".repeat(32),
+        ")".repeat(32)
+    );
+    let ordinary_source = source(&ordinary);
+    malc::pipeline::check(&ordinary_source).expect("ordinary nesting must check");
+    malc::formatter::format(&ordinary_source).expect("ordinary nesting must format");
+
+    let excessive = format!(
+        "main :: Unit -> Int32 := () {{ {}0i32{}; }};",
+        "(".repeat(300),
+        ")".repeat(300)
+    );
+    let error = parse(&source(&excessive)).expect_err("excessive nesting must be rejected");
+    assert_eq!(error.message, "syntax nesting limit exceeded");
+    assert!(
+        error
+            .primary
+            .expect("nesting diagnostic location")
+            .message
+            .contains("at most 64 levels")
+    );
+}
+
 #[path = "parser/atoms.rs"]
 mod atoms;
 #[path = "parser/declarations.rs"]

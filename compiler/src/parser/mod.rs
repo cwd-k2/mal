@@ -9,6 +9,8 @@ use crate::source::{SourceFile, Span};
 
 mod expression;
 
+const MAX_SYNTAX_NESTING: usize = 64;
+
 pub fn parse(source: &SourceFile) -> Result<Program, Diagnostic> {
     let tokens = lex(source)?;
     parse_tokens(source, &tokens)
@@ -34,6 +36,7 @@ struct Parser<'a> {
     source: &'a SourceFile,
     tokens: &'a [Token],
     position: usize,
+    nesting: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -42,6 +45,7 @@ impl<'a> Parser<'a> {
             source,
             tokens,
             position: 0,
+            nesting: 0,
         }
     }
 
@@ -112,6 +116,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Node<TypeExpression>, Diagnostic> {
+        self.within_syntax_nesting(Self::parse_type_inner)
+    }
+
+    fn parse_type_inner(&mut self) -> Result<Node<TypeExpression>, Diagnostic> {
         let parameter = self.parse_atomic_type()?;
         if self.take(&TokenKind::Arrow).is_some() {
             let start = parameter.span.start();
@@ -207,6 +215,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_pattern(&mut self) -> Result<Node<Pattern>, Diagnostic> {
+        self.within_syntax_nesting(Self::parse_pattern_inner)
+    }
+
+    fn parse_pattern_inner(&mut self) -> Result<Node<Pattern>, Diagnostic> {
         if self.at(&TokenKind::ValueIdentifier) {
             let name = self.parse_name(&TokenKind::ValueIdentifier, "a value name")?;
             let span = name.span;
@@ -291,6 +303,22 @@ impl<'a> Parser<'a> {
 
     fn error_here(&self, message: impl Into<String>, label: impl Into<String>) -> Diagnostic {
         Diagnostic::error(message).with_primary(self.current_span(), label)
+    }
+
+    fn within_syntax_nesting<T>(
+        &mut self,
+        parse: impl FnOnce(&mut Self) -> Result<T, Diagnostic>,
+    ) -> Result<T, Diagnostic> {
+        if self.nesting == MAX_SYNTAX_NESTING {
+            return Err(self.error_here(
+                "syntax nesting limit exceeded",
+                format!("the reference compiler supports at most {MAX_SYNTAX_NESTING} levels"),
+            ));
+        }
+        self.nesting += 1;
+        let result = parse(self);
+        self.nesting -= 1;
+        result
     }
 
     fn join(&self, start: Span, end: Span) -> Span {
