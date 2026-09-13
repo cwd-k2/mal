@@ -3,6 +3,7 @@ use crate::backend::c::syntax::{
     TypeName,
 };
 use crate::check::ast::{SharedTypeId, Type};
+use crate::resolve::ast::TypeId;
 
 mod collect;
 mod host;
@@ -11,12 +12,40 @@ mod host;
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
     collected: std::collections::HashSet<SharedTypeId>,
+    indices: std::collections::HashMap<SharedTypeId, usize>,
+    structural_indices: std::collections::HashMap<AggregateKey, usize>,
 }
 
 #[derive(Default)]
 pub(super) struct HostTypes {
     types: Vec<Type>,
+    collected: std::collections::HashSet<SharedTypeId>,
     opaque_names: Vec<String>,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+enum AggregateKey {
+    Product(Vec<ElementKey>),
+    Sum(Vec<ElementKey>),
+}
+
+#[derive(Eq, Hash, PartialEq)]
+enum ElementKey {
+    Unit,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
+    Symbol,
+    Ptr,
+    External(TypeId),
+    Aggregate(usize),
 }
 
 impl TypeRegistry {
@@ -213,10 +242,8 @@ mod tests {
     fn maps_host_values_without_reusing_raw_type_names() {
         let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
-        let registry = TypeRegistry {
-            aggregates: vec![product.clone(), sum.clone()],
-            ..TypeRegistry::default()
-        };
+        let mut registry = TypeRegistry::default();
+        registry.collect(&sum);
 
         for (ty, expected) in [
             (Type::Unit, "mal_Unit_t"),
@@ -269,10 +296,8 @@ mod tests {
     fn declares_host_aggregates_in_structural_dependency_order() {
         let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
-        let registry = TypeRegistry {
-            aggregates: vec![product.clone(), sum.clone()],
-            ..TypeRegistry::default()
-        };
+        let mut registry = TypeRegistry::default();
+        registry.collect(&sum);
         let host = HostTypes {
             types: vec![product.clone(), sum.clone()],
             ..HostTypes::default()

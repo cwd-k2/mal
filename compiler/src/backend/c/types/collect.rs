@@ -4,7 +4,7 @@ use crate::core::ast::ProgramInterface;
 use super::{HostTypes, TypeRegistry, is_bool};
 
 impl TypeRegistry {
-    fn collect(&mut self, ty: &Type) {
+    pub(super) fn collect(&mut self, ty: &Type) {
         let mut pending = vec![(ty, false)];
         while let Some((ty, expanded)) = pending.pop() {
             if is_bool(ty) {
@@ -13,9 +13,7 @@ impl TypeRegistry {
             match ty {
                 Type::Product(elements) | Type::Sum(elements) => {
                     if expanded {
-                        if !self.aggregates.contains(ty) {
-                            self.aggregates.push(ty.clone());
-                        }
+                        self.intern(ty, elements);
                     } else if ty.shared_id().is_none_or(|id| self.collected.insert(id)) {
                         pending.push((ty, true));
                         pending.extend(elements.iter().rev().map(|element| (element, false)));
@@ -43,10 +41,61 @@ impl TypeRegistry {
     }
 
     pub(super) fn index(&self, ty: &Type) -> usize {
-        self.aggregates
-            .iter()
-            .position(|candidate| candidate == ty)
+        let id = ty
+            .shared_id()
+            .expect("only aggregates have representation indices");
+        self.indices
+            .get(&id)
+            .copied()
             .expect("all emitted types are collected before rendering")
+    }
+
+    fn intern(&mut self, ty: &Type, elements: &[Type]) {
+        let key = match ty {
+            Type::Product(_) => super::AggregateKey::Product(
+                elements.iter().map(|ty| self.element_key(ty)).collect(),
+            ),
+            Type::Sum(_) => {
+                super::AggregateKey::Sum(elements.iter().map(|ty| self.element_key(ty)).collect())
+            }
+            _ => unreachable!("only aggregates are interned"),
+        };
+        let index = if let Some(index) = self.structural_indices.get(&key) {
+            *index
+        } else {
+            let index = self.aggregates.len();
+            self.aggregates.push(ty.clone());
+            self.structural_indices.insert(key, index);
+            index
+        };
+        self.indices.insert(
+            ty.shared_id()
+                .expect("aggregate types have shared identity"),
+            index,
+        );
+    }
+
+    fn element_key(&self, ty: &Type) -> super::ElementKey {
+        match ty {
+            Type::Unit => super::ElementKey::Unit,
+            Type::Int8 => super::ElementKey::Int8,
+            Type::Int16 => super::ElementKey::Int16,
+            Type::Int32 => super::ElementKey::Int32,
+            Type::Int64 => super::ElementKey::Int64,
+            Type::UInt8 => super::ElementKey::UInt8,
+            Type::UInt16 => super::ElementKey::UInt16,
+            Type::UInt32 => super::ElementKey::UInt32,
+            Type::UInt64 => super::ElementKey::UInt64,
+            Type::Float32 => super::ElementKey::Float32,
+            Type::Float64 => super::ElementKey::Float64,
+            Type::Symbol => super::ElementKey::Symbol,
+            Type::Ptr => super::ElementKey::Ptr,
+            Type::External { id, .. } => super::ElementKey::External(*id),
+            Type::Product(_) | Type::Sum(_) => super::ElementKey::Aggregate(self.index(ty)),
+            Type::Function { .. } => {
+                unreachable!("type checking excludes functions from extern signatures")
+            }
+        }
     }
 }
 
@@ -75,14 +124,19 @@ impl HostTypes {
             if matches!(ty, Type::Function { .. }) {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            if !self.types.contains(ty) {
+            let newly_collected = ty
+                .shared_id()
+                .map_or_else(|| !self.types.contains(ty), |id| self.collected.insert(id));
+            if newly_collected {
                 self.types.push(ty.clone());
             }
         }
     }
 
     pub(super) fn contains(&self, ty: &Type) -> bool {
-        self.types.contains(ty)
+        ty.shared_id()
+            .is_some_and(|id| self.collected.contains(&id))
+            || self.types.contains(ty)
     }
 }
 
@@ -102,5 +156,22 @@ mod tests {
 
         assert_eq!(registry.aggregates.len(), 64);
         assert_eq!(registry.aggregates.last(), Some(&ty));
+    }
+
+    #[test]
+    fn interns_independent_structurally_equal_dags() {
+        let mut left = Type::UInt8;
+        let mut right = Type::UInt8;
+        for _ in 0..64 {
+            left = Type::Sum(vec![left.clone(), left].into());
+            right = Type::Sum(vec![right.clone(), right].into());
+        }
+        let mut registry = TypeRegistry::default();
+
+        registry.collect(&left);
+        registry.collect(&right);
+
+        assert_eq!(registry.aggregates.len(), 64);
+        assert_eq!(registry.index(&left), registry.index(&right));
     }
 }

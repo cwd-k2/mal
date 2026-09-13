@@ -102,3 +102,10 @@ decimal exponentが有効桁数を相殺するliteralでは値のdecimal order�
 処理量が入力桁数に対して二次的に増えた。binary64の隣接値間のmidpointは分母が最大`2^1075`で有限十進展開を持つため、
 先頭1,100有効桁と省略部分のnonzero有無があれば全rounding boundaryとの大小を保存できる。多倍長演算前にこの表現へ縮約し、
 100,001桁の係数と、midpointから1,200桁先で初めて大きくなる値を正しく丸める回帰テストを置いた。
+
+## 2026-09-13 C representation interning
+
+C `TypeRegistry`はaggregateを追加するたびに既存の全型と構造比較し、型名の解決でもvectorを線形探索していた。postorderで既に
+確定した子representation identityからproduct/sum keyを作り、同じkeyを一つのindexへinternする方式へ変更した。これにより
+transparent aliasから独立に構成された同型DAGも同じC representationを使い、収集と名前解決は型DAGのnode・edge数に比例する。
+独立に構成した64段の同型sum DAG二つが64個のaggregateだけを登録する回帰テストを置いた。

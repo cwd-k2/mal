@@ -132,7 +132,8 @@ LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)
 typed IRへ補わず、source-levelの[`memory` contract](../spec/memory.md)として保持する。
 
 C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
-identityを所有し、`HostTypes`は公開型とexternal opaque type名を分類する。C shimとheaderは同じregistryを参照する。LLVM moduleと
+子representation identityからaggregate keyをbottom-upにinternしてidentityを所有し、`HostTypes`は共有node identityで公開型と
+external opaque type名を分類する。C shimとheaderは同じregistryを参照する。LLVM moduleと
 C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使い、LLVM aggregate表現をpublic C ABIへ公開しない。
 extern marshallingのlayout planとsum helperはcanonical type DAGの共有nodeごとに一度だけ構成し、同じsubtypeへの複数の辺で
 再生成しない。
