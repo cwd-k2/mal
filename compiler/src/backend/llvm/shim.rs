@@ -166,13 +166,22 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             Block::new([trap("argument descriptor size overflow")]),
         ),
         variable(
+            "size_t",
+            "storage_size",
+            Some(Expr::conditional(
+                Expr::equal(count.clone(), number(0)),
+                number(1),
+                Expr::multiply(count.clone(), number(descriptor_stride)),
+            )),
+        ),
+        variable(
             TypeName::named("uint8_t").pointer(),
             "storage",
             Some(Expr::named_call(
                 "mal_runtime_allocate",
                 [
                     Expr::address_of(identifier("context")),
-                    Expr::multiply(count.clone(), number(descriptor_stride)),
+                    identifier("storage_size"),
                 ],
             )),
         ),

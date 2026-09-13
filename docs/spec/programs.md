@@ -89,6 +89,7 @@ main :: Arguments -> Int32 := (count, arguments) {
 productの第一要素は実行ファイル名を除くargument数である。第二要素はread-onlyな外部descriptor列の先頭を指す。
 各descriptorは`Ptr`と`UInt64`をpaddingなしに並べた`Ptr.size + UInt64.size` bytesで、argument bytesのaddressとlengthを表す。
 index `i` のslotから`Ptr.load`と`UInt64.load`で両fieldを読み、`Symbol.read(data, length)`で明示的にmalへ受け入れる。
+argument数が0でも第二要素はnullではなく、`main`のreturnまで有効な長さ0のregionを指す。
 
 argument bytesはhost process interfaceが渡した終端NULを含まないbyte列であり、UTF-8を保証しない。descriptor列と
 各byte regionは`main`のreturnまでread-onlyで有効である。`count`以上のdescriptorへaccessしてはならない。

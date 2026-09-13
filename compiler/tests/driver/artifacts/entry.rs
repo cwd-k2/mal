@@ -378,3 +378,41 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
         .expect("run argument-aware LLVM executable");
     assert_eq!(output.status.code(), Some(0));
 }
+
+#[test]
+fn passes_a_non_null_empty_process_argument_region() {
+    let directory = NativeFixture::new("driver-llvm-empty-arguments");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern pointerIsNonNull :: Ptr -> Bool;\n\
+         main :: (UInt64, Ptr) -> Int32 := (count, arguments) {\n\
+           if (count == 0u64) then {\n\
+             if (pointerIsNonNull(arguments)) then { 0 } else { 1 };\n\
+           } else { 2 };\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_pointerIsNonNull(call, value) {\n\
+           return mal_Bool_return(call, value != NULL ? mal_true : mal_false);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
