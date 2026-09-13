@@ -5,6 +5,7 @@ use malc::source::{FileId, SourceFile, SourceGraph, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+mod requirement;
 mod semantic;
 
 pub struct Outcome {
@@ -113,7 +114,7 @@ impl Server {
                         "referencesProvider": true,
                         "renameProvider": true,
                         "documentSymbolProvider": true,
-                        "completionProvider": {"triggerCharacters": ["."]},
+                        "completionProvider": {"triggerCharacters": [".", "\"", "/"]},
                         "semanticTokensProvider": {
                             "legend": {
                                 "tokenTypes": ["type", "variable", "parameter", "function"],

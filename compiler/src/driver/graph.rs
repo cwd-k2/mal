@@ -179,16 +179,11 @@ fn requirement_path(
         Diagnostic::error("invalid requirement path")
             .with_primary(span, "requirement paths must be UTF-8")
     })?;
-    let path = Path::new(text);
-    if text.is_empty() || path.is_absolute() {
+    let Some(path) = super::relative_requirement_path(source.path(), text) else {
         return Err(Diagnostic::error("invalid requirement path")
             .with_primary(span, "expected a non-empty relative path"));
-    }
-    Ok(source
-        .path()
-        .parent()
-        .unwrap_or_else(|| Path::new(""))
-        .join(path))
+    };
+    Ok(path)
 }
 
 fn canonicalize_requirement(path: &Path, span: crate::source::Span) -> Result<PathBuf, Diagnostic> {

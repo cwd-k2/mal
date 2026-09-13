@@ -71,6 +71,9 @@ impl Server {
     }
 
     pub(super) fn definition(&mut self, id: Value, params: Value) -> Value {
+        if let Some(location) = self.requirement_definition(&params) {
+            return success(id, location);
+        }
         let (_, semantic, offset) = match self.position_request(&params) {
             SemanticRequest::Ready(value) => value,
             SemanticRequest::Unavailable => return success(id, Value::Null),
@@ -184,6 +187,11 @@ impl Server {
             return error(id, -32602, "document is not open");
         }
         let source = self.documents[&uri].source(&uri);
+        if let Some(position) = request.position
+            && let Some(items) = requirement_completions(&uri, &source, position)
+        {
+            return success(id, json!(items));
+        }
         let receiver_context = request.position.is_some_and(|position| {
             source
                 .byte_offset_utf16(Utf16Position {
@@ -206,6 +214,22 @@ impl Server {
             return success(id, json!([]));
         }
         success(id, json!(lexical_function_completions(self, &uri, &source)))
+    }
+
+    fn requirement_definition(&self, params: &Value) -> Option<Value> {
+        let request = serde_json::from_value::<PositionParams>(params.clone()).ok()?;
+        let document = self.documents.get(&request.text_document.uri)?;
+        let source = document.source(&request.text_document.uri);
+        let offset = source.byte_offset_utf16(Utf16Position {
+            line: request.position.line,
+            character: request.position.character,
+        })?;
+        let target = super::requirement::target_path(&request.text_document.uri, &source, offset)?;
+        let target_uri = super::path_to_uri(&target);
+        if !target.is_file() && !self.documents.contains_key(&target_uri) {
+            return None;
+        }
+        Some(json!({"uri": target_uri, "range": super::zero_range()}))
     }
 
     pub(super) fn semantic_tokens(&mut self, id: Value, params: Value) -> Value {
@@ -393,6 +417,37 @@ fn completion_items(semantic: &SemanticDocument, functions_only: bool) -> Vec<Va
             })
         })
         .collect()
+}
+
+fn requirement_completions(
+    uri: &str,
+    source: &SourceFile,
+    position: Position,
+) -> Option<Vec<Value>> {
+    let candidates = super::requirement::completion_candidates(
+        uri,
+        source,
+        Utf16Position {
+            line: position.line,
+            character: position.character,
+        },
+    )?;
+    Some(
+        candidates
+            .into_iter()
+            .map(|candidate| {
+                json!({
+                    "label": candidate.name,
+                    "kind": if candidate.is_directory { 19 } else { 17 },
+                    "detail": if candidate.is_directory { "directory" } else { "requirement" },
+                    "textEdit": {
+                        "range": span_range(source, candidate.replacement),
+                        "newText": candidate.name
+                    }
+                })
+            })
+            .collect(),
+    )
 }
 
 fn lexical_function_completions(server: &Server, uri: &str, source: &SourceFile) -> Vec<Value> {

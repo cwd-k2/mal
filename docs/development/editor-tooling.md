@@ -81,6 +81,11 @@ document symbol、completion、semantic tokenを提供する。semantic request�
 `.`はcompletion triggerである。`receiver.`と`receiver.partialName`ではcurrent sourceのsyntax indexと直接requireしたfileから
 lexical function候補を返す。receiverの型による候補探索や絞り込みは行わない。
 
+`require "..."`内では`"`、`/`、`.`をcompletion triggerとして、source fileからの相対位置にあるdirectoryと`.mal`、`.c` fileを
+候補にする。未閉じの引用符でもcursorまでのpath fragmentを使う。requirement path上のdefinition requestは対象fileの先頭へ移動し、
+source全体のsemantic analysisが失敗していても利用できる。escapeを含むpath fragmentは誤ったfilesystem pathへ対応付けず、path補完と
+definitionの対象外にする。
+
 open中の`.mal` fileはdisk上の内容よりbufferを優先する。bufferのopen、change、close時にはopen documentのanalysisを
 invalidateし、依存するsource graphを含めてdiagnosticを再生成する。変更されたdocumentには現在のversionを付けたdiagnosticを
 publishし、修正後は空のdiagnosticをpublishして以前の表示を消す。再解析した他のopen documentについては、document versionと
