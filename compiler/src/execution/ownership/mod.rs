@@ -1,21 +1,23 @@
 use crate::check::ast::Type;
 
 pub(crate) fn is_managed(ty: &Type) -> bool {
-    match ty {
-        Type::Symbol | Type::Function { .. } => true,
-        Type::Product(elements) | Type::Sum(elements) => elements.iter().any(is_managed),
-        Type::External { .. }
-        | Type::Unit
-        | Type::Int8
-        | Type::Int16
-        | Type::Int32
-        | Type::Int64
-        | Type::UInt8
-        | Type::UInt16
-        | Type::UInt32
-        | Type::UInt64
-        | Type::Float32
-        | Type::Float64
-        | Type::Ptr => false,
+    ty.data_subtypes()
+        .any(|ty| matches!(ty, Type::Symbol | Type::Function { .. }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_shared_type_dags_once_per_node() {
+        let mut unmanaged = Type::Unit;
+        for _ in 0..64 {
+            unmanaged = Type::Product(vec![unmanaged.clone(), unmanaged].into());
+        }
+        assert!(!is_managed(&unmanaged));
+
+        let managed = Type::Product(vec![unmanaged, Type::Symbol].into());
+        assert!(is_managed(&managed));
     }
 }

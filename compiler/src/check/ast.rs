@@ -41,7 +41,9 @@ impl PartialEq for Type {
             if std::ptr::eq(left, right) {
                 continue;
             }
-            if !compared.insert((std::ptr::from_ref(left), std::ptr::from_ref(right))) {
+            if let (Some(left), Some(right)) = (shared_identity(left), shared_identity(right))
+                && !compared.insert((left, right))
+            {
                 continue;
             }
 
@@ -103,6 +105,58 @@ impl PartialEq for Type {
 }
 
 impl Eq for Type {}
+
+impl Type {
+    pub(crate) fn data_subtypes(&self) -> DataSubtypes<'_> {
+        DataSubtypes {
+            pending: vec![self],
+            visited: HashSet::new(),
+        }
+    }
+}
+
+pub(crate) struct DataSubtypes<'a> {
+    pending: Vec<&'a Type>,
+    visited: HashSet<SharedTypeIdentity>,
+}
+
+impl<'a> Iterator for DataSubtypes<'a> {
+    type Item = &'a Type;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(ty) = self.pending.pop() {
+            if let Some(identity) = shared_identity(ty)
+                && !self.visited.insert(identity)
+            {
+                continue;
+            }
+            if let Type::Product(elements) | Type::Sum(elements) = ty {
+                self.pending.extend(elements.iter().rev());
+            }
+            return Some(ty);
+        }
+        None
+    }
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+enum SharedTypeIdentity {
+    Product(*const Type),
+    Sum(*const Type),
+    Function(*const Type, *const Type),
+}
+
+fn shared_identity(ty: &Type) -> Option<SharedTypeIdentity> {
+    match ty {
+        Type::Product(elements) => Some(SharedTypeIdentity::Product(elements.as_ptr())),
+        Type::Sum(elements) => Some(SharedTypeIdentity::Sum(elements.as_ptr())),
+        Type::Function { parameter, result } => Some(SharedTypeIdentity::Function(
+            std::ptr::from_ref(parameter.as_ref()),
+            std::ptr::from_ref(result.as_ref()),
+        )),
+        _ => None,
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {

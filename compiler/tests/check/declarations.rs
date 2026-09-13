@@ -93,7 +93,9 @@ fn shares_repeated_alias_structure_without_exponential_expansion() {
             level - 1
         ));
     }
-    source.push_str("identity :: Left64 -> Right64 := (value) { value; };");
+    source.push_str(
+        "extern inspect :: Left64 -> Unit;\nidentity :: Left64 -> Right64 := (value) { value; };",
+    );
 
     check_ok(&source);
 }

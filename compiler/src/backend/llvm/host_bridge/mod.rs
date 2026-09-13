@@ -435,11 +435,13 @@ fn trap(context: Expr, message: &str) -> Statement {
 }
 
 pub(super) fn type_supported(ty: &Type) -> bool {
-    c_scalar_type(ty).is_some()
-        || matches!(ty, Type::Unit | Type::Symbol)
-        || matches!(ty, Type::External { .. })
-        || matches!(ty, Type::Product(elements) if elements.iter().all(type_supported))
-        || matches!(ty, Type::Sum(elements) if elements.iter().all(type_supported))
+    ty.data_subtypes().all(|ty| {
+        c_scalar_type(ty).is_some()
+            || matches!(
+                ty,
+                Type::Unit | Type::Symbol | Type::External { .. } | Type::Product(_) | Type::Sum(_)
+            )
+    })
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {

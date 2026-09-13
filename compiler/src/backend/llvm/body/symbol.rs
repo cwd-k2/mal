@@ -51,24 +51,7 @@ pub(super) fn program_uses_runtime(execution: &crate::execution::Program) -> boo
 }
 
 fn type_contains_value(ty: &Type) -> bool {
-    match ty {
-        Type::Symbol => true,
-        Type::Product(elements) | Type::Sum(elements) => elements.iter().any(type_contains_value),
-        Type::Unit
-        | Type::Int8
-        | Type::Int16
-        | Type::Int32
-        | Type::Int64
-        | Type::UInt8
-        | Type::UInt16
-        | Type::UInt32
-        | Type::UInt64
-        | Type::Float32
-        | Type::Float64
-        | Type::Ptr
-        | Type::External { .. }
-        | Type::Function { .. } => false,
-    }
+    ty.data_subtypes().any(|ty| matches!(ty, Type::Symbol))
 }
 
 fn atom_contains_value(atom: &Atom) -> bool {
