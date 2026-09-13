@@ -9,6 +9,11 @@ use super::ast::{LiveValue, Operation, State, StateId, Terminator};
 impl Lowerer {
     pub(super) fn resolve_liveness(&mut self, start: usize, locals: &[LiveValue]) {
         let end = self.states.len();
+        let local_values = locals
+            .iter()
+            .enumerate()
+            .map(|(rank, value)| (value.id, (rank, value)))
+            .collect::<std::collections::HashMap<_, _>>();
         let mut live_in = vec![HashSet::new(); end - start];
         let mut environment_in = vec![false; end - start];
         for index in start..end {
@@ -34,11 +39,12 @@ impl Lowerer {
 
         for index in start..end {
             let state_live = &live_in[index - start];
-            self.states[index].live = locals
+            let mut live = state_live
                 .iter()
-                .filter(|value| state_live.contains(&value.id))
-                .cloned()
-                .collect();
+                .filter_map(|id| local_values.get(id).copied())
+                .collect::<Vec<_>>();
+            live.sort_unstable_by_key(|(rank, _)| *rank);
+            self.states[index].live = live.into_iter().map(|(_, value)| value.clone()).collect();
             self.states[index].needs_environment = environment_in[index - start];
         }
     }

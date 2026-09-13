@@ -11,27 +11,19 @@ pub(in crate::backend::llvm) struct Plan {
 impl Plan {
     pub(in crate::backend::llvm) fn new(control: &crate::control::ast::Program) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
-        loop {
-            let mut changed = false;
-            for (index, state) in control.states.iter().enumerate().rev() {
-                let mut live = terminator_live(&state.terminator, &live_in);
-                for binding in state.bindings.iter().rev() {
-                    remove_pattern_bindings(&binding.pattern, &mut live);
-                    visit_operation_atoms(&binding.operation, |atom| {
-                        insert_managed_binding(atom, &mut live)
-                    });
-                }
-                if let Some(input) = &state.input {
-                    remove_pattern_bindings(input, &mut live);
-                }
-                if live != live_in[index] {
-                    live_in[index] = live;
-                    changed = true;
-                }
+        for (index, state) in control.states.iter().enumerate() {
+            debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
+            let mut live = terminator_live(&state.terminator, &live_in);
+            for binding in state.bindings.iter().rev() {
+                remove_pattern_bindings(&binding.pattern, &mut live);
+                visit_operation_atoms(&binding.operation, |atom| {
+                    insert_managed_binding(atom, &mut live)
+                });
             }
-            if !changed {
-                break;
+            if let Some(input) = &state.input {
+                remove_pattern_bindings(input, &mut live);
             }
+            live_in[index] = live;
         }
 
         let mut dead_values = HashMap::new();
@@ -68,6 +60,24 @@ impl Plan {
             .get(&(state, binding))
             .map_or(&[], Vec::as_slice)
     }
+}
+
+fn successors(terminator: &Terminator) -> impl Iterator<Item = StateId> + '_ {
+    let mut states = [None; 2];
+    match terminator {
+        Terminator::Goto(target) | Terminator::Jump { target, .. } => states[0] = Some(*target),
+        Terminator::Call { resume, .. } => states[0] = Some(*resume),
+        Terminator::PrimitiveBranch {
+            otherwise, then, ..
+        } => states = [Some(*otherwise), Some(*then)],
+        Terminator::Case { .. } | Terminator::Return(_) | Terminator::TailCall { .. } => {}
+    }
+    let fixed = states.into_iter().flatten();
+    let arms = match terminator {
+        Terminator::Case { arms, .. } => Some(arms.iter().map(|arm| arm.target)),
+        _ => None,
+    };
+    fixed.chain(arms.into_iter().flatten())
 }
 
 fn binding_id(atom: &Atom) -> Option<ValueId> {
