@@ -122,8 +122,8 @@ transparent aliasから独立に構成された同型DAGも同じC representatio
 独立に構成した64段の同型sum DAG二つが64個のaggregateだけを登録する回帰テストを置いた。
 
 extern signatureとsource aliasが構造的に同じでも別のtype DAGを持つ場合、host helper生成が未登録のalias側identityを名前解決に
-使っていた。host-visible alias DAGもregistryへ収集し、なおidentityが異なるlookupは既存のstructural keyを共有DAGのpostorderで
-引くようにした。未登録の64段同型DAGを、展開せず登録済みrepresentationへ解決する回帰テストを置いた。
+使っていた。host-visible alias DAGもrendering前にregistryへ収集し、既存のstructural keyでrepresentationを共有してからidentityで
+引くようにした。独立な64段同型alias DAGが登録済みrepresentationへ解決される回帰テストを置いた。
 
 ## 2026-09-13 execution identity lookup
 
