@@ -132,3 +132,10 @@ indirect applicationのpossible targetは従来siteごとに全internal function
 DAGをmemoizeしながら反復的に構造fingerprintへ変換し、functionをsignatureごとのtarget groupへ一度だけ分類する方式へ変更した。
 siteは対応groupだけを引き、fingerprint collision時には構造比較してcorrectnessを保つ。独立なtransparent aliasから作った
 同型signature二つが同じindirect target集合へ入る回帰テストを置いた。
+
+## 2026-09-13 completion loweringの平坦な前置列
+
+completion controlを含むitemより前にcontrol-freeなstatementを直列に置くと、source上は一つのblockにある平坦な列でも、
+core loweringがitemごとのRust再帰で後続を構築していた。controlの有無の分類を明示work stackへ移し、先頭のcontrol-freeな
+item列を逆順のloopでcore `let`列へ構築した。4,096個のstatementの後に`when`とreturnを置く回帰テストをdebug test threadで
+完走させた。分岐が持つ複数の正常出口へ同じ後続を配る処理は別途共有表現を必要とするため、この変更には含めていない。

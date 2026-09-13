@@ -119,7 +119,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
 | `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
+| `core/completion` | control-freeなbody item列を反復的にcore `let`列へ変換し、checked completionへlexicalな後続を配ってreturn、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |

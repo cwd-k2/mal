@@ -1,54 +1,80 @@
 use crate::check::ast as checked;
 
 pub(super) fn contains_control(value: &checked::Expression) -> bool {
-    use checked::ExpressionKind;
-    match &value.kind {
-        ExpressionKind::Parenthesized(inner) => contains_control(inner),
-        ExpressionKind::Product(elements) => elements.iter().any(contains_control),
-        ExpressionKind::Call { callee, argument } => {
-            contains_control(callee) || contains_control(argument)
+    let mut pending = vec![Presence::Expression(value)];
+    while let Some(item) = pending.pop() {
+        match item {
+            Presence::Expression(value) => match &value.kind {
+                checked::ExpressionKind::Parenthesized(inner) => {
+                    pending.push(Presence::Expression(inner));
+                }
+                checked::ExpressionKind::Product(elements) => {
+                    pending.extend(elements.iter().rev().map(Presence::Expression));
+                }
+                checked::ExpressionKind::Call { callee, argument } => {
+                    pending.push(Presence::Expression(argument));
+                    pending.push(Presence::Expression(callee));
+                }
+                checked::ExpressionKind::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    pending.push(Presence::Block(else_branch));
+                    pending.push(Presence::Block(then_branch));
+                    pending.push(Presence::Expression(condition));
+                }
+                checked::ExpressionKind::Unary { operand, .. }
+                | checked::ExpressionKind::SymbolLength { value: operand }
+                | checked::ExpressionKind::NumericConversion { value: operand }
+                | checked::ExpressionKind::SumInjection { value: operand, .. } => {
+                    pending.push(Presence::Expression(operand));
+                }
+                checked::ExpressionKind::Binary { left, right, .. } => {
+                    pending.push(Presence::Expression(right));
+                    pending.push(Presence::Expression(left));
+                }
+                checked::ExpressionKind::SymbolAt { argument }
+                | checked::ExpressionKind::Memory { argument, .. } => {
+                    pending.push(Presence::Expression(argument));
+                }
+                checked::ExpressionKind::SumElimination {
+                    scrutinee,
+                    continuations,
+                } => {
+                    pending.extend(continuations.iter().rev().map(Presence::Expression));
+                    pending.push(Presence::Expression(scrutinee));
+                }
+                checked::ExpressionKind::Lambda(_)
+                | checked::ExpressionKind::Reference(_)
+                | checked::ExpressionKind::Integer(_)
+                | checked::ExpressionKind::Float(_)
+                | checked::ExpressionKind::Symbol(_)
+                | checked::ExpressionKind::StorageSize(_)
+                | checked::ExpressionKind::Unit
+                | checked::ExpressionKind::MemoryFunction { .. }
+                | checked::ExpressionKind::InjectionConstructor { .. } => {}
+            },
+            Presence::Block(block) => {
+                pending.push(Presence::Completion(&block.result));
+                pending.extend(block.items.iter().rev().map(|item| {
+                    Presence::Expression(match item {
+                        checked::BodyItem::Binding(binding) => &binding.value,
+                        checked::BodyItem::Expression(value) => value,
+                    })
+                }));
+            }
+            Presence::Completion(checked::Completion::Value(value)) => {
+                pending.push(Presence::Expression(value));
+            }
+            Presence::Completion(checked::Completion::Abrupt(_)) => return true,
         }
-        ExpressionKind::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            contains_control(condition)
-                || block_contains_control(then_branch)
-                || block_contains_control(else_branch)
-        }
-        ExpressionKind::Unary { operand, .. }
-        | ExpressionKind::SymbolLength { value: operand }
-        | ExpressionKind::NumericConversion { value: operand }
-        | ExpressionKind::SumInjection { value: operand, .. } => contains_control(operand),
-        ExpressionKind::Binary { left, right, .. } => {
-            contains_control(left) || contains_control(right)
-        }
-        ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
-            contains_control(argument)
-        }
-        ExpressionKind::SumElimination {
-            scrutinee,
-            continuations,
-        } => contains_control(scrutinee) || continuations.iter().any(contains_control),
-        ExpressionKind::Lambda(_)
-        | ExpressionKind::Reference(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::Float(_)
-        | ExpressionKind::Symbol(_)
-        | ExpressionKind::StorageSize(_)
-        | ExpressionKind::Unit
-        | ExpressionKind::MemoryFunction { .. }
-        | ExpressionKind::InjectionConstructor { .. } => false,
     }
+    false
 }
 
-fn block_contains_control(block: &checked::ExpressionBlock) -> bool {
-    block.items.iter().any(|item| match item {
-        checked::BodyItem::Binding(binding) => contains_control(&binding.value),
-        checked::BodyItem::Expression(value) => contains_control(value),
-    }) || match block.result.as_ref() {
-        checked::Completion::Value(value) => contains_control(value),
-        checked::Completion::Abrupt(_) => true,
-    }
+enum Presence<'a> {
+    Expression(&'a checked::Expression),
+    Block(&'a checked::ExpressionBlock),
+    Completion(&'a checked::Completion),
 }

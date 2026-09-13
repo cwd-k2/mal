@@ -92,6 +92,21 @@ fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
 }
 
 #[test]
+fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
+    let text = format!(
+        "main :: Unit -> Int32 := ()[return] {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",
+        "0i32;".repeat(4_096)
+    );
+
+    let program = lower_ok(&text);
+
+    assert!(matches!(
+        top_lambda(&program, "main").kind,
+        ExpressionKind::Let { .. }
+    ));
+}
+
+#[test]
 fn lowers_empty_elimination_to_a_zero_arm_case() {
     let program = lower_ok("never :: Unit -> [] := ()[] { never()[] };");
     let body = top_lambda(&program, "never");

@@ -38,6 +38,18 @@ impl Lowerer {
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
     ) -> Expression {
+        let direct = items
+            .iter()
+            .take_while(|item| !contains_control(body_item_value(item)))
+            .count();
+        if direct != 0 {
+            let mut body =
+                self.lower_items_with(&items[direct..], result, result_type, continuation);
+            for item in items[..direct].iter().rev() {
+                body = self.prepend_body_item(item, body);
+            }
+            return body;
+        }
         let Some((first, rest)) = items.split_first() else {
             return self.lower_completion_with(result, result_type, continuation);
         };
@@ -83,6 +95,40 @@ impl Lowerer {
                 };
                 self.lower_value_with(value, result_type, &mut next)
             }
+        }
+    }
+
+    fn prepend_body_item(&mut self, item: &checked::BodyItem, body: Expression) -> Expression {
+        let (pattern, value, span) = match item {
+            checked::BodyItem::Binding(binding) => (
+                self.lower_pattern(&binding.pattern),
+                self.lower_expression(&binding.value),
+                binding.span,
+            ),
+            checked::BodyItem::Expression(value) => {
+                let lowered = self.lower_expression(value);
+                (
+                    Pattern::Wildcard {
+                        ty: lowered.ty.clone(),
+                        span: lowered.span,
+                    },
+                    lowered,
+                    value.span,
+                )
+            }
+        };
+        let ty = body.ty.clone();
+        Expression {
+            kind: ExpressionKind::Let {
+                binding: Box::new(Binding {
+                    pattern,
+                    value,
+                    span,
+                }),
+                body: Box::new(body),
+            },
+            ty,
+            span,
         }
     }
 
@@ -463,5 +509,12 @@ impl Lowerer {
             )
         };
         self.lower_value_with(left, result_type, &mut next)
+    }
+}
+
+fn body_item_value(item: &checked::BodyItem) -> &checked::Expression {
+    match item {
+        checked::BodyItem::Binding(binding) => &binding.value,
+        checked::BodyItem::Expression(value) => value,
     }
 }
