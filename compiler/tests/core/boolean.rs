@@ -75,21 +75,23 @@ fn removes_logical_not_but_retains_typed_numeric_primitives() {
     assert!(injected_bool(&arms[0].value));
     assert!(!injected_bool(&arms[1].value));
 
-    let ExpressionKind::PrimitiveBinary {
-        operator: BinaryPrimitive::Less,
-        left,
-        ..
-    } = &comparison.kind
-    else {
-        panic!("expected an Int32 comparison");
+    let ExpressionKind::Let { binding, body } = &comparison.kind else {
+        panic!("expected the addition to precede the comparison");
     };
     assert!(matches!(
-        left.kind,
+        binding.value.kind,
         ExpressionKind::PrimitiveBinary {
             operator: BinaryPrimitive::Add,
             ..
         }
     ));
+    let ExpressionKind::PrimitiveBinary {
+        operator: BinaryPrimitive::Less,
+        ..
+    } = &body.kind
+    else {
+        panic!("expected an Int32 comparison");
+    };
 }
 
 #[test]

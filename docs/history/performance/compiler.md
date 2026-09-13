@@ -55,3 +55,13 @@ compiler processの異常終了なので、この記録では入力規模の性�
 解消条件は、どのstageの再帰がsource上のbinding数に比例して深くなるかを切り分け、十分に大きい直列blockを
 正常にcompileするかstructured diagnosticとして拒否し、processをabortしないregression testを置くこととした。
 この調査はgenerated programのSymbol表現とは独立に行う。
+
+## 2026-09-13 左結合operator列
+
+同一の`Int32`加算を左結合で並べたsourceでは、Pratt parserがloopで構文を読む一方、resolve、check、core loweringが
+左spineをhost再帰で辿っていた。変更前のoptimized `malc check`は1,200項でstack overflowによりabortした。
+
+resolveとcheckを反復走査へ変更し、core境界で中間結果をsource順の`let`列へ変換した。4,096項について
+parse、resolve、check、core、ANF、closure conversion、execution planning、LLVM emissionまでをdebug test threadで完走する
+regression testを置いた。これは括弧による明示的な構文nestの上限緩和ではなく、平坦に記述できるoperator列を内部treeの
+形だけで制限しないための変更である。

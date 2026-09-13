@@ -254,6 +254,36 @@ mod tests {
     }
 
     #[test]
+    fn emits_long_left_associative_expressions_without_host_recursion() {
+        let expression = std::iter::repeat_n("0i32", 4096)
+            .collect::<Vec<_>>()
+            .join(" + ");
+        let source = SourceFile::new(
+            FileId::new(76),
+            "llvm-long-expression.mal",
+            format!("main :: Unit -> Int32 := () {{ {expression}; }};"),
+        );
+        let checked = crate::pipeline::check(&source).expect("check long expression");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("long expression is supported");
+
+        assert!(artifacts.module.contains("mal_function_"));
+    }
+
+    #[test]
     fn admits_direct_self_handoffs_to_wildcard_parameters() {
         for (index, source) in [
             "extern again :: Unit -> Bool; walk :: Int32 -> Int32 := (_) { if (again()) then { child := walk(1i32); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () { walk(0i32); };",

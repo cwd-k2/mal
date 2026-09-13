@@ -287,37 +287,94 @@ impl Lowerer {
                     operand: Box::new(self.lower_expression(operand)),
                 }
             }
-            checked::ExpressionKind::Binary {
-                operator,
-                left,
-                right,
-            } => {
-                if operator.kind == BinaryOperator::LogicalAnd
-                    || operator.kind == BinaryOperator::LogicalOr
-                {
-                    return self.lower_short_circuit(operator.kind, left, right, expression.span);
-                }
-                if operator.kind == BinaryOperator::SymbolAt {
-                    unreachable!("Symbol access is lowered before generic binary operators");
-                }
-                if matches!(
-                    operator.kind,
-                    BinaryOperator::Equal | BinaryOperator::NotEqual
-                ) && left.ty == bool_type()
-                {
-                    return self.lower_bool_equality(operator.kind, left, right, expression.span);
-                }
-                ExpressionKind::PrimitiveBinary {
-                    operator: lower_binary_primitive(operator.kind),
-                    left: Box::new(self.lower_expression(left)),
-                    right: Box::new(self.lower_expression(right)),
-                }
-            }
+            checked::ExpressionKind::Binary { .. } => return self.lower_binary_chain(expression),
         };
         Expression {
             kind,
             ty: expression.ty.clone(),
             span: expression.span,
+        }
+    }
+
+    fn lower_binary_chain(&mut self, expression: &checked::Expression) -> Expression {
+        let mut outer = Vec::new();
+        let mut current = expression;
+        while let checked::ExpressionKind::Binary {
+            operator,
+            left,
+            right,
+        } = &current.kind
+            && matches!(left.kind, checked::ExpressionKind::Binary { .. })
+        {
+            outer.push((
+                operator.kind,
+                right.as_ref(),
+                current.ty.clone(),
+                current.span,
+            ));
+            current = left;
+        }
+
+        let checked::ExpressionKind::Binary {
+            operator,
+            left,
+            right,
+        } = &current.kind
+        else {
+            unreachable!("caller selects a binary expression");
+        };
+        let left = self.lower_expression(left);
+        let mut lowered = self.lower_binary_after_left(
+            operator.kind,
+            left,
+            right,
+            current.ty.clone(),
+            current.span,
+        );
+        let mut preceding = Vec::with_capacity(outer.len());
+        while let Some((operator, right, ty, span)) = outer.pop() {
+            let id = self.temporary();
+            let left = self.reference(id, lowered.ty.clone(), lowered.span);
+            preceding.push((id, lowered));
+            lowered = self.lower_binary_after_left(operator, left, right, ty, span);
+        }
+        while let Some((id, value)) = preceding.pop() {
+            let span = value.span;
+            lowered = self.temporary_let(id, value, lowered, span);
+        }
+        lowered
+    }
+
+    fn lower_binary_after_left(
+        &mut self,
+        operator: BinaryOperator,
+        left: Expression,
+        right: &checked::Expression,
+        result_type: checked::Type,
+        span: Span,
+    ) -> Expression {
+        if matches!(
+            operator,
+            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr
+        ) {
+            return self.lower_short_circuit_after_left(operator, left, right, span);
+        }
+        if operator == BinaryOperator::SymbolAt {
+            unreachable!("Symbol access is lowered before generic binary operators");
+        }
+        if matches!(operator, BinaryOperator::Equal | BinaryOperator::NotEqual)
+            && left.ty == bool_type()
+        {
+            return self.lower_bool_equality_after_left(operator, left, right, span);
+        }
+        Expression {
+            kind: ExpressionKind::PrimitiveBinary {
+                operator: lower_binary_primitive(operator),
+                left: Box::new(left),
+                right: Box::new(self.lower_expression(right)),
+            },
+            ty: result_type,
+            span,
         }
     }
 

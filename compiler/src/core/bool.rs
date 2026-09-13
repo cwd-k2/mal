@@ -67,14 +67,13 @@ impl Lowerer {
         )
     }
 
-    pub(super) fn lower_short_circuit(
+    pub(super) fn lower_short_circuit_after_left(
         &mut self,
         operator: BinaryOperator,
-        left: &checked::Expression,
+        left: Expression,
         right: &checked::Expression,
         span: Span,
     ) -> Expression {
-        let left = self.lower_expression(left);
         let right = self.lower_expression(right);
         let false_value = self.bool_value(false, span);
         let true_value = self.bool_value(true, span);
@@ -92,10 +91,10 @@ impl Lowerer {
         self.case(left, arms, bool_type(), span)
     }
 
-    pub(super) fn lower_bool_equality(
+    pub(super) fn lower_bool_equality_after_left(
         &mut self,
         operator: BinaryOperator,
-        left: &checked::Expression,
+        left: Expression,
         right: &checked::Expression,
         span: Span,
     ) -> Expression {
@@ -115,7 +114,6 @@ impl Lowerer {
         );
         let right = self.lower_expression(right);
         let right_let = self.temporary_let(right_id, right, comparison, span);
-        let left = self.lower_expression(left);
         self.temporary_let(left_id, left, right_let, span)
     }
 
@@ -131,7 +129,7 @@ impl Lowerer {
         )
     }
 
-    fn temporary_let(
+    pub(super) fn temporary_let(
         &self,
         id: ValueId,
         value: Expression,

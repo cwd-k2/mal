@@ -30,6 +30,9 @@ stageごとのownershipは[compilerの責務境界](responsibilities.md)に置�
 
 lexer は handwritten、parser は recursive descent と Pratt parsing を組み合わせる。C compiler の起動、temporary file、diagnostic、target 設定は core compiler logic から分離する。
 
+Pratt parserが構成する左結合operator列は、resolveとcheckで左spineを反復走査する。core境界では各operatorの中間値を
+source順の`let`列へ変換し、後続stageへsource上のoperator数に比例する左深treeを渡さない。
+
 ## environments
 
 型検査の主な環境は次で足りる。

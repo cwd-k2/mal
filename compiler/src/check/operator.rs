@@ -13,6 +13,40 @@ use super::types::{bool_type, type_name};
 use super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
+    pub(super) fn binary_left_expected(
+        &self,
+        operator: &Node<BinaryOperator>,
+        expected: Option<&Type>,
+    ) -> Option<Type> {
+        match operator.kind {
+            BinaryOperator::SymbolAt => Some(Type::Symbol),
+            BinaryOperator::Add | BinaryOperator::Subtract => expected
+                .filter(|ty| {
+                    **ty == Type::Ptr
+                        || (operator.kind == BinaryOperator::Add && **ty == Type::Symbol)
+                        || is_integer(ty)
+                        || is_float(ty)
+                })
+                .cloned(),
+            BinaryOperator::Multiply | BinaryOperator::Divide => expected
+                .filter(|ty| is_integer(ty) || is_float(ty))
+                .cloned(),
+            BinaryOperator::Remainder
+            | BinaryOperator::ShiftLeft
+            | BinaryOperator::ShiftRight
+            | BinaryOperator::BitwiseAnd
+            | BinaryOperator::BitwiseXor
+            | BinaryOperator::BitwiseOr => expected.filter(|ty| is_integer(ty)).cloned(),
+            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => Some(bool_type()),
+            BinaryOperator::Less
+            | BinaryOperator::LessEqual
+            | BinaryOperator::Greater
+            | BinaryOperator::GreaterEqual
+            | BinaryOperator::Equal
+            | BinaryOperator::NotEqual => None,
+        }
+    }
+
     pub(super) fn check_unary(
         &mut self,
         operator: &Node<UnaryOperator>,
@@ -221,6 +255,132 @@ impl Checker {
         })
     }
 
+    pub(super) fn check_binary_after_left(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: Expression,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        match operator.kind {
+            BinaryOperator::SymbolAt => {
+                self.require_type(&left.ty, &Type::Symbol, left.span)?;
+                let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
+                return Ok(Expression {
+                    kind: ExpressionKind::SymbolAt {
+                        argument: Box::new(Expression {
+                            kind: ExpressionKind::Product(vec![left, right]),
+                            ty: Type::Product(vec![Type::Symbol, Type::UInt64].into()),
+                            span,
+                        }),
+                    },
+                    ty: Type::UInt8,
+                    span,
+                });
+            }
+            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
+                self.require_type(&left.ty, &bool_type(), left.span)?;
+                return self.check_logical_after_left(operator, left, right, span);
+            }
+            BinaryOperator::Add | BinaryOperator::Subtract if left.ty == Type::Ptr => {
+                let primitive = if operator.kind == BinaryOperator::Add {
+                    MemoryPrimitive::OffsetForward
+                } else {
+                    MemoryPrimitive::OffsetBackward
+                };
+                return self.check_pointer_offset(primitive, left, right, span);
+            }
+            BinaryOperator::Add if left.ty == Type::Symbol => {
+                let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
+                return Ok(Expression {
+                    kind: ExpressionKind::Binary {
+                        operator: operator.clone(),
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                    ty: Type::Symbol,
+                    span,
+                });
+            }
+            _ => {}
+        }
+
+        let numeric = is_integer(&left.ty) || is_float(&left.ty);
+        let integer = is_integer(&left.ty);
+        let expected = left.ty.clone();
+        let (left, right) = self.check_after(left, right, Some(&expected))?;
+        let valid = match operator.kind {
+            BinaryOperator::Add
+            | BinaryOperator::Subtract
+            | BinaryOperator::Multiply
+            | BinaryOperator::Divide
+            | BinaryOperator::Less
+            | BinaryOperator::LessEqual
+            | BinaryOperator::Greater
+            | BinaryOperator::GreaterEqual => numeric,
+            BinaryOperator::Remainder
+            | BinaryOperator::ShiftLeft
+            | BinaryOperator::ShiftRight
+            | BinaryOperator::BitwiseAnd
+            | BinaryOperator::BitwiseXor
+            | BinaryOperator::BitwiseOr => integer,
+            BinaryOperator::Equal | BinaryOperator::NotEqual => {
+                numeric || left.ty == bool_type() || left.ty == Type::Symbol
+            }
+            BinaryOperator::SymbolAt | BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
+                unreachable!("specialized operators return above")
+            }
+        };
+        if !valid {
+            let message = if matches!(
+                operator.kind,
+                BinaryOperator::Remainder
+                    | BinaryOperator::ShiftLeft
+                    | BinaryOperator::ShiftRight
+                    | BinaryOperator::BitwiseAnd
+                    | BinaryOperator::BitwiseXor
+                    | BinaryOperator::BitwiseOr
+            ) {
+                "integer operator requires integer operands"
+            } else if matches!(
+                operator.kind,
+                BinaryOperator::Equal | BinaryOperator::NotEqual
+            ) {
+                "equality is not defined for this type"
+            } else {
+                "numeric operator requires numeric operands"
+            };
+            return Err(Diagnostic::error(message)
+                .with_primary(
+                    left.span,
+                    format!("this has type `{}`", type_name(&left.ty)),
+                )
+                .into());
+        }
+        let result = if matches!(
+            operator.kind,
+            BinaryOperator::Less
+                | BinaryOperator::LessEqual
+                | BinaryOperator::Greater
+                | BinaryOperator::GreaterEqual
+                | BinaryOperator::Equal
+                | BinaryOperator::NotEqual
+        ) {
+            bool_type()
+        } else {
+            left.ty.clone()
+        };
+        Ok(Expression {
+            kind: ExpressionKind::Binary {
+                operator: operator.clone(),
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            ty: result,
+            span,
+        })
+    }
+
     fn check_pointer_or_numeric_arithmetic(
         &mut self,
         operator: &Node<BinaryOperator>,
@@ -384,6 +544,17 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let ty = bool_type();
         let left = self.check_before(left, Some(&ty), right.span)?;
+        self.check_logical_after_left(operator, left, right, span)
+    }
+
+    fn check_logical_after_left(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: Expression,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let ty = bool_type();
         match self.check_expression(right, Some(&ty)) {
             Ok(right) => Ok(Expression {
                 kind: ExpressionKind::Binary {

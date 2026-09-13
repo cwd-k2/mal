@@ -97,10 +97,11 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
-| `resolve/expression` | expression、transitive capture、lambda-local return authorityの解決とcapture拒否 |
+| `resolve/expression` | expression、左結合operator列の反復走査、transitive capture、lambda-local return authorityの解決とcapture拒否 |
 | `check` | program順序、value environment、return target、body item列の到達可能性、checked itemの構成 |
 | `check/control` | `if`と`when`の`Value` / `Abrupt` completion joinを構成 |
 | `check/lambda` | expected function型に対するparameter、return binder arity、lambda body completionを検査 |
+| `check/operator` | operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/types` | alias collection、cycle検査、canonical type expansionと表示 |
 | `check/interface` | extern transport検査とsource-level alias metadata |
 | `check/initializer` | top-level closed-value admission |
@@ -120,6 +121,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `core/completion` | checked completionへlexicalな後続を配り、return、`when`、empty eliminationを通常のcore expressionへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
+| `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |

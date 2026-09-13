@@ -75,17 +75,39 @@ impl Resolver {
                 operator: operator.clone(),
                 operand: Box::new(self.resolve_expression(operand)?),
             },
-            ast::Expression::Binary {
-                operator,
-                left,
-                right,
-            } => Expression::Binary {
-                operator: operator.clone(),
-                left: Box::new(self.resolve_expression(left)?),
-                right: Box::new(self.resolve_expression(right)?),
-            },
+            ast::Expression::Binary { .. } => return self.resolve_binary_chain(expression),
         };
         Ok(ast::Node::new(kind, expression.span))
+    }
+
+    fn resolve_binary_chain(
+        &mut self,
+        expression: &ast::Node<ast::Expression>,
+    ) -> Result<ast::Node<Expression>, Diagnostic> {
+        let mut outer = Vec::new();
+        let mut current = expression;
+        while let ast::Expression::Binary {
+            operator,
+            left,
+            right,
+        } = &current.kind
+        {
+            outer.push((operator, right.as_ref(), current.span));
+            current = left;
+        }
+
+        let mut resolved = self.resolve_expression(current)?;
+        while let Some((operator, right, span)) = outer.pop() {
+            resolved = ast::Node::new(
+                Expression::Binary {
+                    operator: operator.clone(),
+                    left: Box::new(resolved),
+                    right: Box::new(self.resolve_expression(right)?),
+                },
+                span,
+            );
+        }
+        Ok(resolved)
     }
 
     fn resolve_lambda(&mut self, lambda: &ast::Lambda) -> Result<Lambda, Diagnostic> {

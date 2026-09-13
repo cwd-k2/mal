@@ -182,10 +182,48 @@ impl Checker {
                 operator,
                 left,
                 right,
-            } => self.check_binary(operator, left, right, expression.span, expected)?,
+            } => self.check_binary_chain(operator, left, right, expression.span, expected)?,
         };
         if let Some(expected) = expected {
             self.require_type(&checked.ty, expected, checked.span)?;
+        }
+        Ok(checked)
+    }
+
+    fn check_binary_chain(
+        &mut self,
+        operator: &Node<crate::ast::BinaryOperator>,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        span: crate::source::Span,
+        expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        let mut outer = Vec::new();
+        let mut operator = operator;
+        let mut left = left;
+        let mut right = right;
+        let mut span = span;
+        let mut expected = expected.cloned();
+
+        while let resolved::Expression::Binary {
+            operator: inner_operator,
+            left: inner_left,
+            right: inner_right,
+        } = &left.kind
+        {
+            let inner_span = left.span;
+            let left_expected = self.binary_left_expected(operator, expected.as_ref());
+            outer.push((operator, right, span, expected));
+            expected = left_expected;
+            operator = inner_operator;
+            left = inner_left;
+            right = inner_right;
+            span = inner_span;
+        }
+
+        let mut checked = self.check_binary(operator, left, right, span, expected.as_ref())?;
+        while let Some((operator, right, span, _)) = outer.pop() {
+            checked = self.check_binary_after_left(operator, checked, right, span)?;
         }
         Ok(checked)
     }
