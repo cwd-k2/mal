@@ -54,9 +54,16 @@ impl ControlCallPlan {
             &direct_graph,
             control.functions.iter().map(|function| function.id)
         ));
+        let function_entries = control
+            .functions
+            .iter()
+            .map(|function| (function.id, function.entry))
+            .collect::<HashMap<_, _>>();
         let common_regions = regions
             .ids()
-            .filter(|region| region_requires_common_control(control, regions, &modes, *region))
+            .filter(|region| {
+                region_requires_common_control(control, &function_entries, regions, &modes, *region)
+            })
             .collect();
         let forwarded_self_arguments = optimizations.forwarded_self_arguments().clone();
         Self {
@@ -94,17 +101,15 @@ impl ControlCallPlan {
 
 fn region_requires_common_control(
     program: &control::Program,
+    function_entries: &HashMap<FunctionId, StateId>,
     regions: &ControlRegionPlan,
     modes: &HashMap<StateId, ControlCallMode>,
     region: ControlRegionId,
 ) -> bool {
     regions.functions(region).iter().any(|function| {
-        let entry = program
-            .functions
-            .iter()
-            .find(|candidate| candidate.id == *function)
-            .expect("region function has a control entry")
-            .entry;
+        let entry = *function_entries
+            .get(function)
+            .expect("region function has a control entry");
         reachable_states(program, entry).into_iter().any(|site| {
             regions.site_region(site) == Some(region)
                 && match modes.get(&site) {

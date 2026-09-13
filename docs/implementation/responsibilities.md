@@ -128,11 +128,11 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `execution/application` | application siteごとのcaller、known target、型互換なpossible internal function targetを構成 |
 | `execution/optimization` | 空集合でも成立するexecution baselineに対し、有効化された個別techniqueのprogram固有decisionを構成し、競合しない一つのplanへ集約 |
 | `execution/optimization/self_tail` | direct self tailをcaller continuationと同じ遷移へfusionできるsiteを判定 |
-| `execution/optimization/tail_forwarder` | pureなknown tail forwarderをcaller continuationと同じ遷移へfusionできるsiteとargumentを判定 |
+| `execution/optimization/tail_forwarder` | function identity indexからpureなknown tail forwarderを引き、caller continuationと同じ遷移へfusionできるsiteとargumentを判定 |
 | `execution/optimization/direct_call` | semantic application factからknown targetをdirect call decisionへ選択 |
 | `execution/continuation` | possible application graphから選択済みcontinuation elisionを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
-| `execution/call` | recursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
+| `execution/call` | function entry indexとrecursive regionからapplicationごとのdirect、self-tail、dispatch判定を導出し、native call graphを非循環化 |
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
@@ -145,7 +145,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
-| `backend/llvm/body/setup` | program内identityのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
+| `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
 | `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
 | `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |

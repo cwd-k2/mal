@@ -102,6 +102,7 @@ struct FunctionEmitter<'a> {
     slots: HashMap<ValueId, Slot>,
     function_slots: HashMap<FunctionId, Vec<ValueId>>,
     frame_sites: Vec<StateId>,
+    frame_tags: HashMap<StateId, u32>,
     external_storage: Option<(usize, usize)>,
     types: Types,
     top_levels: &'a TopLevelConstants,

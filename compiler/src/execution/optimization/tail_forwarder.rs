@@ -10,6 +10,11 @@ pub(super) fn plan(
     control: &control::Program,
     applications: &ApplicationGraph,
 ) -> HashMap<StateId, closure::Atom> {
+    let functions = program
+        .functions
+        .iter()
+        .map(|function| (function.id, function))
+        .collect::<HashMap<_, _>>();
     control
         .functions
         .iter()
@@ -22,7 +27,7 @@ pub(super) fn plan(
                         .direct_target(site)
                         .and_then(|forwarder| {
                             forwarded_self_tail_argument(
-                                program,
+                                &functions,
                                 state,
                                 &state.terminator,
                                 function.id,
@@ -36,7 +41,7 @@ pub(super) fn plan(
 }
 
 fn forwarded_self_tail_argument(
-    program: &closure::Program,
+    functions: &HashMap<FunctionId, &closure::Function>,
     state: &control::State,
     terminator: &Terminator,
     caller: FunctionId,
@@ -45,10 +50,7 @@ fn forwarded_self_tail_argument(
     let Terminator::TailCall { argument, .. } = terminator else {
         return None;
     };
-    let function = program
-        .functions
-        .iter()
-        .find(|function| function.id == forwarder)?;
+    let function = functions.get(&forwarder)?;
     let [first, tail] = function.body.bindings.as_slice() else {
         return None;
     };

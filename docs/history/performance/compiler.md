@@ -111,3 +111,10 @@ C `TypeRegistry`はaggregateを追加するたびに既存の全型と構造比�
 確定した子representation identityからproduct/sum keyを作り、同じkeyを一つのindexへinternする方式へ変更した。これにより
 transparent aliasから独立に構成された同型DAGも同じC representationを使い、収集と名前解決は型DAGのnode・edge数に比例する。
 独立に構成した64段の同型sum DAG二つが64個のaggregateだけを登録する回帰テストを置いた。
+
+## 2026-09-13 execution identity lookup
+
+tail-forwarder判定はapplication siteごとにcallee functionを線形探索し、common control判定はregion functionごとにentryを
+線形探索していた。LLVM frame emissionもsiteごとにframe tagの位置を探索していた。それぞれplan構成時にfunction identity、
+function entry、frame siteからtagへのmapを一度作り、site処理を定数時間のlookupへ変更した。semantic validationは従来の
+execution optimization、call plan、recursive controlのfocused testで同じdecisionを確認した。

@@ -82,6 +82,11 @@ impl<'a> FunctionEmitter<'a> {
             .filter(|site| execution.control_frames.frame(**site).is_some())
             .copied()
             .collect::<Vec<_>>();
+        let frame_tags = frame_sites
+            .iter()
+            .enumerate()
+            .map(|(tag, site)| Some((*site, u32::try_from(tag).ok()?)))
+            .collect::<Option<HashMap<_, _>>>()?;
         if frame_sites.iter().any(|site| {
             let frame = execution
                 .control_frames
@@ -134,6 +139,7 @@ impl<'a> FunctionEmitter<'a> {
             slots,
             function_slots,
             frame_sites,
+            frame_tags,
             external_storage,
             types,
             top_levels,

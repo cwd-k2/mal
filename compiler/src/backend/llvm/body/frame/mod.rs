@@ -40,11 +40,7 @@ impl FunctionEmitter<'_> {
             "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {top}"
         ));
         if tagged {
-            let tag = self
-                .frame_sites
-                .iter()
-                .position(|candidate| *candidate == site)
-                .and_then(|tag| u32::try_from(tag).ok())?;
+            let tag = self.frame_tags.get(&site)?;
             self.line(format!("  store i32 {tag}, ptr {frame_pointer}, align 4"));
         }
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
