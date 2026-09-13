@@ -307,7 +307,6 @@ impl Lowerer {
 
     fn lower_join(&mut self, join: &core::Join) -> ast::Join {
         ast::Join {
-            id: join.id,
             parameter: self.lower_pattern(&join.parameter),
             body: self.lower_expression(&join.body),
             span: join.span,

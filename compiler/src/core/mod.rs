@@ -25,7 +25,6 @@ pub fn lower(program: &checked::Program) -> Program {
 
 struct Lowerer {
     next_temporary: u32,
-    next_join: u32,
     joins: Vec<ast::Join>,
 }
 
@@ -33,7 +32,6 @@ impl Lowerer {
     fn new() -> Self {
         Self {
             next_temporary: 0,
-            next_join: 0,
             joins: Vec::new(),
         }
     }

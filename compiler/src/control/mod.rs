@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
-use crate::core::ast::JoinId;
 
 pub mod ast;
 mod liveness;
@@ -17,7 +14,7 @@ pub fn lower(program: &closure::Program) -> Program {
 
 struct Lowerer {
     states: Vec<State>,
-    joins: HashMap<JoinId, StateId>,
+    joins: Vec<StateId>,
 }
 
 #[derive(Clone, Copy)]
@@ -30,7 +27,7 @@ impl Lowerer {
     fn new() -> Self {
         Self {
             states: Vec::new(),
-            joins: HashMap::new(),
+            joins: Vec::new(),
         }
     }
 
@@ -63,7 +60,7 @@ impl Lowerer {
                     let entry = self.lower_block(&join.body, Destination::Return);
                     debug_assert!(self.states[entry.0].input.is_none());
                     self.states[entry.0].input = Some(join.parameter.clone());
-                    self.joins.insert(join.id, entry);
+                    self.joins.push(entry);
                 }
                 let entry = self.lower_block(&function.body, Destination::Return);
                 self.resolve_liveness(start, &locals);
@@ -91,7 +88,7 @@ impl Lowerer {
             match &last.operation {
                 closure::Operation::Goto { target, value } => {
                     bindings = &bindings[..bindings.len() - 1];
-                    let target = self.joins[target];
+                    let target = self.joins[target.0];
                     self.push_state(
                         None,
                         Vec::new(),

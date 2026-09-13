@@ -24,10 +24,8 @@ impl Lowerer {
         let parameter = self.temporary();
         let argument = self.reference(parameter, parameter_type.clone(), span);
         let body = continuation(self, argument);
-        let target = super::ast::JoinId(self.next_join);
-        self.next_join += 1;
+        let target = super::ast::JoinId(self.joins.len());
         self.joins.push(super::ast::Join {
-            id: target,
             parameter: Pattern::Binding {
                 id: parameter,
                 ty: parameter_type.clone(),

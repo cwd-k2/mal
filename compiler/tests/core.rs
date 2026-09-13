@@ -1,7 +1,7 @@
 use malc::check;
 use malc::core;
 use malc::core::ast::{
-    BinaryPrimitive, Expression, ExpressionKind, Lambda, Pattern, TopLevelPattern, ValueId,
+    BinaryPrimitive, Expression, ExpressionKind, JoinId, Lambda, Pattern, TopLevelPattern, ValueId,
 };
 use malc::parser;
 use malc::resolve;

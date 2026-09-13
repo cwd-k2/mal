@@ -48,7 +48,6 @@ pub struct Function {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Join {
-    pub id: JoinId,
     pub parameter: Pattern,
     pub body: Block,
     pub span: Span,

@@ -124,6 +124,59 @@ fn shares_continuations_across_multiple_normal_branch_exits() {
 }
 
 #[test]
+fn indexes_join_arenas_locally_to_each_lambda() {
+    let program = lower_ok(
+        "main :: Unit -> Int32 := ()[return] {\n\
+           nested :: Unit -> Int32 := ()[return] {\n\
+             when (false) { return(1i32) };\n\
+             return(0i32)\n\
+           };\n\
+           when (false) { return(nested()) };\n\
+           return(0i32)\n\
+         };",
+    );
+    let main = top_lambda_definition(&program, "main");
+    let ExpressionKind::Let {
+        binding,
+        body: outer_control,
+    } = &main.body.kind
+    else {
+        panic!("expected the nested lambda binding");
+    };
+    let ExpressionKind::Lambda(nested) = &binding.value.kind else {
+        panic!("expected the nested lambda");
+    };
+    let ExpressionKind::Case { arms, .. } = &outer_control.kind else {
+        panic!("expected outer completion control");
+    };
+    let ExpressionKind::Goto {
+        target: outer_target,
+        ..
+    } = arms[0].value.kind
+    else {
+        panic!("expected the outer join transfer");
+    };
+    let ExpressionKind::Case {
+        arms: nested_arms, ..
+    } = &nested.body.kind
+    else {
+        panic!("expected nested completion control");
+    };
+    let ExpressionKind::Goto {
+        target: nested_target,
+        ..
+    } = nested_arms[0].value.kind
+    else {
+        panic!("expected the nested join transfer");
+    };
+
+    assert_eq!(main.joins.len(), 1);
+    assert_eq!(nested.joins.len(), 1);
+    assert_eq!(outer_target, JoinId(0));
+    assert_eq!(nested_target, JoinId(0));
+}
+
+#[test]
 fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
     let text = format!(
         "main :: Unit -> Int32 := ()[return] {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",

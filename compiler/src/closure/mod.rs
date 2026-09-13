@@ -242,7 +242,6 @@ impl Converter {
             .joins
             .iter()
             .map(|join| ast::Join {
-                id: join.id,
                 parameter: self.convert_pattern(&join.parameter),
                 body: self.convert_block(&join.body, &environment),
                 span: join.span,

@@ -9,7 +9,7 @@ pub enum ValueId {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct JoinId(pub u32);
+pub struct JoinId(pub usize);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
@@ -212,7 +212,6 @@ pub struct Lambda {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Join {
-    pub id: JoinId,
     pub parameter: Pattern,
     pub body: Expression,
     pub span: Span,
