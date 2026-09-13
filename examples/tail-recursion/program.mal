@@ -1,12 +1,12 @@
-sumTo :: (Int64, Int64) -> Int64 := (remaining, total)[return] {
+sumDownFrom :: (Int64, Int64) -> Int64 := (total, remaining)[return] {
     when (remaining == 0) {
         return(total);
     };
-    return(sumTo(remaining - 1, total + remaining));
+    return((total + remaining).sumDownFrom(remaining - 1));
 };
 
 main :: Unit -> Int32 := () {
-    result := sumTo(1_000_000i64, 0);
+    result := (0i64).sumDownFrom(1_000_000i64);
     if (result == 500_000_500_000i64)
     then { 0 }
     else { 1 };

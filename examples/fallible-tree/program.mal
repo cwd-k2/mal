@@ -12,7 +12,7 @@ extern destroyAllocator :: Allocator -> Unit;
 
 // Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
 // Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
-leaf :: (Allocator, Int32) -> NodeResult := (allocator, value) {
+createLeaf :: (Allocator, Int32) -> NodeResult := (allocator, value) {
     allocated := allocator.allocateNode(5u64);
     allocated[
     (node)[created, failed] {
@@ -49,7 +49,7 @@ destroyTree :: (Ptr, Allocator) -> Unit := (node, allocator)[return] {
     return(allocator.releaseNode(node));
 };
 
-branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
+createOwnedBranch :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     (allocator, value, left, right) {
         allocated := allocator.allocateNode(5u64 + Ptr.size * 2u64);
         allocated[
@@ -69,12 +69,12 @@ branchOwned :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     };
 
 buildLeft :: Allocator -> NodeResult := (allocator) {
-    first := leaf(allocator, 3);
+    first := allocator.createLeaf(3);
     first[
     (left) {
-        second := leaf(allocator, 4);
+        second := allocator.createLeaf(4);
         second[
-        (right) { branchOwned(allocator, 2, left, right) },
+        (right) { allocator.createOwnedBranch(2, left, right) },
         ()[created, failed] {
             left.destroyTree(allocator);
             failed();
@@ -86,12 +86,12 @@ buildLeft :: Allocator -> NodeResult := (allocator) {
 };
 
 buildTree :: Allocator -> NodeResult := (allocator) {
-    leftResult := buildLeft(allocator);
+    leftResult := allocator.buildLeft();
     leftResult[
     (left) {
-        rightResult := leaf(allocator, 5);
+        rightResult := allocator.createLeaf(5);
         rightResult[
-        (right) { branchOwned(allocator, 1, left, right) },
+        (right) { allocator.createOwnedBranch(1, left, right) },
         ()[created, failed] {
             left.destroyTree(allocator);
             failed();
@@ -104,7 +104,7 @@ buildTree :: Allocator -> NodeResult := (allocator) {
 
 successfulBuild :: Unit -> Bool := () {
     allocator := createAllocator(5u64);
-    result := buildTree(allocator);
+    result := allocator.buildTree();
     valid := result[
         (tree) {
             total := tree.sumTree();
@@ -119,7 +119,7 @@ successfulBuild :: Unit -> Bool := () {
 
 failedBuildCleansPartialTree :: Unit -> Bool := () {
     allocator := createAllocator(3u64);
-    result := buildTree(allocator);
+    result := allocator.buildTree();
     failed := result[
         (tree) {
             tree.destroyTree(allocator);

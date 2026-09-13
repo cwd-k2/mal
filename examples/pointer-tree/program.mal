@@ -36,7 +36,7 @@ sumTree :: Ptr -> Int32 := (node)[return] {
 destroyTree :: Ptr -> Unit := (node)[return] {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
-        return(release(node));
+        return(node.release());
     };
 
     left := Ptr.load(node + 5u64);

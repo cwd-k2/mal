@@ -75,7 +75,7 @@ copyPath :: Symbol -> Status := (path) {
         (file) {
             copied := file.copyContents(buffer);
             closed := file.closeFile();
-            finishCopy(copied, closed);
+            copied.finishCopy(closed);
         },
         (error)[complete, failed] { failed(error) }
     ];

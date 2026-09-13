@@ -35,7 +35,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
     when (capacity > 0x7fff_ffff_ffff_ffffu64) {
         return(required);
     };
-    return(nextCapacity(capacity * 2u64, required));
+    return((capacity * 2u64).nextCapacity(required));
 };
 
 appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
@@ -48,7 +48,7 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
     available := if (required <= capacity)
         then { _bufferSuccess(buffer) }
         else {
-            target := nextCapacity(capacity, required);
+            target := capacity.nextCapacity(required);
             buffer.resizeBuffer(target);
         };
     result :: BufferResult := available[
@@ -128,7 +128,7 @@ afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) {
             if (currentSlice.writeThroughDescriptor())
             then {
                 writeSymbol("\n");
-                finishLimitTest(grown, aliasesInvalid);
+                grown.finishLimitTest(aliasesInvalid);
             }
             else {
                 grown.releaseBufferValue();
@@ -162,9 +162,9 @@ withInitialValue :: Buffer -> Int32 := (initial) {
             sliceResult := buffer.sliceBuffer(1u64, 2u64);
             sliceResult[
             (slice) {
-                slice.writeSlice();
+                writeSlice(slice);
                 writeSymbol("\n");
-                afterGrowth(buffer, slice);
+                buffer.afterGrowth(slice);
             },
             () {
                 buffer.releaseBufferValue();
@@ -184,7 +184,7 @@ withInitialValue :: Buffer -> Int32 := (initial) {
 main :: Unit -> Int32 := () {
     allocated := allocateBuffer(4u64, 64u64);
     allocated[
-    (buffer) { withInitialValue(buffer) },
+    (buffer) { buffer.withInitialValue() },
     (_) { 7 }
     ];
 };

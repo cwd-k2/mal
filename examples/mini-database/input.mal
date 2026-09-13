@@ -28,7 +28,7 @@ _readByte :: Reader -> ByteRead := (reader)[eof, read] {
         read(((file, buffer, position + 1u64), byte));
     };
 
-    transferred := readFile(file, (memory, capacity));
+    transferred := file.readFile((memory, capacity));
     filled := (memory, capacity, transferred);
     next := (file, filled, 0u64);
     when (transferred == 0u64) {

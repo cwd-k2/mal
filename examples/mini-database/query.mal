@@ -8,8 +8,8 @@ _writeResponse :: Symbol -> Unit := (response) {
     writeSymbol(response);
 };
 
-_put :: (File, Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
-    (file, database, line, keyStart, keyLength, valueStart, valueLength) {
+_put :: (Buffer, File, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
+    (database, file, line, keyStart, keyLength, valueStart, valueLength) {
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
 
         result[
@@ -37,8 +37,8 @@ _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
         ];
     };
 
-_delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
-    (file, database, line, keyStart, keyLength) {
+_delete :: (Buffer, File, Bytes, UInt64, UInt64) -> Unit :=
+    (database, file, line, keyStart, keyLength) {
         if (database.deleteRecord(line, keyStart, keyLength))
         then {
             file.saveDatabase(database);
@@ -48,7 +48,7 @@ _delete :: (File, Buffer, Bytes, UInt64, UInt64) -> Unit :=
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
-_handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes)[return] {
+_handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes)[return] {
     (line, length) := lineBytes;
 
     when (length >= 4u64 && line.rangeEquals(length, 0u64, 4u64, "get ")) {
@@ -57,7 +57,7 @@ _handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes)[ret
         when (keyLength == 0u64 || extraSpace != length) {
             return(_writeResponse("ERROR usage: get KEY\n"));
         };
-        return(_get(database, lineBytes, 4u64, keyLength));
+        return(database._get(lineBytes, 4u64, keyLength));
     };
 
     when (length >= 4u64 && line.rangeEquals(length, 0u64, 4u64, "del ")) {
@@ -66,7 +66,7 @@ _handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes)[ret
         when (keyLength == 0u64 || extraSpace != length) {
             return(_writeResponse("ERROR usage: del KEY\n"));
         };
-        return(_delete(file, database, lineBytes, 4u64, keyLength));
+        return(database._delete(file, lineBytes, 4u64, keyLength));
     };
 
     when (length >= 4u64 && line.rangeEquals(length, 0u64, 4u64, "put ")) {
@@ -74,9 +74,8 @@ _handleQuery :: (File, Buffer, Bytes) -> Unit := (file, database, lineBytes)[ret
         when (separator == length || separator == 4u64) {
             return(_writeResponse("ERROR usage: put KEY VALUE\n"));
         };
-        return(_put(
+        return(database._put(
             file,
-            database,
             lineBytes,
             4u64,
             separator - 4u64,
@@ -102,7 +101,7 @@ runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
                 return(());
             };
 
-            _handleQuery(file, database, lineBytes);
+            database._handleQuery(file, lineBytes);
             return(next.runQueries(file, database, query));
         }
         ];
