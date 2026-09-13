@@ -8,6 +8,9 @@ pub enum ValueId {
     Temporary(u32),
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct JoinId(pub u32);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
     pub interface: ProgramInterface,
@@ -116,6 +119,10 @@ pub enum ExpressionKind {
         binding: Box<Binding>,
         body: Box<Expression>,
     },
+    Goto {
+        target: JoinId,
+        value: Box<Expression>,
+    },
     Lambda(Lambda),
     Call {
         callee: Box<Expression>,
@@ -200,6 +207,15 @@ pub struct Lambda {
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Box<Expression>,
+    pub joins: Vec<Join>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Join {
+    pub id: JoinId,
+    pub parameter: Pattern,
+    pub body: Expression,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

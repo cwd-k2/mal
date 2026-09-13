@@ -1,6 +1,6 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::core::ast::{BinaryPrimitive, ProgramInterface, UnaryPrimitive};
+use crate::core::ast::{BinaryPrimitive, JoinId, ProgramInterface, UnaryPrimitive};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
 
@@ -43,6 +43,15 @@ pub struct Function {
     pub environment: Vec<EnvironmentField>,
     pub parameter: Parameter,
     pub body: Block,
+    pub joins: Vec<Join>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Join {
+    pub id: JoinId,
+    pub parameter: Pattern,
+    pub body: Block,
+    pub span: Span,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -125,6 +134,10 @@ pub enum Reference {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Operation {
     Atom(Atom),
+    Goto {
+        target: JoinId,
+        value: Atom,
+    },
     MakeClosure {
         function: FunctionId,
         captures: Vec<Atom>,

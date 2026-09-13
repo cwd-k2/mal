@@ -150,6 +150,20 @@ fn lowers_a_long_flat_body_without_recursive_statement_processing() {
 }
 
 #[test]
+fn lowers_long_completion_control_sequences_to_join_states() {
+    let count = 4_096;
+    let text = format!(
+        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        "when (false) { return(1i32) };".repeat(count)
+    );
+    let program = lower_ok(&text);
+    let function = top_level_function(&program, "main");
+    let states = reachable_states(&program, function);
+
+    assert!(states.len() >= count);
+}
+
+#[test]
 fn keeps_sum_payloads_local_but_saves_them_across_continuation_calls() {
     let program = lower_ok(
         "identity :: Int32 -> Int32 := (x) { x; };\n\

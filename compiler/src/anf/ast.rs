@@ -1,5 +1,7 @@
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::core::ast::{BinaryPrimitive, ProgramInterface, UnaryPrimitive, ValueId as CoreValueId};
+use crate::core::ast::{
+    BinaryPrimitive, JoinId, ProgramInterface, UnaryPrimitive, ValueId as CoreValueId,
+};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
 
@@ -94,6 +96,10 @@ pub enum AtomKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Operation {
     Atom(Atom),
+    Goto {
+        target: JoinId,
+        value: Atom,
+    },
     Lambda(Lambda),
     Call {
         callee: Atom,
@@ -153,6 +159,15 @@ pub struct Lambda {
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Block,
+    pub joins: Vec<Join>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Join {
+    pub id: JoinId,
+    pub parameter: Pattern,
+    pub body: Block,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

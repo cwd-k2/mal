@@ -34,6 +34,9 @@ impl ClosureUsePlan {
         }
         for function in &program.functions {
             collect_candidates(&function.body, &mut candidates);
+            for join in &function.joins {
+                collect_candidates(&join.body, &mut candidates);
+            }
         }
         // Closure conversion rewrites recursive references away from their source
         // binding, so retain the creator identity needed for escape classification.
@@ -66,6 +69,15 @@ impl ClosureUsePlan {
                 &mut direct_uses,
                 &mut other_uses,
             );
+            for join in &function.joins {
+                collect_uses(
+                    &join.body,
+                    &candidates,
+                    &creators,
+                    &mut direct_uses,
+                    &mut other_uses,
+                );
+            }
         }
         candidates.retain(|_, target| {
             direct_uses.contains(&target.creator) && !other_uses.contains(&target.creator)
@@ -215,6 +227,7 @@ fn collect_operation_uses(
     };
     match operation {
         Operation::Atom(value)
+        | Operation::Goto { value, .. }
         | Operation::SymbolLength { value }
         | Operation::NumericConversion { operand: value }
         | Operation::PrimitiveUnary { operand: value, .. } => atom(value, false),

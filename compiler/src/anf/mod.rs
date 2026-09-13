@@ -109,6 +109,17 @@ impl Lowerer {
             core::ExpressionKind::Let { binding, body } => {
                 self.lower_let_chain(binding, body, expression)
             }
+            core::ExpressionKind::Goto { target, value } => {
+                let (builder, value) = self.lower_operand(value);
+                builder.finish(
+                    self,
+                    expression,
+                    Operation::Goto {
+                        target: *target,
+                        value,
+                    },
+                )
+            }
             core::ExpressionKind::Lambda(lambda) => {
                 let lambda = Lambda {
                     id: lambda.id,
@@ -128,6 +139,11 @@ impl Lowerer {
                         span: lambda.parameter.span,
                     },
                     body: self.lower_expression(&lambda.body),
+                    joins: lambda
+                        .joins
+                        .iter()
+                        .map(|join| self.lower_join(join))
+                        .collect(),
                 };
                 self.operation_block(expression, Operation::Lambda(lambda))
             }
@@ -286,6 +302,15 @@ impl Lowerer {
             pattern: self.lower_pattern(&arm.pattern),
             value: self.lower_expression(&arm.value),
             span: arm.span,
+        }
+    }
+
+    fn lower_join(&mut self, join: &core::Join) -> ast::Join {
+        ast::Join {
+            id: join.id,
+            parameter: self.lower_pattern(&join.parameter),
+            body: self.lower_expression(&join.body),
+            span: join.span,
         }
     }
 

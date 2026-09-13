@@ -25,11 +25,17 @@ pub fn lower(program: &checked::Program) -> Program {
 
 struct Lowerer {
     next_temporary: u32,
+    next_join: u32,
+    joins: Vec<ast::Join>,
 }
 
 impl Lowerer {
     fn new() -> Self {
-        Self { next_temporary: 0 }
+        Self {
+            next_temporary: 0,
+            next_join: 0,
+            joins: Vec::new(),
+        }
     }
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
@@ -107,6 +113,7 @@ impl Lowerer {
                         ty: result.clone(),
                         span,
                     }),
+                    joins: Vec::new(),
                 }),
                 ty: function_type,
                 span,
@@ -214,6 +221,7 @@ impl Lowerer {
                         ty: result.as_ref().clone(),
                         span: expression.span,
                     }),
+                    joins: Vec::new(),
                 })
             }
             checked::ExpressionKind::SumElimination {
@@ -379,6 +387,7 @@ impl Lowerer {
     }
 
     fn lower_lambda(&mut self, lambda: &checked::Lambda) -> Lambda {
+        let outer_joins = std::mem::take(&mut self.joins);
         let parameter_type = lambda.parameter_type.clone();
         let parameter_binding = match lambda.parameter.as_deref() {
             None | Some(checked::Pattern::Wildcard { .. }) => None,
@@ -404,6 +413,7 @@ impl Lowerer {
                 span: lambda.body.span,
             };
         }
+        let joins = std::mem::replace(&mut self.joins, outer_joins);
         Lambda {
             id: lambda.id,
             self_binding: lambda.self_binding.map(ValueId::Source),
@@ -429,6 +439,7 @@ impl Lowerer {
                 ),
             },
             body: Box::new(body),
+            joins,
         }
     }
 

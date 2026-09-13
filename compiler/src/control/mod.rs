@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
+use crate::core::ast::JoinId;
 
 pub mod ast;
 mod liveness;
@@ -14,6 +17,7 @@ pub fn lower(program: &closure::Program) -> Program {
 
 struct Lowerer {
     states: Vec<State>,
+    joins: HashMap<JoinId, StateId>,
 }
 
 #[derive(Clone, Copy)]
@@ -24,7 +28,10 @@ enum Destination {
 
 impl Lowerer {
     fn new() -> Self {
-        Self { states: Vec::new() }
+        Self {
+            states: Vec::new(),
+            joins: HashMap::new(),
+        }
     }
 
     fn lower_program(mut self, program: &closure::Program) -> Program {
@@ -32,7 +39,8 @@ impl Lowerer {
             .bindings
             .iter()
             .map(|binding| {
-                let locals = local_values(&binding.value, None);
+                self.joins.clear();
+                let locals = local_values(&binding.value, None, &[]);
                 let start = self.states.len();
                 let entry = self.lower_block(&binding.value, Destination::Return);
                 self.resolve_liveness(start, &locals);
@@ -47,8 +55,16 @@ impl Lowerer {
             .functions
             .iter()
             .map(|function| {
-                let locals = local_values(&function.body, Some(&function.parameter));
+                self.joins.clear();
+                let locals =
+                    local_values(&function.body, Some(&function.parameter), &function.joins);
                 let start = self.states.len();
+                for join in &function.joins {
+                    let entry = self.lower_block(&join.body, Destination::Return);
+                    debug_assert!(self.states[entry.0].input.is_none());
+                    self.states[entry.0].input = Some(join.parameter.clone());
+                    self.joins.insert(join.id, entry);
+                }
                 let entry = self.lower_block(&function.body, Destination::Return);
                 self.resolve_liveness(start, &locals);
                 Function {
@@ -73,6 +89,19 @@ impl Lowerer {
             && returns_binding(&block.result, &last.pattern)
         {
             match &last.operation {
+                closure::Operation::Goto { target, value } => {
+                    bindings = &bindings[..bindings.len() - 1];
+                    let target = self.joins[target];
+                    self.push_state(
+                        None,
+                        Vec::new(),
+                        Terminator::Jump {
+                            target,
+                            value: value.clone(),
+                        },
+                        block.span,
+                    )
+                }
                 closure::Operation::Call { callee, argument }
                     if matches!(destination, Destination::Return) =>
                 {
@@ -341,6 +370,7 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
             right: right.clone(),
         },
         closure::Operation::Call { .. }
+        | closure::Operation::Goto { .. }
         | closure::Operation::Case { .. }
         | closure::Operation::PrimitiveBranch { .. } => {
             unreachable!("control operations become terminators")

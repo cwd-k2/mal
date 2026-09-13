@@ -78,17 +78,49 @@ fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
     let ExpressionKind::Case { arms, .. } = &body.kind else {
         panic!("when should lower to a branch over the remaining continuation");
     };
+    assert!(matches!(arms[0].value.kind, ExpressionKind::Goto { .. }));
+    let joins = &top_lambda_definition(&program, "absolute").joins;
+    assert_eq!(joins.len(), 1);
     let ExpressionKind::Let {
         body: remaining, ..
-    } = &arms[0].value.kind
+    } = &joins[0].body.kind
     else {
-        panic!("fallthrough should discard when's Unit before continuing");
+        panic!("the shared continuation should discard when's Unit");
     };
     assert!(matches!(
         remaining.kind,
         ExpressionKind::PrimitiveUnary { .. }
     ));
     assert!(matches!(arms[1].value.kind, ExpressionKind::Reference(_)));
+}
+
+#[test]
+fn lowers_long_flat_completion_control_sequences_to_shared_joins() {
+    let text = format!(
+        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        "when (false) { return(1i32) };".repeat(4_096)
+    );
+
+    let program = lower_ok(&text);
+
+    assert_eq!(top_lambda_definition(&program, "main").joins.len(), 4_096);
+}
+
+#[test]
+fn shares_continuations_across_multiple_normal_branch_exits() {
+    let count = 128;
+    let item = "if (true) then { when (false) { return(1i32) }; () } else { () };";
+    let text = format!(
+        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        item.repeat(count)
+    );
+
+    let program = lower_ok(&text);
+
+    assert_eq!(
+        top_lambda_definition(&program, "main").joins.len(),
+        count * 2
+    );
 }
 
 #[test]

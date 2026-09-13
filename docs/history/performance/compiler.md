@@ -143,3 +143,8 @@ completion controlを含むitemより前にcontrol-freeなstatementを直列に�
 core loweringがitemごとのRust再帰で後続を構築していた。controlの有無の分類を明示work stackへ移し、先頭のcontrol-freeな
 item列を逆順のloopでcore `let`列へ構築した。4,096個のstatementの後に`when`とreturnを置く回帰テストをdebug test threadで
 完走させた。分岐が持つ複数の正常出口へ同じ後続を配る処理は別途共有表現を必要とするため、この変更には含めていない。
+
+続いて後続をlambda-local join arenaへ一度だけ置き、正常出口をjoin identityへのtransferにした。body itemとcontrolを含むproduct要素は
+末尾から反復的に畳み、joinはcore、ANF、closureでは平坦なvectorとして所有し、control stageで既存のinput付きstateへ変換する。
+4,096個の`when`列をcoreからcontrolまで、1,024個をLLVM emissionまで処理する回帰テストを置いた。branchごとの後続clone、
+synthetic closure allocation、sourceに比例するhost stackのいずれも必要としない。判断は[D047](../decisions/D047.md)に記録する。

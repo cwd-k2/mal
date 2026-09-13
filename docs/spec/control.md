@@ -104,5 +104,6 @@ return binder applicationはargumentを通常の順序で一度評価した後�
 同じresult edgeへ接続する。`when`はBool branch、empty eliminationはzero-arm sum eliminationへ変換する。core loweringは
 `Abrupt` pathでは後続を捨て、`Value` pathにだけlexicalな後続を接続する。この変換は既に完了した`extern`作用を省略・重複・並べ替えない。
 
-return binderとcompletion judgmentはcore境界で消去し、ANF以降には通常のvalue expression、branch、sum injection、sum elimination、
-lambda resultだけを渡す。
+return binderとcompletion judgmentはcore境界で消去する。複数の`Value` pathが同じlexical continuationへ進む場合、core、ANF、
+closure IRは後続を複製せず非first-classなjoin identityへのtransferとして保持し、control loweringがinput付きstateへのjumpへ変換する。
+`Abrupt` pathはjoinを経由せずlambda resultへ進む。

@@ -129,6 +129,10 @@ impl Converter {
     ) -> Operation {
         match operation {
             anf::Operation::Atom(atom) => Operation::Atom(self.convert_atom(atom, environment)),
+            anf::Operation::Goto { target, value } => Operation::Goto {
+                target: *target,
+                value: self.convert_atom(value, environment),
+            },
             anf::Operation::Lambda(lambda) => {
                 let captures = lambda
                     .captures
@@ -234,6 +238,16 @@ impl Converter {
             );
         }
         let body = self.convert_block(&lambda.body, &environment);
+        let joins = lambda
+            .joins
+            .iter()
+            .map(|join| ast::Join {
+                id: join.id,
+                parameter: self.convert_pattern(&join.parameter),
+                body: self.convert_block(&join.body, &environment),
+                span: join.span,
+            })
+            .collect();
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
             environment: lambda
@@ -249,6 +263,7 @@ impl Converter {
                 span: lambda.parameter.span,
             },
             body,
+            joins,
         });
     }
 
@@ -299,6 +314,7 @@ impl Converter {
                 },
                 span,
             },
+            joins: Vec::new(),
         });
         id
     }

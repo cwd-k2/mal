@@ -119,11 +119,13 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
 | `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `core/completion` | control-freeなbody item列を反復的にcore `let`列へ変換し、checked completionへlexicalな後続を配ってreturn、`when`、empty eliminationを通常のcore expressionへ消去 |
+| `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathをlambda-local joinへ接続してreturn、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
+| `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
+| `closure` | lambdaをfunctionとenvironmentへ変換し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
-| `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
+| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
 | `execution/application` | application siteごとのcaller、known target、および構造fingerprintでgroup化した型互換なpossible internal function targetを構成 |

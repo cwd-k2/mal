@@ -53,6 +53,7 @@ impl Lowerer {
 pub(super) fn local_values(
     block: &closure::Block,
     parameter: Option<&closure::Parameter>,
+    joins: &[closure::Join],
 ) -> Vec<LiveValue> {
     let mut values = Vec::new();
     if let Some(parameter) = parameter
@@ -63,6 +64,10 @@ pub(super) fn local_values(
             ty: parameter.ty.clone(),
             span: parameter.span,
         });
+    }
+    for join in joins {
+        collect_pattern_values(&join.parameter, join.span, &mut values);
+        collect_local_values(&join.body, &mut values);
     }
     collect_local_values(block, &mut values);
     values

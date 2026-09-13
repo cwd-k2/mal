@@ -1,7 +1,7 @@
 use malc::check;
 use malc::core;
 use malc::core::ast::{
-    BinaryPrimitive, Expression, ExpressionKind, Pattern, TopLevelPattern, ValueId,
+    BinaryPrimitive, Expression, ExpressionKind, Lambda, Pattern, TopLevelPattern, ValueId,
 };
 use malc::parser;
 use malc::resolve;
@@ -18,10 +18,25 @@ fn lower_ok(text: &str) -> core::ast::Program {
 }
 
 fn lambda_body(expression: &Expression) -> &Expression {
+    &lambda(expression).body
+}
+
+fn lambda(expression: &Expression) -> &Lambda {
     let ExpressionKind::Lambda(lambda) = &expression.kind else {
         panic!("expected a lambda, found {:#?}", expression.kind);
     };
-    &lambda.body
+    lambda
+}
+
+fn top_lambda_definition<'a>(program: &'a core::ast::Program, name: &str) -> &'a Lambda {
+    let binding = program
+        .bindings
+        .iter()
+        .find(|binding| {
+            matches!(&binding.pattern, TopLevelPattern::Binding { name: candidate, .. } if candidate == name)
+        })
+        .expect("named top-level binding");
+    lambda(&binding.value)
 }
 
 fn top_lambda<'a>(program: &'a core::ast::Program, name: &str) -> &'a Expression {

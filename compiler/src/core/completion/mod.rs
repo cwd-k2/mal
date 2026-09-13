@@ -6,12 +6,46 @@ use super::ast::{Binding, Expression, ExpressionKind, Pattern};
 
 type Continuation<'a> = dyn FnMut(&mut Lowerer, Expression) -> Expression + 'a;
 
+mod branch;
 mod presence;
 mod value;
 
 use presence::contains_control;
 
 impl Lowerer {
+    fn lower_with_join(
+        &mut self,
+        parameter_type: &checked::Type,
+        result_type: &checked::Type,
+        span: crate::source::Span,
+        continuation: &mut Continuation<'_>,
+        build: impl FnOnce(&mut Lowerer, &mut Continuation<'_>) -> Expression,
+    ) -> Expression {
+        let parameter = self.temporary();
+        let argument = self.reference(parameter, parameter_type.clone(), span);
+        let body = continuation(self, argument);
+        let target = super::ast::JoinId(self.next_join);
+        self.next_join += 1;
+        self.joins.push(super::ast::Join {
+            id: target,
+            parameter: Pattern::Binding {
+                id: parameter,
+                ty: parameter_type.clone(),
+            },
+            body,
+            span,
+        });
+        let mut jump = |_: &mut Lowerer, value: Expression| Expression {
+            kind: ExpressionKind::Goto {
+                target,
+                value: Box::new(value),
+            },
+            ty: result_type.clone(),
+            span,
+        };
+        build(self, &mut jump)
+    }
+
     pub(super) fn lower_lambda_body(
         &mut self,
         items: &[checked::BodyItem],
@@ -38,64 +72,23 @@ impl Lowerer {
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
     ) -> Expression {
-        let direct = items
-            .iter()
-            .take_while(|item| !contains_control(body_item_value(item)))
-            .count();
-        if direct != 0 {
-            let mut body =
-                self.lower_items_with(&items[direct..], result, result_type, continuation);
-            for item in items[..direct].iter().rev() {
+        let mut body = self.lower_completion_with(result, result_type, continuation);
+        for item in items.iter().rev() {
+            if !contains_control(body_item_value(item)) {
                 body = self.prepend_body_item(item, body);
+                continue;
             }
-            return body;
+            let mut rest = Some(body);
+            let mut next = |lowerer: &mut Lowerer, value: Expression| {
+                lowerer.prepend_lowered_body_item(
+                    item,
+                    value,
+                    rest.take().expect("a join continuation is lowered once"),
+                )
+            };
+            body = self.lower_value_with(body_item_value(item), result_type, &mut next);
         }
-        let Some((first, rest)) = items.split_first() else {
-            return self.lower_completion_with(result, result_type, continuation);
-        };
-        match first {
-            checked::BodyItem::Binding(binding) => {
-                let mut next = |lowerer: &mut Lowerer, value: Expression| {
-                    let body = lowerer.lower_items_with(rest, result, result_type, continuation);
-                    let ty = body.ty.clone();
-                    Expression {
-                        kind: ExpressionKind::Let {
-                            binding: Box::new(Binding {
-                                pattern: lowerer.lower_pattern(&binding.pattern),
-                                value,
-                                span: binding.span,
-                            }),
-                            body: Box::new(body),
-                        },
-                        ty,
-                        span: binding.span,
-                    }
-                };
-                self.lower_value_with(&binding.value, result_type, &mut next)
-            }
-            checked::BodyItem::Expression(value) => {
-                let mut next = |lowerer: &mut Lowerer, lowered: Expression| {
-                    let body = lowerer.lower_items_with(rest, result, result_type, continuation);
-                    let ty = body.ty.clone();
-                    Expression {
-                        kind: ExpressionKind::Let {
-                            binding: Box::new(Binding {
-                                pattern: Pattern::Wildcard {
-                                    ty: lowered.ty.clone(),
-                                    span: lowered.span,
-                                },
-                                value: lowered,
-                                span: value.span,
-                            }),
-                            body: Box::new(body),
-                        },
-                        ty,
-                        span: value.span,
-                    }
-                };
-                self.lower_value_with(value, result_type, &mut next)
-            }
-        }
+        body
     }
 
     fn prepend_body_item(&mut self, item: &checked::BodyItem, body: Expression) -> Expression {
@@ -116,6 +109,39 @@ impl Lowerer {
                     value.span,
                 )
             }
+        };
+        let ty = body.ty.clone();
+        Expression {
+            kind: ExpressionKind::Let {
+                binding: Box::new(Binding {
+                    pattern,
+                    value,
+                    span,
+                }),
+                body: Box::new(body),
+            },
+            ty,
+            span,
+        }
+    }
+
+    fn prepend_lowered_body_item(
+        &mut self,
+        item: &checked::BodyItem,
+        value: Expression,
+        body: Expression,
+    ) -> Expression {
+        let (pattern, span) = match item {
+            checked::BodyItem::Binding(binding) => {
+                (self.lower_pattern(&binding.pattern), binding.span)
+            }
+            checked::BodyItem::Expression(source) => (
+                Pattern::Wildcard {
+                    ty: value.ty.clone(),
+                    span: value.span,
+                },
+                source.span,
+            ),
         };
         let ty = body.ty.clone();
         Expression {
@@ -172,7 +198,7 @@ impl Lowerer {
                 condition,
                 then_branch,
                 else_branch,
-            } => self.lower_control_if(
+            } => self.lower_control_if_body(
                 condition,
                 then_branch,
                 else_branch,
@@ -191,28 +217,30 @@ impl Lowerer {
         result_type: &checked::Type,
         span: crate::source::Span,
     ) -> Expression {
-        let Some((first, rest)) = preceding.split_first() else {
-            return terminal;
-        };
-        let mut next = |lowerer: &mut Lowerer, value: Expression| {
-            let body = lowerer.lower_preceding(rest, terminal.clone(), result_type, span);
-            Expression {
-                kind: ExpressionKind::Let {
-                    binding: Box::new(Binding {
-                        pattern: Pattern::Wildcard {
-                            ty: value.ty.clone(),
-                            span: value.span,
-                        },
-                        value,
-                        span: first.span,
-                    }),
-                    body: Box::new(body),
-                },
-                ty: result_type.clone(),
-                span,
-            }
-        };
-        self.lower_value_with(first, result_type, &mut next)
+        let mut body = terminal;
+        for value in preceding.iter().rev() {
+            let mut rest = Some(body);
+            let mut next = |_: &mut Lowerer, value: Expression| {
+                let value_span = value.span;
+                Expression {
+                    kind: ExpressionKind::Let {
+                        binding: Box::new(Binding {
+                            pattern: Pattern::Wildcard {
+                                ty: value.ty.clone(),
+                                span: value_span,
+                            },
+                            value,
+                            span: value_span,
+                        }),
+                        body: Box::new(rest.take().expect("a join continuation is lowered once")),
+                    },
+                    ty: result_type.clone(),
+                    span,
+                }
+            };
+            body = self.lower_value_with(value, result_type, &mut next);
+        }
+        body
     }
 
     fn lower_value_with(
@@ -232,7 +260,6 @@ impl Lowerer {
             checked::ExpressionKind::Product(elements) => self.lower_values_with(
                 elements,
                 result_type,
-                Vec::new(),
                 continuation,
                 ExpressionKind::Product,
                 value,
@@ -257,62 +284,41 @@ impl Lowerer {
             checked::ExpressionKind::SumElimination {
                 scrutinee,
                 continuations,
-            } => {
-                let checked::Type::Sum(members) = &scrutinee.ty else {
-                    unreachable!("checked sum elimination scrutinee")
-                };
-                let mut scrutinee_next = |lowerer: &mut Lowerer, scrutinee: Expression| {
-                    let mut arms = Vec::with_capacity(continuations.len());
-                    for (index, (member, branch)) in members.iter().zip(continuations).enumerate() {
-                        let payload_id = lowerer.temporary();
-                        let payload = lowerer.reference(payload_id, member.clone(), branch.span);
-                        let mut branch_next = |lowerer: &mut Lowerer, callee: Expression| {
-                            continuation(
-                                lowerer,
-                                Expression {
-                                    kind: ExpressionKind::Call {
-                                        callee: Box::new(callee),
-                                        argument: Box::new(payload.clone()),
-                                    },
-                                    ty: value.ty.clone(),
-                                    span: branch.span,
-                                },
-                            )
-                        };
-                        let branch =
-                            lowerer.lower_value_with(branch, result_type, &mut branch_next);
-                        arms.push(super::ast::CaseArm {
-                            index,
-                            pattern: Pattern::Binding {
-                                id: payload_id,
-                                ty: member.clone(),
-                            },
-                            value: branch,
-                            span: value.span,
-                        });
-                    }
-                    Expression {
-                        kind: ExpressionKind::Case {
-                            scrutinee: Box::new(scrutinee),
-                            arms,
-                        },
-                        ty: result_type.clone(),
-                        span: value.span,
-                    }
-                };
-                self.lower_value_with(scrutinee, result_type, &mut scrutinee_next)
-            }
+            } => self.lower_with_join(
+                &value.ty,
+                result_type,
+                value.span,
+                continuation,
+                |lowerer, continuation| {
+                    lowerer.lower_sum_elimination_body(
+                        scrutinee,
+                        continuations,
+                        &value.ty,
+                        result_type,
+                        continuation,
+                        value.span,
+                    )
+                },
+            ),
             checked::ExpressionKind::If {
                 condition,
                 then_branch,
                 else_branch,
-            } => self.lower_control_if(
-                condition,
-                then_branch,
-                else_branch,
+            } => self.lower_with_join(
+                &value.ty,
                 result_type,
-                continuation,
                 value.span,
+                continuation,
+                |lowerer, continuation| {
+                    lowerer.lower_control_if_body(
+                        condition,
+                        then_branch,
+                        else_branch,
+                        result_type,
+                        continuation,
+                        value.span,
+                    )
+                },
             ),
             checked::ExpressionKind::Unary { operator, operand } => {
                 let mut next = |lowerer: &mut Lowerer, operand: Expression| {
@@ -422,93 +428,43 @@ impl Lowerer {
         &mut self,
         values: &[checked::Expression],
         result_type: &checked::Type,
-        lowered: Vec<Expression>,
         continuation: &mut Continuation<'_>,
         build: impl Fn(Vec<Expression>) -> ExpressionKind + Copy,
         source: &checked::Expression,
     ) -> Expression {
-        let Some((first, rest)) = values.split_first() else {
-            return continuation(
-                self,
-                Expression {
-                    kind: build(lowered),
-                    ty: source.ty.clone(),
-                    span: source.span,
+        let bindings = values
+            .iter()
+            .map(|value| (self.temporary(), value.ty.clone(), value.span))
+            .collect::<Vec<_>>();
+        let elements = bindings
+            .iter()
+            .map(|(id, ty, span)| self.reference(*id, ty.clone(), *span))
+            .collect();
+        let mut body = continuation(
+            self,
+            Expression {
+                kind: build(elements),
+                ty: source.ty.clone(),
+                span: source.span,
+            },
+        );
+        for (value, (id, ty, span)) in values.iter().zip(bindings).rev() {
+            let mut rest = Some(body);
+            let mut next = |_: &mut Lowerer, value: Expression| Expression {
+                kind: ExpressionKind::Let {
+                    binding: Box::new(Binding {
+                        pattern: Pattern::Binding { id, ty: ty.clone() },
+                        value,
+                        span,
+                    }),
+                    body: Box::new(rest.take().expect("a join continuation is lowered once")),
                 },
-            );
-        };
-        let mut next = |lowerer: &mut Lowerer, value: Expression| {
-            let mut accumulated = lowered.clone();
-            accumulated.push(value);
-            lowerer.lower_values_with(rest, result_type, accumulated, continuation, build, source)
-        };
-        self.lower_value_with(first, result_type, &mut next)
-    }
-
-    fn lower_control_if(
-        &mut self,
-        condition: &checked::Expression,
-        then_branch: &checked::ExpressionBlock,
-        else_branch: &checked::ExpressionBlock,
-        result_type: &checked::Type,
-        continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
-    ) -> Expression {
-        let mut next = |lowerer: &mut Lowerer, condition: Expression| {
-            let otherwise = lowerer.lower_items_with(
-                &else_branch.items,
-                &else_branch.result,
-                result_type,
-                continuation,
-            );
-            let then = lowerer.lower_items_with(
-                &then_branch.items,
-                &then_branch.result,
-                result_type,
-                continuation,
-            );
-            lowerer.case(
-                condition,
-                vec![
-                    lowerer.wildcard_arm(0, otherwise, else_branch.span),
-                    lowerer.wildcard_arm(1, then, then_branch.span),
-                ],
-                result_type.clone(),
+                ty: result_type.clone(),
                 span,
-            )
-        };
-        self.lower_value_with(condition, result_type, &mut next)
-    }
-
-    fn lower_logical_with(
-        &mut self,
-        operator: BinaryOperator,
-        left: &checked::Expression,
-        right: &checked::Expression,
-        result_type: &checked::Type,
-        continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
-    ) -> Expression {
-        let mut next = |lowerer: &mut Lowerer, left: Expression| {
-            let constant = lowerer.bool_value(operator == BinaryOperator::LogicalOr, span);
-            let constant = continuation(lowerer, constant);
-            let right = lowerer.lower_value_with(right, result_type, continuation);
-            let (zero, one) = if operator == BinaryOperator::LogicalAnd {
-                (constant, right)
-            } else {
-                (right, constant)
             };
-            lowerer.case(
-                left,
-                vec![
-                    lowerer.wildcard_arm(0, zero, span),
-                    lowerer.wildcard_arm(1, one, span),
-                ],
-                result_type.clone(),
-                span,
-            )
-        };
-        self.lower_value_with(left, result_type, &mut next)
+            body = self.lower_value_with(value, result_type, &mut next);
+        }
+        body
     }
 }
 

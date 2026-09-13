@@ -284,6 +284,36 @@ mod tests {
     }
 
     #[test]
+    fn emits_long_completion_control_sequences_without_ast_duplication() {
+        let source = SourceFile::new(
+            FileId::new(78),
+            "llvm-long-completion.mal",
+            format!(
+                "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+                "when (false) { return(1i32) };".repeat(1_024)
+            ),
+        );
+        let checked = crate::pipeline::check(&source).expect("check long completion sequence");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("long completion sequence is supported");
+
+        assert!(artifacts.module.contains("mal_function_"));
+    }
+
+    #[test]
     fn emits_shared_extern_sum_helpers_once_per_type() {
         let mut declarations = String::from("Choice0 :: [UInt8, UInt8];\n");
         for depth in 1..16 {
