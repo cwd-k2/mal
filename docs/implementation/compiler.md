@@ -58,7 +58,7 @@ capture順は最初のlexical参照順とする。top-level/predefined binding�
 
 integer/float literal は最初から `Int64`/`Float64` に固定せず、期待型を受け取れる literal node として検査する。期待型がなければ default を適用する。
 
-decimal float literalはhost parserやC compilerのdecimal conversionへ意味を委ねず、数学的な十進値から目的のbinary32/binary64 bit patternへties-to-evenで正しく丸める。LLVM backendはそのbit patternを16進定数として保持する。finite rangeをoverflowするliteralは診断する。
+decimal float literalはhost parserやC compilerのdecimal conversionへ意味を委ねず、数学的な十進値から目的のbinary32/binary64 bit patternへties-to-evenで正しく丸める。binary64の全rounding boundaryを区別できる1,100有効桁と残りにnonzero digitがあるかを保持し、多倍長整数の大きさをsource literal全長へ比例させない。LLVM backendはそのbit patternを16進定数として保持する。finite rangeをoverflowするliteralは診断する。
 
 lexer は byte literal を token 化するときに escape を decodeし、exactly one byteであることを検査する。AST以降では値と`UInt8`型を持つinteger literalとして扱ってよい。
 

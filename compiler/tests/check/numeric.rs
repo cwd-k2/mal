@@ -132,6 +132,30 @@ fn rounds_decimal_float_literals_to_exact_binary_bits() {
 }
 
 #[test]
+fn rounds_very_long_decimal_coefficients_in_linear_input_space() {
+    let tail = "2".repeat(100_000);
+    let long = format!("value := 1{tail}e-100000f64;");
+    let representative = format!("value := 1{}1e-1100f64;", "2".repeat(1099));
+
+    let long = top_binding(&check_ok(&long), 0).value.kind.clone();
+    let representative = top_binding(&check_ok(&representative), 0)
+        .value
+        .kind
+        .clone();
+
+    assert_eq!(long, representative);
+
+    let above_half = format!(
+        "value := 1.00000000000000011102230246251565404236316680908203125{}1f64;",
+        "0".repeat(1_200)
+    );
+    assert!(matches!(
+        top_binding(&check_ok(&above_half), 0).value.kind,
+        ExpressionKind::Float(0x3ff0_0000_0000_0001)
+    ));
+}
+
+#[test]
 fn rejects_decimal_float_literals_above_the_finite_range() {
     for text in [
         "value := 340282346638528859811704183484516925441f32;",

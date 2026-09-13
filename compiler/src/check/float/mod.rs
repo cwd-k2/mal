@@ -13,6 +13,10 @@ mod big_uint;
 
 use self::big_uint::BigUint;
 
+// Binary64 rounding boundaries have a denominator no larger than 2^1075, so
+// their terminating decimal coefficients are shorter than this prefix.
+const MAX_DECIMAL_COEFFICIENT_DIGITS: usize = 1_100;
+
 #[derive(Clone, Copy)]
 struct Format {
     precision: u32,
@@ -94,14 +98,13 @@ fn round_decimal(literal: &DecimalFloatLiteral, format: Format) -> Option<u64> {
         return Some(0);
     }
 
-    let mut digits = significant.to_owned();
     let mut exponent = explicit_exponent(literal)
         .saturating_sub(i64::try_from(literal.fractional_digits).unwrap_or(i64::MAX));
-    let trailing = digits.len() - digits.trim_end_matches('0').len();
-    digits.truncate(digits.len() - trailing);
+    let trailing = significant.len() - significant.trim_end_matches('0').len();
+    let significant = &significant[..significant.len() - trailing];
     exponent = exponent.saturating_add(i64::try_from(trailing).unwrap_or(i64::MAX));
 
-    let decimal_order = i64::try_from(digits.len())
+    let decimal_order = i64::try_from(significant.len())
         .unwrap_or(i64::MAX)
         .saturating_add(exponent);
     if decimal_order > format.decimal_limit {
@@ -110,6 +113,8 @@ fn round_decimal(literal: &DecimalFloatLiteral, format: Format) -> Option<u64> {
     if decimal_order < -format.decimal_limit {
         return Some(0);
     }
+
+    let (digits, exponent) = bounded_coefficient(significant, exponent);
 
     let coefficient = BigUint::from_decimal(&digits);
     let (numerator, denominator) = if exponent >= 0 {
@@ -169,6 +174,20 @@ fn round_decimal(literal: &DecimalFloatLiteral, format: Format) -> Option<u64> {
     debug_assert!(encoded_exponent < (1_u64 << format.exponent_bits) - 1);
     let fraction = significand - (1_u64 << format.fraction_bits);
     Some((encoded_exponent << format.fraction_bits) | fraction)
+}
+
+fn bounded_coefficient(significant: &str, exponent: i64) -> (String, i64) {
+    if significant.len() <= MAX_DECIMAL_COEFFICIENT_DIGITS {
+        return (significant.into(), exponent);
+    }
+
+    let omitted = significant.len() - MAX_DECIMAL_COEFFICIENT_DIGITS;
+    let mut digits = significant[..MAX_DECIMAL_COEFFICIENT_DIGITS].to_owned();
+    digits.push('1');
+    let exponent = exponent
+        .saturating_add(i64::try_from(omitted).unwrap_or(i64::MAX))
+        .saturating_sub(1);
+    (digits, exponent)
 }
 
 fn explicit_exponent(literal: &DecimalFloatLiteral) -> i64 {

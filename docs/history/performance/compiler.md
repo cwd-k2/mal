@@ -95,3 +95,10 @@ functionを置き、型検査まで完走する回帰テストとした。これ
 同じ形の共有productは表示だけでなく実値のfield数も指数的に増えるため、型検査へ65,536 storage componentの表現上限を
 置いた。17段の二重productをbackend生成前にdiagnosticとして拒否し、共有sumは64段でも受理する回帰テストで、物理的な
 重複とDAG走査上の重複を区別した。判断は[D046](../decisions/D046.md)に記録する。
+
+## 2026-09-13 decimal float coefficient
+
+decimal exponentが有効桁数を相殺するliteralでは値のdecimal orderが小さくても、全係数と10の冪を多倍長整数へ変換する従来の
+処理量が入力桁数に対して二次的に増えた。binary64の隣接値間のmidpointは分母が最大`2^1075`で有限十進展開を持つため、
+先頭1,100有効桁と省略部分のnonzero有無があれば全rounding boundaryとの大小を保存できる。多倍長演算前にこの表現へ縮約し、
+100,001桁の係数と、midpointから1,200桁先で初めて大きくなる値を正しく丸める回帰テストを置いた。
