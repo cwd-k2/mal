@@ -56,6 +56,7 @@ pub(super) fn generate(
     let types = Types::new(pointer_size)?;
     let top_levels = TopLevelConstants::new(execution, types)?;
     let ownership = ownership::Plan::new(&execution.control);
+    let index = ProgramIndex::new(execution)?;
     let optimizations =
         super::optimization::OptimizationPlan::new(&execution.control, &ownership, enabled);
     debug_assert!(optimizations.is_valid(&execution.control, &ownership, enabled));
@@ -65,6 +66,7 @@ pub(super) fn generate(
     for function in &execution.control.functions {
         let emitter = FunctionEmitter::new(
             execution,
+            &index,
             function.id,
             types,
             &top_levels,
@@ -89,6 +91,7 @@ pub(super) fn generate(
 
 struct FunctionEmitter<'a> {
     execution: &'a crate::execution::Program,
+    index: &'a ProgramIndex<'a>,
     control: &'a Program,
     function: &'a crate::control::ast::Function,
     current_function: FunctionId,
@@ -107,6 +110,45 @@ struct FunctionEmitter<'a> {
     next_register: usize,
     globals: String,
     output: String,
+}
+
+struct ProgramIndex<'a> {
+    control_functions: HashMap<FunctionId, &'a crate::control::ast::Function>,
+    lowered_functions: HashMap<FunctionId, &'a crate::closure::ast::Function>,
+    externals:
+        HashMap<crate::resolve::ast::ExternalOperationId, &'a crate::core::ast::ExternalOperation>,
+}
+
+impl<'a> ProgramIndex<'a> {
+    fn new(execution: &'a crate::execution::Program) -> Option<Self> {
+        let control_functions = execution
+            .control
+            .functions
+            .iter()
+            .map(|function| (function.id, function))
+            .collect::<HashMap<_, _>>();
+        let lowered_functions = execution
+            .lowered
+            .functions
+            .iter()
+            .map(|function| (function.id, function))
+            .collect::<HashMap<_, _>>();
+        let externals = execution
+            .lowered
+            .interface
+            .externals
+            .iter()
+            .map(|external| (external.id, external))
+            .collect::<HashMap<_, _>>();
+        (control_functions.len() == execution.control.functions.len()
+            && lowered_functions.len() == execution.lowered.functions.len()
+            && externals.len() == execution.lowered.interface.externals.len())
+        .then_some(Self {
+            control_functions,
+            lowered_functions,
+            externals,
+        })
+    }
 }
 
 #[derive(Clone)]

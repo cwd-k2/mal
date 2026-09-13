@@ -2,22 +2,15 @@ use super::*;
 impl<'a> FunctionEmitter<'a> {
     pub(super) fn new(
         execution: &'a crate::execution::Program,
+        index: &'a ProgramIndex<'a>,
         id: FunctionId,
         types: Types,
         top_levels: &'a TopLevelConstants,
         ownership: &'a ownership::Plan,
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
-        let function = execution
-            .control
-            .functions
-            .iter()
-            .find(|function| function.id == id)?;
-        let lowered = execution
-            .lowered
-            .functions
-            .iter()
-            .find(|function| function.id == id)?;
+        let function = *index.control_functions.get(&id)?;
+        let lowered = *index.lowered_functions.get(&id)?;
         if types.value(&function.parameter.ty).is_none()
             || types.value(&lowered.body.result.ty).is_none()
         {
@@ -34,11 +27,9 @@ impl<'a> FunctionEmitter<'a> {
         let function_states = functions
             .iter()
             .map(|function| {
-                let entry = execution
-                    .control
-                    .functions
-                    .iter()
-                    .find(|candidate| candidate.id == *function)
+                let entry = index
+                    .control_functions
+                    .get(function)
                     .expect("control region function has an entry")
                     .entry;
                 (*function, reachable_states(&execution.control, entry))
@@ -58,11 +49,7 @@ impl<'a> FunctionEmitter<'a> {
         let mut slots = HashMap::new();
         let mut function_slots = HashMap::new();
         for (function_id, function_states) in &function_states {
-            let region_function = execution
-                .control
-                .functions
-                .iter()
-                .find(|candidate| candidate.id == *function_id)?;
+            let region_function = *index.control_functions.get(function_id)?;
             let mut ids = Vec::new();
             if let ParameterDestination::Bind(id) =
                 execution.parameters.destination(*function_id)?
@@ -82,8 +69,9 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             let mut unique = Vec::new();
+            let mut seen = std::collections::HashSet::new();
             for id in ids {
-                if !unique.contains(&id) {
+                if seen.insert(id) {
                     unique.push(id);
                 }
             }
@@ -123,12 +111,7 @@ impl<'a> FunctionEmitter<'a> {
         });
         let mut external_storage = None;
         for id in external_ids {
-            let external = execution
-                .lowered
-                .interface
-                .externals
-                .iter()
-                .find(|external| external.id == id)?;
+            let external = *index.externals.get(&id)?;
             for ty in [&external.parameter, &external.result] {
                 if !super::super::bridge_type_supported(ty) {
                     return None;
@@ -140,6 +123,7 @@ impl<'a> FunctionEmitter<'a> {
         }
         Some(Self {
             execution,
+            index,
             control: &execution.control,
             function,
             current_function: id,

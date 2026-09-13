@@ -7,11 +7,7 @@ impl FunctionEmitter<'_> {
         argument: &Atom,
         tail: bool,
     ) -> Option<EmittedValue> {
-        let target = self
-            .control
-            .functions
-            .iter()
-            .find(|function| function.id == target)?;
+        let target = *self.index.control_functions.get(&target)?;
         let callee = self.atom(callee)?;
         let closure_type = self.types.value(&callee.ty)?;
         let environment = self.register();
@@ -32,12 +28,7 @@ impl FunctionEmitter<'_> {
                 value_type.llvm, argument.representation
             )
         };
-        let lowered = self
-            .execution
-            .lowered
-            .functions
-            .iter()
-            .find(|function| function.id == target.id)?;
+        let lowered = *self.index.lowered_functions.get(&target.id)?;
         let result_type = lowered.body.result.ty.clone();
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
@@ -59,11 +50,7 @@ impl FunctionEmitter<'_> {
         target: FunctionId,
         value: &EmittedValue,
     ) -> Option<()> {
-        let function = self
-            .control
-            .functions
-            .iter()
-            .find(|function| function.id == target)?;
+        let function = *self.index.control_functions.get(&target)?;
         if function.parameter.ty != value.ty
             || (crate::execution::ownership::is_managed(&value.ty) && !value.owned)
         {
@@ -171,18 +158,16 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn current_function(&self) -> Option<&crate::control::ast::Function> {
-        self.control
-            .functions
-            .iter()
-            .find(|function| function.id == self.current_function)
+        self.index
+            .control_functions
+            .get(&self.current_function)
+            .copied()
     }
 
     pub(super) fn current_result_type(&self) -> Option<Type> {
-        self.execution
-            .lowered
-            .functions
-            .iter()
-            .find(|function| function.id == self.current_function)
+        self.index
+            .lowered_functions
+            .get(&self.current_function)
             .map(|function| function.body.result.ty.clone())
     }
 

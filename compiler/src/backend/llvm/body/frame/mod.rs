@@ -240,11 +240,7 @@ impl FunctionEmitter<'_> {
     }
 
     fn emit_region_target(&mut self, target: FunctionId, argument: &EmittedValue) -> Option<()> {
-        let function = self
-            .control
-            .functions
-            .iter()
-            .find(|function| function.id == target)?;
+        let function = *self.index.control_functions.get(&target)?;
         let entry = function.entry;
         self.emit_parameter_handoff(target, argument)?;
         self.line(format!("  br label %mal_state_{}", entry.0));

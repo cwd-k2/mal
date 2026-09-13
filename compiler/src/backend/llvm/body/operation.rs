@@ -26,12 +26,7 @@ impl FunctionEmitter<'_> {
                     closure_type.llvm,
                     super::function_name(*function)?
                 ));
-                let target = self
-                    .execution
-                    .lowered
-                    .functions
-                    .iter()
-                    .find(|candidate| candidate.id == *function)?;
+                let target = *self.index.lowered_functions.get(function)?;
                 if captures.len() != target.environment.len()
                     || captures
                         .iter()

@@ -11,13 +11,7 @@ impl FunctionEmitter<'_> {
         argument: &Atom,
         result_type: &Type,
     ) -> Option<EmittedValue> {
-        let external = self
-            .execution
-            .lowered
-            .interface
-            .externals
-            .iter()
-            .find(|external| external.id == id)?;
+        let external = *self.index.externals.get(&id)?;
         let argument = self.atom(argument)?;
         if argument.ty != external.parameter || *result_type != external.result {
             return None;
