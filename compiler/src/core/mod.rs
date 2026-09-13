@@ -80,8 +80,8 @@ impl Lowerer {
             |parameter_binding| self.reference(parameter_binding, parameter.clone(), span),
         );
         let function_type = checked::Type::Function {
-            parameter: Box::new(parameter.clone()),
-            result: Box::new(result.clone()),
+            parameter: parameter.clone().into(),
+            result: result.clone().into(),
         };
         TopLevelBinding {
             pattern: self::ast::TopLevelPattern::Binding {
@@ -225,7 +225,7 @@ impl Lowerer {
                 };
                 let arms = continuations
                     .iter()
-                    .zip(members)
+                    .zip(members.iter())
                     .enumerate()
                     .map(|(index, (continuation, member))| {
                         let payload_id = self.temporary();

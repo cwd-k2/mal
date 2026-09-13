@@ -72,7 +72,7 @@ struct ReturnTarget {
 
 impl Checker {
     fn new() -> Self {
-        let bool_type = Type::Sum(vec![Type::Unit, Type::Unit]);
+        let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
         Self {
             aliases: HashMap::new(),
             external_types: HashMap::new(),
@@ -225,7 +225,7 @@ impl Checker {
                 Ok(Pattern::Product {
                     elements: elements
                         .iter()
-                        .zip(element_types)
+                        .zip(element_types.iter())
                         .map(|(element, ty)| self.check_pattern(element, ty))
                         .collect::<Result<_, _>>()?,
                     ty: ty.clone(),

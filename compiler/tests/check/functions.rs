@@ -19,8 +19,8 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
     assert_eq!(
         top_binding(&program, 2).value.ty,
         Type::Function {
-            parameter: Box::new(Type::Unit),
-            result: Box::new(Type::Int32),
+            parameter: Box::new(Type::Unit).into(),
+            result: Box::new(Type::Int32).into(),
         }
     );
 
@@ -64,13 +64,13 @@ fn checks_products_destructuring_and_multiple_parameters() {
     );
     assert_eq!(
         top_binding(&program, 1).value.ty,
-        Type::Product(vec![Type::Int32, Type::UInt8])
+        Type::Product(vec![Type::Int32, Type::UInt8].into())
     );
     assert_eq!(
         top_binding(&program, 2).value.ty,
         Type::Function {
-            parameter: Box::new(Type::Product(vec![Type::Int32, Type::Int32])),
-            result: Box::new(Type::Int32),
+            parameter: Box::new(Type::Product(vec![Type::Int32, Type::Int32].into())).into(),
+            result: Box::new(Type::Int32).into(),
         }
     );
     let ExpressionKind::Lambda(first_value) = &top_binding(&program, 3).value.kind else {
@@ -78,7 +78,7 @@ fn checks_products_destructuring_and_multiple_parameters() {
     };
     assert_eq!(
         first_value.parameter_type,
-        Type::Product(vec![Type::Int32, Type::UInt8])
+        Type::Product(vec![Type::Int32, Type::UInt8].into())
     );
 
     assert_eq!(

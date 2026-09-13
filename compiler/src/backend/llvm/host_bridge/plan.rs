@@ -74,11 +74,14 @@ mod tests {
 
     #[test]
     fn plans_nested_product_offsets_before_c_emission() {
-        let ty = Type::Product(vec![
-            Type::UInt8,
-            Type::UInt64,
-            Type::Product(vec![Type::UInt16, Type::UInt32]),
-        ]);
+        let ty = Type::Product(
+            vec![
+                Type::UInt8,
+                Type::UInt64,
+                Type::Product(vec![Type::UInt16, Type::UInt32].into()),
+            ]
+            .into(),
+        );
         let value = Value::new(&ty, Types::new(8).expect("target types")).expect("value plan");
         let Kind::Product(fields) = value.kind else {
             panic!("product plan");
@@ -99,7 +102,7 @@ mod tests {
 
     #[test]
     fn plans_sum_tag_and_variant_offsets_before_c_emission() {
-        let ty = Type::Sum(vec![Type::UInt8, Type::UInt64]);
+        let ty = Type::Sum(vec![Type::UInt8, Type::UInt64].into());
         let value = Value::new(&ty, Types::new(8).expect("target types")).expect("value plan");
         let Kind::Sum {
             tag_offset,

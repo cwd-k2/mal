@@ -184,5 +184,5 @@ fn is_comparison(operator: BinaryOperator) -> bool {
 }
 
 pub(super) fn bool_type() -> checked::Type {
-    checked::Type::Sum(vec![checked::Type::Unit, checked::Type::Unit])
+    checked::Type::Sum(vec![checked::Type::Unit, checked::Type::Unit].into())
 }

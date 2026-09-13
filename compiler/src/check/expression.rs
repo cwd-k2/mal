@@ -128,8 +128,8 @@ impl Checker {
                             index,
                         },
                         ty: Type::Function {
-                            parameter: Box::new(member.clone()),
-                            result: Box::new(target.clone()),
+                            parameter: member.clone().into(),
+                            result: target.clone().into(),
                         },
                         span: expression.span,
                     }
@@ -286,7 +286,7 @@ impl Checker {
         }
         let mut result_type = expected.cloned();
         let mut checked = Vec::with_capacity(continuations.len());
-        for (continuation, member) in continuations.iter().zip(&members) {
+        for (continuation, member) in continuations.iter().zip(members.iter()) {
             let continuation =
                 self.check_continuation(continuation, member, result_type.as_ref())?;
             let Type::Function { result, .. } = &continuation.ty else {

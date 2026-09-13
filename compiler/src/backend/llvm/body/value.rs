@@ -187,7 +187,7 @@ impl FunctionEmitter<'_> {
                 }
                 let aggregate_type = self.types.value(ty)?;
                 for (index, (element, element_type)) in
-                    elements.iter().zip(element_types).enumerate()
+                    elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
                     self.line(format!(

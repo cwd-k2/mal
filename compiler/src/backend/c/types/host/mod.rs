@@ -200,7 +200,7 @@ impl TypeRegistry {
                     return_parameters,
                 ),
                 Block::new([Statement::return_value(self.host_to_raw_value(
-                    &Type::Sum(members.to_vec()),
+                    &Type::Sum(members.to_vec().into()),
                     Expr::identifier("call"),
                     host_value,
                 ))]),

@@ -20,7 +20,7 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
     };
     if **result != Type::Int32
         || (**parameter != Type::Unit
-            && **parameter != Type::Product(vec![Type::UInt64, Type::Ptr]))
+            && **parameter != Type::Product(vec![Type::UInt64, Type::Ptr].into()))
     {
         return None;
     }
@@ -100,7 +100,7 @@ impl TopLevelConstants {
                 }
                 let elements = elements
                     .iter()
-                    .zip(element_types)
+                    .zip(element_types.iter())
                     .map(|(atom, expected)| {
                         let value = self.atom(atom, values)?;
                         (value.ty == *expected).then_some(value)

@@ -57,10 +57,10 @@ impl Checker {
             self.externals.insert(
                 *id,
                 ExternalSignature {
-                    parameter: *parameter,
+                    parameter: parameter.as_ref().clone(),
                     parameter_alias,
                     parameter_aliases,
-                    result: *result,
+                    result: result.as_ref().clone(),
                     result_alias,
                 },
             );

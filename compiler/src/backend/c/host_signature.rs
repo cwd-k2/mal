@@ -197,7 +197,7 @@ mod tests {
         let external = ExternalOperation {
             id: ExternalOperationId(0),
             name: "inspect".into(),
-            parameter: Type::Product(vec![Type::UInt64, Type::Int32]),
+            parameter: Type::Product(vec![Type::UInt64, Type::Int32].into()),
             parameter_alias: Some("Request".into()),
             parameter_aliases: vec![Some("Count".into()), None],
             result: Type::UInt64,

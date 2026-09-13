@@ -215,10 +215,9 @@ fn preserves_captured_products_and_destructuring_patterns() {
     let inner = function(&program, *inner_id);
     assert_eq!(
         inner.environment[0].ty,
-        malc::check::ast::Type::Product(vec![
-            malc::check::ast::Type::Int32,
-            malc::check::ast::Type::Int32,
-        ])
+        malc::check::ast::Type::Product(
+            vec![malc::check::ast::Type::Int32, malc::check::ast::Type::Int32,].into()
+        )
     );
     assert!(matches!(
         inner.body.bindings[0].pattern,

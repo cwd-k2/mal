@@ -158,8 +158,8 @@ fn checks_float_arithmetic_comparison_and_negation() {
     assert_eq!(
         top_binding(&program, 0).value.ty,
         Type::Function {
-            parameter: Box::new(Type::Float32),
-            result: Box::new(Type::Sum(vec![Type::Unit, Type::Unit])),
+            parameter: Box::new(Type::Float32).into(),
+            result: Box::new(Type::Sum(vec![Type::Unit, Type::Unit].into())).into(),
         }
     );
     assert_eq!(
@@ -178,7 +178,10 @@ fn checks_int32_and_bool_operator_families() {
     let Type::Function { result, .. } = &top_binding(&program, 0).value.ty else {
         panic!("expected function type");
     };
-    assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
+    assert_eq!(
+        result.as_ref(),
+        &Type::Sum(vec![Type::Unit, Type::Unit].into())
+    );
 
     assert_eq!(
         check_error("bad :: Int32 -> Int32 := (x) { x + true; };").message,

@@ -42,7 +42,10 @@ concatenate :: (Symbol, Symbol) -> Symbol := (left, right) {
         let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {
             panic!("expected function type");
         };
-        assert_eq!(result.as_ref(), &Type::Sum(vec![Type::Unit, Type::Unit]));
+        assert_eq!(
+            result.as_ref(),
+            &Type::Sum(vec![Type::Unit, Type::Unit].into())
+        );
     }
     let Type::Function { result, .. } = &top_binding(&program, 4).value.ty else {
         panic!("expected function type");

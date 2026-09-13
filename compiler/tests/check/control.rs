@@ -8,7 +8,7 @@ fn checks_sum_injection_payload_and_index() {
     );
     assert_eq!(
         top_binding(&program, 1).value.ty,
-        Type::Sum(vec![Type::Unit, Type::Int32])
+        Type::Sum(vec![Type::Unit, Type::Int32].into())
     );
 
     assert_eq!(

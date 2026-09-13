@@ -19,7 +19,7 @@ impl FunctionEmitter<'_> {
         }
         let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
-        for (index, (element, expected)) in elements.iter().zip(element_types).enumerate() {
+        for (index, (element, expected)) in elements.iter().zip(element_types.iter()).enumerate() {
             let mut element = self.atom(element)?;
             if element.ty != *expected {
                 return None;

@@ -41,8 +41,9 @@ externs : ValueIdentifier -> FunctionType
 ```
 
 predefined環境には`Bool :: [Unit, Unit]`、`false :: Bool`、`true :: Bool`を入れ、top-level duplicate declarationを
-拒否する。aliasはcycleを検出して展開し、構造的に比較する。lambda parameterは期待関数型から決め、
-lambda以外のbindingはRHSから型を推論できる。
+拒否する。aliasはcycleを検出して展開する。canonical typeは同じsubtypeを参照共有するDAGとして保持し、
+構造比較は共有node対を再訪しない。これによりaliasが同じ型を複数回含んでも展開量と比較量を構造node数に保つ。
+lambda parameterは期待関数型から決め、lambda以外のbindingはRHSから型を推論できる。
 overload resolutionはoperatorとoperand typeの組で閉じる。
 
 name resolverは各value bindingにtop-levelまたは所属lambdaのidentityを記録する。bodyから別lambda所属のlocal bindingへの

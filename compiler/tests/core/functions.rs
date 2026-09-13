@@ -50,10 +50,9 @@ fn lowers_multiple_parameters_to_product_destructuring() {
     };
     assert_eq!(
         add.parameter.ty,
-        malc::check::ast::Type::Product(vec![
-            malc::check::ast::Type::Int32,
-            malc::check::ast::Type::Int32,
-        ])
+        malc::check::ast::Type::Product(
+            vec![malc::check::ast::Type::Int32, malc::check::ast::Type::Int32,].into()
+        )
     );
     let ExpressionKind::Let { binding, .. } = &add.body.kind else {
         panic!("multiple parameters should be destructured at function entry");

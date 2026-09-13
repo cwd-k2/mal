@@ -3,8 +3,9 @@ use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
 use crate::source::Span;
+use std::{collections::HashSet, sync::Arc};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Type {
     Unit,
     Int8,
@@ -23,13 +24,85 @@ pub enum Type {
         id: TypeId,
         name: String,
     },
-    Product(Vec<Type>),
-    Sum(Vec<Type>),
+    Product(Arc<[Type]>),
+    Sum(Arc<[Type]>),
     Function {
-        parameter: Box<Type>,
-        result: Box<Type>,
+        parameter: Arc<Type>,
+        result: Arc<Type>,
     },
 }
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        let mut pending = vec![(self, other)];
+        let mut compared = HashSet::new();
+
+        while let Some((left, right)) = pending.pop() {
+            if std::ptr::eq(left, right) {
+                continue;
+            }
+            if !compared.insert((std::ptr::from_ref(left), std::ptr::from_ref(right))) {
+                continue;
+            }
+
+            match (left, right) {
+                (Self::Unit, Self::Unit)
+                | (Self::Int8, Self::Int8)
+                | (Self::Int16, Self::Int16)
+                | (Self::Int32, Self::Int32)
+                | (Self::Int64, Self::Int64)
+                | (Self::UInt8, Self::UInt8)
+                | (Self::UInt16, Self::UInt16)
+                | (Self::UInt32, Self::UInt32)
+                | (Self::UInt64, Self::UInt64)
+                | (Self::Float32, Self::Float32)
+                | (Self::Float64, Self::Float64)
+                | (Self::Symbol, Self::Symbol)
+                | (Self::Ptr, Self::Ptr) => {}
+                (
+                    Self::External {
+                        id: left_id,
+                        name: left_name,
+                    },
+                    Self::External {
+                        id: right_id,
+                        name: right_name,
+                    },
+                ) if left_id == right_id && left_name == right_name => {}
+                (Self::Product(left), Self::Product(right))
+                | (Self::Sum(left), Self::Sum(right))
+                    if left.len() == right.len() =>
+                {
+                    if !Arc::ptr_eq(left, right) {
+                        pending.extend(left.iter().zip(right.iter()));
+                    }
+                }
+                (
+                    Self::Function {
+                        parameter: left_parameter,
+                        result: left_result,
+                    },
+                    Self::Function {
+                        parameter: right_parameter,
+                        result: right_result,
+                    },
+                ) => {
+                    if !Arc::ptr_eq(left_parameter, right_parameter) {
+                        pending.push((left_parameter, right_parameter));
+                    }
+                    if !Arc::ptr_eq(left_result, right_result) {
+                        pending.push((left_result, right_result));
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        true
+    }
+}
+
+impl Eq for Type {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {
@@ -217,15 +290,25 @@ pub enum MemoryScalar {
 impl MemoryPrimitive {
     pub(crate) fn signature(self) -> (Type, Type) {
         match self {
-            Self::OffsetForward | Self::OffsetBackward => {
-                (Type::Product(vec![Type::Ptr, Type::UInt64]), Type::Ptr)
-            }
+            Self::OffsetForward | Self::OffsetBackward => (
+                Type::Product(vec![Type::Ptr, Type::UInt64].into()),
+                Type::Ptr,
+            ),
             Self::Load(scalar) => (Type::Ptr, scalar.ty()),
-            Self::Store(scalar) => (Type::Product(vec![Type::Ptr, scalar.ty()]), Type::Unit),
+            Self::Store(scalar) => (
+                Type::Product(vec![Type::Ptr, scalar.ty()].into()),
+                Type::Unit,
+            ),
             Self::LoadPtr => (Type::Ptr, Type::Ptr),
-            Self::StorePtr => (Type::Product(vec![Type::Ptr, Type::Ptr]), Type::Unit),
-            Self::LoadSymbol => (Type::Product(vec![Type::Ptr, Type::UInt64]), Type::Symbol),
-            Self::StoreSymbol => (Type::Product(vec![Type::Ptr, Type::Symbol]), Type::Unit),
+            Self::StorePtr => (Type::Product(vec![Type::Ptr, Type::Ptr].into()), Type::Unit),
+            Self::LoadSymbol => (
+                Type::Product(vec![Type::Ptr, Type::UInt64].into()),
+                Type::Symbol,
+            ),
+            Self::StoreSymbol => (
+                Type::Product(vec![Type::Ptr, Type::Symbol].into()),
+                Type::Unit,
+            ),
         }
     }
 }

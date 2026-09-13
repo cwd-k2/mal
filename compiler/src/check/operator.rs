@@ -125,7 +125,7 @@ impl Checker {
                 kind: ExpressionKind::SymbolAt {
                     argument: Box::new(Expression {
                         kind: ExpressionKind::Product(vec![left, right]),
-                        ty: Type::Product(vec![Type::Symbol, Type::UInt64]),
+                        ty: Type::Product(vec![Type::Symbol, Type::UInt64].into()),
                         span,
                     }),
                 },
@@ -325,7 +325,7 @@ impl Checker {
                 primitive,
                 argument: Box::new(Expression {
                     kind: ExpressionKind::Product(vec![left, right]),
-                    ty: Type::Product(vec![Type::Ptr, Type::UInt64]),
+                    ty: Type::Product(vec![Type::Ptr, Type::UInt64].into()),
                     span,
                 }),
             },

@@ -20,8 +20,8 @@ fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
     assert_eq!(
         top_binding(&program, 1).value.ty,
         Type::Function {
-            parameter: Box::new(Type::Unit),
-            result: Box::new(Type::Int32),
+            parameter: Box::new(Type::Unit).into(),
+            result: Box::new(Type::Int32).into(),
         }
     );
 }
@@ -45,8 +45,8 @@ fn gives_external_operations_first_class_function_types() {
     assert_eq!(
         arguments[0].ty,
         Type::Function {
-            parameter: Box::new(Type::Int32),
-            result: Box::new(Type::Int32),
+            parameter: Box::new(Type::Int32).into(),
+            result: Box::new(Type::Int32).into(),
         }
     );
 }
@@ -61,8 +61,8 @@ fn admits_external_functions_as_closed_top_level_values() {
     assert_eq!(
         top_binding(&program, 1).value.ty,
         Type::Function {
-            parameter: Box::new(Type::Int32),
-            result: Box::new(Type::Int32),
+            parameter: Box::new(Type::Int32).into(),
+            result: Box::new(Type::Int32).into(),
         }
     );
 }
@@ -78,7 +78,24 @@ fn expands_aliases_and_compares_types_structurally() {
     let TopItem::TypeAlias { ty, .. } = &program.items[0].kind else {
         panic!("expected alias");
     };
-    assert_eq!(*ty, Type::Sum(vec![Type::Unit, Type::Unit]));
+    assert_eq!(*ty, Type::Sum(vec![Type::Unit, Type::Unit].into()));
+}
+
+#[test]
+fn shares_repeated_alias_structure_without_exponential_expansion() {
+    let mut source = String::from("Left0 :: Unit;\nRight0 :: Unit;\n");
+    for level in 1..=64 {
+        source.push_str(&format!(
+            "Left{level} :: (Left{}, Left{});\nRight{level} :: (Right{}, Right{});\n",
+            level - 1,
+            level - 1,
+            level - 1,
+            level - 1
+        ));
+    }
+    source.push_str("identity :: Left64 -> Right64 := (value) { value; };");
+
+    check_ok(&source);
 }
 
 #[test]

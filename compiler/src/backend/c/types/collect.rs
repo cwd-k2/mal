@@ -10,7 +10,7 @@ impl TypeRegistry {
         }
         match ty {
             Type::Product(elements) | Type::Sum(elements) => {
-                for element in elements {
+                for element in elements.iter() {
                     self.collect(element);
                 }
             }
@@ -73,7 +73,7 @@ impl HostTypes {
         }
         match ty {
             Type::Product(elements) | Type::Sum(elements) => {
-                for element in elements {
+                for element in elements.iter() {
                     self.collect_type(element, registry);
                 }
                 registry.collect(ty);

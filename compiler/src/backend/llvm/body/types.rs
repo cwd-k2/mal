@@ -168,7 +168,7 @@ fn field_layouts(fields: &[ValueType]) -> Option<Vec<Field>> {
 }
 
 pub(in crate::backend::llvm) fn is_bool(ty: &Type) -> bool {
-    matches!(ty, Type::Sum(elements) if elements == &[Type::Unit, Type::Unit])
+    matches!(ty, Type::Sum(elements) if elements.as_ref() == [Type::Unit, Type::Unit])
 }
 
 pub(super) fn align(value: usize, alignment: usize) -> Option<usize> {

@@ -199,7 +199,7 @@ fn sum_representation_fields(
 }
 
 pub(super) fn is_bool(ty: &Type) -> bool {
-    matches!(ty, Type::Sum(members) if members == &[Type::Unit, Type::Unit])
+    matches!(ty, Type::Sum(members) if members.as_ref() == [Type::Unit, Type::Unit])
 }
 
 #[cfg(test)]
@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn maps_host_values_without_reusing_raw_type_names() {
-        let product = Type::Product(vec![Type::UInt64, Type::Symbol]);
-        let sum = Type::Sum(vec![Type::Unit, product.clone()]);
+        let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
+        let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
         };
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn maps_bool_before_its_structural_sum_representation() {
-        let bool_type = Type::Sum(vec![Type::Unit, Type::Unit]);
+        let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
         assert_eq!(
             TypeRegistry::default().host_value_c_type(&bool_type, None),
             TypeName::named("mal_Bool_t")
@@ -265,8 +265,8 @@ mod tests {
 
     #[test]
     fn declares_host_aggregates_in_structural_dependency_order() {
-        let product = Type::Product(vec![Type::UInt64, Type::Symbol]);
-        let sum = Type::Sum(vec![Type::Unit, product.clone()]);
+        let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
+        let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
         };

@@ -125,8 +125,8 @@ impl Checker {
                 .expect("abrupt lambda body has a declared result"),
         };
         let ty = Type::Function {
-            parameter: Box::new(expected_parameter.clone()),
-            result: Box::new(result_type.clone()),
+            parameter: expected_parameter.clone().into(),
+            result: result_type.clone().into(),
         };
         Ok(Expression {
             kind: ExpressionKind::Lambda(Lambda {
@@ -204,7 +204,7 @@ impl Checker {
                 }
                 bindings
                     .iter()
-                    .zip(members)
+                    .zip(members.iter())
                     .enumerate()
                     .map(|(variant, (binding, parameter_type))| ReturnBinder {
                         binding: binding.clone(),

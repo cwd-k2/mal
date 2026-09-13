@@ -30,8 +30,8 @@ impl Checker {
                 Ok(Expression {
                     kind: ExpressionKind::MemoryFunction { primitive },
                     ty: Type::Function {
-                        parameter: Box::new(parameter),
-                        result: Box::new(result),
+                        parameter: parameter.into(),
+                        result: result.into(),
                     },
                     span,
                 })

@@ -50,17 +50,19 @@ impl Checker {
                 elements
                     .iter()
                     .map(|element| self.expand_type(element))
-                    .collect::<Result<_, _>>()?,
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
             )),
             resolved::TypeExpression::Sum(members) => Ok(Type::Sum(
                 members
                     .iter()
                     .map(|member| self.expand_type(member))
-                    .collect::<Result<_, _>>()?,
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
             )),
             resolved::TypeExpression::Function { parameter, result } => Ok(Type::Function {
-                parameter: Box::new(self.expand_type(parameter)?),
-                result: Box::new(self.expand_type(result)?),
+                parameter: self.expand_type(parameter)?.into(),
+                result: self.expand_type(result)?.into(),
             }),
         }
     }
@@ -82,7 +84,7 @@ impl Checker {
             UINT64_TYPE => return Ok(Type::UInt64),
             FLOAT32_TYPE => return Ok(Type::Float32),
             FLOAT64_TYPE => return Ok(Type::Float64),
-            BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit])),
+            BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit].into())),
             SYMBOL_TYPE => return Ok(Type::Symbol),
             PTR_TYPE => return Ok(Type::Ptr),
             _ => {}
@@ -114,13 +116,13 @@ impl Checker {
 }
 
 pub(super) fn bool_type() -> Type {
-    Type::Sum(vec![Type::Unit, Type::Unit])
+    Type::Sum(vec![Type::Unit, Type::Unit].into())
 }
 
 pub(super) fn function_placeholder() -> Type {
     Type::Function {
-        parameter: Box::new(Type::Unit),
-        result: Box::new(Type::Unit),
+        parameter: Type::Unit.into(),
+        result: Type::Unit.into(),
     }
 }
 
@@ -148,7 +150,7 @@ pub(super) fn type_name(ty: &Type) -> String {
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
-        Type::Sum(members) if *members == vec![Type::Unit, Type::Unit] => "Bool".into(),
+        Type::Sum(members) if members.as_ref() == [Type::Unit, Type::Unit] => "Bool".into(),
         Type::Sum(members) => format!(
             "[{}]",
             members.iter().map(type_name).collect::<Vec<_>>().join(", ")
