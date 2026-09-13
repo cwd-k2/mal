@@ -8,6 +8,7 @@ use super::ContinuationGraph;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ControlRegionId(pub(crate) usize);
 
+#[derive(Eq, PartialEq)]
 pub(crate) struct ControlRegionPlan {
     regions: Vec<ControlRegion>,
     function_regions: HashMap<FunctionId, ControlRegionId>,
@@ -15,6 +16,7 @@ pub(crate) struct ControlRegionPlan {
     recursive_targets: HashMap<StateId, Vec<FunctionId>>,
 }
 
+#[derive(Eq, PartialEq)]
 struct ControlRegion {
     functions: Vec<FunctionId>,
 }
@@ -132,49 +134,7 @@ impl ControlRegionPlan {
         program: &Program,
         continuations: &ContinuationGraph<'_>,
     ) -> bool {
-        let functions = program
-            .functions
-            .iter()
-            .map(|function| function.id)
-            .collect::<HashSet<_>>();
-        let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
-            self.recursive_targets(*site).is_some_and(|targets| {
-                targets
-                    .iter()
-                    .all(|target| self.function_regions.get(target) == Some(region))
-            }) && continuations.caller(*site).is_some_and(|caller| {
-                functions.contains(&caller) && self.function_regions.get(&caller) == Some(region)
-            })
-        });
-        let all_recursive_sites_are_mapped = (0..program.states.len()).all(|index| {
-            let site = StateId(index);
-            let Some(caller) = continuations.caller(site) else {
-                return !self.site_regions.contains_key(&site);
-            };
-            let Some(region) = self.function_regions.get(&caller).copied() else {
-                return !self.site_regions.contains_key(&site);
-            };
-            let expected = continuations
-                .targets(site)
-                .into_iter()
-                .flatten()
-                .copied()
-                .filter(|target| self.function_regions.get(target) == Some(&region))
-                .collect::<Vec<_>>();
-            if expected.is_empty() {
-                !self.site_regions.contains_key(&site)
-            } else {
-                self.site_regions.get(&site) == Some(&region)
-                    && self.recursive_targets(site) == Some(expected.as_slice())
-            }
-        });
-        let all_region_functions_are_mapped =
-            self.regions.iter().enumerate().all(|(index, region)| {
-                region.functions.iter().all(|function| {
-                    self.function_regions.get(function) == Some(&ControlRegionId(index))
-                })
-            });
-        all_sites_are_closed && all_recursive_sites_are_mapped && all_region_functions_are_mapped
+        self == &Self::new(program, continuations)
     }
 }
 
@@ -238,6 +198,9 @@ fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::execution::{ApplicationGraph, ClosureUsePlan, OptimizationPlan, OptimizationSet};
+    use crate::source::{FileId, SourceFile};
+    use crate::{anf, check, closure, control, core, parser, resolve};
 
     #[test]
     fn partitions_cycles_without_joining_acyclic_edges() {
@@ -262,5 +225,42 @@ mod tests {
         let components = strongly_connected_components(&graph);
 
         assert_eq!(components.len(), count);
+    }
+
+    #[test]
+    fn rejects_a_plan_with_a_missing_region() {
+        let source = SourceFile::new(
+            FileId::new(84),
+            "region-plan.mal",
+            "recurse :: Int32 -> Int32 := (value) {\n\
+               if (value == 0i32) then { 0i32 } else {\n\
+                 child := recurse(value - 1i32);\n\
+                 child + 1i32;\n\
+               };\n\
+             };"
+            .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse region fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve region fixture");
+        let checked = check::check(&resolved).expect("check region fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = closure::convert(&anf);
+        let control = control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let optimizations = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::production(),
+        );
+        let continuations = ContinuationGraph::new(&applications, &optimizations);
+        let mut regions = ControlRegionPlan::new(&control, &continuations);
+
+        assert!(regions.is_valid(&control, &continuations));
+        assert!(!regions.regions.is_empty());
+        regions.regions.clear();
+        assert!(!regions.is_valid(&control, &continuations));
     }
 }

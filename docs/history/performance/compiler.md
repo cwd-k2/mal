@@ -133,8 +133,8 @@ function entry、frame siteからtagへのmapを一度作り、site処理を定�
 execution optimization、call plan、recursive controlのfocused testで同じdecisionを確認した。
 
 debug/testで各planを再構成するstructural validatorにもsiteごとのfunction線形探索が残っていたため、application validatorは
-function identity map、region validatorはfunction identity setを一度構成して参照するようにした。validatorは通常構築と同じ
-identity authorityを使い、site数とfunction数の積へ退行しない。
+function identity mapを一度構成して参照するようにした。region validatorは部分的な対応関係を再検査せず、通常constructorから
+plan全体を再構成してexact matchを取る。validatorは通常構築と同じidentity authorityを使い、欠落したregionも受理しない。
 
 indirect applicationのpossible targetは従来siteごとに全internal functionのparameter/result型を比較していた。canonical type
 DAGをmemoizeしながら反復的に構造fingerprintへ変換し、functionをsignatureごとのtarget groupへ一度だけ分類する方式へ変更した。
