@@ -46,8 +46,7 @@ impl Checker {
     ) -> CheckResult<(Expression, Expression)> {
         let (left, right) = if let Some(expected) = expected {
             let left = self.check_before(left, Some(expected), right.span)?;
-            let right = self.check_after(vec![left.clone()], right, Some(expected))?;
-            (left, right)
+            self.check_after(left, right, Some(expected))?
         } else if is_contextual_integer(left) && !is_contextual_integer(right) {
             let right = match self.check_expression(right, None) {
                 Err(super::CheckFailure::Abrupt(abrupt)) => {
@@ -62,8 +61,8 @@ impl Checker {
             (left, right)
         } else {
             let left = self.check_before(left, None, right.span)?;
-            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
-            (left, right)
+            let expected = left.ty.clone();
+            self.check_after(left, right, Some(&expected))?
         };
         if !is_integer(&left.ty) {
             return Err(

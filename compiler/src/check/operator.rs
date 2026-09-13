@@ -120,7 +120,7 @@ impl Checker {
     ) -> CheckResult<Expression> {
         if operator.kind == BinaryOperator::SymbolAt {
             let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
-            let right = self.check_after(vec![left.clone()], right, Some(&Type::UInt64))?;
+            let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
             return Ok(Expression {
                 kind: ExpressionKind::SymbolAt {
                     argument: Box::new(Expression {
@@ -177,8 +177,8 @@ impl Checker {
                     (left, right)
                 } else {
                     let left = self.check_before(left, None, right.span)?;
-                    let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
-                    (left, right)
+                    let expected = left.ty.clone();
+                    self.check_after(left, right, Some(&expected))?
                 };
                 if !is_integer(&left.ty)
                     && !is_float(&left.ty)
@@ -255,7 +255,7 @@ impl Checker {
                 return self.check_pointer_offset(pointer_primitive, left, right, span);
             }
             if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
-                let right = self.check_after(vec![left.clone()], right, Some(&Type::Symbol))?;
+                let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
                 return Ok(Expression {
                     kind: ExpressionKind::Binary {
                         operator: operator.clone(),
@@ -266,7 +266,8 @@ impl Checker {
                     span,
                 });
             }
-            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
+            let expected = left.ty.clone();
+            let (left, right) = self.check_after(left, right, Some(&expected))?;
             if !is_integer(&left.ty) && !is_float(&left.ty) {
                 return Err(
                     Diagnostic::error("numeric operator requires numeric operands")
@@ -299,7 +300,7 @@ impl Checker {
         span: Span,
     ) -> CheckResult<Expression> {
         let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
-        let right = self.check_after(vec![left.clone()], right, Some(&Type::Symbol))?;
+        let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
         Ok(Expression {
             kind: ExpressionKind::Binary {
                 operator: operator.clone(),
@@ -318,7 +319,7 @@ impl Checker {
         right: &Node<resolved::Expression>,
         span: Span,
     ) -> CheckResult<Expression> {
-        let right = self.check_after(vec![left.clone()], right, Some(&Type::UInt64))?;
+        let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive,
@@ -343,8 +344,7 @@ impl Checker {
         let right_contextual = is_contextual_integer(right) || is_contextual_float(right);
         let (left, right) = if let Some(expected) = expected {
             let left = self.check_before(left, Some(expected), right.span)?;
-            let right = self.check_after(vec![left.clone()], right, Some(expected))?;
-            (left, right)
+            self.check_after(left, right, Some(expected))?
         } else if left_contextual && !right_contextual {
             let right = match self.check_expression(right, None) {
                 Err(CheckFailure::Abrupt(abrupt)) => {
@@ -359,8 +359,8 @@ impl Checker {
             (left, right)
         } else {
             let left = self.check_before(left, None, right.span)?;
-            let right = self.check_after(vec![left.clone()], right, Some(&left.ty))?;
-            (left, right)
+            let expected = left.ty.clone();
+            self.check_after(left, right, Some(&expected))?
         };
         if !is_integer(&left.ty) && !is_float(&left.ty) {
             return Err(

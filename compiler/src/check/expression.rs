@@ -27,15 +27,16 @@ impl Checker {
 
     pub(super) fn check_after(
         &mut self,
-        preceding: Vec<Expression>,
+        preceding: Expression,
         expression: &Node<resolved::Expression>,
         expected: Option<&Type>,
-    ) -> CheckResult<Expression> {
+    ) -> CheckResult<(Expression, Expression)> {
         match self.check_expression(expression, expected) {
+            Ok(value) => Ok((preceding, value)),
             Err(CheckFailure::Abrupt(abrupt)) => Err(CheckFailure::Abrupt(Box::new(
-                (*abrupt).preceded_by(preceding),
+                (*abrupt).preceded_by(vec![preceding]),
             ))),
-            result => result,
+            Err(error) => Err(error),
         }
     }
 
