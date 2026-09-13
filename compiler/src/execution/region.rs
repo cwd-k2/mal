@@ -132,14 +132,18 @@ impl ControlRegionPlan {
         program: &Program,
         continuations: &ContinuationGraph<'_>,
     ) -> bool {
+        let functions = program
+            .functions
+            .iter()
+            .map(|function| function.id)
+            .collect::<HashSet<_>>();
         let all_sites_are_closed = self.site_regions.iter().all(|(site, region)| {
             self.recursive_targets(*site).is_some_and(|targets| {
                 targets
                     .iter()
                     .all(|target| self.function_regions.get(target) == Some(region))
-            }) && program.functions.iter().any(|function| {
-                self.function_regions.get(&function.id) == Some(region)
-                    && continuations.caller(*site) == Some(function.id)
+            }) && continuations.caller(*site).is_some_and(|caller| {
+                functions.contains(&caller) && self.function_regions.get(&caller) == Some(region)
             })
         });
         let all_recursive_sites_are_mapped = (0..program.states.len()).all(|index| {

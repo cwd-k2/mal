@@ -99,6 +99,11 @@ impl ApplicationGraph {
         closure_uses: &ClosureUsePlan,
     ) -> bool {
         let expected = Self::new(closure, control, closure_uses);
+        let functions = closure
+            .functions
+            .iter()
+            .map(|function| (function.id, function))
+            .collect::<HashMap<_, _>>();
         self.sites == expected.sites
             && self.callers == expected.callers
             && self.sites.iter().all(|(site, site_plan)| {
@@ -115,16 +120,14 @@ impl ApplicationGraph {
                             .input
                             .as_ref()
                             .is_some_and(|input| pattern_type(input) == result.as_ref()),
-                        None => site_plan.caller.is_some_and(|caller| {
-                            closure.functions.iter().any(|function| {
-                                function.id == caller && function.body.result.ty == **result
-                            })
-                        }),
+                        None => site_plan
+                            .caller
+                            .and_then(|caller| functions.get(&caller))
+                            .is_some_and(|function| function.body.result.ty == **result),
                     }
                     && site_plan.targets.iter().all(|target| {
-                        closure.functions.iter().any(|function| {
-                            function.id == *target
-                                && function.parameter.ty == **parameter
+                        functions.get(target).is_some_and(|function| {
+                            function.parameter.ty == **parameter
                                 && function.body.result.ty == **result
                         })
                     })
