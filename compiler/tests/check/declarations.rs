@@ -86,7 +86,7 @@ fn shares_repeated_alias_structure_without_exponential_expansion() {
     let mut source = String::from("Left0 :: Unit;\nRight0 :: Unit;\n");
     for level in 1..=64 {
         source.push_str(&format!(
-            "Left{level} :: (Left{}, Left{});\nRight{level} :: (Right{}, Right{});\n",
+            "Left{level} :: [Left{}, Left{}];\nRight{level} :: [Right{}, Right{}];\n",
             level - 1,
             level - 1,
             level - 1,
@@ -98,6 +98,29 @@ fn shares_repeated_alias_structure_without_exponential_expansion() {
     );
 
     check_ok(&source);
+}
+
+#[test]
+fn rejects_types_whose_physical_product_representation_is_too_large() {
+    let mut source = String::from("Value0 :: UInt8;\n");
+    for level in 1..=17 {
+        source.push_str(&format!(
+            "Value{level} :: (Value{}, Value{});\n",
+            level - 1,
+            level - 1
+        ));
+    }
+
+    let error = check_error(&source);
+
+    assert_eq!(error.message, "type representation is too large");
+    assert!(
+        error
+            .primary
+            .expect("representation diagnostic")
+            .message
+            .contains("65536 storage components")
+    );
 }
 
 #[test]

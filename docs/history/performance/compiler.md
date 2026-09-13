@@ -91,3 +91,7 @@ functionを置き、型検査まで完走する回帰テストとした。これ
 共有されたproduct型を型不一致のdiagnosticへ表示すると、canonical representationはDAGでも従来の再帰的`type_name`が各辺を
 展開し、文字列量が指数的に増えた。表示を明示stackへ移し、4,096 byteを超えるcanonical type名をellipsisで省略した。
 64段の共有product DAGから作る表示が4,099 byte以下で終了することを回帰テストにした。
+
+同じ形の共有productは表示だけでなく実値のfield数も指数的に増えるため、型検査へ65,536 storage componentの表現上限を
+置いた。17段の二重productをbackend生成前にdiagnosticとして拒否し、共有sumは64段でも受理する回帰テストで、物理的な
+重複とDAG走査上の重複を区別した。判断は[D046](../decisions/D046.md)に記録する。

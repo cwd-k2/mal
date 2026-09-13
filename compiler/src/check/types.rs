@@ -9,6 +9,8 @@ use crate::source::Span;
 
 use super::{Checker, ast::Type};
 
+const MAX_REPRESENTATION_UNITS: usize = 65_536;
+
 #[derive(Clone)]
 pub(super) struct AliasDefinition {
     pub(super) binding: resolved::TypeBinding,
@@ -40,7 +42,9 @@ impl Checker {
         &mut self,
         ty: &Node<resolved::TypeExpression>,
     ) -> Result<Type, Diagnostic> {
-        self.expand([Expansion::Expression(ty.clone())])
+        let expanded = self.expand([Expansion::Expression(ty.clone())])?;
+        ensure_representable(&expanded, ty.span)?;
+        Ok(expanded)
     }
 
     pub(super) fn expand_type_id(
@@ -48,7 +52,9 @@ impl Checker {
         id: TypeId,
         use_span: Span,
     ) -> Result<Type, Diagnostic> {
-        self.expand([Expansion::Reference(id, use_span)])
+        let expanded = self.expand([Expansion::Reference(id, use_span)])?;
+        ensure_representable(&expanded, use_span)?;
+        Ok(expanded)
     }
 
     fn expand(&mut self, initial: impl IntoIterator<Item = Expansion>) -> Result<Type, Diagnostic> {
@@ -166,6 +172,109 @@ fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
             .checked_sub(length)
             .expect("composite expansion must have all children"),
     )
+}
+
+pub(super) fn ensure_representable(ty: &Type, span: Span) -> Result<(), Diagnostic> {
+    if representation_units(ty).is_none() {
+        return Err(
+            Diagnostic::error("type representation is too large").with_primary(
+                span,
+                format!(
+                    "the reference compiler supports at most {MAX_REPRESENTATION_UNITS} storage components"
+                ),
+            ),
+        );
+    }
+    Ok(())
+}
+
+fn representation_units(ty: &Type) -> Option<usize> {
+    let mut pending = vec![Representation::Type(ty)];
+    let mut values = Vec::new();
+    let mut cache = std::collections::HashMap::new();
+    while let Some(item) = pending.pop() {
+        match item {
+            Representation::Type(ty) => {
+                if let Some(units) = ty.shared_id().and_then(|id| cache.get(&id).copied()) {
+                    values.push(units);
+                    continue;
+                }
+                match ty {
+                    Type::Product(elements) => {
+                        pending.push(Representation::Product(ty.shared_id(), elements.len()));
+                        pending.extend(elements.iter().rev().map(Representation::Type));
+                    }
+                    Type::Sum(elements) => {
+                        pending.push(Representation::Sum(ty.shared_id(), elements.len()));
+                        pending.extend(elements.iter().rev().map(Representation::Type));
+                    }
+                    Type::Function { parameter, result } => {
+                        pending.push(Representation::Function(ty.shared_id()));
+                        pending.push(Representation::Type(result));
+                        pending.push(Representation::Type(parameter));
+                    }
+                    _ => values.push(1),
+                }
+            }
+            Representation::Product(id, length) => {
+                let units = take_unit_sum(&mut values, length)?;
+                store_units(id, units, &mut cache);
+                values.push(units);
+            }
+            Representation::Sum(id, length) => {
+                let children = take_units(&mut values, length);
+                let units = children
+                    .into_iter()
+                    .max()
+                    .unwrap_or(0)
+                    .checked_add(1)
+                    .filter(|units| *units <= MAX_REPRESENTATION_UNITS)?;
+                store_units(id, units, &mut cache);
+                values.push(units);
+            }
+            Representation::Function(id) => {
+                let children = take_units(&mut values, 2);
+                let units = children.into_iter().max().unwrap_or(2).max(2);
+                store_units(id, units, &mut cache);
+                values.push(units);
+            }
+        }
+    }
+    let [units] = values.try_into().ok()?;
+    Some(units)
+}
+
+enum Representation<'a> {
+    Type(&'a Type),
+    Product(Option<super::ast::SharedTypeId>, usize),
+    Sum(Option<super::ast::SharedTypeId>, usize),
+    Function(Option<super::ast::SharedTypeId>),
+}
+
+fn take_units(values: &mut Vec<usize>, length: usize) -> Vec<usize> {
+    values.split_off(
+        values
+            .len()
+            .checked_sub(length)
+            .expect("all child units exist"),
+    )
+}
+
+fn take_unit_sum(values: &mut Vec<usize>, length: usize) -> Option<usize> {
+    take_units(values, length)
+        .into_iter()
+        .try_fold(0usize, |total, units| total.checked_add(units))
+        .filter(|units| *units <= MAX_REPRESENTATION_UNITS)
+}
+
+fn store_units(
+    id: Option<super::ast::SharedTypeId>,
+    units: usize,
+    cache: &mut std::collections::HashMap<super::ast::SharedTypeId, usize>,
+) {
+    if let Some(id) = id {
+        cache.insert(id, units);
+    }
 }
 
 pub(super) fn bool_type() -> Type {

@@ -43,8 +43,10 @@ impl Checker {
                 Err(error) => return Err(error),
             }
         }
+        let ty = Type::Product(checked.iter().map(|element| element.ty.clone()).collect());
+        super::types::ensure_representable(&ty, span)?;
         Ok(Expression {
-            ty: Type::Product(checked.iter().map(|element| element.ty.clone()).collect()),
+            ty,
             kind: ExpressionKind::Product(checked),
             span,
         })
