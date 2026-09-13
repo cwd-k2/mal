@@ -10,7 +10,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::source::{FileId, SourceFile, SourceGraph};
 
 mod graph;
+mod requirement;
 mod toolchain;
+
+pub use requirement::{
+    RequirementPathCandidate, requirement_path_candidates, resolve_requirement_path,
+};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
@@ -39,76 +44,6 @@ pub fn load_source_graph_with_overlays(
     overlays: &HashMap<PathBuf, String>,
 ) -> Result<SourceGraph, Error> {
     graph::load_with_overlays(root_path, root_text, overlays)
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RequirementPathCandidate {
-    pub name: String,
-    pub is_directory: bool,
-}
-
-pub fn resolve_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
-    let path = relative_requirement_path(source_path, requirement)?;
-    Some(fs::canonicalize(&path).unwrap_or(path))
-}
-
-fn relative_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
-    let requirement = Path::new(requirement);
-    if requirement.as_os_str().is_empty() || requirement.is_absolute() {
-        return None;
-    }
-    Some(
-        source_path
-            .parent()
-            .unwrap_or_else(|| Path::new(""))
-            .join(requirement),
-    )
-}
-
-pub fn requirement_path_candidates(
-    source_path: &Path,
-    fragment: &str,
-) -> Vec<RequirementPathCandidate> {
-    if Path::new(fragment).is_absolute() {
-        return Vec::new();
-    }
-    let (directory, prefix) = fragment
-        .rsplit_once('/')
-        .map_or(("", fragment), |(directory, prefix)| (directory, prefix));
-    let Some(directory) = resolve_requirement_path(source_path, directory_or_current(directory))
-    else {
-        return Vec::new();
-    };
-    let Ok(entries) = fs::read_dir(directory) else {
-        return Vec::new();
-    };
-    let mut candidates = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let name = entry.file_name().into_string().ok()?;
-            if !name.starts_with(prefix) {
-                return None;
-            }
-            let path = entry.path();
-            let is_directory = path.is_dir();
-            let supported_file = path.is_file()
-                && matches!(path.extension().and_then(OsStr::to_str), Some("mal" | "c"));
-            (is_directory || supported_file).then_some(RequirementPathCandidate {
-                name: if is_directory {
-                    format!("{name}/")
-                } else {
-                    name
-                },
-                is_directory,
-            })
-        })
-        .collect::<Vec<_>>();
-    candidates.sort_by(|left, right| left.name.cmp(&right.name));
-    candidates
-}
-
-fn directory_or_current(directory: &str) -> &str {
-    if directory.is_empty() { "." } else { directory }
 }
 
 pub fn format(source_path: &Path) -> Result<String, Error> {
@@ -499,9 +434,7 @@ impl std::error::Error for Error {}
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
-    use super::{C_COMPILER_REQUIRED_OPTIONS, TemporaryDirectory, requirement_path_candidates};
+    use super::C_COMPILER_REQUIRED_OPTIONS;
 
     #[test]
     fn compiler_required_options_only_own_admission_and_semantics() {
@@ -518,25 +451,6 @@ mod tests {
                 "-frounding-math",
                 "-fexcess-precision=standard",
             ]
-        );
-    }
-
-    #[test]
-    fn lists_only_supported_requirement_paths() {
-        let directory = TemporaryDirectory::new().expect("temporary directory");
-        let source = directory.path().join("program.mal");
-        fs::write(directory.path().join("library.mal"), "").expect("write mal source");
-        fs::write(directory.path().join("library.c"), "").expect("write C source");
-        fs::write(directory.path().join("library.txt"), "").expect("write unrelated file");
-        fs::create_dir(directory.path().join("libdir")).expect("create source directory");
-
-        let candidates = requirement_path_candidates(&source, "lib");
-        assert_eq!(
-            candidates
-                .iter()
-                .map(|candidate| candidate.name.as_str())
-                .collect::<Vec<_>>(),
-            ["libdir/", "library.c", "library.mal"]
         );
     }
 }

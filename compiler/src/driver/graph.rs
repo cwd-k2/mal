@@ -179,7 +179,7 @@ fn requirement_path(
         Diagnostic::error("invalid requirement path")
             .with_primary(span, "requirement paths must be UTF-8")
     })?;
-    let Some(path) = super::relative_requirement_path(source.path(), text) else {
+    let Some(path) = super::requirement::relative_requirement_path(source.path(), text) else {
         return Err(Diagnostic::error("invalid requirement path")
             .with_primary(span, "expected a non-empty relative path"));
     };
