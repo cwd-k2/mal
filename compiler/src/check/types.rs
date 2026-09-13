@@ -40,31 +40,7 @@ impl Checker {
         &mut self,
         ty: &Node<resolved::TypeExpression>,
     ) -> Result<Type, Diagnostic> {
-        match &ty.kind {
-            resolved::TypeExpression::Named(reference) => {
-                self.expand_type_id(reference.id, reference.name.span)
-            }
-            resolved::TypeExpression::Unit => Ok(Type::Unit),
-            resolved::TypeExpression::Parenthesized(inner) => self.expand_type(inner),
-            resolved::TypeExpression::Product(elements) => Ok(Type::Product(
-                elements
-                    .iter()
-                    .map(|element| self.expand_type(element))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            resolved::TypeExpression::Sum(members) => Ok(Type::Sum(
-                members
-                    .iter()
-                    .map(|member| self.expand_type(member))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            resolved::TypeExpression::Function { parameter, result } => Ok(Type::Function {
-                parameter: self.expand_type(parameter)?.into(),
-                result: self.expand_type(result)?.into(),
-            }),
-        }
+        self.expand([Expansion::Expression(ty.clone())])
     }
 
     pub(super) fn expand_type_id(
@@ -72,47 +48,124 @@ impl Checker {
         id: TypeId,
         use_span: Span,
     ) -> Result<Type, Diagnostic> {
-        match id {
-            UNIT_TYPE => return Ok(Type::Unit),
-            INT8_TYPE => return Ok(Type::Int8),
-            INT16_TYPE => return Ok(Type::Int16),
-            INT32_TYPE => return Ok(Type::Int32),
-            INT64_TYPE => return Ok(Type::Int64),
-            UINT8_TYPE => return Ok(Type::UInt8),
-            UINT16_TYPE => return Ok(Type::UInt16),
-            UINT32_TYPE => return Ok(Type::UInt32),
-            UINT64_TYPE => return Ok(Type::UInt64),
-            FLOAT32_TYPE => return Ok(Type::Float32),
-            FLOAT64_TYPE => return Ok(Type::Float64),
-            BOOL_TYPE => return Ok(Type::Sum(vec![Type::Unit, Type::Unit].into())),
-            SYMBOL_TYPE => return Ok(Type::Symbol),
-            PTR_TYPE => return Ok(Type::Ptr),
-            _ => {}
-        }
-        if let Some(binding) = self.external_types.get(&id) {
-            return Ok(Type::External {
-                id,
-                name: binding.name.text.clone(),
-            });
-        }
-        if let Some(expanded) = self.expanded_aliases.get(&id) {
-            return Ok(expanded.clone());
-        }
-        if self.expanding.contains(&id) {
-            return Err(Diagnostic::error("recursive type alias")
-                .with_primary(use_span, "this reference forms an alias cycle"));
-        }
-        let definition = self
-            .aliases
-            .get(&id)
-            .cloned()
-            .expect("resolved type IDs must have a definition");
-        self.expanding.push(id);
-        let expanded = self.expand_type(&definition.value)?;
-        self.expanding.pop();
-        self.expanded_aliases.insert(id, expanded.clone());
-        Ok(expanded)
+        self.expand([Expansion::Reference(id, use_span)])
     }
+
+    fn expand(&mut self, initial: impl IntoIterator<Item = Expansion>) -> Result<Type, Diagnostic> {
+        let mut pending = initial.into_iter().collect::<Vec<_>>();
+        let mut values = Vec::new();
+        while let Some(expansion) = pending.pop() {
+            match expansion {
+                Expansion::Expression(expression) => match expression.kind {
+                    resolved::TypeExpression::Named(reference) => {
+                        pending.push(Expansion::Reference(reference.id, reference.name.span));
+                    }
+                    resolved::TypeExpression::Unit => values.push(Type::Unit),
+                    resolved::TypeExpression::Parenthesized(inner) => {
+                        pending.push(Expansion::Expression(*inner));
+                    }
+                    resolved::TypeExpression::Product(elements) => {
+                        pending.push(Expansion::Product(elements.len()));
+                        pending.extend(elements.into_iter().rev().map(Expansion::Expression));
+                    }
+                    resolved::TypeExpression::Sum(members) => {
+                        pending.push(Expansion::Sum(members.len()));
+                        pending.extend(members.into_iter().rev().map(Expansion::Expression));
+                    }
+                    resolved::TypeExpression::Function { parameter, result } => {
+                        pending.push(Expansion::Function);
+                        pending.push(Expansion::Expression(*result));
+                        pending.push(Expansion::Expression(*parameter));
+                    }
+                },
+                Expansion::Reference(id, use_span) => {
+                    if let Some(ty) = predefined_type(id) {
+                        values.push(ty);
+                    } else if let Some(binding) = self.external_types.get(&id) {
+                        values.push(Type::External {
+                            id,
+                            name: binding.name.text.clone(),
+                        });
+                    } else if let Some(expanded) = self.expanded_aliases.get(&id) {
+                        values.push(expanded.clone());
+                    } else {
+                        if !self.expanding.insert(id) {
+                            return Err(Diagnostic::error("recursive type alias")
+                                .with_primary(use_span, "this reference forms an alias cycle"));
+                        }
+                        let definition = self
+                            .aliases
+                            .get(&id)
+                            .expect("resolved type IDs must have a definition");
+                        pending.push(Expansion::Alias(id));
+                        pending.push(Expansion::Expression(definition.value.clone()));
+                    }
+                }
+                Expansion::Alias(id) => {
+                    let expanded = values.last().expect("alias expansion must produce a type");
+                    self.expanded_aliases.insert(id, expanded.clone());
+                    assert!(self.expanding.remove(&id));
+                }
+                Expansion::Product(length) => {
+                    let elements = take_last(&mut values, length);
+                    values.push(Type::Product(elements.into()));
+                }
+                Expansion::Sum(length) => {
+                    let members = take_last(&mut values, length);
+                    values.push(Type::Sum(members.into()));
+                }
+                Expansion::Function => {
+                    let [parameter, result] = take_last(&mut values, 2).try_into().unwrap();
+                    values.push(Type::Function {
+                        parameter: parameter.into(),
+                        result: result.into(),
+                    });
+                }
+            }
+        }
+        let [value] = values
+            .try_into()
+            .expect("one expansion must produce one type");
+        Ok(value)
+    }
+}
+
+enum Expansion {
+    Expression(Node<resolved::TypeExpression>),
+    Reference(TypeId, Span),
+    Alias(TypeId),
+    Product(usize),
+    Sum(usize),
+    Function,
+}
+
+fn predefined_type(id: TypeId) -> Option<Type> {
+    Some(match id {
+        UNIT_TYPE => Type::Unit,
+        INT8_TYPE => Type::Int8,
+        INT16_TYPE => Type::Int16,
+        INT32_TYPE => Type::Int32,
+        INT64_TYPE => Type::Int64,
+        UINT8_TYPE => Type::UInt8,
+        UINT16_TYPE => Type::UInt16,
+        UINT32_TYPE => Type::UInt32,
+        UINT64_TYPE => Type::UInt64,
+        FLOAT32_TYPE => Type::Float32,
+        FLOAT64_TYPE => Type::Float64,
+        BOOL_TYPE => Type::Sum(vec![Type::Unit, Type::Unit].into()),
+        SYMBOL_TYPE => Type::Symbol,
+        PTR_TYPE => Type::Ptr,
+        _ => return None,
+    })
+}
+
+fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
+    values.split_off(
+        values
+            .len()
+            .checked_sub(length)
+            .expect("composite expansion must have all children"),
+    )
 }
 
 pub(super) fn bool_type() -> Type {

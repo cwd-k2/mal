@@ -101,6 +101,17 @@ fn shares_repeated_alias_structure_without_exponential_expansion() {
 }
 
 #[test]
+fn expands_long_alias_dependency_chains_without_host_recursion() {
+    let mut source = String::new();
+    for index in 0..4096 {
+        source.push_str(&format!("Alias{index} :: Alias{};\n", index + 1));
+    }
+    source.push_str("Alias4096 :: UInt8;\nvalue :: Alias0 := 1u8;");
+
+    check_ok(&source);
+}
+
+#[test]
 fn rejects_recursive_aliases_even_when_unused() {
     let error = check_error("First :: Second; Second :: First;");
     assert_eq!(error.message, "recursive type alias");

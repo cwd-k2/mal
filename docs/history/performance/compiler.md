@@ -80,3 +80,9 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 内部layoutを共有しても生成量が指数的に増加した。planを共有node identityでinternし、read/write helperも方向別に一度だけ
 生成するよう変更した。直前の型を二variantに持つ16段のextern sumについて、生成shimを250,000 byte未満かつwrite helper
 16個とする回帰テストを置いた。
+
+## 2026-09-13 alias dependency
+
+aliasのsource構文は一宣言ごとに平坦でも、後方宣言を参照する長いdependency chainはcanonical type展開時のRust再帰に
+変換されていた。型式とalias参照を同じ明示work stackで評価し、active alias集合でcycleを検出する方式へ変更した。
+4,096本のalias chainを型検査まで完走する回帰テストを置いた。これはD045の再帰的なsource構文上限には数えない。
