@@ -85,16 +85,18 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 
 aliasのsource構文は一宣言ごとに平坦でも、後方宣言を参照する長いdependency chainはcanonical type展開時のRust再帰に
 変換されていた。型式とalias参照を同じ明示work stackで評価し、active alias集合でcycleを検出する方式へ変更した。externの
-function partsとaggregate metadataをsource型から回収する走査も同じく反復化した。4,096本のalias chainの先にproductとextern
-functionを置き、型検査まで完走する回帰テストとした。これはD045の再帰的なsource構文上限には数えない。
+function partsとaggregate metadataをsource型から回収する走査も同じく反復化し、aggregateの終端sourceをalias IDごとに
+memoizeした。4,096本のalias chainの先にproductとextern functionを置くdebug testは、metadata memoize前の約1.9秒から
+約0.06秒となった。これはD045の再帰的なsource構文上限には数えない。
 
 共有されたproduct型を型不一致のdiagnosticへ表示すると、canonical representationはDAGでも従来の再帰的`type_name`が各辺を
 展開し、文字列量が指数的に増えた。表示を明示stackへ移し、4,096 byteを超えるcanonical type名をellipsisで省略した。
 64段の共有product DAGから作る表示が4,099 byte以下で終了することを回帰テストにした。
 
-同じ形の共有productは表示だけでなく実値のfield数も指数的に増えるため、型検査へ65,536 storage componentの表現上限を
-置いた。17段の二重productをbackend生成前にdiagnosticとして拒否し、共有sumは64段でも受理する回帰テストで、物理的な
-重複とDAG走査上の重複を区別した。判断は[D046](../decisions/D046.md)に記録する。
+同じ形の共有productは表示だけでなく実値のfield数も指数的に増えるため、型検査へ64 nested level、65,536 storage componentの
+表現上限を置いた。17段の二重productと、平坦な65本のaliasが構成する深いproductをbackend生成前にdiagnosticとして拒否し、
+共有sumは64段でも受理する回帰テストで、物理的な重複とDAG走査上の重複を区別した。判断は
+[D046](../decisions/D046.md)に記録する。
 
 ## 2026-09-13 decimal float coefficient
 

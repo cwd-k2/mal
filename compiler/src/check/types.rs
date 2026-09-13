@@ -10,6 +10,7 @@ use crate::source::Span;
 use super::{Checker, ast::Type};
 
 const MAX_REPRESENTATION_UNITS: usize = 65_536;
+const MAX_REPRESENTATION_DEPTH: usize = 64;
 
 #[derive(Clone)]
 pub(super) struct AliasDefinition {
@@ -180,7 +181,7 @@ pub(super) fn ensure_representable(ty: &Type, span: Span) -> Result<(), Diagnost
             Diagnostic::error("type representation is too large").with_primary(
                 span,
                 format!(
-                    "the reference compiler supports at most {MAX_REPRESENTATION_UNITS} storage components"
+                    "the reference compiler supports at most {MAX_REPRESENTATION_DEPTH} nested levels and {MAX_REPRESENTATION_UNITS} storage components"
                 ),
             ),
         );
@@ -195,8 +196,8 @@ fn representation_units(ty: &Type) -> Option<usize> {
     while let Some(item) = pending.pop() {
         match item {
             Representation::Type(ty) => {
-                if let Some(units) = ty.shared_id().and_then(|id| cache.get(&id).copied()) {
-                    values.push(units);
+                if let Some(measure) = ty.shared_id().and_then(|id| cache.get(&id).copied()) {
+                    values.push(measure);
                     continue;
                 }
                 match ty {
@@ -213,35 +214,53 @@ fn representation_units(ty: &Type) -> Option<usize> {
                         pending.push(Representation::Type(result));
                         pending.push(Representation::Type(parameter));
                     }
-                    _ => values.push(1),
+                    _ => values.push(RepresentationMeasure { units: 1, depth: 0 }),
                 }
             }
             Representation::Product(id, length) => {
-                let units = take_unit_sum(&mut values, length)?;
-                store_units(id, units, &mut cache);
-                values.push(units);
+                let children = take_measures(&mut values, length);
+                let units = children
+                    .iter()
+                    .try_fold(0usize, |total, measure| total.checked_add(measure.units))?;
+                let measure = composite_measure(units, &children)?;
+                store_measure(id, measure, &mut cache);
+                values.push(measure);
             }
             Representation::Sum(id, length) => {
-                let children = take_units(&mut values, length);
+                let children = take_measures(&mut values, length);
                 let units = children
-                    .into_iter()
+                    .iter()
+                    .map(|measure| measure.units)
                     .max()
                     .unwrap_or(0)
-                    .checked_add(1)
-                    .filter(|units| *units <= MAX_REPRESENTATION_UNITS)?;
-                store_units(id, units, &mut cache);
-                values.push(units);
+                    .checked_add(1)?;
+                let measure = composite_measure(units, &children)?;
+                store_measure(id, measure, &mut cache);
+                values.push(measure);
             }
             Representation::Function(id) => {
-                let children = take_units(&mut values, 2);
-                let units = children.into_iter().max().unwrap_or(2).max(2);
-                store_units(id, units, &mut cache);
-                values.push(units);
+                let children = take_measures(&mut values, 2);
+                let units = children
+                    .iter()
+                    .map(|measure| measure.units)
+                    .max()
+                    .unwrap_or(2)
+                    .max(2);
+                let depth = children
+                    .iter()
+                    .map(|measure| measure.depth)
+                    .max()
+                    .unwrap_or(0);
+                let measure = (units <= MAX_REPRESENTATION_UNITS
+                    && depth <= MAX_REPRESENTATION_DEPTH)
+                    .then_some(RepresentationMeasure { units, depth })?;
+                store_measure(id, measure, &mut cache);
+                values.push(measure);
             }
         }
     }
-    let [units] = values.try_into().ok()?;
-    Some(units)
+    let [measure] = values.try_into().ok()?;
+    Some(measure.units)
 }
 
 enum Representation<'a> {
@@ -251,7 +270,16 @@ enum Representation<'a> {
     Function(Option<super::ast::SharedTypeId>),
 }
 
-fn take_units(values: &mut Vec<usize>, length: usize) -> Vec<usize> {
+#[derive(Clone, Copy)]
+struct RepresentationMeasure {
+    units: usize,
+    depth: usize,
+}
+
+fn take_measures(
+    values: &mut Vec<RepresentationMeasure>,
+    length: usize,
+) -> Vec<RepresentationMeasure> {
     values.split_off(
         values
             .len()
@@ -260,20 +288,27 @@ fn take_units(values: &mut Vec<usize>, length: usize) -> Vec<usize> {
     )
 }
 
-fn take_unit_sum(values: &mut Vec<usize>, length: usize) -> Option<usize> {
-    take_units(values, length)
-        .into_iter()
-        .try_fold(0usize, |total, units| total.checked_add(units))
-        .filter(|units| *units <= MAX_REPRESENTATION_UNITS)
+fn composite_measure(
+    units: usize,
+    children: &[RepresentationMeasure],
+) -> Option<RepresentationMeasure> {
+    let depth = children
+        .iter()
+        .map(|measure| measure.depth)
+        .max()
+        .unwrap_or(0)
+        .checked_add(1)?;
+    (units <= MAX_REPRESENTATION_UNITS && depth <= MAX_REPRESENTATION_DEPTH)
+        .then_some(RepresentationMeasure { units, depth })
 }
 
-fn store_units(
+fn store_measure(
     id: Option<super::ast::SharedTypeId>,
-    units: usize,
-    cache: &mut std::collections::HashMap<super::ast::SharedTypeId, usize>,
+    measure: RepresentationMeasure,
+    cache: &mut std::collections::HashMap<super::ast::SharedTypeId, RepresentationMeasure>,
 ) {
     if let Some(id) = id {
-        cache.insert(id, units);
+        cache.insert(id, measure);
     }
 }
 

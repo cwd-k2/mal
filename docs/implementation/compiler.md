@@ -146,7 +146,7 @@ reference compilerは再帰的な構文構造を一つのparse中で64 levelま�
 なる構成である。top-level item、block item、argument、aggregate element、左結合operatorのような平坦な列の長さはこの上限へ
 数えず、各stageが反復走査する。
 
-canonical typeの物理表現は65,536 storage componentまで受理する。productは全fieldのcomponent数を加算し、sumはtag一つと
+canonical typeの物理表現は64 nested levelかつ65,536 storage componentまで受理する。productは全fieldのcomponent数を加算し、sumはtag一つと
 最大variantのcomponent数、functionはclosure carrier二つとparameter/resultの最大値で判定する。同じsubtypeを二fieldに持つ
 productは実値にも二つのstorageが必要なので二回数え、同じsubtypeを二variantに持つsumはactive payloadを共有するため最大値
 だけを数える。超過は型検査がsource span付きdiagnosticとして拒否する。

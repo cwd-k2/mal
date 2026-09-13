@@ -43,9 +43,11 @@ impl Checker {
             let (source_parameter, source_result) = self
                 .external_function_parts(ty)
                 .expect("expanded external function types retain source components");
-            let parameter_alias = self.alias_name(source_parameter);
-            let parameter_aliases = self.immediate_aliases(source_parameter, &parameter);
-            let result_alias = self.alias_name(source_result);
+            let source_parameter = source_parameter.clone();
+            let source_result = source_result.clone();
+            let parameter_alias = self.alias_name(&source_parameter);
+            let parameter_aliases = self.immediate_aliases(&source_parameter, &parameter);
+            let result_alias = self.alias_name(&source_result);
             self.values.insert(
                 binding.id,
                 Type::Function {
@@ -91,7 +93,7 @@ impl Checker {
     }
 
     pub(super) fn immediate_aliases(
-        &self,
+        &mut self,
         source: &Node<resolved::TypeExpression>,
         parameter: &Type,
     ) -> Vec<Option<String>> {
@@ -119,7 +121,7 @@ impl Checker {
     }
 
     pub(super) fn aggregate_aliases(
-        &self,
+        &mut self,
         source: &Node<resolved::TypeExpression>,
         ty: &Type,
     ) -> Vec<Option<String>> {
@@ -138,20 +140,41 @@ impl Checker {
             .unwrap_or_else(|| vec![None; elements.len()])
     }
 
-    fn aggregate_element_sources<'a>(
-        &'a self,
-        ty: &'a Node<resolved::TypeExpression>,
-    ) -> Option<&'a [Node<resolved::TypeExpression>]> {
+    fn aggregate_element_sources(
+        &mut self,
+        ty: &Node<resolved::TypeExpression>,
+    ) -> Option<Vec<Node<resolved::TypeExpression>>> {
         let mut current = ty;
+        let mut aliases = Vec::new();
         loop {
             match &current.kind {
                 resolved::TypeExpression::Product(elements)
-                | resolved::TypeExpression::Sum(elements) => return Some(elements),
+                | resolved::TypeExpression::Sum(elements) => {
+                    let elements = elements.clone();
+                    for id in aliases {
+                        self.aggregate_alias_sources
+                            .insert(id, Some(elements.clone()));
+                    }
+                    return Some(elements);
+                }
                 resolved::TypeExpression::Parenthesized(inner) => current = inner,
                 resolved::TypeExpression::Named(reference) => {
+                    if let Some(elements) = self.aggregate_alias_sources.get(&reference.id) {
+                        let elements = elements.clone();
+                        for id in aliases {
+                            self.aggregate_alias_sources.insert(id, elements.clone());
+                        }
+                        return elements;
+                    }
+                    aliases.push(reference.id);
                     current = &self.aliases.get(&reference.id)?.value;
                 }
-                _ => return None,
+                _ => {
+                    for id in aliases {
+                        self.aggregate_alias_sources.insert(id, None);
+                    }
+                    return None;
+                }
             }
         }
     }

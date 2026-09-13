@@ -119,7 +119,26 @@ fn rejects_types_whose_physical_product_representation_is_too_large() {
             .primary
             .expect("representation diagnostic")
             .message
-            .contains("65536 storage components")
+            .contains("64 nested levels and 65536 storage components")
+    );
+}
+
+#[test]
+fn rejects_deep_representations_built_by_flat_alias_declarations() {
+    let mut source = String::from("Value0 :: UInt8;\n");
+    for level in 1..=65 {
+        source.push_str(&format!("Value{level} :: (Value{}, UInt8);\n", level - 1));
+    }
+
+    let error = check_error(&source);
+
+    assert_eq!(error.message, "type representation is too large");
+    assert!(
+        error
+            .primary
+            .expect("representation diagnostic")
+            .message
+            .contains("64 nested levels")
     );
 }
 
