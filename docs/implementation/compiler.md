@@ -48,6 +48,7 @@ predefined環境には`Bool :: [Unit, Unit]`、`false :: Bool`、`true :: Bool`�
 同じsubtypeを参照共有するDAGとして保持し、
 構造比較は共有node対を再訪しない。これによりaliasが同じ型を複数回含んでも展開量と比較量を構造node数に保つ。
 型の包含判定も同じDAG iteratorを用い、managed owner、`Symbol`、extern非対応型の探索で共有subtypeを再走査しない。
+canonical typeの診断表示は反復的に構成し、4,096 byteを超える展開をellipsisで省略する。
 lambda parameterは期待関数型から決め、lambda以外のbindingはRHSから型を推論できる。
 overload resolutionはoperatorとoperand typeの組で閉じる。
 

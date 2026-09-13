@@ -180,36 +180,69 @@ pub(super) fn function_placeholder() -> Type {
 }
 
 pub(super) fn type_name(ty: &Type) -> String {
-    match ty {
-        Type::Unit => "Unit".into(),
-        Type::Int8 => "Int8".into(),
-        Type::Int16 => "Int16".into(),
-        Type::Int32 => "Int32".into(),
-        Type::Int64 => "Int64".into(),
-        Type::UInt8 => "UInt8".into(),
-        Type::UInt16 => "UInt16".into(),
-        Type::UInt32 => "UInt32".into(),
-        Type::UInt64 => "UInt64".into(),
-        Type::Float32 => "Float32".into(),
-        Type::Float64 => "Float64".into(),
-        Type::Symbol => "Symbol".into(),
-        Type::Ptr => "Ptr".into(),
-        Type::External { name, .. } => name.clone(),
-        Type::Product(elements) => format!(
-            "({})",
-            elements
-                .iter()
-                .map(type_name)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        Type::Sum(members) if members.as_ref() == [Type::Unit, Type::Unit] => "Bool".into(),
-        Type::Sum(members) => format!(
-            "[{}]",
-            members.iter().map(type_name).collect::<Vec<_>>().join(", ")
-        ),
-        Type::Function { parameter, result } => {
-            format!("{} -> {}", type_name(parameter), type_name(result))
+    const LIMIT: usize = 4096;
+
+    let mut output = String::new();
+    let mut pending = vec![TypeNamePart::Type(ty)];
+    while let Some(part) = pending.pop() {
+        let text = match part {
+            TypeNamePart::Text(text) => text,
+            TypeNamePart::Type(ty) => match ty {
+                Type::Unit => "Unit",
+                Type::Int8 => "Int8",
+                Type::Int16 => "Int16",
+                Type::Int32 => "Int32",
+                Type::Int64 => "Int64",
+                Type::UInt8 => "UInt8",
+                Type::UInt16 => "UInt16",
+                Type::UInt32 => "UInt32",
+                Type::UInt64 => "UInt64",
+                Type::Float32 => "Float32",
+                Type::Float64 => "Float64",
+                Type::Symbol => "Symbol",
+                Type::Ptr => "Ptr",
+                Type::External { name, .. } => name,
+                Type::Product(elements) => {
+                    push_aggregate_name(&mut pending, elements, ")");
+                    "("
+                }
+                Type::Sum(members) if members.as_ref() == [Type::Unit, Type::Unit] => "Bool",
+                Type::Sum(members) => {
+                    push_aggregate_name(&mut pending, members, "]");
+                    "["
+                }
+                Type::Function { parameter, result } => {
+                    pending.push(TypeNamePart::Type(result));
+                    pending.push(TypeNamePart::Text(" -> "));
+                    pending.push(TypeNamePart::Type(parameter));
+                    continue;
+                }
+            },
+        };
+        if output.len().saturating_add(text.len()) > LIMIT {
+            output.push('…');
+            break;
+        }
+        output.push_str(text);
+    }
+    output
+}
+
+enum TypeNamePart<'a> {
+    Type(&'a Type),
+    Text(&'a str),
+}
+
+fn push_aggregate_name<'a>(
+    pending: &mut Vec<TypeNamePart<'a>>,
+    elements: &'a [Type],
+    close: &'static str,
+) {
+    pending.push(TypeNamePart::Text(close));
+    for (index, element) in elements.iter().enumerate().rev() {
+        pending.push(TypeNamePart::Type(element));
+        if index != 0 {
+            pending.push(TypeNamePart::Text(", "));
         }
     }
 }

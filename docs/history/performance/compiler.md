@@ -86,3 +86,7 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 aliasのsource構文は一宣言ごとに平坦でも、後方宣言を参照する長いdependency chainはcanonical type展開時のRust再帰に
 変換されていた。型式とalias参照を同じ明示work stackで評価し、active alias集合でcycleを検出する方式へ変更した。
 4,096本のalias chainを型検査まで完走する回帰テストを置いた。これはD045の再帰的なsource構文上限には数えない。
+
+共有されたproduct型を型不一致のdiagnosticへ表示すると、canonical representationはDAGでも従来の再帰的`type_name`が各辺を
+展開し、文字列量が指数的に増えた。表示を明示stackへ移し、4,096 byteを超えるcanonical type名をellipsisで省略した。
+64段の共有product DAGから作る表示が4,099 byte以下で終了することを回帰テストにした。

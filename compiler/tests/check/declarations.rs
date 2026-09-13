@@ -112,6 +112,19 @@ fn expands_long_alias_dependency_chains_without_host_recursion() {
 }
 
 #[test]
+fn bounds_names_of_shared_types_in_diagnostics() {
+    let mut ty = Type::UInt8;
+    for _ in 0..64 {
+        ty = Type::Product(vec![ty.clone(), ty].into());
+    }
+
+    let name = check::type_name(&ty);
+
+    assert!(name.len() <= 4099);
+    assert!(name.ends_with('…'));
+}
+
+#[test]
 fn rejects_recursive_aliases_even_when_unused() {
     let error = check_error("First :: Second; Second :: First;");
     assert_eq!(error.message, "recursive type alias");
