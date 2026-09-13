@@ -45,7 +45,7 @@ impl TypeRegistry {
                         &format!("repr_sum_{index}"),
                         &format!("mal_repr_sum_{index}_t"),
                         self.c_type(ty),
-                        members,
+                        ty,
                         &vec![None; members.len()],
                     );
                 }
@@ -104,13 +104,13 @@ impl TypeRegistry {
             if !host.contains(&alias.ty) {
                 continue;
             }
-            if let Type::Sum(members) = &alias.ty {
+            if matches!(&alias.ty, Type::Sum(_)) {
                 self.append_host_sum_helpers(
                     &mut output,
                     &alias.name,
                     &format!("mal_{}_t", alias.name),
                     self.header_c_type(&alias.ty, Some(&alias.name)),
-                    members,
+                    &alias.ty,
                     &alias.element_aliases,
                 );
                 continue;
@@ -142,9 +142,12 @@ impl TypeRegistry {
         public_name: &str,
         host_type: &str,
         raw_type: TypeName,
-        members: &[Type],
+        ty: &Type,
         element_aliases: &[Option<String>],
     ) {
+        let Type::Sum(members) = ty else {
+            unreachable!("sum helpers require a sum type")
+        };
         for (variant, member) in members.iter().enumerate() {
             let tag_name = format!("mal_{public_name}_tag_{variant}");
             output.push(Directive::define_expr(
@@ -200,7 +203,7 @@ impl TypeRegistry {
                     return_parameters,
                 ),
                 Block::new([Statement::return_value(self.host_to_raw_value(
-                    &Type::Sum(members.to_vec().into()),
+                    ty,
                     Expr::identifier("call"),
                     host_value,
                 ))]),
