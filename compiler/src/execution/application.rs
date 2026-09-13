@@ -164,8 +164,7 @@ fn collect_sites(
 }
 
 struct CompatibleTargets {
-    groups: Vec<TargetGroup>,
-    buckets: HashMap<(u64, u64), Vec<usize>>,
+    groups: HashMap<(u64, u64), Vec<TargetGroup>>,
     fingerprints: TypeFingerprints,
 }
 
@@ -178,31 +177,26 @@ struct TargetGroup {
 impl CompatibleTargets {
     fn new(program: &closure::Program) -> Self {
         let mut index = Self {
-            groups: Vec::new(),
-            buckets: HashMap::new(),
+            groups: HashMap::new(),
             fingerprints: TypeFingerprints::default(),
         };
         for function in &program.functions {
             let parameter = &function.parameter.ty;
             let result = &function.body.result.ty;
             let fingerprint = index.fingerprints.signature(parameter, result);
-            let group = index.buckets.get(&fingerprint).and_then(|groups| {
-                groups.iter().copied().find(|group| {
-                    index.groups[*group].parameter == *parameter
-                        && index.groups[*group].result == *result
-                })
-            });
-            let group = group.unwrap_or_else(|| {
-                let group = index.groups.len();
-                index.groups.push(TargetGroup {
+            let groups = index.groups.entry(fingerprint).or_default();
+            if let Some(group) = groups
+                .iter_mut()
+                .find(|group| group.parameter == *parameter && group.result == *result)
+            {
+                group.targets.push(function.id);
+            } else {
+                groups.push(TargetGroup {
                     parameter: parameter.clone(),
                     result: result.clone(),
-                    targets: Vec::new(),
+                    targets: vec![function.id],
                 });
-                index.buckets.entry(fingerprint).or_default().push(group);
-                group
-            });
-            index.groups[group].targets.push(function.id);
+            }
         }
         index
     }
@@ -212,15 +206,14 @@ impl CompatibleTargets {
             return Vec::new();
         };
         let fingerprint = self.fingerprints.signature(parameter, result);
-        self.buckets
+        self.groups
             .get(&fingerprint)
             .and_then(|groups| {
-                groups.iter().copied().find(|group| {
-                    self.groups[*group].parameter == **parameter
-                        && self.groups[*group].result == **result
-                })
+                groups
+                    .iter()
+                    .find(|group| group.parameter == **parameter && group.result == **result)
             })
-            .map_or_else(Vec::new, |group| self.groups[group].targets.clone())
+            .map_or_else(Vec::new, |group| group.targets.clone())
     }
 }
 
