@@ -39,6 +39,7 @@ derivationをbuildし、Cargo testを含むpackage検証を`nix flake check`へ�
 ```nu
 malc check source.mal
 malc format source.mal
+malc format -i source.mal
 malc emit-header source.mal
 malc emit-host source.mal
 malc emit-host source.mal --header custom.h
@@ -50,8 +51,9 @@ malc build source.mal --output program --clang-arg '-lm'
 ```
 
 - `check`はsourceを型検査し、成功時には生成物を作らない。
-- `format`はsyntaxを検査し、commentとliteral spellingを保持したcanonical sourceをstdoutへ出す。
-  入力fileは書き換えない。
+- `format`はsyntaxを検査し、commentとliteral spellingを保持したcanonical source全体をstdoutへ出す。
+  `-i`を指定した場合はstdoutへ出さず、同じdirectoryのtemporary fileを介して入力fileをatomicに置き換える。
+  syntax errorまたは書き込み失敗では元の入力を保持する。
 - `emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。
   `--output path`で出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
 - `emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは

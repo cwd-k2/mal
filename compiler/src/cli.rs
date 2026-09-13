@@ -12,11 +12,14 @@ Usage:
 
 Commands:
   check <source.mal>        Check a program without producing artifacts
-  format <source.mal>       Write canonical source to stdout
+  format [-i] <source.mal>  Write canonical source to stdout or replace it
   emit-header <source.mal>  Write the C host header
   emit-host <source.mal>    Write a C host implementation template to stdout
   emit-atcoder <source.mal> Write one C++ source for an AtCoder submission
   build <source.mal>        Build an executable with production optimization
+
+format options:
+  -i                        Atomically replace the source with canonical text
 
 emit-header options:
   --output <program.mal.h>  Write the header to this path
@@ -108,12 +111,7 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
                 Err(error) => Outcome::compile_error(error),
             }
         }
-        [command, source] if command == OsStr::new("format") => {
-            match crate::driver::format(PathBuf::from(source).as_path()) {
-                Ok(formatted) => Outcome::success(formatted),
-                Err(error) => Outcome::compile_error(error),
-            }
-        }
+        [command, rest @ ..] if command == OsStr::new("format") => execute_format(rest),
         [command, rest @ ..] if command == OsStr::new("emit-header") => execute_emit_header(rest),
         [command, rest @ ..] if command == OsStr::new("emit-host") => execute_emit_host(rest),
         [command, rest @ ..] if command == OsStr::new("build") => {
@@ -123,6 +121,27 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
             execute_build(rest, BuildKind::AtCoder)
         }
         _ => usage_error("unknown command or invalid arguments"),
+    }
+}
+
+fn execute_format(arguments: &[OsString]) -> Outcome {
+    let result = match arguments {
+        [source] => crate::driver::format(PathBuf::from(source).as_path()).map(Some),
+        [option, source] if option == OsStr::new("-i") => {
+            crate::driver::format_in_place(PathBuf::from(source).as_path()).map(|()| None)
+        }
+        [option, _] => {
+            return usage_error(&format!(
+                "unknown format option '{}'",
+                option.to_string_lossy()
+            ));
+        }
+        _ => return usage_error("format requires a source path"),
+    };
+    match result {
+        Ok(Some(formatted)) => Outcome::success(formatted),
+        Ok(None) => Outcome::success(String::new()),
+        Err(error) => Outcome::compile_error(error),
     }
 }
 

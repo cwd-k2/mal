@@ -52,7 +52,7 @@ fn check_reports_frontend_success_and_failure_through_exit_status() {
 }
 
 #[test]
-fn format_prints_canonical_source_without_modifying_the_input() {
+fn format_prints_or_atomically_writes_canonical_source() {
     let directory = NativeFixture::new("driver-format");
     let source = directory.join("program.mal");
     let original = "value::Int32:=40+2;// answer\n";
@@ -67,4 +67,22 @@ fn format_prints_canonical_source_without_modifying_the_input() {
         "value :: Int32 := 40 + 2; // answer\n"
     );
     assert_eq!(std::fs::read_to_string(source).unwrap(), original);
+
+    let in_place = directory.join("in-place.mal");
+    directory.write("in-place.mal", original);
+    let output = directory.malc([OsStr::new("format"), OsStr::new("-i"), in_place.as_os_str()]);
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        std::fs::read_to_string(in_place).unwrap(),
+        "value :: Int32 := 40 + 2; // answer\n"
+    );
+
+    let invalid = directory.join("invalid.mal");
+    let invalid_source = "value := ;\n";
+    directory.write("invalid.mal", invalid_source);
+    let output = directory.malc([OsStr::new("format"), OsStr::new("-i"), invalid.as_os_str()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(std::fs::read_to_string(invalid).unwrap(), invalid_source);
 }
