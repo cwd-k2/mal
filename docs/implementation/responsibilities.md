@@ -125,7 +125,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `control` | closure-converted blockからcallを含まないstate、terminator、resume frameのlive valueを構成 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
-| `execution/application` | application siteごとのcaller、known target、型互換なpossible internal function targetを構成 |
+| `execution/application` | application siteごとのcaller、known target、および構造fingerprintでgroup化した型互換なpossible internal function targetを構成 |
 | `execution/optimization` | 空集合でも成立するexecution baselineに対し、有効化された個別techniqueのprogram固有decisionを構成し、競合しない一つのplanへ集約 |
 | `execution/optimization/self_tail` | direct self tailをcaller continuationと同じ遷移へfusionできるsiteを判定 |
 | `execution/optimization/tail_forwarder` | function identity indexからpureなknown tail forwarderを引き、caller continuationと同じ遷移へfusionできるsiteとargumentを判定 |

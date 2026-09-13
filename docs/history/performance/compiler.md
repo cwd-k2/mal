@@ -118,3 +118,8 @@ tail-forwarder判定はapplication siteごとにcallee functionを線形探索�
 線形探索していた。LLVM frame emissionもsiteごとにframe tagの位置を探索していた。それぞれplan構成時にfunction identity、
 function entry、frame siteからtagへのmapを一度作り、site処理を定数時間のlookupへ変更した。semantic validationは従来の
 execution optimization、call plan、recursive controlのfocused testで同じdecisionを確認した。
+
+indirect applicationのpossible targetは従来siteごとに全internal functionのparameter/result型を比較していた。canonical type
+DAGをmemoizeしながら反復的に構造fingerprintへ変換し、functionをsignatureごとのtarget groupへ一度だけ分類する方式へ変更した。
+siteは対応groupだけを引き、fingerprint collision時には構造比較してcorrectnessを保つ。独立なtransparent aliasから作った
+同型signature二つが同じindirect target集合へ入る回帰テストを置いた。

@@ -1,5 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::DefaultHasher};
+use std::hash::{Hash, Hasher};
 
+use crate::check::ast::{SharedTypeId, Type};
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId, Terminator};
 
@@ -24,23 +26,24 @@ impl ApplicationGraph {
         closure_uses: &ClosureUsePlan,
     ) -> Self {
         let mut sites = HashMap::new();
+        let mut compatible_targets = CompatibleTargets::new(closure);
         for binding in &control.bindings {
             collect_sites(
-                closure,
                 control,
                 closure_uses,
                 binding.entry,
                 None,
+                &mut compatible_targets,
                 &mut sites,
             );
         }
         for function in &control.functions {
             collect_sites(
-                closure,
                 control,
                 closure_uses,
                 function.entry,
                 Some(function.id),
+                &mut compatible_targets,
                 &mut sites,
             );
         }
@@ -130,11 +133,11 @@ impl ApplicationGraph {
 }
 
 fn collect_sites(
-    closure: &closure::Program,
     control: &control::Program,
     closure_uses: &ClosureUsePlan,
     entry: StateId,
     caller: Option<FunctionId>,
+    compatible_targets: &mut CompatibleTargets,
     sites: &mut HashMap<StateId, ApplicationSite>,
 ) {
     for site in reachable_states(control, entry) {
@@ -144,7 +147,7 @@ fn collect_sites(
         let direct_target = direct_function_id(closure_uses, callee);
         let targets = direct_target
             .map(|target| vec![target])
-            .unwrap_or_else(|| compatible_targets(closure, callee));
+            .unwrap_or_else(|| compatible_targets.for_callee(callee));
         let previous = sites.insert(
             site,
             ApplicationSite {
@@ -157,16 +160,160 @@ fn collect_sites(
     }
 }
 
-fn compatible_targets(program: &closure::Program, callee: &closure::Atom) -> Vec<FunctionId> {
-    let crate::check::ast::Type::Function { parameter, result } = &callee.ty else {
-        return Vec::new();
-    };
-    program
-        .functions
-        .iter()
-        .filter(|target| target.parameter.ty == **parameter && target.body.result.ty == **result)
-        .map(|target| target.id)
-        .collect()
+struct CompatibleTargets {
+    groups: Vec<TargetGroup>,
+    buckets: HashMap<(u64, u64), Vec<usize>>,
+    fingerprints: TypeFingerprints,
+}
+
+struct TargetGroup {
+    parameter: Type,
+    result: Type,
+    targets: Vec<FunctionId>,
+}
+
+impl CompatibleTargets {
+    fn new(program: &closure::Program) -> Self {
+        let mut index = Self {
+            groups: Vec::new(),
+            buckets: HashMap::new(),
+            fingerprints: TypeFingerprints::default(),
+        };
+        for function in &program.functions {
+            let parameter = &function.parameter.ty;
+            let result = &function.body.result.ty;
+            let fingerprint = index.fingerprints.signature(parameter, result);
+            let group = index.buckets.get(&fingerprint).and_then(|groups| {
+                groups.iter().copied().find(|group| {
+                    index.groups[*group].parameter == *parameter
+                        && index.groups[*group].result == *result
+                })
+            });
+            let group = group.unwrap_or_else(|| {
+                let group = index.groups.len();
+                index.groups.push(TargetGroup {
+                    parameter: parameter.clone(),
+                    result: result.clone(),
+                    targets: Vec::new(),
+                });
+                index.buckets.entry(fingerprint).or_default().push(group);
+                group
+            });
+            index.groups[group].targets.push(function.id);
+        }
+        index
+    }
+
+    fn for_callee(&mut self, callee: &closure::Atom) -> Vec<FunctionId> {
+        let Type::Function { parameter, result } = &callee.ty else {
+            return Vec::new();
+        };
+        let fingerprint = self.fingerprints.signature(parameter, result);
+        self.buckets
+            .get(&fingerprint)
+            .and_then(|groups| {
+                groups.iter().copied().find(|group| {
+                    self.groups[*group].parameter == **parameter
+                        && self.groups[*group].result == **result
+                })
+            })
+            .map_or_else(Vec::new, |group| self.groups[group].targets.clone())
+    }
+}
+
+#[derive(Default)]
+struct TypeFingerprints {
+    cache: HashMap<SharedTypeId, u64>,
+}
+
+impl TypeFingerprints {
+    fn signature(&mut self, parameter: &Type, result: &Type) -> (u64, u64) {
+        (self.ty(parameter), self.ty(result))
+    }
+
+    fn ty(&mut self, ty: &Type) -> u64 {
+        let mut pending = vec![Fingerprint::Type(ty)];
+        let mut values = Vec::new();
+        while let Some(item) = pending.pop() {
+            match item {
+                Fingerprint::Type(ty) => {
+                    if let Some(hash) = ty.shared_id().and_then(|id| self.cache.get(&id).copied()) {
+                        values.push(hash);
+                        continue;
+                    }
+                    match ty {
+                        Type::Product(elements) => {
+                            pending.push(Fingerprint::Aggregate(
+                                ty.shared_id(),
+                                15,
+                                elements.len(),
+                            ));
+                            pending.extend(elements.iter().rev().map(Fingerprint::Type));
+                        }
+                        Type::Sum(elements) => {
+                            pending.push(Fingerprint::Aggregate(
+                                ty.shared_id(),
+                                16,
+                                elements.len(),
+                            ));
+                            pending.extend(elements.iter().rev().map(Fingerprint::Type));
+                        }
+                        Type::Function { parameter, result } => {
+                            pending.push(Fingerprint::Aggregate(ty.shared_id(), 17, 2));
+                            pending.push(Fingerprint::Type(result));
+                            pending.push(Fingerprint::Type(parameter));
+                        }
+                        _ => values.push(atom_fingerprint(ty)),
+                    }
+                }
+                Fingerprint::Aggregate(id, tag, length) => {
+                    let children = values.split_off(values.len() - length);
+                    let mut hasher = DefaultHasher::new();
+                    tag.hash(&mut hasher);
+                    children.hash(&mut hasher);
+                    let hash = hasher.finish();
+                    if let Some(id) = id {
+                        self.cache.insert(id, hash);
+                    }
+                    values.push(hash);
+                }
+            }
+        }
+        values.pop().expect("one type produces one fingerprint")
+    }
+}
+
+enum Fingerprint<'a> {
+    Type(&'a Type),
+    Aggregate(Option<SharedTypeId>, u8, usize),
+}
+
+fn atom_fingerprint(ty: &Type) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    match ty {
+        Type::Unit => 0_u8.hash(&mut hasher),
+        Type::Int8 => 1_u8.hash(&mut hasher),
+        Type::Int16 => 2_u8.hash(&mut hasher),
+        Type::Int32 => 3_u8.hash(&mut hasher),
+        Type::Int64 => 4_u8.hash(&mut hasher),
+        Type::UInt8 => 5_u8.hash(&mut hasher),
+        Type::UInt16 => 6_u8.hash(&mut hasher),
+        Type::UInt32 => 7_u8.hash(&mut hasher),
+        Type::UInt64 => 8_u8.hash(&mut hasher),
+        Type::Float32 => 9_u8.hash(&mut hasher),
+        Type::Float64 => 10_u8.hash(&mut hasher),
+        Type::Symbol => 11_u8.hash(&mut hasher),
+        Type::Ptr => 12_u8.hash(&mut hasher),
+        Type::External { id, name } => {
+            13_u8.hash(&mut hasher);
+            id.hash(&mut hasher);
+            name.hash(&mut hasher);
+        }
+        Type::Product(_) | Type::Sum(_) | Type::Function { .. } => {
+            unreachable!("aggregate fingerprints are composed from their children")
+        }
+    }
+    hasher.finish()
 }
 
 fn application_callee(terminator: &Terminator) -> Option<&closure::Atom> {
@@ -259,5 +406,32 @@ mod tests {
         graph = ApplicationGraph::new(&closure, &control, &uses);
         graph.callers.clear();
         assert!(!graph.is_valid(&closure, &control, &uses));
+    }
+
+    #[test]
+    fn groups_structurally_equal_target_signatures() {
+        let source = SourceFile::new(
+            FileId::new(83),
+            "application-structural-targets.mal",
+            "Left :: (Int32, Unit); Right :: (Int32, Unit); left :: Left -> Left := (value) { value; }; right :: Right -> Right := (value) { value; }; apply :: ((Left -> Left), Right) -> Right := (function, value) { function(value); }; main :: Unit -> Int32 := () { (result, _) := apply(right, (0i32, ())); result; };"
+                .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse structural target fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve structural target fixture");
+        let checked = check::check(&resolved).expect("check structural target fixture");
+        let core = core::lower(&checked);
+        let anf = anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+
+        let graph = ApplicationGraph::new(&closure, &control, &uses);
+
+        assert!(
+            graph
+                .sites
+                .values()
+                .any(|site| site.direct_target.is_none() && site.targets.len() == 2)
+        );
     }
 }
