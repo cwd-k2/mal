@@ -48,6 +48,25 @@ fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
 }
 
 #[test]
+fn separates_an_integer_from_a_receiver_call_dot() {
+    assert_eq!(
+        kinds("1.f()"),
+        vec![
+            TokenKind::Integer(IntegerLiteral {
+                radix: Radix::Decimal,
+                digits: "1".into(),
+                suffix: None,
+            }),
+            TokenKind::Dot,
+            TokenKind::ValueIdentifier,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
 fn lexes_decimal_float_forms_and_separators() {
     assert_eq!(
         kinds("1.5 1_000.25f32 2e3 4E-2f64 6f32"),

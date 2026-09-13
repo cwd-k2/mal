@@ -61,6 +61,10 @@ fn keeps_receiver_first_calls_attached() {
         format("result:=source . transform ( 1,2 ) . finish ( );"),
         "result := source.transform(1, 2).finish();\n"
     );
+    assert_eq!(
+        format("result := 1 . transform();"),
+        "result := 1.transform();\n"
+    );
 }
 
 #[test]

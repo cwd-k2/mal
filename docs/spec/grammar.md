@@ -154,6 +154,9 @@ return binder group、`when`、zero-continuation applicationの意味は[明示�
 decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
 `DEC_DIGITS EXPONENT FLOAT_SUFFIX?`、または`DEC_DIGITS FLOAT_SUFFIX`のいずれかである。
 `.5`と`1.`は認めない。exponentの数値separatorも他のdigit sequenceと同じ規則に従う。
+10進integer literalの直後に`.`とvalue identifierが続く場合、`.`はdecimal pointではなくreceiver-first suffixの
+先頭としてtoken化する。したがって`1.f()`はreceiver-first applicationであり、fraction digitを伴う`1.0f()`とは異なる。
+`.`の直後が改行またはfile終端である`1.\n5`と`1.`は、不完全なdecimal floatとして認めない。
 
 `Bool` は predefined `TYPE_IDENT`、`false` と `true` は predefined `VALUE_IDENT` として通常の identifier 規則で token 化する。`then` は `if` syntax の keyword である。
 

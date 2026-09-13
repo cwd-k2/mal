@@ -24,7 +24,7 @@ Status: Current v0.5 tooling policy
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
   曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで
   一段深くし、それ以外のcontinuation行も一段深くする。
-- receiver-first applicationの`.§直前にあるsource改行は一段深いchain継続として保つ。
+- receiver-first applicationの`.`直前にあるsource改行は一段深いchain継続として保つ。
   型で修飾したprimitiveの`T.member`は分割せず同じ行に置く。
 
 line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、

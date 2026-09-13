@@ -124,6 +124,13 @@ fn rejects_a_decimal_point_split_before_its_fraction() {
 }
 
 #[test]
+fn separates_a_bare_decimal_integer_from_a_receiver_call_dot() {
+    for text in ["value := 1.f();", "value := 1 . f();"] {
+        assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
+    }
+}
+
+#[test]
 fn parses_if_blocks_with_local_bindings() {
     let expression = binding_value(
         "value := if (condition) then {\n\

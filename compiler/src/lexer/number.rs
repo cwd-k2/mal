@@ -26,7 +26,16 @@ impl Lexer<'_> {
         let mut fractional_digits = 0;
         let mut is_float = false;
         let mut digits = self.source.text()[digits_start..digits_end].replace('_', "");
-        if self.peek() == Some(b'.') {
+        let dot_starts_receiver_suffix = self.peek() == Some(b'.')
+            && (self
+                .peek_next()
+                .is_some_and(|byte| byte.is_ascii_lowercase())
+                || (self.peek_next() == Some(b'_')
+                    && self
+                        .bytes
+                        .get(self.offset + 2)
+                        .is_some_and(|byte| byte.is_ascii_lowercase())));
+        if self.peek() == Some(b'.') && !dot_starts_receiver_suffix {
             is_float = true;
             self.offset += 1;
             let fraction_start = self.offset;
