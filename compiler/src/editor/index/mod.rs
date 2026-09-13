@@ -98,10 +98,20 @@ impl Index {
             )
         });
 
+        let declarations = occurrences
+            .iter()
+            .filter(|occurrence| occurrence.role == OccurrenceRole::Declaration)
+            .map(|occurrence| (occurrence.id, occurrence))
+            .collect::<HashMap<_, _>>();
+
         let top_level = self
             .top_level
             .iter()
-            .filter_map(|&id| symbol_for(id, &occurrences))
+            .filter_map(|id| {
+                declarations
+                    .get(id)
+                    .map(|occurrence| symbol_for(occurrence))
+            })
             .collect::<Vec<_>>();
         let document_symbols = top_level
             .iter()
@@ -192,17 +202,14 @@ impl Index {
         });
     }
 }
-fn symbol_for(id: SymbolId, occurrences: &[Occurrence]) -> Option<Symbol> {
-    let occurrence = occurrences
-        .iter()
-        .find(|occurrence| occurrence.id == id && occurrence.role == OccurrenceRole::Declaration)?;
-    Some(Symbol {
-        id,
+fn symbol_for(occurrence: &Occurrence) -> Symbol {
+    Symbol {
+        id: occurrence.id,
         name: occurrence.name.clone(),
         kind: occurrence.kind,
         detail: occurrence.detail.clone(),
         span: Some(occurrence.span),
-    })
+    }
 }
 
 fn predefined_symbols() -> Vec<Symbol> {

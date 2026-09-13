@@ -72,6 +72,9 @@ stackで巡回する方式へ変更した。4,096項の加算列を`format`し�
 semantic editor indexではcapture alias、resolved occurrence、checked type regionの三走査が同じleft spineを個別に再帰していた。
 各走査でbinary subtreeだけを明示stackへ展開し、4,096項の末尾literalへhover typeを返す回帰テストを追加した。
 
+document symbol構築はtop-level identityごとに全occurrenceからdeclarationを探していたため、declaration occurrenceを一度
+identity mapへまとめる方式へ変更した。4,096個のtop-level bindingから同数のdocument symbolを構成する回帰テストを置いた。
+
 ## 2026-09-13 sum layout
 
 LLVM表現がsumのtagに続けて全variant型をfieldとして並べていたため、値sizeが最大payloadではなく全payloadの総和になり、

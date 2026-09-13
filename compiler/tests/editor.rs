@@ -394,3 +394,14 @@ fn indexes_long_left_associative_expressions_without_host_recursion() {
         "Int32"
     );
 }
+
+#[test]
+fn indexes_many_top_level_symbols_from_declarations_once() {
+    let text = (0..4_096)
+        .map(|index| format!("value{index} :: Int32 := 0i32;\n"))
+        .collect::<String>();
+
+    let document = malc::editor::analyze(&source(&text)).expect("semantic document");
+
+    assert_eq!(document.document_symbols().len(), 4_096);
+}
