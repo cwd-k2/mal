@@ -379,3 +379,18 @@ fn graph_analysis_keeps_navigation_global_and_document_features_local() {
             .all(|occurrence| occurrence.span.file() == FileId::new(0))
     );
 }
+
+#[test]
+fn indexes_long_left_associative_expressions_without_host_recursion() {
+    let expression = std::iter::repeat_n("0i32", 4_096)
+        .collect::<Vec<_>>()
+        .join(" + ");
+    let text = format!("main :: Unit -> Int32 := () {{ {expression}; }};");
+
+    let document = malc::editor::analyze(&source(&text)).expect("semantic document");
+
+    assert_eq!(
+        document.hover_at(text.rfind("0i32").unwrap()).unwrap().ty,
+        "Int32"
+    );
+}

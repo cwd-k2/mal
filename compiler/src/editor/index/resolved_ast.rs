@@ -248,8 +248,15 @@ impl Index {
             }
             Expression::Unary { operand, .. } => self.collect_resolved_expression(operand),
             Expression::Binary { left, right, .. } => {
-                self.collect_resolved_expression(left);
-                self.collect_resolved_expression(right);
+                let mut pending = vec![right.as_ref(), left.as_ref()];
+                while let Some(expression) = pending.pop() {
+                    if let Expression::Binary { left, right, .. } = &expression.kind {
+                        pending.push(right);
+                        pending.push(left);
+                    } else {
+                        self.collect_resolved_expression(expression);
+                    }
+                }
             }
             Expression::Integer(_)
             | Expression::Float(_)

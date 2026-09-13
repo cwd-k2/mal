@@ -111,8 +111,8 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `formatter/control` | source ASTを反復走査し、block positionとRHSにある`if`を事前分類 |
 | `formatter/token` | 一般tokenのspacing、式内の明示的なline break、statementとtop-level group間の一つの空行の保持 |
 | `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
-| `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集 |
-| `editor/index/checked_ast` | checked expressionとlambda-local binderのcanonical typeをsemantic indexへ収集 |
+| `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をreturn binderを含めて収集し、左結合列を反復走査 |
+| `editor/index/checked_ast` | checked expressionとlambda-local binderのcanonical typeをsemantic indexへ収集し、左結合列を反復走査 |
 | `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類とtop-level function候補を提供するsyntax indexを構成 |
 | `editor/syntax/declaration` | current tokenからtop-level function declarationを保守的に分類 |
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |

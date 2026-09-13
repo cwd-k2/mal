@@ -120,8 +120,15 @@ impl Index {
             }
             ExpressionKind::Unary { operand, .. } => self.collect_checked_expression(operand),
             ExpressionKind::Binary { left, right, .. } => {
-                self.collect_checked_expression(left);
-                self.collect_checked_expression(right);
+                let mut pending = vec![right.as_ref(), left.as_ref()];
+                while let Some(expression) = pending.pop() {
+                    if let ExpressionKind::Binary { left, right, .. } = &expression.kind {
+                        pending.push(right);
+                        pending.push(left);
+                    } else {
+                        self.collect_checked_expression(expression);
+                    }
+                }
             }
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)

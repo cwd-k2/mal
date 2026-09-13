@@ -58,8 +58,15 @@ impl Index {
             }
             Expression::Unary { operand, .. } => self.collect_aliases_expression(&operand.kind),
             Expression::Binary { left, right, .. } => {
-                self.collect_aliases_expression(&left.kind);
-                self.collect_aliases_expression(&right.kind);
+                let mut pending = vec![&right.kind, &left.kind];
+                while let Some(expression) = pending.pop() {
+                    if let Expression::Binary { left, right, .. } = expression {
+                        pending.push(&right.kind);
+                        pending.push(&left.kind);
+                    } else {
+                        self.collect_aliases_expression(expression);
+                    }
+                }
             }
             Expression::Reference(_)
             | Expression::Integer(_)
