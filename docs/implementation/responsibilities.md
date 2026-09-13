@@ -166,7 +166,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
 | `backend/c/types::TypeRegistry` | host interface全体のstructural representation identityとC typeへのmapping |
-| `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを収集する走査 |
+| `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを共有DAGのpostorderで収集する走査 |
 | `backend/c/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
 | `backend/c/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
 | `backend/c/types/host/declaration` | host adapter内部表現とpublic C headerに必要なhost-visible type declarationを構成 |

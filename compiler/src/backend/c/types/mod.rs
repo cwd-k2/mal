@@ -2,7 +2,7 @@ use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, AggregateKind, Declaration, Parameter, TranslationUnit,
     TypeName,
 };
-use crate::check::ast::Type;
+use crate::check::ast::{SharedTypeId, Type};
 
 mod collect;
 mod host;
@@ -10,6 +10,7 @@ mod host;
 #[derive(Default)]
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
+    collected: std::collections::HashSet<SharedTypeId>,
 }
 
 #[derive(Default)]
@@ -214,6 +215,7 @@ mod tests {
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
+            ..TypeRegistry::default()
         };
 
         for (ty, expected) in [
@@ -269,6 +271,7 @@ mod tests {
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let registry = TypeRegistry {
             aggregates: vec![product.clone(), sum.clone()],
+            ..TypeRegistry::default()
         };
         let host = HostTypes {
             types: vec![product.clone(), sum.clone()],

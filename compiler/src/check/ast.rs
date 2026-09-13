@@ -41,7 +41,7 @@ impl PartialEq for Type {
             if std::ptr::eq(left, right) {
                 continue;
             }
-            if let (Some(left), Some(right)) = (shared_identity(left), shared_identity(right))
+            if let (Some(left), Some(right)) = (shared_id(left), shared_id(right))
                 && !compared.insert((left, right))
             {
                 continue;
@@ -113,11 +113,15 @@ impl Type {
             visited: HashSet::new(),
         }
     }
+
+    pub(crate) fn shared_id(&self) -> Option<SharedTypeId> {
+        shared_id(self)
+    }
 }
 
 pub(crate) struct DataSubtypes<'a> {
     pending: Vec<&'a Type>,
-    visited: HashSet<SharedTypeIdentity>,
+    visited: HashSet<SharedTypeId>,
 }
 
 impl<'a> Iterator for DataSubtypes<'a> {
@@ -125,7 +129,7 @@ impl<'a> Iterator for DataSubtypes<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(ty) = self.pending.pop() {
-            if let Some(identity) = shared_identity(ty)
+            if let Some(identity) = shared_id(ty)
                 && !self.visited.insert(identity)
             {
                 continue;
@@ -140,17 +144,17 @@ impl<'a> Iterator for DataSubtypes<'a> {
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-enum SharedTypeIdentity {
+pub(crate) enum SharedTypeId {
     Product(*const Type),
     Sum(*const Type),
     Function(*const Type, *const Type),
 }
 
-fn shared_identity(ty: &Type) -> Option<SharedTypeIdentity> {
+fn shared_id(ty: &Type) -> Option<SharedTypeId> {
     match ty {
-        Type::Product(elements) => Some(SharedTypeIdentity::Product(elements.as_ptr())),
-        Type::Sum(elements) => Some(SharedTypeIdentity::Sum(elements.as_ptr())),
-        Type::Function { parameter, result } => Some(SharedTypeIdentity::Function(
+        Type::Product(elements) => Some(SharedTypeId::Product(elements.as_ptr())),
+        Type::Sum(elements) => Some(SharedTypeId::Sum(elements.as_ptr())),
+        Type::Function { parameter, result } => Some(SharedTypeId::Function(
             std::ptr::from_ref(parameter.as_ref()),
             std::ptr::from_ref(result.as_ref()),
         )),
