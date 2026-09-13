@@ -7,6 +7,7 @@ use super::{ClosureUsePlan, direct_function_id};
 
 pub(crate) struct ApplicationGraph {
     sites: HashMap<StateId, ApplicationSite>,
+    callers: HashMap<FunctionId, Vec<StateId>>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -44,7 +45,17 @@ impl ApplicationGraph {
             );
         }
 
-        Self { sites }
+        let mut callers = HashMap::<FunctionId, Vec<StateId>>::new();
+        for (site, application) in &sites {
+            if let Some(caller) = application.caller {
+                callers.entry(caller).or_default().push(*site);
+            }
+        }
+        for sites in callers.values_mut() {
+            sites.sort_unstable_by_key(|site| site.0);
+        }
+
+        Self { sites, callers }
     }
 
     pub(crate) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
@@ -63,9 +74,15 @@ impl ApplicationGraph {
         &self,
         function: FunctionId,
     ) -> impl Iterator<Item = (StateId, &[FunctionId])> + '_ {
-        self.sites.iter().filter_map(move |(id, site)| {
-            (site.caller == Some(function)).then_some((*id, site.targets.as_slice()))
-        })
+        self.callers
+            .get(&function)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| {
+                self.sites
+                    .get(id)
+                    .map(|site| (*id, site.targets.as_slice()))
+            })
     }
 
     pub(crate) fn sites(&self) -> impl Iterator<Item = (StateId, Option<FunctionId>)> + '_ {
@@ -78,7 +95,9 @@ impl ApplicationGraph {
         control: &control::Program,
         closure_uses: &ClosureUsePlan,
     ) -> bool {
-        self.sites == Self::new(closure, control, closure_uses).sites
+        let expected = Self::new(closure, control, closure_uses);
+        self.sites == expected.sites
+            && self.callers == expected.callers
             && self.sites.iter().all(|(site, site_plan)| {
                 let terminator = &control.states[site.0].terminator;
                 let Some((callee, argument, resume)) = application(terminator) else {
@@ -235,6 +254,10 @@ mod tests {
             .expect("indirect application site")
             .targets
             .clear();
+        assert!(!graph.is_valid(&closure, &control, &uses));
+
+        graph = ApplicationGraph::new(&closure, &control, &uses);
+        graph.callers.clear();
         assert!(!graph.is_valid(&closure, &control, &uses));
     }
 }

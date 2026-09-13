@@ -27,17 +27,23 @@ impl ControlRegionPlan {
             .enumerate()
             .map(|(index, function)| (function.id, index))
             .collect::<HashMap<_, _>>();
-        let mut graph = vec![Vec::new(); program.functions.len()];
+        let mut edges = vec![HashSet::new(); program.functions.len()];
         for function in &program.functions {
             let caller = function_indices[&function.id];
             for target in continuations.targets_from(function.id) {
-                if let Some(target) = function_indices.get(&target).copied()
-                    && !graph[caller].contains(&target)
-                {
-                    graph[caller].push(target);
+                if let Some(target) = function_indices.get(&target).copied() {
+                    edges[caller].insert(target);
                 }
             }
         }
+        let graph = edges
+            .into_iter()
+            .map(|targets| {
+                let mut targets = targets.into_iter().collect::<Vec<_>>();
+                targets.sort_unstable();
+                targets
+            })
+            .collect::<Vec<_>>();
 
         let mut components = strongly_connected_components(&graph)
             .into_iter()
