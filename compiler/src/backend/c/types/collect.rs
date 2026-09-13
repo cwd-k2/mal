@@ -47,6 +47,7 @@ impl TypeRegistry {
         self.indices
             .get(&id)
             .copied()
+            .or_else(|| self.structural_index(ty))
             .expect("all emitted types are collected before rendering")
     }
 
@@ -97,6 +98,81 @@ impl TypeRegistry {
             }
         }
     }
+
+    fn structural_index(&self, ty: &Type) -> Option<usize> {
+        let root = ty.shared_id()?;
+        let mut resolved = std::collections::HashMap::new();
+        let mut pending = vec![(ty, false)];
+        while let Some((ty, expanded)) = pending.pop() {
+            let id = ty.shared_id()?;
+            if resolved.contains_key(&id) {
+                continue;
+            }
+            if let Some(index) = self.indices.get(&id) {
+                resolved.insert(id, *index);
+                continue;
+            }
+            let elements = match ty {
+                Type::Product(elements) | Type::Sum(elements) => elements,
+                _ => return None,
+            };
+            if !expanded {
+                pending.push((ty, true));
+                pending.extend(
+                    elements
+                        .iter()
+                        .rev()
+                        .filter(|element| element.shared_id().is_some())
+                        .map(|element| (element, false)),
+                );
+                continue;
+            }
+            let elements = elements
+                .iter()
+                .map(|element| self.structural_element_key(element, &resolved))
+                .collect::<Option<Vec<_>>>()?;
+            let key = match ty {
+                Type::Product(_) => super::AggregateKey::Product(elements),
+                Type::Sum(_) => super::AggregateKey::Sum(elements),
+                _ => unreachable!(),
+            };
+            resolved.insert(id, *self.structural_indices.get(&key)?);
+        }
+        resolved.get(&root).copied()
+    }
+
+    fn structural_element_key(
+        &self,
+        ty: &Type,
+        resolved: &std::collections::HashMap<crate::check::ast::SharedTypeId, usize>,
+    ) -> Option<super::ElementKey> {
+        Some(match ty {
+            Type::Unit => super::ElementKey::Unit,
+            Type::Int8 => super::ElementKey::Int8,
+            Type::Int16 => super::ElementKey::Int16,
+            Type::Int32 => super::ElementKey::Int32,
+            Type::Int64 => super::ElementKey::Int64,
+            Type::UInt8 => super::ElementKey::UInt8,
+            Type::UInt16 => super::ElementKey::UInt16,
+            Type::UInt32 => super::ElementKey::UInt32,
+            Type::UInt64 => super::ElementKey::UInt64,
+            Type::Float32 => super::ElementKey::Float32,
+            Type::Float64 => super::ElementKey::Float64,
+            Type::Symbol => super::ElementKey::Symbol,
+            Type::Ptr => super::ElementKey::Ptr,
+            Type::External { id, .. } => super::ElementKey::External(*id),
+            Type::Product(_) | Type::Sum(_) => {
+                let id = ty.shared_id()?;
+                super::ElementKey::Aggregate(
+                    self.indices
+                        .get(&id)
+                        .or_else(|| resolved.get(&id))
+                        .copied()?,
+                )
+            }
+            Type::Function { .. } => return None,
+        })
+    }
 }
 
 impl HostTypes {
@@ -114,6 +190,11 @@ impl HostTypes {
         for external in &interface.externals {
             host.collect_type(&external.parameter, registry);
             host.collect_type(&external.result, registry);
+        }
+        for alias in &interface.type_aliases {
+            if host.contains(&alias.ty) {
+                registry.collect(&alias.ty);
+            }
         }
         host
     }
@@ -173,5 +254,20 @@ mod tests {
 
         assert_eq!(registry.aggregates.len(), 64);
         assert_eq!(registry.index(&left), registry.index(&right));
+    }
+
+    #[test]
+    fn finds_an_unregistered_structurally_equal_dag() {
+        let mut registered = Type::UInt8;
+        let mut equivalent = Type::UInt8;
+        for _ in 0..64 {
+            registered = Type::Sum(vec![registered.clone(), registered].into());
+            equivalent = Type::Sum(vec![equivalent.clone(), equivalent].into());
+        }
+        let mut registry = TypeRegistry::default();
+
+        registry.collect(&registered);
+
+        assert_eq!(registry.index(&registered), registry.index(&equivalent));
     }
 }

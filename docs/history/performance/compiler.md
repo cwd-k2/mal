@@ -121,6 +121,10 @@ C `TypeRegistry`はaggregateを追加するたびに既存の全型と構造比�
 transparent aliasから独立に構成された同型DAGも同じC representationを使い、収集と名前解決は型DAGのnode・edge数に比例する。
 独立に構成した64段の同型sum DAG二つが64個のaggregateだけを登録する回帰テストを置いた。
 
+extern signatureとsource aliasが構造的に同じでも別のtype DAGを持つ場合、host helper生成が未登録のalias側identityを名前解決に
+使っていた。host-visible alias DAGもregistryへ収集し、なおidentityが異なるlookupは既存のstructural keyを共有DAGのpostorderで
+引くようにした。未登録の64段同型DAGを、展開せず登録済みrepresentationへ解決する回帰テストを置いた。
+
 ## 2026-09-13 execution identity lookup
 
 tail-forwarder判定はapplication siteごとにcallee functionを線形探索し、common control判定はregion functionごとにentryを
