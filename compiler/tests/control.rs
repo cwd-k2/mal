@@ -135,6 +135,21 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
 }
 
 #[test]
+fn lowers_a_long_flat_body_without_recursive_statement_processing() {
+    let statement_count = 4_096;
+    let text = format!(
+        "main :: Unit -> Int32 := () {{\n{}0i32;\n}};",
+        "0i32;\n".repeat(statement_count)
+    );
+    let program = lower_ok(&text);
+    let function = top_level_function(&program, "main");
+    let states = reachable_states(&program, function);
+
+    assert_eq!(states.len(), 1);
+    assert_eq!(states[0].bindings.len(), statement_count);
+}
+
+#[test]
 fn keeps_sum_payloads_local_but_saves_them_across_continuation_calls() {
     let program = lower_ok(
         "identity :: Int32 -> Int32 := (x) { x; };\n\

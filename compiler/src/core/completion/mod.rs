@@ -18,6 +18,15 @@ impl Lowerer {
         result: &checked::Completion,
         result_type: &checked::Type,
     ) -> Expression {
+        if let checked::Completion::Value(value) = result
+            && !contains_control(value)
+            && !items.iter().any(|item| match item {
+                checked::BodyItem::Binding(binding) => contains_control(&binding.value),
+                checked::BodyItem::Expression(value) => contains_control(value),
+            })
+        {
+            return self.lower_body(items, result);
+        }
         let mut identity = |_: &mut Lowerer, value: Expression| value;
         self.lower_items_with(items, result, result_type, &mut identity)
     }

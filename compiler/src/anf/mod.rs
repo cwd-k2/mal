@@ -107,7 +107,7 @@ impl Lowerer {
                 builder.finish(self, expression, Operation::Product(elements))
             }
             core::ExpressionKind::Let { binding, body } => {
-                self.lower_let(binding, body, expression)
+                self.lower_let_chain(binding, body, expression)
             }
             core::ExpressionKind::Lambda(lambda) => {
                 let lambda = Lambda {
@@ -246,22 +246,35 @@ impl Lowerer {
         }
     }
 
-    fn lower_let(
+    fn lower_let_chain(
         &mut self,
         binding: &core::Binding,
         body: &core::Expression,
         expression: &core::Expression,
     ) -> Block {
-        let mut value = self.lower_expression(&binding.value);
-        value.bindings.push(Binding {
-            pattern: self.lower_pattern(&binding.pattern),
-            operation: Operation::Atom(value.result),
-            span: binding.span,
-        });
-        let lowered_body = self.lower_expression(body);
-        value.bindings.extend(lowered_body.bindings);
+        let mut bindings = Vec::new();
+        let mut current_binding = binding;
+        let mut current_body = body;
+        loop {
+            let mut value = self.lower_expression(&current_binding.value);
+            bindings.append(&mut value.bindings);
+            bindings.push(Binding {
+                pattern: self.lower_pattern(&current_binding.pattern),
+                operation: Operation::Atom(value.result),
+                span: current_binding.span,
+            });
+            match &current_body.kind {
+                core::ExpressionKind::Let { binding, body } => {
+                    current_binding = binding;
+                    current_body = body;
+                }
+                _ => break,
+            }
+        }
+        let mut lowered_body = self.lower_expression(current_body);
+        bindings.append(&mut lowered_body.bindings);
         Block {
-            bindings: value.bindings,
+            bindings,
             result: lowered_body.result,
             span: expression.span,
         }

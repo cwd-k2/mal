@@ -115,9 +115,11 @@ impl Lowerer {
             self.terminal_state(&block.result, destination, block.span)
         };
 
+        let mut pending = Vec::new();
         for binding in bindings.iter().rev() {
             current = match &binding.operation {
                 closure::Operation::Call { callee, argument } => {
+                    self.prepend_pending(current, &mut pending);
                     let resume = self.push_state(
                         Some(binding.pattern.clone()),
                         Vec::new(),
@@ -136,6 +138,7 @@ impl Lowerer {
                     )
                 }
                 closure::Operation::Case { scrutinee, arms } => {
+                    self.prepend_pending(current, &mut pending);
                     let join = self.push_state(
                         Some(binding.pattern.clone()),
                         Vec::new(),
@@ -151,6 +154,7 @@ impl Lowerer {
                     otherwise,
                     then,
                 } => {
+                    self.prepend_pending(current, &mut pending);
                     let join = self.push_state(
                         Some(binding.pattern.clone()),
                         Vec::new(),
@@ -168,19 +172,23 @@ impl Lowerer {
                     )
                 }
                 operation => {
-                    self.states[current.0].bindings.insert(
-                        0,
-                        Binding {
-                            pattern: binding.pattern.clone(),
-                            operation: lower_operation(operation),
-                            span: binding.span,
-                        },
-                    );
+                    pending.push(Binding {
+                        pattern: binding.pattern.clone(),
+                        operation: lower_operation(operation),
+                        span: binding.span,
+                    });
                     current
                 }
             };
         }
+        self.prepend_pending(current, &mut pending);
         current
+    }
+
+    fn prepend_pending(&mut self, state: StateId, pending: &mut Vec<Binding>) {
+        pending.reverse();
+        pending.append(&mut self.states[state.0].bindings);
+        self.states[state.0].bindings = std::mem::take(pending);
     }
 
     fn lower_case(
