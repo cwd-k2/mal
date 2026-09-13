@@ -1,10 +1,12 @@
-use std::collections::HashSet;
-
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{Token, TokenKind, lex};
 use crate::source::{SourceFile, Span};
 
 use super::SymbolKind;
+
+mod declaration;
+
+use declaration::function_declarations;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SyntaxToken {
@@ -100,89 +102,6 @@ fn requirement_spans(tokens: &[Token]) -> Vec<Span> {
         .collect()
 }
 
-fn function_declarations(tokens: &[Token]) -> HashSet<usize> {
-    let mut declarations = HashSet::new();
-    let mut brace_depth = 0usize;
-    for (index, token) in tokens.iter().enumerate() {
-        match token.kind {
-            TokenKind::LeftBrace => brace_depth += 1,
-            TokenKind::RightBrace => brace_depth = brace_depth.saturating_sub(1),
-            TokenKind::ValueIdentifier
-                if brace_depth == 0 && top_level_value_is_function(tokens, index) =>
-            {
-                declarations.insert(index);
-            }
-            _ => {}
-        }
-    }
-    declarations
-}
-
-fn top_level_value_is_function(tokens: &[Token], name: usize) -> bool {
-    let Some(next) = tokens.get(name + 1) else {
-        return false;
-    };
-    if next.kind == TokenKind::Bind {
-        return initializer_is_lambda(tokens, name + 2);
-    }
-    if next.kind != TokenKind::DoubleColon {
-        return false;
-    }
-
-    let mut cursor = name + 2;
-    let mut function_type = false;
-    while let Some(token) = tokens.get(cursor) {
-        match token.kind {
-            TokenKind::Arrow => {
-                function_type = true;
-                cursor += 1;
-            }
-            TokenKind::Bind => {
-                return function_type || initializer_is_lambda(tokens, cursor + 1);
-            }
-            TokenKind::Semicolon | TokenKind::Eof => return function_type,
-            _ => cursor += 1,
-        }
-    }
-    function_type
-}
-
-fn initializer_is_lambda(tokens: &[Token], start: usize) -> bool {
-    if !matches!(tokens.get(start), Some(token) if token.kind == TokenKind::LeftParen) {
-        return false;
-    }
-    let mut parentheses = 0usize;
-    let mut cursor = start;
-    while let Some(token) = tokens.get(cursor) {
-        match token.kind {
-            TokenKind::LeftParen => parentheses += 1,
-            TokenKind::RightParen => {
-                parentheses = parentheses.saturating_sub(1);
-                if parentheses == 0 {
-                    cursor += 1;
-                    break;
-                }
-            }
-            TokenKind::Semicolon | TokenKind::Eof => return false,
-            _ => {}
-        }
-        cursor += 1;
-    }
-    if matches!(tokens.get(cursor), Some(token) if token.kind == TokenKind::LeftBracket) {
-        while !matches!(
-            tokens.get(cursor),
-            None | Some(Token {
-                kind: TokenKind::RightBracket,
-                ..
-            })
-        ) {
-            cursor += 1;
-        }
-        cursor += 1;
-    }
-    matches!(tokens.get(cursor), Some(token) if token.kind == TokenKind::LeftBrace)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +127,20 @@ mod tests {
             token.kind == SymbolKind::Function
                 && &source.text()[token.span.start()..token.span.end()] == "helper"
         }));
+    }
+
+    #[test]
+    fn does_not_treat_a_product_containing_a_function_as_a_function() {
+        let source = SourceFile::new(
+            FileId::new(0),
+            "syntax.mal",
+            "pair :: (Int32 -> Int32, Int32) := missing;\n\
+             callback :: (Int32 -> Int32) := missing;\n\
+             main :: Unit -> Int32 := () { callback(1). };\n"
+                .into(),
+        );
+        let document = analyze(&source).expect("lexical syntax document");
+
+        assert_eq!(document.functions(), &["callback", "main"]);
     }
 }

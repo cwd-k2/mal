@@ -7,6 +7,9 @@ use serde_json::{Value, json};
 
 use super::{Server, TextDocumentIdentifier, error, path_to_uri, position, success};
 
+mod completion;
+mod tokens;
+
 #[derive(Clone, Copy, Deserialize)]
 struct Position {
     line: usize,
@@ -188,7 +191,7 @@ impl Server {
         }
         let source = self.documents[&uri].source(&uri);
         if let Some(position) = request.position
-            && let Some(items) = requirement_completions(&uri, &source, position)
+            && let Some(items) = completion::requirement_completions(&uri, &source, position)
         {
             return success(id, json!(items));
         }
@@ -198,7 +201,7 @@ impl Server {
                     line: position.line,
                     character: position.character,
                 })
-                .and_then(|offset| receiver_suffix_start(source.text(), offset))
+                .and_then(|offset| completion::receiver_suffix_start(source.text(), offset))
                 .is_some()
         });
         if self.ensure_analyzed(&uri) {
@@ -208,12 +211,20 @@ impl Server {
             let Some(semantic) = document.semantic() else {
                 return success(id, json!([]));
             };
-            return success(id, json!(completion_items(semantic, receiver_context)));
+            return success(
+                id,
+                json!(completion::completion_items(semantic, receiver_context)),
+            );
         }
         if !receiver_context {
             return success(id, json!([]));
         }
-        success(id, json!(lexical_function_completions(self, &uri, &source)))
+        success(
+            id,
+            json!(completion::lexical_function_completions(
+                self, &uri, &source
+            )),
+        )
     }
 
     fn requirement_definition(&self, params: &Value) -> Option<Value> {
@@ -243,13 +254,13 @@ impl Server {
                     return error(id, -32602, "document is not open");
                 };
                 let source = document.source(&request.text_document.uri);
-                return success(id, json!({"data": lexical_semantic_tokens(&source)}));
+                return success(id, json!({"data": tokens::lexical(&source)}));
             }
             SemanticRequest::Invalid => {
                 return error(id, -32602, "invalid parameters or document is not open");
             }
         };
-        let data = encode_semantic_tokens(
+        let data = tokens::encode(
             &source,
             semantic.document_occurrences().map(|occurrence| {
                 (
@@ -393,196 +404,5 @@ fn symbol_kind(kind: SymbolKind) -> usize {
         SymbolKind::Type => 5,
         SymbolKind::Function => 12,
         SymbolKind::Value | SymbolKind::Parameter => 13,
-    }
-}
-
-fn completion_kind(kind: SymbolKind) -> usize {
-    match kind {
-        SymbolKind::Type => 7,
-        SymbolKind::Function => 3,
-        SymbolKind::Value | SymbolKind::Parameter => 6,
-    }
-}
-
-fn completion_items(semantic: &SemanticDocument, functions_only: bool) -> Vec<Value> {
-    semantic
-        .completions()
-        .iter()
-        .filter(|symbol| !functions_only || symbol.kind == SymbolKind::Function)
-        .map(|symbol| {
-            json!({
-                "label": symbol.name,
-                "kind": completion_kind(symbol.kind),
-                "detail": symbol.detail
-            })
-        })
-        .collect()
-}
-
-fn requirement_completions(
-    uri: &str,
-    source: &SourceFile,
-    position: Position,
-) -> Option<Vec<Value>> {
-    let candidates = super::requirement::completion_candidates(
-        uri,
-        source,
-        Utf16Position {
-            line: position.line,
-            character: position.character,
-        },
-    )?;
-    Some(
-        candidates
-            .into_iter()
-            .map(|candidate| {
-                json!({
-                    "label": candidate.name,
-                    "kind": if candidate.is_directory { 19 } else { 17 },
-                    "detail": if candidate.is_directory { "directory" } else { "requirement" },
-                    "textEdit": {
-                        "range": span_range(source, candidate.replacement),
-                        "newText": candidate.name
-                    }
-                })
-            })
-            .collect(),
-    )
-}
-
-fn lexical_function_completions(server: &Server, uri: &str, source: &SourceFile) -> Vec<Value> {
-    let syntax = malc::editor::analyze_syntax(source).ok();
-    let mut names = syntax
-        .as_ref()
-        .map(|syntax| syntax.functions().to_vec())
-        .unwrap_or_default();
-    let document = &server.documents[uri];
-    let recovered_graph;
-    let graph = if let Some(graph) = &document.graph {
-        Some(graph)
-    } else {
-        recovered_graph = syntax.and_then(|syntax| {
-            let path = super::uri_to_path(uri)?;
-            let mut requirements = String::new();
-            for span in syntax.requirements() {
-                requirements.push_str(&source.text()[span.start()..span.end()]);
-                requirements.push('\n');
-            }
-            let overlays = server
-                .documents
-                .iter()
-                .filter_map(|(uri, document)| {
-                    Some((super::uri_to_path(uri)?, document.text.clone()))
-                })
-                .collect::<HashMap<_, _>>();
-            malc::driver::load_source_graph_with_overlays(&path, &requirements, &overlays).ok()
-        });
-        recovered_graph.as_ref()
-    };
-    if let Some(graph) = graph {
-        for requirement in graph.requirements(graph.root()) {
-            let Some(source) = graph.source(requirement.target) else {
-                continue;
-            };
-            let Ok(syntax) = malc::editor::analyze_syntax(source) else {
-                continue;
-            };
-            names.extend(
-                syntax
-                    .functions()
-                    .iter()
-                    .filter(|name| !name.starts_with('_'))
-                    .cloned(),
-            );
-        }
-    }
-    names.sort();
-    names.dedup();
-    names
-        .into_iter()
-        .map(|name| json!({"label": name, "kind": completion_kind(SymbolKind::Function)}))
-        .collect()
-}
-
-fn receiver_suffix_start(text: &str, offset: usize) -> Option<usize> {
-    if offset > text.len() || !text.is_char_boundary(offset) {
-        return None;
-    }
-    let bytes = text.as_bytes();
-    let mut start = offset;
-    while start > 0 && bytes[start - 1].is_ascii_alphanumeric() {
-        start -= 1;
-    }
-    if start > 0 && bytes[start - 1] == b'_' {
-        start -= 1;
-    }
-    let partial = &bytes[start..offset];
-    if !partial.is_empty()
-        && !(partial[0].is_ascii_lowercase()
-            || (partial[0] == b'_' && partial.get(1).is_none_or(|byte| byte.is_ascii_alphabetic())))
-    {
-        return None;
-    }
-    let dot = start.checked_sub(1)?;
-    (bytes[dot] == b'.').then_some(dot)
-}
-
-fn lexical_semantic_tokens(source: &SourceFile) -> Vec<usize> {
-    let Ok(syntax) = malc::editor::analyze_syntax(source) else {
-        return Vec::new();
-    };
-    encode_semantic_tokens(
-        source,
-        syntax
-            .tokens()
-            .iter()
-            .map(|token| (token.span, token.kind, token.declaration)),
-    )
-}
-
-fn encode_semantic_tokens(
-    source: &SourceFile,
-    tokens: impl IntoIterator<Item = (Span, SymbolKind, bool)>,
-) -> Vec<usize> {
-    let tokens = tokens.into_iter();
-    let mut data = Vec::with_capacity(tokens.size_hint().0 * 5);
-    let mut previous = Utf16Position {
-        line: 0,
-        character: 0,
-    };
-    for (span, kind, declaration) in tokens {
-        let Some(start) = source.utf16_position(span.start()) else {
-            continue;
-        };
-        let Some(end) = source.utf16_position(span.end()) else {
-            continue;
-        };
-        if start.line != end.line {
-            continue;
-        }
-        let delta_line = start.line - previous.line;
-        let delta_start = if delta_line == 0 {
-            start.character - previous.character
-        } else {
-            start.character
-        };
-        data.extend([
-            delta_line,
-            delta_start,
-            end.character - start.character,
-            semantic_token_kind(kind),
-            usize::from(declaration),
-        ]);
-        previous = start;
-    }
-    data
-}
-
-fn semantic_token_kind(kind: SymbolKind) -> usize {
-    match kind {
-        SymbolKind::Type => 0,
-        SymbolKind::Value => 1,
-        SymbolKind::Parameter => 2,
-        SymbolKind::Function => 3,
     }
 }
