@@ -1,0 +1,59 @@
+require "./compiler.mal";
+require "./linux/file.mal";
+require "./linux/output.mal";
+require "./linux/syscall.mal";
+
+// The process ABI supplies a count and a pointer to packed (Ptr, UInt64) descriptors.
+Arguments :: (UInt64, Ptr);
+
+_finishOutput :: (Status, Status) -> Int32 := (written, released) -> {
+    written[
+    () -> {
+        released[
+        () -> 0,
+        (error) -> {
+            writeStderr("cannot release source, errno " + UInt64(error).decimal() + "\n");
+            1;
+        }
+        ];
+    },
+    (error) -> {
+        writeStderr("cannot write output, errno " + UInt64(error).decimal() + "\n");
+        1;
+    }
+    ];
+};
+
+main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
+    when (argumentCount != 1u64) {
+        writeStderr("usage: brainfuck-llvm SOURCE.bf\n");
+        return(2);
+    };
+
+    path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
+    read := readSource(path);
+    return(read[
+        (source) -> {
+            (memory, length, _) := source;
+            result := compile(memory, length);
+            status :: Int32 := result[
+                (message) -> {
+                    writeStderr(message);
+                    releaseSource(source);
+                    1;
+                },
+                (state) -> {
+                    (_, _, output) := state;
+                    written := writeStdout(output);
+                    released := releaseSource(source);
+                    _finishOutput(written, released);
+                }
+            ];
+            status;
+        },
+        (error) -> {
+            writeStderr("cannot read source, errno " + UInt64(error).decimal() + "\n");
+            1;
+        }
+    ]);
+};

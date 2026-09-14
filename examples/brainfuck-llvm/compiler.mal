@@ -1,0 +1,152 @@
+// CompileState fields: next source byte, next loop identity, generated function body.
+CompileState :: (UInt64, UInt64, Symbol);
+// Variant 0 is a diagnostic; variant 1 is a completed state.
+CompileResult :: [Symbol, CompileState];
+// Input borrows a byte range without owning its storage policy or lifetime.
+Input :: (Ptr, UInt64);
+
+_failure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
+
+_success :: CompileState -> CompileResult := (state) -> [failure, success] => success(state);
+
+_digit :: UInt64 -> Symbol := (value) -> [return] => {
+    when (value == 0u64) return("0");
+    when (value == 1u64) return("1");
+    when (value == 2u64) return("2");
+    when (value == 3u64) return("3");
+    when (value == 4u64) return("4");
+    when (value == 5u64) return("5");
+    when (value == 6u64) return("6");
+    when (value == 7u64) return("7");
+    when (value == 8u64) return("8");
+    return("9");
+};
+
+decimal :: UInt64 -> Symbol := (value) -> {
+    if (value < 10u64)
+    then value._digit()
+    else (value / 10u64).decimal() + (value % 10u64)._digit();
+};
+
+_simpleInstruction :: UInt8 -> Symbol := (byte) -> [return] => {
+    when (byte == '>') return("  call void @bf_right()\n");
+    when (byte == '<') return("  call void @bf_left()\n");
+    when (byte == '+') return("  call void @bf_increment()\n");
+    when (byte == '-') return("  call void @bf_decrement()\n");
+    when (byte == '.') return("  call void @bf_output()\n");
+    when (byte == ',') return("  call void @bf_input()\n");
+    return("");
+};
+
+_loopHeader :: UInt64 -> Symbol := (identity) -> {
+    name := identity.decimal();
+    "  br label %loop" + name + ".test\n"
+        + "loop" + name + ".test:\n"
+        + "  %loop" + name + ".value = call i8 @bf_current()\n"
+        + "  %loop" + name + ".condition = icmp ne i8 %loop" + name + ".value, 0\n"
+        + "  br i1 %loop" + name + ".condition, label %loop" + name
+        + ".body, label %loop" + name + ".end\n"
+        + "loop" + name + ".body:\n";
+};
+
+_loopFooter :: UInt64 -> Symbol := (identity) -> {
+    name := identity.decimal();
+    "  br label %loop" + name + ".test\n"
+        + "loop" + name + ".end:\n";
+};
+
+// The recursive call for an opening bracket consumes through its matching closing bracket.
+// All other transitions are tail calls, so comments and long straight-line programs use bounded
+// native stack.
+_compileUntil :: (Ptr, UInt64, UInt64, UInt64, Bool, Symbol) -> CompileResult :=
+    (source, length, index, nextLoop, nested, output) -> [return] => {
+        when (index == length) {
+            if (nested)
+            then return(_failure("unmatched '['\n"))
+            else return(_success((index, nextLoop, output)));
+        };
+
+        byte := UInt8.load(source + index);
+        when (byte == ']') {
+            if (nested)
+            then return(_success((index + 1u64, nextLoop, output)))
+            else return(_failure("unmatched ']'\n"));
+        };
+
+        when (byte == '[') {
+            identity := nextLoop;
+            body := _compileUntil(
+                source,
+                length,
+                index + 1u64,
+                nextLoop + 1u64,
+                true,
+                output + identity._loopHeader()
+            );
+            return(body[
+                (message) -> _failure(message),
+                (state) -> {
+                    (afterBody, afterLoop, bodyOutput) := state;
+                    _compileUntil(
+                        source,
+                        length,
+                        afterBody,
+                        afterLoop,
+                        nested,
+                        bodyOutput + identity._loopFooter()
+                    );
+                }
+            ]);
+        };
+
+        instruction := byte._simpleInstruction();
+        return(_compileUntil(
+            source,
+            length,
+            index + 1u64,
+            nextLoop,
+            nested,
+            output + instruction
+        ));
+    };
+
+_preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
+    + "declare i32 @putchar(i32)\n\n"
+    + "@tape = internal global [30000 x i8] zeroinitializer\n"
+    + "@cursor = internal global ptr @tape\n\n"
+    + "define internal void @bf_right() {\nentry:\n"
+    + "  %p = load ptr, ptr @cursor\n"
+    + "  %next = getelementptr i8, ptr %p, i64 1\n"
+    + "  store ptr %next, ptr @cursor\n  ret void\n}\n\n"
+    + "define internal void @bf_left() {\nentry:\n"
+    + "  %p = load ptr, ptr @cursor\n"
+    + "  %next = getelementptr i8, ptr %p, i64 -1\n"
+    + "  store ptr %next, ptr @cursor\n  ret void\n}\n\n"
+    + "define internal i8 @bf_current() {\nentry:\n"
+    + "  %p = load ptr, ptr @cursor\n"
+    + "  %value = load i8, ptr %p\n  ret i8 %value\n}\n\n"
+    + "define internal void @bf_increment() {\nentry:\n"
+    + "  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n"
+    + "  %next = add i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\n"
+    + "define internal void @bf_decrement() {\nentry:\n"
+    + "  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n"
+    + "  %next = sub i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\n"
+    + "define internal void @bf_output() {\nentry:\n"
+    + "  %value = call i8 @bf_current()\n  %argument = zext i8 %value to i32\n"
+    + "  %ignored = call i32 @putchar(i32 %argument)\n  ret void\n}\n\n"
+    + "define internal void @bf_input() {\nentry:\n"
+    + "  %value = call i32 @getchar()\n  %byte = trunc i32 %value to i8\n"
+    + "  %p = load ptr, ptr @cursor\n  store i8 %byte, ptr %p\n  ret void\n}\n\n"
+    + "define i32 @main() {\nentry:\n";
+
+compile :: Input -> CompileResult := (input) -> {
+    (memory, length) := input;
+    compiled := _compileUntil(memory, length, 0u64, 0u64, false, _preamble());
+    compiled[
+    (message) -> _failure(message),
+    (state) -> {
+        (index, nextLoop, output) := state;
+        _success((index, nextLoop, output + "  ret i32 0\n}\n"));
+    }
+    ];
+};

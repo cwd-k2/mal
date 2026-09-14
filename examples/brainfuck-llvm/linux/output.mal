@@ -1,0 +1,54 @@
+require "./memory.mal";
+require "./syscall.mal";
+
+_standardOutput :: Int32 := 1i32;
+_standardError :: Int32 := 2i32;
+_inputOutputError :: UInt32 := 5u32;
+
+_statusSuccess :: Unit -> Status := () -> [success, failure] => success();
+
+_statusFailure :: UInt32 -> Status := (error) -> [success, failure] => failure(error);
+
+_writeAll :: (Int32, Ptr, UInt64) -> Status := (descriptor, memory, remaining) -> [return] => {
+    when (remaining == 0u64) {
+        return(_statusSuccess());
+    };
+    transferred := systemWrite(descriptor, memory, remaining);
+    return(transferred[
+        (length) -> {
+            if (length == 0u64)
+            then _statusFailure(_inputOutputError)
+            else _writeAll(descriptor, memory + length, remaining - length);
+        },
+        (error) -> _statusFailure(error)
+    ]);
+};
+
+_finishWrite :: (Ptr, UInt64, Status) -> Status := (memory, length, written) -> {
+    unmapped := systemMunmap(memory, length);
+    written[
+    () -> unmapped,
+    (error) -> _statusFailure(error)
+    ];
+};
+
+writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
+    length := #value;
+    if (length == 0u64)
+    then _statusSuccess()
+    else {
+        mapped := mapAnonymousReadWrite(length);
+        mapped[
+        (memory) -> {
+            Symbol.write(memory, value);
+            written := _writeAll(descriptor, memory, length);
+            _finishWrite(memory, length, written);
+        },
+        (error) -> _statusFailure(error)
+        ];
+    };
+};
+
+writeStdout :: Symbol -> Status := (value) -> writeDescriptor(_standardOutput, value);
+
+writeStderr :: Symbol -> Status := (value) -> writeDescriptor(_standardError, value);

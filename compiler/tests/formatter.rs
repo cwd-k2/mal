@@ -354,6 +354,33 @@ fn preserves_explicit_binding_and_expression_breaks() {
 }
 
 #[test]
+fn indents_multiline_arguments_from_the_call_line() {
+    let formatted = format(
+        "map := (first, second) ->\n    call(\n        first,\n        second\n    );\nrun := (value) -> {result[(item) -> {nested(\nitem,\nvalue\n)}]};",
+    );
+
+    assert!(formatted.contains(concat!(
+        "map := (first, second) ->\n",
+        "    call(\n",
+        "        first,\n",
+        "        second\n",
+        "    );\n",
+    )));
+    assert!(
+        formatted.contains(concat!(
+            "    result[(item) -> {\n",
+            "        nested(\n",
+            "            item,\n",
+            "            value\n",
+            "        );\n",
+            "    }];\n",
+        )),
+        "unexpected formatting:\n{formatted}"
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_explicit_top_level_groups_without_splitting_data_bindings() {
     let formatted = format("extern A;\n\nextern B;\nfirst:=1;\nsecond:=2;");
 

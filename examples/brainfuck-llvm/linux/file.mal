@@ -1,0 +1,145 @@
+require "./memory.mal";
+require "./syscall.mal";
+
+// Source fields: 0 snapshot bytes, 1 source length, 2 mapping length.
+Source :: (Ptr, UInt64, UInt64);
+ReadResult :: [Source, UInt32];
+// Buffer fields: 0 current mapping, 1 capacity, 2 initialized length.
+Buffer :: (Ptr, UInt64, UInt64);
+BufferFailure :: (Buffer, UInt32);
+BufferResult :: [Buffer, BufferFailure];
+
+_atCurrentWorkingDirectory :: Int32 := -100i32;
+_seekStart :: Int32 := 0i32;
+_seekEnd :: Int32 := 2i32;
+_invalidArgument :: UInt32 := 22u32;
+_fileTooLarge :: UInt32 := 27u32;
+
+_readFailure :: UInt32 -> ReadResult := (error) -> [success, failure] => failure(error);
+
+_readSuccess :: Source -> ReadResult := (source) -> [success, failure] => success(source);
+
+_bufferFailure :: BufferFailure -> BufferResult := (failureValue) -> [success, failure] =>
+    failure(failureValue);
+
+_bufferSuccess :: Buffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
+
+_closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> {
+    systemClose(descriptor);
+    _readFailure(error);
+};
+
+_readInto :: (Int32, Buffer) -> BufferResult := (descriptor, buffer) -> [return] => {
+    (memory, capacity, length) := buffer;
+    when (length == capacity) {
+        when (capacity == 0xffff_ffff_ffff_ffffu64) {
+            return(_bufferFailure((buffer, _fileTooLarge)));
+        };
+        nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64)
+            then 0xffff_ffff_ffff_ffffu64
+            else capacity * 2u64;
+        resized := resizeMapping(memory, capacity, nextCapacity);
+        return(resized[
+            (nextMemory) -> _readInto(descriptor, (nextMemory, nextCapacity, length)),
+            (error) -> _bufferFailure((buffer, error))
+        ]);
+    };
+    transferred := systemRead(descriptor, memory + length, capacity - length);
+    return(transferred[
+        (count) -> {
+            if (count == 0u64)
+            then _bufferSuccess(buffer)
+            else _readInto(descriptor, (memory, capacity, length + count));
+        },
+        (error) -> _bufferFailure((buffer, error))
+    ]);
+};
+
+_finishRead :: (Int32, BufferResult) -> ReadResult := (descriptor, result) -> {
+    closed := systemClose(descriptor);
+    result[
+    (buffer) -> {
+        (memory, capacity, length) := buffer;
+        closed[
+        () -> _readSuccess((memory, length, capacity)),
+        (error) -> {
+            systemMunmap(memory, capacity);
+            _readFailure(error);
+        }
+        ];
+    },
+    (failureValue) -> {
+        (buffer, error) := failureValue;
+        (memory, capacity, _) := buffer;
+        systemMunmap(memory, capacity);
+        _readFailure(error);
+    }
+    ];
+};
+
+_readSnapshot :: (Int32, UInt64) -> ReadResult := (descriptor, sizeHint) -> [return] => {
+    when (sizeHint == 0xffff_ffff_ffff_ffffu64) {
+        return(_closeWithError(descriptor, _fileTooLarge));
+    };
+    capacity := sizeHint + 1u64;
+    mapped := mapAnonymousReadWrite(capacity);
+    return(mapped[
+        (memory) -> {
+            result := _readInto(descriptor, (memory, capacity, 0u64));
+            _finishRead(descriptor, result);
+        },
+        (error) -> _closeWithError(descriptor, error)
+    ]);
+};
+
+_rewindAndRead :: (Int32, UInt64) -> ReadResult := (descriptor, sizeHint) -> {
+    reset := systemLseek(descriptor, 0i64, _seekStart);
+    reset[
+    (_) -> _readSnapshot(descriptor, sizeHint),
+    (error) -> _closeWithError(descriptor, error)
+    ];
+};
+
+_readDescriptor :: Int32 -> ReadResult := (descriptor) -> {
+    sized := systemLseek(descriptor, 0i64, _seekEnd);
+    sized[
+    (sizeHint) -> _rewindAndRead(descriptor, sizeHint),
+    (error) -> _closeWithError(descriptor, error)
+    ];
+};
+
+_openPath :: (Ptr, UInt64) -> ReadResult := (path, pathMappingLength) -> {
+    opened := systemOpenat(_atCurrentWorkingDirectory, path, 0i32, 0u32);
+    unmapped := systemMunmap(path, pathMappingLength);
+    opened[
+    (descriptor) -> {
+        unmapped[
+        () -> _readDescriptor(descriptor),
+        (error) -> _closeWithError(descriptor, error)
+        ];
+    },
+    (error) -> _readFailure(error)
+    ];
+};
+
+readSource :: Symbol -> ReadResult := (path) -> [return] => {
+    length := #path;
+    when (length == 0xffff_ffff_ffff_ffffu64) {
+        return(_readFailure(_invalidArgument));
+    };
+    mappingLength := length + 1u64;
+    mapped := mapAnonymousReadWrite(mappingLength);
+    return(mapped[
+        (memory) -> {
+            Symbol.write(memory, path);
+            UInt8.store(memory + length, 0u8);
+            _openPath(memory, mappingLength);
+        },
+        (error) -> _readFailure(error)
+    ]);
+};
+
+releaseSource :: Source -> Status := (source) -> {
+    (memory, _, mappingLength) := source;
+    systemMunmap(memory, mappingLength);
+};

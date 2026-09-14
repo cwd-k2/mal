@@ -1,0 +1,20 @@
+require "./syscall.c";
+
+MapAddress :: [Unit, Ptr];
+MapRequest :: (MapAddress, UInt64, Int32, Int32, Int32, UInt64);
+ResizeRequest :: (Ptr, UInt64, UInt64, Int32);
+PointerResult :: [Ptr, UInt32];
+DescriptorResult :: [Int32, UInt32];
+OffsetResult :: [UInt64, UInt32];
+TransferResult :: [UInt64, UInt32];
+Status :: [Unit, UInt32];
+
+// These operations only adapt typed mal values to Linux syscall registers and errno results.
+extern systemMmap :: MapRequest -> PointerResult;
+extern systemMremap :: ResizeRequest -> PointerResult;
+extern systemMunmap :: (Ptr, UInt64) -> Status;
+extern systemOpenat :: (Int32, Ptr, Int32, UInt32) -> DescriptorResult;
+extern systemLseek :: (Int32, Int64, Int32) -> OffsetResult;
+extern systemClose :: Int32 -> Status;
+extern systemRead :: (Int32, Ptr, UInt64) -> TransferResult;
+extern systemWrite :: (Int32, Ptr, UInt64) -> TransferResult;

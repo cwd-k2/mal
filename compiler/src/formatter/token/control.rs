@@ -74,14 +74,14 @@ impl Formatter<'_> {
             self.space();
         }
         self.write(text);
-        self.paren_depth += 1;
+        self.parenthesis_indents.push(self.line_indent);
         self.previous = Previous::LeftParen;
     }
 
     pub(super) fn write_right_paren(&mut self, text: &str) {
         self.trim_space();
         self.write(text);
-        self.paren_depth = self.paren_depth.saturating_sub(1);
+        self.parenthesis_indents.pop();
         self.previous = Previous::RightParen;
     }
 

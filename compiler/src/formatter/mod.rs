@@ -23,6 +23,7 @@ struct Formatter<'a> {
     token_index: usize,
     output: String,
     indent: usize,
+    line_indent: usize,
     line_start: bool,
     source_break: bool,
     source_blank_line: bool,
@@ -30,7 +31,7 @@ struct Formatter<'a> {
     source_line_indent: Option<usize>,
     previous: Previous,
     ifs: Vec<IfStage>,
-    paren_depth: usize,
+    parenthesis_indents: Vec<usize>,
     brackets: Vec<BracketLayout>,
     brace_depth: usize,
     binding_continuations: Vec<usize>,
@@ -48,6 +49,7 @@ impl<'a> Formatter<'a> {
             token_index: 0,
             output: String::new(),
             indent: 0,
+            line_indent: 0,
             line_start: true,
             source_break: false,
             source_blank_line: false,
@@ -55,7 +57,7 @@ impl<'a> Formatter<'a> {
             source_line_indent: None,
             previous: Previous::None,
             ifs: Vec::new(),
-            paren_depth: 0,
+            parenthesis_indents: Vec::new(),
             brackets: Vec::new(),
             brace_depth: 0,
             binding_continuations: Vec::new(),
@@ -146,6 +148,7 @@ impl<'a> Formatter<'a> {
         if self.line_start {
             let indent = self.source_line_indent.take().unwrap_or(self.indent);
             self.output.push_str(&" ".repeat(indent * 4));
+            self.line_indent = indent;
             self.line_start = false;
         }
         self.output.push_str(text);

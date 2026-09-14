@@ -1,0 +1,33 @@
+require "./syscall.mal";
+
+_protectionRead :: Int32 := 1i32;
+_protectionWrite :: Int32 := 2i32;
+_mapPrivate :: Int32 := 2i32;
+_mapAnonymous :: Int32 := 0x20i32;
+_remapMayMove :: Int32 := 1i32;
+
+_noAddress :: Unit -> MapAddress := () -> [none, some] => none();
+
+_map :: (UInt64, Int32, Int32, Int32) -> PointerResult :=
+    (length, protection, flags, descriptor) -> systemMmap(
+        _noAddress(),
+        length,
+        protection,
+        flags,
+        descriptor,
+        0u64
+    );
+
+mapAnonymousRead :: UInt64 -> PointerResult := (length) ->
+    _map(length, _protectionRead, _mapPrivate | _mapAnonymous, -1i32);
+
+mapAnonymousReadWrite :: UInt64 -> PointerResult := (length) ->
+    _map(
+        length,
+        _protectionRead | _protectionWrite,
+        _mapPrivate | _mapAnonymous,
+        -1i32
+    );
+
+resizeMapping :: (Ptr, UInt64, UInt64) -> PointerResult := (memory, oldLength, newLength) ->
+    systemMremap(memory, oldLength, newLength, _remapMayMove);

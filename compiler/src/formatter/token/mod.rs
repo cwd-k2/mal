@@ -10,6 +10,7 @@ pub(super) struct BracketLayout {
     multiline: bool,
     indent_delta: usize,
     align_sum_continuations: Option<bool>,
+    parenthesis_depth: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -103,6 +104,7 @@ impl Formatter<'_> {
                     multiline: alignment.is_some(),
                     indent_delta,
                     align_sum_continuations: alignment,
+                    parenthesis_depth: self.parenthesis_indents.len(),
                 });
                 self.previous = Previous::LeftBracket;
             }
@@ -250,8 +252,10 @@ impl Formatter<'_> {
             self.newline();
             return;
         }
-        if self.brackets.last().is_some_and(|layout| layout.multiline)
-            && (matches!(self.previous, Previous::Comma) || matches!(kind, TokenKind::RightBracket))
+        if self.brackets.last().is_some_and(|layout| {
+            layout.multiline && layout.parenthesis_depth == self.parenthesis_indents.len()
+        }) && (matches!(self.previous, Previous::Comma)
+            || matches!(kind, TokenKind::RightBracket))
         {
             self.newline();
             return;
@@ -271,7 +275,18 @@ impl Formatter<'_> {
         let list_end = matches!(kind, TokenKind::RightParen | TokenKind::RightBracket);
         if receiver_call || binary_before || binary_after || list_item || list_end {
             self.newline();
-            self.source_line_indent = Some(self.indent + usize::from(!list_end));
+            self.source_line_indent = Some(if list_item {
+                self.parenthesis_indents
+                    .last()
+                    .map_or(self.indent + 1, |indent| indent + 1)
+            } else if matches!(kind, TokenKind::RightParen) {
+                self.parenthesis_indents
+                    .last()
+                    .copied()
+                    .unwrap_or(self.indent)
+            } else {
+                self.indent + usize::from(!list_end)
+            });
         }
     }
 }
