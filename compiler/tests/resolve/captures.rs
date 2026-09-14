@@ -223,7 +223,7 @@ fn rejects_parameter_and_same_scope_binding_collisions() {
 }
 
 #[test]
-fn keeps_result_binders_local_to_their_block() {
+fn keeps_result_binders_local_and_allows_outer_shadowing() {
     assert_eq!(
         resolve_error(
             "outer :: Unit -> (Unit -> Int32) := () -> [return] => { return(() -> { return(1) }) };"
@@ -231,15 +231,7 @@ fn keeps_result_binders_local_to_their_block() {
         .message,
         "result binder cannot be captured"
     );
-    for text in [
-        "bad :: Int32 -> Int32 := (value) -> [value] => { value(1) };",
-        "bad :: Unit -> Int32 := () -> [return, return] => { return(1) };",
-    ] {
-        assert!(
-            resolve_error(text).message.starts_with("duplicate value"),
-            "input: {text}"
-        );
-    }
+    resolve_ok("ok :: Int32 -> Int32 := (value) -> [value] => { value(1) };");
 }
 
 #[test]
