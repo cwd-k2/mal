@@ -39,9 +39,9 @@ fn serves_symbols_completion_and_semantic_tokens() {
 
 #[test]
 fn completes_lexical_functions_after_an_incomplete_receiver_suffix() {
-    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) { value + option };\n\
+    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) -> value + option;\n\
                 count :: Int32 := 1;\n\
-                main :: Unit -> Int32 := () { count. };\n";
+                main :: Unit -> Int32 := () -> count.;\n";
     let uri = "file:///receiver-completion.mal";
     let mut server = open_document(uri, text);
     let completion = request_at(
@@ -60,9 +60,9 @@ fn completes_lexical_functions_after_an_incomplete_receiver_suffix() {
 
 #[test]
 fn limits_receiver_completion_to_functions_in_a_valid_document() {
-    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) { value + option };\n\
+    let text = "transform :: (Int32, Int32) -> Int32 := (value, option) -> value + option;\n\
                 count :: Int32 := 1;\n\
-                main :: Unit -> Int32 := () { count.transform(1) };\n";
+                main :: Unit -> Int32 := () -> count.transform(1);\n";
     let uri = "file:///valid-receiver-completion.mal";
     let mut server = open_document(uri, text);
     let completion = request_at(
@@ -84,14 +84,14 @@ fn limits_receiver_completion_to_functions_in_a_valid_document() {
 fn completes_visible_dependency_functions_from_an_invalid_root() {
     let files = TestFiles::new();
     let root_text = "require \"library.mal\";\n\
-                     local :: Int32 -> Int32 := (value) { value };\n\
+                     local :: Int32 -> Int32 := (value) -> value;\n\
                      count :: Int32 := 1;\n\
-                     main :: Unit -> Int32 := () { count.par };\n";
+                     main :: Unit -> Int32 := () -> count.par;\n";
     let root_path = files.write("program.mal", root_text);
     files.write(
         "library.mal",
-        "publicFunction :: Int32 -> Int32 := (value) { value };\n\
-         _privateFunction :: Int32 -> Int32 := (value) { value };\n",
+        "publicFunction :: Int32 -> Int32 := (value) -> value;\n\
+         _privateFunction :: Int32 -> Int32 := (value) -> value;\n",
     );
     let root_uri = path_to_uri(&root_path);
     let mut server = open_document(&root_uri, root_text);

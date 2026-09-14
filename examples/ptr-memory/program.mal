@@ -2,7 +2,7 @@ require "./host.c";
 
 extern memory :: Unit -> Ptr;
 
-main :: Unit -> Int32 := () {
+main :: Unit -> Int32 := () -> {
     base := memory();
     slot := base + 1u64;
     Int64.store(slot, 41i64);

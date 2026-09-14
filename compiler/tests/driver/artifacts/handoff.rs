@@ -8,22 +8,22 @@ fn hands_direct_self_arguments_to_wildcard_parameters() {
         "program.mal",
         "require \"./host.c\";\n\
          extern again :: Unit -> Bool;\n\
-         make :: Int32 -> (Unit -> Int32) := (value) { () { value }; };\n\
-         unmanagedFrame :: Int32 -> Int32 := (_) {\n\
+         make :: Int32 -> (Unit -> Int32) := (value) -> { () -> { value }; };\n\
+         unmanagedFrame :: Int32 -> Int32 := (_) -> {\n\
            if (again()) then { child := unmanagedFrame(1i32); child + 1i32; }\n\
            else { 0i32 };\n\
          };\n\
-         managedFrame :: (Unit -> Int32) -> Int32 := (_) {\n\
+         managedFrame :: (Unit -> Int32) -> Int32 := (_) -> {\n\
            if (again()) then { child := managedFrame(make(1i32)); child + 1i32; }\n\
            else { 0i32 };\n\
          };\n\
-         unmanagedTail :: Int32 -> Int32 := (_) {\n\
+         unmanagedTail :: Int32 -> Int32 := (_) -> {\n\
            if (again()) then { unmanagedTail(1i32) } else { 0i32 };\n\
          };\n\
-         managedTail :: (Unit -> Int32) -> Int32 := (_) {\n\
+         managedTail :: (Unit -> Int32) -> Int32 := (_) -> {\n\
            if (again()) then { managedTail(make(1i32)) } else { 0i32 };\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            framed := unmanagedFrame(0i32) + managedFrame(make(0i32));\n\
            framed + unmanagedTail(0i32) + managedTail(make(0i32)) - 2i32;\n\
          };",
@@ -91,21 +91,21 @@ fn borrows_managed_wildcard_arguments_across_native_calls() {
         "require \"./host.c\";\n\
          Callback :: Unit -> Int32;\n\
          Consumer :: Callback -> Int32;\n\
-         make :: Int32 -> Callback := (value) { () { value }; };\n\
-         discard :: Consumer := (_) { 0i32; };\n\
-         directNonTail :: Int32 -> Int32 := (value) {\n\
+         make :: Int32 -> Callback := (value) -> { () -> { value }; };\n\
+         discard :: Consumer := (_) -> { 0i32; };\n\
+         directNonTail :: Int32 -> Int32 := (value) -> {\n\
            result := discard(make(value));\n\
            result + 0i32;\n\
          };\n\
-         directTail :: Int32 -> Int32 := (value) { discard(make(value)); };\n\
-         dispatchNonTail :: (Consumer, Callback) -> Int32 := (consumer, callback) {\n\
+         directTail :: Int32 -> Int32 := (value) -> { discard(make(value)); };\n\
+         dispatchNonTail :: (Consumer, Callback) -> Int32 := (consumer, callback) -> {\n\
            result := consumer(callback);\n\
            result + 0i32;\n\
          };\n\
-         dispatchTail :: (Consumer, Callback) -> Int32 := (consumer, callback) {\n\
+         dispatchTail :: (Consumer, Callback) -> Int32 := (consumer, callback) -> {\n\
            consumer(callback);\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            directNonTail(1i32) + directTail(2i32)\n\
              + dispatchNonTail(discard, make(3i32))\n\
              + dispatchTail(discard, make(4i32));\n\
@@ -166,11 +166,11 @@ fn self_tail_transition_in_a_common_machine_uses_the_active_function_entry() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> {\n\
            called := operation(value);\n\
            called + 0i32;\n\
          };\n\
-         recurse :: Int32 -> Int32 := (value) {\n\
+         recurse :: Int32 -> Int32 := (value) -> {\n\
            if (value == 0i32) then { 0i32 } else {\n\
              if (value == 1i32) then { recurse(0i32) } else {\n\
                child := apply(recurse, value - 1i32);\n\
@@ -178,7 +178,7 @@ fn self_tail_transition_in_a_common_machine_uses_the_active_function_entry() {
              };\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () { apply(recurse, 1i32); };",
+         main :: Unit -> Int32 := () -> { apply(recurse, 1i32); };",
     );
 
     let output = directory.malc([

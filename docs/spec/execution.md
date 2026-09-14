@@ -30,9 +30,7 @@ product構築がすべての要素を正格に評価するのに対し、このs
 ラムダ式を評価すると関数値が生成される。関数値は概念上、ラムダのcodeと、lexically captureしたlocal valueのenvironmentからなるclosureである。environmentにはラムダ式を評価した時点の値をby-valueで保持する。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := (x) {
-    (y) { x + y };
-};
+makeAdder :: Int32 -> (Int32 -> Int32) := (x) -> (y) -> x + y;
 
 addTen := makeAdder(10);
 result := addTen(5);
@@ -45,10 +43,8 @@ environmentに保存する必要はない。external operationは通常のfuncti
 実行する。参照または受け渡しだけではhost境界を越えない。
 
 ```mal
-outer :: Int32 -> (Unit -> (Unit -> Int32)) := (x) {
-    middle := () {
-        () { x };
-    };
+outer :: Int32 -> (Unit -> (Unit -> Int32)) := (x) -> {
+    middle := () -> () -> x;
 
     middle;
 };
@@ -73,11 +69,10 @@ lexical captureの決定理由は[D007](../history/decisions/D007.md)に記録�
 `for` と `while` はなく、反復は再帰で表す。
 
 ```mal
-sum :: Int64 -> Int64 := (n) {
+sum :: Int64 -> Int64 := (n) ->
     if (n == 0)
-        then { 0 }
-        else { n + sum(n - 1) };
-};
+    then 0
+    else n + sum(n - 1);
 ```
 
 単一のvalue name pattern、型annotation、直接のlambda RHSを持つbindingは、そのlambda bodyから自分自身を参照できる。これは通常のsequential bindingに対する唯一の自己参照例外である。product pattern、annotationのないbinding、lambdaを括弧などの別の式で包んだRHSには適用しない。forward referenceとmutual recursionはない。

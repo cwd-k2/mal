@@ -17,38 +17,38 @@ extern receivePacket :: Socket -> ReceiveResult;
 extern closeSocket :: Socket -> Status;
 extern writeError :: UInt32 -> Unit;
 
-_reportStatus :: Status -> Bool := (status) {
+_reportStatus :: Status -> Bool := (status) -> {
     status[
-    () { true },
-    (error) {
+    () -> true,
+    (error) -> {
         writeError(error);
         false;
     }
     ];
 };
 
-_isRejected :: Status -> Bool := (status) {
+_isRejected :: Status -> Bool := (status) -> {
     status[
-    () { false },
-    (_) { true }
+    () -> false,
+    (_) -> true
     ];
 };
 
-_receiveExpected :: Socket -> Bool := (socket) {
+_receiveExpected :: Socket -> Bool := (socket) -> {
     result := socket.receivePacket();
     result[
-    (packet) {
+    (packet) -> {
         (sequence, payload) := packet;
         sequence == 42u64 && payload == "hello from mal";
     },
-    (error) {
+    (error) -> {
         writeError(error);
         false;
     }
     ];
 };
 
-main :: Unit -> Int32 := () {
+main :: Unit -> Int32 := () -> {
     pair := createSocketPair();
     (sender, receiver) := pair;
     chunk := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -59,8 +59,8 @@ main :: Unit -> Int32 := () {
             ._isRejected();
     sent := sender.sendPacket((42u64, "hello from mal"));
     communicated := sent[
-        () { receiver._receiveExpected() },
-        (error) {
+        () -> receiver._receiveExpected(),
+        (error) -> {
             writeError(error);
             false;
         }
@@ -68,6 +68,6 @@ main :: Unit -> Int32 := () {
     senderClosed := sender.closeSocket()._reportStatus();
     receiverClosed := receiver.closeSocket()._reportStatus();
     if (oversizedRejected && communicated && senderClosed && receiverClosed)
-    then { 0 }
-    else { 1 };
+    then 0
+    else 1;
 };

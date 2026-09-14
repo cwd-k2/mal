@@ -4,7 +4,7 @@ use super::*;
 fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
     let program = lower_ok(
         "extern mark :: Unit -> Unit;\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            mark();\n\
            value :: Int32 := 7;\n\
            (value);\n\
@@ -40,10 +40,10 @@ fn lowers_lambda_statements_and_a_block_result_to_lets_and_a_result() {
 #[test]
 fn lowers_multiple_parameters_to_product_destructuring() {
     let program = lower_ok(
-        "add :: (Int32, Int32) -> Int32 := (left, right) {\n\
+        "add :: (Int32, Int32) -> Int32 := (left, right) -> {\n\
            left + right;\n\
          };\n\
-         main :: Unit -> Int32 := () { add(20, 22); };",
+         main :: Unit -> Int32 := () -> { add(20, 22); };",
     );
     let ExpressionKind::Lambda(add) = &program.bindings[0].value.kind else {
         panic!("expected add lambda");
@@ -69,7 +69,7 @@ fn lowers_multiple_parameters_to_product_destructuring() {
 #[test]
 fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
     let program = lower_ok(
-        "absolute :: Int32 -> Int32 := (x)[return] {\n\
+        "absolute :: Int32 -> Int32 := (x)[return] -> {\n\
            when (x >= 0) { return(x) };\n\
            return(-x)\n\
          };",
@@ -97,7 +97,7 @@ fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
 #[test]
 fn lowers_long_flat_completion_control_sequences_to_shared_joins() {
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
         "when (false) { return(1i32) };".repeat(4_096)
     );
 
@@ -111,7 +111,7 @@ fn shares_continuations_across_multiple_normal_branch_exits() {
     let count = 128;
     let item = "if (true) then { when (false) { return(1i32) }; () } else { () };";
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
         item.repeat(count)
     );
 
@@ -126,8 +126,8 @@ fn shares_continuations_across_multiple_normal_branch_exits() {
 #[test]
 fn indexes_join_arenas_locally_to_each_lambda() {
     let program = lower_ok(
-        "main :: Unit -> Int32 := ()[return] {\n\
-           nested :: Unit -> Int32 := ()[return] {\n\
+        "main :: Unit -> Int32 := ()[return] -> {\n\
+           nested :: Unit -> Int32 := ()[return] -> {\n\
              when (false) { return(1i32) };\n\
              return(0i32)\n\
            };\n\
@@ -179,7 +179,7 @@ fn indexes_join_arenas_locally_to_each_lambda() {
 #[test]
 fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",
+        "main :: Unit -> Int32 := ()[return] -> {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",
         "0i32;".repeat(4_096)
     );
 
@@ -193,7 +193,7 @@ fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
 
 #[test]
 fn lowers_empty_elimination_to_a_zero_arm_case() {
-    let program = lower_ok("never :: Unit -> [] := ()[] { never()[] };");
+    let program = lower_ok("never :: Unit -> [] := ()[] -> { never()[] };");
     let body = top_lambda(&program, "never");
     let ExpressionKind::Case { arms, .. } = &body.kind else {
         panic!("expected empty case");
@@ -204,8 +204,8 @@ fn lowers_empty_elimination_to_a_zero_arm_case() {
 #[test]
 fn lowers_direct_result_blocks_to_local_joins_without_a_lambda() {
     let program = lower_ok(
-        "main :: Unit -> Int32 := () {
-           [done] { value :: Int32 := { 40 + 2 }; done(value) }
+        "main :: Unit -> Int32 := () -> {
+           [done] -> { value :: Int32 := { 40 + 2 }; done(value) }
          };",
     );
     let lambda = top_lambda_definition(&program, "main");

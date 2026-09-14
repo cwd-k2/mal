@@ -76,8 +76,8 @@ fn reachable_states<'a>(program: &'a control::ast::Program, function: &Function)
 #[test]
 fn makes_a_directly_returned_application_a_tail_transition() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         main :: Unit -> Int32 := () { identity(42i32); };",
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         main :: Unit -> Int32 := () -> { identity(42i32); };",
     );
     let main = top_level_function(&program, "main");
     let states = reachable_states(&program, main);
@@ -88,8 +88,8 @@ fn makes_a_directly_returned_application_a_tail_transition() {
 #[test]
 fn records_only_caller_values_live_after_a_non_tail_call() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         addAfter :: Int32 -> Int32 := (x) {\n\
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         addAfter :: Int32 -> Int32 := (x) -> {\n\
            unused := 7i32;\n\
            called := identity(x);\n\
            called + x;\n\
@@ -112,9 +112,9 @@ fn records_only_caller_values_live_after_a_non_tail_call() {
 #[test]
 fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         make :: Int32 -> (Int32 -> Int32) := (captured) {\n\
-           (argument) {\n\
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         make :: Int32 -> (Int32 -> Int32) := (captured) -> {\n\
+           (argument) -> {\n\
              called := identity(argument);\n\
              called + captured;\n\
            };\n\
@@ -138,7 +138,7 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
 fn lowers_a_long_flat_body_without_recursive_statement_processing() {
     let statement_count = 4_096;
     let text = format!(
-        "main :: Unit -> Int32 := () {{\n{}0i32;\n}};",
+        "main :: Unit -> Int32 := () -> {{\n{}0i32;\n}};",
         "0i32;\n".repeat(statement_count)
     );
     let program = lower_ok(&text);
@@ -153,7 +153,7 @@ fn lowers_a_long_flat_body_without_recursive_statement_processing() {
 fn lowers_long_completion_control_sequences_to_join_states() {
     let count = 4_096;
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
         "when (false) { return(1i32) };".repeat(count)
     );
     let program = lower_ok(&text);
@@ -166,14 +166,14 @@ fn lowers_long_completion_control_sequences_to_join_states() {
 #[test]
 fn keeps_sum_payloads_local_but_saves_them_across_continuation_calls() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         useChoice :: [Int32, Int32] -> Int32 := (choice) {\n\
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         useChoice :: [Int32, Int32] -> Int32 := (choice) -> {\n\
            choice[\n\
-             (payload) {\n\
+             (payload) -> {\n\
                called := identity(payload);\n\
                called + payload;\n\
              },\n\
-             (payload) { payload }];\n\
+             (payload) -> { payload }];\n\
          };",
     );
     let function = top_level_function(&program, "useChoice");
@@ -198,8 +198,8 @@ fn keeps_sum_payloads_local_but_saves_them_across_continuation_calls() {
 #[test]
 fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
     let program = lower_ok(
-        "identity :: Symbol -> Symbol := (value) { value; };\n\
-         appendAfter :: Symbol -> Symbol := (prefix) {\n\
+        "identity :: Symbol -> Symbol := (value) -> { value; };\n\
+         appendAfter :: Symbol -> Symbol := (prefix) -> {\n\
            called := identity(\"value\");\n\
            prefix + called;\n\
          };",
@@ -221,8 +221,8 @@ fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
 #[test]
 fn propagates_tail_position_through_primitive_branches() {
     let program = lower_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         choose :: Int32 -> Int32 := (x) {\n\
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         choose :: Int32 -> Int32 := (x) -> {\n\
            if (x == 0i32) then { identity(1i32) } else { identity(x) };\n\
          };",
     );

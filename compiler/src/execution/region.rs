@@ -232,7 +232,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(84),
             "region-plan.mal",
-            "recurse :: Int32 -> Int32 := (value) {\n\
+            "recurse :: Int32 -> Int32 := (value) -> {\n\
                if (value == 0i32) then { 0i32 } else {\n\
                  child := recurse(value - 1i32);\n\
                  child + 1i32;\n\

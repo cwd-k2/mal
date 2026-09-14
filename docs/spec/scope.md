@@ -51,7 +51,7 @@ MaybeInt32 :: [Unit, Int32];
 構築用の名前が欲しければ、sum return binderを使う通常の関数をbindingする。
 
 ```mal
-some :: Int32 -> MaybeInt32 := (value)[none, some] { some(value) };
+some :: Int32 -> MaybeInt32 := (value)[none, some] -> some(value);
 ```
 
 mal は `Some` や field name に特別な意味を与えない。
@@ -66,7 +66,7 @@ deallocation、length、bounds、ownershipは組み込まず、program固有の`
 extern alloc :: UInt64 -> Ptr;
 
 readInt64 :: (Ptr, UInt64) -> Int64 :=
-    (base, index) { Int64.load(base + index * Int64.size) };
+    (base, index) -> Int64.load(base + index * Int64.size);
 ```
 
 mutable bytesが必要な場合も同じ境界を使う。次はpredefined APIではなく、program固有のhost contractの例である。
@@ -87,7 +87,7 @@ array は例えば `(Ptr, UInt64)` の alias と mal 関数で構成できる。
 Int64Array :: (Ptr, UInt64);
 
 arrayGet :: (Int64Array, UInt64) -> Int64 :=
-    (array, index) {
+    (array, index) -> {
         (memory, _) := array;
         Int64.load(memory + index * Int64.size);
     };

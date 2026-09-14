@@ -376,7 +376,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(82),
             "application-plan.mal",
-            "identity :: Int32 -> Int32 := (value) { value; }; apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); }; main :: Unit -> Int32 := () { apply(identity, 0i32); };"
+            "identity :: Int32 -> Int32 := (value) -> { value; }; apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> { function(value); }; main :: Unit -> Int32 := () -> { apply(identity, 0i32); };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse application plan fixture");
@@ -409,7 +409,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(83),
             "application-structural-targets.mal",
-            "Left :: (Int32, Unit); Right :: (Int32, Unit); left :: Left -> Left := (value) { value; }; right :: Right -> Right := (value) { value; }; apply :: ((Left -> Left), Right) -> Right := (function, value) { function(value); }; main :: Unit -> Int32 := () { (result, _) := apply(right, (0i32, ())); result; };"
+            "Left :: (Int32, Unit); Right :: (Int32, Unit); left :: Left -> Left := (value) -> { value; }; right :: Right -> Right := (value) -> { value; }; apply :: ((Left -> Left), Right) -> Right := (function, value) -> { function(value); }; main :: Unit -> Int32 := () -> { (result, _) := apply(right, (0i32, ())); result; };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse structural target fixture");

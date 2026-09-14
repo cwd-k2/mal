@@ -12,10 +12,20 @@ pub(in crate::formatter) enum IfStage {
 }
 
 impl Formatter<'_> {
-    pub(super) fn finish_completed_control(&mut self) {
-        if let Some(IfStage::Finished(continuation)) = self.ifs.last() {
-            let continuation = *continuation;
-            self.ifs.pop();
+    pub(super) fn finish_completed_controls(&mut self, count: usize) {
+        for _ in 0..count {
+            let Some(stage) = self.ifs.pop() else {
+                break;
+            };
+            let continuation = match stage {
+                IfStage::Condition(continuation)
+                | IfStage::ThenKeyword(continuation)
+                | IfStage::ThenBranch(_, continuation)
+                | IfStage::AwaitElse(continuation)
+                | IfStage::ElseKeyword(continuation)
+                | IfStage::ElseBranch(_, continuation)
+                | IfStage::Finished(continuation) => continuation,
+            };
             if continuation {
                 self.indent = self.indent.saturating_sub(1);
             }
@@ -93,7 +103,7 @@ impl Formatter<'_> {
         self.newline();
         self.write(text);
         let continuation = match self.ifs.last().expect("matched then branch") {
-            IfStage::AwaitElse(continuation) => *continuation,
+            IfStage::AwaitElse(continuation) | IfStage::ThenKeyword(continuation) => *continuation,
             _ => unreachable!("matched then branch"),
         };
         *self.ifs.last_mut().expect("matched then branch") = IfStage::ElseKeyword(continuation);

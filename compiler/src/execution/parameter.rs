@@ -60,7 +60,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(81),
             "parameter-plan.mal",
-            "bound :: Int32 -> Int32 := (value) { value; }; discarded :: Symbol -> Int32 := (_) { 0i32; };"
+            "bound :: Int32 -> Int32 := (value) -> { value; }; discarded :: Symbol -> Int32 := (_) -> { 0i32; };"
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check parameter plan fixture");

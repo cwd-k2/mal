@@ -5,14 +5,14 @@ extern release :: Ptr -> Unit;
 
 // Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
 // Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
-leaf :: Int32 -> Ptr := (value) {
+leaf :: Int32 -> Ptr := (value) -> {
     node := allocate(5u64);
     Int32.store(node, value);
     UInt8.store(node + 4u64, 0u8);
     node;
 };
 
-branch :: (Int32, Ptr, Ptr) -> Ptr := (value, left, right) {
+branch :: (Int32, Ptr, Ptr) -> Ptr := (value, left, right) -> {
     node := allocate(5u64 + Ptr.size * 2u64);
     Int32.store(node, value);
     UInt8.store(node + 4u64, 1u8);
@@ -21,7 +21,7 @@ branch :: (Int32, Ptr, Ptr) -> Ptr := (value, left, right) {
     node;
 };
 
-sumTree :: Ptr -> Int32 := (node)[return] {
+sumTree :: Ptr -> Int32 := (node)[return] -> {
     value := Int32.load(node);
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
@@ -33,7 +33,7 @@ sumTree :: Ptr -> Int32 := (node)[return] {
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: Ptr -> Unit := (node)[return] {
+destroyTree :: Ptr -> Unit := (node)[return] -> {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
         return(node.release());
@@ -46,7 +46,7 @@ destroyTree :: Ptr -> Unit := (node)[return] {
     return(node.release());
 };
 
-main :: Unit -> Int32 := () {
+main :: Unit -> Int32 := () -> {
     left := branch(2, leaf(3), leaf(4));
     tree := branch(1, left, leaf(5));
     total := tree.sumTree();

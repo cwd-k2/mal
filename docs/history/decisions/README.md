@@ -12,7 +12,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md) |
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
-| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md) |
+| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D050](D050.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
@@ -31,6 +31,7 @@ D041はD002のRust compilerを維持し、最初のC execution backendをLLVM ba
 D042はD004のsum injection spelling、D005の`case`による説明、D023のsource syntaxを置き換える。
 D048はD042のsource-level sum injection constructorを置き換える。
 D049はD048のlambdaだけに置いたsum construction boundaryをdirect result blockにも拡張する。
+D050はD038のlambda parameterとD049のdirect result blockのsource spellingを置き換え、`if`と`when`を含むbodyをexpressionに統一する。
 
 ## 後継があるhistorical record
 

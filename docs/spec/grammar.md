@@ -66,11 +66,11 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | sumType
 sumType     ::= "[" "]" | "[" type "," type ("," type)* "]"
 
-lambda      ::= "(" lambdaParameter? ")" returnBinderGroup? block
+lambda      ::= "(" lambdaParameter? ")" returnBinderGroup? "->" expression
 lambdaParameter ::= pattern ("," pattern)*
 returnBinderGroup ::= "[" "]"
                     | "[" VALUE_IDENT ("," VALUE_IDENT)* "]"
-resultBlock ::= "[" VALUE_IDENT ("," VALUE_IDENT)* "]" block
+resultBlock ::= "[" VALUE_IDENT ("," VALUE_IDENT)* "]" "->" expression
 blockExpression ::= block
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
@@ -101,9 +101,9 @@ byteUnit    ::= printableAsciiExceptQuoteOrBackslash
               | "\\x" HEX_DIGIT HEX_DIGIT
 
 ifExpr      ::= "if" "(" expression ")"
-                "then" block
-                "else" block
-whenExpr    ::= "when" "(" expression ")" block
+                "then" expression
+                "else" expression
+whenExpr    ::= "when" "(" expression ")" expression
 ```
 
 この概要では左再帰を避ける expression grammar と lexer の詳細を省略している。実装は recursive descent と Pratt parser を想定する。
@@ -152,8 +152,8 @@ associated itemを導入しない。認める型とprimitiveの組は[memory pri
 
 `[]`は空直和、`[A]`は不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
 return binder group、result block、`when`、zero-continuation applicationの意味は
-[明示的returnとcompletion](control.md)に定める。`[k]`はUnitを`k`へ渡すapplication、`[k] { body }`は`k`を
-導入するresult blockであり、直後のblockによって構文を区別する。空の`[] { body }`はresult blockではない。
+[明示的returnとcompletion](control.md)に定める。`[k]`はUnitを`k`へ渡すapplication、`[k] -> expression`は`k`を
+導入するresult blockであり、`->`によって構文を区別する。空の`[] -> expression`はresult blockとして認めない。
 
 decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
 `DEC_DIGITS EXPONENT FLOAT_SUFFIX?`、または`DEC_DIGITS FLOAT_SUFFIX`のいずれかである。

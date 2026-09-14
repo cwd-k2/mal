@@ -17,7 +17,7 @@ impl Parser<'_> {
             .parse_return_binders()?
             .expect("a result block starts with a binder group");
         debug_assert!(!return_binders.is_empty());
-        let body = self.parse_expression_block()?;
+        let body = self.parse_lambda_body()?;
         let span = self.span(start, body.span.end());
         Ok(Node::new(
             Expression::ResultBlock {
@@ -62,7 +62,7 @@ impl Parser<'_> {
             && self
                 .tokens
                 .get(index + 1)
-                .is_some_and(|token| matches!(token.kind, TokenKind::LeftBrace))
+                .is_some_and(|token| matches!(token.kind, TokenKind::Arrow))
     }
 
     pub(super) fn parse_if(&mut self) -> Result<Node<Expression>, Diagnostic> {
@@ -71,9 +71,9 @@ impl Parser<'_> {
         let condition = self.parse_expression()?;
         self.expect(&TokenKind::RightParen, "`)`")?;
         self.expect(&TokenKind::Then, "`then`")?;
-        let then_branch = self.parse_expression_block()?;
+        let then_branch = self.parse_expression_body()?;
         self.expect(&TokenKind::Else, "`else`")?;
-        let else_branch = self.parse_expression_block()?;
+        let else_branch = self.parse_expression_body()?;
         let span = self.span(start, else_branch.span.end());
         Ok(Node::new(
             Expression::If {
@@ -90,7 +90,7 @@ impl Parser<'_> {
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let condition = self.parse_expression()?;
         self.expect(&TokenKind::RightParen, "`)`")?;
-        let body = self.parse_expression_block()?;
+        let body = self.parse_expression_body()?;
         let span = self.span(start, body.span.end());
         Ok(Node::new(
             Expression::When {

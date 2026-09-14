@@ -10,14 +10,13 @@ file名はpublic contractではない。現在の責務は[compilerの責務境�
 non-tail recursionではcallee resultを使うまでcallerの`n`を保持する。
 
 ```mal
-sum :: UInt64 -> UInt64 := (n) {
-    if n == 0 {
-        0
-    } else {
+sum :: UInt64 -> UInt64 := (n) ->
+    if (n == 0)
+    then 0
+    else {
         rest := sum(n - 1);
         n + rest
-    }
-};
+    };
 ```
 
 backendは概ね次のartifactを構成する。

@@ -99,6 +99,27 @@ test('highlights unary and binary Symbol operators', async () => {
   assert.ok(hashes.every((token) => token.scopes.includes('keyword.operator.mal')));
 });
 
+test('highlights expression-body arrows and control keywords', async () => {
+  const grammar = await loadGrammar();
+  const line =
+    'choose := (condition)[left, right] -> if (condition) then left(1) else when (false) right(2);';
+  const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
+    text: line.slice(token.startIndex, token.endIndex),
+    scopes: token.scopes,
+  }));
+
+  const arrows = tokens.filter((token) => token.text === '->');
+  assert.equal(arrows.length, 1);
+  assert.ok(arrows[0].scopes.includes('keyword.operator.mal'));
+  for (const keyword of ['if', 'then', 'else', 'when']) {
+    assert.ok(
+      tokens
+        .find((token) => token.text === keyword)
+        .scopes.includes('keyword.control.mal'),
+    );
+  }
+});
+
 test('highlights requirements and private identifiers', async () => {
   const grammar = await loadGrammar();
   const line = 'require "./support.mal"; _value :: _Type := value;';

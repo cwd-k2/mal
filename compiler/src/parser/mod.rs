@@ -244,7 +244,21 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_lambda_body(&mut self) -> Result<LambdaBody, Diagnostic> {
-        self.parse_expression_block()
+        self.expect(&TokenKind::Arrow, "`->`")?;
+        self.parse_expression_body()
+    }
+
+    fn parse_expression_body(&mut self) -> Result<LambdaBody, Diagnostic> {
+        if self.at(&TokenKind::LeftBrace) {
+            return self.parse_expression_block();
+        }
+        let result = self.parse_expression()?;
+        let span = result.span;
+        Ok(LambdaBody {
+            items: Vec::new(),
+            result: Box::new(result),
+            span,
+        })
     }
 
     fn parse_name(&mut self, kind: &TokenKind, expected: &str) -> Result<Name, Diagnostic> {

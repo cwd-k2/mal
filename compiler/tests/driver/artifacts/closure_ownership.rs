@@ -6,9 +6,9 @@ fn owns_capturing_closure_environments_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := () {\n\
+        "main :: Unit -> Int32 := () -> {\n\
            base :: Int32 := 40;\n\
-           add :: Int32 -> Int32 := (value) { base + value; };\n\
+           add :: Int32 -> Int32 := (value) -> { base + value; };\n\
            add(2) - 42;\n\
          };",
     );
@@ -40,14 +40,14 @@ fn calls_escaping_closures_with_managed_captures_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "makePrefix :: Symbol -> (Symbol -> Symbol) := (prefix) {\n\
-           append :: Symbol -> Symbol := (suffix) { prefix + suffix; };\n\
+        "makePrefix :: Symbol -> (Symbol -> Symbol) := (prefix) -> {\n\
+           append :: Symbol -> Symbol := (suffix) -> { prefix + suffix; };\n\
            append;\n\
          };\n\
-         apply :: ((Symbol -> Symbol), Symbol) -> Symbol := (operation, value) {\n\
+         apply :: ((Symbol -> Symbol), Symbol) -> Symbol := (operation, value) -> {\n\
            operation(value);\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            append := makePrefix(\"a\" + \"b\");\n\
            result := apply(append, \"c\" + \"d\");\n\
            if (result == \"abcd\") then { 0 } else { 1 };\n\

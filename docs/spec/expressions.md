@@ -26,7 +26,7 @@ pattern は identifier、`_`、product pattern からなる。pattern 内で同�
 
 ```mal
 add :: (Int32, Int32) -> Int32 :=
-    (a, b) { a + b };
+    (a, b) -> a + b;
 ```
 
 lambdaは周辺から与えられる期待関数型に対して検査し、自身から関数型を推論しない。期待関数型がなければ
@@ -40,9 +40,8 @@ result expressionがlambdaなら、この規則を再帰的に適用する。par
 ラムダbodyから参照する外側のlocal bindingはby-valueでlexically captureされる。
 
 ```mal
-makeAdder :: Int32 -> (Int32 -> Int32) := (x) {
-    (y) { x + y };
-};
+makeAdder :: Int32 -> (Int32 -> Int32) :=
+    (x) -> (y) -> x + y;
 ```
 
 top-level binding、predefined binding、compiler primitiveはenvironmentへcaptureせず直接参照する。nested lambdaだけが
@@ -50,14 +49,15 @@ top-level binding、predefined binding、compiler primitiveはenvironmentへcapt
 
 captureの時点とlifetimeは[実行意味論のclosure規則](execution.md#scope-と-closure)に従う。
 
-lambdaと`if` branchのblockは、0個以上のbindingまたはexpression statementと、最後のresult expressionからなる。
-最後の`;`はoptionalであり、改行は構文に影響しない。result expressionのないblockとreturn statementはない。
+lambdaの`->`の右辺は一つのexpressionである。複数のbindingやexpression statementが必要ならblock expressionを置く。
+blockは0個以上のbody itemと最後のresult expressionからなり、最後の`;`はoptionalである。改行は構文に影響せず、
+result expressionのないblockとreturn statementはない。
 
 lambdaは通常のresult expressionに代えてreturn binder groupを宣言できる。この場合のscope、型、全pathのcompletion条件は
 [明示的returnとcompletion](control.md#return-binder)に定める。
 
 ```mal
-log :: Symbol -> Unit := (message) { print(message) };
+log :: Symbol -> Unit := (message) -> print(message);
 ```
 
 ## direct block
@@ -72,7 +72,7 @@ value :: Int32 := {
 };
 ```
 
-`{ body }`は`() { body }`の省略ではない。前者はその場で評価するblockであり、後者は`Unit` parameterを持つfunction
+`{ body }`は`() -> { body }`の省略ではない。前者はその場で評価するblockであり、後者は`Unit` parameterを持つfunction
 valueを作る。したがってbare blockは期待関数型から暗黙にlambdaへ変換されない。top-level initializerには置けない。
 
 result continuationを導入するblockは[direct result block](control.md#direct-result-block)に定める。
@@ -121,9 +121,7 @@ storage幅をbyte数で表す`UInt64`のtarget constantであり、通常のfunc
 canonical object representationではなくraw bytesをcopyするfirst-class functionである。
 
 ```mal
-descriptorSize :: Unit -> UInt64 := () {
-    Ptr.size + UInt64.size + UInt8.size;
-};
+descriptorSize :: Unit -> UInt64 := () -> Ptr.size + UInt64.size + UInt8.size;
 
 readUInt64 :: Ptr -> UInt64 := UInt64.load;
 ```
@@ -139,39 +137,37 @@ binary operationを追加しない。
 ## if
 
 `if`は`Bool`に対するcontinuation applicationのsurface syntaxであり、core termではない。conditionの括弧、
-`then`、`else`はすべて必須である。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
+`then`、`else`はすべて必須であり、各branchには一つのexpressionを置く。複数のbody itemやbranch-local bindingが
+必要ならblock expressionを使う。標準の表記ではconditionの後、`then`、`else`をそれぞれ別の行に置く。
 
 ```mal
-absolute :: Int32 -> Int32 := (x) {
+absolute :: Int32 -> Int32 := (x) ->
     if (x < 0)
-        then { -x }
-        else { x };
-};
+    then -x
+    else x;
 ```
 
-condition は `Bool`、すなわち構造的に `[Unit, Unit]` と等しい型でなければならない。両 branch の結果型は同一でなければならない。branch 内の binding はその branch にだけ scope を持ち、最後の式が branch の値になる。
+condition は `Bool`、すなわち構造的に `[Unit, Unit]` と等しい型でなければならない。両 branch の結果型は同一でなければならない。branchに置いたblock内のbindingはそのblockにだけscopeを持つ。
 
 上の形は次へdesugarする。conditionは一度だけ、選択したbranchより先に評価する。
 
 ```mal
 (x < 0)[
-    () { x },
-    () { -x }
+    () -> x,
+    () -> -x
 ]
 ```
 
-`then` は `Bool` の index 1、`else` は index 0 に対応する。`else if` 専用構文はなく、必要なら `else` block の結果に別の `if` を置く。
+`then` は `Bool` の index 1、`else` は index 0 に対応する。`else if` 専用構文はなく、必要なら `else` のexpressionに別の `if` を置く。
 
 ## 直和の除去
 
 ```mal
 getOrZero :: MaybeInt32 -> Int32 :=
-    (value) {
-        value[
-            () { 0 },
-            (x) { x }
-        ];
-    };
+    (value) -> value[
+        () -> 0,
+        (x) -> x
+    ];
 ```
 
 二つ以上のcontinuationを持つ`value[f, g, ...]`は直和を除去する。
@@ -277,8 +273,8 @@ a && b
 
 ```mal
 a[
-    () { false },
-    () { b }
+    () -> false,
+    () -> b
 ]
 ```
 
@@ -288,8 +284,8 @@ a || b
 
 ```mal
 a[
-    () { b },
-    () { true }
+    () -> b,
+    () -> true
 ]
 ```
 

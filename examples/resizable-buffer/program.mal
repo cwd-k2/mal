@@ -20,15 +20,11 @@ extern writeSlice :: Slice -> Unit;
 extern writeSliceDescriptor :: (Allocation, Ptr) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
-_bufferSuccess :: Buffer -> BufferResult := (buffer)[success, failure] {
-    success(buffer);
-};
+_bufferSuccess :: Buffer -> BufferResult := (buffer)[success, failure] -> success(buffer);
 
-_bufferFailure :: UInt32 -> BufferResult := (error)[success, failure] {
-    failure(error);
-};
+_bufferFailure :: UInt32 -> BufferResult := (error)[success, failure] -> failure(error);
 
-nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
+nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] -> {
     when (capacity >= required) {
         return(capacity);
     };
@@ -38,7 +34,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] {
     return((capacity * 2u64).nextCapacity(required));
 };
 
-appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
+appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] -> {
     (allocation, memory, capacity, length) := buffer;
     additional := #value;
     when (additional > 0xffff_ffff_ffff_ffffu64 - length) {
@@ -46,24 +42,24 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] {
     };
     required := length + additional;
     available := if (required <= capacity)
-        then { _bufferSuccess(buffer) }
+        then _bufferSuccess(buffer)
         else {
             target := capacity.nextCapacity(required);
             buffer.resizeBuffer(target);
         };
     result :: BufferResult := available[
-        (resized)[success, failure] {
+        (resized)[success, failure] -> {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
             Symbol.write(nextMemory + length, value);
             success((nextAllocation, nextMemory, nextCapacityValue, required));
         },
-        (error)[success, failure] { failure(error) }
+        (error)[success, failure] -> failure(error)
     ];
     return(result);
 };
 
 sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
-    (buffer, start, length)[slice, invalid] {
+    (buffer, start, length)[slice, invalid] -> {
         (allocation, memory, _, initialized) := buffer;
         when (start <= initialized && length <= initialized - start) {
             slice((allocation, memory + start, length));
@@ -71,18 +67,18 @@ sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
         invalid();
     };
 
-releaseBufferValue :: Buffer -> Unit := (buffer) {
+releaseBufferValue :: Buffer -> Unit := (buffer) -> {
     (allocation, _, _, _) := buffer;
     allocation.releaseBuffer();
 };
 
-writeThroughDescriptor :: Slice -> Bool := (slice) {
+writeThroughDescriptor :: Slice -> Bool := (slice) -> {
     (allocation, memory, length) := slice;
     // Shared descriptor bytes contain only Ptr memory followed by UInt64 length.
     descriptorSize := Ptr.size + UInt64.size;
     allocated := allocateBuffer(descriptorSize, descriptorSize);
     allocated[
-    (descriptor) {
+    (descriptor) -> {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
         Ptr.store(descriptorMemory, memory);
         UInt64.store(descriptorMemory + Ptr.size, length);
@@ -90,20 +86,20 @@ writeThroughDescriptor :: Slice -> Bool := (slice) {
         descriptorAllocation.releaseBuffer();
         true;
     },
-    (_) { false }
+    (_) -> false
     ];
 };
 
-finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) {
+finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) -> {
     rejected := buffer.appendSymbol(
         "this append is intentionally larger than the allocation limit for the pressure test"
     );
     rejected[
-    (unexpected) {
+    (unexpected) -> {
         unexpected.releaseBufferValue();
         5;
     },
-    (_) {
+    (_) -> {
         current := buffer.isCurrentBuffer();
         buffer.releaseBufferValue();
         if (aliasesInvalid && current)
@@ -111,20 +107,20 @@ finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) {
             writeSymbol("resize rejected\n");
             0;
         }
-        else { 6 };
+        else 6;
     }
     ];
 };
 
-afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) {
+afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) -> {
     grownResult := before.appendSymbol("-shared-buffer");
     grownResult[
-    (grown) {
+    (grown) -> {
         aliasesInvalid := !before.isCurrentBuffer() && !staleSlice.isCurrentSlice();
         (_, _, _, length) := grown;
         sliceResult := grown.sliceBuffer(0u64, length);
         sliceResult[
-        (currentSlice) {
+        (currentSlice) -> {
             if (currentSlice.writeThroughDescriptor())
             then {
                 writeSymbol("\n");
@@ -135,38 +131,38 @@ afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) {
                 4;
             };
         },
-        () {
+        () -> {
             grown.releaseBufferValue();
             4;
         }
         ];
     },
-    (_) {
+    (_) -> {
         before.releaseBufferValue();
         3;
     }
     ];
 };
 
-withInitialValue :: Buffer -> Int32 := (initial) {
+withInitialValue :: Buffer -> Int32 := (initial) -> {
     appended := initial.appendSymbol("mal");
     appended[
-    (buffer) {
+    (buffer) -> {
         invalidSlice := buffer.sliceBuffer(2u64, 2u64);
         invalidSlice[
-        (_) {
+        (_) -> {
             buffer.releaseBufferValue();
             8;
         },
-        () {
+        () -> {
             sliceResult := buffer.sliceBuffer(1u64, 2u64);
             sliceResult[
-            (slice) {
+            (slice) -> {
                 writeSlice(slice);
                 writeSymbol("\n");
                 buffer.afterGrowth(slice);
             },
-            () {
+            () -> {
                 buffer.releaseBufferValue();
                 2;
             }
@@ -174,17 +170,17 @@ withInitialValue :: Buffer -> Int32 := (initial) {
         }
         ];
     },
-    (_) {
+    (_) -> {
         initial.releaseBufferValue();
         1;
     }
     ];
 };
 
-main :: Unit -> Int32 := () {
+main :: Unit -> Int32 := () -> {
     allocated := allocateBuffer(4u64, 64u64);
     allocated[
-    (buffer) { buffer.withInitialValue() },
-    (_) { 7 }
+    (buffer) -> buffer.withInitialValue(),
+    (_) -> 7
     ];
 };

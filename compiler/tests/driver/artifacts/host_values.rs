@@ -9,7 +9,7 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
         "require \"./host.c\";\n\
          extern inspect :: Symbol -> UInt8;\n\
          extern fetch :: Unit -> Symbol;\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
            if (inspect(seed) == 1u8) then { Int32(fetch() # 1u64) - 107 }\n\
            else { 1 };\n\
@@ -61,7 +61,7 @@ fn marshals_managed_products_through_the_public_c_abi() {
         "require \"./host.c\";\n\
          Packet :: (UInt64, Symbol);\n\
          extern exchange :: Packet -> Packet;\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            (number, text) := exchange(41u64, \"a\" + \"b\");\n\
            if (number == 42u64) then {\n\
              if (text == \"ab\") then { 0 } else { 1 };\n\
@@ -114,12 +114,12 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
          Choice :: [Unit, (UInt64, Symbol)];\n\
          Envelope :: (UInt8, Choice);\n\
          extern exchange :: Envelope -> Envelope;\n\
-         makeChoice :: (UInt64, Symbol) -> Choice := (value)[none, some] { some(value) };\n\
-         main :: Unit -> Int32 := () {\n\
+         makeChoice :: (UInt64, Symbol) -> Choice := (value)[none, some] -> { some(value) };\n\
+         main :: Unit -> Int32 := () -> {\n\
            (number, choice) := exchange(41u8, makeChoice(7u64, \"a\" + \"b\"));\n\
            choice[\n\
-             () { 1 },\n\
-             (packet) {\n\
+             () -> { 1 },\n\
+             (packet) -> {\n\
                (bias, text) := packet;\n\
                if (number == 42u8) then {\n\
                  if (bias == 7u64) then {\n\
@@ -183,12 +183,12 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
          extern create :: UInt64 -> Handle;\n\
          extern exchange :: Choice -> Choice;\n\
          extern inspect :: Handle -> UInt64;\n\
-         makeChoice :: Packet -> Choice := (value)[none, some] { some(value) };\n\
-         main :: Unit -> Int32 := () {\n\
+         makeChoice :: Packet -> Choice := (value)[none, some] -> { some(value) };\n\
+         main :: Unit -> Int32 := () -> {\n\
            choice := exchange(makeChoice(1u8, create(40u64)));\n\
            choice[\n\
-             () { 1 },\n\
-             (packet) {\n\
+             () -> { 1 },\n\
+             (packet) -> {\n\
                (bias, handle) := packet;\n\
                Int32(inspect(handle) + UInt64(bias) - 42u64);\n\
              }];\n\
@@ -246,11 +246,11 @@ fn owns_symbols_nested_in_products_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := (input) {\n\
+        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := (input) -> {\n\
            (value, index) := input;\n\
            (value, value # index);\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            joined := \"ab\" + \"cd\";\n\
            (copy, byte) := inspect(joined, 2u64);\n\
            if (copy == \"abcd\") then { Int32(byte) - 99 } else { 1 };\n\
@@ -285,19 +285,19 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
     directory.write(
         "program.mal",
         "Choice :: [Symbol, (UInt64, Symbol)];\n\
-         choose :: Bool -> Choice := (second)[firstReturn, secondReturn] {\n\
+         choose :: Bool -> Choice := (second)[firstReturn, secondReturn] -> {\n\
            when (second) { secondReturn(2u64, \"b\" + \"c\") };\n\
            firstReturn(\"a\" + \"b\")\n\
          };\n\
-         score :: Choice -> Int32 := (choice) {\n\
+         score :: Choice -> Int32 := (choice) -> {\n\
            choice[\n\
-             (value) { Int32(value # 0u64) },\n\
-             (pair) {\n\
+             (value) -> { Int32(value # 0u64) },\n\
+             (pair) -> {\n\
                (bias, value) := pair;\n\
                Int32(bias) + Int32(value # 1u64);\n\
              }];\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            score(choose(false)) + score(choose(true)) - 198;\n\
          };",
     );

@@ -7,8 +7,8 @@ fn runs_receiver_first_calls_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "add :: (Int32, Int32) -> Int32 := (left, right) { left + right; };\n\
-         main :: Unit -> Int32 := () { 40i32.add(1i32).add(1i32) - 42i32; };",
+        "add :: (Int32, Int32) -> Int32 := (left, right) -> { left + right; };\n\
+         main :: Unit -> Int32 := () -> { 40i32.add(1i32).add(1i32) - 42i32; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -38,11 +38,11 @@ fn builds_scalar_control_and_tail_calls_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "increment :: Int32 -> Int32 := (value) { value + 1; };\n\
-         countdown :: Int32 -> Int32 := (value) {\n\
+        "increment :: Int32 -> Int32 := (value) -> { value + 1; };\n\
+         countdown :: Int32 -> Int32 := (value) -> {\n\
            if (value == 0) then { increment(value) } else { countdown(value - 1) };\n\
          };\n\
-         main :: Unit -> Int32 := () { countdown(100000); };",
+         main :: Unit -> Int32 := () -> { countdown(100000); };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -72,11 +72,11 @@ fn calls_capture_free_first_class_functions_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> {\n\
            operation(value);\n\
          };\n\
-         increment :: Int32 -> Int32 := (value) { value + 1i32; };\n\
-         main :: Unit -> Int32 := () { apply(increment, 41i32) - 42i32; };",
+         increment :: Int32 -> Int32 := (value) -> { value + 1i32; };\n\
+         main :: Unit -> Int32 := () -> { apply(increment, 41i32) - 42i32; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -110,9 +110,9 @@ fn calls_first_class_memory_functions_through_llvm() {
          Reader :: Ptr -> Int64;\n\
          Writer :: (Ptr, Int64) -> Unit;\n\
          extern memory :: Unit -> Ptr;\n\
-         readWith :: (Reader, Ptr) -> Int64 := (reader, pointer) { reader(pointer); };\n\
-         writeWith :: (Writer, Ptr, Int64) -> Unit := (writer, pointer, value) { writer(pointer, value); };\n\
-         main :: Unit -> Int32 := () {\n\
+         readWith :: (Reader, Ptr) -> Int64 := (reader, pointer) -> { reader(pointer); };\n\
+         writeWith :: (Writer, Ptr, Int64) -> Unit := (writer, pointer, value) -> { writer(pointer, value); };\n\
+         main :: Unit -> Int32 := () -> {\n\
            pointer := memory();\n\
            writeWith(Int64.store, pointer, 42i64);\n\
            Int32(readWith(Int64.load, pointer) - 42i64);\n\
@@ -155,9 +155,9 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
         "require \"./host.c\";\n\
          Reader :: Ptr -> Int64;\n\
          extern memory :: Unit -> Ptr;\n\
-         apply :: (Reader, Ptr) -> Int64 := (reader, pointer) { reader(pointer); };\n\
-         recurse :: Ptr -> Int64 := (pointer) { apply(recurse, pointer); };\n\
-         main :: Unit -> Int32 := () {\n\
+         apply :: (Reader, Ptr) -> Int64 := (reader, pointer) -> { reader(pointer); };\n\
+         recurse :: Ptr -> Int64 := (pointer) -> { apply(recurse, pointer); };\n\
+         main :: Unit -> Int32 := () -> {\n\
            pointer := memory();\n\
            Int64.store(pointer, 42i64);\n\
            Int32(apply(Int64.load, pointer) - 42i64);\n\
@@ -199,14 +199,14 @@ fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
         "program.mal",
         "require \"./host.c\";\n\
          extern touch :: Unit -> Unit;\n\
-         apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) {\n\
+         apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) -> {\n\
            touch();\n\
            operation(value);\n\
          };\n\
-         recurse :: Int32 -> Symbol := (value) { apply(recurse, value); };\n\
-         main :: Unit -> Int32 := () {\n\
+         recurse :: Int32 -> Symbol := (value) -> { apply(recurse, value); };\n\
+         main :: Unit -> Int32 := () -> {\n\
            prefix := \"x\" + \"y\";\n\
-           identity :: Int32 -> Symbol := (value) { prefix; };\n\
+           identity :: Int32 -> Symbol := (value) -> { prefix; };\n\
            result := apply(identity, 0i32);\n\
            Int32(result # 1u64) - 121i32;\n\
          };",
@@ -249,9 +249,9 @@ fn runs_deep_first_class_call_cycles_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := () {\n\
-           recurse :: Int32 -> Int32 := (value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> { operation(value); };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           recurse :: Int32 -> Int32 := (value) -> {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else {\n\
@@ -290,10 +290,10 @@ fn preserves_managed_environments_through_llvm_first_class_cycles() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := () {\n\
+        "apply :: ((Int32 -> Symbol), Int32) -> Symbol := (operation, value) -> { operation(value); };\n\
+         main :: Unit -> Int32 := () -> {\n\
            prefix := \"x\" + \"y\";\n\
-           recurse :: Int32 -> Symbol := (value) {\n\
+           recurse :: Int32 -> Symbol := (value) -> {\n\
              if (value == 0i32)\n\
              then { prefix }\n\
              else {\n\
@@ -335,14 +335,14 @@ fn dispatches_all_recursive_closure_targets_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) { operation(value); };\n\
-         main :: Unit -> Int32 := () {\n\
-           left :: Int32 -> Int32 := (value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> { operation(value); };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           left :: Int32 -> Int32 := (value) -> {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else { child := apply(left, value - 1i32); child + 1i32; };\n\
            };\n\
-           right :: Int32 -> Int32 := (value) {\n\
+           right :: Int32 -> Int32 := (value) -> {\n\
              if (value == 0i32)\n\
              then { 0i32 }\n\
              else { child := apply(right, value - 1i32); child + 1i32; };\n\
@@ -383,22 +383,22 @@ fn runs_continuations_when_value_and_answer_function_types_overlap() {
          Computation :: Continuation -> Answer;\n\
          Next :: Int32 -> Computation;\n\
          Mapper :: Int32 -> Int32;\n\
-         pure :: Int32 -> Computation := (value) {\n\
-           (continuation) { value[continuation] };\n\
+         pure :: Int32 -> Computation := (value) -> {\n\
+           (continuation) -> { value[continuation] };\n\
          };\n\
-         bind :: (Computation, Next) -> Computation := (computation, next) {\n\
-           (continuation) {\n\
-             resume :: Continuation := (value) { continuation[value[next]]; };\n\
+         bind :: (Computation, Next) -> Computation := (computation, next) -> {\n\
+           (continuation) -> {\n\
+             resume :: Continuation := (value) -> { continuation[value[next]]; };\n\
              resume[computation];\n\
            };\n\
          };\n\
-         map :: (Computation, Mapper) -> Computation := (computation, mapper) {\n\
-           next :: Next := (value) { value[mapper][pure]; };\n\
+         map :: (Computation, Mapper) -> Computation := (computation, mapper) -> {\n\
+           next :: Next := (value) -> { value[mapper][pure]; };\n\
            (computation, next)[bind];\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
-           mapped := (10[pure], (value) { value * 2 })[map];\n\
-           (value) { value - 20 }[mapped];\n\
+         main :: Unit -> Int32 := () -> {\n\
+           mapped := (10[pure], (value) -> { value * 2 })[map];\n\
+           (value) -> { value - 20 }[mapped];\n\
          };",
     );
 
@@ -430,18 +430,18 @@ fn runs_call_cc_encoded_with_capturing_closures() {
          Computation :: Continuation -> Answer;\n\
          Escape :: Int32 -> Computation;\n\
          CallCcBody :: Escape -> Computation;\n\
-         callCc :: CallCcBody -> Computation := (body) {\n\
-           (continuation) {\n\
-             escape :: Escape := (value) { (_) { value[continuation] }; };\n\
+         callCc :: CallCcBody -> Computation := (body) -> {\n\
+           (continuation) -> {\n\
+             escape :: Escape := (value) -> { (_) -> { value[continuation] }; };\n\
              continuation[escape[body]];\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
-           body :: CallCcBody := (escape) {\n\
-             (_) { (value) { Int64(value) }[42[escape]] };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           body :: CallCcBody := (escape) -> {\n\
+             (_) -> { (value) -> { Int64(value) }[42[escape]] };\n\
            };\n\
            computation := body[callCc];\n\
-           Int32((value) { Int64(value) }[computation] - 42i64);\n\
+           Int32((value) -> { Int64(value) }[computation] - 42i64);\n\
          };",
     );
     directory.write(

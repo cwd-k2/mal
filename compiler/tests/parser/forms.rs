@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn parses_parameters_and_lambda_body_items() {
     let expression = binding_value(
-        "make := (x, y) {\n\
+        "make := (x, y) -> {\n\
            sum :: Int32 := x + y;\n\
            observe(sum);\n\
            outer(sum);\n\
@@ -25,9 +25,42 @@ fn parses_parameters_and_lambda_body_items() {
 }
 
 #[test]
+fn parses_expression_bodies_for_binder_and_control_forms() {
+    let Expression::Lambda(lambda) = binding_value("identity := (value) -> value;") else {
+        panic!("expected lambda");
+    };
+    assert!(lambda.body.items.is_empty());
+    assert!(matches!(lambda.body.result.kind, Expression::Name(_)));
+
+    let Expression::ResultBlock { body, .. } = binding_value("value := [left, right] -> right(1);")
+    else {
+        panic!("expected result block");
+    };
+    assert!(body.items.is_empty());
+    assert!(matches!(body.result.kind, Expression::Call { .. }));
+
+    let Expression::If {
+        then_branch,
+        else_branch,
+        ..
+    } = binding_value("value := if (condition) then left else right;")
+    else {
+        panic!("expected if expression");
+    };
+    assert!(then_branch.items.is_empty());
+    assert!(else_branch.items.is_empty());
+
+    let Expression::When { body, .. } = binding_value("value := when (condition) finish();") else {
+        panic!("expected when expression");
+    };
+    assert!(body.items.is_empty());
+    assert!(matches!(body.result.kind, Expression::Call { .. }));
+}
+
+#[test]
 fn parses_return_binders_when_and_empty_forms() {
     let expression = binding_value(
-        "choose :: Bool -> [] := (condition)[done, failed] { when (condition) { done() }; failed() };",
+        "choose :: Bool -> [] := (condition)[done, failed] -> { when (condition) { done() }; failed() };",
     );
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
@@ -48,7 +81,7 @@ fn parses_return_binders_when_and_empty_forms() {
         })
     ));
 
-    let program = parse_ok("Empty :: []; never :: Unit -> Empty := ()[] { never()[] }; ");
+    let program = parse_ok("Empty :: []; never :: Unit -> Empty := ()[] -> never()[]; ");
     let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
         panic!("expected type alias");
     };
@@ -73,7 +106,7 @@ fn parses_direct_blocks_and_result_blocks_as_distinct_expressions() {
     };
     assert_eq!(block.items.len(), 1);
 
-    let expression = binding_value("value := [left, right] { right(1) };");
+    let expression = binding_value("value := [left, right] -> { right(1) };");
     let Expression::ResultBlock {
         return_binders,
         body,
@@ -86,13 +119,15 @@ fn parses_direct_blocks_and_result_blocks_as_distinct_expressions() {
 }
 
 #[test]
-fn does_not_parse_an_empty_result_binder_group_as_a_result_block() {
+fn rejects_legacy_binder_bodies_and_an_empty_result_binder_group() {
+    assert!(parse(&source("value := (x) { x }; ")).is_err());
+    assert!(parse(&source("value := [done] { done(0) }; ")).is_err());
     assert!(parse(&source("value := [] { 0 };")).is_err());
 }
 
 #[test]
 fn parses_lambda_patterns_from_parameter_lists() {
-    let expression = binding_value("make := ((x, _), y) { x + y };");
+    let expression = binding_value("make := ((x, _), y) -> { x + y };");
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
     };
@@ -182,8 +217,8 @@ fn parses_if_blocks_with_local_bindings() {
 fn parses_sum_elimination_continuations() {
     let expression = binding_value(
         "value := choice[\n\
-           () { 0 },\n\
-           (x) {\n\
+           () -> { 0 },\n\
+           (x) -> {\n\
              y := x;\n\
              y\n\
            }];",
@@ -219,10 +254,10 @@ fn rejects_single_member_sums_and_trailing_commas() {
 #[test]
 fn accepts_block_results_with_or_without_a_terminal_semicolon() {
     for text in [
-        "value := () { 0 };",
-        "value := () { 0; };",
-        "value := () { if (true) then { 0; } else { 1 }; };",
-        "value := () { false[() { 0 }, () { 1; }]; };",
+        "value := () -> { 0 };",
+        "value := () -> { 0; };",
+        "value := () -> { if (true) then { 0; } else { 1 }; };",
+        "value := () -> { false[() -> { 0 }, () -> { 1; }]; };",
     ] {
         assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
     }
@@ -230,7 +265,7 @@ fn accepts_block_results_with_or_without_a_terminal_semicolon() {
 
 #[test]
 fn rejects_a_lambda_without_a_result_expression() {
-    for text in ["value := () {};", "value := () { item := 0; };"] {
+    for text in ["value := () -> {};", "value := () -> { item := 0; };"] {
         let source = source(text);
         let error = parse(&source).expect_err("a result expression is required");
         assert_eq!(error.message, "expected a block result expression");
@@ -239,6 +274,6 @@ fn rejects_a_lambda_without_a_result_expression() {
 
 #[test]
 fn treats_return_as_an_ordinary_identifier() {
-    assert!(parse(&source("value := () { return := 1; return; };")).is_ok());
-    assert!(parse(&source("value := () { return 1; };")).is_err());
+    assert!(parse(&source("value := () -> { return := 1; return; };")).is_ok());
+    assert!(parse(&source("value := () -> { return 1; };")).is_err());
 }

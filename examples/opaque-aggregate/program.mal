@@ -7,18 +7,18 @@ extern allocate :: UInt64 -> Mem;
 extern resize :: (Mem, UInt64) -> Response;
 extern handleBits :: Mem -> UInt64;
 
-validate :: (Mem, UInt64) -> Int32 := (sized) {
+validate :: (Mem, UInt64) -> Int32 := (sized) -> {
     (mem, length) := sized;
     if (mem.handleBits() == 42u64 && length == 2u64)
-    then { 0 }
-    else { 1 };
+    then 0
+    else 1;
 };
 
-main :: Unit -> Int32 := () {
+main :: Unit -> Int32 := () -> {
     mem := allocate(40u64);
     response := mem.resize(2u64);
     response[
-    () { 1 },
-    (result) { result.validate() }
+    () -> 1,
+    (result) -> result.validate()
     ];
 };

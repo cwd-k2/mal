@@ -112,7 +112,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(0),
             "syntax.mal",
-            "require \"./dependency.mal\";\nextern send :: Int32 -> Unit;\nhelper := (value) { value };\nmain :: Unit -> Int32 := () { helper(1). };\n".into(),
+            "require \"./dependency.mal\";\nextern send :: Int32 -> Unit;\nhelper := (value)[done] -> done(value);\nmain :: Unit -> Int32 := () -> helper(1).;\n".into(),
         );
         let document = analyze(&source).expect("lexical syntax document");
 
@@ -136,7 +136,7 @@ mod tests {
             "syntax.mal",
             "pair :: (Int32 -> Int32, Int32) := missing;\n\
              callback :: (Int32 -> Int32) := missing;\n\
-             main :: Unit -> Int32 := () { callback(1). };\n"
+             main :: Unit -> Int32 := () -> { callback(1). };\n"
                 .into(),
         );
         let document = analyze(&source).expect("lexical syntax document");

@@ -115,7 +115,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(84),
             "tail-plan.mal",
-            "walk :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { walk(value - 1i32) }; }; main :: Unit -> Int32 := () { walk(1i32); };"
+            "walk :: Int32 -> Int32 := (value) -> { if (value == 0i32) then { 0i32 } else { walk(value - 1i32) }; }; main :: Unit -> Int32 := () -> { walk(1i32); };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse tail plan fixture");
@@ -141,7 +141,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(85),
             "baseline-plan.mal",
-            "walk :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { walk(value - 1i32) }; }; main :: Unit -> Int32 := () { walk(1i32); };"
+            "walk :: Int32 -> Int32 := (value) -> { if (value == 0i32) then { 0i32 } else { walk(value - 1i32) }; }; main :: Unit -> Int32 := () -> { walk(1i32); };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse baseline fixture");
@@ -167,10 +167,10 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(89),
             "independent-execution-techniques.mal",
-            "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) { function(value); };\n\
-             direct :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { direct(value - 1i32) }; };\n\
-             forwarded :: Int32 -> Int32 := (value) { if (value == 0i32) then { 0i32 } else { apply(forwarded, value - 1i32) }; };\n\
-             main :: Unit -> Int32 := () { direct(1i32) + forwarded(1i32); };"
+            "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> { function(value); };\n\
+             direct :: Int32 -> Int32 := (value) -> { if (value == 0i32) then { 0i32 } else { direct(value - 1i32) }; };\n\
+             forwarded :: Int32 -> Int32 := (value) -> { if (value == 0i32) then { 0i32 } else { apply(forwarded, value - 1i32) }; };\n\
+             main :: Unit -> Int32 := () -> { direct(1i32) + forwarded(1i32); };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse independent technique fixture");

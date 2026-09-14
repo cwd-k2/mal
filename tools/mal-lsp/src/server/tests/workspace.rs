@@ -3,7 +3,8 @@ use super::*;
 #[test]
 fn hover_includes_dependency_documentation_and_relative_definition_location() {
     let files = TestFiles::new();
-    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () { publicValue; };\n";
+    let root_text =
+        "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> { publicValue; };\n";
     let library_text = "// Public answer.\n// Safe to reuse.\npublicValue :: Int32 := 42;\n";
     let root_path = files.write("program.mal", root_text);
     files.write("library.mal", library_text);
@@ -33,7 +34,8 @@ fn serves_cross_file_semantics_from_open_dependency_buffers() {
     let library_path = files.write("library.mal", "diskValue :: Int32 := 0;");
     let root_uri = path_to_uri(&root_path);
     let library_uri = path_to_uri(&library_path);
-    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () { publicValue; };\n";
+    let root_text =
+        "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> { publicValue; };\n";
     let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
     let mut server = Server::new();
     let root_opened = server.handle(did_open(&root_uri, root_text));

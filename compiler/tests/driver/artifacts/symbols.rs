@@ -6,7 +6,7 @@ fn owns_symbols_across_direct_llvm_calls() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "check :: Symbol -> Int32 := (value) {\n\
+        "check :: Symbol -> Int32 := (value) -> {\n\
            if (#value == 2u64)\n\
            then {\n\
              if (value == \"ab\")\n\
@@ -19,7 +19,7 @@ fn owns_symbols_across_direct_llvm_calls() {
            }\n\
            else { 3 };\n\
          };\n\
-         main :: Unit -> Int32 := () {
+         main :: Unit -> Int32 := () -> {
            joined := \"a\" + \"b\";
            extended := joined + \"c\";
            if (check(joined) == 0i32)
@@ -63,17 +63,17 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
         "require \"./host.c\";\n\
          extern inspect :: Symbol -> UInt64;\n\
          extern allocationCount :: Unit -> UInt64;\n\
-         append :: (Int32, Symbol) -> Symbol := (remaining, value) {\n\
+         append :: (Int32, Symbol) -> Symbol := (remaining, value) -> {\n\
            if (remaining == 0i32)\n\
            then { value }\n\
            else { append(remaining - 1i32, value + \"x\") };\n\
          };\n\
-         prepend :: (Int32, Symbol) -> Symbol := (remaining, value) {\n\
+         prepend :: (Int32, Symbol) -> Symbol := (remaining, value) -> {\n\
            if (remaining == 0i32)\n\
            then { value }\n\
            else { prepend(remaining - 1i32, \"x\" + value) };\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            left := append(10000i32, \"\");\n\
            right := prepend(10000i32, \"\");\n\
            middle := \"a\" + \"b\";\n\
@@ -185,10 +185,10 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     let closure_directory = NativeFixture::new("driver-llvm-closure-runtime-dependencies");
     let closure_source = closure_directory.write(
         "program.mal",
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) {\n\
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> {\n\
            operation(value);\n\
          };\n\
-         main :: Unit -> Int32 := () { apply((value) { value; }, 0i32); };",
+         main :: Unit -> Int32 := () -> { apply((value) -> { value; }, 0i32); };",
     );
     let closure_executable = closure_directory.join("program");
     let closure_artifacts = closure_directory.join("artifacts");
@@ -211,7 +211,7 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     let symbol_directory = NativeFixture::new("driver-llvm-discarded-symbol-operation");
     let symbol_source = symbol_directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := () { discarded := \"a\" + \"b\"; 0i32; };",
+        "main :: Unit -> Int32 := () -> { discarded := \"a\" + \"b\"; 0i32; };",
     );
     let symbol_executable = symbol_directory.join("program");
     let symbol_artifacts = symbol_directory.join("artifacts");
@@ -239,7 +239,7 @@ fn reuses_owned_symbols_across_empty_concatenation() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := () {\n\
+        "main :: Unit -> Int32 := () -> {\n\
            value := \"a\" + \"b\";\n\
            left := \"\" + value;\n\
            right := value + \"\";\n\

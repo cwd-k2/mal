@@ -4,31 +4,29 @@ require "./input.mal";
 require "./database.mal";
 
 // Response helpers are the only query-layer operations that write user-visible protocol text.
-_writeResponse :: Symbol -> Unit := (response) {
-    writeSymbol(response);
-};
+_writeResponse :: Symbol -> Unit := (response) -> writeSymbol(response);
 
 _put :: (Buffer, File, Bytes, UInt64, UInt64, UInt64, UInt64) -> Unit :=
-    (database, file, line, keyStart, keyLength, valueStart, valueLength) {
+    (database, file, line, keyStart, keyLength, valueStart, valueLength) -> {
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
 
         result[
-        () {
+        () -> {
             file.saveDatabase(database);
             _writeResponse("OK\n");
         },
-        () { _writeResponse("ERROR key<=16 value<=40\n") },
-        () { _writeResponse("ERROR database full\n") }
+        () -> _writeResponse("ERROR key<=16 value<=40\n"),
+        () -> _writeResponse("ERROR database full\n")
         ];
     };
 
 _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
-    (database, line, keyStart, keyLength) {
+    (database, line, keyStart, keyLength) -> {
         result := database.lookupRecord(line, keyStart, keyLength);
 
         result[
-        () { _writeResponse("NOT FOUND\n") },
-        (value) {
+        () -> _writeResponse("NOT FOUND\n"),
+        (value) -> {
             writeSymbol("VALUE ");
             writeBytes(value);
             writeSymbol("\n");
@@ -38,17 +36,17 @@ _get :: (Buffer, Bytes, UInt64, UInt64) -> Unit :=
     };
 
 _delete :: (Buffer, File, Bytes, UInt64, UInt64) -> Unit :=
-    (database, file, line, keyStart, keyLength) {
+    (database, file, line, keyStart, keyLength) -> {
         if (database.deleteRecord(line, keyStart, keyLength))
         then {
             file.saveDatabase(database);
             _writeResponse("OK\n");
         }
-        else { _writeResponse("NOT FOUND\n") };
+        else _writeResponse("NOT FOUND\n");
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
-_handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes)[return] {
+_handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes)[return] -> {
     (line, length) := lineBytes;
 
     when (length >= 4u64 && line.rangeEquals(length, 0u64, 4u64, "get ")) {
@@ -88,11 +86,11 @@ _handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes)[ret
 };
 
 runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
-    (reader, file, database, query) {
+    (reader, file, database, query) -> {
         result := reader.readLine(query);
         result[
-        (_) { () },
-        (state)[return] {
+        (_) -> (),
+        (state)[return] -> {
             (next, lineBuffer) := state;
             lineBytes := lineBuffer.initializedBytes();
             (line, length) := lineBytes;

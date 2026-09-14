@@ -4,7 +4,7 @@ use super::*;
 fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
     let program = check_ok(
         "extern printInt32 :: Int32 -> Unit;\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            printInt32(42);\n\
            0;\n\
          };",
@@ -30,8 +30,8 @@ fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
 fn gives_external_operations_first_class_function_types() {
     let program = check_ok(
         "extern inspect :: Int32 -> Int32;\n\
-         apply :: (Int32 -> Int32, Int32) -> Int32 := (operation, value) { operation(value) };\n\
-         main :: Unit -> Int32 := () { apply(inspect, 42) };",
+         apply :: (Int32 -> Int32, Int32) -> Int32 := (operation, value) -> { operation(value) };\n\
+         main :: Unit -> Int32 := () -> { apply(inspect, 42) };",
     );
     let ExpressionKind::Lambda(main) = &top_binding(&program, 2).value.kind else {
         panic!("expected main lambda");
@@ -71,7 +71,7 @@ fn admits_external_functions_as_closed_top_level_values() {
 fn expands_aliases_and_compares_types_structurally() {
     let program = check_ok(
         "Flag :: [Unit, Unit];\n\
-         choose :: Flag -> Int32 := (flag) {\n\
+         choose :: Flag -> Int32 := (flag) -> {\n\
            if (flag) then { 1 } else { 0 };\n\
          };",
     );
@@ -94,7 +94,7 @@ fn shares_repeated_alias_structure_without_exponential_expansion() {
         ));
     }
     source.push_str(
-        "extern inspect :: Left64 -> Unit;\nidentity :: Left64 -> Right64 := (value) { value; };",
+        "extern inspect :: Left64 -> Unit;\nidentity :: Left64 -> Right64 := (value) -> { value; };",
     );
 
     check_ok(&source);
@@ -184,7 +184,7 @@ fn checks_nominal_external_opaque_types() {
          extern File;\n\
          extern allocate :: UInt64 -> Mem;\n\
          extern length :: Mem -> UInt64;\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            mem := allocate(4u64);\n\
            Int32(length(mem));\n\
          };",
@@ -208,7 +208,7 @@ fn checks_nominal_external_opaque_types() {
              extern File;\n\
              extern getFile :: Unit -> File;\n\
              extern useMem :: Mem -> Unit;\n\
-             main :: Unit -> Int32 := () {\n\
+             main :: Unit -> Int32 := () -> {\n\
                useMem(getFile());\n\
                0;\n\
              };"

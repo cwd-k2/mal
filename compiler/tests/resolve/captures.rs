@@ -13,8 +13,8 @@ fn parameter_binding(lambda: &resolved::Lambda) -> &resolved::ValueBinding {
 #[test]
 fn capture_sources_and_environment_bindings_have_distinct_identities() {
     let program = resolve_ok(
-        "make := (x) {\n\
-           (y) { x + y; };\n\
+        "make := (x) -> {\n\
+           (y) -> { x + y; };\n\
          };",
     );
     let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
@@ -43,9 +43,9 @@ fn capture_sources_and_environment_bindings_have_distinct_identities() {
 #[test]
 fn nested_capture_is_inferred_and_forwarded_at_every_lambda_boundary() {
     let program = resolve_ok(
-        "outer := (x) {\n\
-           () {\n\
-             () { x; };\n\
+        "outer := (x) -> {\n\
+           () -> {\n\
+             () -> { x; };\n\
            };\n\
          };",
     );
@@ -65,9 +65,9 @@ fn nested_capture_is_inferred_and_forwarded_at_every_lambda_boundary() {
 #[test]
 fn resolves_annotated_direct_lambda_self_references() {
     let program = resolve_ok(
-        "top :: Int64 -> Int64 := (n) { top(n); };\n\
-         main := () {\n\
-           local :: Int64 -> Int64 := (n) { local(n); };\n\
+        "top :: Int64 -> Int64 := (n) -> { top(n); };\n\
+         main := () -> {\n\
+           local :: Int64 -> Int64 := (n) -> { local(n); };\n\
            0i32;\n\
          };",
     );
@@ -100,14 +100,17 @@ fn resolves_annotated_direct_lambda_self_references() {
 #[test]
 fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
     let cases = [
-        ("value := () { value(); };", "value"),
-        ("value :: Unit -> Unit := (() { value(); });", "value"),
+        ("value := () -> { value(); };", "value"),
+        ("value :: Unit -> Unit := (() -> { value(); });", "value"),
         ("value :: Unit := value;", "value"),
         (
-            "(first, second) :: (Unit -> Unit, Unit) := (() { first(); }, ());",
+            "(first, second) :: (Unit -> Unit, Unit) := (() -> { first(); }, ());",
             "first",
         ),
-        ("main := () { local := () { local(); }; 0i32; };", "local"),
+        (
+            "main := () -> { local := () -> { local(); }; 0i32; };",
+            "local",
+        ),
     ];
     for (text, name) in cases {
         assert_eq!(
@@ -121,8 +124,8 @@ fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
 #[test]
 fn infers_an_outer_local_reference() {
     let program = resolve_ok(
-        "outer := (x) {\n\
-           () { x; };\n\
+        "outer := (x) -> {\n\
+           () -> { x; };\n\
          };",
     );
     let resolved::Expression::Lambda(outer) = &top_binding(&program.items[0]).value.kind else {
@@ -138,9 +141,9 @@ fn infers_an_outer_local_reference() {
 #[test]
 fn infers_each_capture_once_and_respects_shadowing() {
     let program = resolve_ok(
-        "outer := (x) {\n\
-           captured := () { if (true) then { x } else { x }; };\n\
-           shadowed := (x) { x; };\n\
+        "outer := (x) -> {\n\
+           captured := () -> { if (true) then { x } else { x }; };\n\
+           shadowed := (x) -> { x; };\n\
            (captured, shadowed);\n\
          };",
     );
@@ -167,11 +170,11 @@ fn infers_each_capture_once_and_respects_shadowing() {
 #[test]
 fn inferred_capture_does_not_block_later_local_shadowing() {
     let program = resolve_ok(
-        "outer := (x) {\n\
-           middle := () {\n\
-             before := () { x; };\n\
+        "outer := (x) -> {\n\
+           middle := () -> {\n\
+             before := () -> { x; };\n\
              x := 2;\n\
-             after := () { x; };\n\
+             after := () -> { x; };\n\
              (before, after);\n\
            };\n\
            middle;\n\
@@ -207,9 +210,9 @@ fn inferred_capture_does_not_block_later_local_shadowing() {
 #[test]
 fn rejects_parameter_and_same_scope_binding_collisions() {
     let cases = [
-        "main := (x, x) { x; };",
-        "main := () { x := 1; x := 2; x; };",
-        "main := () { (x, x) := (1, 2); x; };",
+        "main := (x, x) -> { x; };",
+        "main := () -> { x := 1; x := 2; x; };",
+        "main := () -> { (x, x) := (1, 2); x; };",
     ];
     for text in cases {
         assert!(
@@ -223,14 +226,14 @@ fn rejects_parameter_and_same_scope_binding_collisions() {
 fn keeps_return_binders_local_to_their_invocation() {
     assert_eq!(
         resolve_error(
-            "outer :: Unit -> (Unit -> Int32) := ()[return] { return(() { return(1) }) };"
+            "outer :: Unit -> (Unit -> Int32) := ()[return] -> { return(() -> { return(1) }) };"
         )
         .message,
         "return binder cannot be captured"
     );
     for text in [
-        "bad :: Int32 -> Int32 := (value)[value] { value(1) };",
-        "bad :: Unit -> Int32 := ()[return, return] { return(1) };",
+        "bad :: Int32 -> Int32 := (value)[value] -> { value(1) };",
+        "bad :: Unit -> Int32 := ()[return, return] -> { return(1) };",
     ] {
         assert!(
             resolve_error(text).message.starts_with("duplicate value"),
@@ -242,12 +245,14 @@ fn keeps_return_binders_local_to_their_invocation() {
 #[test]
 fn keeps_result_block_binders_local_to_their_block() {
     assert_eq!(
-        resolve_error("bad :: Unit -> (Unit -> Int32) := () { [done] { done(() { done(1) }) } };")
-            .message,
+        resolve_error(
+            "bad :: Unit -> (Unit -> Int32) := () -> { [done] -> { done(() -> { done(1) }) } };"
+        )
+        .message,
         "return binder cannot be captured"
     );
     assert!(
-        resolve_error("bad :: Unit -> Int32 := () { [done, done] { done(1) } };")
+        resolve_error("bad :: Unit -> Int32 := () -> { [done, done] -> { done(1) } };")
             .message
             .starts_with("duplicate value")
     );

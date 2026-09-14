@@ -42,10 +42,10 @@ impl Previous {
 
 impl Formatter<'_> {
     pub(super) fn write_token(&mut self, token_index: usize, kind: &TokenKind, text: &str) {
+        self.finish_completed_controls(self.controls.completed_before(token_index));
         if self.blocks.omit[token_index] {
             return;
         }
-        self.finish_completed_control();
         if self.pending_newline {
             self.newline();
             self.pending_newline = false;
@@ -169,7 +169,12 @@ impl Formatter<'_> {
             TokenKind::Then if matches!(self.ifs.last(), Some(IfStage::Condition(_))) => {
                 self.write_then(text);
             }
-            TokenKind::Else if matches!(self.ifs.last(), Some(IfStage::AwaitElse(_))) => {
+            TokenKind::Else
+                if matches!(
+                    self.ifs.last(),
+                    Some(IfStage::AwaitElse(_) | IfStage::ThenKeyword(_))
+                ) =>
+            {
                 self.write_else(text);
             }
             TokenKind::If => {

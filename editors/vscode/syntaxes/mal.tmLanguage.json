@@ -94,7 +94,7 @@
       "patterns": [
         {
           "name": "keyword.control.mal",
-          "match": "\\b(?:if|then|else)\\b"
+          "match": "\\b(?:if|then|else|when)\\b"
         },
         {
           "name": "keyword.other.extern.mal",

@@ -4,7 +4,7 @@ use super::*;
 fn checks_ptr_extern_signatures_and_memory_primitives() {
     let program = check_ok(
         "extern memory :: Unit -> Ptr;\n\
-         useMemory :: Ptr -> UInt8 := (pointer) {\n\
+         useMemory :: Ptr -> UInt8 := (pointer) -> {\n\
            slot := pointer + 8u64;\n\
            Int64.store(slot, 42i64);\n\
            value := Int64.load(slot);\n\
@@ -33,7 +33,7 @@ fn checks_ptr_extern_signatures_and_memory_primitives() {
 #[test]
 fn checks_memory_primitives_for_every_supported_value_type() {
     let program = check_ok(
-        "useMemory :: Ptr -> Unit := (pointer) {\n\
+        "useMemory :: Ptr -> Unit := (pointer) -> {\n\
            Int8.store(pointer, Int8.load(pointer));\n\
            Int16.store(pointer, Int16.load(pointer));\n\
            Int32.store(pointer, Int32.load(pointer));\n\
@@ -65,7 +65,7 @@ fn checks_storage_sizes_for_scalar_and_ptr_types() {
     let program = check_ok(
         "Byte :: UInt8;\n\
          byteSize :: UInt64 := Byte.size;\n\
-         sizes :: Unit -> UInt64 := () {\n\
+         sizes :: Unit -> UInt64 := () -> {\n\
            Int8.size + Int16.size + Int32.size + Int64.size + byteSize\n\
              + UInt16.size + UInt32.size + UInt64.size + Float32.size + Float64.size + Ptr.size;\n\
          };",

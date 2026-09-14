@@ -23,7 +23,7 @@ fn binding_value(text: &str) -> Expression {
 #[test]
 fn accepts_ordinary_nesting_and_rejects_excessive_nesting() {
     let ordinary = format!(
-        "main :: Unit -> Int32 := () {{ {}0i32{}; }};",
+        "main :: Unit -> Int32 := () -> {{ {}0i32{}; }};",
         "(".repeat(32),
         ")".repeat(32)
     );
@@ -32,7 +32,7 @@ fn accepts_ordinary_nesting_and_rejects_excessive_nesting() {
     malc::formatter::format(&ordinary_source).expect("ordinary nesting must format");
 
     let excessive = format!(
-        "main :: Unit -> Int32 := () {{ {}0i32{}; }};",
+        "main :: Unit -> Int32 := () -> {{ {}0i32{}; }};",
         "(".repeat(300),
         ")".repeat(300)
     );

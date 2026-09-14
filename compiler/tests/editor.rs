@@ -72,7 +72,7 @@ fn expands_only_the_hovered_alias() {
 
 #[test]
 fn function_and_parameter_hovers_preserve_declared_aliases() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) { n; };\nHandler :: Tree -> Int64;\ng :: Handler := (tree) { 0; };\n";
+    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     let function = document.hover_at(text.find("f ::").unwrap()).unwrap();
@@ -92,7 +92,7 @@ fn function_and_parameter_hovers_preserve_declared_aliases() {
 
 #[test]
 fn external_function_references_share_the_declaration_identity() {
-    let text = "extern output :: Symbol -> Unit;\nmain :: Unit -> Unit := () { selected := output; selected(\"x\") };\n";
+    let text = "extern output :: Symbol -> Unit;\nmain :: Unit -> Unit := () -> { selected := output; selected(\"x\") };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("output").unwrap();
     let reference_offset = text.rfind("output").unwrap();
@@ -110,8 +110,8 @@ fn external_function_references_share_the_declaration_identity() {
 
 #[test]
 fn receiver_first_callees_support_function_editor_features() {
-    let text = "add :: (Int32, Int32) -> Int32 := (left, right) { left + right };\n\
-                main :: Unit -> Int32 := () { 40i32.add(2) };\n";
+    let text = "add :: (Int32, Int32) -> Int32 := (left, right) -> { left + right };\n\
+                main :: Unit -> Int32 := () -> { 40i32.add(2) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("add ::").unwrap();
     let reference_offset = text.rfind(".add(").unwrap() + 1;
@@ -168,7 +168,7 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 
 #[test]
 fn sum_return_annotations_navigate_to_the_alias() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] { some(value) };\nread :: Unit -> Choice := () { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] -> { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();
     let constructor_offset = text.find("-> Choice").unwrap() + 3;
@@ -203,7 +203,7 @@ fn sum_return_annotations_navigate_to_the_alias() {
 
 #[test]
 fn sum_continuation_parameters_keep_declaration_identity() {
-    let text = "Choice :: [Unit, Int32];\nread :: Choice -> Int32 := (choice) { choice[\n() { 0 },\n(payload) { payload }\n] };\n";
+    let text = "Choice :: [Unit, Int32];\nread :: Choice -> Int32 := (choice) -> { choice[\n() -> { 0 },\n(payload) -> { payload }\n] };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("(payload)").unwrap() + 1;
     let reference_offset = text.rfind("payload").unwrap();
@@ -223,7 +223,7 @@ fn sum_continuation_parameters_keep_declaration_identity() {
 
 #[test]
 fn return_binders_support_hover_definition_references_and_rename() {
-    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled)[ok, err] { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result)[return] { return(result) };\n";
+    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled)[ok, err] -> { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result)[return] -> { return(result) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let ok_declaration_offset = text.find("[ok").unwrap() + 1;
     let ok_reference_offset = text.rfind("ok(42)").unwrap();
@@ -272,7 +272,7 @@ fn return_binders_support_hover_definition_references_and_rename() {
 
 #[test]
 fn direct_result_binders_support_semantic_editor_queries() {
-    let text = "Payload :: Int32;\nmake :: Unit -> Payload := () { [done] { done(42) } };\n";
+    let text = "Payload :: Int32;\nmake :: Unit -> Payload := () -> [done] -> done(42);\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("[done]").unwrap() + 1;
     let reference_offset = text.rfind("done(42)").unwrap();
@@ -291,7 +291,7 @@ fn direct_result_binders_support_semantic_editor_queries() {
 
 #[test]
 fn symbol_operators_report_their_result_types() {
-    let text = "inspect :: Symbol -> UInt64 := (value) { #value + UInt64(value # 0); };";
+    let text = "inspect :: Symbol -> UInt64 := (value) -> { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();
@@ -302,8 +302,7 @@ fn symbol_operators_report_their_result_types() {
 
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
-    let text =
-        "make :: Int32 -> Int32 := (x) {\n  inner :: Unit -> Int32 := () { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let parameter_offset = text.find("(x)").unwrap() + 1;
     let inner_reference_offset = text.find("{ x;").unwrap() + 2;
@@ -328,7 +327,8 @@ fn definition_references_and_rename_follow_capture_identity() {
 
 #[test]
 fn resolved_identity_keeps_shadowed_names_separate() {
-    let text = "first :: Int32 -> Int32 := (x) { x; };\nsecond :: Int32 -> Int32 := (x) { x; };\n";
+    let text =
+        "first :: Int32 -> Int32 := (x) -> { x; };\nsecond :: Int32 -> Int32 := (x) -> { x; };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let first = document
         .occurrence_at(text.find("(x)").unwrap() + 1)
@@ -367,7 +367,8 @@ fn reports_the_function_type_of_a_first_class_memory_function() {
 
 #[test]
 fn graph_analysis_keeps_navigation_global_and_document_features_local() {
-    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () { publicValue; };\n";
+    let root_text =
+        "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> { publicValue; };\n";
     let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
     let root = SourceFile::new(FileId::new(0), "root.mal", root_text.into());
     let library = SourceFile::new(FileId::new(1), "library.mal", library_text.into());
@@ -427,7 +428,7 @@ fn indexes_long_left_associative_expressions_without_host_recursion() {
     let expression = std::iter::repeat_n("0i32", 4_096)
         .collect::<Vec<_>>()
         .join(" + ");
-    let text = format!("main :: Unit -> Int32 := () {{ {expression}; }};");
+    let text = format!("main :: Unit -> Int32 := () -> {{ {expression}; }};");
 
     let document = malc::editor::analyze(&source(&text)).expect("semantic document");
 

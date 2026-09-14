@@ -3,6 +3,7 @@ use crate::lexer::{Lexed, TokenKind};
 
 pub(super) struct ControlLayout {
     aligned: Vec<bool>,
+    completed_before: Vec<usize>,
     sum_continuations: Vec<Option<bool>>,
     sum_break_before: Vec<bool>,
 }
@@ -11,6 +12,7 @@ impl ControlLayout {
     pub(super) fn new(lexed: &Lexed, program: &Program) -> Self {
         let mut layout = Self {
             aligned: vec![false; lexed.tokens.len()],
+            completed_before: vec![0; lexed.tokens.len()],
             sum_continuations: vec![None; lexed.tokens.len()],
             sum_break_before: vec![false; lexed.tokens.len()],
         };
@@ -24,6 +26,10 @@ impl ControlLayout {
 
     pub(super) fn is_aligned(&self, token_index: usize) -> bool {
         self.aligned[token_index]
+    }
+
+    pub(super) fn completed_before(&self, token_index: usize) -> usize {
+        self.completed_before[token_index]
     }
 
     pub(super) fn sum_continuation_alignment(&self, token_index: usize) -> Option<bool> {
@@ -81,13 +87,13 @@ impl ControlLayout {
                     then_branch,
                     else_branch,
                 } => {
-                    self.mark_control_start(lexed, expression, block_position);
+                    self.mark_control_start(lexed, expression, block_position, true);
                     push_block(&mut pending, else_branch);
                     push_block(&mut pending, then_branch);
                     pending.push((condition, false));
                 }
                 Expression::When { condition, body } => {
-                    self.mark_control_start(lexed, expression, block_position);
+                    self.mark_control_start(lexed, expression, block_position, false);
                     push_block(&mut pending, body);
                     pending.push((condition, false));
                 }
@@ -148,7 +154,16 @@ impl ControlLayout {
         lexed: &Lexed,
         expression: &Node<Expression>,
         block_position: bool,
+        tracks_completion: bool,
     ) {
+        if tracks_completion {
+            let next = lexed
+                .tokens
+                .partition_point(|token| token.span.end() <= expression.span.end());
+            if let Some(count) = self.completed_before.get_mut(next) {
+                *count += 1;
+            }
+        }
         if !block_position {
             return;
         }
@@ -162,7 +177,7 @@ impl ControlLayout {
 }
 
 fn push_block<'a>(pending: &mut Vec<(&'a Node<Expression>, bool)>, block: &'a ExpressionBlock) {
-    pending.push((&block.result, true));
+    pending.push((&block.result, block.span != block.result.span));
     pending.extend(block.items.iter().rev().map(|item| match item {
         BodyItem::Binding(binding) => (&binding.kind.value, false),
         BodyItem::Expression(expression) => (expression, true),

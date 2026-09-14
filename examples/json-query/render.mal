@@ -2,28 +2,22 @@ require "./host.mal";
 require "./parser.mal";
 
 // Decimal rendering recurses on the quotient and appends the least-significant digit on return.
-_renderDecimal :: UInt64 -> Symbol := (value) {
+_renderDecimal :: UInt64 -> Symbol := (value) -> {
     digit := symbolFromByte(UInt8('0') + UInt8(value % 10u64));
     if (value < 10u64)
-    then { digit }
-    else { (value / 10u64)._renderDecimal() + digit };
+    then digit
+    else (value / 10u64)._renderDecimal() + digit;
 };
 
 // These factories make both case arms produce the same first-class Stats -> Symbol value.
-renderCount :: Unit -> (Stats -> Symbol) := () {
-    (stats) {
-        (count, _) := stats;
-        "{\"ok\":true,\"count\":" + count._renderDecimal() + "}";
-    };
+renderCount :: Unit -> (Stats -> Symbol) := () -> (stats) -> {
+    (count, _) := stats;
+    "{\"ok\":true,\"count\":" + count._renderDecimal() + "}";
 };
 
-renderDepth :: Unit -> (Stats -> Symbol) := () {
-    (stats) {
-        (_, depth) := stats;
-        "{\"ok\":true,\"depth\":" + depth._renderDecimal() + "}";
-    };
+renderDepth :: Unit -> (Stats -> Symbol) := () -> (stats) -> {
+    (_, depth) := stats;
+    "{\"ok\":true,\"depth\":" + depth._renderDecimal() + "}";
 };
 
-renderError :: Symbol -> Symbol := (message) {
-    "{\"ok\":false,\"error\":\"" + message + "\"}";
-};
+renderError :: Symbol -> Symbol := (message) -> "{\"ok\":false,\"error\":\"" + message + "\"}";

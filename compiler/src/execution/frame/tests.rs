@@ -10,16 +10,16 @@ fn validates_exact_frame_sites_and_payloads() {
     let source = SourceFile::new(
         FileId::new(72),
         "control-frame-validation.mal",
-        "walk :: (Int32, Symbol) -> Symbol := (depth, prefix) {\n\
+        "walk :: (Int32, Symbol) -> Symbol := (depth, prefix) -> {\n\
            if (depth == 0i32)\n\
            then { prefix }\n\
            else {\n\
-             append :: Symbol -> Symbol := (suffix) { prefix + suffix; };\n\
+             append :: Symbol -> Symbol := (suffix) -> { prefix + suffix; };\n\
              child := walk(depth - 1i32, prefix);\n\
              append(child);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () { Int32(#walk(2i32, \"x\")) - 3i32; };"
+         main :: Unit -> Int32 := () -> { Int32(#walk(2i32, \"x\")) - 3i32; };"
             .into(),
     );
     let parsed = parser::parse(&source).expect("parse control frame fixture");
@@ -77,22 +77,22 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
          Computation :: Continuation -> Answer;\n\
          Next :: Int32 -> Computation;\n\
          Mapper :: Int32 -> Int32;\n\
-         pure :: Int32 -> Computation := (value) {\n\
-           (continuation) { value[continuation] };\n\
+         pure :: Int32 -> Computation := (value) -> {\n\
+           (continuation) -> { value[continuation] };\n\
          };\n\
-         bind :: (Computation, Next) -> Computation := (computation, next) {\n\
-           (continuation) {\n\
-             resume :: Continuation := (value) { continuation[value[next]]; };\n\
+         bind :: (Computation, Next) -> Computation := (computation, next) -> {\n\
+           (continuation) -> {\n\
+             resume :: Continuation := (value) -> { continuation[value[next]]; };\n\
              resume[computation];\n\
            };\n\
          };\n\
-         map :: (Computation, Mapper) -> Computation := (computation, mapper) {\n\
-           next :: Next := (value) { value[mapper][pure]; };\n\
+         map :: (Computation, Mapper) -> Computation := (computation, mapper) -> {\n\
+           next :: Next := (value) -> { value[mapper][pure]; };\n\
            (computation, next)[bind];\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
-           mapped := (10[pure], (value) { value * 2 })[map];\n\
-           (value) { value - 20 }[mapped];\n\
+         main :: Unit -> Int32 := () -> {\n\
+           mapped := (10[pure], (value) -> { value * 2 })[map];\n\
+           (value) -> { value - 20 }[mapped];\n\
          };"
         .into(),
     );

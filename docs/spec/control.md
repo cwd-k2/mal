@@ -11,8 +11,8 @@ lambdaはparameter groupとbodyの間にreturn binder groupを置ける。
 
 ```mal
 absolute :: Int32 -> Int32 :=
-    (x)[return] {
-        when (x >= 0) { return(x) };
+    (x)[return] -> {
+        when (x >= 0) return(x);
         return(-x)
     };
 ```
@@ -40,8 +40,8 @@ result型が`[A, B, ...]`なら、項数と同じ二つ以上のbinderを宣言�
 Result :: [Int32, Symbol];
 
 compute :: Bool -> Result :=
-    (enabled)[ok, err] {
-        when (enabled) { ok(42) };
+    (enabled)[ok, err] -> {
+        when (enabled) ok(42);
         err("disabled")
     };
 ```
@@ -53,22 +53,23 @@ binderはglobal constructor、first-class injection function、nominal identity�
 
 ## direct result block
 
-lambda body内では、parameter groupを伴わないresult binder groupとblockを一つのexpressionとして書ける。
+lambda body内では、parameter groupを伴わないresult binder group、`->`、body expressionを一つのexpressionとして書ける。
 
 ```mal
-answer :: Unit -> Int32 := () {
-    [done] { done(42) }
+answer :: Unit -> Int32 := () -> {
+    [done] -> done(42)
 };
 
-choose :: Bool -> [Int32, Symbol] := (condition) {
-    [integer, symbol] {
-        when (condition) { integer(42) };
+choose :: Bool -> [Int32, Symbol] := (condition) -> {
+    [integer, symbol] -> {
+        when (condition) integer(42);
         symbol("disabled")
     }
 };
 ```
 
-`[k] { body }`は期待result型`T`を必要とし、`k : T`をbodyへ導入してbodyを直ちに実行する。二つ以上のbinderでは
+`[k] -> body`は期待result型`T`を必要とし、`k : T`をbodyへ導入してbodyを直ちに実行する。複数のbody itemが
+必要ならblock expressionを置く。二つ以上のbinderでは
 期待result型が同じ項数の直和`[T0, T1, ...]`でなければならず、位置`i`のbinderは`Ti`を受けて第`i`項を選ぶ。
 binderのscope、callee位置への制限、重複、nested lambdaからのcapture拒否はlambda return binderと同じである。
 
@@ -77,8 +78,8 @@ bodyはすべてのreachable pathでresult binder application、外側lambdaのr
 `Abrupt`でなければならず、block自身のresult binderを少なくとも一つのreachable pathで適用しなければならない。外側lambdaの
 return binderはresult blockを越えてlambdaを完了し、result blockのresult edgeには合流しない。
 
-この構文はfunction valueを作らず、`[()[k] { body }]`への省略でもない。`[k]`だけなら従来どおりUnitを`k`へ渡す
-applicationである。binderを持たない`[] { body }`は認めず、empty resultにはlambdaのempty return binder groupを使う。
+この構文はfunction valueを作らず、`[()[k] -> body]`への省略でもない。`[k]`だけなら従来どおりUnitを`k`へ渡す
+applicationである。binderを持たない`[] -> body`は認めず、empty resultにはlambdaのempty return binder groupを使う。
 
 ## completion judgment
 
@@ -107,13 +108,14 @@ compile-time errorになる。product要素、operator operand、argument、call
 
 ```mal
 classify :: Int32 -> Symbol :=
-    (x)[return] {
-        when (x == 0) { return("zero") };
+    (x)[return] -> {
+        when (x == 0) return("zero");
         return("other")
     };
 ```
 
-`when (condition) { body }`は`if (condition) then { body } else { () }`と同じである。conditionは一度だけ評価し、bodyのcompletionは
+`when (condition) body`は`if (condition) then body else ()`と同じである。bodyは一つのexpressionであり、複数のbody itemが
+必要ならblock expressionを置く。conditionは一度だけ評価し、bodyのcompletionは
 `Value(Unit)`または`Abrupt`でなければならない。`when`全体は`Value(Unit)`になり、false pathだけが後続へfall throughする。
 
 ## Empty
@@ -128,7 +130,7 @@ zero-continuation eliminationであり、`Abrupt`になる。bare `[]`は式で�
 
 ```mal
 never :: Unit -> [] :=
-    ()[] { never()[] };
+    ()[] -> never()[];
 ```
 
 ## 評価とlowering

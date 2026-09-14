@@ -5,7 +5,7 @@ fn preserves_type_alias_names_as_backend_metadata() {
     let program = lower_ok(
         "Flag :: [Unit, Unit];\n\
          extern choose :: Flag -> Int32;\n\
-         main :: Unit -> Int32 := () { 0; };",
+         main :: Unit -> Int32 := () -> { 0; };",
     );
 
     assert_eq!(program.interface.type_aliases.len(), 1);
@@ -51,7 +51,7 @@ fn preserves_a_product_parameter_alias_before_boundary_flattening() {
          Payload :: (UInt8, Int32);\n\
          Request :: (Count, Payload);\n\
          extern exchange :: Request -> Count;\n\
-         main :: Unit -> Int32 := () { 0; };",
+         main :: Unit -> Int32 := () -> { 0; };",
     );
 
     let external = &program.interface.externals[0];

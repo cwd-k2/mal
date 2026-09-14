@@ -4,21 +4,20 @@ require "./query.mal";
 require "./render.mal";
 
 // Each process argument descriptor stores its byte pointer followed by its UInt64 length.
-_readArgument :: Ptr -> Symbol := (arguments) {
+_readArgument :: Ptr -> Symbol := (arguments) ->
     Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
-};
 
-_reportParseError :: Symbol -> Int32 := (message) {
+_reportParseError :: Symbol -> Int32 := (message) -> {
     writeStdout(message.renderError() + "\n");
     1;
 };
 
-_runQuery :: Query -> Int32 := (query) {
+_runQuery :: Query -> Int32 := (query) -> {
     parsed := readStdin().parseDocument();
     // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
     parsed[
     _reportParseError,
-    (value) {
+    (value) -> {
         (_, stats) := value;
         // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
         renderer := query[
@@ -31,7 +30,7 @@ _runQuery :: Query -> Int32 := (query) {
     ];
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments) {
+main :: Arguments -> Int32 := (argumentCount, arguments) -> {
     if (argumentCount != 1u64)
     then {
         writeStdout("{\"ok\":false,\"error\":\"usage: mal-json-query count|depth\"}\n");
@@ -40,7 +39,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) {
     else {
         query := arguments._readArgument().parseQuery();
         query[
-        (message) {
+        (message) -> {
             writeStdout(message.renderError() + "\n");
             2;
         },

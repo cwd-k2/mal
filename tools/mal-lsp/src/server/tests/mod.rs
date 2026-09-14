@@ -218,8 +218,7 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text =
-        "make :: Int32 -> Int32 := (x) {\n  inner :: Unit -> Int32 := () { x; };\n  inner();\n};\n";
+    let text = "make :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
@@ -274,7 +273,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 
 #[test]
 fn preserves_declared_type_aliases_in_hover() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) { n; };\n";
+    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
     let uri = "file:///alias-hover.mal";
     let mut server = open_document(uri, text);
 
@@ -307,7 +306,7 @@ fn preserves_declared_type_aliases_in_hover() {
 
 #[test]
 fn expands_a_sum_return_type_hover_by_exactly_one_alias_layer() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] { some(value) };\nread :: Unit -> Choice := () { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] -> { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
     let uri = "file:///sum-return-hover.mal";
     let mut server = open_document(uri, text);
     let constructor = text.find("-> Choice").unwrap() + 3;

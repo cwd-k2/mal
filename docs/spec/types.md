@@ -73,16 +73,16 @@ origin :: Point := (0.0, 0.0);
 ```mal
 MaybeInt32 :: [Unit, Int32];
 
-none :: Unit -> MaybeInt32 := ()[none, some] { [none] };
-some :: Int32 -> MaybeInt32 := (value)[none, some] { some(value) };
+none :: Unit -> MaybeInt32 := ()[none, some] -> [none];
+some :: Int32 -> MaybeInt32 := (value)[none, some] -> some(value);
 ```
 
 同じ型を複数の項に置いてよい。
 
 ```mal
 Choice :: [Int32, Int32];
-a :: Int32 -> Choice := (value)[first, second] { first(value) };
-b :: Int32 -> Choice := (value)[first, second] { second(value) };
+a :: Int32 -> Choice := (value)[first, second] -> first(value);
+b :: Int32 -> Choice := (value)[first, second] -> second(value);
 ```
 
 直和値は選択した一項の0-based indexとその項型のpayloadを持つ。source-levelの構築は
@@ -107,13 +107,15 @@ Nested :: [A, [B, C]];
 ```mal
 Bool :: [Unit, Unit];
 
-false :: Bool := [()[cont0, cont1] { [cont0] }];
-true :: Bool := [()[cont0, cont1] { [cont1] }];
+false :: Bool := [()[cont0, cont1] -> [cont0]];
+true :: Bool := [()[cont0, cont1] -> [cont1]];
 ```
 
 このcode blockはpredefined nameの型と値をmal notationで示す意味上の擬似定義であり、どのsource fileにもtop-level
-declarationとして含まれない。compilerが同じidentityと値をpredefined scopeへ直接導入する。`Bool`が期待されるlocalな式位置では、
-`[cont0, cont1] { [cont1] }`も同じ`true`値を作る。direct result blockの配置は[direct result block](control.md#direct-result-block)と
+declarationとして含まれない。外側の`[lambda]`はlambdaへのUnit application、bodyの`[cont0]`または`[cont1]`は
+選択したvariant binderへのUnit applicationである。compilerが同じidentityと値をpredefined scopeへ直接導入する。
+`Bool`が期待されるlocalな式位置では、
+`[cont0, cont1] -> [cont1]`も同じ`true`値を作る。direct result blockの配置は[direct result block](control.md#direct-result-block)と
 [top-level initializer](programs.md#top-level-item)の規則に従う。
 
 各source fileのtop-levelで`Bool`、`false`、`true`を再定義してはならない。local scopeでは通常のshadowing規則により

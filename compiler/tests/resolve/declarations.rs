@@ -49,7 +49,7 @@ fn preserves_symbol_literals_and_resolves_the_predefined_type() {
 fn resolves_memory_primitives_and_the_ptr_type() {
     let program = resolve_ok(
         "extern memory :: Unit -> Ptr;\n\
-         useMemory :: Ptr -> Unit := (pointer) {\n\
+         useMemory :: Ptr -> Unit := (pointer) -> {\n\
            next := pointer + 8u64;\n\
            value := Int64.load(next);\n\
            Int64.store(next, value);\n\
@@ -124,7 +124,7 @@ fn type_and_external_declarations_are_visible_across_the_unit() {
          useLater :: Alias := 0;\n\
          extern run :: Alias -> Unit;\n\
          Later :: Int32;\n\
-         invoke := () { run(useLater); (); };",
+         invoke := () -> { run(useLater); (); };",
     );
     let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
         panic!("expected alias");

@@ -92,7 +92,7 @@ impl Parser<'_> {
                         return self
                             .tokens
                             .get(next)
-                            .is_some_and(|next| next.kind == TokenKind::LeftBrace);
+                            .is_some_and(|next| next.kind == TokenKind::Arrow);
                     }
                 }
                 _ => {}

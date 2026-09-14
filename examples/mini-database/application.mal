@@ -5,7 +5,7 @@ require "./query.mal";
 _queryStorageSize :: UInt64 := 257u64;
 _inputStorageSize :: UInt64 := 4096u64;
 
-executeDatabase :: Symbol -> Int32 := (path) {
+executeDatabase :: Symbol -> Int32 := (path) -> {
     // Acquire process-lifetime resources before deriving any borrowed memory views.
     allocator := createAllocator();
     file := openReadWriteCreate(path);
@@ -18,7 +18,7 @@ executeDatabase :: Symbol -> Int32 := (path) {
     loadedDatabase := file.readDatabaseFile(databaseStorage);
     (_, _, loaded) := loadedDatabase;
     database := if (loaded == 0u64)
-        then { loadedDatabase.initializeDatabase() }
+        then loadedDatabase.initializeDatabase()
         else {
             when (!loadedDatabase.validateDatabase()) {
                 fail("invalid database file");

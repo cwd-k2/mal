@@ -4,7 +4,7 @@ use super::*;
 fn rejects_binding_and_block_result_type_mismatches() {
     assert_eq!(check_error("value :: Unit := 0;").message, "type mismatch");
     assert_eq!(
-        check_error("main :: Unit -> Unit := () { 0; };").message,
+        check_error("main :: Unit -> Unit := () -> { 0; };").message,
         "type mismatch"
     );
 }
@@ -12,9 +12,9 @@ fn rejects_binding_and_block_result_type_mismatches() {
 #[test]
 fn checks_function_application_and_zero_argument_unit_lowering() {
     let program = check_ok(
-        "identity :: Int32 -> Int32 := (x) { x; };\n\
-         thunk :: Unit -> Int32 := () { identity(4); };\n\
-         caller :: Unit -> Int32 := () { thunk(); };",
+        "identity :: Int32 -> Int32 := (x) -> { x; };\n\
+         thunk :: Unit -> Int32 := () -> { identity(4); };\n\
+         caller :: Unit -> Int32 := () -> { thunk(); };",
     );
     assert_eq!(
         top_binding(&program, 2).value.ty,
@@ -26,7 +26,7 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
 
     assert_eq!(
         check_error(
-            "identity :: Int32 -> Int32 := (x) { x; };\n\
+            "identity :: Int32 -> Int32 := (x) -> { x; };\n\
              bad :: Int32 := identity();"
         )
         .message,
@@ -40,7 +40,7 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
 
 #[test]
 fn checks_return_as_an_ordinary_local_name() {
-    check_ok("value :: Unit -> Int64 := () { return := 1; return; };");
+    check_ok("value :: Unit -> Int64 := () -> { return := 1; return; };");
 }
 
 #[test]
@@ -48,14 +48,14 @@ fn checks_products_destructuring_and_multiple_parameters() {
     let program = check_ok(
         "Pair :: (Int32, UInt8);\n\
          pair :: Pair := (1, 2);\n\
-         add :: (Int32, Int32) -> Int32 := (left, right) {\n\
+         add :: (Int32, Int32) -> Int32 := (left, right) -> {\n\
            left + right;\n\
          };\n\
-         firstValue :: Pair -> Int32 := (pair) {\n\
+         firstValue :: Pair -> Int32 := (pair) -> {\n\
            (value, _) := pair;\n\
            value;\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            (first, _) := pair;\n\
            nested := ((first, 2i32), 39i32);\n\
            ((left, right), extra) := nested;\n\
@@ -94,11 +94,11 @@ fn checks_products_destructuring_and_multiple_parameters() {
 #[test]
 fn checks_top_level_and_local_self_recursion_against_the_annotation() {
     let program = check_ok(
-        "count :: Int64 -> Int64 := (n) {\n\
+        "count :: Int64 -> Int64 := (n) -> {\n\
            if (n == 0) then { 0 } else { count(n - 1) };\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
-           local :: Int32 -> Int32 := (n) {\n\
+         main :: Unit -> Int32 := () -> {\n\
+           local :: Int32 -> Int32 := (n) -> {\n\
              if (n == 0) then { 0 } else { local(n - 1) };\n\
            };\n\
            local(10);\n\
@@ -116,12 +116,12 @@ fn checks_top_level_and_local_self_recursion_against_the_annotation() {
 #[test]
 fn requires_an_expected_function_type_and_matching_parameter_shape() {
     assert_eq!(
-        check_error("identity := (value) { value; };").message,
+        check_error("identity := (value) -> { value; };").message,
         "lambda requires an expected function type"
     );
     for text in [
-        "bad :: Unit -> Unit := (value) { (); };",
-        "bad :: Int32 -> Int32 := () { 0; };",
+        "bad :: Unit -> Unit := (value) -> { (); };",
+        "bad :: Int32 -> Int32 := () -> { 0; };",
     ] {
         assert_eq!(
             check_error(text).message,
@@ -130,7 +130,8 @@ fn requires_an_expected_function_type_and_matching_parameter_shape() {
         );
     }
     assert_eq!(
-        check_error("bad :: (Int32, Int32) -> Int32 := (left, middle, right) { left; };").message,
+        check_error("bad :: (Int32, Int32) -> Int32 := (left, middle, right) -> { left; };")
+            .message,
         "product pattern has the wrong arity"
     );
 }
@@ -138,12 +139,12 @@ fn requires_an_expected_function_type_and_matching_parameter_shape() {
 #[test]
 fn checks_a_lambda_from_an_application_context() {
     check_ok(
-        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) {
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> {
          function(value);
          };
-         main :: Unit -> Int32 := () {
-           apply((value) { value + 1; }, 41);
-           ((value) { value + 1; }, 41)[apply];
+         main :: Unit -> Int32 := () -> {
+           apply((value) -> { value + 1; }, 41);
+           ((value) -> { value + 1; }, 41)[apply];
          };",
     );
 }
@@ -152,14 +153,14 @@ fn checks_a_lambda_from_an_application_context() {
 fn checks_postfix_application_and_sum_continuations() {
     check_ok(
         "Choice :: [Int32, Symbol];
-         first :: Int32 -> Choice := (value)[first, second] { first(value) };
-         second :: Symbol -> Choice := (value)[first, second] { second(value) };
-         identity :: Int32 -> Int32 := (value) { value };
-         choose :: Choice -> Int32 := (choice) {
-           choice[(value) { value }, (symbol) { Int32(#symbol) }]
+         first :: Int32 -> Choice := (value)[first, second] -> { first(value) };
+         second :: Symbol -> Choice := (value)[first, second] -> { second(value) };
+         identity :: Int32 -> Int32 := (value) -> { value };
+         choose :: Choice -> Int32 := (choice) -> {
+           choice[(value) -> { value }, (symbol) -> { Int32(#symbol) }]
          };
-         initialize :: Unit -> Int32 := () { 42 };
-         main :: Unit -> Int32 := () {
+         initialize :: Unit -> Int32 := () -> { 42 };
+         main :: Unit -> Int32 := () -> {
            forward := identity(42);
            backward := 42[identity];
            initialized := [initialize];
@@ -171,11 +172,11 @@ fn checks_postfix_application_and_sum_continuations() {
 #[test]
 fn checks_receiver_first_calls_with_ordinary_function_bindings() {
     check_ok(
-        "add :: (Int32, Int32) -> Int32 := (left, right) { left + right };\n\
-         apply :: (((Int32, Int32) -> Int32), Int32) -> Int32 := (operation, value) {\n\
+        "add :: (Int32, Int32) -> Int32 := (left, right) -> { left + right };\n\
+         apply :: (((Int32, Int32) -> Int32), Int32) -> Int32 := (operation, value) -> {\n\
            value.operation(1)\n\
          };\n\
-         main :: Unit -> Int32 := () {\n\
+         main :: Unit -> Int32 := () -> {\n\
            40i32.add(1).add(1) - apply(add, 41)\n\
          };",
     );
@@ -189,14 +190,14 @@ fn rejects_invalid_sum_continuations_and_type_applications() {
     );
     assert_eq!(
         check_error(
-            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) { choice[() { 0 }] };"
+            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) -> { choice[() -> { 0 }] };"
         )
         .message,
         "lambda parameters do not match the expected function type"
     );
     assert_eq!(
         check_error(
-            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) { choice[() { 0 }, (value) { value }, (value) { value }] };"
+            "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) -> { choice[() -> { 0 }, (value) -> { value }, (value) -> { value }] };"
         )
         .message,
         "sum continuation count does not match its type"
@@ -206,8 +207,8 @@ fn rejects_invalid_sum_continuations_and_type_applications() {
 #[test]
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
-        "make :: Int32 -> (Int32 -> Int32) := (x) {\n\
-           (y) { x + y; };\n\
+        "make :: Int32 -> (Int32 -> Int32) := (x) -> {\n\
+           (y) -> { x + y; };\n\
          };",
     );
     let ExpressionKind::Lambda(outer) = &top_binding(&program, 0).value.kind else {

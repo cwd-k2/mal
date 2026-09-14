@@ -61,7 +61,7 @@ fn emit_host_prints_compilable_external_operation_stubs() {
          extern inspect :: Request -> Count;\n\
          extern consumeEmpty :: Empty -> Unit;\n\
          extern produceEmpty :: Unit -> Empty;\n\
-         main :: Unit -> Int32 := () { Int32(increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := () -> { Int32(increment(41u64) - 42u64); };",
     );
 
     let header_output = directory.malc([
@@ -169,7 +169,7 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
          require \"./host.c\";\n\
          require \"./helper.c\";\n\
          extern adjust :: Int32 -> Int32;\n\
-         main :: Unit -> Int32 := () { adjust(40) - 42; };",
+         main :: Unit -> Int32 := () -> { adjust(40) - 42; };",
     );
     directory.write(
         "host.c",
@@ -212,17 +212,17 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
         "require \"./left.mal\";\n\
          require \"./left.mal\";\n\
          require \"./right.mal\";\n\
-         main :: Unit -> Int32 := () { left(39) + right(1) - 42 };",
+         main :: Unit -> Int32 := () -> { left(39) + right(1) - 42 };",
     );
     directory.write(
         "left.mal",
-        "_helper :: Int32 -> Int32 := (x) { x + 1 };\n\
-         left :: Int32 -> Int32 := (x) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
+         left :: Int32 -> Int32 := (x) -> { _helper(x) };",
     );
     directory.write(
         "right.mal",
-        "_helper :: Int32 -> Int32 := (x) { x + 1 };\n\
-         right :: Int32 -> Int32 := (x) { _helper(x) };",
+        "_helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
+         right :: Int32 -> Int32 := (x) -> { _helper(x) };",
     );
     let executable = directory.join("program");
 
@@ -246,7 +246,7 @@ fn source_graph_overlays_open_mal_buffers() {
     let directory = NativeFixture::new("driver-overlays");
     let source = directory.write("program.mal", "not the open buffer");
     let dependency = directory.join("library.mal");
-    let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := () { value - 42; };";
+    let root_text = "require \"library.mal\";\nmain :: Unit -> Int32 := () -> { value - 42; };";
     let dependency_text = "value :: Int32 := 42;";
     let overlays =
         std::collections::HashMap::from([(dependency.clone(), dependency_text.to_owned())]);
