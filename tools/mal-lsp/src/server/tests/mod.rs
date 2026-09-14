@@ -306,7 +306,7 @@ fn preserves_declared_type_aliases_in_hover() {
 
 #[test]
 fn expands_a_sum_return_type_hover_by_exactly_one_alias_layer() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] -> { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
     let uri = "file:///sum-return-hover.mal";
     let mut server = open_document(uri, text);
     let constructor = text.find("-> Choice").unwrap() + 3;

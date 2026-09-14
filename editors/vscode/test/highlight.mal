@@ -24,7 +24,7 @@ pointerStorageSize :: UInt64 := Ptr.size;
 
 inspect :: Symbol -> UInt64 := (value) -> #value + UInt64(value # 1u64);
 
-choose :: Bool -> Choice := (condition)[integer, byte] -> {
+choose :: Bool -> Choice := (condition) -> [integer, byte] => {
     when (condition && !false) {
         integer(42);
     };
