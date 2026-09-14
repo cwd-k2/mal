@@ -53,8 +53,9 @@ lambdaの`->`の右辺は一つのexpressionである。複数のbindingやexpre
 blockは0個以上のbody itemと最後のresult expressionからなり、最後の`;`はoptionalである。改行は構文に影響せず、
 result expressionのないblockとreturn statementはない。
 
-lambdaは通常のresult expressionに代えてreturn binder groupを宣言できる。この場合のscope、型、全pathのcompletion条件は
-[明示的returnとcompletion](control.md#return-binder)に定める。
+lambda bodyは通常の値で完了するほか、すべてのpathが`Abrupt`でもよい。完全な規則は
+[result boundaryとcompletion](control.md#completion-judgment)に定める。lambdaのresult edgeへ名前を付ける専用構文はなく、
+early resultや直和の構築にはbody全体をdirect result blockにできる。
 
 ```mal
 log :: Symbol -> Unit := (message) -> print(message);
@@ -63,7 +64,7 @@ log :: Symbol -> Unit := (message) -> print(message);
 ## direct block
 
 blockは単独のexpressionとして置ける。body itemをsource orderで評価し、最後のexpressionがblockの値になる。block内の
-bindingはblockの外へ出ず、外側のlocal bindingとreturn binderは通常どおり参照できる。
+bindingはblockの外へ出ず、外側のlocal bindingとresult binderは通常どおり参照できる。
 
 ```mal
 value :: Int32 := {

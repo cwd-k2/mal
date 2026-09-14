@@ -12,7 +12,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md) |
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
-| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D050](D050.md) |
+| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
@@ -32,6 +32,7 @@ D042はD004のsum injection spelling、D005の`case`による説明、D023のsou
 D048はD042のsource-level sum injection constructorを置き換える。
 D049はD048のlambdaだけに置いたsum construction boundaryをdirect result blockにも拡張する。
 D050はD038のlambda parameterとD049のdirect result blockのsource spellingを置き換え、`if`と`when`を含むbodyをexpressionに統一する。
+D051はD050のarrow共有とlambda return binderを置き換え、lambdaとdirect result blockを独立した構文へ整理する。
 
 ## 後継があるhistorical record
 
@@ -52,6 +53,7 @@ D050はD038のlambda parameterとD049のdirect result blockのsource spellingを
 | [D023: index付き`case` arm](D023.md) | [D042](D042.md) |
 | [D042: applicationをvalueとcontinuationの双方向表記に統一する](D042.md) | [D048](D048.md) |
 | [D048: 直和の構築をsum return binderに限定する](D048.md) | [D049](D049.md) |
+| [D050: bodyをexpressionに統一しbinder境界へ`->`を置く](D050.md) | [D051](D051.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../../spec/)を確認する。

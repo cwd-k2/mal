@@ -20,8 +20,8 @@ payloadへ適用する。選択されないcontinuationを評価してはなら�
 product構築がすべての要素を正格に評価するのに対し、このsum除去は非選択continuationを遅延する。
 これはproductとsumの型上の対応を保ちつつ、strict call-by-valueでbranchの作用を実行しないための操作的な非対称である。
 
-明示的returnを含む式でも同じ順序を使う。`Abrupt`より前に完了した評価は保持し、同じpathで後にある評価は行わない。
-完全なcompletion規則は[明示的returnとcompletion](control.md#completion-judgment)に定める。
+result binder applicationを含む式でも同じ順序を使う。`Abrupt`より前に完了した評価は保持し、同じpathで後にある評価は行わない。
+完全なcompletion規則は[result boundaryとcompletion](control.md#completion-judgment)に定める。
 
 ## scope と closure
 
@@ -139,5 +139,5 @@ e ::= variable | literal | lambda | application
 `Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
 `::`は型情報、`:=`はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する
 定義ではなく、表面機能を追加するときの意味論上の基準である。
-return binder、direct result block、`when`、`Abrupt`もcore境界でlambda result、lambda-local join、sum injection・elimination、
+direct result block、`when`、`Abrupt`もcore境界でlambda result、lambda-local join、sum injection・elimination、
 branchへ消去する。

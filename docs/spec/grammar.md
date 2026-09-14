@@ -66,11 +66,9 @@ atomicType  ::= TYPE_IDENT | builtinType | "(" type ")"
               | sumType
 sumType     ::= "[" "]" | "[" type "," type ("," type)* "]"
 
-lambda      ::= "(" lambdaParameter? ")" returnBinderGroup? "->" expression
+lambda      ::= "(" lambdaParameter? ")" "->" expression
 lambdaParameter ::= pattern ("," pattern)*
-returnBinderGroup ::= "[" "]"
-                    | "[" VALUE_IDENT ("," VALUE_IDENT)* "]"
-resultBlock ::= "[" VALUE_IDENT ("," VALUE_IDENT)* "]" "->" expression
+resultBlock ::= "[" VALUE_IDENT ("," VALUE_IDENT)* "]" "=>" expression
 blockExpression ::= block
 bodyItem    ::= binding ";" | expression ";"
 block       ::= "{" bodyItem* expression ";"? "}"
@@ -144,16 +142,16 @@ associated itemを導入しない。認める型とprimitiveの組は[memory pri
 探索は行わない。parenthesized argument listは必須であり、`expression.VALUE_IDENT`だけの形は認めない。
 
 `T(value)`と`value[T]`は同じnumeric conversionである。`T`と`value`はnumeric型でなければならない。
-直和型を指定したtype applicationは認めず、直和値はlambdaまたはdirect result blockの
-[sum binder](control.md#sum-return-binder)で構築する。
+直和型を指定したtype applicationは認めず、直和値はdirect result blockの
+[result binder](control.md#direct-result-block)で構築する。
 
 `#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。
 
 `[]`は空直和、`[A]`は不正である。`[A, B, C]` は n-ary sum、`[A, [B, C]]` は nested sum であり、両者は同じ型ではない。
-return binder group、result block、`when`、zero-continuation applicationの意味は
-[明示的returnとcompletion](control.md)に定める。`[k]`はUnitを`k`へ渡すapplication、`[k] -> expression`は`k`を
-導入するresult blockであり、`->`によって構文を区別する。空の`[] -> expression`はresult blockとして認めない。
+result block、`when`、zero-continuation applicationの意味は
+[result boundaryとcompletion](control.md)に定める。`[k]`はUnitを`k`へ渡すapplication、`[k] => expression`は`k`を
+導入するresult blockであり、`=>`によって構文を区別する。空の`[] => expression`はresult blockとして認めない。
 
 decimal float literalは`DEC_DIGITS "." DEC_DIGITS EXPONENT? FLOAT_SUFFIX?`、
 `DEC_DIGITS EXPONENT FLOAT_SUFFIX?`、または`DEC_DIGITS FLOAT_SUFFIX`のいずれかである。
@@ -174,4 +172,4 @@ v0.5は`let`、`var`、`mut`、`const`、`fn`、`case`、return statement、loop
 class、method、field access、nominal enum constructor、typed pointer syntax、reference、generic、trait、interface、macro、
 exceptionを持たない。
 
-return binder applicationはstatementではなくcontrol expressionであり、`return`という予約語も存在しない。
+result binder applicationはstatementではなくcontrol expressionであり、`return`という予約語も存在しない。

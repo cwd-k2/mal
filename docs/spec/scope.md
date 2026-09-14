@@ -11,7 +11,7 @@ mal の責務は次に限定する。
 - lambda and application
 - product and sum
 - surface `if` and exhaustive sum continuation application
-- explicit lambda-local return binder、direct block、direct result block、`when`、empty sum elimination
+- direct block、direct result block、`when`、empty sum elimination
 - self recursion
 - fixed-width numeric, logical, and bit operations
 - language-intrinsic immutable `Symbol`
@@ -48,10 +48,10 @@ Point :: (Float64, Float64);
 MaybeInt32 :: [Unit, Int32];
 ```
 
-構築用の名前が欲しければ、sum return binderを使う通常の関数をbindingする。
+構築用の名前が欲しければ、sum result binderを使う通常の関数をbindingする。
 
 ```mal
-some :: Int32 -> MaybeInt32 := (value)[none, some] -> some(value);
+some :: Int32 -> MaybeInt32 := (value) -> [none, some] => some(value);
 ```
 
 mal は `Some` や field name に特別な意味を与えない。
