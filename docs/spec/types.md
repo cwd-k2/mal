@@ -111,8 +111,13 @@ false :: Bool := [()[cont0, cont1] { [cont0] }];
 true :: Bool := [()[cont0, cont1] { [cont1] }];
 ```
 
-これらはsource fileより外側のpredefined scopeに存在するものとして名前解決する。各source fileのtop-levelで`Bool`、
-`false`、`true`を再定義してはならない。local scopeでは通常のshadowing規則により`false`と`true`をshadowできる。
+このcode blockはpredefined nameの型と値をmal notationで示す意味上の擬似定義であり、どのsource fileにもtop-level
+declarationとして含まれない。compilerが同じidentityと値をpredefined scopeへ直接導入する。`Bool`が期待されるlocalな式位置では、
+`[cont0, cont1] { [cont1] }`も同じ`true`値を作る。direct result blockの配置は[direct result block](control.md#direct-result-block)と
+[top-level initializer](programs.md#top-level-item)の規則に従う。
+
+各source fileのtop-levelで`Bool`、`false`、`true`を再定義してはならない。local scopeでは通常のshadowing規則により
+`false`と`true`をshadowできる。
 
 `false` と `true` は keyword や専用 literal ではなく、型付きの immutable value である。
 
