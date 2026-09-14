@@ -108,7 +108,8 @@ lifetime終了後にaccessするprogramはcontract違反であり、trapを含�
 deterministically検査するには、programがlengthを別のscalarとして保持し、access前に検査する。
 
 product、sum、external opaque type、functionを直接load/storeするprimitiveはない。
-aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、既存のconstructorでmal valueとして組み立てる。
+aggregateは対応するnumeric scalarまたは`Ptr` fieldを個別に読み、product expressionまたはsum return binderを使う関数で
+mal valueとして組み立てる。
 host contractはexternal opaque typeに固有の保存・復元`extern`を別途提供できるが、それはpredefined memory
 表現を追加しない。したがってその型への`.size`は引き続きerrorであり、保存表現、復元したhandleの有効性、resource
 lifetimeはhost contractの責務である。authorityの一般則は[EngramとExtern](engrams.md#authority)に定める。

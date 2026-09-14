@@ -3,7 +3,7 @@
 Status: Current v0.5 profile
 
 この文書は通常関数のreturn edgeへlocal nameを与えるreturn binder、式のcompletion、`when`、空直和`[]`の規則を定める。
-通常のlambda、application、sum injection・eliminationの規則は[式とbinding](expressions.md)を正とする。
+通常のlambda、application、sum eliminationの規則は[式とbinding](expressions.md)を正とする。
 
 ## return binder
 
@@ -20,6 +20,9 @@ absolute :: Int32 -> Int32 :=
 期待関数型を`A -> B`とすると、parameterは`A`に対して検査し、一つのbinderは`B`をparameterとして受ける。
 `return(value)`は`value : B`を検査し、現在のfunction invocationを`value`で完了する。そのcall siteの後続へは戻らない。
 関数型と通常のcall siteは変わらず、`absolute(value)`は`Int32`を返す。
+
+通常のapplicationと同じく、`return(value)`と`value[return]`は同じbinder applicationである。Unit payloadでは
+`return()`、`()[return]`、`[return]`が同じ意味になる。
 
 binderはparameterと同じlambda-local scopeでbody全体から参照できる。同じlambdaのparameterまたはreturn binderとの名前重複は
 compile-time errorである。外側のvalue nameは通常どおりshadowできる。binderはcallee位置でのapplicationにだけ使え、値として
@@ -45,7 +48,8 @@ compute :: Bool -> Result :=
 
 位置`i`のbinderは第`i`項のpayloadを受け、index `i`のsum valueを返す。binder数はalias展開後の項数と完全に一致しなければならず、
 省略、追加、部分指定は認めない。sum resultに一つだけbinderを置いた場合はvariant binderではなく、sum value全体を受ける通常の
-単一return binderである。binderはglobal constructorやnominal identityを作らない。
+単一return binderである。直和値を構築するsource-levelの方法はsum return binderだけであり、binderはglobal constructor、
+first-class injection function、nominal identityを作らない。
 
 ## completion judgment
 
@@ -85,7 +89,7 @@ classify :: Int32 -> Symbol :=
 
 ## Empty
 
-`[]`は空直和`Empty`である。値とinjection constructorは存在しない。`value[]`は`value : []`を要求する
+`[]`は空直和`Empty`である。値は存在せず、payloadを受けるsum return binderも作れない。`value[]`は`value : []`を要求する
 zero-continuation eliminationであり、`Abrupt`になる。bare `[]`は式ではない。
 
 `Empty`は値のない型、`Abrupt`は現在のpathが通常完了しないcompletionであり、同一ではない。`Empty`はparameter、aggregate field、

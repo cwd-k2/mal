@@ -1,23 +1,29 @@
 use super::*;
 
 #[test]
-fn checks_sum_injection_payload_and_index() {
+fn constructs_sum_values_through_return_binders() {
     let program = check_ok(
         "Maybe :: [Unit, Int32];\n\
-         some :: Maybe := 1[Maybe](42);",
+         none :: Unit -> Maybe := ()[none, some] { [none] };\n\
+         some :: Int32 -> Maybe := (value)[none, some] { some(value) };\n\
+         makeTrue :: Unit -> Bool := () { [()[cont0, cont1] { [cont1] }] };",
     );
-    assert_eq!(
+    assert!(matches!(
         top_binding(&program, 1).value.ty,
-        Type::Sum(vec![Type::Unit, Type::Int32].into())
-    );
+        Type::Function { .. }
+    ));
+    assert!(matches!(
+        top_binding(&program, 2).value.ty,
+        Type::Function { .. }
+    ));
+    assert!(matches!(
+        top_binding(&program, 3).value.ty,
+        Type::Function { .. }
+    ));
 
     assert_eq!(
-        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 2[Maybe](0);").message,
-        "sum variant index is out of range"
-    );
-    assert_eq!(
-        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 0[Maybe](0);").message,
-        "type mismatch"
+        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 1[Maybe](0);").message,
+        "sum values must be constructed through return binders"
     );
 }
 

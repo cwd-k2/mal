@@ -202,8 +202,9 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
     directory.write(
         "program.mal",
         "Choice :: [Int16, (UInt32, UInt64)];\n\
-         choose :: Bool -> Choice := (flag) {\n\
-           if (flag) then { 1[Choice]((20u32, 22u64)) } else { 0[Choice](42i16) };\n\
+         choose :: Bool -> Choice := (flag)[first, second] {\n\
+           when (flag) { second(20u32, 22u64) };\n\
+           first(42i16)\n\
          };\n\
          score :: Choice -> Int32 := (choice) {\n\
            choice[\n\
@@ -237,15 +238,15 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 }
 
 #[test]
-fn runs_first_class_sum_constructors_and_postfix_application_through_llvm() {
-    let directory = NativeFixture::new("driver-llvm-first-class-sum-constructor");
+fn runs_sum_returns_and_postfix_application_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-sum-return");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "Choice :: [Unit, Int32];\n\
-         none :: Unit -> Choice := 0[Choice];\n\
-         some :: Int32 -> Choice := 1[Choice];\n\
+         none :: Unit -> Choice := ()[none, some] { [none] };\n\
+         some :: Int32 -> Choice := (value)[none, some] { some(value) };\n\
          score :: Choice -> Int32 := (choice) {\n\
            choice[\n\
            () { 0 },\n\

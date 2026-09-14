@@ -296,10 +296,11 @@ fn references_structural_closed_top_level_values_through_llvm() {
         "program.mal",
         "Choice :: [Unit, Symbol];\n\
          (number, text) :: (Int32, Symbol) := (-7i32, \"ok\");\n\
-         choice :: Choice := 1[Choice](\"yes\");\n\
          enabled :: Bool := true;\n\
          reader :: Ptr -> Int64 := Int64.load;\n\
+         makeChoice :: Symbol -> Choice := (value)[none, some] { some(value) };\n\
          main :: Unit -> Int32 := () {\n\
+           choice := makeChoice(\"yes\");\n\
            choice[\n\
              () { 1 },\n\
              (value) {\n\

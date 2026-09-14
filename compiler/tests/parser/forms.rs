@@ -154,9 +154,9 @@ fn parses_if_blocks_with_local_bindings() {
 }
 
 #[test]
-fn parses_sum_constructor_and_elimination_continuations() {
+fn parses_sum_elimination_continuations() {
     let expression = binding_value(
-        "value := 1[MaybeInt32](42)[\n\
+        "value := choice[\n\
            () { 0 },\n\
            (x) {\n\
              y := x;\n\
@@ -170,7 +170,7 @@ fn parses_sum_constructor_and_elimination_continuations() {
     else {
         panic!("expected continuation application");
     };
-    assert!(matches!(value.kind, Expression::Call { .. }));
+    assert!(matches!(value.kind, Expression::Name(_)));
     assert_eq!(continuations.len(), 2);
     assert!(matches!(continuations[0].kind, Expression::Lambda(_)));
     let Expression::Lambda(second) = &continuations[1].kind else {
@@ -197,7 +197,7 @@ fn accepts_block_results_with_or_without_a_terminal_semicolon() {
         "value := () { 0 };",
         "value := () { 0; };",
         "value := () { if (true) then { 0; } else { 1 }; };",
-        "value := () { 0[Bool]()[() { 0 }, () { 1; }]; };",
+        "value := () { false[() { 0 }, () { 1; }]; };",
     ] {
         assert!(parse(&source(text)).is_ok(), "input should parse: {text}");
     }

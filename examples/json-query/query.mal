@@ -3,7 +3,7 @@ Query :: [Unit, Unit];
 // The first variant carries a diagnostic; the second carries a validated query.
 QueryResult :: [Symbol, Query];
 
-// A sum constructor is received as a continuation, so calling count() constructs variant 0.
+// The sum return binder is a continuation, so calling count() selects variant 0.
 _countQuery :: Unit -> Query := ()[count, depth] {
     count();
 };

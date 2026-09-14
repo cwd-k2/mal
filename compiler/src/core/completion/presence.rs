@@ -52,8 +52,7 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 | checked::ExpressionKind::Symbol(_)
                 | checked::ExpressionKind::StorageSize(_)
                 | checked::ExpressionKind::Unit
-                | checked::ExpressionKind::MemoryFunction { .. }
-                | checked::ExpressionKind::InjectionConstructor { .. } => {}
+                | checked::ExpressionKind::MemoryFunction { .. } => {}
             },
             Presence::Block(block) => {
                 pending.push(Presence::Completion(&block.result));

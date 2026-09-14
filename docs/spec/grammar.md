@@ -141,9 +141,8 @@ associated itemを導入しない。認める型とprimitiveの組は[memory pri
 同じapplicationを表す。callee名は通常のlexical scopeだけから解決し、receiverの型によるmemberやfunctionの
 探索は行わない。parenthesized argument listは必須であり、`expression.VALUE_IDENT`だけの形は認めない。
 
-`T(value)`と`value[T]`は同じtype applicationである。numeric型`T`ならnumeric conversion、直和型`T`かつ
-`value`がcompile-time integer literalなら該当indexのinjection functionを表す。後者へ通常のapplicationを
-続けた`i[T](payload)`と`payload[i[T]]`は同じ直和値を構築する。
+`T(value)`と`value[T]`は同じnumeric conversionである。`T`と`value`はnumeric型でなければならない。
+直和型を指定したtype applicationは認めず、直和値は[sum return binder](control.md#sum-return-binder)で構築する。
 
 `#`はoperand数でSymbol lengthとbyte accessを区別する。標準の表記はprefixでは`#value`、binaryでは
 `value # index`とする。binary `#`はchainできず、必要な場合は括弧で境界を明示する。

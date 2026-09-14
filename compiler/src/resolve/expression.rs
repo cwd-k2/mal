@@ -55,7 +55,6 @@ impl Resolver {
             },
             ast::Expression::Conversion { type_name, value } => Expression::Conversion {
                 type_ref: self.type_reference(type_name)?,
-                lambda_id: self.allocate_lambda(),
                 value: Box::new(self.resolve_expression(value)?),
             },
             ast::Expression::If {

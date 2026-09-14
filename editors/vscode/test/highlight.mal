@@ -26,10 +26,9 @@ inspect :: Symbol -> UInt64 := (value) {
     #value + UInt64(value # 1u64);
 };
 
-choose :: Bool -> Choice := (condition) {
-    if (condition && !false)
-    then { 0[Choice](42) }
-    else { 1[Choice](letter) };
+choose :: Bool -> Choice := (condition)[integer, byte] {
+    when (condition && !false) { integer(42) };
+    byte(letter)
 };
 
 select :: Choice -> Int32 := (value) {

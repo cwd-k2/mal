@@ -15,7 +15,7 @@ impl Checker {
             Err(
                 Diagnostic::error("invalid top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, external functions, type-qualified primitives, sums, or lambdas",
+                    "top-level values must be closed literals, numeric conversions, external functions, type-qualified primitives, or lambdas",
                 ),
             )
         }

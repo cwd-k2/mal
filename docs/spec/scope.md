@@ -48,10 +48,10 @@ Point :: (Float64, Float64);
 MaybeInt32 :: [Unit, Int32];
 ```
 
-constructor 名が欲しければ通常の関数を binding する。
+構築用の名前が欲しければ、sum return binderを使う通常の関数をbindingする。
 
 ```mal
-some :: Int32 -> MaybeInt32 := 1[MaybeInt32];
+some :: Int32 -> MaybeInt32 := (value)[none, some] { some(value) };
 ```
 
 mal は `Some` や field name に特別な意味を与えない。

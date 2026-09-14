@@ -58,8 +58,7 @@ impl Index {
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
             }
-            ExpressionKind::MemoryFunction { .. } | ExpressionKind::InjectionConstructor { .. } => {
-            }
+            ExpressionKind::MemoryFunction { .. } => {}
             ExpressionKind::Product(elements) => {
                 for element in elements {
                     self.collect_checked_expression(element);

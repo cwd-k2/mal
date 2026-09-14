@@ -291,10 +291,6 @@ pub enum ExpressionKind {
     NumericConversion {
         value: Box<Expression>,
     },
-    InjectionConstructor {
-        lambda_id: LambdaId,
-        index: usize,
-    },
     SumElimination {
         scrutinee: Box<Expression>,
         continuations: Vec<Expression>,

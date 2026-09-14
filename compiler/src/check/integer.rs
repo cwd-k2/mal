@@ -87,16 +87,6 @@ pub(super) fn parse_magnitude(literal: &IntegerLiteral, span: Span) -> Result<u1
     })
 }
 
-pub(super) fn parse_index(literal: &IntegerLiteral, span: Span) -> Result<usize, Diagnostic> {
-    let value = parse_magnitude(literal, span)?;
-    usize::try_from(value).map_err(|_| {
-        Diagnostic::error("variant index is too large").with_primary(
-            span,
-            "the index cannot be represented on this compiler host",
-        )
-    })
-}
-
 pub(super) fn unparenthesized_integer(
     expression: &Node<resolved::Expression>,
 ) -> Option<&IntegerLiteral> {

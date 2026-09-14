@@ -186,42 +186,6 @@ impl Lowerer {
                     value: Box::new(self.lower_expression(value)),
                 }
             }
-            checked::ExpressionKind::InjectionConstructor { lambda_id, index } => {
-                let checked::Type::Function { parameter, result } = &expression.ty else {
-                    unreachable!("an injection constructor has a function type");
-                };
-                let parameter_binding =
-                    (parameter.as_ref() != &checked::Type::Unit).then(|| self.temporary());
-                let value = parameter_binding.map_or(
-                    Expression {
-                        kind: ExpressionKind::Unit,
-                        ty: checked::Type::Unit,
-                        span: expression.span,
-                    },
-                    |parameter_id| {
-                        self.reference(parameter_id, parameter.as_ref().clone(), expression.span)
-                    },
-                );
-                ExpressionKind::Lambda(Lambda {
-                    id: *lambda_id,
-                    self_binding: None,
-                    captures: Vec::new(),
-                    parameter: Parameter {
-                        binding: parameter_binding,
-                        ty: parameter.as_ref().clone(),
-                        span: expression.span,
-                    },
-                    body: Box::new(Expression {
-                        kind: ExpressionKind::SumInjection {
-                            index: *index,
-                            value: Box::new(value),
-                        },
-                        ty: result.as_ref().clone(),
-                        span: expression.span,
-                    }),
-                    joins: Vec::new(),
-                })
-            }
             checked::ExpressionKind::SumElimination {
                 scrutinee,
                 continuations,

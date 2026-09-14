@@ -47,7 +47,7 @@ fn every_example_source_is_canonical_and_idempotent() {
 }
 
 #[test]
-fn examples_construct_sum_variants_through_return_binders() {
+fn examples_do_not_use_removed_indexed_sum_constructors() {
     for path in example_sources() {
         let source = source(&path);
         let tokens = malc::lexer::lex(&source).expect("lexed example");

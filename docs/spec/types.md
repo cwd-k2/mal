@@ -73,21 +73,21 @@ origin :: Point := (0.0, 0.0);
 ```mal
 MaybeInt32 :: [Unit, Int32];
 
-none := 0[MaybeInt32]();
-some := 1[MaybeInt32](42);
+none :: Unit -> MaybeInt32 := ()[none, some] { [none] };
+some :: Int32 -> MaybeInt32 := (value)[none, some] { some(value) };
 ```
 
 同じ型を複数の項に置いてよい。
 
 ```mal
 Choice :: [Int32, Int32];
-a := 0[Choice](42);
-b := 1[Choice](42);
+a :: Int32 -> Choice := (value)[first, second] { first(value) };
+b :: Int32 -> Choice := (value)[first, second] { second(value) };
 ```
 
-`i[S]`と`S(i)`は、直和型`S`の第`i`項から`S`への同じinjection functionを表す。上の構築はそれぞれ
-`42[0[Choice]]`、`42[1[Choice]]`とも書ける。injection indexはcompile-time integer literalでなければならず、
-範囲外はcompile-time errorになる。
+直和値は、その直和をresult型とするlambdaの[sum return binder](control.md#sum-return-binder)だけが構築する。
+位置`i`のbinderへpayloadを渡すと第`i`項を選択してlambdaからreturnする。indexを指定するconstructor、injection function、
+nominal variant nameは存在しない。
 
 空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は従来どおり各項の値を持つ。
 `[]`のeliminationとcompletion規則は[明示的returnとcompletion](control.md#empty)に定める。
@@ -109,8 +109,8 @@ result型を持たなければならない。
 ```mal
 Bool :: [Unit, Unit];
 
-false :: Bool := 0[Bool]();
-true :: Bool := 1[Bool]();
+false :: Bool := [()[cont0, cont1] { [cont0] }];
+true :: Bool := [()[cont0, cont1] { [cont1] }];
 ```
 
 これらはsource fileより外側のpredefined scopeに存在するものとして名前解決する。各source fileのtop-levelで`Bool`、
@@ -131,7 +131,7 @@ Size :: (Float64, Float64);
 
 `Point`、`Size`、`(Float64, Float64)` は同じ型である。alias は新しい runtime representation や nominal identity を作らない。recursive alias は認めない。
 
-直和 injection constructor に書かれた alias 名は、型検査時にその alias が表す直和型へ展開される。alias 自体に runtime identity は残らない。
+sum return binderのarityとparameter型は、result annotationのaliasを展開した直和型から決まる。alias自体にruntime identityは残らない。
 
 ## 関数型
 

@@ -51,13 +51,13 @@ fn rejects_general_member_access_and_non_value_members() {
 }
 
 #[test]
-fn parses_prefix_conversion_and_postfix_constructor_application() {
+fn parses_prefix_and_postfix_numeric_conversions() {
     assert!(matches!(
         binding_value("value := UInt8(1i8);"),
         Expression::Conversion { .. }
     ));
-    let Expression::Call { callee, .. } = binding_value("value := 1[Maybe](1);") else {
-        panic!("expected constructor application");
-    };
-    assert!(matches!(callee.kind, Expression::Conversion { .. }));
+    assert!(matches!(
+        binding_value("value := 1i8[UInt8];"),
+        Expression::Conversion { .. }
+    ));
 }

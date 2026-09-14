@@ -101,64 +101,39 @@ impl Checker {
                 expression.span,
                 expected,
             )?,
-            resolved::Expression::Conversion {
-                type_ref,
-                lambda_id,
-                value,
-            } => {
+            resolved::Expression::Conversion { type_ref, value } => {
                 let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
-                if let Type::Sum(members) = &target {
-                    let resolved::Expression::Integer(index) = &value.kind else {
-                        return Err(
-                            Diagnostic::error("sum constructor requires a variant index")
-                                .with_primary(value.span, "use a compile-time integer literal here")
-                                .into(),
-                        );
-                    };
-                    let index = super::integer::parse_index(index, value.span)?;
-                    let member = members.get(index).ok_or_else(|| {
-                        Diagnostic::error("sum variant index is out of range").with_primary(
-                            value.span,
-                            format!("this sum has {} variants", members.len()),
-                        )
-                    })?;
-                    Expression {
-                        kind: ExpressionKind::InjectionConstructor {
-                            lambda_id: *lambda_id,
-                            index,
-                        },
-                        ty: Type::Function {
-                            parameter: member.clone().into(),
-                            result: target.clone().into(),
-                        },
-                        span: expression.span,
-                    }
-                } else {
-                    if !is_integer(&target) && !is_float(&target) {
-                        return Err(Diagnostic::error(
-                            "numeric conversion requires a numeric type",
-                        )
-                        .with_primary(type_ref.name.span, "this is not a numeric type")
-                        .into());
-                    }
-                    let value = self.check_expression(value, None)?;
-                    if !is_integer(&value.ty) && !is_float(&value.ty) {
-                        return Err(Diagnostic::error(
-                            "numeric conversion requires a numeric value",
-                        )
-                        .with_primary(
-                            value.span,
-                            format!("this has type `{}`", type_name(&value.ty)),
-                        )
-                        .into());
-                    }
-                    Expression {
-                        kind: ExpressionKind::NumericConversion {
-                            value: Box::new(value),
-                        },
-                        ty: target,
-                        span: expression.span,
-                    }
+                if matches!(target, Type::Sum(_)) {
+                    return Err(Diagnostic::error(
+                        "sum values must be constructed through return binders",
+                    )
+                    .with_primary(type_ref.name.span, "this is a sum type")
+                    .into());
+                }
+                if !is_integer(&target) && !is_float(&target) {
+                    return Err(
+                        Diagnostic::error("numeric conversion requires a numeric type")
+                            .with_primary(type_ref.name.span, "this is not a numeric type")
+                            .into(),
+                    );
+                }
+                let value = self.check_expression(value, None)?;
+                if !is_integer(&value.ty) && !is_float(&value.ty) {
+                    return Err(
+                        Diagnostic::error("numeric conversion requires a numeric value")
+                            .with_primary(
+                                value.span,
+                                format!("this has type `{}`", type_name(&value.ty)),
+                            )
+                            .into(),
+                    );
+                }
+                Expression {
+                    kind: ExpressionKind::NumericConversion {
+                        value: Box::new(value),
+                    },
+                    ty: target,
+                    span: expression.span,
                 }
             }
             resolved::Expression::If {
@@ -251,6 +226,31 @@ impl Checker {
                 preceding: Vec::new(),
                 kind: AbruptExpressionKind::EmptyElimination {
                     scrutinee: Box::new(value),
+                },
+                span,
+            })));
+        }
+        if let [continuation] = continuations
+            && let resolved::Expression::Reference(reference) = &continuation.kind
+            && let Some(target) = self.return_targets.get(&reference.id).cloned()
+        {
+            let argument = self.check_expression(value, Some(&target.parameter))?;
+            let value = if let Some(index) = target.variant {
+                Expression {
+                    kind: ExpressionKind::SumInjection {
+                        index,
+                        value: Box::new(argument),
+                    },
+                    ty: target.result,
+                    span,
+                }
+            } else {
+                argument
+            };
+            return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
+                preceding: Vec::new(),
+                kind: AbruptExpressionKind::Return {
+                    value: Box::new(value),
                 },
                 span,
             })));
@@ -436,16 +436,6 @@ impl Checker {
             }
             Err(error) => return Err(error),
         };
-        if let ExpressionKind::InjectionConstructor { index, .. } = callee.kind {
-            return Ok(Expression {
-                ty: result.as_ref().clone(),
-                kind: ExpressionKind::SumInjection {
-                    index,
-                    value: Box::new(argument),
-                },
-                span,
-            });
-        }
         Ok(Expression {
             ty: result.as_ref().clone(),
             kind: ExpressionKind::Call {

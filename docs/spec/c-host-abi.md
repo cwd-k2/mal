@@ -77,6 +77,7 @@ productはsource orderの`field_<index>`を持つ。二項以上のsumは`uint32
 sum helperは`mal_<Type>_tag_<variant>`、pure constructor `mal_<Type>_make_<variant>`、terminal
 `mal_<Type>_return_<variant>`を生成する。parameterとして受けたsumのtagはvalidである。hostがresult内に直接構成した
 nested sumはterminal loweringがactive payloadを読む前にtagを検査し、不正値をtrapする。
+これらはC host ABIのrepresentation helperであり、source-levelのsum constructorや構築authorityを追加しない。
 
 空直和`[]`のC carrierは`uint32_t tag`だけを持ち、payload、constructor、terminal return helperを持たない。validなtagは存在せず、
 hostから`[]`を返す正常完了も存在しない。carrierを宣言できることは値を構築するauthorityをhostへ与えない。

@@ -167,14 +167,14 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 }
 
 #[test]
-fn sum_constructor_type_references_navigate_to_the_alias() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := 1[Choice];\nread :: Unit -> Choice := () { make(1) };\n";
+fn sum_return_annotations_navigate_to_the_alias() {
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] { some(value) };\nread :: Unit -> Choice := () { make(1) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();
-    let constructor_offset = text.find("1[Choice]").unwrap() + 2;
+    let constructor_offset = text.find("-> Choice").unwrap() + 3;
     let reference = document
         .occurrence_at(constructor_offset)
-        .expect("constructor type reference");
+        .expect("result type reference");
 
     assert_eq!(reference.kind, SymbolKind::Type);
     assert_eq!(reference.role, OccurrenceRole::Reference);
@@ -182,8 +182,8 @@ fn sum_constructor_type_references_navigate_to_the_alias() {
         document.definition(reference.id).unwrap().span.start(),
         declaration_offset
     );
-    assert_eq!(document.references(reference.id, true).len(), 4);
-    assert_eq!(document.rename_spans(constructor_offset).unwrap().len(), 4);
+    assert_eq!(document.references(reference.id, true).len(), 3);
+    assert_eq!(document.rename_spans(constructor_offset).unwrap().len(), 3);
     assert_eq!(
         document.hover_at(constructor_offset).unwrap().ty,
         "[Unit, Payload]"

@@ -129,7 +129,6 @@ pub enum Expression {
     },
     Conversion {
         type_ref: TypeReference,
-        lambda_id: LambdaId,
         value: Box<Node<Expression>>,
     },
     If {
