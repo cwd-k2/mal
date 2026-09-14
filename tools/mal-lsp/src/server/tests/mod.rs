@@ -305,9 +305,9 @@ fn preserves_declared_type_aliases_in_hover() {
 }
 
 #[test]
-fn expands_a_sum_return_type_hover_by_exactly_one_alias_layer() {
+fn expands_a_sum_result_type_hover_by_exactly_one_alias_layer() {
     let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
-    let uri = "file:///sum-return-hover.mal";
+    let uri = "file:///sum-result-hover.mal";
     let mut server = open_document(uri, text);
     let constructor = text.find("-> Choice").unwrap() + 3;
     let hover = request_at(
@@ -321,7 +321,7 @@ fn expands_a_sum_return_type_hover_by_exactly_one_alias_layer() {
 
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nChoice :: [Unit, Payload]\n```\n\ntype\n\nDefined in `sum-return-hover.mal:2:1`"
+        "```mal\nChoice :: [Unit, Payload]\n```\n\ntype\n\nDefined in `sum-result-hover.mal:2:1`"
     );
 
     let function = request_at(
@@ -334,7 +334,7 @@ fn expands_a_sum_return_type_hover_by_exactly_one_alias_layer() {
     );
     assert_eq!(
         function["result"]["contents"]["value"],
-        "```mal\nmake :: Payload -> Choice\n```\n\nfunction\n\nDefined in `sum-return-hover.mal:3:1`"
+        "```mal\nmake :: Payload -> Choice\n```\n\nfunction\n\nDefined in `sum-result-hover.mal:3:1`"
     );
 
     let call = text.rfind("make(1)").unwrap();

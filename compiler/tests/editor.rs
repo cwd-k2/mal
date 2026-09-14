@@ -167,7 +167,7 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 }
 
 #[test]
-fn sum_return_annotations_navigate_to_the_alias() {
+fn sum_result_annotations_navigate_to_the_alias() {
     let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();

@@ -239,7 +239,7 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 
 #[test]
 fn runs_sum_results_and_postfix_application_through_llvm() {
-    let directory = NativeFixture::new("driver-llvm-sum-return");
+    let directory = NativeFixture::new("driver-llvm-sum-result");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
