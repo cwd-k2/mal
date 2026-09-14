@@ -24,7 +24,7 @@ _objectNext :: UInt64 := 8u64;
 _rootValue :: UInt64 := 9u64;
 _rootDone :: UInt64 := 10u64;
 
-// Sum constructors arrive as the two continuation parameters of the result type.
+// The two sum return binders name ParseResult's alternative result edges.
 _parseFailure :: Symbol -> ParseResult := (message)[failure, success] {
     failure(message);
 };

@@ -1,9 +1,9 @@
-// Query is an enum: variant 0 selects count and variant 1 selects depth.
+// Query is a sum: variant 0 selects count and variant 1 selects depth.
 Query :: [Unit, Unit];
 // The first variant carries a diagnostic; the second carries a validated query.
 QueryResult :: [Symbol, Query];
 
-// The sum return binder is a continuation, so calling count() selects variant 0.
+// The sum return binders name Query's result edges; applying count selects variant 0.
 _countQuery :: Unit -> Query := ()[count, depth] {
     count();
 };
