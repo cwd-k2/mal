@@ -14,6 +14,9 @@ server build、extension dependencyのinstall、利用可能なVS Code環境に�
 semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表示する。型alias自身には右辺を一段だけ表示し、
 型注釈を持つ値には注釈内のalias名を保った型を表示する。推論された型と名前を持たないtyped expressionにはcanonical
 typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
+source declarationを持つsymbolでは宣言元fileからの相対pathと1始まりの行・columnも表示する。宣言の直前に空行を挟まず
+連続する単独行の`//` commentはdocumentationとして表示し、各行の`//`直後にある一つのspaceと行末空白を除く。同じ行で
+codeの後にあるcomment、宣言との間に空行があるcomment、predefined symbolと名前のないexpressionにはdocumentationを付けない。
 byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
 TextMate grammarはreceiver-first applicationのcalleeをfunction、`.`をaccessor punctuationとして分類する。
 semantic analysisではcalleeを通常のfunction referenceとして扱い、hover、definition、references、rename、

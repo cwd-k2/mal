@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
-use malc::editor::{Hover, OccurrenceRole, SemanticDocument, SymbolKind};
+use malc::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
 use malc::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Server, TextDocumentIdentifier, error, path_to_uri, position, success};
+use super::{
+    Document, Server, TextDocumentIdentifier, error, path_to_uri, position, success, uri_to_path,
+};
 
 mod completion;
+mod hover;
 mod tokens;
 
 #[derive(Clone, Copy, Deserialize)]
@@ -64,11 +67,48 @@ impl Server {
         let Some(hover) = semantic.hover_at(offset) else {
             return success(id, Value::Null);
         };
+        let hover_span = hover.span;
+        let ty = hover.ty.to_owned();
+        let occurrence = hover.occurrence.cloned();
+        let definition = occurrence
+            .as_ref()
+            .and_then(|occurrence| semantic.definition(occurrence.id))
+            .cloned();
+        let uri = params["textDocument"]["uri"].as_str().unwrap_or_default();
+        let (documentation, location) = definition.map_or((None, None), |definition| {
+            let Some(document) = self.documents.get(uri) else {
+                return (None, None);
+            };
+            let Some(definition_source) = document.source_for(definition.span, uri) else {
+                return (None, None);
+            };
+            let documentation = definition
+                .declaration_span
+                .and_then(|span| malc::editor::declaration_documentation(&definition_source, span));
+            let location = definition_source
+                .location(definition.span.start())
+                .map(|position| {
+                    format!(
+                        "{}:{}:{}",
+                        definition_display_path(document, uri, &definition_source),
+                        position.line,
+                        position.column
+                    )
+                });
+            (documentation, location)
+        });
         success(
             id,
             json!({
-                "contents": {"kind": "markdown", "value": hover_contents(&source, hover)},
-                "range": span_range(&source, hover.span)
+                "contents": {"kind": "markdown", "value": hover::contents(
+                    &source,
+                    hover_span,
+                    &ty,
+                    occurrence.as_ref(),
+                    documentation.as_deref(),
+                    location.as_deref(),
+                )},
+                "range": span_range(&source, hover_span)
             }),
         )
     }
@@ -358,30 +398,20 @@ enum SemanticRequest<T> {
     Invalid,
 }
 
-fn hover_contents(source: &SourceFile, hover: Hover<'_>) -> String {
-    let (declaration, label) = if let Some(occurrence) = hover.occurrence {
-        let declaration = if occurrence.kind == SymbolKind::Type && occurrence.name == hover.ty {
-            occurrence.name.clone()
-        } else {
-            format!("{} :: {}", occurrence.name, hover.ty)
-        };
-        let label = match (occurrence.id, occurrence.kind) {
-            (_, SymbolKind::Type) => "type",
-            (_, SymbolKind::Function) => "function",
-            (_, SymbolKind::Parameter) => "parameter",
-            (_, SymbolKind::Value) => "value",
-        };
-        (declaration, Some(label))
-    } else {
-        let expression = &source.text()[hover.span.start()..hover.span.end()];
-        (format!("{expression} :: {}", hover.ty), None)
-    };
-    let mut contents = format!("```mal\n{declaration}\n```");
-    if let Some(label) = label {
-        contents.push_str("\n\n");
-        contents.push_str(label);
+fn definition_display_path(document: &Document, root_uri: &str, source: &SourceFile) -> String {
+    if let Some(graph) = &document.graph
+        && let Some(root_directory) = graph.root_source().path().parent()
+        && let Ok(relative) = source.path().strip_prefix(root_directory)
+        && !relative.as_os_str().is_empty()
+    {
+        return relative.display().to_string();
     }
-    contents
+    uri_to_path(root_uri)
+        .filter(|_| source.id() == document.id)
+        .and_then(|path| path.file_name().map(ToOwned::to_owned))
+        .unwrap_or_else(|| source.path().as_os_str().to_owned())
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[derive(Deserialize)]

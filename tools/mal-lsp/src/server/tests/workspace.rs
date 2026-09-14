@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn hover_includes_dependency_documentation_and_relative_definition_location() {
+    let files = TestFiles::new();
+    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () { publicValue; };\n";
+    let library_text = "// Public answer.\n// Safe to reuse.\npublicValue :: Int32 := 42;\n";
+    let root_path = files.write("program.mal", root_text);
+    files.write("library.mal", library_text);
+    let root_uri = path_to_uri(&root_path);
+    let mut server = open_document(&root_uri, root_text);
+    let reference = root_text.rfind("publicValue").unwrap();
+
+    let hover = request_at(
+        &mut server,
+        29,
+        "textDocument/hover",
+        &root_uri,
+        root_text,
+        reference,
+    );
+
+    assert_eq!(
+        hover["result"]["contents"]["value"],
+        "```mal\npublicValue :: Int32\n```\n\nvalue\n\nPublic answer.\nSafe to reuse.\n\nDefined in `library.mal:3:1`"
+    );
+}
+
+#[test]
 fn serves_cross_file_semantics_from_open_dependency_buffers() {
     let files = TestFiles::new();
     let root_path = files.write("program.mal", "not the open buffer");

@@ -229,7 +229,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
     assert_eq!(hover["result"]["contents"]["kind"], "markdown");
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nx :: Int32\n```\n\nparameter"
+        "```mal\nx :: Int32\n```\n\nparameter\n\nDefined in `semantic.mal:1:28`"
     );
     assert_eq!(
         hover["result"]["range"]["start"],
@@ -288,7 +288,7 @@ fn preserves_declared_type_aliases_in_hover() {
     );
     assert_eq!(
         alias["result"]["contents"]["value"],
-        "```mal\nTree :: (Int64, Ptr, Ptr)\n```\n\ntype"
+        "```mal\nTree :: (Int64, Ptr, Ptr)\n```\n\ntype\n\nDefined in `alias-hover.mal:1:1`"
     );
 
     let function = request_at(
@@ -301,7 +301,7 @@ fn preserves_declared_type_aliases_in_hover() {
     );
     assert_eq!(
         function["result"]["contents"]["value"],
-        "```mal\nf :: (Tree, Int64) -> Int64\n```\n\nfunction"
+        "```mal\nf :: (Tree, Int64) -> Int64\n```\n\nfunction\n\nDefined in `alias-hover.mal:2:1`"
     );
 }
 
@@ -322,7 +322,7 @@ fn expands_a_sum_constructor_type_hover_by_exactly_one_alias_layer() {
 
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nChoice :: [Unit, Payload]\n```\n\ntype"
+        "```mal\nChoice :: [Unit, Payload]\n```\n\ntype\n\nDefined in `sum-constructor-hover.mal:2:1`"
     );
 
     let function = request_at(
@@ -335,7 +335,7 @@ fn expands_a_sum_constructor_type_hover_by_exactly_one_alias_layer() {
     );
     assert_eq!(
         function["result"]["contents"]["value"],
-        "```mal\nmake :: Payload -> Choice\n```\n\nfunction"
+        "```mal\nmake :: Payload -> Choice\n```\n\nfunction\n\nDefined in `sum-constructor-hover.mal:3:1`"
     );
 
     let call = text.rfind("make(1)").unwrap();
@@ -392,7 +392,7 @@ fn serves_hover_and_definition_for_a_type_qualified_primitive() {
     let hover = request_at(&mut server, 21, "textDocument/hover", uri, text, reference);
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nByte :: UInt8\n```\n\ntype"
+        "```mal\nByte :: UInt8\n```\n\ntype\n\nDefined in `type-qualified-primitive.mal:1:1`"
     );
 
     let definition = request_at(

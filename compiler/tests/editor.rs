@@ -6,6 +6,29 @@ fn source(text: &str) -> SourceFile {
 }
 
 #[test]
+fn associates_only_adjacent_standalone_comments_with_declarations() {
+    let text = "// First line\n// Second line  \nextern output :: Int32 -> Unit;\n\n// Detached\n\nvalue :: Int32 := 1; // Trailing\nnext :: Int32 := 2;\n";
+    let source = source(text);
+    let document = malc::editor::analyze(&source).expect("semantic document");
+    let documentation = |name: &str| {
+        let occurrence = document
+            .occurrence_at(text.find(name).unwrap())
+            .expect("declaration occurrence");
+        malc::editor::declaration_documentation(
+            &source,
+            occurrence.declaration_span.expect("declaration span"),
+        )
+    };
+
+    assert_eq!(
+        documentation("output").as_deref(),
+        Some("First line\nSecond line")
+    );
+    assert_eq!(documentation("value"), None);
+    assert_eq!(documentation("next"), None);
+}
+
+#[test]
 fn preserves_declared_aliases_in_symbol_types() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");

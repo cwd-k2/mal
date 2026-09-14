@@ -4,20 +4,30 @@ use super::Index;
 use crate::editor::{OccurrenceRole, SymbolId};
 
 impl Index {
-    pub(super) fn collect_resolved_top(&mut self, item: &resolved::TopItem) {
-        match item {
+    pub(super) fn collect_resolved_top(&mut self, item: &crate::ast::Node<resolved::TopItem>) {
+        match &item.kind {
             resolved::TopItem::TypeAlias { binding, value } => {
                 let id = SymbolId::Type(binding.id);
                 self.type_details
                     .insert(binding.id, super::type_display::type_name(value));
                 self.top_level.push(id);
-                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
                 self.collect_resolved_type(value);
             }
             resolved::TopItem::ExternalType { binding } => {
                 let id = SymbolId::Type(binding.id);
                 self.top_level.push(id);
-                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
             }
             resolved::TopItem::ExternalOperation { binding, ty, .. } => {
                 self.value_types
@@ -25,11 +35,16 @@ impl Index {
                 self.functions.insert(binding.id);
                 let id = SymbolId::Value(binding.id);
                 self.top_level.push(id);
-                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
                 self.collect_resolved_type(ty);
             }
             resolved::TopItem::Binding(binding) => {
-                self.collect_resolved_binding(binding, true);
+                self.collect_resolved_binding(binding, true, item.span);
             }
         }
     }
@@ -40,6 +55,7 @@ impl Index {
                 SymbolId::Type(reference.id),
                 &reference.name,
                 OccurrenceRole::Reference,
+                None,
             ),
             resolved::TypeExpression::Parenthesized(inner) => self.collect_resolved_type(inner),
             resolved::TypeExpression::Product(elements)
@@ -56,13 +72,18 @@ impl Index {
         }
     }
 
-    fn collect_resolved_binding(&mut self, binding: &resolved::Binding, top_level: bool) {
+    fn collect_resolved_binding(
+        &mut self,
+        binding: &resolved::Binding,
+        top_level: bool,
+        declaration_span: crate::source::Span,
+    ) {
         if let Some(annotation) = &binding.annotation {
             self.collect_resolved_type(annotation);
             self.apply_declared_pattern_type(&binding.pattern, annotation);
         }
         self.collect_resolved_expression_with_expected(&binding.value, binding.annotation.as_ref());
-        self.collect_resolved_pattern(&binding.pattern, top_level);
+        self.collect_resolved_pattern(&binding.pattern, top_level, declaration_span);
     }
 
     fn apply_declared_pattern_type(
@@ -119,7 +140,7 @@ impl Index {
             if let Some(parameter_type) = parameter_type {
                 self.apply_declared_pattern_type(parameter, parameter_type);
             }
-            self.collect_resolved_pattern(parameter, false);
+            self.collect_resolved_pattern(parameter, false, parameter.span);
         }
         if let Some(return_binders) = &lambda.return_binders {
             match return_binders.as_slice() {
@@ -148,13 +169,18 @@ impl Index {
             }
             for binding in return_binders {
                 let id = SymbolId::Value(self.canonical_value(binding.id));
-                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(binding.name.span),
+                );
             }
         }
         for item in &lambda.body.items {
             match item {
                 resolved::BodyItem::Binding(binding) => {
-                    self.collect_resolved_binding(&binding.kind, false);
+                    self.collect_resolved_binding(&binding.kind, false, binding.span);
                 }
                 resolved::BodyItem::Expression(expression) => {
                     self.collect_resolved_expression(expression);
@@ -168,6 +194,7 @@ impl Index {
         &mut self,
         pattern: &crate::ast::Node<resolved::Pattern>,
         top_level: bool,
+        declaration_span: crate::source::Span,
     ) {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) => {
@@ -175,11 +202,16 @@ impl Index {
                 if top_level {
                     self.top_level.push(id);
                 }
-                self.add_raw(id, &binding.name, OccurrenceRole::Declaration);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(declaration_span),
+                );
             }
             resolved::Pattern::Product(elements) => {
                 for element in elements {
-                    self.collect_resolved_pattern(element, top_level);
+                    self.collect_resolved_pattern(element, top_level, declaration_span);
                 }
             }
             resolved::Pattern::Wildcard => {}
@@ -193,12 +225,14 @@ impl Index {
                 SymbolId::Value(self.canonical_value(reference.id)),
                 &reference.name,
                 OccurrenceRole::Reference,
+                None,
             ),
             Expression::Parenthesized(inner) => self.collect_resolved_expression(inner),
             Expression::TypeQualifiedPrimitive { type_ref, .. } => self.add_raw(
                 SymbolId::Type(type_ref.id),
                 &type_ref.name,
                 OccurrenceRole::Reference,
+                None,
             ),
             Expression::Product(elements) => {
                 for element in elements {
@@ -230,6 +264,7 @@ impl Index {
                     SymbolId::Type(type_ref.id),
                     &type_ref.name,
                     OccurrenceRole::Reference,
+                    None,
                 );
                 self.collect_resolved_expression(value);
             }
@@ -274,7 +309,7 @@ impl Index {
         for item in items {
             match item {
                 resolved::BodyItem::Binding(binding) => {
-                    self.collect_resolved_binding(&binding.kind, false);
+                    self.collect_resolved_binding(&binding.kind, false, binding.span);
                 }
                 resolved::BodyItem::Expression(expression) => {
                     self.collect_resolved_expression(expression);

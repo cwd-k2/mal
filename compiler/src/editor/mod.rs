@@ -4,9 +4,11 @@ use std::collections::HashSet;
 
 use crate::source::{FileId, SourceFile, SourceGraph, Span};
 
+mod documentation;
 mod index;
 mod syntax;
 
+pub use documentation::declaration_documentation;
 pub use syntax::{SyntaxDocument, SyntaxToken};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -37,6 +39,7 @@ pub struct Occurrence {
     pub kind: SymbolKind,
     pub role: OccurrenceRole,
     pub detail: Option<String>,
+    pub declaration_span: Option<Span>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

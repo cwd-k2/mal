@@ -37,6 +37,7 @@ struct RawOccurrence {
     name: String,
     span: Span,
     role: OccurrenceRole,
+    declaration_span: Option<Span>,
 }
 
 impl Index {
@@ -65,7 +66,7 @@ impl Index {
             index.collect_checked_top(&item.kind);
         }
         for item in &resolved.items {
-            index.collect_resolved_top(&item.kind);
+            index.collect_resolved_top(item);
         }
         index
     }
@@ -87,6 +88,7 @@ impl Index {
                     name: raw.name,
                     span: raw.span,
                     role: raw.role,
+                    declaration_span: raw.declaration_span,
                 }
             })
             .collect::<Vec<_>>();
@@ -193,12 +195,19 @@ impl Index {
         }
     }
 
-    fn add_raw(&mut self, id: SymbolId, name: &crate::ast::Name, role: OccurrenceRole) {
+    fn add_raw(
+        &mut self,
+        id: SymbolId,
+        name: &crate::ast::Name,
+        role: OccurrenceRole,
+        declaration_span: Option<Span>,
+    ) {
         self.raw_occurrences.push(RawOccurrence {
             id,
             name: name.text.clone(),
             span: name.span,
             role,
+            declaration_span,
         });
     }
 }
