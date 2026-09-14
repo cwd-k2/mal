@@ -35,6 +35,13 @@ impl Resolver {
                     .map(|element| self.resolve_expression(element))
                     .collect::<Result<_, _>>()?,
             ),
+            ast::Expression::Block(block) => {
+                Expression::Block(self.resolve_expression_block(block)?)
+            }
+            ast::Expression::ResultBlock {
+                return_binders,
+                body,
+            } => self.resolve_result_block(return_binders, body)?,
             ast::Expression::Lambda(lambda) => Expression::Lambda(self.resolve_lambda(lambda)?),
             ast::Expression::Call { callee, arguments } => Expression::Call {
                 callee: Box::new(self.resolve_expression(callee)?),
@@ -203,6 +210,33 @@ impl Resolver {
     ) -> Result<ExpressionBlock, Diagnostic> {
         self.push_scope();
         let result = self.resolve_expression_block_contents(block);
+        self.pop_scope();
+        result
+    }
+
+    fn resolve_result_block(
+        &mut self,
+        binders: &[ast::Name],
+        block: &ast::ExpressionBlock,
+    ) -> Result<Expression, Diagnostic> {
+        let owner = self.current_lambda.map(ValueOwner::Return).ok_or_else(|| {
+            Diagnostic::error("result block outside a lambda is not supported").with_primary(
+                block.span,
+                "a direct result block requires an enclosing lambda invocation",
+            )
+        })?;
+        self.push_scope();
+        let result = (|| {
+            let return_binders = binders
+                .iter()
+                .map(|name| self.declare_value(name, owner))
+                .collect::<Result<Vec<_>, _>>()?;
+            let body = self.resolve_expression_block_contents(block)?;
+            Ok(Expression::ResultBlock {
+                return_binders,
+                body,
+            })
+        })();
         self.pop_scope();
         result
     }

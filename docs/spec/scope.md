@@ -11,7 +11,7 @@ mal の責務は次に限定する。
 - lambda and application
 - product and sum
 - surface `if` and exhaustive sum continuation application
-- explicit lambda-local return binder、`when`、empty sum elimination
+- explicit lambda-local return binder、direct block、direct result block、`when`、empty sum elimination
 - self recursion
 - fixed-width numeric, logical, and bit operations
 - language-intrinsic immutable `Symbol`

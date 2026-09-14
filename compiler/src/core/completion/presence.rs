@@ -8,6 +8,10 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 checked::ExpressionKind::Parenthesized(inner) => {
                     pending.push(Presence::Expression(inner));
                 }
+                checked::ExpressionKind::Block(block) => {
+                    pending.push(Presence::Block(block));
+                }
+                checked::ExpressionKind::ResultBlock { .. } => return true,
                 checked::ExpressionKind::Product(elements) => {
                     pending.extend(elements.iter().rev().map(Presence::Expression));
                 }

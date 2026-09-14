@@ -48,6 +48,8 @@ impl ControlLayout {
                     pending.extend(fields.iter().rev().map(|field| (field, false)));
                 }
                 Expression::Lambda(lambda) => push_block(&mut pending, &lambda.body),
+                Expression::Block(block) => push_block(&mut pending, block),
+                Expression::ResultBlock { body, .. } => push_block(&mut pending, body),
                 Expression::Call { callee, arguments } => {
                     pending.extend(arguments.iter().rev().map(|argument| (argument, false)));
                     pending.push((callee, false));

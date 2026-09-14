@@ -85,6 +85,7 @@ impl Checker {
                         parameter: binder.parameter_type.clone(),
                         result: result.clone(),
                         variant: binder.variant,
+                        boundary: super::ast::ReturnBoundary::Lambda,
                     },
                 );
             }
@@ -148,7 +149,7 @@ impl Checker {
         })
     }
 
-    fn check_return_binders(
+    pub(super) fn check_return_binders(
         &self,
         bindings: &[resolved::ValueBinding],
         result: &Type,

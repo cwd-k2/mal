@@ -5,7 +5,7 @@ Status: Current v0.5 profile
 ## 評価戦略
 
 malはstrict call-by-valueである。applicationは表記にかかわらずvalueを先に、continuationを後に評価する。
-product要素、primitive operand、lambda bodyはsource orderで左から右、上から下へ評価する。
+product要素、primitive operand、lambda body、direct blockはsource orderで左から右、上から下へ評価する。
 
 ```mal
 f(a(), b(), c())
@@ -142,4 +142,5 @@ e ::= variable | literal | lambda | application
 `Bool`は`[Unit, Unit]`、`if`と論理演算はsum eliminationへ消去できる。
 `::`は型情報、`:=`はlambda application、blockの末尾式はlambdaの結果へ消去できる。これは実装を強制する
 定義ではなく、表面機能を追加するときの意味論上の基準である。
-return binder、`when`、`Abrupt`もcore境界でlambda result、sum injection・elimination、branchへ消去する。
+return binder、direct result block、`when`、`Abrupt`もcore境界でlambda result、lambda-local join、sum injection・elimination、
+branchへ消去する。

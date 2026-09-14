@@ -116,6 +116,38 @@ fn executes_explicit_and_sum_returns_through_the_existing_calling_convention() {
 }
 
 #[test]
+fn executes_direct_blocks_and_local_result_continuations() {
+    let directory = NativeFixture::new("driver-result-block");
+    let source = directory.write(
+        "program.mal",
+        "select :: Bool -> Int32 := (condition)[return] {
+           value :: Int32 := {
+             when (condition) { return(7) };
+             base :: Int32 := 40;
+             base + 1
+           };
+           return([done] { done(value + 1) })
+         };
+         main :: Unit -> Int32 := () {
+           select(false)
+         };",
+    );
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(42));
+}
+
+#[test]
 fn compiles_empty_elimination_as_an_unreachable_zero_arm_case() {
     let directory = NativeFixture::new("driver-empty-return");
     let source = directory.write(

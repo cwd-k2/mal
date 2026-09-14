@@ -2,6 +2,7 @@ use crate::ast::{BinaryOperator, UnaryOperator};
 use crate::check::ast as checked;
 use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
 use crate::source::Span;
+use std::collections::HashMap;
 
 pub mod ast;
 mod bool;
@@ -26,6 +27,7 @@ pub fn lower(program: &checked::Program) -> Program {
 struct Lowerer {
     next_temporary: u32,
     joins: Vec<ast::Join>,
+    result_targets: HashMap<crate::resolve::ast::ValueId, ast::JoinId>,
 }
 
 impl Lowerer {
@@ -33,6 +35,7 @@ impl Lowerer {
         Self {
             next_temporary: 0,
             joins: Vec::new(),
+            result_targets: HashMap::new(),
         }
     }
 
@@ -156,6 +159,12 @@ impl Lowerer {
                     .collect(),
             ),
             checked::ExpressionKind::Parenthesized(inner) => return self.lower_expression(inner),
+            checked::ExpressionKind::Block(block) => {
+                return self.lower_body(&block.items, &block.result);
+            }
+            checked::ExpressionKind::ResultBlock { .. } => {
+                unreachable!("result blocks are lowered through their local continuation")
+            }
             checked::ExpressionKind::Lambda(lambda) => {
                 ExpressionKind::Lambda(self.lower_lambda(lambda))
             }

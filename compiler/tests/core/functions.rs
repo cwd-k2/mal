@@ -200,3 +200,25 @@ fn lowers_empty_elimination_to_a_zero_arm_case() {
     };
     assert!(arms.is_empty());
 }
+
+#[test]
+fn lowers_direct_result_blocks_to_local_joins_without_a_lambda() {
+    let program = lower_ok(
+        "main :: Unit -> Int32 := () {
+           [done] { value :: Int32 := { 40 + 2 }; done(value) }
+         };",
+    );
+    let lambda = top_lambda_definition(&program, "main");
+    assert_eq!(lambda.joins.len(), 1);
+    let ExpressionKind::Let { body, .. } = &lambda.body.kind else {
+        panic!("expected the result block body");
+    };
+    let ExpressionKind::Goto { target, .. } = body.kind else {
+        panic!("expected a transfer to the result block join");
+    };
+    assert_eq!(target, JoinId(0));
+    assert!(matches!(
+        lambda.joins[0].body.kind,
+        ExpressionKind::Reference(_)
+    ));
+}

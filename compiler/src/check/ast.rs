@@ -248,6 +248,7 @@ impl AbruptExpression {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AbruptExpressionKind {
     Return {
+        target: ReturnBoundary,
         value: Box<Expression>,
     },
     EmptyElimination {
@@ -258,6 +259,13 @@ pub enum AbruptExpressionKind {
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
     },
+    Block(ExpressionBlock),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReturnBoundary {
+    Lambda,
+    Block(ValueId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -270,6 +278,12 @@ pub enum ExpressionKind {
     Unit,
     Product(Vec<Expression>),
     Parenthesized(Box<Expression>),
+    Block(ExpressionBlock),
+    ResultBlock {
+        target: ValueId,
+        return_binders: Vec<ReturnBinder>,
+        body: ExpressionBlock,
+    },
     Lambda(Lambda),
     Call {
         callee: Box<Expression>,

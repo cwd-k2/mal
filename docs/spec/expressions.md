@@ -60,6 +60,23 @@ lambdaは通常のresult expressionに代えてreturn binder groupを宣言で�
 log :: Symbol -> Unit := (message) { print(message) };
 ```
 
+## direct block
+
+blockは単独のexpressionとして置ける。body itemをsource orderで評価し、最後のexpressionがblockの値になる。block内の
+bindingはblockの外へ出ず、外側のlocal bindingとreturn binderは通常どおり参照できる。
+
+```mal
+value :: Int32 := {
+    base :: Int32 := 40;
+    base + 2
+};
+```
+
+`{ body }`は`() { body }`の省略ではない。前者はその場で評価するblockであり、後者は`Unit` parameterを持つfunction
+valueを作る。したがってbare blockは期待関数型から暗黙にlambdaへ変換されない。top-level initializerには置けない。
+
+result continuationを導入するblockは[direct result block](control.md#direct-result-block)に定める。
+
 ## application
 
 applicationはcontinuationを先に書く`f(a)`とvalueを先に書く`a[f]`のどちらでも表せる。

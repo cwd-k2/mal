@@ -211,6 +211,25 @@ fn formats_sum_and_empty_return_binder_groups() {
 }
 
 #[test]
+fn formats_direct_blocks_and_result_blocks() {
+    let formatted =
+        format("main::Unit->Int32:=(){value::Int32:={local:=40;local+1};[done]{done(value+1)}};");
+    assert_eq!(
+        formatted,
+        concat!(
+            "main :: Unit -> Int32 := () {\n",
+            "    value :: Int32 := {\n",
+            "        local := 40;\n",
+            "        local + 1;\n",
+            "    };\n",
+            "    [done] { done(value + 1) };\n",
+            "};\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_one_intentional_blank_line_between_block_steps() {
     let formatted = format(
         "work::Int32->Int32:=(value)[return]{first:=value+1;\n\n\n// second stage\nsecond:=first*2;\n\nreturn(second)};",

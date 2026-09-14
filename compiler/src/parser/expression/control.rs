@@ -5,6 +5,66 @@ use crate::lexer::TokenKind;
 use super::super::Parser;
 
 impl Parser<'_> {
+    pub(super) fn parse_block_expression(&mut self) -> Result<Node<Expression>, Diagnostic> {
+        let block = self.parse_expression_block()?;
+        let span = block.span;
+        Ok(Node::new(Expression::Block(block), span))
+    }
+
+    pub(super) fn parse_result_block(&mut self) -> Result<Node<Expression>, Diagnostic> {
+        let start = self.current_span().start();
+        let return_binders = self
+            .parse_return_binders()?
+            .expect("a result block starts with a binder group");
+        debug_assert!(!return_binders.is_empty());
+        let body = self.parse_expression_block()?;
+        let span = self.span(start, body.span.end());
+        Ok(Node::new(
+            Expression::ResultBlock {
+                return_binders,
+                body,
+            },
+            span,
+        ))
+    }
+
+    pub(super) fn at_result_block(&self) -> bool {
+        if !self.at(&TokenKind::LeftBracket) {
+            return false;
+        }
+        let mut index = self.position + 1;
+        if !self
+            .tokens
+            .get(index)
+            .is_some_and(|token| matches!(token.kind, TokenKind::ValueIdentifier))
+        {
+            return false;
+        }
+        index += 1;
+        while self
+            .tokens
+            .get(index)
+            .is_some_and(|token| matches!(token.kind, TokenKind::Comma))
+        {
+            index += 1;
+            if !self
+                .tokens
+                .get(index)
+                .is_some_and(|token| matches!(token.kind, TokenKind::ValueIdentifier))
+            {
+                return false;
+            }
+            index += 1;
+        }
+        self.tokens
+            .get(index)
+            .is_some_and(|token| matches!(token.kind, TokenKind::RightBracket))
+            && self
+                .tokens
+                .get(index + 1)
+                .is_some_and(|token| matches!(token.kind, TokenKind::LeftBrace))
+    }
+
     pub(super) fn parse_if(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let start = self.expect(&TokenKind::If, "`if`")?.span.start();
         self.expect(&TokenKind::LeftParen, "`(`")?;

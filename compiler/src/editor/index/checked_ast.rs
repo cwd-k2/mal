@@ -65,6 +65,24 @@ impl Index {
                 }
             }
             ExpressionKind::Parenthesized(inner) => self.collect_checked_expression(inner),
+            ExpressionKind::Block(block) => {
+                self.collect_checked_body(&block.items, &block.result);
+            }
+            ExpressionKind::ResultBlock {
+                return_binders,
+                body,
+                ..
+            } => {
+                for binder in return_binders {
+                    let id = self.canonical_value(binder.binding.id);
+                    let parameter_type = crate::check::type_name(&binder.parameter_type);
+                    self.parameters.insert(id);
+                    self.value_types.insert(id, parameter_type.clone());
+                    self.typed_regions
+                        .push((binder.binding.name.span, parameter_type));
+                }
+                self.collect_checked_body(&body.items, &body.result);
+            }
             ExpressionKind::Lambda(lambda) => {
                 for capture in &lambda.captures {
                     self.value_types.insert(
@@ -172,7 +190,7 @@ impl Index {
                     self.collect_checked_expression(expression);
                 }
                 match &abrupt.kind {
-                    checked::AbruptExpressionKind::Return { value } => {
+                    checked::AbruptExpressionKind::Return { value, .. } => {
                         self.collect_checked_expression(value);
                     }
                     checked::AbruptExpressionKind::EmptyElimination { scrutinee } => {
@@ -186,6 +204,9 @@ impl Index {
                         self.collect_checked_expression(condition);
                         self.collect_checked_body(&then_branch.items, &then_branch.result);
                         self.collect_checked_body(&else_branch.items, &else_branch.result);
+                    }
+                    checked::AbruptExpressionKind::Block(block) => {
+                        self.collect_checked_body(&block.items, &block.result);
                     }
                 }
             }

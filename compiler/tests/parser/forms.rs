@@ -66,6 +66,31 @@ fn parses_return_binders_when_and_empty_forms() {
 }
 
 #[test]
+fn parses_direct_blocks_and_result_blocks_as_distinct_expressions() {
+    let expression = binding_value("value := { local := 1; local };");
+    let Expression::Block(block) = expression else {
+        panic!("expected a direct block");
+    };
+    assert_eq!(block.items.len(), 1);
+
+    let expression = binding_value("value := [left, right] { right(1) };");
+    let Expression::ResultBlock {
+        return_binders,
+        body,
+    } = expression
+    else {
+        panic!("expected a direct result block");
+    };
+    assert_eq!(return_binders.len(), 2);
+    assert!(matches!(body.result.kind, Expression::Call { .. }));
+}
+
+#[test]
+fn does_not_parse_an_empty_result_binder_group_as_a_result_block() {
+    assert!(parse(&source("value := [] { 0 };")).is_err());
+}
+
+#[test]
 fn parses_lambda_patterns_from_parameter_lists() {
     let expression = binding_value("make := ((x, _), y) { x + y };");
     let Expression::Lambda(lambda) = expression else {

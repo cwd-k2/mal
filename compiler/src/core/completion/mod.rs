@@ -6,8 +6,10 @@ use super::ast::{Binding, Expression, ExpressionKind, Pattern};
 
 type Continuation<'a> = dyn FnMut(&mut Lowerer, Expression) -> Expression + 'a;
 
+mod abrupt;
 mod branch;
 mod presence;
+mod result_block;
 mod value;
 
 use presence::contains_control;
@@ -170,77 +172,6 @@ impl Lowerer {
         }
     }
 
-    fn lower_abrupt(
-        &mut self,
-        abrupt: &checked::AbruptExpression,
-        result_type: &checked::Type,
-    ) -> Expression {
-        let terminal = match &abrupt.kind {
-            checked::AbruptExpressionKind::Return { value } => {
-                let mut identity = |_: &mut Lowerer, value: Expression| value;
-                self.lower_value_with(value, result_type, &mut identity)
-            }
-            checked::AbruptExpressionKind::EmptyElimination { scrutinee } => {
-                let span = abrupt.span;
-                let mut eliminate = |_lowerer: &mut Lowerer, value: Expression| Expression {
-                    kind: ExpressionKind::Case {
-                        scrutinee: Box::new(value),
-                        arms: Vec::new(),
-                    },
-                    ty: result_type.clone(),
-                    span,
-                };
-                self.lower_value_with(scrutinee, result_type, &mut eliminate)
-            }
-            checked::AbruptExpressionKind::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => self.lower_control_if_body(
-                condition,
-                then_branch,
-                else_branch,
-                result_type,
-                &mut |_: &mut Lowerer, value| value,
-                abrupt.span,
-            ),
-        };
-        self.lower_preceding(&abrupt.preceding, terminal, result_type, abrupt.span)
-    }
-
-    fn lower_preceding(
-        &mut self,
-        preceding: &[checked::Expression],
-        terminal: Expression,
-        result_type: &checked::Type,
-        span: crate::source::Span,
-    ) -> Expression {
-        let mut body = terminal;
-        for value in preceding.iter().rev() {
-            let mut rest = Some(body);
-            let mut next = |_: &mut Lowerer, value: Expression| {
-                let value_span = value.span;
-                Expression {
-                    kind: ExpressionKind::Let {
-                        binding: Box::new(Binding {
-                            pattern: Pattern::Wildcard {
-                                ty: value.ty.clone(),
-                                span: value_span,
-                            },
-                            value,
-                            span: value_span,
-                        }),
-                        body: Box::new(rest.take().expect("a join continuation is lowered once")),
-                    },
-                    ty: result_type.clone(),
-                    span,
-                }
-            };
-            body = self.lower_value_with(value, result_type, &mut next);
-        }
-        body
-    }
-
     fn lower_value_with(
         &mut self,
         value: &checked::Expression,
@@ -255,6 +186,18 @@ impl Lowerer {
             checked::ExpressionKind::Parenthesized(inner) => {
                 self.lower_value_with(inner, result_type, continuation)
             }
+            checked::ExpressionKind::Block(block) => {
+                self.lower_items_with(&block.items, &block.result, result_type, continuation)
+            }
+            checked::ExpressionKind::ResultBlock { target, body, .. } => self
+                .lower_result_block_with(
+                    *target,
+                    body,
+                    &value.ty,
+                    result_type,
+                    continuation,
+                    value.span,
+                ),
             checked::ExpressionKind::Product(elements) => self.lower_values_with(
                 elements,
                 result_type,

@@ -93,13 +93,13 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
 | `parser/expression/forms` | product、双方向application、receiver-first application、numeric conversion、zero-continuation application |
 | `parser/expression/lambda` | parameter、return binder group、lambda bodyの構成 |
-| `parser/expression/control` | `if`、`when`、expression blockの構成 |
+| `parser/expression/control` | `if`、`when`、direct block、direct result blockの構成 |
 | `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
 | `resolve/expression` | expression、左結合operator列の反復走査、transitive capture、lambda-local return authorityの解決とcapture拒否 |
 | `check` | program順序、value environment、return target、body item列の到達可能性、checked itemの構成 |
-| `check/control` | `if`と`when`の`Value` / `Abrupt` completion joinを構成 |
+| `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
 | `check/lambda` | expected function型に対するparameter、return binder arity、lambda body completionを検査 |
 | `check/operator` | operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion、物理表現上限、診断表示 |
@@ -119,7 +119,9 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
 | `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathをlambda-local joinへ接続してreturn、`when`、empty eliminationをcore controlへ消去 |
+| `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlambda-local joinへ接続してreturn、`when`、empty eliminationをcore controlへ消去 |
+| `core/completion/abrupt` | lambda return、local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
+| `core/completion/result_block` | direct result binder identityをlambda-local join targetへ対応させ、block bodyと後続を接続 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |

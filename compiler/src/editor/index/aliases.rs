@@ -18,6 +18,12 @@ impl Index {
                     self.collect_aliases_expression(&element.kind);
                 }
             }
+            Expression::Block(block) => {
+                self.collect_aliases_body(&block.items, &block.result.kind);
+            }
+            Expression::ResultBlock { body, .. } => {
+                self.collect_aliases_body(&body.items, &body.result.kind);
+            }
             Expression::Lambda(lambda) => {
                 for capture in &lambda.captures {
                     let source = self.canonical_value(capture.source.id);

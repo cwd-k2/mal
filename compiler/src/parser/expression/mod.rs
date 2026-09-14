@@ -112,6 +112,9 @@ impl Parser<'_> {
             };
             return Ok(Node::new(Expression::Symbol(value), token.span));
         }
+        if self.at_result_block() {
+            return self.parse_result_block();
+        }
         if self.at(&TokenKind::LeftBracket) {
             return self.parse_unit_continuation_application();
         }
@@ -129,6 +132,9 @@ impl Parser<'_> {
         }
         if self.at(&TokenKind::When) {
             return self.parse_when();
+        }
+        if self.at(&TokenKind::LeftBrace) {
+            return self.parse_block_expression();
         }
         Err(self.expected("an expression"))
     }

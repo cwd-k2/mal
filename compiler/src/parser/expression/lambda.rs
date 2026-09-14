@@ -23,7 +23,7 @@ impl Parser<'_> {
         ))
     }
 
-    fn parse_return_binders(&mut self) -> Result<Option<Vec<Name>>, Diagnostic> {
+    pub(super) fn parse_return_binders(&mut self) -> Result<Option<Vec<Name>>, Diagnostic> {
         if self.take(&TokenKind::LeftBracket).is_none() {
             return Ok(None);
         }

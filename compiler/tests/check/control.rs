@@ -106,6 +106,58 @@ fn checks_explicit_return_binders_and_completion() {
 }
 
 #[test]
+fn checks_direct_blocks_without_treating_them_as_lambdas() {
+    check_ok(
+        "main :: Unit -> Int32 := ()[return] {
+           value :: Int32 := { when (false) { return(9) }; local :: Int32 := 40; local + 2 };
+           return(value)
+         };",
+    );
+    assert_eq!(
+        check_error("bad :: Unit -> (Unit -> Int32) := () { { 1 } };").message,
+        "type mismatch"
+    );
+}
+
+#[test]
+fn checks_direct_result_blocks_against_their_expected_type() {
+    let program = check_ok(
+        "Choice :: [Int32, Symbol];
+         choose :: Bool -> Choice := (condition) {
+           [integer, symbol] {
+             when (condition) { integer(42) };
+             symbol(\"no\")
+           }
+         };
+         answer :: Unit -> Int32 := () { [done] { done(42) } };",
+    );
+    let ExpressionKind::Lambda(choose) = &top_binding(&program, 1).value.kind else {
+        panic!("expected lambda");
+    };
+    let check::ast::Completion::Value(value) = choose.body.result.as_ref() else {
+        panic!("expected value completion");
+    };
+    assert!(matches!(value.kind, ExpressionKind::ResultBlock { .. }));
+
+    assert_eq!(
+        check_error("bad :: Unit -> Int32 := () { value := [done] { done(1) }; value };").message,
+        "result block requires an expected result type"
+    );
+    assert_eq!(
+        check_error("bad :: Unit -> Int32 := () { [done] { 1 } };").message,
+        "result block cannot fall through"
+    );
+    assert_eq!(
+        check_error("bad :: Unit -> Int32 := ()[return] { [done] { return(1) } };").message,
+        "result block does not produce a result"
+    );
+    assert_eq!(
+        check_error("bad :: Unit -> Int32 := ()[return] { [done] { done(return(1)) } };").message,
+        "result block does not produce a result"
+    );
+}
+
+#[test]
 fn checks_empty_elimination_without_conflating_it_with_abrupt_completion() {
     check_ok("never :: Unit -> [] := ()[] { never()[] };");
     assert_eq!(

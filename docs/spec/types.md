@@ -85,8 +85,9 @@ a :: Int32 -> Choice := (value)[first, second] { first(value) };
 b :: Int32 -> Choice := (value)[first, second] { second(value) };
 ```
 
-直和値は、その直和をresult型とするlambdaの[sum return binder](control.md#sum-return-binder)だけが構築する。
-位置`i`のbinderへpayloadを渡すと第`i`項を選択してlambdaからreturnする。indexを指定するconstructor、injection function、
+直和値は、その直和をresult型とするlambdaのsum return binderまたは
+[direct result block](control.md#direct-result-block)のresult binderだけが構築する。
+位置`i`のbinderへpayloadを渡すと第`i`項を選択し、対応するlambdaまたはdirect result blockを完了する。indexを指定するconstructor、injection function、
 nominal variant nameは存在しない。
 
 空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は従来どおり各項の値を持つ。

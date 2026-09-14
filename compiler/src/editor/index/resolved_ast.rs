@@ -126,7 +126,79 @@ impl Index {
                 };
                 self.collect_resolved_lambda(lambda, Some(&parameter), Some(&result));
             }
+            (resolved::Expression::Block(block), Some(expected)) => {
+                for item in &block.items {
+                    match item {
+                        resolved::BodyItem::Binding(binding) => {
+                            self.collect_resolved_binding(&binding.kind, false, binding.span);
+                        }
+                        resolved::BodyItem::Expression(expression) => {
+                            self.collect_resolved_expression(expression);
+                        }
+                    }
+                }
+                self.collect_resolved_expression_with_expected(&block.result, Some(expected));
+            }
+            (
+                resolved::Expression::ResultBlock {
+                    return_binders,
+                    body,
+                },
+                Some(expected),
+            ) => {
+                self.collect_resolved_return_binders(return_binders, Some(expected));
+                for item in &body.items {
+                    match item {
+                        resolved::BodyItem::Binding(binding) => {
+                            self.collect_resolved_binding(&binding.kind, false, binding.span);
+                        }
+                        resolved::BodyItem::Expression(expression) => {
+                            self.collect_resolved_expression(expression);
+                        }
+                    }
+                }
+                self.collect_resolved_expression_with_expected(&body.result, Some(expected));
+            }
             _ => self.collect_resolved_expression(expression),
+        }
+    }
+
+    fn collect_resolved_return_binders(
+        &mut self,
+        return_binders: &[resolved::ValueBinding],
+        result_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
+    ) {
+        match return_binders {
+            [binding] => {
+                if let Some(result_type) = result_type {
+                    self.value_types.insert(
+                        self.canonical_value(binding.id),
+                        super::type_display::type_name(result_type),
+                    );
+                }
+            }
+            bindings => {
+                if let Some(result_type) = result_type
+                    && let resolved::TypeExpression::Sum(members) =
+                        self.expanded_type(result_type).kind
+                {
+                    for (binding, member) in bindings.iter().zip(&members) {
+                        self.value_types.insert(
+                            self.canonical_value(binding.id),
+                            super::type_display::type_name(member),
+                        );
+                    }
+                }
+            }
+        }
+        for binding in return_binders {
+            let id = SymbolId::Value(self.canonical_value(binding.id));
+            self.add_raw(
+                id,
+                &binding.name,
+                OccurrenceRole::Declaration,
+                Some(binding.name.span),
+            );
         }
     }
 
@@ -143,39 +215,7 @@ impl Index {
             self.collect_resolved_pattern(parameter, false, parameter.span);
         }
         if let Some(return_binders) = &lambda.return_binders {
-            match return_binders.as_slice() {
-                [] => {}
-                [binding] => {
-                    if let Some(result_type) = result_type {
-                        self.value_types.insert(
-                            self.canonical_value(binding.id),
-                            super::type_display::type_name(result_type),
-                        );
-                    }
-                }
-                bindings => {
-                    if let Some(result_type) = result_type
-                        && let resolved::TypeExpression::Sum(members) =
-                            self.expanded_type(result_type).kind
-                    {
-                        for (binding, member) in bindings.iter().zip(&members) {
-                            self.value_types.insert(
-                                self.canonical_value(binding.id),
-                                super::type_display::type_name(member),
-                            );
-                        }
-                    }
-                }
-            }
-            for binding in return_binders {
-                let id = SymbolId::Value(self.canonical_value(binding.id));
-                self.add_raw(
-                    id,
-                    &binding.name,
-                    OccurrenceRole::Declaration,
-                    Some(binding.name.span),
-                );
-            }
+            self.collect_resolved_return_binders(return_binders, result_type);
         }
         for item in &lambda.body.items {
             match item {
@@ -238,6 +278,16 @@ impl Index {
                 for element in elements {
                     self.collect_resolved_expression(element);
                 }
+            }
+            Expression::Block(block) => {
+                self.collect_resolved_body(&block.items, &block.result);
+            }
+            Expression::ResultBlock {
+                return_binders,
+                body,
+            } => {
+                self.collect_resolved_return_binders(return_binders, None);
+                self.collect_resolved_body(&body.items, &body.result);
             }
             Expression::Lambda(lambda) => {
                 self.collect_resolved_lambda(lambda, None, None);

@@ -55,6 +55,7 @@ fn is_top_level_initializer(
                     .all(|argument| is_top_level_initializer(argument, external_values))
         }
         resolved::Expression::Lambda(_) => true,
+        resolved::Expression::Block(_) | resolved::Expression::ResultBlock { .. } => false,
         resolved::Expression::Unary {
             operator, operand, ..
         } => {

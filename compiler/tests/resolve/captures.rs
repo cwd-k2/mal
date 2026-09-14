@@ -238,3 +238,17 @@ fn keeps_return_binders_local_to_their_invocation() {
         );
     }
 }
+
+#[test]
+fn keeps_result_block_binders_local_to_their_block() {
+    assert_eq!(
+        resolve_error("bad :: Unit -> (Unit -> Int32) := () { [done] { done(() { done(1) }) } };")
+            .message,
+        "return binder cannot be captured"
+    );
+    assert!(
+        resolve_error("bad :: Unit -> Int32 := () { [done, done] { done(1) } };")
+            .message
+            .starts_with("duplicate value")
+    );
+}

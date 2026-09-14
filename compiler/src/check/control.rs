@@ -1,14 +1,94 @@
 use crate::ast::Node;
+use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
 
 use super::ast::{
     AbruptExpression, AbruptExpressionKind, Completion, Expression, ExpressionBlock,
-    ExpressionKind, Type,
+    ExpressionKind, ReturnBoundary, Type,
 };
 use super::types::bool_type;
 use super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
+    pub(super) fn check_block(
+        &mut self,
+        block: &resolved::ExpressionBlock,
+        span: crate::source::Span,
+        expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        let block = self.check_expression_block(block, expected)?;
+        let ty = match block.result.as_ref() {
+            Completion::Value(value) => value.ty.clone(),
+            Completion::Abrupt(_) => {
+                return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
+                    preceding: Vec::new(),
+                    kind: AbruptExpressionKind::Block(block),
+                    span,
+                })));
+            }
+        };
+        Ok(Expression {
+            kind: ExpressionKind::Block(block),
+            ty,
+            span,
+        })
+    }
+
+    pub(super) fn check_result_block(
+        &mut self,
+        bindings: &[resolved::ValueBinding],
+        body: &resolved::ExpressionBlock,
+        span: crate::source::Span,
+        expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        let result_type = expected.cloned().ok_or_else(|| {
+            Diagnostic::error("result block requires an expected result type").with_primary(
+                span,
+                "add a type annotation or use this block in a typed context",
+            )
+        })?;
+        let target = bindings
+            .first()
+            .expect("the parser requires a non-empty result binder group")
+            .id;
+        let return_binders = self.check_return_binders(bindings, &result_type, body.span)?;
+        for binder in &return_binders {
+            self.return_targets.insert(
+                binder.binding.id,
+                super::ReturnTarget {
+                    parameter: binder.parameter_type.clone(),
+                    result: result_type.clone(),
+                    variant: binder.variant,
+                    boundary: ReturnBoundary::Block(target),
+                },
+            );
+        }
+        let checked_body = self.check_expression_block(body, Some(&result_type));
+        for binder in &return_binders {
+            self.return_targets.remove(&binder.binding.id);
+        }
+        let body = checked_body?;
+        if let Completion::Value(value) = body.result.as_ref() {
+            return Err(Diagnostic::error("result block cannot fall through")
+                .with_primary(value.span, "call a result binder on every reachable path")
+                .into());
+        }
+        if !self.used_return_targets.remove(&target) {
+            return Err(Diagnostic::error("result block does not produce a result")
+                .with_primary(span, "call one of this block's result binders")
+                .into());
+        }
+        Ok(Expression {
+            kind: ExpressionKind::ResultBlock {
+                target,
+                return_binders,
+                body,
+            },
+            ty: result_type,
+            span,
+        })
+    }
+
     pub(super) fn check_when(
         &mut self,
         condition: &Node<resolved::Expression>,

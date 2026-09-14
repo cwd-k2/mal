@@ -30,6 +30,7 @@ D001とD018のcall siteに`extern`を置くsource spellingはD039が置き換え
 D041はD002のRust compilerを維持し、最初のC execution backendをLLVM backendへ置き換える。
 D042はD004のsum injection spelling、D005の`case`による説明、D023のsource syntaxを置き換える。
 D048はD042のsource-level sum injection constructorを置き換える。
+D049はD048のlambdaだけに置いたsum construction boundaryをdirect result blockにも拡張する。
 
 ## 後継があるhistorical record
 

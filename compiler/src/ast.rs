@@ -89,6 +89,11 @@ pub enum Expression {
     Unit,
     Parenthesized(Box<Node<Expression>>),
     Product(Vec<Node<Expression>>),
+    Block(ExpressionBlock),
+    ResultBlock {
+        return_binders: Vec<Name>,
+        body: ExpressionBlock,
+    },
     Lambda(Lambda),
     Call {
         callee: Box<Node<Expression>>,

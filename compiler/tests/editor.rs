@@ -271,6 +271,25 @@ fn return_binders_support_hover_definition_references_and_rename() {
 }
 
 #[test]
+fn direct_result_binders_support_semantic_editor_queries() {
+    let text = "Payload :: Int32;\nmake :: Unit -> Payload := () { [done] { done(42) } };\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("[done]").unwrap() + 1;
+    let reference_offset = text.rfind("done(42)").unwrap();
+    let declaration = document.occurrence_at(declaration_offset).unwrap();
+
+    assert_eq!(declaration.kind, SymbolKind::Parameter);
+    assert_eq!(declaration.role, OccurrenceRole::Declaration);
+    assert_eq!(document.hover_at(reference_offset).unwrap().ty, "Payload");
+    assert_eq!(
+        document.occurrence_at(reference_offset).unwrap().id,
+        declaration.id
+    );
+    assert_eq!(document.references(declaration.id, true).len(), 2);
+    assert_eq!(document.rename_spans(reference_offset).unwrap().len(), 2);
+}
+
+#[test]
 fn symbol_operators_report_their_result_types() {
     let text = "inspect :: Symbol -> UInt64 := (value) { #value + UInt64(value # 0); };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");

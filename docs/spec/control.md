@@ -48,8 +48,37 @@ compute :: Bool -> Result :=
 
 位置`i`のbinderは第`i`項のpayloadを受け、index `i`のsum valueを返す。binder数はalias展開後の項数と完全に一致しなければならず、
 省略、追加、部分指定は認めない。sum resultに一つだけbinderを置いた場合はvariant binderではなく、sum value全体を受ける通常の
-単一return binderである。直和値を構築するsource-levelの方法はsum return binderだけであり、binderはglobal constructor、
-first-class injection function、nominal identityを作らない。
+単一return binderである。直和値を構築するsource-levelの方法はlambdaまたはdirect result blockのsum binderだけであり、
+binderはglobal constructor、first-class injection function、nominal identityを作らない。
+
+## direct result block
+
+lambda body内では、parameter groupを伴わないresult binder groupとblockを一つのexpressionとして書ける。
+
+```mal
+answer :: Unit -> Int32 := () {
+    [done] { done(42) }
+};
+
+choose :: Bool -> [Int32, Symbol] := (condition) {
+    [integer, symbol] {
+        when (condition) { integer(42) };
+        symbol("disabled")
+    }
+};
+```
+
+`[k] { body }`は期待result型`T`を必要とし、`k : T`をbodyへ導入してbodyを直ちに実行する。二つ以上のbinderでは
+期待result型が同じ項数の直和`[T0, T1, ...]`でなければならず、位置`i`のbinderは`Ti`を受けて第`i`項を選ぶ。
+binderのscope、callee位置への制限、重複、nested lambdaからのcapture拒否はlambda return binderと同じである。
+
+result binderを適用するとargumentを評価した後、blockのresult edgeへ移り、result block全体が選択した値で正常完了する。
+bodyはすべてのreachable pathでresult binder application、外側lambdaのreturn binder application、またはempty eliminationにより
+`Abrupt`でなければならず、block自身のresult binderを少なくとも一つのreachable pathで適用しなければならない。外側lambdaの
+return binderはresult blockを越えてlambdaを完了し、result blockのresult edgeには合流しない。
+
+この構文はfunction valueを作らず、`[()[k] { body }]`への省略でもない。`[k]`だけなら従来どおりUnitを`k`へ渡す
+applicationである。binderを持たない`[] { body }`は認めず、empty resultにはlambdaのempty return binder groupを使う。
 
 ## completion judgment
 

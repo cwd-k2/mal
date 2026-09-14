@@ -60,6 +60,7 @@ type alias と extern declaration が導入する名前は unit 全体から参�
 
 top-level value の RHS は、literal、product/sum、integer conversion、external function、型で修飾したmemory primitive、lambda、および
 それらからなる作用のない closed expression に制限する。他のtop-level valueへの参照とfunction applicationは認めない。
+direct blockとdirect result blockもtop-level initializerには認めない。
 `false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある
 nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../history/decisions/D018.md)に記録する。
 

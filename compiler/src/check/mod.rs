@@ -62,6 +62,7 @@ struct Checker {
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     return_targets: HashMap<ValueId, ReturnTarget>,
+    used_return_targets: HashSet<ValueId>,
 }
 
 #[derive(Clone)]
@@ -69,6 +70,7 @@ struct ReturnTarget {
     parameter: Type,
     result: Type,
     variant: Option<usize>,
+    boundary: ast::ReturnBoundary,
 }
 
 impl Checker {
@@ -84,6 +86,7 @@ impl Checker {
             external_values: HashSet::new(),
             externals: HashMap::new(),
             return_targets: HashMap::new(),
+            used_return_targets: HashSet::new(),
         }
     }
 

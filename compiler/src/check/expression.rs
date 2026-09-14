@@ -86,6 +86,13 @@ impl Checker {
             resolved::Expression::Product(elements) => {
                 self.check_product(elements, expression.span, expected)?
             }
+            resolved::Expression::Block(block) => {
+                self.check_block(block, expression.span, expected)?
+            }
+            resolved::Expression::ResultBlock {
+                return_binders,
+                body,
+            } => self.check_result_block(return_binders, body, expression.span, expected)?,
             resolved::Expression::Lambda(lambda) => {
                 self.check_lambda(lambda, expression.span, expected)?
             }
@@ -235,6 +242,9 @@ impl Checker {
             && let Some(target) = self.return_targets.get(&reference.id).cloned()
         {
             let argument = self.check_expression(value, Some(&target.parameter))?;
+            if let super::ast::ReturnBoundary::Block(target) = target.boundary {
+                self.used_return_targets.insert(target);
+            }
             let value = if let Some(index) = target.variant {
                 Expression {
                     kind: ExpressionKind::SumInjection {
@@ -250,6 +260,7 @@ impl Checker {
             return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
                 preceding: Vec::new(),
                 kind: AbruptExpressionKind::Return {
+                    target: target.boundary,
                     value: Box::new(value),
                 },
                 span,
@@ -384,6 +395,9 @@ impl Checker {
             && let Some(target) = self.return_targets.get(&reference.id).cloned()
         {
             let argument = self.check_argument(arguments, &target.parameter, span)?;
+            if let super::ast::ReturnBoundary::Block(target) = target.boundary {
+                self.used_return_targets.insert(target);
+            }
             let value = if let Some(index) = target.variant {
                 Expression {
                     kind: ExpressionKind::SumInjection {
@@ -399,6 +413,7 @@ impl Checker {
             return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
                 preceding: Vec::new(),
                 kind: AbruptExpressionKind::Return {
+                    target: target.boundary,
                     value: Box::new(value),
                 },
                 span,
