@@ -1,6 +1,6 @@
 use crate::ast::Program;
 use crate::diagnostic::Diagnostic;
-use crate::lexer::{Lexed, LexemeKind};
+use crate::lexer::{Lexed, LexemeKind, TokenKind};
 use crate::source::SourceFile;
 
 mod control;
@@ -110,6 +110,12 @@ impl<'a> Formatter<'a> {
     }
 
     fn write_comment(&mut self, text: &str) {
+        let continuation_indent = self
+            .token_index
+            .checked_sub(1)
+            .and_then(|index| self.lexed.tokens.get(index))
+            .is_some_and(|token| token.kind == TokenKind::Arrow)
+            .then_some(self.indent + 1);
         if self
             .blocks
             .terminate
@@ -124,11 +130,13 @@ impl<'a> Formatter<'a> {
             self.blank_line();
         } else if self.source_break {
             self.newline();
+            self.source_line_indent = continuation_indent;
         } else if !self.line_start {
             self.space();
         }
         self.write(text);
         self.newline();
+        self.source_line_indent = continuation_indent;
         self.source_break = false;
         self.source_blank_line = false;
         self.pending_newline = false;

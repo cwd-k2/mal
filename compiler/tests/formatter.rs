@@ -73,6 +73,26 @@ fn preserves_comments_and_literal_spelling() {
 }
 
 #[test]
+fn indents_comments_and_results_after_expression_body_arrows() {
+    let formatted = format(
+        "identity := (value) ->\n// result\nvalue; direct := () -> [done] -> // direct result\ndone(1);",
+    );
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "identity := (value) ->\n",
+            "    // result\n",
+            "    value;\n",
+            "\n",
+            "direct := () -> [done] -> // direct result\n",
+            "    done(1);\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn formats_requirements_as_a_leading_group() {
     assert_eq!(
         format("require\"./support.mal\";require \"./host.c\";main:=() -> {0;};"),
