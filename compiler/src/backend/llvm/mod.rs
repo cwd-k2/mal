@@ -289,7 +289,7 @@ mod tests {
             FileId::new(78),
             "llvm-long-completion.mal",
             format!(
-                "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
+                "main :: Unit -> Int32 := () -> [return] => {{ {}return(0i32) }};",
                 "when (false) { return(1i32) };".repeat(1_024)
             ),
         );

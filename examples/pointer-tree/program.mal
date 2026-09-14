@@ -21,7 +21,7 @@ branch :: (Int32, Ptr, Ptr) -> Ptr := (value, left, right) -> {
     node;
 };
 
-sumTree :: Ptr -> Int32 := (node)[return] -> {
+sumTree :: Ptr -> Int32 := (node) -> [return] => {
     value := Int32.load(node);
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
@@ -33,7 +33,7 @@ sumTree :: Ptr -> Int32 := (node)[return] -> {
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: Ptr -> Unit := (node)[return] -> {
+destroyTree :: Ptr -> Unit := (node) -> [return] => {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
         return(node.release());

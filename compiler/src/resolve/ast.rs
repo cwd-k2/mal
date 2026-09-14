@@ -25,7 +25,7 @@ pub enum ValueOwner {
     Predefined,
     TopLevel,
     Lambda(LambdaId),
-    Return(LambdaId),
+    Result(LambdaId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -120,7 +120,7 @@ pub enum Expression {
     Product(Vec<Node<Expression>>),
     Block(ExpressionBlock),
     ResultBlock {
-        return_binders: Vec<ValueBinding>,
+        result_binders: Vec<ValueBinding>,
         body: ExpressionBlock,
     },
     Lambda(Lambda),
@@ -162,7 +162,6 @@ pub struct Lambda {
     pub self_binding: Option<ValueId>,
     pub captures: Vec<Capture>,
     pub parameter: Option<Box<Node<Pattern>>>,
-    pub return_binders: Option<Vec<ValueBinding>>,
     pub body: LambdaBody,
 }
 

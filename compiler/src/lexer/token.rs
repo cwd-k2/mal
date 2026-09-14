@@ -81,6 +81,7 @@ pub enum TokenKind {
     DoubleColon,
     Bind,
     Arrow,
+    FatArrow,
     Plus,
     Minus,
     Star,

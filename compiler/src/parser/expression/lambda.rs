@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Lambda, Name, Node, Pattern};
+use crate::ast::{Expression, Lambda, Node, Pattern};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::TokenKind;
 
@@ -10,32 +10,12 @@ impl Parser<'_> {
         self.expect(&TokenKind::LeftParen, "`(`")?;
         let parameter = self.parse_lambda_parameter()?.map(Box::new);
         self.expect(&TokenKind::RightParen, "`)`")?;
-        let return_binders = self.parse_return_binders()?;
         let body = self.parse_lambda_body()?;
         let span = self.span(start, body.span.end());
         Ok(Node::new(
-            Expression::Lambda(Lambda {
-                parameter,
-                return_binders,
-                body,
-            }),
+            Expression::Lambda(Lambda { parameter, body }),
             span,
         ))
-    }
-
-    pub(super) fn parse_return_binders(&mut self) -> Result<Option<Vec<Name>>, Diagnostic> {
-        if self.take(&TokenKind::LeftBracket).is_none() {
-            return Ok(None);
-        }
-        let mut binders = Vec::new();
-        if !self.at(&TokenKind::RightBracket) {
-            binders.push(self.parse_name(&TokenKind::ValueIdentifier, "a return binder name")?);
-            while self.take(&TokenKind::Comma).is_some() {
-                binders.push(self.parse_name(&TokenKind::ValueIdentifier, "a return binder name")?);
-            }
-        }
-        self.expect(&TokenKind::RightBracket, "`]`")?;
-        Ok(Some(binders))
     }
 
     fn parse_lambda_parameter(&mut self) -> Result<Option<Node<Pattern>>, Diagnostic> {
@@ -73,25 +53,9 @@ impl Parser<'_> {
                 TokenKind::RightParen => {
                     depth -= 1;
                     if depth == 0 {
-                        let mut next = self.position + offset + 1;
-                        if self
-                            .tokens
-                            .get(next)
-                            .is_some_and(|token| token.kind == TokenKind::LeftBracket)
-                        {
-                            next += 1;
-                            while self
-                                .tokens
-                                .get(next)
-                                .is_some_and(|token| token.kind != TokenKind::RightBracket)
-                            {
-                                next += 1;
-                            }
-                            next += 1;
-                        }
                         return self
                             .tokens
-                            .get(next)
+                            .get(self.position + offset + 1)
                             .is_some_and(|next| next.kind == TokenKind::Arrow);
                     }
                 }

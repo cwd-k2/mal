@@ -223,17 +223,17 @@ fn rejects_parameter_and_same_scope_binding_collisions() {
 }
 
 #[test]
-fn keeps_return_binders_local_to_their_invocation() {
+fn keeps_result_binders_local_to_their_block() {
     assert_eq!(
         resolve_error(
-            "outer :: Unit -> (Unit -> Int32) := ()[return] -> { return(() -> { return(1) }) };"
+            "outer :: Unit -> (Unit -> Int32) := () -> [return] => { return(() -> { return(1) }) };"
         )
         .message,
-        "return binder cannot be captured"
+        "result binder cannot be captured"
     );
     for text in [
-        "bad :: Int32 -> Int32 := (value)[value] -> { value(1) };",
-        "bad :: Unit -> Int32 := ()[return, return] -> { return(1) };",
+        "bad :: Int32 -> Int32 := (value) -> [value] => { value(1) };",
+        "bad :: Unit -> Int32 := () -> [return, return] => { return(1) };",
     ] {
         assert!(
             resolve_error(text).message.starts_with("duplicate value"),
@@ -243,16 +243,16 @@ fn keeps_return_binders_local_to_their_invocation() {
 }
 
 #[test]
-fn keeps_result_block_binders_local_to_their_block() {
+fn rejects_nested_lambda_capture_and_duplicate_result_binders() {
     assert_eq!(
         resolve_error(
-            "bad :: Unit -> (Unit -> Int32) := () -> { [done] -> { done(() -> { done(1) }) } };"
+            "bad :: Unit -> (Unit -> Int32) := () -> { [done] => { done(() -> { done(1) }) } };"
         )
         .message,
-        "return binder cannot be captured"
+        "result binder cannot be captured"
     );
     assert!(
-        resolve_error("bad :: Unit -> Int32 := () -> { [done, done] -> { done(1) } };")
+        resolve_error("bad :: Unit -> Int32 := () -> { [done, done] => { done(1) } };")
             .message
             .starts_with("duplicate value")
     );

@@ -153,7 +153,7 @@ fn lowers_a_long_flat_body_without_recursive_statement_processing() {
 fn lowers_long_completion_control_sequences_to_join_states() {
     let count = 4_096;
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := () -> [return] => {{ {}return(0i32) }};",
         "when (false) { return(1i32) };".repeat(count)
     );
     let program = lower_ok(&text);

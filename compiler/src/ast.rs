@@ -91,7 +91,7 @@ pub enum Expression {
     Product(Vec<Node<Expression>>),
     Block(ExpressionBlock),
     ResultBlock {
-        return_binders: Vec<Name>,
+        result_binders: Vec<Name>,
         body: ExpressionBlock,
     },
     Lambda(Lambda),
@@ -130,7 +130,6 @@ pub enum Expression {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lambda {
     pub parameter: Option<Box<Node<Pattern>>>,
-    pub return_binders: Option<Vec<Name>>,
     pub body: LambdaBody,
 }
 

@@ -39,9 +39,9 @@ impl Resolver {
                 Expression::Block(self.resolve_expression_block(block)?)
             }
             ast::Expression::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
-            } => self.resolve_result_block(return_binders, body)?,
+            } => self.resolve_result_block(result_binders, body)?,
             ast::Expression::Lambda(lambda) => Expression::Lambda(self.resolve_lambda(lambda)?),
             ast::Expression::Call { callee, arguments } => Expression::Call {
                 callee: Box::new(self.resolve_expression(callee)?),
@@ -143,16 +143,6 @@ impl Resolver {
                 .map(|parameter| self.declare_pattern(parameter, ValueOwner::Lambda(id)))
                 .transpose()?
                 .map(Box::new);
-            let return_binders = lambda
-                .return_binders
-                .as_ref()
-                .map(|binders| {
-                    binders
-                        .iter()
-                        .map(|name| self.declare_value(name, ValueOwner::Return(id)))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?;
             let body = self.resolve_lambda_body(&lambda.body)?;
             let captures = std::mem::take(
                 &mut self
@@ -166,7 +156,6 @@ impl Resolver {
                 self_binding: self_binding.map(|binding| binding.id),
                 captures,
                 parameter,
-                return_binders,
                 body,
             })
         })();
@@ -219,7 +208,7 @@ impl Resolver {
         binders: &[ast::Name],
         block: &ast::ExpressionBlock,
     ) -> Result<Expression, Diagnostic> {
-        let owner = self.current_lambda.map(ValueOwner::Return).ok_or_else(|| {
+        let owner = self.current_lambda.map(ValueOwner::Result).ok_or_else(|| {
             Diagnostic::error("result block outside a lambda is not supported").with_primary(
                 block.span,
                 "a direct result block requires an enclosing lambda invocation",
@@ -227,13 +216,13 @@ impl Resolver {
         })?;
         self.push_scope();
         let result = (|| {
-            let return_binders = binders
+            let result_binders = binders
                 .iter()
                 .map(|name| self.declare_value(name, owner))
                 .collect::<Result<Vec<_>, _>>()?;
             let body = self.resolve_expression_block_contents(block)?;
             Ok(Expression::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
             })
         })();
@@ -260,11 +249,11 @@ impl Resolver {
         let mut binding = self
             .lookup_value(&name.text)
             .ok_or_else(|| self.unknown(name, "value"))?;
-        if let ValueOwner::Return(owner) = binding.owner
+        if let ValueOwner::Result(owner) = binding.owner
             && Some(owner) != self.current_lambda
         {
             return Err(
-                Diagnostic::error("return binder cannot be captured").with_primary(
+                Diagnostic::error("result binder cannot be captured").with_primary(
                     name.span,
                     "this binder belongs to an enclosing lambda invocation",
                 ),

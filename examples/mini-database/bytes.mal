@@ -7,7 +7,7 @@ initializedBytes :: Buffer -> Bytes := (buffer) -> {
 };
 
 // These recursive byte operations advance one byte and reduce their remaining range.
-clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] -> {
+clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining) -> [return] => {
     when (remaining == 0u64) {
         return(());
     };
@@ -17,7 +17,7 @@ clearBytes :: (Ptr, UInt64) -> Unit := (memory, remaining)[return] -> {
 };
 
 _rangeEqualsAt :: (Ptr, UInt64, Symbol, UInt64) -> Bool :=
-    (source, start, expected, index)[return] -> {
+    (source, start, expected, index) -> [return] => {
         when (index == #expected) {
             return(true);
         };
@@ -36,7 +36,7 @@ rangeEquals :: (Ptr, UInt64, UInt64, UInt64, Symbol) -> Bool :=
     };
 
 findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
-    (source, length, index, byte)[return] -> {
+    (source, length, index, byte) -> [return] => {
         when (index == length) {
             return(index);
         };
@@ -48,7 +48,7 @@ findByte :: (Ptr, UInt64, UInt64, UInt8) -> UInt64 :=
     };
 
 memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
-    (memory, source, start, length, index)[return] -> {
+    (memory, source, start, length, index) -> [return] => {
         when (index == length) {
             return(true);
         };
@@ -60,7 +60,7 @@ memoryEqualsAt :: (Ptr, Ptr, UInt64, UInt64, UInt64) -> Bool :=
     };
 
 copyRange :: (Ptr, UInt64, Ptr, UInt64) -> Unit :=
-    (source, start, destination, remaining)[return] -> {
+    (source, start, destination, remaining) -> [return] => {
         when (remaining == 0u64) {
             return(());
         };

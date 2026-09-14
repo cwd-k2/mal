@@ -113,17 +113,5 @@ fn initializer_is_lambda(tokens: &[Token], start: usize) -> bool {
         }
         cursor += 1;
     }
-    if matches!(tokens.get(cursor), Some(token) if token.kind == TokenKind::LeftBracket) {
-        while !matches!(
-            tokens.get(cursor),
-            None | Some(Token {
-                kind: TokenKind::RightBracket,
-                ..
-            })
-        ) {
-            cursor += 1;
-        }
-        cursor += 1;
-    }
     matches!(tokens.get(cursor), Some(token) if token.kind == TokenKind::Arrow)
 }

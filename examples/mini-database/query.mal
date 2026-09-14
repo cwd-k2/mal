@@ -46,7 +46,7 @@ _delete :: (Buffer, File, Bytes, UInt64, UInt64) -> Unit :=
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
-_handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes)[return] -> {
+_handleQuery :: (Buffer, File, Bytes) -> Unit := (database, file, lineBytes) -> [return] => {
     (line, length) := lineBytes;
 
     when (length >= 4u64 && line.rangeEquals(length, 0u64, 4u64, "get ")) {
@@ -90,7 +90,7 @@ runQueries :: (Reader, File, Buffer, Buffer) -> Unit :=
         result := reader.readLine(query);
         result[
         (_) -> (),
-        (state)[return] -> {
+        (state) -> [return] => {
             (next, lineBuffer) := state;
             lineBytes := lineBuffer.initializedBytes();
             (line, length) := lineBytes;

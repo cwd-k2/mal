@@ -36,20 +36,20 @@ Arguments :: (UInt64, Ptr);
 
 bufferSize :: UInt64 := 4096u64;
 
-_completed :: Unit -> Status := ()[complete, failed] -> complete();
+_completed :: Unit -> Status := () -> [complete, failed] => complete();
 
 copyContents :: (File, Buffer) -> Status := (file, buffer) -> {
     (memory, capacity, _) := buffer;
     result := file.readFile((memory, capacity));
     result[
-    (length)[return] -> {
+    (length) -> [return] => {
         when (length == 0u64) {
             return(_completed());
         };
         writeBytes((memory, length));
         return(file.copyContents((memory, capacity, length)));
     },
-    (error)[complete, failed] -> failed(error)
+    (error) -> [complete, failed] => failed(error)
     ];
 };
 
@@ -57,11 +57,11 @@ finishCopy :: (Status, CloseResult) -> Status := (copied, closed) -> {
     copied[
     () -> {
         closed[
-        ()[complete, failed] -> complete(),
-        (error)[complete, failed] -> failed(error)
+        () -> [complete, failed] => complete(),
+        (error) -> [complete, failed] => failed(error)
         ];
     },
-    (error)[complete, failed] -> failed(error)
+    (error) -> [complete, failed] => failed(error)
     ];
 };
 
@@ -75,13 +75,13 @@ copyPath :: Symbol -> Status := (path) -> {
             closed := file.closeFile();
             copied.finishCopy(closed);
         },
-        (error)[complete, failed] -> failed(error)
+        (error) -> [complete, failed] => failed(error)
     ];
     allocation.releaseBuffer();
     outcome;
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments)[return] -> {
+main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
     when (argumentCount != 1u64) {
         writeSymbol("usage: mal-recoverable-file FILE\n");
         return(2);

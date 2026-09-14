@@ -186,6 +186,7 @@ impl<'a> Lexer<'a> {
             (Some(b':'), Some(b':')) => (TokenKind::DoubleColon, 2),
             (Some(b':'), Some(b'=')) => (TokenKind::Bind, 2),
             (Some(b'-'), Some(b'>')) => (TokenKind::Arrow, 2),
+            (Some(b'='), Some(b'>')) => (TokenKind::FatArrow, 2),
             (Some(b'='), Some(b'=')) => (TokenKind::EqualEqual, 2),
             (Some(b'!'), Some(b'=')) => (TokenKind::BangEqual, 2),
             (Some(b'<'), Some(b'=')) => (TokenKind::LessEqual, 2),

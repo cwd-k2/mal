@@ -114,7 +114,7 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
          Choice :: [Unit, (UInt64, Symbol)];\n\
          Envelope :: (UInt8, Choice);\n\
          extern exchange :: Envelope -> Envelope;\n\
-         makeChoice :: (UInt64, Symbol) -> Choice := (value)[none, some] -> { some(value) };\n\
+         makeChoice :: (UInt64, Symbol) -> Choice := (value) -> [none, some] => { some(value) };\n\
          main :: Unit -> Int32 := () -> {\n\
            (number, choice) := exchange(41u8, makeChoice(7u64, \"a\" + \"b\"));\n\
            choice[\n\
@@ -183,7 +183,7 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
          extern create :: UInt64 -> Handle;\n\
          extern exchange :: Choice -> Choice;\n\
          extern inspect :: Handle -> UInt64;\n\
-         makeChoice :: Packet -> Choice := (value)[none, some] -> { some(value) };\n\
+         makeChoice :: Packet -> Choice := (value) -> [none, some] => { some(value) };\n\
          main :: Unit -> Int32 := () -> {\n\
            choice := exchange(makeChoice(1u8, create(40u64)));\n\
            choice[\n\
@@ -285,7 +285,7 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
     directory.write(
         "program.mal",
         "Choice :: [Symbol, (UInt64, Symbol)];\n\
-         choose :: Bool -> Choice := (second)[firstReturn, secondReturn] -> {\n\
+         choose :: Bool -> Choice := (second) -> [firstReturn, secondReturn] => {\n\
            when (second) { secondReturn(2u64, \"b\" + \"c\") };\n\
            firstReturn(\"a\" + \"b\")\n\
          };\n\

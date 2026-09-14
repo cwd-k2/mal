@@ -15,16 +15,16 @@ extern destroyAllocator :: Allocator -> Unit;
 createLeaf :: (Allocator, Int32) -> NodeResult := (allocator, value) -> {
     allocated := allocator.allocateNode(5u64);
     allocated[
-    (node)[created, failed] -> {
+    (node) -> [created, failed] => {
         Int32.store(node, value);
         UInt8.store(node + 4u64, 0u8);
         created(node);
     },
-    ()[created, failed] -> failed()
+    () -> [created, failed] => failed()
     ];
 };
 
-sumTree :: Ptr -> Int32 := (node)[return] -> {
+sumTree :: Ptr -> Int32 := (node) -> [return] => {
     value := Int32.load(node);
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
@@ -36,7 +36,7 @@ sumTree :: Ptr -> Int32 := (node)[return] -> {
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: (Ptr, Allocator) -> Unit := (node, allocator)[return] -> {
+destroyTree :: (Ptr, Allocator) -> Unit := (node, allocator) -> [return] => {
     isBranch := UInt8.load(node + 4u64);
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
@@ -53,14 +53,14 @@ createOwnedBranch :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
     (allocator, value, left, right) -> {
         allocated := allocator.allocateNode(5u64 + Ptr.size * 2u64);
         allocated[
-        (node)[created, failed] -> {
+        (node) -> [created, failed] => {
             Int32.store(node, value);
             UInt8.store(node + 4u64, 1u8);
             Ptr.store(node + 5u64, left);
             Ptr.store(node + 5u64 + Ptr.size, right);
             created(node);
         },
-        ()[created, failed] -> {
+        () -> [created, failed] => {
             left.destroyTree(allocator);
             right.destroyTree(allocator);
             failed();
@@ -75,13 +75,13 @@ buildLeft :: Allocator -> NodeResult := (allocator) -> {
         second := allocator.createLeaf(4);
         second[
         (right) -> allocator.createOwnedBranch(2, left, right),
-        ()[created, failed] -> {
+        () -> [created, failed] => {
             left.destroyTree(allocator);
             failed();
         }
         ];
     },
-    ()[created, failed] -> failed()
+    () -> [created, failed] => failed()
     ];
 };
 
@@ -92,13 +92,13 @@ buildTree :: Allocator -> NodeResult := (allocator) -> {
         rightResult := allocator.createLeaf(5);
         rightResult[
         (right) -> allocator.createOwnedBranch(1, left, right),
-        ()[created, failed] -> {
+        () -> [created, failed] => {
             left.destroyTree(allocator);
             failed();
         }
         ];
     },
-    ()[created, failed] -> failed()
+    () -> [created, failed] => failed()
     ];
 };
 

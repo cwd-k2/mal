@@ -142,6 +142,7 @@ impl Formatter<'_> {
             }
             TokenKind::DoubleColon
             | TokenKind::Arrow
+            | TokenKind::FatArrow
             | TokenKind::Plus
             | TokenKind::Minus
             | TokenKind::Star
@@ -280,6 +281,7 @@ fn is_breakable_operator(kind: &TokenKind) -> bool {
         kind,
         TokenKind::DoubleColon
             | TokenKind::Arrow
+            | TokenKind::FatArrow
             | TokenKind::Plus
             | TokenKind::Minus
             | TokenKind::Star

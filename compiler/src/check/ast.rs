@@ -247,8 +247,8 @@ impl AbruptExpression {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AbruptExpressionKind {
-    Return {
-        target: ReturnBoundary,
+    ResultTransfer {
+        target: ValueId,
         value: Box<Expression>,
     },
     EmptyElimination {
@@ -260,12 +260,6 @@ pub enum AbruptExpressionKind {
         else_branch: ExpressionBlock,
     },
     Block(ExpressionBlock),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ReturnBoundary {
-    Lambda,
-    Block(ValueId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -281,7 +275,7 @@ pub enum ExpressionKind {
     Block(ExpressionBlock),
     ResultBlock {
         target: ValueId,
-        return_binders: Vec<ReturnBinder>,
+        result_binders: Vec<ResultBinder>,
         body: ExpressionBlock,
     },
     Lambda(Lambda),
@@ -406,12 +400,11 @@ pub struct Lambda {
     pub parameter: Option<Box<Pattern>>,
     pub parameter_type: Type,
     pub result_type: Type,
-    pub return_binders: Option<Vec<ReturnBinder>>,
     pub body: LambdaBody,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReturnBinder {
+pub struct ResultBinder {
     pub binding: ValueBinding,
     pub parameter_type: Type,
     pub variant: Option<usize>,

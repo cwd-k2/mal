@@ -2,7 +2,7 @@ require "./host.mal";
 require "./application.mal";
 
 // The runtime excludes the executable name, so exactly one descriptor is the database path.
-main :: Arguments -> Int32 := (argumentCount, arguments)[return] -> {
+main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
     when (argumentCount != 1u64) {
         writeSymbol("usage: mal-mini-database DATABASE\n");
         return(2);

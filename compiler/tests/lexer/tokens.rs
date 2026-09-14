@@ -79,7 +79,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> + - * / % ! != == ~ & && | || ^ . # << >>"),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> => + - * / % ! != == ~ & && | || ^ . # << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -97,6 +97,7 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::DoubleColon,
             TokenKind::Bind,
             TokenKind::Arrow,
+            TokenKind::FatArrow,
             TokenKind::Plus,
             TokenKind::Minus,
             TokenKind::Star,

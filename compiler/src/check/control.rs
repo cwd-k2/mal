@@ -4,7 +4,7 @@ use crate::resolve::ast as resolved;
 
 use super::ast::{
     AbruptExpression, AbruptExpressionKind, Completion, Expression, ExpressionBlock,
-    ExpressionKind, ReturnBoundary, Type,
+    ExpressionKind, Type,
 };
 use super::types::bool_type;
 use super::{CheckFailure, CheckResult, Checker};
@@ -51,21 +51,21 @@ impl Checker {
             .first()
             .expect("the parser requires a non-empty result binder group")
             .id;
-        let return_binders = self.check_return_binders(bindings, &result_type, body.span)?;
-        for binder in &return_binders {
-            self.return_targets.insert(
+        let result_binders = self.check_result_binders(bindings, &result_type, body.span)?;
+        for binder in &result_binders {
+            self.result_targets.insert(
                 binder.binding.id,
-                super::ReturnTarget {
+                super::ResultTarget {
                     parameter: binder.parameter_type.clone(),
                     result: result_type.clone(),
                     variant: binder.variant,
-                    boundary: ReturnBoundary::Block(target),
+                    boundary: target,
                 },
             );
         }
         let checked_body = self.check_expression_block(body, Some(&result_type));
-        for binder in &return_binders {
-            self.return_targets.remove(&binder.binding.id);
+        for binder in &result_binders {
+            self.result_targets.remove(&binder.binding.id);
         }
         let body = checked_body?;
         if let Completion::Value(value) = body.result.as_ref() {
@@ -73,7 +73,7 @@ impl Checker {
                 .with_primary(value.span, "call a result binder on every reachable path")
                 .into());
         }
-        if !self.used_return_targets.remove(&target) {
+        if !self.used_result_targets.remove(&target) {
             return Err(Diagnostic::error("result block does not produce a result")
                 .with_primary(span, "call one of this block's result binders")
                 .into());
@@ -81,11 +81,72 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::ResultBlock {
                 target,
-                return_binders,
+                result_binders,
                 body,
             },
             ty: result_type,
             span,
+        })
+    }
+
+    fn check_result_binders(
+        &self,
+        bindings: &[resolved::ValueBinding],
+        result: &Type,
+        body_span: crate::source::Span,
+    ) -> CheckResult<Vec<super::ast::ResultBinder>> {
+        Ok(match bindings {
+            [] => unreachable!("the parser requires a non-empty result binder group"),
+            [binding] => {
+                if matches!(result, Type::Sum(members) if members.is_empty()) {
+                    return Err(Diagnostic::error("`[]` result has no result value")
+                        .with_primary(binding.name.span, "remove the result block")
+                        .into());
+                }
+                vec![super::ast::ResultBinder {
+                    binding: binding.clone(),
+                    parameter_type: result.clone(),
+                    variant: None,
+                }]
+            }
+            _ => {
+                let Type::Sum(members) = result else {
+                    return Err(
+                        Diagnostic::error("multiple result binders require a sum result")
+                            .with_primary(
+                                body_span,
+                                format!("result type is `{}`", super::type_name(result)),
+                            )
+                            .into(),
+                    );
+                };
+                if bindings.len() != members.len() {
+                    return Err(Diagnostic::error(
+                        "result binder count does not match the sum result",
+                    )
+                    .with_primary(
+                        body_span,
+                        format!(
+                            "expected {} binders, found {}",
+                            members.len(),
+                            bindings.len()
+                        ),
+                    )
+                    .into());
+                }
+                bindings
+                    .iter()
+                    .zip(members.iter())
+                    .enumerate()
+                    .map(
+                        |(variant, (binding, parameter_type))| super::ast::ResultBinder {
+                            binding: binding.clone(),
+                            parameter_type: parameter_type.clone(),
+                            variant: Some(variant),
+                        },
+                    )
+                    .collect()
+            }
         })
     }
 

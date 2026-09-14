@@ -61,16 +61,16 @@ struct Checker {
     values: HashMap<ValueId, Type>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
-    return_targets: HashMap<ValueId, ReturnTarget>,
-    used_return_targets: HashSet<ValueId>,
+    result_targets: HashMap<ValueId, ResultTarget>,
+    used_result_targets: HashSet<ValueId>,
 }
 
 #[derive(Clone)]
-struct ReturnTarget {
+struct ResultTarget {
     parameter: Type,
     result: Type,
     variant: Option<usize>,
-    boundary: ast::ReturnBoundary,
+    boundary: ValueId,
 }
 
 impl Checker {
@@ -85,8 +85,8 @@ impl Checker {
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
             external_values: HashSet::new(),
             externals: HashMap::new(),
-            return_targets: HashMap::new(),
-            used_return_targets: HashSet::new(),
+            result_targets: HashMap::new(),
+            used_result_targets: HashSet::new(),
         }
     }
 
@@ -285,8 +285,8 @@ impl Checker {
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
-        if self.return_targets.contains_key(&reference.id) {
-            return Err(Diagnostic::error("return binder is not a value")
+        if self.result_targets.contains_key(&reference.id) {
+            return Err(Diagnostic::error("result binder is not a value")
                 .with_primary(reference.name.span, "call this binder in callee position"));
         }
         self.values.get(&reference.id).cloned().ok_or_else(|| {

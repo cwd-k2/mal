@@ -141,12 +141,12 @@ impl Index {
             }
             (
                 resolved::Expression::ResultBlock {
-                    return_binders,
+                    result_binders,
                     body,
                 },
                 Some(expected),
             ) => {
-                self.collect_resolved_return_binders(return_binders, Some(expected));
+                self.collect_resolved_result_binders(result_binders, Some(expected));
                 for item in &body.items {
                     match item {
                         resolved::BodyItem::Binding(binding) => {
@@ -163,12 +163,12 @@ impl Index {
         }
     }
 
-    fn collect_resolved_return_binders(
+    fn collect_resolved_result_binders(
         &mut self,
-        return_binders: &[resolved::ValueBinding],
+        result_binders: &[resolved::ValueBinding],
         result_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
     ) {
-        match return_binders {
+        match result_binders {
             [binding] => {
                 if let Some(result_type) = result_type {
                     self.value_types.insert(
@@ -191,7 +191,7 @@ impl Index {
                 }
             }
         }
-        for binding in return_binders {
+        for binding in result_binders {
             let id = SymbolId::Value(self.canonical_value(binding.id));
             self.add_raw(
                 id,
@@ -213,9 +213,6 @@ impl Index {
                 self.apply_declared_pattern_type(parameter, parameter_type);
             }
             self.collect_resolved_pattern(parameter, false, parameter.span);
-        }
-        if let Some(return_binders) = &lambda.return_binders {
-            self.collect_resolved_return_binders(return_binders, result_type);
         }
         for item in &lambda.body.items {
             match item {
@@ -283,10 +280,10 @@ impl Index {
                 self.collect_resolved_body(&block.items, &block.result);
             }
             Expression::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
             } => {
-                self.collect_resolved_return_binders(return_binders, None);
+                self.collect_resolved_result_binders(result_binders, None);
                 self.collect_resolved_body(&body.items, &body.result);
             }
             Expression::Lambda(lambda) => {

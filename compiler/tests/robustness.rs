@@ -34,7 +34,7 @@ fn source_mutations_preserve_frontend_totality_and_formatter_idempotence() {
     let seeds = [
         "main::Unit->Int32:=() -> {40+2;};",
         "choose::Bool->Int32:=(condition) -> {if(condition)then{1}else{2};};",
-        "Result::[Int32,Symbol];make::Bool->Result:=(ok)[yes,no] -> {when(ok){yes(1)};no(\"失敗\")};",
+        "Result::[Int32,Symbol];make::Bool->Result:=(ok) -> [yes,no] => {when(ok){yes(1)};no(\"失敗\")};",
         "pair::(UInt8,UInt64):=(1u8,2u64);",
         "extern Handle;extern consume::Handle->Unit;",
     ];

@@ -69,11 +69,11 @@ impl Index {
                 self.collect_checked_body(&block.items, &block.result);
             }
             ExpressionKind::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
                 ..
             } => {
-                for binder in return_binders {
+                for binder in result_binders {
                     let id = self.canonical_value(binder.binding.id);
                     let parameter_type = crate::check::type_name(&binder.parameter_type);
                     self.parameters.insert(id);
@@ -93,16 +93,6 @@ impl Index {
                 if let Some(parameter) = &lambda.parameter {
                     self.collect_checked_pattern(parameter);
                     self.mark_parameter_bindings(parameter);
-                }
-                if let Some(return_binders) = &lambda.return_binders {
-                    for binder in return_binders {
-                        let id = self.canonical_value(binder.binding.id);
-                        let parameter_type = crate::check::type_name(&binder.parameter_type);
-                        self.parameters.insert(id);
-                        self.value_types.insert(id, parameter_type.clone());
-                        self.typed_regions
-                            .push((binder.binding.name.span, parameter_type));
-                    }
                 }
                 self.collect_checked_body(&lambda.body.items, &lambda.body.result);
             }
@@ -190,7 +180,7 @@ impl Index {
                     self.collect_checked_expression(expression);
                 }
                 match &abrupt.kind {
-                    checked::AbruptExpressionKind::Return { value, .. } => {
+                    checked::AbruptExpressionKind::ResultTransfer { value, .. } => {
                         self.collect_checked_expression(value);
                     }
                     checked::AbruptExpressionKind::EmptyElimination { scrutinee } => {

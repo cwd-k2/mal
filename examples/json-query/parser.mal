@@ -24,10 +24,10 @@ _objectNext :: UInt64 := 8u64;
 _rootValue :: UInt64 := 9u64;
 _rootDone :: UInt64 := 10u64;
 
-// The two sum return binders name ParseResult's alternative result edges.
-_parseFailure :: Symbol -> ParseResult := (message)[failure, success] -> failure(message);
+// The two sum result binders name ParseResult's alternative result edges.
+_parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 
-_parseSuccess :: Parsed -> ParseResult := (parsed)[failure, success] -> success(parsed);
+_parseSuccess :: Parsed -> ParseResult := (parsed) -> [failure, success] => success(parsed);
 
 _isWhitespace :: UInt8 -> Bool := (byte) ->
     byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
@@ -46,7 +46,7 @@ _advance :: Cursor -> Cursor := (cursor) -> {
     (source, index + 1u64);
 };
 
-_skipWhitespace :: Cursor -> Cursor := (cursor)[return] -> {
+_skipWhitespace :: Cursor -> Cursor := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source) {
         return(cursor);
@@ -87,7 +87,7 @@ _completeValue :: UInt64 -> UInt64 := (frames) -> {
 };
 
 _matchesAt :: (Symbol, UInt64, Symbol, UInt64) -> Bool :=
-    (source, start, expected, offset)[return] -> {
+    (source, start, expected, offset) -> [return] => {
         when (offset == #expected) {
             return(true);
         };
@@ -105,7 +105,7 @@ _consumeLiteral :: (Cursor, Symbol) -> Scan := (cursor, expected) -> {
 };
 
 _hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
-    (source, index, remaining)[return] -> {
+    (source, index, remaining) -> [return] => {
         when (remaining == 0u64) {
             return(true);
         };
@@ -116,7 +116,7 @@ _hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
     };
 
 // The cursor starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: Cursor -> Scan := (cursor)[return] -> {
+_scanString :: Cursor -> Scan := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source) {
         return((cursor, "unterminated JSON string"));
@@ -154,7 +154,7 @@ _scanString :: Cursor -> Scan := (cursor)[return] -> {
     return((cursor, "invalid JSON escape"));
 };
 
-_scanDigits :: Cursor -> Cursor := (cursor)[return] -> {
+_scanDigits :: Cursor -> Cursor := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source || !(source # index)._isDigit()) {
         return(cursor);
@@ -164,7 +164,7 @@ _scanDigits :: Cursor -> Cursor := (cursor)[return] -> {
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-_scanNumber :: Cursor -> Scan := (cursor)[return] -> {
+_scanNumber :: Cursor -> Scan := (cursor) -> [return] => {
     (source, start) := cursor;
     unsigned := if (source # start == '-')
         then (source, start + 1u64)
@@ -219,7 +219,7 @@ _scanNumber :: Cursor -> Scan := (cursor)[return] -> {
 // This single tail-recursive dispatcher executes the state at the top of the packed frame stack.
 // Every transition either consumes input, changes the active state, pops a completed container, or
 // returns a result, so malformed input cannot make an unchanged state loop forever.
-_parse :: ParserState -> ParseResult := (state)[return] -> {
+_parse :: ParserState -> ParseResult := (state) -> [return] => {
     (untrimmed, frames, frameDepth, stats) := state;
     cursor := untrimmed._skipWhitespace();
     (source, index) := cursor;

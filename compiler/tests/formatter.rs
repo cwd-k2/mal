@@ -27,7 +27,7 @@ fn formats_spacing_and_blocks_canonically() {
 #[test]
 fn formats_expression_bodies_for_binder_and_control_forms() {
     let formatted = format(
-        "identity:=(value)->value;choose:=(condition)->if(condition)then 1 else 2;finish:=(condition)[return]->{when(condition)return(1);return(0)};",
+        "identity:=(value)->value;choose:=(condition)->if(condition)then 1 else 2;finish:=(condition) -> [return] =>{when(condition)return(1);return(0)};",
     );
 
     assert_eq!(
@@ -39,7 +39,7 @@ fn formats_expression_bodies_for_binder_and_control_forms() {
             "    then 1\n",
             "    else 2;\n",
             "\n",
-            "finish := (condition)[return] -> {\n",
+            "finish := (condition) -> [return] => {\n",
             "    when (condition) return(1);\n",
             "    return(0);\n",
             "};\n",
@@ -75,7 +75,7 @@ fn preserves_comments_and_literal_spelling() {
 #[test]
 fn indents_comments_and_results_after_expression_body_arrows() {
     let formatted = format(
-        "identity := (value) ->\n// result\nvalue; direct := () -> [done] -> // direct result\ndone(1);",
+        "identity := (value) ->\n// result\nvalue; direct := () -> [done] => // direct result\ndone(1);",
     );
 
     assert_eq!(
@@ -85,7 +85,7 @@ fn indents_comments_and_results_after_expression_body_arrows() {
             "    // result\n",
             "    value;\n",
             "\n",
-            "direct := () -> [done] -> // direct result\n",
+            "direct := () -> [done] => // direct result\n",
             "    done(1);\n",
         )
     );
@@ -229,13 +229,13 @@ fn keeps_single_continuation_chains_inline() {
 }
 
 #[test]
-fn formats_explicit_return_surface_forms() {
+fn formats_result_block_surface_forms() {
     let formatted =
-        format("absolute::Int32->Int32:=(x)[return] -> {when(x>=0){return(x)};return(-x)};");
+        format("absolute::Int32->Int32:=(x) -> [return] => {when(x>=0){return(x)};return(-x)};");
     assert_eq!(
         formatted,
         concat!(
-            "absolute :: Int32 -> Int32 := (x)[return] -> {\n",
+            "absolute :: Int32 -> Int32 := (x) -> [return] => {\n",
             "    when (x >= 0) {\n",
             "        return(x);\n",
             "    };\n",
@@ -247,23 +247,23 @@ fn formats_explicit_return_surface_forms() {
 }
 
 #[test]
-fn formats_sum_and_empty_return_binder_groups() {
+fn formats_sum_result_binders_and_abrupt_lambdas() {
     let formatted = format(
-        "Result::[Int32,Symbol];compute::Bool->Result:=(enabled)[ok,err] -> {when(enabled){ok(42)};err(\"disabled\")};never::Unit->[]:=()[] -> {never()[]};",
+        "Result::[Int32,Symbol];compute::Bool->Result:=(enabled) -> [ok,err] => {when(enabled){ok(42)};err(\"disabled\")};never::Unit->[]:=() -> {never()[]};",
     );
     assert_eq!(
         formatted,
         concat!(
             "Result :: [Int32, Symbol];\n",
             "\n",
-            "compute :: Bool -> Result := (enabled)[ok, err] -> {\n",
+            "compute :: Bool -> Result := (enabled) -> [ok, err] => {\n",
             "    when (enabled) {\n",
             "        ok(42);\n",
             "    };\n",
             "    err(\"disabled\");\n",
             "};\n",
             "\n",
-            "never :: Unit -> [] := ()[] -> { never()[] };\n",
+            "never :: Unit -> [] := () -> { never()[] };\n",
         )
     );
     assert_eq!(format(&formatted), formatted);
@@ -272,7 +272,7 @@ fn formats_sum_and_empty_return_binder_groups() {
 #[test]
 fn formats_direct_blocks_and_result_blocks() {
     let formatted = format(
-        "main::Unit->Int32:=() -> {value::Int32:={local:=40;local+1};[done] -> {done(value+1)}};",
+        "main::Unit->Int32:=() -> {value::Int32:={local:=40;local+1};[done] => {done(value+1)}};",
     );
     assert_eq!(
         formatted,
@@ -282,7 +282,7 @@ fn formats_direct_blocks_and_result_blocks() {
             "        local := 40;\n",
             "        local + 1;\n",
             "    };\n",
-            "    [done] -> { done(value + 1) };\n",
+            "    [done] => { done(value + 1) };\n",
             "};\n",
         )
     );
@@ -292,12 +292,12 @@ fn formats_direct_blocks_and_result_blocks() {
 #[test]
 fn preserves_one_intentional_blank_line_between_block_steps() {
     let formatted = format(
-        "work::Int32->Int32:=(value)[return] -> {first:=value+1;\n\n\n// second stage\nsecond:=first*2;\n\nreturn(second)};",
+        "work::Int32->Int32:=(value) -> [return] => {first:=value+1;\n\n\n// second stage\nsecond:=first*2;\n\nreturn(second)};",
     );
     assert_eq!(
         formatted,
         concat!(
-            "work :: Int32 -> Int32 := (value)[return] -> {\n",
+            "work :: Int32 -> Int32 := (value) -> [return] => {\n",
             "    first := value + 1;\n",
             "\n",
             "    // second stage\n",

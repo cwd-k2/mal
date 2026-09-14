@@ -153,8 +153,8 @@ fn checks_a_lambda_from_an_application_context() {
 fn checks_postfix_application_and_sum_continuations() {
     check_ok(
         "Choice :: [Int32, Symbol];
-         first :: Int32 -> Choice := (value)[first, second] -> { first(value) };
-         second :: Symbol -> Choice := (value)[first, second] -> { second(value) };
+         first :: Int32 -> Choice := (value) -> [first, second] => { first(value) };
+         second :: Symbol -> Choice := (value) -> [first, second] => { second(value) };
          identity :: Int32 -> Int32 := (value) -> { value };
          choose :: Choice -> Int32 := (choice) -> {
            choice[(value) -> { value }, (symbol) -> { Int32(#symbol) }]
@@ -186,7 +186,7 @@ fn checks_receiver_first_calls_with_ordinary_function_bindings() {
 fn rejects_invalid_sum_continuations_and_type_applications() {
     assert_eq!(
         check_error("Choice :: [Unit, Int32]; bad := 2[Choice];").message,
-        "sum values must be constructed through return binders"
+        "sum values must be constructed through result binders"
     );
     assert_eq!(
         check_error(

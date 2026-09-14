@@ -13,15 +13,20 @@ impl Parser<'_> {
 
     pub(super) fn parse_result_block(&mut self) -> Result<Node<Expression>, Diagnostic> {
         let start = self.current_span().start();
-        let return_binders = self
-            .parse_return_binders()?
-            .expect("a result block starts with a binder group");
-        debug_assert!(!return_binders.is_empty());
-        let body = self.parse_lambda_body()?;
+        self.expect(&TokenKind::LeftBracket, "`[`")?;
+        let mut result_binders =
+            vec![self.parse_name(&TokenKind::ValueIdentifier, "a result binder name")?];
+        while self.take(&TokenKind::Comma).is_some() {
+            result_binders
+                .push(self.parse_name(&TokenKind::ValueIdentifier, "a result binder name")?);
+        }
+        self.expect(&TokenKind::RightBracket, "`]`")?;
+        self.expect(&TokenKind::FatArrow, "`=>`")?;
+        let body = self.parse_expression_body()?;
         let span = self.span(start, body.span.end());
         Ok(Node::new(
             Expression::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
             },
             span,
@@ -62,7 +67,7 @@ impl Parser<'_> {
             && self
                 .tokens
                 .get(index + 1)
-                .is_some_and(|token| matches!(token.kind, TokenKind::Arrow))
+                .is_some_and(|token| matches!(token.kind, TokenKind::FatArrow))
     }
 
     pub(super) fn parse_if(&mut self) -> Result<Node<Expression>, Diagnostic> {

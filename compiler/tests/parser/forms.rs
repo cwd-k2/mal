@@ -32,7 +32,7 @@ fn parses_expression_bodies_for_binder_and_control_forms() {
     assert!(lambda.body.items.is_empty());
     assert!(matches!(lambda.body.result.kind, Expression::Name(_)));
 
-    let Expression::ResultBlock { body, .. } = binding_value("value := [left, right] -> right(1);")
+    let Expression::ResultBlock { body, .. } = binding_value("value := [left, right] => right(1);")
     else {
         panic!("expected result block");
     };
@@ -58,30 +58,30 @@ fn parses_expression_bodies_for_binder_and_control_forms() {
 }
 
 #[test]
-fn parses_return_binders_when_and_empty_forms() {
+fn parses_result_binders_when_and_empty_forms() {
     let expression = binding_value(
-        "choose :: Bool -> [] := (condition)[done, failed] -> { when (condition) { done() }; failed() };",
+        "choose :: Bool -> [] := (condition) -> [done, failed] => { when (condition) { done() }; failed() };",
     );
     let Expression::Lambda(lambda) = expression else {
         panic!("expected lambda");
     };
-    assert_eq!(
-        lambda
-            .return_binders
-            .as_ref()
-            .expect("return binder group")
-            .len(),
-        2
-    );
+    let Expression::ResultBlock {
+        result_binders,
+        body,
+    } = &lambda.body.result.kind
+    else {
+        panic!("expected result block");
+    };
+    assert_eq!(result_binders.len(), 2);
     assert!(matches!(
-        lambda.body.items[0],
+        body.items[0],
         BodyItem::Expression(malc::ast::Node {
             kind: Expression::When { .. },
             ..
         })
     ));
 
-    let program = parse_ok("Empty :: []; never :: Unit -> Empty := ()[] -> never()[]; ");
+    let program = parse_ok("Empty :: []; never :: Unit -> Empty := () -> never()[]; ");
     let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
         panic!("expected type alias");
     };
@@ -92,7 +92,6 @@ fn parses_return_binders_when_and_empty_forms() {
     let Expression::Lambda(lambda) = &binding.value.kind else {
         panic!("expected lambda");
     };
-    assert!(lambda.return_binders.as_ref().is_some_and(Vec::is_empty));
     assert!(
         matches!(&lambda.body.result.kind, Expression::ContinuationApplication { continuations, .. } if continuations.is_empty())
     );
@@ -106,23 +105,21 @@ fn parses_direct_blocks_and_result_blocks_as_distinct_expressions() {
     };
     assert_eq!(block.items.len(), 1);
 
-    let expression = binding_value("value := [left, right] -> { right(1) };");
+    let expression = binding_value("value := [left, right] => { right(1) };");
     let Expression::ResultBlock {
-        return_binders,
+        result_binders,
         body,
     } = expression
     else {
         panic!("expected a direct result block");
     };
-    assert_eq!(return_binders.len(), 2);
+    assert_eq!(result_binders.len(), 2);
     assert!(matches!(body.result.kind, Expression::Call { .. }));
 }
 
 #[test]
-fn rejects_legacy_binder_bodies_and_an_empty_result_binder_group() {
-    assert!(parse(&source("value := (x) { x }; ")).is_err());
-    assert!(parse(&source("value := [done] { done(0) }; ")).is_err());
-    assert!(parse(&source("value := [] { 0 };")).is_err());
+fn rejects_an_empty_result_binder_group() {
+    assert!(parse(&source("value := [] => 0;")).is_err());
 }
 
 #[test]

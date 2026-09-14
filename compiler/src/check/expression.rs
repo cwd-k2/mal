@@ -90,9 +90,9 @@ impl Checker {
                 self.check_block(block, expression.span, expected)?
             }
             resolved::Expression::ResultBlock {
-                return_binders,
+                result_binders,
                 body,
-            } => self.check_result_block(return_binders, body, expression.span, expected)?,
+            } => self.check_result_block(result_binders, body, expression.span, expected)?,
             resolved::Expression::Lambda(lambda) => {
                 self.check_lambda(lambda, expression.span, expected)?
             }
@@ -112,7 +112,7 @@ impl Checker {
                 let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
                 if matches!(target, Type::Sum(_)) {
                     return Err(Diagnostic::error(
-                        "sum values must be constructed through return binders",
+                        "sum values must be constructed through result binders",
                     )
                     .with_primary(type_ref.name.span, "this is a sum type")
                     .into());
@@ -239,12 +239,10 @@ impl Checker {
         }
         if let [continuation] = continuations
             && let resolved::Expression::Reference(reference) = &continuation.kind
-            && let Some(target) = self.return_targets.get(&reference.id).cloned()
+            && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_expression(value, Some(&target.parameter))?;
-            if let super::ast::ReturnBoundary::Block(target) = target.boundary {
-                self.used_return_targets.insert(target);
-            }
+            self.used_result_targets.insert(target.boundary);
             let value = if let Some(index) = target.variant {
                 Expression {
                     kind: ExpressionKind::SumInjection {
@@ -259,7 +257,7 @@ impl Checker {
             };
             return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
                 preceding: Vec::new(),
-                kind: AbruptExpressionKind::Return {
+                kind: AbruptExpressionKind::ResultTransfer {
                     target: target.boundary,
                     value: Box::new(value),
                 },
@@ -392,12 +390,10 @@ impl Checker {
         span: crate::source::Span,
     ) -> CheckResult<Expression> {
         if let resolved::Expression::Reference(reference) = &callee.kind
-            && let Some(target) = self.return_targets.get(&reference.id).cloned()
+            && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_argument(arguments, &target.parameter, span)?;
-            if let super::ast::ReturnBoundary::Block(target) = target.boundary {
-                self.used_return_targets.insert(target);
-            }
+            self.used_result_targets.insert(target.boundary);
             let value = if let Some(index) = target.variant {
                 Expression {
                     kind: ExpressionKind::SumInjection {
@@ -412,7 +408,7 @@ impl Checker {
             };
             return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
                 preceding: Vec::new(),
-                kind: AbruptExpressionKind::Return {
+                kind: AbruptExpressionKind::ResultTransfer {
                     target: target.boundary,
                     value: Box::new(value),
                 },

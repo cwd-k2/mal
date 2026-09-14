@@ -112,7 +112,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(0),
             "syntax.mal",
-            "require \"./dependency.mal\";\nextern send :: Int32 -> Unit;\nhelper := (value)[done] -> done(value);\nmain :: Unit -> Int32 := () -> helper(1).;\n".into(),
+            "require \"./dependency.mal\";\nextern send :: Int32 -> Unit;\nhelper := (value) -> [done] => done(value);\nmain :: Unit -> Int32 := () -> helper(1).;\n".into(),
         );
         let document = analyze(&source).expect("lexical syntax document");
 

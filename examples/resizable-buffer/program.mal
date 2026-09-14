@@ -20,11 +20,11 @@ extern writeSlice :: Slice -> Unit;
 extern writeSliceDescriptor :: (Allocation, Ptr) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
-_bufferSuccess :: Buffer -> BufferResult := (buffer)[success, failure] -> success(buffer);
+_bufferSuccess :: Buffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
 
-_bufferFailure :: UInt32 -> BufferResult := (error)[success, failure] -> failure(error);
+_bufferFailure :: UInt32 -> BufferResult := (error) -> [success, failure] => failure(error);
 
-nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] -> {
+nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required) -> [return] => {
     when (capacity >= required) {
         return(capacity);
     };
@@ -34,7 +34,7 @@ nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required)[return] -> {
     return((capacity * 2u64).nextCapacity(required));
 };
 
-appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] -> {
+appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] => {
     (allocation, memory, capacity, length) := buffer;
     additional := #value;
     when (additional > 0xffff_ffff_ffff_ffffu64 - length) {
@@ -48,18 +48,18 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value)[return] -> {
             buffer.resizeBuffer(target);
         };
     result :: BufferResult := available[
-        (resized)[success, failure] -> {
+        (resized) -> [success, failure] => {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
             Symbol.write(nextMemory + length, value);
             success((nextAllocation, nextMemory, nextCapacityValue, required));
         },
-        (error)[success, failure] -> failure(error)
+        (error) -> [success, failure] => failure(error)
     ];
     return(result);
 };
 
 sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
-    (buffer, start, length)[slice, invalid] -> {
+    (buffer, start, length) -> [slice, invalid] => {
         (allocation, memory, _, initialized) := buffer;
         when (start <= initialized && length <= initialized - start) {
             slice((allocation, memory + start, length));

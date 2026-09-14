@@ -3,12 +3,12 @@ Query :: [Unit, Unit];
 // The first variant carries a diagnostic; the second carries a validated query.
 QueryResult :: [Symbol, Query];
 
-// The sum return binders name Query's result edges; applying count selects variant 0.
-_countQuery :: Unit -> Query := ()[count, depth] -> count();
+// The sum result binders name Query's result edges; applying count selects variant 0.
+_countQuery :: Unit -> Query := () -> [count, depth] => count();
 
-_depthQuery :: Unit -> Query := ()[count, depth] -> depth();
+_depthQuery :: Unit -> Query := () -> [count, depth] => depth();
 
-parseQuery :: Symbol -> QueryResult := (text)[failure, success] -> {
+parseQuery :: Symbol -> QueryResult := (text) -> [failure, success] => {
     when (text == "count") {
         success(_countQuery());
     };

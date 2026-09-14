@@ -1,4 +1,4 @@
-sumDownFrom :: (Int64, Int64) -> Int64 := (total, remaining)[return] -> {
+sumDownFrom :: (Int64, Int64) -> Int64 := (total, remaining) -> [return] => {
     when (remaining == 0) {
         return(total);
     };

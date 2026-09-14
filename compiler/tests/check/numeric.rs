@@ -260,7 +260,7 @@ fn checks_modulo_integer_conversions() {
     assert!(
         check_error("value := Bool(());")
             .message
-            .contains("must be constructed through return binders")
+            .contains("must be constructed through result binders")
     );
 }
 

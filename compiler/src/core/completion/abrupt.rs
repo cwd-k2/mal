@@ -10,28 +10,25 @@ impl Lowerer {
         result_type: &checked::Type,
     ) -> Expression {
         let terminal = match &abrupt.kind {
-            checked::AbruptExpressionKind::Return { target, value } => match target {
-                checked::ReturnBoundary::Lambda => {
-                    let mut identity = |_: &mut Lowerer, value: Expression| value;
-                    self.lower_value_with(value, result_type, &mut identity)
-                }
-                checked::ReturnBoundary::Block(source_target) => {
-                    let target = *self
-                        .result_targets
-                        .get(source_target)
-                        .expect("a result binder is lowered inside its result block");
-                    let span = abrupt.span;
-                    let mut jump = |_: &mut Lowerer, value: Expression| Expression {
-                        kind: ExpressionKind::Goto {
-                            target,
-                            value: Box::new(value),
-                        },
-                        ty: result_type.clone(),
-                        span,
-                    };
-                    self.lower_value_with(value, result_type, &mut jump)
-                }
-            },
+            checked::AbruptExpressionKind::ResultTransfer {
+                target: source_target,
+                value,
+            } => {
+                let target = *self
+                    .result_targets
+                    .get(source_target)
+                    .expect("a result binder is lowered inside its result block");
+                let span = abrupt.span;
+                let mut jump = |_: &mut Lowerer, value: Expression| Expression {
+                    kind: ExpressionKind::Goto {
+                        target,
+                        value: Box::new(value),
+                    },
+                    ty: result_type.clone(),
+                    span,
+                };
+                self.lower_value_with(value, result_type, &mut jump)
+            }
             checked::AbruptExpressionKind::EmptyElimination { scrutinee } => {
                 let span = abrupt.span;
                 let mut eliminate = |_lowerer: &mut Lowerer, value: Expression| Expression {

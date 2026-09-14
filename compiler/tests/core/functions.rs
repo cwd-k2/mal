@@ -67,9 +67,9 @@ fn lowers_multiple_parameters_to_product_destructuring() {
 }
 
 #[test]
-fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
+fn lowers_result_binders_to_a_lambda_local_join() {
     let program = lower_ok(
-        "absolute :: Int32 -> Int32 := (x)[return] -> {\n\
+        "absolute :: Int32 -> Int32 := (x) -> [return] => {\n\
            when (x >= 0) { return(x) };\n\
            return(-x)\n\
          };",
@@ -78,32 +78,45 @@ fn lowers_explicit_returns_to_the_existing_lambda_result_edge() {
     let ExpressionKind::Case { arms, .. } = &body.kind else {
         panic!("when should lower to a branch over the remaining continuation");
     };
-    assert!(matches!(arms[0].value.kind, ExpressionKind::Goto { .. }));
+    assert!(matches!(
+        arms[0].value.kind,
+        ExpressionKind::Goto {
+            target: JoinId(1),
+            ..
+        }
+    ));
     let joins = &top_lambda_definition(&program, "absolute").joins;
-    assert_eq!(joins.len(), 1);
+    assert_eq!(joins.len(), 2);
+    assert!(matches!(joins[0].body.kind, ExpressionKind::Reference(_)));
     let ExpressionKind::Let {
         body: remaining, ..
-    } = &joins[0].body.kind
+    } = &joins[1].body.kind
     else {
         panic!("the shared continuation should discard when's Unit");
     };
+    let ExpressionKind::Goto { value, .. } = &remaining.kind else {
+        panic!("the remaining result should transfer to the result block join");
+    };
+    assert!(matches!(value.kind, ExpressionKind::PrimitiveUnary { .. }));
     assert!(matches!(
-        remaining.kind,
-        ExpressionKind::PrimitiveUnary { .. }
+        arms[1].value.kind,
+        ExpressionKind::Goto {
+            target: JoinId(0),
+            ..
+        }
     ));
-    assert!(matches!(arms[1].value.kind, ExpressionKind::Reference(_)));
 }
 
 #[test]
 fn lowers_long_flat_completion_control_sequences_to_shared_joins() {
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := () -> [return] => {{ {}return(0i32) }};",
         "when (false) { return(1i32) };".repeat(4_096)
     );
 
     let program = lower_ok(&text);
 
-    assert_eq!(top_lambda_definition(&program, "main").joins.len(), 4_096);
+    assert_eq!(top_lambda_definition(&program, "main").joins.len(), 4_097);
 }
 
 #[test]
@@ -111,7 +124,7 @@ fn shares_continuations_across_multiple_normal_branch_exits() {
     let count = 128;
     let item = "if (true) then { when (false) { return(1i32) }; () } else { () };";
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] -> {{ {}return(0i32) }};",
+        "main :: Unit -> Int32 := () -> [return] => {{ {}return(0i32) }};",
         item.repeat(count)
     );
 
@@ -119,15 +132,15 @@ fn shares_continuations_across_multiple_normal_branch_exits() {
 
     assert_eq!(
         top_lambda_definition(&program, "main").joins.len(),
-        count * 2
+        count * 2 + 1
     );
 }
 
 #[test]
 fn indexes_join_arenas_locally_to_each_lambda() {
     let program = lower_ok(
-        "main :: Unit -> Int32 := ()[return] -> {\n\
-           nested :: Unit -> Int32 := ()[return] -> {\n\
+        "main :: Unit -> Int32 := () -> [return] => {\n\
+           nested :: Unit -> Int32 := () -> [return] => {\n\
              when (false) { return(1i32) };\n\
              return(0i32)\n\
            };\n\
@@ -170,16 +183,16 @@ fn indexes_join_arenas_locally_to_each_lambda() {
         panic!("expected the nested join transfer");
     };
 
-    assert_eq!(main.joins.len(), 1);
-    assert_eq!(nested.joins.len(), 1);
-    assert_eq!(outer_target, JoinId(0));
-    assert_eq!(nested_target, JoinId(0));
+    assert_eq!(main.joins.len(), 2);
+    assert_eq!(nested.joins.len(), 2);
+    assert_eq!(outer_target, JoinId(1));
+    assert_eq!(nested_target, JoinId(1));
 }
 
 #[test]
 fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
     let text = format!(
-        "main :: Unit -> Int32 := ()[return] -> {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",
+        "main :: Unit -> Int32 := () -> [return] => {{ {}when (false) {{ return(1i32) }}; return(0i32) }};",
         "0i32;".repeat(4_096)
     );
 
@@ -193,7 +206,7 @@ fn lowers_long_flat_prefixes_before_completion_control_iteratively() {
 
 #[test]
 fn lowers_empty_elimination_to_a_zero_arm_case() {
-    let program = lower_ok("never :: Unit -> [] := ()[] -> { never()[] };");
+    let program = lower_ok("never :: Unit -> [] := () -> { never()[] };");
     let body = top_lambda(&program, "never");
     let ExpressionKind::Case { arms, .. } = &body.kind else {
         panic!("expected empty case");
@@ -205,7 +218,7 @@ fn lowers_empty_elimination_to_a_zero_arm_case() {
 fn lowers_direct_result_blocks_to_local_joins_without_a_lambda() {
     let program = lower_ok(
         "main :: Unit -> Int32 := () -> {
-           [done] -> { value :: Int32 := { 40 + 2 }; done(value) }
+           [done] => { value :: Int32 := { 40 + 2 }; done(value) }
          };",
     );
     let lambda = top_lambda_definition(&program, "main");

@@ -10,12 +10,12 @@ LineState :: (Reader, Buffer);
 // LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
 LineRead :: [Reader, LineState];
 
-_lineAtEof :: Reader -> LineRead := (reader)[eof, ready] -> eof(reader);
+_lineAtEof :: Reader -> LineRead := (reader) -> [eof, ready] => eof(reader);
 
-_lineReady :: LineState -> LineRead := (state)[eof, ready] -> ready(state);
+_lineReady :: LineState -> LineRead := (state) -> [eof, ready] => ready(state);
 
 // Return buffered data first; refill only when the cursor reaches initialized bytes.
-_readByte :: Reader -> ByteRead := (reader)[eof, read] -> {
+_readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     (file, buffer, position) := reader;
     (memory, capacity, length) := buffer;
 
@@ -39,13 +39,13 @@ _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) -> {
     (line, capacity, length) := buffer;
     result := reader._readByte();
     result[
-    (next)[return] -> {
+    (next) -> [return] => {
         when (length == 0u64) {
             return(_lineAtEof(next));
         };
         return(_lineReady((next, buffer)));
     },
-    (read)[return] -> {
+    (read) -> [return] => {
         (next, byte) := read;
 
         // A completed line excludes LF and an optional preceding CR.

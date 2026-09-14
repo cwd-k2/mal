@@ -168,7 +168,7 @@ fn type_qualified_primitives_support_type_hover_and_definition() {
 
 #[test]
 fn sum_return_annotations_navigate_to_the_alias() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value)[none, some] -> { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();
     let constructor_offset = text.find("-> Choice").unwrap() + 3;
@@ -222,8 +222,8 @@ fn sum_continuation_parameters_keep_declaration_identity() {
 }
 
 #[test]
-fn return_binders_support_hover_definition_references_and_rename() {
-    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled)[ok, err] -> { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result)[return] -> { return(result) };\n";
+fn result_binders_support_hover_definition_references_and_rename() {
+    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled) -> [ok, err] => { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result) -> [return] => { return(result) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let ok_declaration_offset = text.find("[ok").unwrap() + 1;
     let ok_reference_offset = text.rfind("ok(42)").unwrap();
@@ -258,35 +258,16 @@ fn return_binders_support_hover_definition_references_and_rename() {
 
     let return_declaration_offset = text.find("[return]").unwrap() + 1;
     let return_reference_offset = text.rfind("return(result)").unwrap();
-    let return_binder = document.occurrence_at(return_declaration_offset).unwrap();
-    assert_eq!(return_binder.kind, SymbolKind::Parameter);
+    let result_binder = document.occurrence_at(return_declaration_offset).unwrap();
+    assert_eq!(result_binder.kind, SymbolKind::Parameter);
     assert_eq!(
         document.hover_at(return_reference_offset).unwrap().ty,
         "Result"
     );
     assert_eq!(
         document.occurrence_at(return_reference_offset).unwrap().id,
-        return_binder.id
+        result_binder.id
     );
-}
-
-#[test]
-fn direct_result_binders_support_semantic_editor_queries() {
-    let text = "Payload :: Int32;\nmake :: Unit -> Payload := () -> [done] -> done(42);\n";
-    let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let declaration_offset = text.find("[done]").unwrap() + 1;
-    let reference_offset = text.rfind("done(42)").unwrap();
-    let declaration = document.occurrence_at(declaration_offset).unwrap();
-
-    assert_eq!(declaration.kind, SymbolKind::Parameter);
-    assert_eq!(declaration.role, OccurrenceRole::Declaration);
-    assert_eq!(document.hover_at(reference_offset).unwrap().ty, "Payload");
-    assert_eq!(
-        document.occurrence_at(reference_offset).unwrap().id,
-        declaration.id
-    );
-    assert_eq!(document.references(declaration.id, true).len(), 2);
-    assert_eq!(document.rename_spans(reference_offset).unwrap().len(), 2);
 }
 
 #[test]

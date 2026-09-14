@@ -114,7 +114,7 @@ impl<'a> Formatter<'a> {
             .token_index
             .checked_sub(1)
             .and_then(|index| self.lexed.tokens.get(index))
-            .is_some_and(|token| token.kind == TokenKind::Arrow)
+            .is_some_and(|token| matches!(token.kind, TokenKind::Arrow | TokenKind::FatArrow))
             .then_some(self.indent + 1);
         if self
             .blocks
