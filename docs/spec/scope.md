@@ -94,7 +94,7 @@ arrayGet :: (Int64Array, UInt64) -> Int64 :=
 ```
 
 ただしbounds、allocation failure、deallocationはこのaliasだけでは保証されない。alignmentをscalar accessの
-条件にはしない。storageのregionとlifetimeは[`extern` contract](extern.md)が定める。`[]` syntaxはない。
+条件にはしない。storageのregionとlifetimeは[`extern` contract](extern.md)が定める。array indexing用の`[]` syntaxはない。
 
 hash table、list、set も組み込み型ではない。必要な element type ごとに、product/sum と external storage から実装する。parametric polymorphism がないため、例えば `Int32Array` と `SymbolArray` は別実装になる。
 

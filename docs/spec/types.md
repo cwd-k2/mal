@@ -85,10 +85,8 @@ a :: Int32 -> Choice := (value)[first, second] { first(value) };
 b :: Int32 -> Choice := (value)[first, second] { second(value) };
 ```
 
-直和値は、その直和をresult型とするlambdaのsum return binderまたは
-[direct result block](control.md#direct-result-block)のresult binderだけが構築する。
-位置`i`のbinderへpayloadを渡すと第`i`項を選択し、対応するlambdaまたはdirect result blockを完了する。indexを指定するconstructor、injection function、
-nominal variant nameは存在しない。
+直和値は選択した一項の0-based indexとその項型のpayloadを持つ。source-levelの構築は
+[sum return binder](control.md#sum-return-binder)または[direct result block](control.md#direct-result-block)のresult binderで行う。
 
 空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は従来どおり各項の値を持つ。
 `[]`のeliminationとcompletion規則は[明示的returnとcompletion](control.md#empty)に定める。
@@ -100,8 +98,7 @@ Flat :: [A, B, C];
 Nested :: [A, [B, C]];
 ```
 
-直和値の除去には、型の項順に全continuationを並べる。continuationは対応する項型をparameterとし、すべて同じ
-result型を持たなければならない。
+直和値の除去は[直和の除去](expressions.md#直和の除去)に定める。
 
 ## predefined Bool
 

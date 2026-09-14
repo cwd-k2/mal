@@ -96,8 +96,8 @@ x.f(y).g()
 ```
 
 `f(a)`と`a[f]`、`f()`と`()[f]`はそれぞれ同じapplicationである。`[f]`は`()[f]`のUnit valueを省略した形、
-`f(a, b)`は`f((a, b))`である。表記にかかわらずvalueを先に、continuationを後に評価してからapplicationする。
-したがって`g(f(a))`、`g(a[f])`、`f(a)[g]`、`a[f][g]`は同じ評価と結果を持つ。
+`f(a, b)`は`f((a, b))`である。`g(f(a))`、`g(a[f])`、`f(a)[g]`、`a[f][g]`も同じapplicationの列を表す。
+表記に依存しない評価順は[評価戦略](execution.md#評価戦略)に定める。
 
 receiver-first applicationの`a.f()`は`f(a)`、`a.f(b, c)`は`f(a, b, c)`と同じapplicationである。
 `f`はreceiverの型から探索せず、source位置で通常のvalue nameとして解決してから既存のfunction application型規則を
@@ -174,9 +174,15 @@ getOrZero :: MaybeInt32 -> Int32 :=
     };
 ```
 
-二つ以上のcontinuationを持つ`value[f, g, ...]`は直和を除去する。valueはcontinuationより先に一度だけ評価する。
+二つ以上のcontinuationを持つ`value[f, g, ...]`は直和を除去する。
 continuation数は直和の項数と一致し、位置`i`のcontinuationは第`i`項をparameterとするfunctionでなければならない。
-すべてのresult型は同一である。active variantに対応するcontinuationだけを評価してpayloadへ適用し、他は評価しない。
+すべてのresult型は同一である。scrutineeとcontinuationの評価は[評価戦略](execution.md#評価戦略)に定める。
+
+作用と評価順を捨象した値の対応だけを見れば、`f : A -> X`と`g : B -> X`に対するcontinuation列は
+copairing `[f, g] : [A, B] -> X`とみなせ、`value[f, g]`はそのcopairingの`value`へのapplicationと読める。
+ここでの`[f, g]`は型の対応を説明するmetanotationであり、source expression、function value、またはfunctionのproductを
+構築するものではない。sourceのcontinuation expressionを先に一つの値へまとめる書換えは、
+[評価戦略](execution.md#評価戦略)が定める非選択continuationの遅延を保存しないため、一般には認めない。
 
 一つのcontinuationを持つ`value[f]`はvalueの型にかかわらず通常のapplicationである。直和を一つのfunctionへ渡す場合も
 この規則を使い、直和除去との違いはcontinuation数から一意に決まる。
@@ -211,7 +217,8 @@ float literalとする。完全な形は[grammar](grammar.md#numeric-separator)�
 
 numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
 
-Symbol literal は最低限 `\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN` を認める。byte列としての意味とstorageは[Symbol](symbols.md#literal)に定める。
+Symbol literalのbyte列としての意味とstorageは[Symbol](symbols.md#literal)、受理するsource spellingは
+[grammar](grammar.md#文法概要)に定める。
 
 ### byte literal
 

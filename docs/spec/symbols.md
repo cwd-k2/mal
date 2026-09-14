@@ -27,8 +27,8 @@ mal sourceはUTF-8であり、raw source characterはUTF-8 bytesとしてliteral
 "\x00\xff"
 ```
 
-escapeは最低限`\\`、`\"`、`\n`、`\r`、`\t`、`\0`、`\xNN`を認める。`\xNN`はちょうど2桁の
-hexadecimal digitで任意の1 byteを表す。
+受理するescapeのsource spellingは[grammar](grammar.md#文法概要)に定める。`\xNN`はちょうど2桁のhexadecimal digitで
+任意の1 byteを表し、その他のescapeは対応する単一byteを表す。
 
 ## operator
 

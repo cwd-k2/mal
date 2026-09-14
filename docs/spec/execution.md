@@ -17,6 +17,8 @@ receiver-firstの`a().f(b(), c())`も同じapplicationへ変換し、`a()`、`b(
 
 二つ以上のcontinuationによる直和除去はscrutineeを一度評価し、active variantに対応するcontinuationだけを評価して
 payloadへ適用する。選択されないcontinuationを評価してはならない。
+product構築がすべての要素を正格に評価するのに対し、このsum除去は非選択continuationを遅延する。
+これはproductとsumの型上の対応を保ちつつ、strict call-by-valueでbranchの作用を実行しないための操作的な非対称である。
 
 明示的returnを含む式でも同じ順序を使う。`Abrupt`より前に完了した評価は保持し、同じpathで後にある評価は行わない。
 完全なcompletion規則は[明示的returnとcompletion](control.md#completion-judgment)に定める。
