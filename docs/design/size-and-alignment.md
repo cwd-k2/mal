@@ -99,6 +99,7 @@ compilerが利用できる形で確立または保存する。`Cursor<A>`と`Reg
 | `#packed` | `Count` | packedの要素数を観測する |
 | `packed # index` | `A` | packedの要素を選ぶ |
 | `address + bytes`、`address - bytes` | `Address` | byte単位でlocationを派生させる |
+| `!cursor`、`!region` | `Address` | 現在位置を動かさず、型付きplacement情報を忘れる |
 
 型の関係だけを取り出すと、memory placementとaccessの代数は次になる。ここでleft operandの`Cursor<B>`にある`B`は、
 切替先の`A`と同じである必要はない。
@@ -108,6 +109,8 @@ Layout<A> * Count         -> Span<A>
 
 Address + ByteSize        -> Address
 Address - ByteSize        -> Address
+!Cursor<A>                -> Address
+!Region<A>                -> Address
 
 Address <- Layout<A>      -> Cursor<A>
 Cursor<B> <- Layout<A>    -> Cursor<A>
@@ -144,6 +147,25 @@ placement operatorのleft operandは`Address`、`Cursor`、または`Region`で�
 placement(Address)   = address自身の位置
 placement(Cursor<A>) = cursorの現在位置
 placement(Region<A>) = regionのbase
+```
+
+prefix `!`はplacementのforgetful projectionである。`Cursor<A>`からはlayoutを、`Region<A>`からはlayoutとcountを
+source-level valueとして捨て、現在位置を表す`Address`だけを返す。storageをaccessせず、位置も進めない。
+
+```text
+!(address <- layout) == address
+!(address <- span)   == address
+```
+
+aligned placementではalign-up後の位置を返し、region storeが返すsuffixでは書き込み直後のbaseを返す。`!`は既存のBool negationと
+同じtokenをoperand型ごとの閉じたprimitive familyとして共有する。
+
+```mal
+cursor := address <~ u64;
+alignedAddress := !cursor;
+
+remaining := region <- packed;
+nextAddress := !remaining;
 ```
 
 `left <- placement`は現在位置へexact placementし、`left <~ placement`は現在位置からalign-upしてplacementする。
@@ -436,7 +458,7 @@ end := p
 `p <- u8 <- tag`が返すcursorの現在位置を`<~ u64`がalign-upし、`Cursor<UInt64>`へ切り替えるため、最後のstoreでは
 layoutを繰り返さない。paddingを入れずにlayoutだけを切り替える場合は`<~`の代わりに`<-`を使う。
 
-compilerはsource typeとは別に、各cursor expressionが保証する最小alignmentをfactとして追跡する。
+compilerはsource typeとは別に、各Address、Cursor、Region expressionが保証する最小alignmentをfactとして追跡する。
 
 | Origin | Guaranteed alignment used for lowering |
 |---|---:|
@@ -444,6 +466,7 @@ compilerはsource typeとは別に、各cursor expressionが保証する最小al
 | `left <~ layout` | layoutのrequired alignment |
 | alignedな`Region<A>`のbulk load/store | element layoutのrequired alignment |
 | alignedな`Cursor<A> <- value` | 同じlayoutのrequired alignmentを保存 |
+| `!cursor`、`!region` | operandの現在位置またはbaseが持つ保証を`Address`へ保存 |
 | guaranteeを保存できないjoinまたはcall boundary | 保守的な値へ弱める |
 
 保証を持たないcursorはLLVMの`align 1` load/storeへ、保証を持つcursorはlayoutのrequired alignmentを指定した

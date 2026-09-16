@@ -132,6 +132,12 @@ readCursor<A> :: Cursor<A> -> A :=
 
 writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
     (cursor, value) -> cursor <- value;
+
+cursorAddress<A> :: Cursor<A> -> Address :=
+    (cursor) -> !cursor;
+
+regionAddress<A> :: Region<A> -> Address :=
+    (region) -> !region;
 ```
 
 `Span<A>`、`Cursor<A>`、`Region<A>`、`Packed<A>`も同じ型indexを保存するため、genericな有限regionとmal-ownedな有限列の
@@ -200,5 +206,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、`#`、`*`、`^`、`/`、`%`、`&`、`|`、`<-`、`<~`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `<...>`、`!`、`#`、`*`、`^`、`/`、`%`、`&`、`|`、`<-`、`<~`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
 - `Layout<A>`あり／なしのgeneric load、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
