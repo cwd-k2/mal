@@ -1,6 +1,6 @@
-# `ByteSize`、`Count`、`Layout`、memory placementの試案
+# `ByteSize`、`Count`、`Layout`、memory placement、`Chunk`の試案
 
-Status: Discussion draft (2026-09-15)
+Status: Discussion draft (2026-09-16)
 
 この文書はtarget依存のbyte量、値のmemory representation、alignmentを満たすplacement、およびhostが提供する
 storageとの境界を一つの候補として整理する。現行の規範は[`types`](../spec/types.md)、
@@ -23,7 +23,7 @@ storageとの境界を一つの候補として整理する。現行の規範は[
 
 ## 概念モデル
 
-この試案では次の概念を区別する。`Layout`、`Span`、`Address`、`Region`は内部表現をsourceから分解できない
+この試案では次の概念を区別する。`Layout`、`Span`、`Cursor`、`Region`、`Chunk`は内部表現をsourceから分解できない
 型index付きのbuilt-in opaque valueとする候補であり、表中の型名は設計上の名前である。
 
 | 概念 | 保持する意味 | 保持しない意味 |
@@ -33,18 +33,24 @@ storageとの境界を一つの候補として整理する。現行の規範は[
 | `Ptr` | 外部storageのlocationと、そのlocationから派生・accessするcapability | 型、length、ownership、alignment保証 |
 | `Layout<A>` | `A`一個のrepresentation、admission、observation、size/stride、required alignment | storage、lifetime、具体的なaddress |
 | `Span<A>` | 一つの`Layout<A>`、要素数、全byte extent、base alignment | storage、ownership |
-| `Address<A>` | `Ptr`へ`Layout<A>`を適用した一要素のlocation | bounds、lifetime、必ずしもalignment保証 |
+| `Cursor<A>` | 現在の`Ptr`と一つの`Layout<A>` | bounds、ownership、lifetime、型としてのalignment保証 |
 | `Region<A>` | `Ptr`へ`Span<A>`を適用した有限個の要素location | allocation identity、ownership、lifetime延長 |
+| `Chunk<A>` | mal-ownedなimmutable有限要素列と要素数 | external layout、mutable storage、host resourceのlifetime |
 
-alignmentは独立したsource valueを必須にせず、`address`と`layout`の関係として扱う。
+`Cursor<A>`はstorageや所有者ではなく、現在位置へ`A`のrepresentation ruleを適用したmemory cursorである。書き込みは
+同じlayoutのstrideだけ進んだ新しい`Cursor<A>`を返し、元のcursorとpointerを無効にしない。alignment factはcursorの
+runtime fieldやsource typeではなく、cursor expressionについてcompilerが別に追跡する。raw `Ptr`には値のreadまたは
+write規則を適用できず、先にlayoutを適用してcursorを作る必要がある。
+
+alignmentは独立したsource valueを必須にせず、`pointer`と`layout`の関係として扱う。
 
 ```text
 aligned(pointer, layout)
     iff pointerのaddressがlayoutのrequired alignmentを満たす
 ```
 
-`p <~ layout`、layout-awareなhost contract、およびalignedなbaseからのstride単位のindexingは、この関係を
-compilerが利用できる形で確立または保存する。`Address<A>`と`Region<A>`を作っても、元の`Ptr`を供給したcontractが
+`p <~ layout`、layout-awareなhost contract、およびalignedなcursorからのstride単位の移動は、この関係を
+compilerが利用できる形で確立または保存する。`Cursor<A>`と`Region<A>`を作っても、元の`Ptr`を供給したcontractが
 定めるregion、permission、lifetimeは増えない。
 
 ## Source notation
@@ -54,29 +60,113 @@ compilerが利用できる形で確立または保存する。`Address<A>`と`Re
 | Notation | Result | Meaning |
 |---|---|---|
 | `#layout` | `ByteSize` | 一要素のbyte extent/strideを観測する |
-| `layout # count` | `Span<A>` | 同じlayoutを`count`個並べる |
+| `layout ^ count` | `Span<A>` | 同じlayoutを`count`個並べる |
 | `#span` | `ByteSize` | span全体のbyte extentを観測する |
 | `left & right` | `Layout<(A, B)>` | product layoutを構成する |
 | `left \| right` | `Layout<[A, B]>` | sum layoutを構成する |
-| `value * layout` | `Placed<A>` | 値へstore representationを明示する |
-| `pointer / placement` | `Address<A>`または`Region<A>` | 現在位置を動かさずlayoutまたはspanを適用する |
-| `pointer <~ placement` | `Address<A>`または`Region<A>` | 次のrequired alignmentを満たす位置まで進めて適用する |
-| `region # index` | `Address<A>` | regionの要素を選ぶ |
-| `<-address` | `A` | addressから値を読む |
-| `address <- value` | `Ptr` | addressへ値を書き、そのlayoutの直後を返す |
-| `pointer <- placed` | `Ptr` | raw pointerへ値を書き、そのlayoutの直後を返す |
+| `pointer <- layout` | `Cursor<A>` | 現在位置を動かさずlayoutを適用する |
+| `cursor <- layout` | `Cursor<B>` | 現在位置を動かさず別のlayoutへ切り替える |
+| `region <- layout` | `Cursor<B>` | region終端を動かさずlayoutを適用する |
+| `pointer <- span`、`cursor <- span`、`region <- span` | `Region<A>` | 現在のplacement frontierを動かさず有限spanを適用する |
+| `pointer <~ placement`、`cursor <~ placement`、`region <~ placement` | `Cursor<A>`または`Region<A>` | placement frontierから次のrequired alignmentを満たす位置まで進めてlayoutまたはspanを適用する |
+| `<-cursor` | `A` | cursorの現在位置から値を読む |
+| `cursor <- value` | `Cursor<A>` | 値を書き、同じlayoutのstrideだけ進む |
+| `<-region` | `Chunk<A>` | region全体を先頭からadmitする |
+| `region <- chunk` | `Region<A>` | 同じ要素数のchunkをregion全体へ先頭からobserveする |
+| `#chunk` | `Count` | chunkの要素数を観測する |
+| `chunk # index` | `A` | chunkの要素を選ぶ |
 | `pointer + bytes`、`pointer - bytes` | `Ptr` | byte単位でlocationを派生させる |
 
-`#`は既存の`#symbol`と`symbol # index`を、operand型ごとの閉じたprimitive familyへ拡張する。prefix形は
-byte extentの観測、binary形はlayoutのrepetitionまたは有限regionのindexingに使う。binary `#`は引き続き
-non-associativeとする。
+型の関係だけを取り出すと、memory placementとaccessの代数は次になる。ここでleft operandの`Cursor<B>`または
+`Region<B>`にある`B`は、切替先の`A`と同じである必要はない。
 
-`<~`と`<-`はmemory chain用の同じ最下位precedenceに置き、left-associativeとする候補を採る。既存のbinary `#`は
-それらより強く結合するため、次は`p <~ (u64 # count)`を表す。
+```text
+Layout<A> ^ Count         -> Span<A>
+
+Ptr <- Layout<A>          -> Cursor<A>
+Cursor<B> <- Layout<A>    -> Cursor<A>
+Region<B> <- Layout<A>    -> Cursor<A>
+Ptr <~ Layout<A>          -> Cursor<A>
+Cursor<B> <~ Layout<A>    -> Cursor<A>
+Region<B> <~ Layout<A>    -> Cursor<A>
+
+Ptr <- Span<A>            -> Region<A>
+Cursor<B> <- Span<A>      -> Region<A>
+Region<B> <- Span<A>      -> Region<A>
+Ptr <~ Span<A>            -> Region<A>
+Cursor<B> <~ Span<A>      -> Region<A>
+Region<B> <~ Span<A>      -> Region<A>
+
+Cursor<A> <- A            -> Cursor<A>
+<-Cursor<A>               -> A
+
+<-Region<A>               -> Chunk<A>
+Region<A> <- Chunk<A>     -> Region<A>
+#Chunk<A>                 -> Count
+Chunk<A> # Count          -> A
+```
+
+placement operatorのleft operandは、それぞれ次の位置をfrontierとして使う。
+
+```text
+frontier(Ptr)       = pointer自身の位置
+frontier(Cursor<A>) = cursorの現在位置
+frontier(Region<A>) = regionのbase + #span
+```
+
+`left <- placement`はfrontierへexact placementし、`left <~ placement`はfrontierからalign-upしてplacementする。
+`Region<A>`のfrontierはzero-countでもbaseと同じ位置に定まり、region終端から次の異なるsectionを配置できる。
 
 ```mal
-p <~ u64 # count
+header := pointer <- u8 ^ headerLength;
+items := header <~ itemLayout ^ itemCount;
+trailer := items <- u32;
+end := trailer <- checksum;
 ```
+
+`items`はalignedなitem region、`trailer`はその終端にexact placementした`Cursor<UInt32>`である。placement resultは新しく
+適用した部分だけを表し、`header`、alignment padding、`items`を一つの結合regionにはしない。
+
+`Region<A>`のcontent operationは常にbaseからregion全体を対象にする。loadはindex順に各要素をlayoutでadmitして
+mal-ownedな`Chunk<A>`を作り、storeは同じ要素数のchunkをindex順にobserveする。zero-count regionのloadはempty chunkを返し、
+load/storeともstorageをdereferenceしない。store resultは同じbaseとspanを持つregionであり、次のplacementを終端から継続できる。
+`Region<A>`自体は移動するcursorではなく、baseを先頭とする区間である。終端は次のplacementにだけ派生して使う。
+
+```mal
+chunk := <-region;
+filled := outputRegion <- chunk;
+next := filled <~ nextLayout;
+```
+
+`Region<A>`から一要素のcursorを直接得る`#` operationは設けない。external regionの要素を個別に扱う場合は全体をchunkへ
+admitして`chunk # index`で選ぶか、元の`Ptr`からbyte offsetとlayoutを明示してcursorを作る。`chunk # index`は
+`index < #chunk`をpreconditionとし、region storeはregionのspan countと`#chunk`の一致を要求する。count不一致をtrapと
+precondition違反のどちらにするかは採択前に固定する。
+
+region終端は元のregionに対する有効なone-past locationだが、その位置からpaddingを進めたり新しい値をaccessしたりするauthorityを
+追加しない。`Region<A> <- placement`と`Region<A> <~ placement`では、paddingと新しいplacementの全byteが元の`Ptr`を供給した
+host contractのlive regionに収まり、必要なpermissionを持つことをpreconditionとする。
+
+`#`は既存の`#symbol`と`symbol # index`を、operand型ごとの閉じたprimitive familyへ拡張する。prefix形は`Layout`、`Span`、
+`Symbol`のbyte extentを`ByteSize`、`Chunk`の要素数を`Count`で観測する。binary形は`Symbol`または`Chunk`のindexingに使い、
+引き続きnon-associativeとする。
+`^`はintegerに対する既存のbit XORに加えて、`Layout<A>`と`Count`から`Span<A>`を作る閉じたprimitiveとする。
+
+`<~`とbinary `<-`はmemory chain用の同じ最下位precedenceに置き、left-associativeとする候補を採る。既存の`^`と
+binary `#`はそれらより強く結合するため、次は`p <- (u64 ^ count)`を表す。
+
+```mal
+p <- u64 ^ count
+```
+
+したがって通常の算術をstoreする場合も右辺を括弧で囲む必要はない。
+
+```mal
+end := p <- i32 <- a + 1 <- b * 2;
+```
+
+これは`(((p <- i32) <- (a + 1)) <- (b * 2))`として評価する。各operandは通常のoperator規則どおり左から右へ
+一度ずつ評価する。prefix `<-cursor`はloadであり、binary chainとは別に現在位置を進めない。
 
 `<<`は整数のbit shiftとして既に存在し、一定量のshiftと誤読できる。align-upが加える量はaddressごとに変わるため、
 この試案ではplacementに`<~`を使い、`<<`をoverloadしない。
@@ -97,11 +187,11 @@ LLVM representation  pointer index幅のinteger     pointer index幅のinteger
 ```
 
 `ByteSize`と`Count`はliteral、同じ型同士の算術と比較、明示的conversionの対象にする。`10bytes`と`10count`がtargetの
-範囲に収まらなければcompile-time errorとする。suffixのないliteralは`layout # 10`のように周辺型から`Count`へ決まる場合に
+範囲に収まらなければcompile-time errorとする。suffixのないliteralは`layout ^ 10`のように周辺型から`Count`へ決まる場合に
 省略できる。`Count * ByteSize`と`ByteSize * Count`だけはbyte extentを返すdimension付きの閉じたprimitiveとする。
 
 pointer offset、`Symbol`のbyte lengthとbyte index、各process argumentのbyte lengthには`ByteSize`を使う。spanとregionの
-要素数とindex、process argument countには`Count`を使う。file format、network protocol、hashなど固定幅自体に意味がある値には
+要素数、`Chunk`のlengthとindex、process argument countには`Count`を使う。file format、network protocol、hashなど固定幅自体に意味がある値には
 引き続き`UInt32`や`UInt64`を使う。CとRustは`size_t`または`usize`をbyte量と要素数の両方へ使うが、この試案では
 source上の単位を区別し、ABI representationだけを共有する。
 
@@ -110,10 +200,10 @@ source上の単位を区別し、ABI representationだけを共有する。
 ```mal
 p + count * #u64
 p - count * #u64
-p + #(u64 # count)
+p + #(u64 ^ count)
 ```
 
-`#(layout # count) == count * #layout`を満たす。pointerの派生が同じlive region内または末尾の直後に収まることと、
+`#(layout ^ count) == count * #layout`を満たす。pointerの派生が同じlive region内または末尾の直後に収まることと、
 `ByteSize`を返す乗算がoverflowしないことはpreconditionである。
 
 ## `Layout`と`Span`
@@ -150,24 +240,65 @@ layoutの表現には二つの水準があり、この試案は後者を候補�
 opaque target layoutはcompilerにpaddingとtagの決定を任せる。file、network、永続storageには別の明示的codecを使い、
 このlayoutを安定したwire formatとして扱わない。
 
-binary `#`は一つのlayoutを有限のspanにする。
+`^`は一つのlayoutを有限のspanにする。
 
 ```text
-# :: (Layout<A>, Count) -> Span<A>
-#(layout # count) == count * #layout
+^ :: (Layout<A>, Count) -> Span<A>
+#(layout ^ count) == count * #layout
 ```
 
 `Span<A>`はallocationそのものではない。layout、count、extent、base alignmentを持つplacement requestであり、
-storageと結び付くのは`/`、`<~`、またはそれを受け取るhost operationのcontractによる。
+storageと結び付くのは`<-`、`<~`、またはそれを受け取るhost operationのcontractによる。
+
+## `Chunk`と`Symbol`
+
+`Chunk<A>`はmal-ownedなimmutable有限要素列であり、external storageのlayout、permission、lifetimeを保持しない。
+`<-region`はregion全体を先頭からadmitし、元のexternal storageが失効しても保持できるchunkを作る。実装はobservableな
+identityを追加しない範囲でstorageを共有できるが、source semanticsではexternal regionから独立した値である。
+
+```mal
+region := pointer <- u8 ^ count;
+bytes := <-region;
+byte := bytes # index;
+```
+
+`Chunk<A>`自体に`Layout<Chunk<A>>`を暗黙に与えない。external storageへ戻すときは、要素の`Layout<A>`を持つregionを作り、
+同じcountのchunkをregion全体へ書く。
+
+```mal
+output := outputPointer <- u8 ^ #bytes;
+filled := output <- bytes;
+```
+
+`Symbol`のexternal read/writeは専用layoutで直接行わず、`Chunk<UInt8>`とのlosslessな組み込み変換を介する。
+
+```text
+Symbol.fromChunk :: Chunk<UInt8> -> Symbol
+Symbol.toChunk   :: Symbol -> Chunk<UInt8>
+```
+
+```mal
+bytes := <-(inputPointer <- u8 ^ count);
+symbol := Symbol.fromChunk(bytes);
+
+outputBytes := Symbol.toChunk(symbol);
+output := outputPointer <- u8 ^ #outputBytes;
+filled := output <- outputBytes;
+```
+
+変換はbyte sequenceを保存し、identityは観測できない。実装はcopy、共有、storage transferのどれを使ってもよい。
+`#symbol`はbyte量を`ByteSize`で返し、`#chunk`は要素数を`Count`で返すため、同じruntime表現になり得てもsource上の単位は
+区別する。`Symbol`は引き続きimmutableなbyte value、`Chunk<UInt8>`は要素型を持つfinite collectionである。
 
 ## Exact placementとaligned placement
 
-`/`はpointerを変更しない。Cで`void *`を`T *`へ変換する操作に近いが、Cのeffective typeやprovenanceをそのまま
-source semanticsへ取り込まない。
+binary `<-`でlayoutまたはspanを適用するexact placementはfrontierを変更せず、その位置にplacementを適用する。`Ptr`または
+`Cursor`へのlayout適用はCで`void *`を`T *`へ変換する操作に近いが、Cのeffective typeやprovenanceをそのままsource
+semanticsへ取り込まない。`Region`ではbaseではなく終端をfrontierにする。
 
 ```mal
-address := p / u64;
-region := p / (u64 # count);
+cursor := p <- u64;
+region := p <- u64 ^ count;
 ```
 
 `<~`はlayoutのrequired alignmentを満たす最初のaddressまで前方へ進める。
@@ -178,62 +309,74 @@ alignUp(pointer, layout)
 ```
 
 ```mal
-address := p <~ u64;
-region := p <~ u64 # count;
+cursor := p <~ u64;
+region := p <~ u64 ^ count;
 ```
 
-`p = 513`、`#u64 = 8bytes`、required alignmentが8 bytesなら、`p / u64`は513を保ち、`p <~ u64`は520を指す。
+`p = 513`、`#u64 = 8bytes`、required alignmentが8 bytesなら、`p <- u64`は513を保ち、`p <~ u64`は520を指す。
 unaligned accessは「実際にmisalignedである」という意味ではなく、alignmentをpreconditionとしてcode generatorへ渡さない
-accessである。`/`のresultが偶然alignedでも正しく動作する。
+accessである。exact placementのresultが偶然alignedでも正しく動作する。
 
 `<~`は新しいstorageやauthorityを作らない。spanを適用する場合、align-up後に`#span` bytesが元のlive regionへ収まり、
 必要なpermissionを持つことをpreconditionとする。最大`alignment - 1` bytes進む可能性があるため、alignmentを保証しない
 byte allocatorの結果へ適用するcallerは余剰storageとdeallocation用の元pointerを管理する必要がある。
 
-## Accessとcompiler alignment fact
+## Cursor accessとcompiler alignment fact
 
-`Address<A>`はlayoutを保持するため、genericなload/storeが型`A`だけからrepresentationを探索する必要はない。
+`Cursor<A>`はlayoutを保持するため、genericなload/storeが型`A`だけからrepresentationを探索する必要はない。
 
 ```mal
-value := <-(p / u64);
-next := (p / u64) <- value;
+value := <-(p <- u64);
+next := p <- u64 <- value;
 
 alignedValue := <-(p <~ u64);
-alignedNext := (p <~ u64) <- value;
+alignedNext := p <~ u64 <- value;
 ```
 
-raw pointerへ異なるlayoutを順に置く場合は`Placed<A>`を使う。
+storeはcursorのlayoutを使い、同じlayoutのstrideだけ進んだ`Cursor<A>`を返す。同じlayoutの値はそのまま連続して書ける。
 
 ```mal
 end := p
-    <- header * u8
-    <- payload * u64
-    <- trailer * i32;
+    <- u8
+    <- first
+    <- second
+    <- third;
 ```
+
+異なるlayoutへ切り替えるexact placementもpointerを進めない。`Cursor<A> <- Layout<B>`と`Cursor<A> <- A`は
+right operandの型で区別する。最初のprofileでは`Layout`自体をmemory representationの対象に含めないため、二つのdomainは
+重ならない。
 
 alignment paddingを挟む場合、left-associativeなmemory chainで次のように書ける。
 
 ```mal
 end := p
-    <- tag * u8
+    <- u8
+    <- tag
     <~ u64
     <- payload;
 ```
 
-`p <- tag * u8`が返す`Ptr`へ`<~ u64`を適用して`Address<UInt64>`を作るため、最後のstoreではlayoutを繰り返さない。
+`p <- u8 <- tag`が返すcursorの現在位置を`<~ u64`がalign-upし、`Cursor<UInt64>`へ切り替えるため、最後のstoreでは
+layoutを繰り返さない。paddingを入れずにlayoutだけを切り替える場合は`<~`の代わりに`<-`を使う。
 
-compilerはsource typeとは別に、各address expressionが保証する最小alignmentをfactとして追跡する。
+compilerはsource typeとは別に、各cursor expressionが保証する最小alignmentをfactとして追跡する。
 
 | Origin | Guaranteed alignment used for lowering |
 |---|---:|
-| `p / layout` | 1、または明示されたhost contractから導ける値 |
-| `p <~ layout` | layoutのrequired alignment |
-| alignedな`Region<A> # index` | element layoutのrequired alignment |
+| `left <- layout` | frontierから保守的に導ける値。保証がなければ1 |
+| `left <~ layout` | layoutのrequired alignment |
+| alignedな`Region<A>`のbulk load/store | element layoutのrequired alignment |
+| alignedな`Cursor<A> <- value` | 同じlayoutのrequired alignmentを保存 |
 | guaranteeを保存できないjoinまたはcall boundary | 保守的な値へ弱める |
 
-保証を持たないaddressはLLVMの`align 1` load/storeへ、保証を持つaddressはlayoutのrequired alignmentを指定した
+保証を持たないcursorはLLVMの`align 1` load/storeへ、保証を持つcursorはlayoutのrequired alignmentを指定した
 load/storeへ変換できる。LLVMのalignment operandは性能hintではなく、過大申告するとundefined behaviorになるcontractである。
-保証をsource typeとして区別する必要が実例から生じた場合に限り、`AlignedAddress<A>`などのrefinementを別途検討する。
+保証をsource typeとして区別する必要が実例から生じた場合に限り、`AlignedCursor<A>`などのrefinementを別途検討する。
+exact placementで作ったregionのbulk accessはbaseの保守的なalignment factを使う。aligned placementで作ったregionでは、
+layoutのstrideがrequired alignmentの倍数であるため、index順に処理するすべての要素でrequired alignmentを保存する。
+region終端へのexact placementはbase alignmentとspan extentから安全に導けるfrontierのfactだけを引き継ぎ、切替先layoutの
+required alignmentを仮定しない。aligned placementは終端からalign-upするため、切替先layoutのrequired alignmentを確立する。
 
 ## Host allocationとの境界
 
@@ -242,15 +385,19 @@ allocation、failure、ownership、deallocationはこの試案でもpredefined p
 次の例はhost operationの成功resultから`raw`を取り出した後だけを示す。
 
 ```mal
-raw := hostAllocateBytes(#(u64 # count));
-region := raw / (u64 # count); // host contractがalignmentを保証する場合
+span := u64 ^ count;
+raw := hostAllocateBytes(#span);
+region := raw <- span;
 ```
+
+host contractがbase alignmentも保証する場合、compilerはそのfactをexact placementへ引き継げる。
 
 別のhostはlayout-awareなoperationを提供できる。
 
 ```mal
-raw := hostAllocateLayout(u64 # count);
-region := raw <~ u64 # count;
+span := u64 ^ count;
+raw := hostAllocateLayout(span);
+region := raw <~ span;
 ```
 
 後者のhost contractは、成功時のpointerがspanのbase alignmentを満たし、少なくとも`#span` bytesのlive regionを指すと
@@ -267,11 +414,12 @@ alignmentを保証しないallocatorへ正確なbyte数だけ要求してから`
 |---|---|---|---|
 | byte量と要素数 | `size_t`を`sizeof` result、byte数、要素数に共用する | `usize`を`size_of` result、slice length、indexに共用する | `ByteSize`と`Count`をsourceで分け、ABI representationだけを共有する |
 | raw storage location | `void *`が近いがC object modelの規則を受ける | `*const u8`、`*mut u8`などのraw pointer | `Ptr`は型、length、ownershipを持たないcapability-bearing location |
-| typed interpretation | `T *`への変換。addressは変えない | `*const T`へのcast。addressは変えない | `p / layout`がaddressを変えず`Address<A>`または`Region<A>`を作る |
+| finite collection | borrowed arrayと別途length、またはowned allocation | sliceと`Vec<T>`などでviewとowned sequenceを分ける | `Region<A>`をexternal view、`Chunk<A>`をmal-owned immutable sequenceとして分ける |
+| typed interpretation | `T *`への変換。addressは変えない | `*const T`へのcast。addressは変えない | `p <- layout`がaddressを変えず`Cursor<A>`を作る |
 | type layout | `sizeof`、`alignof`、field paddingとして型へ静的に付随し、first-class descriptorはない | type layoutにsize、alignment、field offsetがあり、別に`std::alloc::Layout`がある | opaqueな`Layout<A>`がrepresentation、size、alignment、padding、tagを明示的に運ぶ |
 | alignment evidence | typed pointer自体には保持せず、allocatorとprogramのcontractに置く | raw pointer自体には保持せず、referenceとoperationのsafety contractに置く | `<~`、host contract、region indexingからcompiler factとして導く |
-| ordinary access | typed lvalue accessは型のalignmentを要求する | referenceと`ptr::read`/`write`はproper alignmentを要求する | `/`由来ではalignmentを仮定せず、layoutのrepresentationでaccessする |
-| unaligned access | 一般のtyped primitiveはなく、portableなbyte copyには`memcpy`を使う | `read_unaligned`、`write_unaligned`がalignmentだけを緩和する | `/`から作るaddressをalignment 1のload/storeへlowerする |
+| ordinary access | typed lvalue accessは型のalignmentを要求する | referenceと`ptr::read`/`write`はproper alignmentを要求する | exact placement由来ではalignmentを仮定せず、cursorのlayoutでaccessする |
+| unaligned access | 一般のtyped primitiveはなく、portableなbyte copyには`memcpy`を使う | `read_unaligned`、`write_unaligned`がalignmentだけを緩和する | exact placementから作るcursorをalignment 1のload/storeへlowerする |
 | align-up | castはaddressを動かさず、必要ならprogramまたはallocatorが別に計算する | pointer arithmeticまたはallocatorが担当する | `p <~ layout`が次の適合位置へ進む |
 | allocation input | `malloc(size)`、`aligned_alloc(alignment, size)` | allocatorへ`Layout`を渡す | hostごとに`ByteSize`または`Span<A>`を受け取るextern contractを選べる |
 | aggregate representation | struct/union/enumの規則とABIに現れる | `repr(Rust)`、`repr(C)`、`repr(packed)`などが制御する | `&`と`|`でopaque target layoutを構成し、stable wire formatとは分離する |
@@ -284,14 +432,14 @@ Cではcomplete object typeがaddressへのalignment requirementを持ち、alig
 
 Rustではtype layoutをsize、alignment、field offsetとして定義し、[`std::alloc::Layout`](https://doc.rust-lang.org/std/alloc/struct.Layout.html)
 をallocatorへのfirst-class inputとして提供する。ただし`Layout`は`Layout<T>`ではなく、pointerとlayoutを結び付けた
-`Address<T>`も標準で構成しない。raw pointerのvalidityはproper alignmentを含まず、通常のoperationとは別に
+`Cursor<T>`も標準で構成しない。raw pointerのvalidityはproper alignmentを含まず、通常のoperationとは別に
 [`read_unaligned`](https://doc.rust-lang.org/std/ptr/fn.read_unaligned.html)と`write_unaligned`を提供する。
 正確なtype layoutとraw pointer alignmentの規則は
 [`Rust Reference`](https://doc.rust-lang.org/reference/type-layout.html)と
 [`std::ptr`](https://doc.rust-lang.org/std/ptr/index.html)を参照する。
 
 このmal試案はRustのallocator用`Layout`よりrepresentation capabilityを強くし、CとRustが主にunsafeまたは外部contractへ
-残す「pointerへどのlayoutを適用したか」を`Address<A>`と`Region<A>`へ明示する。一方、bounds、ownership、lifetimeを
+残す「pointerへどのlayoutを適用したか」を`Cursor<A>`と`Region<A>`へ明示する。一方、bounds、ownership、lifetimeを
 同時に証明するsafe referenceにはしない。
 
 ## ABIとbackend
@@ -315,18 +463,21 @@ LLVM moduleのtargetが整合することをABI admissionで検証する。正�
 
 ## Admissionと未決事項
 
-最初のprofileではnumeric scalar、`ByteSize`、`Count`、`Ptr`、およびそれらだけから構成されるproductとsumをlayoutへ
-載せる候補を採る。
-`Symbol`、function、external opaque typeなどownershipまたはhost固有の意味を持つ値は、retain、transfer、releaseと
-external representationを別に定めるまで除外する。
+最初のprofileではnumeric scalar、`ByteSize`、`Count`、`Ptr`、およびそれらから構成されるproductとsumをlayoutへ載せる候補を
+採る。`Symbol`と`Chunk`はmal-ownedなEngramであり、それ自体のexternal layoutを持たない。`Symbol`は`Chunk<UInt8>`へ変換して
+regionとの間で移し、`Chunk<A>`はregionが持つ`Layout<A>`で要素ごとにadmitまたはobserveする。functionとexternal opaque typeなど
+identity、ownership、またはhost固有の意味を持つ値は、retain、transfer、releaseとexternal representationを別に定めるまで除外する。
 
 採択前に次を固定する。
 
-- `Layout`、`Span`、`Address`、`Region`をsource signatureに書ける型として公開する範囲
+- `Layout`、`Span`、`Cursor`、`Region`、`Chunk`をsource signatureに書ける型として公開する範囲
 - product field order、padding、tail paddingと、sum tag、payload、invalid representationの規則
-- `Address<A>`へのstoreが返す`Ptr`とmemory chainのevaluation order
-- `Region<A> # index`のbounds preconditionとzero-count span
+- `Region<A>`と`Chunk<A>`のcount不一致をtrapするか、precondition違反とするか
+- `Cursor<A>`のloadが現在位置を進めず、storeがstrideだけ進む規則とmemory chainのevaluation order
+- region全体をadmitする途中でinvalid representationまたはallocation failureが生じた場合のcleanupとtrap
+- `Chunk<A> # index`のbounds preconditionとempty chunk
 - `<~`でpointer offsetを計算できるtargetと、one-past pointerを含むregion contract
 - alignment factをbinding、branch join、generic specialization、call boundaryで保存または弱める規則
 - opaque `Layout`と`Span`をpublic C ABIでhostが解釈するgenerated helper
-- 現行の`T.size`、`T.load`、`T.store`、`Symbol.read`、`Symbol.write`からの移行範囲
+- `Chunk<A>`をmal source間だけに限定するか、concrete specializationをpublic C ABIへ公開するか
+- 現行の`T.size`、`T.load`、`T.store`、`Symbol.read`、`Symbol.write`からlayout、region、chunkへの移行範囲

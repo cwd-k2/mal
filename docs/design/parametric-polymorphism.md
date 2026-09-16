@@ -1,6 +1,6 @@
 # parametric polymorphismと型index付きprimitiveの試案
 
-Status: Discussion draft (2026-09-15)
+Status: Discussion draft (2026-09-16)
 
 この文書は、型ごとに同じ構造と制御を複製する摩擦を減らすためのparametric polymorphismと、既存の
 numericおよびmemory primitiveとの境界を記録する。現行の規範は[`types`](../spec/types.md)、
@@ -78,7 +78,7 @@ Numeric =
   | Float32 | Float64
 ```
 
-[`ByteSize`、`Count`、`Layout`、memory placementの試案](size-and-alignment.md)を同時に採択する場合は
+[`ByteSize`、`Count`、`Layout`、memory placement、`Chunk`の試案](size-and-alignment.md)を同時に採択する場合は
 `ByteSize`と`Count`も`Numeric`へ加える。
 operatorごとの正確なdomainは引き続き個別に列挙し、例えばremainderとbit operatorをfloatへ拡張しない。
 
@@ -96,7 +96,7 @@ doubleWith<A> :: ((A, A) -> A, A) -> A :=
 ## memory primitiveとの統合
 
 memory representation、placement、alignmentの候補は
-[`ByteSize`、`Count`、`Layout`、memory placementの試案`](size-and-alignment.md)を正とする。ここでは型parameterとの境界だけを定める。
+[`ByteSize`、`Count`、`Layout`、memory placement、`Chunk`の試案`](size-and-alignment.md)を正とする。ここでは型parameterとの境界だけを定める。
 
 型`A`だけからrepresentationを導くgeneric memory operationは認めない。
 
@@ -105,45 +105,57 @@ readUnknown<A> :: Ptr -> A := (pointer) -> <-pointer; // error
 ```
 
 一方、`Layout<A>`は`A`のrepresentation capabilityを明示的に運ぶbuilt-in opaque valueである。callerがこれを渡す場合、
-generic本体はpointerへlayoutを適用して`Address<A>`を作り、load/storeできる。
+generic本体はpointerへlayoutを適用して`Cursor<A>`を作り、load/storeできる。
 
 ```mal
 readWith<A> :: (Ptr, Layout<A>) -> A :=
-    (pointer, layout) -> <-(pointer / layout);
+    (pointer, layout) -> <-(pointer <- layout);
 
-writeWith<A> :: (Ptr, A, Layout<A>) -> Ptr :=
-    (pointer, value, layout) -> (pointer / layout) <- value;
+writeWith<A> :: (Ptr, A, Layout<A>) -> Cursor<A> :=
+    (pointer, value, layout) -> pointer <- layout <- value;
 ```
 
 これは型から暗黙に探索または挿入されるdictionaryではない。`Layout<A>`を作るprimitive、product/sum layout operator、
 または引数として受け取った通常のvalueだけがmemory capabilityを導入する。`Layout<A>`を渡しても`A`の比較、算術、encodingなど
 無関係なoperationは導入されない。
 
-`Span<A>`、`Address<A>`、`Region<A>`も同じ型indexを保存するため、genericな有限regionのaccessを記述できる。
+`Span<A>`、`Cursor<A>`、`Region<A>`、`Chunk<A>`も同じ型indexを保存するため、genericな有限regionとmal-ownedな有限列の
+transferを記述できる。
 
 ```mal
-readAt<A> :: (Region<A>, Count) -> A :=
-    (region, index) -> <-(region # index);
+readRegion<A> :: Region<A> -> Chunk<A> :=
+    (region) -> <-region;
+
+writeRegion<A> :: (Region<A>, Chunk<A>) -> Region<A> :=
+    (region, chunk) -> region <- chunk;
+
+readChunkAt<A> :: (Chunk<A>, Count) -> A :=
+    (chunk, index) -> chunk # index;
 ```
 
-`Region<A>`はbounds、ownership、lifetimeを新しく証明しない。`index`がspanのcount未満であり、元のhost contractがregionを
-access可能にしていることは引き続きpreconditionである。
+`Region<A>`はexternal storageのownershipとlifetimeを新しく証明しない。region全体がaccess可能であることは元のhost contractの
+preconditionであり、load後の`Chunk<A>`だけがmal-ownedになる。region storeはregionとchunkのcount一致、chunk indexingは
+`index < #chunk`を要求する。
 
-`Layout`、`Span`、`Address`、`Region`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
+`Layout`、`Span`、`Cursor`、`Region`、`Chunk`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
 明示されたoperandの型indexを保存するbuilt-in primitive familyである。型検査後のspecializationではconcreteなlayoutと
 value型が確定し、ANF以降へopenな型parameterまたは暗黙dictionaryを渡さない。
 
-raw pointerへ異なるlayoutを順にstoreする場合は、値へlayoutを明示する。
+raw pointerへ異なるlayoutを順にstoreする場合は、memory chain中でlayoutを明示的に切り替える。
 
 ```mal
 end := pointer
-    <- header * u8
-    <- version * i32
-    <- payloadPointer * pointerLayout;
+    <- u8
+    <- header
+    <- i32
+    <- version
+    <- pointerLayout
+    <- payloadPointer;
 ```
 
 採択時には[D037](../history/decisions/D037.md)の`T.load`と`T.store`を置き換え、名前付きの`load<T>`と`store<T>`は提供しない。
-`Symbol.read`と`Symbol.write`はmanaged byte copyであり、canonical object representationのload/storeではないため統合しない。
+`Symbol.read`と`Symbol.write`に相当するexternal byte transferは`Region<UInt8>`と`Chunk<UInt8>`の間で行う。`Symbol`は
+`Symbol.fromChunk`と`Symbol.toChunk`で`Chunk<UInt8>`とlosslessに変換し、managed object representationをmemoryへ公開しない。
 
 ## compiler境界
 
@@ -166,5 +178,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、`#`、`&`、`|`、`*`、`/`、`<-`、`<~`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
-- `Layout<A>`あり／なしのgeneric load、`Region<A>`のindexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
+- `<...>`、`#`、`^`、`&`、`|`、`<-`、`<~`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `Layout<A>`あり／なしのgeneric load、`Region<A>`と`Chunk<A>`のtransfer、chunk indexing、region終端からのplacement、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
