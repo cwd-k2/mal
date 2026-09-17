@@ -23,7 +23,7 @@ impl FunctionEmitter<'_> {
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr %mal_control_top, align {}",
-            self.types.pointer_size()
+            self.types.index_alignment()
         ));
         let storage = self.register();
         self.line(format!(
@@ -64,7 +64,7 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!(
                 "  store ptr {environment}, ptr {pointer}, align {}",
-                self.types.pointer_size()
+                self.types.pointer_alignment()
             ));
         }
         if let Some(offset) = layout.footer {
@@ -74,12 +74,12 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!(
                 "  store {index_type} {top}, ptr {footer}, align {}",
-                self.types.pointer_size()
+                self.types.index_alignment()
             ));
         }
         self.line(format!(
             "  store {index_type} {next_top}, ptr %mal_control_top, align {}",
-            self.types.pointer_size()
+            self.types.index_alignment()
         ));
         if self.common_region.is_some() {
             self.emit_region_transition(site, callee, argument, frame.carries_environment)
@@ -147,7 +147,7 @@ impl FunctionEmitter<'_> {
         }
         self.line(format!(
             "  store ptr {retained_environment}, ptr %mal_active_environment, align {}",
-            self.types.pointer_size()
+            self.types.pointer_alignment()
         ));
         let targets = self
             .execution
@@ -271,7 +271,7 @@ impl FunctionEmitter<'_> {
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr %mal_control_top, align {}",
-            self.types.pointer_size()
+            self.types.index_alignment()
         ));
         let finished = self.register();
         self.line(format!(
@@ -312,7 +312,7 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!(
                 "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
-                self.types.pointer_size()
+                self.types.index_alignment()
             ));
             let frame_pointer = self.register();
             self.line(format!(
@@ -333,7 +333,7 @@ impl FunctionEmitter<'_> {
         let footer_offset = self.register();
         self.line(format!(
             "  {footer_offset} = sub {index_type} {top}, {}",
-            self.types.pointer_size()
+            self.types.index_size()
         ));
         let footer = self.register();
         self.line(format!(
@@ -342,11 +342,11 @@ impl FunctionEmitter<'_> {
         let previous_top = self.register();
         self.line(format!(
             "  {previous_top} = load {index_type}, ptr {footer}, align {}",
-            self.types.pointer_size()
+            self.types.index_alignment()
         ));
         self.line(format!(
             "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
-            self.types.pointer_size()
+            self.types.index_alignment()
         ));
         let frame_pointer = self.register();
         self.line(format!(
@@ -437,7 +437,7 @@ impl FunctionEmitter<'_> {
                 let environment = self.register();
                 self.line(format!(
                     "  {environment} = load ptr, ptr {pointer}, align {}",
-                    self.types.pointer_size()
+                    self.types.pointer_alignment()
                 ));
                 environment
             } else {
@@ -445,7 +445,7 @@ impl FunctionEmitter<'_> {
             };
             self.line(format!(
                 "  store ptr {environment}, ptr %mal_active_environment, align {}",
-                self.types.pointer_size()
+                self.types.pointer_alignment()
             ));
         }
         self.store_pattern(

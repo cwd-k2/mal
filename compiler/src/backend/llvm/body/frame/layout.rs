@@ -30,8 +30,8 @@ impl FrameLayout {
             offset = offset.checked_add(size)?;
         }
         let environment = if frame.carries_environment {
-            frame_alignment = frame_alignment.max(types.pointer_size());
-            offset = align(offset, types.pointer_size())?;
+            frame_alignment = frame_alignment.max(types.pointer_alignment());
+            offset = align(offset, types.pointer_alignment())?;
             let field = offset;
             offset = offset.checked_add(types.pointer_size())?;
             Some(field)
@@ -39,8 +39,8 @@ impl FrameLayout {
             None
         };
         let (footer, size) = if tagged {
-            let footer = align(offset, types.pointer_size())?;
-            (Some(footer), footer.checked_add(types.pointer_size())?)
+            let footer = align(offset, types.index_alignment())?;
+            (Some(footer), footer.checked_add(types.index_size())?)
         } else {
             (None, align(offset.max(1), frame_alignment)?)
         };

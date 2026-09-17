@@ -51,10 +51,9 @@ pub(crate) fn generate(
     optimizations: OptimizationSet,
 ) -> Result<LlvmArtifacts, Error> {
     let layout = target_layout(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
-    let pointer_size = layout.pointer_size;
-    let body = body::generate(program, pointer_size, layout.index_size, optimizations)
+    let body = body::generate(program, layout, optimizations)
         .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
-    let types = body::types::Types::for_target(pointer_size, layout.index_size)
+    let types = body::types::Types::for_target(layout)
         .ok_or(Error::InconsistentExecutionPlan("target type construction"))?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
@@ -64,7 +63,7 @@ pub(crate) fn generate(
         .externals
         .iter()
         .map(|external| {
-            host_bridge::generate(external, pointer_size, layout.index_size, &raw_types)
+            host_bridge::generate(external, layout, &raw_types)
                 .ok_or(Error::InconsistentExecutionPlan("extern bridge emission"))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -102,7 +101,7 @@ pub(crate) fn generate(
                     .ok_or(Error::InconsistentExecutionPlan(
                         "control entry construction"
                     ))?,
-                types.pointer_size()
+                types.index_alignment()
             ),
             "%mal_control_top",
         )
@@ -197,7 +196,39 @@ fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct TargetLayout {
     pointer_size: usize,
+    pointer_alignment: usize,
     index_size: usize,
+    integer_alignments: [usize; 4],
+    float_alignments: [usize; 2],
+}
+
+impl TargetLayout {
+    fn natural(pointer_size: usize, index_size: usize) -> Option<Self> {
+        (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
+            pointer_size,
+            pointer_alignment: pointer_size,
+            index_size,
+            integer_alignments: [1, 2, 4, 8],
+            float_alignments: [4, 8],
+        })
+    }
+
+    fn scalar_alignment(self, bits: u8, floating: bool) -> Option<usize> {
+        if floating {
+            return match bits {
+                32 => Some(self.float_alignments[0]),
+                64 => Some(self.float_alignments[1]),
+                _ => None,
+            };
+        }
+        match bits {
+            8 => Some(self.integer_alignments[0]),
+            16 => Some(self.integer_alignments[1]),
+            32 => Some(self.integer_alignments[2]),
+            64 => Some(self.integer_alignments[3]),
+            _ => None,
+        }
+    }
 }
 
 fn target_layout(data_layout: &str) -> Option<TargetLayout> {
@@ -206,25 +237,51 @@ fn target_layout(data_layout: &str) -> Option<TargetLayout> {
             .strip_prefix("p:")
             .or_else(|| component.strip_prefix("p0:"))
     });
-    let (pointer_bits, index_bits) = if let Some(pointer) = pointer {
+    let (pointer_bits, pointer_alignment_bits, index_bits) = if let Some(pointer) = pointer {
         let fields = pointer.split(':').collect::<Vec<_>>();
         let pointer_bits = fields.first()?.parse::<usize>().ok()?;
+        let pointer_alignment_bits = fields.get(1)?.parse::<usize>().ok()?;
         let index_bits = fields
             .get(3)
             .map_or(Some(pointer_bits), |bits| bits.parse().ok())?;
-        (pointer_bits, index_bits)
+        (pointer_bits, pointer_alignment_bits, index_bits)
     } else {
-        (64, 64)
+        (64, 64, 64)
     };
     let valid = |bits: usize| {
         bits.is_multiple_of(8)
             .then_some(bits / 8)
             .filter(|bytes| bytes.is_power_of_two())
     };
-    Some(TargetLayout {
+    let mut layout = TargetLayout {
         pointer_size: valid(pointer_bits)?,
+        pointer_alignment: valid(pointer_alignment_bits)?,
         index_size: valid(index_bits)?,
-    })
+        integer_alignments: [1, 2, 4, 8],
+        float_alignments: [4, 8],
+    };
+    for component in data_layout.split('-') {
+        let (floating, fields) = if let Some(fields) = component.strip_prefix('i') {
+            (false, fields)
+        } else if let Some(fields) = component.strip_prefix('f') {
+            (true, fields)
+        } else {
+            continue;
+        };
+        let mut fields = fields.split(':');
+        let bits = fields.next()?.parse::<u8>().ok()?;
+        let alignment = valid(fields.next()?.parse::<usize>().ok()?)?;
+        match (floating, bits) {
+            (false, 8) => layout.integer_alignments[0] = alignment,
+            (false, 16) => layout.integer_alignments[1] = alignment,
+            (false, 32) => layout.integer_alignments[2] = alignment,
+            (false, 64) => layout.integer_alignments[3] = alignment,
+            (true, 32) => layout.float_alignments[0] = alignment,
+            (true, 64) => layout.float_alignments[1] = alignment,
+            _ => {}
+        }
+    }
+    Some(layout)
 }
 
 fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
@@ -569,31 +626,34 @@ mod tests {
 
     #[test]
     fn reads_supported_pointer_widths_from_target_data_layouts() {
-        assert_eq!(
-            target_layout("e-m:e-i64:64"),
-            Some(TargetLayout {
-                pointer_size: 8,
-                index_size: 8
-            })
-        );
+        assert_eq!(target_layout("e-m:e-i64:64"), TargetLayout::natural(8, 8));
         for bits in 0_usize..=256 {
             let bytes = bits / 8;
-            let expected =
-                (bits.is_multiple_of(8) && bytes.is_power_of_two()).then_some(TargetLayout {
-                    pointer_size: bytes,
-                    index_size: bytes,
-                });
+            let expected = (bits.is_multiple_of(8) && bytes.is_power_of_two())
+                .then(|| TargetLayout::natural(bytes, bytes))
+                .flatten();
             assert_eq!(target_layout(&format!("e-p:{bits}:{bits}")), expected);
             assert_eq!(target_layout(&format!("e-p0:{bits}:{bits}")), expected);
         }
         assert_eq!(
             target_layout("e-p1:32:32-p0:64:64:64:32"),
-            Some(TargetLayout {
-                pointer_size: 8,
-                index_size: 4
-            })
+            TargetLayout::natural(8, 4)
         );
         assert_eq!(target_layout("e-p:invalid:64"), None);
+    }
+
+    #[test]
+    fn reads_abi_alignments_independently_from_sizes() {
+        assert_eq!(
+            target_layout("e-p:64:32:64:32-i16:32-i64:32-f32:64-f64:128"),
+            Some(TargetLayout {
+                pointer_size: 8,
+                pointer_alignment: 4,
+                index_size: 4,
+                integer_alignments: [1, 4, 4, 4],
+                float_alignments: [8, 16],
+            })
+        );
     }
 
     #[test]

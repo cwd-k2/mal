@@ -6,6 +6,7 @@ use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPatt
 use crate::control::ast::{Program, StateId, Terminator};
 
 use super::Slot;
+use super::source_layout::SourceLayouts;
 use super::types::Types;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
@@ -31,6 +32,7 @@ pub(super) struct TopLevelConstants {
     values: HashMap<ValueId, Constant>,
     globals: String,
     types: Types,
+    source_layouts: SourceLayouts,
 }
 
 #[derive(Clone)]
@@ -47,11 +49,16 @@ enum ConstantKind {
 }
 
 impl TopLevelConstants {
-    pub(super) fn new(execution: &crate::execution::Program, types: Types) -> Option<Self> {
+    pub(super) fn new(
+        execution: &crate::execution::Program,
+        types: Types,
+        source_layouts: SourceLayouts,
+    ) -> Option<Self> {
         let mut constants = Self {
             values: HashMap::new(),
             globals: String::new(),
             types,
+            source_layouts,
         };
         for binding in &execution.lowered.bindings {
             let mut locals = HashMap::new();
@@ -181,11 +188,8 @@ impl TopLevelConstants {
                 format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
             }
             AtomKind::Float(bits) if atom.ty == Type::Float64 => format!("0x{bits:016X}"),
-            AtomKind::StorageSize(measured) if atom.ty == Type::UInt64 => {
-                self.types().value(measured)?.size.to_string()
-            }
             AtomKind::StorageSize(measured) if atom.ty == Type::ByteSize => {
-                self.types().source_layout(measured)?.stride.to_string()
+                self.source_layouts.layout(measured)?.stride.to_string()
             }
             AtomKind::Symbol(bytes) if bytes.is_empty() => "null".into(),
             AtomKind::Symbol(bytes) => {
@@ -215,10 +219,6 @@ impl TopLevelConstants {
 
     fn bind_top_pattern(&mut self, pattern: &TopLevelPattern, value: Constant) -> Option<()> {
         bind_top_pattern(pattern, value, &mut self.values)
-    }
-
-    fn types(&self) -> Types {
-        self.types
     }
 }
 

@@ -5,6 +5,7 @@ impl<'a> FunctionEmitter<'a> {
         index: &'a ProgramIndex<'a>,
         id: FunctionId,
         types: Types,
+        source_layouts: source_layout::SourceLayouts,
         top_levels: &'a TopLevelConstants,
         ownership: &'a ownership::Plan,
         optimizations: &'a super::super::optimization::OptimizationPlan,
@@ -142,6 +143,7 @@ impl<'a> FunctionEmitter<'a> {
             frame_tags,
             external_storage,
             types,
+            source_layouts,
             top_levels,
             ownership,
             optimizations,
@@ -173,7 +175,7 @@ impl<'a> FunctionEmitter<'a> {
             self.line(format!(
                 "  %mal_control_base = load {}, ptr %mal_control_top, align {}",
                 self.types.pointer_integer()?,
-                self.types.pointer_size()
+                self.types.index_alignment()
             ));
         }
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
@@ -194,7 +196,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.common_region.is_some() {
             self.line(format!(
                 "  %mal_active_environment = alloca ptr, align {}",
-                self.types.pointer_size()
+                self.types.pointer_alignment()
             ));
             let environment = self.register();
             self.line(format!(
@@ -202,7 +204,7 @@ impl<'a> FunctionEmitter<'a> {
             ));
             self.line(format!(
                 "  store ptr {environment}, ptr %mal_active_environment, align {}",
-                self.types.pointer_size()
+                self.types.pointer_alignment()
             ));
         }
         if let Some((size, alignment)) = self.external_storage {

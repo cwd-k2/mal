@@ -16,7 +16,7 @@ impl FunctionEmitter<'_> {
                 let Type::Cursor(element) = result_type else {
                     return None;
                 };
-                if argument.ty != Type::Address || self.types.source_layout(element).is_none() {
+                if argument.ty != Type::Address || self.source_layouts.layout(element).is_none() {
                     return None;
                 }
                 Some(EmittedValue {
@@ -97,7 +97,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let (address, count) = self.region_fields(region)?;
-        let stride = self.types.source_layout(element)?.stride;
+        let stride = self.source_layouts.layout(element)?.stride;
         let owner = if stride == 0 {
             "null".to_string()
         } else {
@@ -124,7 +124,7 @@ impl FunctionEmitter<'_> {
         let [region, packed] = self.product_fields(argument, [result_type, &packed_type])?;
         let (address, region_count) = self.region_fields(&region)?;
         let (owner, offset, count) = self.packed_fields(&packed)?;
-        let stride = self.types.source_layout(element)?.stride;
+        let stride = self.source_layouts.layout(element)?.stride;
         let bytes = self.multiply_by_stride(&count, stride)?;
         if stride != 0 {
             let data = self.packed_data_pointer(&owner, &offset)?;
@@ -166,7 +166,7 @@ impl FunctionEmitter<'_> {
                 if prefix {
                     self.make_region(result_type, &address, &count.representation)
                 } else {
-                    let stride = self.types.source_layout(element)?.stride;
+                    let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
                     let address = self.pointer_offset(&address, &bytes)?;
                     let remainder = self.register();
@@ -187,7 +187,7 @@ impl FunctionEmitter<'_> {
                 if prefix {
                     self.make_packed(result_type, &retained, &offset, &count.representation, true)
                 } else {
-                    let stride = self.types.source_layout(element)?.stride;
+                    let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
                     let new_offset = self.register();
                     self.line(format!(
@@ -242,7 +242,7 @@ impl FunctionEmitter<'_> {
                 owned: false,
             });
         }
-        let stride = self.types.source_layout(result_type)?.stride;
+        let stride = self.source_layouts.layout(result_type)?.stride;
         let element_offset = self.multiply_by_stride(&index.representation, stride)?;
         let absolute = self.register();
         self.line(format!(
@@ -456,7 +456,7 @@ impl FunctionEmitter<'_> {
             Type::Cursor(element) | Type::Region(element) => element,
             _ => return None,
         };
-        let alignment = self.types.source_layout(element)?.alignment;
+        let alignment = self.source_layouts.layout(element)?.alignment;
         if alignment == 1 {
             return Some(value);
         }
@@ -571,7 +571,7 @@ impl FunctionEmitter<'_> {
     }
 
     fn offset_cursor(&mut self, cursor: &EmittedValue, element: &Type) -> Option<EmittedValue> {
-        let stride = self.types.source_layout(element)?.stride;
+        let stride = self.source_layouts.layout(element)?.stride;
         if stride == 0 {
             return Some(cursor.clone());
         }
@@ -601,7 +601,7 @@ impl FunctionEmitter<'_> {
             });
         }
         if let Type::Product(elements) = element {
-            let fields = self.types.source_product_fields(element)?;
+            let fields = self.source_layouts.product_fields(element)?;
             let product_type = self.types.value(element)?;
             let mut product = "poison".to_string();
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
@@ -622,7 +622,7 @@ impl FunctionEmitter<'_> {
             });
         }
         if let Type::Sum(variants) = element {
-            let layout = self.types.source_sum_layout(element)?;
+            let layout = self.source_layouts.sum(element)?;
             let source_tag = self.register();
             self.line(format!(
                 "  {source_tag} = load i{}, ptr {pointer}, align 1",
@@ -733,7 +733,7 @@ impl FunctionEmitter<'_> {
             return Some(());
         }
         if let Type::Product(elements) = &value.ty {
-            let fields = self.types.source_product_fields(&value.ty)?;
+            let fields = self.source_layouts.product_fields(&value.ty)?;
             let runtime = self.types.value(&value.ty)?;
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
                 let field_value = self.register();
@@ -754,7 +754,7 @@ impl FunctionEmitter<'_> {
             return Some(());
         }
         if let Type::Sum(variants) = &value.ty {
-            let layout = self.types.source_sum_layout(&value.ty)?;
+            let layout = self.source_layouts.sum(&value.ty)?;
             if super::types::is_bool(&value.ty) {
                 let tag = self.register();
                 self.line(format!("  {tag} = zext i1 {} to i8", value.representation));

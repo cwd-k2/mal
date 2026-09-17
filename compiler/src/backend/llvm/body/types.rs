@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::check::ast::{SharedTypeId, Type};
 
 use super::scalar::scalar_type;
+use crate::backend::llvm::TargetLayout;
 
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct ValueType {
@@ -16,38 +17,20 @@ pub(in crate::backend::llvm) struct Field {
     pub(in crate::backend::llvm) offset: usize,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::backend::llvm) struct SourceLayout {
-    pub(in crate::backend::llvm) alignment: usize,
-    pub(in crate::backend::llvm) stride: usize,
-}
-
-#[derive(Clone, Copy)]
-pub(in crate::backend::llvm) struct SourceSumLayout {
-    pub(in crate::backend::llvm) tag_bits: usize,
-    pub(in crate::backend::llvm) payload_offset: usize,
-}
-
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm) struct Types {
-    pointer_size: usize,
-    index_size: usize,
+    target: TargetLayout,
 }
 
 impl Types {
     #[cfg(test)]
     pub(in crate::backend::llvm) fn new(pointer_size: usize) -> Option<Self> {
-        Self::for_target(pointer_size, pointer_size)
+        Self::for_target(TargetLayout::natural(pointer_size, pointer_size)?)
     }
 
-    pub(in crate::backend::llvm) fn for_target(
-        pointer_size: usize,
-        index_size: usize,
-    ) -> Option<Self> {
-        (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
-            pointer_size,
-            index_size,
-        })
+    pub(in crate::backend::llvm) fn for_target(target: TargetLayout) -> Option<Self> {
+        TargetLayout::natural(target.pointer_size, target.index_size)?;
+        Some(Self { target })
     }
 
     pub(in crate::backend::llvm) fn value(self, ty: &Type) -> Option<ValueType> {
@@ -62,10 +45,10 @@ impl Types {
         if let Some(value) = ty.shared_id().and_then(|id| cache.get(&id)) {
             return Some(value.clone());
         }
-        if let Some(scalar) = scalar_type(ty, self.index_size) {
+        if let Some(scalar) = scalar_type(ty, self.target.index_size) {
             return Some(ValueType {
                 llvm: scalar.llvm.into(),
-                alignment: scalar.alignment.into(),
+                alignment: self.target.scalar_alignment(scalar.bits, scalar.floating)?,
                 size: usize::from(scalar.bits) / 8,
             });
         }
@@ -77,58 +60,58 @@ impl Types {
             }),
             Type::Address | Type::Cursor(_) => Some(ValueType {
                 llvm: "ptr".into(),
-                alignment: self.pointer_size,
-                size: self.pointer_size,
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
             }),
             Type::Symbol => Some(ValueType {
                 llvm: "ptr".into(),
-                alignment: self.pointer_size,
-                size: self.pointer_size,
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
             }),
             Type::External { .. } => Some(ValueType {
-                llvm: format!("i{}", self.pointer_size.checked_mul(8)?),
-                alignment: self.pointer_size,
-                size: self.pointer_size,
+                llvm: format!("i{}", self.target.pointer_size.checked_mul(8)?),
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
             }),
             Type::Function { .. } => aggregate_type(vec![
                 ValueType {
                     llvm: "ptr".into(),
-                    alignment: self.pointer_size,
-                    size: self.pointer_size,
+                    alignment: self.target.pointer_alignment,
+                    size: self.target.pointer_size,
                 },
                 ValueType {
                     llvm: "ptr".into(),
-                    alignment: self.pointer_size,
-                    size: self.pointer_size,
+                    alignment: self.target.pointer_alignment,
+                    size: self.target.pointer_size,
                 },
             ]),
             Type::Region(_) => aggregate_type(vec![
                 ValueType {
                     llvm: "ptr".into(),
-                    alignment: self.pointer_size,
-                    size: self.pointer_size,
+                    alignment: self.target.pointer_alignment,
+                    size: self.target.pointer_size,
                 },
                 ValueType {
                     llvm: self.pointer_integer()?,
-                    alignment: self.index_size,
-                    size: self.index_size,
+                    alignment: self.index_alignment(),
+                    size: self.target.index_size,
                 },
             ]),
             Type::Packed(_) => aggregate_type(vec![
                 ValueType {
                     llvm: "ptr".into(),
-                    alignment: self.pointer_size,
-                    size: self.pointer_size,
+                    alignment: self.target.pointer_alignment,
+                    size: self.target.pointer_size,
                 },
                 ValueType {
                     llvm: self.pointer_integer()?,
-                    alignment: self.index_size,
-                    size: self.index_size,
+                    alignment: self.index_alignment(),
+                    size: self.target.index_size,
                 },
                 ValueType {
                     llvm: self.pointer_integer()?,
-                    alignment: self.index_size,
-                    size: self.index_size,
+                    alignment: self.index_alignment(),
+                    size: self.target.index_size,
                 },
             ]),
             Type::Product(elements) => self.product(elements, cache),
@@ -147,124 +130,29 @@ impl Types {
     }
 
     pub(in crate::backend::llvm) fn pointer_integer(self) -> Option<String> {
-        Some(format!("i{}", self.index_size.checked_mul(8)?))
+        Some(format!("i{}", self.target.index_size.checked_mul(8)?))
     }
 
     pub(in crate::backend::llvm) fn pointer_representation_integer(self) -> Option<String> {
-        Some(format!("i{}", self.pointer_size.checked_mul(8)?))
+        Some(format!("i{}", self.target.pointer_size.checked_mul(8)?))
     }
 
     pub(in crate::backend::llvm) fn pointer_size(self) -> usize {
-        self.pointer_size
+        self.target.pointer_size
     }
 
     pub(in crate::backend::llvm) fn index_size(self) -> usize {
-        self.index_size
+        self.target.index_size
     }
 
-    pub(in crate::backend::llvm) fn source_layout(self, ty: &Type) -> Option<SourceLayout> {
-        if let Some(scalar) = scalar_type(ty, self.index_size) {
-            return Some(SourceLayout {
-                alignment: scalar.alignment.into(),
-                stride: usize::from(scalar.bits) / 8,
-            });
-        }
-        match ty {
-            Type::Unit => Some(SourceLayout {
-                alignment: 1,
-                stride: 0,
-            }),
-            Type::Address => Some(SourceLayout {
-                alignment: self.pointer_size,
-                stride: self.pointer_size,
-            }),
-            Type::Product(elements) => {
-                let mut offset = 0usize;
-                let mut alignment = 1usize;
-                for element in elements.iter() {
-                    let field = self.source_layout(element)?;
-                    offset = align(offset, field.alignment)?;
-                    offset = offset.checked_add(field.stride)?;
-                    alignment = alignment.max(field.alignment);
-                }
-                Some(SourceLayout {
-                    alignment,
-                    stride: align(offset, alignment)?,
-                })
-            }
-            Type::Sum(elements) if elements.len() >= 2 => {
-                let tag_size = if elements.len() <= 1 << 8 {
-                    1
-                } else if elements.len() <= 1 << 16 {
-                    2
-                } else if u32::try_from(elements.len()).is_ok() {
-                    4
-                } else {
-                    8
-                };
-                let mut payload_alignment = 1usize;
-                let mut payload_extent = 0usize;
-                for element in elements.iter() {
-                    let variant = self.source_layout(element)?;
-                    payload_alignment = payload_alignment.max(variant.alignment);
-                    payload_extent = payload_extent.max(variant.stride);
-                }
-                let alignment = tag_size.max(payload_alignment);
-                let payload_offset = align(tag_size, payload_alignment)?;
-                Some(SourceLayout {
-                    alignment,
-                    stride: align(payload_offset.checked_add(payload_extent)?, alignment)?,
-                })
-            }
-            _ => None,
-        }
+    pub(in crate::backend::llvm) fn pointer_alignment(self) -> usize {
+        self.target.pointer_alignment
     }
 
-    pub(in crate::backend::llvm) fn source_product_fields(self, ty: &Type) -> Option<Vec<Field>> {
-        let Type::Product(elements) = ty else {
-            return None;
-        };
-        let layouts = elements
-            .iter()
-            .map(|element| {
-                let layout = self.source_layout(element)?;
-                Some(ValueType {
-                    llvm: String::new(),
-                    alignment: layout.alignment,
-                    size: layout.stride,
-                })
-            })
-            .collect::<Option<Vec<_>>>()?;
-        field_layouts(&layouts)
-    }
-
-    pub(in crate::backend::llvm) fn source_sum_layout(self, ty: &Type) -> Option<SourceSumLayout> {
-        let Type::Sum(elements) = ty else {
-            return None;
-        };
-        if elements.len() < 2 {
-            return None;
-        }
-        let tag_bits = if elements.len() <= 1 << 8 {
-            8
-        } else if elements.len() <= 1 << 16 {
-            16
-        } else if u32::try_from(elements.len()).is_ok() {
-            32
-        } else {
-            64
-        };
-        let payload_alignment = elements
-            .iter()
-            .map(|element| self.source_layout(element).map(|layout| layout.alignment))
-            .collect::<Option<Vec<_>>>()?
-            .into_iter()
-            .max()
-            .unwrap_or(1);
-        Some(SourceSumLayout {
-            tag_bits,
-            payload_offset: align(tag_bits / 8, payload_alignment)?,
-        })
+    pub(in crate::backend::llvm) fn index_alignment(self) -> usize {
+        self.target
+            .scalar_alignment((self.target.index_size * 8) as u8, false)
+            .expect("supported index width has an integer ABI alignment")
     }
 
     fn product(
@@ -428,5 +316,17 @@ mod tests {
 
         assert_eq!(value.size, 256);
         assert!(value.llvm.len() < 1_500);
+    }
+
+    #[test]
+    fn uses_target_abi_alignment_for_runtime_scalars_and_pointers() {
+        let target = crate::backend::llvm::target_layout("e-p:64:32-i16:32-i64:32")
+            .expect("synthetic target layout");
+        let types = Types::for_target(target).unwrap();
+
+        assert_eq!(types.value(&Type::UInt16).unwrap().alignment, 4);
+        assert_eq!(types.value(&Type::UInt64).unwrap().alignment, 4);
+        assert_eq!(types.value(&Type::Address).unwrap().alignment, 4);
+        assert_eq!(types.value(&Type::Address).unwrap().size, 8);
     }
 }

@@ -4,36 +4,34 @@ use crate::core::ast::BinaryPrimitive;
 #[derive(Clone, Copy)]
 pub(super) struct ScalarType {
     pub(super) llvm: &'static str,
-    pub(super) alignment: u8,
     pub(super) bits: u8,
     pub(super) signed: bool,
     pub(super) floating: bool,
 }
 
 pub(super) fn scalar_type(ty: &Type, pointer_size: usize) -> Option<ScalarType> {
-    let (llvm, alignment, bits, signed, floating) = match ty {
-        Type::Int8 => ("i8", 1, 8, true, false),
-        Type::Int16 => ("i16", 2, 16, true, false),
-        Type::Int32 => ("i32", 4, 32, true, false),
-        Type::Int64 => ("i64", 8, 64, true, false),
-        Type::UInt8 => ("i8", 1, 8, false, false),
-        Type::UInt16 => ("i16", 2, 16, false, false),
-        Type::UInt32 => ("i32", 4, 32, false, false),
-        Type::UInt64 => ("i64", 8, 64, false, false),
+    let (llvm, bits, signed, floating) = match ty {
+        Type::Int8 => ("i8", 8, true, false),
+        Type::Int16 => ("i16", 16, true, false),
+        Type::Int32 => ("i32", 32, true, false),
+        Type::Int64 => ("i64", 64, true, false),
+        Type::UInt8 => ("i8", 8, false, false),
+        Type::UInt16 => ("i16", 16, false, false),
+        Type::UInt32 => ("i32", 32, false, false),
+        Type::UInt64 => ("i64", 64, false, false),
         Type::ByteSize | Type::USize => match pointer_size {
-            1 => ("i8", 1, 8, false, false),
-            2 => ("i16", 2, 16, false, false),
-            4 => ("i32", 4, 32, false, false),
-            8 => ("i64", 8, 64, false, false),
+            1 => ("i8", 8, false, false),
+            2 => ("i16", 16, false, false),
+            4 => ("i32", 32, false, false),
+            8 => ("i64", 64, false, false),
             _ => return None,
         },
-        Type::Float32 => ("float", 4, 32, true, true),
-        Type::Float64 => ("double", 8, 64, true, true),
+        Type::Float32 => ("float", 32, true, true),
+        Type::Float64 => ("double", 64, true, true),
         _ => return None,
     };
     Some(ScalarType {
         llvm,
-        alignment,
         bits,
         signed,
         floating,

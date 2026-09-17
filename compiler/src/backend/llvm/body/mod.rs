@@ -16,6 +16,7 @@ pub(in crate::backend::llvm) mod ownership;
 mod plan;
 mod scalar;
 mod setup;
+mod source_layout;
 mod symbol;
 mod terminator;
 pub(super) mod types;
@@ -41,8 +42,7 @@ pub(super) struct Output {
 pub(super) fn supports(execution: &crate::execution::Program) -> bool {
     generate(
         execution,
-        8,
-        8,
+        super::TargetLayout::natural(8, 8).expect("test target layout"),
         super::optimization::OptimizationSet::production(),
     )
     .is_some()
@@ -50,13 +50,13 @@ pub(super) fn supports(execution: &crate::execution::Program) -> bool {
 
 pub(super) fn generate(
     execution: &crate::execution::Program,
-    pointer_size: usize,
-    index_size: usize,
+    target: super::TargetLayout,
     enabled: super::optimization::OptimizationSet,
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
-    let types = Types::for_target(pointer_size, index_size)?;
-    let top_levels = TopLevelConstants::new(execution, types)?;
+    let types = Types::for_target(target)?;
+    let source_layouts = source_layout::SourceLayouts::new(target);
+    let top_levels = TopLevelConstants::new(execution, types, source_layouts)?;
     let ownership = ownership::Plan::new(&execution.control);
     let index = ProgramIndex::new(execution)?;
     let optimizations =
@@ -71,6 +71,7 @@ pub(super) fn generate(
             &index,
             function.id,
             types,
+            source_layouts,
             &top_levels,
             &ownership,
             &optimizations,
@@ -107,6 +108,7 @@ struct FunctionEmitter<'a> {
     frame_tags: HashMap<StateId, u32>,
     external_storage: Option<(usize, usize)>,
     types: Types,
+    source_layouts: source_layout::SourceLayouts,
     top_levels: &'a TopLevelConstants,
     ownership: &'a ownership::Plan,
     optimizations: &'a super::optimization::OptimizationPlan,

@@ -208,7 +208,7 @@ impl FunctionEmitter<'_> {
         let value = self.atom(atom)?;
         self.line(format!(
             "  store ptr null, ptr %mal_slot_{slot_index}, align {}",
-            self.types.pointer_size()
+            self.types.pointer_alignment()
         ));
         Some(EmittedValue {
             owned: true,

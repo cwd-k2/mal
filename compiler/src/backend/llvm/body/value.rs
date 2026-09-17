@@ -29,14 +29,9 @@ impl FunctionEmitter<'_> {
                 representation: format!("0x{bits:016X}"),
                 owned: false,
             }),
-            (Type::UInt64, AtomKind::StorageSize(measured)) => Some(EmittedValue {
-                ty: Type::UInt64,
-                representation: self.types.value(measured)?.size.to_string(),
-                owned: false,
-            }),
             (Type::ByteSize, AtomKind::StorageSize(measured)) => Some(EmittedValue {
                 ty: Type::ByteSize,
-                representation: self.types.source_layout(measured)?.stride.to_string(),
+                representation: self.source_layouts.layout(measured)?.stride.to_string(),
                 owned: false,
             }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {

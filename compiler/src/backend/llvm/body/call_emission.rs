@@ -182,7 +182,7 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         self.line(format!(
             "  {environment} = load ptr, ptr %mal_active_environment, align {}",
-            self.types.pointer_size()
+            self.types.pointer_alignment()
         ));
         environment
     }
