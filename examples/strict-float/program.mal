@@ -6,6 +6,6 @@ main :: Unit -> Int32 := () -> {
     halfway := 1.000000059604644775390625f32;
     minimumSubnormal := 1.40129846e-45f32;
     negativeZero := -0.0f64;
-    converted := Int64(-42.75f64);
+    converted := (-42.75f64).i64;
     inspect(halfway, minimumSubnormal, negativeZero, converted);
 };

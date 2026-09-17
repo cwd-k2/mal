@@ -3,7 +3,7 @@ require "./parser.mal";
 
 // Decimal rendering recurses on the quotient and appends the least-significant digit on return.
 _renderDecimal :: UInt64 -> Symbol := (value) -> {
-    digit := symbolFromByte(UInt8('0') + UInt8(value % 10u64));
+    digit := symbolFromByte('0'.u8 + (value % 10u64).u8);
     if (value < 10u64)
     then digit
     else (value / 10u64)._renderDecimal() + digit;

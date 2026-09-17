@@ -2,10 +2,10 @@ require "./memory.mal";
 require "./syscall.mal";
 
 // Source fields: 0 snapshot bytes, 1 source length, 2 mapping length.
-Source :: (Ptr, UInt64, UInt64);
+Source :: (Address, USize, ByteSize);
 ReadResult :: [Source, UInt32];
 // Buffer fields: 0 current mapping, 1 capacity, 2 initialized length.
-Buffer :: (Ptr, UInt64, UInt64);
+Buffer :: (Address, ByteSize, ByteSize);
 BufferFailure :: (Buffer, UInt32);
 BufferResult :: [Buffer, BufferFailure];
 
@@ -32,12 +32,12 @@ _closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> {
 _readInto :: (Int32, Buffer) -> BufferResult := (descriptor, buffer) -> [return] => {
     (memory, capacity, length) := buffer;
     when (length == capacity) {
-        when (capacity == 0xffff_ffff_ffff_ffffu64) {
+        when (capacity == (-1u64).bytes) {
             return(_bufferFailure((buffer, _fileTooLarge)));
         };
-        nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64)
-            then 0xffff_ffff_ffff_ffffu64
-            else capacity * 2u64;
+        nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64.bytes)
+            then (-1u64).bytes
+            else capacity + capacity;
         resized := resizeMapping(memory, capacity, nextCapacity);
         return(resized[
             (nextMemory) -> _readInto(descriptor, (nextMemory, nextCapacity, length)),
@@ -47,7 +47,7 @@ _readInto :: (Int32, Buffer) -> BufferResult := (descriptor, buffer) -> [return]
     transferred := systemRead(descriptor, memory + length, capacity - length);
     return(transferred[
         (count) -> {
-            if (count == 0u64)
+            if (count == 0bytes)
             then _bufferSuccess(buffer)
             else _readInto(descriptor, (memory, capacity, length + count));
         },
@@ -61,7 +61,7 @@ _finishRead :: (Int32, BufferResult) -> ReadResult := (descriptor, result) -> {
     (buffer) -> {
         (memory, capacity, length) := buffer;
         closed[
-        () -> _readSuccess((memory, length, capacity)),
+        () -> _readSuccess((memory, length.usize, capacity)),
         (error) -> {
             systemMunmap(memory, capacity);
             _readFailure(error);
@@ -81,11 +81,11 @@ _readSnapshot :: (Int32, UInt64) -> ReadResult := (descriptor, sizeHint) -> [ret
     when (sizeHint == 0xffff_ffff_ffff_ffffu64) {
         return(_closeWithError(descriptor, _fileTooLarge));
     };
-    capacity := sizeHint + 1u64;
+    capacity := (sizeHint + 1u64).bytes;
     mapped := mapAnonymousReadWrite(capacity);
     return(mapped[
         (memory) -> {
-            result := _readInto(descriptor, (memory, capacity, 0u64));
+            result := _readInto(descriptor, (memory, capacity, 0bytes));
             _finishRead(descriptor, result);
         },
         (error) -> _closeWithError(descriptor, error)
@@ -108,7 +108,7 @@ _readDescriptor :: Int32 -> ReadResult := (descriptor) -> {
     ];
 };
 
-_openPath :: (Ptr, UInt64) -> ReadResult := (path, pathMappingLength) -> {
+_openPath :: (Address, ByteSize) -> ReadResult := (path, pathMappingLength) -> {
     opened := systemOpenat(_atCurrentWorkingDirectory, path, 0i32, 0u32);
     unmapped := systemMunmap(path, pathMappingLength);
     opened[
@@ -123,16 +123,17 @@ _openPath :: (Ptr, UInt64) -> ReadResult := (path, pathMappingLength) -> {
 };
 
 readSource :: Symbol -> ReadResult := (path) -> [return] => {
-    length := #path;
-    when (length == 0xffff_ffff_ffff_ffffu64) {
+    packed := * path;
+    length := #packed;
+    when (length == (-1u64).usize) {
         return(_readFailure(_invalidArgument));
     };
-    mappingLength := length + 1u64;
+    mappingLength := length * #u8 + 1bytes;
     mapped := mapAnonymousReadWrite(mappingLength);
     return(mapped[
         (memory) -> {
-            Symbol.write(memory, path);
-            UInt8.store(memory + length, 0u8);
+            _ := memory @ u8 @ length <-packed;
+            _ := (memory + length.bytes) @ u8 <-0u8;
             _openPath(memory, mappingLength);
         },
         (error) -> _readFailure(error)

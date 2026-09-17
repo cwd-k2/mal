@@ -1,11 +1,8 @@
 require "./host.c";
 
 // Buffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
-Buffer :: (Ptr, UInt64, UInt64);
-// Region fields: 0 writable memory, 1 byte length.
-Region :: (Ptr, UInt64);
-// Bytes fields: 0 readable memory, 1 byte length.
-Bytes :: (Ptr, UInt64);
+Buffer :: (Address, USize, USize);
+WriteSpan :: (Address, USize);
 
 extern Allocation;
 extern File;
@@ -16,25 +13,24 @@ OwnedBuffer :: (Allocation, Buffer);
 // OpenResult variant 0 carries a file; variant 1 carries the host error code.
 OpenResult :: [File, IoError];
 // ReadResult variant 0 carries the transferred length; variant 1 carries the host error code.
-ReadResult :: [UInt64, IoError];
+ReadResult :: [USize, IoError];
 // CloseResult variant 0 carries success; variant 1 carries the host error code.
 CloseResult :: [Unit, IoError];
 // Status variant 0 carries completion; variant 1 carries the preserved operation error.
 Status :: [Unit, IoError];
 
-extern allocateBuffer :: UInt64 -> OwnedBuffer;
+extern allocateBuffer :: USize -> OwnedBuffer;
 extern releaseBuffer :: Allocation -> Unit;
 extern openReadOnly :: Symbol -> OpenResult;
-extern readFile :: (File, Region) -> ReadResult;
+extern readFile :: (File, WriteSpan) -> ReadResult;
 extern closeFile :: File -> CloseResult;
-extern writeBytes :: Bytes -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 extern writeError :: IoError -> Unit;
 
 // Arguments fields: 0 argument count, 1 first external descriptor address.
-Arguments :: (UInt64, Ptr);
+Arguments :: (USize, Address);
 
-bufferSize :: UInt64 := 4096u64;
+bufferSize :: USize := 4096usize;
 
 _completed :: Unit -> Status := () -> [complete, failed] => complete();
 
@@ -43,10 +39,10 @@ copyContents :: (File, Buffer) -> Status := (file, buffer) -> {
     result := file.readFile((memory, capacity));
     result[
     (length) -> [return] => {
-        when (length == 0u64) {
+        when (length == 0usize) {
             return(_completed());
         };
-        writeBytes((memory, length));
+        writeSymbol( * (<-(memory @ u8 @ length)));
         return(file.copyContents((memory, capacity, length)));
     },
     (error) -> [complete, failed] => failed(error)
@@ -82,12 +78,14 @@ copyPath :: Symbol -> Status := (path) -> {
 };
 
 main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
-    when (argumentCount != 1u64) {
+    when (argumentCount != 1usize) {
         writeSymbol("usage: mal-recoverable-file FILE\n");
         return(2);
     };
 
-    path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
+    descriptors := <-(arguments @ (address, bytesize) @ argumentCount);
+    (pathAddress, pathLength) := descriptors # 0usize;
+    path := * (<-(pathAddress @ u8 @ (pathLength.usize)));
     result := copyPath(path);
     status :: Int32 := result[
         () -> 0,

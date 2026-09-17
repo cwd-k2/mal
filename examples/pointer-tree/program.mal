@@ -1,46 +1,49 @@
 require "./host.c";
 
-extern allocate :: UInt64 -> Ptr;
-extern release :: Ptr -> Unit;
+extern allocate :: ByteSize -> Address;
+extern release :: Address -> Unit;
 
-// Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
-// Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
-leaf :: Int32 -> Ptr := (value) -> {
-    node := allocate(5u64);
-    Int32.store(node, value);
-    UInt8.store(node + 4u64, 0u8);
+// Node bytes are Int32 value, UInt8 tag, then two Address fields for tag 1.
+leaf :: Int32 -> Address := (value) -> {
+    node := allocate(#i32 + #u8);
+    _ := node @ i32 <-value;
+    _ := (node + #i32) @ u8 <-0u8;
     node;
 };
 
-branch :: (Int32, Ptr, Ptr) -> Ptr := (value, left, right) -> {
-    node := allocate(5u64 + Ptr.size * 2u64);
-    Int32.store(node, value);
-    UInt8.store(node + 4u64, 1u8);
-    Ptr.store(node + 5u64, left);
-    Ptr.store(node + 5u64 + Ptr.size, right);
+branch :: (Int32, Address, Address) -> Address := (value, left, right) -> {
+    childBytes := 2usize * #address;
+    node := allocate(#i32 + #u8 + childBytes);
+    _ := node @ i32 <-value;
+    _ := (node + #i32) @ u8 <-1u8;
+    children := (node + #i32 + #u8) @ address;
+    next := children <-left;
+    _ := next <-right;
     node;
 };
 
-sumTree :: Ptr -> Int32 := (node) -> [return] => {
-    value := Int32.load(node);
-    isBranch := UInt8.load(node + 4u64);
+sumTree :: Address -> Int32 := (node) -> [return] => {
+    (value, _) := <-(node @ i32);
+    (isBranch, _) := <-((node + #i32) @ u8);
     when (isBranch == 0u8) {
         return(value);
     };
 
-    left := Ptr.load(node + 5u64);
-    right := Ptr.load(node + 5u64 + Ptr.size);
+    children := (node + #i32 + #u8) @ address;
+    (left, next) := <-children;
+    (right, _) := <-next;
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: Ptr -> Unit := (node) -> [return] => {
-    isBranch := UInt8.load(node + 4u64);
+destroyTree :: Address -> Unit := (node) -> [return] => {
+    (isBranch, _) := <-((node + #i32) @ u8);
     when (isBranch == 0u8) {
         return(node.release());
     };
 
-    left := Ptr.load(node + 5u64);
-    right := Ptr.load(node + 5u64 + Ptr.size);
+    children := (node + #i32 + #u8) @ address;
+    (left, next) := <-children;
+    (right, _) := <-next;
     left.destroyTree();
     right.destroyTree();
     return(node.release());

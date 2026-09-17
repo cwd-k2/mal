@@ -3,61 +3,62 @@ require "./host.c";
 extern Allocator;
 
 // NodeResult variant 0 carries allocated node memory; variant 1 reports allocation failure.
-NodeResult :: [Ptr, Unit];
+NodeResult :: [Address, Unit];
 
-extern createAllocator :: UInt64 -> Allocator;
-extern allocateNode :: (Allocator, UInt64) -> NodeResult;
-extern releaseNode :: (Allocator, Ptr) -> Unit;
+extern createAllocator :: USize -> Allocator;
+extern allocateNode :: (Allocator, ByteSize) -> NodeResult;
+extern releaseNode :: (Allocator, Address) -> Unit;
 extern destroyAllocator :: Allocator -> Unit;
 
-// Node bytes are Int32 value, UInt8 tag, then two Ptr fields for tag 1.
-// Tag 0 is a 5-byte leaf; tag 1 stores left and right at offsets 5 and 5 + Ptr.size.
 createLeaf :: (Allocator, Int32) -> NodeResult := (allocator, value) -> {
-    allocated := allocator.allocateNode(5u64);
+    allocated := allocator.allocateNode(#i32 + #u8);
     allocated[
     (node) -> [created, failed] => {
-        Int32.store(node, value);
-        UInt8.store(node + 4u64, 0u8);
+        _ := node @ i32 <-value;
+        _ := (node + #i32) @ u8 <-0u8;
         created(node);
     },
     () -> [created, failed] => failed()
     ];
 };
 
-sumTree :: Ptr -> Int32 := (node) -> [return] => {
-    value := Int32.load(node);
-    isBranch := UInt8.load(node + 4u64);
+sumTree :: Address -> Int32 := (node) -> [return] => {
+    (value, _) := <-(node @ i32);
+    (isBranch, _) := <-((node + #i32) @ u8);
     when (isBranch == 0u8) {
         return(value);
     };
 
-    left := Ptr.load(node + 5u64);
-    right := Ptr.load(node + 5u64 + Ptr.size);
+    children := (node + #i32 + #u8) @ address;
+    (left, next) := <-children;
+    (right, _) := <-next;
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: (Ptr, Allocator) -> Unit := (node, allocator) -> [return] => {
-    isBranch := UInt8.load(node + 4u64);
+destroyTree :: (Address, Allocator) -> Unit := (node, allocator) -> [return] => {
+    (isBranch, _) := <-((node + #i32) @ u8);
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
     };
 
-    left := Ptr.load(node + 5u64);
-    right := Ptr.load(node + 5u64 + Ptr.size);
+    children := (node + #i32 + #u8) @ address;
+    (left, next) := <-children;
+    (right, _) := <-next;
     left.destroyTree(allocator);
     right.destroyTree(allocator);
     return(allocator.releaseNode(node));
 };
 
-createOwnedBranch :: (Allocator, Int32, Ptr, Ptr) -> NodeResult :=
+createOwnedBranch :: (Allocator, Int32, Address, Address) -> NodeResult :=
     (allocator, value, left, right) -> {
-        allocated := allocator.allocateNode(5u64 + Ptr.size * 2u64);
+        allocated := allocator.allocateNode(#i32 + #u8 + 2usize * #address);
         allocated[
         (node) -> [created, failed] => {
-            Int32.store(node, value);
-            UInt8.store(node + 4u64, 1u8);
-            Ptr.store(node + 5u64, left);
-            Ptr.store(node + 5u64 + Ptr.size, right);
+            _ := node @ i32 <-value;
+            _ := (node + #i32) @ u8 <-1u8;
+            children := (node + #i32 + #u8) @ address;
+            next := children <-left;
+            _ := next <-right;
             created(node);
         },
         () -> [created, failed] => {
@@ -103,7 +104,7 @@ buildTree :: Allocator -> NodeResult := (allocator) -> {
 };
 
 successfulBuild :: Unit -> Bool := () -> {
-    allocator := createAllocator(5u64);
+    allocator := createAllocator(5usize);
     result := allocator.buildTree();
     valid := result[
         (tree) -> {
@@ -118,7 +119,7 @@ successfulBuild :: Unit -> Bool := () -> {
 };
 
 failedBuildCleansPartialTree :: Unit -> Bool := () -> {
-    allocator := createAllocator(3u64);
+    allocator := createAllocator(3usize);
     result := allocator.buildTree();
     failed := result[
         (tree) -> {

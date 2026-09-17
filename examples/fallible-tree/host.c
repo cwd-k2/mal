@@ -11,8 +11,8 @@ struct NodeAllocation {
 };
 
 typedef struct {
-    uint64_t limit;
-    uint64_t live;
+    size_t limit;
+    size_t live;
     NodeAllocation *first;
 } AllocatorHandle;
 
@@ -26,18 +26,18 @@ MAL_DEFINE_createAllocator(call, limit) {
         mal_call_trap(call, "allocator creation failed");
     }
     allocator->limit = limit;
-    allocator->live = UINT64_C(0);
+    allocator->live = 0;
     allocator->first = NULL;
     return mal_Allocator_return(call, mal_Allocator_from_bits((uintptr_t)allocator));
 }
 
 MAL_DEFINE_allocateNode(call, value) {
     AllocatorHandle *handle = allocator_handle(value.field_0);
-    if (handle->live == handle->limit || value.field_1 == 0 || value.field_1 > SIZE_MAX) {
+    if (handle->live == handle->limit || value.field_1 == 0) {
         return mal_NodeResult_return_1(call);
     }
     NodeAllocation *allocation = malloc(sizeof(*allocation));
-    uint8_t *memory = malloc((size_t)value.field_1);
+    uint8_t *memory = malloc(value.field_1);
     if (allocation == NULL || memory == NULL) {
         free(allocation);
         free(memory);

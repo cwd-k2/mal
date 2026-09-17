@@ -7,7 +7,7 @@ Its C adapter supplies only allocation, thin file operations, and byte output.
 The source is split by authority and operation rather than kept in one application module:
 
 - `host.mal` defines positional boundary descriptors and the extern contract.
-- `bytes.mal` composes raw byte operations from the fixed `Ptr` primitives.
+- `bytes.mal` composes byte operations from typed cursor placement on `Address` values.
 - `input.mal` owns buffered standard-input and line framing.
 - `database.mal` owns the persistent binary layout, validation, lookup, and mutation.
 - `query.mal` parses commands, maps database results to responses, and decides when to persist.
@@ -22,16 +22,16 @@ The shared-memory interface uses three representations with separate responsibil
 
 - `Allocator` is an opaque C-owned arena handle. All allocations remain live until the arena is
   destroyed.
-- `Buffer` is a mal-visible `(Ptr, capacity, initialized length)` descriptor returned by the C
+- `Buffer` is a mal-visible `(Address, capacity, initialized length)` descriptor returned by the C
   allocator and updated immutably by mal code.
-- `Region` is a `(Ptr, writable length)` view passed to host operations that fill memory.
-- `Bytes` is a `(Ptr, length)` read-only view passed to consumers that do not need spare capacity.
+- `WriteSpan` is an `(Address, writable length)` view passed to host operations that fill memory.
+- `Bytes` is an `(Address, length)` read-only view passed to consumers that do not need spare capacity.
 - `Reader` combines a `File`, an input `Buffer`, and a cursor. Sum values return either end-of-file or
   a byte together with the next immutable reader state.
 
 These distinctions document intent but do not add ownership or bounds enforcement to the language.
 Aliases remain structural, opaque handles remain copyable, and the host contract determines the
-lifetime of every `Ptr`.
+lifetime of every `Address`.
 
 Comments beside positional product and sum aliases name each field or variant. The comments are part
 of the example's protocol documentation: transparent aliases do not create named fields or nominal

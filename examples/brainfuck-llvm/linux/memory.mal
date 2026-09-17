@@ -8,7 +8,7 @@ _remapMayMove :: Int32 := 1i32;
 
 _noAddress :: Unit -> MapAddress := () -> [none, some] => none();
 
-_map :: (UInt64, Int32, Int32, Int32) -> PointerResult :=
+_map :: (ByteSize, Int32, Int32, Int32) -> PointerResult :=
     (length, protection, flags, descriptor) -> systemMmap(
         _noAddress(),
         length,
@@ -18,10 +18,10 @@ _map :: (UInt64, Int32, Int32, Int32) -> PointerResult :=
         0u64
     );
 
-mapAnonymousRead :: UInt64 -> PointerResult := (length) ->
+mapAnonymousRead :: ByteSize -> PointerResult := (length) ->
     _map(length, _protectionRead, _mapPrivate | _mapAnonymous, -1i32);
 
-mapAnonymousReadWrite :: UInt64 -> PointerResult := (length) ->
+mapAnonymousReadWrite :: ByteSize -> PointerResult := (length) ->
     _map(
         length,
         _protectionRead | _protectionWrite,
@@ -29,5 +29,5 @@ mapAnonymousReadWrite :: UInt64 -> PointerResult := (length) ->
         -1i32
     );
 
-resizeMapping :: (Ptr, UInt64, UInt64) -> PointerResult := (memory, oldLength, newLength) ->
+resizeMapping :: (Address, ByteSize, ByteSize) -> PointerResult := (memory, oldLength, newLength) ->
     systemMremap(memory, oldLength, newLength, _remapMayMove);

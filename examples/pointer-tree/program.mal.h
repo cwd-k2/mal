@@ -3,8 +3,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <limits.h>
 
-#define MAL_C_ABI_VERSION 0x000600u
+#define MAL_C_ABI_VERSION 0x000700u
 
 #if defined(__clang__)
 #define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
@@ -27,8 +28,11 @@ typedef uint32_t MalType_UInt32;
 typedef uint64_t MalType_UInt64;
 typedef float MalType_Float32;
 typedef double MalType_Float64;
+typedef size_t MalType_ByteSize;
+typedef size_t MalType_USize;
+typedef void *MalType_Address;
+_Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 typedef struct { const uint8_t *data; uint64_t length; void *ownership; } MalType_Symbol;
-typedef struct { uint8_t *address; } MalType_Ptr;
 typedef MalType_Unit mal_Unit_t;
 typedef MalType_Bool mal_Bool_t;
 typedef MalType_Int8 mal_Int8_t;
@@ -41,7 +45,9 @@ typedef MalType_UInt32 mal_UInt32_t;
 typedef MalType_UInt64 mal_UInt64_t;
 typedef MalType_Float32 mal_Float32_t;
 typedef MalType_Float64 mal_Float64_t;
-typedef void *mal_Ptr_t;
+typedef MalType_Address mal_Address_t;
+typedef MalType_ByteSize mal_ByteSize_t;
+typedef MalType_USize mal_USize_t;
 typedef struct { MalContext *mal_detail_context; } mal_call_t;
 typedef struct { const uint8_t *data; uint64_t length; } mal_span_t;
 typedef struct { MalType_Symbol mal_detail_raw; mal_span_t mal_detail_bytes; uint8_t mal_detail_source; } mal_Symbol_t;
@@ -86,14 +92,23 @@ static inline MalType_Float32 mal_Float32_return(mal_call_t *call MAL_DETAIL_MAY
 static inline MalType_Float64 mal_Float64_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Float64_t value) {
     return value;
 }
+static inline MalType_ByteSize mal_ByteSize_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ByteSize_t value) {
+    return value;
+}
+static inline MalType_USize mal_USize_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_USize_t value) {
+    return value;
+}
+static inline MalType_Address mal_Address_return(mal_call_t *call, mal_Address_t value) {
+    if (value == 0) {
+        mal_call_trap(call, "invalid Address result");
+    }
+    return value;
+}
 static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
     if ((value != mal_false) && (value != mal_true)) {
         mal_call_trap(call, "invalid Bool result");
     }
     return value;
-}
-static inline MalType_Ptr mal_Ptr_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Ptr_t value) {
-    return (MalType_Ptr){ .address = (uint8_t *)value };
 }
 MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value);
 MalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
@@ -123,33 +138,33 @@ static inline MalType_Symbol mal_Symbol_return(mal_call_t *call, mal_Symbol_t va
 
 /* External operations */
 
-MalType_Ptr mal_ext_allocate(MalContext *context, MalType_UInt64 value);
-void mal_ext_release(MalContext *context, MalType_Ptr value);
+MalType_Address mal_ext_allocate(MalContext *context, MalType_ByteSize value);
+void mal_ext_release(MalContext *context, MalType_Address value);
 
 /* External definition helpers */
 
 #define MAL_HAS_EXTERN_allocate 1
 #define MAL_DEFINE_allocate(call, value) \
-static MalType_Ptr mal_detail_allocate(mal_call_t *call, mal_UInt64_t value); \
-MalType_Ptr mal_ext_allocate(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_UInt64 value) { \
+static MalType_Address mal_detail_allocate(mal_call_t *call, mal_ByteSize_t value); \
+MalType_Address mal_ext_allocate(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_ByteSize value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_allocate(&call, value); \
 } \
-static MalType_Ptr mal_detail_allocate( \
+static MalType_Address mal_detail_allocate( \
     mal_call_t *call, \
-    mal_UInt64_t value \
+    mal_ByteSize_t value \
 )
 
 #define MAL_HAS_EXTERN_release 1
 #define MAL_DEFINE_release(call, value) \
-static MalType_Unit mal_detail_release(mal_call_t *call, mal_Ptr_t value); \
-void mal_ext_release(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Ptr value) { \
+static MalType_Unit mal_detail_release(mal_call_t *call, mal_Address_t value); \
+void mal_ext_release(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_release(&call, (mal_Ptr_t)value.address); \
+    mal_detail_release(&call, value); \
 } \
 static MalType_Unit mal_detail_release( \
     mal_call_t *call, \
-    mal_Ptr_t value \
+    mal_Address_t value \
 )
 
 #endif

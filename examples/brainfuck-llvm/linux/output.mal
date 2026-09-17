@@ -9,14 +9,14 @@ _statusSuccess :: Unit -> Status := () -> [success, failure] => success();
 
 _statusFailure :: UInt32 -> Status := (error) -> [success, failure] => failure(error);
 
-_writeAll :: (Int32, Ptr, UInt64) -> Status := (descriptor, memory, remaining) -> [return] => {
-    when (remaining == 0u64) {
+_writeAll :: (Int32, Address, ByteSize) -> Status := (descriptor, memory, remaining) -> [return] => {
+    when (remaining == 0bytes) {
         return(_statusSuccess());
     };
     transferred := systemWrite(descriptor, memory, remaining);
     return(transferred[
         (length) -> {
-            if (length == 0u64)
+            if (length == 0bytes)
             then _statusFailure(_inputOutputError)
             else _writeAll(descriptor, memory + length, remaining - length);
         },
@@ -24,7 +24,7 @@ _writeAll :: (Int32, Ptr, UInt64) -> Status := (descriptor, memory, remaining) -
     ]);
 };
 
-_finishWrite :: (Ptr, UInt64, Status) -> Status := (memory, length, written) -> {
+_finishWrite :: (Address, ByteSize, Status) -> Status := (memory, length, written) -> {
     unmapped := systemMunmap(memory, length);
     written[
     () -> unmapped,
@@ -33,16 +33,18 @@ _finishWrite :: (Ptr, UInt64, Status) -> Status := (memory, length, written) -> 
 };
 
 writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
-    length := #value;
-    if (length == 0u64)
+    packed := * value;
+    length := #packed;
+    extent := length * #u8;
+    if (length == 0usize)
     then _statusSuccess()
     else {
-        mapped := mapAnonymousReadWrite(length);
+        mapped := mapAnonymousReadWrite(extent);
         mapped[
         (memory) -> {
-            Symbol.write(memory, value);
-            written := _writeAll(descriptor, memory, length);
-            _finishWrite(memory, length, written);
+            _ := memory @ u8 @ length <-packed;
+            written := _writeAll(descriptor, memory, extent);
+            _finishWrite(memory, extent, written);
         },
         (error) -> _statusFailure(error)
         ];

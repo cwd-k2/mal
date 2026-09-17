@@ -1,9 +1,7 @@
 // CompileState fields: next source byte, next loop identity, generated function body.
-CompileState :: (UInt64, UInt64, Symbol);
+CompileState :: (USize, UInt64, Symbol);
 // Variant 0 is a diagnostic; variant 1 is a completed state.
 CompileResult :: [Symbol, CompileState];
-// Input borrows a byte range without owning its storage policy or lifetime.
-Input :: (Ptr, UInt64);
 
 _failure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
 
@@ -58,7 +56,7 @@ _loopFooter :: UInt64 -> Symbol := (identity) -> {
 // The recursive call for an opening bracket consumes through its matching closing bracket.
 // All other transitions are tail calls, so comments and long straight-line programs use bounded
 // native stack.
-_compileUntil :: (Ptr, UInt64, UInt64, UInt64, Bool, Symbol) -> CompileResult :=
+_compileUntil :: (Packed<UInt8>, USize, USize, UInt64, Bool, Symbol) -> CompileResult :=
     (source, length, index, nextLoop, nested, output) -> [return] => {
         when (index == length) {
             if (nested)
@@ -66,10 +64,10 @@ _compileUntil :: (Ptr, UInt64, UInt64, UInt64, Bool, Symbol) -> CompileResult :=
             else return(_success((index, nextLoop, output)));
         };
 
-        byte := UInt8.load(source + index);
+        byte := source # index;
         when (byte == ']') {
             if (nested)
-            then return(_success((index + 1u64, nextLoop, output)))
+            then return(_success((index + 1usize, nextLoop, output)))
             else return(_failure("unmatched ']'\n"));
         };
 
@@ -78,7 +76,7 @@ _compileUntil :: (Ptr, UInt64, UInt64, UInt64, Bool, Symbol) -> CompileResult :=
             body := _compileUntil(
                 source,
                 length,
-                index + 1u64,
+                index + 1usize,
                 nextLoop + 1u64,
                 true,
                 output + identity._loopHeader()
@@ -103,7 +101,7 @@ _compileUntil :: (Ptr, UInt64, UInt64, UInt64, Bool, Symbol) -> CompileResult :=
         return(_compileUntil(
             source,
             length,
-            index + 1u64,
+            index + 1usize,
             nextLoop,
             nested,
             output + instruction
@@ -139,9 +137,8 @@ _preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
     + "  %p = load ptr, ptr @cursor\n  store i8 %byte, ptr %p\n  ret void\n}\n\n"
     + "define i32 @main() {\nentry:\n";
 
-compile :: Input -> CompileResult := (input) -> {
-    (memory, length) := input;
-    compiled := _compileUntil(memory, length, 0u64, 0u64, false, _preamble());
+compile :: Packed<UInt8> -> CompileResult := (source) -> {
+    compiled := _compileUntil(source, #source, 0usize, 0u64, false, _preamble());
     compiled[
     (message) -> _failure(message),
     (state) -> {

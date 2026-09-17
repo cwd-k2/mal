@@ -63,7 +63,11 @@ MAL_DEFINE_systemMunmap(call, request) {
         return mal_Status_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
-    if (syscall(SYS_munmap, request.field_0, (size_t)request.field_1) != 0) {
+    if (syscall(
+            SYS_munmap,
+            request.field_0,
+            (size_t)request.field_1
+        ) != 0) {
         return mal_Status_return_1(call, system_error());
     }
     return mal_Status_return_0(call);

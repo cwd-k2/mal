@@ -3,41 +3,41 @@ require "./host.c";
 extern Allocation;
 
 // Buffer fields: 0 allocation identity, 1 writable memory, 2 capacity, 3 initialized length.
-Buffer :: (Allocation, Ptr, UInt64, UInt64);
+Buffer :: (Allocation, Address, USize, USize);
 // Slice fields: 0 allocation identity, 1 readable memory, 2 byte length.
-Slice :: (Allocation, Ptr, UInt64);
+Slice :: (Allocation, Address, USize);
 // BufferResult variant 0 carries the current buffer; variant 1 carries an error code.
 BufferResult :: [Buffer, UInt32];
 // SliceResult variant 0 carries an in-bounds slice; variant 1 reports invalid bounds.
 SliceResult :: [Slice, Unit];
 
-extern allocateBuffer :: (UInt64, UInt64) -> BufferResult;
-extern resizeBuffer :: (Buffer, UInt64) -> BufferResult;
+extern allocateBuffer :: (USize, USize) -> BufferResult;
+extern resizeBuffer :: (Buffer, USize) -> BufferResult;
 extern releaseBuffer :: Allocation -> Unit;
 extern isCurrentBuffer :: Buffer -> Bool;
 extern isCurrentSlice :: Slice -> Bool;
 extern writeSlice :: Slice -> Unit;
-extern writeSliceDescriptor :: (Allocation, Ptr) -> Unit;
+extern writeSliceDescriptor :: (Allocation, Address) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
 _bufferSuccess :: Buffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
 
 _bufferFailure :: UInt32 -> BufferResult := (error) -> [success, failure] => failure(error);
 
-nextCapacity :: (UInt64, UInt64) -> UInt64 := (capacity, required) -> [return] => {
+nextCapacity :: (USize, USize) -> USize := (capacity, required) -> [return] => {
     when (capacity >= required) {
         return(capacity);
     };
-    when (capacity > 0x7fff_ffff_ffff_ffffu64) {
+    when (capacity > (-1u64).usize / 2usize) {
         return(required);
     };
-    return((capacity * 2u64).nextCapacity(required));
+    return((capacity * 2usize).nextCapacity(required));
 };
 
 appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] => {
     (allocation, memory, capacity, length) := buffer;
-    additional := #value;
-    when (additional > 0xffff_ffff_ffff_ffffu64 - length) {
+    additional := (#value).usize;
+    when (additional > (-1u64).usize - length) {
         return(_bufferFailure(1u32));
     };
     required := length + additional;
@@ -50,7 +50,8 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] 
     result :: BufferResult := available[
         (resized) -> [success, failure] => {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
-            Symbol.write(nextMemory + length, value);
+            packed := * value;
+            _ := (nextMemory + length.bytes) @ u8 @ additional <-packed;
             success((nextAllocation, nextMemory, nextCapacityValue, required));
         },
         (error) -> [success, failure] => failure(error)
@@ -58,11 +59,11 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] 
     return(result);
 };
 
-sliceBuffer :: (Buffer, UInt64, UInt64) -> SliceResult :=
+sliceBuffer :: (Buffer, USize, USize) -> SliceResult :=
     (buffer, start, length) -> [slice, invalid] => {
         (allocation, memory, _, initialized) := buffer;
         when (start <= initialized && length <= initialized - start) {
-            slice((allocation, memory + start, length));
+            slice((allocation, memory + start.bytes, length));
         };
         invalid();
     };
@@ -74,14 +75,12 @@ releaseBufferValue :: Buffer -> Unit := (buffer) -> {
 
 writeThroughDescriptor :: Slice -> Bool := (slice) -> {
     (allocation, memory, length) := slice;
-    // Shared descriptor bytes contain only Ptr memory followed by UInt64 length.
-    descriptorSize := Ptr.size + UInt64.size;
-    allocated := allocateBuffer(descriptorSize, descriptorSize);
+    descriptorSize := #(address, usize);
+    allocated := allocateBuffer(descriptorSize.usize, descriptorSize.usize);
     allocated[
     (descriptor) -> {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-        Ptr.store(descriptorMemory, memory);
-        UInt64.store(descriptorMemory + Ptr.size, length);
+        _ := descriptorMemory @ (address, usize) <-(memory, length);
         writeSliceDescriptor(allocation, descriptorMemory);
         descriptorAllocation.releaseBuffer();
         true;
@@ -118,7 +117,7 @@ afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) -> {
     (grown) -> {
         aliasesInvalid := !before.isCurrentBuffer() && !staleSlice.isCurrentSlice();
         (_, _, _, length) := grown;
-        sliceResult := grown.sliceBuffer(0u64, length);
+        sliceResult := grown.sliceBuffer(0usize, length);
         sliceResult[
         (currentSlice) -> {
             if (currentSlice.writeThroughDescriptor())
@@ -148,14 +147,14 @@ withInitialValue :: Buffer -> Int32 := (initial) -> {
     appended := initial.appendSymbol("mal");
     appended[
     (buffer) -> {
-        invalidSlice := buffer.sliceBuffer(2u64, 2u64);
+        invalidSlice := buffer.sliceBuffer(2usize, 2usize);
         invalidSlice[
         (_) -> {
             buffer.releaseBufferValue();
             8;
         },
         () -> {
-            sliceResult := buffer.sliceBuffer(1u64, 2u64);
+            sliceResult := buffer.sliceBuffer(1usize, 2usize);
             sliceResult[
             (slice) -> {
                 writeSlice(slice);
@@ -178,7 +177,7 @@ withInitialValue :: Buffer -> Int32 := (initial) -> {
 };
 
 main :: Unit -> Int32 := () -> {
-    allocated := allocateBuffer(4u64, 64u64);
+    allocated := allocateBuffer(4usize, 64usize);
     allocated[
     (buffer) -> buffer.withInitialValue(),
     (_) -> 7

@@ -1,8 +1,8 @@
-# Ptr memory example
+# Typed external memory example
 
 This example obtains mutable storage from the host, performs deliberately unaligned `Int64` and
-`UInt8` access through the minimal `Ptr` primitives, and exits with status 0 when both values round
-trip correctly.
+`UInt8` access through typed `Cursor` placement on an `Address`, and exits with status 0 when both
+values round trip correctly.
 
 From the repository root in Nushell:
 

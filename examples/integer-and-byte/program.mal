@@ -3,8 +3,8 @@ require "./host.c";
 extern printUInt64 :: UInt64 -> Unit;
 
 main :: Unit -> Int32 := () -> {
-    printUInt64(UInt64('\xff'));
-    printUInt64(UInt64(255u8 + 1u8));
-    printUInt64(UInt64(-1i8));
+    printUInt64('\xff'.u64);
+    printUInt64((255u8 + 1u8).u64);
+    printUInt64((-1i8).u64);
     0;
 };

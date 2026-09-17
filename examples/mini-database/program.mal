@@ -3,11 +3,13 @@ require "./application.mal";
 
 // The runtime excludes the executable name, so exactly one descriptor is the database path.
 main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
-    when (argumentCount != 1u64) {
+    when (argumentCount != 1usize) {
         writeSymbol("usage: mal-mini-database DATABASE\n");
         return(2);
     };
 
-    path := Symbol.read(Ptr.load(arguments), UInt64.load(arguments + Ptr.size));
+    descriptors := <-(arguments @ (address, bytesize) @ argumentCount);
+    (pathAddress, pathLength) := descriptors # 0usize;
+    path := * (<-(pathAddress @ u8 @ (pathLength.usize)));
     return(executeDatabase(path));
 };

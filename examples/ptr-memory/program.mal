@@ -1,12 +1,14 @@
 require "./host.c";
 
-extern memory :: Unit -> Ptr;
+extern memory :: Unit -> Address;
 
 main :: Unit -> Int32 := () -> {
     base := memory();
-    slot := base + 1u64;
-    Int64.store(slot, 41i64);
-    byte := slot + 8u64;
-    UInt8.store(byte, 1u8);
-    Int32(Int64.load(slot) + Int64(UInt8.load(byte)) - 42i64);
+    slot := (base + 1bytes) @ i64;
+    _ := slot <-41i64;
+    byte := (?slot + #i64) @ u8;
+    _ := byte <-1u8;
+    (number, _) := <-slot;
+    (small, _) := <-byte;
+    (number + small.i64 - 42i64).i32;
 };

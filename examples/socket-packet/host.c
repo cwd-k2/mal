@@ -35,7 +35,7 @@ static uint64_t decode_uint64(const uint8_t *bytes) {
 static uint32_t write_all(int socket, const uint8_t *bytes, size_t length) {
     size_t written = 0;
     while (written < length) {
-        ssize_t result = send(socket, bytes + written, length - written, MSG_NOSIGNAL);
+        ssize_t result = write(socket, bytes + written, length - written);
         if (result < 0 && errno == EINTR) {
             continue;
         }
@@ -53,7 +53,7 @@ static uint32_t write_all(int socket, const uint8_t *bytes, size_t length) {
 static uint32_t read_all(int socket, uint8_t *bytes, size_t length) {
     size_t received = 0;
     while (received < length) {
-        ssize_t result = recv(socket, bytes + received, length - received, 0);
+        ssize_t result = read(socket, bytes + received, length - received);
         if (result < 0 && errno == EINTR) {
             continue;
         }

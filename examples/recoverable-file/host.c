@@ -20,11 +20,11 @@ static uint32_t io_error(void) {
 }
 
 MAL_DEFINE_allocateBuffer(call, size) {
-    if (size == 0 || size > SIZE_MAX) {
+    if (size == 0) {
         mal_call_trap(call, "invalid allocation size");
     }
     AllocationHandle *allocation = malloc(sizeof(*allocation));
-    uint8_t *memory = malloc((size_t)size);
+    uint8_t *memory = malloc(size);
     if (allocation == NULL || memory == NULL) {
         free(allocation);
         free(memory);
@@ -35,7 +35,7 @@ MAL_DEFINE_allocateBuffer(call, size) {
     mal_Buffer_t buffer = {
         .field_0 = memory,
         .field_1 = size,
-        .field_2 = UINT64_C(0),
+        .field_2 = 0,
     };
     return mal_OwnedBuffer_return(
         call,
@@ -77,16 +77,13 @@ MAL_DEFINE_openReadOnly(call, path) {
 MAL_DEFINE_readFile(call, value) {
     FILE *handle = file_handle(value.field_0);
     void *memory = value.field_1.field_0;
-    uint64_t capacity = value.field_1.field_1;
-    if (capacity > SIZE_MAX) {
-        return mal_ReadResult_return_1(call, (uint32_t)EINVAL);
-    }
+    size_t capacity = value.field_1.field_1;
     errno = 0;
-    size_t length = fread(memory, 1, (size_t)capacity, handle);
+    size_t length = fread(memory, 1, capacity, handle);
     if (ferror(handle)) {
         return mal_ReadResult_return_1(call, io_error());
     }
-    return mal_ReadResult_return_0(call, (uint64_t)length);
+    return mal_ReadResult_return_0(call, length);
 }
 
 MAL_DEFINE_closeFile(call, file) {
@@ -95,14 +92,6 @@ MAL_DEFINE_closeFile(call, file) {
         return mal_CloseResult_return_1(call, io_error());
     }
     return mal_CloseResult_return_0(call);
-}
-
-MAL_DEFINE_writeBytes(call, value) {
-    if (value.field_1 > SIZE_MAX
-        || fwrite(value.field_0, 1, (size_t)value.field_1, stdout) != (size_t)value.field_1) {
-        mal_call_trap(call, "cannot write stdout");
-    }
-    return mal_Unit_return(call);
 }
 
 MAL_DEFINE_writeSymbol(call, value) {

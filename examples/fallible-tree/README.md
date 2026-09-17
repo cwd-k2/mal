@@ -10,7 +10,7 @@ construction layers likewise destroy every completed subtree before propagating 
 
 The host tracks every live node and traps if `destroyAllocator` is called before all nodes have been
 released. This makes partial-construction leaks observable in the end-to-end test. The protocol is
-not enforced by mal's types: `Allocator` and `Ptr` remain copyable, and the variant-0/variant-1
+not enforced by mal's types: `Allocator` and `Address` remain copyable, and the variant-0/variant-1
 convention and ownership transfer must be followed manually.
 
 From the repository root in Nushell:

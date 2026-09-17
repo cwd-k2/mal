@@ -9,17 +9,15 @@ moves storage and invalidates every earlier `Buffer` and `Slice`; a failed resiz
 allocation unchanged. The program verifies both cases with host operations that inspect descriptors
 without dereferencing their data pointers.
 
-The program also stores a slice descriptor in shared memory. Product values have no canonical memory
-representation, so mal writes the `Ptr` and `UInt64` fields separately and C reconstructs them with
-the corresponding scalar representations. The predefined memory operations cannot store the opaque
-`Allocation`; this example keeps its authority in C and passes the handle as a separate extern
-argument. A host could instead define allocation-specific storage operations and their lifetime
-contract. An out-of-bounds slice request exercises the checked failure variant without constructing
-a pointer outside the allocation.
+The program also stores an `(Address, USize)` slice descriptor through its canonical product memory
+representation and lets C reconstruct that descriptor. The opaque `Allocation` is deliberately not
+stored: its authority remains in C and is passed as a separate extern argument. An out-of-bounds
+slice request exercises the checked failure variant without constructing an address outside the
+allocation.
 
 This is a logical ownership protocol rather than language-enforced safety. `Allocation`, `Buffer`, and
 `Slice` remain copyable. Old descriptors can still be passed around after resize, and using their
-`Ptr` directly would violate the host contract. `releaseBuffer` must be called exactly once with the
+`Address` directly would violate the host contract. `releaseBuffer` must be called exactly once with the
 current allocation handle.
 
 From the repository root in Nushell:
