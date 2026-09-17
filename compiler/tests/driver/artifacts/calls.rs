@@ -211,7 +211,7 @@ fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
            prefix := \"x\" + \"y\";\n\
            identity :: Int32 -> Symbol := (value) -> { prefix; };\n\
            result := apply(identity, 0i32);\n\
-           (result # 1u64).i32 - 121i32;\n\
+           (result # 1usize).i32 - 121i32;\n\
          };",
     );
     directory.write(
@@ -307,7 +307,7 @@ fn preserves_managed_environments_through_llvm_first_class_cycles() {
              };\n\
            };\n\
            result := recurse(50000i32);\n\
-           (result # 1u64).i32 - 121i32;\n\
+           (result # 1usize).i32 - 121i32;\n\
          };",
     );
 

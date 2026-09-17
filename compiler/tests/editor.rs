@@ -264,12 +264,12 @@ fn result_binders_support_hover_definition_references_and_rename() {
 
 #[test]
 fn symbol_operators_report_their_result_types() {
-    let text = "inspect :: Symbol -> UInt64 := (value) -> { #value + (value # 0).u64; };";
+    let text = "inspect :: Symbol -> USize := (value) -> { #value + (value # 0usize).usize; };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();
 
-    assert_eq!(document.hover_at(length_operator).unwrap().ty, "UInt64");
+    assert_eq!(document.hover_at(length_operator).unwrap().ty, "USize");
     assert_eq!(document.hover_at(access_operator).unwrap().ty, "UInt8");
 }
 

@@ -75,7 +75,7 @@ impl Checker {
                 kind: ExpressionKind::SymbolLength {
                     value: Box::new(value),
                 },
-                ty: Type::UInt64,
+                ty: Type::USize,
                 span,
             });
         }
@@ -311,12 +311,12 @@ impl Checker {
                     return self.check_packed_index(left, right, span);
                 }
                 self.require_type(&left.ty, &Type::Symbol, left.span)?;
-                let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
+                let (left, right) = self.check_after(left, right, Some(&Type::USize))?;
                 return Ok(Expression {
                     kind: ExpressionKind::SymbolAt {
                         argument: Box::new(Expression {
                             kind: ExpressionKind::Product(vec![left, right]),
-                            ty: Type::Product(vec![Type::Symbol, Type::UInt64].into()),
+                            ty: Type::Product(vec![Type::Symbol, Type::USize].into()),
                             span,
                         }),
                     },

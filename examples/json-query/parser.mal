@@ -1,5 +1,5 @@
 // JsonCursor fields: 0 complete input, 1 next unread byte.
-JsonCursor :: (Symbol, UInt64);
+JsonCursor :: (Symbol, USize);
 // Stats fields: 0 JSON value count, 1 maximum value depth.
 Stats :: (UInt64, UInt64);
 Parsed :: (JsonCursor, Stats);
@@ -43,7 +43,7 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
 
 _advance :: JsonCursor -> JsonCursor := (cursor) -> {
     (source, index) := cursor;
-    (source, index + 1u64);
+    (source, index + 1usize);
 };
 
 _skipWhitespace :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
@@ -52,7 +52,7 @@ _skipWhitespace :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
         return(cursor);
     };
     when ((source # index)._isWhitespace()) {
-        return((source, index + 1u64)._skipWhitespace());
+        return((source, index + 1usize)._skipWhitespace());
     };
     return(cursor);
 };
@@ -86,7 +86,7 @@ _completeValue :: UInt64 -> UInt64 := (frames) -> {
     };
 };
 
-_matchesAt :: (Symbol, UInt64, Symbol, UInt64) -> Bool :=
+_matchesAt :: (Symbol, USize, Symbol, USize) -> Bool :=
     (source, start, expected, offset) -> [return] => {
         when (offset == #expected) {
             return(true);
@@ -94,25 +94,25 @@ _matchesAt :: (Symbol, UInt64, Symbol, UInt64) -> Bool :=
         when (start + offset == #source || source # (start + offset) != expected # offset) {
             return(false);
         };
-        return(source._matchesAt(start, expected, offset + 1u64));
+        return(source._matchesAt(start, expected, offset + 1usize));
     };
 
 _consumeLiteral :: (JsonCursor, Symbol) -> Scan := (cursor, expected) -> {
     (source, index) := cursor;
-    if (source._matchesAt(index, expected, 0u64))
+    if (source._matchesAt(index, expected, 0usize))
     then ((source, index + #expected), "")
     else (cursor, "invalid JSON literal");
 };
 
-_hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
+_hasHexDigits :: (Symbol, USize, USize) -> Bool :=
     (source, index, remaining) -> [return] => {
-        when (remaining == 0u64) {
+        when (remaining == 0usize) {
             return(true);
         };
         when (index == #source || !(source # index)._isHexDigit()) {
             return(false);
         };
-        return(source._hasHexDigits(index + 1u64, remaining - 1u64));
+        return(source._hasHexDigits(index + 1usize, remaining - 1usize));
     };
 
 // The cursor starts after the opening quote. This validates escapes without decoding the string.
@@ -123,16 +123,16 @@ _scanString :: JsonCursor -> Scan := (cursor) -> [return] => {
     };
     byte := source # index;
     when (byte == '"') {
-        return(((source, index + 1u64), ""));
+        return(((source, index + 1usize), ""));
     };
     when (byte < 0x20u8) {
         return((cursor, "control byte in JSON string"));
     };
     when (byte != '\\') {
-        return((source, index + 1u64)._scanString());
+        return((source, index + 1usize)._scanString());
     };
 
-    escapeIndex := index + 1u64;
+    escapeIndex := index + 1usize;
     when (escapeIndex == #source) {
         return((cursor, "unterminated JSON escape"));
     };
@@ -146,10 +146,10 @@ _scanString :: JsonCursor -> Scan := (cursor) -> [return] => {
         || escaped == 'r'
         || escaped == 't';
     when (simple) {
-        return((source, escapeIndex + 1u64)._scanString());
+        return((source, escapeIndex + 1usize)._scanString());
     };
-    when (escaped == 'u' && source._hasHexDigits(escapeIndex + 1u64, 4u64)) {
-        return((source, escapeIndex + 5u64)._scanString());
+    when (escaped == 'u' && source._hasHexDigits(escapeIndex + 1usize, 4usize)) {
+        return((source, escapeIndex + 5usize)._scanString());
     };
     return((cursor, "invalid JSON escape"));
 };
@@ -159,7 +159,7 @@ _scanDigits :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
     when (index == #source || !(source # index)._isDigit()) {
         return(cursor);
     };
-    return((source, index + 1u64)._scanDigits());
+    return((source, index + 1usize)._scanDigits());
 };
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
@@ -167,7 +167,7 @@ _scanDigits :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
 _scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
     (source, start) := cursor;
     unsigned := if (source # start == '-')
-        then (source, start + 1u64)
+        then (source, start + 1usize)
         else cursor;
     (number, integerStart) := unsigned;
     when (integerStart == #number) {
@@ -176,22 +176,22 @@ _scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
 
     first := number # integerStart;
     integerEnd := if (first == '0')
-        then (number, integerStart + 1u64)
+        then (number, integerStart + 1usize)
         else {
             when (!first._isNonzeroDigit()) {
                 return((cursor, "invalid JSON number"));
             };
-            (number, integerStart + 1u64)._scanDigits();
+            (number, integerStart + 1usize)._scanDigits();
         };
 
     (afterInteger, integerEndIndex) := integerEnd;
     afterFraction := if (integerEndIndex < #afterInteger && afterInteger # integerEndIndex == '.')
         then {
-            fractionStart := integerEndIndex + 1u64;
+            fractionStart := integerEndIndex + 1usize;
             when (fractionStart == #afterInteger || !(afterInteger # fractionStart)._isDigit()) {
                 return((cursor, "invalid JSON fraction"));
             };
-            (afterInteger, fractionStart + 1u64)._scanDigits();
+            (afterInteger, fractionStart + 1usize)._scanDigits();
         }
         else integerEnd;
 
@@ -200,17 +200,17 @@ _scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
         && (afterDecimal # decimalEnd == 'e' || afterDecimal # decimalEnd == 'E');
     afterExponent := if (exponent)
         then {
-            exponentStart := decimalEnd + 1u64;
+            exponentStart := decimalEnd + 1usize;
             when (exponentStart == #afterDecimal) {
                 return((cursor, "incomplete JSON exponent"));
             };
             signedStart := if (afterDecimal # exponentStart == '+' || afterDecimal # exponentStart == '-')
-                then exponentStart + 1u64
+                then exponentStart + 1usize
                 else exponentStart;
             when (signedStart == #afterDecimal || !(afterDecimal # signedStart)._isDigit()) {
                 return((cursor, "invalid JSON exponent"));
             };
-            (afterDecimal, signedStart + 1u64)._scanDigits();
+            (afterDecimal, signedStart + 1usize)._scanDigits();
         }
         else afterFraction;
     return((afterExponent, ""));
@@ -269,7 +269,7 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
             return(_parseFailure("expected JSON object key"));
         };
         (afterKey, keyError) := cursor._advance()._scanString();
-        when (#keyError != 0u64) {
+        when (#keyError != 0usize) {
             return(_parseFailure(keyError));
         };
         return(_parse((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats)));
@@ -293,7 +293,7 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
     };
     when (byte == '"') {
         (afterString, stringError) := cursor._advance()._scanString();
-        when (#stringError != 0u64) {
+        when (#stringError != 0usize) {
             return(_parseFailure(stringError));
         };
         return(_parse((afterString, nextFrames, frameDepth, nextStats)));
@@ -307,14 +307,14 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
                 else "null";
             };
         (afterLiteral, literalError) := cursor._consumeLiteral(literal);
-        when (#literalError != 0u64) {
+        when (#literalError != 0usize) {
             return(_parseFailure(literalError));
         };
         return(_parse((afterLiteral, nextFrames, frameDepth, nextStats)));
     };
     when (byte == '-' || byte._isDigit()) {
         (afterNumber, numberError) := cursor._scanNumber();
-        when (#numberError != 0u64) {
+        when (#numberError != 0usize) {
             return(_parseFailure(numberError));
         };
         return(_parse((afterNumber, nextFrames, frameDepth, nextStats)));
@@ -324,4 +324,4 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
 
 // The root sentinel makes trailing non-whitespace bytes an error after exactly one JSON value.
 parseDocument :: Symbol -> ParseResult := (source) ->
-    ((source, 0u64), _rootValue, 1u64, (0u64, 0u64))._parse();
+    ((source, 0usize), _rootValue, 1u64, (0u64, 0u64))._parse();

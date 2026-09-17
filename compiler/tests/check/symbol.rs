@@ -13,13 +13,13 @@ fn checks_symbol_literals_as_immutable_bytes() {
 #[test]
 fn checks_symbol_operators_and_byte_wise_equality() {
     let program = check_ok(
-        r#"length :: Symbol -> UInt64 := (value) -> { #value; };
-item :: (Symbol, UInt64) -> UInt8 := (value, index) -> {
+        r#"length :: Symbol -> USize := (value) -> { #value; };
+item :: (Symbol, USize) -> UInt8 := (value, index) -> {
   value # index;
 };
 same :: Unit -> Bool := () -> { "a\0" == "a\x00"; };
 different :: Unit -> Bool := () -> { "a" != "b"; };
-literal :: Unit -> UInt64 := () -> { #"hoge" + ("hoge" # 1).u64; };
+literal :: Unit -> USize := () -> { #"hoge" + ("hoge" # 1usize).usize; };
 concatenate :: (Symbol, Symbol) -> Symbol := (left, right) -> {
   left + right;
 };"#,
@@ -50,7 +50,7 @@ concatenate :: (Symbol, Symbol) -> Symbol := (left, right) -> {
     let Type::Function { result, .. } = &top_binding(&program, 4).value.ty else {
         panic!("expected function type");
     };
-    assert_eq!(result.as_ref(), &Type::UInt64);
+    assert_eq!(result.as_ref(), &Type::USize);
     let Type::Function { result, .. } = &top_binding(&program, 5).value.ty else {
         panic!("expected function type");
     };
@@ -64,7 +64,7 @@ fn rejects_invalid_symbol_operations() {
         r#"bad := "a" < "b";"#,
         r#"bad := #1;"#,
         r#"bad := "a" # 0u8;"#,
-        r#"bad := 1 # 0u64;"#,
+        r#"bad := 1 # 0usize;"#,
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

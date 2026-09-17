@@ -418,7 +418,7 @@ impl FunctionEmitter<'_> {
         self.pointer_offset(&data, offset)
     }
 
-    fn index_to_i64(&mut self, value: &str) -> Option<String> {
+    pub(super) fn index_to_i64(&mut self, value: &str) -> Option<String> {
         match self.types.index_size() {
             8 => Some(value.into()),
             bytes if bytes < 8 => {
@@ -433,7 +433,7 @@ impl FunctionEmitter<'_> {
         }
     }
 
-    fn i64_to_index(&mut self, value: &str) -> Option<String> {
+    pub(super) fn i64_to_index(&mut self, value: &str) -> Option<String> {
         match self.types.index_size() {
             8 => Some(value.into()),
             bytes if bytes < 8 => {

@@ -57,7 +57,7 @@ fn parses_symbol_length_and_byte_access_with_access_precedence() {
         operator,
         left,
         right,
-    } = binding_value(r#"value := "abc" # 1u64 + 2u8;"#)
+    } = binding_value(r#"value := "abc" # 1usize + 2u8;"#)
     else {
         panic!("expected addition");
     };
@@ -77,7 +77,7 @@ fn parses_symbol_length_and_byte_access_with_access_precedence() {
 
 #[test]
 fn rejects_chained_symbol_byte_access() {
-    let source = source(r#"value := "abc" # 0u64 # 1u64;"#);
+    let source = source(r#"value := "abc" # 0usize # 1usize;"#);
     let error = parse(&source).expect_err("Symbol byte access must be non-associative");
     assert_eq!(error.message, "non-associative operator chain");
 }

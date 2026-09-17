@@ -22,7 +22,7 @@ message :: Symbol := "mal\n";
 
 pointerStorageSize :: ByteSize := #address;
 
-inspect :: Symbol -> UInt64 := (value) -> #value + (value # 1u64).u64;
+inspect :: Symbol -> USize := (value) -> #value + (value # 1usize).usize;
 
 choose :: Bool -> Choice := (condition) -> [integer, byte] => {
     when (condition && !false) {

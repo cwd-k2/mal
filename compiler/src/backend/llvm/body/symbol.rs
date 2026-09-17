@@ -121,13 +121,14 @@ impl FunctionEmitter<'_> {
         if value.ty != Type::Symbol {
             return None;
         }
-        let result = self.register();
+        let length = self.register();
         self.line(format!(
-            "  {result} = call i64 @mal_runtime_symbol_length(ptr {})",
+            "  {length} = call i64 @mal_runtime_symbol_length(ptr {})",
             value.representation
         ));
+        let result = self.i64_to_index(&length)?;
         Some(EmittedValue {
-            ty: Type::UInt64,
+            ty: Type::USize,
             representation: result,
             owned: false,
         })
@@ -135,11 +136,12 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn emit_symbol_at(&mut self, argument: &Atom) -> Option<EmittedValue> {
         let argument = self.atom(argument)?;
-        let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::UInt64])?;
+        let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
+        let index = self.index_to_i64(&index.representation)?;
         let result = self.register();
         self.line(format!(
             "  {result} = call i8 @mal_runtime_symbol_at(ptr {}, i64 {})",
-            symbol.representation, index.representation
+            symbol.representation, index
         ));
         Some(EmittedValue {
             ty: Type::UInt8,

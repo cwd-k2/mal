@@ -32,10 +32,10 @@ clearBytes :: (Address, USize) -> Unit := (memory, remaining) -> [return] => {
 
 _rangeEqualsAt :: (Packed<UInt8>, USize, Symbol, USize) -> Bool :=
     (source, start, expected, index) -> [return] => {
-        when (index == (#expected).usize) {
+        when (index == #expected) {
             return(true);
         };
-        when (source # (start + index) != expected # index.u64) {
+        when (source # (start + index) != expected # index) {
             return(false);
         };
 
@@ -44,7 +44,7 @@ _rangeEqualsAt :: (Packed<UInt8>, USize, Symbol, USize) -> Bool :=
 
 rangeEquals :: (Packed<UInt8>, USize, USize, Symbol) -> Bool :=
     (source, start, length, expected) -> {
-        length == (#expected).usize
+        length == #expected
             && start <= #source
             && length <= #source - start
             && source._rangeEqualsAt(start, expected, 0usize);

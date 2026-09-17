@@ -92,7 +92,7 @@ test('highlights receiver-first callees as functions', async () => {
 
 test('highlights unary and binary Symbol operators', async () => {
   const grammar = await loadGrammar();
-  const line = 'length := #value; byte := value # 1u64;';
+  const line = 'length := #value; byte := value # 1usize;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,

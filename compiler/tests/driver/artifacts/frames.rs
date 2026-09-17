@@ -293,13 +293,13 @@ fn resumes_managed_self_continuation_frames_through_llvm() {
         "walk :: (Int32, Symbol) -> Symbol := (depth, value) -> {\n\
            if (depth == 0i32) then { value } else {\n\
              resumed := walk(depth - 1i32, value);\n\
-             if (resumed # 0u64 == 120u8) then { resumed } else { \"bad\" };\n\
+             if (resumed # 0usize == 120u8) then { resumed } else { \"bad\" };\n\
            };\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
            result := walk(10000i32, seed);\n\
-           (result # 1u64).i32 - 121i32;\n\
+           (result # 1usize).i32 - 121i32;\n\
          };",
     );
 
@@ -330,13 +330,13 @@ fn runs_managed_direct_self_tail_calls_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "count :: (Symbol, Int64) -> UInt64 := (value, remaining) -> {\n\
+        "count :: (Symbol, Int64) -> USize := (value, remaining) -> {\n\
            if (remaining == 0i64) then { #value }\n\
            else { count(value, remaining - 1i64) };\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
-           if (count(seed, 100000i64) == 2u64) then { 0 } else { 1 };\n\
+           if (count(seed, 100000i64) == 2usize) then { 0 } else { 1 };\n\
          };",
     );
 

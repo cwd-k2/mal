@@ -7,7 +7,7 @@ fn owns_symbols_across_direct_llvm_calls() {
     directory.write(
         "program.mal",
         "check :: Symbol -> Int32 := (value) -> {\n\
-           if (#value == 2u64)\n\
+           if (#value == 2usize)\n\
            then {\n\
              if (value == \"ab\")\n\
              then {\n\
@@ -83,7 +83,7 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
            then {\n\
              if (left == right)\n\
              then {\n\
-               if (left # 9999u64 == 120u8)\n\
+               if (left # 9999usize == 120u8)\n\
                then {\n\
                  if (inspect(left) == 10000u64)\n\
                  then {\n\
@@ -244,7 +244,7 @@ fn reuses_owned_symbols_across_empty_concatenation() {
            left := \"\" + value;\n\
            right := value + \"\";\n\
            if (left == right)\n\
-           then { (value # 1u64).i32 - 98i32 }\n\
+           then { (value # 1usize).i32 - 98i32 }\n\
            else { 1i32 };\n\
          };",
     );

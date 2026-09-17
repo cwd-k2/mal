@@ -171,8 +171,8 @@ fn keeps_decimal_points_inside_float_tokens() {
 #[test]
 fn formats_unary_and_binary_symbol_operators() {
     assert_eq!(
-        format("inspect:=(value) -> {# value+value#1u64;};"),
-        "inspect := (value) -> { #value + value # 1u64 };\n"
+        format("inspect:=(value) -> {# value+value#1usize;};"),
+        "inspect := (value) -> { #value + value # 1usize };\n"
     );
 }
 

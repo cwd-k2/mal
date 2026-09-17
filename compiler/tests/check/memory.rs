@@ -63,8 +63,8 @@ fn checks_region_packed_transfer_views_and_symbol_conversion() {
 fn rejects_packed_operations_for_wrong_element_or_operand_types() {
     for text in [
         "bad :: Packed<UInt16> -> Symbol := (packed) -> *packed;",
-        "bad :: Packed<UInt8> -> UInt8 := (packed) -> packed # 0u64;",
-        "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region / 1u64;",
+        "bad :: Packed<UInt8> -> UInt8 := (packed) -> packed # 0bytes;",
+        "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region / 1bytes;",
         "bad :: (Region<UInt8>, Packed<UInt16>) -> Region<UInt8> := (region, packed) -> region <- packed;",
     ] {
         assert!(check_error(text).primary.is_some(), "input: {text}");

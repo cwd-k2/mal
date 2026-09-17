@@ -11,7 +11,7 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
          extern fetch :: Unit -> Symbol;\n\
          main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
-           if (inspect(seed) == 1u8) then { (fetch() # 1u64).i32 - 107 }\n\
+           if (inspect(seed) == 1u8) then { (fetch() # 1usize).i32 - 107 }\n\
            else { 1 };\n\
          };",
     );
@@ -246,13 +246,13 @@ fn owns_symbols_nested_in_products_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "inspect :: (Symbol, UInt64) -> (Symbol, UInt8) := (input) -> {\n\
+        "inspect :: (Symbol, USize) -> (Symbol, UInt8) := (input) -> {\n\
            (value, index) := input;\n\
            (value, value # index);\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            joined := \"ab\" + \"cd\";\n\
-           (copy, byte) := inspect(joined, 2u64);\n\
+           (copy, byte) := inspect(joined, 2usize);\n\
            if (copy == \"abcd\") then { byte.i32 - 99 } else { 1 };\n\
          };",
     );
@@ -291,10 +291,10 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
          };\n\
          score :: Choice -> Int32 := (choice) -> {\n\
            choice[\n\
-             (value) -> { (value # 0u64).i32 },\n\
+             (value) -> { (value # 0usize).i32 },\n\
              (pair) -> {\n\
                (bias, value) := pair;\n\
-               bias.i32 + (value # 1u64).i32;\n\
+               bias.i32 + (value # 1usize).i32;\n\
              }];\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\
