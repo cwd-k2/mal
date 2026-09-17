@@ -16,6 +16,7 @@ mod lambda;
 mod memory;
 mod operator;
 mod product;
+mod specialize;
 mod types;
 
 pub fn type_name(ty: &ast::Type) -> String {
@@ -55,15 +56,36 @@ type CheckResult<T> = Result<T, CheckFailure>;
 struct Checker {
     aliases: HashMap<TypeId, AliasDefinition>,
     generic_aliases: HashMap<TypeId, GenericAliasDefinition>,
+    type_substitutions: std::sync::Arc<HashMap<TypeId, Type>>,
+    active_requirements: HashSet<TypeId>,
+    active_generic: Option<(ValueId, Vec<TypeId>)>,
     external_types: HashMap<TypeId, resolved::TypeBinding>,
     expanded_aliases: HashMap<TypeId, Type>,
     aggregate_alias_sources: HashMap<TypeId, Option<Vec<Node<resolved::TypeExpression>>>>,
     expanding: HashSet<TypeId>,
     values: HashMap<ValueId, Type>,
+    generic_signatures: HashMap<ValueId, GenericSignature>,
+    generic_definitions: Vec<GenericDefinition>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
     used_result_targets: HashSet<ValueId>,
+}
+
+#[derive(Clone)]
+struct GenericSignature {
+    parameters: Vec<resolved::TypeBinding>,
+    ty: Type,
+    requirements: HashSet<TypeId>,
+}
+
+#[derive(Clone)]
+struct GenericDefinition {
+    binding: resolved::ValueBinding,
+    parameters: Vec<resolved::TypeBinding>,
+    ty: Type,
+    value: ast::Expression,
+    span: Span,
 }
 
 #[derive(Clone)]
@@ -80,11 +102,16 @@ impl Checker {
         Self {
             aliases: HashMap::new(),
             generic_aliases: HashMap::new(),
+            type_substitutions: Default::default(),
+            active_requirements: HashSet::new(),
+            active_generic: None,
             external_types: HashMap::new(),
             expanded_aliases: HashMap::new(),
             aggregate_alias_sources: HashMap::new(),
             expanding: HashSet::new(),
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
+            generic_signatures: HashMap::new(),
+            generic_definitions: Vec::new(),
             external_values: HashSet::new(),
             externals: HashMap::new(),
             result_targets: HashMap::new(),
@@ -105,6 +132,16 @@ impl Checker {
         let mut items = Vec::with_capacity(program.items.len());
         for item in &program.items {
             if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
+                continue;
+            }
+            if let resolved::TopItem::GenericBinding {
+                binding,
+                parameters,
+                annotation,
+                value,
+            } = &item.kind
+            {
+                self.check_generic_binding(binding, parameters, annotation, value, item.span)?;
                 continue;
             }
             let kind = match &item.kind {
@@ -151,15 +188,8 @@ impl Checker {
                     self.check_top_level_initializer(&binding.value)?;
                     TopItem::Binding(Box::new(checked))
                 }
-                resolved::TopItem::GenericBinding { binding, .. } => {
-                    return Err(
-                        Diagnostic::error("generic declarations are not implemented")
-                            .with_primary(
-                                binding.name.span,
-                                "this declaration cannot be checked yet",
-                            )
-                            .into(),
-                    );
+                resolved::TopItem::GenericBinding { .. } => {
+                    unreachable!("generic bindings are checked before monomorphic item emission")
                 }
                 resolved::TopItem::GenericTypeAlias { .. } => {
                     unreachable!("generic aliases are omitted before checked program emission")
@@ -167,10 +197,72 @@ impl Checker {
             };
             items.push(Node::new(kind, item.span));
         }
-        Ok(Program {
-            items,
-            span: program.span,
-        })
+        Ok(specialize::specialize(
+            Program {
+                items,
+                span: program.span,
+            },
+            self.generic_definitions,
+        )?)
+    }
+
+    fn check_generic_binding(
+        &mut self,
+        binding: &resolved::ValueBinding,
+        parameters: &[resolved::TypeBinding],
+        annotation: &Node<resolved::TypeExpression>,
+        value: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<()> {
+        let substitutions = std::sync::Arc::new(
+            parameters
+                .iter()
+                .map(|parameter| {
+                    (
+                        parameter.id,
+                        Type::Parameter {
+                            id: parameter.id,
+                            name: parameter.name.text.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let previous = std::mem::replace(&mut self.type_substitutions, substitutions);
+        let previous_requirements = std::mem::take(&mut self.active_requirements);
+        let previous_generic = self.active_generic.take();
+        let result = (|| {
+            let ty = self.expand_type(annotation)?;
+            let requirements = types::representable_requirements(&ty);
+            self.active_requirements = requirements.clone();
+            self.active_generic = Some((
+                binding.id,
+                parameters.iter().map(|parameter| parameter.id).collect(),
+            ));
+            self.values.insert(binding.id, ty.clone());
+            self.generic_signatures.insert(
+                binding.id,
+                GenericSignature {
+                    parameters: parameters.to_vec(),
+                    ty: ty.clone(),
+                    requirements,
+                },
+            );
+            let checked_value = self.check_value_expression(value, Some(&ty))?;
+            self.check_top_level_initializer(value)?;
+            self.generic_definitions.push(GenericDefinition {
+                binding: binding.clone(),
+                parameters: parameters.to_vec(),
+                ty,
+                value: checked_value,
+                span,
+            });
+            Ok(())
+        })();
+        self.type_substitutions = previous;
+        self.active_requirements = previous_requirements;
+        self.active_generic = previous_generic;
+        result
     }
 
     fn check_binding(&mut self, binding: &resolved::Binding, span: Span) -> CheckResult<Binding> {

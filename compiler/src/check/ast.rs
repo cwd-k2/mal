@@ -291,6 +291,10 @@ pub enum AbruptExpressionKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionKind {
     Reference(ValueReference),
+    GenericReference {
+        reference: ValueReference,
+        arguments: Vec<Type>,
+    },
     Integer(i128),
     Float(u64),
     Symbol(Vec<u8>),

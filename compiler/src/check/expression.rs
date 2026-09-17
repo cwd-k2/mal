@@ -47,19 +47,96 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
-                kind: ExpressionKind::Reference(reference.clone()),
+                kind: if self.generic_signatures.contains_key(&reference.id) {
+                    return Err(Diagnostic::error("generic value requires type arguments")
+                        .with_primary(reference.name.span, "supply the declared type arguments")
+                        .into());
+                } else {
+                    ExpressionKind::Reference(reference.clone())
+                },
                 ty: self.value_type(reference)?,
                 span: expression.span,
             },
-            resolved::Expression::GenericReference { .. } => {
-                return Err(
-                    Diagnostic::error("generic specialization is not implemented")
+            resolved::Expression::GenericReference {
+                reference,
+                arguments,
+            } => {
+                let Some(signature) = self.generic_signatures.get(&reference.id).cloned() else {
+                    return Err(Diagnostic::error("value does not accept type arguments")
+                        .with_primary(reference.name.span, "remove these type arguments")
+                        .into());
+                };
+                if arguments.len() != signature.parameters.len() {
+                    return Err(Diagnostic::error("generic value argument arity mismatch")
                         .with_primary(
-                            expression.span,
-                            "this generic reference cannot be checked yet",
+                            reference.name.span,
+                            format!(
+                                "expected {} arguments but found {}",
+                                signature.parameters.len(),
+                                arguments.len()
+                            ),
                         )
-                        .into(),
-                );
+                        .into());
+                }
+                let arguments = arguments
+                    .iter()
+                    .map(|argument| self.expand_type(argument))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if self
+                    .active_generic
+                    .as_ref()
+                    .is_some_and(|(id, _)| *id == reference.id)
+                {
+                    let (_, parameters) = self.active_generic.as_ref().unwrap();
+                    let same_key = arguments.iter().zip(parameters).all(|(argument, parameter)| {
+                        matches!(argument, Type::Parameter { id, .. } if id == parameter)
+                    });
+                    if !same_key {
+                        return Err(Diagnostic::error("polymorphic recursion is not supported")
+                            .with_primary(
+                                reference.name.span,
+                                "self recursion must preserve the type argument list",
+                            )
+                            .into());
+                    }
+                }
+                for required in &signature.requirements {
+                    let index = signature
+                        .parameters
+                        .iter()
+                        .position(|parameter| parameter.id == *required)
+                        .expect("requirements refer to declared parameters");
+                    if !super::types::satisfies_representable_requirement(
+                        &arguments[index],
+                        &self.active_requirements,
+                    ) {
+                        return Err(Diagnostic::error(
+                            "generic application lacks a Representable requirement",
+                        )
+                        .with_primary(
+                            reference.name.span,
+                            format!(
+                                "type argument `{}` is not known to be representable",
+                                type_name(&arguments[index])
+                            ),
+                        )
+                        .into());
+                    }
+                }
+                let substitutions = signature
+                    .parameters
+                    .iter()
+                    .map(|parameter| parameter.id)
+                    .zip(arguments.iter().cloned())
+                    .collect();
+                Expression {
+                    kind: ExpressionKind::GenericReference {
+                        reference: reference.clone(),
+                        arguments,
+                    },
+                    ty: super::types::substitute_type(&signature.ty, &substitutions),
+                    span: expression.span,
+                }
             }
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?

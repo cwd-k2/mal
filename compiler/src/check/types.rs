@@ -89,7 +89,10 @@ impl Checker {
         &mut self,
         ty: &Node<resolved::TypeExpression>,
     ) -> Result<Type, Diagnostic> {
-        let expanded = self.expand([Expansion::Expression(ty.clone(), Default::default())])?;
+        let expanded = self.expand([Expansion::Expression(
+            ty.clone(),
+            self.type_substitutions.clone(),
+        )])?;
         ensure_representable(&expanded, ty.span)?;
         Ok(expanded)
     }
@@ -99,7 +102,11 @@ impl Checker {
         id: TypeId,
         use_span: Span,
     ) -> Result<Type, Diagnostic> {
-        let expanded = self.expand([Expansion::Reference(id, use_span, Default::default())])?;
+        let expanded = self.expand([Expansion::Reference(
+            id,
+            use_span,
+            self.type_substitutions.clone(),
+        )])?;
         ensure_representable(&expanded, use_span)?;
         Ok(expanded)
     }
@@ -364,6 +371,95 @@ pub(super) fn ensure_memory_representable(ty: &Type, span: Span) -> Result<(), D
         }
     }
     Ok(())
+}
+
+pub(super) fn representable_requirements(ty: &Type) -> std::collections::HashSet<TypeId> {
+    let mut requirements = std::collections::HashSet::new();
+    let mut pending = vec![(ty, false)];
+    while let Some((ty, required)) = pending.pop() {
+        match ty {
+            Type::Parameter { id, .. } if required => {
+                requirements.insert(*id);
+            }
+            Type::Cursor(element) | Type::Region(element) | Type::Packed(element) => {
+                pending.push((element, true));
+            }
+            Type::Product(elements) | Type::Sum(elements) => {
+                pending.extend(elements.iter().map(|element| (element, required)));
+            }
+            Type::Function { parameter, result } => {
+                pending.push((parameter, required));
+                pending.push((result, required));
+            }
+            _ => {}
+        }
+    }
+    requirements
+}
+
+pub(super) fn satisfies_representable_requirement(
+    ty: &Type,
+    available: &std::collections::HashSet<TypeId>,
+) -> bool {
+    let mut pending = vec![ty];
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Parameter { id, .. } => {
+                if !available.contains(id) {
+                    return false;
+                }
+            }
+            Type::Product(elements) => pending.extend(elements.iter()),
+            Type::Sum(members) if !members.is_empty() => pending.extend(members.iter()),
+            Type::Unit
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+            | Type::Float32
+            | Type::Float64
+            | Type::Address
+            | Type::ByteSize
+            | Type::USize => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+pub(super) fn substitute_type(
+    ty: &Type,
+    substitutions: &std::collections::HashMap<TypeId, Type>,
+) -> Type {
+    match ty {
+        Type::Parameter { id, .. } => substitutions.get(id).cloned().unwrap_or_else(|| ty.clone()),
+        Type::Cursor(element) => Type::Cursor(substitute_type(element, substitutions).into()),
+        Type::Region(element) => Type::Region(substitute_type(element, substitutions).into()),
+        Type::Packed(element) => Type::Packed(substitute_type(element, substitutions).into()),
+        Type::Product(elements) => Type::Product(
+            elements
+                .iter()
+                .map(|element| substitute_type(element, substitutions))
+                .collect::<Vec<_>>()
+                .into(),
+        ),
+        Type::Sum(members) => Type::Sum(
+            members
+                .iter()
+                .map(|member| substitute_type(member, substitutions))
+                .collect::<Vec<_>>()
+                .into(),
+        ),
+        Type::Function { parameter, result } => Type::Function {
+            parameter: substitute_type(parameter, substitutions).into(),
+            result: substitute_type(result, substitutions).into(),
+        },
+        _ => ty.clone(),
+    }
 }
 
 pub(super) fn ensure_representable(ty: &Type, span: Span) -> Result<(), Diagnostic> {

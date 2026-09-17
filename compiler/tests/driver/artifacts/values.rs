@@ -1,4 +1,29 @@
 use super::*;
+
+#[test]
+fn specializes_generic_functions_to_distinct_llvm_functions() {
+    let directory = NativeFixture::new("driver-llvm-generics");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "identity<A> :: A -> A := (value) -> value;\n\
+         main :: Unit -> Int32 := () -> identity<Int32>(40) + Int32(identity<UInt8>(2u8));",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(42));
+}
+
 #[test]
 fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
     let directory = NativeFixture::new("driver-llvm-integers");

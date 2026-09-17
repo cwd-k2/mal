@@ -230,3 +230,69 @@ fn type_errors_keep_a_renderable_source_span() {
 
     assert!(error.render(&source).contains("check-test.mal:1:18"));
 }
+
+#[test]
+fn checks_and_specializes_generic_values_before_core_lowering() {
+    let program = check_ok(
+        "identity<A> :: A -> A := (value) -> value;\n\
+         main :: Unit -> (Int32, UInt8) := () -> (identity<Int32>(42), identity<UInt8>(7u8));",
+    );
+
+    assert_eq!(
+        program.items.len(),
+        3,
+        "main plus two concrete specializations"
+    );
+    for (index, expected) in [(1, Type::Int32), (2, Type::UInt8)] {
+        let binding = top_binding(&program, index);
+        assert_eq!(
+            binding.value.ty,
+            Type::Function {
+                parameter: expected.clone().into(),
+                result: expected.into(),
+            }
+        );
+        assert!(matches!(binding.value.kind, ExpressionKind::Lambda(_)));
+    }
+}
+
+#[test]
+fn rejects_invalid_generic_value_use_before_specialization() {
+    for (source, message) in [
+        (
+            "identity<A> :: A -> A := (value) -> value; value := identity;",
+            "generic value requires type arguments",
+        ),
+        (
+            "identity<A> :: A -> A := (value) -> value; value := identity<Int32, UInt8>;",
+            "generic value argument arity mismatch",
+        ),
+        (
+            "value :: Int32 := 1; other := value<Int32>;",
+            "value does not accept type arguments",
+        ),
+        (
+            "double<A> :: A -> A := (value) -> value + value;",
+            "numeric operator requires numeric operands",
+        ),
+    ] {
+        assert_eq!(check_error(source).message, message, "source: {source}");
+    }
+}
+
+#[test]
+fn permits_same_key_recursion_and_rejects_polymorphic_recursion() {
+    check_ok(
+        "repeat<A> :: (Bool, A) -> A := (again, value) ->\n\
+           if (again) then repeat<A>(false, value) else value;\n\
+         main :: Unit -> Int32 := () -> repeat<Int32>(true, 7);",
+    );
+
+    let error = check_error(
+        "recurse<A> :: A -> A := (value) -> {\n\
+           recurse<(A, A)>((value, value));\n\
+           value;\n\
+         };",
+    );
+    assert_eq!(error.message, "polymorphic recursion is not supported");
+}
