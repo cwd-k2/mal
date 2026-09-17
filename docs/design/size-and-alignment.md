@@ -18,7 +18,7 @@ storageとの境界を一つの候補として整理する。現行の規範は[
 - targetのaddress計算に使うbyte量を固定幅の`UInt64`から分離する。
 - size、alignment、padding、sum tagを型ごとに手計算せず、明示したlayout shapeへ閉じ込める。
 - exactなaddressの解釈と、次のaligned addressへの移動を区別する。
-- layoutを通常のruntime valueにせず、配置済みの`Cursor`、`Region`、`Bundle`をgeneric codeへ渡す。
+- layoutを通常のruntime valueにせず、配置済みの`Cursor`と`Region`をgeneric codeへ渡す。
 - allocation policyを言語が所有せず、host operationにはbyte量またはconcrete operation固有のcontractだけを公開する。
 
 この代数自体はmemory safetyを提供しない。`Address`、`Cursor`、`Region`はbounds、initialization、permission、ownership、
@@ -33,19 +33,18 @@ lifetimeを型で証明せず、各operationに必要な条件はcallerまたは
 | `ByteSize` | targetがobject sizeとbyte offsetとして扱えるunsigned量 | pointer representation、要素数、alignment保証 |
 | `Count` | target上の有限collectionの要素数とindexに使うdimensionlessなunsigned量 | byte量、pointer representation |
 | `Address` | 外部storageのopaqueなlocation | numeric value、型、length、access permission、ownership、alignment保証 |
-| `@shape` | 一要素のrepresentation、size/stride、required alignmentを表すstatic layout operand | source type、runtime payload、storage、lifetime、具体的なaddress |
-| `Bundle<A>` | staticなlayout shape、runtimeの要素数、全byte extent | storage、ownership、host-visibleなlayout descriptor |
+| layout shape | 一要素のrepresentation、size/stride、required alignmentを表す`@`または`#`の構文operand | source type、runtime payload、storage、lifetime、具体的なaddress |
 | `Cursor<A>` | runtimeの`Address`とstaticなlayout shape | bounds、initialization、permission、ownership、lifetime、型としてのalignment保証 |
-| `Region<A>` | `Address`へ`Bundle<A>`を適用した有限個の要素location | initialization、permission、allocation identity、ownership、lifetime延長 |
+| `Region<A>` | `Cursor<A>`へ`Count`を適用した有限個の要素location | initialization、permission、allocation identity、ownership、lifetime延長 |
 | `Packed<A>` | mal-ownedなimmutable有限要素列と要素数 | external layout、contiguous storageの保証、mutable storage、host resourceのlifetime |
 
-`@shape`は通常のvalueでも`Layout<A>`というsource typeでもない。layoutを必要とするprimitiveの構文operandであり、
+layout shapeは通常のvalueでも`Layout<A>`というsource typeでもない。`@`によるplacementまたは`#`によるsize queryの構文operandであり、
 nameへbindingしたり、parameter、result、product field、sum payload、closure capture、extern argumentとして渡したりしない。
 compilerはshapeをtarget固有のconstantへ解決し、ANF、LLVM IR、public host ABIへlayout descriptorを渡さない。
 
-`Bundle<A>`、`Cursor<A>`、`Region<A>`はruntime carrierを持つ通常の型付きvalueである。layout shapeは型検査後の
-specializationに残るstatic identityであり、runtimeでは`Bundle`が`Count`、`Cursor`が`Address`、`Region`が`Address`と
-`Count`を運べばよい。最初のprofileでは一つの`A`に一つのartifact-local layoutだけを認める。
+`Cursor<A>`と`Region<A>`はruntime carrierを持つ通常の型付きvalueである。layout shapeは型検査後のspecializationに残る
+static identityであり、runtimeではCursorがAddress、RegionがAddressとCountを運べばよい。最初のprofileでは一つの`A`に
+一つのartifact-local layoutだけを認める。
 
 `Address`はcopyableなopaque locationであり、numeric scalarではない。`address + bytes`と`address - bytes`はinteger値の
 加減算ではなく、同じstorage capabilityからbyte単位のlocationを派生させるoperationである。address literal、null、equality、
@@ -53,39 +52,39 @@ specializationに残るstatic identityであり、runtimeでは`Bundle`が`Count
 
 ## Layout shape
 
-layout shapeには`@`を付け、通常のtype expressionやruntime valueから区別する。
+layout shapeは`@`または`#`の直後だけに置き、通常のtype expressionやruntime valueから区別する。
 
-```mal
-@unit
-@i8
-@u32
-@f64
-@address
-@bytesize
-@count
+```text
+unit
+i8
+u32
+f64
+address
+bytesize
+count
 ```
 
 productとsumはsource typeと同じdelimiterの内側にlayout shapeを書き、flatなn項構造とnested構造をそのまま区別する。
 `&`と`|`によるlayout compositionは設けない。
 
-```mal
-@(i8, u64, i32)          // (Int8, UInt64, Int32)
-@((i8, u64), i32)        // ((Int8, UInt64), Int32)
-@(i8, (u64, i32))        // (Int8, (UInt64, Int32))
+```text
+(i8, u64, i32)          // (Int8, UInt64, Int32)
+((i8, u64), i32)        // ((Int8, UInt64), Int32)
+(i8, (u64, i32))        // (Int8, (UInt64, Int32))
 
-@[unit, i32, address]     // [Unit, Int32, Address]
-@[[unit, i32], address]   // [[Unit, Int32], Address]
-@[unit, [i32, address]]   // [Unit, [Int32, Address]]
+[unit, i32, address]     // [Unit, Int32, Address]
+[[unit, i32], address]   // [[Unit, Int32], Address]
+[unit, [i32, address]]   // [Unit, [Int32, Address]]
 ```
 
-一要素productと一要素sumはsource typeと同様に存在しない。`@unit`のsizeとalignment、empty sum `@[]`を認めるか、
-transparent aliasを`@Alias`で展開できるかは採択前に固定する。
+一要素productと一要素sumはsource typeと同様に存在しない。`unit` shapeのsizeとalignment、empty sum shape `[]`を認めるか、
+transparent aliasをshapeの`Alias`で展開できるかは採択前に固定する。
 
-`#@shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
+`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
 
 ```mal
-#@i8
-#@(u64, i32)
+#i8
+#(u64, i32)
 ```
 
 product layoutはsource orderのfield offset、内部padding、tail padding、全体alignmentを決める。sum layoutはtag representation、
@@ -95,45 +94,6 @@ admissionとobservationは採択前に固定する。
 layoutはopaqueなtarget layoutであり、同じcompiled artifactと対応host adapterの範囲で有効とする。file、network、
 永続storageには別の明示的codecを使い、このlayoutをstable wire formatとして扱わない。public C ABIのby-value aggregate
 representationとも同一視せず、必要な変換はgenerated adapterが所有する。
-
-## `Bundle`
-
-`@shape@Count`は同じlayoutを指定個数だけ束ねた`Bundle<A>`を作る。`@`はuser-defined binary operatorではなく、
-layout shape、alignment、countを左から右へplacementへ加える専用suffixである。canonical formatterは`@`の両側へ空白を置かない。
-
-```mal
-bytes := @u8@100count;
-records := @(u64, i32)@count;
-choices := @[unit, address]@count;
-```
-
-suffixなしのinteger literalも周辺型から`Count`に決まる場合は使える候補とする。
-
-```mal
-bytes := @u8@100;
-```
-
-複合式をCountに使う場合はcount operandを括弧で囲む。
-
-```mal
-remaining := @u8@(requested - consumed);
-```
-
-`#bundle`はBundle全体のextentを`ByteSize`で返す。直接書いたBundle expressionへ`#`を適用する場合は、
-formatterが括弧を出してlayout suffixとの境界を明示する。
-
-```mal
-bundle := @u64@count;
-extent := #bundle;
-sameExtent := #(@u64@count);
-
-#(@u64@count) == count * #@u64
-```
-
-`Bundle<A>`はallocationでもstorage viewでもない。staticなlayout、runtimeのcount、そこから導くextentを持つplacement requestであり、
-storageと結び付くのはAddressまたはCursorへの`@` application、またはconcreteなhost operationのcontractによる。`count * stride`が`ByteSize`で
-表現できない場合にBundle構築をtrap、precondition違反、またはchecked resultのどれにするかは未決である。有効なBundleは
-extentを表現できるというinvariantを持たせる候補を採る。
 
 ## `ByteSize`と`Count`
 
@@ -149,18 +109,19 @@ C representation     size_t                       size_t
 LLVM representation  pointer index幅のinteger     pointer index幅のinteger
 ```
 
-`ByteSize`と`Count`はliteral、同じ型同士の算術と比較、明示的numeric conversionの対象にする。address offsetと各process
-argumentのbyte lengthには`ByteSize`を使う。Bundle、Region、Packed、Symbolの要素数とindex、およびprocess argument countには
-`Count`を使う。
+`ByteSize`と`Count`はliteral、同じ型同士の加減算と比較、明示的numeric conversionの対象にする。`Count`にはdimensionlessな
+unsigned integerとして乗除算とremainderも認める。address offsetと各process argumentのbyte lengthには`ByteSize`を使い、
+Region、Packed、Symbolの要素数とindex、およびprocess argument countには`Count`を使う。
 
 ```mal
-p + count * #@u64
-p - count * #@u64
-p + #(@u64@count)
+p + count * #u64
+p - count * #u64
+p + 8 * #u64
 ```
 
-`Count * ByteSize`と`ByteSize * Count`だけはbyte extentを返すdimension付きの閉じたprimitiveとする。addressの派生が
-同じlive region内または末尾の直後に収まることと、byte extentを表す乗算がoverflowしないことは現時点ではprecondition候補である。
+`Count * ByteSize`と`ByteSize * Count`はbyte extentを返すdimension付きの閉じたprimitiveとし、`ByteSize * ByteSize`は認めない。
+これにより`8 * #u64`のsuffixなしliteralは周辺型から`Count`に一意に決まる。addressの派生が同じlive region内または末尾の
+直後に収まることと、byte extentを表す乗算がoverflowしないことは現時点ではprecondition候補である。
 
 ### postfix numeric conversion
 
@@ -194,21 +155,17 @@ literalにconversionを適用すること自体は禁じない。integer convers
 
 ## Placement
 
-placementとaccessの型関係は次になる。`@Shape`はmetanotationではなく上記のsource layout operandを表す。
+placementとaccessの型関係は次になる。`Shape`は`@`または`#`の直後に置くlayout shapeを表す。
 
 ```text
-@Shape@Count                -> Bundle<A>
-
 Address + ByteSize          -> Address
 Address - ByteSize          -> Address
 !Cursor<A>                  -> Address
 !Region<A>                  -> Address
 
 Address@Shape               -> Cursor<A>
-Cursor<A>@aligned           -> Cursor<A>
+Cursor<A>@align             -> Cursor<A>
 Cursor<A>@Count             -> Region<A>
-Address@Bundle<A>           -> Region<A>
-Cursor<A>@Bundle<A>         -> Region<A>
 
 Cursor<A> <- A              -> Cursor<A>
 <-Cursor<A>                 -> A
@@ -242,40 +199,29 @@ forgetful projectionである。
 !(address@i32@count)  == address
 ```
 
-`Cursor<A>@aligned`は現在位置からshapeのrequired alignmentを満たす最初のlocationまで進め、同じlayout identityのCursorを返す。
+`Cursor<A>@align`は現在位置からshapeのrequired alignmentを満たす最初のlocationまで進め、同じlayout identityのCursorを返す。
 これはalignment assertionではなく実際のalign-upである。すでにalignedならlocationを変えない。新しいstorage、permission、
 ownership、lifetimeは作らず、skipするpaddingと後続のaccessに必要なextentが元のlive regionへ収まることをpreconditionとする。
+suffixは左から右へ適用するため、`address@u64@align@0count`もalign-upした後にcount 0のRegionを作る。
 
 ```mal
 cursor := address@u64;
 region := address@u64@count;
-alignedCursor := address@u64@aligned;
-alignedRegion := address@u64@aligned@count;
+alignedCursor := address@u64@align;
+alignedRegion := address@u64@align@count;
 ```
 
-bare layout、Cursor、一要素Bundle、Regionは同一視しない。
+Cursorと一要素Regionは同一視しない。
 
 ```mal
-@i8@1count          // Bundle<Int8>
 address@i8          // Cursor<Int8>
 address@i8@1count   // Region<Int8>
 ```
 
-AddressへBundleを適用すると、そのBundleのshapeとcountを使うexactなRegionを作る。Cursorへ同じ`A`のBundleを適用すると、
-Cursorの現在位置とlayout identityを保ち、Bundleのcountを持つRegionを作る。異なる型indexのBundleは適用できない。
+`@align`はAddressやlayout shapeには直接適用できず、shapeが確定したCursorにだけ適用できる。
 
 ```mal
-bundle := @u64@count;
-exact := address@bundle;
-aligned := address@u64@aligned@bundle;
-```
-
-`@aligned`はAddress、static layout operand、Bundleには直接適用できず、shapeが確定したCursorにだけ適用できる。
-
-```mal
-address@aligned     // error
-@u64@aligned       // error
-bundle@aligned     // error
+address@align     // error
 ```
 
 `@` suffixはapplicationより弱く、`<-`より強く結合する候補とする。countに複合式を置く場合は括弧で境界を明示する。
@@ -294,8 +240,8 @@ loadは現在位置を進めず、storeは同じlayoutのstrideだけ進んだCu
 value := <-(p@u64);
 next := p@u64 <- value;
 
-alignedValue := <-(p@u64@aligned);
-alignedNext := p@u64@aligned <- value;
+alignedValue := <-(p@u64@align);
+alignedNext := p@u64@align <- value;
 ```
 
 同じCursorからのstore chainは`A`だけを受け取り、各stepで同じstrideだけ進む。heterogeneousな値を一単位として扱う場合は
@@ -315,11 +261,11 @@ end := (!afterVersion)@address <- payloadAddress;
 ```
 
 compilerはsource typeとは別に、各Address、Cursor、Region expressionが保証する最小alignmentをfactとして追跡する候補である。
-exact Cursorでは保証がなければalignment 1、`@aligned`のresultではshapeのrequired alignmentを使う。storeはstrideが
+exact Cursorでは保証がなければalignment 1、`@align`のresultではshapeのrequired alignmentを使う。storeはstrideが
 required alignmentの倍数であるためalignment factを保存する。joinまたはcall boundaryで
 保証を保存できなければ保守的な値へ弱める。過大なLLVM alignmentを指定してはならない。
 
-`@aligned`の実装はopaque pointer capabilityとtargetのprovenance規則に依存する。任意のAddressをportableにalign-upできないtargetでは
+`@align`の実装はopaque pointer capabilityとtargetのprovenance規則に依存する。任意のAddressをportableにalign-upできないtargetでは
 このsuffixを提供できない可能性があり、最初のprofileから外してhost contract由来のalignment evidenceだけを使う案も残す。
 
 ## RegionとPacked
@@ -368,12 +314,12 @@ allocation、failure、ownership、deallocationはpredefined primitiveにしな�
 `ByteSize`、`Count`、またはoperation固有のconcrete contractを受け取る。
 
 ```mal
-bundle := @u64@count;
-raw := hostAllocateBytes(#bundle);
-region := raw@bundle;
+extent := count * #u64;
+raw := hostAllocateBytes(extent);
+region := raw@u64@count;
 ```
 
-alignmentを保証しないallocatorへexact extentだけを要求してから`@aligned`を適用してはならない。一般には最大padding分の余剰storageと
+alignmentを保証しないallocatorへexact extentだけを要求してから`@align`を適用してはならない。一般には最大padding分の余剰storageと
 deallocation用の元Addressが必要であり、alignmentを数値として公開しないprofileではconcreteなhost adapterへ閉じ込める。
 
 partial I/Oではcapacity Regionをhostへ渡し、返されたCountでinitialized prefixとunused suffixを分ける。
@@ -406,7 +352,7 @@ hostがcapacityを超えるcountを返した場合、zero progress、partial ope
 ## Genericsとの境界
 
 generic codeは裸のAddressと型parameter`A`だけからlayoutを導けない。layout shapeは通常のvalueではないため、旧案の
-`Layout<A>` parameterも設けない。callerが具体的なshapeを使ってCursor、Bundle、Regionを構成し、それをgeneric functionへ渡す。
+`Layout<A>` parameterも設けない。callerが具体的なshapeからCursorまたはRegionを構成し、それをgeneric functionへ渡す。
 
 ```mal
 readCursor<A> :: Cursor<A> -> A :=
@@ -415,13 +361,16 @@ readCursor<A> :: Cursor<A> -> A :=
 writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
     (cursor, value) -> cursor <- value;
 
-placeBundle<A> :: (Address, Bundle<A>) -> Region<A> :=
-    (address, bundle) -> address@bundle;
+makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
+    (cursor, count) -> cursor@count;
+
+makeAlignedRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
+    (cursor, count) -> cursor@align@count;
 ```
 
-`Bundle<A>`を作れること自体が`A`にartifact-local layoutがある証拠になる。specialization後にはconcreteなshapeが確定し、
-Bundleのruntime carrierはCountだけになる。複数representation、runtime layout descriptor、implicit dictionary、type reflectionは
-最初のprofileへ入れない。
+CursorまたはRegionを作れること自体が`A`にartifact-local layoutがある証拠になる。specialization後にはconcreteなshapeが確定する。
+複数representation、runtime layout descriptor、implicit dictionary、type reflectionは最初のprofileへ入れない。generic codeが
+必要なextentはcallerが`Count * #shape`で計算するか、具体的なhost operationのcontractに閉じ込める。
 
 ## CとRustとの比較
 
@@ -432,8 +381,8 @@ Bundleのruntime carrierはCountだけになる。複数representation、runtime
 | finite external view | pointerとlength | slice | `Region<A>` |
 | owned sequence | allocation固有 | `Vec<T>`など | immutableな`Packed<A>` |
 | typed interpretation | `T *`への変換 | pointer cast | `Address@shape` |
-| repeated placement | array typeまたはsize計算 | array、slice、allocator `Layout` | `@shape@Count`による`Bundle<A>` |
-| aggregate representation | struct、union、enum | type layoutと`repr` | `@(...)`、`@[...]`によるartifact-local layout |
+| repeated placement | array typeまたはsize計算 | array、slice、allocator `Layout` | `Address@shape@Count`による`Region<A>` |
+| aggregate representation | struct、union、enum | type layoutと`repr` | `Address@(...)`、`Address@[...]`によるartifact-local layout |
 | unaligned access | `memcpy`など | `read_unaligned`、`write_unaligned` | exact placement由来のalignment 1 access |
 
 Cのpointer conversion、alignment、allocation、`memcpy`の規則は
@@ -445,7 +394,7 @@ Cのpointer conversion、alignment、allocation、`memcpy`の規則は
 
 ## ABIとbackend
 
-layout operandはpublic ABIへ現れない。Bundle、Cursor、Regionをconcrete extern signatureに認める場合、generated adapterが既知の
+layout shapeはpublic ABIへ現れない。Cursor、Regionをconcrete extern signatureに認める場合、generated adapterが既知の
 layout constantを使い、hostへ必要なpointer、Count、ByteSizeだけを公開する。openな型parameterはC headerへ公開しない。
 
 LLVM backendはtarget data layoutからdefault address spaceのpointer representation幅、pointer index幅、各primitive representationの
@@ -457,14 +406,14 @@ target layout planとpublic C adapterの責務を明示し、既存internal repr
 
 ## 採択前に固定すること
 
-- layout shape grammar、transparent alias、`@unit`、`@[]`、layoutを持てる型の閉じた集合
+- `#value`と`#shape`を区別するgrammar、transparent alias、`unit`、`[]`、layoutを持てる型の閉じた集合
 - product field order、padding、tail paddingと、sum tag、payload、invalid representationの規則
-- `Bundle` extent overflow、Region store overflow、Packed indexingをtrap、checked result、contract違反のどれにするか
+- byte extentの乗算overflow、Region store overflow、Packed indexingをtrap、checked result、contract違反のどれにするか
 - `ByteSize`と`Count`のarithmetic、literal range、target非依存`check`とのphase境界
 - `.i8`などのpostfix conversionと現行`T(value)`、`value[T]`の移行範囲
-- `Cursor`、`Bundle`、`Region`、`Packed`をsource signatureとpublic C ABIへ書ける範囲
+- `Cursor`、`Region`、`Packed`をsource signatureとpublic C ABIへ書ける範囲
 - RegionとPackedの`/`と`%`、empty value、evaluation order、cleanup、allocation failure
 - `Symbol`を`Packed<UInt8>`へした場合のliteral、`+`、equality、`#`、indexing、C ABI名
 - partial I/Oのzero progress、capacity超過、不正なconsumed count、途中failure
-- `@aligned`を提供できるtargetと、alignment factをbinding、branch join、call boundaryで保存または弱める規則
+- `@align`を提供できるtargetと、alignment factをbinding、branch join、call boundaryで保存または弱める規則
 - 現行`Ptr`から`Address`へのsource名とC ABI型名、および既存memory primitiveからの移行範囲

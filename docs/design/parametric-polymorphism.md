@@ -111,9 +111,9 @@ memory representation、placement、alignmentの候補は
 readUnknown<A> :: Address -> A := (address) -> <-address; // error
 ```
 
-layout shapeは`@i32`や`@(u8, address)`のようにmemory primitiveの構文operandとしてだけ現れ、通常のvalueや
+layout shapeは`address@i32`や`#(u8, address)`のように`@`または`#`の直後だけに現れ、通常のvalueや
 `Layout<A>`というsource typeにはしない。したがってgeneric functionは裸のAddressとlayout parameterを受け取らず、callerが
-具体的なshapeから構成したCursor、Bundle、Regionを受け取る。
+具体的なshapeから構成したCursorまたはRegionを受け取る。
 
 ```mal
 readCursor<A> :: Cursor<A> -> A :=
@@ -128,11 +128,14 @@ cursorAddress<A> :: Cursor<A> -> Address :=
 regionAddress<A> :: Region<A> -> Address :=
     (region) -> !region;
 
-placeBundle<A> :: (Address, Bundle<A>) -> Region<A> :=
-    (address, bundle) -> address@bundle;
+makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
+    (cursor, count) -> cursor@count;
+
+makeAlignedRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
+    (cursor, count) -> cursor@align@count;
 ```
 
-`Bundle<A>`、`Cursor<A>`、`Region<A>`、`Packed<A>`は同じ型indexとstaticなlayout identityを保存するため、genericな有限regionとmal-ownedな有限列の
+`Cursor<A>`、`Region<A>`、`Packed<A>`は同じ型indexとstaticなlayout identityを保存するため、genericな有限regionとmal-ownedな有限列の
 transferを記述できる。
 
 ```mal
@@ -156,7 +159,7 @@ readPackedAt<A> :: (Packed<A>, Count) -> A :=
 preconditionであり、`<-region`で作った`Packed<A>`だけがmal-ownedになる。region storeは`#packed <= #region`を要求し、書き込み
 直後から始まるsuffix Regionを返す。`/`はprefix、`%`はremainderを返し、packed indexingは`index < #packed`を要求する。
 
-`Bundle`、`Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
+`Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
 明示されたoperandの型indexを保存するbuilt-in primitive familyである。型検査後のspecializationではconcreteなshapeと
 value型が確定し、ANF以降へopenな型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
 
@@ -197,5 +200,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、postfix numeric conversion、`@shape`、`@shape@Count`、`Address@shape`、`@aligned`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
-- `Cursor<A>`と`Bundle<A>`を介したgeneric loadとplacement、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
+- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、`@align`、`@Count`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `Cursor<A>`を介したgeneric loadとRegion構築、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
