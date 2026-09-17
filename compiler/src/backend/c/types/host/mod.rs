@@ -320,7 +320,6 @@ impl TypeRegistry {
                 format!("mal_detail_to_raw_{}", self.index(ty)),
                 [call, value],
             ),
-            Type::Symbol => Expr::named_call("mal_detail_Symbol_return", [call, value]),
             Type::Address => Expr::named_call("mal_Address_return", [call, value]),
             Type::External { .. } => Expr::compound_literal(
                 self.c_type(ty),
@@ -332,7 +331,7 @@ impl TypeRegistry {
             Type::Unit => {
                 Expr::compound_literal("MalType_Unit", [Initializer::positional(Expr::number("0"))])
             }
-            Type::Function { .. } => {
+            Type::Symbol | Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => value,
@@ -365,23 +364,6 @@ impl TypeRegistry {
                 format!("mal_detail_to_host_{}", self.index(ty)),
                 [call, value],
             ),
-            Type::Symbol => Expr::compound_literal(
-                "mal_Symbol_t",
-                [
-                    Initializer::designated("mal_detail_raw", value),
-                    Initializer::designated(
-                        "mal_detail_bytes",
-                        Expr::compound_literal(
-                            "mal_span_t",
-                            [Initializer::positional(Expr::number("0"))],
-                        ),
-                    ),
-                    Initializer::designated(
-                        "mal_detail_source",
-                        Expr::named_call("UINT8_C", [Expr::number("0")]),
-                    ),
-                ],
-            ),
             Type::Address => value,
             Type::External { .. } => Expr::compound_literal(
                 self.host_value_c_type(ty, alias),
@@ -390,7 +372,7 @@ impl TypeRegistry {
                     value.field("bits"),
                 )],
             ),
-            Type::Function { .. } => {
+            Type::Symbol | Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => value,

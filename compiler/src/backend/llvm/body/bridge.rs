@@ -16,14 +16,8 @@ impl FunctionEmitter<'_> {
         if argument.ty != external.parameter || *result_type != external.result {
             return None;
         }
-        if !crate::backend::llvm::bridge_type_supported(&argument.ty) {
-            return None;
-        }
         let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
-        if !crate::backend::llvm::bridge_type_supported(&result_type) {
-            return None;
-        }
         let result_value_type = self.types.value(&result_type)?;
         self.line(format!(
             "  store {} {}, ptr %mal_bridge_argument, align {}",
@@ -41,7 +35,7 @@ impl FunctionEmitter<'_> {
             result_value_type.llvm, result_value_type.alignment
         ));
         Some(EmittedValue {
-            owned: crate::execution::ownership::is_managed(&result_type),
+            owned: false,
             ty: result_type,
             representation: register,
         })

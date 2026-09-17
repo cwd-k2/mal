@@ -12,7 +12,6 @@ pub(super) struct Value<'a> {
 pub(super) enum Kind<'a> {
     Unit,
     Scalar,
-    Symbol,
     External,
     Product(Vec<Field<'a>>),
     Sum {
@@ -41,7 +40,7 @@ impl<'a> Value<'a> {
         }
         let kind = match ty {
             Type::Unit => Kind::Unit,
-            Type::Symbol => Kind::Symbol,
+            Type::Symbol => return None,
             Type::External { .. } => Kind::External,
             Type::Product(elements) => Kind::Product(product_fields(ty, elements, types, cache)?),
             Type::Sum(elements) if !types::is_bool(ty) => {

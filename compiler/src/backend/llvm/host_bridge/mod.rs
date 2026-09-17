@@ -65,14 +65,6 @@ pub(super) fn generate(
                 Expr::named_call("UINT8_C", [number(0)]),
             ));
         }
-        plan::Kind::Symbol => {
-            statements.push(variable("MalType_Symbol", "result", Some(call)));
-            statements.push(store(
-                TypeName::named("void").pointer(),
-                identifier("mal_result"),
-                identifier("result").field("ownership"),
-            ));
-        }
         plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
             statements.push(variable(
                 raw_types.c_type(&external.result),
@@ -151,29 +143,6 @@ impl<'a> Marshalling<'a> {
                     Expr::named_call("UINT8_C", [number(0)]),
                 )],
             )),
-            plan::Kind::Symbol => {
-                let ownership = load(TypeName::named("void").const_pointer().pointer(), pointer);
-                Some(Expr::named_call(
-                    "mal_symbol_materialize",
-                    [
-                        context,
-                        Expr::compound_literal(
-                            "MalType_Symbol",
-                            [
-                                Initializer::designated("data", identifier("NULL")),
-                                Initializer::designated(
-                                    "length",
-                                    Expr::named_call(
-                                        "mal_runtime_symbol_length",
-                                        [ownership.clone()],
-                                    ),
-                                ),
-                                Initializer::designated("ownership", ownership),
-                            ],
-                        ),
-                    ],
-                ))
-            }
             plan::Kind::External => Some(Expr::compound_literal(
                 self.raw_types.c_type(value.ty),
                 [Initializer::designated(
@@ -312,11 +281,6 @@ impl<'a> Marshalling<'a> {
                 pointer,
                 Expr::named_call("UINT8_C", [number(0)]),
             )]),
-            plan::Kind::Symbol => Some(vec![store(
-                TypeName::named("void").pointer(),
-                pointer,
-                value.field("ownership"),
-            )]),
             plan::Kind::External => Some(vec![store("uintptr_t", pointer, value.field("bits"))]),
             plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
@@ -450,16 +414,6 @@ fn number(value: impl ToString) -> Expr {
 
 fn trap(context: Expr, message: &str) -> Statement {
     Statement::call("mal_trap", [context, Expr::string(message)])
-}
-
-pub(super) fn type_supported(ty: &Type) -> bool {
-    ty.data_subtypes().all(|ty| {
-        c_scalar_type(ty).is_some()
-            || matches!(
-                ty,
-                Type::Unit | Type::Symbol | Type::External { .. } | Type::Product(_) | Type::Sum(_)
-            )
-    })
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {

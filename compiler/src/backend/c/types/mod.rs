@@ -42,7 +42,6 @@ enum ElementKey {
     UInt64,
     Float32,
     Float64,
-    Symbol,
     Address,
     ByteSize,
     USize,
@@ -67,7 +66,6 @@ impl TypeRegistry {
             Type::UInt64 => TypeName::named("MalType_UInt64"),
             Type::Float32 => TypeName::named("MalType_Float32"),
             Type::Float64 => TypeName::named("MalType_Float64"),
-            Type::Symbol => TypeName::named("MalType_Symbol"),
             Type::Address => TypeName::named("MalType_Address"),
             Type::ByteSize => TypeName::named("MalType_ByteSize"),
             Type::USize => TypeName::named("MalType_USize"),
@@ -75,7 +73,11 @@ impl TypeRegistry {
             Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
             Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
             Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
-            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+            Type::Symbol
+            | Type::Parameter { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_) => {
                 unreachable!("these types never enter the C host registry")
             }
         }
@@ -100,7 +102,6 @@ impl TypeRegistry {
             Type::UInt64 => TypeName::named("mal_UInt64_t"),
             Type::Float32 => TypeName::named("mal_Float32_t"),
             Type::Float64 => TypeName::named("mal_Float64_t"),
-            Type::Symbol => TypeName::named("mal_Symbol_t"),
             Type::Address => TypeName::named("mal_Address_t"),
             Type::ByteSize => TypeName::named("mal_ByteSize_t"),
             Type::USize => TypeName::named("mal_USize_t"),
@@ -110,7 +111,11 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+            Type::Symbol
+            | Type::Parameter { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_) => {
                 unreachable!("these types are not host mappable")
             }
         }
@@ -138,11 +143,14 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Symbol
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                Type::Symbol
+                | Type::Parameter { .. }
+                | Type::Cursor(_)
+                | Type::Region(_)
+                | Type::Packed(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             };
@@ -220,11 +228,14 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Symbol
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                Type::Symbol
+                | Type::Parameter { .. }
+                | Type::Cursor(_)
+                | Type::Region(_)
+                | Type::Packed(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             }
@@ -262,7 +273,7 @@ mod tests {
 
     #[test]
     fn maps_host_values_without_reusing_raw_type_names() {
-        let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
+        let product = Type::Product(vec![Type::UInt64, Type::Address].into());
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let mut registry = TypeRegistry::default();
         registry.collect(&sum);
@@ -272,7 +283,7 @@ mod tests {
             (Type::Int32, "mal_Int32_t"),
             (Type::UInt64, "mal_UInt64_t"),
             (Type::Float64, "mal_Float64_t"),
-            (Type::Symbol, "mal_Symbol_t"),
+            (Type::Address, "mal_Address_t"),
             (
                 Type::External {
                     id: TypeId(3),
@@ -315,7 +326,7 @@ mod tests {
 
     #[test]
     fn declares_host_aggregates_in_structural_dependency_order() {
-        let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
+        let product = Type::Product(vec![Type::UInt64, Type::Address].into());
         let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
         let mut registry = TypeRegistry::default();
         registry.collect(&sum);
@@ -346,7 +357,7 @@ mod tests {
         assert!(declarations.contains("typedef struct mal_detail_repr_sum_1 mal_repr_sum_1_t;"));
         assert!(declarations.contains("typedef mal_repr_product_0_t mal_Packet_t;"));
         assert!(declarations.contains("typedef mal_repr_sum_1_t mal_Result_t;"));
-        assert!(declarations.contains("mal_Symbol_t field_1;"));
+        assert!(declarations.contains("mal_Address_t field_1;"));
         assert!(declarations.contains("mal_repr_product_0_t variant_1;"));
     }
 }

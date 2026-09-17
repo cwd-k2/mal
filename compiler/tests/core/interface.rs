@@ -68,7 +68,7 @@ fn extracts_the_host_interface_without_lowering_value_bindings() {
     let source = SourceFile::new(
         FileId::new(42),
         "core-test.mal",
-        "Pair :: (Int32, Symbol);\n\
+        "Pair :: (Address, USize);\n\
          extern send :: Pair -> Unit;\n\
          value :: Int32 := 1;"
             .into(),

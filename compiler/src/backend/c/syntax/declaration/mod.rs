@@ -80,11 +80,6 @@ impl TypeName {
         self
     }
 
-    pub(in crate::backend) fn const_pointer(mut self) -> Self {
-        self.pointer_const.push(true);
-        self
-    }
-
     pub(in crate::backend) fn structure(tag: impl Into<Identifier>) -> Self {
         Self {
             base: TypeBase::Struct(tag.into()),

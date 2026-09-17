@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter, Statement,
-    TranslationUnit, TypeName, VariableDeclaration,
+    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TypeName,
+    VariableDeclaration,
 };
 use crate::check::ast::Type;
 
@@ -15,90 +15,6 @@ pub(super) fn entry_main(
         return Some(unit_main(entry));
     }
     argument_main(parameter, types, entry)
-}
-
-pub(super) fn symbol_bridge_runtime() -> String {
-    let context = Parameter::named(TypeName::named("MalContext").pointer(), "context");
-    let value = Parameter::named("MalType_Symbol", "value");
-    let mut unit = TranslationUnit::default();
-    unit.push(FunctionDefinition::from_signature(
-        FunctionSignature::new(
-            "MalType_Symbol",
-            "mal_symbol_materialize",
-            [context.clone(), value.clone()],
-        ),
-        Block::new([
-            Statement::expression(Expr::assign(
-                identifier("value").field("data"),
-                Expr::named_call(
-                    "mal_runtime_symbol_data",
-                    [
-                        identifier("context"),
-                        identifier("value").field("ownership"),
-                    ],
-                ),
-            )),
-            Statement::return_value(identifier("value")),
-        ]),
-    ));
-    unit.blank_line();
-    unit.push(FunctionDefinition::from_signature(
-        FunctionSignature::new(
-            "MalType_Symbol",
-            "mal_symbol_copy_from_bytes",
-            [
-                context.clone(),
-                Parameter::named(TypeName::const_named("uint8_t").pointer(), "data"),
-                Parameter::named("uint64_t", "length"),
-            ],
-        ),
-        Block::new([
-            variable(
-                TypeName::named("void").pointer(),
-                "ownership",
-                Some(Expr::named_call(
-                    "mal_runtime_symbol_read",
-                    [
-                        identifier("context"),
-                        identifier("data"),
-                        identifier("length"),
-                    ],
-                )),
-            ),
-            Statement::return_value(Expr::compound_literal(
-                "MalType_Symbol",
-                [
-                    Initializer::designated(
-                        "data",
-                        Expr::named_call(
-                            "mal_runtime_symbol_data",
-                            [identifier("context"), identifier("ownership")],
-                        ),
-                    ),
-                    Initializer::designated("length", identifier("length")),
-                    Initializer::designated("ownership", identifier("ownership")),
-                ],
-            )),
-        ]),
-    ));
-    unit.blank_line();
-    unit.push(FunctionDefinition::from_signature(
-        FunctionSignature::new("MalType_Symbol", "mal_symbol_retain", [context, value]),
-        Block::new([
-            Statement::expression(Expr::assign(
-                identifier("value").field("ownership"),
-                Expr::named_call(
-                    "mal_runtime_symbol_retain",
-                    [
-                        identifier("context"),
-                        identifier("value").field("ownership"),
-                    ],
-                ),
-            )),
-            Statement::return_value(identifier("value")),
-        ]),
-    ));
-    unit.render()
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {

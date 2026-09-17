@@ -34,11 +34,14 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Symbol
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => {}
-                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                Type::Symbol
+                | Type::Parameter { .. }
+                | Type::Cursor(_)
+                | Type::Region(_)
+                | Type::Packed(_) => {
                     unreachable!("open or memory-indexed types are not host mappable")
                 }
             }
@@ -93,7 +96,6 @@ impl TypeRegistry {
             Type::UInt64 => super::ElementKey::UInt64,
             Type::Float32 => super::ElementKey::Float32,
             Type::Float64 => super::ElementKey::Float64,
-            Type::Symbol => super::ElementKey::Symbol,
             Type::Address => super::ElementKey::Address,
             Type::ByteSize => super::ElementKey::ByteSize,
             Type::USize => super::ElementKey::USize,
@@ -102,7 +104,11 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+            Type::Symbol
+            | Type::Parameter { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_) => {
                 unreachable!("open or memory-indexed types are not host mappable")
             }
         }

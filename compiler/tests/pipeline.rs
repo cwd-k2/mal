@@ -26,7 +26,7 @@ fn emits_host_stubs_with_a_validated_header_name() {
     let source = SourceFile::new(
         FileId::new(104),
         "memory.mal",
-        "extern print :: Symbol -> Unit;".into(),
+        "extern print :: (Address, USize) -> Unit;".into(),
     );
 
     let output = malc::pipeline::emit_host(&source, "custom.h").expect("host output");

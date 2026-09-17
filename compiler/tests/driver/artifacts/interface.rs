@@ -34,7 +34,10 @@ fn emit_header_writes_a_standalone_host_interface() {
 fn emit_header_defaults_to_the_source_directory() {
     let directory = NativeFixture::new("driver-default-header");
     let source = directory.join("source/program.mal");
-    directory.write("source/program.mal", "extern print :: Symbol -> Unit;");
+    directory.write(
+        "source/program.mal",
+        "extern print :: (Address, USize) -> Unit;",
+    );
 
     let output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
 

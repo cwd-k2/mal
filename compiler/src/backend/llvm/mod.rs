@@ -41,10 +41,6 @@ impl fmt::Display for Error {
 #[cfg(test)]
 pub(crate) fn supports(program: &crate::execution::Program) -> bool {
     body::supports(program)
-        && program.lowered.interface.externals.iter().all(|external| {
-            host_bridge::type_supported(&external.parameter)
-                && host_bridge::type_supported(&external.result)
-        })
 }
 
 pub(crate) fn generate(
@@ -163,21 +159,15 @@ pub(crate) fn generate(
         entry_argument,
         entry_call,
     );
-    let symbol_bridge_runtime = if body.uses_symbol_runtime {
-        shim::symbol_bridge_runtime()
-    } else {
-        String::new()
-    };
     let main = shim::entry_main(&body.main_parameter, types, entry.name())
         .ok_or(Error::InconsistentExecutionPlan("process entry emission"))?
         .render();
     let entry_declaration =
         crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();
     let shim = format!(
-        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n#include <string.h>\n\n{}\n\n{}\n\n{}\n{}",
+        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n#include <string.h>\n\n{}\n\n{}\n\n{}",
         entry_declaration.trim_end(),
         external_definitions,
-        symbol_bridge_runtime,
         main,
     );
     Ok(LlvmArtifacts {
@@ -294,10 +284,6 @@ fn target_layout(data_layout: &str) -> Option<TargetLayout> {
         }
     }
     Some(layout)
-}
-
-fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
-    host_bridge::type_supported(ty)
 }
 
 #[cfg(test)]
@@ -877,9 +863,9 @@ mod tests {
         for (index, source) in [
             "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, 2u64).i32; };",
             "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := () -> { if (inspect(true)) then { 0 } else { 1 }; };",
-            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, \"x\").i32; };",
-            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := () -> { (value, _) := inspect(1u64, \"x\"); value.i32; };",
-            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (number, text) := exchange(41u64, \"a\" + \"b\"); number.i32; };",
+            "extern memory :: Unit -> Address; extern inspect :: (UInt64, Address) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, memory()).i32; };",
+            "extern memory :: Unit -> Address; extern inspect :: (Address, USize) -> (Address, USize); main :: Unit -> Int32 := () -> { (_, length) := inspect(memory(), 1usize); length.i32; };",
+            "extern memory :: Unit -> Address; Packet :: (Address, USize); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (_, length) := exchange(memory(), 2usize); length.i32; };",
         ]
         .into_iter()
         .enumerate()
@@ -900,8 +886,8 @@ mod tests {
     #[test]
     fn admits_sum_external_calls_recursively() {
         for (index, source) in [
-            "Choice :: [Symbol, Symbol]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
-            "Choice :: [Unit, (UInt64, Symbol)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := () -> { 0; };",
+            "Choice :: [Address, USize]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
+            "Choice :: [Unit, (Address, USize)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := () -> { 0; };",
             "extern Handle; Choice :: [Unit, (UInt64, Handle)]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
         ]
         .into_iter()

@@ -120,9 +120,6 @@ impl<'a> FunctionEmitter<'a> {
         for id in external_ids {
             let external = *index.externals.get(&id)?;
             for ty in [&external.parameter, &external.result] {
-                if !super::super::bridge_type_supported(ty) {
-                    return None;
-                }
                 let value = types.value(ty)?;
                 let (size, alignment) = external_storage.unwrap_or((0usize, 1usize));
                 external_storage = Some((size.max(value.size), alignment.max(value.alignment)));
