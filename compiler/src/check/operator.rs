@@ -188,9 +188,9 @@ impl Checker {
         if matches!(
             operator.kind,
             BinaryOperator::Divide | BinaryOperator::Remainder
-        ) && expected.is_none()
+        ) && expected.is_none_or(|ty| matches!(ty, Type::Region(_) | Type::Packed(_)))
         {
-            let left = self.check_before(left, None, right.span)?;
+            let left = self.check_before(left, expected, right.span)?;
             return self.check_binary_after_left(operator, left, right, span);
         }
         if matches!(

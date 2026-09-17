@@ -60,6 +60,18 @@ fn checks_region_packed_transfer_views_and_symbol_conversion() {
 }
 
 #[test]
+fn checks_view_slices_in_an_expected_view_context() {
+    check_ok(
+        "split :: (Region<UInt8>, Packed<UInt8>, USize) -> (Region<UInt8>, Packed<UInt8>) :=\n\
+           (region, packed, count) -> {\n\
+             prefix :: Region<UInt8> := region / count;\n\
+             remainder :: Packed<UInt8> := packed % count;\n\
+             (prefix, remainder);\n\
+           };",
+    );
+}
+
+#[test]
 fn rejects_packed_operations_for_wrong_element_or_operand_types() {
     for text in [
         "bad :: Packed<UInt16> -> Symbol := (packed) -> *packed;",
