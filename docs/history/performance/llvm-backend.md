@@ -94,3 +94,24 @@ hyperfine --shell=none --warmup 3 --runs 20 --export-json /tmp/mal-symbol-prepen
 
 2,000,000回caseを含めappendと同じほぼ線形の増加になった。開始offsetはruntime private storageだけのmechanismであり、
 LLVM owner move plan、`Symbol`の値、C host descriptorは変更しないため採用する。
+
+## 2026-09-17 — v0.6 API移行後の全79問再監査
+
+typed `Region`、`Address`、`Cursor`を使うv0.6 APIへ全caseを移行した後、同じalgorithmのdirect C baselineを全79問について
+再検証した。Clang 21.1.8、Hyperfine 1.20.0、malc 0.6.0-dev、Nushell 0.114.1を使い、全269 sampleと79個の
+maximum-order inputでstdoutの一致を確認した。各組は3回warmup後、実行順を交互に変えて20回測定した。
+
+| Population | Count | Median ratio | Geometric mean |
+|:---|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.08x | 1.14x |
+| 両実装1 ms以上 | 59 | 1.12x | 1.16x |
+| 両実装5 ms以上 | 52 | 1.12x | 1.16x |
+| 両実装10 ms以上 | 39 | 1.12x | 1.17x |
+
+±5%を同等とするとMalが速い10問、同等24問、direct Cが速い45問だった。各問題のmedian分布はMalが
+min 0.392 ms、mean 53.891 ms、median 11.087 ms、p95 285.524 ms、max 1052.137 ms、direct Cが
+min 0.392 ms、mean 45.188 ms、median 9.383 ms、p95 271.508 ms、max 813.832 msだった。
+
+最大の相対差は032の3.12倍、最大の絶対時間caseは023のMal 1052.137 msに対してdirect C 813.832 msだった。一方、
+056は0.61倍、045は0.67倍でMalが速く、047は1.00倍だった。この分布は特定のcollection primitive追加を正当化せず、
+現行のLTO採用条件も変更しない。個別のmin、mean、median、p95、maxと全raw sampleはignored scratch corpusに保存した。
