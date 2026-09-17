@@ -122,7 +122,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check` | program順序、value environment、result target、body item列の到達可能性、checked itemの構成 |
 | `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
 | `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
-| `check/operator` | operatorの型規則、左結合列の中間型と評価順を検査 |
+| `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
+| `check/memory` | placement、Cursor/Region/Packed access、Address offsetの型規則を検査 |
 | `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion、物理表現上限、診断表示 |
 | `check/interface` | extern transport検査とalias dependencyを反復的に辿るsource-level metadata抽出 |
 | `check/initializer` | top-level closed-value admission |
