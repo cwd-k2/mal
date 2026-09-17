@@ -114,6 +114,12 @@ fn parses_closed_shapes_memory_operators_and_postfix_chains() {
         panic!("expected load");
     };
     assert_eq!(operator.kind, UnaryOperator::Load);
+
+    let Expression::Unary { operator, operand } = binding_value("value := <-address@u8;") else {
+        panic!("expected load");
+    };
+    assert_eq!(operator.kind, UnaryOperator::Load);
+    assert!(matches!(operand.kind, Expression::Placement { .. }));
 }
 
 #[test]

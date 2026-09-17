@@ -42,7 +42,7 @@ copyContents :: (File, Buffer) -> Status := (file, buffer) -> {
         when (length == 0usize) {
             return(_completed());
         };
-        writeSymbol( * (<-(memory @ u8 @ length)));
+        writeSymbol(*<-memory@u8@length);
         return(file.copyContents((memory, capacity, length)));
     },
     (error) -> [complete, failed] => failed(error)
@@ -83,9 +83,9 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    descriptors := <-(arguments @ (address, bytesize) @ argumentCount);
+    descriptors := <-arguments@(address, bytesize)@argumentCount;
     (pathAddress, pathLength) := descriptors # 0usize;
-    path := * (<-(pathAddress @ u8 @ (pathLength.usize)));
+    path := *<-pathAddress@u8@(pathLength.usize);
     result := copyPath(path);
     status :: Int32 := result[
         () -> 0,

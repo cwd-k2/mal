@@ -33,7 +33,7 @@ _finishWrite :: (Address, ByteSize, Status) -> Status := (memory, length, writte
 };
 
 writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
-    packed := * value;
+    packed := *value;
     length := #packed;
     extent := length * #u8;
     if (length == 0usize)
@@ -42,7 +42,7 @@ writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
         mapped := mapAnonymousReadWrite(extent);
         mapped[
         (memory) -> {
-            _ := memory @ u8 @ length <-packed;
+            memory@u8@length <- packed;
             written := _writeAll(descriptor, memory, extent);
             _finishWrite(memory, extent, written);
         },

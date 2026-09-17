@@ -177,6 +177,32 @@ fn formats_unary_and_binary_symbol_operators() {
 }
 
 #[test]
+fn formats_memory_operators_canonically() {
+    let formatted = format(
+        "read := <- address @ u8 !; projected := ? cursor; bytes := * packed; copied := * <- address @ u8 @ count; write := cursor <- value;\n\
+         region := address\n@u8\n@count\n!; end := cursor\n<- first\n<- second;",
+    );
+    assert_eq!(
+        formatted,
+        concat!(
+            "read := <-address@u8!;\n",
+            "projected := ?cursor;\n",
+            "bytes := *packed;\n",
+            "copied := *<-address@u8@count;\n",
+            "write := cursor <- value;\n",
+            "region := address\n",
+            "    @u8\n",
+            "    @count\n",
+            "    !;\n",
+            "end := cursor\n",
+            "    <- first\n",
+            "    <- second;\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn groups_declarations_and_separates_top_level_bindings() {
     let formatted = format(
         "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\

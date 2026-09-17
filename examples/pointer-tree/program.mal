@@ -6,42 +6,42 @@ extern release :: Address -> Unit;
 // Node bytes are Int32 value, UInt8 tag, then two Address fields for tag 1.
 leaf :: Int32 -> Address := (value) -> {
     node := allocate(#i32 + #u8);
-    _ := node @ i32 <-value;
-    _ := (node + #i32) @ u8 <-0u8;
+    node@i32 <- value;
+    (node + #i32)@u8 <- 0u8;
     node;
 };
 
 branch :: (Int32, Address, Address) -> Address := (value, left, right) -> {
     childBytes := 2usize * #address;
     node := allocate(#i32 + #u8 + childBytes);
-    _ := node @ i32 <-value;
-    _ := (node + #i32) @ u8 <-1u8;
-    children := (node + #i32 + #u8) @ address;
-    next := children <-left;
-    _ := next <-right;
+    node@i32 <- value;
+    (node + #i32)@u8 <- 1u8;
+    children := (node + #i32 + #u8)@address;
+    next := children <- left;
+    next <- right;
     node;
 };
 
 sumTree :: Address -> Int32 := (node) -> [return] => {
-    (value, _) := <-(node @ i32);
-    (isBranch, _) := <-((node + #i32) @ u8);
+    (value, _) := <-node@i32;
+    (isBranch, _) := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
         return(value);
     };
 
-    children := (node + #i32 + #u8) @ address;
+    children := (node + #i32 + #u8)@address;
     (left, next) := <-children;
     (right, _) := <-next;
     return(value + left.sumTree() + right.sumTree());
 };
 
 destroyTree :: Address -> Unit := (node) -> [return] => {
-    (isBranch, _) := <-((node + #i32) @ u8);
+    (isBranch, _) := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
         return(node.release());
     };
 
-    children := (node + #i32 + #u8) @ address;
+    children := (node + #i32 + #u8)@address;
     (left, next) := <-children;
     (right, _) := <-next;
     left.destroyTree();

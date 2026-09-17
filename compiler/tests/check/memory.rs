@@ -22,6 +22,16 @@ fn checks_typed_cursor_region_and_stride_operations() {
 }
 
 #[test]
+fn permits_discarding_a_store_result_as_an_expression_statement() {
+    check_ok(
+        "write :: (Cursor<UInt8>, UInt8) -> Unit := (cursor, value) -> {\n\
+           cursor <- value;\n\
+           ();\n\
+         };",
+    );
+}
+
+#[test]
 fn rejects_mismatched_typed_memory_operations() {
     for text in [
         "bad :: Address -> Unit := (address) -> { _ := address@u64 <- 1u8; (); };",

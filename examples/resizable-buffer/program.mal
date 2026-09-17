@@ -50,8 +50,8 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] 
     result :: BufferResult := available[
         (resized) -> [success, failure] => {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
-            packed := * value;
-            _ := (nextMemory + length.bytes) @ u8 @ additional <-packed;
+            packed := *value;
+            (nextMemory + length.bytes)@u8@additional <- packed;
             success((nextAllocation, nextMemory, nextCapacityValue, required));
         },
         (error) -> [success, failure] => failure(error)
@@ -80,7 +80,7 @@ writeThroughDescriptor :: Slice -> Bool := (slice) -> {
     allocated[
     (descriptor) -> {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-        _ := descriptorMemory @ (address, usize) <-(memory, length);
+        descriptorMemory@(address, usize) <- (memory, length);
         writeSliceDescriptor(allocation, descriptorMemory);
         descriptorAllocation.releaseBuffer();
         true;

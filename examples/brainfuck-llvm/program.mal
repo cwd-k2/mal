@@ -29,14 +29,14 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    descriptors := <-(arguments @ (address, bytesize) @ argumentCount);
+    descriptors := <-arguments@(address, bytesize)@argumentCount;
     (pathAddress, pathLength) := descriptors # 0usize;
-    path := * (<-(pathAddress @ u8 @ (pathLength.usize)));
+    path := *<-pathAddress@u8@(pathLength.usize);
     read := readSource(path);
     return(read[
         (source) -> {
             (memory, length, _) := source;
-            bytes := <-(memory @ u8 @ length);
+            bytes := <-memory@u8@length;
             result := compile(bytes);
             status :: Int32 := result[
                 (message) -> {

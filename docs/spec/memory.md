@@ -116,8 +116,8 @@ loadは現在位置の値とstrideだけ進んだCursorのproductを返し、sto
 consumeせず、referentのlifetimeを変更しない。
 
 ```mal
-(value, next) := <-(address@u64);
-(<-(address@u64))[(value, next) -> use(value, next)]
+(value, next) := <-address@u64;
+(<-address@u64)[(value, next) -> use(value, next)]
 
 end := address@u8
     <- first

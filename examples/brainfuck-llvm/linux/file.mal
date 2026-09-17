@@ -123,7 +123,7 @@ _openPath :: (Address, ByteSize) -> ReadResult := (path, pathMappingLength) -> {
 };
 
 readSource :: Symbol -> ReadResult := (path) -> [return] => {
-    packed := * path;
+    packed := *path;
     length := #packed;
     when (length == (-1u64).usize) {
         return(_readFailure(_invalidArgument));
@@ -132,8 +132,8 @@ readSource :: Symbol -> ReadResult := (path) -> [return] => {
     mapped := mapAnonymousReadWrite(mappingLength);
     return(mapped[
         (memory) -> {
-            _ := memory @ u8 @ length <-packed;
-            _ := (memory + length.bytes) @ u8 <-0u8;
+            memory@u8@length <- packed;
+            (memory + length.bytes)@u8 <- 0u8;
             _openPath(memory, mappingLength);
         },
         (error) -> _readFailure(error)

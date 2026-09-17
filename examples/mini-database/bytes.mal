@@ -7,12 +7,12 @@ initializedBytes :: Buffer -> Bytes := (buffer) -> {
 };
 
 readByte :: Address -> UInt8 := (memory) -> {
-    (value, _) := <-(memory @ u8);
+    (value, _) := <-memory@u8;
     value;
 };
 
 writeByte :: (Address, UInt8) -> Unit := (memory, value) -> {
-    _ := memory @ u8 <-value;
+    memory@u8 <- value;
     ();
 };
 
@@ -22,7 +22,7 @@ clearBytes :: (Address, UInt64) -> Unit := (memory, remaining) -> [return] => {
         return(());
     };
 
-    _ := memory @ u8 <-0u8;
+    memory@u8 <- 0u8;
     return((memory + 1bytes).clearBytes(remaining - 1u64));
 };
 
@@ -31,7 +31,7 @@ _rangeEqualsAt :: (Address, UInt64, Symbol, UInt64) -> Bool :=
         when (index == #expected) {
             return(true);
         };
-        (actual, _) := <-((source + (start + index).bytes) @ u8);
+        (actual, _) := <-(source + (start + index).bytes)@u8;
         when (actual != expected # index) {
             return(false);
         };
@@ -51,7 +51,7 @@ findByte :: (Address, UInt64, UInt64, UInt8) -> UInt64 :=
         when (index == length) {
             return(index);
         };
-        (actual, _) := <-((source + index.bytes) @ u8);
+        (actual, _) := <-(source + index.bytes)@u8;
         when (actual == byte) {
             return(index);
         };
@@ -64,8 +64,8 @@ memoryEqualsAt :: (Address, Address, UInt64, UInt64, UInt64) -> Bool :=
         when (index == length) {
             return(true);
         };
-        (left, _) := <-((memory + index.bytes) @ u8);
-        (right, _) := <-((source + (start + index).bytes) @ u8);
+        (left, _) := <-(memory + index.bytes)@u8;
+        (right, _) := <-(source + (start + index).bytes)@u8;
         when (left != right) {
             return(false);
         };
@@ -79,7 +79,7 @@ copyRange :: (Address, UInt64, Address, UInt64) -> Unit :=
             return(());
         };
 
-        (byte, _) := <-((source + start.bytes) @ u8);
-        _ := destination @ u8 <-byte;
+        (byte, _) := <-(source + start.bytes)@u8;
+        destination@u8 <- byte;
         return(source.copyRange(start + 1u64, destination + 1bytes, remaining - 1u64));
     };
