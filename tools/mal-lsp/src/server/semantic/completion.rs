@@ -4,7 +4,8 @@ use malc::editor::{SemanticDocument, SymbolKind};
 use malc::source::{SourceFile, Utf16Position};
 use serde_json::{Value, json};
 
-use super::{Position, Server, span_range};
+use super::{Position, Server};
+use crate::server::span_range;
 
 pub(super) fn completion_items(semantic: &SemanticDocument, functions_only: bool) -> Vec<Value> {
     semantic
@@ -70,7 +71,8 @@ pub(super) fn lexical_function_completions(
         recovered_graph = syntax.and_then(|syntax| {
             let path = super::super::uri_to_path(uri)?;
             let mut requirements = String::new();
-            for span in syntax.requirements() {
+            for requirement in syntax.requirements() {
+                let span = requirement.declaration_span();
                 requirements.push_str(&source.text()[span.start()..span.end()]);
                 requirements.push('\n');
             }

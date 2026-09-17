@@ -16,10 +16,17 @@ pub struct SyntaxToken {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SyntaxRequirement {
+    declaration_span: Span,
+    path_span: Span,
+    path: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SyntaxDocument {
     tokens: Vec<SyntaxToken>,
     functions: Vec<String>,
-    requirements: Vec<Span>,
+    requirements: Vec<SyntaxRequirement>,
 }
 
 pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic> {
@@ -61,7 +68,7 @@ pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
     Ok(SyntaxDocument {
         tokens: syntax_tokens,
         functions,
-        requirements: requirement_spans(&tokens),
+        requirements: requirements(&tokens),
     })
 }
 
@@ -74,32 +81,52 @@ impl SyntaxDocument {
         &self.functions
     }
 
-    pub fn requirements(&self) -> &[Span] {
+    pub fn requirements(&self) -> &[SyntaxRequirement] {
         &self.requirements
     }
 }
 
-fn requirement_spans(tokens: &[Token]) -> Vec<Span> {
-    tokens
-        .windows(3)
-        .filter(|tokens| {
-            matches!(
-                (&tokens[0].kind, &tokens[1].kind, &tokens[2].kind),
-                (
-                    TokenKind::Require,
-                    TokenKind::Symbol(_),
-                    TokenKind::Semicolon
-                )
-            )
-        })
-        .map(|tokens| {
-            Span::new(
-                tokens[0].span.file(),
-                tokens[0].span.start(),
-                tokens[2].span.end(),
-            )
-        })
-        .collect()
+impl SyntaxRequirement {
+    pub const fn declaration_span(&self) -> Span {
+        self.declaration_span
+    }
+
+    pub const fn path_span(&self) -> Span {
+        self.path_span
+    }
+
+    pub fn path(&self) -> &[u8] {
+        &self.path
+    }
+}
+
+fn requirements(tokens: &[Token]) -> Vec<SyntaxRequirement> {
+    let mut requirements = Vec::new();
+    let mut cursor = 0;
+    while let Some(declaration) = tokens.get(cursor..cursor + 3) {
+        let (TokenKind::Require, TokenKind::Symbol(path), TokenKind::Semicolon) = (
+            &declaration[0].kind,
+            &declaration[1].kind,
+            &declaration[2].kind,
+        ) else {
+            break;
+        };
+        requirements.push(SyntaxRequirement {
+            declaration_span: Span::new(
+                declaration[0].span.file(),
+                declaration[0].span.start(),
+                declaration[2].span.end(),
+            ),
+            path_span: Span::new(
+                declaration[1].span.file(),
+                declaration[1].span.start() + 1,
+                declaration[1].span.end() - 1,
+            ),
+            path: path.clone(),
+        });
+        cursor += 3;
+    }
+    requirements
 }
 
 #[cfg(test)]
@@ -118,11 +145,17 @@ mod tests {
 
         assert_eq!(document.functions(), &["helper", "main", "send"]);
         assert_eq!(document.requirements().len(), 1);
-        let requirement = document.requirements()[0];
+        let requirement = &document.requirements()[0];
         assert_eq!(
-            &source.text()[requirement.start()..requirement.end()],
+            &source.text()
+                [requirement.declaration_span().start()..requirement.declaration_span().end()],
             "require \"./dependency.mal\";"
         );
+        assert_eq!(
+            &source.text()[requirement.path_span().start()..requirement.path_span().end()],
+            "./dependency.mal"
+        );
+        assert_eq!(requirement.path(), b"./dependency.mal");
         assert!(document.tokens().iter().any(|token| {
             token.kind == SymbolKind::Function
                 && &source.text()[token.span.start()..token.span.end()] == "helper"

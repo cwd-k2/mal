@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use malc::source::{SourceFile, Span, Utf16Position};
+use serde::Deserialize;
+use serde_json::{Value, json};
 
-use super::uri_to_path;
+use super::{Server, TextDocumentIdentifier, error, path_to_uri, span_range, success, uri_to_path};
 
 pub(super) struct CompletionCandidate {
     pub name: String,
@@ -38,20 +40,59 @@ pub(super) fn completion_candidates(
     )
 }
 
-pub(super) fn target_path(uri: &str, source: &SourceFile, offset: usize) -> Option<PathBuf> {
-    let context = path_context(source.text(), offset)?;
-    let end = context.end?;
-    let requirement = &source.text()[context.start..end];
-    if requirement.contains('\\') {
-        return None;
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentLinkParams {
+    text_document: TextDocumentIdentifier,
+}
+
+impl Server {
+    pub(super) fn document_links(&self, id: Value, params: Value) -> Value {
+        let Ok(params) = serde_json::from_value::<DocumentLinkParams>(params) else {
+            return error(id, -32602, "invalid document link parameters");
+        };
+        let uri = params.text_document.uri;
+        let Some(document) = self.documents.get(&uri) else {
+            return error(id, -32602, "document is not open");
+        };
+        let source = document.source(&uri);
+        let Ok(syntax) = malc::editor::analyze_syntax(&source) else {
+            return success(id, json!([]));
+        };
+        let links = syntax
+            .requirements()
+            .iter()
+            .filter_map(|requirement| {
+                let span = requirement.path_span();
+                let path = std::str::from_utf8(requirement.path()).ok()?;
+                let target = malc::driver::resolve_requirement_path(&uri_to_path(&uri)?, path)?;
+                let target_uri = path_to_uri(&target);
+                if !target.is_file() && !self.documents.contains_key(&target_uri) {
+                    return None;
+                }
+                Some(json!({
+                    "range": span_range(&source, span),
+                    "target": target_uri
+                }))
+            })
+            .collect::<Vec<_>>();
+        success(id, json!(links))
     }
-    malc::driver::resolve_requirement_path(&uri_to_path(uri)?, requirement)
+}
+
+pub(super) fn target_path(uri: &str, source: &SourceFile, offset: usize) -> Option<PathBuf> {
+    let syntax = malc::editor::analyze_syntax(source).ok()?;
+    let requirement = syntax.requirements().iter().find(|requirement| {
+        let span = requirement.path_span();
+        span.start() <= offset && offset < span.end()
+    })?;
+    let path = std::str::from_utf8(requirement.path()).ok()?;
+    malc::driver::resolve_requirement_path(&uri_to_path(uri)?, path)
 }
 
 #[derive(Clone, Copy)]
 struct PathContext {
     start: usize,
-    end: Option<usize>,
 }
 
 fn path_context(text: &str, offset: usize) -> Option<PathContext> {
@@ -99,5 +140,5 @@ fn path_context(text: &str, offset: usize) -> Option<PathContext> {
         cursor += 1;
     }
     let content_end = end.unwrap_or(line_end);
-    (offset >= start && offset <= content_end).then_some(PathContext { start, end })
+    (offset >= start && offset <= content_end).then_some(PathContext { start })
 }

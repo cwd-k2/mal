@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use malc::source::{FileId, SourceFile, SourceGraph, Utf16Position};
+use malc::source::{FileId, SourceFile, SourceGraph, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -111,6 +111,7 @@ impl Server {
                         "documentFormattingProvider": true,
                         "hoverProvider": true,
                         "definitionProvider": true,
+                        "documentLinkProvider": {},
                         "referencesProvider": true,
                         "renameProvider": true,
                         "documentSymbolProvider": true,
@@ -138,6 +139,9 @@ impl Server {
             }
             (Some("textDocument/definition"), Some(id)) => {
                 messages.push(self.definition(id, params));
+            }
+            (Some("textDocument/documentLink"), Some(id)) => {
+                messages.push(self.document_links(id, params));
             }
             (Some("textDocument/references"), Some(id)) => {
                 messages.push(self.references(id, params));
@@ -486,6 +490,16 @@ fn error(id: Value, code: i64, message: &str) -> Value {
 
 fn position(position: Utf16Position) -> Value {
     json!({"line": position.line, "character": position.character})
+}
+
+fn span_range(source: &SourceFile, span: Span) -> Value {
+    let start = source
+        .utf16_position(span.start())
+        .expect("source span start must have a position");
+    let end = source
+        .utf16_position(span.end())
+        .expect("source span end must have a position");
+    json!({"start": position(start), "end": position(end)})
 }
 
 fn zero_range() -> Value {

@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{
-    Document, Server, TextDocumentIdentifier, error, path_to_uri, position, success, uri_to_path,
+    Document, Server, TextDocumentIdentifier, error, path_to_uri, span_range, success, uri_to_path,
 };
 
 mod completion;
@@ -267,22 +267,6 @@ impl Server {
         )
     }
 
-    fn requirement_definition(&self, params: &Value) -> Option<Value> {
-        let request = serde_json::from_value::<PositionParams>(params.clone()).ok()?;
-        let document = self.documents.get(&request.text_document.uri)?;
-        let source = document.source(&request.text_document.uri);
-        let offset = source.byte_offset_utf16(Utf16Position {
-            line: request.position.line,
-            character: request.position.character,
-        })?;
-        let target = super::requirement::target_path(&request.text_document.uri, &source, offset)?;
-        let target_uri = super::path_to_uri(&target);
-        if !target.is_file() && !self.documents.contains_key(&target_uri) {
-            return None;
-        }
-        Some(json!({"uri": target_uri, "range": super::zero_range()}))
-    }
-
     pub(super) fn semantic_tokens(&mut self, id: Value, params: Value) -> Value {
         let (source, semantic) = match self.document_request(&params) {
             SemanticRequest::Ready(value) => value,
@@ -311,6 +295,22 @@ impl Server {
             }),
         );
         success(id, json!({"data": data}))
+    }
+
+    fn requirement_definition(&self, params: &Value) -> Option<Value> {
+        let request = serde_json::from_value::<PositionParams>(params.clone()).ok()?;
+        let document = self.documents.get(&request.text_document.uri)?;
+        let source = document.source(&request.text_document.uri);
+        let offset = source.byte_offset_utf16(Utf16Position {
+            line: request.position.line,
+            character: request.position.character,
+        })?;
+        let target = super::requirement::target_path(&request.text_document.uri, &source, offset)?;
+        let target_uri = super::path_to_uri(&target);
+        if !target.is_file() && !self.documents.contains_key(&target_uri) {
+            return None;
+        }
+        Some(json!({"uri": target_uri, "range": super::zero_range()}))
     }
 
     fn position_request(
@@ -418,15 +418,6 @@ fn definition_display_path(document: &Document, root_uri: &str, source: &SourceF
 #[serde(rename_all = "camelCase")]
 struct DocumentRequest {
     text_document: TextDocumentIdentifier,
-}
-fn span_range(source: &SourceFile, span: Span) -> Value {
-    let start = source
-        .utf16_position(span.start())
-        .expect("semantic span start must have a position");
-    let end = source
-        .utf16_position(span.end())
-        .expect("semantic span end must have a position");
-    json!({"start": position(start), "end": position(end)})
 }
 
 fn symbol_kind(kind: SymbolKind) -> usize {

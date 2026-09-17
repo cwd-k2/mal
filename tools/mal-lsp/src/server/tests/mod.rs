@@ -22,6 +22,7 @@ fn initializes_with_full_sync_utf16_and_formatting() {
     assert_eq!(capabilities["documentFormattingProvider"], true);
     assert_eq!(capabilities["hoverProvider"], true);
     assert_eq!(capabilities["definitionProvider"], true);
+    assert_eq!(capabilities["documentLinkProvider"], json!({}));
     assert_eq!(
         capabilities["completionProvider"]["triggerCharacters"],
         json!([".", "\"", "/"])

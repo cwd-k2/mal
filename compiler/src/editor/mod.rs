@@ -9,7 +9,7 @@ mod index;
 mod syntax;
 
 pub use documentation::declaration_documentation;
-pub use syntax::{SyntaxDocument, SyntaxToken};
+pub use syntax::{SyntaxDocument, SyntaxRequirement, SyntaxToken};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SymbolId {
