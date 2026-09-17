@@ -1,8 +1,8 @@
 # C host ABI
 
-Status: Accepted ABI 0x000700 for the mal v0.6 profile
+Status: Accepted ABI 0x000800 for the mal v0.6 profile
 
-この文書はmal v0.6のreference compilerが生成するC host interfaceを定める。`0x000700`はC ABI自体の
+この文書はmal v0.6のreference compilerが生成するC host interfaceを定める。`0x000800`はC ABI自体の
 versionであり、source languageのversionではない。言語側のextern semanticsは
 [`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
 別backendはsource-level semanticsを保つ限り別のABIを使用できる。
@@ -18,7 +18,7 @@ toolchain argumentはreference compilerの明示的なbuild optionから渡す�
 generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000700u
+#define MAL_C_ABI_VERSION 0x000800u
 ```
 
 `main :: Unit -> Int32`は`main(void)`へ、`main :: (USize, Address) -> Int32`は`main(int, char **)`へlowerする。
@@ -64,7 +64,6 @@ recoverできないcontract違反には`mal_call_trap(call, message)`を使う�
 | `IntN` / `UIntN` | 対応する`mal_IntN_t` / `mal_UIntN_t` |
 | `Float32` / `Float64` | `mal_Float32_t` / `mal_Float64_t` |
 | `ByteSize` / `USize` | `mal_ByteSize_t` / `mal_USize_t`（`size_t`） |
-| `Symbol` | `mal_Symbol_t` |
 | `Address` | `mal_Address_t`（`void *`） |
 | external opaque type `T` | `mal_T_t` |
 | named alias `T` | `mal_T_t` |
@@ -98,41 +97,22 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
 境界通過によって変化しない。`Cursor`、`Region`、`Packed`はpublic C ABIへ出せない。
 
-## Symbol
+public headerはextern signatureから到達できるHostMappableな型と、そのcarrier、helperだけを生成する。`Symbol`、`Cursor`、
+`Region`、`Packed`、function、およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。
 
-`mal_Symbol_t`はhost value descriptorであり、hostがruntimeのmanaged carrierを操作するための型ではない。
-parameterはborrowedで、call中だけ観測またはresultへ返せる。
-
-```c
-mal_span_t bytes = mal_Symbol_to_bytes(call, value);
-```
-
-`mal_Symbol_to_bytes`が返すspanはcall中だけread-onlyで有効である。runtimeは必要ならこのoperationで連続したbyte列を
-materializeする。観測しないparameterにはこの処理を行わない。hostはspanのpointerを保持、変更、解放してはならない。
-
-host bytesからはpure descriptorを作る。
-
-```c
-mal_Symbol_t value = mal_Symbol_from_bytes(
-    (mal_span_t){ .data = bytes, .length = length }
-);
-return mal_Symbol_return(call, value);
-```
-
-`from_bytes`はallocateもcopyもしない。terminal returnがbody終了前にbytesを一度copyするため、stack bufferを渡せる。
-lengthが非zeroでdataがnullならtrapする。length zeroではnullを許す。
-
-Mal由来のborrowed `Symbol`をreturnするとterminal helperがownership shareを一つ作る。同じvalueを複数result fieldへ入れた場合は
-fieldごとに一つ作る。hostはmanaged carrierのclone、move、drop、reference countを直接操作しない。
+可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
+指定範囲をcall中だけborrowし、書き込みではmalが用意した範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
+call後に保持せず、mal-owned valueのidentity、owner、連続表現を観測しない。長さ、permission、初期化、partial transferの
+postconditionは[`Region`と`Packed`](packed.md#partial-io)とoperation固有のcontractを正とする。
 
 ## Failureとconcurrency
 
-allocation failure、target sizeで表現できないlength、不正なBool/tag/Address/span、またはhost adapterが検出したoperation contract違反はtrapする。
+allocation failure、target sizeで表現できないlength、不正なBool/tag/Address、またはhost adapterが検出したoperation contract違反はtrapする。
 sum loweringはtag検査前にpayloadを読まない。terminal conversion中にallocation failureが起きる現在のruntimeではtrapが
 processを終了するためrollback frameを設けない。
 
-reference runtimeのcontextとmanaged valueはthread-confinedである。同じcall capabilityまたはmanaged ownershipへ複数thread
-から同時にaccessしてはならない。hostは独立したborrowed byte spanを並行して読めるが、body return前にjoinしなければならない。
+reference runtimeのcontextとmanaged valueはthread-confinedである。同じcall capabilityへ複数threadから同時にaccessしては
+ならない。hostがAddressの範囲を別threadで処理する場合もbody return前にjoinし、operation固有のpermissionを守る。
 
 ## Reserved namesとcompatibility
 

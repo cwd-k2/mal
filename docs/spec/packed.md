@@ -10,8 +10,8 @@ host境界を定める。layoutとplacementは[external memory](memory.md)を正
 `Region<A>`はAddress、USize、canonical layoutを運ぶexternal storage viewであり、initialization、permission、allocation identity、
 ownership、lifetimeは構成元のprogramまたはhost contractが定める。
 
-`Packed<A>`はmal-ownedなflat immutable有限要素列とUSizeである。runtimeはbacking bufferを必要な間保持し、最後のviewを失った後に
-解放する。`A`がAddressを含んでもPacked bufferだけをmalが支配し、各Addressのreferent lifetimeは延長しない。
+`Packed<A>`はmal-ownedなimmutable有限要素列とUSizeである。runtimeはbacking storageを必要な間保持し、最後のviewを失った後に
+解放する。連続した表現は値の意味に含まれない。`A`がAddressを含んでもPacked storageだけをmalが支配し、各Addressのreferent lifetimeは延長しない。
 `Representable(A)`によりelementはmal-managed ownerを含まない。
 
 ## Operation
@@ -40,8 +40,8 @@ owner、offset、countを持つslice viewを返す。operandは通常のexpressi
 ## Symbol conversion
 
 `Symbol`は`Packed<UInt8>`のaliasではない。prefix `*`はこの二型の間だけのclosed conversion familyである。
-`*packed`は同じbytesのSymbol、`*symbol`は同じbytesのflat Packedを返す。実装はcopyまたはowner共有を選べる。
-Symbolが非flatなら`*symbol`はflat bufferをmaterializeする。operandとresultは変換後も有効である。必要なallocationのfailureはtrapする。
+`*packed`は同じbytesのSymbol、`*symbol`は同じbytesのPackedを返す。実装はcopyまたはowner共有を選べる。
+operandとresultは変換後も有効である。変換は内部表現だけを理由とするallocationやallocation failureを追加しない。
 external storageを直接ownerにするzero-copy Packed viewはない。
 
 ## Partial I/O
@@ -68,18 +68,4 @@ partial inputはcapacity以下のUSizeと、そのprefixを初期化したとい
 primitiveはこれらを検査せず、違反時の結果を保証しない。host postcondition違反もtrusted contractへの違反である。
 防御的trapはimplementation detailである。Unit elementはreadability、writability、initialization、storage extentを要求しない。
 
-## HostMappable
-
-compilerは閉じた`HostMappable(A)` judgmentを持つ。
-
-```text
-HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize | Symbol) = true
-HostMappable(external opaque type) = true
-HostMappable((A...)) = all HostMappable(A)
-HostMappable([A...]) = all HostMappable(A)
-HostMappable(function | Cursor<A> | Region<A> | Packed<A>) = false
-```
-
-transparent generic aliasはconcrete type argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic
-C symbolやheaderへ出さない。aggregate adapterはfield、tag、active payloadを再帰的に変換し、public C carrierをsource memory
-layoutとしてreinterpretしない。Addressが指すstorageのlayout、USize、permission、lifetimeはoperation固有のhost contractに残す。
+host operationへ渡せる型とbyte列をAddressで運ぶ規則は[`extern`](extern.md#host-mappable-type)を正とする。

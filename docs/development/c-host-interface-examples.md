@@ -1,11 +1,10 @@
 # C host interface例
 
-Status: Current ABI 0x000700 examples for the mal v0.6 development profile
+Status: Current ABI 0x000800 examples for the mal v0.6 development profile
 
-この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。すべてのbodyは
-`mal_call_t`を受け、`mal_<T>_t`を通常のC valueとして扱い、型付きresult
-operationをC `return` expressionで返す。説明には`T::operation`というabstract notationを使い、C code blockには対応する
-`mal_<T>_<operation>` spellingを示す。
+この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。public headerへ出るのは
+[`HostMappable`](../spec/extern.md#host-mappable-type)な型だけである。すべてのbodyは`mal_call_t`を受け、型付きresult operationを
+C `return` expressionで返す。
 
 ## Scalar
 
@@ -27,175 +26,79 @@ MAL_DEFINE_write(call, value) {
 }
 ```
 
-scalarと`Unit`も他のresultと同じterminal `return`規則を使う。inline後のconversionはidentityへ消える。
-
-## Product and lazy Symbol observation
+## Borrowed readable bytes
 
 ```mal
-Packet :: (UInt64, Symbol);
-extern sendPacket :: Packet -> UInt32;
-extern sequenceOf :: Packet -> UInt64;
+ReadableBytes :: (Address, USize);
+extern writeBytes :: ReadableBytes -> USize;
+```
+
+```c
+MAL_DEFINE_writeBytes(call, bytes) {
+    size_t written = fwrite(bytes.field_0, 1, bytes.field_1, stdout);
+    if (written == 0 && bytes.field_1 != 0 && ferror(stdout)) {
+        mal_call_trap(call, "cannot write bytes");
+    }
+    return mal_USize_return(call, written);
+}
+```
+
+`bytes.field_0`は少なくとも`bytes.field_1` bytesを読めるというoperation contractを持つ。hostはpointerをbody return後に保持せず、
+変更も解放もしない。resultは消費したprefixの長さであり、mal側がremainderを再送するかを決める。
+
+## Borrowed writable bytes
+
+```mal
+WritableBytes :: (Address, USize);
+extern readBytes :: WritableBytes -> USize;
+```
+
+```c
+MAL_DEFINE_readBytes(call, bytes) {
+    size_t length = fread(bytes.field_0, 1, bytes.field_1, stdin);
+    if (length == 0 && ferror(stdin)) {
+        mal_call_trap(call, "cannot read bytes");
+    }
+    return mal_USize_return(call, length);
+}
+```
+
+hostはcapacity以下のprefixだけを初期化する。mal側はresultをcapacity以下とするcontractを信頼し、そのprefixをRegionからPackedへ
+admitしてから外部bufferを再利用できる。host-owned pointerを`Symbol` resultとして返さない。
+
+## Product and sum
+
+```mal
+Packet :: (UInt64, Address, USize);
+SendResult :: [USize, UInt32];
+extern sendPacket :: Packet -> SendResult;
 ```
 
 ```c
 MAL_DEFINE_sendPacket(call, packet) {
-    mal_span_t payload = mal_Symbol_to_bytes(call, packet.field_1);
-    uint32_t error = send_frame(
-        packet.field_0,
-        payload.data,
-        (size_t)payload.length
-    );
-    return mal_UInt32_return(call, error);
-}
-
-MAL_DEFINE_sequenceOf(call, packet) {
-    return mal_UInt64_return(call, packet.field_0);
-}
-```
-
-どちらも`mal_Packet_t`を受ける。`sequenceOf`はSymbol bytesを要求しないためbyte viewを取得しない。
-
-## Sum observation
-
-```mal
-ReceiveResult :: [Packet, UInt32];
-extern inspect :: ReceiveResult -> UInt32;
-```
-
-```c
-MAL_DEFINE_inspect(call, result) {
-    switch (result.tag) {
-        case mal_ReceiveResult_tag_0:
-            return mal_UInt32_return(
-                call,
-                (uint32_t)result.payload.variant_0.field_0
-            );
-
-        case mal_ReceiveResult_tag_1:
-            return mal_UInt32_return(
-                call,
-                result.payload.variant_1
-            );
+    Transfer sent = send_frame(packet.field_0, packet.field_1, packet.field_2);
+    if (sent.error != 0) {
+        return mal_SendResult_return_1(call, sent.error);
     }
-    mal_call_trap(call, "invalid ReceiveResult tag");
+    return mal_SendResult_return_0(call, sent.length);
 }
 ```
 
-inputはvalidなMal sumから構成される。switch末尾はUBを仮定する`unreachable`でなくtrapにする。
-
-## Symbol passthrough and duplication
-
-```mal
-Pair :: (Symbol, Symbol);
-extern identity :: Symbol -> Symbol;
-extern duplicate :: Symbol -> Pair;
-```
-
-```c
-MAL_DEFINE_identity(call, value) {
-    return mal_Symbol_return(call, value);
-}
-
-MAL_DEFINE_duplicate(call, value) {
-    mal_Pair_t result = {
-        .field_0 = value,
-        .field_1 = value,
-    };
-    return mal_Pair_return(call, result);
-}
-```
-
-hostはclone、retain、dropを扱わない。terminal loweringがresult fieldごとに必要なEngram shareを作る。
-
-## Symbol from host bytes
-
-```mal
-extern receive :: Unit -> Symbol;
-```
-
-```c
-MAL_DEFINE_receive(call) {
-    uint8_t storage[256];
-    size_t length = receive_bytes(storage, sizeof(storage));
-
-    mal_Symbol_t result = mal_Symbol_from_bytes(
-        (mal_span_t){
-            .data = storage,
-            .length = (uint64_t)length,
-        }
-    );
-    return mal_Symbol_return(call, result);
-}
-```
-
-`from_bytes`はpure constructionである。result operationがC activation中にbytesをMal-controlled storageへcopyする。
-
-## Input copy and product modification
-
-```mal
-Packet :: (UInt64, Symbol);
-extern resequence :: Packet -> Packet;
-```
-
-```c
-MAL_DEFINE_resequence(call, packet) {
-    mal_Packet_t result = packet;
-    result.field_0 += UINT64_C(1);
-    return mal_Packet_return(call, result);
-}
-```
-
-host valueのcopyとproduct field変更は元のMal valueを変更しない。result operationが新しいresultを確定する。
-
-## Nested result and recoverable failure
-
-```mal
-extern Socket;
-Packet :: (UInt64, Symbol);
-ReceiveResult :: [Packet, UInt32];
-extern receivePacket :: Socket -> ReceiveResult;
-```
-
-```c
-MAL_DEFINE_receivePacket(call, socket) {
-    uint8_t storage[MAX_PAYLOAD_SIZE];
-    ReceivedFrame received = receive_frame(
-        mal_Socket_to_bits(socket),
-        storage,
-        sizeof(storage)
-    );
-
-    if (received.error != 0) {
-        return mal_ReceiveResult_return_1(call, received.error);
-    }
-
-    mal_Packet_t packet = {
-        .field_0 = received.sequence,
-        .field_1 = mal_Symbol_from_bytes(
-            (mal_span_t){
-                .data = storage,
-                .length = received.length,
-            }
-        ),
-    };
-    return mal_ReceiveResult_return_0(call, packet);
-}
-```
-
-failure variantではMal allocationを始めない。success result operationだけがnested valueを再帰的にlowerする。
+productはsource orderのfieldを持つ。sum resultはvariant-specific terminal returnで構成し、host codeがtagを直接組み立てる必要を
+なくす。Addressの範囲とpermissionはPacketの構造から推測せず、`sendPacket`のcontractが定める。
 
 ## External opaque capability
 
 ```mal
 extern File;
 OpenResult :: [File, UInt32];
-extern openReadOnly :: Symbol -> OpenResult;
+PathBytes :: (Address, USize);
+extern openReadOnly :: PathBytes -> OpenResult;
 ```
 
 ```c
-MAL_DEFINE_openReadOnly(call, pathValue) {
-    mal_span_t path = mal_Symbol_to_bytes(call, pathValue);
-    char *terminated = terminate_path(path);
+MAL_DEFINE_openReadOnly(call, path) {
+    char *terminated = copy_and_terminate(path.field_0, path.field_1);
     if (terminated == NULL) {
         mal_call_trap(call, "path allocation failed");
     }
@@ -207,15 +110,12 @@ MAL_DEFINE_openReadOnly(call, pathValue) {
     if (file == NULL) {
         return mal_OpenResult_return_1(call, error);
     }
-    return mal_OpenResult_return_0(
-        call,
-        mal_File_from_bits((uintptr_t)file)
-    );
+    return mal_OpenResult_return_0(call, mal_File_from_bits((uintptr_t)file));
 }
 ```
 
-`File`の有効性、保持、close、failure mappingはExtern authorityに残る。`File::to_bits`と`File::from_bits`はMal storageへ
-触れないpure operationである。
+`File`の有効性、保持、close、failure mappingはExtern authorityに残る。`to_bits`と`from_bits`はresourceをallocate、clone、close、
+freeしない。pathのAddressはcall-scopedだが、正常resultのFile capabilityはoperation contractが定める期間だけ有効である。
 
 ## External cleanup before failure
 
@@ -250,61 +150,12 @@ MAL_DEFINE_createSocketPair(call) {
 
 result transfer前のexternal resourceはadapterが片付ける。generic `mal_call_t` cleanup stackへ移さない。
 
-## Nested sum construction
-
-```mal
-Status :: [Unit, UInt32];
-Envelope :: (UInt64, Status);
-extern statusEnvelope :: UInt32 -> Envelope;
-```
-
-```c
-MAL_DEFINE_statusEnvelope(call, error) {
-    mal_Status_t status = error == 0
-        ? mal_Status_make_0()
-        : mal_Status_make_1(error);
-
-    mal_Envelope_t envelope = {
-        .field_0 = UINT64_C(42),
-        .field_1 = status,
-    };
-    return mal_Envelope_return(call, envelope);
-}
-```
-
-`make`はvalidなnested sum host valueを作るpure operation、`return`はMal resultを確定するoperationである。
-
-## Lifetime composition
-
-```mal
-extern Handle;
-Mixed :: (Symbol, Handle, UInt64);
-extern inspectMixed :: Mixed -> UInt64;
-```
-
-```c
-MAL_DEFINE_inspectMixed(call, mixed) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, mixed.field_0);
-    remember_handle_if_contract_allows(mal_Handle_to_bits(mixed.field_1));
-    return mal_UInt64_return(
-        call,
-        mixed.field_2 + bytes.length
-    );
-}
-```
-
-`bytes`とSymbol valueはcallを越えて保持しない。scalarは通常のcopyであり、Handleの保持可否はそのExtern contractが定める。
-Handleを保持してもreferent lifetimeは自動では延長しない。
-
 ## Exampleから確認する性質
 
 - bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
-- parameter、local、nested field、result descriptionは同じ`mal_<T>_t`規則を使う。
-- authorityを必要とするoperationだけが`mal_call_t *`を受け取る。
-- scalar、product、sum、Symbolのresultは同じC `return` patternを使う。
-- Symbolのprovenance、raw carrier、storage表現、reference count、admission stateをhost codeへ出さない。
+- parameter、local、nested field、resultは同じ`mal_<T>_t`規則を使う。
+- public型はHostMappableなextern surfaceからだけ到達する。
+- byte列はAddressと長さで借り、Symbol、Packed、Region、managed ownerをhost codeへ出さない。
 - productは通常のC valueとしてcopy、変更、再構成できる。
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。
-- Symbol viewとExtern capabilityで異なるlifetimeをaggregateのleafごとに適用する。
-- Engram result constructionとExtern cleanupを統合しない。
-- host implementationはgenerated headerが公開する型とhelperだけを必要とする。
+- Engramのadmission、Extern capabilityのtransfer、Extern cleanupを一つのownershipへ統合しない。

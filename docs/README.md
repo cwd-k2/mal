@@ -82,4 +82,4 @@
 - reference compiler `malc`はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、program非依存の
   機構をC11 runtimeへ変換する。
 - extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
-- v0.6のC host ABIは`0x000700`である。
+- v0.6のC host ABIは`0x000800`であり、HostMappableな型だけをpublic headerへ出す。

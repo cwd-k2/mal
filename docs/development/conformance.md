@@ -40,14 +40,14 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [transfer/slice](../spec/packed.md#operation) | zero-count、prefix/remainder、index、Unit、Address element、operand一回評価 | external RegionからPackedへadmitしRegionへ戻す |
 | [Symbol conversion](../spec/packed.md#symbol-conversion) | flat/non-flat Symbol、copyまたはowner共有、allocation failure、両operandの継続利用 | Symbol runtime ownershipとPacked slice lifetime |
 | [partial I/O](../spec/packed.md#partial-io) | initialized/consumed prefix、zero progress、retry ordering、host postcondition | reusable byte Regionを使うstreaming host fixture |
-| [HostMappable](../spec/packed.md#hostmappable) | generic alias完全展開、Cursor/Region/Packed rejection、nested product/sum | generated headerとC adapterをcompile/link/execute |
+| [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Cursor/Region/Packed rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
 
 ## ABI
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host ABI](../spec/c-host-abi.md) | ABI `0x000700`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
-| [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Symbol/PackedとAddressを含むaggregateのround-trip |
+| [C host ABI](../spec/c-host-abi.md) | ABI `0x000800`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
+| [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Addressと長さで借りたexternal bytesのadmissionとobservation |
 
 ## Completion gate
 

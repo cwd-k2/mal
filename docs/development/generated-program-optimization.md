@@ -60,8 +60,8 @@ instruction count、branch、allocation counter、peak resident memory、artifac
 - scalar arithmeticとbranch
 - direct call、self-tail loop、deep non-tail unwind
 - first-class call cycleとheterogeneous frame
-- flat/rope `Symbol`のread、comparison、concatenation、host materialization
-- managed product、sum、closure environment、extern round trip
+- flat/rope `Symbol`のread、comparison、concatenation、external Region transfer
+- managed product、sum、closure environment、HostMappable valueのextern round trip
 - checked-in example corpus
 
 意味論fixtureとperformance fixtureを兼用してよいが、期待resultとresource invariantを先に固定する。performance差だけを理由に検証を弱めない。

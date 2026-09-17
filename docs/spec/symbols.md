@@ -13,8 +13,8 @@ valid UTF-8も保証しない。
 与えるが、descriptorやallocationの同一性は言語の意味に含まれない。
 
 literalのbytesはprogram imageのstatic storageに置いてよい。連結、extern result、`Packed<UInt8>`からの変換で得る
-runtime値は、host storageを参照する値ではなくmalへ受け入れられた新しい`Symbol`である。正確な境界規則は
-[EngramとExtern](engrams.md#境界のoperation)に従う。
+runtime値は、host storageを参照する値ではなくmalへ受け入れられた新しい`Symbol`である。host bytesは`Address`と長さで
+external memoryとして受け取り、RegionからPackedへのadmissionと`*`による変換を経てSymbolにする。
 
 ## literal
 
@@ -50,8 +50,7 @@ storageを共有または再利用してよい。
 
 length、byte access、equalityは既存のbyte sequenceを観測するoperationであり、新しいEngramを構成しない。したがって、
 有効なoperandに対して内部表現だけを理由とするstorage allocationやallocation failureを追加してはならない。
-`*symbol`によるPacked変換にも同じ規則を適用する。連続したborrow領域を要求するreference C ABIのextern parameter準備は
-source-level operationではなく、[C host ABI](c-host-abi.md#host-value-mapping)が所有する境界処理である。
+`*symbol`によるPacked変換にも同じ規則を適用する。`Symbol`自体はextern境界を通らない。
 
 byte accessはimmutableなbyte valueに対する位置指定のobservationである。flatなmal-owned sequenceが必要なら
 `Packed<UInt8>`、反復的な更新、再利用可能なbuffer、storageのpermissionとlifetimeが必要なら`Region<UInt8>`またはexternal

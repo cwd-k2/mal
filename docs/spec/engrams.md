@@ -27,8 +27,9 @@ Engramへ包んでもresource ownershipは移らない。
 | observation | EngramからExtern | call中にborrowするか外部storageへcopyし、malのidentityとlifetimeを渡さない |
 | capability transfer | 双方向 | `Address`またはexternal opaque valueを運び、referentのauthorityをExternに残す |
 
-Cursor load、RegionからPackedへのtransfer、extern resultはadmissionである。Cursor/Region storeとextern parameterはobservationである。`Symbol`
-parameterのdataはcall中だけborrowされ、hostはreturn後に保持しない。
+Cursor loadとRegionからPackedへのtransferはadmissionである。Cursor/Region storeはobservationである。extern resultとparameterは
+HostMappableなEngram leafのadmissionまたはobservationと、Addressやexternal opaque valueのcapability transferだけを行う。
+`Symbol`、`Packed`、`Region`はextern signatureへ現れない。
 
 backend adapterはraw host operationとmal valueの間に立つtrusted boundary codeである。adapterがruntime contextを使って
 admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、
@@ -48,9 +49,9 @@ primitiveがopaque valueの表現を定めないことは[external memory](memor
 
 ## composition
 
-productとsumはfieldごとに境界operationを再帰的に適用する。例えば`(Symbol, Address)`をhostへ渡すと、第一fieldは
-observation、第二fieldはcapability transferになる。hostから返す場合は第一fieldをadmitし、第二fieldのcapabilityを
-importする。aggregate carrier全体を一つのownership単位とはみなさない。
+productとsumはfieldごとに境界operationを再帰的に適用する。例えば`(UInt64, Address)`では第一fieldを値として運び、第二fieldの
+capabilityをtransferする。aggregate carrier全体を一つのownership単位とはみなさない。非HostMappableなleafを含むaggregateは
+境界へ出せない。
 
 Bool、sum tag、opaque handleなど有効表現が限定される値をhostが返す場合、adapterはそのcontractを満たさなければならない。
 function valueはhost境界を通せない。closureを渡すにはmal-owned code/environmentの保持期間と呼出権限が必要になり、

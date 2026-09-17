@@ -16,11 +16,11 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | minimalism | [D008](D008.md)、[D033](D033.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
-| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md) |
+| externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
 | genericsとexternal memory | [D052](D052.md) |
-| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md) |
+| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -35,6 +35,8 @@ D050はD038のlambda parameterとD049のdirect result blockのsource spellingを
 D051はD050のarrow共有とlambda return binderを置き換え、lambdaとdirect result blockを独立した構文へ整理する。
 D052はD022、D024、D027、D030、D037のmemory source modelを置き換え、D013、D031、D035の意味論を新しいsyntax、layout、
 generic transferへ適用する。
+D053はD040のSymbol mappingを置き換え、HostMappableだけをpublic C ABIへ出す。D040のtyped value、call capability、terminal
+returnに関する判断は維持する。
 
 ## 後継があるhistorical record
 

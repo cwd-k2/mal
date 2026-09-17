@@ -98,7 +98,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | backend source layout | runtime value layoutと独立したtarget layout planを作り、pointer representation幅、index幅、ABI alignmentを区別する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | flat Packed backing、slice lifetime、Unitのcount-only表現、Symbolとのcopyまたはowner共有を実装する |
-| C interface | `Address`、`ByteSize`、`USize`をABI 0x000700へ写し、generic bindingとCursor/Region/Packedをpublic interfaceから拒否する |
+| C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとCursor/Region/Packedをpublic interfaceから拒否する |
 | process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(USize, Address)` rootへ渡す |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
@@ -188,7 +188,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
-| `runtime/c11/symbol.c` | LLVM artifact用のreference-counted flat/rope `Symbol` storage、allocation-freeな観測と外部byte copy、平衡連結、一意なflat storageの再利用、C host境界での遅延materializationを実装 |
+| `runtime/c11/symbol.c` | LLVM artifact内部のreference-counted flat/rope `Symbol` storage、allocation-freeな観測、外部Regionからのbyte copy、平衡連結、一意なflat storageの再利用を実装 |
 | `runtime/c11/symbol_internal.h` | C runtime内のprivate `Symbol` carrier、LLVM static leafと共有するheader layout、cursor stateを宣言 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
@@ -201,7 +201,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
-`backend/llvm`、`Symbol`のstorage表現は`runtime/c11/symbol.c`、host value descriptorとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
+`backend/llvm`、`Symbol`のstorage表現は`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

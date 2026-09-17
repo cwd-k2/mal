@@ -11,10 +11,12 @@ capabilityは`Address`またはexternal opaque typeで運び、canonical memory 
 
 ```mal
 extern Mem;
-extern alloc :: ByteSize -> Mem;
-extern print :: Symbol -> Unit;
+Allocation :: (Mem, Address);
+extern alloc :: ByteSize -> Allocation;
+extern release :: Mem -> Unit;
+extern print :: (Address, USize) -> Unit;
 
-output :: Symbol -> Unit := print;
+output :: (Address, USize) -> Unit := print;
 ```
 
 external operationは宣言によって通常のtop-level function valueとしてscopeへ入る。呼び出しには通常のapplicationを使い、
@@ -22,10 +24,15 @@ external operationは宣言によって通常のtop-level function valueとし�
 
 ```mal
 main :: Unit -> Unit := () -> {
-    mem := alloc(128bytes);
-    output("hello");
+    (mem, address) := alloc(5bytes);
+    bytes := *"hello";
+    address@u8@#bytes <- bytes;
+    output(address, #bytes);
+    release(mem);
 };
 ```
+
+この例の`address`が指すwritableな5 bytesと`mem`との関係はprogram固有のcontractが定める。
 
 function valueの参照、binding、受け渡しだけではhost operationを実行せず、境界transportも起きない。そのfunction valueを
 applicationしたときに宣言されたhost operationを一度呼び出す。local bindingが同名のexternal operationをshadowした場合も、
@@ -38,19 +45,35 @@ host symbolを呼ばない。両者を配置する規則は[authority policy](..
 
 ## Host-mappable type
 
-extern declarationのparameter型とresult型は[`HostMappable`](packed.md#hostmappable)を満たさなければならない。aliasはconcreteな
-type argumentを代入して完全に展開した後に判定する。このjudgmentはmemory safetyやresource safetyを意味しない。各leafが
-admission、observation、capability transferのどれになるかは[EngramとExtern](engrams.md#境界のoperation)に従う。
+extern declarationのparameter型とresult型は、次の閉じた`HostMappable(A)` judgmentを満たさなければならない。
+
+```text
+HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize) = true
+HostMappable(external opaque type) = true
+HostMappable((A...)) = all HostMappable(A)
+HostMappable([A...]) = all HostMappable(A)
+HostMappable(Symbol | function | Cursor<A> | Region<A> | Packed<A>) = false
+```
+
+aliasはconcreteなtype argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic C symbolやheaderへ
+出さない。このjudgmentはmemory safetyやresource safetyを意味しない。各leafがadmission、observation、capability transferの
+どれになるかは[EngramとExtern](engrams.md#境界のoperation)に従う。
 
 ```text
 HostMappable((Address, USize)) = true
+HostMappable(Symbol)           = false
 HostMappable(Region<UInt8>)    = false
 HostMappable(Packed<UInt8>)    = false
 ```
 
+byte列は`Symbol`、`Packed<UInt8>`、`Region<UInt8>`のcarrierとして渡さず、`Address`と`USize`または`ByteSize`を含む
+operation固有のHostMappableな型で渡す。productの構造的一致だけではpermissionやborrowの方向を決めず、operation contractが
+readable inputまたはwritable capacityと、その範囲、初期化、lifetimeを定める。call-scopedなAddress parameterとそこから派生した
+pointerをhostはcall後に保持しない。extern resultのAddressはcall後にも有効なcapabilityだけを返せる。
+
 ```mal
-extern print :: Symbol -> Unit;
-extern choose :: [Int32, Symbol] -> Int32;
+extern print :: (Address, USize) -> Unit;
+extern choose :: [Int32, Address] -> Int32;
 ```
 
 上の二つはvalidである。次はfunction型を含むためinvalidである。
@@ -86,9 +109,9 @@ printValue :: Int32 -> Unit := (x) -> {
 型の宣言だけでは ABI、ownership、lifetime、failure を定義できない。各 backend または embedding は少なくとも次を別途定義しなければならない。
 
 - symbol の名前解決と calling convention
-- scalar、product、sum、`Symbol` の表現
+- scalar、product、sumの表現
 - opaque value の size、alignment、copy/drop の意味
-- host 側の一時byte bufferの取得方法とcopy後の解放
+- Addressが指すbyte storageの範囲、permission、lifetime
 - host failure を trap、process termination、戻り値のどれへ写像するか
 - host が保持してよい引数と、mal が保持してよい戻り値
 - result capabilityをmalへtransferするcommit pointと、それ以前にhostが取得した一時resourceのcleanup
@@ -116,9 +139,9 @@ lifetimeを延長しない。partial I/Oのpostconditionは[`Region`と`Packed`]
 
 ## ABI と adapter
 
-`extern` 宣言を任意の C function declaration と同一視しない。特に product、sum、`Symbol` は target ABI によって引数・戻り値の渡し方が異なる。
+`extern` 宣言を任意の C function declaration と同一視しない。特にproductとsumはtarget ABIによって引数・戻り値の渡し方が異なる。
 
-reference compilerはmal用の一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
+reference compilerはHostMappableな型だけに一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
 host APIを呼ぶ。generated wrapperとhost bodyはtrusted computing baseに含まれるが、raw host resourceそのものではない。
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
@@ -132,7 +155,7 @@ symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わな�
 
 ## trusted boundary
 
-generated adapterはHostMappable valueのtag、Address、spanなど、C carrierからEngramまたはcapabilityをadmitするために
+generated adapterはHostMappable valueのtagやAddressなど、C carrierからEngramまたはcapabilityをadmitするために
 [C host ABI](c-host-abi.md)が要求するrepresentation validationを行う。region、permission、lifetime、resource identity、
 operation固有のpostconditionはhost implementationのcontractが保証する。
 

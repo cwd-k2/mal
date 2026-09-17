@@ -80,4 +80,4 @@ resource failureは別の規則である。ANF以降はgeneric declaration、typ
 ## Host境界
 
 generic bindingはmal source間だけで使える。generated C header、extern ABI、host adapterへgeneric binding、specialization、型parameterを
-公開しない。generic aliasはconcrete argumentを代入して完全に展開した後、[`HostMappable`](packed.md#hostmappable)で判定する。
+公開しない。generic aliasはconcrete argumentを代入して完全に展開した後、[`HostMappable`](extern.md#host-mappable-type)で判定する。

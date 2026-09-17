@@ -43,7 +43,7 @@ value binding
 
 ```mal
 Point :: (Float64, Float64);
-extern print :: Symbol -> Unit;
+extern printBytes :: (Address, USize) -> Unit;
 
 distance :: (Point, Point) -> Float64 :=
     (a, b) -> {
