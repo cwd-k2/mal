@@ -25,6 +25,10 @@ impl SourceLayouts {
         Self { target }
     }
 
+    pub(super) fn supports_alignment(self) -> bool {
+        self.target.supports_pointer_alignment
+    }
+
     pub(super) fn layout(self, ty: &Type) -> Option<Layout> {
         if let Some(scalar) = super::scalar::scalar_type(ty, self.target.index_size) {
             return Some(Layout {

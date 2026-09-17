@@ -113,7 +113,8 @@ Cursor<A> <- A              -> Cursor<A>
 Addressへ戻す。`Cursor<A>@USize`は現在locationからstrideを繰り返すRegionを作る。Cursorと一要素Regionは別の型である。
 
 loadは現在位置の値とstrideだけ進んだCursorのproductを返し、storeも同じ次Cursorを返す。どちらもexternal storageを
-consumeせず、referentのlifetimeを変更しない。
+consumeせず、referentのlifetimeを変更しない。store結果を使わない場合は通常のexpression statementとして捨てられ、
+`_ := cursor <- value;`と明示する必要はない。結果破棄の一般則は[expression statement](expressions.md#expression-statement)に定める。
 
 ```mal
 (value, next) := <-address@u64;
@@ -127,7 +128,8 @@ end := address@u8
 exact Cursor accessはunaligned accessを認める。backendは保証されたalignmentがなければalignment 1のload/storeまたは同等の
 byte accessへlowerする。postfix `!`は現在位置から`A`のrequired alignmentを満たす最初のlocationへのalign-upである。
 RegionではUSizeを保存し、USize 0でもlocationをalign-upする。exact placementは全backendのbaseline、`!`はpointer provenanceを
-保って実装できるtargetだけのcapabilityとし、未対応targetは`!`を使うartifactを拒否する。alignmentの数値queryはない。
+保って実装できるintegral-pointer targetだけのcapabilityとし、未対応targetは`!`を使うartifactをsource diagnosticで拒否する。
+alignmentの数値queryはない。
 
 ## 未検査precondition
 

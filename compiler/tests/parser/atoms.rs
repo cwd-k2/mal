@@ -32,14 +32,8 @@ fn parses_a_symbol_literal_as_bytes() {
 }
 
 #[test]
-fn rejects_type_names_as_expressions_and_non_call_member_access() {
-    for text in [
-        "value := Ptr.size;",
-        "value := UInt8(1i8);",
-        "value := 1i8[UInt8];",
-        "value := value.load;",
-        "value := UInt8.Load;",
-    ] {
+fn rejects_non_call_member_access() {
+    for text in ["value := value.load;", "value := UInt8.Load;"] {
         let error = parse(&source(text)).expect_err("member syntax should be restricted");
         assert!(error.primary.is_some(), "input: {text}");
     }

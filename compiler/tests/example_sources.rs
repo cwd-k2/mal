@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use malc::lexer::TokenKind;
 use malc::source::{FileId, SourceFile};
 
 fn example_sources() -> Vec<PathBuf> {
@@ -42,26 +41,6 @@ fn every_example_source_is_canonical_and_idempotent() {
         assert_eq!(
             malc::formatter::format(&formatted_source).expect("reformatted example"),
             formatted
-        );
-    }
-}
-
-#[test]
-fn examples_do_not_use_removed_indexed_sum_constructors() {
-    for path in example_sources() {
-        let source = source(&path);
-        let tokens = malc::lexer::lex(&source).expect("lexed example");
-        let indexed_constructor = tokens.windows(5).any(|tokens| {
-            matches!(tokens[0].kind, TokenKind::Integer(_))
-                && matches!(tokens[1].kind, TokenKind::LeftBracket)
-                && matches!(tokens[2].kind, TokenKind::TypeIdentifier)
-                && matches!(tokens[3].kind, TokenKind::RightBracket)
-                && matches!(tokens[4].kind, TokenKind::LeftParen)
-        });
-        assert!(
-            !indexed_constructor,
-            "{} contains an indexed sum constructor",
-            path.display()
         );
     }
 }

@@ -203,6 +203,7 @@ struct TargetLayout {
     index_size: usize,
     integer_alignments: [usize; 4],
     float_alignments: [usize; 2],
+    supports_pointer_alignment: bool,
 }
 
 impl TargetLayout {
@@ -213,6 +214,7 @@ impl TargetLayout {
             index_size,
             integer_alignments: [1, 2, 4, 8],
             float_alignments: [4, 8],
+            supports_pointer_alignment: true,
         })
     }
 
@@ -264,6 +266,11 @@ fn target_layout(data_layout: &str) -> Option<TargetLayout> {
         index_size: supported_size(index_bits)?,
         integer_alignments: [1, 2, 4, 8],
         float_alignments: [4, 8],
+        supports_pointer_alignment: !data_layout.split('-').any(|component| {
+            component
+                .strip_prefix("ni:")
+                .is_some_and(|spaces| spaces.split(':').any(|space| space == "0"))
+        }),
     };
     for component in data_layout.split('-') {
         let (floating, fields) = if let Some(fields) = component.strip_prefix('i') {
@@ -354,7 +361,7 @@ mod tests {
             "extern memory :: Unit -> Address;\n\
              main :: Unit -> Int32 := () -> {\n\
                cursor := memory()@u64;\n\
-               _ := cursor <- 41u64;\n\
+               cursor <- 41u64;\n\
                (value, _) := <-cursor;\n\
                value.i32;\n\
              };"
@@ -657,6 +664,7 @@ mod tests {
                 index_size: 4,
                 integer_alignments: [1, 4, 4, 4],
                 float_alignments: [8, 16],
+                supports_pointer_alignment: true,
             })
         );
     }
@@ -789,6 +797,45 @@ mod tests {
             "4294967296usize"
         );
         assert!(primary.message.contains("4294967295"));
+    }
+
+    #[test]
+    fn rejects_alignment_on_a_target_without_integral_pointers() {
+        let source = SourceFile::new(
+            FileId::new(94),
+            "llvm-unsupported-align.mal",
+            "extern memory :: Unit -> Address;\n\
+             main :: Unit -> Int32 := () -> { memory()@u64!; 0; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check alignment fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+        let error = match generate(
+            &execution,
+            Target {
+                triple: "synthetic-unknown-none",
+                data_layout: "e-p:64:64-ni:0",
+            },
+            OptimizationSet::production(),
+        ) {
+            Ok(_) => panic!("non-integral pointer alignment must be rejected"),
+            Err(error) => error,
+        };
+        let Error::Diagnostic(diagnostic) = error else {
+            panic!("target capability failure must return a diagnostic")
+        };
+        assert_eq!(
+            diagnostic.message,
+            "pointer alignment is not supported for the target"
+        );
+        assert!(diagnostic.primary.is_some());
     }
 
     #[test]

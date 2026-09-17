@@ -11,7 +11,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
 | [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、`@` shape/value、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
-| [numeric conversion](../spec/expressions.md#primitive-operator) | 全closed suffix、rounding/modulo/precondition、旧`T(value)`と`value[T]`のrejection | conversionを含むLLVM artifactのcompile/execute |
+| [numeric conversion](../spec/expressions.md#primitive-operator) | 全closed suffix、rounding、modulo、float-to-integer precondition | conversionを含むLLVM artifactのcompile/execute |
 | [types](../spec/types.md) | indexed type arity、alias expansion、recursive alias、type position以外のTYPE_IDENT rejection | editor hover/navigationとgenerated diagnostic |
 | [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument descriptor | `(USize, Address)` process entryを実際のargvで実行 |
 
@@ -42,13 +42,12 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [partial I/O](../spec/packed.md#partial-io) | initialized/consumed prefix、zero progress、retry ordering、host postcondition | reusable byte Regionを使うstreaming host fixture |
 | [HostMappable](../spec/packed.md#hostmappable) | generic alias完全展開、Cursor/Region/Packed rejection、nested product/sum | generated headerとC adapterをcompile/link/execute |
 
-## ABIとmigration
+## ABI
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
 | [C host ABI](../spec/c-host-abi.md) | ABI `0x000700`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
 | [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Symbol/PackedとAddressを含むaggregateのround-trip |
-| [旧profile撤去](../history/decisions/D052.md) | `Ptr`、`mal_Ptr_t`、型修飾memory primitive、旧conversion syntaxを各所有stageで拒否 | repositoryのspec、example、fixture、generated artifactに旧surfaceが残らない |
 
 ## Completion gate
 

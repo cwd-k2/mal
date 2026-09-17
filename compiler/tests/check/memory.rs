@@ -34,7 +34,7 @@ fn permits_discarding_a_store_result_as_an_expression_statement() {
 #[test]
 fn rejects_mismatched_typed_memory_operations() {
     for text in [
-        "bad :: Address -> Unit := (address) -> { _ := address@u64 <- 1u8; (); };",
+        "bad :: Address -> Unit := (address) -> { address@u64 <- 1u8; (); };",
         "bad :: Address -> Address := (address) -> ?address;",
         "bad :: Address -> UInt64 := (address) -> <-(address@u64@1usize);",
         "bad := 1u64@u8;",

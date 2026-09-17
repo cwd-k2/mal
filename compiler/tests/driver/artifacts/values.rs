@@ -43,7 +43,7 @@ fn transfers_between_regions_and_packed_storage() {
            source := sourceMemory()@u8@3usize;\n\
            packed := <-source;\n\
            target := targetMemory()@u8@3usize;\n\
-           _ := target <- packed;\n\
+           target <- packed;\n\
            (packed # 0usize).i32 + (packed # 2usize).i32;\n\
          };",
     );
@@ -86,11 +86,11 @@ fn stores_and_loads_canonical_products_and_sums() {
          main :: Unit -> Int32 := () -> {\n\
            address := memory();\n\
            product := address@(u8, u64);\n\
-           _ := product <- (7u8, 35u64);\n\
+           product <- (7u8, 35u64);\n\
            ((first, second), _) := <-product;\n\
            choice :: Choice := [none, some] => some(42u64);\n\
            sum := (address + #(u8, u64))@[unit, u64];\n\
-           _ := sum <- choice;\n\
+           sum <- choice;\n\
            (loaded, _) := <-sum;\n\
            selected := loaded[() -> 0i32, (value) -> value.i32];\n\
            first.i32 + second.i32 + selected;\n\
@@ -127,7 +127,7 @@ fn aligns_cursor_access_with_pointer_provenance() {
          extern memory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
            cursor := (memory() + 1bytes)@u64!;\n\
-           _ := cursor <- 42u64;\n\
+           cursor <- 42u64;\n\
            (value, _) := <-cursor;\n\
            value.i32;\n\
          };",
@@ -507,11 +507,11 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
          extern memory :: ByteSize -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
            base := memory(64bytes);\n\
-           _ := base@u64 <- 42u64;\n\
+           base@u64 <- 42u64;\n\
            pointerSlot := base + #u64;\n\
-           _ := pointerSlot@address <- base;\n\
+           pointerSlot@address <- base;\n\
            floatSlot := pointerSlot + #address;\n\
-           _ := floatSlot@f32 <- 1.5f32;\n\
+           floatSlot@f32 <- 1.5f32;\n\
            (restored, _) := <-(pointerSlot@address);\n\
            start := floatSlot - #address - #u64;\n\
            (first, _) := <-(restored@u64);\n\

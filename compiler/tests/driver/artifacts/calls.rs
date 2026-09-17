@@ -111,7 +111,7 @@ fn calls_first_class_wrappers_around_typed_memory_operations() {
          Writer :: (Cursor<Int64>, Int64) -> Unit;\n\
          extern memory :: Unit -> Address;\n\
          read :: Reader := (cursor) -> { (value, _) := <-cursor; value };\n\
-         write :: Writer := (cursor, value) -> { _ := cursor <- value; () };\n\
+         write :: Writer := (cursor, value) -> { cursor <- value; () };\n\
          readWith :: (Reader, Cursor<Int64>) -> Int64 := (reader, cursor) -> { reader(cursor); };\n\
          writeWith :: (Writer, Cursor<Int64>, Int64) -> Unit := (writer, cursor, value) -> { writer(cursor, value); };\n\
          main :: Unit -> Int32 := () -> {\n\
@@ -162,7 +162,7 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
          recurse :: Cursor<Int64> -> Int64 := (cursor) -> { apply(recurse, cursor); };\n\
          main :: Unit -> Int32 := () -> {\n\
            cursor := memory()@i64;\n\
-           _ := cursor <- 42i64;\n\
+           cursor <- 42i64;\n\
            (apply(read, cursor) - 42i64).i32;\n\
          };",
     );

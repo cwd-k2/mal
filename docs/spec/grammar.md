@@ -159,6 +159,10 @@ postfix chainは左から適用する。prefix/postfix `!`、prefix/binary `#`�
 conversion suffixはparenthesized argumentを伴わず、receiver suffixは必ず`.name(...)`なので曖昧にならない。binary `#`、relational、
 equalityは同levelでchainできない。assignment operatorはない。
 
+prefix `<-`のoperandには、それより強く結合するpostfix chain全体が入るため、`<-address@u8!`は
+`<-(address@u8!)`である。binary `<-`は全binary operatorより低く、左結合なので、`cursor <- first <- second`はstoreが返す
+次Cursorへ続けてstoreする。
+
 `expression.VALUE_IDENT(arguments)`はreceiver-first applicationであり、calleeをlexical scopeから解決する。field、property、method
 lookupを導入しない。`expression.VALUE_IDENT`だけの形はconversion suffix以外には存在しない。
 
