@@ -3,9 +3,6 @@ require "./parser.mal";
 require "./query.mal";
 require "./render.mal";
 
-_readArgument :: (Address, ByteSize) -> Symbol := (address, length) ->
-    *<-address@u8@(length.usize);
-
 _reportParseError :: Symbol -> Int32 := (message) -> {
     writeStdout(message.renderError() + "\n");
     1;
@@ -40,7 +37,8 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> {
     }
     else {
         descriptors := <-arguments@(address, bytesize)@argumentCount;
-        query := (descriptors # 0usize)._readArgument().parseQuery();
+        (argumentAddress, argumentLength) := descriptors # 0usize;
+        query := (*<-argumentAddress@u8@(argumentLength.usize)).parseQuery();
         query[
         (message) -> {
             writeStdout(message.renderError() + "\n");

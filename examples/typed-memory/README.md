@@ -1,9 +1,10 @@
 # Typed external memory example
 
-This example obtains mutable storage from the host and performs deliberately unaligned `Int64` and
-`UInt8` access through typed `Cursor` placement on an `Address`. Generic `readCursor<A>` and
-`writeCursor<A>` bindings preserve the cursor's static layout and specialize for both element types.
-The program exits with status 0 when both values round trip correctly.
+This example obtains mutable storage from the host and places two deliberately unaligned canonical
+`Sample` products in it. The generic `swap<A>` operation uses the static layout carried by two
+`Cursor<A>` values to exchange complete values and specializes to `Sample`. A C host operation then
+reads, updates, and writes the first sample through the generated canonical-memory helpers. The
+program exits with status 0 when the swap and the cross-language update both preserve the product.
 
 From the repository root in Nushell:
 

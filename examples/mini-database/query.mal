@@ -3,9 +3,6 @@ require "./bytes.mal";
 require "./input.mal";
 require "./database.mal";
 
-// Response helpers are the only query-layer operations that write user-visible protocol text.
-_writeResponse :: Symbol -> Unit := (response) -> writeSymbol(response);
-
 _put :: (ByteBuffer, File, Packed<UInt8>, USize, USize, USize, USize) -> Unit :=
     (database, file, line, keyStart, keyLength, valueStart, valueLength) -> {
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
@@ -13,10 +10,10 @@ _put :: (ByteBuffer, File, Packed<UInt8>, USize, USize, USize, USize) -> Unit :=
         result[
         () -> {
             file.saveDatabase(database);
-            _writeResponse("OK\n");
+            writeSymbol("OK\n");
         },
-        () -> _writeResponse("ERROR key<=16 value<=40\n"),
-        () -> _writeResponse("ERROR database full\n")
+        () -> writeSymbol("ERROR key<=16 value<=40\n"),
+        () -> writeSymbol("ERROR database full\n")
         ];
     };
 
@@ -25,7 +22,7 @@ _get :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Unit :=
         result := database.lookupRecord(line, keyStart, keyLength);
 
         result[
-        () -> _writeResponse("NOT FOUND\n"),
+        () -> writeSymbol("NOT FOUND\n"),
         (value) -> {
             writeSymbol("VALUE ");
             writeSymbol(*<-value);
@@ -40,9 +37,9 @@ _delete :: (ByteBuffer, File, Packed<UInt8>, USize, USize) -> Unit :=
         if (database.deleteRecord(line, keyStart, keyLength))
         then {
             file.saveDatabase(database);
-            _writeResponse("OK\n");
+            writeSymbol("OK\n");
         }
-        else _writeResponse("NOT FOUND\n");
+        else writeSymbol("NOT FOUND\n");
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
@@ -53,7 +50,7 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
         keyLength := length - 4usize;
         extraSpace := line.findByte(4usize, ' ');
         when (keyLength == 0usize || extraSpace != length) {
-            return(_writeResponse("ERROR usage: get KEY\n"));
+            return(writeSymbol("ERROR usage: get KEY\n"));
         };
         return(database._get(line, 4usize, keyLength));
     };
@@ -62,7 +59,7 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
         keyLength := length - 4usize;
         extraSpace := line.findByte(4usize, ' ');
         when (keyLength == 0usize || extraSpace != length) {
-            return(_writeResponse("ERROR usage: del KEY\n"));
+            return(writeSymbol("ERROR usage: del KEY\n"));
         };
         return(database._delete(file, line, 4usize, keyLength));
     };
@@ -70,7 +67,7 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
     when (length >= 4usize && line.rangeEquals(0usize, 4usize, "put ")) {
         separator := line.findByte(4usize, ' ');
         when (separator == length || separator == 4usize) {
-            return(_writeResponse("ERROR usage: put KEY VALUE\n"));
+            return(writeSymbol("ERROR usage: put KEY VALUE\n"));
         };
         return(database._put(
             file,
@@ -82,7 +79,7 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
         ));
     };
 
-    return(_writeResponse("ERROR commands: put/get/del/quit\n"));
+    return(writeSymbol("ERROR commands: put/get/del/quit\n"));
 };
 
 runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
@@ -92,7 +89,8 @@ runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
         (_) -> (),
         (state) -> [return] => {
             (next, lineBuffer) := state;
-            line := <-lineBuffer.initializedRegion();
+            (lineStorage, lineLength) := lineBuffer;
+            line := <-(lineStorage / lineLength);
             length := #line;
 
             when (length == 0usize || line.rangeEquals(0usize, length, "quit")) {

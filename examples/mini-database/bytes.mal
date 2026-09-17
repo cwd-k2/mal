@@ -2,32 +2,17 @@ require "./host.mal";
 
 // Convert a byte buffer into the initialized descriptor used only at the host boundary.
 initializedBytes :: ByteBuffer -> ReadableBytes := (buffer) -> {
-    (memory, _, length) := buffer;
-    (memory, length);
+    (storage, length) := buffer;
+    (?storage, length);
 };
 
-initializedRegion :: ByteBuffer -> Region<UInt8> := (buffer) -> {
-    (memory, _, length) := buffer;
-    memory@u8@length;
-};
-
-readByte :: Address -> UInt8 := (memory) -> {
-    (value, _) := <-memory@u8;
-    value;
-};
-
-writeByte :: (Address, UInt8) -> Unit := (memory, value) -> {
-    memory@u8 <- value;
-    ();
-};
-
-clearBytes :: (Address, USize) -> Unit := (memory, remaining) -> [return] => {
-    when (remaining == 0usize) {
+clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
+    when (#memory == 0usize) {
         return(());
     };
 
-    memory@u8 <- 0u8;
-    return((memory + 1bytes).clearBytes(remaining - 1usize));
+    (?memory)@u8 <- 0u8;
+    return((memory % 1usize).clearBytes());
 };
 
 _rangeEqualsAt :: (Packed<UInt8>, USize, Symbol, USize) -> Bool :=
@@ -62,12 +47,12 @@ findByte :: (Packed<UInt8>, USize, UInt8) -> USize :=
         return(source.findByte(index + 1usize, byte));
     };
 
-memoryEqualsAt :: (Address, Packed<UInt8>, USize, USize, USize) -> Bool :=
+memoryEqualsAt :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> Bool :=
     (memory, source, start, length, index) -> [return] => {
         when (index == length) {
             return(true);
         };
-        (left, _) := <-(memory + index.bytes)@u8;
+        (left, _) := <-(?(memory % index))@u8;
         when (left != source # (start + index)) {
             return(false);
         };
@@ -75,9 +60,9 @@ memoryEqualsAt :: (Address, Packed<UInt8>, USize, USize, USize) -> Bool :=
         return(memory.memoryEqualsAt(source, start, length, index + 1usize));
     };
 
-copyRange :: (Packed<UInt8>, USize, Address, USize) -> Unit :=
+copyRange :: (Packed<UInt8>, USize, Region<UInt8>, USize) -> Unit :=
     (source, start, destination, length) -> {
         selected := (source % start) / length;
-        destination@u8@length <- selected;
+        destination / length <- selected;
         ();
     };

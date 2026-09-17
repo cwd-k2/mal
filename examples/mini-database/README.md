@@ -7,7 +7,7 @@ Its C adapter supplies only allocation, thin file operations, and byte output.
 The source is split by authority and operation rather than kept in one application module:
 
 - `host.mal` defines positional boundary descriptors and the extern contract.
-- `bytes.mal` owns typed cursor access plus `Region<UInt8>`/`Packed<UInt8>` admission, search, and transfer.
+- `bytes.mal` owns `Region<UInt8>`/`Packed<UInt8>` byte search, admission, and transfer.
 - `input.mal` owns buffered standard-input and line framing.
 - `database.mal` owns the persistent binary layout, validation, lookup, and mutation.
 - `query.mal` parses commands, maps database results to responses, and decides when to persist.
@@ -22,8 +22,9 @@ The shared-memory interface uses three representations with separate responsibil
 
 - `Allocator` is an opaque C-owned arena handle. All allocations remain live until the arena is
   destroyed.
-- `ByteBuffer` is a mal-visible `(Address, capacity, initialized length)` descriptor returned by the C
-  allocator and updated immutably by mal code.
+- `AllocatedBytes` is the host-mappable `(Address, capacity)` descriptor returned by the C allocator.
+  Mal immediately places it as a `Region<UInt8>`; `ByteBuffer` pairs that region with its initialized
+  prefix length and is updated immutably by mal code.
 - `WritableBytes` and `ReadableBytes` are directional `(Address, USize)` descriptors used only at the
   host boundary.
 - Each completed query line is admitted from `Region<UInt8>` into `Packed<UInt8>` before parsing.
@@ -39,7 +40,7 @@ Comments beside positional product and sum aliases name each field or variant. T
 of the example's protocol documentation: transparent aliases do not create named fields or nominal
 variants in the language.
 
-Standard input is transferred into one reusable 4 KiB buffer. The mal program carries unread input
+Standard input is transferred into one reusable 4 KiB region. The mal program carries unread input
 between calls, detects line endings and overlong lines, and copies the current line into a second
 reusable buffer. Each line becomes a temporary owned `Packed<UInt8>` and is released after the query;
 processing more queries does not retain one new value for every input line.
@@ -105,3 +106,8 @@ position to the beginning, `flushFile` makes buffered output visible to the unde
 
 Allocation, path conversion, file operations, and output trap on unrecoverable host failure. The
 adapter does not provide recoverable I/O errors or automatic resource cleanup.
+
+`outputBuffer` returns the same writable scratch buffer on each call with a nonzero capacity. A
+`writeStdout` or `writeStderr` call synchronously consumes exactly the supplied prefix and does not
+retain its address. Mal splits longer `Symbol` values into capacity-sized `Packed<UInt8>` chunks,
+stores each chunk into the buffer region, and writes it before reusing the storage.

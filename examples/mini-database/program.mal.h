@@ -116,7 +116,6 @@ typedef struct { uintptr_t bits; } MalType_File;
 typedef struct MalRepr_Product_0 MalRepr_Product_0;
 typedef struct MalRepr_Product_1 MalRepr_Product_1;
 typedef struct MalRepr_Product_2 MalRepr_Product_2;
-typedef struct MalRepr_Product_3 MalRepr_Product_3;
 
 struct MalRepr_Product_0 {
     MalType_Allocator field_0;
@@ -126,34 +125,27 @@ struct MalRepr_Product_0 {
 struct MalRepr_Product_1 {
     MalType_Address field_0;
     MalType_USize field_1;
-    MalType_USize field_2;
 };
 
 struct MalRepr_Product_2 {
-    MalType_Address field_0;
-    MalType_USize field_1;
-};
-
-struct MalRepr_Product_3 {
     MalType_File field_0;
-    MalRepr_Product_2 field_1;
+    MalRepr_Product_1 field_1;
 };
 
-typedef MalRepr_Product_1 MalType_ByteBuffer;
-typedef MalRepr_Product_2 MalType_ReadableBytes;
-typedef MalRepr_Product_2 MalType_WritableBytes;
-typedef MalRepr_Product_2 MalType_OutputBuffer;
+typedef MalRepr_Product_1 MalType_AllocatedBytes;
+typedef MalRepr_Product_1 MalType_ReadableBytes;
+typedef MalRepr_Product_1 MalType_WritableBytes;
+typedef MalRepr_Product_1 MalType_OutputBuffer;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocator_t;
 typedef struct { uintptr_t mal_detail_bits; } mal_File_t;
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
 typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
 typedef struct mal_detail_repr_product_2 mal_repr_product_2_t;
-typedef struct mal_detail_repr_product_3 mal_repr_product_3_t;
-typedef mal_repr_product_1_t mal_ByteBuffer_t;
-typedef mal_repr_product_2_t mal_ReadableBytes_t;
-typedef mal_repr_product_2_t mal_WritableBytes_t;
-typedef mal_repr_product_2_t mal_OutputBuffer_t;
+typedef mal_repr_product_1_t mal_AllocatedBytes_t;
+typedef mal_repr_product_1_t mal_ReadableBytes_t;
+typedef mal_repr_product_1_t mal_WritableBytes_t;
+typedef mal_repr_product_1_t mal_OutputBuffer_t;
 
 struct mal_detail_repr_product_0 {
     mal_Allocator_t field_0;
@@ -163,17 +155,11 @@ struct mal_detail_repr_product_0 {
 struct mal_detail_repr_product_1 {
     mal_Address_t field_0;
     mal_USize_t field_1;
-    mal_USize_t field_2;
 };
 
 struct mal_detail_repr_product_2 {
-    mal_Address_t field_0;
-    mal_USize_t field_1;
-};
-
-struct mal_detail_repr_product_3 {
     mal_File_t field_0;
-    mal_repr_product_2_t field_1;
+    mal_repr_product_1_t field_1;
 };
 
 /* Type helpers */
@@ -183,15 +169,11 @@ static inline MalRepr_Product_0 mal_repr_product_0_return(mal_call_t *call MAL_D
 }
 
 static inline MalRepr_Product_1 mal_repr_product_1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 };
+    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 static inline MalRepr_Product_2 mal_repr_product_2_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_2_t value) {
-    return (MalRepr_Product_2){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
-}
-
-static inline MalRepr_Product_3 mal_repr_product_3_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_3_t value) {
-    return (MalRepr_Product_3){ .field_0 = (MalType_File){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_2){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1 } };
+    return (MalRepr_Product_2){ .field_0 = (MalType_File){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1 } };
 }
 
 static inline mal_Allocator_t mal_Allocator_from_bits(uintptr_t bits) {
@@ -218,26 +200,26 @@ static inline MalType_File mal_File_return(mal_call_t *call MAL_DETAIL_MAYBE_UNU
     return (MalType_File){ .bits = value.mal_detail_bits };
 }
 
-static inline MalType_ByteBuffer mal_ByteBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ByteBuffer_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 };
+static inline MalType_AllocatedBytes mal_AllocatedBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_AllocatedBytes_t value) {
+    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 static inline MalType_ReadableBytes mal_ReadableBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ReadableBytes_t value) {
-    return (MalRepr_Product_2){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 static inline MalType_WritableBytes mal_WritableBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_WritableBytes_t value) {
-    return (MalRepr_Product_2){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 static inline MalType_OutputBuffer mal_OutputBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_OutputBuffer_t value) {
-    return (MalRepr_Product_2){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 /* External operations */
 
 MalType_Allocator mal_ext_createAllocator(MalContext *context);
-MalType_ByteBuffer mal_ext_allocateBuffer(MalContext *context, MalType_Allocator argument_0, MalType_USize argument_1);
+MalType_AllocatedBytes mal_ext_allocateBuffer(MalContext *context, MalType_Allocator argument_0, MalType_USize argument_1);
 void mal_ext_destroyAllocator(MalContext *context, MalType_Allocator value);
 MalType_File mal_ext_openReadWriteCreate(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 MalType_File mal_ext_standardInput(MalContext *context);
@@ -266,12 +248,12 @@ static MalType_Allocator mal_detail_createAllocator( \
 
 #define MAL_HAS_EXTERN_allocateBuffer 1
 #define MAL_DEFINE_allocateBuffer(call, value) \
-static MalType_ByteBuffer mal_detail_allocateBuffer(mal_call_t *call, mal_repr_product_0_t value); \
-MalType_ByteBuffer mal_ext_allocateBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_USize argument_1) { \
+static MalType_AllocatedBytes mal_detail_allocateBuffer(mal_call_t *call, mal_repr_product_0_t value); \
+MalType_AllocatedBytes mal_ext_allocateBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_allocateBuffer(&call, (mal_repr_product_0_t){ .field_0 = (mal_Allocator_t){ .mal_detail_bits = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_ByteBuffer mal_detail_allocateBuffer( \
+static MalType_AllocatedBytes mal_detail_allocateBuffer( \
     mal_call_t *call, \
     mal_repr_product_0_t value \
 )
@@ -293,7 +275,7 @@ static MalType_Unit mal_detail_destroyAllocator( \
 static MalType_File mal_detail_openReadWriteCreate(mal_call_t *call, mal_ReadableBytes_t value); \
 MalType_File mal_ext_openReadWriteCreate(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_openReadWriteCreate(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    return mal_detail_openReadWriteCreate(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
 static MalType_File mal_detail_openReadWriteCreate( \
     mal_call_t *call, \
@@ -313,26 +295,26 @@ static MalType_File mal_detail_standardInput( \
 
 #define MAL_HAS_EXTERN_readFile 1
 #define MAL_DEFINE_readFile(call, value) \
-static MalType_USize mal_detail_readFile(mal_call_t *call, mal_repr_product_3_t value); \
+static MalType_USize mal_detail_readFile(mal_call_t *call, mal_repr_product_2_t value); \
 MalType_USize mal_ext_readFile(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_File argument_0, MalType_WritableBytes argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_readFile(&call, (mal_repr_product_3_t){ .field_0 = (mal_File_t){ .mal_detail_bits = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_2_t){ .field_0 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1 } }); \
+    return mal_detail_readFile(&call, (mal_repr_product_2_t){ .field_0 = (mal_File_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_1_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1 } }); \
 } \
 static MalType_USize mal_detail_readFile( \
     mal_call_t *call, \
-    mal_repr_product_3_t value \
+    mal_repr_product_2_t value \
 )
 
 #define MAL_HAS_EXTERN_writeFile 1
 #define MAL_DEFINE_writeFile(call, value) \
-static MalType_USize mal_detail_writeFile(mal_call_t *call, mal_repr_product_3_t value); \
+static MalType_USize mal_detail_writeFile(mal_call_t *call, mal_repr_product_2_t value); \
 MalType_USize mal_ext_writeFile(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_File argument_0, MalType_ReadableBytes argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_writeFile(&call, (mal_repr_product_3_t){ .field_0 = (mal_File_t){ .mal_detail_bits = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_2_t){ .field_0 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1 } }); \
+    return mal_detail_writeFile(&call, (mal_repr_product_2_t){ .field_0 = (mal_File_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_1_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1 } }); \
 } \
 static MalType_USize mal_detail_writeFile( \
     mal_call_t *call, \
-    mal_repr_product_3_t value \
+    mal_repr_product_2_t value \
 )
 
 #define MAL_HAS_EXTERN_rewindFile 1
@@ -387,7 +369,7 @@ static MalType_OutputBuffer mal_detail_outputBuffer( \
 static MalType_Unit mal_detail_writeStdout(mal_call_t *call, mal_ReadableBytes_t value); \
 void mal_ext_writeStdout(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeStdout(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    mal_detail_writeStdout(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
 static MalType_Unit mal_detail_writeStdout( \
     mal_call_t *call, \
@@ -399,7 +381,7 @@ static MalType_Unit mal_detail_writeStdout( \
 static MalType_Unit mal_detail_writeStderr(mal_call_t *call, mal_ReadableBytes_t value); \
 void mal_ext_writeStderr(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeStderr(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    mal_detail_writeStderr(&call, (mal_ReadableBytes_t){ .field_0 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
 static MalType_Unit mal_detail_writeStderr( \
     mal_call_t *call, \

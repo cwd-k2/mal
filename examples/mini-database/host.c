@@ -50,12 +50,11 @@ MAL_DEFINE_allocateBuffer(call, value) {
     allocation->memory = memory;
     allocation->next = allocator_handle(value.field_0)->first;
     allocator_handle(value.field_0)->first = allocation;
-    return mal_ByteBuffer_return(
+    return mal_AllocatedBytes_return(
         call,
-        (mal_ByteBuffer_t){
+        (mal_AllocatedBytes_t){
             .field_0 = memory,
             .field_1 = value.field_1,
-            .field_2 = 0,
         }
     );
 }
@@ -168,8 +167,7 @@ MAL_DEFINE_writeStdout(call, value) {
 
 MAL_DEFINE_writeStderr(call, value) {
     if (value.field_0 != output_buffer || value.field_1 > sizeof(output_buffer)
-        || fwrite(value.field_0, 1, value.field_1, stderr) != value.field_1
-        || fputc('\n', stderr) == EOF) {
+        || fwrite(value.field_0, 1, value.field_1, stderr) != value.field_1) {
         mal_call_trap(call, "cannot write stderr");
     }
     return mal_Unit_return(call);

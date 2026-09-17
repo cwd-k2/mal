@@ -18,26 +18,28 @@ _lineReady :: LineState -> LineRead := (state) -> [eof, ready] => ready(state);
 // Return buffered data first; refill only when the cursor reaches initialized bytes.
 _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     (file, buffer, position) := reader;
-    (memory, capacity, length) := buffer;
+    (memory, length) := buffer;
+    capacity := #memory;
 
     when (position < length) {
-        byte := (memory + position.bytes).readByte();
+        (byte, _) := <-(?(memory % position))@u8;
         read(((file, buffer, position + 1usize), byte));
     };
 
-    transferred := file.readFile((memory, capacity));
-    filled := (memory, capacity, transferred);
+    transferred := file.readFile((?memory, capacity));
+    filled := (memory, transferred);
     next := (file, filled, 0usize);
     when (transferred == 0usize) {
         eof(next);
     };
 
-    byte := memory.readByte();
+    (byte, _) := <-(?memory)@u8;
     read(((file, filled, 1usize), byte));
 };
 
 _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
-    (line, capacity, length) := buffer;
+    (line, length) := buffer;
+    capacity := #line;
     result := reader._readByte();
     result[
     (next) -> [return] => {
@@ -51,8 +53,11 @@ _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
 
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
-            when (length > 0usize && (line + (length - 1usize).bytes).readByte() == '\r') {
-                return(_lineReady((next, (line, capacity, length - 1usize))));
+            when (length > 0usize) {
+                (previous, _) := <-(?(line % (length - 1usize)))@u8;
+                when (previous == '\r') {
+                    return(_lineReady((next, (line, length - 1usize))));
+                };
             };
             return(_lineReady((next, buffer)));
         };
@@ -62,13 +67,13 @@ _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
             return(_lineReady((next, buffer)));
         };
 
-        (line + length.bytes).writeByte(byte);
-        return(next._readLineAt((line, capacity, length + 1usize)));
+        (?(line % length))@u8 <- byte;
+        return(next._readLineAt((line, length + 1usize)));
     }
     ];
 };
 
 readLine :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
-    (line, capacity, _) := buffer;
-    reader._readLineAt((line, capacity, 0usize));
+    (line, _) := buffer;
+    reader._readLineAt((line, 0usize));
 };

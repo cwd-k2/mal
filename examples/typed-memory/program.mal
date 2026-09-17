@@ -5,20 +5,26 @@ extern incrementSample :: Address -> Unit;
 
 Sample :: (Int64, UInt8);
 
-CursorStep<A> :: (A, Cursor<A>);
-
-readCursor<A> :: Cursor<A> -> CursorStep<A> := (cursor) -> <-cursor;
-
-writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> := (cursor, value) -> cursor <- value;
+swap<A> :: (Cursor<A>, Cursor<A>) -> Unit := (left, right) -> {
+    (leftValue, _) := <-left;
+    (rightValue, _) := <-right;
+    left <- rightValue;
+    right <- leftValue;
+    ();
+};
 
 main :: Unit -> Int32 := () -> {
     base := unalignedStorage();
-    slot := (base + 1bytes)@i64;
-    writeCursor<Int64>(slot, 41i64);
-    byte := (?slot + #i64)@u8;
-    writeCursor<UInt8>(byte, 1u8);
-    incrementSample(?slot);
-    (number, _) := readCursor<Int64>(slot);
-    (small, _) := readCursor<UInt8>(byte);
-    (number + small.i64 - 44i64).i32;
+    first := (base + 1bytes)@(i64, u8);
+    second := first <- (7i64, 9u8);
+    second <- (40i64, 1u8);
+    swap<Sample>(first, second);
+    incrementSample(?first);
+    (incremented, next) := <-first;
+    (moved, _) := <-next;
+    (number, small) := incremented;
+    (movedNumber, movedSmall) := moved;
+    if (number == 41i64 && small == 2u8 && movedNumber == 7i64 && movedSmall == 9u8)
+    then 0
+    else 1;
 };

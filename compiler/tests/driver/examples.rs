@@ -315,6 +315,77 @@ fn mini_database_example_persists_queries_across_processes() {
     let output = run_session("quit\n");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("invalid database file"));
+
+    std::fs::write(&database, vec![0]).unwrap();
+    let output = run_session("quit\n");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid database file"));
+}
+
+#[test]
+fn mini_database_output_chunks_symbols_larger_than_the_host_buffer() {
+    let directory = NativeFixture::new("mini-database-output");
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/mini-database");
+    for name in ["host.mal", "host.c", "program.mal.h"] {
+        directory.write(
+            name,
+            std::fs::read(example.join(name)).expect("read mini database host fixture"),
+        );
+    }
+
+    let response = "response".repeat(100);
+    let error = "error".repeat(140);
+    let program = directory.write(
+        "program.mal",
+        format!(
+            "require \"./host.mal\";\n\nmain :: Unit -> Int32 := () -> {{\n    writeSymbol(\"{response}\");\n    0;\n}};\n"
+        ),
+    );
+    let executable = directory.join("response-example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = directory.run(executable);
+    assert!(output.status.success());
+    assert_eq!(output.stdout, response.as_bytes());
+    assert!(output.stderr.is_empty());
+
+    directory.write(
+        "program.mal",
+        format!(
+            "require \"./host.mal\";\n\nmain :: Unit -> Int32 := () -> {{\n    fail(\"{error}\");\n    1;\n}};\n"
+        ),
+    );
+    let executable = directory.join("error-example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = directory.run(executable);
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.starts_with(format!("{error}\n").as_bytes()));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("host rejected the database"));
 }
 
 #[test]
