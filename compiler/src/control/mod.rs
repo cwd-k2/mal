@@ -1,6 +1,7 @@
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
 pub mod ast;
+mod forwarding;
 mod liveness;
 
 use self::ast::{
@@ -40,6 +41,7 @@ impl Lowerer {
                 let locals = local_values(&binding.value, None, &[]);
                 let start = self.states.len();
                 let entry = self.lower_block(&binding.value, Destination::Return);
+                forwarding::normalize_calls(&mut self.states, start);
                 self.resolve_liveness(start, &locals);
                 TopLevelBinding {
                     pattern: binding.pattern.clone(),
@@ -63,6 +65,7 @@ impl Lowerer {
                     self.joins.push(entry);
                 }
                 let entry = self.lower_block(&function.body, Destination::Return);
+                forwarding::normalize_calls(&mut self.states, start);
                 self.resolve_liveness(start, &locals);
                 Function {
                     id: function.id,

@@ -152,6 +152,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `closure` | lambdaをfunctionとenvironmentへ変換し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成 |
+| `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuationをtail callへ正規化 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
 | `execution/application` | application siteごとのcaller、known target、および構造fingerprintでgroup化した型互換なpossible internal function targetを構成 |
