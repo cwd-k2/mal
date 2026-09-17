@@ -20,6 +20,11 @@ pub(super) struct TypeRegistry {
 pub(super) struct HostTypes {
     types: Vec<Type>,
     collected: std::collections::HashSet<SharedTypeId>,
+    external_types: Vec<Type>,
+    external_collected: std::collections::HashSet<SharedTypeId>,
+    external_aliases: std::collections::HashSet<String>,
+    memory_types: Vec<Type>,
+    memory_collected: std::collections::HashSet<SharedTypeId>,
     opaque_names: Vec<String>,
 }
 
@@ -124,7 +129,7 @@ impl TypeRegistry {
     fn declarations(&self, host: &HostTypes, public: bool) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for (index, ty) in self.aggregates.iter().enumerate() {
-            if host.contains(ty) != public {
+            if host.external_contains(ty) != public {
                 continue;
             }
             let kind = match ty {
@@ -163,7 +168,7 @@ impl TypeRegistry {
             output.blank_line();
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
-            if host.contains(ty) != public {
+            if host.external_contains(ty) != public {
                 continue;
             }
             match ty {
@@ -332,20 +337,21 @@ mod tests {
         registry.collect(&sum);
         let host = HostTypes {
             types: vec![product.clone(), sum.clone()],
+            external_aliases: ["Packet".into(), "Result".into()].into_iter().collect(),
             ..HostTypes::default()
         };
         let aliases = [
             crate::core::ast::TypeAlias {
                 name: "Packet".into(),
                 ty: product,
-                target_alias: None,
                 element_aliases: vec![None, None],
+                host_memory_access: false,
             },
             crate::core::ast::TypeAlias {
                 name: "Result".into(),
                 ty: sum,
-                target_alias: None,
                 element_aliases: vec![None, Some("Packet".into())],
+                host_memory_access: false,
             },
         ];
 

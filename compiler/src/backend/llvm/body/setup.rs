@@ -10,7 +10,7 @@ impl<'a> FunctionEmitter<'a> {
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
         let types = Types::for_target(target)?;
-        let source_layouts = source_layout::SourceLayouts::new(target);
+        let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
         let function = *index.control_functions.get(&id)?;
         let lowered = *index.lowered_functions.get(&id)?;
         if types.value(&function.parameter.ty).is_none()

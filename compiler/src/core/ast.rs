@@ -29,8 +29,8 @@ pub struct ProgramInterface {
 pub struct TypeAlias {
     pub name: String,
     pub ty: Type,
-    pub target_alias: Option<String>,
     pub element_aliases: Vec<Option<String>>,
+    pub host_memory_access: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -13,14 +13,14 @@ pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
             checked::TopItem::TypeAlias {
                 binding,
                 ty,
-                target_alias,
                 element_aliases,
+                host_memory_access,
             } => {
                 interface.type_aliases.push(TypeAlias {
                     name: binding.name.text.clone(),
                     ty: ty.clone(),
-                    target_alias: target_alias.clone(),
                     element_aliases: element_aliases.clone(),
+                    host_memory_access: *host_memory_access,
                 });
             }
             checked::TopItem::ExternalType { binding } => {

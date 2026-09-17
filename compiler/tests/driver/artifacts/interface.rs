@@ -6,8 +6,15 @@ fn emit_header_writes_a_standalone_host_interface() {
     let output_path = directory.join("generated/custom.h");
     directory.write(
         "program.mal",
-        "Count :: UInt64;\n\
+        "Later :: Earlier;\n\
+         Earlier :: UInt8;\n\
+         Nothing :: Unit;\n\
+         Flag :: Bool;\n\
+         Choice :: [Unit, UInt32];\n\
+         Count :: UInt64;\n\
          Bytes :: (Address, USize);\n\
+         _Internal :: Bytes;\n\
+         Managed :: (Int64, Symbol);\n\
          extern increment :: Count -> Count;\n\
          extern consume :: Bytes -> USize;\n\
          internal :: Symbol := \"mal-owned\";",
@@ -28,6 +35,11 @@ fn emit_header_writes_a_standalone_host_interface() {
     let header = std::fs::read_to_string(output_path).unwrap();
     assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
     assert!(header.contains("typedef mal_repr_product_0_t mal_Bytes_t;"));
+    assert!(header.contains("mal_Count_read(mal_call_t *call, mal_Address_t address"));
+    assert!(header.contains("mal_Bytes_write(mal_call_t *call, mal_Address_t address"));
+    assert!(!header.contains("mal__Internal_read"));
+    assert!(!header.contains("mal__Internal_t"));
+    assert!(!header.contains("mal_Managed_read"));
     assert!(header.contains("#define MAL_C_ABI_VERSION 0x000800u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
@@ -64,7 +76,12 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     let header = directory.join("custom.h");
     directory.write(
         "program.mal",
-        "Count :: UInt64;\n\
+        "Later :: Earlier;\n\
+         Earlier :: UInt8;\n\
+         Nothing :: Unit;\n\
+         Flag :: Bool;\n\
+         Choice :: [Unit, UInt32];\n\
+         Count :: UInt64;\n\
          Request :: (Count, Int32);\n\
          Empty :: [];\n\
          extern increment :: Count -> Count;\n\
@@ -227,14 +244,18 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
     );
     directory.write(
         "left.mal",
-        "_helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
+        "require \"./left-types.mal\";\n\
+         _helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
          left :: Int32 -> Int32 := (x) -> { _helper(x) };",
     );
     directory.write(
         "right.mal",
-        "_helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
+        "require \"./right-types.mal\";\n\
+         _helper :: Int32 -> Int32 := (x) -> { x + 1 };\n\
          right :: Int32 -> Int32 := (x) -> { _helper(x) };",
     );
+    directory.write("left-types.mal", "Shared :: (Int64, UInt8);");
+    directory.write("right-types.mal", "Shared :: (UInt64, UInt8);");
     let executable = directory.join("program");
 
     let output = directory.malc([

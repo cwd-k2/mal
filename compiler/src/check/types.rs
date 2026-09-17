@@ -331,8 +331,52 @@ fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
 }
 
 pub(super) fn ensure_memory_representable(ty: &Type, span: Span) -> Result<(), Diagnostic> {
+    if is_memory_representable(ty) {
+        return Ok(());
+    }
+    let offending = first_nonrepresentable_type(ty).unwrap_or(ty);
+    Err(
+        Diagnostic::error("memory element type is not representable").with_primary(
+            span,
+            format!(
+                "`{}` has no canonical memory representation",
+                type_name(offending)
+            ),
+        ),
+    )
+}
+
+fn first_nonrepresentable_type(ty: &Type) -> Option<&Type> {
     let mut pending = vec![ty];
+    let mut visited = std::collections::HashSet::new();
     while let Some(ty) = pending.pop() {
+        if ty.shared_id().is_some_and(|id| !visited.insert(id)) {
+            continue;
+        }
+        match ty {
+            Type::Product(elements) | Type::Sum(elements) if !elements.is_empty() => {
+                pending.extend(elements.iter().rev());
+            }
+            Type::Symbol
+            | Type::External { .. }
+            | Type::Function { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_)
+            | Type::Sum(_) => return Some(ty),
+            _ => {}
+        }
+    }
+    None
+}
+
+pub(super) fn is_memory_representable(ty: &Type) -> bool {
+    let mut pending = vec![ty];
+    let mut visited = std::collections::HashSet::new();
+    while let Some(ty) = pending.pop() {
+        if ty.shared_id().is_some_and(|id| !visited.insert(id)) {
+            continue;
+        }
         match ty {
             Type::Unit
             | Type::Int8
@@ -358,16 +402,11 @@ pub(super) fn ensure_memory_representable(ty: &Type, span: Span) -> Result<(), D
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Sum(_) => {
-                return Err(
-                    Diagnostic::error("memory element type is not representable").with_primary(
-                        span,
-                        format!("`{}` has no canonical memory representation", type_name(ty)),
-                    ),
-                );
+                return false;
             }
         }
     }
-    Ok(())
+    true
 }
 
 pub(super) fn representable_requirements(ty: &Type) -> std::collections::HashSet<TypeId> {

@@ -17,14 +17,20 @@ pub(super) fn emit(
     interface: &ProgramInterface,
     types: &TypeRegistry,
     host: &HostTypes,
-    index_bits: usize,
+    target: crate::backend::llvm::TargetLayout,
 ) -> String {
     let signatures: Vec<_> = interface
         .externals
         .iter()
         .map(|external| ExternalSignatures::new(external, types))
         .collect();
-    let mut output = emit_prefix(index_bits);
+    let mut output = emit_prefix(
+        target.index_size * 8,
+        interface
+            .type_aliases
+            .iter()
+            .any(|alias| alias.host_memory_access),
+    );
     let mut declarations = types.header_declarations(host);
     declarations.extend(types.header_alias_declarations(host, &interface.type_aliases));
     declarations.extend(types.host_value_declarations(host, &interface.type_aliases));
@@ -37,6 +43,16 @@ pub(super) fn emit(
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.extend(helpers);
+    }
+
+    let memory_helpers = types.memory_helpers(
+        host,
+        &interface.type_aliases,
+        crate::backend::source_layout::SourceLayouts::new(target),
+    );
+    if !memory_helpers.is_empty() {
+        begin_section(&mut output, "Canonical memory access");
+        output.extend(memory_helpers);
     }
 
     if !interface.externals.is_empty() {

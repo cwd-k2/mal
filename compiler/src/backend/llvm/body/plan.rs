@@ -6,8 +6,8 @@ use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPatt
 use crate::control::ast::{Program, StateId, Terminator};
 
 use super::Slot;
-use super::source_layout::SourceLayouts;
 use super::types::Types;
+use crate::backend::source_layout::SourceLayouts;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
     let binding = execution.lowered.bindings.iter().find(|binding| {

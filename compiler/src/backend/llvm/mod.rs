@@ -173,10 +173,7 @@ pub(crate) fn generate(
     Ok(LlvmArtifacts {
         module,
         shim,
-        header: crate::backend::c::emit_header_for_target(
-            &program.lowered.interface,
-            layout.index_size * 8,
-        ),
+        header: crate::backend::c::emit_header_for_target(&program.lowered.interface, layout),
         runtime: crate::backend::runtime::control().into(),
     })
 }
@@ -187,17 +184,17 @@ fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct TargetLayout {
-    pointer_size: usize,
-    pointer_alignment: usize,
-    index_size: usize,
-    integer_alignments: [usize; 4],
-    float_alignments: [usize; 2],
-    supports_pointer_alignment: bool,
+pub(crate) struct TargetLayout {
+    pub(crate) pointer_size: usize,
+    pub(crate) pointer_alignment: usize,
+    pub(crate) index_size: usize,
+    pub(crate) integer_alignments: [usize; 4],
+    pub(crate) float_alignments: [usize; 2],
+    pub(crate) supports_pointer_alignment: bool,
 }
 
 impl TargetLayout {
-    fn natural(pointer_size: usize, index_size: usize) -> Option<Self> {
+    pub(crate) fn natural(pointer_size: usize, index_size: usize) -> Option<Self> {
         (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
             pointer_size,
             pointer_alignment: pointer_size,
@@ -208,7 +205,7 @@ impl TargetLayout {
         })
     }
 
-    fn scalar_alignment(self, bits: u8, floating: bool) -> Option<usize> {
+    pub(crate) fn scalar_alignment(self, bits: u8, floating: bool) -> Option<usize> {
         if floating {
             return match bits {
                 32 => Some(self.float_alignments[0]),
@@ -226,7 +223,7 @@ impl TargetLayout {
     }
 }
 
-fn target_layout(data_layout: &str) -> Option<TargetLayout> {
+pub(crate) fn target_layout(data_layout: &str) -> Option<TargetLayout> {
     let pointer = data_layout.split('-').find_map(|component| {
         component
             .strip_prefix("p:")

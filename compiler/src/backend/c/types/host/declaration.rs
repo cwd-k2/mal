@@ -36,7 +36,7 @@ impl TypeRegistry {
             ));
         }
         for alias in aliases {
-            if host.contains(&alias.ty) {
+            if host.exposes_alias(alias) {
                 output.push(self.host_alias_declaration(alias));
             }
         }
@@ -74,11 +74,10 @@ impl TypeRegistry {
     }
 
     fn host_alias_declaration(&self, alias: &TypeAlias) -> Declaration {
-        let source = alias.target_alias.as_deref().map_or_else(
-            || self.host_value_c_type(&alias.ty, None),
-            |target| TypeName::named(format!("mal_{target}_t")),
-        );
-        Declaration::type_alias(source, format!("mal_{}_t", alias.name))
+        Declaration::type_alias(
+            self.host_value_c_type(&alias.ty, None),
+            format!("mal_{}_t", alias.name),
+        )
     }
 
     pub(in crate::backend::c) fn header_declarations(&self, host: &HostTypes) -> TranslationUnit {
@@ -104,7 +103,7 @@ impl TypeRegistry {
     ) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for alias in aliases {
-            if host.contains(&alias.ty) {
+            if host.exposes_external_alias(alias) {
                 output.push(Declaration::type_alias(
                     self.c_type(&alias.ty),
                     format!("MalType_{}", alias.name),

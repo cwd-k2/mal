@@ -4,7 +4,7 @@ use crate::backend::c::syntax::{
     PreprocessorExpr, Statement, TranslationUnit, TypeName,
 };
 
-pub(super) fn emit_prefix(index_bits: usize) -> TranslationUnit {
+pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     for directive in [
         Directive::Ifndef("MAL_PROGRAM_MAL_H".into()),
@@ -16,6 +16,9 @@ pub(super) fn emit_prefix(index_bits: usize) -> TranslationUnit {
     output.push(Directive::include_system("stddef.h"));
     output.push(Directive::include_system("stdint.h"));
     output.push(Directive::include_system("limits.h"));
+    if memory_access {
+        output.push(Directive::include_system("string.h"));
+    }
     output.blank_line();
     output.push(Directive::define_expr(
         "MAL_C_ABI_VERSION",

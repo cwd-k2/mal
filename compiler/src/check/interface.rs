@@ -198,27 +198,37 @@ impl Checker {
     }
 }
 
-fn is_host_mappable(ty: &Type) -> bool {
-    ty.data_subtypes().all(|ty| {
-        matches!(
-            ty,
+pub(super) fn is_host_mappable(ty: &Type) -> bool {
+    let mut pending = vec![ty];
+    let mut visited = std::collections::HashSet::new();
+    while let Some(ty) = pending.pop() {
+        if ty.shared_id().is_some_and(|id| !visited.insert(id)) {
+            continue;
+        }
+        match ty {
             Type::Unit
-                | Type::Int8
-                | Type::Int16
-                | Type::Int32
-                | Type::Int64
-                | Type::UInt8
-                | Type::UInt16
-                | Type::UInt32
-                | Type::UInt64
-                | Type::Float32
-                | Type::Float64
-                | Type::Address
-                | Type::ByteSize
-                | Type::USize
-                | Type::External { .. }
-                | Type::Product(_)
-                | Type::Sum(_)
-        )
-    })
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+            | Type::Float32
+            | Type::Float64
+            | Type::Address
+            | Type::ByteSize
+            | Type::USize
+            | Type::External { .. } => {}
+            Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+            Type::Symbol
+            | Type::Parameter { .. }
+            | Type::Function { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_) => return false,
+        }
+    }
+    true
 }

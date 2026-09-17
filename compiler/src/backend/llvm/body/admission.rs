@@ -3,8 +3,8 @@ use crate::closure::ast::{Atom, AtomKind, Block, Operation};
 use crate::diagnostic::Diagnostic;
 use crate::execution;
 
-use super::source_layout::SourceLayouts;
 use crate::backend::llvm::TargetLayout;
+use crate::backend::source_layout::SourceLayouts;
 
 pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Result<(), Diagnostic> {
     let layouts = SourceLayouts::new(target);

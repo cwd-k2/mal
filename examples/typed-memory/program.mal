@@ -1,6 +1,9 @@
 require "./host.c";
 
 extern unalignedStorage :: Unit -> Address;
+extern incrementSample :: Address -> Unit;
+
+Sample :: (Int64, UInt8);
 
 CursorStep<A> :: (A, Cursor<A>);
 
@@ -14,7 +17,8 @@ main :: Unit -> Int32 := () -> {
     writeCursor<Int64>(slot, 41i64);
     byte := (?slot + #i64)@u8;
     writeCursor<UInt8>(byte, 1u8);
+    incrementSample(?slot);
     (number, _) := readCursor<Int64>(slot);
     (small, _) := readCursor<UInt8>(byte);
-    (number + small.i64 - 42i64).i32;
+    (number + small.i64 - 44i64).i32;
 };

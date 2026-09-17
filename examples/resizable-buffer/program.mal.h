@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
+#include <string.h>
 
 #define MAL_C_ABI_VERSION 0x000800u
 
@@ -332,6 +333,51 @@ static inline mal_BufferResult_t mal_BufferResult_make_1(mal_UInt32_t value) {
 
 static inline MalType_BufferResult mal_BufferResult_return_1(mal_call_t *call, mal_UInt32_t value) {
     return mal_detail_to_raw_2(call, (mal_BufferResult_t){ .tag = mal_BufferResult_tag_1, .payload.variant_1 = value });
+}
+
+/* Canonical memory access */
+
+static inline mal_Address_t mal_detail_memory_read_Address(mal_call_t *call, const uint8_t *source) {
+    mal_Address_t value;
+    memcpy(&value, source, sizeof(value));
+    return mal_Address_return(call, value);
+}
+
+static inline void mal_detail_memory_write_Address(mal_call_t *call, uint8_t *destination, mal_Address_t value) {
+    mal_Address_return(call, value);
+    memcpy(destination, &value, sizeof(value));
+}
+
+static inline mal_USize_t mal_detail_memory_read_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
+    mal_USize_t value;
+    memcpy(&value, source, sizeof(value));
+    return value;
+}
+
+static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_USize_t value) {
+    memcpy(destination, &value, sizeof(value));
+}
+
+static inline mal_repr_product_6_t mal_detail_memory_read_6(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+    mal_repr_product_6_t value;
+    value.field_0 = mal_detail_memory_read_Address(call, source + 0);
+    value.field_1 = mal_detail_memory_read_USize(call, source + 8);
+    return value;
+}
+
+static inline void mal_detail_memory_write_6(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_6_t value) {
+    mal_detail_memory_write_Address(call, destination + 0, value.field_0);
+    mal_detail_memory_write_USize(call, destination + 8, value.field_1);
+}
+
+static inline mal_OutputBuffer_t mal_OutputBuffer_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+    mal_Address_return(call, address);
+    return mal_detail_memory_read_6(call, (const uint8_t *)address + (index * 16));
+}
+
+static inline void mal_OutputBuffer_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_OutputBuffer_t value) {
+    mal_Address_return(call, address);
+    mal_detail_memory_write_6(call, (uint8_t *)address + (index * 16), value);
 }
 
 /* External operations */

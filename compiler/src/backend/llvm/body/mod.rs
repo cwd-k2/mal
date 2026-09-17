@@ -17,7 +17,6 @@ pub(in crate::backend::llvm) mod ownership;
 mod plan;
 mod scalar;
 mod setup;
-mod source_layout;
 mod symbol;
 mod terminator;
 pub(super) mod types;
@@ -63,7 +62,7 @@ pub(super) fn generate(
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
     let types = Types::for_target(target)?;
-    let source_layouts = source_layout::SourceLayouts::new(target);
+    let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
     let top_levels = TopLevelConstants::new(execution, types, source_layouts)?;
     let ownership = ownership::Plan::new(&execution.control);
     let index = ProgramIndex::new(execution)?;
@@ -115,7 +114,7 @@ struct FunctionEmitter<'a> {
     frame_tags: HashMap<StateId, u32>,
     external_storage: Option<(usize, usize)>,
     types: Types,
-    source_layouts: source_layout::SourceLayouts,
+    source_layouts: crate::backend::source_layout::SourceLayouts,
     top_levels: &'a TopLevelConstants,
     ownership: &'a ownership::Plan,
     optimizations: &'a super::optimization::OptimizationPlan,

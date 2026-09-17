@@ -1,4 +1,63 @@
 use super::*;
+
+#[test]
+fn accesses_canonical_memory_through_named_alias_helpers() {
+    let directory = NativeFixture::new("driver-canonical-memory-helpers");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Sample :: (Int64, UInt8);\n\
+         extern storage :: Unit -> Address;\n\
+         extern inspect :: Address -> Unit;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           address := storage();\n\
+           address@(i64, u8) <- (41i64, 1u8);\n\
+           inspect(address);\n\
+           ((number, byte), _) := <-address@(i64, u8);\n\
+           (number + byte.i64 - 44i64).i32;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static uint8_t bytes[16];\n\
+         MAL_DEFINE_storage(call) {\n\
+             return mal_Address_return(call, bytes);\n\
+         }\n\
+         MAL_DEFINE_inspect(call, address) {\n\
+             mal_Sample_t sample = mal_Sample_read(call, address, 0);\n\
+             if (sample.field_0 != 41 || sample.field_1 != 1) {\n\
+                 mal_call_trap(call, \"unexpected canonical value\");\n\
+             }\n\
+             sample.field_0 += 1;\n\
+             sample.field_1 += 1;\n\
+             mal_Sample_write(call, address, 0, sample);\n\
+             return mal_Unit_return(call);\n\
+         }\n",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
 #[test]
 fn bridges_bytes_through_borrowed_addresses_in_the_public_c_abi() {
     let directory = NativeFixture::new("driver-llvm-byte-address-extern");

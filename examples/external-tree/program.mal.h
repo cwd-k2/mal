@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
+#include <string.h>
 
 #define MAL_C_ABI_VERSION 0x000800u
 
@@ -118,6 +119,29 @@ typedef mal_Address_t mal_Tree_t;
 
 static inline MalType_Tree mal_Tree_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Tree_t value) {
     return mal_Address_return(call, value);
+}
+
+/* Canonical memory access */
+
+static inline mal_Address_t mal_detail_memory_read_Address(mal_call_t *call, const uint8_t *source) {
+    mal_Address_t value;
+    memcpy(&value, source, sizeof(value));
+    return mal_Address_return(call, value);
+}
+
+static inline void mal_detail_memory_write_Address(mal_call_t *call, uint8_t *destination, mal_Address_t value) {
+    mal_Address_return(call, value);
+    memcpy(destination, &value, sizeof(value));
+}
+
+static inline mal_Tree_t mal_Tree_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+    mal_Address_return(call, address);
+    return mal_detail_memory_read_Address(call, (const uint8_t *)address + (index * 8));
+}
+
+static inline void mal_Tree_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Tree_t value) {
+    mal_Address_return(call, address);
+    mal_detail_memory_write_Address(call, (uint8_t *)address + (index * 8), value);
 }
 
 /* External operations */

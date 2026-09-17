@@ -128,11 +128,40 @@ impl HostTypes {
                 .map(|external| external.name.clone()),
         );
         for external in &interface.externals {
-            host.collect_type(&external.parameter, registry);
-            host.collect_type(&external.result, registry);
+            host.collect_external_type(&external.parameter, registry);
+            host.collect_external_type(&external.result, registry);
+            host.external_aliases.extend(
+                external
+                    .parameter_alias
+                    .iter()
+                    .chain(external.result_alias.iter())
+                    .cloned(),
+            );
+            host.external_aliases
+                .extend(external.parameter_aliases.iter().flatten().cloned());
+        }
+        let mut pending_aliases = host.external_aliases.iter().cloned().collect::<Vec<_>>();
+        while let Some(name) = pending_aliases.pop() {
+            let Some(alias) = interface
+                .type_aliases
+                .iter()
+                .find(|alias| alias.name == name)
+            else {
+                continue;
+            };
+            for name in alias.element_aliases.iter().flatten() {
+                if host.external_aliases.insert(name.clone()) {
+                    pending_aliases.push(name.clone());
+                }
+            }
         }
         for alias in &interface.type_aliases {
-            if host.contains(&alias.ty) {
+            if alias.host_memory_access {
+                host.collect_memory_type(&alias.ty, registry);
+            }
+        }
+        for alias in &interface.type_aliases {
+            if host.exposes_alias(alias) {
                 registry.collect(&alias.ty);
             }
         }
@@ -141,7 +170,8 @@ impl HostTypes {
 
     fn collect_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
         registry.collect(ty);
-        for ty in ty.data_subtypes() {
+        let mut pending = vec![ty];
+        while let Some(ty) = pending.pop() {
             if matches!(ty, Type::Function { .. }) {
                 unreachable!("type checking excludes functions from extern signatures")
             }
@@ -150,6 +180,43 @@ impl HostTypes {
                 .map_or_else(|| !self.types.contains(ty), |id| self.collected.insert(id));
             if newly_collected {
                 self.types.push(ty.clone());
+                if let Type::Product(elements) | Type::Sum(elements) = ty {
+                    pending.extend(elements.iter());
+                }
+            }
+        }
+    }
+
+    fn collect_external_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
+        self.collect_type(ty, registry);
+        let mut pending = vec![ty];
+        while let Some(ty) = pending.pop() {
+            let newly_collected = ty.shared_id().map_or_else(
+                || !self.external_types.contains(ty),
+                |id| self.external_collected.insert(id),
+            );
+            if newly_collected {
+                self.external_types.push(ty.clone());
+                if let Type::Product(elements) | Type::Sum(elements) = ty {
+                    pending.extend(elements.iter());
+                }
+            }
+        }
+    }
+
+    fn collect_memory_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
+        self.collect_type(ty, registry);
+        let mut pending = vec![ty];
+        while let Some(ty) = pending.pop() {
+            let newly_collected = ty.shared_id().map_or_else(
+                || !self.memory_types.contains(ty),
+                |id| self.memory_collected.insert(id),
+            );
+            if newly_collected {
+                self.memory_types.push(ty.clone());
+                if let Type::Product(elements) | Type::Sum(elements) = ty {
+                    pending.extend(elements.iter());
+                }
             }
         }
     }
@@ -158,6 +225,26 @@ impl HostTypes {
         ty.shared_id()
             .is_some_and(|id| self.collected.contains(&id))
             || self.types.contains(ty)
+    }
+
+    pub(super) fn memory_contains(&self, ty: &Type) -> bool {
+        ty.shared_id()
+            .is_some_and(|id| self.memory_collected.contains(&id))
+            || self.memory_types.contains(ty)
+    }
+
+    pub(super) fn external_contains(&self, ty: &Type) -> bool {
+        ty.shared_id()
+            .is_some_and(|id| self.external_collected.contains(&id))
+            || self.external_types.contains(ty)
+    }
+
+    pub(super) fn exposes_alias(&self, alias: &crate::core::ast::TypeAlias) -> bool {
+        alias.host_memory_access || self.external_aliases.contains(&alias.name)
+    }
+
+    pub(super) fn exposes_external_alias(&self, alias: &crate::core::ast::TypeAlias) -> bool {
+        self.external_aliases.contains(&alias.name)
     }
 }
 
@@ -208,15 +295,15 @@ mod tests {
             type_aliases: vec![crate::core::ast::TypeAlias {
                 name: "Alias".into(),
                 ty: alias.clone(),
-                target_alias: None,
                 element_aliases: vec![None, None],
+                host_memory_access: false,
             }],
             external_types: Vec::new(),
             externals: vec![crate::core::ast::ExternalOperation {
                 id: crate::resolve::ast::ExternalOperationId(0),
                 name: "inspect".into(),
                 parameter: external.clone(),
-                parameter_alias: None,
+                parameter_alias: Some("Alias".into()),
                 parameter_aliases: vec![None, None],
                 result: Type::Unit,
                 result_alias: None,

@@ -159,15 +159,17 @@ impl Checker {
             let kind = match &item.kind {
                 resolved::TopItem::TypeAlias { binding, value } => {
                     let ty = self.expand_type_id(binding.id, binding.name.span)?;
-                    let target_alias = self.alias_name(value);
                     let element_aliases = match &ty {
                         Type::Product(_) | Type::Sum(_) => self.aggregate_aliases(value, &ty),
                         _ => Vec::new(),
                     };
                     TopItem::TypeAlias {
+                        host_memory_access: binding.name.span.file() == program.span.file()
+                            && !binding.name.text.starts_with('_')
+                            && interface::is_host_mappable(&ty)
+                            && types::is_memory_representable(&ty),
                         binding: binding.clone(),
                         ty,
-                        target_alias,
                         element_aliases,
                     }
                 }

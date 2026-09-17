@@ -1,42 +1,63 @@
 use crate::check::ast::Type;
 
-use super::types::{Field, align};
 use crate::backend::llvm::TargetLayout;
 
+#[derive(Clone, Copy)]
+pub(crate) struct Field {
+    pub(crate) offset: usize,
+}
+
+fn align(offset: usize, alignment: usize) -> Option<usize> {
+    offset
+        .checked_add(alignment.checked_sub(1)?)
+        .map(|value| value & !(alignment - 1))
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) struct Layout {
-    pub(super) alignment: usize,
-    pub(super) stride: usize,
+pub(crate) struct Layout {
+    pub(crate) alignment: usize,
+    pub(crate) stride: usize,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct SumLayout {
-    pub(super) tag_bits: usize,
-    pub(super) payload_offset: usize,
+pub(crate) struct SumLayout {
+    pub(crate) tag_bits: usize,
+    pub(crate) payload_offset: usize,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct SourceLayouts {
+pub(crate) struct SourceLayouts {
     target: TargetLayout,
 }
 
 impl SourceLayouts {
-    pub(super) fn new(target: TargetLayout) -> Self {
+    pub(crate) fn new(target: TargetLayout) -> Self {
         Self { target }
     }
 
-    pub(super) fn supports_alignment(self) -> bool {
+    pub(crate) fn supports_alignment(self) -> bool {
         self.target.supports_pointer_alignment
     }
 
-    pub(super) fn layout(self, ty: &Type) -> Option<Layout> {
-        if let Some(scalar) = super::scalar::scalar_type(ty, self.target.index_size) {
+    pub(crate) fn layout(self, ty: &Type) -> Option<Layout> {
+        self.layout_cached(ty, &mut std::collections::HashMap::new())
+    }
+
+    fn layout_cached(
+        self,
+        ty: &Type,
+        cache: &mut std::collections::HashMap<crate::check::ast::SharedTypeId, Layout>,
+    ) -> Option<Layout> {
+        if let Some(layout) = ty.shared_id().and_then(|id| cache.get(&id)) {
+            return Some(*layout);
+        }
+        if let Some((bits, floating)) = scalar_layout(ty, self.target.index_size) {
             return Some(Layout {
-                alignment: self.target.scalar_alignment(scalar.bits, scalar.floating)?,
-                stride: usize::from(scalar.bits) / 8,
+                alignment: self.target.scalar_alignment(bits, floating)?,
+                stride: usize::from(bits) / 8,
             });
         }
-        match ty {
+        let layout = match ty {
             Type::Unit => Some(Layout {
                 alignment: 1,
                 stride: 0,
@@ -49,7 +70,7 @@ impl SourceLayouts {
                 let mut offset = 0usize;
                 let mut alignment = 1usize;
                 for element in elements.iter() {
-                    let field = self.layout(element)?;
+                    let field = self.layout_cached(element, cache)?;
                     offset = align(offset, field.alignment)?;
                     offset = offset.checked_add(field.stride)?;
                     alignment = alignment.max(field.alignment);
@@ -67,7 +88,7 @@ impl SourceLayouts {
                 let mut payload_alignment = 1usize;
                 let mut payload_extent = 0usize;
                 for element in elements.iter() {
-                    let variant = self.layout(element)?;
+                    let variant = self.layout_cached(element, cache)?;
                     payload_alignment = payload_alignment.max(variant.alignment);
                     payload_extent = payload_extent.max(variant.stride);
                 }
@@ -79,10 +100,14 @@ impl SourceLayouts {
                 })
             }
             _ => None,
+        };
+        if let (Some(id), Some(layout)) = (ty.shared_id(), layout) {
+            cache.insert(id, layout);
         }
+        layout
     }
 
-    pub(super) fn product_fields(self, ty: &Type) -> Option<Vec<Field>> {
+    pub(crate) fn product_fields(self, ty: &Type) -> Option<Vec<Field>> {
         let Type::Product(elements) = ty else {
             return None;
         };
@@ -99,7 +124,7 @@ impl SourceLayouts {
             .collect()
     }
 
-    pub(super) fn sum(self, ty: &Type) -> Option<SumLayout> {
+    pub(crate) fn sum(self, ty: &Type) -> Option<SumLayout> {
         let Type::Sum(elements) = ty else {
             return None;
         };
@@ -116,6 +141,19 @@ impl SourceLayouts {
             payload_offset: align(tag_bits / 8, payload_alignment)?,
         })
     }
+}
+
+fn scalar_layout(ty: &Type, index_size: usize) -> Option<(u8, bool)> {
+    Some(match ty {
+        Type::Int8 | Type::UInt8 => (8, false),
+        Type::Int16 | Type::UInt16 => (16, false),
+        Type::Int32 | Type::UInt32 => (32, false),
+        Type::Int64 | Type::UInt64 => (64, false),
+        Type::Float32 => (32, true),
+        Type::Float64 => (64, true),
+        Type::ByteSize | Type::USize => (u8::try_from(index_size.checked_mul(8)?).ok()?, false),
+        _ => return None,
+    })
 }
 
 fn tag_bits(variants: usize) -> Option<usize> {

@@ -8,6 +8,7 @@ use crate::core::ast::TypeAlias;
 use super::{HostTypes, TypeRegistry, is_bool};
 
 mod declaration;
+mod memory;
 
 impl TypeRegistry {
     pub(in crate::backend::c) fn host_value_helpers(
@@ -17,7 +18,7 @@ impl TypeRegistry {
     ) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for (index, ty) in self.aggregates.iter().enumerate() {
-            if !host.contains(ty) || is_bool(ty) {
+            if !host.external_contains(ty) || is_bool(ty) {
                 continue;
             }
             match ty {
@@ -101,7 +102,7 @@ impl TypeRegistry {
             );
         }
         for alias in aliases {
-            if !host.contains(&alias.ty) {
+            if !host.exposes_external_alias(alias) {
                 continue;
             }
             if matches!(&alias.ty, Type::Sum(_)) {
