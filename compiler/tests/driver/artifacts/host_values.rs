@@ -18,7 +18,7 @@ fn bridges_bytes_through_borrowed_addresses_in_the_public_c_abi() {
     );
     directory.write(
         "host.c",
-         "#include \"program.mal.h\"\n\
+        "#include \"program.mal.h\"\n\
          static uint8_t bytes[2];\n\
          MAL_DEFINE_memory(call) {\n\
              return mal_Address_return(call, bytes);\n\
@@ -75,7 +75,7 @@ fn marshals_address_products_through_the_public_c_abi() {
     );
     directory.write(
         "host.c",
-         "#include \"program.mal.h\"\n\
+        "#include \"program.mal.h\"\n\
          static uint8_t bytes[2];\n\
          MAL_DEFINE_memory(call) {\n\
              return mal_Address_return(call, bytes);\n\
@@ -150,7 +150,7 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
     );
     directory.write(
         "host.c",
-         "#include \"program.mal.h\"\n\
+        "#include \"program.mal.h\"\n\
          static uint8_t bytes[2];\n\
          MAL_DEFINE_memory(call) {\n\
              return mal_Address_return(call, bytes);\n\

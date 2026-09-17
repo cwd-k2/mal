@@ -97,8 +97,8 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
 境界通過によって変化しない。`Cursor`、`Region`、`Packed`はpublic C ABIへ出せない。
 
-public headerはextern signatureから到達できるHostMappableな型と、そのcarrier、helperだけを生成する。`Symbol`、`Cursor`、
-`Region`、`Packed`、function、およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。
+public headerはHostMappableなbuiltin carrierとhelper、およびextern signatureから到達できるHostMappableなaggregateとopaque型だけを
+生成する。`Symbol`、`Cursor`、`Region`、`Packed`、function、およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
 指定範囲をcall中だけborrowし、書き込みではmalが用意した範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを

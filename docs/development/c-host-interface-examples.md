@@ -154,7 +154,7 @@ result transfer前のexternal resourceはadapterが片付ける。generic `mal_c
 
 - bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
 - parameter、local、nested field、resultは同じ`mal_<T>_t`規則を使う。
-- public型はHostMappableなextern surfaceからだけ到達する。
+- public aggregateとopaque型はHostMappableなextern surfaceからだけ到達する。
 - byte列はAddressと長さで借り、Symbol、Packed、Region、managed ownerをhost codeへ出さない。
 - productは通常のC valueとしてcopy、変更、再構成できる。
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。

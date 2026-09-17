@@ -12,7 +12,7 @@ valid UTF-8も保証しない。
 支配し、source programやhostは個別のstorage identityを観測しない。値のcopyは同じimmutable byte sequenceを
 与えるが、descriptorやallocationの同一性は言語の意味に含まれない。
 
-literalのbytesはprogram imageのstatic storageに置いてよい。連結、extern result、`Packed<UInt8>`からの変換で得る
+literalのbytesはprogram imageのstatic storageに置いてよい。連結、external bytesのadmission、`Packed<UInt8>`からの変換で得る
 runtime値は、host storageを参照する値ではなくmalへ受け入れられた新しい`Symbol`である。host bytesは`Address`と長さで
 external memoryとして受け取り、RegionからPackedへのadmissionと`*`による変換を経てSymbolにする。
 
