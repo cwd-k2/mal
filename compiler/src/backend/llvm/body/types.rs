@@ -23,15 +23,31 @@ pub(in crate::backend::llvm) struct SourceLayout {
 }
 
 #[derive(Clone, Copy)]
+pub(in crate::backend::llvm) struct SourceSumLayout {
+    pub(in crate::backend::llvm) tag_bits: usize,
+    pub(in crate::backend::llvm) payload_offset: usize,
+}
+
+#[derive(Clone, Copy)]
 pub(in crate::backend::llvm) struct Types {
     pointer_size: usize,
+    index_size: usize,
 }
 
 impl Types {
+    #[cfg(test)]
     pub(in crate::backend::llvm) fn new(pointer_size: usize) -> Option<Self> {
-        pointer_size
-            .is_power_of_two()
-            .then_some(Self { pointer_size })
+        Self::for_target(pointer_size, pointer_size)
+    }
+
+    pub(in crate::backend::llvm) fn for_target(
+        pointer_size: usize,
+        index_size: usize,
+    ) -> Option<Self> {
+        (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
+            pointer_size,
+            index_size,
+        })
     }
 
     pub(in crate::backend::llvm) fn value(self, ty: &Type) -> Option<ValueType> {
@@ -46,7 +62,7 @@ impl Types {
         if let Some(value) = ty.shared_id().and_then(|id| cache.get(&id)) {
             return Some(value.clone());
         }
-        if let Some(scalar) = scalar_type(ty, self.pointer_size) {
+        if let Some(scalar) = scalar_type(ty, self.index_size) {
             return Some(ValueType {
                 llvm: scalar.llvm.into(),
                 alignment: scalar.alignment.into(),
@@ -94,8 +110,25 @@ impl Types {
                 },
                 ValueType {
                     llvm: self.pointer_integer()?,
+                    alignment: self.index_size,
+                    size: self.index_size,
+                },
+            ]),
+            Type::Packed(_) => aggregate_type(vec![
+                ValueType {
+                    llvm: "ptr".into(),
                     alignment: self.pointer_size,
                     size: self.pointer_size,
+                },
+                ValueType {
+                    llvm: self.pointer_integer()?,
+                    alignment: self.index_size,
+                    size: self.index_size,
+                },
+                ValueType {
+                    llvm: self.pointer_integer()?,
+                    alignment: self.index_size,
+                    size: self.index_size,
                 },
             ]),
             Type::Product(elements) => self.product(elements, cache),
@@ -114,6 +147,10 @@ impl Types {
     }
 
     pub(in crate::backend::llvm) fn pointer_integer(self) -> Option<String> {
+        Some(format!("i{}", self.index_size.checked_mul(8)?))
+    }
+
+    pub(in crate::backend::llvm) fn pointer_representation_integer(self) -> Option<String> {
         Some(format!("i{}", self.pointer_size.checked_mul(8)?))
     }
 
@@ -121,8 +158,12 @@ impl Types {
         self.pointer_size
     }
 
+    pub(in crate::backend::llvm) fn index_size(self) -> usize {
+        self.index_size
+    }
+
     pub(in crate::backend::llvm) fn source_layout(self, ty: &Type) -> Option<SourceLayout> {
-        if let Some(scalar) = scalar_type(ty, self.pointer_size) {
+        if let Some(scalar) = scalar_type(ty, self.index_size) {
             return Some(SourceLayout {
                 alignment: scalar.alignment.into(),
                 stride: usize::from(scalar.bits) / 8,
@@ -177,6 +218,53 @@ impl Types {
             }
             _ => None,
         }
+    }
+
+    pub(in crate::backend::llvm) fn source_product_fields(self, ty: &Type) -> Option<Vec<Field>> {
+        let Type::Product(elements) = ty else {
+            return None;
+        };
+        let layouts = elements
+            .iter()
+            .map(|element| {
+                let layout = self.source_layout(element)?;
+                Some(ValueType {
+                    llvm: String::new(),
+                    alignment: layout.alignment,
+                    size: layout.stride,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        field_layouts(&layouts)
+    }
+
+    pub(in crate::backend::llvm) fn source_sum_layout(self, ty: &Type) -> Option<SourceSumLayout> {
+        let Type::Sum(elements) = ty else {
+            return None;
+        };
+        if elements.len() < 2 {
+            return None;
+        }
+        let tag_bits = if elements.len() <= 1 << 8 {
+            8
+        } else if elements.len() <= 1 << 16 {
+            16
+        } else if u32::try_from(elements.len()).is_ok() {
+            32
+        } else {
+            64
+        };
+        let payload_alignment = elements
+            .iter()
+            .map(|element| self.source_layout(element).map(|layout| layout.alignment))
+            .collect::<Option<Vec<_>>>()?
+            .into_iter()
+            .max()
+            .unwrap_or(1);
+        Some(SourceSumLayout {
+            tag_bits,
+            payload_offset: align(tag_bits / 8, payload_alignment)?,
+        })
     }
 
     fn product(

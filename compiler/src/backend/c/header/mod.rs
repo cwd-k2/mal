@@ -13,13 +13,18 @@ mod prefix;
 
 use self::prefix::emit_prefix;
 
-pub(super) fn emit(interface: &ProgramInterface, types: &TypeRegistry, host: &HostTypes) -> String {
+pub(super) fn emit(
+    interface: &ProgramInterface,
+    types: &TypeRegistry,
+    host: &HostTypes,
+    index_bits: usize,
+) -> String {
     let signatures: Vec<_> = interface
         .externals
         .iter()
         .map(|external| ExternalSignatures::new(external, types))
         .collect();
-    let mut output = emit_prefix();
+    let mut output = emit_prefix(index_bits);
     let mut declarations = types.header_declarations(host);
     declarations.extend(types.header_alias_declarations(host, &interface.type_aliases));
     declarations.extend(types.host_value_declarations(host, &interface.type_aliases));

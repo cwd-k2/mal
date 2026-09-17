@@ -50,10 +50,11 @@ pub(crate) fn generate(
     target: Target<'_>,
     optimizations: OptimizationSet,
 ) -> Result<LlvmArtifacts, Error> {
-    let pointer_size = pointer_size(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
-    let body = body::generate(program, pointer_size, optimizations)
+    let layout = target_layout(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
+    let pointer_size = layout.pointer_size;
+    let body = body::generate(program, pointer_size, layout.index_size, optimizations)
         .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
-    let types = body::types::Types::new(pointer_size)
+    let types = body::types::Types::for_target(pointer_size, layout.index_size)
         .ok_or(Error::InconsistentExecutionPlan("target type construction"))?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
@@ -63,7 +64,7 @@ pub(crate) fn generate(
         .externals
         .iter()
         .map(|external| {
-            host_bridge::generate(external, pointer_size, &raw_types)
+            host_bridge::generate(external, pointer_size, layout.index_size, &raw_types)
                 .ok_or(Error::InconsistentExecutionPlan("extern bridge emission"))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -88,7 +89,7 @@ pub(crate) fn generate(
         String::new()
     };
     let symbol_declarations = if body.uses_symbol_runtime {
-        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
+        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_data(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
     } else {
         ""
     };
@@ -136,12 +137,20 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         types
             .pointer_integer()
             .ok_or(Error::InconsistentExecutionPlan("runtime ABI construction"))?,
+        types.pointer_size() * 8,
+        types
+            .pointer_representation_integer()
+            .ok_or(Error::InconsistentExecutionPlan("ptrmask ABI construction"))?,
+        layout.index_size * 8,
+        types
+            .pointer_integer()
+            .ok_or(Error::InconsistentExecutionPlan("memcpy ABI construction"))?,
         control_declarations,
         symbol_declarations,
         external_declarations,
@@ -172,7 +181,10 @@ pub(crate) fn generate(
     Ok(LlvmArtifacts {
         module,
         shim,
-        header: crate::backend::c::emit_header(&program.lowered.interface),
+        header: crate::backend::c::emit_header_for_target(
+            &program.lowered.interface,
+            layout.index_size * 8,
+        ),
         runtime: crate::backend::runtime::control().into(),
     })
 }
@@ -184,18 +196,37 @@ fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
     }
 }
 
-fn pointer_size(data_layout: &str) -> Option<usize> {
-    let bits: usize = data_layout
-        .split('-')
-        .find_map(|component| {
-            component
-                .strip_prefix("p:")
-                .or_else(|| component.strip_prefix("p0:"))
-        })
-        .map_or(Some(64), |pointer| pointer.split(':').next()?.parse().ok())?;
-    bits.is_multiple_of(8)
-        .then_some(bits / 8)
-        .filter(|bytes| (*bytes).is_power_of_two())
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct TargetLayout {
+    pointer_size: usize,
+    index_size: usize,
+}
+
+fn target_layout(data_layout: &str) -> Option<TargetLayout> {
+    let pointer = data_layout.split('-').find_map(|component| {
+        component
+            .strip_prefix("p:")
+            .or_else(|| component.strip_prefix("p0:"))
+    });
+    let (pointer_bits, index_bits) = if let Some(pointer) = pointer {
+        let fields = pointer.split(':').collect::<Vec<_>>();
+        let pointer_bits = fields.first()?.parse::<usize>().ok()?;
+        let index_bits = fields
+            .get(3)
+            .map_or(Some(pointer_bits), |bits| bits.parse().ok())?;
+        (pointer_bits, index_bits)
+    } else {
+        (64, 64)
+    };
+    let valid = |bits: usize| {
+        bits.is_multiple_of(8)
+            .then_some(bits / 8)
+            .filter(|bytes| bytes.is_power_of_two())
+    };
+    Some(TargetLayout {
+        pointer_size: valid(pointer_bits)?,
+        index_size: valid(index_bits)?,
+    })
 }
 
 fn bridge_type_supported(ty: &crate::check::ast::Type) -> bool {
@@ -287,6 +318,45 @@ mod tests {
         assert!(artifacts.module.contains("load i64, ptr"));
         assert!(artifacts.module.contains("align 1"));
         assert!(artifacts.header.contains("mal_Address_return"));
+    }
+
+    #[test]
+    fn emits_packed_views_indexing_and_symbol_conversion() {
+        let source = SourceFile::new(
+            FileId::new(91),
+            "llvm-packed.mal",
+            "main :: Unit -> Int32 := () -> {\n\
+               packed := *\"abc\";\n\
+               prefix := packed / 2usize;\n\
+               byte := prefix # 1usize;\n\
+               text := *prefix;\n\
+               Int32(byte) + Int32(#text);\n\
+             };"
+            .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check Packed fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("Packed fixture is supported");
+
+        assert!(artifacts.module.contains("@mal_runtime_symbol_data"));
+        assert!(artifacts.module.contains("@mal_runtime_symbol_read"));
+        assert!(
+            artifacts
+                .module
+                .contains("call void @mal_runtime_symbol_release")
+        );
     }
 
     #[test]
@@ -485,15 +555,31 @@ mod tests {
 
     #[test]
     fn reads_supported_pointer_widths_from_target_data_layouts() {
-        assert_eq!(pointer_size("e-m:e-i64:64"), Some(8));
+        assert_eq!(
+            target_layout("e-m:e-i64:64"),
+            Some(TargetLayout {
+                pointer_size: 8,
+                index_size: 8
+            })
+        );
         for bits in 0_usize..=256 {
             let bytes = bits / 8;
-            let expected = (bits.is_multiple_of(8) && bytes.is_power_of_two()).then_some(bytes);
-            assert_eq!(pointer_size(&format!("e-p:{bits}:{bits}")), expected);
-            assert_eq!(pointer_size(&format!("e-p0:{bits}:{bits}")), expected);
+            let expected =
+                (bits.is_multiple_of(8) && bytes.is_power_of_two()).then_some(TargetLayout {
+                    pointer_size: bytes,
+                    index_size: bytes,
+                });
+            assert_eq!(target_layout(&format!("e-p:{bits}:{bits}")), expected);
+            assert_eq!(target_layout(&format!("e-p0:{bits}:{bits}")), expected);
         }
-        assert_eq!(pointer_size("e-p1:32:32-p0:64:64"), Some(8));
-        assert_eq!(pointer_size("e-p:invalid:64"), None);
+        assert_eq!(
+            target_layout("e-p1:32:32-p0:64:64:64:32"),
+            Some(TargetLayout {
+                pointer_size: 8,
+                index_size: 4
+            })
+        );
+        assert_eq!(target_layout("e-p:invalid:64"), None);
     }
 
     #[test]
@@ -548,6 +634,39 @@ mod tests {
             !artifacts
                 .module
                 .contains("ptr %mal_active_environment, align 8")
+        );
+    }
+
+    #[test]
+    fn separates_pointer_representation_and_index_widths() {
+        let source = SourceFile::new(
+            FileId::new(90),
+            "llvm-index-width.mal",
+            "scale :: (USize, ByteSize) -> ByteSize := (count, size) -> count * size;\n\
+             main :: Unit -> Int32 := () -> Int32(USize(scale(3usize, 8bytes)));"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check index-width fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "synthetic-unknown-none",
+                data_layout: "e-p:64:64:64:32",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("split pointer/index layout is supported");
+
+        assert!(artifacts.module.contains("mul i32"));
+        assert!(
+            artifacts
+                .module
+                .contains("declare ptr @llvm.ptrmask.p0.i64(ptr, i64)")
         );
     }
 

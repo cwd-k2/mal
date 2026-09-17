@@ -254,15 +254,11 @@ impl Checker {
             resolved::Expression::Unary { operator, operand } => {
                 if matches!(
                     operator.kind,
-                    crate::ast::UnaryOperator::ProjectAddress | crate::ast::UnaryOperator::Load
+                    crate::ast::UnaryOperator::ProjectAddress
+                        | crate::ast::UnaryOperator::Load
+                        | crate::ast::UnaryOperator::Star
                 ) {
                     self.check_memory_unary(operator.kind, operand, expression.span)?
-                } else if operator.kind == crate::ast::UnaryOperator::Star {
-                    return Err(Diagnostic::error(
-                        "Packed and Symbol conversion is not implemented",
-                    )
-                    .with_primary(expression.span, "this expression cannot be checked yet")
-                    .into());
                 } else {
                     self.check_unary(operator, operand, expression.span, expected)?
                 }

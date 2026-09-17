@@ -8,11 +8,11 @@ impl FunctionEmitter<'_> {
     pub(super) fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
         match (&atom.ty, &atom.kind) {
             (ty, AtomKind::Integer(value))
-                if scalar_type(ty, self.types.pointer_size()).is_some() =>
+                if scalar_type(ty, self.types.index_size()).is_some() =>
             {
                 Some(EmittedValue {
                     ty: ty.clone(),
-                    representation: integer_literal(ty, *value, self.types.pointer_size())?,
+                    representation: integer_literal(ty, *value, self.types.index_size())?,
                     owned: false,
                 })
             }
@@ -322,6 +322,18 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(retained)
             }
+            Type::Packed(_) => {
+                let value_type = self.types.value(ty)?;
+                let owner = self.register();
+                self.line(format!(
+                    "  {owner} = extractvalue {} {value}, 0",
+                    value_type.llvm
+                ));
+                self.line(format!(
+                    "  call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {owner})"
+                ));
+                Some(value.into())
+            }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
@@ -363,6 +375,17 @@ impl FunctionEmitter<'_> {
             Type::Symbol => self.line(format!(
                 "  call void @mal_runtime_symbol_release(ptr {value})"
             )),
+            Type::Packed(_) => {
+                let value_type = self.types.value(ty)?;
+                let owner = self.register();
+                self.line(format!(
+                    "  {owner} = extractvalue {} {value}, 0",
+                    value_type.llvm
+                ));
+                self.line(format!(
+                    "  call void @mal_runtime_symbol_release(ptr {owner})"
+                ));
+            }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();

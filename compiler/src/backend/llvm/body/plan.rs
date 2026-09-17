@@ -143,7 +143,7 @@ impl TopLevelConstants {
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand, values)?;
-                let scalar = super::scalar::scalar_type(&operand.ty, self.types.pointer_size())?;
+                let scalar = super::scalar::scalar_type(&operand.ty, self.types.index_size())?;
                 let representation = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
                         format!("fneg ({} {})", scalar.llvm, operand.representation()?)
@@ -175,7 +175,7 @@ impl TopLevelConstants {
     ) -> Option<Constant> {
         let representation = match &atom.kind {
             AtomKind::Integer(value) => {
-                super::scalar::integer_literal(&atom.ty, *value, self.types.pointer_size())?
+                super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())?
             }
             AtomKind::Float(bits) if atom.ty == Type::Float32 => {
                 format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
@@ -319,8 +319,8 @@ impl Constant {
 }
 
 fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Option<Constant> {
-    let source = super::scalar::scalar_type(&operand.ty, types.pointer_size())?;
-    let target = super::scalar::scalar_type(result_type, types.pointer_size())?;
+    let source = super::scalar::scalar_type(&operand.ty, types.index_size())?;
+    let target = super::scalar::scalar_type(result_type, types.index_size())?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
         operand.representation()?.into()
     } else {

@@ -42,6 +42,7 @@ pub(super) fn supports(execution: &crate::execution::Program) -> bool {
     generate(
         execution,
         8,
+        8,
         super::optimization::OptimizationSet::production(),
     )
     .is_some()
@@ -50,10 +51,11 @@ pub(super) fn supports(execution: &crate::execution::Program) -> bool {
 pub(super) fn generate(
     execution: &crate::execution::Program,
     pointer_size: usize,
+    index_size: usize,
     enabled: super::optimization::OptimizationSet,
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
-    let types = Types::new(pointer_size)?;
+    let types = Types::for_target(pointer_size, index_size)?;
     let top_levels = TopLevelConstants::new(execution, types)?;
     let ownership = ownership::Plan::new(&execution.control);
     let index = ProgramIndex::new(execution)?;
@@ -222,6 +224,14 @@ fn memory_primitive_name(primitive: crate::check::ast::MemoryPrimitive) -> Optio
         | MemoryPrimitive::ProjectAddress
         | MemoryPrimitive::Align
         | MemoryPrimitive::LoadValue
-        | MemoryPrimitive::StoreValue => return None,
+        | MemoryPrimitive::StoreValue
+        | MemoryPrimitive::AdmitRegion
+        | MemoryPrimitive::StorePacked
+        | MemoryPrimitive::Prefix
+        | MemoryPrimitive::RemainderView
+        | MemoryPrimitive::ViewLength
+        | MemoryPrimitive::PackedIndex
+        | MemoryPrimitive::PackedToSymbol
+        | MemoryPrimitive::SymbolToPacked => return None,
     })
 }

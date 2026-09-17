@@ -1,4 +1,4 @@
-use super::{FunctionSignature, Identifier, TypeName, VariableDeclaration};
+use super::{Expr, FunctionSignature, Identifier, TypeName, VariableDeclaration};
 
 mod render;
 
@@ -6,6 +6,7 @@ mod render;
 pub(in crate::backend) enum Declaration {
     Function(FunctionSignature),
     TypeAlias { source: TypeName, alias: Identifier },
+    StaticAssert { condition: Expr, message: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,6 +49,13 @@ impl Declaration {
         Self::TypeAlias {
             source: source.into(),
             alias: alias.into(),
+        }
+    }
+
+    pub(in crate::backend) fn static_assert(condition: Expr, message: impl Into<String>) -> Self {
+        Self::StaticAssert {
+            condition,
+            message: message.into(),
         }
     }
 }

@@ -11,9 +11,13 @@ use self::types::{HostTypes, TypeRegistry};
 pub(crate) const GENERATED_HEADER_NAME: &str = "program.mal.h";
 
 pub(crate) fn emit_header(interface: &ProgramInterface) -> String {
+    emit_header_for_target(interface, usize::BITS as usize)
+}
+
+pub(crate) fn emit_header_for_target(interface: &ProgramInterface, index_bits: usize) -> String {
     let mut types = TypeRegistry::default();
     let host = HostTypes::collect(interface, &mut types);
-    header::emit(interface, &types, &host)
+    header::emit(interface, &types, &host, index_bits)
 }
 
 pub(crate) fn emit_host(

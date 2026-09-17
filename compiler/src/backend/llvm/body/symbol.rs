@@ -51,7 +51,8 @@ pub(super) fn program_uses_runtime(execution: &crate::execution::Program) -> boo
 }
 
 fn type_contains_value(ty: &Type) -> bool {
-    ty.data_subtypes().any(|ty| matches!(ty, Type::Symbol))
+    ty.data_subtypes()
+        .any(|ty| matches!(ty, Type::Symbol | Type::Packed(_)))
 }
 
 fn atom_contains_value(atom: &Atom) -> bool {

@@ -110,6 +110,16 @@ impl Checker {
                 MemoryPrimitive::LoadValue,
                 Type::Product(vec![(**element).clone(), Type::Cursor(element.clone())].into()),
             ),
+            (UnaryOperator::Load, Type::Region(element)) => {
+                (MemoryPrimitive::AdmitRegion, Type::Packed(element.clone()))
+            }
+            (UnaryOperator::Star, Type::Packed(element)) if **element == Type::UInt8 => {
+                (MemoryPrimitive::PackedToSymbol, Type::Symbol)
+            }
+            (UnaryOperator::Star, Type::Symbol) => (
+                MemoryPrimitive::SymbolToPacked,
+                Type::Packed(Type::UInt8.into()),
+            ),
             _ => {
                 return Err(
                     Diagnostic::error("memory operator is not defined for this type")

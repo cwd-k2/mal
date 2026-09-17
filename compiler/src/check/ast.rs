@@ -369,6 +369,14 @@ pub enum MemoryPrimitive {
     Align,
     LoadValue,
     StoreValue,
+    AdmitRegion,
+    StorePacked,
+    Prefix,
+    RemainderView,
+    ViewLength,
+    PackedIndex,
+    PackedToSymbol,
+    SymbolToPacked,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -412,7 +420,15 @@ impl MemoryPrimitive {
             | Self::ProjectAddress
             | Self::Align
             | Self::LoadValue
-            | Self::StoreValue => {
+            | Self::StoreValue
+            | Self::AdmitRegion
+            | Self::StorePacked
+            | Self::Prefix
+            | Self::RemainderView
+            | Self::ViewLength
+            | Self::PackedIndex
+            | Self::PackedToSymbol
+            | Self::SymbolToPacked => {
                 unreachable!("surface memory operations are not first-class functions")
             }
         }

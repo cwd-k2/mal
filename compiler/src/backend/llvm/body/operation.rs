@@ -75,7 +75,7 @@ impl FunctionEmitter<'_> {
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand)?;
-                let scalar = scalar_type(&operand.ty, self.types.pointer_size())?;
+                let scalar = scalar_type(&operand.ty, self.types.index_size())?;
                 let register = self.register();
                 let instruction = match operator {
                     UnaryPrimitive::Negate if scalar.floating => {
@@ -170,7 +170,7 @@ impl FunctionEmitter<'_> {
                             left.representation, right.representation
                         ));
                     } else {
-                        let scalar = scalar_type(&left.ty, self.types.pointer_size())?;
+                        let scalar = scalar_type(&left.ty, self.types.index_size())?;
                         let predicate =
                             super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
                         let instruction = if scalar.floating { "fcmp" } else { "icmp" };
@@ -185,7 +185,7 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     }));
                 }
-                let scalar = scalar_type(&left.ty, self.types.pointer_size())?;
+                let scalar = scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
                 self.line(format!(
@@ -200,9 +200,9 @@ impl FunctionEmitter<'_> {
             }
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand)?;
-                let source = scalar_type(&operand.ty, self.types.pointer_size())?;
+                let source = scalar_type(&operand.ty, self.types.index_size())?;
                 let result_type = result_type?.clone();
-                let target = scalar_type(&result_type, self.types.pointer_size())?;
+                let target = scalar_type(&result_type, self.types.index_size())?;
                 if source.floating == target.floating && source.bits == target.bits {
                     return Some(Some(EmittedValue {
                         ty: result_type,

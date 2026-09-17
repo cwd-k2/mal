@@ -34,6 +34,34 @@ fn rejects_mismatched_typed_memory_operations() {
 }
 
 #[test]
+fn checks_region_packed_transfer_views_and_symbol_conversion() {
+    check_ok(
+        "admit :: Region<UInt8> -> Packed<UInt8> := (region) -> <-region;\n\
+         store :: (Region<UInt8>, Packed<UInt8>) -> Region<UInt8> :=\n\
+           (region, packed) -> region <- packed;\n\
+         inspect :: (Packed<UInt8>, USize) -> (UInt8, USize, Symbol) :=\n\
+           (packed, count) -> {\n\
+             prefix := packed / count;\n\
+             _ := packed % count;\n\
+             (packed # 0usize, #prefix, *prefix);\n\
+           };\n\
+         bytes :: Symbol -> Packed<UInt8> := (symbol) -> *symbol;",
+    );
+}
+
+#[test]
+fn rejects_packed_operations_for_wrong_element_or_operand_types() {
+    for text in [
+        "bad :: Packed<UInt16> -> Symbol := (packed) -> *packed;",
+        "bad :: Packed<UInt8> -> UInt8 := (packed) -> packed # 0u64;",
+        "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region / 1u64;",
+        "bad :: (Region<UInt8>, Packed<UInt16>) -> Region<UInt8> := (region, packed) -> region <- packed;",
+    ] {
+        assert!(check_error(text).primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn checks_ptr_extern_signatures_and_memory_primitives() {
     let program = check_ok(
         "extern memory :: Unit -> Ptr;\n\

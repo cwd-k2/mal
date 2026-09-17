@@ -7,6 +7,9 @@ impl Declaration {
             Self::TypeAlias { source, alias } => {
                 format!("typedef {}", source.render_declarator(alias))
             }
+            Self::StaticAssert { condition, message } => {
+                format!("_Static_assert({condition}, {})", Expr::string(message))
+            }
         };
         format!("{declaration};\n")
     }

@@ -18,9 +18,10 @@ pub(super) struct Bridge {
 pub(super) fn generate(
     external: &crate::core::ast::ExternalOperation,
     pointer_size: usize,
+    index_size: usize,
     raw_types: &crate::backend::c::RawHostTypes,
 ) -> Option<Bridge> {
-    let types = body::types::Types::new(pointer_size)?;
+    let types = body::types::Types::for_target(pointer_size, index_size)?;
     let parameter = plan::Value::new(&external.parameter, types)?;
     let result = plan::Value::new(&external.result, types)?;
     let mut marshalling = Marshalling::new(external.id.0, raw_types);

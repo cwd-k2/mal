@@ -1,6 +1,158 @@
 use super::*;
 
 #[test]
+fn builds_packed_slices_indexing_and_symbol_conversion() {
+    let directory = NativeFixture::new("driver-packed");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {\n\
+           packed := *\"abc\";\n\
+           prefix := packed / 2usize;\n\
+           remainder := packed % 2usize;\n\
+           text := *prefix;\n\
+           Int32(prefix # 1usize) + Int32(remainder # 0usize) + Int32(#text);\n\
+         };",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(199));
+}
+
+#[test]
+fn transfers_between_regions_and_packed_storage() {
+    let directory = NativeFixture::new("driver-region-packed");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"host.c\";\n\
+         extern sourceMemory :: Unit -> Address;\n\
+         extern targetMemory :: Unit -> Address;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           source := sourceMemory()@u8@3usize;\n\
+           packed := <-source;\n\
+           target := targetMemory()@u8@3usize;\n\
+           _ := target <- packed;\n\
+           Int32(packed # 0usize) + Int32(packed # 2usize);\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static uint8_t source_bytes[] = { 20, 0, 22 };\n\
+         static uint8_t target_bytes[3];\n\
+         MAL_DEFINE_sourceMemory(call) {\n\
+             return mal_Address_return(call, source_bytes);\n\
+         }\n\
+         MAL_DEFINE_targetMemory(call) {\n\
+             return mal_Address_return(call, target_bytes);\n\
+         }\n",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(42));
+}
+
+#[test]
+fn stores_and_loads_canonical_products_and_sums() {
+    let directory = NativeFixture::new("driver-canonical-layout");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"host.c\";\n\
+         Choice :: [Unit, UInt64];\n\
+         extern memory :: Unit -> Address;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           address := memory();\n\
+           product := address@(u8, u64);\n\
+           _ := product <- (7u8, 35u64);\n\
+           ((first, second), _) := <-product;\n\
+           choice :: Choice := [none, some] => some(42u64);\n\
+           sum := (address + #(u8, u64))@[unit, u64];\n\
+           _ := sum <- choice;\n\
+           (loaded, _) := <-sum;\n\
+           selected := loaded[() -> 0i32, (value) -> Int32(value)];\n\
+           Int32(first) + Int32(second) + selected;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static uint8_t bytes[32];\n\
+         MAL_DEFINE_memory(call) { return mal_Address_return(call, bytes); }\n",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(84));
+}
+
+#[test]
+fn aligns_cursor_access_with_pointer_provenance() {
+    let directory = NativeFixture::new("driver-cursor-align");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"host.c\";\n\
+         extern memory :: Unit -> Address;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           cursor := (memory() + 1bytes)@u64!;\n\
+           _ := cursor <- 42u64;\n\
+           (value, _) := <-cursor;\n\
+           Int32(value);\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static uint8_t bytes[24];\n\
+         MAL_DEFINE_memory(call) { return mal_Address_return(call, bytes); }\n",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(42));
+}
+
+#[test]
 fn specializes_generic_functions_to_distinct_llvm_functions() {
     let directory = NativeFixture::new("driver-llvm-generics");
     let source = directory.join("program.mal");

@@ -60,7 +60,18 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if operator.kind == UnaryOperator::SymbolLength {
-            let value = self.check_expression(operand, Some(&Type::Symbol))?;
+            let value = self.check_expression(operand, None)?;
+            if matches!(value.ty, Type::Region(_) | Type::Packed(_)) {
+                return Ok(Expression {
+                    kind: ExpressionKind::Memory {
+                        primitive: MemoryPrimitive::ViewLength,
+                        argument: Box::new(value),
+                    },
+                    ty: Type::USize,
+                    span,
+                });
+            }
+            self.require_type(&value.ty, &Type::Symbol, value.span)?;
             return Ok(Expression {
                 kind: ExpressionKind::SymbolLength {
                     value: Box::new(value),
@@ -172,19 +183,16 @@ impl Checker {
             return self.check_memory_store(left, right, span);
         }
         if operator.kind == BinaryOperator::SymbolAt {
-            let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
-            let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
-            return Ok(Expression {
-                kind: ExpressionKind::SymbolAt {
-                    argument: Box::new(Expression {
-                        kind: ExpressionKind::Product(vec![left, right]),
-                        ty: Type::Product(vec![Type::Symbol, Type::UInt64].into()),
-                        span,
-                    }),
-                },
-                ty: Type::UInt8,
-                span,
-            });
+            let left = self.check_before(left, None, right.span)?;
+            return self.check_binary_after_left(operator, left, right, span);
+        }
+        if matches!(
+            operator.kind,
+            BinaryOperator::Divide | BinaryOperator::Remainder
+        ) && expected.is_none()
+        {
+            let left = self.check_before(left, None, right.span)?;
+            return self.check_binary_after_left(operator, left, right, span);
         }
         if matches!(
             operator.kind,
@@ -300,6 +308,9 @@ impl Checker {
         match operator.kind {
             BinaryOperator::Store => return self.check_memory_store(left, right, span),
             BinaryOperator::SymbolAt => {
+                if matches!(left.ty, Type::Packed(_)) {
+                    return self.check_packed_index(left, right, span);
+                }
                 self.require_type(&left.ty, &Type::Symbol, left.span)?;
                 let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
                 return Ok(Expression {
@@ -340,6 +351,11 @@ impl Checker {
                     ty: Type::Symbol,
                     span,
                 });
+            }
+            BinaryOperator::Divide | BinaryOperator::Remainder
+                if matches!(left.ty, Type::Region(_) | Type::Packed(_)) =>
+            {
+                return self.check_view_slice(operator.kind, left, right, span);
             }
             _ => {}
         }
@@ -384,7 +400,7 @@ impl Checker {
             }
         };
         if !valid {
-            let message = if matches!(
+            let integer_operator = matches!(
                 operator.kind,
                 BinaryOperator::Remainder
                     | BinaryOperator::ShiftLeft
@@ -392,7 +408,12 @@ impl Checker {
                     | BinaryOperator::BitwiseAnd
                     | BinaryOperator::BitwiseXor
                     | BinaryOperator::BitwiseOr
-            ) {
+            );
+            let message = if is_target_quantity(&left.ty) {
+                "binary operator is not defined for this type"
+            } else if integer_operator && !integer {
+                "integer operator requires integer operands"
+            } else if integer_operator {
                 "operator is not defined for this integer type"
             } else if matches!(
                 operator.kind,
@@ -578,6 +599,23 @@ impl Checker {
         value: &Node<resolved::Expression>,
         span: Span,
     ) -> CheckResult<Expression> {
+        if let Type::Region(element) = &cursor.ty {
+            let element = element.clone();
+            let packed_type = Type::Packed(element.clone());
+            let (region, packed) = self.check_after(cursor, value, Some(&packed_type))?;
+            return Ok(Expression {
+                kind: ExpressionKind::Memory {
+                    primitive: MemoryPrimitive::StorePacked,
+                    argument: Box::new(Expression {
+                        kind: ExpressionKind::Product(vec![region, packed]),
+                        ty: Type::Product(vec![Type::Region(element.clone()), packed_type].into()),
+                        span,
+                    }),
+                },
+                ty: Type::Region(element),
+                span,
+            });
+        }
         let Type::Cursor(element) = &cursor.ty else {
             return Err(
                 Diagnostic::error("memory store requires a Cursor on the left")
@@ -602,6 +640,58 @@ impl Checker {
                 }),
             },
             ty: Type::Cursor(element),
+            span,
+        })
+    }
+
+    fn check_view_slice(
+        &mut self,
+        operator: BinaryOperator,
+        value: Expression,
+        count: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let ty = value.ty.clone();
+        let (value, count) = self.check_after(value, count, Some(&Type::USize))?;
+        Ok(Expression {
+            kind: ExpressionKind::Memory {
+                primitive: if operator == BinaryOperator::Divide {
+                    MemoryPrimitive::Prefix
+                } else {
+                    MemoryPrimitive::RemainderView
+                },
+                argument: Box::new(Expression {
+                    kind: ExpressionKind::Product(vec![value, count]),
+                    ty: Type::Product(vec![ty.clone(), Type::USize].into()),
+                    span,
+                }),
+            },
+            ty,
+            span,
+        })
+    }
+
+    fn check_packed_index(
+        &mut self,
+        packed: Expression,
+        index: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let Type::Packed(element) = &packed.ty else {
+            unreachable!("caller checks Packed")
+        };
+        let element = element.clone();
+        let (packed, index) = self.check_after(packed, index, Some(&Type::USize))?;
+        Ok(Expression {
+            kind: ExpressionKind::Memory {
+                primitive: MemoryPrimitive::PackedIndex,
+                argument: Box::new(Expression {
+                    kind: ExpressionKind::Product(vec![packed, index]),
+                    ty: Type::Product(vec![Type::Packed(element.clone()), Type::USize].into()),
+                    span,
+                }),
+            },
+            ty: (*element).clone(),
             span,
         })
     }
