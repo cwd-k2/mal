@@ -37,6 +37,9 @@ Packed<A> # Count           -> A
 *Symbol                     -> Packed<UInt8>
 ```
 
+これらを含むexpression全体の結合順序とformatter規則は
+[`generic memory surface syntax`](memory-syntax.md)を正とする。
+
 `#region`はlocation数だけを返し、readability、writability、initializationを示さない。`#packed`は常に読み出せる実在要素数を返す。
 
 `<-region`は全要素をindex順にadmitし、新しいPackedを返す。preconditionを満たした後のallocation failureはtrapする。
@@ -68,9 +71,9 @@ external storageのallocation、failure、ownership、deallocationはpredefined 
 host operationは`Address`、`ByteSize`、`Count`、またはoperation固有のconcrete contractを受け取る。
 
 ```mal
-extent := count * #u64;
+extent := elementCount * #u64;
 raw := hostAllocateBytes(extent);
-region := raw@u64@count;
+region := raw@u64@elementCount;
 ```
 
 alignmentを保証しないallocatorへexact extentだけを要求してから`!`を適用してはならない。余剰storageとdeallocation用の元Addressを
@@ -142,9 +145,8 @@ mal runtime representation、source memory layout、public C carrierは独立で
 active payloadを再帰的に変換し、C structをsource memory layoutとしてreinterpretしない。Addressが指すstorageのlayout、Count、
 alignment、permission、lifetimeはoperation固有のhost contractに残す。
 
-## 採択前に固定すること
+## 採択時に検証すること
 
-- `#value`、binary `#`、prefix `*`、`/`、`%`、`<-`のgrammar、precedence、formatter規則
 - Region/Packedのzero-count、one-past、slice owner、Unit、Address elementを含むownership corpus
 - 各preconditionのpositive/negative caseと、防御的trapをcontractにしないtest方針
 - partial I/Oのinitialized/consumed prefixを表すhost contract例

@@ -24,7 +24,7 @@ Engramはmal内部で意味が成立する側、Externは外部のstate、storag
 value categoryではない。malはEngramを構成してExternへ観測させられるが、Externはmal内部のidentityやrootを
 直接構成しない。Externから得たrepresentationはmalによるadmissionを経てEngramになる。
 
-一方、`Ptr`やexternal opaque handleはEngramへ変換されるdataではなく、Externへのcapabilityとして運ばれる。
+一方、`Address`やexternal opaque handleはEngramへ変換されるdataではなく、Externへのcapabilityとして運ばれる。
 mal valueに包まれてもreferentのauthorityは移らない。この非対称性により、internal valueの回収とexternal
 resourceのclose/freeを同じlifetime mechanismへ結合せずに済む。
 
@@ -53,13 +53,13 @@ operationは`extern` contractに置く。一方、既に渡されたcapability�
 | program固有のaggregateまたはprotocol encodingか | malで書くcodec |
 | hostにしか検査、構成、実行できないencodingか | 型固有の`extern` contract |
 
-この規則では、allocationとdeallocationは`extern`、`Ptr`のbyte offsetとscalar、pointer、Symbol bytesの
-load/storeはprimitiveになる。`Ptr`はExtern-owned storageへの組み込みcapabilityであり、referentをmal-ownedに
-変えない。primitiveはstorage policyを決めず、`Ptr`を提供したcontractが定めるregion、permission、lifetimeを
+この規則では、allocationとdeallocationは`extern`、`Address`のbyte offsetとcanonical representationの
+load/storeはprimitiveになる。`Address`はExtern-owned storageへの組み込みcapabilityであり、referentをmal-ownedに
+変えない。primitiveはstorage policyを決めず、`Address`を提供したcontractが定めるregion、permission、lifetimeを
 引き継ぐ。
 
-`Ptr`は任意のExtern resourceに共通するhandleではなく、hostがordinary byte-addressable storageとして直接公開した
-regionへのopaque data pointerである。hostはresourceを`Ptr`として返すことで、permissionの範囲内で標準memory operationを
+`Address`は任意のExtern resourceに共通するhandleではなく、hostがordinary byte-addressable storageとして直接公開した
+regionへのopaque data pointerである。hostはresourceを`Address`として返すことで、permissionの範囲内で標準memory operationを
 使うcontractを選ぶ。
 C ABIでpointerとして運ばれても直接memory accessの対象でないfile、socket、directory、deviceなどはexternal opaque
 typeとし、そのoperationは`extern` contractに残す。carrierのC表現ではなく、公開するoperation semanticsが両者を

@@ -34,8 +34,9 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
-| `Address`、target size、layout、memory placementの試案を確認する | [`Address`、target size、layout、placementの試案](design/size-and-alignment.md) | [`Region`と`Packed`によるmemory transferの試案](design/region-and-packed.md)、[memory primitive](spec/memory.md) |
+| `Address`、target size、layout、memory placementの試案を確認する | [`Address`、target size、layout、placementの試案](design/size-and-alignment.md) | [generic memory surface syntax](design/memory-syntax.md)、[`Region`と`Packed`によるmemory transferの試案](design/region-and-packed.md) |
 | `Region`、`Packed`、partial I/Oの試案を確認する | [`Region`と`Packed`によるmemory transferの試案](design/region-and-packed.md) | [`Address`、target size、layout、placementの試案](design/size-and-alignment.md)、[authority](design/authority.md) |
+| generic memory operatorとconversion構文の試案を確認する | [generic memory surface syntax](design/memory-syntax.md) | [grammar](spec/grammar.md)、[式とbinding](spec/expressions.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismと型index付きprimitiveの試案を確認する | [parametric polymorphismと型index付きprimitiveの試案](design/parametric-polymorphism.md) | [最小性](design/minimality.md)、[`Address`、target size、layout、placementの試案](design/size-and-alignment.md) |

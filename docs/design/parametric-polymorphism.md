@@ -38,11 +38,9 @@ same :: Int32 -> Int32 := (value) -> identity<Int32>(value);
 answer :: Unit -> Int32 := () -> identity<Int32>(42);
 ```
 
-parserはtypeまたはvalue identifierの直後に、type expressionだけからなる`<...>`をgeneric argument suffixとして認識する。
-resolverは後でそのidentifierが対応するgeneric declarationであることを検査する。value expressionからなるcomparisonとはこの
-grammarで区別する。formatterはidentifierと`<`の間、comma以外の型argument内、closing `>`の間に空白を置かない。lexerの
-`>>` tokenはgeneric argument list内では二つのclosing `>`として扱い、expression内ではshift operatorのままとする。
-`(...)`はvalue application、`[...]`はsum、result binder、continuation application、value-first applicationだけに使う。
+resolverはgeneric argument suffixを持つidentifierが対応するgeneric declarationであることを検査する。`<...>`とcomparison、
+`>>`、applicationとの構文上の区別、結合順序、formatter規則は
+[`generic memory surface syntax`](memory-syntax.md)を正とする。
 
 ## ユーザー定義の多相性
 
@@ -120,7 +118,7 @@ writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
     (cursor, value) -> cursor <- value;
 
 makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
-    (cursor, count) -> cursor@count;
+    (cursor, elementCount) -> cursor@elementCount;
 
 packRegion<A> :: Region<A> -> Packed<A> :=
     (region) -> <-region;
@@ -166,7 +164,6 @@ public generic bindingはmal source間だけで使える。generated C header、
 
 - generic alias、generic function、明示的specialization、first-classな単相function value、cross-file共有、self recursion
 - duplicate parameter、arity mismatch、未確定型へのprimitive、requirement不足、generic extern、polymorphic recursionのdiagnostic
-- `<...>`とcomparison、shift、nested applicationを含むlexer、parser、formatter corpus
 - specialization graphの共有、有限性、resource failure、source span
 - Cursor loadのproduct patternとvalue-first application、Region/Packed transferを使うgeneric positive case
 - managed valueを含むspecializationが単相core以降のownership規則だけで完結すること

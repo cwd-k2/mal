@@ -45,7 +45,8 @@ representationが存在することを証明しない。
 ## Layout shape
 
 primitive shapeはnumeric literal suffixと同じ短いspellingを使う。型が現れる構文と混同せず、既知のsuffixとの対応を
-再利用するため、`UInt64`ではなく`u64`と書く。
+再利用するため、`UInt64`ではなく`u64`と書く。`bool`だけはpredefined `Bool`のcanonical typeである
+`[Unit, Unit]`を表す特別なshape aliasとする。
 
 ```text
 unit
@@ -53,6 +54,7 @@ i8 i16 i32 i64
 u8 u16 u32 u64
 f32 f64
 address bytesize count
+bool
 ```
 
 productとsumはsource typeと同じdelimiterの内側にshapeを書き、flatなn項構造とnested構造を区別する。
@@ -64,13 +66,13 @@ productとsumはsource typeと同じdelimiterの内側にshapeを書き、flat�
 [unit, [i32, address]]
 ```
 
-一要素product、一要素sum、empty sum shapeは認めない。transparent aliasはcanonical typeへ展開し、representableなら
-shapeとして使える。`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
+一要素product、一要素sum、empty sum shapeは認めない。user-defined type aliasと型identifierはshape operandに現れない。
+`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
 
 ```mal
 #i8
 #(u64, i32)
-#Bool
+#bool
 ```
 
 ### PrimitiveとUnit
@@ -134,13 +136,8 @@ p - count * #u64
 p + 8 * #u64
 ```
 
-numeric conversionは`.i8`、`.u32`、`.f64`、`.bytes`、`.count`のclosed postfix familyへ統一する候補とする。通常のliteralは
-既存suffixを使い、conversionは既存integerのmodulo規則を保つ。
-
-```mal
-300u8          // range error
-(300i64).u8    // 44
-```
+`ByteSize`と`Count`を含むnumeric conversionのspelling、旧構文からの全面移行、operator precedenceは
+[`generic memory surface syntax`](memory-syntax.md)が所有する。
 
 ## Placementとaccess
 
@@ -183,7 +180,7 @@ Countを保存し、count 0でもlocationをalign-upする。prefix `!`はBool n
 
 ```mal
 alignedCursor := address@u64!;
-alignedRegion := address@u64@count!;
+alignedRegion := address@u64@elementCount!;
 ```
 
 exact placementとunaligned accessはすべてのbackendが実装するbaselineとする。postfix `!`はtarget capabilityであり、backendは
@@ -226,12 +223,16 @@ reference C backendは`ByteSize`と`Count`を`size_t`へ写す。LLVM pointer in
 generated C artifactのcompile-time assertionを含むABI admissionで検証する。pointer representation幅との一致は要求しない。
 LLVM module、C shim、runtime、host sourceは同じtargetへcompileする。別backendは自身のindex型に対応するhost mappingを定める。
 
+採択時には`Ptr`をsource、public C ABI、process entry ABI、compiler全stageの型identityとmemory loweringから一度に除き、`Address`へ
+置き換える。`Address`のpublic C carrierは`mal_Address_t`（`void *`）であり、`mal_Ptr_t`やsource aliasとしての`Ptr`を残さない。
+command-line argumentを受け取るentry pointは`(Count, Address) -> Int32`、各argument descriptorのcanonical memory shapeは
+`(address, bytesize)`とする。この非互換変更ではC ABI versionを更新し、header、LLVM module、C shim、runtime、host sourceを
+同じcompiler出力へ再生成する。
+
 extern parameterとresultへ出せる型は[`Region`と`Packed`のABI規則](region-and-packed.md#host-abi)に従う。
 
-## 採択前に固定すること
+## 採択時に検証すること
 
-- `#value`と`#shape`、`Address@Shape`と`Cursor@Count`、postfix `!`を区別するgrammar、precedence、formatter規則
-- postfix numeric conversionへ現行`T(value)`と`value[T]`を置き換える移行範囲
-- 現行`Ptr`から`Address`へのsource名、C ABI型名、process argument ABIの移行範囲
 - precondition表のpositive、one-past、zero-count、overflow、invalid representation corpus
 - exact/unaligned baselineとpostfix `!` target capabilityのartifact生成diagnostic
+- 旧conversion構文、`Ptr`、`mal_Ptr_t`がsource、generated artifact、compiler内部に残らないこと
