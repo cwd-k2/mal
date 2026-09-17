@@ -28,10 +28,11 @@ predefined!(TypeId, TYPES;
     BYTE_SIZE_TYPE = 14 => "ByteSize",
     U_SIZE_TYPE = 15 => "USize",
     ADDRESS_TYPE = 16 => "Address",
-    CURSOR_TYPE = 17 => "Cursor",
-    REGION_TYPE = 18 => "Region",
-    PACKED_TYPE = 19 => "Packed",
 );
+
+pub const CURSOR_TYPE: TypeId = TypeId(17);
+pub const REGION_TYPE: TypeId = TypeId(18);
+pub const PACKED_TYPE: TypeId = TypeId(19);
 
 predefined!(ValueId, VALUES;
     FALSE_VALUE = 0 => "false",
@@ -43,7 +44,7 @@ pub fn first_source_type_id() -> u32 {
         .iter()
         .map(|(_, id)| id.0)
         .max()
-        .map_or(0, |id| id + 1)
+        .map_or(PACKED_TYPE.0 + 1, |id| id.max(PACKED_TYPE.0) + 1)
 }
 
 pub fn first_source_value_id() -> u32 {

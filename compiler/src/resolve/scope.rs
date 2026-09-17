@@ -118,6 +118,30 @@ impl Resolver {
         })
     }
 
+    pub(super) fn type_constructor_reference(
+        &self,
+        name: &ast::Name,
+    ) -> Result<TypeReference, Diagnostic> {
+        let builtin = match name.text.as_str() {
+            "Cursor" => Some(super::predefined::CURSOR_TYPE),
+            "Region" => Some(super::predefined::REGION_TYPE),
+            "Packed" => Some(super::predefined::PACKED_TYPE),
+            _ => None,
+        };
+        if let Some(binding) = self.types.get(&name.text) {
+            return Ok(TypeReference {
+                id: binding.id,
+                name: name.clone(),
+            });
+        }
+        builtin
+            .map(|id| TypeReference {
+                id,
+                name: name.clone(),
+            })
+            .ok_or_else(|| self.unknown(name, "type"))
+    }
+
     pub(super) fn lookup_value(&self, text: &str) -> Option<ValueBinding> {
         self.value_scopes
             .iter()

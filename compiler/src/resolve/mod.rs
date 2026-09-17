@@ -199,7 +199,7 @@ impl Resolver {
                 constructor,
                 arguments,
             } => ast::TypeExpression::Application {
-                constructor: self.type_reference(constructor)?,
+                constructor: self.type_constructor_reference(constructor)?,
                 arguments: arguments
                     .iter()
                     .map(|argument| self.resolve_type(argument))
