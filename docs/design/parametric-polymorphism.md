@@ -1,6 +1,6 @@
 # parametric polymorphismと型index付きprimitiveの試案
 
-Status: Discussion draft (2026-09-16)
+Status: Discussion draft (2026-09-17)
 
 この文書は、型ごとに同じ構造と制御を複製する摩擦を減らすためのparametric polymorphismと、既存の
 numericおよびmemory primitiveとの境界を記録する。現行の規範は[`types`](../spec/types.md)、
@@ -78,7 +78,7 @@ Numeric =
   | Float32 | Float64
 ```
 
-[`Address`、`ByteSize`、`Count`、`Layout`、memory placement、`Packed`の試案](size-and-alignment.md)を同時に採択する場合は
+[`Address`、`ByteSize`、`Count`、layout、memory placement、`Packed`の試案](size-and-alignment.md)を同時に採択する場合は
 `ByteSize`と`Count`も`Numeric`へ加える。
 operatorごとの正確なdomainは引き続き個別に列挙し、例えばremainderとbit operatorをfloatへ拡張しない。
 
@@ -93,10 +93,17 @@ doubleWith<A> :: ((A, A) -> A, A) -> A :=
 
 この区別により、ユーザー定義部分のparametricityと、言語primitiveの閉じたad-hoc polymorphismを混同しない。
 
+同じ試案で導入を検討する`.i8`、`.u32`、`.f64`などのpostfix numeric conversionも、destinationを
+仕様が列挙する閉じたprimitive familyである。opaqueな型parameterからのconversionや、`.A`によるgeneric conversionは認めない。
+
+```mal
+toByte<A> :: A -> UInt8 := (value) -> value.u8; // error
+```
+
 ## memory primitiveとの統合
 
 memory representation、placement、alignmentの候補は
-[`Address`、`ByteSize`、`Count`、`Layout`、memory placement、`Packed`の試案`](size-and-alignment.md)を正とする。ここでは型parameterとの境界だけを定める。
+[`Address`、`ByteSize`、`Count`、layout、memory placement、`Packed`の試案`](size-and-alignment.md)を正とする。ここでは型parameterとの境界だけを定める。
 
 型`A`だけからrepresentationを導くgeneric memory operationは認めない。
 
@@ -104,27 +111,9 @@ memory representation、placement、alignmentの候補は
 readUnknown<A> :: Address -> A := (address) -> <-address; // error
 ```
 
-一方、`Layout<A>`は`A`のrepresentation ruleを明示的に運ぶbuilt-in opaque valueである。callerがこれを渡す場合、
-generic本体はaddressへlayoutを適用して`Cursor<A>`を作り、load/storeできる。
-
-```mal
-readWith<A> :: (Address, Layout<A>) -> A :=
-    (address, layout) -> <-(address <- layout);
-
-writeWith<A> :: (Address, A, Layout<A>) -> Cursor<A> :=
-    (address, value, layout) -> address <- layout <- value;
-```
-
-これは型から暗黙に探索または挿入されるdictionaryではない。`Layout<A>`を作るprimitive、product/sum layout operator、
-または引数として受け取った通常のvalueだけがmemory representation ruleを導入する。`Layout<A>`を渡しても`A`の比較、算術、encodingなど
-無関係なoperationは導入されない。
-
-`Layout<A>`はsource上では通常のimmutable valueとして明示的に渡すが、一つの`A`に一つだけ存在するcompile-time singletonである。
-型だけからcompilerがlayout argumentを暗黙に補わないため、このparameterはrepresentation ruleの受け渡しをsourceへ残す。
-一方、specialization時にはconcrete `A`とlayout identityが確定し、layout parameter自体はruntime calling conventionから消去する。
-詳しいphase規則は[memory placement案のLayoutのcompile-time identity](size-and-alignment.md#layoutのcompile-time-identity)を正とする。
-
-placement済みのcursorを受け取るgeneric codeも記述できる。
+layout shapeは`@i32`や`@(u8, address)`のようにmemory primitiveの構文operandとしてだけ現れ、通常のvalueや
+`Layout<A>`というsource typeにはしない。したがってgeneric functionは裸のAddressとlayout parameterを受け取らず、callerが
+具体的なshapeから構成したCursor、Bundle、Regionを受け取る。
 
 ```mal
 readCursor<A> :: Cursor<A> -> A :=
@@ -138,9 +127,12 @@ cursorAddress<A> :: Cursor<A> -> Address :=
 
 regionAddress<A> :: Region<A> -> Address :=
     (region) -> !region;
+
+placeBundle<A> :: (Address, Bundle<A>) -> Region<A> :=
+    (address, bundle) -> address@bundle;
 ```
 
-`Span<A>`、`Cursor<A>`、`Region<A>`、`Packed<A>`も同じ型indexを保存するため、genericな有限regionとmal-ownedな有限列の
+`Bundle<A>`、`Cursor<A>`、`Region<A>`、`Packed<A>`は同じ型indexとstaticなlayout identityを保存するため、genericな有限regionとmal-ownedな有限列の
 transferを記述できる。
 
 ```mal
@@ -164,21 +156,20 @@ readPackedAt<A> :: (Packed<A>, Count) -> A :=
 preconditionであり、`<-region`で作った`Packed<A>`だけがmal-ownedになる。region storeは`#packed <= #region`を要求し、書き込み
 直後から始まるsuffix Regionを返す。`/`はprefix、`%`はremainderを返し、packed indexingは`index < #packed`を要求する。
 
-`Layout`、`Span`、`Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
-明示されたoperandの型indexを保存するbuilt-in primitive familyである。型検査後のspecializationではconcreteなlayoutと
-value型が確定し、ANF以降へopenな型parameterまたは暗黙dictionaryを渡さない。
+`Bundle`、`Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
+明示されたoperandの型indexを保存するbuilt-in primitive familyである。型検査後のspecializationではconcreteなshapeと
+value型が確定し、ANF以降へopenな型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
 
 raw addressへ異なるlayoutを順にstoreする場合は、memory chain中でlayoutを明示的に切り替える。
 
 ```mal
-end := address
-    <- u8
-    <- header
-    <- i32
-    <- version
-    <- addressLayout
-    <- payloadAddress;
+afterHeader := address@u8 <- header;
+afterVersion := (!afterHeader)@i32 <- version;
+end := (!afterVersion)@address <- payloadAddress;
 ```
+
+CursorとRegionのlayout identityは生成後に変更できない。`<-`はCursorと同じ`A`のstore、またはRegionと同じ`A`のPacked transferに
+限定し、別のshapeへ切り替えるgeneric primitiveにはしない。
 
 採択時には[D037](../history/decisions/D037.md)の`T.load`と`T.store`を置き換え、名前付きの`load<T>`と`store<T>`は提供しない。
 `Symbol.read`に相当するadmissionは`<-Region<UInt8>`、`Symbol.write`に相当するobservationは
@@ -206,5 +197,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、`!`、`#`、`*`、`^`、`/`、`%`、`&`、`|`、`<-`、`<~`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
-- `Layout<A>`あり／なしのgeneric load、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
+- `<...>`、postfix numeric conversion、`@shape`、`@shape@Count`、`Address@shape`、`@aligned`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `Cursor<A>`と`Bundle<A>`を介したgeneric loadとplacement、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
