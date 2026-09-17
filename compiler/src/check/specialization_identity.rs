@@ -71,6 +71,9 @@ impl IdentityBounds {
     }
 
     fn expression(&mut self, expression: &Expression) {
+        if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
+            return self.binary_expression(expression);
+        }
         match &expression.kind {
             ExpressionKind::Reference(reference) => self.value(reference.id),
             ExpressionKind::GenericReference { reference, .. } => self.value(reference.id),
@@ -135,15 +138,26 @@ impl IdentityBounds {
                 self.block(else_branch);
             }
             ExpressionKind::Unary { operand, .. } => self.expression(operand),
-            ExpressionKind::Binary { left, right, .. } => {
-                self.expression(left);
-                self.expression(right);
+            ExpressionKind::Binary { .. } => {
+                unreachable!("binary expressions are walked iteratively")
             }
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
             | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
+        }
+    }
+
+    fn binary_expression(&mut self, expression: &Expression) {
+        let mut pending = vec![expression];
+        while let Some(expression) = pending.pop() {
+            if let ExpressionKind::Binary { left, right, .. } = &expression.kind {
+                pending.push(right);
+                pending.push(left);
+            } else {
+                self.expression(expression);
+            }
         }
     }
 

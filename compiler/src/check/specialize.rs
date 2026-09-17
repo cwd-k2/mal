@@ -12,14 +12,6 @@ use super::types::substitute_type;
 const LIMIT: usize = 65_536;
 
 pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnostic> {
-    if !program
-        .items
-        .iter()
-        .any(|item| matches!(item.kind, TopItem::GenericBinding(_)))
-    {
-        entry_binding(&program.items, program.span)?;
-        return Ok(MonomorphicProgram::new(program));
-    }
     let identities = next_identities(&program).ok_or_else(|| {
         Diagnostic::error("compiler identity space exhausted").with_primary(
             program.span,
@@ -196,6 +188,9 @@ impl Specializer {
         substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
+        if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
+            return self.binary_expression(expression, substitutions, self_instance);
+        }
         expression.ty = substitute_type(&expression.ty, substitutions);
         match &mut expression.kind {
             ExpressionKind::GenericReference {
@@ -240,13 +235,15 @@ impl Specializer {
                 self.block(body, substitutions, self_instance)?;
             }
             ExpressionKind::Lambda(lambda) => {
-                lambda.id = LambdaId(self.next_lambda);
-                self.next_lambda = self.next_lambda.checked_add(1).ok_or_else(|| {
-                    Diagnostic::error("compiler identity space exhausted").with_primary(
-                        expression.span,
-                        "cannot allocate a specialized lambda identity",
-                    )
-                })?;
+                if self_instance.is_some() {
+                    lambda.id = LambdaId(self.next_lambda);
+                    self.next_lambda = self.next_lambda.checked_add(1).ok_or_else(|| {
+                        Diagnostic::error("compiler identity space exhausted").with_primary(
+                            expression.span,
+                            "cannot allocate a specialized lambda identity",
+                        )
+                    })?;
+                }
                 lambda.parameter_type = substitute_type(&lambda.parameter_type, substitutions);
                 lambda.result_type = substitute_type(&lambda.result_type, substitutions);
                 if let Some(parameter) = &mut lambda.parameter {
@@ -290,15 +287,36 @@ impl Specializer {
             ExpressionKind::Unary { operand, .. } => {
                 self.expression(operand, substitutions, self_instance)?
             }
-            ExpressionKind::Binary { left, right, .. } => {
-                self.expression(left, substitutions, self_instance)?;
-                self.expression(right, substitutions, self_instance)?;
+            ExpressionKind::Binary { .. } => {
+                unreachable!("binary expressions are walked iteratively")
             }
             ExpressionKind::StorageSize(ty) => *ty = substitute_type(ty, substitutions),
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
             | ExpressionKind::Unit => {}
+        }
+        Ok(())
+    }
+
+    fn binary_expression(
+        &mut self,
+        expression: &mut Expression,
+        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        self_instance: Option<(ValueId, ValueId)>,
+    ) -> Result<(), Diagnostic> {
+        let mut pending = vec![expression];
+        while let Some(expression) = pending.pop() {
+            expression.ty = substitute_type(&expression.ty, substitutions);
+            if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
+                let ExpressionKind::Binary { left, right, .. } = &mut expression.kind else {
+                    unreachable!()
+                };
+                pending.push(right);
+                pending.push(left);
+                continue;
+            }
+            self.expression(expression, substitutions, self_instance)?;
         }
         Ok(())
     }

@@ -93,7 +93,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | lexer/parser | generic parameter/argument、closed shape、postfix chain、共有tokenをsource-oriented ASTへ構成する。型やnameから構文を選ばない |
 | resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
 | check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
-| specialization | checked generic identityとcanonical concrete argumentをkeyに到達graphを共有し、単相checked programをcoreへ渡す |
+| specialization | generic宣言の有無によらず`main`から到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |

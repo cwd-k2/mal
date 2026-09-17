@@ -317,6 +317,35 @@ fn specializes_only_bindings_reachable_from_main() {
 }
 
 #[test]
+fn specialization_reachability_does_not_depend_on_generic_declarations() {
+    for generic in ["", "identity<A> :: A -> A := (value) -> value;\n"] {
+        let program = check_ok(&format!(
+            "{generic}\
+             unused :: Unit -> UInt8 := () -> 7u8;\n\
+             used :: Unit -> Int32 := () -> 42;\n\
+             main :: Unit -> Int32 := () -> used();"
+        ));
+        let specialized = check::specialize(program).expect("specialize reachable graph");
+        let names = specialized
+            .program()
+            .items
+            .iter()
+            .filter_map(|item| match &item.kind {
+                TopItem::Binding(binding) => match &binding.pattern {
+                    check::ast::Pattern::Binding { binding, .. } => {
+                        Some(binding.name.text.as_str())
+                    }
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(names, ["used", "main"]);
+    }
+}
+
+#[test]
 fn rejects_invalid_generic_value_use_before_specialization() {
     for (source, message) in [
         (
