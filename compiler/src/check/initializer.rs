@@ -15,7 +15,7 @@ impl Checker {
             Err(
                 Diagnostic::error("invalid top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, numeric conversions, external functions, type-qualified primitives, or lambdas",
+                    "top-level values must be closed literals, numeric conversions, external functions, or lambdas",
                 ),
             )
         }
@@ -31,7 +31,6 @@ fn is_top_level_initializer(
         | resolved::Expression::Float(_)
         | resolved::Expression::Byte(_)
         | resolved::Expression::Symbol(_)
-        | resolved::Expression::TypeQualifiedPrimitive { .. }
         | resolved::Expression::Unit => true,
         resolved::Expression::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)

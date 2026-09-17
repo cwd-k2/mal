@@ -93,10 +93,10 @@ fn preserves_outer_frames_across_a_nested_recursive_region() {
            then { inner(100i64) }\n\
            else {\n\
              rest := outer(n - 1i32);\n\
-             Int64(n) + rest;\n\
+             n.i64 + rest;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () -> { Int32(outer(20i32)) - 5260i32; };",
+         main :: Unit -> Int32 := () -> { outer(20i32).i32 - 5260i32; };",
     );
 
     let output = directory.malc([
@@ -299,7 +299,7 @@ fn resumes_managed_self_continuation_frames_through_llvm() {
          main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
            result := walk(10000i32, seed);\n\
-           Int32(result # 1u64) - 121i32;\n\
+           (result # 1u64).i32 - 121i32;\n\
          };",
     );
 

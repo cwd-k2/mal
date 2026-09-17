@@ -12,7 +12,7 @@ fn builds_packed_slices_indexing_and_symbol_conversion() {
            prefix := packed / 2usize;\n\
            remainder := packed % 2usize;\n\
            text := *prefix;\n\
-           Int32(prefix # 1usize) + Int32(remainder # 0usize) + Int32(#text);\n\
+           (prefix # 1usize).i32 + (remainder # 0usize).i32 + (#text).i32;\n\
          };",
     );
     let output = directory.malc([
@@ -44,7 +44,7 @@ fn transfers_between_regions_and_packed_storage() {
            packed := <-source;\n\
            target := targetMemory()@u8@3usize;\n\
            _ := target <- packed;\n\
-           Int32(packed # 0usize) + Int32(packed # 2usize);\n\
+           (packed # 0usize).i32 + (packed # 2usize).i32;\n\
          };",
     );
     directory.write(
@@ -92,8 +92,8 @@ fn stores_and_loads_canonical_products_and_sums() {
            sum := (address + #(u8, u64))@[unit, u64];\n\
            _ := sum <- choice;\n\
            (loaded, _) := <-sum;\n\
-           selected := loaded[() -> 0i32, (value) -> Int32(value)];\n\
-           Int32(first) + Int32(second) + selected;\n\
+           selected := loaded[() -> 0i32, (value) -> value.i32];\n\
+           first.i32 + second.i32 + selected;\n\
          };",
     );
     directory.write(
@@ -129,7 +129,7 @@ fn aligns_cursor_access_with_pointer_provenance() {
            cursor := (memory() + 1bytes)@u64!;\n\
            _ := cursor <- 42u64;\n\
            (value, _) := <-cursor;\n\
-           Int32(value);\n\
+           value.i32;\n\
          };",
     );
     directory.write(
@@ -160,7 +160,7 @@ fn specializes_generic_functions_to_distinct_llvm_functions() {
     directory.write(
         "program.mal",
         "identity<A> :: A -> A := (value) -> value;\n\
-         main :: Unit -> Int32 := () -> identity<Int32>(40) + Int32(identity<UInt8>(2u8));",
+         main :: Unit -> Int32 := () -> identity<Int32>(40) + identity<UInt8>(2u8).i32;",
     );
     let output = directory.malc([
         OsStr::new("build"),
@@ -224,7 +224,7 @@ fn builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons() {
            unsigned8(255u8) + unsigned16(65535u16) +\n\
            unsigned32(4294967295u32) + unsigned64(18446744073709551615u64) +\n\
            signedOps(-9i64) + unsignedOps(10u64) - 9 +\n\
-           Int32(UInt64(-1i8)) + 1;\n\
+           (-1i8).u64.i32 + 1;\n\
          };",
     );
 
@@ -270,7 +270,7 @@ fn builds_strict_float_arithmetic_and_nan_comparisons_through_llvm() {
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            check32(1.5f32) + check64(1.5f64) + checkNaN(1.0f64) +\n\
-           Int32(Float64(3)) + Int32(Float32(1.75f64)) - 7;\n\
+           3i32.f64.i32 + 1.75f64.f32.i32 - 7;\n\
          };",
     );
 
@@ -303,13 +303,13 @@ fn resumes_mixed_numeric_scalar_frames_through_llvm() {
         "program.mal",
         "sum :: Float64 -> Float64 := (value) -> {\n\
            if (value == 0.0f64) then { 0.0f64 } else {\n\
-             narrow := Int16(value);\n\
-             wide := UInt64(value);\n\
+             narrow := value.i16;\n\
+             wide := value.u64;\n\
              rest := sum(value - 1.0f64);\n\
-             rest + Float64(narrow) + Float64(wide);\n\
+             rest + narrow.f64 + wide.f64;\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () -> { Int32(sum(10000.0f64) - 100010000.0f64); };",
+         main :: Unit -> Int32 := () -> { (sum(10000.0f64) - 100010000.0f64).i32; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -347,7 +347,7 @@ fn constructs_and_resumes_unmanaged_products_through_llvm() {
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            (narrow, wide) := build(10000);\n\
-           Int32(narrow) + Int32(wide) - 20000;\n\
+           narrow.i32 + wide.i32 - 20000;\n\
          };",
     );
 
@@ -385,8 +385,8 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
          };\n\
          score :: Choice -> Int32 := (choice) -> {\n\
            choice[\n\
-             (value) -> { Int32(value) },\n\
-             (pair) -> { (left, right) := pair; Int32(left) + Int32(right) }];\n\
+             (value) -> { value.i32 },\n\
+             (pair) -> { (left, right) := pair; left.i32 + right.i32 }];\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            flag := true != false;\n\
@@ -504,18 +504,21 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         extern memory :: UInt64 -> Ptr;\n\
+         extern memory :: ByteSize -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
-           base := memory(64u64);\n\
-           UInt64.store(base, 42u64);\n\
-           pointerSlot := base + UInt64.size;\n\
-           Ptr.store(pointerSlot, base);\n\
-           floatSlot := pointerSlot + Ptr.size;\n\
-           Float32.store(floatSlot, 1.5f32);\n\
-           restored := Ptr.load(pointerSlot);\n\
-           start := floatSlot - Ptr.size - UInt64.size;\n\
-           value := UInt64.load(restored) + UInt64.load(start);\n\
-           if (Float32.load(floatSlot) == 1.5f32) then { Int32(value) - 84 } else { 1 };\n\
+           base := memory(64bytes);\n\
+           _ := base@u64 <- 42u64;\n\
+           pointerSlot := base + #u64;\n\
+           _ := pointerSlot@address <- base;\n\
+           floatSlot := pointerSlot + #address;\n\
+           _ := floatSlot@f32 <- 1.5f32;\n\
+           (restored, _) := <-(pointerSlot@address);\n\
+           start := floatSlot - #address - #u64;\n\
+           (first, _) := <-(restored@u64);\n\
+           (second, _) := <-(start@u64);\n\
+           (float, _) := <-(floatSlot@f32);\n\
+           value := first + second;\n\
+           if (float == 1.5f32) then { value.i32 - 84 } else { 1 };\n\
          };",
     );
     directory.write(
@@ -524,7 +527,7 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
          static unsigned char storage[65];\n\
          MAL_DEFINE_memory(call, size) {\n\
              (void)size;\n\
-             return mal_Ptr_return(call, storage + 1);\n\
+             return mal_Address_return(call, storage + 1);\n\
          }\n",
     );
 

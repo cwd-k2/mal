@@ -181,7 +181,10 @@ impl Parser<'_> {
             return self.parse_parenthesized_expression();
         }
         if self.at(&TokenKind::TypeIdentifier) {
-            return self.parse_type_leading_expression();
+            return Err(self.error_here(
+                "type names are not expressions",
+                "use a value name or a closed postfix numeric conversion such as `.i32`",
+            ));
         }
         if self.at(&TokenKind::If) {
             return self.parse_if();

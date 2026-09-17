@@ -32,32 +32,23 @@ fn parses_a_symbol_literal_as_bytes() {
 }
 
 #[test]
-fn parses_a_type_qualified_primitive_as_an_atomic_expression() {
-    let Expression::TypeQualifiedPrimitive { type_name, member } =
-        binding_value("value := Ptr.size;")
-    else {
-        panic!("expected type-qualified primitive");
-    };
-    assert_eq!(type_name.text, "Ptr");
-    assert_eq!(member.text, "size");
-}
-
-#[test]
-fn rejects_general_member_access_and_non_value_members() {
-    for text in ["value := value.load;", "value := UInt8.Load;"] {
+fn rejects_type_names_as_expressions_and_non_call_member_access() {
+    for text in [
+        "value := Ptr.size;",
+        "value := UInt8(1i8);",
+        "value := 1i8[UInt8];",
+        "value := value.load;",
+        "value := UInt8.Load;",
+    ] {
         let error = parse(&source(text)).expect_err("member syntax should be restricted");
         assert!(error.primary.is_some(), "input: {text}");
     }
 }
 
 #[test]
-fn parses_prefix_and_postfix_numeric_conversions() {
+fn parses_postfix_numeric_conversions() {
     assert!(matches!(
-        binding_value("value := UInt8(1i8);"),
-        Expression::Conversion { .. }
-    ));
-    assert!(matches!(
-        binding_value("value := 1i8[UInt8];"),
+        binding_value("value := 1i8.u8;"),
         Expression::Conversion { .. }
     ));
 }

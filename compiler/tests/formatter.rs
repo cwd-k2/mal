@@ -126,10 +126,10 @@ fn keeps_generic_delimiters_attached_without_changing_comparisons_or_shifts() {
 }
 
 #[test]
-fn keeps_type_qualified_primitives_attached() {
+fn keeps_numeric_conversion_suffixes_attached() {
     assert_eq!(
-        format("size::UInt64:=Ptr . size+UInt64. load;"),
-        "size :: UInt64 := Ptr.size + UInt64.load;\n"
+        format("value::UInt64:=1i8 . u8 . u64;"),
+        "value :: UInt64 := 1i8.u8.u64;\n"
     );
 }
 
@@ -152,13 +152,14 @@ fn preserves_receiver_first_call_chain_breaks() {
             "result := source\n\
              .transform(option)\n\
              .finish();\n\
-             size := UInt8\n\
-             .size;"
+             byte := value\n\
+             .u8;"
         ),
         "result := source\n\
          \x20   .transform(option)\n\
          \x20   .finish();\n\
-         size := UInt8.size;\n"
+         byte := value\n\
+         \x20   .u8;\n"
     );
 }
 
@@ -214,12 +215,12 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 #[test]
 fn aligns_multiline_sum_continuations_with_the_value() {
     let formatted =
-        format("pick::[Int32,UInt8]->Int32:=(value) -> {value[(x) -> {x},(x) -> {Int32(x)}];};");
+        format("pick::[Int32,UInt8]->Int32:=(value) -> {value[(x) -> {x},(x) -> {x.i32}];};");
 
     assert!(formatted.contains(concat!(
         "    value[\n",
         "    (x) -> { x },\n",
-        "    (x) -> { Int32(x) }\n",
+        "    (x) -> { x.i32 }\n",
         "    ];\n",
     )));
     assert_eq!(format(&formatted), formatted);

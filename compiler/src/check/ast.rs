@@ -19,7 +19,6 @@ pub enum Type {
     Float32,
     Float64,
     Symbol,
-    Ptr,
     Address,
     ByteSize,
     USize,
@@ -70,7 +69,6 @@ impl PartialEq for Type {
                 | (Self::Float32, Self::Float32)
                 | (Self::Float64, Self::Float64)
                 | (Self::Symbol, Self::Symbol)
-                | (Self::Ptr, Self::Ptr)
                 | (Self::Address, Self::Address)
                 | (Self::ByteSize, Self::ByteSize)
                 | (Self::USize, Self::USize) => {}
@@ -319,9 +317,6 @@ pub enum ExpressionKind {
     SymbolAt {
         argument: Box<Expression>,
     },
-    MemoryFunction {
-        primitive: MemoryPrimitive,
-    },
     Memory {
         primitive: MemoryPrimitive,
         argument: Box<Expression>,
@@ -355,14 +350,6 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MemoryPrimitive {
-    OffsetForward,
-    OffsetBackward,
-    Load(MemoryScalar),
-    Store(MemoryScalar),
-    LoadPtr,
-    StorePtr,
-    LoadSymbol,
-    StoreSymbol,
     Place,
     Region,
     ProjectAddress,
@@ -377,79 +364,6 @@ pub enum MemoryPrimitive {
     PackedIndex,
     PackedToSymbol,
     SymbolToPacked,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MemoryScalar {
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-    Float32,
-    Float64,
-}
-
-impl MemoryPrimitive {
-    pub(crate) fn signature(self) -> (Type, Type) {
-        match self {
-            Self::OffsetForward | Self::OffsetBackward => (
-                Type::Product(vec![Type::Ptr, Type::UInt64].into()),
-                Type::Ptr,
-            ),
-            Self::Load(scalar) => (Type::Ptr, scalar.ty()),
-            Self::Store(scalar) => (
-                Type::Product(vec![Type::Ptr, scalar.ty()].into()),
-                Type::Unit,
-            ),
-            Self::LoadPtr => (Type::Ptr, Type::Ptr),
-            Self::StorePtr => (Type::Product(vec![Type::Ptr, Type::Ptr].into()), Type::Unit),
-            Self::LoadSymbol => (
-                Type::Product(vec![Type::Ptr, Type::UInt64].into()),
-                Type::Symbol,
-            ),
-            Self::StoreSymbol => (
-                Type::Product(vec![Type::Ptr, Type::Symbol].into()),
-                Type::Unit,
-            ),
-            Self::Place
-            | Self::Region
-            | Self::ProjectAddress
-            | Self::Align
-            | Self::LoadValue
-            | Self::StoreValue
-            | Self::AdmitRegion
-            | Self::StorePacked
-            | Self::Prefix
-            | Self::RemainderView
-            | Self::ViewLength
-            | Self::PackedIndex
-            | Self::PackedToSymbol
-            | Self::SymbolToPacked => {
-                unreachable!("surface memory operations are not first-class functions")
-            }
-        }
-    }
-}
-
-impl MemoryScalar {
-    pub(crate) fn ty(self) -> Type {
-        match self {
-            Self::Int8 => Type::Int8,
-            Self::Int16 => Type::Int16,
-            Self::Int32 => Type::Int32,
-            Self::Int64 => Type::Int64,
-            Self::UInt8 => Type::UInt8,
-            Self::UInt16 => Type::UInt16,
-            Self::UInt32 => Type::UInt32,
-            Self::UInt64 => Type::UInt64,
-            Self::Float32 => Type::Float32,
-            Self::Float64 => Type::Float64,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

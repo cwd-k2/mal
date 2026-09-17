@@ -177,7 +177,7 @@ fn selects_optimization_profiles_at_the_public_build_boundary() {
         "program.mal",
         "apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> { function(value); };\n\
          walk :: Int32 -> Int32 := (value) -> { if (value == 0i32) then { 0i32 } else { apply(walk, value - 1i32) }; };\n\
-         main :: Unit -> Int32 := () -> { left := \"a\" + \"b\"; text := left + \"c\"; Int32(#text) - 3i32 + walk(Int32(#text)); };",
+         main :: Unit -> Int32 := () -> { left := \"a\" + \"b\"; text := left + \"c\"; (#text).i32 - 3i32 + walk((#text).i32); };",
     );
     let baseline = directory.join("baseline");
     let production = directory.join("production");
@@ -295,8 +295,8 @@ fn references_closed_top_level_numeric_constants_through_llvm() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "answer :: UInt64 := UInt64(42);\n\
-         main :: Unit -> Int32 := () -> { Int32(answer) - 42; };",
+        "answer :: UInt64 := 42i32.u64;\n\
+         main :: Unit -> Int32 := () -> { answer.i32 - 42; };",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -329,7 +329,6 @@ fn references_structural_closed_top_level_values_through_llvm() {
         "Choice :: [Unit, Symbol];\n\
          (number, text) :: (Int32, Symbol) := (-7i32, \"ok\");\n\
          enabled :: Bool := true;\n\
-         reader :: Ptr -> Int64 := Int64.load;\n\
          makeChoice :: Symbol -> Choice := (value) -> [none, some] => { some(value) };\n\
          main :: Unit -> Int32 := () -> {\n\
            choice := makeChoice(\"yes\");\n\
@@ -372,15 +371,16 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "Arguments :: (UInt64, Ptr);\n\
-         argumentAt :: (Ptr, UInt64) -> Symbol := (arguments, index) -> {\n\
-           slot := arguments + index * (Ptr.size + UInt64.size);\n\
-           Symbol.read(Ptr.load(slot), UInt64.load(slot + Ptr.size));\n\
+        "Arguments :: (USize, Address);\n\
+         argumentAt :: (Address, USize) -> Symbol := (arguments, index) -> {\n\
+           descriptors := <-(arguments@(address, bytesize)@(index + 1usize));\n\
+           (address, length) := descriptors # index;\n\
+           *(<-(address@u8@(length.usize)));\n\
          };\n\
          main :: Arguments -> Int32 := (count, arguments) -> {\n\
-           first := argumentAt(arguments, 0u64);\n\
-           second := argumentAt(arguments, 1u64);\n\
-           if (count == 2u64) then {\n\
+           first := argumentAt(arguments, 0usize);\n\
+           second := argumentAt(arguments, 1usize);\n\
+           if (count == 2usize) then {\n\
              if (first == \"alpha\") then {\n\
                if (second == \"\") then { 0 } else { 1 };\n\
              } else { 2 };\n\
@@ -420,9 +420,9 @@ fn passes_a_non_null_empty_process_argument_region() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         extern pointerIsNonNull :: Ptr -> Bool;\n\
-         main :: (UInt64, Ptr) -> Int32 := (count, arguments) -> {\n\
-           if (count == 0u64) then {\n\
+         extern pointerIsNonNull :: Address -> Bool;\n\
+         main :: (USize, Address) -> Int32 := (count, arguments) -> {\n\
+           if (count == 0usize) then {\n\
              if (pointerIsNonNull(arguments)) then { 0 } else { 1 };\n\
            } else { 2 };\n\
          };",

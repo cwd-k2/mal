@@ -19,7 +19,7 @@ item :: (Symbol, UInt64) -> UInt8 := (value, index) -> {
 };
 same :: Unit -> Bool := () -> { "a\0" == "a\x00"; };
 different :: Unit -> Bool := () -> { "a" != "b"; };
-literal :: Unit -> UInt64 := () -> { #"hoge" + UInt64("hoge" # 1); };
+literal :: Unit -> UInt64 := () -> { #"hoge" + ("hoge" # 1).u64; };
 concatenate :: (Symbol, Symbol) -> Symbol := (left, right) -> {
   left + right;
 };"#,

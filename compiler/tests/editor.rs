@@ -61,18 +61,18 @@ fn preserves_declared_aliases_in_symbol_types() {
 
 #[test]
 fn expands_only_the_hovered_alias() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nForest :: (Tree, Tree);\n";
+    let text = "Tree :: (Int64, Address, Address);\nForest :: (Tree, Tree);\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     let tree = document.hover_at(text.find("Tree").unwrap()).unwrap();
-    assert_eq!(tree.ty, "(Int64, Ptr, Ptr)");
+    assert_eq!(tree.ty, "(Int64, Address, Address)");
     let forest = document.hover_at(text.find("Forest").unwrap()).unwrap();
     assert_eq!(forest.ty, "(Tree, Tree)");
 }
 
 #[test]
 fn function_and_parameter_hovers_preserve_declared_aliases() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
+    let text = "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     let function = document.hover_at(text.find("f ::").unwrap()).unwrap();
@@ -147,23 +147,15 @@ fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
 }
 
 #[test]
-fn type_qualified_primitives_support_type_hover_and_definition() {
-    let text = "Byte :: UInt8;\nsize :: UInt64 := Byte.size;";
+fn numeric_conversion_suffixes_have_value_hover_without_type_navigation() {
+    let text = "value :: UInt8 := 1i8.u8;";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let reference_offset = text.rfind("Byte").unwrap();
-    let declaration_offset = text.find("Byte").unwrap();
+    let suffix_offset = text.rfind("u8").unwrap();
 
-    let hover = document.hover_at(reference_offset).expect("type hover");
+    let hover = document.hover_at(suffix_offset).expect("conversion hover");
     assert_eq!(hover.ty, "UInt8");
-    assert_eq!(hover.occurrence.unwrap().name, "Byte");
-
-    let reference = document.occurrence_at(reference_offset).unwrap();
-    assert_eq!(reference.kind, SymbolKind::Type);
-    assert_eq!(reference.role, OccurrenceRole::Reference);
-    assert_eq!(
-        document.definition(reference.id).unwrap().span.start(),
-        declaration_offset
-    );
+    assert!(hover.occurrence.is_none());
+    assert!(document.occurrence_at(suffix_offset).is_none());
 }
 
 #[test]
@@ -272,7 +264,7 @@ fn result_binders_support_hover_definition_references_and_rename() {
 
 #[test]
 fn symbol_operators_report_their_result_types() {
-    let text = "inspect :: Symbol -> UInt64 := (value) -> { #value + UInt64(value # 0); };";
+    let text = "inspect :: Symbol -> UInt64 := (value) -> { #value + (value # 0).u64; };";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();
@@ -336,13 +328,13 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
 }
 
 #[test]
-fn reports_the_function_type_of_a_first_class_memory_function() {
-    let text = "reader :: Ptr -> Int64 := Int64.load;";
-    let offset = text.find("load").unwrap();
+fn reports_the_type_of_a_typed_cursor_placement() {
+    let text = "cursor :: Address -> Cursor<Int64> := (address) -> address@i64;";
+    let offset = text.rfind("i64").unwrap();
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let hover = document.hover_at(offset).expect("memory function hover");
+    let hover = document.hover_at(offset).expect("cursor placement hover");
 
-    assert_eq!(hover.ty, "Ptr -> Int64");
+    assert_eq!(hover.ty, "Cursor<Int64>");
     assert!(hover.occurrence.is_none());
 }
 

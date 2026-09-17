@@ -107,22 +107,24 @@ fn calls_first_class_memory_functions_through_llvm() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Reader :: Ptr -> Int64;\n\
-         Writer :: (Ptr, Int64) -> Unit;\n\
-         extern memory :: Unit -> Ptr;\n\
-         readWith :: (Reader, Ptr) -> Int64 := (reader, pointer) -> { reader(pointer); };\n\
-         writeWith :: (Writer, Ptr, Int64) -> Unit := (writer, pointer, value) -> { writer(pointer, value); };\n\
+         Reader :: Cursor<Int64> -> Int64;\n\
+         Writer :: (Cursor<Int64>, Int64) -> Unit;\n\
+         extern memory :: Unit -> Address;\n\
+         read :: Reader := (cursor) -> { (value, _) := <-cursor; value };\n\
+         write :: Writer := (cursor, value) -> { _ := cursor <- value; () };\n\
+         readWith :: (Reader, Cursor<Int64>) -> Int64 := (reader, cursor) -> { reader(cursor); };\n\
+         writeWith :: (Writer, Cursor<Int64>, Int64) -> Unit := (writer, cursor, value) -> { writer(cursor, value); };\n\
          main :: Unit -> Int32 := () -> {\n\
-           pointer := memory();\n\
-           writeWith(Int64.store, pointer, 42i64);\n\
-           Int32(readWith(Int64.load, pointer) - 42i64);\n\
+           cursor := memory()@i64;\n\
+           writeWith(write, cursor, 42i64);\n\
+           (readWith(read, cursor) - 42i64).i32;\n\
          };",
     );
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
          static unsigned char storage[8];\n\
-         MAL_DEFINE_memory(call) { return mal_Ptr_return(call, storage); }\n",
+         MAL_DEFINE_memory(call) { return mal_Address_return(call, storage); }\n",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -153,21 +155,22 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Reader :: Ptr -> Int64;\n\
-         extern memory :: Unit -> Ptr;\n\
-         apply :: (Reader, Ptr) -> Int64 := (reader, pointer) -> { reader(pointer); };\n\
-         recurse :: Ptr -> Int64 := (pointer) -> { apply(recurse, pointer); };\n\
+         Reader :: Cursor<Int64> -> Int64;\n\
+         extern memory :: Unit -> Address;\n\
+         read :: Reader := (cursor) -> { (value, _) := <-cursor; value };\n\
+         apply :: (Reader, Cursor<Int64>) -> Int64 := (reader, cursor) -> { reader(cursor); };\n\
+         recurse :: Cursor<Int64> -> Int64 := (cursor) -> { apply(recurse, cursor); };\n\
          main :: Unit -> Int32 := () -> {\n\
-           pointer := memory();\n\
-           Int64.store(pointer, 42i64);\n\
-           Int32(apply(Int64.load, pointer) - 42i64);\n\
+           cursor := memory()@i64;\n\
+           _ := cursor <- 42i64;\n\
+           (apply(read, cursor) - 42i64).i32;\n\
          };",
     );
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
          static unsigned char storage[8];\n\
-         MAL_DEFINE_memory(call) { return mal_Ptr_return(call, storage); }\n",
+         MAL_DEFINE_memory(call) { return mal_Address_return(call, storage); }\n",
     );
 
     let unavailable = directory.join("must-not-be-used");
@@ -208,7 +211,7 @@ fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
            prefix := \"x\" + \"y\";\n\
            identity :: Int32 -> Symbol := (value) -> { prefix; };\n\
            result := apply(identity, 0i32);\n\
-           Int32(result # 1u64) - 121i32;\n\
+           (result # 1u64).i32 - 121i32;\n\
          };",
     );
     directory.write(
@@ -304,7 +307,7 @@ fn preserves_managed_environments_through_llvm_first_class_cycles() {
              };\n\
            };\n\
            result := recurse(50000i32);\n\
-           Int32(result # 1u64) - 121i32;\n\
+           (result # 1u64).i32 - 121i32;\n\
          };",
     );
 
@@ -438,10 +441,10 @@ fn runs_call_cc_encoded_with_capturing_closures() {
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            body :: CallCcBody := (escape) -> {\n\
-             (_) -> { (value) -> { Int64(value) }[42[escape]] };\n\
+             (_) -> { (value) -> { value.i64 }[42[escape]] };\n\
            };\n\
            computation := body[callCc];\n\
-           Int32((value) -> { Int64(value) }[computation] - 42i64);\n\
+           ((value) -> { value.i64 }[computation] - 42i64).i32;\n\
          };",
     );
     directory.write(

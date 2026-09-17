@@ -50,7 +50,7 @@ fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
 #[test]
 fn lexes_target_quantity_suffixes_in_every_integer_radix() {
     assert_eq!(
-        kinds("64bytes 0x10usize 0b100bytes"),
+        kinds("0bytes 64bytes 0x10usize 0b100bytes"),
         vec![
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Decimal,

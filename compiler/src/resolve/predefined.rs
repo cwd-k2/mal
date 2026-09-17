@@ -24,15 +24,14 @@ predefined!(TypeId, TYPES;
     SYMBOL_TYPE = 10 => "Symbol",
     FLOAT32_TYPE = 11 => "Float32",
     FLOAT64_TYPE = 12 => "Float64",
-    PTR_TYPE = 13 => "Ptr",
-    BYTE_SIZE_TYPE = 14 => "ByteSize",
-    U_SIZE_TYPE = 15 => "USize",
-    ADDRESS_TYPE = 16 => "Address",
+    BYTE_SIZE_TYPE = 13 => "ByteSize",
+    U_SIZE_TYPE = 14 => "USize",
+    ADDRESS_TYPE = 15 => "Address",
 );
 
-pub const CURSOR_TYPE: TypeId = TypeId(17);
-pub const REGION_TYPE: TypeId = TypeId(18);
-pub const PACKED_TYPE: TypeId = TypeId(19);
+pub const CURSOR_TYPE: TypeId = TypeId(16);
+pub const REGION_TYPE: TypeId = TypeId(17);
+pub const PACKED_TYPE: TypeId = TypeId(18);
 
 predefined!(ValueId, VALUES;
     FALSE_VALUE = 0 => "false",

@@ -226,8 +226,7 @@ impl Specializer {
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
-            | ExpressionKind::Unit
-            | ExpressionKind::MemoryFunction { .. } => {}
+            | ExpressionKind::Unit => {}
         }
         Ok(())
     }

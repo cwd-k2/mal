@@ -75,7 +75,7 @@ impl Types {
                 alignment: 1,
                 size: 1,
             }),
-            Type::Ptr | Type::Address | Type::Cursor(_) => Some(ValueType {
+            Type::Address | Type::Cursor(_) => Some(ValueType {
                 llvm: "ptr".into(),
                 alignment: self.pointer_size,
                 size: self.pointer_size,

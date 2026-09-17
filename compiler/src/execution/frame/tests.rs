@@ -19,7 +19,7 @@ fn validates_exact_frame_sites_and_payloads() {
              append(child);\n\
            };\n\
          };\n\
-         main :: Unit -> Int32 := () -> { Int32(#walk(2i32, \"x\")) - 3i32; };"
+         main :: Unit -> Int32 := () -> { (#walk(2i32, \"x\")).i32 - 3i32; };"
             .into(),
     );
     let parsed = parser::parse(&source).expect("parse control frame fixture");

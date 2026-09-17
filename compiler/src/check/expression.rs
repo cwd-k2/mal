@@ -154,9 +154,6 @@ impl Checker {
                 ty: Type::Symbol,
                 span: expression.span,
             },
-            resolved::Expression::TypeQualifiedPrimitive { type_ref, member } => {
-                self.check_qualified_memory_primitive(type_ref, member, expression.span)?
-            }
             resolved::Expression::Unit => Expression {
                 kind: ExpressionKind::Unit,
                 ty: Type::Unit,
@@ -517,9 +514,6 @@ impl Checker {
                 },
                 span,
             })));
-        }
-        if let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } = &callee.kind {
-            return self.check_qualified_memory_call(type_ref, member, arguments, span);
         }
         let callee = match self.check_expression(callee, None) {
             Ok(callee) => callee,

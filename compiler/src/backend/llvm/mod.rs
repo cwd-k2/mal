@@ -190,10 +190,8 @@ pub(crate) fn generate(
 }
 
 fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
-    match id {
-        crate::closure::ast::FunctionId::Lambda(id) => Some(format!("mal_function_{}", id.0)),
-        crate::closure::ast::FunctionId::Memory(_) => None,
-    }
+    let crate::closure::ast::FunctionId::Lambda(id) = id;
+    Some(format!("mal_function_{}", id.0))
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -294,7 +292,7 @@ mod tests {
                cursor := memory()@u64;\n\
                _ := cursor <- 41u64;\n\
                (value, _) := <-cursor;\n\
-               Int32(value);\n\
+               value.i32;\n\
              };"
             .into(),
         );
@@ -330,7 +328,7 @@ mod tests {
                prefix := packed / 2usize;\n\
                byte := prefix # 1usize;\n\
                text := *prefix;\n\
-               Int32(byte) + Int32(#text);\n\
+               byte.i32 + (#text).i32;\n\
              };"
             .into(),
         );
@@ -518,7 +516,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(87),
             "symbol-concat-optimization.mal",
-            "main :: Unit -> Int32 := () -> { prefix := \"a\" + \"b\"; text := prefix + \"c\"; Int32(#text); };"
+            "main :: Unit -> Int32 := () -> { prefix := \"a\" + \"b\"; text := prefix + \"c\"; (#text).i32; };"
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check Symbol concat fixture");
@@ -643,7 +641,7 @@ mod tests {
             FileId::new(90),
             "llvm-index-width.mal",
             "scale :: (USize, ByteSize) -> ByteSize := (count, size) -> count * size;\n\
-             main :: Unit -> Int32 := () -> Int32(USize(scale(3usize, 8bytes)));"
+             main :: Unit -> Int32 := () -> scale(3usize, 8bytes).usize.i32;"
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check index-width fixture");
@@ -673,11 +671,11 @@ mod tests {
     #[test]
     fn admits_product_external_calls() {
         for (index, source) in [
-            "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := () -> { Int32(inspect(1u64, 2u64)); };",
+            "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, 2u64).i32; };",
             "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := () -> { if (inspect(true)) then { 0 } else { 1 }; };",
-            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := () -> { Int32(inspect(1u64, \"x\")); };",
-            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := () -> { (value, _) := inspect(1u64, \"x\"); Int32(value); };",
-            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (number, text) := exchange(41u64, \"a\" + \"b\"); Int32(number); };",
+            "extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, \"x\").i32; };",
+            "extern inspect :: (UInt64, Symbol) -> (UInt64, Symbol); main :: Unit -> Int32 := () -> { (value, _) := inspect(1u64, \"x\"); value.i32; };",
+            "Packet :: (UInt64, Symbol); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (number, text) := exchange(41u64, \"a\" + \"b\"); number.i32; };",
         ]
         .into_iter()
         .enumerate()

@@ -26,12 +26,6 @@ impl Resolver {
             ast::Expression::Float(value) => Expression::Float(value.clone()),
             ast::Expression::Byte(value) => Expression::Byte(*value),
             ast::Expression::Symbol(value) => Expression::Symbol(value.clone()),
-            ast::Expression::TypeQualifiedPrimitive { type_name, member } => {
-                Expression::TypeQualifiedPrimitive {
-                    type_ref: self.type_reference(type_name)?,
-                    member: member.clone(),
-                }
-            }
             ast::Expression::Unit => Expression::Unit,
             ast::Expression::Parenthesized(inner) => {
                 Expression::Parenthesized(Box::new(self.resolve_expression(inner)?))

@@ -9,7 +9,7 @@ impl Lexer<'_> {
         let radix = if self.starts_with(b"0x") {
             self.offset += 2;
             Radix::Hexadecimal
-        } else if self.starts_with(b"0b") {
+        } else if self.starts_with(b"0b") && !self.starts_with(b"0bytes") {
             self.offset += 2;
             Radix::Binary
         } else {

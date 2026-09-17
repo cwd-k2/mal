@@ -134,9 +134,6 @@ pub enum ExpressionKind {
     SymbolAt {
         argument: Box<Expression>,
     },
-    MemoryFunction {
-        primitive: MemoryPrimitive,
-    },
     Memory {
         primitive: MemoryPrimitive,
         argument: Box<Expression>,

@@ -22,7 +22,7 @@ message :: Symbol := "mal\n";
 
 pointerStorageSize :: UInt64 := Ptr.size;
 
-inspect :: Symbol -> UInt64 := (value) -> #value + UInt64(value # 1u64);
+inspect :: Symbol -> UInt64 := (value) -> #value + (value # 1u64).u64;
 
 choose :: Bool -> Choice := (condition) -> [integer, byte] => {
     when (condition && !false) {
@@ -34,6 +34,6 @@ choose :: Bool -> Choice := (condition) -> [integer, byte] => {
 select :: Choice -> Int32 := (value) -> {
     value[
     (integer) -> integer,
-    (byte) -> Int32(byte)
+    (byte) -> byte.i32
     ];
 };

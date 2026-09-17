@@ -113,7 +113,6 @@ impl Checker {
             | Type::Float32
             | Type::Float64
             | Type::Symbol
-            | Type::Ptr
             | Type::Address
             | Type::ByteSize
             | Type::USize

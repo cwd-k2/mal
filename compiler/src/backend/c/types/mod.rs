@@ -43,7 +43,6 @@ enum ElementKey {
     Float32,
     Float64,
     Symbol,
-    Ptr,
     Address,
     ByteSize,
     USize,
@@ -69,7 +68,6 @@ impl TypeRegistry {
             Type::Float32 => TypeName::named("MalType_Float32"),
             Type::Float64 => TypeName::named("MalType_Float64"),
             Type::Symbol => TypeName::named("MalType_Symbol"),
-            Type::Ptr => TypeName::named("MalType_Ptr"),
             Type::Address => TypeName::named("MalType_Address"),
             Type::ByteSize => TypeName::named("MalType_ByteSize"),
             Type::USize => TypeName::named("MalType_USize"),
@@ -103,7 +101,6 @@ impl TypeRegistry {
             Type::Float32 => TypeName::named("mal_Float32_t"),
             Type::Float64 => TypeName::named("mal_Float64_t"),
             Type::Symbol => TypeName::named("mal_Symbol_t"),
-            Type::Ptr => TypeName::named("mal_Ptr_t"),
             Type::Address => TypeName::named("mal_Address_t"),
             Type::ByteSize => TypeName::named("mal_ByteSize_t"),
             Type::USize => TypeName::named("mal_USize_t"),
@@ -142,7 +139,6 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
@@ -225,7 +221,6 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
@@ -278,7 +273,6 @@ mod tests {
             (Type::UInt64, "mal_UInt64_t"),
             (Type::Float64, "mal_Float64_t"),
             (Type::Symbol, "mal_Symbol_t"),
-            (Type::Ptr, "mal_Ptr_t"),
             (
                 Type::External {
                     id: TypeId(3),

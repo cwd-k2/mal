@@ -46,78 +46,6 @@ fn preserves_symbol_literals_and_resolves_the_predefined_type() {
 }
 
 #[test]
-fn resolves_memory_primitives_and_the_ptr_type() {
-    let program = resolve_ok(
-        "extern memory :: Unit -> Ptr;\n\
-         useMemory :: Ptr -> Unit := (pointer) -> {\n\
-           next := pointer + 8u64;\n\
-           value := Int64.load(next);\n\
-           Int64.store(next, value);\n\
-           byte := UInt8.load(next);\n\
-           UInt8.store(next, byte);\n\
-           target := Ptr.load(next);\n\
-           Ptr.store(next, target);\n\
-           text := Symbol.read(next, 4u64);\n\
-           Symbol.write(next, text);\n\
-           ();\n\
-         };",
-    );
-    let TopItem::ExternalOperation { ty, .. } = &program.items[0].kind else {
-        panic!("expected external operation");
-    };
-    let resolved::TypeExpression::Function { result, .. } = &ty.kind else {
-        panic!("expected function type");
-    };
-    let resolved::TypeExpression::Named(reference) = &result.kind else {
-        panic!("expected Ptr result");
-    };
-    assert_eq!(reference.id, PTR_TYPE);
-
-    let binding = top_binding(&program.items[1]);
-    let resolved::Expression::Lambda(lambda) = &binding.value.kind else {
-        panic!("expected lambda");
-    };
-    let resolved::BodyItem::Binding(next) = &lambda.body.items[0] else {
-        panic!("expected pointer offset binding");
-    };
-    assert!(matches!(
-        next.kind.value.kind,
-        resolved::Expression::Binary {
-            operator: malc::ast::Node {
-                kind: ast::BinaryOperator::Add,
-                ..
-            },
-            ..
-        }
-    ));
-
-    let expected = [
-        (INT64_TYPE, "load"),
-        (INT64_TYPE, "store"),
-        (UINT8_TYPE, "load"),
-        (UINT8_TYPE, "store"),
-        (PTR_TYPE, "load"),
-        (PTR_TYPE, "store"),
-        (SYMBOL_TYPE, "read"),
-        (SYMBOL_TYPE, "write"),
-    ];
-    for (item, (expected_type, expected_member)) in lambda.body.items.iter().skip(1).zip(expected) {
-        let expression = match item {
-            resolved::BodyItem::Binding(binding) => &binding.kind.value,
-            resolved::BodyItem::Expression(expression) => expression,
-        };
-        let resolved::Expression::Call { callee, .. } = &expression.kind else {
-            panic!("expected primitive call");
-        };
-        let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } = &callee.kind else {
-            panic!("expected type-qualified primitive");
-        };
-        assert_eq!(type_ref.id, expected_type);
-        assert_eq!(member.text, expected_member);
-    }
-}
-
-#[test]
 fn type_and_external_declarations_are_visible_across_the_unit() {
     let program = resolve_ok(
         "Alias :: Later;\n\
@@ -186,19 +114,4 @@ fn resolves_every_predefined_fixed_width_integer_type() {
             UINT64_TYPE,
         ]
     );
-}
-
-#[test]
-fn resolves_the_type_in_a_type_qualified_primitive() {
-    let program = resolve_ok("Byte :: UInt8; size := Byte.size;");
-    let resolved::Expression::TypeQualifiedPrimitive { type_ref, member } =
-        &top_binding(&program.items[1]).value.kind
-    else {
-        panic!("expected type-qualified primitive");
-    };
-    let TopItem::TypeAlias { binding, .. } = &program.items[0].kind else {
-        panic!("expected type alias");
-    };
-    assert_eq!(type_ref.id, binding.id);
-    assert_eq!(member.text, "size");
 }

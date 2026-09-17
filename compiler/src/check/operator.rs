@@ -23,8 +23,7 @@ impl Checker {
             BinaryOperator::Store => None,
             BinaryOperator::Add | BinaryOperator::Subtract => expected
                 .filter(|ty| {
-                    **ty == Type::Ptr
-                        || **ty == Type::Address
+                    **ty == Type::Address
                         || (operator.kind == BinaryOperator::Add && **ty == Type::Symbol)
                         || is_integer(ty)
                         || is_float(ty)
@@ -329,14 +328,6 @@ impl Checker {
                 self.require_type(&left.ty, &bool_type(), left.span)?;
                 return self.check_logical_after_left(operator, left, right, span);
             }
-            BinaryOperator::Add | BinaryOperator::Subtract if left.ty == Type::Ptr => {
-                let primitive = if operator.kind == BinaryOperator::Add {
-                    MemoryPrimitive::OffsetForward
-                } else {
-                    MemoryPrimitive::OffsetBackward
-                };
-                return self.check_pointer_offset(primitive, left, right, span);
-            }
             BinaryOperator::Add | BinaryOperator::Subtract if left.ty == Type::Address => {
                 return self.check_address_offset(operator, left, right, span);
             }
@@ -462,15 +453,6 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        let pointer_primitive = match operator.kind {
-            BinaryOperator::Add => MemoryPrimitive::OffsetForward,
-            BinaryOperator::Subtract => MemoryPrimitive::OffsetBackward,
-            _ => unreachable!("caller selects addition or subtraction"),
-        };
-        if expected == Some(&Type::Ptr) {
-            let left = self.check_before(left, Some(&Type::Ptr), right.span)?;
-            return self.check_pointer_offset(pointer_primitive, left, right, span);
-        }
         if expected == Some(&Type::Address) {
             let left = self.check_before(left, Some(&Type::Address), right.span)?;
             return self.check_address_offset(operator, left, right, span);
@@ -488,9 +470,6 @@ impl Checker {
             self.check_numeric_operands(left, right, expected_numeric)?
         } else {
             let left = self.check_before(left, None, right.span)?;
-            if left.ty == Type::Ptr {
-                return self.check_pointer_offset(pointer_primitive, left, right, span);
-            }
             if left.ty == Type::Address {
                 return self.check_address_offset(operator, left, right, span);
             }
@@ -548,28 +527,6 @@ impl Checker {
                 right: Box::new(right),
             },
             ty: Type::Symbol,
-            span,
-        })
-    }
-
-    fn check_pointer_offset(
-        &mut self,
-        primitive: MemoryPrimitive,
-        left: Expression,
-        right: &Node<resolved::Expression>,
-        span: Span,
-    ) -> CheckResult<Expression> {
-        let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
-        Ok(Expression {
-            kind: ExpressionKind::Memory {
-                primitive,
-                argument: Box::new(Expression {
-                    kind: ExpressionKind::Product(vec![left, right]),
-                    ty: Type::Product(vec![Type::Ptr, Type::UInt64].into()),
-                    span,
-                }),
-            },
-            ty: Type::Ptr,
             span,
         })
     }

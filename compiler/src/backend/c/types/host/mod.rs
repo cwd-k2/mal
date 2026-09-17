@@ -321,13 +321,6 @@ impl TypeRegistry {
                 [call, value],
             ),
             Type::Symbol => Expr::named_call("mal_detail_Symbol_return", [call, value]),
-            Type::Ptr => Expr::compound_literal(
-                "MalType_Ptr",
-                [Initializer::designated(
-                    "address",
-                    Expr::cast(TypeName::named("uint8_t").pointer(), value),
-                )],
-            ),
             Type::Address => Expr::named_call("mal_Address_return", [call, value]),
             Type::External { .. } => Expr::compound_literal(
                 self.c_type(ty),
@@ -389,7 +382,6 @@ impl TypeRegistry {
                     ),
                 ],
             ),
-            Type::Ptr => Expr::cast("mal_Ptr_t", value.field("address")),
             Type::Address => value,
             Type::External { .. } => Expr::compound_literal(
                 self.host_value_c_type(ty, alias),

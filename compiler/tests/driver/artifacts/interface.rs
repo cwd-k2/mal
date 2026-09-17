@@ -61,7 +61,7 @@ fn emit_host_prints_compilable_external_operation_stubs() {
          extern inspect :: Request -> Count;\n\
          extern consumeEmpty :: Empty -> Unit;\n\
          extern produceEmpty :: Unit -> Empty;\n\
-         main :: Unit -> Int32 := () -> { Int32(increment(41u64) - 42u64); };",
+         main :: Unit -> Int32 := () -> { (increment(41u64) - 42u64).i32; };",
     );
 
     let header_output = directory.malc([

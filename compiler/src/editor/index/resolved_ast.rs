@@ -343,12 +343,6 @@ impl Index {
                 }
             }
             Expression::Parenthesized(inner) => self.collect_resolved_expression(inner),
-            Expression::TypeQualifiedPrimitive { type_ref, .. } => self.add_raw(
-                SymbolId::Type(type_ref.id),
-                &type_ref.name,
-                OccurrenceRole::Reference,
-                None,
-            ),
             Expression::Product(elements) => {
                 for element in elements {
                     self.collect_resolved_expression(element);
@@ -382,17 +376,7 @@ impl Index {
                     self.collect_resolved_expression(continuation);
                 }
             }
-            Expression::Conversion {
-                type_ref, value, ..
-            } => {
-                self.add_raw(
-                    SymbolId::Type(type_ref.id),
-                    &type_ref.name,
-                    OccurrenceRole::Reference,
-                    None,
-                );
-                self.collect_resolved_expression(value);
-            }
+            Expression::Conversion { value, .. } => self.collect_resolved_expression(value),
             Expression::Placement { value, operand } => {
                 self.collect_resolved_expression(value);
                 if let resolved::PlacementOperand::Value(operand) = operand {

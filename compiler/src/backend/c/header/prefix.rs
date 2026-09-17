@@ -82,14 +82,6 @@ pub(super) fn emit_prefix(index_bits: usize) -> TranslationUnit {
         ],
         "MalType_Symbol",
     ));
-    output.push(AggregateDefinition::typedef_structure(
-        None,
-        [AggregateField::variable(
-            TypeName::named("uint8_t").pointer(),
-            "address",
-        )],
-        "MalType_Ptr",
-    ));
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
         ("MalType_Bool", "mal_Bool_t"),
@@ -109,10 +101,6 @@ pub(super) fn emit_prefix(index_bits: usize) -> TranslationUnit {
     ] {
         output.push(Declaration::type_alias(source, alias));
     }
-    output.push(Declaration::type_alias(
-        TypeName::named("void").pointer(),
-        "mal_Ptr_t",
-    ));
     output.push(AggregateDefinition::typedef_structure(
         None,
         [AggregateField::variable(
@@ -443,25 +431,5 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             ),
             Statement::return_value(Expr::identifier("value")),
         ]),
-    ));
-    output.push(FunctionDefinition::from_signature(
-        FunctionSignature::static_inline(
-            "MalType_Ptr",
-            "mal_Ptr_return",
-            [
-                Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused(),
-                Parameter::named("mal_Ptr_t", "value"),
-            ],
-        ),
-        Block::new([Statement::return_value(Expr::compound_literal(
-            "MalType_Ptr",
-            [Initializer::designated(
-                "address",
-                Expr::cast(
-                    TypeName::named("uint8_t").pointer(),
-                    Expr::identifier("value"),
-                ),
-            )],
-        ))]),
     ));
 }

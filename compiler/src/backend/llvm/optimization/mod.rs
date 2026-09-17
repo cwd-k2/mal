@@ -84,7 +84,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(88),
             "llvm-optimization-plan.mal",
-            "main :: Unit -> Int32 := () -> { left := \"a\" + \"b\"; result := left + \"c\"; Int32(#result); };"
+            "main :: Unit -> Int32 := () -> { left := \"a\" + \"b\"; result := left + \"c\"; (#result).i32; };"
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check LLVM optimization fixture");

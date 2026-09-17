@@ -157,7 +157,7 @@ fn checks_postfix_application_and_sum_continuations() {
          second :: Symbol -> Choice := (value) -> [first, second] => { second(value) };
          identity :: Int32 -> Int32 := (value) -> { value };
          choose :: Choice -> Int32 := (choice) -> {
-           choice[(value) -> { value }, (symbol) -> { Int32(#symbol) }]
+           choice[(value) -> { value }, (symbol) -> { (#symbol).i32 }]
          };
          initialize :: Unit -> Int32 := () -> { 42 };
          main :: Unit -> Int32 := () -> {
@@ -184,10 +184,6 @@ fn checks_receiver_first_calls_with_ordinary_function_bindings() {
 
 #[test]
 fn rejects_invalid_sum_continuations_and_type_applications() {
-    assert_eq!(
-        check_error("Choice :: [Unit, Int32]; bad := 2[Choice];").message,
-        "sum values must be constructed through result binders"
-    );
     assert_eq!(
         check_error(
             "Choice :: [Unit, Int32]; bad :: Choice -> Int32 := (choice) -> { choice[() -> { 0 }] };"

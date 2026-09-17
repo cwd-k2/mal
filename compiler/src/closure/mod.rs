@@ -157,13 +157,6 @@ impl Converter {
             anf::Operation::SymbolAt { argument } => Operation::SymbolAt {
                 argument: self.convert_atom(argument, environment),
             },
-            anf::Operation::MemoryFunction { primitive } => {
-                let function = self.lift_memory_function(*primitive, span);
-                Operation::MakeClosure {
-                    function,
-                    captures: Vec::new(),
-                }
-            }
             anf::Operation::Memory {
                 primitive,
                 argument,
@@ -264,58 +257,6 @@ impl Converter {
             body,
             joins,
         });
-    }
-
-    fn lift_memory_function(
-        &mut self,
-        primitive: crate::check::ast::MemoryPrimitive,
-        span: crate::source::Span,
-    ) -> FunctionId {
-        let id = FunctionId::Memory(primitive);
-        if self.functions.iter().any(|function| function.id == id) {
-            return id;
-        }
-        let (parameter_type, result_type) = primitive.signature();
-        let parameter = anf::ValueId::MemoryParameter(primitive);
-        let result = anf::ValueId::MemoryResult(primitive);
-        let argument_atom = self.atom_id();
-        let result_atom = self.atom_id();
-        self.functions.push(Function {
-            id,
-            environment: Vec::new(),
-            parameter: Parameter {
-                binding: Some(parameter),
-                ty: parameter_type.clone(),
-                span,
-            },
-            body: Block {
-                bindings: vec![Binding {
-                    pattern: Pattern::Binding {
-                        id: result,
-                        ty: result_type.clone(),
-                    },
-                    operation: Operation::Memory {
-                        primitive,
-                        argument: Atom {
-                            id: argument_atom,
-                            kind: AtomKind::Reference(Reference::Binding(parameter)),
-                            ty: parameter_type,
-                            span,
-                        },
-                    },
-                    span,
-                }],
-                result: Atom {
-                    id: result_atom,
-                    kind: AtomKind::Reference(Reference::Binding(result)),
-                    ty: result_type,
-                    span,
-                },
-                span,
-            },
-            joins: Vec::new(),
-        });
-        id
     }
 
     fn convert_case_arm(

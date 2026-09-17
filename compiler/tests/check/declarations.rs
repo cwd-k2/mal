@@ -259,7 +259,7 @@ fn checks_nominal_external_opaque_types() {
          extern length :: Mem -> UInt64;\n\
          main :: Unit -> Int32 := () -> {\n\
            mem := allocate(4u64);\n\
-           Int32(length(mem));\n\
+           length(mem).i32;\n\
          };",
     );
     assert!(matches!(

@@ -242,17 +242,6 @@ impl Parser<'_> {
     ) -> Result<Node<Expression>, Diagnostic> {
         let start = value.span.start();
         self.expect(&TokenKind::LeftBracket, "`[`")?;
-        if self.at(&TokenKind::TypeIdentifier) {
-            let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
-            let right = self.expect(&TokenKind::RightBracket, "`]` after a construction type")?;
-            return Ok(Node::new(
-                Expression::Conversion {
-                    type_name,
-                    value: Box::new(value),
-                },
-                self.span(start, right.span.end()),
-            ));
-        }
         let continuations = self.parse_continuations()?;
         let right = self.expect(&TokenKind::RightBracket, "`]`")?;
         Ok(Node::new(
@@ -301,36 +290,5 @@ impl Parser<'_> {
         }
         self.expect(&TokenKind::RightParen, "`)`")?;
         Ok(arguments)
-    }
-
-    pub(super) fn parse_type_leading_expression(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        let type_name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
-        let start = type_name.span.start();
-        if self.take(&TokenKind::Dot).is_some() {
-            let member = self.parse_name(
-                &TokenKind::ValueIdentifier,
-                "a predefined primitive name after `.`",
-            )?;
-            let end = member.span.end();
-            return Ok(Node::new(
-                Expression::TypeQualifiedPrimitive { type_name, member },
-                self.span(start, end),
-            ));
-        }
-        if self.take(&TokenKind::LeftParen).is_some() {
-            let value = self.parse_expression()?;
-            let right = self.expect(&TokenKind::RightParen, "`)`")?;
-            return Ok(Node::new(
-                Expression::Conversion {
-                    type_name,
-                    value: Box::new(value),
-                },
-                self.span(start, right.span.end()),
-            ));
-        }
-        Err(self.error_here(
-            "expected a type application or qualified primitive",
-            "use `T(value)`, `value[T]`, or `T.member`",
-        ))
     }
 }

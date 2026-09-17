@@ -323,6 +323,15 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
     let target = super::scalar::scalar_type(result_type, types.index_size())?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
         operand.representation()?.into()
+    } else if !source.floating && !target.floating {
+        let value = operand.representation()?.parse::<i128>().ok()?;
+        let modulus = 1_i128 << target.bits;
+        let residue = value.rem_euclid(modulus);
+        if target.signed && residue >= modulus / 2 {
+            (residue - modulus).to_string()
+        } else {
+            residue.to_string()
+        }
     } else {
         let instruction = if source.floating && target.floating {
             if source.bits > target.bits {

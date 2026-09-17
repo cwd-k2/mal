@@ -239,10 +239,10 @@ fn checks_integer_operators_for_every_fixed_width_type() {
 #[test]
 fn checks_modulo_integer_conversions() {
     for (expression, expected) in [
-        ("UInt8(-1i8)", Type::UInt8),
-        ("Int8(255u16)", Type::Int8),
-        ("UInt16(-1i8)", Type::UInt16),
-        ("Int16(255u8)", Type::Int16),
+        ("(-1i8).u8", Type::UInt8),
+        ("255u16.i8", Type::Int8),
+        ("(-1i8).u16", Type::UInt16),
+        ("255u8.i16", Type::Int16),
     ] {
         let program = check_ok(&format!("value := {expression};"));
         assert_eq!(top_binding(&program, 0).value.ty, expected);
@@ -253,25 +253,20 @@ fn checks_modulo_integer_conversions() {
     }
 
     assert!(
-        check_error("value := Int8(());")
+        check_error("value := ().i8;")
             .message
             .contains("requires a numeric value")
-    );
-    assert!(
-        check_error("value := Bool(());")
-            .message
-            .contains("must be constructed through result binders")
     );
 }
 
 #[test]
 fn checks_conversions_between_integer_and_float_types() {
     let program = check_ok(
-        "single := Float32(16777217u64);\n\
-         double := Float64(0.1f32);\n\
-         narrowed := Float32(0.1f64);\n\
-         signed := Int32(-1.75f64);\n\
-         unsigned := UInt64(1.75f32);",
+        "single := 16777217u64.f32;\n\
+         double := 0.1f32.f64;\n\
+         narrowed := 0.1f64.f32;\n\
+         signed := (-1.75f64).i32;\n\
+         unsigned := 1.75f32.u64;",
     );
     let expected = [
         Type::Float32,
@@ -290,7 +285,7 @@ fn checks_conversions_between_integer_and_float_types() {
     }
 
     assert_eq!(
-        check_error("value := Float32(());").message,
+        check_error("value := ().f32;").message,
         "numeric conversion requires a numeric value"
     );
 }
@@ -301,7 +296,7 @@ fn checks_target_quantity_literals_arithmetic_and_conversions() {
         "scale :: (USize, ByteSize) -> ByteSize := (count, size) -> count * size;\n\
          reversed :: (ByteSize, USize) -> ByteSize := (size, count) -> size * count;\n\
          count :: USize -> USize := (value) -> (value / 3usize) % 3usize;\n\
-         converted :: USize -> ByteSize := (value) -> ByteSize(value);\n\
+         converted :: USize -> ByteSize := (value) -> value.bytes;\n\
          compared :: (ByteSize, ByteSize) -> Bool := (left, right) -> left >= right;",
     );
 }
@@ -334,7 +329,7 @@ fn checks_address_offsets_and_rejects_address_values_as_numbers() {
     for text in [
         "bad :: (Address, Address) -> Bool := (left, right) -> left == right;",
         "bad :: Address -> Address := (address) -> address + 1usize;",
-        "bad :: Address -> USize := (address) -> USize(address);",
+        "bad :: Address -> USize := (address) -> address.usize;",
     ] {
         let message = check_error(text).message;
         assert!(

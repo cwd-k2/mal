@@ -244,7 +244,7 @@ fn reuses_owned_symbols_across_empty_concatenation() {
            left := \"\" + value;\n\
            right := value + \"\";\n\
            if (left == right)\n\
-           then { Int32(value # 1u64) - 98i32 }\n\
+           then { (value # 1u64).i32 - 98i32 }\n\
            else { 1i32 };\n\
          };",
     );

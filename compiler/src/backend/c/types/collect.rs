@@ -35,7 +35,6 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => {}
@@ -95,7 +94,6 @@ impl TypeRegistry {
             Type::Float32 => super::ElementKey::Float32,
             Type::Float64 => super::ElementKey::Float64,
             Type::Symbol => super::ElementKey::Symbol,
-            Type::Ptr => super::ElementKey::Ptr,
             Type::Address => super::ElementKey::Address,
             Type::ByteSize => super::ElementKey::ByteSize,
             Type::USize => super::ElementKey::USize,

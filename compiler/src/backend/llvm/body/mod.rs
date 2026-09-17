@@ -173,65 +173,11 @@ struct EmittedFunction {
 }
 
 fn function_name(id: FunctionId) -> Option<String> {
-    let name = match id {
-        FunctionId::Lambda(id) => format!("mal_function_{}", id.0),
-        FunctionId::Memory(primitive) => {
-            format!("mal_memory_function_{}", memory_primitive_name(primitive)?)
-        }
-    };
-    Some(name)
+    let FunctionId::Lambda(id) = id;
+    Some(format!("mal_function_{}", id.0))
 }
 
 fn function_number(id: FunctionId) -> Option<u32> {
-    match id {
-        FunctionId::Lambda(id) => Some(id.0),
-        FunctionId::Memory(_) => None,
-    }
-}
-
-fn memory_primitive_name(primitive: crate::check::ast::MemoryPrimitive) -> Option<&'static str> {
-    use crate::check::ast::{MemoryPrimitive, MemoryScalar};
-
-    Some(match primitive {
-        MemoryPrimitive::Load(MemoryScalar::Int8) => "load_int8",
-        MemoryPrimitive::Load(MemoryScalar::Int16) => "load_int16",
-        MemoryPrimitive::Load(MemoryScalar::Int32) => "load_int32",
-        MemoryPrimitive::Load(MemoryScalar::Int64) => "load_int64",
-        MemoryPrimitive::Load(MemoryScalar::UInt8) => "load_uint8",
-        MemoryPrimitive::Load(MemoryScalar::UInt16) => "load_uint16",
-        MemoryPrimitive::Load(MemoryScalar::UInt32) => "load_uint32",
-        MemoryPrimitive::Load(MemoryScalar::UInt64) => "load_uint64",
-        MemoryPrimitive::Load(MemoryScalar::Float32) => "load_float32",
-        MemoryPrimitive::Load(MemoryScalar::Float64) => "load_float64",
-        MemoryPrimitive::Store(MemoryScalar::Int8) => "store_int8",
-        MemoryPrimitive::Store(MemoryScalar::Int16) => "store_int16",
-        MemoryPrimitive::Store(MemoryScalar::Int32) => "store_int32",
-        MemoryPrimitive::Store(MemoryScalar::Int64) => "store_int64",
-        MemoryPrimitive::Store(MemoryScalar::UInt8) => "store_uint8",
-        MemoryPrimitive::Store(MemoryScalar::UInt16) => "store_uint16",
-        MemoryPrimitive::Store(MemoryScalar::UInt32) => "store_uint32",
-        MemoryPrimitive::Store(MemoryScalar::UInt64) => "store_uint64",
-        MemoryPrimitive::Store(MemoryScalar::Float32) => "store_float32",
-        MemoryPrimitive::Store(MemoryScalar::Float64) => "store_float64",
-        MemoryPrimitive::LoadPtr => "load_ptr",
-        MemoryPrimitive::StorePtr => "store_ptr",
-        MemoryPrimitive::LoadSymbol => "load_symbol",
-        MemoryPrimitive::StoreSymbol => "store_symbol",
-        MemoryPrimitive::OffsetForward
-        | MemoryPrimitive::OffsetBackward
-        | MemoryPrimitive::Place
-        | MemoryPrimitive::Region
-        | MemoryPrimitive::ProjectAddress
-        | MemoryPrimitive::Align
-        | MemoryPrimitive::LoadValue
-        | MemoryPrimitive::StoreValue
-        | MemoryPrimitive::AdmitRegion
-        | MemoryPrimitive::StorePacked
-        | MemoryPrimitive::Prefix
-        | MemoryPrimitive::RemainderView
-        | MemoryPrimitive::ViewLength
-        | MemoryPrimitive::PackedIndex
-        | MemoryPrimitive::PackedToSymbol
-        | MemoryPrimitive::SymbolToPacked => return None,
-    })
+    let FunctionId::Lambda(id) = id;
+    Some(id.0)
 }

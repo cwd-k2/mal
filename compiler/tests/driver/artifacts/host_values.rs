@@ -11,7 +11,7 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
          extern fetch :: Unit -> Symbol;\n\
          main :: Unit -> Int32 := () -> {\n\
            seed := \"x\" + \"y\";\n\
-           if (inspect(seed) == 1u8) then { Int32(fetch() # 1u64) - 107 }\n\
+           if (inspect(seed) == 1u8) then { (fetch() # 1u64).i32 - 107 }\n\
            else { 1 };\n\
          };",
     );
@@ -190,7 +190,7 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
              () -> { 1 },\n\
              (packet) -> {\n\
                (bias, handle) := packet;\n\
-               Int32(inspect(handle) + UInt64(bias) - 42u64);\n\
+               (inspect(handle) + bias.u64 - 42u64).i32;\n\
              }];\n\
          };",
     );
@@ -253,7 +253,7 @@ fn owns_symbols_nested_in_products_through_llvm() {
          main :: Unit -> Int32 := () -> {\n\
            joined := \"ab\" + \"cd\";\n\
            (copy, byte) := inspect(joined, 2u64);\n\
-           if (copy == \"abcd\") then { Int32(byte) - 99 } else { 1 };\n\
+           if (copy == \"abcd\") then { byte.i32 - 99 } else { 1 };\n\
          };",
     );
 
@@ -291,10 +291,10 @@ fn retains_only_active_managed_sum_payloads_through_llvm() {
          };\n\
          score :: Choice -> Int32 := (choice) -> {\n\
            choice[\n\
-             (value) -> { Int32(value # 0u64) },\n\
+             (value) -> { (value # 0u64).i32 },\n\
              (pair) -> {\n\
                (bias, value) := pair;\n\
-               Int32(bias) + Int32(value # 1u64);\n\
+               bias.i32 + (value # 1u64).i32;\n\
              }];\n\
          };\n\
          main :: Unit -> Int32 := () -> {\n\

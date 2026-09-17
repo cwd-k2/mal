@@ -80,8 +80,11 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
         Operation::SymbolAt { .. } => true,
         Operation::Memory {
             primitive:
-                crate::check::ast::MemoryPrimitive::LoadSymbol
-                | crate::check::ast::MemoryPrimitive::StoreSymbol,
+                crate::check::ast::MemoryPrimitive::AdmitRegion
+                | crate::check::ast::MemoryPrimitive::Prefix
+                | crate::check::ast::MemoryPrimitive::RemainderView
+                | crate::check::ast::MemoryPrimitive::PackedToSymbol
+                | crate::check::ast::MemoryPrimitive::SymbolToPacked,
             ..
         } => true,
         Operation::Memory { argument, .. } => atom_contains_value(argument),

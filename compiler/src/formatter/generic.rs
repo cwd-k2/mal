@@ -97,72 +97,66 @@ impl Marker<'_> {
     }
 
     fn expression(&mut self, expression: &crate::ast::Node<Expression>) {
-        match &expression.kind {
-            Expression::GenericName { name, arguments } => {
-                self.group(name.span.end(), expression.span.end());
-                for argument in arguments {
-                    self.ty(argument);
+        let mut pending = vec![expression];
+        while let Some(expression) = pending.pop() {
+            match &expression.kind {
+                Expression::GenericName { name, arguments } => {
+                    self.group(name.span.end(), expression.span.end());
+                    for argument in arguments {
+                        self.ty(argument);
+                    }
                 }
-            }
-            Expression::Parenthesized(inner) | Expression::Align(inner) => self.expression(inner),
-            Expression::Product(elements) => {
-                for element in elements {
-                    self.expression(element);
+                Expression::Parenthesized(inner) | Expression::Align(inner) => pending.push(inner),
+                Expression::Product(elements) => pending.extend(elements.iter().rev()),
+                Expression::Block(block) | Expression::ResultBlock { body: block, .. } => {
+                    self.body(&block.items, &block.result);
                 }
-            }
-            Expression::Block(block) | Expression::ResultBlock { body: block, .. } => {
-                self.body(&block.items, &block.result);
-            }
-            Expression::Lambda(lambda) => self.body(&lambda.body.items, &lambda.body.result),
-            Expression::Call { callee, arguments } => {
-                self.expression(callee);
-                for argument in arguments {
-                    self.expression(argument);
+                Expression::Lambda(lambda) => self.body(&lambda.body.items, &lambda.body.result),
+                Expression::Call { callee, arguments } => {
+                    pending.extend(arguments.iter().rev());
+                    pending.push(callee);
                 }
-            }
-            Expression::ContinuationApplication {
-                value,
-                continuations,
-            } => {
-                self.expression(value);
-                for continuation in continuations {
-                    self.expression(continuation);
+                Expression::ContinuationApplication {
+                    value,
+                    continuations,
+                } => {
+                    pending.extend(continuations.iter().rev());
+                    pending.push(value);
                 }
-            }
-            Expression::Conversion { value, .. } | Expression::Unary { operand: value, .. } => {
-                self.expression(value);
-            }
-            Expression::Placement { value, operand } => {
-                self.expression(value);
-                if let PlacementOperand::Value(value) = operand {
-                    self.expression(value);
+                Expression::Conversion { value, .. } | Expression::Unary { operand: value, .. } => {
+                    pending.push(value)
                 }
+                Expression::Placement { value, operand } => {
+                    if let PlacementOperand::Value(operand) = operand {
+                        pending.push(operand);
+                    }
+                    pending.push(value);
+                }
+                Expression::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    self.body(&else_branch.items, &else_branch.result);
+                    self.body(&then_branch.items, &then_branch.result);
+                    pending.push(condition);
+                }
+                Expression::When { condition, body } => {
+                    self.body(&body.items, &body.result);
+                    pending.push(condition);
+                }
+                Expression::Binary { left, right, .. } => {
+                    pending.push(right);
+                    pending.push(left);
+                }
+                Expression::Name(_)
+                | Expression::Integer(_)
+                | Expression::Float(_)
+                | Expression::Byte(_)
+                | Expression::Symbol(_)
+                | Expression::Unit
+                | Expression::StrideQuery(_) => {}
             }
-            Expression::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                self.expression(condition);
-                self.body(&then_branch.items, &then_branch.result);
-                self.body(&else_branch.items, &else_branch.result);
-            }
-            Expression::When { condition, body } => {
-                self.expression(condition);
-                self.body(&body.items, &body.result);
-            }
-            Expression::Binary { left, right, .. } => {
-                self.expression(left);
-                self.expression(right);
-            }
-            Expression::Name(_)
-            | Expression::Integer(_)
-            | Expression::Float(_)
-            | Expression::Byte(_)
-            | Expression::Symbol(_)
-            | Expression::TypeQualifiedPrimitive { .. }
-            | Expression::Unit
-            | Expression::StrideQuery(_) => {}
         }
     }
 

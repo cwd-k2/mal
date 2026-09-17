@@ -33,11 +33,6 @@ fn constructs_sum_values_through_result_binders() {
         top_binding(&program, 3).value.ty,
         Type::Function { .. }
     ));
-
-    assert_eq!(
-        check_error("Maybe :: [Unit, Int32]; bad :: Maybe := 1[Maybe](0);").message,
-        "sum values must be constructed through result binders"
-    );
 }
 
 #[test]

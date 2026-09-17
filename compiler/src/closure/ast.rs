@@ -56,7 +56,6 @@ pub struct Join {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum FunctionId {
     Lambda(LambdaId),
-    Memory(MemoryPrimitive),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -119,7 +119,6 @@ impl ControlLayout {
                 | Expression::Float(_)
                 | Expression::Byte(_)
                 | Expression::Symbol(_)
-                | Expression::TypeQualifiedPrimitive { .. }
                 | Expression::StrideQuery(_)
                 | Expression::Unit => {}
             }
