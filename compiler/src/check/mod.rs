@@ -16,6 +16,7 @@ mod lambda;
 mod memory;
 mod operator;
 mod product;
+mod specialization_identity;
 mod specialize;
 mod types;
 

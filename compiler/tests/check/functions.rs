@@ -231,7 +231,8 @@ fn type_errors_keep_a_renderable_source_span() {
 fn checks_and_specializes_generic_values_before_core_lowering() {
     let program = check_ok(
         "identity<A> :: A -> A := (value) -> value;\n\
-         main :: Unit -> (Int32, UInt8) := () -> (identity<Int32>(42), identity<UInt8>(7u8));",
+         main :: (Int32, UInt8) -> (Int32, UInt8) := (number, byte) ->\n\
+           (identity<Int32>(number), identity<UInt8>(byte));",
     );
 
     assert_eq!(
@@ -249,6 +250,27 @@ fn checks_and_specializes_generic_values_before_core_lowering() {
             }
         );
         assert!(matches!(binding.value.kind, ExpressionKind::Lambda(_)));
+    }
+
+    let ExpressionKind::Lambda(main) = &top_binding(&program, 0).value.kind else {
+        panic!("expected main lambda");
+    };
+    let check::ast::Pattern::Product { elements, .. } = main.parameter.as_deref().unwrap() else {
+        panic!("expected product parameter");
+    };
+    let parameter_ids = elements
+        .iter()
+        .map(|element| match element {
+            check::ast::Pattern::Binding { binding, .. } => binding.id,
+            _ => panic!("expected binding parameter"),
+        })
+        .collect::<Vec<_>>();
+    for index in 1..=2 {
+        let check::ast::Pattern::Binding { binding, .. } = &top_binding(&program, index).pattern
+        else {
+            panic!("expected specialized binding");
+        };
+        assert!(!parameter_ids.contains(&binding.id));
     }
 }
 

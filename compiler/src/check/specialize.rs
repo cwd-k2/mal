@@ -6,6 +6,7 @@ use crate::resolve::ast::{LambdaId, ValueBinding, ValueId, ValueReference};
 
 use super::GenericDefinition;
 use super::ast::*;
+use super::specialization_identity::next_identities;
 use super::types::substitute_type;
 
 const LIMIT: usize = 65_536;
@@ -17,18 +18,22 @@ pub(super) fn specialize(
     if definitions.is_empty() {
         return Ok(program);
     }
+    let identities = next_identities(&program, &definitions).ok_or_else(|| {
+        Diagnostic::error("compiler identity space exhausted").with_primary(
+            program.span,
+            "cannot allocate identities for generic specializations",
+        )
+    })?;
     let definitions = definitions
         .into_iter()
         .map(|definition| (definition.binding.id, definition))
         .collect();
-    let next_value = max_value_id(&program, &definitions).saturating_add(1);
-    let next_lambda = max_lambda_id(&program, &definitions).saturating_add(1);
     let mut specializer = Specializer {
         definitions,
         instances: Vec::new(),
         pending: Vec::new(),
-        next_value,
-        next_lambda,
+        next_value: identities.value,
+        next_lambda: identities.lambda,
     };
     for item in &mut program.items {
         if let TopItem::Binding(binding) = &mut item.kind {
@@ -174,7 +179,12 @@ impl Specializer {
             }
             ExpressionKind::Lambda(lambda) => {
                 lambda.id = LambdaId(self.next_lambda);
-                self.next_lambda = self.next_lambda.saturating_add(1);
+                self.next_lambda = self.next_lambda.checked_add(1).ok_or_else(|| {
+                    Diagnostic::error("compiler identity space exhausted").with_primary(
+                        expression.span,
+                        "cannot allocate a specialized lambda identity",
+                    )
+                })?;
                 lambda.parameter_type = substitute_type(&lambda.parameter_type, substitutions);
                 lambda.result_type = substitute_type(&lambda.result_type, substitutions);
                 if let Some(parameter) = &mut lambda.parameter {
@@ -332,25 +342,4 @@ fn completion(
     if let Completion::Value(value) = completion {
         value.ty = substitute_type(&value.ty, substitutions);
     }
-}
-
-fn max_value_id(program: &Program, definitions: &HashMap<ValueId, GenericDefinition>) -> u32 {
-    program
-        .items
-        .iter()
-        .filter_map(|item| match &item.kind {
-            TopItem::Binding(binding) => match &binding.pattern {
-                Pattern::Binding { binding, .. } => Some(binding.id.0),
-                _ => None,
-            },
-            _ => None,
-        })
-        .chain(definitions.keys().map(|id| id.0))
-        .max()
-        .unwrap_or(0)
-}
-
-fn max_lambda_id(program: &Program, definitions: &HashMap<ValueId, GenericDefinition>) -> u32 {
-    let _ = (program, definitions);
-    1_000_000
 }
