@@ -26,7 +26,7 @@ external operationは宣言によって通常のtop-level function valueとし�
 main :: Unit -> Unit := () -> {
     (mem, address) := alloc(5bytes);
     bytes := *"hello";
-    address@u8@#bytes <- bytes;
+    address@u8@(#bytes) <- bytes;
     output(address, #bytes);
     release(mem);
 };

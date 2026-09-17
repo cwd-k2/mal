@@ -7,7 +7,10 @@ fn emit_header_writes_a_standalone_host_interface() {
     directory.write(
         "program.mal",
         "Count :: UInt64;\n\
-         extern increment :: Count -> Count;",
+         Bytes :: (Address, USize);\n\
+         extern increment :: Count -> Count;\n\
+         extern consume :: Bytes -> USize;\n\
+         internal :: Symbol := \"mal-owned\";",
     );
 
     let output = directory.malc([
@@ -24,8 +27,12 @@ fn emit_header_writes_a_standalone_host_interface() {
     );
     let header = std::fs::read_to_string(output_path).unwrap();
     assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
+    assert!(header.contains("typedef mal_repr_product_0_t mal_Bytes_t;"));
+    assert!(header.contains("#define MAL_C_ABI_VERSION 0x000800u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
+    assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(call, value)"));
+    assert!(!header.contains("Symbol"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(!directory.join("generated/program.c").exists());
 }

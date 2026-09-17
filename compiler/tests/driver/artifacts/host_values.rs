@@ -1,33 +1,34 @@
 use super::*;
 #[test]
-fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
-    let directory = NativeFixture::new("driver-llvm-symbol-extern");
+fn bridges_bytes_through_borrowed_addresses_in_the_public_c_abi() {
+    let directory = NativeFixture::new("driver-llvm-byte-address-extern");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         extern inspect :: Symbol -> UInt8;\n\
-         extern fetch :: Unit -> Symbol;\n\
+         extern memory :: Unit -> Address;\n\
+         extern inspect :: (Address, USize) -> UInt8;\n\
          main :: Unit -> Int32 := () -> {\n\
-           seed := \"x\" + \"y\";\n\
-           if (inspect(seed) == 1u8) then { (fetch() # 1usize).i32 - 107 }\n\
-           else { 1 };\n\
+           address := memory();\n\
+           bytes := *(\"x\" + \"y\");\n\
+           address@u8@(#bytes) <- bytes;\n\
+           inspect(address, #bytes).i32 - 1;\n\
          };",
     );
     directory.write(
         "host.c",
-        "#include \"program.mal.h\"\n\
-         MAL_DEFINE_inspect(call, value) {\n\
-             mal_span_t bytes = mal_Symbol_to_bytes(call, value);\n\
-             return (uint8_t)(bytes.length == 2 && bytes.data[0] == 'x' && bytes.data[1] == 'y');\n\
+         "#include \"program.mal.h\"\n\
+         static uint8_t bytes[2];\n\
+         MAL_DEFINE_memory(call) {\n\
+             return mal_Address_return(call, bytes);\n\
          }\n\
-         MAL_DEFINE_fetch(call) {\n\
-             static const uint8_t bytes[] = {'o', 'k'};\n\
-             return mal_Symbol_return(\n\
-                 call,\n\
-                 mal_Symbol_from_bytes((mal_span_t){.data = bytes, .length = sizeof(bytes)})\n\
-             );\n\
+         MAL_DEFINE_inspect(call, value) {\n\
+             uint8_t valid = value.field_0 == bytes\n\
+                 && value.field_1 == 2\n\
+                 && bytes[0] == 'x'\n\
+                 && bytes[1] == 'y';\n\
+             return mal_UInt8_return(call, valid);\n\
          }\n",
     );
 
@@ -52,33 +53,45 @@ fn bridges_symbol_parameters_and_results_through_the_public_c_abi() {
 }
 
 #[test]
-fn marshals_managed_products_through_the_public_c_abi() {
+fn marshals_address_products_through_the_public_c_abi() {
     let directory = NativeFixture::new("driver-llvm-product-extern");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Packet :: (UInt64, Symbol);\n\
+         Packet :: (UInt64, Address, USize);\n\
+         extern memory :: Unit -> Address;\n\
          extern exchange :: Packet -> Packet;\n\
          main :: Unit -> Int32 := () -> {\n\
-           (number, text) := exchange(41u64, \"a\" + \"b\");\n\
-           if (number == 42u64) then {\n\
-             if (text == \"ab\") then { 0 } else { 1 };\n\
-           } else { 2 };\n\
+           address := memory();\n\
+           bytes := *\"ab\";\n\
+           address@u8@(#bytes) <- bytes;\n\
+           (number, returned, length) := exchange(41u64, address, #bytes);\n\
+           if (number == 42u64 && *<-returned@u8@length == \"ab\")\n\
+           then 0\n\
+           else 1;\n\
          };",
     );
     directory.write(
         "host.c",
-        "#include \"program.mal.h\"\n\
+         "#include \"program.mal.h\"\n\
+         static uint8_t bytes[2];\n\
+         MAL_DEFINE_memory(call) {\n\
+             return mal_Address_return(call, bytes);\n\
+         }\n\
          MAL_DEFINE_exchange(call, value) {\n\
-             mal_span_t bytes = mal_Symbol_to_bytes(call, value.field_1);\n\
-             if (bytes.length != 2 || bytes.data[0] != 'a' || bytes.data[1] != 'b') {\n\
+             if (value.field_1 != bytes || value.field_2 != 2\n\
+                 || bytes[0] != 'a' || bytes[1] != 'b') {\n\
                  mal_call_trap(call, \"unexpected packet\");\n\
              }\n\
              return mal_Packet_return(\n\
                  call,\n\
-                 (mal_Packet_t){.field_0 = value.field_0 + 1, .field_1 = value.field_1}\n\
+                 (mal_Packet_t){\n\
+                     .field_0 = value.field_0 + 1,\n\
+                     .field_1 = value.field_1,\n\
+                     .field_2 = value.field_2,\n\
+                 }\n\
              );\n\
          }\n",
     );
@@ -111,19 +124,25 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Choice :: [Unit, (UInt64, Symbol)];\n\
+         Bytes :: (Address, USize);\n\
+         Choice :: [Unit, (UInt64, Bytes)];\n\
          Envelope :: (UInt8, Choice);\n\
+         extern memory :: Unit -> Address;\n\
          extern exchange :: Envelope -> Envelope;\n\
-         makeChoice :: (UInt64, Symbol) -> Choice := (value) -> [none, some] => { some(value) };\n\
+         makeChoice :: (UInt64, Bytes) -> Choice := (value) -> [none, some] => { some(value) };\n\
          main :: Unit -> Int32 := () -> {\n\
-           (number, choice) := exchange(41u8, makeChoice(7u64, \"a\" + \"b\"));\n\
+           address := memory();\n\
+           bytes := *\"ab\";\n\
+           address@u8@(#bytes) <- bytes;\n\
+           (number, choice) := exchange(41u8, makeChoice(7u64, (address, #bytes)));\n\
            choice[\n\
              () -> { 1 },\n\
              (packet) -> {\n\
-               (bias, text) := packet;\n\
+               (bias, returned) := packet;\n\
+               (returnedAddress, length) := returned;\n\
                if (number == 42u8) then {\n\
                  if (bias == 7u64) then {\n\
-                   if (text == \"ab\") then { 0 } else { 2 };\n\
+                   if (*<-returnedAddress@u8@length == \"ab\") then { 0 } else { 2 };\n\
                  } else { 3 };\n\
                } else { 4 };\n\
              }];\n\
@@ -131,15 +150,18 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
     );
     directory.write(
         "host.c",
-        "#include \"program.mal.h\"\n\
+         "#include \"program.mal.h\"\n\
+         static uint8_t bytes[2];\n\
+         MAL_DEFINE_memory(call) {\n\
+             return mal_Address_return(call, bytes);\n\
+         }\n\
          MAL_DEFINE_exchange(call, value) {\n\
              if (value.field_1.tag != mal_Choice_tag_1) {\n\
                  mal_call_trap(call, \"unexpected choice\");\n\
              }\n\
-             mal_span_t bytes = mal_Symbol_to_bytes(\n\
-                 call, value.field_1.payload.variant_1.field_1\n\
-             );\n\
-             if (bytes.length != 2 || bytes.data[0] != 'a' || bytes.data[1] != 'b') {\n\
+             mal_Bytes_t payload = value.field_1.payload.variant_1.field_1;\n\
+             if (payload.field_0 != bytes || payload.field_1 != 2\n\
+                 || bytes[0] != 'a' || bytes[1] != 'b') {\n\
                  mal_call_trap(call, \"unexpected payload\");\n\
              }\n\
              return mal_Envelope_return(\n\

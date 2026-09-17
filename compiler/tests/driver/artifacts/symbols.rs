@@ -53,7 +53,7 @@ fn owns_symbols_across_direct_llvm_calls() {
 }
 
 #[test]
-fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
+fn balances_persistent_symbol_ropes_without_public_materialization() {
     let directory = NativeFixture::new("driver-llvm-symbol-rope");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -61,7 +61,6 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         extern inspect :: Symbol -> UInt64;\n\
          extern allocationCount :: Unit -> UInt64;\n\
          append :: (Int32, Symbol) -> Symbol := (remaining, value) -> {\n\
            if (remaining == 0i32)\n\
@@ -85,7 +84,7 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
              then {\n\
                if (left # 9999usize == 120u8)\n\
                then {\n\
-                 if (inspect(left) == 10000u64)\n\
+                 if (#left == 10000usize)\n\
                  then {\n\
                    if (allocationCount() <= 32u64)\n\
                    then { 0i32 }\n\
@@ -137,15 +136,6 @@ fn balances_persistent_symbols_and_materializes_only_at_the_host_boundary() {
              if (live_allocations != 0) {\n\
                  _Exit(99);\n\
              }\n\
-         }\n\
-         MAL_DEFINE_inspect(call, value) {\n\
-             mal_span_t bytes = mal_Symbol_to_bytes(call, value);\n\
-             for (uint64_t index = 0; index < bytes.length; ++index) {\n\
-                 if (bytes.data[index] != 'x') {\n\
-                     return mal_UInt64_return(call, UINT64_C(0));\n\
-                 }\n\
-             }\n\
-             return mal_UInt64_return(call, bytes.length);\n\
          }\n\
          MAL_DEFINE_allocationCount(call) {\n\
              return mal_UInt64_return(call, total_allocations);\n\
