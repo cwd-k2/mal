@@ -28,6 +28,9 @@ predefined!(TypeId, TYPES;
     BYTE_SIZE_TYPE = 14 => "ByteSize",
     U_SIZE_TYPE = 15 => "USize",
     ADDRESS_TYPE = 16 => "Address",
+    CURSOR_TYPE = 17 => "Cursor",
+    REGION_TYPE = 18 => "Region",
+    PACKED_TYPE = 19 => "Packed",
 );
 
 predefined!(ValueId, VALUES;

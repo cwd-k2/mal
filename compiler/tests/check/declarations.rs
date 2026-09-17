@@ -82,6 +82,79 @@ fn expands_aliases_and_compares_types_structurally() {
 }
 
 #[test]
+fn expands_generic_aliases_with_canonical_concrete_arguments() {
+    let program = check_ok(
+        "Pair<A> :: (A, A);\n\
+         Nested<A> :: Pair<Pair<A>>;\n\
+         value :: Nested<Int32> := ((1, 2), (3, 4));",
+    );
+
+    assert_eq!(
+        program.items.len(),
+        1,
+        "generic aliases are compile-time declarations"
+    );
+    assert_eq!(
+        top_binding(&program, 0).value.ty,
+        Type::Product(
+            vec![
+                Type::Product(vec![Type::Int32, Type::Int32].into()),
+                Type::Product(vec![Type::Int32, Type::Int32].into()),
+            ]
+            .into()
+        )
+    );
+}
+
+#[test]
+fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
+    for (source, message) in [
+        (
+            "Pair<A, B> :: (A, B); value :: Pair<Int32> := 0;",
+            "generic type argument arity mismatch",
+        ),
+        (
+            "Value :: Int32; value :: Value<Int32> := 0;",
+            "type does not accept arguments",
+        ),
+        (
+            "Loop<A> :: Loop<A>; value := 0;",
+            "recursive generic type alias",
+        ),
+        ("value :: Cursor := 0;", "generic type requires arguments"),
+    ] {
+        assert_eq!(check_error(source).message, message, "source: {source}");
+    }
+}
+
+#[test]
+fn forms_indexed_memory_types_only_for_representable_elements() {
+    let error = check_error("Callback :: Int32 -> Int32; value :: Cursor<Callback> := 0;");
+    assert_eq!(error.message, "memory element type is not representable");
+
+    let error = check_error("value :: Region<[]> := 0;");
+    assert_eq!(error.message, "memory element type is not representable");
+
+    let error = check_error("value :: Packed<Cursor<UInt8>> := 0;");
+    assert_eq!(error.message, "memory element type is not representable");
+}
+
+#[test]
+fn rejects_memory_indexed_types_at_the_host_boundary() {
+    for source in [
+        "extern inspect :: Cursor<UInt8> -> Unit;",
+        "extern inspect :: Unit -> Region<UInt8>;",
+        "extern inspect :: (Int32, Packed<UInt8>) -> Unit;",
+    ] {
+        assert_eq!(
+            check_error(source).message,
+            "external operation `inspect` uses a type that is not host mappable",
+            "source: {source}"
+        );
+    }
+}
+
+#[test]
 fn shares_repeated_alias_structure_without_exponential_expansion() {
     let mut source = String::from("Left0 :: Unit;\nRight0 :: Unit;\n");
     for level in 1..=64 {
@@ -222,11 +295,11 @@ fn checks_nominal_external_opaque_types() {
 fn validates_extern_signatures_recursively() {
     assert_eq!(
         check_error("extern callback :: (Int32 -> Unit) -> Unit;").message,
-        "external operation `callback` uses a function value"
+        "external operation `callback` uses a type that is not host mappable"
     );
     assert_eq!(
         check_error("extern wrapped :: [Unit, Int32 -> Int32] -> Unit;").message,
-        "external operation `wrapped` uses a function value"
+        "external operation `wrapped` uses a type that is not host mappable"
     );
     assert_eq!(
         check_error("extern constant :: Int32;").message,

@@ -24,7 +24,7 @@ pub fn type_name(ty: &ast::Type) -> String {
 
 use self::ast::{AbruptExpression, Binding, BodyItem, Completion, Pattern, Program, TopItem, Type};
 use self::interface::ExternalSignature;
-use self::types::AliasDefinition;
+use self::types::{AliasDefinition, GenericAliasDefinition};
 
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
     Checker::new()
@@ -54,6 +54,7 @@ type CheckResult<T> = Result<T, CheckFailure>;
 
 struct Checker {
     aliases: HashMap<TypeId, AliasDefinition>,
+    generic_aliases: HashMap<TypeId, GenericAliasDefinition>,
     external_types: HashMap<TypeId, resolved::TypeBinding>,
     expanded_aliases: HashMap<TypeId, Type>,
     aggregate_alias_sources: HashMap<TypeId, Option<Vec<Node<resolved::TypeExpression>>>>,
@@ -78,6 +79,7 @@ impl Checker {
         let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
         Self {
             aliases: HashMap::new(),
+            generic_aliases: HashMap::new(),
             external_types: HashMap::new(),
             expanded_aliases: HashMap::new(),
             aggregate_alias_sources: HashMap::new(),
@@ -95,10 +97,16 @@ impl Checker {
         for definition in self.aliases.values().cloned().collect::<Vec<_>>() {
             self.expand_type_id(definition.binding.id, definition.binding.name.span)?;
         }
+        for definition in self.generic_aliases.values().cloned().collect::<Vec<_>>() {
+            self.validate_generic_alias(&definition)?;
+        }
         self.collect_external_signatures(program)?;
 
         let mut items = Vec::with_capacity(program.items.len());
         for item in &program.items {
+            if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
+                continue;
+            }
             let kind = match &item.kind {
                 resolved::TopItem::TypeAlias { binding, value } => {
                     let ty = self.expand_type_id(binding.id, binding.name.span)?;
@@ -143,16 +151,6 @@ impl Checker {
                     self.check_top_level_initializer(&binding.value)?;
                     TopItem::Binding(Box::new(checked))
                 }
-                resolved::TopItem::GenericTypeAlias { binding, .. } => {
-                    return Err(
-                        Diagnostic::error("generic declarations are not implemented")
-                            .with_primary(
-                                binding.name.span,
-                                "this declaration cannot be checked yet",
-                            )
-                            .into(),
-                    );
-                }
                 resolved::TopItem::GenericBinding { binding, .. } => {
                     return Err(
                         Diagnostic::error("generic declarations are not implemented")
@@ -162,6 +160,9 @@ impl Checker {
                             )
                             .into(),
                     );
+                }
+                resolved::TopItem::GenericTypeAlias { .. } => {
+                    unreachable!("generic aliases are omitted before checked program emission")
                 }
             };
             items.push(Node::new(kind, item.span));

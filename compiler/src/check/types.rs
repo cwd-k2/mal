@@ -1,9 +1,10 @@
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, ADDRESS_TYPE, BOOL_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE, FLOAT64_TYPE,
-    INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PTR_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
-    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    self as resolved, ADDRESS_TYPE, BOOL_TYPE, BYTE_SIZE_TYPE, CURSOR_TYPE, FLOAT32_TYPE,
+    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PACKED_TYPE, PTR_TYPE,
+    REGION_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+    UINT64_TYPE, UNIT_TYPE,
 };
 use crate::source::Span;
 
@@ -18,7 +19,39 @@ pub(super) struct AliasDefinition {
     pub(super) value: Node<resolved::TypeExpression>,
 }
 
+#[derive(Clone)]
+pub(super) struct GenericAliasDefinition {
+    pub(super) parameters: Vec<resolved::TypeBinding>,
+    pub(super) value: Node<resolved::TypeExpression>,
+}
+
 impl Checker {
+    pub(super) fn validate_generic_alias(
+        &mut self,
+        definition: &GenericAliasDefinition,
+    ) -> Result<(), Diagnostic> {
+        let substitutions = std::sync::Arc::new(
+            definition
+                .parameters
+                .iter()
+                .map(|parameter| {
+                    (
+                        parameter.id,
+                        Type::Parameter {
+                            id: parameter.id,
+                            name: parameter.name.text.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let expanded = self.expand([Expansion::Expression(
+            definition.value.clone(),
+            substitutions,
+        )])?;
+        ensure_representable(&expanded, definition.value.span)
+    }
+
     pub(super) fn collect_aliases(&mut self, program: &resolved::Program) {
         for item in &program.items {
             match &item.kind {
@@ -27,6 +60,19 @@ impl Checker {
                         binding.id,
                         AliasDefinition {
                             binding: binding.clone(),
+                            value: value.clone(),
+                        },
+                    );
+                }
+                resolved::TopItem::GenericTypeAlias {
+                    binding,
+                    parameters,
+                    value,
+                } => {
+                    self.generic_aliases.insert(
+                        binding.id,
+                        GenericAliasDefinition {
+                            parameters: parameters.clone(),
                             value: value.clone(),
                         },
                     );
@@ -43,7 +89,7 @@ impl Checker {
         &mut self,
         ty: &Node<resolved::TypeExpression>,
     ) -> Result<Type, Diagnostic> {
-        let expanded = self.expand([Expansion::Expression(ty.clone())])?;
+        let expanded = self.expand([Expansion::Expression(ty.clone(), Default::default())])?;
         ensure_representable(&expanded, ty.span)?;
         Ok(expanded)
     }
@@ -53,7 +99,7 @@ impl Checker {
         id: TypeId,
         use_span: Span,
     ) -> Result<Type, Diagnostic> {
-        let expanded = self.expand([Expansion::Reference(id, use_span)])?;
+        let expanded = self.expand([Expansion::Reference(id, use_span, Default::default())])?;
         ensure_representable(&expanded, use_span)?;
         Ok(expanded)
     }
@@ -63,36 +109,51 @@ impl Checker {
         let mut values = Vec::new();
         while let Some(expansion) = pending.pop() {
             match expansion {
-                Expansion::Expression(expression) => match expression.kind {
-                    resolved::TypeExpression::Named(reference) => {
-                        pending.push(Expansion::Reference(reference.id, reference.name.span));
+                Expansion::Expression(expression, substitutions) => {
+                    match expression.kind {
+                        resolved::TypeExpression::Named(reference) => {
+                            pending.push(Expansion::Reference(
+                                reference.id,
+                                reference.name.span,
+                                substitutions,
+                            ));
+                        }
+                        resolved::TypeExpression::Application {
+                            constructor,
+                            arguments,
+                        } => {
+                            pending.push(Expansion::Application(constructor, arguments.len()));
+                            pending.extend(arguments.into_iter().rev().map(|argument| {
+                                Expansion::Expression(argument, substitutions.clone())
+                            }));
+                        }
+                        resolved::TypeExpression::Unit => values.push(Type::Unit),
+                        resolved::TypeExpression::Parenthesized(inner) => {
+                            pending.push(Expansion::Expression(*inner, substitutions));
+                        }
+                        resolved::TypeExpression::Product(elements) => {
+                            pending.push(Expansion::Product(elements.len()));
+                            pending.extend(elements.into_iter().rev().map(|element| {
+                                Expansion::Expression(element, substitutions.clone())
+                            }));
+                        }
+                        resolved::TypeExpression::Sum(members) => {
+                            pending.push(Expansion::Sum(members.len()));
+                            pending.extend(members.into_iter().rev().map(|member| {
+                                Expansion::Expression(member, substitutions.clone())
+                            }));
+                        }
+                        resolved::TypeExpression::Function { parameter, result } => {
+                            pending.push(Expansion::Function);
+                            pending.push(Expansion::Expression(*result, substitutions.clone()));
+                            pending.push(Expansion::Expression(*parameter, substitutions));
+                        }
                     }
-                    resolved::TypeExpression::Application { constructor, .. } => {
-                        return Err(Diagnostic::error(
-                            "generic type application is not implemented",
-                        )
-                        .with_primary(constructor.name.span, "this type cannot be expanded yet"));
-                    }
-                    resolved::TypeExpression::Unit => values.push(Type::Unit),
-                    resolved::TypeExpression::Parenthesized(inner) => {
-                        pending.push(Expansion::Expression(*inner));
-                    }
-                    resolved::TypeExpression::Product(elements) => {
-                        pending.push(Expansion::Product(elements.len()));
-                        pending.extend(elements.into_iter().rev().map(Expansion::Expression));
-                    }
-                    resolved::TypeExpression::Sum(members) => {
-                        pending.push(Expansion::Sum(members.len()));
-                        pending.extend(members.into_iter().rev().map(Expansion::Expression));
-                    }
-                    resolved::TypeExpression::Function { parameter, result } => {
-                        pending.push(Expansion::Function);
-                        pending.push(Expansion::Expression(*result));
-                        pending.push(Expansion::Expression(*parameter));
-                    }
-                },
-                Expansion::Reference(id, use_span) => {
-                    if let Some(ty) = predefined_type(id) {
+                }
+                Expansion::Reference(id, use_span, substitutions) => {
+                    if let Some(ty) = substitutions.get(&id) {
+                        values.push(ty.clone());
+                    } else if let Some(ty) = predefined_type(id) {
                         values.push(ty);
                     } else if let Some(binding) = self.external_types.get(&id) {
                         values.push(Type::External {
@@ -101,6 +162,11 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
+                    } else if matches!(id, CURSOR_TYPE | REGION_TYPE | PACKED_TYPE)
+                        || self.generic_aliases.contains_key(&id)
+                    {
+                        return Err(Diagnostic::error("generic type requires arguments")
+                            .with_primary(use_span, "supply the declared type arguments"));
                     } else {
                         if !self.expanding.insert(id) {
                             return Err(Diagnostic::error("recursive type alias")
@@ -111,8 +177,74 @@ impl Checker {
                             .get(&id)
                             .expect("resolved type IDs must have a definition");
                         pending.push(Expansion::Alias(id));
-                        pending.push(Expansion::Expression(definition.value.clone()));
+                        pending.push(Expansion::Expression(
+                            definition.value.clone(),
+                            substitutions,
+                        ));
                     }
+                }
+                Expansion::Application(constructor, arity) => {
+                    let arguments = take_last(&mut values, arity);
+                    let expected =
+                        if matches!(constructor.id, CURSOR_TYPE | REGION_TYPE | PACKED_TYPE) {
+                            1
+                        } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
+                            definition.parameters.len()
+                        } else {
+                            return Err(Diagnostic::error("type does not accept arguments")
+                                .with_primary(
+                                    constructor.name.span,
+                                    "remove these type arguments",
+                                ));
+                        };
+                    if arity != expected {
+                        return Err(Diagnostic::error("generic type argument arity mismatch")
+                            .with_primary(
+                                constructor.name.span,
+                                format!("expected {expected} arguments but found {arity}"),
+                            ));
+                    }
+                    if constructor.id == CURSOR_TYPE {
+                        let element = arguments.into_iter().next().unwrap();
+                        ensure_memory_representable(&element, constructor.name.span)?;
+                        values.push(Type::Cursor(element.into()));
+                    } else if constructor.id == REGION_TYPE {
+                        let element = arguments.into_iter().next().unwrap();
+                        ensure_memory_representable(&element, constructor.name.span)?;
+                        values.push(Type::Region(element.into()));
+                    } else if constructor.id == PACKED_TYPE {
+                        let element = arguments.into_iter().next().unwrap();
+                        ensure_memory_representable(&element, constructor.name.span)?;
+                        values.push(Type::Packed(element.into()));
+                    } else {
+                        if !self.expanding.insert(constructor.id) {
+                            return Err(Diagnostic::error("recursive generic type alias")
+                                .with_primary(
+                                    constructor.name.span,
+                                    "this application forms an alias cycle",
+                                ));
+                        }
+                        let definition = self
+                            .generic_aliases
+                            .get(&constructor.id)
+                            .expect("generic alias was found above");
+                        let substitutions = std::sync::Arc::new(
+                            definition
+                                .parameters
+                                .iter()
+                                .map(|parameter| parameter.id)
+                                .zip(arguments)
+                                .collect(),
+                        );
+                        pending.push(Expansion::GenericAlias(constructor.id));
+                        pending.push(Expansion::Expression(
+                            definition.value.clone(),
+                            substitutions,
+                        ));
+                    }
+                }
+                Expansion::GenericAlias(id) => {
+                    assert!(self.expanding.remove(&id));
                 }
                 Expansion::Alias(id) => {
                     let expanded = values.last().expect("alias expansion must produce a type");
@@ -144,9 +276,18 @@ impl Checker {
 }
 
 enum Expansion {
-    Expression(Node<resolved::TypeExpression>),
-    Reference(TypeId, Span),
+    Expression(
+        Node<resolved::TypeExpression>,
+        std::sync::Arc<std::collections::HashMap<TypeId, Type>>,
+    ),
+    Reference(
+        TypeId,
+        Span,
+        std::sync::Arc<std::collections::HashMap<TypeId, Type>>,
+    ),
+    Application(resolved::TypeReference, usize),
     Alias(TypeId),
+    GenericAlias(TypeId),
     Product(usize),
     Sum(usize),
     Function,
@@ -182,6 +323,47 @@ fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
             .checked_sub(length)
             .expect("composite expansion must have all children"),
     )
+}
+
+pub(super) fn ensure_memory_representable(ty: &Type, span: Span) -> Result<(), Diagnostic> {
+    let mut pending = vec![ty];
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Unit
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+            | Type::Float32
+            | Type::Float64
+            | Type::Address
+            | Type::ByteSize
+            | Type::USize
+            | Type::Parameter { .. } => {}
+            Type::Product(elements) => pending.extend(elements.iter()),
+            Type::Sum(members) if !members.is_empty() => pending.extend(members.iter()),
+            Type::Symbol
+            | Type::Ptr
+            | Type::External { .. }
+            | Type::Function { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_)
+            | Type::Sum(_) => {
+                return Err(
+                    Diagnostic::error("memory element type is not representable").with_primary(
+                        span,
+                        format!("`{}` has no canonical memory representation", type_name(ty)),
+                    ),
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn ensure_representable(ty: &Type, span: Span) -> Result<(), Diagnostic> {
@@ -357,6 +539,22 @@ pub(super) fn type_name(ty: &Type) -> String {
                 Type::Address => "Address",
                 Type::ByteSize => "ByteSize",
                 Type::USize => "USize",
+                Type::Parameter { name, .. } => name,
+                Type::Cursor(element) => {
+                    pending.push(TypeNamePart::Text(">"));
+                    pending.push(TypeNamePart::Type(element));
+                    "Cursor<"
+                }
+                Type::Region(element) => {
+                    pending.push(TypeNamePart::Text(">"));
+                    pending.push(TypeNamePart::Type(element));
+                    "Region<"
+                }
+                Type::Packed(element) => {
+                    pending.push(TypeNamePart::Text(">"));
+                    pending.push(TypeNamePart::Type(element));
+                    "Packed<"
+                }
                 Type::External { name, .. } => name,
                 Type::Product(elements) => {
                     push_aggregate_name(&mut pending, elements, ")");

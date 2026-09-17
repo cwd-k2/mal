@@ -77,6 +77,9 @@ impl TypeRegistry {
             Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
             Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
             Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
+            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                unreachable!("these types never enter the C host registry")
+            }
         }
     }
 
@@ -110,6 +113,9 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
+            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                unreachable!("these types are not host mappable")
+            }
         }
     }
 
@@ -140,6 +146,9 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
+                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                    unreachable!("these types never enter the C host registry")
+                }
             };
             output.push(Declaration::type_alias(
                 TypeName::structure(format!("{kind}_{index}")),
@@ -220,6 +229,9 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
+                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                    unreachable!("these types never enter the C host registry")
+                }
             }
         }
         output

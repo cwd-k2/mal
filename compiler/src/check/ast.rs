@@ -23,6 +23,13 @@ pub enum Type {
     Address,
     ByteSize,
     USize,
+    Parameter {
+        id: TypeId,
+        name: String,
+    },
+    Cursor(Arc<Type>),
+    Region(Arc<Type>),
+    Packed(Arc<Type>),
     External {
         id: TypeId,
         name: String,
@@ -67,6 +74,19 @@ impl PartialEq for Type {
                 | (Self::Address, Self::Address)
                 | (Self::ByteSize, Self::ByteSize)
                 | (Self::USize, Self::USize) => {}
+                (
+                    Self::Parameter {
+                        id: left_id,
+                        name: left_name,
+                    },
+                    Self::Parameter {
+                        id: right_id,
+                        name: right_name,
+                    },
+                ) if left_id == right_id && left_name == right_name => {}
+                (Self::Cursor(left), Self::Cursor(right))
+                | (Self::Region(left), Self::Region(right))
+                | (Self::Packed(left), Self::Packed(right)) => pending.push((left, right)),
                 (
                     Self::External {
                         id: left_id,

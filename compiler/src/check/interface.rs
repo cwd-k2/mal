@@ -33,12 +33,12 @@ impl Checker {
                 ))
                 .with_primary(ty.span, "expected `parameter -> result`"));
             };
-            if contains_function(&parameter) || contains_function(&result) {
+            if !is_host_mappable(&parameter) || !is_host_mappable(&result) {
                 return Err(Diagnostic::error(format!(
-                    "external operation `{}` uses a function value",
+                    "external operation `{}` uses a type that is not host mappable",
                     binding.name.text
                 ))
-                .with_primary(ty.span, "function types cannot cross the extern boundary"));
+                .with_primary(ty.span, "this type cannot cross the extern boundary"));
             }
             let (source_parameter, source_result) = self
                 .external_function_parts(ty)
@@ -117,6 +117,10 @@ impl Checker {
             | Type::Address
             | Type::ByteSize
             | Type::USize
+            | Type::Parameter { .. }
+            | Type::Cursor(_)
+            | Type::Region(_)
+            | Type::Packed(_)
             | Type::Function { .. } => {
                 vec![self.alias_name(source)]
             }
@@ -195,7 +199,15 @@ impl Checker {
     }
 }
 
-fn contains_function(ty: &Type) -> bool {
-    ty.data_subtypes()
-        .any(|ty| matches!(ty, Type::Function { .. }))
+fn is_host_mappable(ty: &Type) -> bool {
+    ty.data_subtypes().all(|ty| {
+        !matches!(
+            ty,
+            Type::Function { .. }
+                | Type::Parameter { .. }
+                | Type::Cursor(_)
+                | Type::Region(_)
+                | Type::Packed(_)
+        )
+    })
 }

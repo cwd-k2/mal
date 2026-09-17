@@ -229,10 +229,10 @@ impl Resolver {
         match item {
             ast::BodyItem::Binding(binding) => {
                 let owner = self.local_owner(binding.span)?;
-                Ok(BodyItem::Binding(ast::Node::new(
+                Ok(BodyItem::Binding(Box::new(ast::Node::new(
                     self.resolve_binding(&binding.kind, owner)?,
                     binding.span,
-                )))
+                ))))
             }
             ast::BodyItem::Expression(expression) => {
                 Ok(BodyItem::Expression(self.resolve_expression(expression)?))

@@ -39,6 +39,9 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => {}
+                Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                    unreachable!("open or memory-indexed types are not host mappable")
+                }
             }
         }
     }
@@ -100,6 +103,9 @@ impl TypeRegistry {
             Type::Product(_) | Type::Sum(_) => super::ElementKey::Aggregate(self.index(ty)),
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
+            }
+            Type::Parameter { .. } | Type::Cursor(_) | Type::Region(_) | Type::Packed(_) => {
+                unreachable!("open or memory-indexed types are not host mappable")
             }
         }
     }
