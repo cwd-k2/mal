@@ -1,14 +1,15 @@
 # managed value ownership
 
-Status: Current v0.5 implementation policy
+Status: Current v0.6 implementation policy
 
 この文書はLLVM execution backendとC host boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
 [Engram specification](../spec/engrams.md)、host carrierのcontractは[C host ABI](../spec/c-host-abi.md)を正とする。
 
 ## managed type
 
-`Symbol`とfunction closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、`Unit`、`Ptr`、
-external opaque valueはownerを持たない。この分類は`execution::ownership`が一箇所で提供する。
+`Symbol`、`Packed`、function closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、
+`Unit`、`Address`、`ByteSize`、`USize`、`Cursor`、`Region`、external opaque valueはownerを持たない。この分類は
+`execution::ownership`が一箇所で提供する。
 
 LLVM内の`Symbol`はruntime allocationへのpointer、closureはcode pointerとnullable environment pointerの組である。productは各field、sumは
 active payloadだけについて同じ規則を再帰的に適用する。literalのstatic `Symbol`とnull environmentに対するretain/releaseは安全な
@@ -61,7 +62,7 @@ pointer/out-pointer bridgeがMal ownerへ変換する。`Symbol` resultはruntim
 再帰的に変換する。invalid Boolまたはsum tagはpayloadを読む前にtrapする。
 
 C shimがprocess argumentから作るdescriptorとargument bytesはborrowed external storageであり、`main`のreturnまでだけ有効である。
-`Symbol.read`を呼んだ時点でruntime-owned bytesへcopyする。
+`Region<UInt8>`を`Packed<UInt8>`へadmitした時点でruntime-owned bytesとなり、`Symbol`への変換後もownerを保つ。
 
 ## 検証
 

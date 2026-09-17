@@ -273,7 +273,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 
 #[test]
 fn preserves_declared_type_aliases_in_hover() {
-    let text = "Tree :: (Int64, Ptr, Ptr);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
+    let text = "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
     let uri = "file:///alias-hover.mal";
     let mut server = open_document(uri, text);
 
@@ -287,7 +287,7 @@ fn preserves_declared_type_aliases_in_hover() {
     );
     assert_eq!(
         alias["result"]["contents"]["value"],
-        "```mal\nTree :: (Int64, Ptr, Ptr)\n```\n\ntype\n\nDefined in `alias-hover.mal:1:1`"
+        "```mal\nTree :: (Int64, Address, Address)\n```\n\ntype\n\nDefined in `alias-hover.mal:1:1`"
     );
 
     let function = request_at(
@@ -381,9 +381,9 @@ fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
 }
 
 #[test]
-fn serves_hover_and_definition_for_a_type_qualified_primitive() {
-    let text = "Byte :: UInt8;\nsize :: UInt64 := Byte.size;";
-    let uri = "file:///type-qualified-primitive.mal";
+fn serves_hover_and_definition_for_an_alias_in_an_indexed_type() {
+    let text = "Byte :: UInt8;\nidentity :: Cursor<Byte> -> Cursor<Byte> := (cursor) -> cursor;";
+    let uri = "file:///indexed-type.mal";
     let mut server = open_document(uri, text);
     let reference = text.rfind("Byte").unwrap();
     let declaration = text.find("Byte").unwrap();
@@ -391,7 +391,7 @@ fn serves_hover_and_definition_for_a_type_qualified_primitive() {
     let hover = request_at(&mut server, 21, "textDocument/hover", uri, text, reference);
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nByte :: UInt8\n```\n\ntype\n\nDefined in `type-qualified-primitive.mal:1:1`"
+        "```mal\nByte :: UInt8\n```\n\ntype\n\nDefined in `indexed-type.mal:1:1`"
     );
 
     let definition = request_at(

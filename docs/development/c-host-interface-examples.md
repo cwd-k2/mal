@@ -1,6 +1,6 @@
 # C host interface例
 
-Status: Current ABI 0x000600 examples for the mal v0.5 development profile
+Status: Current ABI 0x000700 examples for the mal v0.6 development profile
 
 この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。すべてのbodyは
 `mal_call_t`を受け、`mal_<T>_t`を通常のC valueとして扱い、型付きresult

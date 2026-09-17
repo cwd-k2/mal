@@ -1,6 +1,6 @@
 # source formatting policy
 
-Status: Accepted v0.6 policy; current formatter implements v0.5 syntax
+Status: Current v0.6 policy and implementation
 
 この文書は`malc format`が生成するcanonical layoutを定める。受理するsyntaxは
 [`grammar`](../spec/grammar.md)、command contractは[compiler usage](compiler-usage.md)を正とする。

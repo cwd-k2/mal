@@ -1,8 +1,8 @@
 # mal
 
-mal is a small, strictly evaluated, statically typed functional language. Its v0.5 development
+mal is a small, strictly evaluated, statically typed functional language. Its v0.6 development
 profile combines immutable bindings, lexical closures, lexical result blocks, products and sums, fixed-width numeric
-types, immutable byte-valued `Symbol`s, explicit external effects, and untyped `Ptr` memory access.
+types, parametric polymorphism, immutable `Symbol` and `Packed` values, typed external-memory views, and explicit external effects.
 The language keeps allocation, files, networking, clocks, randomness, and other platform policy on
 the host side of an explicit `extern` boundary.
 

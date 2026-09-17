@@ -1,10 +1,9 @@
 # Compiler の責務境界
 
-Status: Current implementation policy; v0.5 modules with an accepted v0.6 migration boundary
+Status: Current v0.6 implementation policy
 
 この文書はcompiler codeの分類、各stageのownership、表現の変換境界を定める。pipelineの構成は
 [compiler implementation notes](compiler.md)、言語の挙動は[`spec/`](../spec/)をauthorityとする。
-「現在のmodule境界」はv0.5 compilerの実装を記録し、「v0.6 translation boundary」はその構造を置き換える際の責務を定める。
 
 ## 分類
 
@@ -87,7 +86,7 @@ use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
 ## v0.6 translation boundary
 
-v0.6のgenericsとexternal memoryを実装するときも既存stageのadmission責務を保つ。
+genericsとexternal memoryも既存stageのadmission責務に従う。
 
 | Boundary | Responsibility |
 |---|---|
@@ -106,7 +105,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に
 判定できる条件は、所有stageがstructured diagnosticとして拒否する。
 
-## 現在のv0.5 module境界
+## 現在のmodule境界
 
 大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyで分割する。
 
@@ -182,7 +181,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/optimization/symbol_concat` | dead owner factから`Symbol` concatへmoveしてよいoperandを選択し、storage再利用可能なruntime operationを指示 |
 | `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
-| `backend/llvm/body/memory` | `Ptr`のbyte offsetと、unalignedな数値scalar・pointer load/storeをLLVM memory operationへ変換 |
+| `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |

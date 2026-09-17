@@ -2,8 +2,8 @@
 
 Status: Current non-normative overview
 
-この文書はv0.5 compilerの現在の実装を記録する。採択済みv0.6仕様との差分と移行時のstage ownershipは
-[compilerの責務境界](responsibilities.md#v06-translation-boundary)を正とする。
+この文書はv0.6 compilerの現在の実装を記録する。stage ownershipは
+[compilerの責務境界](responsibilities.md)を正とする。
 
 ## pipeline
 
@@ -114,10 +114,10 @@ copyは汎用runtime operationへ委ね、連続byte viewはC host境界で要�
 allocation failureはmal trapへ写像する。
 
 extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
-argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置き、LLVM rootを`(UInt64, Ptr)`で呼ぶ。
+argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置き、LLVM rootを`(USize, Address)`で呼ぶ。
 
-type-qualified `size`は型検査でtransparent aliasを展開し、memory表現を持つ型だけをtyped IRへ残す。fixed-width scalarの
-sizeは定数とし、`Ptr.size`はtarget data layoutから求める。`Symbol.size`は型検査で拒否する。
+layout shapeを受け取る`#`は型検査でclosedなcanonical typeへ解決し、typed IRへ残す。strideはtarget data layoutから求め、
+productとsumではsource-levelの入れ子を保ったcanonical layout planを使う。layout shapeにない型identifierはparserで拒否する。
 
 function valueはcode pointerとenvironment pointerの組へlowerする。captureを持つlambdaごとにimmutable environmentを生成し、
 capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
@@ -130,9 +130,10 @@ closure environmentの最後のreleaseではcaptureを逆順に破棄する。ta
 recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
-`Ptr`はLLVMの`ptr`へlowerし、`+`と`-`はbyte offsetとして扱う。数値scalarとpointerのload/storeは`align 1`のmemory operationを
-使い、unaligned accessを許す。直接参照とfirst-class memory functionは同じoperationへ到達する。region、permission、lifetimeは
-typed IRへ補わず、source-levelの[`memory` contract](../spec/memory.md)として保持する。
+`Address`はLLVMの`ptr`、`Cursor`はaddress、`Region`はaddressとcountの組へlowerする。canonical representationのload/storeは
+保証されたalignmentを仮定せず、exact accessでは`align 1`のmemory operationを使う。`Packed`はimmutable buffer owner、offset、countを
+運び、sliceと`Region`間のtransferをprogram固有layoutに従って行う。region、permission、initialization、lifetimeはtyped IRへ補わず、
+source-levelの[`memory` contract](../spec/memory.md)として保持する。
 
 C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
 子representation identityからaggregate keyをbottom-upにinternしてidentityを所有し、`HostTypes`は共有node identityで公開型と

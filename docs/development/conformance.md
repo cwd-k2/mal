@@ -1,6 +1,6 @@
 # v0.6 conformance matrix
 
-Status: Accepted verification requirements; implementation pending
+Status: Current v0.6 verification matrix
 
 この文書は[`spec/`](../spec/)の規範を実装完了に必要なobservable evidenceへ対応させる。test layerとcommandは
 [test policy](testing.md)を正とする。各行はfocusedなpositive、negative、edge caseと、必要なcross-boundary pathを要求する。

@@ -3,7 +3,7 @@
 この文書は、知りたい内容からauthorityへ到達するためのindexである。言語の紹介とbuild例はrepository rootの
 [`README.md`](../README.md)に置き、ここでは規則や手順を重複させない。
 
-規範profileは **accepted v0.6**、reference compilerは **v0.5 implementation** である。v0.6実装の完了条件は
+規範profileとreference compilerはいずれも **v0.6** である。実装のconformance条件は
 [conformance matrix](development/conformance.md)、compilerの現在の構成と責務は`docs/implementation/`で管理する。
 
 ## 言語を読む順序
@@ -82,4 +82,4 @@
 - reference compiler `malc`はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、program非依存の
   機構をC11 runtimeへ変換する。
 - extern implementationはgenerated headerに対するC adapterとして用意し、link時に解決する。
-- v0.6のC host ABIは`0x000700`である。現在のv0.5 compiler artifactは実装移行まで`0x000600`を生成する。
+- v0.6のC host ABIは`0x000700`である。

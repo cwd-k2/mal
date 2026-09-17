@@ -1,6 +1,6 @@
 # reference compiler利用contract
 
-Status: Current v0.5 development contract
+Status: Current v0.6 development contract
 
 この文書は`malc`のcommand、対応toolchain、生成物を利用者向けに定める。言語の意味は[`spec/`](../spec/)、
 Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository内の検証手順は[test policy](testing.md)を
@@ -8,13 +8,13 @@ Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository�
 
 ## 対応環境
 
-v0.5 development profileで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
+v0.6 development profileで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
 C shim、runtime、generated header、host sourceはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
 subnormal、`FLT_EVAL_METHOD == 0`を要求し、満たさないtargetをcompile-timeに拒否する。
-他のOS、architecture、C compilerはv0.5 development profileの検証対象外である。
+他のOS、architecture、C compilerはv0.6 development profileの検証対象外である。
 
 ## Nix flake
 
@@ -73,8 +73,8 @@ malc build source.mal --output program --clang-arg '-lm'
 - `build --clang-arg argument`は追加のClang argumentを一つ渡す。必要な数だけ繰り返せる。
 - `emit-atcoder`は`build`と同じ`--output`、`--optimization`、`--artifact-dir`、`--clang-arg`を受け取る。
 
-生成した実行可能fileのcommand-line argumentは、source-level `main`が`(UInt64, Ptr) -> Int32`型なら
-`Ptr`と`UInt64`からなる外部descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
+生成した実行可能fileのcommand-line argumentは、source-level `main`が`(USize, Address) -> Int32`型なら
+canonical `(Address, ByteSize)` descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
 contractは[program specification](../spec/programs.md#entry-point)に定める。
 
 親directoryは必要に応じて作成し、同名の出力は置き換える。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
@@ -119,8 +119,8 @@ host sourceの明示的な`#include "program.mal.h"`は単独でのeditor suppor
 
 Mal sourceのrequirementとしてのshared object、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
 link時に必要なshared libraryは`--clang-arg`で明示する。
-`Ptr`を受け渡すadapterは、live region、permission、lifetimeを
-[memory contract](../spec/memory.md)に従って定める。
+`Address`を受け渡すadapterはnullを返してはならず、live region、permission、lifetimeを
+[memory contract](../spec/memory.md)に従ってoperation固有のcontractに定める。
 
 ## 生成物policy
 

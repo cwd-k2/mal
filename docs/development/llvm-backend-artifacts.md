@@ -138,7 +138,7 @@ int main(void) {
 }
 ```
 
-`(UInt64, Ptr) -> Int32` entryではshimが`argv[1]`以降をpointerとbyte lengthのdescriptor列へ変換し、target data layoutに
+`(USize, Address) -> Int32` entryではshimが`argv[1]`以降をpointerとbyte lengthのdescriptor列へ変換し、target data layoutに
 従って構成したargument storageを第二parameterへ渡す。いずれのentry形でも第三parameterは`Int32` resultの格納先である。
 
 extern callもLLVMからgenerated C bridgeを呼び、bridgeがpublic host valueへの変換とterminal returnを実行する。host implementationは

@@ -59,28 +59,14 @@ opaque typeとし、address spaceごとのrepresentation sizeとindex sizeを分
 限らず、non-integral pointerやboundsとpermissionを持つcapability pointerもmodelに含む。IRはその内部componentを
 productとして公開せず、`getelementptr`、`load`、`store`などのpointer operationで扱う。
 
-malの`Ptr`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityとして整理できる。現在の
-LLVM backendは一つのdefault address spaceの`ptr`、C host ABIは`void *`へ写すが、それらは別々のbackendと
-embeddingの表現である。sourceはpointerの内部表現を観測せず、byte offset、canonicalなscalarとpointerの
-load/store、`Symbol` bytesのcopyだけを持つ。
+malの`Address`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityである。LLVM backendはdefault address
+spaceの`ptr`、C host ABIは`void *`へ写すが、それらは別々のbackendとembeddingの表現である。sourceはpointerの内部表現を観測せず、
+`ByteSize`による位置の派生とcanonical layoutを持つ`Cursor`、`Region`を通じてstorageへaccessする。
 
-`pointer + offset`と`pointer - offset`は整数演算ではなく、pointer capabilityを保ったbyte位置の派生である。
-LLVM backendでは`getelementptr i8`へ変換し、pointerをintegerへ変換してから加減算しない。`Ptr.load`と
-`Ptr.store`もpointer representationをintegerとして観測するoperationではなく、pointer valueとして保存、復元する。
-
-source spellingは現在、resultのcanonical typeから`T.load`、stored valueのcanonical typeから`T.store`を選ぶ。これは
-[D037](../history/decisions/D037.md)が型ごとのstorage widthと二つのfirst-class functionを一つの規則で覚えられるように
-選んだ表記である。一方、operation semanticsのownerを表記に出すなら、これらは`Ptr`を通じたmemory accessであり、
-`Ptr`側のoperation familyとして表す余地がある。名前の配置はpointer semanticsと独立したsource designとし、次を比較する
-必要がある。
-
-- `T.size`、`T.load`、`T.store`の三つ組で覚える現行規則。
-- `Ptr`がmemory accessを所有することを直接示す表記。
-- `load`と`store`をfirst-class functionとして一意な型に保つためのoperation名。
-- `Ptr`自身のpointer representation accessと、`Ptr`を通じた他のtypeのaccessを混同しないspelling。
-
-現行のsource spellingはこの調査で変更しない。別のspellingを採択する場合は、上の比較と文法、name lookup、
-formatter、first-class function型への影響を独立したdecisionに記録する。
+`Address + ByteSize`と`Address - ByteSize`は整数演算ではなく、pointer capabilityを保ったbyte位置の派生である。LLVM backendでは
+`getelementptr i8`へ変換し、pointerをintegerへ変換してから加減算しない。canonical representationに含まれる`Address`もintegerとして
+観測せず、pointer valueとして保存、復元する。採択済みのsource operationとlayout authorityは
+[external memory specification](../spec/memory.md)を正とする。
 
 ## C runtimeとLTO
 

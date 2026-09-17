@@ -100,7 +100,7 @@ fn calls_capture_free_first_class_functions_through_llvm() {
 }
 
 #[test]
-fn calls_first_class_memory_functions_through_llvm() {
+fn calls_first_class_wrappers_around_typed_memory_operations() {
     let directory = NativeFixture::new("driver-llvm-memory-function");
     let source = directory.join("program.mal");
     let executable = directory.join("program");

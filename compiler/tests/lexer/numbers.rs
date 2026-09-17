@@ -54,6 +54,11 @@ fn lexes_target_quantity_suffixes_in_every_integer_radix() {
         vec![
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Decimal,
+                digits: "0".into(),
+                suffix: Some(IntegerSuffix::ByteSize),
+            }),
+            TokenKind::Integer(IntegerLiteral {
+                radix: Radix::Decimal,
                 digits: "64".into(),
                 suffix: Some(IntegerSuffix::ByteSize),
             }),

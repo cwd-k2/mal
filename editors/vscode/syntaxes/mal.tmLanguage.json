@@ -12,7 +12,6 @@
     { "include": "#numbers" },
     { "include": "#keywords" },
     { "include": "#languageConstants" },
-    { "include": "#typeQualifiedPrimitives" },
     { "include": "#receiverFirstCalls" },
     { "include": "#types" },
     { "include": "#wildcard" },
@@ -78,15 +77,15 @@
         },
         {
           "name": "constant.numeric.integer.hexadecimal.mal",
-          "match": "\\b0x[0-9A-Fa-f](?:_?[0-9A-Fa-f])*(?:[iu](?:8|16|32|64))?\\b"
+          "match": "\\b0x[0-9A-Fa-f](?:_?[0-9A-Fa-f])*(?:(?:[iu](?:8|16|32|64))|bytes|usize)?\\b"
         },
         {
           "name": "constant.numeric.integer.binary.mal",
-          "match": "\\b0b[01](?:_?[01])*(?:[iu](?:8|16|32|64))?\\b"
+          "match": "\\b0b[01](?:_?[01])*(?:(?:[iu](?:8|16|32|64))|bytes|usize)?\\b"
         },
         {
           "name": "constant.numeric.integer.decimal.mal",
-          "match": "\\b[0-9](?:_?[0-9])*(?:[iu](?:8|16|32|64))?\\b"
+          "match": "\\b[0-9](?:_?[0-9])*(?:(?:[iu](?:8|16|32|64))|bytes|usize)?\\b"
         }
       ]
     },
@@ -111,18 +110,6 @@
         {
           "name": "constant.language.boolean.mal",
           "match": "\\b(?:false|true)\\b"
-        }
-      ]
-    },
-    "typeQualifiedPrimitives": {
-      "patterns": [
-        {
-          "match": "\\b(_?[A-Z][A-Za-z0-9]*)(\\.)(size|load|store|read|write)\\b",
-          "captures": {
-            "1": { "name": "entity.name.type.mal" },
-            "2": { "name": "punctuation.accessor.mal" },
-            "3": { "name": "support.function.builtin.mal" }
-          }
         }
       ]
     },
@@ -157,7 +144,7 @@
       "patterns": [
         {
           "name": "keyword.operator.mal",
-          "match": "::|:=|->|=>|<<|>>|<=|>=|==|!=|&&|\\|\\||[+\\-*/%<>&|^!~#]"
+          "match": "::|:=|->|=>|<-|<<|>>|<=|>=|==|!=|&&|\\|\\||[+\\-*/%<>&|^!~#@?]"
         }
       ]
     },

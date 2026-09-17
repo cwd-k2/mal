@@ -1,6 +1,6 @@
 # editor tooling利用方法
 
-Status: Current v0.5 development tooling
+Status: Current v0.6 development tooling
 
 この文書はrepositoryが提供するeditor packageとlanguage serverの起動方法を定める。言語syntaxは
 [`grammar`](../spec/grammar.md)、formatterのoutputは[formatting policy](formatting.md)を正とする。

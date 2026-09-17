@@ -46,27 +46,31 @@ test("keeps a closing parenthesis inside ')' in a Symbol literal token", async (
   assert.ok(closingParentheses[1].scopes.includes('punctuation.definition.mal'));
 });
 
-test('highlights type-qualified primitives', async () => {
+test('highlights v0.6 memory syntax', async () => {
   const grammar = await loadGrammar();
-  const line = 'size := Ptr.size + UInt8.size;';
+  const line = 'region := address@u8@16usize; size := #address + 0x10bytes; pair := <-cursor;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
   }));
 
-  for (const token of tokens.filter((candidate) => candidate.text === '.')) {
-    assert.ok(token.scopes.includes('punctuation.accessor.mal'));
+  for (const operator of ['@', '#', '+', '<-']) {
+    assert.ok(
+      tokens
+        .find((token) => token.text === operator)
+        .scopes.includes('keyword.operator.mal'),
+    );
   }
-  for (const name of ['Ptr', 'UInt8']) {
-    const token = tokens.find((candidate) => candidate.text === name);
-    assert.ok(token.scopes.includes('entity.name.type.mal'));
+  for (const literal of ['16usize', '0x10bytes']) {
+    assert.ok(
+      tokens
+        .find((token) => token.text === literal)
+        .scopes.includes('constant.numeric.integer.decimal.mal') ||
+      tokens
+        .find((token) => token.text === literal)
+        .scopes.includes('constant.numeric.integer.hexadecimal.mal'),
+    );
   }
-  const primitiveMembers = tokens.filter(
-    (candidate) =>
-      candidate.text === 'size' &&
-      candidate.scopes.includes('support.function.builtin.mal'),
-  );
-  assert.equal(primitiveMembers.length, 2);
 });
 
 test('highlights receiver-first callees as functions', async () => {

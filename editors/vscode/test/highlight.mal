@@ -1,4 +1,4 @@
-// Every lexical category in the v0.5 profile appears in this fixture.
+// Every lexical category in the v0.6 profile appears in this fixture.
 require "./support.mal";
 
 extern Handle;
@@ -20,7 +20,7 @@ closingParen :: UInt8 := ')';
 
 message :: Symbol := "mal\n";
 
-pointerStorageSize :: UInt64 := Ptr.size;
+pointerStorageSize :: ByteSize := #address;
 
 inspect :: Symbol -> UInt64 := (value) -> #value + (value # 1u64).u64;
 
