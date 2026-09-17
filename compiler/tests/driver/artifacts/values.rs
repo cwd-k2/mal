@@ -74,6 +74,86 @@ fn transfers_between_regions_and_packed_storage() {
 }
 
 #[test]
+fn transfers_zero_stride_units_from_a_one_past_address() {
+    let directory = NativeFixture::new("driver-unit-region-packed");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"host.c\";\n\
+         extern onePast :: Unit -> Address;\n\
+         extern sameAddress :: (Address, Address) -> Bool;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           cursor := onePast()@unit;\n\
+           cursor <- ();\n\
+           (_, next) := <-cursor;\n\
+           region := next@7usize;\n\
+           packed := <-region;\n\
+           remainder := region <- packed;\n\
+           if (#packed == 7usize && #remainder == 0usize && sameAddress(?cursor, ?remainder))\n\
+           then 0\n\
+           else 1;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         static uint8_t byte;\n\
+         MAL_DEFINE_onePast(call) { return mal_Address_return(call, &byte + 1); }\n\
+         MAL_DEFINE_sameAddress(call, value) {\n\
+             return mal_Bool_return(\n\
+                 call,\n\
+                 value.field_0 == value.field_1 ? mal_true : mal_false\n\
+             );\n\
+         }\n",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn converts_flat_and_non_flat_symbols_through_packed_views() {
+    let directory = NativeFixture::new("driver-symbol-packed-round-trip");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "roundTrip :: Symbol -> Symbol := (value) -> { packed := *value; *packed };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           flat := \"flat\";\n\
+           rope := \"left\" + \"right\";\n\
+           flatCopy := roundTrip(flat);\n\
+           ropeCopy := roundTrip(rope);\n\
+           if (flat == \"flat\" && flatCopy == flat && rope == \"leftright\" && ropeCopy == rope)\n\
+           then 0\n\
+           else 1;\n\
+         };",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn stores_and_loads_canonical_products_and_sums() {
     let directory = NativeFixture::new("driver-canonical-layout");
     let source = directory.join("program.mal");

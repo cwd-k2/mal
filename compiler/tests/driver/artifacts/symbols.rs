@@ -263,3 +263,40 @@ fn reuses_owned_symbols_across_empty_concatenation() {
     );
     assert_eq!(directory.run(executable).status.code(), Some(0));
 }
+
+#[test]
+fn traps_when_symbol_storage_cannot_be_allocated() {
+    let directory = NativeFixture::new("driver-symbol-allocation-failure");
+    let source = directory.write(
+        "program.mal",
+        "require \"allocation.c\";\n\
+         main :: Unit -> Int32 := () -> { value := \"left\" + \"right\"; (#value).i32; };",
+    );
+    let executable = directory.join("program");
+    directory.write(
+        "allocation.c",
+        "#include <stddef.h>\nvoid *__wrap_malloc(size_t size) { (void)size; return NULL; }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=malloc"),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let run = directory.run(executable);
+    assert!(!run.status.success());
+    assert!(
+        String::from_utf8_lossy(&run.stderr).contains("mal trap: symbol allocation failed"),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+}
