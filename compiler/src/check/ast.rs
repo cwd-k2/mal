@@ -363,6 +363,12 @@ pub enum MemoryPrimitive {
     StorePtr,
     LoadSymbol,
     StoreSymbol,
+    Place,
+    Region,
+    ProjectAddress,
+    Align,
+    LoadValue,
+    StoreValue,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -401,6 +407,14 @@ impl MemoryPrimitive {
                 Type::Product(vec![Type::Ptr, Type::Symbol].into()),
                 Type::Unit,
             ),
+            Self::Place
+            | Self::Region
+            | Self::ProjectAddress
+            | Self::Align
+            | Self::LoadValue
+            | Self::StoreValue => {
+                unreachable!("surface memory operations are not first-class functions")
+            }
         }
     }
 }

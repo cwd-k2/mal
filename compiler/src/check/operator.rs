@@ -24,13 +24,17 @@ impl Checker {
             BinaryOperator::Add | BinaryOperator::Subtract => expected
                 .filter(|ty| {
                     **ty == Type::Ptr
+                        || **ty == Type::Address
                         || (operator.kind == BinaryOperator::Add && **ty == Type::Symbol)
                         || is_integer(ty)
                         || is_float(ty)
                 })
                 .cloned(),
             BinaryOperator::Multiply | BinaryOperator::Divide => expected
-                .filter(|ty| is_integer(ty) || is_float(ty))
+                .filter(|ty| {
+                    (is_integer(ty) || is_float(ty))
+                        && (operator.kind != BinaryOperator::Multiply || **ty != Type::ByteSize)
+                })
                 .cloned(),
             BinaryOperator::Remainder
             | BinaryOperator::ShiftLeft
@@ -90,15 +94,15 @@ impl Checker {
                 operand,
                 expected.filter(|expected| is_integer(expected) || is_float(expected)),
             )?;
-            if !is_integer(&operand.ty) && !is_float(&operand.ty) {
-                return Err(
-                    Diagnostic::error("numeric negation requires a numeric value")
-                        .with_primary(
-                            operand.span,
-                            format!("this has type `{}`", type_name(&operand.ty)),
-                        )
-                        .into(),
-                );
+            if (!is_integer(&operand.ty) && !is_float(&operand.ty))
+                || is_target_quantity(&operand.ty)
+            {
+                return Err(Diagnostic::error("negation is not defined for this type")
+                    .with_primary(
+                        operand.span,
+                        format!("this has type `{}`", type_name(&operand.ty)),
+                    )
+                    .into());
             }
             let operand_type = operand.ty.clone();
             return Ok(Expression {
@@ -116,6 +120,16 @@ impl Checker {
             if !is_integer(&operand.ty) {
                 return Err(
                     Diagnostic::error("integer unary operator requires an integer")
+                        .with_primary(
+                            operand.span,
+                            format!("this has type `{}`", type_name(&operand.ty)),
+                        )
+                        .into(),
+                );
+            }
+            if is_target_quantity(&operand.ty) {
+                return Err(
+                    Diagnostic::error("bitwise not is not defined for this type")
                         .with_primary(
                             operand.span,
                             format!("this has type `{}`", type_name(&operand.ty)),
@@ -153,6 +167,10 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
+        if operator.kind == BinaryOperator::Store {
+            let left = self.check_before(left, None, right.span)?;
+            return self.check_memory_store(left, right, span);
+        }
         if operator.kind == BinaryOperator::SymbolAt {
             let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
             let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
@@ -178,14 +196,23 @@ impl Checker {
         let expected_numeric =
             expected.filter(|expected| is_integer(expected) || is_float(expected));
         let (left, right, result) = match operator.kind {
-            BinaryOperator::Multiply | BinaryOperator::Divide => {
+            BinaryOperator::Multiply => {
+                let (left, right) =
+                    self.check_multiplication_operands(left, right, expected_numeric)?;
+                let result = arithmetic_result(operator.kind, &left.ty, &right.ty)
+                    .ok_or_else(|| unsupported_binary(operator.kind, &left))?;
+                (left, right, result)
+            }
+            BinaryOperator::Divide => {
                 let (left, right) = self.check_numeric_operands(left, right, expected_numeric)?;
-                let result = left.ty.clone();
+                let result = arithmetic_result(operator.kind, &left.ty, &right.ty)
+                    .ok_or_else(|| unsupported_binary(operator.kind, &left))?;
                 (left, right, result)
             }
             BinaryOperator::Remainder => {
                 let (left, right) = self.check_integer_operands(left, right, expected_integer)?;
-                let result = left.ty.clone();
+                let result = arithmetic_result(operator.kind, &left.ty, &right.ty)
+                    .ok_or_else(|| unsupported_binary(operator.kind, &left))?;
                 (left, right, result)
             }
             BinaryOperator::Less
@@ -193,6 +220,9 @@ impl Checker {
             | BinaryOperator::Greater
             | BinaryOperator::GreaterEqual => {
                 let (left, right) = self.check_numeric_operands(left, right, None)?;
+                if arithmetic_result(operator.kind, &left.ty, &right.ty).is_none() {
+                    return Err(unsupported_binary(operator.kind, &left));
+                }
                 (left, right, bool_type())
             }
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
@@ -238,7 +268,8 @@ impl Checker {
             | BinaryOperator::BitwiseXor
             | BinaryOperator::BitwiseOr => {
                 let (left, right) = self.check_integer_operands(left, right, expected_integer)?;
-                let result = left.ty.clone();
+                let result = arithmetic_result(operator.kind, &left.ty, &right.ty)
+                    .ok_or_else(|| unsupported_binary(operator.kind, &left))?;
                 (left, right, result)
             }
             BinaryOperator::SymbolAt
@@ -267,6 +298,7 @@ impl Checker {
         span: Span,
     ) -> CheckResult<Expression> {
         match operator.kind {
+            BinaryOperator::Store => return self.check_memory_store(left, right, span),
             BinaryOperator::SymbolAt => {
                 self.require_type(&left.ty, &Type::Symbol, left.span)?;
                 let (left, right) = self.check_after(left, right, Some(&Type::UInt64))?;
@@ -294,6 +326,9 @@ impl Checker {
                 };
                 return self.check_pointer_offset(primitive, left, right, span);
             }
+            BinaryOperator::Add | BinaryOperator::Subtract if left.ty == Type::Address => {
+                return self.check_address_offset(operator, left, right, span);
+            }
             BinaryOperator::Add if left.ty == Type::Symbol => {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
                 return Ok(Expression {
@@ -312,7 +347,13 @@ impl Checker {
         let numeric = is_integer(&left.ty) || is_float(&left.ty);
         let integer = is_integer(&left.ty);
         let expected = left.ty.clone();
-        let (left, right) = self.check_after(left, right, Some(&expected))?;
+        let right_expected =
+            if operator.kind == BinaryOperator::Multiply && is_target_quantity(&left.ty) {
+                None
+            } else {
+                Some(&expected)
+            };
+        let (left, right) = self.check_after(left, right, right_expected)?;
         let valid = match operator.kind {
             BinaryOperator::Add
             | BinaryOperator::Subtract
@@ -321,13 +362,17 @@ impl Checker {
             | BinaryOperator::Less
             | BinaryOperator::LessEqual
             | BinaryOperator::Greater
-            | BinaryOperator::GreaterEqual => numeric,
+            | BinaryOperator::GreaterEqual => {
+                numeric && arithmetic_result(operator.kind, &left.ty, &right.ty).is_some()
+            }
             BinaryOperator::Remainder
             | BinaryOperator::ShiftLeft
             | BinaryOperator::ShiftRight
             | BinaryOperator::BitwiseAnd
             | BinaryOperator::BitwiseXor
-            | BinaryOperator::BitwiseOr => integer,
+            | BinaryOperator::BitwiseOr => {
+                integer && arithmetic_result(operator.kind, &left.ty, &right.ty).is_some()
+            }
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
                 numeric || left.ty == bool_type() || left.ty == Type::Symbol
             }
@@ -348,7 +393,7 @@ impl Checker {
                     | BinaryOperator::BitwiseXor
                     | BinaryOperator::BitwiseOr
             ) {
-                "integer operator requires integer operands"
+                "operator is not defined for this integer type"
             } else if matches!(
                 operator.kind,
                 BinaryOperator::Equal | BinaryOperator::NotEqual
@@ -375,7 +420,7 @@ impl Checker {
         ) {
             bool_type()
         } else {
-            left.ty.clone()
+            arithmetic_result(operator.kind, &left.ty, &right.ty).unwrap_or_else(|| left.ty.clone())
         };
         Ok(Expression {
             kind: ExpressionKind::Binary {
@@ -405,6 +450,10 @@ impl Checker {
             let left = self.check_before(left, Some(&Type::Ptr), right.span)?;
             return self.check_pointer_offset(pointer_primitive, left, right, span);
         }
+        if expected == Some(&Type::Address) {
+            let left = self.check_before(left, Some(&Type::Address), right.span)?;
+            return self.check_address_offset(operator, left, right, span);
+        }
         if operator.kind == BinaryOperator::Add && expected == Some(&Type::Symbol) {
             return self.check_symbol_concatenation(operator, left, right, span);
         }
@@ -420,6 +469,9 @@ impl Checker {
             let left = self.check_before(left, None, right.span)?;
             if left.ty == Type::Ptr {
                 return self.check_pointer_offset(pointer_primitive, left, right, span);
+            }
+            if left.ty == Type::Address {
+                return self.check_address_offset(operator, left, right, span);
             }
             if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
@@ -501,6 +553,59 @@ impl Checker {
         })
     }
 
+    fn check_address_offset(
+        &mut self,
+        operator: &Node<BinaryOperator>,
+        left: Expression,
+        right: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let (left, right) = self.check_after(left, right, Some(&Type::ByteSize))?;
+        Ok(Expression {
+            kind: ExpressionKind::Binary {
+                operator: operator.clone(),
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            ty: Type::Address,
+            span,
+        })
+    }
+
+    fn check_memory_store(
+        &mut self,
+        cursor: Expression,
+        value: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let Type::Cursor(element) = &cursor.ty else {
+            return Err(
+                Diagnostic::error("memory store requires a Cursor on the left")
+                    .with_primary(
+                        cursor.span,
+                        format!("this has type `{}`", type_name(&cursor.ty)),
+                    )
+                    .into(),
+            );
+        };
+        let element = element.clone();
+        let (cursor, value) = self.check_after(cursor, value, Some(element.as_ref()))?;
+        Ok(Expression {
+            kind: ExpressionKind::Memory {
+                primitive: MemoryPrimitive::StoreValue,
+                argument: Box::new(Expression {
+                    kind: ExpressionKind::Product(vec![cursor, value]),
+                    ty: Type::Product(
+                        vec![Type::Cursor(element.clone()), (*element).clone()].into(),
+                    ),
+                    span,
+                }),
+            },
+            ty: Type::Cursor(element),
+            span,
+        })
+    }
+
     fn check_numeric_operands(
         &mut self,
         left: &Node<resolved::Expression>,
@@ -538,6 +643,26 @@ impl Checker {
                     )
                     .into(),
             );
+        }
+        Ok((left, right))
+    }
+
+    fn check_multiplication_operands(
+        &mut self,
+        left: &Node<resolved::Expression>,
+        right: &Node<resolved::Expression>,
+        expected: Option<&Type>,
+    ) -> CheckResult<(Expression, Expression)> {
+        if let Some(expected) = expected.filter(|ty| **ty != Type::ByteSize) {
+            return self.check_numeric_operands(left, right, Some(expected));
+        }
+
+        let left = self.check_before(left, None, right.span)?;
+        let (left, right) = self.check_after(left, right, None)?;
+        if (!is_integer(&left.ty) && !is_float(&left.ty))
+            || (!is_integer(&right.ty) && !is_float(&right.ty))
+        {
+            return Err(unsupported_binary(BinaryOperator::Multiply, &left));
         }
         Ok((left, right))
     }
@@ -612,4 +737,57 @@ impl Checker {
             Err(error) => Err(error),
         }
     }
+}
+
+fn is_target_quantity(ty: &Type) -> bool {
+    matches!(ty, Type::ByteSize | Type::USize)
+}
+
+fn is_fixed_width_integer(ty: &Type) -> bool {
+    is_integer(ty) && !is_target_quantity(ty)
+}
+
+fn arithmetic_result(operator: BinaryOperator, left: &Type, right: &Type) -> Option<Type> {
+    use BinaryOperator::*;
+
+    if operator == Multiply
+        && matches!(
+            (left, right),
+            (Type::ByteSize, Type::USize) | (Type::USize, Type::ByteSize)
+        )
+    {
+        return Some(Type::ByteSize);
+    }
+    if left != right {
+        return None;
+    }
+    let ordinary_numeric = is_fixed_width_integer(left) || is_float(left);
+    let result = match operator {
+        Add | Subtract if ordinary_numeric || is_target_quantity(left) => left.clone(),
+        Multiply if ordinary_numeric || *left == Type::USize => left.clone(),
+        Divide if ordinary_numeric || *left == Type::USize => left.clone(),
+        Remainder if is_fixed_width_integer(left) || *left == Type::USize => left.clone(),
+        Less | LessEqual | Greater | GreaterEqual
+            if ordinary_numeric || is_target_quantity(left) =>
+        {
+            bool_type()
+        }
+        ShiftLeft | ShiftRight | BitwiseAnd | BitwiseXor | BitwiseOr
+            if is_fixed_width_integer(left) =>
+        {
+            left.clone()
+        }
+        _ => return None,
+    };
+    Some(result)
+}
+
+fn unsupported_binary(operator: BinaryOperator, operand: &Expression) -> CheckFailure {
+    let _ = operator;
+    Diagnostic::error("binary operator is not defined for this type")
+        .with_primary(
+            operand.span,
+            format!("this has type `{}`", type_name(&operand.ty)),
+        )
+        .into()
 }

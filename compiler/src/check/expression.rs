@@ -230,14 +230,12 @@ impl Checker {
                     span: expression.span,
                 }
             }
-            resolved::Expression::Placement { .. }
-            | resolved::Expression::Align(_)
-            | resolved::Expression::StrideQuery(_) => {
-                return Err(
-                    Diagnostic::error("external memory expressions are not implemented")
-                        .with_primary(expression.span, "this expression cannot be checked yet")
-                        .into(),
-                );
+            resolved::Expression::Placement { value, operand } => {
+                self.check_placement(value, operand, expression.span)?
+            }
+            resolved::Expression::Align(operand) => self.check_align(operand, expression.span)?,
+            resolved::Expression::StrideQuery(shape) => {
+                self.check_stride_query(shape, expression.span)
             }
             resolved::Expression::If {
                 condition,
@@ -256,17 +254,18 @@ impl Checker {
             resolved::Expression::Unary { operator, operand } => {
                 if matches!(
                     operator.kind,
-                    crate::ast::UnaryOperator::ProjectAddress
-                        | crate::ast::UnaryOperator::Load
-                        | crate::ast::UnaryOperator::Star
+                    crate::ast::UnaryOperator::ProjectAddress | crate::ast::UnaryOperator::Load
                 ) {
+                    self.check_memory_unary(operator.kind, operand, expression.span)?
+                } else if operator.kind == crate::ast::UnaryOperator::Star {
                     return Err(Diagnostic::error(
-                        "external memory expressions are not implemented",
+                        "Packed and Symbol conversion is not implemented",
                     )
                     .with_primary(expression.span, "this expression cannot be checked yet")
                     .into());
+                } else {
+                    self.check_unary(operator, operand, expression.span, expected)?
                 }
-                self.check_unary(operator, operand, expression.span, expected)?
             }
             resolved::Expression::Binary {
                 operator,

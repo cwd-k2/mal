@@ -10,7 +10,7 @@ pub(super) struct ScalarType {
     pub(super) floating: bool,
 }
 
-pub(super) fn scalar_type(ty: &Type) -> Option<ScalarType> {
+pub(super) fn scalar_type(ty: &Type, pointer_size: usize) -> Option<ScalarType> {
     let (llvm, alignment, bits, signed, floating) = match ty {
         Type::Int8 => ("i8", 1, 8, true, false),
         Type::Int16 => ("i16", 2, 16, true, false),
@@ -20,6 +20,13 @@ pub(super) fn scalar_type(ty: &Type) -> Option<ScalarType> {
         Type::UInt16 => ("i16", 2, 16, false, false),
         Type::UInt32 => ("i32", 4, 32, false, false),
         Type::UInt64 => ("i64", 8, 64, false, false),
+        Type::ByteSize | Type::USize => match pointer_size {
+            1 => ("i8", 1, 8, false, false),
+            2 => ("i16", 2, 16, false, false),
+            4 => ("i32", 4, 32, false, false),
+            8 => ("i64", 8, 64, false, false),
+            _ => return None,
+        },
         Type::Float32 => ("float", 4, 32, true, true),
         Type::Float64 => ("double", 8, 64, true, true),
         _ => return None,
@@ -33,7 +40,7 @@ pub(super) fn scalar_type(ty: &Type) -> Option<ScalarType> {
     })
 }
 
-pub(super) fn integer_literal(ty: &Type, value: i128) -> Option<String> {
+pub(super) fn integer_literal(ty: &Type, value: i128, pointer_size: usize) -> Option<String> {
     let value = match ty {
         Type::Int8 => (value as i8).to_string(),
         Type::Int16 => (value as i16).to_string(),
@@ -43,6 +50,14 @@ pub(super) fn integer_literal(ty: &Type, value: i128) -> Option<String> {
         Type::UInt16 => (value as u16).to_string(),
         Type::UInt32 => (value as u32).to_string(),
         Type::UInt64 => (value as u64).to_string(),
+        Type::ByteSize | Type::USize => {
+            let bits = pointer_size.checked_mul(8)?;
+            let value = u128::try_from(value).ok()?;
+            if bits < 128 && value >= (1_u128 << bits) {
+                return None;
+            }
+            value.to_string()
+        }
         _ => return None,
     };
     Some(value)

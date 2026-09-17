@@ -7,11 +7,15 @@ use super::{EmittedValue, FunctionEmitter};
 impl FunctionEmitter<'_> {
     pub(super) fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
         match (&atom.ty, &atom.kind) {
-            (ty, AtomKind::Integer(value)) if scalar_type(ty).is_some() => Some(EmittedValue {
-                ty: ty.clone(),
-                representation: integer_literal(ty, *value)?,
-                owned: false,
-            }),
+            (ty, AtomKind::Integer(value))
+                if scalar_type(ty, self.types.pointer_size()).is_some() =>
+            {
+                Some(EmittedValue {
+                    ty: ty.clone(),
+                    representation: integer_literal(ty, *value, self.types.pointer_size())?,
+                    owned: false,
+                })
+            }
             (Type::Float32, AtomKind::Float(bits)) => Some(EmittedValue {
                 ty: Type::Float32,
                 representation: format!(
@@ -28,6 +32,11 @@ impl FunctionEmitter<'_> {
             (Type::UInt64, AtomKind::StorageSize(measured)) => Some(EmittedValue {
                 ty: Type::UInt64,
                 representation: self.types.value(measured)?.size.to_string(),
+                owned: false,
+            }),
+            (Type::ByteSize, AtomKind::StorageSize(measured)) => Some(EmittedValue {
+                ty: Type::ByteSize,
+                representation: self.types.source_layout(measured)?.stride.to_string(),
                 owned: false,
             }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {

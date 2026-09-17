@@ -112,8 +112,19 @@ impl Resolver {
     }
 
     pub(super) fn type_reference(&self, name: &ast::Name) -> Result<TypeReference, Diagnostic> {
+        let id = self
+            .types
+            .get(&name.text)
+            .map(|binding| binding.id)
+            .or(match name.text.as_str() {
+                "Cursor" => Some(super::predefined::CURSOR_TYPE),
+                "Region" => Some(super::predefined::REGION_TYPE),
+                "Packed" => Some(super::predefined::PACKED_TYPE),
+                _ => None,
+            })
+            .ok_or_else(|| self.unknown(name, "type"))?;
         Ok(TypeReference {
-            id: self.type_binding(name)?.id,
+            id,
             name: name.clone(),
         })
     }

@@ -478,6 +478,9 @@ fn c_scalar_type(ty: &Type) -> Option<&'static str> {
         Type::Float32 => Some("MalType_Float32"),
         Type::Float64 => Some("MalType_Float64"),
         Type::Ptr => Some("MalType_Ptr"),
+        Type::Address => Some("MalType_Address"),
+        Type::ByteSize => Some("MalType_ByteSize"),
+        Type::USize => Some("MalType_USize"),
         _ => None,
     }
 }

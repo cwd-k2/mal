@@ -254,6 +254,42 @@ mod tests {
     }
 
     #[test]
+    fn emits_typed_scalar_cursor_access_with_exact_alignment() {
+        let source = SourceFile::new(
+            FileId::new(89),
+            "llvm-cursor.mal",
+            "extern memory :: Unit -> Address;\n\
+             main :: Unit -> Int32 := () -> {\n\
+               cursor := memory()@u64;\n\
+               _ := cursor <- 41u64;\n\
+               (value, _) := <-cursor;\n\
+               Int32(value);\n\
+             };"
+            .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check cursor fixture");
+        let core = crate::core::lower(&checked);
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("typed scalar cursor fixture is supported");
+
+        assert!(artifacts.module.contains("store i64 %mal_value"));
+        assert!(artifacts.module.contains("load i64, ptr"));
+        assert!(artifacts.module.contains("align 1"));
+        assert!(artifacts.header.contains("mal_Address_return"));
+    }
+
+    #[test]
     fn emits_long_left_associative_expressions_without_host_recursion() {
         let expression = std::iter::repeat_n("0i32", 4096)
             .collect::<Vec<_>>()

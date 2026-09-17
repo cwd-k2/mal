@@ -18,7 +18,7 @@ pub(super) fn emit_prefix() -> TranslationUnit {
     output.blank_line();
     output.push(Directive::define_expr(
         "MAL_C_ABI_VERSION",
-        Expr::number("0x000600u"),
+        Expr::number("0x000700u"),
     ));
     output.blank_line();
     output.push(Directive::If(PreprocessorExpr::defined("__clang__")));
@@ -53,9 +53,15 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         ("uint64_t", "MalType_UInt64"),
         ("float", "MalType_Float32"),
         ("double", "MalType_Float64"),
+        ("size_t", "MalType_ByteSize"),
+        ("size_t", "MalType_USize"),
     ] {
         output.push(Declaration::type_alias(source, alias));
     }
+    output.push(Declaration::type_alias(
+        TypeName::named("void").pointer(),
+        "MalType_Address",
+    ));
     output.push(AggregateDefinition::typedef_structure(
         None,
         [
@@ -86,6 +92,9 @@ pub(super) fn emit_prefix() -> TranslationUnit {
         ("MalType_UInt64", "mal_UInt64_t"),
         ("MalType_Float32", "mal_Float32_t"),
         ("MalType_Float64", "mal_Float64_t"),
+        ("MalType_Address", "mal_Address_t"),
+        ("MalType_ByteSize", "mal_ByteSize_t"),
+        ("MalType_USize", "mal_USize_t"),
     ] {
         output.push(Declaration::type_alias(source, alias));
     }
@@ -359,6 +368,8 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_UInt64", "mal_UInt64_t", "UInt64"),
         ("MalType_Float32", "mal_Float32_t", "Float32"),
         ("MalType_Float64", "mal_Float64_t", "Float64"),
+        ("MalType_ByteSize", "mal_ByteSize_t", "ByteSize"),
+        ("MalType_USize", "mal_USize_t", "USize"),
     ] {
         output.push(FunctionDefinition::from_signature(
             FunctionSignature::static_inline(
@@ -373,6 +384,29 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             Block::new([Statement::return_value(Expr::identifier("value"))]),
         ));
     }
+    output.push(FunctionDefinition::from_signature(
+        FunctionSignature::static_inline(
+            "MalType_Address",
+            "mal_Address_return",
+            [
+                Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
+                Parameter::named("mal_Address_t", "value"),
+            ],
+        ),
+        Block::new([
+            Statement::if_then(
+                Expr::equal(Expr::identifier("value"), Expr::number("0")),
+                Block::new([Statement::call(
+                    "mal_call_trap",
+                    [
+                        Expr::identifier("call"),
+                        Expr::string("invalid Address result"),
+                    ],
+                )]),
+            ),
+            Statement::return_value(Expr::identifier("value")),
+        ]),
+    ));
     output.push(FunctionDefinition::from_signature(
         FunctionSignature::static_inline(
             "MalType_Bool",

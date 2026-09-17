@@ -17,7 +17,6 @@ pub(in crate::backend) enum BinaryOperator {
     Less,
     Greater,
     LogicalAnd,
-    LogicalOr,
 }
 
 impl UnaryOperator {
@@ -43,7 +42,6 @@ impl BinaryOperator {
             Self::Less => "<",
             Self::Greater => ">",
             Self::LogicalAnd => "&&",
-            Self::LogicalOr => "||",
         }
     }
 }

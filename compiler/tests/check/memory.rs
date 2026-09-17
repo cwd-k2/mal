@@ -1,6 +1,39 @@
 use super::*;
 
 #[test]
+fn checks_typed_cursor_region_and_stride_operations() {
+    let program = check_ok(
+        "extern memory :: Unit -> Address;\n\
+         useMemory :: Unit -> UInt64 := () -> {\n\
+           cursor := memory()@u64;\n\
+           next := cursor <- 41u64;\n\
+           (value, loadedNext) := <-cursor;\n\
+           region := loadedNext@3usize;\n\
+           projected :: Address := ?region;\n\
+           shifted := projected + #u64;\n\
+           _ := shifted@u8;\n\
+           value + UInt64(#(u8, u64));\n\
+         };",
+    );
+    let ExpressionKind::Lambda(function) = &top_binding(&program, 1).value.kind else {
+        panic!("expected lambda");
+    };
+    assert_eq!(completion_value(&function.body.result).ty, Type::UInt64);
+}
+
+#[test]
+fn rejects_mismatched_typed_memory_operations() {
+    for text in [
+        "bad :: Address -> Unit := (address) -> { _ := address@u64 <- 1u8; (); };",
+        "bad :: Address -> Address := (address) -> ?address;",
+        "bad :: Address -> UInt64 := (address) -> <-(address@u64@1usize);",
+        "bad := 1u64@u8;",
+    ] {
+        assert!(check_error(text).primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn checks_ptr_extern_signatures_and_memory_primitives() {
     let program = check_ok(
         "extern memory :: Unit -> Ptr;\n\

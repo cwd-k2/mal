@@ -16,6 +16,12 @@ pub(in crate::backend::llvm) struct Field {
     pub(in crate::backend::llvm) offset: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(in crate::backend::llvm) struct SourceLayout {
+    pub(in crate::backend::llvm) alignment: usize,
+    pub(in crate::backend::llvm) stride: usize,
+}
+
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm) struct Types {
     pointer_size: usize,
@@ -40,7 +46,7 @@ impl Types {
         if let Some(value) = ty.shared_id().and_then(|id| cache.get(&id)) {
             return Some(value.clone());
         }
-        if let Some(scalar) = scalar_type(ty) {
+        if let Some(scalar) = scalar_type(ty, self.pointer_size) {
             return Some(ValueType {
                 llvm: scalar.llvm.into(),
                 alignment: scalar.alignment.into(),
@@ -53,7 +59,7 @@ impl Types {
                 alignment: 1,
                 size: 1,
             }),
-            Type::Ptr => Some(ValueType {
+            Type::Ptr | Type::Address | Type::Cursor(_) => Some(ValueType {
                 llvm: "ptr".into(),
                 alignment: self.pointer_size,
                 size: self.pointer_size,
@@ -80,6 +86,18 @@ impl Types {
                     size: self.pointer_size,
                 },
             ]),
+            Type::Region(_) => aggregate_type(vec![
+                ValueType {
+                    llvm: "ptr".into(),
+                    alignment: self.pointer_size,
+                    size: self.pointer_size,
+                },
+                ValueType {
+                    llvm: self.pointer_integer()?,
+                    alignment: self.pointer_size,
+                    size: self.pointer_size,
+                },
+            ]),
             Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),
@@ -101,6 +119,64 @@ impl Types {
 
     pub(in crate::backend::llvm) fn pointer_size(self) -> usize {
         self.pointer_size
+    }
+
+    pub(in crate::backend::llvm) fn source_layout(self, ty: &Type) -> Option<SourceLayout> {
+        if let Some(scalar) = scalar_type(ty, self.pointer_size) {
+            return Some(SourceLayout {
+                alignment: scalar.alignment.into(),
+                stride: usize::from(scalar.bits) / 8,
+            });
+        }
+        match ty {
+            Type::Unit => Some(SourceLayout {
+                alignment: 1,
+                stride: 0,
+            }),
+            Type::Address => Some(SourceLayout {
+                alignment: self.pointer_size,
+                stride: self.pointer_size,
+            }),
+            Type::Product(elements) => {
+                let mut offset = 0usize;
+                let mut alignment = 1usize;
+                for element in elements.iter() {
+                    let field = self.source_layout(element)?;
+                    offset = align(offset, field.alignment)?;
+                    offset = offset.checked_add(field.stride)?;
+                    alignment = alignment.max(field.alignment);
+                }
+                Some(SourceLayout {
+                    alignment,
+                    stride: align(offset, alignment)?,
+                })
+            }
+            Type::Sum(elements) if elements.len() >= 2 => {
+                let tag_size = if elements.len() <= 1 << 8 {
+                    1
+                } else if elements.len() <= 1 << 16 {
+                    2
+                } else if u32::try_from(elements.len()).is_ok() {
+                    4
+                } else {
+                    8
+                };
+                let mut payload_alignment = 1usize;
+                let mut payload_extent = 0usize;
+                for element in elements.iter() {
+                    let variant = self.source_layout(element)?;
+                    payload_alignment = payload_alignment.max(variant.alignment);
+                    payload_extent = payload_extent.max(variant.stride);
+                }
+                let alignment = tag_size.max(payload_alignment);
+                let payload_offset = align(tag_size, payload_alignment)?;
+                Some(SourceLayout {
+                    alignment,
+                    stride: align(payload_offset.checked_add(payload_extent)?, alignment)?,
+                })
+            }
+            _ => None,
+        }
     }
 
     fn product(

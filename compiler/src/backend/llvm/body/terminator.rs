@@ -77,7 +77,7 @@ impl FunctionEmitter<'_> {
                     ));
                 } else {
                     let predicate = comparison_predicate(*operator)?;
-                    let scalar = scalar_type(&left.ty)?;
+                    let scalar = scalar_type(&left.ty, self.types.pointer_size())?;
                     let predicate = predicate.for_scalar(scalar);
                     let instruction = if scalar.floating { "fcmp" } else { "icmp" };
                     self.line(format!(

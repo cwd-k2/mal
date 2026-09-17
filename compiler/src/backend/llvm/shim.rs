@@ -129,10 +129,12 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let count_offset = fields.first()?.offset;
     let pointer_offset = fields.get(1)?.offset;
     let value = types.value(parameter)?;
-    let descriptor_stride = types
-        .value(&Type::Ptr)?
-        .size
-        .checked_add(types.value(&Type::UInt64)?.size)?;
+    let descriptor_type = Type::Product(vec![Type::Address, Type::ByteSize].into());
+    let descriptor = types.value(&descriptor_type)?;
+    let descriptor_fields = types.product_fields(&descriptor_type)?;
+    let descriptor_address_offset = descriptor_fields.first()?.offset;
+    let descriptor_length_offset = descriptor_fields.get(1)?.offset;
+    let descriptor_stride = descriptor.size;
 
     let count = identifier("argument_count");
     let index = identifier("index");
@@ -140,10 +142,6 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let descriptor_slot = Expr::add(
         identifier("storage"),
         Expr::multiply(index.clone(), number(descriptor_stride)),
-    );
-    let count_does_not_fit = Expr::not_equal(
-        Expr::cast("size_t", Expr::cast("uint64_t", count.clone())),
-        count.clone(),
     );
     let descriptor_overflows = Expr::greater(
         count.clone(),
@@ -162,7 +160,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             )),
         ),
         Statement::if_then(
-            Expr::logical_or(count_does_not_fit, descriptor_overflows),
+            descriptor_overflows,
             Block::new([trap("argument descriptor size overflow")]),
         ),
         variable(
@@ -196,28 +194,16 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                     "length",
                     Some(Expr::named_call("strlen", [argv_slot.clone()])),
                 ),
-                Statement::if_then(
-                    Expr::not_equal(
-                        Expr::cast("size_t", Expr::cast("uint64_t", identifier("length"))),
-                        identifier("length"),
-                    ),
-                    Block::new([trap("argument length overflow")]),
-                ),
                 variable(
                     TypeName::named("uint8_t").pointer(),
                     "slot",
                     Some(descriptor_slot),
                 ),
                 variable(TypeName::named("void").pointer(), "data", Some(argv_slot)),
-                variable(
-                    "uint64_t",
-                    "length_u64",
-                    Some(Expr::cast("uint64_t", identifier("length"))),
-                ),
                 call(
                     "memcpy",
                     [
-                        identifier("slot"),
+                        Expr::add(identifier("slot"), number(descriptor_address_offset)),
                         Expr::address_of(identifier("data")),
                         Expr::sizeof_value(identifier("data")),
                     ],
@@ -225,9 +211,9 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 call(
                     "memcpy",
                     [
-                        Expr::add(identifier("slot"), Expr::sizeof_value(identifier("data"))),
-                        Expr::address_of(identifier("length_u64")),
-                        Expr::sizeof_value(identifier("length_u64")),
+                        Expr::add(identifier("slot"), number(descriptor_length_offset)),
+                        Expr::address_of(identifier("length")),
+                        Expr::sizeof_value(identifier("length")),
                     ],
                 ),
             ]),
@@ -237,7 +223,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 .aligned(number(value.alignment)),
             Some(zero_initializer()),
         ),
-        variable("uint64_t", "count_u64", Some(Expr::cast("uint64_t", count))),
+        variable("size_t", "count_usize", Some(count)),
         variable(
             TypeName::named("void").pointer(),
             "descriptor",
@@ -247,8 +233,8 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             "memcpy",
             [
                 Expr::add(identifier("argument"), number(count_offset)),
-                Expr::address_of(identifier("count_u64")),
-                Expr::sizeof_value(identifier("count_u64")),
+                Expr::address_of(identifier("count_usize")),
+                Expr::sizeof_value(identifier("count_usize")),
             ],
         ),
         call(

@@ -167,7 +167,6 @@ impl Expr {
         less => Less,
         greater => Greater,
         logical_and => LogicalAnd,
-        logical_or => LogicalOr,
     }
 
     pub(in crate::backend) fn conditional(condition: Self, then: Self, otherwise: Self) -> Self {

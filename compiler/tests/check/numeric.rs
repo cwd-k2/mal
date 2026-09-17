@@ -294,3 +294,54 @@ fn checks_conversions_between_integer_and_float_types() {
         "numeric conversion requires a numeric value"
     );
 }
+
+#[test]
+fn checks_target_quantity_literals_arithmetic_and_conversions() {
+    check_ok(
+        "scale :: (USize, ByteSize) -> ByteSize := (count, size) -> count * size;\n\
+         reversed :: (ByteSize, USize) -> ByteSize := (size, count) -> size * count;\n\
+         count :: USize -> USize := (value) -> (value / 3usize) % 3usize;\n\
+         converted :: USize -> ByteSize := (value) -> ByteSize(value);\n\
+         compared :: (ByteSize, ByteSize) -> Bool := (left, right) -> left >= right;",
+    );
+}
+
+#[test]
+fn rejects_operations_outside_target_quantity_algebra() {
+    for text in [
+        "bad := 2bytes * 3bytes;",
+        "bad := 2bytes / 1bytes;",
+        "bad := 2bytes % 1bytes;",
+        "bad := 2usize << 1usize;",
+        "bad := 2bytes & 1bytes;",
+        "bad := ~2usize;",
+        "bad := -2bytes;",
+    ] {
+        assert!(
+            check_error(text).message.contains("not defined"),
+            "input: {text}"
+        );
+    }
+}
+
+#[test]
+fn checks_address_offsets_and_rejects_address_values_as_numbers() {
+    check_ok(
+        "forward :: (Address, ByteSize) -> Address := (address, offset) -> address + offset;\n\
+         backward :: (Address, ByteSize) -> Address := (address, offset) -> address - offset;",
+    );
+
+    for text in [
+        "bad :: (Address, Address) -> Bool := (left, right) -> left == right;",
+        "bad :: Address -> Address := (address) -> address + 1usize;",
+        "bad :: Address -> USize := (address) -> USize(address);",
+    ] {
+        let message = check_error(text).message;
+        assert!(
+            message.contains("not defined")
+                || message.contains("type mismatch")
+                || message.contains("numeric value"),
+            "input: {text}"
+        );
+    }
+}

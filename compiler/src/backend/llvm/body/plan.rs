@@ -20,7 +20,7 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
     };
     if **result != Type::Int32
         || (**parameter != Type::Unit
-            && **parameter != Type::Product(vec![Type::UInt64, Type::Ptr].into()))
+            && **parameter != Type::Product(vec![Type::USize, Type::Address].into()))
     {
         return None;
     }
@@ -93,7 +93,7 @@ impl TopLevelConstants {
             },
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand, values)?;
-                numeric_conversion(operand, result_type)?
+                numeric_conversion(operand, result_type, self.types)?
             }
             Operation::Product(elements) => {
                 let Type::Product(element_types) = result_type else {
@@ -143,7 +143,7 @@ impl TopLevelConstants {
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand, values)?;
-                let scalar = super::scalar::scalar_type(&operand.ty)?;
+                let scalar = super::scalar::scalar_type(&operand.ty, self.types.pointer_size())?;
                 let representation = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
                         format!("fneg ({} {})", scalar.llvm, operand.representation()?)
@@ -174,13 +174,18 @@ impl TopLevelConstants {
         values: &HashMap<ValueId, Constant>,
     ) -> Option<Constant> {
         let representation = match &atom.kind {
-            AtomKind::Integer(value) => super::scalar::integer_literal(&atom.ty, *value)?,
+            AtomKind::Integer(value) => {
+                super::scalar::integer_literal(&atom.ty, *value, self.types.pointer_size())?
+            }
             AtomKind::Float(bits) if atom.ty == Type::Float32 => {
                 format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
             }
             AtomKind::Float(bits) if atom.ty == Type::Float64 => format!("0x{bits:016X}"),
             AtomKind::StorageSize(measured) if atom.ty == Type::UInt64 => {
                 self.types().value(measured)?.size.to_string()
+            }
+            AtomKind::StorageSize(measured) if atom.ty == Type::ByteSize => {
+                self.types().source_layout(measured)?.stride.to_string()
             }
             AtomKind::Symbol(bytes) if bytes.is_empty() => "null".into(),
             AtomKind::Symbol(bytes) => {
@@ -313,9 +318,9 @@ impl Constant {
     }
 }
 
-fn numeric_conversion(operand: Constant, result_type: &Type) -> Option<Constant> {
-    let source = super::scalar::scalar_type(&operand.ty)?;
-    let target = super::scalar::scalar_type(result_type)?;
+fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Option<Constant> {
+    let source = super::scalar::scalar_type(&operand.ty, types.pointer_size())?;
+    let target = super::scalar::scalar_type(result_type, types.pointer_size())?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
         operand.representation()?.into()
     } else {

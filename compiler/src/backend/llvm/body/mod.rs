@@ -215,6 +215,13 @@ fn memory_primitive_name(primitive: crate::check::ast::MemoryPrimitive) -> Optio
         MemoryPrimitive::StorePtr => "store_ptr",
         MemoryPrimitive::LoadSymbol => "load_symbol",
         MemoryPrimitive::StoreSymbol => "store_symbol",
-        MemoryPrimitive::OffsetForward | MemoryPrimitive::OffsetBackward => return None,
+        MemoryPrimitive::OffsetForward
+        | MemoryPrimitive::OffsetBackward
+        | MemoryPrimitive::Place
+        | MemoryPrimitive::Region
+        | MemoryPrimitive::ProjectAddress
+        | MemoryPrimitive::Align
+        | MemoryPrimitive::LoadValue
+        | MemoryPrimitive::StoreValue => return None,
     })
 }

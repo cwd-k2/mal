@@ -75,7 +75,7 @@ impl FunctionEmitter<'_> {
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand)?;
-                let scalar = scalar_type(&operand.ty)?;
+                let scalar = scalar_type(&operand.ty, self.types.pointer_size())?;
                 let register = self.register();
                 let instruction = match operator {
                     UnaryPrimitive::Negate if scalar.floating => {
@@ -111,7 +111,38 @@ impl FunctionEmitter<'_> {
                 }
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
-                if left.ty != right.ty {
+                if left.ty == Type::Address && right.ty == Type::ByteSize {
+                    let offset = match operator {
+                        crate::core::ast::BinaryPrimitive::Add => right.representation,
+                        crate::core::ast::BinaryPrimitive::Subtract => {
+                            let negated = self.register();
+                            self.line(format!(
+                                "  {negated} = sub {} 0, {}",
+                                self.types.pointer_integer()?,
+                                right.representation
+                            ));
+                            negated
+                        }
+                        _ => return None,
+                    };
+                    let register = self.register();
+                    self.line(format!(
+                        "  {register} = getelementptr i8, ptr {}, {} {offset}",
+                        left.representation,
+                        self.types.pointer_integer()?
+                    ));
+                    return Some(Some(EmittedValue {
+                        ty: Type::Address,
+                        representation: register,
+                        owned: false,
+                    }));
+                }
+                let quantity_product = *operator == crate::core::ast::BinaryPrimitive::Multiply
+                    && matches!(
+                        (&left.ty, &right.ty),
+                        (Type::ByteSize, Type::USize) | (Type::USize, Type::ByteSize)
+                    );
+                if left.ty != right.ty && !quantity_product {
                     return None;
                 }
                 if result_type.is_some_and(super::types::is_bool) {
@@ -139,7 +170,7 @@ impl FunctionEmitter<'_> {
                             left.representation, right.representation
                         ));
                     } else {
-                        let scalar = scalar_type(&left.ty)?;
+                        let scalar = scalar_type(&left.ty, self.types.pointer_size())?;
                         let predicate =
                             super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
                         let instruction = if scalar.floating { "fcmp" } else { "icmp" };
@@ -154,7 +185,7 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     }));
                 }
-                let scalar = scalar_type(&left.ty)?;
+                let scalar = scalar_type(&left.ty, self.types.pointer_size())?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
                 self.line(format!(
@@ -162,16 +193,16 @@ impl FunctionEmitter<'_> {
                     scalar.llvm, left.representation, right.representation
                 ));
                 Some(Some(EmittedValue {
-                    ty: left.ty,
+                    ty: result_type.cloned().unwrap_or(left.ty),
                     representation: register,
                     owned: false,
                 }))
             }
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand)?;
-                let source = scalar_type(&operand.ty)?;
+                let source = scalar_type(&operand.ty, self.types.pointer_size())?;
                 let result_type = result_type?.clone();
-                let target = scalar_type(&result_type)?;
+                let target = scalar_type(&result_type, self.types.pointer_size())?;
                 if source.floating == target.floating && source.bits == target.bits {
                     return Some(Some(EmittedValue {
                         ty: result_type,
