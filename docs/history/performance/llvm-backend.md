@@ -115,3 +115,28 @@ min 0.392 ms、mean 45.188 ms、median 9.383 ms、p95 271.508 ms、max 813.832 m
 最大の相対差は032の3.12倍、最大の絶対時間caseは023のMal 1052.137 msに対してdirect C 813.832 msだった。一方、
 056は0.61倍、045は0.67倍でMalが速く、047は1.00倍だった。この分布は特定のcollection primitive追加を正当化せず、
 現行のLTO採用条件も変更しない。個別のmin、mean、median、p95、maxと全raw sampleはignored scratch corpusに保存した。
+
+## 2026-09-17 — identity continuation正規化
+
+`b6b05f7`で、call結果をaliasとjoinだけでfunction resultへ転送するidentity continuationを`control` stageでtail callへ
+正規化した。この変換はexample固有の探索形や再帰深度を使わず、effectを持たず結果をそのまま転送するcontrol graphだけから導出する。
+032では不要な16-byte frameが消え、残るframe constructorが一種類になったためtagとfooterも不要となり、frame sizeは96 bytesから
+80 bytesになった。
+
+同じClang 21.1.8、Hyperfine 1.20.0、malc 0.6.0-dev、Nushell 0.114.1で全269 sampleと79 maximum-order inputを
+再検証し、3 warmup、交互20回で全79問を再測定した。
+
+| Population | Count | 正規化前 median / geometric mean | 正規化後 median / geometric mean |
+|:---|---:|---:|---:|
+| 全非interactive問題 | 79 | 1.08x / 1.14x | 1.03x / 1.04x |
+| 両実装1 ms以上 | 59 | 1.12x / 1.16x | 1.06x / 1.06x |
+| 両実装10 ms以上 | 39 | 1.12x / 1.17x | 1.06x / 1.07x |
+
+032はMal 117.668 ms / direct C 37.705 msの3.12倍から、61.252 ms / 37.904 msの1.62倍になった。005は
+2.26倍から0.99倍、006は2.03倍から1.07倍、056は0.61倍から0.31倍になった。全体分類はMalが速い10問、±5%以内33問、
+direct Cが速い36問である。
+
+隣接するframe pop/pushをLLVM emission前に同じarena slotへ融合する案も、managed ownerを含むcaseで意味を保持した上で測定した。
+22段の二分再帰を50回測定したmedian差はnoise範囲内で、最終executableは両者ともtext 3,742 bytes、disassembly 529行だった。
+差は独立loadの順序だけで、Clangが既に同じstorage遷移へ縮約していた。通常の局所変換をcompilerへ重複実装しないpolicyに従い、
+このtechniqueは採用しなかった。
