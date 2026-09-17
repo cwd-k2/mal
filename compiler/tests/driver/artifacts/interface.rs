@@ -121,13 +121,13 @@ fn checked_in_example_headers_match_the_compiler() {
         .expect("compiler directory has a repository parent");
     let examples = [
         "fallible-tree",
-        "integer-and-byte",
+        "numeric-conversion",
         "json-query",
         "mini-database",
         "opaque-aggregate",
-        "pointer-tree",
+        "external-tree",
         "print-and-closure",
-        "ptr-memory",
+        "typed-memory",
         "recoverable-file",
         "resizable-buffer",
         "socket-packet",

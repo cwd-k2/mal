@@ -2,15 +2,16 @@ require "./host.c";
 
 extern Allocator;
 
-// NodeResult variant 0 carries allocated node memory; variant 1 reports allocation failure.
-NodeResult :: [Address, Unit];
+// Tree is an external-storage capability; TreeResult reports recoverable allocation failure.
+Tree :: Address;
+TreeResult :: [Tree, Unit];
 
 extern createAllocator :: USize -> Allocator;
-extern allocateNode :: (Allocator, ByteSize) -> NodeResult;
-extern releaseNode :: (Allocator, Address) -> Unit;
+extern allocateNode :: (Allocator, ByteSize) -> TreeResult;
+extern releaseNode :: (Allocator, Tree) -> Unit;
 extern destroyAllocator :: Allocator -> Unit;
 
-createLeaf :: (Allocator, Int32) -> NodeResult := (allocator, value) -> {
+createLeaf :: (Allocator, Int32) -> TreeResult := (allocator, value) -> {
     allocated := allocator.allocateNode(#i32 + #u8);
     allocated[
     (node) -> [created, failed] => {
@@ -22,7 +23,7 @@ createLeaf :: (Allocator, Int32) -> NodeResult := (allocator, value) -> {
     ];
 };
 
-sumTree :: Address -> Int32 := (node) -> [return] => {
+sumTree :: Tree -> Int32 := (node) -> [return] => {
     (value, _) := <-node@i32;
     (isBranch, _) := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
@@ -35,7 +36,7 @@ sumTree :: Address -> Int32 := (node) -> [return] => {
     return(value + left.sumTree() + right.sumTree());
 };
 
-destroyTree :: (Address, Allocator) -> Unit := (node, allocator) -> [return] => {
+releaseTree :: (Tree, Allocator) -> Unit := (node, allocator) -> [return] => {
     (isBranch, _) := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
@@ -44,12 +45,12 @@ destroyTree :: (Address, Allocator) -> Unit := (node, allocator) -> [return] => 
     children := (node + #i32 + #u8)@address;
     (left, next) := <-children;
     (right, _) := <-next;
-    left.destroyTree(allocator);
-    right.destroyTree(allocator);
+    left.releaseTree(allocator);
+    right.releaseTree(allocator);
     return(allocator.releaseNode(node));
 };
 
-createOwnedBranch :: (Allocator, Int32, Address, Address) -> NodeResult :=
+createOwnedBranch :: (Allocator, Int32, Tree, Tree) -> TreeResult :=
     (allocator, value, left, right) -> {
         allocated := allocator.allocateNode(#i32 + #u8 + 2usize * #address);
         allocated[
@@ -62,14 +63,14 @@ createOwnedBranch :: (Allocator, Int32, Address, Address) -> NodeResult :=
             created(node);
         },
         () -> [created, failed] => {
-            left.destroyTree(allocator);
-            right.destroyTree(allocator);
+            left.releaseTree(allocator);
+            right.releaseTree(allocator);
             failed();
         }
         ];
     };
 
-buildLeft :: Allocator -> NodeResult := (allocator) -> {
+buildLeftSubtree :: Allocator -> TreeResult := (allocator) -> {
     first := allocator.createLeaf(3);
     first[
     (left) -> {
@@ -77,7 +78,7 @@ buildLeft :: Allocator -> NodeResult := (allocator) -> {
         second[
         (right) -> allocator.createOwnedBranch(2, left, right),
         () -> [created, failed] => {
-            left.destroyTree(allocator);
+            left.releaseTree(allocator);
             failed();
         }
         ];
@@ -86,15 +87,15 @@ buildLeft :: Allocator -> NodeResult := (allocator) -> {
     ];
 };
 
-buildTree :: Allocator -> NodeResult := (allocator) -> {
-    leftResult := allocator.buildLeft();
+buildTree :: Allocator -> TreeResult := (allocator) -> {
+    leftResult := allocator.buildLeftSubtree();
     leftResult[
     (left) -> {
         rightResult := allocator.createLeaf(5);
         rightResult[
         (right) -> allocator.createOwnedBranch(1, left, right),
         () -> [created, failed] => {
-            left.destroyTree(allocator);
+            left.releaseTree(allocator);
             failed();
         }
         ];
@@ -109,7 +110,7 @@ successfulBuild :: Unit -> Bool := () -> {
     valid := result[
         (tree) -> {
             total := tree.sumTree();
-            tree.destroyTree(allocator);
+            tree.releaseTree(allocator);
             total == 15;
         },
         () -> false
@@ -123,7 +124,7 @@ failedBuildCleansPartialTree :: Unit -> Bool := () -> {
     result := allocator.buildTree();
     failed := result[
         (tree) -> {
-            tree.destroyTree(allocator);
+            tree.releaseTree(allocator);
             false;
         },
         () -> true

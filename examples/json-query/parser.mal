@@ -1,14 +1,14 @@
-// Cursor fields: 0 complete input, 1 next unread byte.
-Cursor :: (Symbol, UInt64);
+// JsonCursor fields: 0 complete input, 1 next unread byte.
+JsonCursor :: (Symbol, UInt64);
 // Stats fields: 0 JSON value count, 1 maximum value depth.
 Stats :: (UInt64, UInt64);
-Parsed :: (Cursor, Stats);
+Parsed :: (JsonCursor, Stats);
 // Variant 0 is an error message; variant 1 is the remaining cursor and accumulated statistics.
 ParseResult :: [Symbol, Parsed];
 // Scan carries the next cursor and an empty success message or a non-empty error message.
-Scan :: (Cursor, Symbol);
+Scan :: (JsonCursor, Symbol);
 // ParserState fields: 0 cursor, 1 packed frames, 2 frame depth, 3 statistics.
-ParserState :: (Cursor, UInt64, UInt64, Stats);
+ParserState :: (JsonCursor, UInt64, UInt64, Stats);
 
 // The least-significant hexadecimal digit is the active frame. Parent frames act as explicit
 // return addresses, replacing mutually recursive array, object, and value parser functions.
@@ -41,12 +41,12 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
     || (byte >= 'a' && byte <= 'f')
     || (byte >= 'A' && byte <= 'F');
 
-_advance :: Cursor -> Cursor := (cursor) -> {
+_advance :: JsonCursor -> JsonCursor := (cursor) -> {
     (source, index) := cursor;
     (source, index + 1u64);
 };
 
-_skipWhitespace :: Cursor -> Cursor := (cursor) -> [return] => {
+_skipWhitespace :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source) {
         return(cursor);
@@ -97,7 +97,7 @@ _matchesAt :: (Symbol, UInt64, Symbol, UInt64) -> Bool :=
         return(source._matchesAt(start, expected, offset + 1u64));
     };
 
-_consumeLiteral :: (Cursor, Symbol) -> Scan := (cursor, expected) -> {
+_consumeLiteral :: (JsonCursor, Symbol) -> Scan := (cursor, expected) -> {
     (source, index) := cursor;
     if (source._matchesAt(index, expected, 0u64))
     then ((source, index + #expected), "")
@@ -116,7 +116,7 @@ _hasHexDigits :: (Symbol, UInt64, UInt64) -> Bool :=
     };
 
 // The cursor starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: Cursor -> Scan := (cursor) -> [return] => {
+_scanString :: JsonCursor -> Scan := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source) {
         return((cursor, "unterminated JSON string"));
@@ -154,7 +154,7 @@ _scanString :: Cursor -> Scan := (cursor) -> [return] => {
     return((cursor, "invalid JSON escape"));
 };
 
-_scanDigits :: Cursor -> Cursor := (cursor) -> [return] => {
+_scanDigits :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
     (source, index) := cursor;
     when (index == #source || !(source # index)._isDigit()) {
         return(cursor);
@@ -164,7 +164,7 @@ _scanDigits :: Cursor -> Cursor := (cursor) -> [return] => {
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-_scanNumber :: Cursor -> Scan := (cursor) -> [return] => {
+_scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
     (source, start) := cursor;
     unsigned := if (source # start == '-')
         then (source, start + 1u64)

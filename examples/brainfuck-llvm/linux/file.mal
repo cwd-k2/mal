@@ -1,13 +1,13 @@
 require "./memory.mal";
 require "./syscall.mal";
 
-// Source fields: 0 snapshot bytes, 1 source length, 2 mapping length.
-Source :: (Address, USize, ByteSize);
-ReadResult :: [Source, UInt32];
-// Buffer fields: 0 current mapping, 1 capacity, 2 initialized length.
-Buffer :: (Address, ByteSize, ByteSize);
-BufferFailure :: (Buffer, UInt32);
-BufferResult :: [Buffer, BufferFailure];
+// SourceSnapshot fields: 0 snapshot bytes, 1 source length, 2 mapping extent.
+SourceSnapshot :: (Address, USize, ByteSize);
+ReadResult :: [SourceSnapshot, UInt32];
+// MappingBuffer fields: 0 current mapping, 1 extent, 2 initialized byte length.
+MappingBuffer :: (Address, ByteSize, ByteSize);
+MappingFailure :: (MappingBuffer, UInt32);
+MappingResult :: [MappingBuffer, MappingFailure];
 
 _atCurrentWorkingDirectory :: Int32 := -100i32;
 _seekStart :: Int32 := 0i32;
@@ -17,19 +17,19 @@ _fileTooLarge :: UInt32 := 27u32;
 
 _readFailure :: UInt32 -> ReadResult := (error) -> [success, failure] => failure(error);
 
-_readSuccess :: Source -> ReadResult := (source) -> [success, failure] => success(source);
+_readSuccess :: SourceSnapshot -> ReadResult := (source) -> [success, failure] => success(source);
 
-_bufferFailure :: BufferFailure -> BufferResult := (failureValue) -> [success, failure] =>
+_bufferFailure :: MappingFailure -> MappingResult := (failureValue) -> [success, failure] =>
     failure(failureValue);
 
-_bufferSuccess :: Buffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
+_bufferSuccess :: MappingBuffer -> MappingResult := (buffer) -> [success, failure] => success(buffer);
 
 _closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> {
     systemClose(descriptor);
     _readFailure(error);
 };
 
-_readInto :: (Int32, Buffer) -> BufferResult := (descriptor, buffer) -> [return] => {
+_readInto :: (Int32, MappingBuffer) -> MappingResult := (descriptor, buffer) -> [return] => {
     (memory, capacity, length) := buffer;
     when (length == capacity) {
         when (capacity == (-1u64).bytes) {
@@ -55,7 +55,7 @@ _readInto :: (Int32, Buffer) -> BufferResult := (descriptor, buffer) -> [return]
     ]);
 };
 
-_finishRead :: (Int32, BufferResult) -> ReadResult := (descriptor, result) -> {
+_finishRead :: (Int32, MappingResult) -> ReadResult := (descriptor, result) -> {
     closed := systemClose(descriptor);
     result[
     (buffer) -> {
@@ -140,7 +140,7 @@ readSource :: Symbol -> ReadResult := (path) -> [return] => {
     ]);
 };
 
-releaseSource :: Source -> Status := (source) -> {
+releaseSource :: SourceSnapshot -> SyscallStatus := (source) -> {
     (memory, _, mappingLength) := source;
     systemMunmap(memory, mappingLength);
 };

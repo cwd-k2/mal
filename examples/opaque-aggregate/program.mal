@@ -1,24 +1,24 @@
 require "./host.c";
 
-extern Mem;
-// Response variant 0 reports failure; variant 1 carries the handle and logical length.
-Response :: [Unit, (Mem, UInt64)];
-extern allocate :: UInt64 -> Mem;
-extern resize :: (Mem, UInt64) -> Response;
-extern handleBits :: Mem -> UInt64;
+extern Allocation;
+// ResizeResult variant 0 reports failure; variant 1 carries the handle and logical element count.
+ResizeResult :: [Unit, (Allocation, USize)];
+extern allocate :: USize -> Allocation;
+extern resize :: (Allocation, USize) -> ResizeResult;
+extern handleBits :: Allocation -> UInt64;
 
-validate :: (Mem, UInt64) -> Int32 := (sized) -> {
-    (mem, length) := sized;
-    if (mem.handleBits() == 42u64 && length == 2u64)
+validateResize :: (Allocation, USize) -> Int32 := (sized) -> {
+    (allocation, length) := sized;
+    if (allocation.handleBits() == 42u64 && length == 2usize)
     then 0
     else 1;
 };
 
 main :: Unit -> Int32 := () -> {
-    mem := allocate(40u64);
-    response := mem.resize(2u64);
-    response[
+    allocation := allocate(40usize);
+    resized := allocation.resize(2usize);
+    resized[
     () -> 1,
-    (result) -> result.validate()
+    (result) -> result.validateResize()
     ];
 };

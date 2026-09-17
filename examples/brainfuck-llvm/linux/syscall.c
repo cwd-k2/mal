@@ -15,11 +15,11 @@ static uint32_t system_error(void) {
 }
 
 MAL_DEFINE_systemMmap(call, request) {
-    void *address = request.field_0.tag == mal_MapAddress_tag_0
+    void *address = request.field_0.tag == mal_OptionalAddress_tag_0
         ? NULL
         : request.field_0.payload.variant_1;
     if (request.field_1 == 0 || request.field_1 > SIZE_MAX || request.field_5 > INT64_MAX) {
-        return mal_PointerResult_return_1(call, (uint32_t)EINVAL);
+        return mal_AddressResult_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
     void *memory = (void *)(uintptr_t)syscall(
@@ -32,9 +32,9 @@ MAL_DEFINE_systemMmap(call, request) {
         (int64_t)request.field_5
     );
     if (memory == MAP_FAILED) {
-        return mal_PointerResult_return_1(call, system_error());
+        return mal_AddressResult_return_1(call, system_error());
     }
-    return mal_PointerResult_return_0(call, memory);
+    return mal_AddressResult_return_0(call, memory);
 }
 
 MAL_DEFINE_systemMremap(call, request) {
@@ -42,7 +42,7 @@ MAL_DEFINE_systemMremap(call, request) {
         || request.field_1 > SIZE_MAX
         || request.field_2 == 0
         || request.field_2 > SIZE_MAX) {
-        return mal_PointerResult_return_1(call, (uint32_t)EINVAL);
+        return mal_AddressResult_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
     void *memory = (void *)(uintptr_t)syscall(
@@ -53,14 +53,14 @@ MAL_DEFINE_systemMremap(call, request) {
         request.field_3
     );
     if (memory == MAP_FAILED) {
-        return mal_PointerResult_return_1(call, system_error());
+        return mal_AddressResult_return_1(call, system_error());
     }
-    return mal_PointerResult_return_0(call, memory);
+    return mal_AddressResult_return_0(call, memory);
 }
 
 MAL_DEFINE_systemMunmap(call, request) {
     if (request.field_1 == 0 || request.field_1 > SIZE_MAX) {
-        return mal_Status_return_1(call, (uint32_t)EINVAL);
+        return mal_SyscallStatus_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
     if (syscall(
@@ -68,9 +68,9 @@ MAL_DEFINE_systemMunmap(call, request) {
             request.field_0,
             (size_t)request.field_1
         ) != 0) {
-        return mal_Status_return_1(call, system_error());
+        return mal_SyscallStatus_return_1(call, system_error());
     }
-    return mal_Status_return_0(call);
+    return mal_SyscallStatus_return_0(call);
 }
 
 MAL_DEFINE_systemOpenat(call, request) {
@@ -83,13 +83,13 @@ MAL_DEFINE_systemOpenat(call, request) {
         request.field_3
     );
     if (descriptor < 0) {
-        return mal_DescriptorResult_return_1(call, system_error());
+        return mal_FileDescriptorResult_return_1(call, system_error());
     }
     if (descriptor > INT32_MAX) {
         syscall(SYS_close, descriptor);
-        return mal_DescriptorResult_return_1(call, (uint32_t)EOVERFLOW);
+        return mal_FileDescriptorResult_return_1(call, (uint32_t)EOVERFLOW);
     }
-    return mal_DescriptorResult_return_0(call, (int32_t)descriptor);
+    return mal_FileDescriptorResult_return_0(call, (int32_t)descriptor);
 }
 
 MAL_DEFINE_systemLseek(call, request) {
@@ -104,9 +104,9 @@ MAL_DEFINE_systemLseek(call, request) {
 MAL_DEFINE_systemClose(call, descriptor) {
     errno = 0;
     if (syscall(SYS_close, descriptor) != 0) {
-        return mal_Status_return_1(call, system_error());
+        return mal_SyscallStatus_return_1(call, system_error());
     }
-    return mal_Status_return_0(call);
+    return mal_SyscallStatus_return_0(call);
 }
 
 MAL_DEFINE_systemRead(call, request) {

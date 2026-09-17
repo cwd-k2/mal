@@ -24,8 +24,8 @@ static AllocationHandle *allocation_handle(mal_Allocation_t allocation) {
     return (AllocationHandle *)mal_Allocation_to_bits(allocation);
 }
 
-static mal_Buffer_t buffer_value(AllocationHandle *handle, size_t length) {
-    return (mal_Buffer_t){
+static mal_OwnedBuffer_t buffer_value(AllocationHandle *handle, size_t length) {
+    return (mal_OwnedBuffer_t){
         .field_0 = mal_Allocation_from_bits((uintptr_t)handle),
         .field_1 = handle->memory,
         .field_2 = handle->capacity,
@@ -33,7 +33,7 @@ static mal_Buffer_t buffer_value(AllocationHandle *handle, size_t length) {
     };
 }
 
-static mal_Bool_t is_current_buffer(mal_Buffer_t buffer) {
+static mal_Bool_t is_current_buffer(mal_OwnedBuffer_t buffer) {
     AllocationHandle *handle = allocation_handle(buffer.field_0);
     return handle->memory == buffer.field_1
         && handle->capacity == buffer.field_2
@@ -42,24 +42,24 @@ static mal_Bool_t is_current_buffer(mal_Buffer_t buffer) {
         : mal_false;
 }
 
-static mal_Bool_t is_current_slice(mal_Slice_t slice) {
-    AllocationHandle *handle = allocation_handle(slice.field_0);
+static mal_Bool_t is_current_borrow(mal_BorrowedBytes_t borrowed) {
+    AllocationHandle *handle = allocation_handle(borrowed.field_0);
     uintptr_t base = (uintptr_t)handle->memory;
-    uintptr_t address = (uintptr_t)slice.field_1;
-    if (address < base || slice.field_2 > handle->capacity) {
+    uintptr_t address = (uintptr_t)borrowed.field_1;
+    if (address < base || borrowed.field_2 > handle->capacity) {
         return mal_false;
     }
-    return address - base <= handle->capacity - slice.field_2 ? mal_true : mal_false;
+    return address - base <= handle->capacity - borrowed.field_2 ? mal_true : mal_false;
 }
 
-static void write_current_slice(
+static void write_current_borrow(
     mal_call_t *call,
-    mal_Slice_t slice
+    mal_BorrowedBytes_t borrowed
 ) {
-    if (!is_current_slice(slice)) {
-        mal_call_trap(call, "attempted to use a stale slice");
+    if (!is_current_borrow(borrowed)) {
+        mal_call_trap(call, "attempted to use a stale borrowed view");
     }
-    if (fwrite(slice.field_1, 1, slice.field_2, stdout) != slice.field_2) {
+    if (fwrite(borrowed.field_1, 1, borrowed.field_2, stdout) != borrowed.field_2) {
         mal_call_trap(call, "cannot write stdout");
     }
 }
@@ -83,7 +83,7 @@ MAL_DEFINE_allocateBuffer(call, value) {
 }
 
 MAL_DEFINE_resizeBuffer(call, value) {
-    mal_Buffer_t buffer = value.field_0;
+    mal_OwnedBuffer_t buffer = value.field_0;
     size_t targetCapacity = value.field_1;
     if (!is_current_buffer(buffer)) {
         return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
@@ -128,24 +128,24 @@ MAL_DEFINE_isCurrentBuffer(call, value) {
     return mal_Bool_return(call, is_current_buffer(value));
 }
 
-MAL_DEFINE_isCurrentSlice(call, value) {
-    return mal_Bool_return(call, is_current_slice(value));
+MAL_DEFINE_isCurrentBorrow(call, value) {
+    return mal_Bool_return(call, is_current_borrow(value));
 }
 
-MAL_DEFINE_writeSlice(call, value) {
-    write_current_slice(call, value);
+MAL_DEFINE_writeBorrowedBytes(call, value) {
+    write_current_borrow(call, value);
     return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSliceDescriptor(call, value) {
+MAL_DEFINE_validateStoredDescriptor(call, value) {
     uint8_t *address = value.field_1;
     void *memory;
     size_t length;
     memcpy(&memory, address, sizeof(memory));
     memcpy(&length, address + sizeof(memory), sizeof(length));
-    write_current_slice(
+    write_current_borrow(
         call,
-        (mal_Slice_t){ .field_0 = value.field_0, .field_1 = memory, .field_2 = length }
+        (mal_BorrowedBytes_t){ .field_0 = value.field_0, .field_1 = memory, .field_2 = length }
     );
     return mal_Unit_return(call);
 }

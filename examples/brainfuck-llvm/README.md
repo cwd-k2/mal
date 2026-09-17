@@ -8,7 +8,7 @@ writes a complete LLVM IR module to standard output. The generated program uses 
 tape and the host C library's `getchar` and `putchar`; moving outside the tape is invalid Brainfuck
 input for this example, and end-of-file on input becomes byte `255`.
 
-The source is an `(Address, USize, ByteSize)` containing its snapshot address, source length, and
+`SourceSnapshot` is an `(Address, USize, ByteSize)` containing its snapshot address, source length, and
 mapping extent. mal admits the source region into `Packed<UInt8>` before compilation and retains the
 mapping extent only for `munmap`. Non-command bytes are comments. Recursive compilation of `[` assigns
 a unique LLVM block identity and stops at the matching `]`, while straight-line input is processed by

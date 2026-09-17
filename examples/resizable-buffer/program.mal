@@ -2,25 +2,25 @@ require "./host.c";
 
 extern Allocation;
 
-// Buffer fields: 0 allocation identity, 1 writable memory, 2 capacity, 3 initialized length.
-Buffer :: (Allocation, Address, USize, USize);
-// Slice fields: 0 allocation identity, 1 readable memory, 2 byte length.
-Slice :: (Allocation, Address, USize);
-// BufferResult variant 0 carries the current buffer; variant 1 carries an error code.
-BufferResult :: [Buffer, UInt32];
-// SliceResult variant 0 carries an in-bounds slice; variant 1 reports invalid bounds.
-SliceResult :: [Slice, Unit];
+// OwnedBuffer fields: 0 allocation authority, 1 writable memory, 2 capacity, 3 initialized length.
+OwnedBuffer :: (Allocation, Address, USize, USize);
+// BorrowedBytes fields: 0 allocation identity, 1 readable memory, 2 byte length.
+BorrowedBytes :: (Allocation, Address, USize);
+// BufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
+BufferResult :: [OwnedBuffer, UInt32];
+// BorrowResult variant 0 carries an in-bounds borrowed view; variant 1 reports invalid bounds.
+BorrowResult :: [BorrowedBytes, Unit];
 
 extern allocateBuffer :: (USize, USize) -> BufferResult;
-extern resizeBuffer :: (Buffer, USize) -> BufferResult;
+extern resizeBuffer :: (OwnedBuffer, USize) -> BufferResult;
 extern releaseBuffer :: Allocation -> Unit;
-extern isCurrentBuffer :: Buffer -> Bool;
-extern isCurrentSlice :: Slice -> Bool;
-extern writeSlice :: Slice -> Unit;
-extern writeSliceDescriptor :: (Allocation, Address) -> Unit;
+extern isCurrentBuffer :: OwnedBuffer -> Bool;
+extern isCurrentBorrow :: BorrowedBytes -> Bool;
+extern writeBorrowedBytes :: BorrowedBytes -> Unit;
+extern validateStoredDescriptor :: (Allocation, Address) -> Unit;
 extern writeSymbol :: Symbol -> Unit;
 
-_bufferSuccess :: Buffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
+_bufferSuccess :: OwnedBuffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
 
 _bufferFailure :: UInt32 -> BufferResult := (error) -> [success, failure] => failure(error);
 
@@ -34,7 +34,7 @@ nextCapacity :: (USize, USize) -> USize := (capacity, required) -> [return] => {
     return((capacity * 2usize).nextCapacity(required));
 };
 
-appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] => {
+appendSymbol :: (OwnedBuffer, Symbol) -> BufferResult := (buffer, value) -> [return] => {
     (allocation, memory, capacity, length) := buffer;
     additional := (#value).usize;
     when (additional > (-1u64).usize - length) {
@@ -59,29 +59,29 @@ appendSymbol :: (Buffer, Symbol) -> BufferResult := (buffer, value) -> [return] 
     return(result);
 };
 
-sliceBuffer :: (Buffer, USize, USize) -> SliceResult :=
-    (buffer, start, length) -> [slice, invalid] => {
+borrowBytes :: (OwnedBuffer, USize, USize) -> BorrowResult :=
+    (buffer, start, length) -> [borrowed, invalid] => {
         (allocation, memory, _, initialized) := buffer;
         when (start <= initialized && length <= initialized - start) {
-            slice((allocation, memory + start.bytes, length));
+            borrowed((allocation, memory + start.bytes, length));
         };
         invalid();
     };
 
-releaseBufferValue :: Buffer -> Unit := (buffer) -> {
+releaseOwnedBuffer :: OwnedBuffer -> Unit := (buffer) -> {
     (allocation, _, _, _) := buffer;
     allocation.releaseBuffer();
 };
 
-writeThroughDescriptor :: Slice -> Bool := (slice) -> {
-    (allocation, memory, length) := slice;
+checkStoredDescriptor :: BorrowedBytes -> Bool := (borrowed) -> {
+    (allocation, memory, length) := borrowed;
     descriptorSize := #(address, usize);
     allocated := allocateBuffer(descriptorSize.usize, descriptorSize.usize);
     allocated[
     (descriptor) -> {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
         descriptorMemory@(address, usize) <- (memory, length);
-        writeSliceDescriptor(allocation, descriptorMemory);
+        validateStoredDescriptor(allocation, descriptorMemory);
         descriptorAllocation.releaseBuffer();
         true;
     },
@@ -89,18 +89,18 @@ writeThroughDescriptor :: Slice -> Bool := (slice) -> {
     ];
 };
 
-finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) -> {
+finishLimitTest :: (OwnedBuffer, Bool) -> Int32 := (buffer, aliasesInvalid) -> {
     rejected := buffer.appendSymbol(
         "this append is intentionally larger than the allocation limit for the pressure test"
     );
     rejected[
     (unexpected) -> {
-        unexpected.releaseBufferValue();
+        unexpected.releaseOwnedBuffer();
         5;
     },
     (_) -> {
         current := buffer.isCurrentBuffer();
-        buffer.releaseBufferValue();
+        buffer.releaseOwnedBuffer();
         if (aliasesInvalid && current)
         then {
             writeSymbol("resize rejected\n");
@@ -111,58 +111,58 @@ finishLimitTest :: (Buffer, Bool) -> Int32 := (buffer, aliasesInvalid) -> {
     ];
 };
 
-afterGrowth :: (Buffer, Slice) -> Int32 := (before, staleSlice) -> {
+afterGrowth :: (OwnedBuffer, BorrowedBytes) -> Int32 := (before, staleBorrow) -> {
     grownResult := before.appendSymbol("-shared-buffer");
     grownResult[
     (grown) -> {
-        aliasesInvalid := !before.isCurrentBuffer() && !staleSlice.isCurrentSlice();
+        aliasesInvalid := !before.isCurrentBuffer() && !staleBorrow.isCurrentBorrow();
         (_, _, _, length) := grown;
-        sliceResult := grown.sliceBuffer(0usize, length);
-        sliceResult[
-        (currentSlice) -> {
-            if (currentSlice.writeThroughDescriptor())
+        borrowResult := grown.borrowBytes(0usize, length);
+        borrowResult[
+        (currentBorrow) -> {
+            if (currentBorrow.checkStoredDescriptor())
             then {
                 writeSymbol("\n");
                 grown.finishLimitTest(aliasesInvalid);
             }
             else {
-                grown.releaseBufferValue();
+                grown.releaseOwnedBuffer();
                 4;
             };
         },
         () -> {
-            grown.releaseBufferValue();
+            grown.releaseOwnedBuffer();
             4;
         }
         ];
     },
     (_) -> {
-        before.releaseBufferValue();
+        before.releaseOwnedBuffer();
         3;
     }
     ];
 };
 
-withInitialValue :: Buffer -> Int32 := (initial) -> {
+withInitialValue :: OwnedBuffer -> Int32 := (initial) -> {
     appended := initial.appendSymbol("mal");
     appended[
     (buffer) -> {
-        invalidSlice := buffer.sliceBuffer(2usize, 2usize);
-        invalidSlice[
+        invalidBorrow := buffer.borrowBytes(2usize, 2usize);
+        invalidBorrow[
         (_) -> {
-            buffer.releaseBufferValue();
+            buffer.releaseOwnedBuffer();
             8;
         },
         () -> {
-            sliceResult := buffer.sliceBuffer(1usize, 2usize);
-            sliceResult[
-            (slice) -> {
-                writeSlice(slice);
+            borrowResult := buffer.borrowBytes(1usize, 2usize);
+            borrowResult[
+            (borrowed) -> {
+                writeBorrowedBytes(borrowed);
                 writeSymbol("\n");
-                buffer.afterGrowth(slice);
+                buffer.afterGrowth(borrowed);
             },
             () -> {
-                buffer.releaseBufferValue();
+                buffer.releaseOwnedBuffer();
                 2;
             }
             ];
@@ -170,7 +170,7 @@ withInitialValue :: Buffer -> Int32 := (initial) -> {
         ];
     },
     (_) -> {
-        initial.releaseBufferValue();
+        initial.releaseOwnedBuffer();
         1;
     }
     ];

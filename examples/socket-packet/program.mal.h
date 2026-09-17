@@ -179,7 +179,7 @@ struct MalRepr_Sum_4 {
 
 typedef MalRepr_Product_1 MalType_Packet;
 typedef MalRepr_Product_0 MalType_SocketPair;
-typedef MalRepr_Sum_3 MalType_Status;
+typedef MalRepr_Sum_3 MalType_SocketStatus;
 typedef MalRepr_Sum_4 MalType_ReceiveResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Socket_t;
@@ -190,7 +190,7 @@ typedef struct mal_detail_repr_sum_3 mal_repr_sum_3_t;
 typedef struct mal_detail_repr_sum_4 mal_repr_sum_4_t;
 typedef mal_repr_product_1_t mal_Packet_t;
 typedef mal_repr_product_0_t mal_SocketPair_t;
-typedef mal_repr_sum_3_t mal_Status_t;
+typedef mal_repr_sum_3_t mal_SocketStatus_t;
 typedef mal_repr_sum_4_t mal_ReceiveResult_t;
 
 struct mal_detail_repr_product_0 {
@@ -350,22 +350,22 @@ static inline MalType_SocketPair mal_SocketPair_return(mal_call_t *call MAL_DETA
     return (MalRepr_Product_0){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
 }
 
-#define mal_Status_tag_0 UINT32_C(0)
-static inline mal_Status_t mal_Status_make_0(void) {
-    return (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+#define mal_SocketStatus_tag_0 UINT32_C(0)
+static inline mal_SocketStatus_t mal_SocketStatus_make_0(void) {
+    return (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_Status mal_Status_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_3(call, (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+static inline MalType_SocketStatus mal_SocketStatus_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_3(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-#define mal_Status_tag_1 UINT32_C(1)
-static inline mal_Status_t mal_Status_make_1(mal_UInt32_t value) {
-    return (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value };
+#define mal_SocketStatus_tag_1 UINT32_C(1)
+static inline mal_SocketStatus_t mal_SocketStatus_make_1(mal_UInt32_t value) {
+    return (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_Status mal_Status_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_3(call, (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value });
+static inline MalType_SocketStatus mal_SocketStatus_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_3(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_1, .payload.variant_1 = value });
 }
 
 #define mal_ReceiveResult_tag_0 UINT32_C(0)
@@ -389,9 +389,9 @@ static inline MalType_ReceiveResult mal_ReceiveResult_return_1(mal_call_t *call,
 /* External operations */
 
 MalType_SocketPair mal_ext_createSocketPair(MalContext *context);
-MalType_Status mal_ext_sendPacket(MalContext *context, MalType_Socket argument_0, MalType_Packet argument_1);
+MalType_SocketStatus mal_ext_sendPacket(MalContext *context, MalType_Socket argument_0, MalType_Packet argument_1);
 MalType_ReceiveResult mal_ext_receivePacket(MalContext *context, MalType_Socket value);
-MalType_Status mal_ext_closeSocket(MalContext *context, MalType_Socket value);
+MalType_SocketStatus mal_ext_closeSocket(MalContext *context, MalType_Socket value);
 void mal_ext_writeError(MalContext *context, MalType_UInt32 value);
 
 /* External definition helpers */
@@ -409,12 +409,12 @@ static MalType_SocketPair mal_detail_createSocketPair( \
 
 #define MAL_HAS_EXTERN_sendPacket 1
 #define MAL_DEFINE_sendPacket(call, value) \
-static MalType_Status mal_detail_sendPacket(mal_call_t *call, mal_repr_product_2_t value); \
-MalType_Status mal_ext_sendPacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket argument_0, MalType_Packet argument_1) { \
+static MalType_SocketStatus mal_detail_sendPacket(mal_call_t *call, mal_repr_product_2_t value); \
+MalType_SocketStatus mal_ext_sendPacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket argument_0, MalType_Packet argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_sendPacket(&call, (mal_repr_product_2_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_1_t){ .field_0 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = (mal_Symbol_t){ .mal_detail_raw = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1, .mal_detail_bytes = (mal_span_t){ 0 }, .mal_detail_source = UINT8_C(0) } } }); \
 } \
-static MalType_Status mal_detail_sendPacket( \
+static MalType_SocketStatus mal_detail_sendPacket( \
     mal_call_t *call, \
     mal_repr_product_2_t value \
 )
@@ -433,12 +433,12 @@ static MalType_ReceiveResult mal_detail_receivePacket( \
 
 #define MAL_HAS_EXTERN_closeSocket 1
 #define MAL_DEFINE_closeSocket(call, value) \
-static MalType_Status mal_detail_closeSocket(mal_call_t *call, mal_Socket_t value); \
-MalType_Status mal_ext_closeSocket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket value) { \
+static MalType_SocketStatus mal_detail_closeSocket(mal_call_t *call, mal_Socket_t value); \
+MalType_SocketStatus mal_ext_closeSocket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_closeSocket(&call, (mal_Socket_t){ .mal_detail_bits = value.bits }); \
 } \
-static MalType_Status mal_detail_closeSocket( \
+static MalType_SocketStatus mal_detail_closeSocket( \
     mal_call_t *call, \
     mal_Socket_t value \
 )

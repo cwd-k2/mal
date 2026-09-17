@@ -5,11 +5,11 @@ _standardOutput :: Int32 := 1i32;
 _standardError :: Int32 := 2i32;
 _inputOutputError :: UInt32 := 5u32;
 
-_statusSuccess :: Unit -> Status := () -> [success, failure] => success();
+_statusSuccess :: Unit -> SyscallStatus := () -> [success, failure] => success();
 
-_statusFailure :: UInt32 -> Status := (error) -> [success, failure] => failure(error);
+_statusFailure :: UInt32 -> SyscallStatus := (error) -> [success, failure] => failure(error);
 
-_writeAll :: (Int32, Address, ByteSize) -> Status := (descriptor, memory, remaining) -> [return] => {
+_writeAll :: (Int32, Address, ByteSize) -> SyscallStatus := (descriptor, memory, remaining) -> [return] => {
     when (remaining == 0bytes) {
         return(_statusSuccess());
     };
@@ -24,7 +24,7 @@ _writeAll :: (Int32, Address, ByteSize) -> Status := (descriptor, memory, remain
     ]);
 };
 
-_finishWrite :: (Address, ByteSize, Status) -> Status := (memory, length, written) -> {
+_finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, length, written) -> {
     unmapped := systemMunmap(memory, length);
     written[
     () -> unmapped,
@@ -32,7 +32,7 @@ _finishWrite :: (Address, ByteSize, Status) -> Status := (memory, length, writte
     ];
 };
 
-writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
+writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> {
     packed := *value;
     length := #packed;
     extent := length * #u8;
@@ -51,6 +51,6 @@ writeDescriptor :: (Int32, Symbol) -> Status := (descriptor, value) -> {
     };
 };
 
-writeStdout :: Symbol -> Status := (value) -> writeDescriptor(_standardOutput, value);
+writeStdout :: Symbol -> SyscallStatus := (value) -> writeDescriptor(_standardOutput, value);
 
-writeStderr :: Symbol -> Status := (value) -> writeDescriptor(_standardError, value);
+writeStderr :: Symbol -> SyscallStatus := (value) -> writeDescriptor(_standardError, value);

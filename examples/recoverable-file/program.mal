@@ -1,28 +1,29 @@
 require "./host.c";
 
-// Buffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
-Buffer :: (Address, USize, USize);
-WriteSpan :: (Address, USize);
+// ByteBuffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
+ByteBuffer :: (Address, USize, USize);
+// WritableBytes fields: 0 writable memory, 1 available byte count.
+WritableBytes :: (Address, USize);
 
 extern Allocation;
 extern File;
 
 IoError :: UInt32;
-// OwnedBuffer fields: 0 allocation authority, 1 mal-visible buffer descriptor.
-OwnedBuffer :: (Allocation, Buffer);
+// OwnedBuffer fields: 0 allocation authority, 1 mal-visible byte buffer descriptor.
+OwnedBuffer :: (Allocation, ByteBuffer);
 // OpenResult variant 0 carries a file; variant 1 carries the host error code.
 OpenResult :: [File, IoError];
 // ReadResult variant 0 carries the transferred length; variant 1 carries the host error code.
 ReadResult :: [USize, IoError];
 // CloseResult variant 0 carries success; variant 1 carries the host error code.
 CloseResult :: [Unit, IoError];
-// Status variant 0 carries completion; variant 1 carries the preserved operation error.
-Status :: [Unit, IoError];
+// CopyResult variant 0 carries completion; variant 1 carries the preserved operation error.
+CopyResult :: [Unit, IoError];
 
 extern allocateBuffer :: USize -> OwnedBuffer;
 extern releaseBuffer :: Allocation -> Unit;
 extern openReadOnly :: Symbol -> OpenResult;
-extern readFile :: (File, WriteSpan) -> ReadResult;
+extern readFile :: (File, WritableBytes) -> ReadResult;
 extern closeFile :: File -> CloseResult;
 extern writeSymbol :: Symbol -> Unit;
 extern writeError :: IoError -> Unit;
@@ -32,9 +33,9 @@ Arguments :: (USize, Address);
 
 bufferSize :: USize := 4096usize;
 
-_completed :: Unit -> Status := () -> [complete, failed] => complete();
+_completed :: Unit -> CopyResult := () -> [complete, failed] => complete();
 
-copyContents :: (File, Buffer) -> Status := (file, buffer) -> {
+copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> {
     (memory, capacity, _) := buffer;
     result := file.readFile((memory, capacity));
     result[
@@ -49,7 +50,7 @@ copyContents :: (File, Buffer) -> Status := (file, buffer) -> {
     ];
 };
 
-finishCopy :: (Status, CloseResult) -> Status := (copied, closed) -> {
+finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> {
     copied[
     () -> {
         closed[
@@ -61,7 +62,7 @@ finishCopy :: (Status, CloseResult) -> Status := (copied, closed) -> {
     ];
 };
 
-copyPath :: Symbol -> Status := (path) -> {
+copyPath :: Symbol -> CopyResult := (path) -> {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
     opened := openReadOnly(path);

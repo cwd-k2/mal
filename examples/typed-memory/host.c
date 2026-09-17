@@ -1,6 +1,6 @@
 #include "program.mal.h"
 
-MAL_DEFINE_memory(call) {
+MAL_DEFINE_unalignedStorage(call) {
     static uint8_t bytes[10];
     return mal_Address_return(call, bytes);
 }

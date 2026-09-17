@@ -1,20 +1,20 @@
 require "./syscall.c";
 
-MapAddress :: [Unit, Address];
-MapRequest :: (MapAddress, ByteSize, Int32, Int32, Int32, UInt64);
+OptionalAddress :: [Unit, Address];
+MapRequest :: (OptionalAddress, ByteSize, Int32, Int32, Int32, UInt64);
 ResizeRequest :: (Address, ByteSize, ByteSize, Int32);
-PointerResult :: [Address, UInt32];
-DescriptorResult :: [Int32, UInt32];
+AddressResult :: [Address, UInt32];
+FileDescriptorResult :: [Int32, UInt32];
 OffsetResult :: [UInt64, UInt32];
 TransferResult :: [ByteSize, UInt32];
-Status :: [Unit, UInt32];
+SyscallStatus :: [Unit, UInt32];
 
 // These operations only adapt typed mal values to Linux syscall registers and errno results.
-extern systemMmap :: MapRequest -> PointerResult;
-extern systemMremap :: ResizeRequest -> PointerResult;
-extern systemMunmap :: (Address, ByteSize) -> Status;
-extern systemOpenat :: (Int32, Address, Int32, UInt32) -> DescriptorResult;
+extern systemMmap :: MapRequest -> AddressResult;
+extern systemMremap :: ResizeRequest -> AddressResult;
+extern systemMunmap :: (Address, ByteSize) -> SyscallStatus;
+extern systemOpenat :: (Int32, Address, Int32, UInt32) -> FileDescriptorResult;
 extern systemLseek :: (Int32, Int64, Int32) -> OffsetResult;
-extern systemClose :: Int32 -> Status;
+extern systemClose :: Int32 -> SyscallStatus;
 extern systemRead :: (Int32, Address, ByteSize) -> TransferResult;
 extern systemWrite :: (Int32, Address, ByteSize) -> TransferResult;

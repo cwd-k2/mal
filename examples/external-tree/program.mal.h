@@ -136,35 +136,47 @@ static inline MalType_Symbol mal_Symbol_return(mal_call_t *call, mal_Symbol_t va
     return mal_detail_Symbol_return(call, value);
 }
 
+/* Host-visible types */
+
+typedef MalType_Address MalType_Tree;
+
+typedef mal_Address_t mal_Tree_t;
+
+/* Type helpers */
+
+static inline MalType_Tree mal_Tree_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Tree_t value) {
+    return mal_Address_return(call, value);
+}
+
 /* External operations */
 
-MalType_Address mal_ext_allocate(MalContext *context, MalType_ByteSize value);
-void mal_ext_release(MalContext *context, MalType_Address value);
+MalType_Tree mal_ext_allocateNode(MalContext *context, MalType_ByteSize value);
+void mal_ext_releaseNode(MalContext *context, MalType_Tree value);
 
 /* External definition helpers */
 
-#define MAL_HAS_EXTERN_allocate 1
-#define MAL_DEFINE_allocate(call, value) \
-static MalType_Address mal_detail_allocate(mal_call_t *call, mal_ByteSize_t value); \
-MalType_Address mal_ext_allocate(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_ByteSize value) { \
+#define MAL_HAS_EXTERN_allocateNode 1
+#define MAL_DEFINE_allocateNode(call, value) \
+static MalType_Tree mal_detail_allocateNode(mal_call_t *call, mal_ByteSize_t value); \
+MalType_Tree mal_ext_allocateNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_ByteSize value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_allocate(&call, value); \
+    return mal_detail_allocateNode(&call, value); \
 } \
-static MalType_Address mal_detail_allocate( \
+static MalType_Tree mal_detail_allocateNode( \
     mal_call_t *call, \
     mal_ByteSize_t value \
 )
 
-#define MAL_HAS_EXTERN_release 1
-#define MAL_DEFINE_release(call, value) \
-static MalType_Unit mal_detail_release(mal_call_t *call, mal_Address_t value); \
-void mal_ext_release(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
+#define MAL_HAS_EXTERN_releaseNode 1
+#define MAL_DEFINE_releaseNode(call, value) \
+static MalType_Unit mal_detail_releaseNode(mal_call_t *call, mal_Tree_t value); \
+void mal_ext_releaseNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Tree value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_release(&call, value); \
+    mal_detail_releaseNode(&call, value); \
 } \
-static MalType_Unit mal_detail_release( \
+static MalType_Unit mal_detail_releaseNode( \
     mal_call_t *call, \
-    mal_Address_t value \
+    mal_Tree_t value \
 )
 
 #endif

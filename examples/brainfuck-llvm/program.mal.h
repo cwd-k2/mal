@@ -239,14 +239,14 @@ struct MalRepr_Sum_11 {
     } payload;
 };
 
-typedef MalRepr_Sum_0 MalType_MapAddress;
+typedef MalRepr_Sum_0 MalType_OptionalAddress;
 typedef MalRepr_Product_1 MalType_MapRequest;
 typedef MalRepr_Product_3 MalType_ResizeRequest;
-typedef MalRepr_Sum_2 MalType_PointerResult;
-typedef MalRepr_Sum_7 MalType_DescriptorResult;
+typedef MalRepr_Sum_2 MalType_AddressResult;
+typedef MalRepr_Sum_7 MalType_FileDescriptorResult;
 typedef MalRepr_Sum_9 MalType_OffsetResult;
 typedef MalRepr_Sum_11 MalType_TransferResult;
-typedef MalRepr_Sum_5 MalType_Status;
+typedef MalRepr_Sum_5 MalType_SyscallStatus;
 
 typedef struct mal_detail_repr_sum_0 mal_repr_sum_0_t;
 typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
@@ -260,14 +260,14 @@ typedef struct mal_detail_repr_product_8 mal_repr_product_8_t;
 typedef struct mal_detail_repr_sum_9 mal_repr_sum_9_t;
 typedef struct mal_detail_repr_product_10 mal_repr_product_10_t;
 typedef struct mal_detail_repr_sum_11 mal_repr_sum_11_t;
-typedef mal_repr_sum_0_t mal_MapAddress_t;
+typedef mal_repr_sum_0_t mal_OptionalAddress_t;
 typedef mal_repr_product_1_t mal_MapRequest_t;
 typedef mal_repr_product_3_t mal_ResizeRequest_t;
-typedef mal_repr_sum_2_t mal_PointerResult_t;
-typedef mal_repr_sum_7_t mal_DescriptorResult_t;
+typedef mal_repr_sum_2_t mal_AddressResult_t;
+typedef mal_repr_sum_7_t mal_FileDescriptorResult_t;
 typedef mal_repr_sum_9_t mal_OffsetResult_t;
 typedef mal_repr_sum_11_t mal_TransferResult_t;
-typedef mal_repr_sum_5_t mal_Status_t;
+typedef mal_repr_sum_5_t mal_SyscallStatus_t;
 
 struct mal_detail_repr_sum_0 {
     uint32_t tag;
@@ -659,22 +659,22 @@ static inline MalRepr_Sum_11 mal_repr_sum_11_return_1(mal_call_t *call, mal_UInt
     return mal_detail_to_raw_11(call, (mal_repr_sum_11_t){ .tag = mal_repr_sum_11_tag_1, .payload.variant_1 = value });
 }
 
-#define mal_MapAddress_tag_0 UINT32_C(0)
-static inline mal_MapAddress_t mal_MapAddress_make_0(void) {
-    return (mal_MapAddress_t){ .tag = mal_MapAddress_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+#define mal_OptionalAddress_tag_0 UINT32_C(0)
+static inline mal_OptionalAddress_t mal_OptionalAddress_make_0(void) {
+    return (mal_OptionalAddress_t){ .tag = mal_OptionalAddress_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_MapAddress mal_MapAddress_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_0(call, (mal_MapAddress_t){ .tag = mal_MapAddress_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+static inline MalType_OptionalAddress mal_OptionalAddress_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_0(call, (mal_OptionalAddress_t){ .tag = mal_OptionalAddress_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-#define mal_MapAddress_tag_1 UINT32_C(1)
-static inline mal_MapAddress_t mal_MapAddress_make_1(mal_Address_t value) {
-    return (mal_MapAddress_t){ .tag = mal_MapAddress_tag_1, .payload.variant_1 = value };
+#define mal_OptionalAddress_tag_1 UINT32_C(1)
+static inline mal_OptionalAddress_t mal_OptionalAddress_make_1(mal_Address_t value) {
+    return (mal_OptionalAddress_t){ .tag = mal_OptionalAddress_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_MapAddress mal_MapAddress_return_1(mal_call_t *call, mal_Address_t value) {
-    return mal_detail_to_raw_0(call, (mal_MapAddress_t){ .tag = mal_MapAddress_tag_1, .payload.variant_1 = value });
+static inline MalType_OptionalAddress mal_OptionalAddress_return_1(mal_call_t *call, mal_Address_t value) {
+    return mal_detail_to_raw_0(call, (mal_OptionalAddress_t){ .tag = mal_OptionalAddress_tag_1, .payload.variant_1 = value });
 }
 
 static inline MalType_MapRequest mal_MapRequest_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_MapRequest_t value) {
@@ -685,40 +685,40 @@ static inline MalType_ResizeRequest mal_ResizeRequest_return(mal_call_t *call MA
     return (MalRepr_Product_3){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2, .field_3 = value.field_3 };
 }
 
-#define mal_PointerResult_tag_0 UINT32_C(0)
-static inline mal_PointerResult_t mal_PointerResult_make_0(mal_Address_t value) {
-    return (mal_PointerResult_t){ .tag = mal_PointerResult_tag_0, .payload.variant_0 = value };
+#define mal_AddressResult_tag_0 UINT32_C(0)
+static inline mal_AddressResult_t mal_AddressResult_make_0(mal_Address_t value) {
+    return (mal_AddressResult_t){ .tag = mal_AddressResult_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_PointerResult mal_PointerResult_return_0(mal_call_t *call, mal_Address_t value) {
-    return mal_detail_to_raw_2(call, (mal_PointerResult_t){ .tag = mal_PointerResult_tag_0, .payload.variant_0 = value });
+static inline MalType_AddressResult mal_AddressResult_return_0(mal_call_t *call, mal_Address_t value) {
+    return mal_detail_to_raw_2(call, (mal_AddressResult_t){ .tag = mal_AddressResult_tag_0, .payload.variant_0 = value });
 }
 
-#define mal_PointerResult_tag_1 UINT32_C(1)
-static inline mal_PointerResult_t mal_PointerResult_make_1(mal_UInt32_t value) {
-    return (mal_PointerResult_t){ .tag = mal_PointerResult_tag_1, .payload.variant_1 = value };
+#define mal_AddressResult_tag_1 UINT32_C(1)
+static inline mal_AddressResult_t mal_AddressResult_make_1(mal_UInt32_t value) {
+    return (mal_AddressResult_t){ .tag = mal_AddressResult_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_PointerResult mal_PointerResult_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_2(call, (mal_PointerResult_t){ .tag = mal_PointerResult_tag_1, .payload.variant_1 = value });
+static inline MalType_AddressResult mal_AddressResult_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_2(call, (mal_AddressResult_t){ .tag = mal_AddressResult_tag_1, .payload.variant_1 = value });
 }
 
-#define mal_DescriptorResult_tag_0 UINT32_C(0)
-static inline mal_DescriptorResult_t mal_DescriptorResult_make_0(mal_Int32_t value) {
-    return (mal_DescriptorResult_t){ .tag = mal_DescriptorResult_tag_0, .payload.variant_0 = value };
+#define mal_FileDescriptorResult_tag_0 UINT32_C(0)
+static inline mal_FileDescriptorResult_t mal_FileDescriptorResult_make_0(mal_Int32_t value) {
+    return (mal_FileDescriptorResult_t){ .tag = mal_FileDescriptorResult_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_DescriptorResult mal_DescriptorResult_return_0(mal_call_t *call, mal_Int32_t value) {
-    return mal_detail_to_raw_7(call, (mal_DescriptorResult_t){ .tag = mal_DescriptorResult_tag_0, .payload.variant_0 = value });
+static inline MalType_FileDescriptorResult mal_FileDescriptorResult_return_0(mal_call_t *call, mal_Int32_t value) {
+    return mal_detail_to_raw_7(call, (mal_FileDescriptorResult_t){ .tag = mal_FileDescriptorResult_tag_0, .payload.variant_0 = value });
 }
 
-#define mal_DescriptorResult_tag_1 UINT32_C(1)
-static inline mal_DescriptorResult_t mal_DescriptorResult_make_1(mal_UInt32_t value) {
-    return (mal_DescriptorResult_t){ .tag = mal_DescriptorResult_tag_1, .payload.variant_1 = value };
+#define mal_FileDescriptorResult_tag_1 UINT32_C(1)
+static inline mal_FileDescriptorResult_t mal_FileDescriptorResult_make_1(mal_UInt32_t value) {
+    return (mal_FileDescriptorResult_t){ .tag = mal_FileDescriptorResult_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_DescriptorResult mal_DescriptorResult_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_7(call, (mal_DescriptorResult_t){ .tag = mal_DescriptorResult_tag_1, .payload.variant_1 = value });
+static inline MalType_FileDescriptorResult mal_FileDescriptorResult_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_7(call, (mal_FileDescriptorResult_t){ .tag = mal_FileDescriptorResult_tag_1, .payload.variant_1 = value });
 }
 
 #define mal_OffsetResult_tag_0 UINT32_C(0)
@@ -757,32 +757,32 @@ static inline MalType_TransferResult mal_TransferResult_return_1(mal_call_t *cal
     return mal_detail_to_raw_11(call, (mal_TransferResult_t){ .tag = mal_TransferResult_tag_1, .payload.variant_1 = value });
 }
 
-#define mal_Status_tag_0 UINT32_C(0)
-static inline mal_Status_t mal_Status_make_0(void) {
-    return (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+#define mal_SyscallStatus_tag_0 UINT32_C(0)
+static inline mal_SyscallStatus_t mal_SyscallStatus_make_0(void) {
+    return (mal_SyscallStatus_t){ .tag = mal_SyscallStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_Status mal_Status_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_5(call, (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+static inline MalType_SyscallStatus mal_SyscallStatus_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_5(call, (mal_SyscallStatus_t){ .tag = mal_SyscallStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-#define mal_Status_tag_1 UINT32_C(1)
-static inline mal_Status_t mal_Status_make_1(mal_UInt32_t value) {
-    return (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value };
+#define mal_SyscallStatus_tag_1 UINT32_C(1)
+static inline mal_SyscallStatus_t mal_SyscallStatus_make_1(mal_UInt32_t value) {
+    return (mal_SyscallStatus_t){ .tag = mal_SyscallStatus_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_Status mal_Status_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_5(call, (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value });
+static inline MalType_SyscallStatus mal_SyscallStatus_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_5(call, (mal_SyscallStatus_t){ .tag = mal_SyscallStatus_tag_1, .payload.variant_1 = value });
 }
 
 /* External operations */
 
-MalType_PointerResult mal_ext_systemMmap(MalContext *context, MalType_MapAddress argument_0, MalType_ByteSize argument_1, MalType_Int32 argument_2, MalType_Int32 argument_3, MalType_Int32 argument_4, MalType_UInt64 argument_5);
-MalType_PointerResult mal_ext_systemMremap(MalContext *context, MalType_Address argument_0, MalType_ByteSize argument_1, MalType_ByteSize argument_2, MalType_Int32 argument_3);
-MalType_Status mal_ext_systemMunmap(MalContext *context, MalType_Address argument_0, MalType_ByteSize argument_1);
-MalType_DescriptorResult mal_ext_systemOpenat(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_Int32 argument_2, MalType_UInt32 argument_3);
+MalType_AddressResult mal_ext_systemMmap(MalContext *context, MalType_OptionalAddress argument_0, MalType_ByteSize argument_1, MalType_Int32 argument_2, MalType_Int32 argument_3, MalType_Int32 argument_4, MalType_UInt64 argument_5);
+MalType_AddressResult mal_ext_systemMremap(MalContext *context, MalType_Address argument_0, MalType_ByteSize argument_1, MalType_ByteSize argument_2, MalType_Int32 argument_3);
+MalType_SyscallStatus mal_ext_systemMunmap(MalContext *context, MalType_Address argument_0, MalType_ByteSize argument_1);
+MalType_FileDescriptorResult mal_ext_systemOpenat(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_Int32 argument_2, MalType_UInt32 argument_3);
 MalType_OffsetResult mal_ext_systemLseek(MalContext *context, MalType_Int32 argument_0, MalType_Int64 argument_1, MalType_Int32 argument_2);
-MalType_Status mal_ext_systemClose(MalContext *context, MalType_Int32 value);
+MalType_SyscallStatus mal_ext_systemClose(MalContext *context, MalType_Int32 value);
 MalType_TransferResult mal_ext_systemRead(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_ByteSize argument_2);
 MalType_TransferResult mal_ext_systemWrite(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_ByteSize argument_2);
 
@@ -790,48 +790,48 @@ MalType_TransferResult mal_ext_systemWrite(MalContext *context, MalType_Int32 ar
 
 #define MAL_HAS_EXTERN_systemMmap 1
 #define MAL_DEFINE_systemMmap(call, value) \
-static MalType_PointerResult mal_detail_systemMmap(mal_call_t *call, mal_MapRequest_t value); \
-MalType_PointerResult mal_ext_systemMmap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_MapAddress argument_0, MalType_ByteSize argument_1, MalType_Int32 argument_2, MalType_Int32 argument_3, MalType_Int32 argument_4, MalType_UInt64 argument_5) { \
+static MalType_AddressResult mal_detail_systemMmap(mal_call_t *call, mal_MapRequest_t value); \
+MalType_AddressResult mal_ext_systemMmap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_OptionalAddress argument_0, MalType_ByteSize argument_1, MalType_Int32 argument_2, MalType_Int32 argument_3, MalType_Int32 argument_4, MalType_UInt64 argument_5) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_systemMmap(&call, (mal_MapRequest_t){ .field_0 = mal_detail_to_host_0(&call, ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_0), .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_1, .field_2 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_2, .field_3 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_3, .field_4 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_4, .field_5 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5 }).field_5 }); \
 } \
-static MalType_PointerResult mal_detail_systemMmap( \
+static MalType_AddressResult mal_detail_systemMmap( \
     mal_call_t *call, \
     mal_MapRequest_t value \
 )
 
 #define MAL_HAS_EXTERN_systemMremap 1
 #define MAL_DEFINE_systemMremap(call, value) \
-static MalType_PointerResult mal_detail_systemMremap(mal_call_t *call, mal_ResizeRequest_t value); \
-MalType_PointerResult mal_ext_systemMremap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_ByteSize argument_1, MalType_ByteSize argument_2, MalType_Int32 argument_3) { \
+static MalType_AddressResult mal_detail_systemMremap(mal_call_t *call, mal_ResizeRequest_t value); \
+MalType_AddressResult mal_ext_systemMremap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_ByteSize argument_1, MalType_ByteSize argument_2, MalType_Int32 argument_3) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_systemMremap(&call, (mal_ResizeRequest_t){ .field_0 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
 } \
-static MalType_PointerResult mal_detail_systemMremap( \
+static MalType_AddressResult mal_detail_systemMremap( \
     mal_call_t *call, \
     mal_ResizeRequest_t value \
 )
 
 #define MAL_HAS_EXTERN_systemMunmap 1
 #define MAL_DEFINE_systemMunmap(call, value) \
-static MalType_Status mal_detail_systemMunmap(mal_call_t *call, mal_repr_product_4_t value); \
-MalType_Status mal_ext_systemMunmap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_ByteSize argument_1) { \
+static MalType_SyscallStatus mal_detail_systemMunmap(mal_call_t *call, mal_repr_product_4_t value); \
+MalType_SyscallStatus mal_ext_systemMunmap(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_ByteSize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_systemMunmap(&call, (mal_repr_product_4_t){ .field_0 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_Status mal_detail_systemMunmap( \
+static MalType_SyscallStatus mal_detail_systemMunmap( \
     mal_call_t *call, \
     mal_repr_product_4_t value \
 )
 
 #define MAL_HAS_EXTERN_systemOpenat 1
 #define MAL_DEFINE_systemOpenat(call, value) \
-static MalType_DescriptorResult mal_detail_systemOpenat(mal_call_t *call, mal_repr_product_6_t value); \
-MalType_DescriptorResult mal_ext_systemOpenat(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 argument_0, MalType_Address argument_1, MalType_Int32 argument_2, MalType_UInt32 argument_3) { \
+static MalType_FileDescriptorResult mal_detail_systemOpenat(mal_call_t *call, mal_repr_product_6_t value); \
+MalType_FileDescriptorResult mal_ext_systemOpenat(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 argument_0, MalType_Address argument_1, MalType_Int32 argument_2, MalType_UInt32 argument_3) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_systemOpenat(&call, (mal_repr_product_6_t){ .field_0 = ((MalRepr_Product_6){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0, .field_1 = ((MalRepr_Product_6){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_6){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_6){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
 } \
-static MalType_DescriptorResult mal_detail_systemOpenat( \
+static MalType_FileDescriptorResult mal_detail_systemOpenat( \
     mal_call_t *call, \
     mal_repr_product_6_t value \
 )
@@ -850,12 +850,12 @@ static MalType_OffsetResult mal_detail_systemLseek( \
 
 #define MAL_HAS_EXTERN_systemClose 1
 #define MAL_DEFINE_systemClose(call, value) \
-static MalType_Status mal_detail_systemClose(mal_call_t *call, mal_Int32_t value); \
-MalType_Status mal_ext_systemClose(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 value) { \
+static MalType_SyscallStatus mal_detail_systemClose(mal_call_t *call, mal_Int32_t value); \
+MalType_SyscallStatus mal_ext_systemClose(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_systemClose(&call, value); \
 } \
-static MalType_Status mal_detail_systemClose( \
+static MalType_SyscallStatus mal_detail_systemClose( \
     mal_call_t *call, \
     mal_Int32_t value \
 )

@@ -90,14 +90,14 @@ MAL_DEFINE_createSocketPair(call) {
 MAL_DEFINE_sendPacket(call, value) {
     int descriptor = socket_fd(value.field_0);
     if (descriptor < 0) {
-        return mal_Status_return_1(call, (uint32_t)EBADF);
+        return mal_SocketStatus_return_1(call, (uint32_t)EBADF);
     }
 
     uint64_t sequence = value.field_1.field_0;
     mal_span_t payload = mal_Symbol_to_bytes(call, value.field_1.field_1);
     uint64_t length = payload.length;
     if (length > MAX_PAYLOAD_SIZE) {
-        return mal_Status_return_1(call, (uint32_t)EMSGSIZE);
+        return mal_SocketStatus_return_1(call, (uint32_t)EMSGSIZE);
     }
 
     uint8_t header[FRAME_HEADER_SIZE];
@@ -112,8 +112,8 @@ MAL_DEFINE_sendPacket(call, value) {
         );
     }
     return error == 0
-        ? mal_Status_return_0(call)
-        : mal_Status_return_1(call, error);
+        ? mal_SocketStatus_return_0(call)
+        : mal_SocketStatus_return_1(call, error);
 }
 
 MAL_DEFINE_receivePacket(call, socket) {
@@ -156,12 +156,12 @@ MAL_DEFINE_receivePacket(call, socket) {
 MAL_DEFINE_closeSocket(call, socket) {
     int descriptor = socket_fd(socket);
     if (descriptor < 0) {
-        return mal_Status_return_1(call, (uint32_t)EBADF);
+        return mal_SocketStatus_return_1(call, (uint32_t)EBADF);
     }
     if (close(descriptor) != 0) {
-        return mal_Status_return_1(call, current_error());
+        return mal_SocketStatus_return_1(call, current_error());
     }
-    return mal_Status_return_0(call);
+    return mal_SocketStatus_return_0(call);
 }
 
 MAL_DEFINE_writeError(call, error) {

@@ -5,7 +5,7 @@ require "./linux/syscall.mal";
 
 Arguments :: (USize, Address);
 
-_finishOutput :: (Status, Status) -> Int32 := (written, released) -> {
+_finishOutput :: (SyscallStatus, SyscallStatus) -> Int32 := (written, released) -> {
     written[
     () -> {
         released[

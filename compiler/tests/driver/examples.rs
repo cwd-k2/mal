@@ -29,12 +29,12 @@ fn print_and_closure_example_builds_and_runs_through_the_public_cli() {
 }
 
 #[test]
-fn integer_and_byte_example_reproduces_host_results() {
+fn numeric_conversion_example_reproduces_host_results() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/integer-and-byte");
+        .join("examples/numeric-conversion");
 
     let executable = directory.join("example");
     let output = directory.malc([
@@ -187,7 +187,7 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
 }
 
 #[test]
-fn resizable_buffer_example_handles_growth_slices_and_stale_aliases() {
+fn resizable_buffer_example_handles_growth_borrows_and_stale_aliases() {
     let directory = NativeFixture::new("resizable-buffer");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -529,12 +529,12 @@ fn tail_recursion_example_executes_a_large_direct_tail_call() {
 }
 
 #[test]
-fn ptr_memory_example_accesses_unaligned_storage() {
+fn typed_memory_example_accesses_unaligned_storage() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/ptr-memory");
+        .join("examples/typed-memory");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
@@ -577,12 +577,12 @@ fn fallible_tree_example_cleans_partial_construction() {
 }
 
 #[test]
-fn pointer_tree_example_builds_and_traverses_a_tree() {
+fn external_tree_example_builds_and_traverses_a_tree() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/pointer-tree");
+        .join("examples/external-tree");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),

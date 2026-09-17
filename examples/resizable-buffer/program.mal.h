@@ -183,8 +183,8 @@ struct MalRepr_Product_5 {
     MalType_Address field_1;
 };
 
-typedef MalRepr_Product_1 MalType_Buffer;
-typedef MalRepr_Product_4 MalType_Slice;
+typedef MalRepr_Product_1 MalType_OwnedBuffer;
+typedef MalRepr_Product_4 MalType_BorrowedBytes;
 typedef MalRepr_Sum_2 MalType_BufferResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocation_t;
@@ -194,8 +194,8 @@ typedef struct mal_detail_repr_sum_2 mal_repr_sum_2_t;
 typedef struct mal_detail_repr_product_3 mal_repr_product_3_t;
 typedef struct mal_detail_repr_product_4 mal_repr_product_4_t;
 typedef struct mal_detail_repr_product_5 mal_repr_product_5_t;
-typedef mal_repr_product_1_t mal_Buffer_t;
-typedef mal_repr_product_4_t mal_Slice_t;
+typedef mal_repr_product_1_t mal_OwnedBuffer_t;
+typedef mal_repr_product_4_t mal_BorrowedBytes_t;
 typedef mal_repr_sum_2_t mal_BufferResult_t;
 
 struct mal_detail_repr_product_0 {
@@ -314,20 +314,20 @@ static inline MalType_Allocation mal_Allocation_return(mal_call_t *call MAL_DETA
     return (MalType_Allocation){ .bits = value.mal_detail_bits };
 }
 
-static inline MalType_Buffer mal_Buffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Buffer_t value) {
+static inline MalType_OwnedBuffer mal_OwnedBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_OwnedBuffer_t value) {
     return (MalRepr_Product_1){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2, .field_3 = value.field_3 };
 }
 
-static inline MalType_Slice mal_Slice_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Slice_t value) {
+static inline MalType_BorrowedBytes mal_BorrowedBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_BorrowedBytes_t value) {
     return (MalRepr_Product_4){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
 #define mal_BufferResult_tag_0 UINT32_C(0)
-static inline mal_BufferResult_t mal_BufferResult_make_0(mal_Buffer_t value) {
+static inline mal_BufferResult_t mal_BufferResult_make_0(mal_OwnedBuffer_t value) {
     return (mal_BufferResult_t){ .tag = mal_BufferResult_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_BufferResult mal_BufferResult_return_0(mal_call_t *call, mal_Buffer_t value) {
+static inline MalType_BufferResult mal_BufferResult_return_0(mal_call_t *call, mal_OwnedBuffer_t value) {
     return mal_detail_to_raw_2(call, (mal_BufferResult_t){ .tag = mal_BufferResult_tag_0, .payload.variant_0 = value });
 }
 
@@ -343,12 +343,12 @@ static inline MalType_BufferResult mal_BufferResult_return_1(mal_call_t *call, m
 /* External operations */
 
 MalType_BufferResult mal_ext_allocateBuffer(MalContext *context, MalType_USize argument_0, MalType_USize argument_1);
-MalType_BufferResult mal_ext_resizeBuffer(MalContext *context, MalType_Buffer argument_0, MalType_USize argument_1);
+MalType_BufferResult mal_ext_resizeBuffer(MalContext *context, MalType_OwnedBuffer argument_0, MalType_USize argument_1);
 void mal_ext_releaseBuffer(MalContext *context, MalType_Allocation value);
 MalType_Bool mal_ext_isCurrentBuffer(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2, MalType_USize argument_3);
-MalType_Bool mal_ext_isCurrentSlice(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2);
-void mal_ext_writeSlice(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2);
-void mal_ext_writeSliceDescriptor(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1);
+MalType_Bool mal_ext_isCurrentBorrow(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2);
+void mal_ext_writeBorrowedBytes(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2);
+void mal_ext_validateStoredDescriptor(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1);
 void mal_ext_writeSymbol(MalContext *context, MalType_Symbol value);
 
 /* External definition helpers */
@@ -368,7 +368,7 @@ static MalType_BufferResult mal_detail_allocateBuffer( \
 #define MAL_HAS_EXTERN_resizeBuffer 1
 #define MAL_DEFINE_resizeBuffer(call, value) \
 static MalType_BufferResult mal_detail_resizeBuffer(mal_call_t *call, mal_repr_product_3_t value); \
-MalType_BufferResult mal_ext_resizeBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Buffer argument_0, MalType_USize argument_1) { \
+MalType_BufferResult mal_ext_resizeBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_OwnedBuffer argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_resizeBuffer(&call, (mal_repr_product_3_t){ .field_0 = (mal_repr_product_1_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_0.bits }, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_1, .field_2 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_2, .field_3 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_3 }, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
@@ -391,48 +391,48 @@ static MalType_Unit mal_detail_releaseBuffer( \
 
 #define MAL_HAS_EXTERN_isCurrentBuffer 1
 #define MAL_DEFINE_isCurrentBuffer(call, value) \
-static MalType_Bool mal_detail_isCurrentBuffer(mal_call_t *call, mal_Buffer_t value); \
+static MalType_Bool mal_detail_isCurrentBuffer(mal_call_t *call, mal_OwnedBuffer_t value); \
 MalType_Bool mal_ext_isCurrentBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2, MalType_USize argument_3) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_isCurrentBuffer(&call, (mal_Buffer_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0.bits }, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
+    return mal_detail_isCurrentBuffer(&call, (mal_OwnedBuffer_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0.bits }, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
 } \
 static MalType_Bool mal_detail_isCurrentBuffer( \
     mal_call_t *call, \
-    mal_Buffer_t value \
+    mal_OwnedBuffer_t value \
 )
 
-#define MAL_HAS_EXTERN_isCurrentSlice 1
-#define MAL_DEFINE_isCurrentSlice(call, value) \
-static MalType_Bool mal_detail_isCurrentSlice(mal_call_t *call, mal_Slice_t value); \
-MalType_Bool mal_ext_isCurrentSlice(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2) { \
+#define MAL_HAS_EXTERN_isCurrentBorrow 1
+#define MAL_DEFINE_isCurrentBorrow(call, value) \
+static MalType_Bool mal_detail_isCurrentBorrow(mal_call_t *call, mal_BorrowedBytes_t value); \
+MalType_Bool mal_ext_isCurrentBorrow(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_isCurrentSlice(&call, (mal_Slice_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
+    return mal_detail_isCurrentBorrow(&call, (mal_BorrowedBytes_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
 } \
-static MalType_Bool mal_detail_isCurrentSlice( \
+static MalType_Bool mal_detail_isCurrentBorrow( \
     mal_call_t *call, \
-    mal_Slice_t value \
+    mal_BorrowedBytes_t value \
 )
 
-#define MAL_HAS_EXTERN_writeSlice 1
-#define MAL_DEFINE_writeSlice(call, value) \
-static MalType_Unit mal_detail_writeSlice(mal_call_t *call, mal_Slice_t value); \
-void mal_ext_writeSlice(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2) { \
+#define MAL_HAS_EXTERN_writeBorrowedBytes 1
+#define MAL_DEFINE_writeBorrowedBytes(call, value) \
+static MalType_Unit mal_detail_writeBorrowedBytes(mal_call_t *call, mal_BorrowedBytes_t value); \
+void mal_ext_writeBorrowedBytes(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeSlice(&call, (mal_Slice_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
+    mal_detail_writeBorrowedBytes(&call, (mal_BorrowedBytes_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
 } \
-static MalType_Unit mal_detail_writeSlice( \
+static MalType_Unit mal_detail_writeBorrowedBytes( \
     mal_call_t *call, \
-    mal_Slice_t value \
+    mal_BorrowedBytes_t value \
 )
 
-#define MAL_HAS_EXTERN_writeSliceDescriptor 1
-#define MAL_DEFINE_writeSliceDescriptor(call, value) \
-static MalType_Unit mal_detail_writeSliceDescriptor(mal_call_t *call, mal_repr_product_5_t value); \
-void mal_ext_writeSliceDescriptor(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1) { \
+#define MAL_HAS_EXTERN_validateStoredDescriptor 1
+#define MAL_DEFINE_validateStoredDescriptor(call, value) \
+static MalType_Unit mal_detail_validateStoredDescriptor(mal_call_t *call, mal_repr_product_5_t value); \
+void mal_ext_validateStoredDescriptor(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_Address argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeSliceDescriptor(&call, (mal_repr_product_5_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_5){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_5){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    mal_detail_validateStoredDescriptor(&call, (mal_repr_product_5_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_5){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_5){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_Unit mal_detail_writeSliceDescriptor( \
+static MalType_Unit mal_detail_validateStoredDescriptor( \
     mal_call_t *call, \
     mal_repr_product_5_t value \
 )

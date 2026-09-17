@@ -138,18 +138,18 @@ static inline MalType_Symbol mal_Symbol_return(mal_call_t *call, mal_Symbol_t va
 
 /* External operations */
 
-MalType_Address mal_ext_memory(MalContext *context);
+MalType_Address mal_ext_unalignedStorage(MalContext *context);
 
 /* External definition helpers */
 
-#define MAL_HAS_EXTERN_memory 1
-#define MAL_DEFINE_memory(call) \
-static MalType_Address mal_detail_memory(mal_call_t *call); \
-MalType_Address mal_ext_memory(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
+#define MAL_HAS_EXTERN_unalignedStorage 1
+#define MAL_DEFINE_unalignedStorage(call) \
+static MalType_Address mal_detail_unalignedStorage(mal_call_t *call); \
+MalType_Address mal_ext_unalignedStorage(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_memory(&call); \
+    return mal_detail_unalignedStorage(&call); \
 } \
-static MalType_Address mal_detail_memory( \
+static MalType_Address mal_detail_unalignedStorage( \
     mal_call_t *call \
 )
 

@@ -34,20 +34,20 @@ MAL_DEFINE_createAllocator(call, limit) {
 MAL_DEFINE_allocateNode(call, value) {
     AllocatorHandle *handle = allocator_handle(value.field_0);
     if (handle->live == handle->limit || value.field_1 == 0) {
-        return mal_NodeResult_return_1(call);
+        return mal_TreeResult_return_1(call);
     }
     NodeAllocation *allocation = malloc(sizeof(*allocation));
     uint8_t *memory = malloc(value.field_1);
     if (allocation == NULL || memory == NULL) {
         free(allocation);
         free(memory);
-        return mal_NodeResult_return_1(call);
+        return mal_TreeResult_return_1(call);
     }
     allocation->memory = memory;
     allocation->next = handle->first;
     handle->first = allocation;
     ++handle->live;
-    return mal_NodeResult_return_0(call, memory);
+    return mal_TreeResult_return_0(call, memory);
 }
 
 MAL_DEFINE_releaseNode(call, value) {

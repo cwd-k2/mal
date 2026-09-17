@@ -6,18 +6,18 @@ extern Socket;
 Packet :: (UInt64, Symbol);
 // SocketPair fields: 0 sending endpoint, 1 receiving endpoint.
 SocketPair :: (Socket, Socket);
-// Status variant 0 means complete; variant 1 carries an errno-compatible error code.
-Status :: [Unit, UInt32];
+// SocketStatus variant 0 means complete; variant 1 carries an errno-compatible error code.
+SocketStatus :: [Unit, UInt32];
 // ReceiveResult variant 0 carries a complete packet; variant 1 carries an error code.
 ReceiveResult :: [Packet, UInt32];
 
 extern createSocketPair :: Unit -> SocketPair;
-extern sendPacket :: (Socket, Packet) -> Status;
+extern sendPacket :: (Socket, Packet) -> SocketStatus;
 extern receivePacket :: Socket -> ReceiveResult;
-extern closeSocket :: Socket -> Status;
+extern closeSocket :: Socket -> SocketStatus;
 extern writeError :: UInt32 -> Unit;
 
-_reportStatus :: Status -> Bool := (status) -> {
+_reportStatus :: SocketStatus -> Bool := (status) -> {
     status[
     () -> true,
     (error) -> {
@@ -27,7 +27,7 @@ _reportStatus :: Status -> Bool := (status) -> {
     ];
 };
 
-_isRejected :: Status -> Bool := (status) -> {
+_isRejected :: SocketStatus -> Bool := (status) -> {
     status[
     () -> false,
     (_) -> true

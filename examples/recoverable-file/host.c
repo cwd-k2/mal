@@ -32,7 +32,7 @@ MAL_DEFINE_allocateBuffer(call, size) {
     }
     allocation->memory = memory;
     mal_Allocation_t handle = mal_Allocation_from_bits((uintptr_t)allocation);
-    mal_Buffer_t buffer = {
+    mal_ByteBuffer_t buffer = {
         .field_0 = memory,
         .field_1 = size,
         .field_2 = 0,

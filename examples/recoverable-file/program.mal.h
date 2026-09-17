@@ -194,14 +194,14 @@ struct MalRepr_Sum_6 {
     } payload;
 };
 
-typedef MalRepr_Product_0 MalType_Buffer;
-typedef MalRepr_Product_3 MalType_WriteSpan;
+typedef MalRepr_Product_0 MalType_ByteBuffer;
+typedef MalRepr_Product_3 MalType_WritableBytes;
 typedef MalType_UInt32 MalType_IoError;
 typedef MalRepr_Product_1 MalType_OwnedBuffer;
 typedef MalRepr_Sum_2 MalType_OpenResult;
 typedef MalRepr_Sum_5 MalType_ReadResult;
 typedef MalRepr_Sum_6 MalType_CloseResult;
-typedef MalRepr_Sum_6 MalType_Status;
+typedef MalRepr_Sum_6 MalType_CopyResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocation_t;
 typedef struct { uintptr_t mal_detail_bits; } mal_File_t;
@@ -212,14 +212,14 @@ typedef struct mal_detail_repr_product_3 mal_repr_product_3_t;
 typedef struct mal_detail_repr_product_4 mal_repr_product_4_t;
 typedef struct mal_detail_repr_sum_5 mal_repr_sum_5_t;
 typedef struct mal_detail_repr_sum_6 mal_repr_sum_6_t;
-typedef mal_repr_product_0_t mal_Buffer_t;
-typedef mal_repr_product_3_t mal_WriteSpan_t;
+typedef mal_repr_product_0_t mal_ByteBuffer_t;
+typedef mal_repr_product_3_t mal_WritableBytes_t;
 typedef mal_UInt32_t mal_IoError_t;
 typedef mal_repr_product_1_t mal_OwnedBuffer_t;
 typedef mal_repr_sum_2_t mal_OpenResult_t;
 typedef mal_repr_sum_5_t mal_ReadResult_t;
 typedef mal_repr_sum_6_t mal_CloseResult_t;
-typedef mal_repr_sum_6_t mal_Status_t;
+typedef mal_repr_sum_6_t mal_CopyResult_t;
 
 struct mal_detail_repr_product_0 {
     mal_Address_t field_0;
@@ -446,11 +446,11 @@ static inline MalType_File mal_File_return(mal_call_t *call MAL_DETAIL_MAYBE_UNU
     return (MalType_File){ .bits = value.mal_detail_bits };
 }
 
-static inline MalType_Buffer mal_Buffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Buffer_t value) {
+static inline MalType_ByteBuffer mal_ByteBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ByteBuffer_t value) {
     return (MalRepr_Product_0){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 };
 }
 
-static inline MalType_WriteSpan mal_WriteSpan_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_WriteSpan_t value) {
+static inline MalType_WritableBytes mal_WritableBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_WritableBytes_t value) {
     return (MalRepr_Product_3){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
@@ -516,22 +516,22 @@ static inline MalType_CloseResult mal_CloseResult_return_1(mal_call_t *call, mal
     return mal_detail_to_raw_6(call, (mal_CloseResult_t){ .tag = mal_CloseResult_tag_1, .payload.variant_1 = value });
 }
 
-#define mal_Status_tag_0 UINT32_C(0)
-static inline mal_Status_t mal_Status_make_0(void) {
-    return (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+#define mal_CopyResult_tag_0 UINT32_C(0)
+static inline mal_CopyResult_t mal_CopyResult_make_0(void) {
+    return (mal_CopyResult_t){ .tag = mal_CopyResult_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_Status mal_Status_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_6(call, (mal_Status_t){ .tag = mal_Status_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+static inline MalType_CopyResult mal_CopyResult_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_6(call, (mal_CopyResult_t){ .tag = mal_CopyResult_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-#define mal_Status_tag_1 UINT32_C(1)
-static inline mal_Status_t mal_Status_make_1(mal_IoError_t value) {
-    return (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value };
+#define mal_CopyResult_tag_1 UINT32_C(1)
+static inline mal_CopyResult_t mal_CopyResult_make_1(mal_IoError_t value) {
+    return (mal_CopyResult_t){ .tag = mal_CopyResult_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_Status mal_Status_return_1(mal_call_t *call, mal_IoError_t value) {
-    return mal_detail_to_raw_6(call, (mal_Status_t){ .tag = mal_Status_tag_1, .payload.variant_1 = value });
+static inline MalType_CopyResult mal_CopyResult_return_1(mal_call_t *call, mal_IoError_t value) {
+    return mal_detail_to_raw_6(call, (mal_CopyResult_t){ .tag = mal_CopyResult_tag_1, .payload.variant_1 = value });
 }
 
 /* External operations */
@@ -539,7 +539,7 @@ static inline MalType_Status mal_Status_return_1(mal_call_t *call, mal_IoError_t
 MalType_OwnedBuffer mal_ext_allocateBuffer(MalContext *context, MalType_USize value);
 void mal_ext_releaseBuffer(MalContext *context, MalType_Allocation value);
 MalType_OpenResult mal_ext_openReadOnly(MalContext *context, MalType_Symbol value);
-MalType_ReadResult mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_WriteSpan argument_1);
+MalType_ReadResult mal_ext_readFile(MalContext *context, MalType_File argument_0, MalType_WritableBytes argument_1);
 MalType_CloseResult mal_ext_closeFile(MalContext *context, MalType_File value);
 void mal_ext_writeSymbol(MalContext *context, MalType_Symbol value);
 void mal_ext_writeError(MalContext *context, MalType_IoError value);
@@ -585,7 +585,7 @@ static MalType_OpenResult mal_detail_openReadOnly( \
 #define MAL_HAS_EXTERN_readFile 1
 #define MAL_DEFINE_readFile(call, value) \
 static MalType_ReadResult mal_detail_readFile(mal_call_t *call, mal_repr_product_4_t value); \
-MalType_ReadResult mal_ext_readFile(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_File argument_0, MalType_WriteSpan argument_1) { \
+MalType_ReadResult mal_ext_readFile(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_File argument_0, MalType_WritableBytes argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_readFile(&call, (mal_repr_product_4_t){ .field_0 = (mal_File_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = (mal_repr_product_3_t){ .field_0 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_0, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1 }).field_1.field_1 } }); \
 } \

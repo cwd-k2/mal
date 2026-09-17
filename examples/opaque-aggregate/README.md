@@ -1,6 +1,6 @@
 # Opaque aggregate example
 
-This example passes a copyable opaque handle and an integer as one product parameter and returns
+This example passes a copyable opaque `Allocation` handle and a `USize` count as one product parameter and returns
 them inside a sum aggregate. The host adapter is compiled against the generated program header.
 
 From the repository root in Nushell:

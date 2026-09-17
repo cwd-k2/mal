@@ -8,7 +8,7 @@ The source-level `Packet` is `(sequence, Symbol)`. The host adapter defines a wi
 an eight-byte big-endian sequence, an eight-byte big-endian payload length, and the payload bytes.
 This frame is the operation-specific socket contract, not a canonical memory representation of the
 `Packet` product.
-The adapter completes partial `send` and `recv` operations and reports recoverable failures with
+The adapter completes partial socket `write` and `read` operations and reports recoverable failures with
 errno-compatible result variants. Payloads are limited to 256 bytes so reception can use temporary
 stack storage; the typed terminal return copies the received bytes into a mal-controlled `Symbol` before the body ends. The program first verifies that a
 257-byte packet is rejected without writing a partial frame, then sends and receives a valid packet.

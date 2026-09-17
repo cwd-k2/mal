@@ -1,9 +1,10 @@
 # Fallible tree example
 
-This example builds the same pointer-based binary tree as `pointer-tree`, but allocation is
+This example builds the same external-storage binary tree as `external-tree`, but allocation is
 recoverable and deterministically limited by an opaque host allocator. A five-node limit exercises
 the successful path. A three-node limit fails after a complete left subtree has been built.
 
+The `Tree` alias names an external-storage capability without claiming ownership of its referent.
 The mal program treats constructor arguments as logically owned. `createOwnedBranch` either transfers
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.
