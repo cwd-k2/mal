@@ -86,10 +86,26 @@ pub(crate) fn generate(
     } else {
         String::new()
     };
-    let symbol_declarations = if body.uses_symbol_runtime {
-        "declare i64 @mal_runtime_symbol_length(ptr)\ndeclare i8 @mal_runtime_symbol_at(ptr, i64)\ndeclare ptr @mal_runtime_symbol_data(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_retain(ptr, ptr)\ndeclare void @mal_runtime_symbol_release(ptr)\ndeclare ptr @mal_runtime_symbol_concatenate(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr)\ndeclare ptr @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr)\ndeclare i8 @mal_runtime_symbol_equal(ptr, ptr)\ndeclare ptr @mal_runtime_symbol_read(ptr, ptr, i64)\ndeclare void @mal_runtime_symbol_write(ptr, ptr)\n\n"
+    let byte_declarations = if body.uses_byte_runtime {
+        let index = types
+            .pointer_integer()
+            .ok_or(Error::InconsistentExecutionPlan(
+                "byte runtime ABI construction",
+            ))?;
+        format!(
+            "declare ptr @mal_runtime_bytes_data(ptr)\n\
+             declare ptr @mal_runtime_bytes_read(ptr, ptr, {index})\n\
+             declare ptr @mal_runtime_bytes_retain(ptr, ptr)\n\
+             declare void @mal_runtime_bytes_release(ptr)\n\
+             declare void @mal_runtime_bytes_write(ptr, ptr, {index}, {index})\n\
+             declare i8 @mal_runtime_symbol_at(ptr, {index}, {index})\n\
+             declare void @mal_runtime_symbol_concatenate(ptr, ptr, ptr, {index}, {index}, ptr, {index}, {index})\n\
+             declare void @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr, {index}, {index}, ptr, {index}, {index})\n\
+             declare void @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr, {index}, {index}, ptr, {index}, {index})\n\
+             declare i8 @mal_runtime_symbol_equal(ptr, {index}, {index}, ptr, {index}, {index})\n\n"
+        )
     } else {
-        ""
+        String::new()
     };
     let (control_entry, control_top) = if body.uses_control {
         (
@@ -150,7 +166,7 @@ pub(crate) fn generate(
             .pointer_integer()
             .ok_or(Error::InconsistentExecutionPlan("memcpy ABI construction"))?,
         control_declarations,
-        symbol_declarations,
+        byte_declarations,
         external_declarations,
         body.globals,
         body.definitions,
@@ -406,12 +422,12 @@ mod tests {
         )
         .expect("Packed fixture is supported");
 
-        assert!(artifacts.module.contains("@mal_runtime_symbol_data"));
-        assert!(artifacts.module.contains("@mal_runtime_symbol_read"));
+        assert!(artifacts.module.contains("@mal_runtime_bytes_data"));
+        assert!(artifacts.module.contains("@mal_runtime_bytes_retain"));
         assert!(
             artifacts
                 .module
-                .contains("call void @mal_runtime_symbol_release")
+                .contains("call void @mal_runtime_bytes_release")
         );
     }
 
@@ -605,17 +621,17 @@ mod tests {
         assert!(
             !baseline
                 .module
-                .contains("call ptr @mal_runtime_symbol_concatenate_consuming_left")
+                .contains("call void @mal_runtime_symbol_concatenate_consuming_left")
         );
         assert!(
             baseline
                 .module
-                .contains("call ptr @mal_runtime_symbol_concatenate(")
+                .contains("call void @mal_runtime_symbol_concatenate(")
         );
         assert!(
             optimized
                 .module
-                .contains("call ptr @mal_runtime_symbol_concatenate_consuming_left")
+                .contains("call void @mal_runtime_symbol_concatenate_consuming_left")
         );
     }
 
@@ -846,13 +862,8 @@ mod tests {
         )
         .expect("32-bit Symbol length fixture is supported");
 
-        assert!(
-            artifacts
-                .module
-                .contains("call i64 @mal_runtime_symbol_length")
-        );
-        assert!(artifacts.module.contains("trunc i64"));
-        assert!(artifacts.module.contains("to i32"));
+        assert!(artifacts.module.contains("extractvalue { ptr, i32, i32 }"));
+        assert!(!artifacts.module.contains("mal_runtime_symbol_length"));
     }
 
     #[test]

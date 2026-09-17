@@ -36,11 +36,7 @@ impl FunctionEmitter<'_> {
             }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {
                 if bytes.is_empty() {
-                    return Some(EmittedValue {
-                        ty: Type::Symbol,
-                        representation: "null".into(),
-                        owned: true,
-                    });
+                    return self.make_byte_view(&Type::Symbol, "null", "0", "0", true);
                 }
                 let name = format!(
                     "mal_symbol_literal_{}_{}",
@@ -49,11 +45,13 @@ impl FunctionEmitter<'_> {
                 );
                 self.globals
                     .push_str(&super::symbol::literal_definition(&name, bytes));
-                Some(EmittedValue {
-                    ty: Type::Symbol,
-                    representation: format!("@{name}"),
-                    owned: true,
-                })
+                self.make_byte_view(
+                    &Type::Symbol,
+                    &format!("@{name}"),
+                    "0",
+                    &bytes.len().to_string(),
+                    true,
+                )
             }
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
                 let value_type = self.types.value(&atom.ty)?;
@@ -310,14 +308,7 @@ impl FunctionEmitter<'_> {
 
     fn retain_value(&mut self, ty: &Type, value: &str) -> Option<String> {
         match ty {
-            Type::Symbol => {
-                let retained = self.register();
-                self.line(format!(
-                    "  {retained} = call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {value})"
-                ));
-                Some(retained)
-            }
-            Type::Packed(_) => {
+            Type::Symbol | Type::Packed(_) => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
                 self.line(format!(
@@ -325,7 +316,7 @@ impl FunctionEmitter<'_> {
                     value_type.llvm
                 ));
                 self.line(format!(
-                    "  call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {owner})"
+                    "  call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
                 ));
                 Some(value.into())
             }
@@ -367,10 +358,7 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn release_value(&mut self, ty: &Type, value: &str) -> Option<()> {
         match ty {
-            Type::Symbol => self.line(format!(
-                "  call void @mal_runtime_symbol_release(ptr {value})"
-            )),
-            Type::Packed(_) => {
+            Type::Symbol | Type::Packed(_) => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
                 self.line(format!(
@@ -378,7 +366,7 @@ impl FunctionEmitter<'_> {
                     value_type.llvm
                 ));
                 self.line(format!(
-                    "  call void @mal_runtime_symbol_release(ptr {owner})"
+                    "  call void @mal_runtime_bytes_release(ptr {owner})"
                 ));
             }
             Type::Function { .. } => {

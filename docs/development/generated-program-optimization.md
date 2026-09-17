@@ -60,7 +60,7 @@ instruction count、branch、allocation counter、peak resident memory、artifac
 - scalar arithmeticとbranch
 - direct call、self-tail loop、deep non-tail unwind
 - first-class call cycleとheterogeneous frame
-- flat/rope `Symbol`のread、comparison、concatenation、external Region transfer
+- shared flat byte owner/viewのread、`Symbol` comparison/concatenation、external Region transfer
 - managed product、sum、closure environment、HostMappable valueのextern round trip
 - checked-in example corpus
 

@@ -211,8 +211,8 @@ fn selects_optimization_profiles_at_the_public_build_boundary() {
     let baseline_module = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
     let production_module =
         std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
-    assert!(!baseline_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
-    assert!(production_module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(!baseline_module.contains("call void @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(production_module.contains("call void @mal_runtime_symbol_concatenate_consuming_left"));
 }
 
 #[test]
@@ -281,8 +281,9 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
         "runtime.h",
         "core.c",
         "control.c",
+        "bytes.c",
+        "bytes_internal.h",
         "symbol.c",
-        "symbol_internal.h",
     ] {
         assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
     }

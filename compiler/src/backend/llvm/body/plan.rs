@@ -191,12 +191,13 @@ impl TopLevelConstants {
             AtomKind::StorageSize(measured) if atom.ty == Type::ByteSize => {
                 self.source_layouts.layout(measured)?.stride.to_string()
             }
-            AtomKind::Symbol(bytes) if bytes.is_empty() => "null".into(),
+            AtomKind::Symbol(bytes) if bytes.is_empty() => "zeroinitializer".into(),
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
                     .push_str(&super::symbol::literal_definition(&name, bytes));
-                format!("@{name}")
+                let index = self.types.pointer_integer()?;
+                format!("{{ ptr @{name}, {index} 0, {index} {} }}", bytes.len())
             }
             AtomKind::Unit if atom.ty == Type::Unit => "0".into(),
             AtomKind::Reference(Reference::Binding(id)) => return values.get(id).cloned(),

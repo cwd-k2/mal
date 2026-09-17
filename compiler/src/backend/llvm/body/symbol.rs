@@ -13,14 +13,14 @@ pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
         })
         .collect::<String>();
     format!(
-        "@{name} = private constant {{ i64, i64, i8, i8, [6 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, i8 0, [6 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align 8\n",
+        "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align 8\n",
         bytes.len(),
         bytes.len(),
         bytes.len()
     )
 }
 
-pub(super) fn program_uses_runtime(execution: &crate::execution::Program) -> bool {
+pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -> bool {
     execution
         .lowered
         .interface
@@ -121,15 +121,10 @@ impl FunctionEmitter<'_> {
         if value.ty != Type::Symbol {
             return None;
         }
-        let length = self.register();
-        self.line(format!(
-            "  {length} = call i64 @mal_runtime_symbol_length(ptr {})",
-            value.representation
-        ));
-        let result = self.i64_to_index(&length)?;
+        let (_, _, length) = self.byte_view_fields(&value)?;
         Some(EmittedValue {
             ty: Type::USize,
-            representation: result,
+            representation: length,
             owned: false,
         })
     }
@@ -137,11 +132,13 @@ impl FunctionEmitter<'_> {
     pub(super) fn emit_symbol_at(&mut self, argument: &Atom) -> Option<EmittedValue> {
         let argument = self.atom(argument)?;
         let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
-        let index = self.index_to_i64(&index.representation)?;
+        let (owner, offset, _) = self.byte_view_fields(&symbol)?;
         let result = self.register();
         self.line(format!(
-            "  {result} = call i8 @mal_runtime_symbol_at(ptr {}, i64 {})",
-            symbol.representation, index
+            "  {result} = call i8 @mal_runtime_symbol_at(ptr {owner}, {} {offset}, {} {})",
+            self.types.pointer_integer()?,
+            self.types.pointer_integer()?,
+            index.representation
         ));
         Some(EmittedValue {
             ty: Type::UInt8,
@@ -173,7 +170,14 @@ impl FunctionEmitter<'_> {
         if left.ty != Type::Symbol || right.ty != Type::Symbol {
             return None;
         }
-        let result = self.register();
+        let (left_owner, left_offset, left_length) = self.byte_view_fields(&left)?;
+        let (right_owner, right_offset, right_length) = self.byte_view_fields(&right)?;
+        let result_type = self.types.value(&Type::Symbol)?;
+        let result_storage = self.register();
+        self.line(format!(
+            "  {result_storage} = alloca {}, align {}",
+            result_type.llvm, result_type.alignment
+        ));
         let operation = if consume_left {
             "mal_runtime_symbol_concatenate_consuming_left"
         } else if consume_right {
@@ -182,8 +186,13 @@ impl FunctionEmitter<'_> {
             "mal_runtime_symbol_concatenate"
         };
         self.line(format!(
-            "  {result} = call ptr @{operation}(ptr %mal_context, ptr {}, ptr {})",
-            left.representation, right.representation
+            "  call void @{operation}(ptr %mal_context, ptr {result_storage}, ptr {left_owner}, {0} {left_offset}, {0} {left_length}, ptr {right_owner}, {0} {right_offset}, {0} {right_length})",
+            self.types.pointer_integer()?
+        ));
+        let result = self.register();
+        self.line(format!(
+            "  {result} = load {}, ptr {result_storage}, align {}",
+            result_type.llvm, result_type.alignment
         ));
         Some(EmittedValue {
             ty: Type::Symbol,
@@ -206,9 +215,10 @@ impl FunctionEmitter<'_> {
         }
         let slot_index = slot.index;
         let value = self.atom(atom)?;
+        let value_type = self.types.value(&Type::Symbol)?;
         self.line(format!(
-            "  store ptr null, ptr %mal_slot_{slot_index}, align {}",
-            self.types.pointer_alignment()
+            "  store {} zeroinitializer, ptr %mal_slot_{slot_index}, align {}",
+            value_type.llvm, value_type.alignment
         ));
         Some(EmittedValue {
             owned: true,

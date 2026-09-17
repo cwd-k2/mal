@@ -40,8 +40,9 @@ owner、offset、countを持つslice viewを返す。operandは通常のexpressi
 ## Symbol conversion
 
 `Symbol`は`Packed<UInt8>`のaliasではない。prefix `*`はこの二型の間だけのclosed conversion familyである。
-`*packed`は同じbytesのSymbol、`*symbol`は同じbytesのPackedを返す。実装はcopyまたはowner共有を選べる。
-operandとresultは変換後も有効である。変換は内部表現だけを理由とするallocationやallocation failureを追加しない。
+`*packed`は同じbytesのSymbol、`*symbol`は同じbytesのPackedを返す。両型はmal-owned byte storageのownerとviewを共有し、
+変換は新しいownerを割り当てずにresultのshareを得る。operandとresultは変換後も独立に有効である。変換は
+storage allocation、byte copy、allocation failureを追加しない。
 external storageを直接ownerにするzero-copy Packed viewはない。
 
 ## Partial I/O

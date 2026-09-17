@@ -53,7 +53,57 @@ fn owns_symbols_across_direct_llvm_calls() {
 }
 
 #[test]
-fn balances_persistent_symbol_ropes_without_public_materialization() {
+fn converts_symbol_and_sliced_packed_without_allocating() {
+    let directory = NativeFixture::new("driver-symbol-packed-shared-owner");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "require \"allocation.c\";\n\
+         toPacked :: Symbol -> Packed<UInt8> := (value) -> { *value };\n\
+         sliceToSymbol :: Packed<UInt8> -> Symbol := (value) -> {\n\
+           tail := value % 1usize;\n\
+           middle := tail / 2usize;\n\
+           *middle;\n\
+         };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           packed := toPacked(\"abcd\");\n\
+           symbol := sliceToSymbol(packed);\n\
+           if (packed # 3usize == 100u8 && symbol == \"bc\")\n\
+           then 0i32\n\
+           else 1i32;\n\
+         };",
+    );
+    directory.write(
+        "allocation.c",
+        "#include <stddef.h>\nvoid *__wrap_malloc(size_t size) { (void)size; return NULL; }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+        OsStr::new("--clang-arg"),
+        OsStr::new("-Wl,--wrap=malloc"),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(!module.contains("call ptr @mal_runtime_bytes_read"));
+    assert!(module.matches("call ptr @mal_runtime_bytes_retain").count() >= 2);
+}
+
+#[test]
+fn reuses_flat_symbol_storage_for_long_accumulations() {
     let directory = NativeFixture::new("driver-llvm-symbol-rope");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -166,8 +216,8 @@ fn balances_persistent_symbol_ropes_without_public_materialization() {
     );
     assert_eq!(directory.run(executable).status.code(), Some(0));
     let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
-    assert!(module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_left"));
-    assert!(module.contains("call ptr @mal_runtime_symbol_concatenate_consuming_right"));
+    assert!(module.contains("call void @mal_runtime_symbol_concatenate_consuming_left"));
+    assert!(module.contains("call void @mal_runtime_symbol_concatenate_consuming_right"));
 }
 
 #[test]
@@ -219,7 +269,7 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
         String::from_utf8_lossy(&symbol_output.stderr)
     );
     let symbol_module = std::fs::read_to_string(symbol_artifacts.join("program.ll")).unwrap();
-    assert!(symbol_module.contains("declare ptr @mal_runtime_symbol_concatenate"));
+    assert!(symbol_module.contains("declare void @mal_runtime_symbol_concatenate"));
 }
 
 #[test]
@@ -260,7 +310,7 @@ fn traps_when_symbol_storage_cannot_be_allocated() {
     let source = directory.write(
         "program.mal",
         "require \"allocation.c\";\n\
-         main :: Unit -> Int32 := () -> { value := \"left\" + \"right\"; (#value).i32; };",
+         main :: Unit -> Int32 := () -> { value := \"left\" + \"right\"; if (value == \"leftright\") then 0i32 else 1i32; };",
     );
     let executable = directory.join("program");
     directory.write(

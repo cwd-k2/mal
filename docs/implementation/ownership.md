@@ -11,9 +11,10 @@ Status: Current v0.6 implementation policy
 `Unit`、`Address`、`ByteSize`、`USize`、`Cursor`、`Region`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
-LLVM内の`Symbol`はruntime allocationへのpointer、closureはcode pointerとnullable environment pointerの組である。productは各field、sumは
-active payloadだけについて同じ規則を再帰的に適用する。literalのstatic `Symbol`とnull environmentに対するretain/releaseは安全な
-no-opである。
+LLVM内の`Symbol`と`Packed<A>`はowner pointer、byte offset、element countからなるviewである。`Symbol`と`Packed<UInt8>`の変換は
+共通のflat byte ownerをretainしてviewを組み替え、allocationもbyte copyも行わない。sliceは同じownerをretainしてoffsetとcountを
+変える。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
+再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
 
 ## slotとoperation
 
@@ -23,7 +24,8 @@ slotの旧値をreleaseしてから新しいshareを格納する。operationが�
 
 control CFGのbackward livenessでbinding後にdeadとなるlocal ownerは、operation resultを保存してborrowを終えた直後にreleaseしてslotを
 zeroにする。これはowner responsibilityの終了であり、optimization設定によらない。`backend/llvm/optimization/symbol_concat`が有効で、
-`Symbol` concatのoperandがそのsiteでdeadなら、そのshareをreleaseの代わりにruntimeへmoveできる。runtimeは一意なflat storageを再利用する。
+`Symbol` concatのoperandがそのsiteでdeadなら、そのshareをreleaseの代わりにruntimeへmoveできる。runtimeはviewがowner全体を覆い、
+reference countが1であるflat storageだけを再利用する。
 techniqueが無効ならborrowするconcat後に通常どおりreleaseする。両operandが同じbindingならmoveせず、後続pathにuseがあるownerをreference
 countから推測して消費しない。
 

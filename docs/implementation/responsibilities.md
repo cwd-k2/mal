@@ -97,7 +97,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
-| runtime | flat Packed backing、slice lifetime、Unitのcount-only表現、Symbolとのcopyまたはowner共有を実装する |
+| runtime | 共通のflat byte owner、slice lifetime、Unitのcount-only表現、Symbolと`Packed<UInt8>`のallocation-free owner共有を実装する |
 | C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとCursor/Region/Packedをpublic interfaceから拒否する |
 | process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(USize, Address)` rootへ渡す |
 
@@ -124,7 +124,9 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/memory` | placement、Cursor/Region/Packed access、Address offsetの型規則を検査 |
-| `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion、物理表現上限、診断表示 |
+| `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion |
+| `check/types/properties` | `Representable` requirementと物理表現上限の反復的検査 |
+| `check/types/display` | canonical typeのboundedな診断表示 |
 | `check/interface` | extern transport検査とalias dependencyを反復的に辿るsource-level metadata抽出 |
 | `check/initializer` | top-level closed-value admission |
 | `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
@@ -136,7 +138,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `editor/index` | declaration occurrenceのidentity indexからdocument symbol、completion、file-local viewを構成 |
 | `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をresult binderを含めて収集し、左結合列を反復走査 |
 | `editor/index/checked_ast` | checked expressionとresult binderのcanonical typeをsemantic indexへ収集し、左結合列を反復走査 |
-| `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類とtop-level function候補を提供するsyntax indexを構成 |
+| `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類、top-level function候補、先頭の完全なrequirement declarationのpath content spanとdecode済みvalueを提供するsyntax indexを構成 |
 | `editor/syntax/declaration` | current tokenからtop-level function declarationを保守的に分類 |
 | `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
 | `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
@@ -189,8 +191,9 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
-| `runtime/c11/symbol.c` | LLVM artifact内部のreference-counted flat/rope `Symbol` storage、allocation-freeな観測、外部Regionからのbyte copy、平衡連結、一意なflat storageの再利用を実装 |
-| `runtime/c11/symbol_internal.h` | C runtime内のprivate `Symbol` carrier、LLVM static leafと共有するheader layout、cursor stateを宣言 |
+| `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data accessと一意なstorageの拡張を実装 |
+| `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
+| `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
 | `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
@@ -203,7 +206,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
-`backend/llvm`、`Symbol`のstorage表現は`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
+`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

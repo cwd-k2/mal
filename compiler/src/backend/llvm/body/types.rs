@@ -63,11 +63,7 @@ impl Types {
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
-            Type::Symbol => Some(ValueType {
-                llvm: "ptr".into(),
-                alignment: self.target.pointer_alignment,
-                size: self.target.pointer_size,
-            }),
+            Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
                 llvm: format!("i{}", self.target.pointer_size.checked_mul(8)?),
                 alignment: self.target.pointer_alignment,
@@ -97,23 +93,7 @@ impl Types {
                     size: self.target.index_size,
                 },
             ]),
-            Type::Packed(_) => aggregate_type(vec![
-                ValueType {
-                    llvm: "ptr".into(),
-                    alignment: self.target.pointer_alignment,
-                    size: self.target.pointer_size,
-                },
-                ValueType {
-                    llvm: self.pointer_integer()?,
-                    alignment: self.index_alignment(),
-                    size: self.target.index_size,
-                },
-                ValueType {
-                    llvm: self.pointer_integer()?,
-                    alignment: self.index_alignment(),
-                    size: self.target.index_size,
-                },
-            ]),
+            Type::Packed(_) => self.byte_view(),
             Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),
@@ -127,6 +107,26 @@ impl Types {
             cache.insert(id, value.clone());
         }
         Some(value)
+    }
+
+    fn byte_view(self) -> Option<ValueType> {
+        aggregate_type(vec![
+            ValueType {
+                llvm: "ptr".into(),
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
+            },
+            ValueType {
+                llvm: self.pointer_integer()?,
+                alignment: self.index_alignment(),
+                size: self.target.index_size,
+            },
+            ValueType {
+                llvm: self.pointer_integer()?,
+                alignment: self.index_alignment(),
+                size: self.target.index_size,
+            },
+        ])
     }
 
     pub(in crate::backend::llvm) fn pointer_integer(self) -> Option<String> {

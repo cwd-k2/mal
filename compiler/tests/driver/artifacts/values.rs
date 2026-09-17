@@ -122,7 +122,7 @@ fn transfers_zero_stride_units_from_a_one_past_address() {
 }
 
 #[test]
-fn converts_flat_and_non_flat_symbols_through_packed_views() {
+fn converts_static_and_dynamic_symbols_through_packed_views() {
     let directory = NativeFixture::new("driver-symbol-packed-round-trip");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -131,10 +131,10 @@ fn converts_flat_and_non_flat_symbols_through_packed_views() {
         "roundTrip :: Symbol -> Symbol := (value) -> { packed := *value; *packed };\n\
          main :: Unit -> Int32 := () -> {\n\
            flat := \"flat\";\n\
-           rope := \"left\" + \"right\";\n\
+           dynamic := \"left\" + \"right\";\n\
            flatCopy := roundTrip(flat);\n\
-           ropeCopy := roundTrip(rope);\n\
-           if (flat == \"flat\" && flatCopy == flat && rope == \"leftright\" && ropeCopy == rope)\n\
+           dynamicCopy := roundTrip(dynamic);\n\
+           if (flat == \"flat\" && flatCopy == flat && dynamic == \"leftright\" && dynamicCopy == dynamic)\n\
            then 0\n\
            else 1;\n\
          };",

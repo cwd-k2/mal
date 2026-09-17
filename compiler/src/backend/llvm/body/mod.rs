@@ -42,7 +42,7 @@ pub(super) struct Output {
     pub(super) main: FunctionId,
     pub(super) main_parameter: Type,
     pub(super) uses_control: bool,
-    pub(super) uses_symbol_runtime: bool,
+    pub(super) uses_byte_runtime: bool,
 }
 
 #[cfg(test)]
@@ -94,7 +94,7 @@ pub(super) fn generate(
         main,
         main_parameter,
         uses_control,
-        uses_symbol_runtime: symbol::program_uses_runtime(execution),
+        uses_byte_runtime: symbol::program_uses_byte_runtime(execution),
     })
 }
 

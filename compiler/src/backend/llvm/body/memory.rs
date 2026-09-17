@@ -102,10 +102,10 @@ impl FunctionEmitter<'_> {
             "null".to_string()
         } else {
             let bytes = self.multiply_by_stride(&count, stride)?;
-            let bytes_i64 = self.index_to_i64(&bytes)?;
             let owner = self.register();
             self.line(format!(
-                "  {owner} = call ptr @mal_runtime_symbol_read(ptr %mal_context, ptr {address}, i64 {bytes_i64})"
+                "  {owner} = call ptr @mal_runtime_bytes_read(ptr %mal_context, ptr {address}, {} {bytes})",
+                self.types.pointer_integer()?
             ));
             owner
         };
@@ -182,7 +182,7 @@ impl FunctionEmitter<'_> {
                 let (owner, offset, old_count) = self.packed_fields(&view)?;
                 let retained = self.register();
                 self.line(format!(
-                    "  {retained} = call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {owner})"
+                    "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
                 ));
                 if prefix {
                     self.make_packed(result_type, &retained, &offset, &count.representation, true)
@@ -262,17 +262,11 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let (owner, offset, count) = self.packed_fields(packed)?;
-        let data = self.packed_data_pointer(&owner, &offset)?;
-        let length = self.index_to_i64(&count)?;
-        let symbol = self.register();
+        let retained = self.register();
         self.line(format!(
-            "  {symbol} = call ptr @mal_runtime_symbol_read(ptr %mal_context, ptr {data}, i64 {length})"
+            "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
         ));
-        Some(EmittedValue {
-            ty: Type::Symbol,
-            representation: symbol,
-            owned: true,
-        })
+        self.make_byte_view(&Type::Symbol, &retained, &offset, &count, true)
     }
 
     fn emit_symbol_to_packed(
@@ -283,18 +277,12 @@ impl FunctionEmitter<'_> {
         if symbol.ty != Type::Symbol || *result_type != Type::Packed(Type::UInt8.into()) {
             return None;
         }
-        let count_i64 = self.register();
+        let (owner, offset, count) = self.byte_view_fields(symbol)?;
+        let retained = self.register();
         self.line(format!(
-            "  {count_i64} = call i64 @mal_runtime_symbol_length(ptr {})",
-            symbol.representation
+            "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
         ));
-        let count = self.i64_to_index(&count_i64)?;
-        let owner = self.register();
-        self.line(format!(
-            "  {owner} = call ptr @mal_runtime_symbol_retain(ptr %mal_context, ptr {})",
-            symbol.representation
-        ));
-        self.make_packed(result_type, &owner, "0", &count, true)
+        self.make_packed(result_type, &retained, &offset, &count, true)
     }
 
     fn region_fields(&mut self, region: &EmittedValue) -> Option<(String, String)> {
@@ -319,13 +307,23 @@ impl FunctionEmitter<'_> {
         let Type::Packed(_) = &packed.ty else {
             return None;
         };
-        let runtime = self.types.value(&packed.ty)?;
+        self.byte_view_fields(packed)
+    }
+
+    pub(super) fn byte_view_fields(
+        &mut self,
+        value: &EmittedValue,
+    ) -> Option<(String, String, String)> {
+        if !matches!(value.ty, Type::Symbol | Type::Packed(_)) {
+            return None;
+        }
+        let runtime = self.types.value(&value.ty)?;
         let mut fields = Vec::with_capacity(3);
         for index in 0..3 {
             let field = self.register();
             self.line(format!(
                 "  {field} = extractvalue {} {}, {index}",
-                runtime.llvm, packed.representation
+                runtime.llvm, value.representation
             ));
             fields.push(field);
         }
@@ -361,6 +359,20 @@ impl FunctionEmitter<'_> {
         count: &str,
         owned: bool,
     ) -> Option<EmittedValue> {
+        self.make_byte_view(ty, owner, offset, count, owned)
+    }
+
+    pub(super) fn make_byte_view(
+        &mut self,
+        ty: &Type,
+        owner: &str,
+        offset: &str,
+        count: &str,
+        owned: bool,
+    ) -> Option<EmittedValue> {
+        if !matches!(ty, Type::Symbol | Type::Packed(_)) {
+            return None;
+        }
         let runtime = self.types.value(ty)?;
         let with_owner = self.register();
         self.line(format!(
@@ -413,39 +425,9 @@ impl FunctionEmitter<'_> {
     fn packed_data_pointer(&mut self, owner: &str, offset: &str) -> Option<String> {
         let data = self.register();
         self.line(format!(
-            "  {data} = call ptr @mal_runtime_symbol_data(ptr %mal_context, ptr {owner})"
+            "  {data} = call ptr @mal_runtime_bytes_data(ptr {owner})"
         ));
         self.pointer_offset(&data, offset)
-    }
-
-    pub(super) fn index_to_i64(&mut self, value: &str) -> Option<String> {
-        match self.types.index_size() {
-            8 => Some(value.into()),
-            bytes if bytes < 8 => {
-                let result = self.register();
-                self.line(format!(
-                    "  {result} = zext {} {value} to i64",
-                    self.types.pointer_integer()?
-                ));
-                Some(result)
-            }
-            _ => None,
-        }
-    }
-
-    pub(super) fn i64_to_index(&mut self, value: &str) -> Option<String> {
-        match self.types.index_size() {
-            8 => Some(value.into()),
-            bytes if bytes < 8 => {
-                let result = self.register();
-                self.line(format!(
-                    "  {result} = trunc i64 {value} to {}",
-                    self.types.pointer_integer()?
-                ));
-                Some(result)
-            }
-            _ => None,
-        }
     }
 
     fn emit_align(&mut self, value: EmittedValue, result_type: &Type) -> Option<EmittedValue> {
