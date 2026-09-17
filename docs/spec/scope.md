@@ -8,7 +8,7 @@ Status: Accepted v0.6 profile
 - lambda、application、self recursion
 - product、sum、surface `if`、exhaustive sum continuation application
 - direct block、direct result block、`when`、empty sum elimination
-- fixed-width numeric、`ByteSize`、`Count`、logical、bit operation
+- fixed-width numeric、`ByteSize`、`USize`、logical、bit operation
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
 - `Address`、canonical memory layout、`Cursor`、`Region`によるexternal memory access
@@ -47,14 +47,14 @@ field name、implicit constructor、nominal identityはない。
 
 ## Memoryとmutable data
 
-languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressをshapeでCursorへ置き、Countを加えて
+languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressをshapeでCursorへ置き、USizeを加えて
 Regionを作る。exact placementとunaligned accessは共通mechanism、alignment、permission、lifetime、allocation failure policyは
 必要なoperationのcontractが所有する。
 
 ```mal
 extern allocate :: ByteSize -> Address;
 
-readInt64 :: (Address, Count) -> Int64 := (base, index) -> {
+readInt64 :: (Address, USize) -> Int64 := (base, index) -> {
     cursor := (base + index * #i64)@i64;
     (value, _) := <-cursor;
     value;

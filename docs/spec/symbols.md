@@ -38,10 +38,10 @@ value # index
 left + right
 ```
 
-`#value`はbyte lengthを`Count`で返す。`value # index`は`index < #value`をpreconditionとし、`Count`の
+`#value`はbyte lengthを`USize`で返す。`value # index`は`index < #value`をpreconditionとし、`USize`の
 0-based indexにあるbyteを`UInt8`で返す。precondition違反時の実行結果は保証しない。binary `#`はnon-associativeである。
 
-`left + right`は数学的な`#left + #right`がCountとtarget allocation sizeで表せることをpreconditionとし、両operandのbytesを順に連結した
+`left + right`は数学的な`#left + #right`がUSizeとtarget allocation sizeで表せることをpreconditionとし、両operandのbytesを順に連結した
 新しい`Symbol`を返す。空`Symbol`は単位元である。precondition違反時の実行結果は保証しない。必要なstorage sizeを
 targetで表現できない場合、またはstorageを確保できない場合はtrapする。実装は観測可能な結果を変えない限り
 storageを共有または再利用してよい。

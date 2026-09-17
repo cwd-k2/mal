@@ -21,7 +21,7 @@ generated headerと対応するbuild artifactは一組であり、異なるcompi
 #define MAL_C_ABI_VERSION 0x000700u
 ```
 
-`main :: Unit -> Int32`は`main(void)`へ、`main :: (Count, Address) -> Int32`は`main(int, char **)`へlowerする。
+`main :: Unit -> Int32`は`main(void)`へ、`main :: (USize, Address) -> Int32`は`main(int, char **)`へlowerする。
 後者ではshimが各argumentをcanonical shape `(address, bytesize)`のdescriptorへ変換する。C structのlayoutをsource memory layoutとして
 reinterpretしない。descriptorとargument bytesは`main`のreturnまでread-onlyで有効である。
 
@@ -63,7 +63,7 @@ recoverできないcontract違反には`mal_call_trap(call, message)`を使う�
 | `Bool` | `mal_Bool_t` |
 | `IntN` / `UIntN` | 対応する`mal_IntN_t` / `mal_UIntN_t` |
 | `Float32` / `Float64` | `mal_Float32_t` / `mal_Float64_t` |
-| `ByteSize` / `Count` | `mal_ByteSize_t` / `mal_Count_t`（`size_t`） |
+| `ByteSize` / `USize` | `mal_ByteSize_t` / `mal_USize_t`（`size_t`） |
 | `Symbol` | `mal_Symbol_t` |
 | `Address` | `mal_Address_t`（`void *`） |
 | external opaque type `T` | `mal_T_t` |

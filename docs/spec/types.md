@@ -10,7 +10,7 @@ T ::=
   | Int8 | Int16 | Int32 | Int64
   | UInt8 | UInt16 | UInt32 | UInt64
   | Float32 | Float64
-  | ByteSize | Count
+  | ByteSize | USize
   | Symbol
   | Address
   | Cursor<T> | Region<T> | Packed<T>
@@ -25,7 +25,7 @@ T ::=
 
 `Float32`と`Float64`は、それぞれIEEE 754-2019のbinary32とbinary64である。normal、subnormal、正負のzero、正負のinfinity、NaNを含む。詳細な演算規則は[実行意味論](execution.md#浮動小数点)に定める。
 
-`Int`、`Long`、`Size`のようにhost C spellingへ依存する整数型はない。`ByteSize`と`Count`の幅はtargetのpointer index幅から
+`Int`、`Long`、`Size`のようにhost C spellingへ依存する整数型はない。`ByteSize`と`USize`の幅はtargetのpointer index幅から
 決まり、用途の異なる別の型である。subtyping、implicit numeric conversion、nominal user typeはない。
 
 `Byte` と `Char` という型はない。単一 byte は `UInt8` で表す。mal は Unicode character を primitive value として定義しない。
@@ -45,7 +45,7 @@ mal-ownedなimmutable sequenceであり、Symbolとは別の型である。
 ## External memory type
 
 `Address`はordinary byte-addressable external storageへのopaque capabilityである。`Cursor<T>`はAddressとcanonical layout、
-`Region<T>`はそれにCountを加えた有限location列を運ぶ。これらはreferentのownership、permission、lifetimeを持たない。
+`Region<T>`はそれにUSizeを加えた有限location列を運ぶ。これらはreferentのownership、permission、lifetimeを持たない。
 `Packed<T>`はmal-ownedなimmutable有限sequenceである。型形成とoperationは[external memory](memory.md)と
 [`Region`と`Packed`](packed.md)に定める。
 

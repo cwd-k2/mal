@@ -13,7 +13,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、`@` shape/value、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
 | [numeric conversion](../spec/expressions.md#primitive-operator) | 全closed suffix、rounding/modulo/precondition、旧`T(value)`と`value[T]`のrejection | conversionを含むLLVM artifactのcompile/execute |
 | [types](../spec/types.md) | indexed type arity、alias expansion、recursive alias、type position以外のTYPE_IDENT rejection | editor hover/navigationとgenerated diagnostic |
-| [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument descriptor | `(Count, Address)` process entryを実際のargvで実行 |
+| [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument descriptor | `(USize, Address)` process entryを実際のargvで実行 |
 
 ## Generics
 

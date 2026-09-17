@@ -43,7 +43,7 @@ type argumentを代入して完全に展開した後に判定する。このjudg
 admission、observation、capability transferのどれになるかは[EngramとExtern](engrams.md#境界のoperation)に従う。
 
 ```text
-HostMappable((Address, Count)) = true
+HostMappable((Address, USize)) = true
 HostMappable(Region<UInt8>)    = false
 HostMappable(Packed<UInt8>)    = false
 ```
@@ -99,7 +99,7 @@ admission、observation、capability transferと各leafのlifetime authorityは
 [Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
 carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
-unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのCountを返す。
+unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
 mal側はRegionを分割し、保持するprefixだけをPackedまたはSymbolへadmitする。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。

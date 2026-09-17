@@ -13,19 +13,19 @@ Status: Accepted v0.6 profile
 `Address + ByteSize`と`Address - ByteSize`は同じstorage capabilityからbyte位置を派生させる。Address同士の演算、equality、
 literal、integerとの変換はない。
 
-`ByteSize`はtargetがobject sizeとbyte offsetに使うunsigned量、`Count`は有限collectionの要素数とindexに使うunsigned量である。
-両型はdefault address spaceのpointer index幅を持つ別のsource typeであり、literal suffixは`bytes`と`count`である。
+`ByteSize`はtargetがobject sizeとbyte offsetに使うunsigned量、`USize`は有限collectionの要素数とindexに使うunsigned量である。
+両型はdefault address spaceのpointer index幅を持つ別のsource typeであり、literal suffixは`bytes`と`usize`である。
 
 ```mal
 extent :: ByteSize := 64bytes;
-length :: Count := 8count;
+length :: USize := 8usize;
 ```
 
-同じ型同士の加減算と比較、明示的numeric conversionを両型に認める。`Count`には乗除算とremainderも認める。
-`Count * ByteSize`と`ByteSize * Count`は`ByteSize`、`ByteSize * ByteSize`はerrorである。加減乗算はtarget幅でwrapする。
+同じ型同士の加減算と比較、明示的numeric conversionを両型に認める。`USize`には乗除算とremainderも認める。
+`USize * ByteSize`と`ByteSize * USize`は`ByteSize`、`ByteSize * ByteSize`はerrorである。加減乗算はtarget幅でwrapする。
 divisionとremainderはdivisorがzeroでないことをpreconditionとする。memory extentとして使う数学的な積はoverflowしてはならない。
 
-`Cursor<A>`はAddressとcanonicalな`A`に一意なstatic layoutを運ぶ。`Region<A>`は同じlayoutを持つCount個のlocationを運ぶ。
+`Cursor<A>`はAddressとcanonicalな`A`に一意なstatic layoutを運ぶ。`Region<A>`は同じlayoutを持つUSize個のlocationを運ぶ。
 どちらもstorageのinitialization、permission、allocation identity、ownership、lifetimeを取得しない。
 
 ## Representable
@@ -37,7 +37,7 @@ Representable(Unit)
 Representable(numeric scalar)
 Representable(Address)
 Representable(ByteSize)
-Representable(Count)
+Representable(USize)
 Representable((A...))       if all Representable(A)
 Representable([A...])       if the sum has at least two variants and all Representable(A)
 ```
@@ -56,7 +56,7 @@ unit
 i8 i16 i32 i64
 u8 u16 u32 u64
 f32 f64
-address bytesize count
+address bytesize usize
 bool
 ```
 
@@ -74,12 +74,12 @@ shapeに現れない。productとsumはsource typeと同じdelimiterを使い、
 
 ## Canonical layout
 
-numeric scalar、`Address`、`ByteSize`、`Count`のstrideとrequired alignmentはtarget data layoutから決める。numeric scalarの
-storage幅はbit幅、Addressはdefault address spaceのpointer storage幅、ByteSizeとCountはpointer index幅を使う。byte orderと
+numeric scalar、`Address`、`ByteSize`、`USize`のstrideとrequired alignmentはtarget data layoutから決める。numeric scalarの
+storage幅はbit幅、Addressはdefault address spaceのpointer storage幅、ByteSizeとUSizeはpointer index幅を使う。byte orderと
 scalar representationはbackend host ABIが定める。
 
 `Unit`はstride 0、required alignment 1である。load/storeはstorageをdereferenceせず、次Cursorは同じlocationになる。
-`Region<Unit>`はstorageを消費せず任意のCountを持てる。
+`Region<Unit>`はstorageを消費せず任意のUSizeを持てる。
 
 productはfieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで
 前方へ丸める。全体alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで前方へ丸める。
@@ -100,7 +100,7 @@ file、network、永続storageのformatではない。
 Address + ByteSize          -> Address
 Address - ByteSize          -> Address
 Address@Shape               -> Cursor<A>
-Cursor<A>@Count             -> Region<A>
+Cursor<A>@USize             -> Region<A>
 ?Cursor<A>                  -> Address
 ?Region<A>                  -> Address
 Cursor<A>!                  -> Cursor<A>
@@ -110,7 +110,7 @@ Cursor<A> <- A              -> Cursor<A>
 ```
 
 `Address@Shape`はlocationを動かさず、shapeに対応するcanonical `A`のCursorを作る。別shapeへ切り替える場合は`?cursor`で
-Addressへ戻す。`Cursor<A>@Count`は現在locationからstrideを繰り返すRegionを作る。Cursorと一要素Regionは別の型である。
+Addressへ戻す。`Cursor<A>@USize`は現在locationからstrideを繰り返すRegionを作る。Cursorと一要素Regionは別の型である。
 
 loadは現在位置の値とstrideだけ進んだCursorのproductを返し、storeも同じ次Cursorを返す。どちらもexternal storageを
 consumeせず、referentのlifetimeを変更しない。
@@ -126,7 +126,7 @@ end := address@u8
 
 exact Cursor accessはunaligned accessを認める。backendは保証されたalignmentがなければalignment 1のload/storeまたは同等の
 byte accessへlowerする。postfix `!`は現在位置から`A`のrequired alignmentを満たす最初のlocationへのalign-upである。
-RegionではCountを保存し、Count 0でもlocationをalign-upする。exact placementは全backendのbaseline、`!`はpointer provenanceを
+RegionではUSizeを保存し、USize 0でもlocationをalign-upする。exact placementは全backendのbaseline、`!`はpointer provenanceを
 保って実装できるtargetだけのcapabilityとし、未対応targetは`!`を使うartifactを拒否する。alignmentの数値queryはない。
 
 ## 未検査precondition
@@ -137,18 +137,18 @@ callerまたはAddressを提供したhost contractは次の条件を満たす。
 |---|---|
 | `Address +/- ByteSize` | 数学的offsetがoverflowせず、resultが同じlive region内または末尾の直後にある |
 | `Address@Shape` | なし |
-| `Cursor@Count` | `Count * stride(A)`がoverflowせず、全locationが同じlive region内にある。Count 0またはstride 0では先頭が末尾の直後でもよい |
+| `Cursor@USize` | `USize * stride(A)`がoverflowせず、全locationが同じlive region内にある。USize 0またはstride 0では先頭が末尾の直後でもよい |
 | Cursor load | 現在の一要素がreadable、初期化済みでvalid representationを持つ |
 | Cursor store | 現在の一要素がwritableである |
 | load/store result | 次locationが同じlive region内または末尾の直後にある |
 | `Cursor<A>!` | skipするpaddingと一要素分のextentが同じlive regionに収まる |
-| `Region<A>!` | skipするpaddingとCount要素分のextentが同じlive regionに収まる。Count 0ではpaddingだけを対象とする |
+| `Region<A>!` | skipするpaddingとUSize要素分のextentが同じlive regionに収まる。USize 0ではpaddingだけを対象とする |
 
 primitiveはbounds、permission、initialization、lifetime、extent、overflow、Address representation、sum tagを検査しない。
 precondition違反時の特定の結果を保証しない。実装が内部corruptionを避けるためにtrapしても、そのtrapはimplementation detailである。
 preconditionを満たしたoperationがmal-owned storageを必要とし、allocationに失敗した場合はtrapする。
 
-末尾の直後を指すCursorは保持、Addressへの投影、Count 0のRegion形成に使える。通常のload/storeには使えない。
+末尾の直後を指すCursorは保持、Addressへの投影、USize 0のRegion形成に使える。通常のload/storeには使えない。
 Unit accessと`Region<Unit>`はpermission、initialization、storage extentを要素へ要求しない。
 
 ## Target contract

@@ -76,16 +76,16 @@ backendは`main()`の結果をprocess exit statusへ渡す。library compilation
 command-line argumentを受け取る実行可能programは、代わりに次のentry pointを持てる。
 
 ```mal
-Arguments :: (Count, Address);
+Arguments :: (USize, Address);
 
 main :: Arguments -> Int32 := (argumentCount, arguments) ->
-    if (argumentCount == 0count)
+    if (argumentCount == 0usize)
     then 0
     else {
         descriptors := arguments@(address, bytesize)@argumentCount;
         packed := <-descriptors;
-        (data, length) := packed # 0count;
-        bytes := data@u8@length.count;
+        (data, length) := packed # 0usize;
+        bytes := data@u8@length.usize;
         first :: Symbol := *(<-bytes);
         0;
     };
@@ -99,5 +99,5 @@ argument数が0でも第二要素はnullではなく、`main`のreturnまで有�
 argument bytesはhost process interfaceが渡した終端NULを含まないbyte列であり、UTF-8を保証しない。descriptor列と
 各byte regionは`main`のreturnまでread-onlyで有効である。`count`以上のdescriptorへaccessしてはならない。
 
-`Unit -> Int32`と`(Count, Address) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
+`Unit -> Int32`と`(USize, Address) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
 [D030](../history/decisions/D030.md)に記録する。

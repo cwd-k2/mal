@@ -27,13 +27,13 @@ BIN_DIGITS ::= BIN_DIGIT ("_"? BIN_DIGIT)*
 EXPONENT   ::= ("e" | "E") ("+" | "-")? DEC_DIGITS
 INTEGER_SUFFIX ::= "i8" | "i16" | "i32" | "i64"
                  | "u8" | "u16" | "u32" | "u64"
-                 | "bytes" | "count"
+                 | "bytes" | "usize"
 FLOAT_SUFFIX ::= "f32" | "f64"
 ```
 
 `_`は各digit sequenceのdigit間に一つだけ置ける。radix prefix直後、小数点の隣、suffixの直前には置けない。
 decimal floatは整数部と小数部の両方を必要とし、`.5`と`1.`はない。decimal point、exponent、`f32`/`f64` suffixのいずれかを
-持つliteralをfloatとする。`bytes`と`count`はdecimal、hexadecimal、binary integer literalに使える。
+持つliteralをfloatとする。`bytes`と`usize`はdecimal、hexadecimal、binary integer literalに使える。
 
 ## Declarationとtype
 
@@ -88,7 +88,7 @@ continuationSuffix ::= "[" "]"
                      | "[" expression ("," expression)* "]"
 conversionSuffix ::= "." ("i8" | "i16" | "i32" | "i64"
                            | "u8" | "u16" | "u32" | "u64"
-                           | "f32" | "f64" | "bytes" | "count")
+                           | "f32" | "f64" | "bytes" | "usize")
 placementSuffix ::= "@" placementOperand
 postfixAlign    ::= "!"
 
@@ -100,7 +100,7 @@ shapeAtom ::= "unit"
             | "i8" | "i16" | "i32" | "i64"
             | "u8" | "u16" | "u32" | "u64"
             | "f32" | "f64"
-            | "address" | "bytesize" | "count" | "bool"
+            | "address" | "bytesize" | "usize" | "bool"
 
 product ::= "(" expression "," expression ("," expression)* ")"
 unitApplication ::= "[" expression "]"
@@ -111,9 +111,9 @@ whenExpr ::= "when" "(" expression ")" expression
 
 primary expressionはliteral、valueName、Unit、parenthesized expression、product、unit application、lambda、block、result block、
 `if`、`when`からなる。primaryの後へcall、receiver、continuation、conversion、placement、postfix align suffixをsource orderで
-0個以上適用する。`@`直後のclosed shape spellingはshape、それ以外のname、literal、parenthesized expressionはCount operandである。
-したがって`@count`はCount shape、`@elementCount`はvalueである。shape atomと同じspellingのvalueをCount operandに使う場合と、
-operatorを含むCountには括弧を使い、`@(count)`、`@(elementCount + 1count)`と書く。
+0個以上適用する。`@`直後のclosed shape spellingはshape、それ以外のname、literal、parenthesized expressionはUSize operandである。
+したがって`@usize`はUSize shape、`@elementCount`はvalueである。shape atomと同じspellingのvalueをUSize operandに使う場合と、
+operatorを含むUSizeには括弧を使い、`@(usize)`、`@(elementCount + 1usize)`と書く。
 
 prefix `#`の直後もclosed shape spellingならstride query、それ以外はvalue length queryである。shape atomと同じspellingの
 valueをlength queryに使う場合は`#(count)`のように括弧を使う。shapeにuser-defined aliasとTYPE_IDENTは現れない。

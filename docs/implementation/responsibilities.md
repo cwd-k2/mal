@@ -99,8 +99,8 @@ v0.6のgenericsとexternal memoryを実装するときも既存stageのadmission
 | backend source layout | runtime value layoutと独立したtarget layout planを作り、pointer representation幅、index幅、ABI alignmentを区別する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | flat Packed backing、slice lifetime、Unitのcount-only表現、Symbolとのcopyまたはowner共有を実装する |
-| C interface | `Address`、`ByteSize`、`Count`をABI 0x000700へ写し、generic bindingとCursor/Region/Packedをpublic interfaceから拒否する |
-| process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(Count, Address)` rootへ渡す |
+| C interface | `Address`、`ByteSize`、`USize`をABI 0x000700へ写し、generic bindingとCursor/Region/Packedをpublic interfaceから拒否する |
+| process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(USize, Address)` rootへ渡す |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
 避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に

@@ -188,7 +188,7 @@ continuationを持たない`value[]`は空直和のeliminationであり、[compl
 123i32
 255u8
 64bytes
-8count
+8usize
 1.5f32
 2.0f64
 1_000
@@ -197,7 +197,7 @@ continuationを持たない`value[]`は空直和のeliminationであり、[compl
 ```
 
 負号は literal token の一部ではなく unary `-` として扱う。固定幅整数のsuffixは`i8`、`i16`、`i32`、`i64`、
-`u8`、`u16`、`u32`、`u64`、target quantityのsuffixは`bytes`、`count`とする。suffixのない整数は周辺型から決め、
+`u8`、`u16`、`u32`、`u64`、target quantityのsuffixは`bytes`、`usize`とする。suffixのない整数は周辺型から決め、
 決まらなければ`Int64`。
 浮動小数は周辺型から決め、決まらなければ `Float64` とする。
 
@@ -251,7 +251,7 @@ integer:  + - * / %  == != < <= > >=
 float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
-target quantity: ByteSize、Countに定めたclosed family
+target quantity: ByteSize、USizeに定めたclosed family
 address:  Address + ByteSize, Address - ByteSize
 Symbol:   Symbol + Symbol, == !=
 ```
@@ -299,7 +299,7 @@ offset := y.bytes;
 ```
 
 `.i8`、`.i16`、`.i32`、`.i64`、`.u8`、`.u16`、`.u32`、`.u64`、`.f32`、`.f64`、`.bytes`、
-`.count`だけを認める。conversionはbit reinterpretationではない。型identifierをcalleeまたはpostfix argumentにする形式はない。
+`.usize`だけを認める。conversionはbit reinterpretationではない。型identifierをcalleeまたはpostfix argumentにする形式はない。
 
 - `Float32`から`Float64`への変換は正確である。
 - `Float64`から`Float32`へはround-to-nearest, ties-to-evenで丸める。
