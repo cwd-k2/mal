@@ -95,7 +95,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
 | specialization | checked generic identityとcanonical concrete argumentをkeyに到達graphを共有し、単相checked programをcoreへ渡す |
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
-| backend source layout | runtime value layoutと独立したtarget layout planを作り、pointer representation幅、index幅、ABI alignmentを区別する |
+| backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | flat Packed backing、slice lifetime、Unitのcount-only表現、Symbolとのcopyまたはowner共有を実装する |
 | C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとCursor/Region/Packedをpublic interfaceから拒否する |
@@ -170,7 +170,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
-| `backend/llvm/body/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
+| `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
@@ -195,9 +195,10 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
 | `backend/c/types::TypeRegistry` | 子representation identityからbottom-upにinternするhost interface全体のstructural identityとC typeへのmapping |
 | `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを共有DAGのpostorderで収集する走査 |
-| `backend/c/types::HostTypes` | externから到達できるhost-visible typeの分類とheader/source宣言の構成 |
+| `backend/c/types::HostTypes` | externから到達できる型とcheckerがcanonical memory accessを認めたaliasから、host-visible typeの集合を構成 |
 | `backend/c/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
 | `backend/c/types/host/declaration` | host adapter内部表現とpublic C headerに必要なhost-visible type declarationを構成 |
+| `backend/c/types/host/memory` | checkerが認めたnamed aliasについて、共有canonical layout planからunaligned-safeなC read/write helperを構成 |
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は

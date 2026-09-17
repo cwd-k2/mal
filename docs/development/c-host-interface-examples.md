@@ -87,6 +87,25 @@ MAL_DEFINE_sendPacket(call, packet) {
 productはsource orderのfieldを持つ。sum resultはvariant-specific terminal returnで構成し、host codeがtagを直接組み立てる必要を
 なくす。Addressの範囲とpermissionはPacketの構造から推測せず、`sendPacket`のcontractが定める。
 
+## Canonical memory
+
+```mal
+Sample :: (Int64, UInt8);
+extern updateSample :: Address -> Unit;
+```
+
+```c
+MAL_DEFINE_updateSample(call, address) {
+    mal_Sample_t sample = mal_Sample_read(call, address, 0);
+    sample.field_0 += 1;
+    mal_Sample_write(call, address, 0, sample);
+    return mal_Unit_return(call);
+}
+```
+
+`address`がcanonical `Sample`列の先頭を指すというcontractは`updateSample`が定める。helperはunaligned access、field padding、sum tagを
+compilerのtarget layoutに従って処理する。`mal_Sample_t *`へcastせず、extent、permission、lifetimeは別途保証する。
+
 ## External opaque capability
 
 ```mal
@@ -154,7 +173,7 @@ result transfer前のexternal resourceはadapterが片付ける。generic `mal_c
 
 - bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
 - parameter、local、nested field、resultは同じ`mal_<T>_t`規則を使う。
-- public aggregateとopaque型はHostMappableなextern surfaceからだけ到達する。
+- public aggregateとopaque型はHostMappableなextern surface、またはentry sourceのcanonical memory helper対象aliasから到達する。
 - byte列はAddressと長さで借り、Symbol、Packed、Region、managed ownerをhost codeへ出さない。
 - productは通常のC valueとしてcopy、変更、再構成できる。
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。

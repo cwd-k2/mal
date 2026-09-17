@@ -93,6 +93,7 @@ payload offsetはtag末尾からそのalignmentまで丸める。payload extent�
 storeはproduct field、sum tag、選択payloadだけを書き、paddingと非選択payloadを変更しなくてよい。loadはそれらを読まない。
 このlayoutは同じartifactと対応adapterの範囲だけで有効であり、mal runtime representation、public C aggregate carrier、
 file、network、永続storageのformatではない。
+reference C hostがこのlayoutを読み書きする場合は、public carrierをcastせず、[C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
 
 ## Placementとaccess
 

@@ -97,13 +97,44 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
 境界通過によって変化しない。`Cursor`、`Region`、`Packed`はpublic C ABIへ出せない。
 
-public headerはHostMappableなbuiltin carrierとhelper、およびextern signatureから到達できるHostMappableなaggregateとopaque型だけを
-生成する。`Symbol`、`Cursor`、`Region`、`Packed`、function、およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。
+public headerはHostMappableなbuiltin carrierとhelper、extern signatureから到達できるHostMappableなaggregateとopaque型、および
+後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Cursor`、`Region`、`Packed`、function、およびそれらを含む
+aggregateの型名、内部carrier、ownership helperを宣言しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
 指定範囲をcall中だけborrowし、書き込みではmalが用意した範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
 call後に保持せず、mal-owned valueのidentity、owner、連続表現を観測しない。長さ、permission、初期化、partial transferの
 postconditionは[`Region`と`Packed`](packed.md#partial-io)とoperation固有のcontractを正とする。
+
+## Canonical memory access
+
+entry sourceで宣言されたpublicなnongeneric type alias `T`が`HostMappable(T)`と`Representable(T)`をともに満たす場合、generated headerは
+次のhelperを生成する。require先で宣言されたaliasは、同名の独立したmodule APIが衝突しないよう、extern signatureから要求される場合を除いて
+entry programのC surfaceへ自動的に再公開しない。
+
+```c
+mal_T_t mal_T_read(mal_call_t *call, mal_Address_t address, mal_USize_t index);
+void mal_T_write(
+    mal_call_t *call,
+    mal_Address_t address,
+    mal_USize_t index,
+    mal_T_t value
+);
+```
+
+helperは`address`を先頭とするcanonical `T`列の`index`番目を、public C carrierとの間でfieldごとに変換する。compilerが同じ
+target layoutからstride、product field offset、sum tag幅、payload offsetを生成するため、unaligned locationでも利用できる。
+`read`はpaddingと非選択payloadを読まず、`write`はpaddingと非選択payloadを書かない。`Unit`のstrideは0であり、storageを
+dereferenceしない。
+
+`read`はcanonical `Bool`、sum tag、`Address`のvalidityを検査し、`write`はhost carrier内の同じ値を検査する。不正値は
+`mal_call_trap`で終了する。これらはC boundaryで内部corruptionを防ぐadmissionであり、source-level memory primitiveへ検査済み
+semanticsを追加しない。
+
+extent、permission、initialization、lifetime、および`index * stride(T)`のoverflowがないことはcallerとoperation固有contractの
+preconditionである。helperはallocation、retain、releaseを行わず、Addressのauthorityを変更しない。public C carrierのlayoutは
+canonical memory layoutではないため、`mal_T_t *`へのcast、`sizeof(mal_T_t)`によるstride推定、field addressの直接対応は保証しない。
+private aliasと、二つのjudgmentのどちらかを満たさないaliasにはhelperもcarrierも追加公開しない。
 
 ## Failureとconcurrency
 
