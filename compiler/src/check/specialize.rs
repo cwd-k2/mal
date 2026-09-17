@@ -14,6 +14,9 @@ pub(super) fn specialize(
     mut program: Program,
     definitions: Vec<GenericDefinition>,
 ) -> Result<Program, Diagnostic> {
+    if definitions.is_empty() {
+        return Ok(program);
+    }
     let definitions = definitions
         .into_iter()
         .map(|definition| (definition.binding.id, definition))
