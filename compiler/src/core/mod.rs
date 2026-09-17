@@ -259,7 +259,11 @@ impl Lowerer {
                     operator: match operator.kind {
                         UnaryOperator::Negate => UnaryPrimitive::Negate,
                         UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
-                        UnaryOperator::LogicalNot | UnaryOperator::SymbolLength => {
+                        UnaryOperator::LogicalNot
+                        | UnaryOperator::SymbolLength
+                        | UnaryOperator::ProjectAddress
+                        | UnaryOperator::Load
+                        | UnaryOperator::Star => {
                             unreachable!("type checking rejects non-numeric core primitives")
                         }
                     },

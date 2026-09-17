@@ -38,6 +38,11 @@ pub enum TopItem {
         name: Name,
         value: Node<TypeExpression>,
     },
+    GenericTypeAlias {
+        name: Name,
+        parameters: Vec<Name>,
+        value: Node<TypeExpression>,
+    },
     ExternalType {
         name: Name,
     },
@@ -46,11 +51,21 @@ pub enum TopItem {
         ty: Node<TypeExpression>,
     },
     Binding(Binding),
+    GenericBinding {
+        name: Name,
+        parameters: Vec<Name>,
+        annotation: Node<TypeExpression>,
+        value: Node<Expression>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeExpression {
     Named(Name),
+    Application {
+        constructor: Name,
+        arguments: Vec<Node<TypeExpression>>,
+    },
     Unit,
     Parenthesized(Box<Node<TypeExpression>>),
     Product(Vec<Node<TypeExpression>>),
@@ -78,6 +93,10 @@ pub enum Pattern {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     Name(Name),
+    GenericName {
+        name: Name,
+        arguments: Vec<Node<TypeExpression>>,
+    },
     Integer(IntegerLiteral),
     Float(DecimalFloatLiteral),
     Byte(u8),
@@ -107,6 +126,12 @@ pub enum Expression {
         type_name: Name,
         value: Box<Node<Expression>>,
     },
+    Placement {
+        value: Box<Node<Expression>>,
+        operand: PlacementOperand,
+    },
+    Align(Box<Node<Expression>>),
+    StrideQuery(Node<LayoutShape>),
     If {
         condition: Box<Node<Expression>>,
         then_branch: ExpressionBlock,
@@ -125,6 +150,33 @@ pub enum Expression {
         left: Box<Node<Expression>>,
         right: Box<Node<Expression>>,
     },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PlacementOperand {
+    Shape(Node<LayoutShape>),
+    Value(Box<Node<Expression>>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LayoutShape {
+    Unit,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
+    Address,
+    ByteSize,
+    USize,
+    Bool,
+    Product(Vec<Node<LayoutShape>>),
+    Sum(Vec<Node<LayoutShape>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -154,11 +206,15 @@ pub enum UnaryOperator {
     LogicalNot,
     BitwiseNot,
     SymbolLength,
+    ProjectAddress,
+    Load,
+    Star,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     SymbolAt,
+    Store,
     Multiply,
     Divide,
     Remainder,

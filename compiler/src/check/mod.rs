@@ -143,6 +143,26 @@ impl Checker {
                     self.check_top_level_initializer(&binding.value)?;
                     TopItem::Binding(Box::new(checked))
                 }
+                resolved::TopItem::GenericTypeAlias { binding, .. } => {
+                    return Err(
+                        Diagnostic::error("generic declarations are not implemented")
+                            .with_primary(
+                                binding.name.span,
+                                "this declaration cannot be checked yet",
+                            )
+                            .into(),
+                    );
+                }
+                resolved::TopItem::GenericBinding { binding, .. } => {
+                    return Err(
+                        Diagnostic::error("generic declarations are not implemented")
+                            .with_primary(
+                                binding.name.span,
+                                "this declaration cannot be checked yet",
+                            )
+                            .into(),
+                    );
+                }
             };
             items.push(Node::new(kind, item.span));
         }

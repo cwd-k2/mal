@@ -7,6 +7,7 @@ pub(super) fn lower_binary_primitive(operator: BinaryOperator) -> BinaryPrimitiv
         BinaryOperator::SymbolAt => {
             unreachable!("Symbol access is lowered before generic binary primitives")
         }
+        BinaryOperator::Store => unreachable!("memory store has a dedicated node"),
         BinaryOperator::Multiply => BinaryPrimitive::Multiply,
         BinaryOperator::Divide => BinaryPrimitive::Divide,
         BinaryOperator::Remainder => BinaryPrimitive::Remainder,

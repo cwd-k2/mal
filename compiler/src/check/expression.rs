@@ -51,6 +51,16 @@ impl Checker {
                 ty: self.value_type(reference)?,
                 span: expression.span,
             },
+            resolved::Expression::GenericReference { .. } => {
+                return Err(
+                    Diagnostic::error("generic specialization is not implemented")
+                        .with_primary(
+                            expression.span,
+                            "this generic reference cannot be checked yet",
+                        )
+                        .into(),
+                );
+            }
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?
             }
@@ -143,6 +153,15 @@ impl Checker {
                     span: expression.span,
                 }
             }
+            resolved::Expression::Placement { .. }
+            | resolved::Expression::Align(_)
+            | resolved::Expression::StrideQuery(_) => {
+                return Err(
+                    Diagnostic::error("external memory expressions are not implemented")
+                        .with_primary(expression.span, "this expression cannot be checked yet")
+                        .into(),
+                );
+            }
             resolved::Expression::If {
                 condition,
                 then_branch,
@@ -158,6 +177,18 @@ impl Checker {
                 self.check_when(condition, body, expression.span)?
             }
             resolved::Expression::Unary { operator, operand } => {
+                if matches!(
+                    operator.kind,
+                    crate::ast::UnaryOperator::ProjectAddress
+                        | crate::ast::UnaryOperator::Load
+                        | crate::ast::UnaryOperator::Star
+                ) {
+                    return Err(Diagnostic::error(
+                        "external memory expressions are not implemented",
+                    )
+                    .with_primary(expression.span, "this expression cannot be checked yet")
+                    .into());
+                }
                 self.check_unary(operator, operand, expression.span, expected)?
             }
             resolved::Expression::Binary {

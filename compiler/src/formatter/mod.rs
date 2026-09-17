@@ -4,6 +4,7 @@ use crate::lexer::{Lexed, LexemeKind, TokenKind};
 use crate::source::SourceFile;
 
 mod control;
+mod generic;
 mod layout;
 mod token;
 
@@ -39,6 +40,7 @@ struct Formatter<'a> {
     blocks: BlockLayout,
     top_level_breaks: Vec<usize>,
     next_top_level_break: usize,
+    generic_delimiters: Vec<bool>,
 }
 
 impl<'a> Formatter<'a> {
@@ -65,6 +67,7 @@ impl<'a> Formatter<'a> {
             blocks: BlockLayout::new(source, lexed),
             top_level_breaks: top_level_breaks(source, lexed, program),
             next_top_level_break: 0,
+            generic_delimiters: generic::delimiters(lexed, program),
         }
     }
 

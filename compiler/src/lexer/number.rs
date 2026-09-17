@@ -176,6 +176,8 @@ impl Lexer<'_> {
             ("u16", IntegerSuffix::UInt16),
             ("u32", IntegerSuffix::UInt32),
             ("u64", IntegerSuffix::UInt64),
+            ("bytes", IntegerSuffix::ByteSize),
+            ("usize", IntegerSuffix::USize),
         ];
         let suffix = suffixes
             .into_iter()
@@ -194,7 +196,7 @@ impl Lexer<'_> {
                 start,
                 self.offset,
                 "invalid integer literal",
-                "expected a fixed-width integer suffix",
+                "expected an integer suffix",
             ));
         }
 

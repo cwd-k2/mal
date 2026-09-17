@@ -17,8 +17,12 @@ impl ControlLayout {
             sum_break_before: vec![false; lexed.tokens.len()],
         };
         for item in &program.items {
-            if let TopItem::Binding(binding) = &item.kind {
-                layout.mark_expression(lexed, &binding.value, false);
+            match &item.kind {
+                TopItem::Binding(binding) => layout.mark_expression(lexed, &binding.value, false),
+                TopItem::GenericBinding { value, .. } => {
+                    layout.mark_expression(lexed, value, false);
+                }
+                _ => {}
             }
         }
         layout
@@ -82,6 +86,13 @@ impl ControlLayout {
                     pending.push((value, false));
                 }
                 Expression::Conversion { value, .. } => pending.push((value, false)),
+                Expression::Placement { value, operand } => {
+                    if let crate::ast::PlacementOperand::Value(operand) = operand {
+                        pending.push((operand, false));
+                    }
+                    pending.push((value, false));
+                }
+                Expression::Align(value) => pending.push((value, false)),
                 Expression::If {
                     condition,
                     then_branch,
@@ -103,11 +114,13 @@ impl ControlLayout {
                     pending.push((left, false));
                 }
                 Expression::Name(_)
+                | Expression::GenericName { .. }
                 | Expression::Integer(_)
                 | Expression::Float(_)
                 | Expression::Byte(_)
                 | Expression::Symbol(_)
                 | Expression::TypeQualifiedPrimitive { .. }
+                | Expression::StrideQuery(_)
                 | Expression::Unit => {}
             }
         }

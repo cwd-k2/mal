@@ -4,6 +4,18 @@ use crate::resolve::ast::TypeExpression;
 pub(super) fn type_name(ty: &Node<TypeExpression>) -> String {
     match &ty.kind {
         TypeExpression::Named(reference) => reference.name.text.clone(),
+        TypeExpression::Application {
+            constructor,
+            arguments,
+        } => format!(
+            "{}<{}>",
+            constructor.name.text,
+            arguments
+                .iter()
+                .map(type_name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
         TypeExpression::Unit => "Unit".into(),
         TypeExpression::Parenthesized(inner) => format!("({})", type_name(inner)),
         TypeExpression::Product(elements) => format!(

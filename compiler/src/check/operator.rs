@@ -20,6 +20,7 @@ impl Checker {
     ) -> Option<Type> {
         match operator.kind {
             BinaryOperator::SymbolAt => Some(Type::Symbol),
+            BinaryOperator::Store => None,
             BinaryOperator::Add | BinaryOperator::Subtract => expected
                 .filter(|ty| {
                     **ty == Type::Ptr
@@ -240,7 +241,10 @@ impl Checker {
                 let result = left.ty.clone();
                 (left, right, result)
             }
-            BinaryOperator::SymbolAt | BinaryOperator::Add | BinaryOperator::Subtract => {
+            BinaryOperator::SymbolAt
+            | BinaryOperator::Store
+            | BinaryOperator::Add
+            | BinaryOperator::Subtract => {
                 unreachable!("specialized operators are checked separately")
             }
         };
@@ -327,7 +331,10 @@ impl Checker {
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
                 numeric || left.ty == bool_type() || left.ty == Type::Symbol
             }
-            BinaryOperator::SymbolAt | BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
+            BinaryOperator::SymbolAt
+            | BinaryOperator::Store
+            | BinaryOperator::LogicalAnd
+            | BinaryOperator::LogicalOr => {
                 unreachable!("specialized operators return above")
             }
         };

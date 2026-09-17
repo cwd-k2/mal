@@ -15,9 +15,9 @@ pub struct ExternalOperationId(pub u32);
 pub struct LambdaId(pub u32);
 
 pub use super::predefined::{
-    BOOL_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
-    INT64_TYPE, PTR_TYPE, SYMBOL_TYPE, TRUE_VALUE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
-    UINT64_TYPE, UNIT_TYPE,
+    ADDRESS_TYPE, BOOL_TYPE, BYTE_SIZE_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE,
+    INT16_TYPE, INT32_TYPE, INT64_TYPE, PTR_TYPE, SYMBOL_TYPE, TRUE_VALUE, U_SIZE_TYPE, UINT8_TYPE,
+    UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -65,6 +65,11 @@ pub enum TopItem {
         binding: TypeBinding,
         value: Node<TypeExpression>,
     },
+    GenericTypeAlias {
+        binding: TypeBinding,
+        parameters: Vec<TypeBinding>,
+        value: Node<TypeExpression>,
+    },
     ExternalType {
         binding: TypeBinding,
     },
@@ -75,11 +80,21 @@ pub enum TopItem {
         ty: Node<TypeExpression>,
     },
     Binding(Binding),
+    GenericBinding {
+        binding: ValueBinding,
+        parameters: Vec<TypeBinding>,
+        annotation: Node<TypeExpression>,
+        value: Node<Expression>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeExpression {
     Named(TypeReference),
+    Application {
+        constructor: TypeReference,
+        arguments: Vec<Node<TypeExpression>>,
+    },
     Unit,
     Parenthesized(Box<Node<TypeExpression>>),
     Product(Vec<Node<TypeExpression>>),
@@ -107,6 +122,10 @@ pub enum Pattern {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     Reference(ValueReference),
+    GenericReference {
+        reference: ValueReference,
+        arguments: Vec<Node<TypeExpression>>,
+    },
     Integer(IntegerLiteral),
     Float(DecimalFloatLiteral),
     Byte(u8),
@@ -136,6 +155,12 @@ pub enum Expression {
         type_ref: TypeReference,
         value: Box<Node<Expression>>,
     },
+    Placement {
+        value: Box<Node<Expression>>,
+        operand: PlacementOperand,
+    },
+    Align(Box<Node<Expression>>),
+    StrideQuery(Node<crate::ast::LayoutShape>),
     If {
         condition: Box<Node<Expression>>,
         then_branch: ExpressionBlock,
@@ -154,6 +179,12 @@ pub enum Expression {
         left: Box<Node<Expression>>,
         right: Box<Node<Expression>>,
     },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PlacementOperand {
+    Shape(Node<crate::ast::LayoutShape>),
+    Value(Box<Node<Expression>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

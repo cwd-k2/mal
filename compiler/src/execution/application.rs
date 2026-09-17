@@ -300,8 +300,11 @@ fn atom_fingerprint(ty: &Type) -> u64 {
         Type::Float64 => 10_u8.hash(&mut hasher),
         Type::Symbol => 11_u8.hash(&mut hasher),
         Type::Ptr => 12_u8.hash(&mut hasher),
+        Type::Address => 13_u8.hash(&mut hasher),
+        Type::ByteSize => 14_u8.hash(&mut hasher),
+        Type::USize => 15_u8.hash(&mut hasher),
         Type::External { id, name } => {
-            13_u8.hash(&mut hasher);
+            16_u8.hash(&mut hasher);
             id.hash(&mut hasher);
             name.hash(&mut hasher);
         }

@@ -1,9 +1,9 @@
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, BOOL_TYPE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
-    INT64_TYPE, PTR_TYPE, SYMBOL_TYPE, TypeId, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
-    UNIT_TYPE,
+    self as resolved, ADDRESS_TYPE, BOOL_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE, FLOAT64_TYPE,
+    INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PTR_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
+    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 use crate::source::Span;
 
@@ -66,6 +66,12 @@ impl Checker {
                 Expansion::Expression(expression) => match expression.kind {
                     resolved::TypeExpression::Named(reference) => {
                         pending.push(Expansion::Reference(reference.id, reference.name.span));
+                    }
+                    resolved::TypeExpression::Application { constructor, .. } => {
+                        return Err(Diagnostic::error(
+                            "generic type application is not implemented",
+                        )
+                        .with_primary(constructor.name.span, "this type cannot be expanded yet"));
                     }
                     resolved::TypeExpression::Unit => values.push(Type::Unit),
                     resolved::TypeExpression::Parenthesized(inner) => {
@@ -162,6 +168,9 @@ fn predefined_type(id: TypeId) -> Option<Type> {
         BOOL_TYPE => Type::Sum(vec![Type::Unit, Type::Unit].into()),
         SYMBOL_TYPE => Type::Symbol,
         PTR_TYPE => Type::Ptr,
+        ADDRESS_TYPE => Type::Address,
+        BYTE_SIZE_TYPE => Type::ByteSize,
+        U_SIZE_TYPE => Type::USize,
         _ => return None,
     })
 }
@@ -345,6 +354,9 @@ pub(super) fn type_name(ty: &Type) -> String {
                 Type::Float64 => "Float64",
                 Type::Symbol => "Symbol",
                 Type::Ptr => "Ptr",
+                Type::Address => "Address",
+                Type::ByteSize => "ByteSize",
+                Type::USize => "USize",
                 Type::External { name, .. } => name,
                 Type::Product(elements) => {
                     push_aggregate_name(&mut pending, elements, ")");

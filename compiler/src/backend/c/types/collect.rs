@@ -35,7 +35,10 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr => {}
+                | Type::Ptr
+                | Type::Address
+                | Type::ByteSize
+                | Type::USize => {}
             }
         }
     }
@@ -90,6 +93,9 @@ impl TypeRegistry {
             Type::Float64 => super::ElementKey::Float64,
             Type::Symbol => super::ElementKey::Symbol,
             Type::Ptr => super::ElementKey::Ptr,
+            Type::Address => super::ElementKey::Address,
+            Type::ByteSize => super::ElementKey::ByteSize,
+            Type::USize => super::ElementKey::USize,
             Type::External { id, .. } => super::ElementKey::External(*id),
             Type::Product(_) | Type::Sum(_) => super::ElementKey::Aggregate(self.index(ty)),
             Type::Function { .. } => {

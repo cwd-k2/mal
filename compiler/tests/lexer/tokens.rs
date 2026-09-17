@@ -79,7 +79,9 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> => + - * / % ! != == ~ & && | || ^ . # << >>"),
+        kinds(
+            "_ ( ) { } [ ] < <= > >= , ; :: := -> => <- + - * / % ! != == ~ & && | || ^ . # @ ? << >>"
+        ),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -98,6 +100,7 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::Bind,
             TokenKind::Arrow,
             TokenKind::FatArrow,
+            TokenKind::LeftArrow,
             TokenKind::Plus,
             TokenKind::Minus,
             TokenKind::Star,
@@ -114,6 +117,8 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::Caret,
             TokenKind::Dot,
             TokenKind::Hash,
+            TokenKind::At,
+            TokenKind::Question,
             TokenKind::ShiftLeft,
             TokenKind::ShiftRight,
             TokenKind::Eof,
@@ -202,7 +207,7 @@ fn invalid_characters_produce_renderable_utf8_aligned_spans() {
 
 #[test]
 fn rejects_characters_outside_the_token_grammar() {
-    for text in ["@", "$"] {
+    for text in ["$"] {
         let error = lex(&source(text)).expect_err("unknown punctuation must be rejected");
         assert_eq!(error.message, "invalid token");
     }

@@ -106,6 +106,26 @@ fn formats_requirements_as_a_leading_group() {
 }
 
 #[test]
+fn keeps_generic_delimiters_attached_without_changing_comparisons_or_shifts() {
+    let formatted = format(
+        "Pair < A,B >::(A,B); identity < A >::A->A:=(value)->value; value:=identity < Pair < Int32 >> (input); compare:=left<right; shift:=left>>right;",
+    );
+    assert_eq!(
+        formatted,
+        concat!(
+            "Pair<A, B> :: (A, B);\n",
+            "\n",
+            "identity<A> :: A -> A := (value) -> value;\n",
+            "\n",
+            "value := identity<Pair<Int32>>(input);\n",
+            "compare := left < right;\n",
+            "shift := left >> right;\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn keeps_type_qualified_primitives_attached() {
     assert_eq!(
         format("size::UInt64:=Ptr . size+UInt64. load;"),

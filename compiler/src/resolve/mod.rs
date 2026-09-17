@@ -120,6 +120,20 @@ impl Resolver {
                 binding: self.type_binding(name)?,
                 value: self.resolve_type(value)?,
             },
+            crate::ast::TopItem::GenericTypeAlias {
+                name,
+                parameters,
+                value,
+            } => {
+                let (bindings, shadowed) = self.push_type_parameters(parameters)?;
+                let resolved = self.resolve_type(value);
+                self.pop_type_parameters(&bindings, shadowed);
+                ast::TopItem::GenericTypeAlias {
+                    binding: self.type_binding(name)?,
+                    parameters: bindings,
+                    value: resolved?,
+                }
+            }
             crate::ast::TopItem::ExternalType { name } => ast::TopItem::ExternalType {
                 binding: self.type_binding(name)?,
             },
@@ -138,6 +152,37 @@ impl Resolver {
             crate::ast::TopItem::Binding(binding) => {
                 ast::TopItem::Binding(self.resolve_binding(binding, ValueOwner::TopLevel)?)
             }
+            crate::ast::TopItem::GenericBinding {
+                name,
+                parameters,
+                annotation,
+                value,
+            } => {
+                let binding = self.declare_value(name, ValueOwner::TopLevel)?;
+                let (parameter_bindings, shadowed) = self.push_type_parameters(parameters)?;
+                let resolved = (|| {
+                    let annotation = self.resolve_type(annotation)?;
+                    let value = if let crate::ast::Expression::Lambda(lambda) = &value.kind {
+                        crate::ast::Node::new(
+                            ast::Expression::Lambda(
+                                self.resolve_lambda_with_self(lambda, Some(binding.clone()))?,
+                            ),
+                            value.span,
+                        )
+                    } else {
+                        self.resolve_expression(value)?
+                    };
+                    Ok((annotation, value))
+                })();
+                self.pop_type_parameters(&parameter_bindings, shadowed);
+                let (annotation, value) = resolved?;
+                ast::TopItem::GenericBinding {
+                    binding,
+                    parameters: parameter_bindings,
+                    annotation,
+                    value,
+                }
+            }
         };
         Ok(crate::ast::Node::new(kind, item.span))
     }
@@ -150,6 +195,16 @@ impl Resolver {
             crate::ast::TypeExpression::Named(name) => {
                 ast::TypeExpression::Named(self.type_reference(name)?)
             }
+            crate::ast::TypeExpression::Application {
+                constructor,
+                arguments,
+            } => ast::TypeExpression::Application {
+                constructor: self.type_reference(constructor)?,
+                arguments: arguments
+                    .iter()
+                    .map(|argument| self.resolve_type(argument))
+                    .collect::<Result<_, _>>()?,
+            },
             crate::ast::TypeExpression::Unit => ast::TypeExpression::Unit,
             crate::ast::TypeExpression::Parenthesized(inner) => {
                 ast::TypeExpression::Parenthesized(Box::new(self.resolve_type(inner)?))
@@ -174,6 +229,43 @@ impl Resolver {
             }
         };
         Ok(crate::ast::Node::new(kind, ty.span))
+    }
+
+    fn push_type_parameters(
+        &mut self,
+        parameters: &[crate::ast::Name],
+    ) -> Result<(Vec<TypeBinding>, Vec<Option<TypeBinding>>), Diagnostic> {
+        let mut bindings = Vec::with_capacity(parameters.len());
+        let mut shadowed = Vec::with_capacity(parameters.len());
+        let mut names = std::collections::HashSet::new();
+        for name in parameters {
+            if !names.insert(name.text.clone()) {
+                self.pop_type_parameters(&bindings, shadowed);
+                return Err(Diagnostic::error("duplicate type parameter")
+                    .with_primary(name.span, "this parameter is declared more than once"));
+            }
+            let binding = TypeBinding {
+                id: ast::TypeId(self.next_type),
+                name: name.clone(),
+            };
+            self.next_type += 1;
+            shadowed.push(self.types.insert(name.text.clone(), binding.clone()));
+            bindings.push(binding);
+        }
+        Ok((bindings, shadowed))
+    }
+
+    fn pop_type_parameters(
+        &mut self,
+        parameters: &[TypeBinding],
+        shadowed: Vec<Option<TypeBinding>>,
+    ) {
+        for (parameter, previous) in parameters.iter().zip(shadowed) {
+            self.types.remove(&parameter.name.text);
+            if let Some(previous) = previous {
+                self.types.insert(parameter.name.text.clone(), previous);
+            }
+        }
     }
 
     fn resolve_binding(

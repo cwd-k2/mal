@@ -66,6 +66,23 @@ impl Formatter<'_> {
             self.newline();
         }
         self.preserve_source_break(token_index, kind);
+        if self.generic_delimiters[token_index] {
+            match kind {
+                TokenKind::Less => {
+                    self.trim_space();
+                    self.write(text);
+                    self.previous = Previous::Operator;
+                    return;
+                }
+                TokenKind::Greater | TokenKind::ShiftRight => {
+                    self.trim_space();
+                    self.write(text);
+                    self.previous = Previous::Word;
+                    return;
+                }
+                _ => unreachable!("only generic angle delimiters are marked"),
+            }
+        }
         match kind {
             TokenKind::LeftBrace => {
                 self.write_left_brace(token_index, text);
@@ -120,7 +137,7 @@ impl Formatter<'_> {
                 self.write(text);
                 self.previous = Previous::Unary;
             }
-            TokenKind::Bang | TokenKind::Tilde => {
+            TokenKind::Bang | TokenKind::Tilde | TokenKind::Question | TokenKind::LeftArrow => {
                 if self.previous.ends_expression() {
                     self.space();
                 }
@@ -162,6 +179,7 @@ impl Formatter<'_> {
             | TokenKind::PipePipe
             | TokenKind::Caret
             | TokenKind::Hash
+            | TokenKind::At
             | TokenKind::ShiftLeft
             | TokenKind::ShiftRight => {
                 self.space();

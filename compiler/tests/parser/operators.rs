@@ -90,3 +90,61 @@ fn rejects_non_associative_operator_chains() {
         assert_eq!(error.message, "non-associative operator chain");
     }
 }
+
+#[test]
+fn parses_closed_shapes_memory_operators_and_postfix_chains() {
+    let Expression::StrideQuery(shape) = binding_value("value := #(address, bytesize);") else {
+        panic!("expected a stride query");
+    };
+    assert!(
+        matches!(shape.kind, malc::ast::LayoutShape::Product(ref members) if members.len() == 2)
+    );
+
+    let Expression::Align(placement) = binding_value("value := address@u64@count!;") else {
+        panic!("expected postfix alignment");
+    };
+    assert!(matches!(placement.kind, Expression::Placement { .. }));
+
+    let Expression::Binary { operator, .. } = binding_value("value := cursor <- item;") else {
+        panic!("expected store");
+    };
+    assert_eq!(operator.kind, BinaryOperator::Store);
+
+    let Expression::Unary { operator, .. } = binding_value("value := <-cursor;") else {
+        panic!("expected load");
+    };
+    assert_eq!(operator.kind, UnaryOperator::Load);
+}
+
+#[test]
+fn keeps_comparison_and_shift_distinct_from_generic_delimiters() {
+    let comparison = binding_value("value := left < right;");
+    assert!(matches!(
+        comparison,
+        Expression::Binary {
+            operator: malc::ast::Node {
+                kind: BinaryOperator::Less,
+                ..
+            },
+            ..
+        }
+    ));
+
+    let shift = binding_value("value := left >> right;");
+    assert!(matches!(
+        shift,
+        Expression::Binary {
+            operator: malc::ast::Node {
+                kind: BinaryOperator::ShiftRight,
+                ..
+            },
+            ..
+        }
+    ));
+
+    let generic = binding_value("value := identity<Pair<Int32>>(input);");
+    let Expression::Call { callee, .. } = generic else {
+        panic!("expected call")
+    };
+    assert!(matches!(callee.kind, Expression::GenericName { .. }));
+}

@@ -20,6 +20,9 @@ pub enum Type {
     Float64,
     Symbol,
     Ptr,
+    Address,
+    ByteSize,
+    USize,
     External {
         id: TypeId,
         name: String,
@@ -60,7 +63,10 @@ impl PartialEq for Type {
                 | (Self::Float32, Self::Float32)
                 | (Self::Float64, Self::Float64)
                 | (Self::Symbol, Self::Symbol)
-                | (Self::Ptr, Self::Ptr) => {}
+                | (Self::Ptr, Self::Ptr)
+                | (Self::Address, Self::Address)
+                | (Self::ByteSize, Self::ByteSize)
+                | (Self::USize, Self::USize) => {}
                 (
                     Self::External {
                         id: left_id,

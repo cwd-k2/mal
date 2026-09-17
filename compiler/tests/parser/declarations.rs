@@ -92,3 +92,43 @@ fn rejects_missing_top_level_semicolon_at_eof() {
     assert_eq!(error.message, "expected `;`");
     assert!(error.render(&source).contains("parser-test.mal:1:11"));
 }
+
+#[test]
+fn parses_generic_aliases_bindings_and_nested_indexed_types() {
+    let program = parse_ok(
+        "Pair<A> :: (A, A);\n\
+         identity<A> :: A -> A := (value) -> value;\n\
+         read :: Region<Packed<UInt8>> -> Packed<UInt8> := (region) -> identity<Packed<UInt8>>(<-region);",
+    );
+
+    let TopItem::GenericTypeAlias {
+        parameters, value, ..
+    } = &program.items[0].kind
+    else {
+        panic!("expected a generic alias");
+    };
+    assert_eq!(
+        parameters
+            .iter()
+            .map(|name| name.text.as_str())
+            .collect::<Vec<_>>(),
+        ["A"]
+    );
+    assert!(matches!(value.kind, TypeExpression::Product(_)));
+
+    let TopItem::GenericBinding { parameters, .. } = &program.items[1].kind else {
+        panic!("expected a generic binding");
+    };
+    assert_eq!(parameters[0].text, "A");
+
+    let TopItem::Binding(read) = &program.items[2].kind else {
+        panic!("expected a monomorphic binding");
+    };
+    let Some(annotation) = &read.annotation else {
+        panic!("expected an annotation")
+    };
+    let TypeExpression::Function { parameter, .. } = &annotation.kind else {
+        panic!("expected a function type");
+    };
+    assert!(matches!(parameter.kind, TypeExpression::Application { .. }));
+}

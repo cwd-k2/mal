@@ -49,6 +49,8 @@ pub enum IntegerSuffix {
     UInt16,
     UInt32,
     UInt64,
+    ByteSize,
+    USize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -98,6 +100,9 @@ pub enum TokenKind {
     Caret,
     Dot,
     Hash,
+    At,
+    Question,
+    LeftArrow,
     ShiftLeft,
     ShiftRight,
     Eof,

@@ -30,7 +30,21 @@ impl Parser<'_> {
                 continue;
             }
             if self.at(&TokenKind::Dot) && 23 >= minimum {
-                left = self.parse_receiver_call(left)?;
+                left = if self.at_conversion_suffix() {
+                    self.parse_conversion_suffix(left)?
+                } else {
+                    self.parse_receiver_call(left)?
+                };
+                continue;
+            }
+            if self.at(&TokenKind::At) && 23 >= minimum {
+                left = self.parse_placement(left)?;
+                continue;
+            }
+            if self.at(&TokenKind::Bang) && 23 >= minimum {
+                let end = self.advance().span.end();
+                let start = left.span.start();
+                left = Node::new(Expression::Align(Box::new(left)), self.span(start, end));
                 continue;
             }
             let Some((operator, precedence, is_non_associative)) = self.binary_operator() else {
@@ -62,6 +76,28 @@ impl Parser<'_> {
     }
 
     fn parse_prefix(&mut self) -> Result<Node<Expression>, Diagnostic> {
+        if self.at(&TokenKind::Hash) {
+            let checkpoint = (
+                self.position,
+                self.pending_generic_closers,
+                self.generic_close_span,
+            );
+            let start = self.advance().span.start();
+            if self.starts_layout_shape()
+                && let Ok(shape) = self.parse_layout_shape()
+            {
+                let end = shape.span.end();
+                return Ok(Node::new(
+                    Expression::StrideQuery(shape),
+                    self.span(start, end),
+                ));
+            }
+            (
+                self.position,
+                self.pending_generic_closers,
+                self.generic_close_span,
+            ) = checkpoint;
+        }
         if let Some(operator) = self.unary_operator() {
             let token = self.advance().clone();
             let minimum = if operator == UnaryOperator::SymbolLength {
@@ -81,6 +117,26 @@ impl Parser<'_> {
         }
         if self.at(&TokenKind::ValueIdentifier) {
             let name = self.parse_name(&TokenKind::ValueIdentifier, "a value name")?;
+            if self.at(&TokenKind::Less) {
+                let checkpoint = (
+                    self.position,
+                    self.pending_generic_closers,
+                    self.generic_close_span,
+                );
+                if let Ok(arguments) = self.parse_type_arguments() {
+                    let end = self.previous_generic_close_span().end();
+                    let start = name.span.start();
+                    return Ok(Node::new(
+                        Expression::GenericName { name, arguments },
+                        self.span(start, end),
+                    ));
+                }
+                (
+                    self.position,
+                    self.pending_generic_closers,
+                    self.generic_close_span,
+                ) = checkpoint;
+            }
             let span = name.span;
             return Ok(Node::new(Expression::Name(name), span));
         }
@@ -160,6 +216,7 @@ impl Parser<'_> {
             TokenKind::Slash => (BinaryOperator::Divide, 19, false),
             TokenKind::Percent => (BinaryOperator::Remainder, 19, false),
             TokenKind::Hash => (BinaryOperator::SymbolAt, 21, true),
+            TokenKind::LeftArrow => (BinaryOperator::Store, 0, false),
             _ => return None,
         })
     }
@@ -170,6 +227,9 @@ impl Parser<'_> {
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
             TokenKind::Hash => Some(UnaryOperator::SymbolLength),
+            TokenKind::Question => Some(UnaryOperator::ProjectAddress),
+            TokenKind::LeftArrow => Some(UnaryOperator::Load),
+            TokenKind::Star => Some(UnaryOperator::Star),
             _ => None,
         }
     }

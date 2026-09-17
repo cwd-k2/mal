@@ -25,6 +25,9 @@ predefined!(TypeId, TYPES;
     FLOAT32_TYPE = 11 => "Float32",
     FLOAT64_TYPE = 12 => "Float64",
     PTR_TYPE = 13 => "Ptr",
+    BYTE_SIZE_TYPE = 14 => "ByteSize",
+    U_SIZE_TYPE = 15 => "USize",
+    ADDRESS_TYPE = 16 => "Address",
 );
 
 predefined!(ValueId, VALUES;

@@ -15,6 +15,13 @@ impl Resolver {
             ast::Expression::Name(name) => {
                 Expression::Reference(self.resolve_value_reference(name)?)
             }
+            ast::Expression::GenericName { name, arguments } => Expression::GenericReference {
+                reference: self.resolve_value_reference(name)?,
+                arguments: arguments
+                    .iter()
+                    .map(|argument| self.resolve_type(argument))
+                    .collect::<Result<_, _>>()?,
+            },
             ast::Expression::Integer(value) => Expression::Integer(value.clone()),
             ast::Expression::Float(value) => Expression::Float(value.clone()),
             ast::Expression::Byte(value) => Expression::Byte(*value),
@@ -61,9 +68,24 @@ impl Resolver {
                     .collect::<Result<_, _>>()?,
             },
             ast::Expression::Conversion { type_name, value } => Expression::Conversion {
-                type_ref: self.type_reference(type_name)?,
+                type_ref: self.conversion_type_reference(type_name)?,
                 value: Box::new(self.resolve_expression(value)?),
             },
+            ast::Expression::Placement { value, operand } => Expression::Placement {
+                value: Box::new(self.resolve_expression(value)?),
+                operand: match operand {
+                    ast::PlacementOperand::Shape(shape) => {
+                        super::ast::PlacementOperand::Shape(shape.clone())
+                    }
+                    ast::PlacementOperand::Value(value) => super::ast::PlacementOperand::Value(
+                        Box::new(self.resolve_expression(value)?),
+                    ),
+                },
+            },
+            ast::Expression::Align(value) => {
+                Expression::Align(Box::new(self.resolve_expression(value)?))
+            }
+            ast::Expression::StrideQuery(shape) => Expression::StrideQuery(shape.clone()),
             ast::Expression::If {
                 condition,
                 then_branch,
@@ -84,6 +106,31 @@ impl Resolver {
             ast::Expression::Binary { .. } => return self.resolve_binary_chain(expression),
         };
         Ok(ast::Node::new(kind, expression.span))
+    }
+
+    fn conversion_type_reference(
+        &self,
+        name: &ast::Name,
+    ) -> Result<super::ast::TypeReference, Diagnostic> {
+        let canonical = match name.text.as_str() {
+            "i8" => "Int8",
+            "i16" => "Int16",
+            "i32" => "Int32",
+            "i64" => "Int64",
+            "u8" => "UInt8",
+            "u16" => "UInt16",
+            "u32" => "UInt32",
+            "u64" => "UInt64",
+            "f32" => "Float32",
+            "f64" => "Float64",
+            "bytes" => "ByteSize",
+            "usize" => "USize",
+            _ => return self.type_reference(name),
+        };
+        self.type_reference(&ast::Name {
+            text: canonical.into(),
+            span: name.span,
+        })
     }
 
     fn resolve_binary_chain(

@@ -184,10 +184,12 @@ pub(super) fn top_level_breaks(
 }
 
 fn is_function_binding(item: &TopItem) -> bool {
-    let TopItem::Binding(binding) = item else {
-        return false;
+    let expression = match item {
+        TopItem::Binding(binding) => &binding.value.kind,
+        TopItem::GenericBinding { value, .. } => &value.kind,
+        _ => return false,
     };
-    let mut expression = &binding.value.kind;
+    let mut expression = expression;
     while let crate::ast::Expression::Parenthesized(inner) = expression {
         expression = &inner.kind;
     }

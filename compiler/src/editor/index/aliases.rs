@@ -4,8 +4,14 @@ use super::Index;
 
 impl Index {
     pub(super) fn collect_aliases_top(&mut self, item: &resolved::TopItem) {
-        if let resolved::TopItem::Binding(binding) = item {
-            self.collect_aliases_expression(&binding.value.kind);
+        match item {
+            resolved::TopItem::Binding(binding) => {
+                self.collect_aliases_expression(&binding.value.kind)
+            }
+            resolved::TopItem::GenericBinding { value, .. } => {
+                self.collect_aliases_expression(&value.kind)
+            }
+            _ => {}
         }
     }
 
@@ -49,6 +55,13 @@ impl Index {
             Expression::Conversion { value, .. } => {
                 self.collect_aliases_expression(&value.kind);
             }
+            Expression::Placement { value, operand } => {
+                self.collect_aliases_expression(&value.kind);
+                if let resolved::PlacementOperand::Value(operand) = operand {
+                    self.collect_aliases_expression(&operand.kind);
+                }
+            }
+            Expression::Align(value) => self.collect_aliases_expression(&value.kind),
             Expression::If {
                 condition,
                 then_branch,
@@ -75,11 +88,13 @@ impl Index {
                 }
             }
             Expression::Reference(_)
+            | Expression::GenericReference { .. }
             | Expression::Integer(_)
             | Expression::Float(_)
             | Expression::Byte(_)
             | Expression::Symbol(_)
             | Expression::TypeQualifiedPrimitive { .. }
+            | Expression::StrideQuery(_)
             | Expression::Unit => {}
         }
     }

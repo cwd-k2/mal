@@ -111,6 +111,8 @@ pub(super) fn literal_type(suffix: Option<IntegerSuffix>) -> Option<Type> {
         IntegerSuffix::UInt16 => Type::UInt16,
         IntegerSuffix::UInt32 => Type::UInt32,
         IntegerSuffix::UInt64 => Type::UInt64,
+        IntegerSuffix::ByteSize => Type::ByteSize,
+        IntegerSuffix::USize => Type::USize,
     })
 }
 
@@ -125,6 +127,8 @@ pub(super) fn is_integer(ty: &Type) -> bool {
             | Type::UInt16
             | Type::UInt32
             | Type::UInt64
+            | Type::ByteSize
+            | Type::USize
     )
 }
 
@@ -137,7 +141,7 @@ fn integer_bits(ty: &Type) -> u32 {
         Type::Int8 | Type::UInt8 => 8,
         Type::Int16 | Type::UInt16 => 16,
         Type::Int32 | Type::UInt32 => 32,
-        Type::Int64 | Type::UInt64 => 64,
+        Type::Int64 | Type::UInt64 | Type::ByteSize | Type::USize => 64,
         _ => unreachable!("called only for integer types"),
     }
 }

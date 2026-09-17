@@ -44,6 +44,9 @@ enum ElementKey {
     Float64,
     Symbol,
     Ptr,
+    Address,
+    ByteSize,
+    USize,
     External(TypeId),
     Aggregate(usize),
 }
@@ -67,6 +70,9 @@ impl TypeRegistry {
             Type::Float64 => TypeName::named("MalType_Float64"),
             Type::Symbol => TypeName::named("MalType_Symbol"),
             Type::Ptr => TypeName::named("MalType_Ptr"),
+            Type::Address => TypeName::named("MalType_Address"),
+            Type::ByteSize => TypeName::named("MalType_ByteSize"),
+            Type::USize => TypeName::named("MalType_USize"),
             Type::External { name, .. } => TypeName::named(format!("MalType_{name}")),
             Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
             Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
@@ -95,6 +101,9 @@ impl TypeRegistry {
             Type::Float64 => TypeName::named("mal_Float64_t"),
             Type::Symbol => TypeName::named("mal_Symbol_t"),
             Type::Ptr => TypeName::named("mal_Ptr_t"),
+            Type::Address => TypeName::named("mal_Address_t"),
+            Type::ByteSize => TypeName::named("mal_ByteSize_t"),
+            Type::USize => TypeName::named("mal_USize_t"),
             Type::External { name, .. } => TypeName::named(format!("mal_{name}_t")),
             Type::Product(_) => TypeName::named(format!("mal_repr_product_{}_t", self.index(ty))),
             Type::Sum(_) => TypeName::named(format!("mal_repr_sum_{}_t", self.index(ty))),
@@ -127,7 +136,10 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr => unreachable!(),
+                | Type::Ptr
+                | Type::Address
+                | Type::ByteSize
+                | Type::USize => unreachable!(),
             };
             output.push(Declaration::type_alias(
                 TypeName::structure(format!("{kind}_{index}")),
@@ -204,7 +216,10 @@ impl TypeRegistry {
                 | Type::Float32
                 | Type::Float64
                 | Type::Symbol
-                | Type::Ptr => unreachable!(),
+                | Type::Ptr
+                | Type::Address
+                | Type::ByteSize
+                | Type::USize => unreachable!(),
             }
         }
         output

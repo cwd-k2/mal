@@ -19,6 +19,31 @@ impl Index {
                 );
                 self.collect_resolved_type(value);
             }
+            resolved::TopItem::GenericTypeAlias {
+                binding,
+                parameters,
+                value,
+            } => {
+                let id = SymbolId::Type(binding.id);
+                self.type_details
+                    .insert(binding.id, super::type_display::type_name(value));
+                self.top_level.push(id);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
+                for parameter in parameters {
+                    self.add_raw(
+                        SymbolId::Type(parameter.id),
+                        &parameter.name,
+                        OccurrenceRole::Declaration,
+                        None,
+                    );
+                }
+                self.collect_resolved_type(value);
+            }
             resolved::TopItem::ExternalType { binding } => {
                 let id = SymbolId::Type(binding.id);
                 self.top_level.push(id);
@@ -46,6 +71,31 @@ impl Index {
             resolved::TopItem::Binding(binding) => {
                 self.collect_resolved_binding(binding, true, item.span);
             }
+            resolved::TopItem::GenericBinding {
+                binding,
+                parameters,
+                annotation,
+                value,
+            } => {
+                let id = SymbolId::Value(binding.id);
+                self.top_level.push(id);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
+                for parameter in parameters {
+                    self.add_raw(
+                        SymbolId::Type(parameter.id),
+                        &parameter.name,
+                        OccurrenceRole::Declaration,
+                        None,
+                    );
+                }
+                self.collect_resolved_type(annotation);
+                self.collect_resolved_expression_with_expected(value, Some(annotation));
+            }
         }
     }
 
@@ -57,6 +107,20 @@ impl Index {
                 OccurrenceRole::Reference,
                 None,
             ),
+            resolved::TypeExpression::Application {
+                constructor,
+                arguments,
+            } => {
+                self.add_raw(
+                    SymbolId::Type(constructor.id),
+                    &constructor.name,
+                    OccurrenceRole::Reference,
+                    None,
+                );
+                for argument in arguments {
+                    self.collect_resolved_type(argument);
+                }
+            }
             resolved::TypeExpression::Parenthesized(inner) => self.collect_resolved_type(inner),
             resolved::TypeExpression::Product(elements)
             | resolved::TypeExpression::Sum(elements) => {
@@ -264,6 +328,20 @@ impl Index {
                 OccurrenceRole::Reference,
                 None,
             ),
+            Expression::GenericReference {
+                reference,
+                arguments,
+            } => {
+                self.add_raw(
+                    SymbolId::Value(self.canonical_value(reference.id)),
+                    &reference.name,
+                    OccurrenceRole::Reference,
+                    None,
+                );
+                for argument in arguments {
+                    self.collect_resolved_type(argument);
+                }
+            }
             Expression::Parenthesized(inner) => self.collect_resolved_expression(inner),
             Expression::TypeQualifiedPrimitive { type_ref, .. } => self.add_raw(
                 SymbolId::Type(type_ref.id),
@@ -315,6 +393,13 @@ impl Index {
                 );
                 self.collect_resolved_expression(value);
             }
+            Expression::Placement { value, operand } => {
+                self.collect_resolved_expression(value);
+                if let resolved::PlacementOperand::Value(operand) = operand {
+                    self.collect_resolved_expression(operand);
+                }
+            }
+            Expression::Align(value) => self.collect_resolved_expression(value),
             Expression::If {
                 condition,
                 then_branch,
@@ -344,6 +429,7 @@ impl Index {
             | Expression::Float(_)
             | Expression::Byte(_)
             | Expression::Symbol(_)
+            | Expression::StrideQuery(_)
             | Expression::Unit => {}
         }
     }

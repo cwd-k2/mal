@@ -114,6 +114,9 @@ impl Checker {
             | Type::Float64
             | Type::Symbol
             | Type::Ptr
+            | Type::Address
+            | Type::ByteSize
+            | Type::USize
             | Type::Function { .. } => {
                 vec![self.alias_name(source)]
             }

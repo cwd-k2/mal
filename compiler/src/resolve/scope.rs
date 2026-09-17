@@ -13,7 +13,9 @@ impl Resolver {
     ) -> Result<(), Diagnostic> {
         for item in &program.items {
             match &item.kind {
-                ast::TopItem::TypeAlias { name, .. } | ast::TopItem::ExternalType { name } => {
+                ast::TopItem::TypeAlias { name, .. }
+                | ast::TopItem::GenericTypeAlias { name, .. }
+                | ast::TopItem::ExternalType { name } => {
                     if self.types.contains_key(&name.text) {
                         return Err(self.duplicate(name, "type"));
                     }
@@ -40,7 +42,7 @@ impl Resolver {
                     self.value_scopes[0].insert(name.text.clone(), value);
                     self.externals.insert(name.text.clone(), binding);
                 }
-                ast::TopItem::Binding(_) => {}
+                ast::TopItem::Binding(_) | ast::TopItem::GenericBinding { .. } => {}
             }
         }
         Ok(())
