@@ -218,7 +218,7 @@ fn generate_build_inputs(
         },
         llvm_optimizations,
     )
-    .map_err(Error::backend)?;
+    .map_err(|error| Error::backend(error, &graph))?;
     let module_path = build_directory.join("program.ll");
     let shim_path = build_directory.join("program-shim.c");
     let header_path = build_directory.join(crate::backend::c::GENERATED_HEADER_NAME);
@@ -478,8 +478,16 @@ impl Error {
         ))
     }
 
-    fn backend(error: crate::backend::llvm::Error) -> Self {
-        Self::new(format!("malc: LLVM backend failure: {error}"))
+    fn backend(
+        error: crate::backend::llvm::Error,
+        sources: &impl crate::source::SourceProvider,
+    ) -> Self {
+        match error {
+            crate::backend::llvm::Error::Diagnostic(diagnostic) => {
+                Self::diagnostic(diagnostic, sources)
+            }
+            error => Self::new(format!("malc: LLVM backend failure: {error}")),
+        }
     }
 }
 

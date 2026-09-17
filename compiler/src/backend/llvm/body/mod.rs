@@ -6,6 +6,7 @@ use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::execution::{ControlCallMode, ControlRegionId, ParameterDestination};
 
+mod admission;
 mod aggregate;
 mod bridge;
 mod call_emission;
@@ -28,6 +29,13 @@ use plan::{
 };
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
+
+pub(super) fn admit_target(
+    execution: &crate::execution::Program,
+    target: super::TargetLayout,
+) -> Result<(), crate::diagnostic::Diagnostic> {
+    admission::admit(execution, target)
+}
 
 pub(super) struct Output {
     pub(super) globals: String,

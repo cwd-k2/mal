@@ -16,6 +16,7 @@ pub(crate) struct Target<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Error {
+    Diagnostic(crate::diagnostic::Diagnostic),
     InvalidTargetDataLayout,
     InconsistentExecutionPlan(&'static str),
 }
@@ -23,6 +24,7 @@ pub(crate) enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Diagnostic(diagnostic) => formatter.write_str(&diagnostic.message),
             Self::InvalidTargetDataLayout => {
                 formatter.write_str("target data layout does not define a supported pointer size")
             }
@@ -51,6 +53,7 @@ pub(crate) fn generate(
     optimizations: OptimizationSet,
 ) -> Result<LlvmArtifacts, Error> {
     let layout = target_layout(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
+    body::admit_target(program, layout).map_err(Error::Diagnostic)?;
     let body = body::generate(program, layout, optimizations)
         .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
     let types = body::types::Types::for_target(layout)
@@ -248,15 +251,17 @@ fn target_layout(data_layout: &str) -> Option<TargetLayout> {
     } else {
         (64, 64, 64)
     };
-    let valid = |bits: usize| {
+    let byte_alignment = |bits: usize| {
         bits.is_multiple_of(8)
             .then_some(bits / 8)
             .filter(|bytes| bytes.is_power_of_two())
     };
+    let supported_size =
+        |bits: usize| byte_alignment(bits).filter(|bytes| matches!(bytes, 1 | 2 | 4 | 8));
     let mut layout = TargetLayout {
-        pointer_size: valid(pointer_bits)?,
-        pointer_alignment: valid(pointer_alignment_bits)?,
-        index_size: valid(index_bits)?,
+        pointer_size: supported_size(pointer_bits)?,
+        pointer_alignment: byte_alignment(pointer_alignment_bits)?,
+        index_size: supported_size(index_bits)?,
         integer_alignments: [1, 2, 4, 8],
         float_alignments: [4, 8],
     };
@@ -270,7 +275,7 @@ fn target_layout(data_layout: &str) -> Option<TargetLayout> {
         };
         let mut fields = fields.split(':');
         let bits = fields.next()?.parse::<u8>().ok()?;
-        let alignment = valid(fields.next()?.parse::<usize>().ok()?)?;
+        let alignment = byte_alignment(fields.next()?.parse::<usize>().ok()?)?;
         match (floating, bits) {
             (false, 8) => layout.integer_alignments[0] = alignment,
             (false, 16) => layout.integer_alignments[1] = alignment,
@@ -629,7 +634,7 @@ mod tests {
         assert_eq!(target_layout("e-m:e-i64:64"), TargetLayout::natural(8, 8));
         for bits in 0_usize..=256 {
             let bytes = bits / 8;
-            let expected = (bits.is_multiple_of(8) && bytes.is_power_of_two())
+            let expected = (bits.is_multiple_of(8) && matches!(bytes, 1 | 2 | 4 | 8))
                 .then(|| TargetLayout::natural(bytes, bytes))
                 .flatten();
             assert_eq!(target_layout(&format!("e-p:{bits}:{bits}")), expected);
@@ -746,6 +751,78 @@ mod tests {
                 .module
                 .contains("declare ptr @llvm.ptrmask.p0.i64(ptr, i64)")
         );
+    }
+
+    #[test]
+    fn rejects_target_sized_literals_with_a_source_diagnostic() {
+        let source = SourceFile::new(
+            FileId::new(92),
+            "llvm-target-literal.mal",
+            "main :: Unit -> Int32 := () -> 4294967296usize.i32;".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check target literal fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+        let error = match generate(
+            &execution,
+            Target {
+                triple: "i386-unknown-linux-gnu",
+                data_layout: "e-p:32:32-i64:64",
+            },
+            OptimizationSet::production(),
+        ) {
+            Ok(_) => panic!("literal exceeds the 32-bit target range"),
+            Err(error) => error,
+        };
+        let Error::Diagnostic(diagnostic) = error else {
+            panic!("target admission must return a diagnostic")
+        };
+        let primary = diagnostic.primary.expect("literal diagnostic span");
+        assert_eq!(
+            &source.text()[primary.span.start()..primary.span.end()],
+            "4294967296usize"
+        );
+        assert!(primary.message.contains("4294967295"));
+    }
+
+    #[test]
+    fn lowers_symbol_length_to_usize_on_a_32_bit_target() {
+        let source = SourceFile::new(
+            FileId::new(93),
+            "llvm-symbol-length-32.mal",
+            "main :: Unit -> Int32 := () -> (#\"abc\").i32;".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check Symbol length fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "i386-unknown-linux-gnu",
+                data_layout: "e-p:32:32-i64:64",
+            },
+            OptimizationSet::production(),
+        )
+        .expect("32-bit Symbol length fixture is supported");
+
+        assert!(
+            artifacts
+                .module
+                .contains("call i64 @mal_runtime_symbol_length")
+        );
+        assert!(artifacts.module.contains("trunc i64"));
+        assert!(artifacts.module.contains("to i32"));
     }
 
     #[test]
