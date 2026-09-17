@@ -116,6 +116,21 @@ impl<'a> FunctionEmitter<'a> {
                     _ => None,
                 })
         });
+        let needs_symbol_result_slot = states.iter().any(|state| {
+            execution.control.states[state.0]
+                .bindings
+                .iter()
+                .any(|binding| {
+                    matches!(
+                        &binding.operation,
+                        Operation::PrimitiveBinary {
+                            operator: crate::core::ast::BinaryPrimitive::Add,
+                            left,
+                            right,
+                        } if left.ty == Type::Symbol && right.ty == Type::Symbol
+                    )
+                })
+        });
         let mut external_storage = None;
         for id in external_ids {
             let external = *index.externals.get(&id)?;
@@ -140,6 +155,7 @@ impl<'a> FunctionEmitter<'a> {
             frame_sites,
             frame_tags,
             external_storage,
+            needs_symbol_result_slot,
             types,
             source_layouts,
             top_levels,
@@ -211,6 +227,13 @@ impl<'a> FunctionEmitter<'a> {
             ));
             self.line(format!(
                 "  %mal_bridge_result = alloca [{size} x i8], align {alignment}"
+            ));
+        }
+        if self.needs_symbol_result_slot {
+            let symbol = self.types.value(&Type::Symbol)?;
+            self.line(format!(
+                "  %mal_symbol_result = alloca {}, align {}",
+                symbol.llvm, symbol.alignment
             ));
         }
         if let ParameterDestination::Bind(_) =

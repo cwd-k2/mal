@@ -221,6 +221,47 @@ fn reuses_flat_symbol_storage_for_long_accumulations() {
 }
 
 #[test]
+fn allocates_symbol_call_results_once_per_function_activation() {
+    let directory = NativeFixture::new("driver-symbol-loop-result-storage");
+    let source = directory.write(
+        "program.mal",
+        "churn :: (USize, Int64) -> USize := (total, remaining) -> {\n\
+           if (remaining == 0i64)\n\
+           then total\n\
+           else {\n\
+             value := \"left\" + \"right\";\n\
+             churn(total + #value, remaining - 1i64);\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           if (churn(0usize, 1000000i64) == 9000000usize)\n\
+           then 0i32\n\
+           else 1i32;\n\
+         };",
+    );
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert_eq!(module.matches("%mal_symbol_result = alloca").count(), 1);
+}
+
+#[test]
 fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     let closure_directory = NativeFixture::new("driver-llvm-closure-runtime-dependencies");
     let closure_source = closure_directory.write(

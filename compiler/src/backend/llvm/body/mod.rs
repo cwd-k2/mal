@@ -113,6 +113,7 @@ struct FunctionEmitter<'a> {
     frame_sites: Vec<StateId>,
     frame_tags: HashMap<StateId, u32>,
     external_storage: Option<(usize, usize)>,
+    needs_symbol_result_slot: bool,
     types: Types,
     source_layouts: crate::backend::source_layout::SourceLayouts,
     top_levels: &'a TopLevelConstants,

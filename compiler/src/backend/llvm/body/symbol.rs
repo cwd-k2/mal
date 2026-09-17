@@ -173,11 +173,10 @@ impl FunctionEmitter<'_> {
         let (left_owner, left_offset, left_length) = self.byte_view_fields(&left)?;
         let (right_owner, right_offset, right_length) = self.byte_view_fields(&right)?;
         let result_type = self.types.value(&Type::Symbol)?;
-        let result_storage = self.register();
-        self.line(format!(
-            "  {result_storage} = alloca {}, align {}",
-            result_type.llvm, result_type.alignment
-        ));
+        if !self.needs_symbol_result_slot {
+            return None;
+        }
+        let result_storage = "%mal_symbol_result";
         let operation = if consume_left {
             "mal_runtime_symbol_concatenate_consuming_left"
         } else if consume_right {
