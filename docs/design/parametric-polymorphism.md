@@ -130,13 +130,10 @@ regionAddress<A> :: Region<A> -> Address :=
 
 makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
     (cursor, count) -> cursor@count;
-
-makeAlignedRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
-    (cursor, count) -> cursor@align@count;
 ```
 
-`Cursor<A>`、`Region<A>`、`Packed<A>`は同じ型indexとstaticなlayout identityを保存するため、genericな有限regionとmal-ownedな有限列の
-transferを記述できる。
+`Cursor<A>`と`Region<A>`はcanonicalな`A`に一意なstatic layoutを保存する。`Packed<A>`はexternal layoutを持たず、要素型`A`だけを
+保存するため、Region側の一意なlayoutを使ってgenericな有限regionとmal-ownedな有限列のtransferを記述できる。
 
 ```mal
 packRegion<A> :: Region<A> -> Packed<A> :=
@@ -160,8 +157,10 @@ preconditionであり、`<-region`で作った`Packed<A>`だけがmal-ownedに�
 直後から始まるsuffix Regionを返す。`/`はprefix、`%`はremainderを返し、packed indexingは`index < #packed`を要求する。
 
 `Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
-明示されたoperandの型indexを保存するbuilt-in primitive familyである。型検査後のspecializationではconcreteなshapeと
-value型が確定し、ANF以降へopenな型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
+明示されたoperandの型indexを保存するbuilt-in primitive familyである。`Cursor<A>`または`Region<A>`を受け取るgeneric本体は、
+compiler内部の`Representable(A)` judgmentのもとでそのcarrierをaccessできる。これはuser-defined constraintではなく、裸の`A`や
+`Address`からlayoutを導く能力も与えない。型検査後のspecializationではconcreteなshapeとvalue型が確定し、representableでない
+concrete型によるmemory specializationは拒否する。ANF以降へopenな型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
 
 raw addressへ異なるlayoutを順にstoreする場合は、memory chain中でlayoutを明示的に切り替える。
 
@@ -171,7 +170,7 @@ afterVersion := (!afterHeader)@i32 <- version;
 end := (!afterVersion)@address <- payloadAddress;
 ```
 
-CursorとRegionのlayout identityは生成後に変更できない。`<-`はCursorと同じ`A`のstore、またはRegionと同じ`A`のPacked transferに
+CursorとRegionのcanonical layoutは生成後に変更できない。`<-`はCursorと同じ`A`のstore、またはRegionと同じ`A`のPacked transferに
 限定し、別のshapeへ切り替えるgeneric primitiveにはしない。
 
 採択時には[D037](../history/decisions/D037.md)の`T.load`と`T.store`を置き換え、名前付きの`load<T>`と`store<T>`は提供しない。
@@ -200,5 +199,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、`@align`、`@Count`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、alignment移動、`@Count`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
 - `Cursor<A>`を介したgeneric loadとRegion構築、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
