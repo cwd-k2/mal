@@ -1,6 +1,6 @@
 # source formatting policy
 
-Status: Current v0.5 tooling policy
+Status: Accepted v0.6 policy; current formatter implements v0.5 syntax
 
 この文書は`malc format`が生成するcanonical layoutを定める。受理するsyntaxは
 [`grammar`](../spec/grammar.md)、command contractは[compiler usage](compiler-usage.md)を正とする。
@@ -24,8 +24,9 @@ Status: Current v0.5 tooling policy
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
   曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで
   一段深くし、それ以外のcontinuation行も一段深くする。
-- receiver-first applicationの`.`直前にあるsource改行は一段深いchain継続として保つ。
-  型で修飾したprimitiveの`T.member`は分割せず同じ行に置く。
+- receiver-first application、conversion、placement、align-upを含むpostfix chainのsuffix直前にsource改行があれば、
+  一段深いchain継続として保つ。
+- binary `<-` chainの継続行はoperatorから始め、一段深くする。
 
 line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。
@@ -33,6 +34,9 @@ line commentのcontentsと順序を保持する。tokenと同じsource lineに�
 
 numeric separator、suffix、byte/Symbol escapeを含むliteralのbyte spellingは変更しない。formatterは
 malformed sourceを補正せず、lexerまたはparserのstructured diagnosticを返す。
+
+generic parameterとargumentではidentifierと`<`、comma以外のtype argument、closing `>`を密着させる。layout shapeは
+対応するsource delimiterとlowercase atomを保持する。formatterはshapeをtype名へ、またはtype名をshapeへ変換しない。
 
 ## application notation
 

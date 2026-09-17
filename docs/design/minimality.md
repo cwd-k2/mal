@@ -29,7 +29,9 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 
 便利な標準APIを多数用意すると、実装量だけでなく「どのAPIを選び、どの暗黙規約に従うか」という探索costが増える。malはmechanismを少数提供し、用途別policyをprogramまたはhost側へ残す。
 
-一方、manual memory managementをunsafeなまま利用者へ渡すことも、自動的に最小とはみなさない。短い仕様の代わりにalias、二重解放、lifetimeの調査負担が増えるためである。controlと、必要なcontractの明示を両方満たすことを目標にする。[D008](../history/decisions/D008.md)
+memory operationを未検査にすること自体も、自動的に最小とはみなさない。bounds、permission、initialization、lifetimeを
+callerまたはhost contractのpreconditionとして一貫して表現できること、その上で個別operationごとの例外や防御的挙動を
+source contractへ増やさないことを基準にする。[D008](../history/decisions/D008.md)
 
 controlは、利用者がすべてのmechanismをoperationごとに再定義することではない。policyを選択でき、選択後の
 mechanismが一つの規則から予測できる状態を指す。minimalityの比較では、primitiveやsyntaxの個数だけでなく、
@@ -46,7 +48,8 @@ policyを選ぶcontrolを保ちつつ、型ごとにwidth、alignment、failure�
 canonical layoutを持つ型の範囲は、一度理解した配置規則からsize、alignment、padding、valid representationを
 再帰的に導けるかで決める。program固有のencodingはmalで書くcodecとしてsourceに残し、runtime representation、
 public host ABI、wire formatをcanonical memory layoutへ暗黙に結合しない。正確な配置規則は
-[authority](authority.md#policyとmechanismを分ける)が所有する。
+[external memory](../spec/memory.md#canonical-layout)が所有し、[authority](authority.md#policyとmechanismを分ける)は
+配置規則とresource policyを分ける判断軸だけを所有する。
 
 memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
 capability transferを導く。reference backendのEngram回収は[D033](../history/decisions/D033.md)のborrow/owned result規約に閉じ、
@@ -68,7 +71,8 @@ primitive scalar
 blockの末尾式はlambdaの結果である。`fix`/自己再帰を足すと停止性を失い、`extern`を足すとhostとの
 観測可能な作用が生まれるため、純粋な核とは分けて考える。
 
-product と sum は数学的にさらに encoding できる場合があるが、mal には parametric polymorphism がない。利用者が型ごとの encoding を繰り返さず data を表現するには、両方を primitive として残す価値がある。
+productとsumは数学的にさらにencodingできる場合があるが、そのencodingをgeneric codeで繰り返してもcanonical layout、
+sum construction authority、host mappingは自動的に得られない。これらを一つの構造規則から導くため、両方をprimitiveとして残す。
 
 現在のprofileに含む具体的な型とoperationは[言語の範囲](../spec/scope.md)だけに列挙する。実装の変更履歴はGitを参照する。
 

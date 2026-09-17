@@ -1,9 +1,10 @@
 # Compiler の責務境界
 
-Status: Current implementation policy
+Status: Current implementation policy; v0.5 modules with an accepted v0.6 migration boundary
 
 この文書はcompiler codeの分類、各stageのownership、表現の変換境界を定める。pipelineの構成は
 [compiler implementation notes](compiler.md)、言語の挙動は[`spec/`](../spec/)をauthorityとする。
+「現在のmodule境界」はv0.5 compilerの実装を記録し、「v0.6 translation boundary」はその構造を置き換える際の責務を定める。
 
 ## 分類
 
@@ -84,7 +85,28 @@ C shimの共通ABI planへ渡す。
 source graphへadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
-## 現在のmodule境界
+## v0.6 translation boundary
+
+v0.6のgenericsとexternal memoryを実装するときも既存stageのadmission責務を保つ。
+
+| Boundary | Responsibility |
+|---|---|
+| lexer/parser | generic parameter/argument、closed shape、postfix chain、共有tokenをsource-oriented ASTへ構成する。型やnameから構文を選ばない |
+| resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
+| check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
+| specialization | checked generic identityとcanonical concrete argumentをkeyに到達graphを共有し、単相checked programをcoreへ渡す |
+| core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
+| backend source layout | runtime value layoutと独立したtarget layout planを作り、pointer representation幅、index幅、ABI alignmentを区別する |
+| execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
+| runtime | flat Packed backing、slice lifetime、Unitのcount-only表現、Symbolとのcopyまたはowner共有を実装する |
+| C interface | `Address`、`ByteSize`、`Count`をABI 0x000700へ写し、generic bindingとCursor/Region/Packedをpublic interfaceから拒否する |
+| process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(Count, Address)` rootへ渡す |
+
+memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
+避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に
+判定できる条件は、所有stageがstructured diagnosticとして拒否する。
+
+## 現在のv0.5 module境界
 
 大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyで分割する。
 

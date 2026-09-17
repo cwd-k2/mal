@@ -1,6 +1,6 @@
 # 式と binding
 
-Status: Current v0.5 profile
+Status: Accepted v0.6 profile
 
 ## binding
 
@@ -107,33 +107,25 @@ receiver-first applicationの`a.f()`は`f(a)`、`a.f(b, c)`は`f(a, b, c)`と同
 `.`、value name、parenthesized argument listは全体で一つのapplication suffixである。`a.f`はexpressionではなく、
 field access、property、method value、bound functionを導入しない。
 
-[memory](memory.md#primitive)に列挙する`load`、`store`、`read`、`write`はpredefined functionであり、通常のfunctionと同じく
-直接callするほか、値としてbindingしたり引数として渡したりできる。pointerのbyte offsetは`+`と`-`、Symbolの
-lengthとbyte accessは[`#` operator](symbols.md#operator)で表す。
+[external memory](memory.md#placementとaccess)と[`Region`と`Packed`](packed.md#operation)のoperationは通常のexpressionとして
+評価する。Addressのbyte offsetは`+`と`-`、Symbol、Region、Packedのlengthとindexは`#`で表す。
 
 external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
 実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
 
-## 型で修飾したmemory primitive
+## Memory expression
 
-canonical memory representationを持つ型`T`には`T.size`、`T.load`、`T.store`を定める。`T.size`は
-storage幅をbyte数で表す`UInt64`のtarget constantであり、通常のfunction callではなくhost operationも
-実行しない。`T.load`と`T.store`はfirst-class functionである。`Symbol.read`と`Symbol.write`は
-canonical object representationではなくraw bytesをcopyするfirst-class functionである。
+型identifierはexpression operatorとして使わない。stride queryはlowercaseのclosed layout shape、load/storeはCursor、
+bulk transferはRegionとPackedが運ぶstatic layoutから決まる。
 
 ```mal
-descriptorSize :: Unit -> UInt64 := () -> Ptr.size + UInt64.size + UInt8.size;
+stride :: Unit -> ByteSize := () -> #(address, bytesize);
 
-readUInt64 :: Ptr -> UInt64 := UInt64.load;
+readUInt64 :: Cursor<UInt64> -> (UInt64, Cursor<UInt64>) :=
+    (cursor) -> <-cursor;
 ```
 
-parenthesized argument listを伴わない`T.member`の形は、一般のmodule、member、methodを導入せず、memory仕様が
-列挙するpredefined primitiveに限定する。
-transparent aliasは展開したcanonical typeによって利用できるprimitiveを決める。完全な型、署名、動作は
-[memory primitive](memory.md)に定める。
-
-`T.size`と型で修飾したfunctionはtop-levelのclosed valueに使える。上の加算はlambda body内の通常のexpressionであり、top-level initializerに
-binary operationを追加しない。
+型、評価、preconditionは[external memory](memory.md)と[`Region`と`Packed`](packed.md)に定める。
 
 ## if
 
@@ -195,6 +187,8 @@ continuationを持たない`value[]`は空直和のeliminationであり、[compl
 0b101010
 123i32
 255u8
+64bytes
+8count
 1.5f32
 2.0f64
 1_000
@@ -202,20 +196,21 @@ continuationを持たない`value[]`は空直和のeliminationであり、[compl
 1_000.25f64
 ```
 
-負号は literal token の一部ではなく unary `-` として扱う。整数の型suffixは`i8`、`i16`、`i32`、`i64`、
-`u8`、`u16`、`u32`、`u64`とする。suffix のない整数は周辺型から決め、決まらなければ `Int64`。
+負号は literal token の一部ではなく unary `-` として扱う。固定幅整数のsuffixは`i8`、`i16`、`i32`、`i64`、
+`u8`、`u16`、`u32`、`u64`、target quantityのsuffixは`bytes`、`count`とする。suffixのない整数は周辺型から決め、
+決まらなければ`Int64`。
 浮動小数は周辺型から決め、決まらなければ `Float64` とする。
 
-decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。v0.5はinfinity、NaN、hexadecimal floatのliteralを持たない。
+decimal float literalは数学的な十進値から目的型へround-to-nearest, ties-to-evenで正しく丸める。有限範囲をoverflowするliteralはcompile-time errorとする。underflowは通常の演算と同じくsubnormalまたは符号付きzeroへ丸め得る。source literalとしてinfinity、NaN、hexadecimal floatを持たない。
 
 decimal pointを使う形は整数部と小数部の両方を必須とする。`e`または`E`による10進exponentと
 optionalな符号を認める。decimal point、exponent、`f32`/`f64` suffixのいずれかがあるliteralを
-float literalとする。完全な形は[grammar](grammar.md#numeric-separator)に定める。
+float literalとする。完全な形は[grammar](grammar.md#numeric-literal)に定める。
 
-numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-separator)に定める。
+numeric separatorの`_`は各digit sequenceのdigit間だけに置け、値と型に影響しない。完全な規則は[字句仕様](grammar.md#numeric-literal)に定める。
 
 Symbol literalのbyte列としての意味とstorageは[Symbol](symbols.md#literal)、受理するsource spellingは
-[grammar](grammar.md#文法概要)に定める。
+[grammar](grammar.md#expression-form)に定める。
 
 ### byte literal
 
@@ -256,7 +251,8 @@ integer:  + - * / %  == != < <= > >=
 float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
-pointer:  Ptr + UInt64, Ptr - UInt64
+target quantity: ByteSize、Countに定めたclosed family
+address:  Address + ByteSize, Address - ByteSize
 Symbol:   Symbol + Symbol, == !=
 ```
 
@@ -294,15 +290,16 @@ a[
 Bool equalityの両operandは通常のoperatorと同じく、分岐より前に左から右へ必ず評価する。これらの演算子は評価を
 省略または重複させてはならない。
 
-組み込み数値型を conversion form として使える。
+numeric conversionはclosed postfix suffixを使う。
 
 ```mal
-y := Int32(x);
-z := Float64(y);
-x := x[Int32];
+y := x.i32;
+z := y.f64;
+offset := y.bytes;
 ```
 
-`T(value)`と`value[T]`は同じ数値変換であり、bit reinterpretationではない。
+`.i8`、`.i16`、`.i32`、`.i64`、`.u8`、`.u16`、`.u32`、`.u64`、`.f32`、`.f64`、`.bytes`、
+`.count`だけを認める。conversionはbit reinterpretationではない。型identifierをcalleeまたはpostfix argumentにする形式はない。
 
 - `Float32`から`Float64`への変換は正確である。
 - `Float64`から`Float32`へはround-to-nearest, ties-to-evenで丸める。

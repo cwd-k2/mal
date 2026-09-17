@@ -1,6 +1,6 @@
 # managed value ownership
 
-Status: Current implementation policy
+Status: Current v0.5 implementation policy
 
 この文書はLLVM execution backendとC host boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
 [Engram specification](../spec/engrams.md)、host carrierのcontractは[C host ABI](../spec/c-host-abi.md)を正とする。

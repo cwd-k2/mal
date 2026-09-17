@@ -1,6 +1,6 @@
 # 型
 
-Status: Current v0.5 profile
+Status: Accepted v0.6 profile
 
 ## 型の構成
 
@@ -10,19 +10,23 @@ T ::=
   | Int8 | Int16 | Int32 | Int64
   | UInt8 | UInt16 | UInt32 | UInt64
   | Float32 | Float64
+  | ByteSize | Count
   | Symbol
-  | Ptr
+  | Address
+  | Cursor<T> | Region<T> | Packed<T>
   | (T, T, ...)
   | []
   | [T, T, ...]
   | T -> T
   | ExternalType
   | TypeAlias
+  | TypeParameter
 ```
 
 `Float32`と`Float64`は、それぞれIEEE 754-2019のbinary32とbinary64である。normal、subnormal、正負のzero、正負のinfinity、NaNを含む。詳細な演算規則は[実行意味論](execution.md#浮動小数点)に定める。
 
-`Int`、`Long`、`Size` のような platform-dependent な整数型はない。subtyping、generic、implicit numeric conversion、nominal user type はない。
+`Int`、`Long`、`Size`のようにhost C spellingへ依存する整数型はない。`ByteSize`と`Count`の幅はtargetのpointer index幅から
+決まり、用途の異なる別の型である。subtyping、implicit numeric conversion、nominal user typeはない。
 
 `Byte` と `Char` という型はない。単一 byte は `UInt8` で表す。mal は Unicode character を primitive value として定義しない。
 
@@ -35,14 +39,15 @@ Symbol literalはnumeric literalと同じく組み込み値を表すnotationで�
 host側の一時byte bufferはSymbolではなく、明示的なadmissionでmal-controlled storageへcopyされた時点でSymbolになる。
 literal、operator、storageの完全な規則は[Symbol](symbols.md)に定める。
 
-mutable byte bufferはSymbolではなく、`Ptr`とlength、または必要に応じてexternal opaque typeで表す。v0.5は
-組み込みのarray、slice、`ByteBuffer`型を持たない。
+mutable byte bufferはSymbolではなく、`Region<UInt8>`または必要に応じてexternal opaque typeで表す。`Packed<UInt8>`は
+mal-ownedなimmutable sequenceであり、Symbolとは別の型である。
 
-## Ptr
+## External memory type
 
-`Ptr`はordinary byte-addressable external storageへのopaque data pointer capabilityである。要素型、length、ownershipは
-持たず、numeric addressとしての観測やintegerとの変換はできない。memory accessにはpredefinedなnumeric scalarとpointerの
-storage operation、およびSymbol byte copy operationを使う。完全な規則は[memory primitive](memory.md)に定める。
+`Address`はordinary byte-addressable external storageへのopaque capabilityである。`Cursor<T>`はAddressとcanonical layout、
+`Region<T>`はそれにCountを加えた有限location列を運ぶ。これらはreferentのownership、permission、lifetimeを持たない。
+`Packed<T>`はmal-ownedなimmutable有限sequenceである。型形成とoperationは[external memory](memory.md)と
+[`Region`と`Packed`](packed.md)に定める。
 
 ## Unit
 
@@ -125,7 +130,7 @@ declarationとして含まれない。外側の`[lambda]`はlambdaへのUnit app
 
 `Bool` は transparent なので `[Unit, Unit]` と同じ型である。比較演算は false の場合に index 0、true の場合に index 1 の値を返す。
 
-## transparent alias
+## transparent aliasと型parameter
 
 PascalCase identifier に型を対応させる。
 
@@ -135,6 +140,16 @@ Size :: (Float64, Float64);
 ```
 
 `Point`、`Size`、`(Float64, Float64)` は同じ型である。alias は新しい runtime representation や nominal identity を作らない。recursive alias は認めない。
+
+aliasとtop-level value bindingは明示的な型parameterを持てる。
+
+```mal
+Pair<A> :: (A, A);
+identity<A> :: A -> A := (value) -> value;
+```
+
+型parameterはdeclaration内でopaqueなsource typeを表し、concrete type argumentで明示的にspecializeする。完全な規則は
+[parametric polymorphism](generics.md)に定める。
 
 sum result binderのarityとparameter型は、期待result型のaliasを展開した直和型から決まる。alias自体にruntime identityは残らない。
 

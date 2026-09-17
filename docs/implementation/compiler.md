@@ -2,6 +2,9 @@
 
 Status: Current non-normative overview
 
+この文書はv0.5 compilerの現在の実装を記録する。採択済みv0.6仕様との差分と移行時のstage ownershipは
+[compilerの責務境界](responsibilities.md#v06-translation-boundary)を正とする。
+
 ## pipeline
 
 ```text

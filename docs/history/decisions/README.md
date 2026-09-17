@@ -19,8 +19,8 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
-| `Ptr` memory primitive | [D022](D022.md)、[D024](D024.md)、[D035](D035.md)、[D037](D037.md) |
-| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md) |
+| genericsとexternal memory | [D052](D052.md) |
+| EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -33,6 +33,8 @@ D048はD042のsource-level sum injection constructorを置き換える。
 D049はD048のlambdaだけに置いたsum construction boundaryをdirect result blockにも拡張する。
 D050はD038のlambda parameterとD049のdirect result blockのsource spellingを置き換え、`if`と`when`を含むbodyをexpressionに統一する。
 D051はD050のarrow共有とlambda return binderを置き換え、lambdaとdirect result blockを独立した構文へ整理する。
+D052はD022、D024、D027、D030、D037のmemory source modelを置き換え、D013、D031、D035の意味論を新しいsyntax、layout、
+generic transferへ適用する。
 
 ## 後継があるhistorical record
 
@@ -43,10 +45,10 @@ D051はD050のarrow共有とlambda return binderを置き換え、lambdaとdirec
 | [D010: byte型としてのEngram](D010.md) | [D031](D031.md) |
 | [D017: immutable byte型名](D017.md) | [D031](D031.md) |
 | [D026: Engram descriptor memory operation](D026.md) | [D031](D031.md) |
-| [D027: storage-size query](D027.md) | [D031](D031.md)で対象型をrefine |
+| [D027: storage-size query](D027.md) | [D052](D052.md) |
 | [D028: Engram operator](D028.md) | [D031](D031.md)で`Symbol` operationへrefine |
 | [D029: Engram concatenation](D029.md) | [D031](D031.md)で`Symbol` operationへrefine |
-| [D030: process argument descriptor](D030.md) | [D031](D031.md)でexternal descriptorへrefine |
+| [D030: process argument descriptor](D030.md) | [D052](D052.md) |
 | [D034: C adapter ownership helper](D034.md) | [D040](D040.md) |
 | [D036: Symbol admission builder](D036.md) | [D040](D040.md) |
 | [D014: shift countを一律にtrap](D014.md) | [D035](D035.md) |
@@ -54,6 +56,7 @@ D051はD050のarrow共有とlambda return binderを置き換え、lambdaとdirec
 | [D042: applicationをvalueとcontinuationの双方向表記に統一する](D042.md) | [D048](D048.md) |
 | [D048: 直和の構築をsum return binderに限定する](D048.md) | [D049](D049.md) |
 | [D050: bodyをexpressionに統一しbinder境界へ`->`を置く](D050.md) | [D051](D051.md) |
+| [D022: pointer primitive](D022.md)、[D024: pointer memory operation](D024.md)、[D037: 型修飾memory primitive](D037.md) | [D052](D052.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../../spec/)を確認する。

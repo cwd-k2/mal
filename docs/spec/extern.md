@@ -1,17 +1,17 @@
 # `extern` 境界
 
-Status: Current v0.5 profile
+Status: Accepted v0.6 profile
 
 ## 目的
 
 I/O、allocation、deallocation、filesystem、network、clock、randomness、process、thread、およびhost固有の
 resource operationはmalの意味論へ個別に取り込まず、program固有のexternal operationに置く。external storageへの
-capabilityは`Ptr`で運び、canonicalなscalar、pointer、Symbol bytesとの固定された変換には組み込みの
-[memory primitive](memory.md)を使う。
+capabilityは`Address`またはexternal opaque typeで運び、canonical memory representationとの固定された変換には
+[external memory](memory.md)と[`Region`と`Packed`](packed.md)を使う。
 
 ```mal
 extern Mem;
-extern alloc :: UInt64 -> Mem;
+extern alloc :: ByteSize -> Mem;
 extern print :: Symbol -> Unit;
 
 output :: Symbol -> Unit := print;
@@ -22,7 +22,7 @@ external operationは宣言によって通常のtop-level function valueとし�
 
 ```mal
 main :: Unit -> Unit := () -> {
-    mem := alloc(128);
+    mem := alloc(128bytes);
     output("hello");
 };
 ```
@@ -32,26 +32,20 @@ applicationしたときに宣言されたhost operationを一度呼び出す。l
 通常のlexical scopeに従う。
 
 external operationはExternに関わるoperationのすべてを表す分類ではなく、program固有のnamed host operationである。
-memory primitiveもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
+memory operationもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
 host symbolを呼ばない。両者を配置する規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に
 定める。
 
-## transportable type
+## Host-mappable type
 
-v0.5では、extern declarationのparameter型とresult型はfunction型を直接または再帰的に含んではならない。aliasは展開して判定する。
-`externTransportable`は境界を運べる型shapeだけを表し、memory safetyやresource safetyを意味しない。
-各leafがadmission、observation、capability transferのどれになるかは
-[EngramとExtern](engrams.md#境界のoperation)に従う。
+extern declarationのparameter型とresult型は[`HostMappable`](packed.md#hostmappable)を満たさなければならない。aliasはconcreteな
+type argumentを代入して完全に展開した後に判定する。このjudgmentはmemory safetyやresource safetyを意味しない。各leafが
+admission、observation、capability transferのどれになるかは[EngramとExtern](engrams.md#境界のoperation)に従う。
 
 ```text
-externTransportable(Unit)         = true
-externTransportable(scalar)       = true
-externTransportable(Symbol)       = true
-externTransportable(Ptr)          = true
-externTransportable(ExternalType) = true
-externTransportable((T...))       = all externTransportable(T)
-externTransportable([T...])       = all externTransportable(T)
-externTransportable(A -> B)       = false
+HostMappable((Address, Count)) = true
+HostMappable(Region<UInt8>)    = false
+HostMappable(Packed<UInt8>)    = false
 ```
 
 ```mal
@@ -67,7 +61,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持をv0.5から除外する。決定理由は[D016](../history/decisions/D016.md)に記録する。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持はprofile外である。決定理由は[D016](../history/decisions/D016.md)に記録する。
 
 ## source-level semantics
 
@@ -105,8 +99,8 @@ admission、observation、capability transferと各leafのlifetime authorityは
 [Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
 carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
-unboundedなstreaming inputでは、program固有の`extern`が再利用可能な`Ptr` regionへbytesを書き、mal側へlengthを返し、
-保持する値だけを`Symbol.read`する形を使える。決定理由は[D031](../history/decisions/D031.md)に記録する。
+unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのCountを返す。
+mal側はRegionを分割し、保持するprefixだけをPackedまたはSymbolへadmitする。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../history/decisions/D015.md)に記録する。
@@ -117,8 +111,8 @@ capabilityのtransferはreturn時にcommitする。この規則はargumentとし
 resource、またはtrap時の一般的なstack unwindingをcleanupしない。trapし得るruntime helperを呼ぶadapterは、helperより前に
 取得した一時resourceを残さない構成にするか、operation固有のcleanup手段を用意する。
 
-`Ptr`を返すoperationは、pointerが指すlive region、permission、lifetimeをhost contractに定める。`Ptr`の複製は
-storageを複製せず、lifetimeを延長しない。詳細は[memory primitive](memory.md)に定める。
+Addressを返すoperationは、指すlive region、permission、lifetimeをhost contractに定める。Addressの複製はstorageを複製せず、
+lifetimeを延長しない。partial I/Oのpostconditionは[`Region`と`Packed`](packed.md#partial-io)に定める。
 
 ## ABI と adapter
 
@@ -136,8 +130,11 @@ reference compilerはprogram固有のC headerを生成する。利用者はそ�
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
 [C host ABI](c-host-abi.md)に定める。
 
-## 安全性の境界
+## trusted boundary
 
-正しく型付けされた mal program であっても、contract に違反する host implementation から保護されない。例えば不正な tag の sum、copy完了前に無効となるhost側byte buffer、二重解放可能な handle を host が与えれば、言語の型安全性は維持できない。
+generated adapterはHostMappable valueのtag、Address、spanなど、C carrierからEngramまたはcapabilityをadmitするために
+[C host ABI](c-host-abi.md)が要求するrepresentation validationを行う。region、permission、lifetime、resource identity、
+operation固有のpostconditionはhost implementationのcontractが保証する。
 
-したがって `extern` implementation は trusted computing base に含まれる。
+host implementationとadapterはこのcontractのtrusted computing baseに含まれる。型検査済みmal programは、contractに反して
+早く失効するbuffer、範囲外のAddress、二重解放可能なhandleから保護される保証を持たない。

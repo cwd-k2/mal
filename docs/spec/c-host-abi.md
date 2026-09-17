@@ -1,8 +1,8 @@
 # C host ABI
 
-Status: Current ABI 0x000600 for the mal v0.5 development profile
+Status: Accepted ABI 0x000700 for the mal v0.6 profile
 
-この文書はmal v0.5のreference compilerが生成するC host interfaceを定める。`0x000600`はC ABI自体の
+この文書はmal v0.6のreference compilerが生成するC host interfaceを定める。`0x000700`はC ABI自体の
 versionであり、source languageのversionではない。言語側のextern semanticsは
 [`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
 別backendはsource-level semanticsを保つ限り別のABIを使用できる。
@@ -18,11 +18,12 @@ toolchain argumentはreference compilerの明示的なbuild optionから渡す�
 generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000600u
+#define MAL_C_ABI_VERSION 0x000700u
 ```
 
-`main :: Unit -> Int32`は`main(void)`へ、`main :: (UInt64, Ptr) -> Int32`は`main(int, char **)`へlowerする。
-後者のargument descriptorとbytesは`main`のreturnまでread-onlyで有効である。
+`main :: Unit -> Int32`は`main(void)`へ、`main :: (Count, Address) -> Int32`は`main(int, char **)`へlowerする。
+後者ではshimが各argumentをcanonical shape `(address, bytesize)`のdescriptorへ変換する。C structのlayoutをsource memory layoutとして
+reinterpretしない。descriptorとargument bytesは`main`のreturnまでread-onlyで有効である。
 
 ## Host operation
 
@@ -30,13 +31,13 @@ generated headerと対応するbuild artifactは一組であり、異なるcompi
 `MAL_DEFINE_<name>`だけでbodyを定義し、compiler-facing wrapperを直接定義しない。
 
 ```mal
-Count :: UInt64;
-extern increment :: Count -> Count;
+Counter :: UInt64;
+extern increment :: Counter -> Counter;
 ```
 
 ```c
 MAL_DEFINE_increment(call, value) {
-    return mal_Count_return(call, value + UINT64_C(1));
+    return mal_Counter_return(call, value + UINT64_C(1));
 }
 ```
 
@@ -62,13 +63,15 @@ recoverできないcontract違反には`mal_call_trap(call, message)`を使う�
 | `Bool` | `mal_Bool_t` |
 | `IntN` / `UIntN` | 対応する`mal_IntN_t` / `mal_UIntN_t` |
 | `Float32` / `Float64` | `mal_Float32_t` / `mal_Float64_t` |
+| `ByteSize` / `Count` | `mal_ByteSize_t` / `mal_Count_t`（`size_t`） |
 | `Symbol` | `mal_Symbol_t` |
-| `Ptr` | `mal_Ptr_t`（`void *`） |
+| `Address` | `mal_Address_t`（`void *`） |
 | external opaque type `T` | `mal_T_t` |
 | named alias `T` | `mal_T_t` |
 | anonymous product/sum | `mal_repr_product_<id>_t` / `mal_repr_sum_<id>_t` |
 
-numeric typeは`stdint.h`の対応幅、`Float32`はbinary32 `float`、`Float64`はbinary64 `double`を使う。
+fixed-width numeric typeは`stdint.h`の対応幅、`Float32`はbinary32 `float`、`Float64`はbinary64 `double`を使う。
+generated headerは`sizeof(size_t) * CHAR_BIT`がtargetのpointer index幅と一致することをcompile-time assertionで検証する。
 floating-point environmentの要件は[D019](../history/decisions/D019.md)に定める。
 
 `mal_false`と`mal_true`だけがvalidな`mal_Bool_t`である。`mal_Bool_return`はそれ以外をtrapする。
@@ -85,14 +88,15 @@ hostから`[]`を返す正常完了も存在しない。carrierを宣言でき�
 source aliasはtransparentであり、新しいruntime representationを作らない。extern declarationとalias定義に明記された
 alias spellingだけをhost signatureとmember helperへ保存し、構造的一致から別名を推測しない。
 
-## External opaque typeとPtr
+## External opaque typeとAddress
 
 external opaque type `T`は一machine wordのcopyable handleである。hostは
 `mal_T_from_bits(uintptr_t)`と`mal_T_to_bits(value)`でlosslessに変換する。この操作はresourceのallocate、clone、close、freeや
 追加authorityを伴わない。resource contractは各operationが定める。
 
-`mal_Ptr_t`は`void *`である。変換helperは設けない。pointerが指すregion、permission、alignment、lifetimeはoperation固有の
-contractであり、境界通過によって変化しない。malのmemory primitiveは値を`memcpy`相当でaccessする。
+`mal_Address_t`は`void *`であり、null以外をvalidな`Address`とする。terminal return helperはAddressを含むresultを再帰的に
+検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
+境界通過によって変化しない。`Cursor`、`Region`、`Packed`はpublic C ABIへ出せない。
 
 ## Symbol
 
@@ -123,7 +127,7 @@ fieldごとに一つ作る。hostはmanaged carrierのclone、move、drop、refe
 
 ## Failureとconcurrency
 
-allocation failure、target sizeで表現できないlength、不正なBool/tag/span、またはoperation contract違反はtrapする。
+allocation failure、target sizeで表現できないlength、不正なBool/tag/Address/span、またはhost adapterが検出したoperation contract違反はtrapする。
 sum loweringはtag検査前にpayloadを読まない。terminal conversion中にallocation failureが起きる現在のruntimeではtrapが
 processを終了するためrollback frameを設けない。
 

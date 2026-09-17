@@ -1,112 +1,75 @@
 # 言語の範囲
 
-Status: Current v0.5 profile
+Status: Accepted v0.6 profile
 
-## mal が持つもの
+## malが持つもの
 
-mal の責務は次に限定する。
-
-- value and type
-- immutable binding
-- lambda and application
-- product and sum
-- surface `if` and exhaustive sum continuation application
+- value、type、immutable binding
+- lambda、application、self recursion
+- product、sum、surface `if`、exhaustive sum continuation application
 - direct block、direct result block、`when`、empty sum elimination
-- self recursion
-- fixed-width numeric, logical, and bit operations
+- fixed-width numeric、`ByteSize`、`Count`、logical、bit operation
 - language-intrinsic immutable `Symbol`
-- `Symbol` byte concatenation
-- typed numeric scalar and pointer access through untyped `Ptr`
+- explicit parametric polymorphismとwhole-program specialization
+- `Address`、canonical memory layout、`Cursor`、`Region`によるexternal memory access
+- mal-owned immutable sequence `Packed`
 - extern boundary
 - optional process argument entry
 
 何をもって最小とするかは[最小性の方針](../design/minimality.md)で定める。
 
-## mal が持たないもの
+## malが持たないもの
 
-v0.5は次を言語機能として持たない。
-
-- mutable variable、typed `Ptr<T>`、reference
-- GC、ownership、borrow
-- struct、record、enum、class、method
-- interface、trait
-- generic、template、macro、reflection
+- mutable variable、reference、borrow checker
+- resource ownershipを強制する型、destructor、finalizer
+- record、class、method、nominal enum
+- user-defined interface、trait、constraint、operator overload
+- local generalization、first-class polymorphism、higher-kinded type、reflection、macro
 - exception、async/await、effect system、first-class continuation
-- operator overloading
-- array and standard collections
-- standard library and allocator
-- package manager
+- mutable arrayと標準collection
+- standard library、allocator、package manager
 
-この一覧は「実装がまだない」のではなく、v0.5 programが依存できないという規範的な範囲である。
+この一覧はprogramが依存できない規範的な範囲である。外した責務は、必要に応じてmal sourceまたはprogram固有のextern contractが
+明示する。
 
-## named data
+## Named data
 
-record や enum の代わりに transparent alias、product、sum を使う。
+recordやenumの代わりにtransparent alias、product、sumを使う。構築用の名前は通常のfunctionとしてbindingする。
 
 ```mal
 Point :: (Float64, Float64);
-MaybeInt32 :: [Unit, Int32];
+Maybe<A> :: [Unit, A];
+
+some<A> :: A -> Maybe<A> := (value) -> [none, some] => some(value);
 ```
 
-構築用の名前が欲しければ、sum result binderを使う通常の関数をbindingする。
+field name、implicit constructor、nominal identityはない。
+
+## Memoryとmutable data
+
+languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressをshapeでCursorへ置き、Countを加えて
+Regionを作る。exact placementとunaligned accessは共通mechanism、alignment、permission、lifetime、allocation failure policyは
+必要なoperationのcontractが所有する。
 
 ```mal
-some :: Int32 -> MaybeInt32 := (value) -> [none, some] => some(value);
+extern allocate :: ByteSize -> Address;
+
+readInt64 :: (Address, Count) -> Int64 := (base, index) -> {
+    cursor := (base + index * #i64)@i64;
+    (value, _) := <-cursor;
+    value;
+};
 ```
 
-mal は `Some` や field name に特別な意味を与えない。
+mal内に保持する有限sequenceは`Packed<A>`へadmitできる。更新を繰り返すbuffer、file、socket、deviceはRegionまたはexternal opaque
+typeとextern operationで表す。`Region`と`Packed`の規則は[該当仕様](packed.md)に定める。
 
-## memory と mutable data
+## Standard library
 
-source languageは型なし`Ptr`と、byte offset、全numeric scalarと`Ptr`のload/store、およびSymbol byte copyを持つ。allocation、
-deallocation、length、bounds、ownershipは組み込まず、program固有の`extern` contractに置く。完全な規則は
-[memory primitive](memory.md)に定める。
-
-```mal
-extern alloc :: UInt64 -> Ptr;
-
-readInt64 :: (Ptr, UInt64) -> Int64 :=
-    (base, index) -> Int64.load(base + index * Int64.size);
-```
-
-mutable bytesが必要な場合も同じ境界を使う。次はpredefined APIではなく、program固有のhost contractの例である。
-
-```mal
-extern ByteBuffer;
-extern bufferNew :: UInt64 -> ByteBuffer;
-extern bufferWrite :: (ByteBuffer, UInt64, UInt8) -> Unit;
-extern bufferToSymbol :: ByteBuffer -> Symbol;
-extern bufferFree :: ByteBuffer -> Unit;
-```
-
-`bufferToSymbol`が返すbytesは[`extern`のadmission規則](extern.md#boundary-transport)によりmal-controlled storageへcopyされる。`ByteBuffer` handleの複製、bounds、freeの安全性はhost contractの責務である。
-
-array は例えば `(Ptr, UInt64)` の alias と mal 関数で構成できる。
-
-```mal
-Int64Array :: (Ptr, UInt64);
-
-arrayGet :: (Int64Array, UInt64) -> Int64 :=
-    (array, index) -> {
-        (memory, _) := array;
-        Int64.load(memory + index * Int64.size);
-    };
-```
-
-ただしbounds、allocation failure、deallocationはこのaliasだけでは保証されない。alignmentをscalar accessの
-条件にはしない。storageのregionとlifetimeは[`extern` contract](extern.md)が定める。array indexing用の`[]` syntaxはない。
-
-hash table、list、set も組み込み型ではない。必要な element type ごとに、product/sum と external storage から実装する。parametric polymorphism がないため、例えば `Int32Array` と `SymbolArray` は別実装になる。
-
-## standard library と file
-
-v0.5はArray、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeは`.mal` fileから
-requireするかhostが`extern`として提供する。
-
-programとsource fileの規則は[プログラム構造](programs.md)に置く。
+Array、Map、File、Socket、JSON、Regex、HTTP、Unicode libraryを標準添付しない。必要なcodeは`.mal` fileからrequireするかhostが
+externとして提供する。programとsource fileの規則は[プログラム構造](programs.md)に置く。
 
 ## 設計原則
 
-機能追加の前に、lambda、application、binding、product、sum、primitive、extern の組合せで素直に書けるかを確認する。
-
-ただし「外側へ置く」は仕様責任の消滅を意味しない。型付きの値が extern 境界を越えるなら、layout、lifetime、failure の contract は必ず必要になる。
+機能は、基礎modelを理解した後に個別の型やcall siteで独立contractを再判断せず、一つの規則から挙動を導ける場合に共通mechanismへ
+置く。program固有のpolicy、resource lifecycle、protocol encodingはsourceまたはextern contractへ残す。

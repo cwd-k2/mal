@@ -1,96 +1,56 @@
-# v0.5 conformance matrix
+# v0.6 conformance matrix
 
-Status: Current v0.5 evidence
+Status: Accepted verification requirements; implementation pending
 
-この文書は[`spec/`](../spec/)の規範とreference compilerの検証先を対応付ける。規則そのものは
-`spec/`、test layerと実行commandは[test policy](testing.md)を正とする。
+この文書は[`spec/`](../spec/)の規範を実装完了に必要なobservable evidenceへ対応させる。test layerとcommandは
+[test policy](testing.md)を正とする。各行はfocusedなpositive、negative、edge caseと、必要なcross-boundary pathを要求する。
+test function名やmodule配置は実装が所有し、この文書では固定しない。
 
-表の`P`はpositive、`N`はnegative、`E`はedge、`X`はbackend artifactをcompileして実行するnative testを表す。
-`—`は、その節が言語外の範囲や文書上の責務を定め、該当する実行時挙動を持たないことを表す。
-test名はRustのtest function名である。`compiler/tests/*.rs`はCargo integration test targetの
-rootを示し、実体が同名の子moduleに分割されている場合を含む。
+## Frontendとsurface
 
-## 言語の範囲と型
-
-| 規範 | P / N / E | X |
+| Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [`scope`: malが持つもの](../spec/scope.md#mal-が持つもの) | 各機能は以下の対応行で検証 | `examples/`のchecked-in program（`compiler/tests/driver.rs`） |
-| [`scope`: 持たないもの](../spec/scope.md#mal-が持たないもの) | `rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`）、`rejects_non_associative_operator_chains`（`compiler/tests/parser.rs`） | — |
-| [`scope`: named data](../spec/scope.md#named-data) | P/E: `expands_aliases_and_compares_types_structurally`、`constructs_sum_values_through_result_binders`（`compiler/tests/check.rs`） | `branches_over_bool_and_unmanaged_sums_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`scope`: memoryとmutable data](../spec/scope.md#memory-と-mutable-data) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `transfers_external_opaque_values_through_the_public_c_abi`（`compiler/tests/driver/artifacts.rs`） |
-| [`scope`: standard libraryとfile](../spec/scope.md#standard-library-と-file) | require grammarとpath rejection（`compiler/tests/parser.rs`、`compiler/tests/driver.rs`） | `build_compiles_required_host_inputs_and_produces_an_executable`（`compiler/tests/driver.rs`） |
-| [`scope`: 設計原則](../spec/scope.md#設計原則) | 以下の型・`extern` ABI対応行で検証 | 以下のABI testで検証 |
-| [`types`: scalarと型の構成](../spec/types.md#型の構成) | P/N/E: `checks_all_fixed_width_literal_boundaries_and_byte_literals`、`checks_float_arithmetic_comparison_and_negation`（`compiler/tests/check.rs`） | `emit_header_writes_a_standalone_host_interface`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: Symbol](../spec/types.md#symbol) | P/N: `checks_symbol_literals_as_immutable_bytes`、`rejects_invalid_symbol_operations`（`compiler/tests/check.rs`） | `owns_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
-| [`memory`: Ptr、storage幅、primitive](../spec/memory.md) | P/N/E: `resolves_memory_primitives_and_the_ptr_type`、`resolves_the_type_in_a_type_qualified_primitive`（`compiler/tests/resolve.rs`）、`checks_ptr_extern_signatures_and_memory_primitives`、`checks_memory_primitives_for_every_supported_value_type`、`gives_every_memory_function_a_first_class_function_type`、`checks_storage_sizes_for_scalar_and_ptr_types`、`rejects_storage_sizes_without_a_memory_representation`、`rejects_mistyped_memory_operations`（`compiler/tests/check.rs`） | `accesses_unaligned_scalar_and_pointer_storage_through_llvm`、`owns_symbols_nested_in_products_through_llvm`、`calls_first_class_memory_functions_through_llvm`（`compiler/tests/driver/artifacts.rs`）、`pointer-tree` example（`compiler/tests/driver.rs`） |
-| [`types`: Unit](../spec/types.md#unit) | P/E: `checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `build_compiles_required_host_inputs_and_produces_an_executable`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: 直積](../spec/types.md#直積) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`） | `constructs_and_resumes_unmanaged_products_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: 直和](../spec/types.md#直和) | P/N/E: `checks_postfix_application_and_sum_continuations`、`rejects_invalid_sum_continuations_and_type_applications`（`compiler/tests/check.rs`）、`rejects_single_member_sums_and_trailing_commas`（`compiler/tests/parser.rs`） | `branches_over_bool_and_unmanaged_sums_through_llvm`、`runs_sum_results_and_postfix_application_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`control`: direct result block](../spec/control.md#direct-result-block) | P/N/E: `parses_result_binders_when_and_empty_forms`、`parses_direct_blocks_and_result_blocks_as_distinct_expressions`、`rejects_an_empty_result_binder_group`（`compiler/tests/parser.rs`）、`keeps_result_binders_local_and_allows_outer_shadowing`、`rejects_nested_lambda_capture_and_duplicate_result_binders`（`compiler/tests/resolve.rs`）、`checks_result_binders_and_completion`、`constructs_sum_values_through_result_binders`、`rejects_result_binder_arity_and_value_use`、`checks_direct_result_blocks_against_their_expected_type`、`lowers_result_binders_to_a_lambda_local_join`（`compiler/tests/check.rs`、`compiler/tests/core.rs`） | `executes_result_blocks_through_the_existing_calling_convention`、`executes_direct_blocks_and_local_result_continuations`、`runs_sum_results_and_postfix_application_through_llvm`（`compiler/tests/driver/artifacts.rs`）、single result、sum全体result、2・3 variant resultを実行するchecked-in example（`compiler/tests/driver/examples.rs`） |
-| [`control`: completion judgment](../spec/control.md#completion-judgment) | P/N/E: `preserves_completion_through_strict_and_short_circuit_contexts`、`checks_empty_elimination_without_conflating_it_with_abrupt_completion`（`compiler/tests/check.rs`）、`lowers_result_binders_to_a_lambda_local_join`（`compiler/tests/core.rs`） | `executes_result_blocks_through_the_existing_calling_convention`（`compiler/tests/driver/artifacts.rs`） |
-| [`control`: Empty](../spec/control.md#empty) | P/N/E: empty syntax・type・elimination tests（`compiler/tests/parser.rs`、`compiler/tests/check.rs`）、`lowers_empty_elimination_to_a_zero_arm_case`（`compiler/tests/core.rs`） | `compiles_empty_elimination_as_an_unreachable_zero_arm_case`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: predefined Bool](../spec/types.md#predefined-bool) | P/N/E: `checks_int32_and_bool_operator_families`（`compiler/tests/check.rs`）、`local_scope_can_shadow_predefined_and_outer_names`、`rejects_unknown_names_and_reserved_top_level_redefinitions`（`compiler/tests/resolve.rs`） | `preserves_short_circuit_effect_order_through_llvm`、`branches_over_bool_and_unmanaged_sums_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: transparent alias](../spec/types.md#transparent-alias) | P/N/E: `expands_aliases_and_compares_types_structurally`、`rejects_recursive_aliases_even_when_unused`（`compiler/tests/check.rs`） | `preserves_type_alias_names_as_backend_metadata`（`compiler/tests/core.rs`） |
-| [`types`: 関数型](../spec/types.md#関数型) | P/E: `function_types_are_right_associative`（`compiler/tests/parser.rs`）、`checks_function_application_and_zero_argument_unit_lowering`（`compiler/tests/check.rs`） | `calls_escaping_closures_with_managed_captures_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`types`: external opaque type](../spec/types.md#external-opaque-type) | P/N: `checks_nominal_external_opaque_types`（`compiler/tests/check.rs`） | `transfers_external_opaque_values_through_the_public_c_abi`（`compiler/tests/driver/artifacts.rs`） |
+| [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、`@` shape/value、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
+| [numeric conversion](../spec/expressions.md#primitive-operator) | 全closed suffix、rounding/modulo/precondition、旧`T(value)`と`value[T]`のrejection | conversionを含むLLVM artifactのcompile/execute |
+| [types](../spec/types.md) | indexed type arity、alias expansion、recursive alias、type position以外のTYPE_IDENT rejection | editor hover/navigationとgenerated diagnostic |
+| [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument descriptor | `(Count, Address)` process entryを実際のargvで実行 |
 
-## 式と実行意味論
+## Generics
 
-| 規範 | P / N / E | X |
+| Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [`expressions`: binding](../spec/expressions.md#binding) | P/N/E: `checks_products_destructuring_and_multiple_parameters`（`compiler/tests/check.rs`）、`local_bindings_enter_scope_only_after_their_initializer`（`compiler/tests/resolve.rs`） | `constructs_and_resumes_unmanaged_products_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: ラムダ](../spec/expressions.md#ラムダ) | P/N/E: `parses_parameters_and_lambda_body_items`、`accepts_block_results_with_or_without_a_terminal_semicolon`、`rejects_a_lambda_without_a_result_expression`、`parses_expression_bodies_for_binder_and_control_forms`（`compiler/tests/parser.rs`）、`checks_expression_bodies_for_binder_and_control_forms`（`compiler/tests/check.rs`）、lexical capture推論群（`compiler/tests/resolve.rs`） | `calls_escaping_closures_with_managed_captures_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: direct block](../spec/expressions.md#direct-block) | P/N/E: `parses_direct_blocks_and_result_blocks_as_distinct_expressions`、`checks_direct_blocks_without_treating_them_as_lambdas`、`formats_direct_blocks_and_result_blocks`（`compiler/tests/parser.rs`、`compiler/tests/check.rs`、`compiler/tests/formatter.rs`） | `executes_direct_blocks_and_local_result_continuations`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: application](../spec/expressions.md#application) | P/N/E: `checks_function_application_and_zero_argument_unit_lowering`、`checks_postfix_application_and_sum_continuations`、`checks_receiver_first_calls_with_ordinary_function_bindings`（`compiler/tests/check.rs`）、`requires_parentheses_on_receiver_first_calls`（`compiler/tests/parser.rs`）、`evaluates_an_argument_before_its_callee_and_application`、`evaluates_a_receiver_before_remaining_receiver_call_arguments`（`compiler/tests/anf.rs`）、`receiver_first_callees_support_function_editor_features`（`compiler/tests/editor.rs`） | `runs_sum_results_and_postfix_application_through_llvm`、`runs_continuations_when_value_and_answer_function_types_overlap`、`runs_receiver_first_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: if](../spec/expressions.md#if) | P/N/E: `parses_expression_bodies_for_binder_and_control_forms`（`compiler/tests/parser.rs`）、`checks_if_condition_and_branch_types`、`checks_expression_bodies_for_binder_and_control_forms`（`compiler/tests/check.rs`）、`formats_expression_bodies_for_binder_and_control_forms`（`compiler/tests/formatter.rs`）、`lowers_if_to_false_then_true_case_arms`（`compiler/tests/core.rs`） | `preserves_short_circuit_effect_order_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: 直和の除去](../spec/expressions.md#直和の除去) | P/N/E: `parses_postfix_and_unit_continuation_applications`（`compiler/tests/parser.rs`）、`checks_postfix_application_and_sum_continuations`、`rejects_invalid_sum_continuations_and_type_applications`（`compiler/tests/check.rs`） | `branches_over_bool_and_unmanaged_sums_through_llvm`、`runs_sum_results_and_postfix_application_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: numeric literal](../spec/expressions.md#literal) | P/N/E: numeric lexer tests（`compiler/tests/lexer.rs`）、integer/float boundary tests（`compiler/tests/check.rs`） | `builds_every_integer_width_with_signed_and_unsigned_llvm_comparisons`、`builds_strict_float_arithmetic_and_nan_comparisons_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: byte literal](../spec/expressions.md#byte-literal) | P/N/E: `lexes_byte_literals_and_every_escape`、`rejects_malformed_byte_literals_at_the_lexer_boundary`（`compiler/tests/lexer.rs`） | `integer-and-byte` example（`compiler/tests/driver.rs`） |
-| [`expressions`: primitive operator](../spec/expressions.md#primitive-operator) | P/N/E: integer、float、Bool、conversion tests（`compiler/tests/check.rs`） | integer、float、Bool、conversion testsとprecondition trap非生成（`compiler/tests/driver/artifacts.rs`） |
-| [`expressions`: expression statement](../spec/expressions.md#expression-statement) | P/E: `lowers_lambda_statements_and_a_block_result_to_lets_and_a_result`（`compiler/tests/core.rs`）、`flattens_core_lets_without_losing_statement_order`（`compiler/tests/anf.rs`） | `builds_scalar_control_and_tail_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: 評価戦略](../spec/execution.md#評価戦略) | P/E: operand、value、continuation、sum elimination、statement、product順序（`compiler/tests/anf.rs`） | `builds_scalar_control_and_tail_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: scopeとclosure](../spec/execution.md#scope-と-closure) | P/N/E: capture resolution群（`compiler/tests/resolve.rs`）、closure conversion群（`compiler/tests/closure.rs`） | `calls_escaping_closures_with_managed_captures_through_llvm`、`runs_call_cc_encoded_with_capturing_closures`、allocation trap（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: 再帰](../spec/execution.md#再帰) | P/N/E: recursion acceptance/rejection群（`compiler/tests/resolve.rs`、`compiler/tests/check.rs`） | `dispatches_all_recursive_closure_targets_through_llvm`、`runs_continuations_when_value_and_answer_function_types_overlap`、`runs_call_cc_encoded_with_capturing_closures`、scalarおよびmanaged valueのdirect-tail-call tests（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: 整数](../spec/execution.md#整数) | P/N/E: `checks_integer_operators_for_every_fixed_width_type`（`compiler/tests/check.rs`） | wrapping、shift、division/remainder tests（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: 浮動小数点](../spec/execution.md#浮動小数点) | P/N/E: float literal/operator/conversion tests（`compiler/tests/check.rs`） | strict arithmetic、comparison、conversion tests（`compiler/tests/driver/artifacts.rs`）、`strict-float` example（`compiler/tests/driver.rs`） |
-| [`execution`: trap](../spec/execution.md#trap) | storage failureとpreconditionの分類 | closureとSymbolのallocation failure、およびprecondition trap非生成（`compiler/tests/driver/artifacts.rs`） |
-| [`execution`: core calculus](../spec/execution.md#core-calculus) | surface消去（`compiler/tests/core.rs`）、評価順序のANF化（`compiler/tests/anf.rs`） | 代表経路は各native test |
+| [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、arity mismatch、explicit application、first-classな単相value、generic extern rejection | required fileを跨ぐgeneric application |
+| [requirements](../spec/generics.md#requirements) | signature内のnested indexed type、alias展開、requirement不足、既知の非representable型 | 型parameterを渡すgeneric間applicationとCursor/Region/Packedを受け取るgeneric function |
+| [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
 
-## Symbol、extern、C ABI
+## Memory layoutとaccess
 
-| 規範 | P / N / E | X |
+| Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [`engrams`: authorityと境界](../spec/engrams.md) | P/N: transportable type、`Symbol.size` rejection、memory operation tests（`compiler/tests/check.rs`） | host copy、Symbol memory copy、process argument admission、`owns_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: 値](../spec/symbols.md#値) | P/E: `checks_symbol_literals_as_immutable_bytes`（`compiler/tests/check.rs`） | static/captured/copy tests、`owns_capturing_closure_environments_through_llvm`、`retains_only_active_managed_sum_payloads_through_llvm`、`runs_managed_direct_self_tail_calls_through_llvm`（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: literal](../spec/symbols.md#literal) | P/N/E: Symbol literal lexer tests（`compiler/tests/lexer.rs`） | `owns_symbols_across_direct_llvm_calls`（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: operator](../spec/symbols.md#operator) | P/N/E: `parses_symbol_length_and_byte_access_with_access_precedence`、`rejects_chained_symbol_byte_access`（`compiler/tests/parser.rs`）、`checks_symbol_operators_and_byte_wise_equality`、`rejects_invalid_symbol_operations`（`compiler/tests/check.rs`） | `owns_symbols_across_direct_llvm_calls`、`balances_persistent_symbols_and_materializes_only_at_the_host_boundary`、precondition trap非生成、allocation failure tests（`compiler/tests/driver/artifacts.rs`） |
-| [`symbols`: mutable bytesとの分離](../spec/symbols.md#mutable-bytesとの分離) | P/N: opaque typeとinvalid operation tests（`compiler/tests/check.rs`） | `symbol-round-trip` example（`compiler/tests/driver.rs`） |
-| [`extern`: 目的とsource semantics](../spec/extern.md#目的) | P/N: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`）、extern parse/resolve tests | host adapterを持つchecked-in example（`compiler/tests/driver.rs`） |
-| [`extern`: transportable type](../spec/extern.md#transportable-type) | P/N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | aggregate and opaque ABI tests（`compiler/tests/driver/artifacts.rs`） |
-| [`extern`: host contractと安全性](../spec/extern.md#host-contract) | trusted host側の規範であり、mal compilerのadmission対象外 | generated headerを使用する全host fixture |
-| [`extern`: boundary transport](../spec/extern.md#boundary-transport) | P/E: Symbol型・signature検査（`compiler/tests/check.rs`） | copy、host mutation、allocation/length failure tests（`compiler/tests/driver/artifacts.rs`）、`socket-packet` example（`compiler/tests/driver.rs`） |
-| [`extern`: ABIとadapter](../spec/extern.md#abi-と-adapter) | P/N: generated declaration検査（`compiler/tests/driver/artifacts.rs`） | checked-in host adapter、`socket-packet`のgenerated macro使用（`compiler/tests/driver.rs`） |
-| [`c-host-abi`: build model](../spec/c-host-abi.md#build-model) | P/N: buildとtoolchain failure tests（`compiler/tests/driver.rs`） | 複数host inputと全checked-in example（`compiler/tests/driver.rs`） |
-| [`c-host-abi`: Host operationとSymbol](../spec/c-host-abi.md#host-operation) | P/E: `extracts_the_host_interface_without_lowering_value_bindings`（`compiler/tests/core.rs`）、header assertion群（`compiler/tests/driver/artifacts.rs`） | headerをincludeするhost fixture群 |
-| [`c-host-abi`: Host value mapping](../spec/c-host-abi.md#host-value-mapping) | P/E: scalar/aggregate/opaque/Symbol header tests（`compiler/tests/driver/artifacts.rs`） | 各ABI round-trip test、`bridges_symbol_parameters_and_results_through_the_public_c_abi`（`compiler/tests/driver/artifacts.rs`） |
-| [`extern`: closure exclusion](../spec/extern.md#transportable-type) | N/E: `validates_extern_signatures_recursively`（`compiler/tests/check.rs`） | — |
-| [`c-host-abi`: failure](../spec/c-host-abi.md#failureとconcurrency) | P: sum resultと`mal_trap` declaration tests（`compiler/tests/driver/artifacts.rs`） | `mal_trap`を含むnative trap tests、`socket-packet`のrecoverable payload rejection |
+| [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、function、opaque、indexed type | representable aggregateのstore/load round-trip |
+| [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
+| [placement/access](../spec/memory.md#placementとaccess) | exact placement、unaligned load/store、Cursor pair result、store chain、projection、postfix align capability | compiled artifactでscalar/product/sum/Addressをaccess |
+| [preconditions](../spec/memory.md#未検査precondition) | 成立例、one-pastの形成、zero-count、zero-strideと、loweringに防御分岐を加えないこと | preconditionをsource trapへ変えないbaseline artifact |
+| [target contract](../spec/memory.md#target-contract) | pointer representation幅とindex幅の分離、unsupported `!`、unrepresentable layout | reference targetとsynthetic data layout fixtures |
 
-## Programと字句・文法
+## Region、Packed、Symbol
 
-| 規範 | P / N / E | X |
+| Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [`programs`: programとsource file](../spec/programs.md#program-と-source-file) | P/N/E: require parse、visibility、衝突、cycle、path tests（`compiler/tests/parser.rs`、`compiler/tests/resolve.rs`、`compiler/tests/driver.rs`） | `builds_public_functions_from_required_files_with_private_helpers`、`mini-database` example（`compiler/tests/driver.rs`） |
-| [`programs`: top-level item](../spec/programs.md#top-level-item) | P/N/E: `type_and_external_declarations_are_visible_across_the_unit`（`compiler/tests/resolve.rs`）、`rejects_effectful_top_level_initializers`（`compiler/tests/check.rs`） | `examples/`のchecked-in program（`compiler/tests/driver.rs`） |
-| [`programs`: entry point](../spec/programs.md#entry-point) | P/N/E: `builds_a_constant_main_through_the_llvm_artifact_set`、`passes_process_arguments_through_the_llvm_entry_bridge`（`compiler/tests/driver/artifacts.rs`） | public `build` example tests（`compiler/tests/driver.rs`） |
-| [`grammar`: sourceとidentifier](../spec/grammar.md#source-と-identifier) | P/N/E: keyword、whitespace/comment、identifier、UTF-8 diagnostic tests（`compiler/tests/lexer.rs`、`compiler/src/source.rs`） | frontendを通る全native test |
-| [`grammar`: numeric separator](../spec/grammar.md#numeric-separator) | P/N/E: numeric separator tests（`compiler/tests/lexer.rs`） | `integer-and-byte`、`strict-float` examples（`compiler/tests/driver.rs`） |
-| [`grammar`: 文法概要](../spec/grammar.md#文法概要) | P/N/E: parser suite（`compiler/tests/parser.rs`）、`lexes_every_operator_and_delimiter`、`rejects_characters_outside_the_token_grammar`（`compiler/tests/lexer.rs`） | 全checked-in example（`compiler/tests/driver.rs`） |
-| [`grammar`: operator precedence](../spec/grammar.md#operator-precedence) | P/N/E: precedence、call binding、non-associative rejection（`compiler/tests/parser.rs`） | integer/float/Bool operator native tests（`compiler/tests/driver/artifacts.rs`） |
-| [`grammar`: 存在しない構文](../spec/grammar.md#存在しない構文) | N: unknown token/nameとsyntax rejection（`compiler/tests/lexer.rs`、`compiler/tests/parser.rs`、`compiler/tests/resolve.rs`） | — |
+| [transfer/slice](../spec/packed.md#operation) | zero-count、prefix/remainder、index、Unit、Address element、operand一回評価 | external RegionからPackedへadmitしRegionへ戻す |
+| [Symbol conversion](../spec/packed.md#symbol-conversion) | flat/non-flat Symbol、copyまたはowner共有、allocation failure、両operandの継続利用 | Symbol runtime ownershipとPacked slice lifetime |
+| [partial I/O](../spec/packed.md#partial-io) | initialized/consumed prefix、zero progress、retry ordering、host postcondition | reusable byte Regionを使うstreaming host fixture |
+| [HostMappable](../spec/packed.md#hostmappable) | generic alias完全展開、Cursor/Region/Packed rejection、nested product/sum | generated headerとC adapterをcompile/link/execute |
 
-## Public path
+## ABIとmigration
 
-`compiler/tests/driver.rs`はpublic `malc` executableを通してhelp、version、usage error、`check`、`emit-header`、`emit-host`、
-`build`、filesystem error、C compiler起動失敗、C compiler non-zero exit、および`examples/`のchecked-in programを
-検証する。これにより上表のstage-focused testが利用者向け経路にも接続されていることを確認する。
+| Authority | Focused evidence | Cross-boundary evidence |
+|---|---|---|
+| [C host ABI](../spec/c-host-abi.md) | ABI `0x000700`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
+| [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Symbol/PackedとAddressを含むaggregateのround-trip |
+| [旧profile撤去](../history/decisions/D052.md) | `Ptr`、`mal_Ptr_t`、型修飾memory primitive、旧conversion syntaxを各所有stageで拒否 | repositoryのspec、example、fixture、generated artifactに旧surfaceが残らない |
+
+## Completion gate
+
+v0.6実装は、上表のfocused evidence、代表cross-boundary test、既存機能のregression testがすべて通り、
+`nu scripts/check.nu`が成功した時点で完了する。防御的trapの存在をpositive contractとしてassertするtestは作らない。
