@@ -41,7 +41,9 @@ mapResult<E, A, B> :: (Result<E, A>, A -> B) -> Result<E, B> :=
 - local bindingのgeneralization、first-class polymorphism、higher-kinded type、polymorphic recursionは認めない。
 - self recursionは同じ型argumentを保つcallだけを認める。
 - type reflection、type case、generic typeによるoverload resolutionは認めない。
-- generic extern declarationは認めない。extern parameterとresultは従来どおりconcrete typeでなければならない。
+- generic extern declarationは認めない。extern parameterとresultは
+  [memory placement試案](size-and-alignment.md#abiとbackend)が定める閉じた`HostMappable(A)` judgmentを満たさなければならず、
+  transparent aliasを展開した後にgeneric type applicationが残る型は、型argumentがconcreteでも満たさない。
 
 型argumentは最初のprofileでは明示する。argument型または期待result型から一意に決まる型argumentの省略は、
 call siteの摩擦と型推論規則を実例で比較してから別に判断する。
@@ -123,13 +125,16 @@ writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
     (cursor, value) -> cursor <- value;
 
 cursorAddress<A> :: Cursor<A> -> Address :=
-    (cursor) -> !cursor;
+    (cursor) -> ?cursor;
 
 regionAddress<A> :: Region<A> -> Address :=
-    (region) -> !region;
+    (region) -> ?region;
 
 makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
     (cursor, count) -> cursor@count;
+
+makeAlignedRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
+    (cursor, count) -> cursor!@count;
 ```
 
 `Cursor<A>`と`Region<A>`はcanonicalな`A`に一意なstatic layoutを保存する。`Packed<A>`はexternal layoutを持たず、要素型`A`だけを
@@ -157,38 +162,41 @@ preconditionであり、`<-region`で作った`Packed<A>`だけがmal-ownedに�
 直後から始まるsuffix Regionを返す。`/`はprefix、`%`はremainderを返し、packed indexingは`index < #packed`を要求する。
 
 `Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
-明示されたoperandの型indexを保存するbuilt-in primitive familyである。`Cursor<A>`または`Region<A>`を受け取るgeneric本体は、
-compiler内部の`Representable(A)` judgmentのもとでそのcarrierをaccessできる。これはuser-defined constraintではなく、裸の`A`や
-`Address`からlayoutを導く能力も与えない。型検査後のspecializationではconcreteなshapeとvalue型が確定し、representableでない
-concrete型によるmemory specializationは拒否する。ANF以降へopenな型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
+明示されたoperandの型indexを保存するbuilt-in primitive familyである。これらのindexed typeは`Representable(A)`の場合だけ
+well-formedであり、`Cursor<A>`、`Region<A>`、`Packed<A>`を受け取るgeneric本体はcompiler内部の同judgmentのもとでcarrierを
+操作できる。これはuser-defined constraintではなく、裸の`A`や`Address`からlayoutを導く能力も与えない。型検査後のspecializationでは
+concreteなshapeとvalue型が確定し、representableでないconcrete型によるmemory specializationは拒否する。ANF以降へopenな
+型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
 
 raw addressへ異なるlayoutを順にstoreする場合は、memory chain中でlayoutを明示的に切り替える。
 
 ```mal
 afterHeader := address@u8 <- header;
-afterVersion := (!afterHeader)@i32 <- version;
-end := (!afterVersion)@address <- payloadAddress;
+afterVersion := (?afterHeader)@i32 <- version;
+end := (?afterVersion)@address <- payloadAddress;
 ```
 
 CursorとRegionのcanonical layoutは生成後に変更できない。`<-`はCursorと同じ`A`のstore、またはRegionと同じ`A`のPacked transferに
 限定し、別のshapeへ切り替えるgeneric primitiveにはしない。
 
 採択時には[D037](../history/decisions/D037.md)の`T.load`と`T.store`を置き換え、名前付きの`load<T>`と`store<T>`は提供しない。
-`Symbol.read`に相当するadmissionは`<-Region<UInt8>`、`Symbol.write`に相当するobservationは
-`Region<UInt8> <- Packed<UInt8>`で行う。`Symbol`は`Packed<UInt8>`のtransparent aliasとし、managed object representationを
-memoryへ公開しない。
+`Symbol.read`に相当するadmissionは`*(<-region)`、`Symbol.write`に相当するobservationは`region <- *symbol`で行う。prefix `*`は
+`Symbol`と`Packed<UInt8>`の間だけのclosedなbuiltin conversionであり、generic型parameterへ適用できない。Symbolは独立した
+predefined typeとhost ABIを維持し、managed object representationをmemoryへ公開しない。
 
 ## compiler境界
 
 name resolutionとtype checkingは型parameter、型application、opaqueな型変数、およびgeneric bindingを所有する。
-型検査後、到達するconcrete specializationを共有して単相のtyped coreを構成する。ANF以降はgeneric declaration、
-type argument、dictionaryを受け取らず、現在と同じconcrete typeとprimitiveだけを扱う。
+compilerは一つのartifactのrequire graphから到達するgeneric bodyを集め、entry pointとconcreteな使用箇所から到達するspecializationだけを
+生成する。同じgeneric bindingとconcrete type argument列はfileを跨いでも共有し、単相のtyped coreを構成する。ANF以降はgeneric
+declaration、type argument、dictionaryを受け取らず、現在と同じconcrete typeとprimitiveだけを扱う。
 
-specialization graphは有限でなければならない。同じgeneric bindingとconcrete type argument列を一つのidentityとして共有し、
-異なる型argumentで再帰するbindingを型検査で拒否する。code size上限とdiagnosticは実装着手前にresource limitとして定める。
+specialization graphは有限でなければならない。self recursionは同じtype argument列のnodeへ戻し、異なる型argumentで再帰するbindingは
+型検査で拒否する。specialization数または生成code sizeがcompilerのdocumented resource limitを超えた場合は、展開元のbindingと
+type argument列を示すdiagnosticでartifact生成を拒否する。generic machine codeを別artifact向けのbinary ABIとして配布しない。
 
-public generic bindingはmal source間だけで利用できる。generated C header、extern ABI、host adapterへopenな型parameterを公開せず、
-host interfaceは従来どおりconcrete typeだけから構成する。
+public generic bindingはmal source間だけで利用できる。generated C header、extern ABI、host adapterへgeneric binding、specialization、
+型parameter、generic type applicationを公開せず、host interfaceは明示的なhost value mappingを持つ型だけから構成する。
 
 ## 採択前に確認すること
 
@@ -199,5 +207,5 @@ host interfaceは従来どおりconcrete typeだけから構成する。
 - generic alias、generic function、cross-file use、self recursionのpositive case
 - 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
 - specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、alignment移動、`@Count`、`!`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
+- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、`@Count`、postfix `!`、prefix `?`と`*`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
 - `Cursor<A>`を介したgeneric loadとRegion構築、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
