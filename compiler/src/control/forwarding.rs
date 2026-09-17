@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
+use crate::check::ast::Type;
 use crate::closure::ast::{AtomKind, Pattern, Reference};
 
 use super::ast::{Operation, State, StateId, Terminator};
@@ -27,6 +28,9 @@ pub(super) fn normalize_calls(states: &mut [State], start: usize) {
 }
 
 fn returns_input(states: &[State], start: StateId) -> bool {
+    if is_unit_pattern(states[start.0].input.as_ref()) {
+        return returns_unit(states, start);
+    }
     let Some(mut value) = binding_id(states[start.0].input.as_ref()) else {
         return false;
     };
@@ -64,6 +68,46 @@ fn returns_input(states: &[State], start: StateId) -> bool {
             }
             _ => return false,
         }
+    }
+}
+
+fn returns_unit(states: &[State], start: StateId) -> bool {
+    let mut state = start;
+    let mut visited = HashSet::new();
+    loop {
+        if !visited.insert(state) {
+            return false;
+        }
+        let current = &states[state.0];
+        for binding in &current.bindings {
+            if !is_unit_pattern(Some(&binding.pattern)) {
+                return false;
+            }
+            let Operation::Atom(atom) = &binding.operation else {
+                return false;
+            };
+            if atom.ty != Type::Unit {
+                return false;
+            }
+        }
+        match &current.terminator {
+            Terminator::Return(result) => return result.ty == Type::Unit,
+            Terminator::Goto(target) if states[target.0].input.is_none() => state = *target,
+            Terminator::Jump {
+                target,
+                value: argument,
+            } if argument.ty == Type::Unit && is_unit_pattern(states[target.0].input.as_ref()) => {
+                state = *target
+            }
+            _ => return false,
+        }
+    }
+}
+
+fn is_unit_pattern(pattern: Option<&Pattern>) -> bool {
+    match pattern {
+        Some(Pattern::Binding { ty, .. }) | Some(Pattern::Wildcard { ty, .. }) => *ty == Type::Unit,
+        Some(Pattern::Product { .. }) | None => false,
     }
 }
 
@@ -145,6 +189,49 @@ mod tests {
             &state.terminator,
             Terminator::Call { callee, .. }
                 if matches!(callee.kind, AtomKind::Reference(Reference::SelfClosure(id)) if id == walk.id)
+        )));
+    }
+
+    #[test]
+    fn makes_a_unit_result_continuation_a_tail_call() {
+        let program = control(
+            "walk :: Int32 -> Unit := (value) -> {\n\
+               if (value == 0i32) then { () } else {\n\
+                 walk(value - 1i32);\n\
+               };\n\
+             };\n\
+             main :: Unit -> Int32 := () -> { walk(2i32); 0i32; };",
+        );
+        let walk = &program.functions[0];
+        assert!(program.states.iter().any(|state| matches!(
+            &state.terminator,
+            Terminator::TailCall { callee, .. }
+                if matches!(callee.kind, AtomKind::Reference(Reference::SelfClosure(id)) if id == walk.id)
+        )));
+        assert!(!program.states.iter().any(|state| matches!(
+            &state.terminator,
+            Terminator::Call { callee, .. }
+                if matches!(callee.kind, AtomKind::Reference(Reference::SelfClosure(id)) if id == walk.id)
+        )));
+    }
+
+    #[test]
+    fn preserves_a_unit_continuation_with_an_external_effect() {
+        let program = control(
+            "extern observe :: Unit -> Unit;\n\
+             walk :: Int32 -> Unit := (value) -> {\n\
+               if (value == 0i32) then { () } else {\n\
+                 child := walk(value - 1i32);\n\
+                 observed := observe(child);\n\
+                 observed;\n\
+               };\n\
+             };\n\
+             main :: Unit -> Int32 := () -> { walk(2i32); 0i32; };",
+        );
+        assert!(program.states.iter().any(|state| matches!(
+            &state.terminator,
+            Terminator::Call { callee, .. }
+                if matches!(callee.kind, AtomKind::Reference(Reference::SelfClosure(_)))
         )));
     }
 }

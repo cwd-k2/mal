@@ -9,7 +9,8 @@ Status: Current implementation design
 ## authority
 
 `control`はMal function callをstate terminatorへ分離し、call結果をaliasとjoinだけでfunction resultへ転送するidentity continuationを
-tail callへ正規化してから、stateごとのbackward livenessと`needs_environment`を構成する。
+tail callへ正規化してから、stateごとのbackward livenessと`needs_environment`を構成する。`Unit`では値が一つしかないため、
+call結果のidentityによらず、`Unit`のatom bindingとjoinだけを通って`Unit`を返すcontinuationも同じ正規形にする。
 function内のcontrol graphは再帰edgeを含まず、lowererはsuccessorをpredecessorより先に構成する。この順序により
 livenessは一回のbackward dataflow passで確定し、applicationによる再帰は後続のexecution planだけが扱う。
 `execution`はこの表現とclosure-use情報から次を一方向に導出する。

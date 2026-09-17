@@ -76,6 +76,41 @@ fn removes_identity_result_continuations_before_frame_emission() {
 }
 
 #[test]
+fn removes_unit_result_continuations_before_frame_emission() {
+    let directory = NativeFixture::new("driver-llvm-unit-continuation");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "countdown :: Int32 -> Unit := (value) -> {\n\
+           if (value == 0i32) then { () } else {\n\
+             countdown(value - 1i32);\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { countdown(1000000i32); 0i32; };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(!module.contains("mal_control_reserve_frame"));
+}
+
+#[test]
 fn resumes_single_constructor_frames_without_live_payloads() {
     let directory = NativeFixture::new("driver-llvm-empty-frame");
     let source = directory.join("program.mal");
