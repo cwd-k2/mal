@@ -1,9 +1,14 @@
 require "./host.mal";
 
-// Convert a writable buffer descriptor into the initialized read-only view.
-initializedBytes :: Buffer -> Bytes := (buffer) -> {
+// Convert a byte buffer into the initialized descriptor used only at the host boundary.
+initializedBytes :: ByteBuffer -> ReadableBytes := (buffer) -> {
     (memory, _, length) := buffer;
     (memory, length);
+};
+
+initializedRegion :: ByteBuffer -> Region<UInt8> := (buffer) -> {
+    (memory, _, length) := buffer;
+    memory@u8@length;
 };
 
 readByte :: Address -> UInt8 := (memory) -> {
@@ -16,70 +21,63 @@ writeByte :: (Address, UInt8) -> Unit := (memory, value) -> {
     ();
 };
 
-// These recursive byte operations advance one byte and reduce their remaining range.
-clearBytes :: (Address, UInt64) -> Unit := (memory, remaining) -> [return] => {
-    when (remaining == 0u64) {
+clearBytes :: (Address, USize) -> Unit := (memory, remaining) -> [return] => {
+    when (remaining == 0usize) {
         return(());
     };
 
     memory@u8 <- 0u8;
-    return((memory + 1bytes).clearBytes(remaining - 1u64));
+    return((memory + 1bytes).clearBytes(remaining - 1usize));
 };
 
-_rangeEqualsAt :: (Address, UInt64, Symbol, UInt64) -> Bool :=
+_rangeEqualsAt :: (Packed<UInt8>, USize, Symbol, USize) -> Bool :=
     (source, start, expected, index) -> [return] => {
-        when (index == #expected) {
+        when (index == (#expected).usize) {
             return(true);
         };
-        (actual, _) := <-(source + (start + index).bytes)@u8;
-        when (actual != expected # index) {
+        when (source # (start + index) != expected # index.u64) {
             return(false);
         };
 
-        return(source._rangeEqualsAt(start, expected, index + 1u64));
+        return(source._rangeEqualsAt(start, expected, index + 1usize));
     };
 
-rangeEquals :: (Address, UInt64, UInt64, UInt64, Symbol) -> Bool :=
-    (source, sourceLength, start, length, expected) -> {
-        length == #expected
-            && start + length <= sourceLength
-            && source._rangeEqualsAt(start, expected, 0u64);
+rangeEquals :: (Packed<UInt8>, USize, USize, Symbol) -> Bool :=
+    (source, start, length, expected) -> {
+        length == (#expected).usize
+            && start <= #source
+            && length <= #source - start
+            && source._rangeEqualsAt(start, expected, 0usize);
     };
 
-findByte :: (Address, UInt64, UInt64, UInt8) -> UInt64 :=
-    (source, length, index, byte) -> [return] => {
-        when (index == length) {
+findByte :: (Packed<UInt8>, USize, UInt8) -> USize :=
+    (source, index, byte) -> [return] => {
+        when (index >= #source) {
+            return(#source);
+        };
+        when (source # index == byte) {
             return(index);
         };
-        (actual, _) := <-(source + index.bytes)@u8;
-        when (actual == byte) {
-            return(index);
-        };
 
-        return(source.findByte(length, index + 1u64, byte));
+        return(source.findByte(index + 1usize, byte));
     };
 
-memoryEqualsAt :: (Address, Address, UInt64, UInt64, UInt64) -> Bool :=
+memoryEqualsAt :: (Address, Packed<UInt8>, USize, USize, USize) -> Bool :=
     (memory, source, start, length, index) -> [return] => {
         when (index == length) {
             return(true);
         };
         (left, _) := <-(memory + index.bytes)@u8;
-        (right, _) := <-(source + (start + index).bytes)@u8;
-        when (left != right) {
+        when (left != source # (start + index)) {
             return(false);
         };
 
-        return(memory.memoryEqualsAt(source, start, length, index + 1u64));
+        return(memory.memoryEqualsAt(source, start, length, index + 1usize));
     };
 
-copyRange :: (Address, UInt64, Address, UInt64) -> Unit :=
-    (source, start, destination, remaining) -> [return] => {
-        when (remaining == 0u64) {
-            return(());
-        };
-
-        (byte, _) := <-(source + start.bytes)@u8;
-        destination@u8 <- byte;
-        return(source.copyRange(start + 1u64, destination + 1bytes, remaining - 1u64));
+copyRange :: (Packed<UInt8>, USize, Address, USize) -> Unit :=
+    (source, start, destination, length) -> {
+        selected := (source % start) / length;
+        destination@u8@length <- selected;
+        ();
     };

@@ -1,15 +1,15 @@
 require "./host.mal";
 require "./bytes.mal";
 
-databaseReadCapacity :: UInt64 := 4113u64;
+databaseReadCapacity :: USize := 4113usize;
 
 // One byte beyond the file size lets validation distinguish a complete file from an oversized one.
-_databaseSize :: UInt64 := 4112u64;
-_headerSize :: UInt64 := 16u64;
-_recordSize :: UInt64 := 64u64;
-_recordCount :: UInt64 := 64u64;
-_keyCapacity :: UInt64 := 16u64;
-_valueCapacity :: UInt64 := 40u64;
+_databaseSize :: USize := 4112usize;
+_headerSize :: USize := 16usize;
+_recordSize :: USize := 64usize;
+_recordCount :: USize := 64usize;
+_keyCapacity :: USize := 16usize;
+_valueCapacity :: USize := 40usize;
 
 // File bytes are a 16-byte header followed by 64 records of 64 bytes.
 // Record offsets are 0 active, 1 key length, 2 value length, 8 key, and 24 value.
@@ -17,24 +17,24 @@ _valueCapacity :: UInt64 := 40u64;
 // PutResult variants are 0 stored, 1 invalid input, and 2 full storage.
 PutResult :: [Unit, Unit, Unit];
 // LookupResult variant 0 means absent; variant 1 carries value memory and length.
-LookupResult :: [Unit, Bytes];
+LookupResult :: [Unit, Region<UInt8>];
 
 // Fill the buffer until it reaches capacity or the file reports EOF.
-readDatabaseFile :: (File, Buffer) -> Buffer := (file, buffer) -> [return] => {
+readDatabaseFile :: (File, ByteBuffer) -> ByteBuffer := (file, buffer) -> [return] => {
     (memory, capacity, length) := buffer;
     when (length == capacity) {
         return(buffer);
     };
 
     transferred := file.readFile((memory + length.bytes, capacity - length));
-    when (transferred == 0u64) {
+    when (transferred == 0usize) {
         return(buffer);
     };
 
     return(file.readDatabaseFile((memory, capacity, length + transferred)));
 };
 
-_writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
+_writeBytesFully :: (File, ReadableBytes, USize) -> Unit :=
     (file, bytes, written) -> [return] => {
         (memory, length) := bytes;
         when (written == length) {
@@ -42,7 +42,7 @@ _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
         };
 
         transferred := file.writeFile((memory + written.bytes, length - written));
-        when (transferred == 0u64) {
+        when (transferred == 0usize) {
             fail("file write made no progress");
             return(());
         };
@@ -50,13 +50,13 @@ _writeBytesFully :: (File, Bytes, UInt64) -> Unit :=
         return(file._writeBytesFully(bytes, written + transferred));
     };
 
-saveDatabase :: (File, Buffer) -> Unit := (file, database) -> {
+saveDatabase :: (File, ByteBuffer) -> Unit := (file, database) -> {
     file.rewindFile();
-    file._writeBytesFully(database.initializedBytes(), 0u64);
+    file._writeBytesFully(database.initializedBytes(), 0usize);
     file.flushFile();
 };
 
-initializeDatabase :: Buffer -> Buffer := (buffer) -> {
+initializeDatabase :: ByteBuffer -> ByteBuffer := (buffer) -> {
     (memory, capacity, _) := buffer;
 
     // Clear record storage before publishing the header magic and format version.
@@ -70,30 +70,30 @@ initializeDatabase :: Buffer -> Buffer := (buffer) -> {
     (memory, capacity, _databaseSize);
 };
 
-_recordAt :: (Address, UInt64) -> Address := (database, index) ->
+_recordAt :: (Address, USize) -> Address := (database, index) ->
     database + (_headerSize + index * _recordSize).bytes;
 
-_validateRecords :: (Address, UInt64) -> Bool := (database, index) -> [return] => {
+_validateRecords :: (Address, USize) -> Bool := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(true);
     };
 
     record := database._recordAt(index);
     active := record.readByte();
-    keyLength := (record + 1bytes).readByte().u64;
-    valueLength := (record + 2bytes).readByte().u64;
+    keyLength := (record + 1bytes).readByte().usize;
+    valueLength := (record + 2bytes).readByte().usize;
     valid := (active == 0u8 || active == 1u8)
         && keyLength <= _keyCapacity
         && valueLength <= _valueCapacity
-        && (active == 0u8 || keyLength > 0u64);
+        && (active == 0u8 || keyLength > 0usize);
     when (!valid) {
         return(false);
     };
 
-    return(database._validateRecords(index + 1u64));
+    return(database._validateRecords(index + 1usize));
 };
 
-validateDatabase :: Buffer -> Bool := (buffer) -> {
+validateDatabase :: ByteBuffer -> Bool := (buffer) -> {
     (database, _, length) := buffer;
 
     // Validate fixed header fields before walking any record metadata.
@@ -104,10 +104,10 @@ validateDatabase :: Buffer -> Bool := (buffer) -> {
         && (database + 3bytes).readByte() == 'D'
         && (database + 4bytes).readByte() == 1u8
         && (database + 5bytes).readByte() == 64u8
-        && database._validateRecords(0u64);
+        && database._validateRecords(0usize);
 };
 
-_findRecord :: (Address, Address, UInt64, UInt64, UInt64) -> UInt64 :=
+_findRecord :: (Address, Packed<UInt8>, USize, USize, USize) -> USize :=
     (database, key, start, length, index) -> [return] => {
         when (index == _recordCount) {
             return(_recordCount);
@@ -115,16 +115,16 @@ _findRecord :: (Address, Address, UInt64, UInt64, UInt64) -> UInt64 :=
 
         record := database._recordAt(index);
         matches := record.readByte() == 1u8
-            && (record + 1bytes).readByte().u64 == length
-            && (record + 8bytes).memoryEqualsAt(key, start, length, 0u64);
+            && (record + 1bytes).readByte().usize == length
+            && (record + 8bytes).memoryEqualsAt(key, start, length, 0usize);
         when (matches) {
             return(index);
         };
 
-        return(database._findRecord(key, start, length, index + 1u64));
+        return(database._findRecord(key, start, length, index + 1usize));
     };
 
-_findFreeRecord :: (Address, UInt64) -> UInt64 := (database, index) -> [return] => {
+_findFreeRecord :: (Address, USize) -> USize := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(_recordCount);
     };
@@ -132,20 +132,19 @@ _findFreeRecord :: (Address, UInt64) -> UInt64 := (database, index) -> [return] 
         return(index);
     };
 
-    return(database._findFreeRecord(index + 1u64));
+    return(database._findFreeRecord(index + 1usize));
 };
 
-putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
+putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResult :=
     (databaseBuffer, lineBytes, keyStart, keyLength, valueStart, valueLength) -> [stored, invalid, full] => {
         (database, _, _) := databaseBuffer;
-        (line, _) := lineBytes;
-        when (keyLength == 0u64 || keyLength > _keyCapacity || valueLength > _valueCapacity) {
+        when (keyLength == 0usize || keyLength > _keyCapacity || valueLength > _valueCapacity) {
             invalid();
         };
 
-        existing := database._findRecord(line, keyStart, keyLength, 0u64);
+        existing := database._findRecord(lineBytes, keyStart, keyLength, 0usize);
         slot := if (existing == _recordCount)
-            then database._findFreeRecord(0u64)
+            then database._findFreeRecord(0usize)
             else existing;
         when (slot == _recordCount) {
             full();
@@ -155,31 +154,29 @@ putRecord :: (Buffer, Bytes, UInt64, UInt64, UInt64, UInt64) -> PutResult :=
         record := database._recordAt(slot);
         (record + 1bytes).writeByte(keyLength.u8);
         (record + 2bytes).writeByte(valueLength.u8);
-        line.copyRange(keyStart, record + 8bytes, keyLength);
-        line.copyRange(valueStart, record + 24bytes, valueLength);
+        lineBytes.copyRange(keyStart, record + 8bytes, keyLength);
+        lineBytes.copyRange(valueStart, record + 24bytes, valueLength);
         record.writeByte(1u8);
         stored();
     };
 
-lookupRecord :: (Buffer, Bytes, UInt64, UInt64) -> LookupResult :=
+lookupRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> LookupResult :=
     (databaseBuffer, lineBytes, keyStart, keyLength) -> [absent, found] => {
         (database, _, _) := databaseBuffer;
-        (line, _) := lineBytes;
-        slot := database._findRecord(line, keyStart, keyLength, 0u64);
+        slot := database._findRecord(lineBytes, keyStart, keyLength, 0usize);
         when (slot == _recordCount) {
             absent();
         };
 
         record := database._recordAt(slot);
-        valueLength := (record + 2bytes).readByte().u64;
-        found((record + 24bytes, valueLength));
+        valueLength := (record + 2bytes).readByte().usize;
+        found((record + 24bytes)@u8@valueLength);
     };
 
-deleteRecord :: (Buffer, Bytes, UInt64, UInt64) -> Bool :=
+deleteRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Bool :=
     (databaseBuffer, lineBytes, keyStart, keyLength) -> [return] => {
         (database, _, _) := databaseBuffer;
-        (line, _) := lineBytes;
-        slot := database._findRecord(line, keyStart, keyLength, 0u64);
+        slot := database._findRecord(lineBytes, keyStart, keyLength, 0usize);
         when (slot == _recordCount) {
             return(false);
         };

@@ -2,12 +2,12 @@ require "./host.mal";
 require "./bytes.mal";
 
 // Reader fields: 0 source file, 1 reusable buffer, 2 next unread byte.
-Reader :: (File, Buffer, UInt64);
+Reader :: (File, ByteBuffer, USize);
 // ByteRead variant 0 carries the reader at EOF; variant 1 carries the next reader and byte.
 ByteRead :: [Reader, (Reader, UInt8)];
 
 // LineState fields: 0 next reader, 1 initialized line buffer.
-LineState :: (Reader, Buffer);
+LineState :: (Reader, ByteBuffer);
 // LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
 LineRead :: [Reader, LineState];
 
@@ -22,26 +22,26 @@ _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
 
     when (position < length) {
         byte := (memory + position.bytes).readByte();
-        read(((file, buffer, position + 1u64), byte));
+        read(((file, buffer, position + 1usize), byte));
     };
 
     transferred := file.readFile((memory, capacity));
     filled := (memory, capacity, transferred);
-    next := (file, filled, 0u64);
-    when (transferred == 0u64) {
+    next := (file, filled, 0usize);
+    when (transferred == 0usize) {
         eof(next);
     };
 
     byte := memory.readByte();
-    read(((file, filled, 1u64), byte));
+    read(((file, filled, 1usize), byte));
 };
 
-_readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) -> {
+_readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
     (line, capacity, length) := buffer;
     result := reader._readByte();
     result[
     (next) -> [return] => {
-        when (length == 0u64) {
+        when (length == 0usize) {
             return(_lineAtEof(next));
         };
         return(_lineReady((next, buffer)));
@@ -51,24 +51,24 @@ _readLineAt :: (Reader, Buffer) -> LineRead := (reader, buffer) -> {
 
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
-            when (length > 0u64 && (line + (length - 1u64).bytes).readByte() == '\r') {
-                return(_lineReady((next, (line, capacity, length - 1u64))));
+            when (length > 0usize && (line + (length - 1usize).bytes).readByte() == '\r') {
+                return(_lineReady((next, (line, capacity, length - 1usize))));
             };
             return(_lineReady((next, buffer)));
         };
 
-        when (length + 1u64 == capacity) {
+        when (length + 1usize == capacity) {
             fail("query line exceeds its buffer");
             return(_lineReady((next, buffer)));
         };
 
         (line + length.bytes).writeByte(byte);
-        return(next._readLineAt((line, capacity, length + 1u64)));
+        return(next._readLineAt((line, capacity, length + 1usize)));
     }
     ];
 };
 
-readLine :: (Reader, Buffer) -> LineRead := (reader, buffer) -> {
+readLine :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
     (line, capacity, _) := buffer;
-    reader._readLineAt((line, capacity, 0u64));
+    reader._readLineAt((line, capacity, 0usize));
 };

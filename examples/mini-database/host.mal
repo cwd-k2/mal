@@ -1,32 +1,30 @@
 require "./host.c";
 
-// Buffer fields: 0 writable memory, 1 capacity, 2 initialized byte length.
-Buffer :: (Address, UInt64, UInt64);
-// Bytes fields: 0 readable memory, 1 byte length.
-Bytes :: (Address, UInt64);
-// Region fields: 0 writable memory, 1 byte length.
-WriteSpan :: (Address, UInt64);
+// ByteBuffer fields: 0 writable memory, 1 capacity, 2 initialized byte count.
+ByteBuffer :: (Address, USize, USize);
+// Host transfer descriptors keep direction explicit at the extern boundary.
+ReadableBytes :: (Address, USize);
+WritableBytes :: (Address, USize);
 
 extern Allocator;
 extern File;
 
 // Process-lifetime allocation authority.
 extern createAllocator :: Unit -> Allocator;
-extern allocateBuffer :: (Allocator, UInt64) -> Buffer;
+extern allocateBuffer :: (Allocator, USize) -> ByteBuffer;
 extern destroyAllocator :: Allocator -> Unit;
 
 // Borrowed file handles and positional byte transfer.
 extern openReadWriteCreate :: Symbol -> File;
 extern standardInput :: Unit -> File;
-extern readFile :: (File, WriteSpan) -> UInt64;
-extern writeFile :: (File, Bytes) -> UInt64;
+extern readFile :: (File, WritableBytes) -> USize;
+extern writeFile :: (File, ReadableBytes) -> USize;
 extern rewindFile :: File -> Unit;
 extern flushFile :: File -> Unit;
 extern closeFile :: File -> Unit;
 
 // Process output and unrecoverable host failure.
 extern writeSymbol :: Symbol -> Unit;
-extern writeBytes :: Bytes -> Unit;
 extern fail :: Symbol -> Unit;
 
 // Arguments fields: 0 argument count, 1 first external descriptor address.

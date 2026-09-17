@@ -35,7 +35,7 @@ MAL_DEFINE_createAllocator(call) {
 }
 
 MAL_DEFINE_allocateBuffer(call, value) {
-    if (value.field_1 == 0 || value.field_1 > SIZE_MAX) {
+    if (value.field_1 == 0) {
         mal_call_trap(call, "invalid allocation size");
     }
     Allocation *allocation = malloc(sizeof(*allocation));
@@ -48,12 +48,12 @@ MAL_DEFINE_allocateBuffer(call, value) {
     allocation->memory = memory;
     allocation->next = allocator_handle(value.field_0)->first;
     allocator_handle(value.field_0)->first = allocation;
-    return mal_Buffer_return(
+    return mal_ByteBuffer_return(
         call,
-        (mal_Buffer_t){
+        (mal_ByteBuffer_t){
             .field_0 = memory,
             .field_1 = value.field_1,
-            .field_2 = UINT64_C(0),
+            .field_2 = 0,
         }
     );
 }
@@ -106,29 +106,23 @@ MAL_DEFINE_standardInput(call) {
 MAL_DEFINE_readFile(call, value) {
     FILE *handle = file_handle(value.field_0);
     void *memory = value.field_1.field_0;
-    uint64_t capacity = value.field_1.field_1;
-    if (capacity > SIZE_MAX) {
-        mal_call_trap(call, "file read capacity is too large");
-    }
-    size_t length = fread(memory, 1, (size_t)capacity, handle);
+    size_t capacity = value.field_1.field_1;
+    size_t length = fread(memory, 1, capacity, handle);
     if (ferror(handle)) {
         mal_call_trap(call, "cannot read file");
     }
-    return mal_UInt64_return(call, (uint64_t)length);
+    return mal_USize_return(call, length);
 }
 
 MAL_DEFINE_writeFile(call, value) {
     FILE *handle = file_handle(value.field_0);
     void *memory = value.field_1.field_0;
-    uint64_t length = value.field_1.field_1;
-    if (length > SIZE_MAX) {
-        mal_call_trap(call, "file write length is too large");
-    }
-    size_t written = fwrite(memory, 1, (size_t)length, handle);
+    size_t length = value.field_1.field_1;
+    size_t written = fwrite(memory, 1, length, handle);
     if (ferror(handle)) {
         mal_call_trap(call, "cannot write file");
     }
-    return mal_UInt64_return(call, (uint64_t)written);
+    return mal_USize_return(call, written);
 }
 
 MAL_DEFINE_rewindFile(call, file) {
@@ -157,14 +151,6 @@ MAL_DEFINE_writeSymbol(call, value) {
     uint64_t length = bytes.length;
     if (length > SIZE_MAX
         || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
-        mal_call_trap(call, "cannot write stdout");
-    }
-    return mal_Unit_return(call);
-}
-
-MAL_DEFINE_writeBytes(call, value) {
-    if (value.field_1 > SIZE_MAX
-        || fwrite(value.field_0, 1, (size_t)value.field_1, stdout) != (size_t)value.field_1) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);
