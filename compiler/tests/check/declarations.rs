@@ -140,11 +140,13 @@ fn forms_indexed_memory_types_only_for_representable_elements() {
 }
 
 #[test]
-fn rejects_memory_indexed_types_at_the_host_boundary() {
+fn rejects_non_host_mappable_types_at_the_host_boundary() {
     for source in [
+        "extern inspect :: Symbol -> Unit;",
         "extern inspect :: Cursor<UInt8> -> Unit;",
         "extern inspect :: Unit -> Region<UInt8>;",
         "extern inspect :: (Int32, Packed<UInt8>) -> Unit;",
+        "Payload :: [UInt8, Symbol]; extern inspect :: Payload -> Unit;",
     ] {
         assert_eq!(
             check_error(source).message,
@@ -152,6 +154,15 @@ fn rejects_memory_indexed_types_at_the_host_boundary() {
             "source: {source}"
         );
     }
+}
+
+#[test]
+fn admits_address_and_length_descriptors_at_the_host_boundary() {
+    check_ok(
+        "Bytes :: (Address, USize);\n\
+         Transfer :: [Bytes, UInt32];\n\
+         extern exchange :: Bytes -> Transfer;",
+    );
 }
 
 #[test]
