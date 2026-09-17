@@ -258,7 +258,7 @@ fn checks_generic_values_before_specialization() {
         "two bindings plus two reachable instances"
     );
     for (index, expected) in [(2, Type::Int32), (3, Type::UInt8)] {
-        let binding = top_binding(&program, index);
+        let binding = top_binding(program, index);
         assert_eq!(
             binding.value.ty,
             Type::Function {
@@ -269,7 +269,7 @@ fn checks_generic_values_before_specialization() {
         assert!(matches!(binding.value.kind, ExpressionKind::Lambda(_)));
     }
 
-    let ExpressionKind::Lambda(pair) = &top_binding(&program, 0).value.kind else {
+    let ExpressionKind::Lambda(pair) = &top_binding(program, 0).value.kind else {
         panic!("expected pair lambda");
     };
     let check::ast::Pattern::Product { elements, .. } = pair.parameter.as_deref().unwrap() else {
@@ -283,7 +283,7 @@ fn checks_generic_values_before_specialization() {
         })
         .collect::<Vec<_>>();
     for index in 2..=3 {
-        let check::ast::Pattern::Binding { binding, .. } = &top_binding(&program, index).pattern
+        let check::ast::Pattern::Binding { binding, .. } = &top_binding(program, index).pattern
         else {
             panic!("expected specialized binding");
         };

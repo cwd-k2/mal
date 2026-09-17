@@ -445,21 +445,6 @@ fn admit_specialization(count: usize, span: crate::source::Span) -> Result<(), D
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::source::{FileId, Span};
-
-    #[test]
-    fn admits_the_specialization_limit_and_rejects_the_next_node_at_its_span() {
-        let span = Span::new(FileId::new(91), 4, 9);
-        assert!(admit_specialization(LIMIT - 1, span).is_ok());
-        let diagnostic = admit_specialization(LIMIT, span).expect_err("node beyond limit");
-        assert_eq!(diagnostic.primary.as_ref().unwrap().span, span);
-        assert!(diagnostic.primary.unwrap().message.contains("65536"));
-    }
-}
-
 fn pattern(value: &mut Pattern, substitutions: &HashMap<crate::resolve::ast::TypeId, Type>) {
     match value {
         Pattern::Binding { ty, .. } | Pattern::Wildcard { ty, .. } => {
@@ -480,5 +465,20 @@ fn completion(
 ) {
     if let Completion::Value(value) = completion {
         value.ty = substitute_type(&value.ty, substitutions);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::{FileId, Span};
+
+    #[test]
+    fn admits_the_specialization_limit_and_rejects_the_next_node_at_its_span() {
+        let span = Span::new(FileId::new(91), 4, 9);
+        assert!(admit_specialization(LIMIT - 1, span).is_ok());
+        let diagnostic = admit_specialization(LIMIT, span).expect_err("node beyond limit");
+        assert_eq!(diagnostic.primary.as_ref().unwrap().span, span);
+        assert!(diagnostic.primary.unwrap().message.contains("65536"));
     }
 }

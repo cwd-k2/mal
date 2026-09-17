@@ -4,12 +4,13 @@ impl<'a> FunctionEmitter<'a> {
         execution: &'a crate::execution::Program,
         index: &'a ProgramIndex<'a>,
         id: FunctionId,
-        types: Types,
-        source_layouts: source_layout::SourceLayouts,
+        target: super::super::TargetLayout,
         top_levels: &'a TopLevelConstants,
         ownership: &'a ownership::Plan,
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
+        let types = Types::for_target(target)?;
+        let source_layouts = source_layout::SourceLayouts::new(target);
         let function = *index.control_functions.get(&id)?;
         let lowered = *index.lowered_functions.get(&id)?;
         if types.value(&function.parameter.ty).is_none()
