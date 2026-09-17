@@ -273,7 +273,8 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 
 #[test]
 fn preserves_declared_type_aliases_in_hover() {
-    let text = "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
+    let text =
+        "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
     let uri = "file:///alias-hover.mal";
     let mut server = open_document(uri, text);
 
