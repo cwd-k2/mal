@@ -218,4 +218,49 @@ mod tests {
             forwarder.forwarded_self_arguments.keys().copied().collect()
         );
     }
+
+    #[test]
+    fn direct_call_selects_the_only_type_compatible_target() {
+        let source = SourceFile::new(
+            FileId::new(90),
+            "singleton-target.mal",
+            "make :: Int32 -> (Int32 -> Int32) := (captured) -> { (value) -> { captured + value; }; };\n\
+             apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> { function(value); };\n\
+             main :: Unit -> Int32 := () -> { apply(make(40i32), 2i32); };"
+                .into(),
+        );
+        let parsed = parser::parse(&source).expect("parse singleton target fixture");
+        let resolved = resolve::resolve(&parsed).expect("resolve singleton target fixture");
+        let checked = check::check(&resolved).expect("check singleton target fixture");
+        let core =
+            core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
+        let anf = anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let site = applications
+            .sites()
+            .map(|(site, _)| site)
+            .find(|site| {
+                applications.direct_target(*site).is_none()
+                    && matches!(applications.targets(*site), Some([_]))
+            })
+            .expect("indirect site with one compatible target");
+
+        let baseline =
+            OptimizationPlan::new(&closure, &control, &applications, OptimizationSet::none());
+        assert_eq!(baseline.direct_target(site), None);
+
+        let direct = OptimizationPlan::new(
+            &closure,
+            &control,
+            &applications,
+            OptimizationSet::none().with(Technique::DirectCall),
+        );
+        assert_eq!(
+            direct.direct_target(site),
+            applications.targets(site).map(|targets| targets[0])
+        );
+    }
 }

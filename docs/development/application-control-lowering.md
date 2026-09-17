@@ -27,8 +27,8 @@ control IR + closure use
 ```
 
 possible application graphは各applicationのcaller、known target、および型互換な有限のinternal function target集合を所有する。
-`execution/optimization`はpossible application graphを変更せず、明示的に有効化されたdirect call、direct self-tail fusion、pureなknown
-tail forwarder fusionのdecisionだけを構成する。空のoptimization setはdecisionを一つも作らず、すべてのadmitted programをgenericな
+`execution/optimization`はpossible application graphを変更せず、構文からtarget identityを追跡できるsiteまたは型互換target集合が
+一要素のsiteに対するdirect call、direct self-tail fusion、pureなknown tail forwarder fusionのdecisionだけを構成する。空のoptimization setはdecisionを一つも作らず、すべてのadmitted programをgenericな
 dispatchとrecursive regionで実行できるbaselineである。tail fusionはcallerのcontinuationをそのまま渡すedgeだけを除き、possible
 target情報自体は保持する。
 residual graphのrecursive SCCをcontrol regionとし、region内edgeだけが明示的なstate遷移になる。

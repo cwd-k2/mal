@@ -11,6 +11,10 @@ pub(super) fn plan(
         .filter_map(|(site, _)| {
             applications
                 .direct_target(site)
+                .or_else(|| match applications.targets(site) {
+                    Some([target]) => Some(*target),
+                    _ => None,
+                })
                 .map(|target| (site, target))
         })
         .collect()

@@ -360,9 +360,12 @@ mod tests {
                 return false;
             };
             let site = StateId(index);
+            let Some([target]) = applications.targets(site) else {
+                return false;
+            };
             direct_function_id(&uses, callee).is_none()
                 && regions.site_region(site).is_none()
-                && plan.mode(site) == Some(ControlCallMode::Dispatch)
+                && plan.mode(site) == Some(ControlCallMode::Direct(*target))
         }));
     }
 
