@@ -138,6 +138,7 @@ impl FileResolver<'_> {
 fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
     match item {
         resolved::TopItem::TypeAlias { binding, .. }
+        | resolved::TopItem::GenericTypeAlias { binding, .. }
         | resolved::TopItem::ExternalType { binding }
             if is_public(&binding.name.text) =>
         {
@@ -161,6 +162,11 @@ fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
             );
         }
         resolved::TopItem::Binding(binding) => collect_pattern_exports(exports, &binding.pattern),
+        resolved::TopItem::GenericBinding { binding, .. } if is_public(&binding.name.text) => {
+            exports
+                .values
+                .insert(binding.name.text.clone(), binding.clone());
+        }
         _ => {}
     }
 }

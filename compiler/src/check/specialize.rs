@@ -1,45 +1,65 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{LambdaId, ValueBinding, ValueId, ValueReference};
 
-use super::GenericDefinition;
 use super::ast::*;
 use super::specialization_identity::next_identities;
+use super::type_fingerprint::TypeFingerprints;
 use super::types::substitute_type;
 
 const LIMIT: usize = 65_536;
 
-pub(super) fn specialize(
-    mut program: Program,
-    definitions: Vec<GenericDefinition>,
-) -> Result<Program, Diagnostic> {
-    if definitions.is_empty() {
-        return Ok(program);
+pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnostic> {
+    if !program
+        .items
+        .iter()
+        .any(|item| matches!(item.kind, TopItem::GenericBinding(_)))
+    {
+        entry_binding(&program.items, program.span)?;
+        return Ok(MonomorphicProgram::new(program));
     }
-    let identities = next_identities(&program, &definitions).ok_or_else(|| {
+    let identities = next_identities(&program).ok_or_else(|| {
         Diagnostic::error("compiler identity space exhausted").with_primary(
             program.span,
             "cannot allocate identities for generic specializations",
         )
     })?;
-    let definitions = definitions
-        .into_iter()
-        .map(|definition| (definition.binding.id, definition))
-        .collect();
+    let program_span = program.span;
+    let mut definitions = HashMap::new();
+    let mut bindings = Vec::new();
+    let mut binding_items = HashMap::new();
+    let mut items = Vec::new();
+    for item in program.items {
+        match item.kind {
+            TopItem::GenericBinding(definition) => {
+                definitions.insert(definition.binding.id, *definition);
+            }
+            TopItem::Binding(binding) => {
+                let index = bindings.len();
+                collect_pattern_bindings(&binding.pattern, index, &mut binding_items);
+                bindings.push(Some(Node::new(TopItem::Binding(binding), item.span)));
+            }
+            _ => items.push(item),
+        }
+    }
     let mut specializer = Specializer {
         definitions,
+        bindings,
+        binding_items,
+        selected_bindings: HashSet::new(),
+        reachable: HashMap::new(),
+        specializations: Vec::new(),
         instances: Vec::new(),
+        instance_buckets: HashMap::new(),
+        fingerprints: TypeFingerprints::default(),
         pending: Vec::new(),
         next_value: identities.value,
         next_lambda: identities.lambda,
     };
-    for item in &mut program.items {
-        if let TopItem::Binding(binding) = &mut item.kind {
-            specializer.expression(&mut binding.value, &HashMap::new(), None)?;
-        }
-    }
+    let main = specializer.main_binding(program_span)?;
+    specializer.request_binding(main)?;
     let mut cursor = 0;
     while cursor < specializer.pending.len() {
         let (generic, arguments, binding) = specializer.pending[cursor].clone();
@@ -58,7 +78,7 @@ pub(super) fn specialize(
         let mut value = definition.value;
         specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
         let ty = substitute_type(&definition.ty, &substitutions);
-        program.items.push(Node::new(
+        specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
                     binding,
@@ -71,26 +91,68 @@ pub(super) fn specialize(
             definition.span,
         ));
     }
-    Ok(program)
+    for index in 0..specializer.bindings.len() {
+        if let Some(binding) = specializer.reachable.remove(&index) {
+            items.push(binding);
+        }
+    }
+    items.extend(specializer.specializations);
+    Ok(MonomorphicProgram::new(Program {
+        items,
+        span: program_span,
+    }))
 }
 
 struct Specializer {
-    definitions: HashMap<ValueId, GenericDefinition>,
+    definitions: HashMap<ValueId, GenericBinding>,
+    bindings: Vec<Option<Node<TopItem>>>,
+    binding_items: HashMap<ValueId, usize>,
+    selected_bindings: HashSet<usize>,
+    reachable: HashMap<usize, Node<TopItem>>,
+    specializations: Vec<Node<TopItem>>,
     instances: Vec<(ValueId, Vec<Type>, ValueBinding)>,
+    instance_buckets: HashMap<(ValueId, u64), Vec<usize>>,
+    fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
     next_value: u32,
     next_lambda: u32,
 }
 
 impl Specializer {
+    fn main_binding(&self, program_span: crate::source::Span) -> Result<ValueId, Diagnostic> {
+        entry_binding(self.bindings.iter().flatten(), program_span)
+    }
+
+    fn request_binding(&mut self, id: ValueId) -> Result<(), Diagnostic> {
+        let Some(&index) = self.binding_items.get(&id) else {
+            return Ok(());
+        };
+        if !self.selected_bindings.insert(index) {
+            return Ok(());
+        }
+        let mut item = self.bindings[index]
+            .take()
+            .expect("a selected binding is taken exactly once");
+        let TopItem::Binding(binding) = &mut item.kind else {
+            unreachable!("the binding table contains only bindings")
+        };
+        self.expression(&mut binding.value, &HashMap::new(), None)?;
+        self.reachable.insert(index, item);
+        Ok(())
+    }
+
     fn request(
         &mut self,
         reference: &ValueReference,
         arguments: &[Type],
     ) -> Result<ValueReference, Diagnostic> {
+        let fingerprint = self.fingerprints.arguments(arguments);
         if let Some((_, _, binding)) = self
-            .instances
-            .iter()
+            .instance_buckets
+            .get(&(reference.id, fingerprint))
+            .into_iter()
+            .flatten()
+            .filter_map(|&index| self.instances.get(index))
             .find(|(id, existing, _)| *id == reference.id && existing == arguments)
         {
             return Ok(ValueReference {
@@ -98,14 +160,7 @@ impl Specializer {
                 name: reference.name.clone(),
             });
         }
-        if self.instances.len() == LIMIT {
-            return Err(
-                Diagnostic::error("specialization limit exceeded").with_primary(
-                    reference.name.span,
-                    format!("one program may contain at most {LIMIT} specialization nodes"),
-                ),
-            );
-        }
+        admit_specialization(self.instances.len(), reference.name.span)?;
         let definition = self
             .definitions
             .get(&reference.id)
@@ -122,7 +177,12 @@ impl Specializer {
             )
         })?;
         let entry = (reference.id, arguments.to_vec(), binding.clone());
+        let index = self.instances.len();
         self.instances.push(entry.clone());
+        self.instance_buckets
+            .entry((reference.id, fingerprint))
+            .or_default()
+            .push(index);
         self.pending.push(entry);
         Ok(ValueReference {
             id: binding.id,
@@ -153,6 +213,8 @@ impl Specializer {
                     && reference.id == generic
                 {
                     reference.id = specialized;
+                } else {
+                    self.request_binding(reference.id)?;
                 }
             }
             ExpressionKind::Product(values) => {
@@ -318,6 +380,83 @@ impl Specializer {
             }
         }
         Ok(())
+    }
+}
+
+fn entry_binding<'a>(
+    items: impl IntoIterator<Item = &'a Node<TopItem>>,
+    program_span: crate::source::Span,
+) -> Result<ValueId, Diagnostic> {
+    for item in items {
+        let TopItem::Binding(binding) = &item.kind else {
+            continue;
+        };
+        if let Pattern::Binding { binding, ty } = &binding.pattern
+            && binding.name.text == "main"
+        {
+            let valid = matches!(
+                ty,
+                Type::Function { parameter, result }
+                    if **result == Type::Int32
+                        && (**parameter == Type::Unit
+                            || **parameter
+                                == Type::Product(vec![Type::USize, Type::Address].into()))
+            );
+            if !valid {
+                return Err(Diagnostic::error("invalid entry point type").with_primary(
+                    binding.name.span,
+                    "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+                ));
+            }
+            return Ok(binding.id);
+        }
+    }
+    Err(Diagnostic::error("missing entry point")
+        .with_primary(program_span, "the root file must declare `main`"))
+}
+
+fn collect_pattern_bindings(
+    pattern: &Pattern,
+    item: usize,
+    bindings: &mut HashMap<ValueId, usize>,
+) {
+    match pattern {
+        Pattern::Binding { binding, .. } => {
+            bindings.insert(binding.id, item);
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_pattern_bindings(element, item, bindings);
+            }
+        }
+        Pattern::Wildcard { .. } => {}
+    }
+}
+
+fn admit_specialization(count: usize, span: crate::source::Span) -> Result<(), Diagnostic> {
+    if count < LIMIT {
+        return Ok(());
+    }
+    Err(
+        Diagnostic::error("specialization limit exceeded").with_primary(
+            span,
+            format!("one program may contain at most {LIMIT} specialization nodes"),
+        ),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::{FileId, Span};
+
+    #[test]
+    fn admits_the_specialization_limit_and_rejects_the_next_node_at_its_span() {
+        let span = Span::new(FileId::new(91), 4, 9);
+        assert!(admit_specialization(LIMIT - 1, span).is_ok());
+        let diagnostic = admit_specialization(LIMIT, span).expect_err("node beyond limit");
+        assert_eq!(diagnostic.primary.as_ref().unwrap().span, span);
+        assert!(diagnostic.primary.unwrap().message.contains("65536"));
     }
 }
 

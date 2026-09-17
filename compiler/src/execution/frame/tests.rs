@@ -25,7 +25,7 @@ fn validates_exact_frame_sites_and_payloads() {
     let parsed = parser::parse(&source).expect("parse control frame fixture");
     let resolved = resolve::resolve(&parsed).expect("resolve control frame fixture");
     let checked = check::check(&resolved).expect("check control frame fixture");
-    let core = core::lower(&checked);
+    let core = core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
     let anf = anf::lower(&core);
     let closure = closure::convert(&anf);
     let control = control::lower(&closure);
@@ -99,7 +99,7 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
     let parsed = parser::parse(&source).expect("parse heterogeneous frame fixture");
     let resolved = resolve::resolve(&parsed).expect("resolve heterogeneous frame fixture");
     let checked = check::check(&resolved).expect("check heterogeneous frame fixture");
-    let core = core::lower(&checked);
+    let core = core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
     let anf = anf::lower(&core);
     let closure = closure::convert(&anf);
     let control = control::lower(&closure);

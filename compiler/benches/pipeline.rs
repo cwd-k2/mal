@@ -12,8 +12,11 @@ fn main() {
     let tokens = malc::lexer::lex(&source).expect("benchmark source must lex");
     let parsed = malc::parser::parse(&source).expect("benchmark source must parse");
     let resolved = malc::resolve::resolve(&parsed).expect("benchmark source must resolve");
-    let checked = malc::check::check(&resolved).expect("benchmark source must check");
-    let core = malc::core::lower(&checked);
+    let specialized = malc::check::specialize(
+        malc::check::check(&resolved).expect("benchmark source must check for specialization"),
+    )
+    .expect("benchmark source must specialize");
+    let core = malc::core::lower(&specialized);
     let anf = malc::anf::lower(&core);
     malc::closure::convert(&anf);
     malc::editor::analyze(&source).expect("benchmark source must support editor analysis");
@@ -26,7 +29,10 @@ fn main() {
     measure("parse", || malc::parser::parse(black_box(&source)));
     measure("resolve", || malc::resolve::resolve(black_box(&parsed)));
     measure("check", || malc::check::check(black_box(&resolved)));
-    measure("core", || malc::core::lower(black_box(&checked)));
+    measure("check_specialize", || {
+        malc::check::check(black_box(&resolved)).and_then(malc::check::specialize)
+    });
+    measure("core", || malc::core::lower(black_box(&specialized)));
     measure("anf", || malc::anf::lower(black_box(&core)));
     measure("closure", || malc::closure::convert(black_box(&anf)));
     measure("pipeline_check", || {
@@ -70,13 +76,13 @@ fn large_source() -> String {
     for index in 0..250 {
         writeln!(
             source,
-            "function{index} :: Int32 -> Int32 := (value) {{ local := value + constant{index}; local; }};"
+            "function{index} :: Int32 -> Int32 := (value) -> {{ local := value + constant{index}; local; }};"
         )
         .unwrap();
     }
     writeln!(
         source,
-        "main :: Unit -> Int32 := () {{ function249(constant499); }};"
+        "main :: Unit -> Int32 := () -> {{ function249(constant499); }};"
     )
     .unwrap();
     source

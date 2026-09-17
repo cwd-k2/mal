@@ -18,6 +18,7 @@ mod operator;
 mod product;
 mod specialization_identity;
 mod specialize;
+pub(crate) mod type_fingerprint;
 mod types;
 
 pub fn type_name(ty: &ast::Type) -> String {
@@ -39,6 +40,22 @@ pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
                     "this control expression has no return boundary",
                 ),
         })
+}
+
+pub fn specialize(program: Program) -> Result<ast::MonomorphicProgram, Diagnostic> {
+    specialize::specialize(program)
+}
+
+pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Diagnostic> {
+    if let Some(item) = program
+        .items
+        .iter()
+        .find(|item| matches!(item.kind, TopItem::GenericBinding(_)))
+    {
+        return Err(Diagnostic::error("generic program requires specialization")
+            .with_primary(item.span, "this generic binding has not been specialized"));
+    }
+    Ok(ast::MonomorphicProgram::new(program))
 }
 
 enum CheckFailure {
@@ -66,7 +83,6 @@ struct Checker {
     expanding: HashSet<TypeId>,
     values: HashMap<ValueId, Type>,
     generic_signatures: HashMap<ValueId, GenericSignature>,
-    generic_definitions: Vec<GenericDefinition>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
@@ -78,15 +94,6 @@ struct GenericSignature {
     parameters: Vec<resolved::TypeBinding>,
     ty: Type,
     requirements: HashSet<TypeId>,
-}
-
-#[derive(Clone)]
-struct GenericDefinition {
-    binding: resolved::ValueBinding,
-    parameters: Vec<resolved::TypeBinding>,
-    ty: Type,
-    value: ast::Expression,
-    span: Span,
 }
 
 #[derive(Clone)]
@@ -112,7 +119,6 @@ impl Checker {
             expanding: HashSet::new(),
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
             generic_signatures: HashMap::new(),
-            generic_definitions: Vec::new(),
             external_values: HashSet::new(),
             externals: HashMap::new(),
             result_targets: HashMap::new(),
@@ -142,7 +148,12 @@ impl Checker {
                 value,
             } = &item.kind
             {
-                self.check_generic_binding(binding, parameters, annotation, value, item.span)?;
+                let binding =
+                    self.check_generic_binding(binding, parameters, annotation, value, item.span)?;
+                items.push(Node::new(
+                    TopItem::GenericBinding(Box::new(binding)),
+                    item.span,
+                ));
                 continue;
             }
             let kind = match &item.kind {
@@ -187,6 +198,7 @@ impl Checker {
                 resolved::TopItem::Binding(binding) => {
                     let checked = self.check_binding(binding, item.span)?;
                     self.check_top_level_initializer(&binding.value)?;
+                    validate_entry_binding(&checked)?;
                     TopItem::Binding(Box::new(checked))
                 }
                 resolved::TopItem::GenericBinding { .. } => {
@@ -198,13 +210,10 @@ impl Checker {
             };
             items.push(Node::new(kind, item.span));
         }
-        Ok(specialize::specialize(
-            Program {
-                items,
-                span: program.span,
-            },
-            self.generic_definitions,
-        )?)
+        Ok(Program {
+            items,
+            span: program.span,
+        })
     }
 
     fn check_generic_binding(
@@ -214,7 +223,7 @@ impl Checker {
         annotation: &Node<resolved::TypeExpression>,
         value: &Node<resolved::Expression>,
         span: Span,
-    ) -> CheckResult<()> {
+    ) -> CheckResult<ast::GenericBinding> {
         let substitutions = std::sync::Arc::new(
             parameters
                 .iter()
@@ -251,14 +260,13 @@ impl Checker {
             );
             let checked_value = self.check_value_expression(value, Some(&ty))?;
             self.check_top_level_initializer(value)?;
-            self.generic_definitions.push(GenericDefinition {
+            Ok(ast::GenericBinding {
                 binding: binding.clone(),
                 parameters: parameters.to_vec(),
                 ty,
                 value: checked_value,
                 span,
-            });
-            Ok(())
+            })
         })();
         self.type_substitutions = previous;
         self.active_requirements = previous_requirements;
@@ -430,5 +438,29 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<self::ast::Expression> {
         self.check_expression(expression, expected)
+    }
+}
+
+fn validate_entry_binding(binding: &Binding) -> Result<(), Diagnostic> {
+    let Pattern::Binding { binding: name, ty } = &binding.pattern else {
+        return Ok(());
+    };
+    if name.name.text != "main" {
+        return Ok(());
+    }
+    let valid = matches!(
+        ty,
+        Type::Function { parameter, result }
+            if **result == Type::Int32
+                && (**parameter == Type::Unit
+                    || **parameter == Type::Product(vec![Type::USize, Type::Address].into()))
+    );
+    if valid {
+        Ok(())
+    } else {
+        Err(Diagnostic::error("invalid entry point type").with_primary(
+            name.name.span,
+            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+        ))
     }
 }

@@ -193,6 +193,19 @@ pub struct Program {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MonomorphicProgram(Program);
+
+impl MonomorphicProgram {
+    pub(crate) fn new(program: Program) -> Self {
+        Self(program)
+    }
+
+    pub fn program(&self) -> &Program {
+        &self.0
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TopItem {
     TypeAlias {
         binding: TypeBinding,
@@ -213,7 +226,17 @@ pub enum TopItem {
         result: Type,
         result_alias: Option<String>,
     },
+    GenericBinding(Box<GenericBinding>),
     Binding(Box<Binding>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GenericBinding {
+    pub binding: ValueBinding,
+    pub parameters: Vec<TypeBinding>,
+    pub ty: Type,
+    pub value: Expression,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

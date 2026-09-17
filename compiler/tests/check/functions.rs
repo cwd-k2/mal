@@ -228,19 +228,36 @@ fn type_errors_keep_a_renderable_source_span() {
 }
 
 #[test]
-fn checks_and_specializes_generic_values_before_core_lowering() {
+fn checks_generic_values_before_specialization() {
     let program = check_ok(
         "identity<A> :: A -> A := (value) -> value;\n\
-         main :: (Int32, UInt8) -> (Int32, UInt8) := (number, byte) ->\n\
-           (identity<Int32>(number), identity<UInt8>(byte));",
+         pair :: (Int32, UInt8) -> (Int32, UInt8) := (number, byte) ->\n\
+           (identity<Int32>(number), identity<UInt8>(byte));\n\
+         main :: Unit -> Int32 := () -> {\n\
+           (number, byte) := pair(40, 2u8);\n\
+           number + byte.i32;\n\
+         };",
     );
 
     assert_eq!(
         program.items.len(),
         3,
-        "main plus two concrete specializations"
+        "generic definition and checked bindings"
     );
-    for (index, expected) in [(1, Type::Int32), (2, Type::UInt8)] {
+    let TopItem::GenericBinding(identity) = &program.items[0].kind else {
+        panic!("expected checked generic definition");
+    };
+    assert_eq!(identity.parameters.len(), 1);
+    assert!(matches!(identity.value.kind, ExpressionKind::Lambda(_)));
+
+    let specialized = check::specialize(program).expect("specialize from main");
+    let program = specialized.program();
+    assert_eq!(
+        program.items.len(),
+        4,
+        "two bindings plus two reachable instances"
+    );
+    for (index, expected) in [(2, Type::Int32), (3, Type::UInt8)] {
         let binding = top_binding(&program, index);
         assert_eq!(
             binding.value.ty,
@@ -252,10 +269,10 @@ fn checks_and_specializes_generic_values_before_core_lowering() {
         assert!(matches!(binding.value.kind, ExpressionKind::Lambda(_)));
     }
 
-    let ExpressionKind::Lambda(main) = &top_binding(&program, 0).value.kind else {
-        panic!("expected main lambda");
+    let ExpressionKind::Lambda(pair) = &top_binding(&program, 0).value.kind else {
+        panic!("expected pair lambda");
     };
-    let check::ast::Pattern::Product { elements, .. } = main.parameter.as_deref().unwrap() else {
+    let check::ast::Pattern::Product { elements, .. } = pair.parameter.as_deref().unwrap() else {
         panic!("expected product parameter");
     };
     let parameter_ids = elements
@@ -265,13 +282,38 @@ fn checks_and_specializes_generic_values_before_core_lowering() {
             _ => panic!("expected binding parameter"),
         })
         .collect::<Vec<_>>();
-    for index in 1..=2 {
+    for index in 2..=3 {
         let check::ast::Pattern::Binding { binding, .. } = &top_binding(&program, index).pattern
         else {
             panic!("expected specialized binding");
         };
         assert!(!parameter_ids.contains(&binding.id));
     }
+}
+
+#[test]
+fn specializes_only_bindings_reachable_from_main() {
+    let program = check_ok(
+        "identity<A> :: A -> A := (value) -> value;\n\
+         used :: Unit -> Int32 := () -> identity<Int32>(42);\n\
+         unused :: Unit -> UInt8 := () -> identity<UInt8>(7u8);\n\
+         main :: Unit -> Int32 := () -> used();",
+    );
+    let specialized = check::specialize(program).expect("specialize reachable graph");
+    let names = specialized
+        .program()
+        .items
+        .iter()
+        .filter_map(|item| match &item.kind {
+            TopItem::Binding(binding) => match &binding.pattern {
+                check::ast::Pattern::Binding { binding, .. } => Some(binding.name.text.as_str()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(names, ["used", "main", "identity"]);
 }
 
 #[test]

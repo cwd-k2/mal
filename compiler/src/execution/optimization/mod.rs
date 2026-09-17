@@ -121,7 +121,8 @@ mod tests {
         let parsed = parser::parse(&source).expect("parse tail plan fixture");
         let resolved = resolve::resolve(&parsed).expect("resolve tail plan fixture");
         let checked = check::check(&resolved).expect("check tail plan fixture");
-        let core = core::lower(&checked);
+        let core =
+            core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
         let anf = anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);
@@ -147,7 +148,8 @@ mod tests {
         let parsed = parser::parse(&source).expect("parse baseline fixture");
         let resolved = resolve::resolve(&parsed).expect("resolve baseline fixture");
         let checked = check::check(&resolved).expect("check baseline fixture");
-        let core = core::lower(&checked);
+        let core =
+            core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
         let anf = anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);
@@ -176,7 +178,8 @@ mod tests {
         let parsed = parser::parse(&source).expect("parse independent technique fixture");
         let resolved = resolve::resolve(&parsed).expect("resolve independent technique fixture");
         let checked = check::check(&resolved).expect("check independent technique fixture");
-        let core = core::lower(&checked);
+        let core =
+            core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
         let anf = anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);

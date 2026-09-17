@@ -47,7 +47,7 @@ pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 result_alias: result_alias.clone(),
                 span: item.span,
             }),
-            checked::TopItem::Binding(_) => {}
+            checked::TopItem::GenericBinding(_) | checked::TopItem::Binding(_) => {}
         }
     }
     interface

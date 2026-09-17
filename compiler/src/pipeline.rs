@@ -69,7 +69,8 @@ pub(crate) fn lower_graph_execution(
     optimizations: crate::execution::OptimizationSet,
 ) -> Result<crate::execution::Program, Diagnostic> {
     let checked = check_graph(graph)?;
-    let core = crate::core::lower(&checked);
+    let specialized = crate::check::specialize(checked)?;
+    let core = crate::core::lower(&specialized);
     let anf = crate::anf::lower(&core);
     Ok(crate::execution::lower(
         crate::closure::convert(&anf),

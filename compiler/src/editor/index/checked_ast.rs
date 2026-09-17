@@ -14,6 +14,16 @@ impl Index {
                     .insert(binding.id, binding.name.text.clone());
             }
             checked::TopItem::ExternalOperation { .. } => {}
+            checked::TopItem::GenericBinding(binding) => {
+                let id = self.canonical_value(binding.binding.id);
+                if matches!(binding.ty, checked::Type::Function { .. }) {
+                    self.functions.insert(id);
+                }
+                let ty = crate::check::type_name(&binding.ty);
+                self.value_types.insert(id, ty.clone());
+                self.typed_regions.push((binding.binding.name.span, ty));
+                self.collect_checked_expression(&binding.value);
+            }
             checked::TopItem::Binding(binding) => self.collect_checked_binding(binding),
         }
     }

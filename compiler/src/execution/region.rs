@@ -243,7 +243,8 @@ mod tests {
         let parsed = parser::parse(&source).expect("parse region fixture");
         let resolved = resolve::resolve(&parsed).expect("resolve region fixture");
         let checked = check::check(&resolved).expect("check region fixture");
-        let core = core::lower(&checked);
+        let core =
+            core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
         let anf = anf::lower(&core);
         let closure = closure::convert(&anf);
         let control = control::lower(&closure);

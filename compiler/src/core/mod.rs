@@ -20,8 +20,8 @@ use self::ast::{
     TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
-pub fn lower(program: &checked::Program) -> Program {
-    Lowerer::new().lower_program(program)
+pub fn lower(program: &checked::MonomorphicProgram) -> Program {
+    Lowerer::new().lower_program(program.program())
 }
 
 struct Lowerer {

@@ -244,7 +244,9 @@ mod tests {
             "main :: Unit -> Int32 := () -> { 7; };".into(),
         );
         let checked = crate::pipeline::check(&source).expect("check LLVM fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -297,7 +299,9 @@ mod tests {
             .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check cursor fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -333,7 +337,9 @@ mod tests {
             .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check Packed fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -368,7 +374,9 @@ mod tests {
             format!("main :: Unit -> Int32 := () -> {{ {expression}; }};"),
         );
         let checked = crate::pipeline::check(&source).expect("check long expression");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -398,7 +406,9 @@ mod tests {
             ),
         );
         let checked = crate::pipeline::check(&source).expect("check long completion sequence");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -433,7 +443,9 @@ mod tests {
         );
         let source = SourceFile::new(FileId::new(77), "llvm-shared-extern-sum.mal", declarations);
         let checked = crate::pipeline::check(&source).expect("check shared extern sum");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -476,7 +488,7 @@ mod tests {
                 source.into(),
             );
             let checked = crate::pipeline::check(&source).expect("check wildcard fixture");
-            let core = crate::core::lower(&checked);
+            let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
             let execution = crate::execution::lower(
@@ -503,7 +515,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check baseline fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution = crate::execution::lower(closure, crate::execution::OptimizationSet::none());
@@ -520,7 +534,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check Symbol concat fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -598,7 +614,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check 32-bit control fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -645,7 +663,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check index-width fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution =
@@ -682,7 +702,7 @@ mod tests {
         {
             let source = SourceFile::new(FileId::new(76), "product-extern.mal", source.into());
             let checked = crate::pipeline::check(&source).expect("check product extern fixture");
-            let core = crate::core::lower(&checked);
+            let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
             let execution = crate::execution::lower(
@@ -705,7 +725,7 @@ mod tests {
         {
             let source = SourceFile::new(FileId::new(77), "sum-extern.mal", source.into());
             let checked = crate::pipeline::check(&source).expect("check sum extern fixture");
-            let core = crate::core::lower(&checked);
+            let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
             let anf = crate::anf::lower(&core);
             let closure = crate::closure::convert(&anf);
             let execution = crate::execution::lower(

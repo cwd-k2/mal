@@ -1,6 +1,5 @@
 use crate::resolve::ast::{LambdaId, ValueBinding, ValueId, ValueOwner};
 
-use super::GenericDefinition;
 use super::ast::*;
 
 pub(super) struct NextIdentities {
@@ -8,10 +7,7 @@ pub(super) struct NextIdentities {
     pub(super) lambda: u32,
 }
 
-pub(super) fn next_identities(
-    program: &Program,
-    definitions: &[GenericDefinition],
-) -> Option<NextIdentities> {
+pub(super) fn next_identities(program: &Program) -> Option<NextIdentities> {
     let mut bounds = IdentityBounds::default();
     for item in &program.items {
         match &item.kind {
@@ -22,12 +18,12 @@ pub(super) fn next_identities(
                 bounds.lambda(*lambda_id);
             }
             TopItem::Binding(binding) => bounds.binding_value(binding),
+            TopItem::GenericBinding(definition) => {
+                bounds.binding(&definition.binding);
+                bounds.expression(&definition.value);
+            }
             TopItem::TypeAlias { .. } | TopItem::ExternalType { .. } => {}
         }
-    }
-    for definition in definitions {
-        bounds.binding(&definition.binding);
-        bounds.expression(&definition.value);
     }
     Some(NextIdentities {
         value: bounds.value.checked_add(1)?,

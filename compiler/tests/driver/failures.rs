@@ -45,6 +45,30 @@ fn reports_missing_and_cyclic_requirements_at_the_declaration() {
 }
 
 #[test]
+fn allows_frontend_analysis_without_an_entry_but_rejects_executable_generation() {
+    let directory = NativeFixture::new("driver-missing-entry");
+    let source = directory.write("library.mal", "answer :: Int32 := 42;");
+    assert!(
+        directory
+            .malc([OsStr::new("check"), source.as_os_str()])
+            .status
+            .success()
+    );
+
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error: missing entry point"));
+    assert!(stderr.contains("library.mal:1:"));
+}
+
+#[test]
 fn rejects_empty_paths_and_non_source_extensions() {
     let directory = NativeFixture::new("driver-invalid-requirement");
     let empty = directory.write("empty.mal", "require \"\";\n");

@@ -14,7 +14,7 @@ fn lower_ok(text: &str) -> anf::ast::Program {
         resolve::resolve(&parsed).unwrap_or_else(|error| panic!("{}", error.render(&source)));
     let checked =
         check::check(&resolved).unwrap_or_else(|error| panic!("{}", error.render(&source)));
-    let core = core::lower(&checked);
+    let core = core::lower(&check::admit_monomorphic(checked).expect("specialize checked program"));
     anf::lower(&core)
 }
 

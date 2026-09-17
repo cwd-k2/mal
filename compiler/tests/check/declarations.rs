@@ -315,3 +315,10 @@ fn rejects_effectful_top_level_initializers() {
     );
     assert_eq!(error.message, "invalid top-level initializer");
 }
+
+#[test]
+fn validates_an_explicit_entry_point_signature() {
+    let error = check_error("main :: Unit -> UInt64 := () -> 0u64;");
+    assert_eq!(error.message, "invalid entry point type");
+    assert!(error.primary.unwrap().message.contains("USize, Address"));
+}

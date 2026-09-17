@@ -64,7 +64,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check parameter plan fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::admit_monomorphic(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);

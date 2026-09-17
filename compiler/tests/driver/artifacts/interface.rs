@@ -242,6 +242,32 @@ fn builds_public_functions_from_required_files_with_private_helpers() {
 }
 
 #[test]
+fn specializes_a_generic_declared_in_a_required_file() {
+    let directory = NativeFixture::new("driver-required-generic");
+    let source = directory.write(
+        "program.mal",
+        "require \"./library.mal\";\n\
+         main :: Unit -> Int32 := () -> identity<Int32>(42) - identity<Int32>(42);",
+    );
+    directory.write("library.mal", "identity<A> :: A -> A := (value) -> value;");
+    let executable = directory.join("program");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
 fn source_graph_overlays_open_mal_buffers() {
     let directory = NativeFixture::new("driver-overlays");
     let source = directory.write("program.mal", "not the open buffer");

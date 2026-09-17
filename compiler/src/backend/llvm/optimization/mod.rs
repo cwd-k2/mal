@@ -88,7 +88,9 @@ mod tests {
                 .into(),
         );
         let checked = crate::pipeline::check(&source).expect("check LLVM optimization fixture");
-        let core = crate::core::lower(&checked);
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize checked program"),
+        );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);
