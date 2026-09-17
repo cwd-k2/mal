@@ -34,15 +34,19 @@ malのminimalismは、実装の行数だけでなく、利用者がprogramの挙
 controlは、利用者がすべてのmechanismをoperationごとに再定義することではない。policyを選択でき、選択後の
 mechanismが一つの規則から予測できる状態を指す。minimalityの比較では、primitiveやsyntaxの個数だけでなく、
 独立して発見、理解、検証しなければならないcontractと、各call siteで再判断する事項の数を小さくする。
+変更規模や一度に追加する機能数も、それ自体ではminimalityの尺度にしない。基礎modelを理解した後に、個別の型や
+operationの挙動を同じ規則から導けるなら、個別codecや例外を多数残すより広い一つのmechanismの方が小さくなり得る。
 
 external operationのcontractは宣言に置き、applicationごとに同じ分類を再記述しない。external functionも通常の
 function valueと同じ参照、shadowing、application規則に従い、境界transportだけを宣言されたidentityから決める。
 
 例えばexternal storageでは、allocation、deallocation、region、permission、lifetimeをprogram固有の`extern`
-contractに残し、canonical scalar representationとのload/storeを共通primitiveに固定する。これによりallocation
-policyを選ぶcontrolを保ちつつ、scalar operationごとにwidth、alignment、failureをhost APIから調査する必要を
-なくす。反対に、productとsumへ暗黙のmemory layoutを与えず、program固有のencodingはmalで書くcodecとして
-sourceに残す。正確な配置規則は[authority](authority.md#policyとmechanismを分ける)が所有する。
+contractに残し、canonical memory representationとのload/storeを共通primitiveに固定できる。これによりallocation
+policyを選ぶcontrolを保ちつつ、型ごとにwidth、alignment、failureをhost APIから調査する必要をなくす。
+canonical layoutを持つ型の範囲は、一度理解した配置規則からsize、alignment、padding、valid representationを
+再帰的に導けるかで決める。program固有のencodingはmalで書くcodecとしてsourceに残し、runtime representation、
+public host ABI、wire formatをcanonical memory layoutへ暗黙に結合しない。正確な配置規則は
+[authority](authority.md#policyとmechanismを分ける)が所有する。
 
 memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
 capability transferを導く。reference backendのEngram回収は[D033](../history/decisions/D033.md)のborrow/owned result規約に閉じ、

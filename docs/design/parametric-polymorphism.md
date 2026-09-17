@@ -2,15 +2,16 @@
 
 Status: Discussion draft (2026-09-17)
 
-この文書は、型ごとに同じ構造と制御を複製する摩擦を減らすためのparametric polymorphismと、既存の
-numericおよびmemory primitiveとの境界を記録する。現行の規範は[`types`](../spec/types.md)、
-[`expressions`](../spec/expressions.md)、[`memory primitive`](../spec/memory.md)、
-[`grammar`](../spec/grammar.md)を正とし、この試案だけを根拠にsourceやABIを変更しない。
+この文書は型ごとに同じ構造とcontrolを複製する摩擦を減らすparametric polymorphism、built-in indexed typeの型形成、
+specialization境界を定める。memory layoutは[`Address`、target size、layout、placementの試案](size-and-alignment.md)、
+owned sequenceとのtransferは[`Region`と`Packed`の試案](region-and-packed.md)が所有する。現行の規範は
+[`types`](../spec/types.md)、[`expressions`](../spec/expressions.md)、[`grammar`](../spec/grammar.md)であり、この試案だけを
+根拠にsourceやABIを変更しない。
 
 ## 目的
 
-型parameterは、product、sum、functionと明示的に渡したoperationの配線を型ごとに書き直す摩擦を減らすために使う。
-型からoperationを探索し、型固有の表現、能力、policyを暗黙に導く機能にはしない。
+型parameterはproduct、sum、functionと明示的に渡したoperationの配線を型ごとに書き直す摩擦を減らす。operationは通常の
+functionまたはproduct valueとして明示的に渡し、representation capabilityはbuilt-in indexed typeから得る。
 
 ```mal
 Result<E, A> :: [E, A];
@@ -26,186 +27,146 @@ mapResult<E, A, B> :: (Result<E, A>, A -> B) -> Result<E, B> :=
     };
 ```
 
-この記法は候補である。`<...>`はcompile-timeの型parameterまたは型application、`(...)`はvalue application、
-`[...]`は従来どおりsum、result binder、continuation application、value-first applicationにだけ使う。
-比較operatorとの構文境界、nested type applicationの`>>` token、およびformatter規則は採択前にgrammarとして固定する。
+## Concrete syntax
+
+`<...>`はtop-level declarationの型parameter、type expressionの型argument、generic value nameの明示的型argumentにだけ使う。
+型argumentは最初のprofileですべて明示し、specializationした単相valueは通常のfunction valueとして扱う。
+
+```mal
+IntResult :: Result<Symbol, Int32>;
+same :: Int32 -> Int32 := (value) -> identity<Int32>(value);
+answer :: Unit -> Int32 := () -> identity<Int32>(42);
+```
+
+parserはtypeまたはvalue identifierの直後に、type expressionだけからなる`<...>`をgeneric argument suffixとして認識する。
+resolverは後でそのidentifierが対応するgeneric declarationであることを検査する。value expressionからなるcomparisonとはこの
+grammarで区別する。formatterはidentifierと`<`の間、comma以外の型argument内、closing `>`の間に空白を置かない。lexerの
+`>>` tokenはgeneric argument list内では二つのclosing `>`として扱い、expression内ではshift operatorのままとする。
+`(...)`はvalue application、`[...]`はsum、result binder、continuation application、value-first applicationだけに使う。
 
 ## ユーザー定義の多相性
 
 最初のprofileは次に限定する。
 
-- type aliasとtop-level value bindingだけが、明示した型parameterを持てる。
-- 型parameterはすべて通常のsource typeを表し、kind、bound、constraintを持たない。
-- generic本体はopaqueな型parameterのもとで一度検査する。specialization後に新しいoperationを許可しない。
-- generic bindingは多相なruntime valueではない。使用時に具体化した単相valueだけを通常のfunction valueとして扱う。
-- local bindingのgeneralization、first-class polymorphism、higher-kinded type、polymorphic recursionは認めない。
-- self recursionは同じ型argumentを保つcallだけを認める。
-- type reflection、type case、generic typeによるoverload resolutionは認めない。
-- generic extern declarationは認めない。extern parameterとresultは
-  [memory placement試案](size-and-alignment.md#abiとbackend)が定める閉じた`HostMappable(A)` judgmentを満たさなければならず、
-  transparent aliasを展開した後にgeneric type applicationが残る型は、型argumentがconcreteでも満たさない。
+- type aliasとtop-level value bindingだけが明示した型parameterを持てる。
+- 型parameterは通常のsource typeを表し、user-definedなkind、bound、constraintを宣言できない。
+- generic本体はopaqueな型parameterとsignatureから導いたbuilt-in型形成条件の下で一度検査する。
+- specialization後に本体へ新しいoperationを許可しない。
+- generic binding自体はruntime valueではなく、具体化した単相valueだけを参照、capture、applicationできる。
+- local generalization、first-class polymorphism、higher-kinded type、polymorphic recursion、type reflection、type case、
+  generic typeによるoverload resolutionを認めない。
+- self recursionは同じ型argument列を保つcallだけを認める。
+- generic extern declarationを認めない。
 
-型argumentは最初のprofileでは明示する。argument型または期待result型から一意に決まる型argumentの省略は、
-call siteの摩擦と型推論規則を実例で比較してから別に判断する。
+generic aliasはtransparentであり、型argumentを代入して展開したcanonical typeと同じ型になる。parameter、application、
+specializationにruntime identity、descriptor、layoutを与えない。recursive generic aliasは通常のaliasと同じく拒否する。
 
-generic type aliasはtransparentであり、具体化してaliasを展開した型と同じ型になる。型parameterや型applicationに
-runtime identity、descriptor、layoutを与えない。
+## 型形成条件
 
-## 明示的なoperation
+`Requirements(T)`をalias展開後の型`T`が要求するbuilt-in judgmentの有限集合とする。product、sum、functionは要素のrequirementを
+再帰的に合併する。`Cursor<A>`、`Region<A>`、`Packed<A>`は`Representable(A)`を加え、それらのtype argumentに含まれる
+requirementも再帰的に加える。他の最初のprofileの型はrequirementを加えない。
 
-型parameterは、その型に固有のoperationを導入しない。比較、算術、memory access、encodingが必要なgeneric関数は、
-通常のfunctionまたはproduct valueとしてoperationを明示的に受け取る。
+compilerは`Representable(T)`をclosedな定義で正規化する。representableなconcrete base caseは消去し、productとsumは各要素へ
+分解し、opaqueな型parameterだけをatomとして残す。functionやindexed typeなど明らかに対象外の型が現れたgeneric declarationは
+その場で拒否する。これにより`Cursor<(A, UInt64)>`から得るrequirementは`Representable(A)`になる。
+
+generic aliasはdefinitionのresult type、generic value bindingは明示したsignatureからrequirementを集め、opaqueな型parameterと
+そのrequirementの下で一度検査する。したがってparameter、result、nested product、展開したgeneric aliasのどこにindexed typeが
+現れても同じ条件を導く。
+
+```text
+Representable(A)
+────────────────────────
+Cursor<A> type
+
+Cursor<A>がsignatureに現れる
+────────────────────────
+generic本体でRepresentable(A)
+```
+
+型applicationではconcrete type argumentを代入し、aliasを展開した後に全requirementを検査する。満たさないapplicationは
+specializationを始める前のcompile-time errorである。本体内にだけ現れ、signatureから導けないrequirementを型parameterへ要求する
+operationはerrorとする。この規則はclosedなbuilt-in型形成条件だけを扱い、user-defined constraint、dictionary、method lookupを
+導入しない。
+
+## 明示的なoperationとclosed primitive
+
+比較、算術、encodingなどを必要とするgeneric functionは通常のfunctionまたはproduct valueとしてoperationを受け取る。
 
 ```mal
 Equality<A> :: (A, A) -> Bool;
 
 contains<A> :: (Equality<A>, A, A) -> Bool :=
     (equal, expected, actual) -> equal(expected, actual);
-```
 
-`Equality<A>`はtransparent aliasにすぎず、`Eq` class、instance、compiler-known dictionaryを宣言しない。
-compilerはoperationを探索、構成、挿入しない。複数のoperationをproductへまとめても、それはprogramが明示的に構築し
-引数として渡す通常のvalueである。
-
-## 閉じたprimitive family
-
-numeric operatorは既に、仕様が列挙するconcrete typeごとに意味を持つ閉じたprimitive familyである。
-ここでの`Numeric`は仕様を簡潔に記述するmeta-level categoryであり、source type、kind、class、constraintではない。
-programはそのmemberを追加できず、型parameterを`Numeric`として宣言できない。
-
-```text
-Numeric =
-    Int8 | Int16 | Int32 | Int64
-  | UInt8 | UInt16 | UInt32 | UInt64
-  | Float32 | Float64
-```
-
-[`Address`、`ByteSize`、`Count`、layout、memory placement、`Packed`の試案](size-and-alignment.md)を同時に採択する場合は
-`ByteSize`と`Count`も`Numeric`へ加える。
-operatorごとの正確なdomainは引き続き個別に列挙し、例えばremainderとbit operatorをfloatへ拡張しない。
-
-ユーザー定義のgeneric本体では、opaqueな型parameterへnumeric primitiveを適用できない。
-
-```mal
 double<A> :: A -> A := (value) -> value + value; // error
-
-doubleWith<A> :: ((A, A) -> A, A) -> A :=
-    (add, value) -> add(value, value);
 ```
 
-この区別により、ユーザー定義部分のparametricityと、言語primitiveの閉じたad-hoc polymorphismを混同しない。
+numeric operatorとpostfix conversionは仕様がconcrete typeを列挙するclosed primitive familyである。`Numeric`はmeta-level categoryで、
+source typeやconstraintではない。`ByteSize`と`Count`を採択する場合は各operatorのdomainへ個別に加える。opaqueな`A`へのnumeric
+primitive、`.A` conversion、compilerによるoperation挿入を認めない。
 
-同じ試案で導入を検討する`.i8`、`.u32`、`.f64`などのpostfix numeric conversionも、destinationを
-仕様が列挙する閉じたprimitive familyである。opaqueな型parameterからのconversionや、`.A`によるgeneric conversionは認めない。
+## Memory indexed type
 
-```mal
-toByte<A> :: A -> UInt8 := (value) -> value.u8; // error
-```
-
-## memory primitiveとの統合
-
-memory representation、placement、alignmentの候補は
-[`Address`、`ByteSize`、`Count`、layout、memory placement、`Packed`の試案`](size-and-alignment.md)を正とする。ここでは型parameterとの境界だけを定める。
-
-型`A`だけからrepresentationを導くgeneric memory operationは認めない。
+generic codeは裸の`Address`と`A`だけからlayoutを導けない。callerがconcrete shapeからCursorまたはRegionを作り、indexed typeが
+保持するstatic layoutをgeneric functionへ渡す。
 
 ```mal
-readUnknown<A> :: Address -> A := (address) -> <-address; // error
-```
-
-layout shapeは`address@i32`や`#(u8, address)`のように`@`または`#`の直後だけに現れ、通常のvalueや
-`Layout<A>`というsource typeにはしない。したがってgeneric functionは裸のAddressとlayout parameterを受け取らず、callerが
-具体的なshapeから構成したCursorまたはRegionを受け取る。
-
-```mal
-readCursor<A> :: Cursor<A> -> A :=
+readCursor<A> :: Cursor<A> -> (A, Cursor<A>) :=
     (cursor) -> <-cursor;
 
 writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
     (cursor, value) -> cursor <- value;
 
-cursorAddress<A> :: Cursor<A> -> Address :=
-    (cursor) -> ?cursor;
-
-regionAddress<A> :: Region<A> -> Address :=
-    (region) -> ?region;
-
 makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
     (cursor, count) -> cursor@count;
 
-makeAlignedRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
-    (cursor, count) -> cursor!@count;
-```
-
-`Cursor<A>`と`Region<A>`はcanonicalな`A`に一意なstatic layoutを保存する。`Packed<A>`はexternal layoutを持たず、要素型`A`だけを
-保存するため、Region側の一意なlayoutを使ってgenericな有限regionとmal-ownedな有限列のtransferを記述できる。
-
-```mal
 packRegion<A> :: Region<A> -> Packed<A> :=
     (region) -> <-region;
-
-writeRegion<A> :: (Region<A>, Packed<A>) -> Region<A> :=
-    (region, packed) -> region <- packed;
-
-prefixPacked<A> :: (Packed<A>, Count) -> Packed<A> :=
-    (packed, count) -> packed / count;
-
-remainderPacked<A> :: (Packed<A>, Count) -> Packed<A> :=
-    (packed, count) -> packed % count;
-
-readPackedAt<A> :: (Packed<A>, Count) -> A :=
-    (packed, index) -> packed # index;
 ```
 
-`Region<A>`はexternal storageのownershipとlifetimeを新しく証明しない。region全体がaccess可能であることは元のhost contractの
-preconditionであり、`<-region`で作った`Packed<A>`だけがmal-ownedになる。region storeは`#packed <= #region`を要求し、書き込み
-直後から始まるsuffix Regionを返す。`/`はprefix、`%`はremainderを返し、packed indexingは`index < #packed`を要求する。
-
-`Cursor`、`Region`、`Packed`に対するoperatorは、型parameterへ任意のprimitiveを後付けする例外ではなく、
-明示されたoperandの型indexを保存するbuilt-in primitive familyである。これらのindexed typeは`Representable(A)`の場合だけ
-well-formedであり、`Cursor<A>`、`Region<A>`、`Packed<A>`を受け取るgeneric本体はcompiler内部の同judgmentのもとでcarrierを
-操作できる。これはuser-defined constraintではなく、裸の`A`や`Address`からlayoutを導く能力も与えない。型検査後のspecializationでは
-concreteなshapeとvalue型が確定し、representableでないconcrete型によるmemory specializationは拒否する。ANF以降へopenな
-型parameter、runtime layout descriptor、暗黙dictionaryを渡さない。
-
-raw addressへ異なるlayoutを順にstoreする場合は、memory chain中でlayoutを明示的に切り替える。
+Cursor loadのproductはpatternで分解するか、既存のvalue-first applicationで次の処理へ渡せる。
 
 ```mal
-afterHeader := address@u8 <- header;
-afterVersion := (?afterHeader)@i32 <- version;
-end := (?afterVersion)@address <- payloadAddress;
+(<-cursor)[(value, next) -> use(value, next)]
 ```
 
-CursorとRegionのcanonical layoutは生成後に変更できない。`<-`はCursorと同じ`A`のstore、またはRegionと同じ`A`のPacked transferに
-限定し、別のshapeへ切り替えるgeneric primitiveにはしない。
+indexed typeを受け取ることはlayoutの存在だけを示し、referentのextent、permission、initialization、lifetime、valid representationを
+証明しない。これらはmemory operationの未検査preconditionである。ANF以降へopenな型parameter、requirement、runtime layout
+descriptorを渡さない。
 
-採択時には[D037](../history/decisions/D037.md)の`T.load`と`T.store`を置き換え、名前付きの`load<T>`と`store<T>`は提供しない。
-`Symbol.read`に相当するadmissionは`*(<-region)`、`Symbol.write`に相当するobservationは`region <- *symbol`で行う。prefix `*`は
-`Symbol`と`Packed<UInt8>`の間だけのclosedなbuiltin conversionであり、generic型parameterへ適用できない。Symbolは独立した
-predefined typeとhost ABIを維持し、managed object representationをmemoryへ公開しない。
+採択時には現行の`T.load`と`T.store`をCursor operationで置き換え、名前付き`load<T>`と`store<T>`は提供しない。
+`Symbol`と`Packed<UInt8>`の変換、Region transferの規則は[`Region`と`Packed`](region-and-packed.md)が所有する。
 
-## compiler境界
+## Specialization
 
-name resolutionとtype checkingは型parameter、型application、opaqueな型変数、およびgeneric bindingを所有する。
-compilerは一つのartifactのrequire graphから到達するgeneric bodyを集め、entry pointとconcreteな使用箇所から到達するspecializationだけを
-生成する。同じgeneric bindingとconcrete type argument列はfileを跨いでも共有し、単相のtyped coreを構成する。ANF以降はgeneric
-declaration、type argument、dictionaryを受け取らず、現在と同じconcrete typeとprimitiveだけを扱う。
+name resolutionとtype checkingは型parameter、型application、opaqueな型変数、requirement、generic binding identityを所有する。
+type checking後、compilerはentry pointから到達する明示的なconcrete applicationを起点にspecialization graphを構成する。
 
-specialization graphは有限でなければならない。self recursionは同じtype argument列のnodeへ戻し、異なる型argumentで再帰するbindingは
-型検査で拒否する。specialization数または生成code sizeがcompilerのdocumented resource limitを超えた場合は、展開元のbindingと
-type argument列を示すdiagnosticでartifact生成を拒否する。generic machine codeを別artifact向けのbinary ABIとして配布しない。
+specialization keyはgeneric binding identityと、aliasを展開したcanonical concrete type argument列である。同じkeyはfileを跨いで共有する。
+各nodeはgeneric typed bodyへ型argumentを代入して単相typed coreを一度生成し、そこから到達するgeneric applicationをgraphへ加える。
+self recursionは同じkeyへのedgeとして閉じる。異なる型argumentで自分を呼ぶbindingはdeclarationの型検査で拒否し、graphは有限で
+なければならない。
 
-public generic bindingはmal source間だけで利用できる。generated C header、extern ABI、host adapterへgeneric binding、specialization、
-型parameter、generic type applicationを公開せず、host interfaceは明示的なhost value mappingを持つ型だけから構成する。
+specialization数、compile memory、生成code sizeが実装のdocumented resource limitを超えた場合は、source programを型不正とはせず、
+展開元binding、type argument列、limitを示すartifact生成failureとする。generic machine codeを別artifact向けbinary ABIとして
+配布しない。
+
+ANF以降はgeneric declaration、type argument、requirement、dictionaryを受け取らず、現在と同じconcrete typeとprimitiveだけを扱う。
+managed valueのretain、transfer、releaseは単相coreの通常規則で完結する。
+
+## Host境界
+
+public generic bindingはmal source間だけで使える。generated C header、extern ABI、host adapterへgeneric binding、specialization、
+型parameterを公開しない。generic aliasはconcrete type argumentを代入して完全に展開した後、閉じた
+[`HostMappable`](region-and-packed.md#host-abi) judgmentで判定する。展開後に`Cursor`、`Region`、`Packed`が残る型は拒否する。
 
 ## 採択前に確認すること
 
-採択判断には、少なくとも次の実例と境界を固定する必要がある。
-
-- concrete typeごとに複製されているsum変換、state threading、higher-order helperを実際に削減できること
-- 明示的なoperation引数が、型別実装の複製よりcall siteとcontractの摩擦を減らすこと
-- generic alias、generic function、cross-file use、self recursionのpositive case
-- 未確定型へのprimitive適用、generic extern、polymorphic recursionのnegative case
-- specializationの共有、code size、managed valueのretain、transfer、releaseが単相core以降で完結すること
-- `<...>`、postfix numeric conversion、`#shape`、`Address@shape`、`@Count`、postfix `!`、prefix `?`と`*`、`#`、`/`、`%`、`<-`とcomparison、shift、nested type applicationを曖昧なくparse、formatできること
-- `Cursor<A>`を介したgeneric loadとRegion構築、`Region<A>`と`Packed<A>`のtransfer、remaining Regionを介した連続bulk store、`/`と`%`によるprefix/remainder、packed indexing、異なるlayoutを連ねたstore-and-advanceのpositive/negative case
+- generic alias、generic function、明示的specialization、first-classな単相function value、cross-file共有、self recursion
+- duplicate parameter、arity mismatch、未確定型へのprimitive、requirement不足、generic extern、polymorphic recursionのdiagnostic
+- `<...>`とcomparison、shift、nested applicationを含むlexer、parser、formatter corpus
+- specialization graphの共有、有限性、resource failure、source span
+- Cursor loadのproduct patternとvalue-first application、Region/Packed transferを使うgeneric positive case
+- managed valueを含むspecializationが単相core以降のownership規則だけで完結すること

@@ -1,96 +1,71 @@
-# `Address`、`ByteSize`、`Count`、layout、memory placement、`Packed`の試案
+# `Address`、target size、layout、placementの試案
 
 Status: Discussion draft (2026-09-17)
 
-この文書はtarget依存のbyte量、値のmemory representation、alignmentを満たすplacement、およびhostが提供する
-storageとの境界を一つの候補として整理する。現行の規範は[`types`](../spec/types.md)、
-[`Symbol`](../spec/symbols.md)、[`memory primitive`](../spec/memory.md)、[`program`](../spec/programs.md)、
-[`C host ABI`](../spec/c-host-abi.md)を正とし、この試案だけを根拠にsource、ABI、compilerを変更しない。
-型parameterそのものの範囲は
-[`parametric polymorphismと型index付きprimitiveの試案`](parametric-polymorphism.md)に置く。
+この文書はtarget依存のbyte量、値のcanonical memory representation、alignment、external storage上のplacementを
+一つの候補として定める。有限regionとmal-owned sequenceのtransferは
+[`Region`と`Packed`の試案](region-and-packed.md)、型parameterとの境界は
+[parametric polymorphismの試案](parametric-polymorphism.md)が所有する。現行の規範は[`types`](../spec/types.md)、
+[`memory primitive`](../spec/memory.md)、[`C host ABI`](../spec/c-host-abi.md)であり、この試案だけを根拠にsource、ABI、
+compilerを変更しない。
 
-## 目的
+## 目的と概念
 
-現行仕様はstorage sizeとaddress offsetを`UInt64`で表し、scalar load/storeを型ごとの名前付きfunctionとして提供する。
-すべてのload/storeはalignmentを要求せず、productとsumにはcanonicalなexternal memory representationを定めない。
-この試案は次の摩擦をまとめて扱う。
+現行仕様の`Ptr`、`UInt64`によるbyte offset、型別load/storeを次の一つのmodelへ置き換える。
 
-- targetのaddress計算に使うbyte量を固定幅の`UInt64`から分離する。
-- size、alignment、padding、sum tagを型ごとに手計算せず、明示したlayout shapeへ閉じ込める。
-- exactなaddressの解釈と、次のaligned addressへの移動を区別する。
-- layoutを通常のruntime valueにせず、配置済みの`Cursor`と`Region`をgeneric codeへ渡す。
-- allocation policyを言語が所有せず、host operationにはbyte量またはconcrete operation固有のcontractだけを公開する。
-
-この代数自体はmemory safetyを提供しない。`Address`、`Cursor`、`Region`はbounds、initialization、permission、ownership、
-lifetimeを型で証明せず、各operationに必要な条件はcallerまたはhost contractのpreconditionとして残る。primitiveは
-preconditionをruntimeで検査せず、違反時の結果を保証しない。検査済みconstructorやより強い型から成るabstractionを上に作ることは
-妨げない。ここで分離するのは操作の意味と単位である。
-
-## 概念モデル
-
-| 概念 | 保持する意味 | 保持しない意味 |
+| 概念 | 保持する意味 | 別のcontractが所有する意味 |
 |---|---|---|
-| `ByteSize` | targetがobject sizeとbyte offsetとして扱えるunsigned量 | pointer representation、要素数、alignment保証 |
-| `Count` | target上の有限collectionの要素数とindexに使うdimensionlessなunsigned量 | byte量、pointer representation |
-| `Address` | 外部storageのopaqueなlocation | numeric value、型、length、access permission、ownership、alignment保証 |
-| layout shape | 一要素のrepresentation、size/stride、required alignmentを表す`@`または`#`の構文operand | source type、runtime payload、storage、lifetime、具体的なaddress |
-| `Cursor<A>` | runtimeの`Address`と、canonicalな`A`に一意なstatic layout | bounds、initialization、permission、ownership、lifetime、型としてのalignment保証 |
-| `Region<A>` | `Cursor<A>`へ`Count`を適用した有限個の要素location | initialization、permission、allocation identity、ownership、lifetime延長 |
-| `Packed<A>` | mal-ownedなflat immutable有限要素列と要素数 | external layout、mutable storage、host resourceのlifetime |
+| `ByteSize` | targetがobject sizeとbyte offsetに使うunsigned量 | pointer representation、要素数、alignment保証 |
+| `Count` | target上の有限collectionの要素数とindex | byte量、pointer representation |
+| `Address` | external storageのopaqueなlocation | numeric value、型、extent、permission、ownership、alignment保証 |
+| layout shape | 一要素のrepresentation、stride、required alignment | runtime payload、storage、lifetime、具体的なaddress |
+| `Cursor<A>` | `Address`とcanonicalな`A`に一意なstatic layout | extent、initialization、permission、ownership、lifetime |
+| `Region<A>` | 同じlayoutを持つ`Count`個のlocation | 利用可能なbuffer、初期化済みslice、permission、ownership |
 
-layout shapeは通常のvalueでも`Layout<A>`というsource typeでもない。`@`によるplacementまたは`#`によるsize queryの構文operandであり、
-nameへbindingしたり、parameter、result、product field、sum payload、closure capture、extern argumentとして渡したりしない。
-compilerはshapeをtarget固有のconstantへ解決し、ANF、LLVM IR、public host ABIへlayout descriptorを渡さない。
+layout shapeは`@`によるplacementまたは`#`によるstride queryの直後だけに置くcompile-time構文operandである。compilerは
+shapeをtarget固有のconstantへ解決し、runtimeでは`Cursor<A>`と`Region<A>`が選択済みのstatic layoutを運ぶ。一つのcanonical
+`A`とtargetの組は一つのartifact-local layoutを持つため、binding、parameter、result、field、capture、extern argumentには
+通常のvalueとsource typeだけが現れる。
 
-`Cursor<A>`と`Region<A>`はruntime carrierを持つ通常の型付きvalueである。layout shapeはcanonicalなsource typeへ解決し、
-一つのcanonical `A`とtargetの組には一つのartifact-local layoutだけを認める。transparent aliasは展開後の型へ正規化する。
-runtimeではCursorがAddress、RegionがAddressとCountを運べばよい。
+`Address`はcopyableなcapabilityであり、複製してもreferentのlifetimeを延長しない。literal、null、equality、Address同士の
+加減算、integerとの相互変換は提供しない。`Address + ByteSize`と`Address - ByteSize`はinteger演算ではなく、同じstorage
+capabilityからbyte位置を派生させるoperationである。
 
-compilerはsourceに公開しない閉じた`Representable(A)` judgmentを持ち、layoutを持てる型を判定する。layout shapeから作った
-`Cursor<A>`または`Region<A>`を受け取ることは、このjudgmentのもとで`A`をaccessするために必要なstatic informationを与えるが、
-そのAddressに有効なrepresentationが実在することは証明しない。
+## 型形成
 
-最初のprofileでは`Unit`、全numeric scalar、`Address`、`ByteSize`、`Count`をrepresentableとする。全fieldがrepresentableなproductと、
-全variantがrepresentableな二項以上のsumも再帰的にrepresentableとする。transparent aliasは展開後の型で判定するため、`Bool`は
-`[Unit, Unit]`と同じrepresentableな型になる。function、external opaque type、`Packed<A>`、`Cursor<A>`、`Region<A>`、empty sumは
-representableにしない。
+compilerは閉じた`Representable(A)` judgmentを持つ。最初のprofileでは`Unit`、全numeric scalar、`Address`、`ByteSize`、
+`Count`、全fieldがrepresentableなproduct、全variantがrepresentableな二項以上のsumを再帰的にrepresentableとする。
+transparent aliasは展開後の型で判定するため、`Bool`は`[Unit, Unit]`と同じlayoutを持つ。function、external opaque type、
+`Packed<A>`、`Cursor<A>`、`Region<A>`、empty sumはrepresentableにしない。
 
-`Address`はcopyableなopaque locationであり、numeric scalarではない。`address + bytes`と`address - bytes`はinteger値の
-加減算ではなく、同じstorage capabilityからbyte単位のlocationを派生させるoperationである。address literal、null、equality、
-`Address`同士の加減算、integerとの相互変換は提供しない。
+`Cursor<A>`、`Region<A>`、`Packed<A>`は`Representable(A)`の場合だけwell-formedである。generic signatureから型形成条件を
+導く規則は[parametric polymorphismの試案](parametric-polymorphism.md#型形成条件)に置く。この条件はstorageにvalidな
+representationが存在することを証明しない。
 
 ## Layout shape
 
-layout shapeは`@`または`#`の直後だけに置き、通常のtype expressionやruntime valueから区別する。
+primitive shapeはnumeric literal suffixと同じ短いspellingを使う。型が現れる構文と混同せず、既知のsuffixとの対応を
+再利用するため、`UInt64`ではなく`u64`と書く。
 
 ```text
 unit
-i8
-u32
-f64
-address
-bytesize
-count
+i8 i16 i32 i64
+u8 u16 u32 u64
+f32 f64
+address bytesize count
 ```
 
-productとsumはsource typeと同じdelimiterの内側にlayout shapeを書き、flatなn項構造とnested構造をそのまま区別する。
-`&`と`|`によるlayout compositionは設けない。
+productとsumはsource typeと同じdelimiterの内側にshapeを書き、flatなn項構造とnested構造を区別する。
 
 ```text
-(i8, u64, i32)          // (Int8, UInt64, Int32)
-((i8, u64), i32)        // ((Int8, UInt64), Int32)
-(i8, (u64, i32))        // (Int8, (UInt64, Int32))
-
-[unit, i32, address]     // [Unit, Int32, Address]
-[[unit, i32], address]   // [[Unit, Int32], Address]
-[unit, [i32, address]]   // [Unit, [Int32, Address]]
+(i8, u64, i32)
+((i8, u64), i32)
+[unit, i32, address]
+[unit, [i32, address]]
 ```
 
-一要素productと一要素sumはsource typeと同様に存在しない。empty sum shape `[]`は認めない。transparent alias `Alias`は
-canonical typeへ展開し、その型がrepresentableならshapeとして使える。predefined alias `Bool`と`[unit, unit]`は同じcanonical
-typeとlayoutを表し、Bool専用のmemory representationは設けない。
-
-`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
+一要素product、一要素sum、empty sum shapeは認めない。transparent aliasはcanonical typeへ展開し、representableなら
+shapeとして使える。`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
 
 ```mal
 #i8
@@ -98,27 +73,25 @@ typeとlayoutを表し、Bool専用のmemory representationは設けない。
 #Bool
 ```
 
-### primitiveと`Unit`
+### PrimitiveとUnit
 
 numeric scalar、`Address`、`ByteSize`、`Count`のstrideとrequired alignmentはtarget data layoutから決める。numeric scalarの
-storage幅はその型のbit幅、`Address`はdefault address spaceのpointer storage幅、`ByteSize`と`Count`はpointer index幅を使う。
-異なるscalar shapeで同じbytesを観測した場合のbyte orderとrepresentationは対応するbackend host ABIが定める。
-Addressをloadする場合、storageが以前のAddress storeまたはhost contractによる有効なpointer representationを保持することを
-preconditionとし、primitiveは検査しない。
+storage幅はbit幅、`Address`はdefault address spaceのpointer storage幅、`ByteSize`と`Count`はpointer index幅を使う。
+異なるscalar shapeで同じbytesを観測した場合のbyte orderとrepresentationはbackend host ABIが定める。
 
-`Unit`はstride 0、required alignment 1とする。Unitのloadとstoreはstorageをdereferenceせず、UnitをstoreしたCursorは同じlocationを
-返す。`Region<Unit>`はstorageを消費せずに任意のCountを持てる。
+`Unit`はstride 0、required alignment 1とする。load/storeはstorageをdereferenceせず、次のCursorは同じlocationになる。
+`Region<Unit>`はstorageを消費せず任意のCountを持てる。
 
-### product
+### Product
 
-productはfieldをsource orderのまま配置する。先頭fieldのoffsetを0とし、後続fieldのoffsetは直前fieldの末尾からそのfieldのrequired
-alignmentまで前方へ丸める。product全体のrequired alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで
-前方へ丸めた値とする。これにより内部paddingとtail paddingを含み、nested productはflattenせず各layoutを再帰的に適用する。
+fieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで前方へ
+丸める。全体alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで前方へ丸めた値とする。
+nested productはflattenしない。
 
-### sum
+### Sum
 
-sumは0-basedのvariant indexを持つtag、padding、全variantで共有するpayload領域の順に配置する。tagにはvariant数を表せる最小の
-builtin unsigned型を使う。
+0-based variant indexのtag、padding、全variantで共有するpayload領域の順に配置する。tagはvariant数を表せる最小のbuiltin
+unsigned型とする。
 
 ```text
 2 .. 2^8 variants          UInt8
@@ -127,42 +100,33 @@ builtin unsigned型を使う。
 2^32 + 1 .. 2^64 variants UInt64
 ```
 
-`2^64`を超えるvariantを持つsumは拒否する。payloadのrequired alignmentは全variantの最大値とし、payload offsetはtagの末尾から
-そのalignmentまで前方へ丸める。payload extentは全variantのstrideの最大値、sum全体のrequired alignmentはtagと全variantの
-最大値、sumのstrideはpayload末尾から全体alignmentまで前方へ丸めた値とする。loadするtagがvariant数未満であることは
-callerのpreconditionであり、primitiveは検査しない。
+payload alignmentは全variantの最大値、payload offsetはtag末尾からそのalignmentまで前方へ丸める。payload extentは全variantの
+strideの最大値、sum alignmentはtagと全variantの最大値、sum strideはpayload末尾から全体alignmentまで前方へ丸める。
+`2^64`を超えるvariantを持つsumは拒否する。
 
-### paddingと非選択payload
-
-storeはproduct field、sum tag、選択したpayloadだけを書き、内部padding、tail padding、非選択payloadの残存bytesを変更しなくてよい。
-loadはpaddingと非選択payloadを読まず、paddingを含むbytewise equalityも提供しない。
-
-layoutはopaqueなtarget layoutであり、同じcompiled artifactと対応host adapterの範囲で有効とする。file、network、
-永続storageには別の明示的codecを使い、このlayoutをstable wire formatとして扱わない。public C ABIのby-value aggregate
-representationとも同一視せず、必要な変換はgenerated adapterが所有する。
+storeはproduct field、sum tag、選択payloadだけを書き、paddingと非選択payloadを変更しなくてよい。loadはそれらを読まず、
+paddingを含むbytewise equalityを提供しない。このlayoutは同じartifactと対応adapterの範囲だけで有効であり、mal runtime
+representation、public C aggregate carrier、file、network、永続storageのformatではない。
 
 ## `ByteSize`と`Count`
 
-`ByteSize`をdefault address spaceでobject sizeとbyte offsetを表すtarget依存のunsigned numeric type、`Count`を有限collectionの
-要素数とindexを表すtarget依存のunsigned numeric typeとする。両者のruntime representationは同じでもsource typeを分ける。
+両型はdefault address spaceのpointer index幅を持つ別々のunsigned source typeである。
 
 ```text
-source type           ByteSize                    Count
-literal suffix        bytes                       count
-example               10bytes                     10count
-public C ABI type     mal_ByteSize_t               mal_Count_t
-C representation     size_t                       size_t
-LLVM representation  pointer index幅のinteger     pointer index幅のinteger
+source type          ByteSize          Count
+literal suffix       bytes             count
+example              10bytes           10count
+public C ABI type    mal_ByteSize_t    mal_Count_t
+C representation     size_t            size_t
 ```
 
-`ByteSize`と`Count`はliteral、同じ型同士の加減算と比較、明示的numeric conversionの対象にする。`Count`にはdimensionlessな
-unsigned integerとして乗除算とremainderも認める。address offsetと各process argumentのbyte lengthには`ByteSize`を使い、
-Region、Packed、Symbolの要素数とindex、およびprocess argument countには`Count`を使う。
+literal、同じ型同士の加減算と比較、明示的numeric conversionを認める。`Count`には乗除算とremainderも認める。
+`Count * ByteSize`と`ByteSize * Count`は`ByteSize`、`ByteSize * ByteSize`はerrorとする。加減乗算はtarget幅でwrapし、
+divisionとremainderはdivisorがzeroでないことをpreconditionとする。memory extentとして使う数学的な積がoverflowしないことは、
+そのmemory operationまたはhost contractのpreconditionである。
 
-両型はtargetのpointer index幅を持つ固定幅unsigned integerとして、加減乗算をその幅でwrapする。divisionとremainderはdivisorが
-zeroでないことをpreconditionとし、numeric conversionは既存integerと同じくdestination幅へのmodulo conversionとする。明示suffixを
-持つか周辺型から`ByteSize`または`Count`に決まったliteralがtarget幅に収まることはartifact生成時に検査し、target非依存checkは
-型を決めてもtarget固有の上限を確定しない。
+address offsetとprocess argumentのbyte lengthには`ByteSize`、Region、Packed、Symbolの要素数とindex、process argument countには
+`Count`を使う。target非依存checkはliteralの型を決め、target幅に収まるかはartifact生成時に検査する。
 
 ```mal
 p + count * #u64
@@ -170,355 +134,104 @@ p - count * #u64
 p + 8 * #u64
 ```
 
-`Count * ByteSize`と`ByteSize * Count`はtarget幅でwrapしたbyte extentを返すdimension付きの閉じたprimitiveとし、
-`ByteSize * ByteSize`は認めない。
-これにより`8 * #u64`のsuffixなしliteralは周辺型から`Count`に一意に決まる。addressの派生が同じlive region内または末尾の
-直後に収まることと、byte extentを表す乗算がoverflowしないことはpreconditionであり、このmemory primitiveは検査しない。
-
-### postfix numeric conversion
-
-layoutの`@`とは別に、numeric valueへの`.i8`、`.u32`、`.f64`などを明示的numeric conversionの候補とする。
-これは一般のfield accessやmember lookupではなく、仕様が列挙するnumeric destinationだけを持つ閉じたpostfix familyである。
-
-```mal
-n := readCount();
-byte := n.u8;
-offset := (base + delta).bytes;
-ratio := value.f64;
-```
-
-通常のnumeric literalには既存の型suffixを使う。
-
-```mal
-100u8
-1.5f32
-```
-
-literalにconversionを適用すること自体は禁じない。integer conversionがmodulo規則を持つ場合、範囲外literalとの違いを
-明示できるためである。
+numeric conversionは`.i8`、`.u32`、`.f64`、`.bytes`、`.count`のclosed postfix familyへ統一する候補とする。通常のliteralは
+既存suffixを使い、conversionは既存integerのmodulo規則を保つ。
 
 ```mal
 300u8          // range error
-(300i64).u8    // modulo conversion
+(300i64).u8    // 44
 ```
 
-`.bytes`と`.count`を`ByteSize`、`Count`へのconversion spellingにするかは未決である。この試案を採択する場合は、現行の
-`T(value)`と`value[T]`へ第三の表記を追加せず、postfix conversionへ置き換える範囲を同時に決める。
-
-## Placement
-
-placementとaccessの型関係は次になる。`Shape`は`@`または`#`の直後に置くlayout shapeを表す。
+## Placementとaccess
 
 ```text
 Address + ByteSize          -> Address
 Address - ByteSize          -> Address
-?Cursor<A>                  -> Address
-?Region<A>                  -> Address
-
 Address@Shape               -> Cursor<A>
 Cursor<A>@Count             -> Region<A>
+?Cursor<A>                  -> Address
+?Region<A>                  -> Address
 Cursor<A>!                  -> Cursor<A>
 Region<A>!                  -> Region<A>
-
 Cursor<A> <- A              -> Cursor<A>
-<-Cursor<A>                 -> A
-
-<-Region<A>                 -> Packed<A>
-Region<A> <- Packed<A>      -> Region<A>
-Region<A> / Count           -> Region<A>
-Region<A> % Count           -> Region<A>
-Packed<A> / Count           -> Packed<A>
-Packed<A> % Count           -> Packed<A>
-#Region<A>                  -> Count
-#Packed<A>                  -> Count
-Packed<A> # Count           -> A
-*Packed<UInt8>              -> Symbol
-*Symbol                     -> Packed<UInt8>
+<-Cursor<A>                 -> (A, Cursor<A>)
 ```
 
-`Address@Shape`はlocationを動かさずにshapeを適用し、canonicalな`A`に一意なlayoutを持つCursorを作る。Cursorへ別のshapeを
-適用してはならない。異なるlayoutへ切り替えるprogramはprefix `?`で現在位置のAddressへ明示的に戻してから、新しいshapeを適用する。
+`Address@Shape`はlocationを動かさず、shapeに対応するcanonical `A`のCursorを作る。Cursorへ別shapeを直接適用できず、
+`?cursor`でAddressへ戻してから切り替える。`Cursor<A>@Count`は現在locationから同じstrideを繰り返すRegionを作る。
+Cursorと一要素Regionは同一視しない。
+
+loadは現在位置の値とstrideだけ進んだCursorを返し、storeも同じ次Cursorを返す。どちらもexternal storageをconsumeせず、
+referentのlifetimeを変更しない。product patternまたは既存のvalue-first applicationで連続readを表せる。
 
 ```mal
-cursor := address@u8;
-sameCursor := cursor@u64;       // error
-sameCursor := cursor <- @u64;   // error
-nextCursor := (?cursor)@u64;
+(value, next) := <-(address@u64);
+(<-(address@u64))[(value, next) -> use(value, next)]
+
+end := address@u8
+    <- first
+    <- second
+    <- third;
 ```
 
-prefix `?`はCursorからlayout、Regionからlayoutとcountをsource-level valueとして捨て、同じlocationのAddressを返す
-forgetful projectionである。
+すべてのexact Cursor accessはunaligned accessを認める。backendは保証されたalignmentがなければalignment 1のload/storeまたは
+同等のbyte accessへlowerする。compilerは性能のために最小alignment factを追跡してよいが、失えばalignment 1へ弱め、過大な
+LLVM alignmentを指定してはならない。
 
-```text
-?(address@i32)        == address
-?(address@i32@count)  == address
-```
-
-postfix `!`は現在位置から`A`のrequired alignmentを満たす最初のlocationまで進め、同じcanonical layoutのCursorまたはRegionを返す。
-これはalignment assertionではなく実際のalign-upである。すでにalignedならlocationを変えず、RegionではCountを保存する。新しいstorage、
-permission、ownership、lifetimeは作らず、skipするpaddingと後続のaccessに必要なextentが元のlive regionへ収まることをpreconditionとする。
-count 0のRegionでもlocationをalign-upする。既存のprefix `!`はBool negationのまま残り、postfix位置だけをalignment移動に使う。
+postfix `!`はassertionではなく、現在位置から`A`のrequired alignmentを満たす最初のlocationへのalign-upである。Regionでは
+Countを保存し、count 0でもlocationをalign-upする。prefix `!`はBool negationのまま残す。
 
 ```mal
-cursor := address@u64;
-region := address@u64@count;
 alignedCursor := address@u64!;
 alignedRegion := address@u64@count!;
 ```
 
-`address@u64!@count`と`address@u64@count!`は同じlocationとCountを持つRegionを返す。
+exact placementとunaligned accessはすべてのbackendが実装するbaselineとする。postfix `!`はtarget capabilityであり、backendは
+opaque pointer provenanceを保ってalign-upを実装できるtargetでだけadmitする。integral pointer targetではAddressのbitsからpaddingを
+計算し、元のAddressへbyte offsetを適用してresultを派生する。実装できないtargetは`!`を使うprogramだけをartifact生成時に拒否する。
 
-Cursorと一要素Regionは同一視しない。
+required alignmentの数値queryとgeneric aligned allocatorは最初のprofileへ入れない。arbitrary allocatorからのalign-upには最大paddingの
+余剰storageとdeallocation用の元Addressが必要であり、concreteなhost operationのcontractへ閉じ込める。
 
-```mal
-address@i8          // Cursor<Int8>
-address@i8@1count   // Region<Int8>
-```
+## 未検査precondition
 
-alignment移動はAddressやlayout shapeには直接適用できず、shapeが確定したCursorまたはRegionにだけ適用できる。
+このmemory algebraは、callerまたはAddressを提供したhost contractが次の条件を満たす未検査mechanismである。
 
-```mal
-address! // error
-```
+| Operation | Precondition |
+|---|---|
+| `Address +/- ByteSize` | 数学的offsetがoverflowせず、resultが同じlive region内または末尾の直後にある |
+| `Address@Shape` | なし。形成だけではstorageをaccessしない |
+| `Cursor@Count` | `Count * stride(A)`がoverflowせず、全locationが同じlive region内にある。Count 0またはstride 0では先頭が末尾の直後でもよい |
+| Cursor load | 現在の一要素がreadableかつ初期化済みでvalid representationを持つ |
+| Cursor store | 現在の一要素がwritableである |
+| Cursor load/storeのresult | 次locationが同じregion内または末尾の直後にある |
+| `Cursor<A>!` | skipするpaddingと一要素分のextentが同じlive regionに収まる |
+| `Region<A>!` | skipするpaddingとCount要素分のextentが同じlive regionに収まる。Count 0ではpaddingだけを対象とする |
+| Region/Packed operation | [`Region`と`Packed`のprecondition](region-and-packed.md#未検査precondition)に従う |
 
-`@` suffixはapplicationより弱く、`<-`より強く結合する候補とする。countに複合式を置く場合は括弧で境界を明示する。
+valid Address representation、sum tag、bounds、permission、initialization、lifetime、extent、overflowをprimitiveは検査しない。
+違反時の特定の結果を保証しない。実装は内部memory corruptionを避けるために検査してtrapしてよいが、そのtrapはsource-level
+contractではない。preconditionを満たしたoperationがmal-owned storageを必要とし、実際のallocationに失敗した場合はtrapする。
 
-```mal
-region := p@(u64, i32)@count;
-dynamic := p@u8@(requested - consumed);
-```
+末尾の直後を指すCursorは保持、Addressへの投影、Count 0のRegion形成には使えるが、通常のload/storeには使えない。Unit accessと
+`Region<Unit>`はdereferenceせず、permission、initialization、storage extentを要求しない。stride 0なので同じlocationを返す。
 
-## Cursor accessとalignment
+## TargetとC ABI
 
-`Cursor<A>`はcanonicalな`A`に一意なstatic layoutを持つため、genericなload/storeが型`A`だけからrepresentationを探索する必要はない。
-loadは現在位置を進めず、storeは同じlayoutのstrideだけ進んだCursorを返す。
+backendはsource memory layout専用のtarget layout planを作り、mal runtime valueの内部layoutを再利用しない。default address
+spaceのpointer representation幅、pointer index幅、primitive ABI alignmentをtarget data layoutから別々に取得する。layout計算を
+targetのobject sizeで表現できない型はartifact生成時に拒否する。
 
-```mal
-value := <-(p@u64);
-next := p@u64 <- value;
+reference C backendは`ByteSize`と`Count`を`size_t`へ写す。LLVM pointer index幅とC `size_t`幅が一致するtargetだけをadmitし、
+generated C artifactのcompile-time assertionを含むABI admissionで検証する。pointer representation幅との一致は要求しない。
+LLVM module、C shim、runtime、host sourceは同じtargetへcompileする。別backendは自身のindex型に対応するhost mappingを定める。
 
-alignedValue := <-(p@u64!);
-alignedNext := p@u64! <- value;
-```
-
-同じCursorからのstore chainは`A`だけを受け取り、各stepで同じstrideだけ進む。heterogeneousな値を一単位として扱う場合は
-aggregate shapeを使う。逐次codecとして異なるlayoutへ切り替える場合は、各境界でAddressへ戻す。
-
-```mal
-end := p@u8
-    <- first
-    <- second
-    <- third;
-
-entryEnd := p@(u8, u64) <- (header, payload);
-
-afterHeader := p@u8 <- header;
-afterVersion := (?afterHeader)@i32 <- version;
-end := (?afterVersion)@address <- payloadAddress;
-```
-
-すべてのCursor accessはunaligned accessを認め、alignmentを意味上のpreconditionにしない。backendはalignment保証がなければ
-alignment 1のload/storeまたは同等のbyte accessへlowerする。compilerは最適化のために各expressionが保証する最小alignmentを
-factとして追跡してよい。alignment移動のresultでは`A`のrequired alignmentを使え、storeはstrideがrequired alignmentの倍数で
-あるためこのfactを保存できる。joinまたはcall boundaryでfactを保存できなければalignment 1へ弱める。これは性能だけに影響し、
-programの意味を変えない。過大なLLVM alignmentを指定してはならない。
-
-alignment移動の実装はopaque pointer capabilityとtargetのprovenance規則に依存する。integral pointer targetではAddressのbitsから
-paddingを計算し、integerをpointerへ戻すのではなく元のAddressへbyte offsetを適用してresultを派生させる。backendはtargetごとに
-この操作を実装できるかをadmissionで宣言する。non-integral pointerなど定義できないtargetでは、postfix `!`を使うprogramだけを
-compile-time errorにし、exact placementとunaligned Cursor accessは引き続き利用できる。target固有intrinsicで同じ意味を実装できる
-場合はintegral pointerでなくても提供してよい。
-
-## RegionとPacked
-
-`Cursor<A>`、`Region<A>`、`Packed<A>`は`Representable(A)`の場合だけwell-formedとする。この内部条件によりPackedのelementはmanaged
-ownerを含まず、elementごとのretainやreleaseを必要としない。
-
-`Region<A>`のcountは、そのregion valueが覆う要素locationの数である。capacity regionでは書き込み可能量を、partial read後の
-regionでは初期化済みで読み出せる量を表し得るため、`#region`だけからinitializationやpermissionは分からない。それらはregionを
-作ったoperationのcontractに属する。`#packed`はmal-ownedな列に実在する要素数であり、全要素を常に読み出せる。
-
-`<-region`はregion全体をindex順にadmitし、mal-ownedなflat bufferを持つ`Packed<A>`を作る。必要なstorageを確保できない場合と
-allocation sizeをtargetで表現できない場合はtrapする。`region <- packed`は`#packed <= #region`をpreconditionとして先頭からobserveし、
-書いた範囲の直後から始まるsuffix Regionを返す。zero-count regionのadmissionはempty packed、zero-count packedのstoreは元と同じ
-regionを返し、storageをdereferenceしない。`Packed<Unit>`はbacking element storageを持たずCountだけで表現してよい。
-
-```mal
-packed := <-region;
-written := outputRegion / #packed;
-available := outputRegion <- packed;
-
-#written == #packed
-#available == #outputRegion - #packed
-```
-
-`/`と`%`は`count <= #value`をpreconditionとして、RegionとPackedを同じ境界でprefixとremainderへ分ける。prefixのcountは
-`count`、remainderのcountは`#value - count`になる。operatorは範囲を検査せず、超過時のsaturatingやclampingも行わない。
-Regionではstorageをdereferenceせずviewだけを分ける。Packedでは同じflat bufferのowner、offset、countを持つimmutable slice viewとし、
-元のbufferを必要な間保持する。buffer ownerの保持と最後のviewを失った後の解放はlanguage runtimeが担い、programへ明示的な
-retain、release、freeを要求しない。各operatorは通常のexpressionと同じ評価順でoperandを一度だけ評価する。
-
-Packed indexingの`index < #packed`と、Region storeの`#packed <= #region`もcallerのpreconditionであり、primitiveは検査しない。
-
-責任境界はexternal storageとmal-owned valueの間に置く。Address、Cursor、Regionが指すstorageのbounds、permission、initialization、
-lifetimeと、memory extentがwrapしていないことはprogramまたはhost contractが保証する。一度構築されたPackedのbuffer lifetimeと
-cleanup、およびSymbolの内部representation、ownership、cleanupはlanguage runtimeが保証する。
-
-`Packed<A>`自体にexternal layoutを暗黙に与えない。external storageへ戻すときは同じelement shapeからcapacity Regionを作る。
-
-```mal
-region := address@u8@count;
-bytes := <-region;
-byte := bytes # index;
-
-output := outputAddress@u8@capacity;
-transferCount := chooseTransferCount(#bytes, #output);
-current := bytes / transferCount;
-pending := bytes % transferCount;
-available := output <- current;
-```
-
-この例の`chooseTransferCount`は`transferCount <= #bytes`かつ`transferCount <= #output`を満たすprogram側の処理を表し、
-predefined operationではない。
-
-`Symbol`は`Packed<UInt8>`のaliasにせず、既存のmanaged byte sequenceとhost ABIを維持する。prefix `*`はこの二型の間だけで使える
-閉じたbuiltin conversion familyとし、pointer dereferenceや任意のgeneric型へのconversionには使わない。
-
-`*packed`は同じbyte sequenceを持つSymbolを、`*symbol`は同じbyte sequenceを持つflatな`Packed<UInt8>`を返す。実装はbufferを
-copyしても、表現が許せばownerを共有してもよい。SymbolがRopeなどの非flat表現なら`*symbol`はflat bufferをmaterializeする。
-operandとresultはどちらも変換後に有効であり、必要なstorageを確保できなければtrapする。external storageのzero-copy Packed viewは
-最初のprofileへ入れない。
-
-## Host allocationとpartial I/O
-
-external storageのallocation、failure、ownership、deallocationはpredefined primitiveにしない。layout shapeはhost ABIへ渡さず、
-host operationは`Address`、`ByteSize`、`Count`、またはoperation固有の非generic contractを受け取る。
-
-```mal
-extent := count * #u64;
-raw := hostAllocateBytes(extent);
-region := raw@u64@count;
-```
-
-alignmentを保証しないallocatorへexact extentだけを要求してからalignment移動を適用してはならない。一般には最大padding分の
-余剰storageとdeallocation用の元Addressが必要であり、alignmentを数値として公開しないprofileではconcreteなhost adapterへ閉じ込める。
-
-partial I/Oではmal wrapperがcapacity RegionをAddressとCountへ分解してhostへ渡し、返されたCountでinitialized prefixとunused suffixを
-分ける。host readはresultがcapacity以下であり、先頭result要素を初期化したことをpostconditionとして定める。
-
-```mal
-capacity := 1024count;
-scratch := inputAddress@u8@capacity;
-readCount := hostReadRaw(?scratch, #scratch);
-valid := scratch / readCount;
-unused := scratch % readCount;
-packed := <-valid;
-saved :: Symbol := *packed;
-```
-
-output側も同じsplitを使う。
-
-```mal
-pending :: Packed<UInt8> := *saved;
-scratch := outputAddress@u8@capacity;
-transferCount := chooseTransferCount(#pending, #scratch);
-current := pending / transferCount;
-nextPending := pending % transferCount;
-written := scratch / transferCount;
-available := scratch <- current;
-sentCount := hostWriteRaw(?written, #written);
-sent := written / sentCount;
-retry := written % sentCount;
-```
-
-host writeはresultがinput count以下であり、先頭result要素を消費したことをpostconditionとして定める。hostがこの範囲外のCountを
-返すことはhost contract違反であり、memory primitiveは検査しない。
-
-resultの`0count`をEOF、would-block、空入力、一時的なzero progressのどれとするかはoperation固有のcontractが定める。languageは
-暗黙のretry、loop、rollback、zero-progress判定を行わない。progressとfailureを同時に返す必要があるoperationは、Countだけでなく
-host-mappableなconcrete productまたはsumにprocessed Countとstatusを明示する。partial failure後にどのprefixが初期化または消費済みかも
-そのcontractが定め、callerがresultを使ってRegionを分割する。
-
-## Genericsとの境界
-
-generic codeは裸のAddressと型parameter`A`だけからlayoutを導けない。layout shapeは通常のvalueではないため、旧案の
-`Layout<A>` parameterも設けない。callerが具体的なshapeからCursorまたはRegionを構成し、それをgeneric functionへ渡す。
-
-```mal
-readCursor<A> :: Cursor<A> -> A :=
-    (cursor) -> <-cursor;
-
-writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> :=
-    (cursor, value) -> cursor <- value;
-
-makeRegion<A> :: (Cursor<A>, Count) -> Region<A> :=
-    (cursor, count) -> cursor@count;
-```
-
-CursorまたはRegionを受け取ること自体が、`A`にartifact-local layoutがあるというstaticな条件を満たす。これは参照先storageの
-有効性を示すものではない。specialization後にはconcreteなshapeが確定する。
-複数representation、runtime layout descriptor、implicit dictionary、type reflectionは最初のprofileへ入れない。generic codeが
-必要なextentはcallerが`Count * #shape`で計算するか、具体的なhost operationのcontractに閉じ込める。
-
-## CとRustとの比較
-
-| Concern | C | Rust | このmal試案 |
-|---|---|---|---|
-| byte量と要素数 | `size_t`を共用する | `usize`を共用する | `ByteSize`と`Count`をsourceで分ける |
-| raw location | `void *` | raw pointer | numericに観測できない`Address` |
-| finite external view | pointerとlength | slice | `Region<A>` |
-| owned sequence | allocation固有 | `Vec<T>`など | immutableな`Packed<A>` |
-| typed interpretation | `T *`への変換 | pointer cast | `Address@shape` |
-| repeated placement | array typeまたはsize計算 | array、slice、allocator `Layout` | `Address@shape@Count`による`Region<A>` |
-| aggregate representation | struct、union、enum | type layoutと`repr` | `Address@(...)`、`Address@[...]`によるartifact-local layout |
-| unaligned access | `memcpy`など | `read_unaligned`、`write_unaligned` | exact placement由来のalignment 1 access |
-
-Cのpointer conversion、alignment、allocation、`memcpy`の規則は
-[`WG14 N1570`](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)を参照する。Rustのtype layoutとraw pointer accessは
-[`Rust Reference`](https://doc.rust-lang.org/reference/type-layout.html)、
-[`std::alloc::Layout`](https://doc.rust-lang.org/std/alloc/struct.Layout.html)、
-[`std::ptr`](https://doc.rust-lang.org/std/ptr/index.html)を参照する。この比較はCまたはRustのobject modelをmalへそのまま導入する
-根拠ではなく、layout、placement、ownershipをどこで分離するかを確認するために使う。
-
-## ABIとbackend
-
-extern parameterとresultには、仕様が明示的なhost value mappingを定めた型だけを認める。compilerはsourceに公開しない閉じた
-`HostMappable(A)` judgmentを持ち、型がconcreteであることやC側に似た型が存在することだけを根拠にmappingを合成しない。
-
-最初のprofileでは`Unit`、`Bool`、numeric scalar、`Address`、`ByteSize`、`Count`、`Symbol`、external opaque typeをbase caseとする。
-全fieldまたはvariantがhost-mappableなproductとsumも、generated adapterが再帰的に変換するhost value mappingを持てる。
-transparent aliasは展開後の型で判定し、alias spellingはgenerated C名として保存してよい。functionとgeneric type applicationは
-host-mappableにしない。
-
-mal runtime representation、`Address@shape`が定めるexternal memory layout、C carrierのrepresentationとalignmentは互いに独立である。
-productとsumをhostへ渡す場合もC structをmal memory layoutとしてreinterpretせず、generated adapterがfield、tag、active payloadを
-変換する。例えばmal memory上のsum tagが最小幅でも、C carrierは別のtag幅を使ってよい。`Address`だけがopaqueな生pointerとして
-locationを渡し、指すstorageのlayout、count、alignment、permission、lifetimeはoperation固有のhost contractに残す。
-
-layout shapeとgeneric type applicationはpublic ABIへ現れない。transparent aliasを展開した後のparameterまたはresultに
-`Cursor<A>`、`Region<A>`、`Packed<A>`などのgeneric type applicationが残るextern declarationは、型argumentがconcreteでも拒否する。
-host operationは`Address`、`Count`、`ByteSize`またはそれらを含むhost-mappableな型を受け取り、mal wrapperがCursorやRegionを分解、
-再構成する。generic bindingとそのspecializationからpublicなhost-callable symbolやC header declarationを生成しない。
-
-```mal
-extern readRaw :: (Address, Count) -> Count;       // valid
-extern readRegion :: Region<UInt8> -> Count;       // error
-extern emitPacked :: Packed<UInt8> -> Unit;        // error
-```
-
-`Symbol`はgeneric type applicationではなく、既存のdescriptorとhelperから成る明示的なhost value mappingを持つ独立したpredefined
-typeとしてextern signatureに書ける。Packedをhostへ渡す必要がある場合はmal側で`Packed<UInt8>`をSymbolへ変換し、他のelement型には
-汎用host mappingを設けない。
-
-LLVM backendはtarget data layoutからdefault address spaceのpointer representation幅、pointer index幅、各primitive representationの
-ABI alignmentを別々に取得する。pointer representation幅とindex幅は一致するとは限らない。GEP operand、load/store alignment、
-Cの`size_t`とLLVM module targetの整合をABI admissionで検証する。
-
-現在のbackend内部にあるproduct、sum、Unit、Bool、closureのrepresentationはsource layoutではない。source layoutを採択する場合は、
-target layout planとpublic C adapterの責務を明示し、既存internal representationを偶発的にsource contractへしない。
+extern parameterとresultへ出せる型は[`Region`と`Packed`のABI規則](region-and-packed.md#host-abi)に従う。
 
 ## 採択前に固定すること
 
-- `#value`と`#shape`を区別するgrammar、およびtransparent alias shapeの解決規則
-- `.i8`などのpostfix conversionと現行`T(value)`、`value[T]`の移行範囲
-- 現行`Ptr`から`Address`へのsource名とC ABI型名、および既存memory primitiveからの移行範囲
+- `#value`と`#shape`、`Address@Shape`と`Cursor@Count`、postfix `!`を区別するgrammar、precedence、formatter規則
+- postfix numeric conversionへ現行`T(value)`と`value[T]`を置き換える移行範囲
+- 現行`Ptr`から`Address`へのsource名、C ABI型名、process argument ABIの移行範囲
+- precondition表のpositive、one-past、zero-count、overflow、invalid representation corpus
+- exact/unaligned baselineとpostfix `!` target capabilityのartifact生成diagnostic

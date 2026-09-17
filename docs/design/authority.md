@@ -65,13 +65,20 @@ C ABIでpointerとして運ばれても直接memory accessの対象でないfile
 typeとし、そのoperationは`extern` contractに残す。carrierのC表現ではなく、公開するoperation semanticsが両者を
 分ける。
 
-productとsumにはcanonical memory representationを与えない。したがって型だけから`loadTree`や`storeTree`は
-導けない。external storage上のtag、field offset、pointer graph、invalid representationをprogramが定める場合は、
-mal関数がscalarと`Ptr`のprimitiveを組み合わせてcodecを実装する。host library固有のrepresentationやatomicityが
-必要な場合だけ、同名のoperationを個別の`extern` contractに置く。
+productとsumのmemory representationをlanguage primitiveに置くかは、そのrepresentationをすべてのprogramで共有する
+canonical mechanismとして固定できるかで決める。固定する場合も、source-level memory layout、mal runtime representation、
+public host ABIのcarrier、fileやnetworkのprotocol encodingを同一視しない。canonical memory representationとの変換だけを
+primitiveに置き、program固有のtag、field offset、pointer graph、wire formatはmalで書くcodecに残す。host library固有の
+representationやatomicityが必要な場合は型固有の`extern` contractに置く。
 
 この分担はcontrolを失わず、operationごとにwidth、alignment、admissionを再定義するcontractの増殖を避ける。
 同時に、bounds、allocation、lifetimeを追跡するmemory systemを暗黙に言語へ追加しない。
+
+memory primitiveは未検査のstorage mechanismとして定められる。live region、extent、permission、initialization、representationの
+有効性をoperationのpreconditionに置く場合は、同じ層のoperationで一貫してcallerまたはhost contractへ委ね、違反時の特定の結果を保証しない。
+preconditionを満たしたoperationに必要なmal-owned storageのallocation failureなど、callerが事前に成立させられないfailureは
+言語またはbackendの明示した規則で扱う。実装がmemory corruptionを防ぐために追加の検査を行ってtrapしても、その防御を
+implementation detailとして扱う。
 
 external function valueの参照と受け渡しはmal-controlledなEngramの操作であり、それだけでは境界を越えない。
 そのfunction valueのapplicationがhost operationを実行するときに限り、parameterとresultの各leafへadmission、observation、
