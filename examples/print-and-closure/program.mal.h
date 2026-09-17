@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <limits.h>
 
-#define MAL_C_ABI_VERSION 0x000700u
+#define MAL_C_ABI_VERSION 0x000800u
 
 #if defined(__clang__)
 #define MAL_DETAIL_MAYBE_UNUSED __attribute__((unused))
@@ -32,7 +32,6 @@ typedef size_t MalType_ByteSize;
 typedef size_t MalType_USize;
 typedef void *MalType_Address;
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
-typedef struct { const uint8_t *data; uint64_t length; void *ownership; } MalType_Symbol;
 typedef MalType_Unit mal_Unit_t;
 typedef MalType_Bool mal_Bool_t;
 typedef MalType_Int8 mal_Int8_t;
@@ -49,8 +48,6 @@ typedef MalType_Address mal_Address_t;
 typedef MalType_ByteSize mal_ByteSize_t;
 typedef MalType_USize mal_USize_t;
 typedef struct { MalContext *mal_detail_context; } mal_call_t;
-typedef struct { const uint8_t *data; uint64_t length; } mal_span_t;
-typedef struct { MalType_Symbol mal_detail_raw; mal_span_t mal_detail_bytes; uint8_t mal_detail_source; } mal_Symbol_t;
 
 #define mal_false (mal_Bool_t)UINT8_C(0)
 #define mal_true (mal_Bool_t)UINT8_C(1)
@@ -109,31 +106,6 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
         mal_call_trap(call, "invalid Bool result");
     }
     return value;
-}
-MalType_Symbol mal_symbol_materialize(MalContext *context, MalType_Symbol value);
-MalType_Symbol mal_symbol_copy_from_bytes(MalContext *context, const uint8_t *data, uint64_t length);
-MalType_Symbol mal_symbol_retain(MalContext *context, MalType_Symbol value);
-static inline mal_Symbol_t mal_Symbol_from_bytes(mal_span_t bytes) {
-    return (mal_Symbol_t){ .mal_detail_raw = (MalType_Symbol){ 0 }, .mal_detail_bytes = bytes, .mal_detail_source = UINT8_C(1) };
-}
-static inline mal_span_t mal_Symbol_to_bytes(mal_call_t *call, mal_Symbol_t value) {
-    if (value.mal_detail_source != UINT8_C(0)) {
-        return value.mal_detail_bytes;
-    }
-    MalType_Symbol raw = mal_symbol_materialize(call->mal_detail_context, value.mal_detail_raw);
-    return (mal_span_t){ .data = raw.data, .length = raw.length };
-}
-static inline MalType_Symbol mal_detail_Symbol_return(mal_call_t *call, mal_Symbol_t value) {
-    if (value.mal_detail_source != UINT8_C(0)) {
-        if ((value.mal_detail_bytes.length != UINT64_C(0)) && (value.mal_detail_bytes.data == NULL)) {
-            mal_call_trap(call, "null Symbol data");
-        }
-        return mal_symbol_copy_from_bytes(call->mal_detail_context, value.mal_detail_bytes.data, value.mal_detail_bytes.length);
-    }
-    return mal_symbol_retain(call->mal_detail_context, value.mal_detail_raw);
-}
-static inline MalType_Symbol mal_Symbol_return(mal_call_t *call, mal_Symbol_t value) {
-    return mal_detail_Symbol_return(call, value);
 }
 
 /* External operations */

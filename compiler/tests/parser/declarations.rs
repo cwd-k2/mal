@@ -61,7 +61,7 @@ fn parses_the_basic_host_example() {
 #[test]
 fn rejects_extern_at_a_call_site() {
     let source = source(
-        "extern print :: Symbol -> Unit; main :: Unit -> Unit := () -> { extern print(\"x\") };",
+        "extern print :: UInt8 -> Unit; main :: Unit -> Unit := () -> { extern print(1u8) };",
     );
     let error = parse(&source).expect_err("call-site extern should be rejected");
 

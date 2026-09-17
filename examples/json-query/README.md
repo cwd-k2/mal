@@ -10,8 +10,9 @@ whitespace. It defunctionalizes the recursive-descent control flow into one `_pa
 a central stack of parser frames instead of building a recursive syntax tree. Each four-bit frame
 records what the enclosing container must do after a child value completes. The intentionally
 fixed-width `UInt64` stack admits at most 15 nested containers; a dynamically allocated stack could
-remove this example-specific limit without changing the parser states. The host only reads and
-writes bytes and converts one ASCII byte into a `Symbol` for decimal rendering.
+remove this example-specific limit without changing the parser states. The host owns input and
+output buffers exposed through Address/USize descriptors; admission, Symbol construction, and
+decimal rendering stay in mal.
 
 Input is expected to be UTF-8. The example validates JSON token and structural syntax, including the
 shape of `\u` escapes, but does not decode Unicode escapes or reject unpaired UTF-16 surrogates.

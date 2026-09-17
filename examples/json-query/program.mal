@@ -12,7 +12,10 @@ _reportParseError :: Symbol -> Int32 := (message) -> {
 };
 
 _runQuery :: Query -> Int32 := (query) -> {
-    parsed := readStdin().parseDocument();
+    (input, address, length) := readStdin();
+    source := *<-address@u8@length;
+    releaseInput(input);
+    parsed := source.parseDocument();
     // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
     parsed[
     _reportParseError,

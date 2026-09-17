@@ -14,6 +14,8 @@ enum {
     MAX_PAYLOAD_SIZE = 256,
 };
 
+static uint8_t packet_buffer[MAX_PAYLOAD_SIZE];
+
 static uint32_t current_error(void) {
     return errno == 0 ? (uint32_t)EIO : (uint32_t)errno;
 }
@@ -87,16 +89,26 @@ MAL_DEFINE_createSocketPair(call) {
     );
 }
 
+MAL_DEFINE_packetBuffer(call) {
+    return mal_PacketBuffer_return(
+        call,
+        (mal_PacketBuffer_t){
+            .field_0 = packet_buffer,
+            .field_1 = sizeof(packet_buffer),
+        }
+    );
+}
+
 MAL_DEFINE_sendPacket(call, value) {
     int descriptor = socket_fd(value.field_0);
     if (descriptor < 0) {
         return mal_SocketStatus_return_1(call, (uint32_t)EBADF);
     }
 
-    uint64_t sequence = value.field_1.field_0;
-    mal_span_t payload = mal_Symbol_to_bytes(call, value.field_1.field_1);
-    uint64_t length = payload.length;
-    if (length > MAX_PAYLOAD_SIZE) {
+    uint64_t sequence = value.field_1;
+    const uint8_t *payload = value.field_2;
+    size_t length = value.field_3;
+    if (payload != packet_buffer || length > sizeof(packet_buffer)) {
         return mal_SocketStatus_return_1(call, (uint32_t)EMSGSIZE);
     }
 
@@ -107,8 +119,8 @@ MAL_DEFINE_sendPacket(call, value) {
     if (error == 0 && length > 0) {
         error = write_all(
             descriptor,
-            payload.data,
-            (size_t)length
+            payload,
+            length
         );
     }
     return error == 0
@@ -116,8 +128,8 @@ MAL_DEFINE_sendPacket(call, value) {
         : mal_SocketStatus_return_1(call, error);
 }
 
-MAL_DEFINE_receivePacket(call, socket) {
-    int descriptor = socket_fd(socket);
+MAL_DEFINE_receivePacket(call, value) {
+    int descriptor = socket_fd(value.field_0);
     if (descriptor < 0) {
         return mal_ReceiveResult_return_1(call, (uint32_t)EBADF);
     }
@@ -130,13 +142,13 @@ MAL_DEFINE_receivePacket(call, socket) {
 
     uint64_t sequence = decode_uint64(header);
     uint64_t length = decode_uint64(header + 8);
-    if (length > MAX_PAYLOAD_SIZE) {
+    if (value.field_1 != packet_buffer || value.field_2 > sizeof(packet_buffer)
+        || length > value.field_2) {
         return mal_ReceiveResult_return_1(call, (uint32_t)EMSGSIZE);
     }
 
-    uint8_t payload[MAX_PAYLOAD_SIZE];
     if (length > 0) {
-        error = read_all(descriptor, payload, (size_t)length);
+        error = read_all(descriptor, value.field_1, (size_t)length);
         if (error != 0) {
             return mal_ReceiveResult_return_1(call, error);
         }
@@ -144,11 +156,9 @@ MAL_DEFINE_receivePacket(call, socket) {
 
     return mal_ReceiveResult_return_0(
         call,
-        (mal_Packet_t){
+        (mal_ReceivedPacket_t){
             .field_0 = sequence,
-            .field_1 = mal_Symbol_from_bytes(
-                (mal_span_t){ .data = payload, .length = length }
-            ),
+            .field_1 = (size_t)length,
         }
     );
 }

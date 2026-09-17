@@ -22,10 +22,10 @@ CopyResult :: [Unit, IoError];
 
 extern allocateBuffer :: USize -> OwnedBuffer;
 extern releaseBuffer :: Allocation -> Unit;
-extern openReadOnly :: Symbol -> OpenResult;
+extern openReadOnly :: (Address, USize) -> OpenResult;
 extern readFile :: (File, WritableBytes) -> ReadResult;
 extern closeFile :: File -> CloseResult;
-extern writeSymbol :: Symbol -> Unit;
+extern writeBytes :: (Address, USize) -> Unit;
 extern writeError :: IoError -> Unit;
 
 // Arguments fields: 0 argument count, 1 first external descriptor address.
@@ -43,7 +43,7 @@ copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> {
         when (length == 0usize) {
             return(_completed());
         };
-        writeSymbol(*<-memory@u8@length);
+        writeBytes(memory, length);
         return(file.copyContents((memory, capacity, length)));
     },
     (error) -> [complete, failed] => failed(error)
@@ -62,7 +62,7 @@ finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> {
     ];
 };
 
-copyPath :: Symbol -> CopyResult := (path) -> {
+copyPath :: (Address, USize) -> CopyResult := (path) -> {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
     opened := openReadOnly(path);
@@ -80,14 +80,13 @@ copyPath :: Symbol -> CopyResult := (path) -> {
 
 main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
     when (argumentCount != 1usize) {
-        writeSymbol("usage: mal-recoverable-file FILE\n");
+        writeError(22u32);
         return(2);
     };
 
     descriptors := <-arguments@(address, bytesize)@argumentCount;
     (pathAddress, pathLength) := descriptors # 0usize;
-    path := *<-pathAddress@u8@(pathLength.usize);
-    result := copyPath(path);
+    result := copyPath(pathAddress, pathLength.usize);
     status :: Int32 := result[
         () -> 0,
         (error) -> {

@@ -1,8 +1,19 @@
 require "./host.c";
 
 Arguments :: (USize, Address);
+extern Input;
+StdinBytes :: (Input, Address, USize);
+OutputBuffer :: (Address, USize);
 
 // Keeping byte I/O in this small host interface leaves parsing and rendering in mal.
-extern readStdin :: Unit -> Symbol;
-extern symbolFromByte :: UInt8 -> Symbol;
-extern writeStdout :: Symbol -> Unit;
+extern readStdin :: Unit -> StdinBytes;
+extern releaseInput :: Input -> Unit;
+extern outputBuffer :: Unit -> OutputBuffer;
+extern writeBytes :: OutputBuffer -> Unit;
+
+writeStdout :: Symbol -> Unit := (value) -> {
+    packed := *value;
+    (memory, _) := outputBuffer();
+    memory@u8@(#packed) <- packed;
+    writeBytes(memory, #packed);
+};

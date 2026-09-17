@@ -10,6 +10,5 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
 
     descriptors := <-arguments@(address, bytesize)@argumentCount;
     (pathAddress, pathLength) := descriptors # 0usize;
-    path := *<-pathAddress@u8@(pathLength.usize);
-    return(executeDatabase(path));
+    return(executeDatabase(pathAddress, pathLength.usize));
 };

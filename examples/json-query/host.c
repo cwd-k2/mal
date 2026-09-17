@@ -3,12 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static uint8_t output_buffer[1024];
+
 MAL_DEFINE_readStdin(call) {
     uint8_t *data = NULL;
     size_t length = 0;
     size_t capacity = 0;
 
-    /* The host owns this growable buffer; the terminal Symbol return copies its bytes into mal. */
+    /* The host retains this buffer until mal admits its bytes and releases the handle. */
     for (;;) {
         if (length == capacity) {
             size_t next_capacity = capacity == 0 ? 4096 : capacity * 2;
@@ -36,28 +38,35 @@ MAL_DEFINE_readStdin(call) {
         }
     }
 
-    MalType_Symbol result = mal_Symbol_return(
+    return mal_StdinBytes_return(
         call,
-        mal_Symbol_from_bytes((mal_span_t){ .data = data, .length = length })
-    );
-    free(data);
-    return result;
-}
-
-MAL_DEFINE_symbolFromByte(call, value) {
-    uint8_t byte = value;
-    /* The return helper copies this one-byte stack buffer before the adapter returns. */
-    return mal_Symbol_return(
-        call,
-        mal_Symbol_from_bytes((mal_span_t){ .data = &byte, .length = 1 })
+        (mal_StdinBytes_t){
+            .field_0 = mal_Input_from_bits((uintptr_t)data),
+            .field_1 = data,
+            .field_2 = length,
+        }
     );
 }
 
-MAL_DEFINE_writeStdout(call, value) {
-    /* Symbol bytes are borrowed for this call and remain owned by mal. */
-    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
-    if (bytes.length > 0
-        && fwrite(bytes.data, 1, (size_t)bytes.length, stdout) != (size_t)bytes.length) {
+MAL_DEFINE_releaseInput(call, input) {
+    free((void *)mal_Input_to_bits(input));
+    return mal_Unit_return(call);
+}
+
+MAL_DEFINE_outputBuffer(call) {
+    return mal_OutputBuffer_return(
+        call,
+        (mal_OutputBuffer_t){
+            .field_0 = output_buffer,
+            .field_1 = sizeof(output_buffer),
+        }
+    );
+}
+
+MAL_DEFINE_writeBytes(call, value) {
+    if (value.field_0 != output_buffer || value.field_1 > sizeof(output_buffer)
+        || (value.field_1 > 0
+            && fwrite(value.field_0, 1, value.field_1, stdout) != value.field_1)) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);

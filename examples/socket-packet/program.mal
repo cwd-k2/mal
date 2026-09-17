@@ -9,11 +9,14 @@ SocketPair :: (Socket, Socket);
 // SocketStatus variant 0 means complete; variant 1 carries an errno-compatible error code.
 SocketStatus :: [Unit, UInt32];
 // ReceiveResult variant 0 carries a complete packet; variant 1 carries an error code.
-ReceiveResult :: [Packet, UInt32];
+ReceivedPacket :: (UInt64, USize);
+ReceiveResult :: [ReceivedPacket, UInt32];
+PacketBuffer :: (Address, USize);
 
 extern createSocketPair :: Unit -> SocketPair;
-extern sendPacket :: (Socket, Packet) -> SocketStatus;
-extern receivePacket :: Socket -> ReceiveResult;
+extern packetBuffer :: Unit -> PacketBuffer;
+extern sendPacket :: (Socket, UInt64, Address, USize) -> SocketStatus;
+extern receivePacket :: (Socket, Address, USize) -> ReceiveResult;
 extern closeSocket :: Socket -> SocketStatus;
 extern writeError :: UInt32 -> Unit;
 
@@ -34,11 +37,27 @@ _isRejected :: SocketStatus -> Bool := (status) -> {
     ];
 };
 
+_socketFailure :: UInt32 -> SocketStatus := (error) -> [complete, failed] => failed(error);
+
+_sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
+    (sequence, payload) := packet;
+    packed := *payload;
+    (memory, capacity) := packetBuffer();
+    if (#packed > capacity)
+    then _socketFailure(90u32)
+    else {
+        memory@u8@(#packed) <- packed;
+        socket.sendPacket(sequence, memory, #packed);
+    };
+};
+
 _receiveExpected :: Socket -> Bool := (socket) -> {
-    result := socket.receivePacket();
+    (memory, capacity) := packetBuffer();
+    result := socket.receivePacket(memory, capacity);
     result[
     (packet) -> {
-        (sequence, payload) := packet;
+        (sequence, length) := packet;
+        payload := *<-memory@u8@length;
         sequence == 42u64 && payload == "hello from mal";
     },
     (error) -> {
@@ -55,9 +74,9 @@ main :: Unit -> Int32 := () -> {
     oversized := chunk + chunk + chunk + chunk + "x";
     oversizedRejected :=
         sender
-            .sendPacket((0u64, oversized))
+            ._sendPacket((0u64, oversized))
             ._isRejected();
-    sent := sender.sendPacket((42u64, "hello from mal"));
+    sent := sender._sendPacket((42u64, "hello from mal"));
     communicated := sent[
         () -> receiver._receiveExpected(),
         (error) -> {

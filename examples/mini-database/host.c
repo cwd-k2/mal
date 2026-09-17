@@ -21,6 +21,8 @@ typedef struct {
     Allocation *first;
 } AllocatorHandle;
 
+static uint8_t output_buffer[512];
+
 static AllocatorHandle *allocator_handle(mal_Allocator_t allocator) {
     return (AllocatorHandle *)mal_Allocator_to_bits(allocator);
 }
@@ -72,12 +74,12 @@ MAL_DEFINE_destroyAllocator(call, allocator) {
 }
 
 MAL_DEFINE_openReadWriteCreate(call, path) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, path);
-    uint64_t length = bytes.length;
-    if (length > SIZE_MAX - 1) {
+    const uint8_t *bytes = path.field_0;
+    size_t length = path.field_1;
+    if (length == SIZE_MAX) {
         mal_call_trap(call, "file path is too long");
     }
-    if (length > 0 && memchr(bytes.data, '\0', (size_t)length) != NULL) {
+    if (length > 0 && memchr(bytes, '\0', length) != NULL) {
         mal_call_trap(call, "file path contains a null byte");
     }
     char *terminated = malloc((size_t)length + 1);
@@ -85,7 +87,7 @@ MAL_DEFINE_openReadWriteCreate(call, path) {
         mal_call_trap(call, "file path allocation failed");
     }
     if (length > 0) {
-        memcpy(terminated, bytes.data, (size_t)length);
+        memcpy(terminated, bytes, length);
     }
     terminated[length] = '\0';
     FILE *file = fopen(terminated, "r+b");
@@ -146,21 +148,33 @@ MAL_DEFINE_closeFile(call, file) {
     return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSymbol(call, value) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
-    uint64_t length = bytes.length;
-    if (length > SIZE_MAX
-        || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
+MAL_DEFINE_outputBuffer(call) {
+    return mal_OutputBuffer_return(
+        call,
+        (mal_OutputBuffer_t){
+            .field_0 = output_buffer,
+            .field_1 = sizeof(output_buffer),
+        }
+    );
+}
+
+MAL_DEFINE_writeStdout(call, value) {
+    if (value.field_0 != output_buffer || value.field_1 > sizeof(output_buffer)
+        || fwrite(value.field_0, 1, value.field_1, stdout) != value.field_1) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);
 }
 
-MAL_DEFINE_fail(call, message) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, message);
-    if (bytes.length > 0) {
-        fwrite(bytes.data, 1, (size_t)bytes.length, stderr);
-        fputc('\n', stderr);
+MAL_DEFINE_writeStderr(call, value) {
+    if (value.field_0 != output_buffer || value.field_1 > sizeof(output_buffer)
+        || fwrite(value.field_0, 1, value.field_1, stderr) != value.field_1
+        || fputc('\n', stderr) == EOF) {
+        mal_call_trap(call, "cannot write stderr");
     }
+    return mal_Unit_return(call);
+}
+
+MAL_DEFINE_failNow(call) {
     mal_call_trap(call, "host rejected the database");
 }

@@ -1,9 +1,9 @@
 # Symbol round-trip example
 
-This example receives arbitrary bytes from a host scratch buffer, validates them with Symbol
-operators, appends a suffix with `Symbol + Symbol`, and sends the resulting Symbol to the host. The
-host describes its bytes with `mal_Symbol_from_bytes`; `mal_Symbol_return` copies them into an
-immutable mal-owned `Symbol` before the host body ends.
+This example borrows a host scratch buffer through `Address`, admits its initialized prefix into an
+immutable mal-owned `Symbol`, validates it with Symbol operators, and appends a suffix with
+`Symbol + Symbol`. It then stores the resulting bytes back into the external buffer and lends the
+`Address` and length to the host. No Symbol carrier or ownership crosses the ABI.
 
 From the repository root in Nushell:
 

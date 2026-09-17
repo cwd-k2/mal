@@ -51,10 +51,10 @@ MAL_DEFINE_releaseBuffer(call, allocation) {
 }
 
 MAL_DEFINE_openReadOnly(call, path) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, path);
-    uint64_t length = bytes.length;
-    if (length > SIZE_MAX - 1
-        || (length > 0 && memchr(bytes.data, '\0', (size_t)length) != NULL)) {
+    const uint8_t *bytes = path.field_0;
+    size_t length = path.field_1;
+    if (length == SIZE_MAX
+        || (length > 0 && memchr(bytes, '\0', length) != NULL)) {
         return mal_OpenResult_return_1(call, (uint32_t)EINVAL);
     }
     char *terminated = malloc((size_t)length + 1);
@@ -62,7 +62,7 @@ MAL_DEFINE_openReadOnly(call, path) {
         mal_call_trap(call, "file path allocation failed");
     }
     if (length > 0) {
-        memcpy(terminated, bytes.data, (size_t)length);
+        memcpy(terminated, bytes, length);
     }
     terminated[length] = '\0';
     FILE *file = fopen(terminated, "rb");
@@ -94,11 +94,8 @@ MAL_DEFINE_closeFile(call, file) {
     return mal_CloseResult_return_0(call);
 }
 
-MAL_DEFINE_writeSymbol(call, value) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
-    uint64_t length = bytes.length;
-    if (length > SIZE_MAX
-        || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
+MAL_DEFINE_writeBytes(call, value) {
+    if (fwrite(value.field_0, 1, value.field_1, stdout) != value.field_1) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);

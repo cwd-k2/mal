@@ -92,7 +92,7 @@ fn function_and_parameter_hovers_preserve_declared_aliases() {
 
 #[test]
 fn external_function_references_share_the_declaration_identity() {
-    let text = "extern output :: Symbol -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(\"x\") };\n";
+    let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("output").unwrap();
     let reference_offset = text.rfind("output").unwrap();
@@ -101,7 +101,7 @@ fn external_function_references_share_the_declaration_identity() {
 
     assert_eq!(declaration.id, reference.id);
     assert_eq!(reference.kind, SymbolKind::Function);
-    assert_eq!(reference.detail.as_deref(), Some("Symbol -> Unit"));
+    assert_eq!(reference.detail.as_deref(), Some("UInt8 -> Unit"));
     assert_eq!(
         document.definition(reference.id).unwrap().span,
         declaration.span

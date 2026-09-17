@@ -5,7 +5,7 @@ require "./query.mal";
 _queryStorageSize :: USize := 257usize;
 _inputStorageSize :: USize := 4096usize;
 
-executeDatabase :: Symbol -> Int32 := (path) -> {
+executeDatabase :: (Address, USize) -> Int32 := (path) -> {
     // Acquire process-lifetime resources before deriving any borrowed memory views.
     allocator := createAllocator();
     file := openReadWriteCreate(path);

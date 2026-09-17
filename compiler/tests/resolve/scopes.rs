@@ -41,13 +41,13 @@ fn local_scope_can_shadow_predefined_and_outer_names() {
 #[test]
 fn external_functions_are_values_and_follow_lexical_shadowing() {
     let program = resolve_ok(
-        "extern output :: Symbol -> Unit;\n\
-         useOutput :: (Symbol -> Unit) -> Unit := (operation) -> { operation(\"direct\") };\n\
+        "extern output :: UInt8 -> Unit;\n\
+         useOutput :: (UInt8 -> Unit) -> Unit := (operation) -> { operation(1u8) };\n\
          main :: Unit -> Unit := () -> {\n\
            selected := output;\n\
-           output :: Symbol -> Unit := (message) -> { (); };\n\
+           output :: UInt8 -> Unit := (value) -> { (); };\n\
            useOutput(selected);\n\
-           output(\"shadowed\");\n\
+           output(2u8);\n\
          };",
     );
     let TopItem::ExternalOperation { binding, .. } = &program.items[0].kind else {

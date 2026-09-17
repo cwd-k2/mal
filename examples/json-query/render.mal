@@ -1,9 +1,40 @@
 require "./host.mal";
 require "./parser.mal";
 
+_decimalDigit :: UInt8 -> Symbol := (value) -> [return] => {
+    when (value == 0u8) {
+        return("0");
+    };
+    when (value == 1u8) {
+        return("1");
+    };
+    when (value == 2u8) {
+        return("2");
+    };
+    when (value == 3u8) {
+        return("3");
+    };
+    when (value == 4u8) {
+        return("4");
+    };
+    when (value == 5u8) {
+        return("5");
+    };
+    when (value == 6u8) {
+        return("6");
+    };
+    when (value == 7u8) {
+        return("7");
+    };
+    when (value == 8u8) {
+        return("8");
+    };
+    return("9");
+};
+
 // Decimal rendering recurses on the quotient and appends the least-significant digit on return.
 _renderDecimal :: UInt64 -> Symbol := (value) -> {
-    digit := symbolFromByte('0'.u8 + (value % 10u64).u8);
+    digit := (value % 10u64).u8._decimalDigit();
     if (value < 10u64)
     then digit
     else (value / 10u64)._renderDecimal() + digit;

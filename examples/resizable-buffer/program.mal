@@ -6,6 +6,7 @@ extern Allocation;
 OwnedBuffer :: (Allocation, Address, USize, USize);
 // BorrowedBytes fields: 0 allocation identity, 1 readable memory, 2 byte length.
 BorrowedBytes :: (Allocation, Address, USize);
+OutputBuffer :: (Address, USize);
 // BufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
 BufferResult :: [OwnedBuffer, UInt32];
 // BorrowResult variant 0 carries an in-bounds borrowed view; variant 1 reports invalid bounds.
@@ -18,7 +19,15 @@ extern isCurrentBuffer :: OwnedBuffer -> Bool;
 extern isCurrentBorrow :: BorrowedBytes -> Bool;
 extern writeBorrowedBytes :: BorrowedBytes -> Unit;
 extern validateStoredDescriptor :: (Allocation, Address) -> Unit;
-extern writeSymbol :: Symbol -> Unit;
+extern outputBuffer :: Unit -> OutputBuffer;
+extern writeBytes :: OutputBuffer -> Unit;
+
+writeSymbol :: Symbol -> Unit := (value) -> {
+    packed := *value;
+    (memory, _) := outputBuffer();
+    memory@u8@(#packed) <- packed;
+    writeBytes(memory, #packed);
+};
 
 _bufferSuccess :: OwnedBuffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
 

@@ -20,6 +20,8 @@ typedef struct {
     RetiredStorage *retired;
 } AllocationHandle;
 
+static uint8_t output_buffer[256];
+
 static AllocationHandle *allocation_handle(mal_Allocation_t allocation) {
     return (AllocationHandle *)mal_Allocation_to_bits(allocation);
 }
@@ -150,11 +152,19 @@ MAL_DEFINE_validateStoredDescriptor(call, value) {
     return mal_Unit_return(call);
 }
 
-MAL_DEFINE_writeSymbol(call, value) {
-    mal_span_t bytes = mal_Symbol_to_bytes(call, value);
-    uint64_t length = bytes.length;
-    if (length > SIZE_MAX
-        || fwrite(bytes.data, 1, (size_t)length, stdout) != (size_t)length) {
+MAL_DEFINE_outputBuffer(call) {
+    return mal_OutputBuffer_return(
+        call,
+        (mal_OutputBuffer_t){
+            .field_0 = output_buffer,
+            .field_1 = sizeof(output_buffer),
+        }
+    );
+}
+
+MAL_DEFINE_writeBytes(call, value) {
+    if (value.field_0 != output_buffer || value.field_1 > sizeof(output_buffer)
+        || fwrite(value.field_0, 1, value.field_1, stdout) != value.field_1) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);

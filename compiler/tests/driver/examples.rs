@@ -114,7 +114,7 @@ fn symbol_round_trip_example_copies_and_concatenates_bytes() {
 }
 
 #[test]
-fn socket_packet_example_transfers_a_managed_packet_through_the_host() {
+fn socket_packet_example_transfers_bytes_through_borrowed_memory() {
     let directory = NativeFixture::new("socket-packet");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

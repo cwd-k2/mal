@@ -130,6 +130,7 @@ fn checked_in_example_headers_match_the_compiler() {
         .parent()
         .expect("compiler directory has a repository parent");
     let examples = [
+        "brainfuck-llvm",
         "fallible-tree",
         "numeric-conversion",
         "json-query",

@@ -5,6 +5,7 @@ ByteBuffer :: (Address, USize, USize);
 // Host transfer descriptors keep direction explicit at the extern boundary.
 ReadableBytes :: (Address, USize);
 WritableBytes :: (Address, USize);
+OutputBuffer :: (Address, USize);
 
 extern Allocator;
 extern File;
@@ -15,7 +16,7 @@ extern allocateBuffer :: (Allocator, USize) -> ByteBuffer;
 extern destroyAllocator :: Allocator -> Unit;
 
 // Borrowed file handles and positional byte transfer.
-extern openReadWriteCreate :: Symbol -> File;
+extern openReadWriteCreate :: ReadableBytes -> File;
 extern standardInput :: Unit -> File;
 extern readFile :: (File, WritableBytes) -> USize;
 extern writeFile :: (File, ReadableBytes) -> USize;
@@ -24,8 +25,25 @@ extern flushFile :: File -> Unit;
 extern closeFile :: File -> Unit;
 
 // Process output and unrecoverable host failure.
-extern writeSymbol :: Symbol -> Unit;
-extern fail :: Symbol -> Unit;
+extern outputBuffer :: Unit -> OutputBuffer;
+extern writeStdout :: ReadableBytes -> Unit;
+extern writeStderr :: ReadableBytes -> Unit;
+extern failNow :: Unit -> Unit;
+
+writeSymbol :: Symbol -> Unit := (value) -> {
+    packed := *value;
+    (memory, _) := outputBuffer();
+    memory@u8@(#packed) <- packed;
+    writeStdout(memory, #packed);
+};
+
+fail :: Symbol -> Unit := (value) -> {
+    packed := *value;
+    (memory, _) := outputBuffer();
+    memory@u8@(#packed) <- packed;
+    writeStderr(memory, #packed);
+    failNow();
+};
 
 // Arguments fields: 0 argument count, 1 first external descriptor address.
 Arguments :: (USize, Address);
