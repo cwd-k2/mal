@@ -4,6 +4,7 @@ use crate::control::ast::{self as control, LiveValue, StateId, Terminator};
 
 use super::{ControlCallPlan, ControlRegionPlan};
 
+mod replacement;
 mod resume;
 
 pub(crate) use resume::FrameResume;
@@ -11,6 +12,7 @@ pub(crate) use resume::FrameResume;
 pub(crate) struct ControlFramePlan {
     frames: HashMap<StateId, ControlFrame>,
     resumes: resume::Plan,
+    replacements: replacement::Plan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,7 +49,12 @@ impl ControlFramePlan {
             );
         }
         let resumes = resume::Plan::new(program, regions, calls, &frames);
-        Self { frames, resumes }
+        let replacements = replacement::Plan::new(program, &frames);
+        Self {
+            frames,
+            resumes,
+            replacements,
+        }
     }
 
     pub(crate) fn frame(&self, site: StateId) -> Option<&ControlFrame> {
@@ -56,6 +63,10 @@ impl ControlFramePlan {
 
     pub(crate) fn resume(&self, exit: StateId, frame: StateId) -> Option<FrameResume> {
         self.resumes.disposition(exit, frame)
+    }
+
+    pub(crate) fn replacement(&self, site: StateId) -> Option<StateId> {
+        self.replacements.retired_frame(site)
     }
 
     pub(crate) fn is_valid(
@@ -81,6 +92,7 @@ impl ControlFramePlan {
         }
 
         self.resumes.is_valid(program, regions, calls, &self.frames)
+            && self.replacements.is_valid(program, &self.frames)
             && self.frames.iter().all(|(site, frame)| {
                 let Terminator::Call { callee, resume, .. } = &program.states[site.0].terminator
                 else {

@@ -50,6 +50,16 @@ active closure environment ownerを保持する。frame field集合はresume sta
 増減してはならない。top-level valueはconstant planから再取得できるためframeへ保存しない。`execution/frame/resume`は同じcontrol
 machineに属するreturn siteとframe tagだけを組にし、result型とresume input型が一致する組を`Resume`、それ以外を`Unreachable`とする。
 
+`execution/frame/replacement`はfunctionとtop-levelの入口を通常到達、frameのresume stateをそのframeの退役後到達として
+`Unreachable | Available(frame) | Unavailable`のforward must-dataflowを構成する。通常到達または異なる退役frameが合流した時点で
+退役容量のidentityを失い、次のframeを作るcallで伝播を止める。
+全到達pathが同じ退役frameから来るsuspension siteだけが、その容量を再利用できる。これはsourceの再帰形や深さではなくcontrol
+machineのstorage residency factであり、planはtarget layoutを扱わない。LLVM backendは新frameのsizeが退役frame以下の場合だけ
+`reserve_frame`を省き、途中のnative callがstorageを再配置し得るため現在のstorage pointerを再取得して同じtop位置へ書く。frame
+startのalignmentはtarget上の全runtime value alignmentの最大値と4-byte tag metadata契約の大きい方とし、tagged、untaggedを問わず
+frame sizeをこの値へ丸める。そのため
+初期topと各frame末尾が同じalignment invariantを保ち、退役frameのstartは後続frameの全fieldに有効なbaseとなる。
+
 tail edgeはframeをpushしない。region外callはnative stackを使ってよいが、region condensation graphが非循環なのでMal recursion depthに
 比例したnative recursionを作らない。region内non-tail recursionはprogram固有のtyped frameをgenericなgrowable byte storageへ積む。
 storageのcapacity、growth、overflow、releaseはC runtime、tag、layout、owner transfer、resume targetはLLVM IRが所有する。
@@ -90,7 +100,7 @@ contractの変更が必要なら、単なるoptimizationではなくexecution au
 
 - 全application siteにcall modeがあり、direct native call graphがacyclicである。
 - 空のoptimization setと各techniqueの単独有効化で同じresult、effect order、trap、owner lifetime、bounded native stackを保持する。
-- region内non-tail siteとframe集合、frame fieldとresume live-inが一致する。
+- region内non-tail siteとframe集合、frame fieldとresume live-inが一致し、退役frame容量の再利用元が全到達pathで一意である。
 - tail edgeがframeを増やさず、深いself recursionとfirst-class cycleでnative stack使用量がdepthに比例しない。
 - heterogeneous frame、managed field、environment owner、複数target dispatchを実行testで確認する。
 - heterogeneous result型を持つ共通region、wildcard parameterへのmanaged argument、同じ構造型を持つ異なる役割のfunctionを確認する。

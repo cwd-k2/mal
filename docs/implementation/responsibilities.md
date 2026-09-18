@@ -166,6 +166,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
+| `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
 | `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
@@ -173,7 +174,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/host_bridge/plan` | extern parameterとresultについて、LLVM value storageの再帰的layoutとmarshalling traversalをC emissionより先に確定 |
 | `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
-| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、size、alignment、structural representationを構成 |
+| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
 | `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
@@ -184,7 +185,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
 | `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、execution ownership factを変更しないtarget固有techniqueのemission decisionを構成 |
 | `backend/llvm/optimization/symbol_concat` | execution ownership planのdead responsibility factから`Symbol` concatがstorage再利用を試みてよいoperandを選択 |
-| `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |
+| `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
+| `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |

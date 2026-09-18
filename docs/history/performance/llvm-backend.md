@@ -140,3 +140,25 @@ direct Cが速い36問である。
 22段の二分再帰を50回測定したmedian差はnoise範囲内で、最終executableは両者ともtext 3,742 bytes、disassembly 529行だった。
 差は独立loadの順序だけで、Clangが既に同じstorage遷移へ縮約していた。通常の局所変換をcompilerへ重複実装しないpolicyに従い、
 このtechniqueは採用しなかった。
+
+## 2026-09-18 — 退役continuation frame容量の再利用
+
+後続変更後の055と080では、最初のrecursive resultをresumeしたpathだけが第2のnon-tail callへ到達し、第2 frameは退役した第1 frameより
+小さい。一方、032のchild callはfunction入口からも到達する。`execution/frame`で通常入口とresumeを区別するmust-dataflowを構成し、
+全到達pathが同じ退役frameを持つsiteだけについて、target layout上で収まるframeを同じtop位置へ書く正規形にした。managed fieldを
+含むframeでもownerはresume時にlocal slotへ移管済みであり、退役bytesにはresponsibilityが残らない。途中のnative callによるarenaの
+再配置を許すため、書込み前にはstorage pointerを再取得する。
+
+同一のClang 21.1.8、production profile、maximum-order inputで3回warmup後に20回交互測定した。055の変更前後比較ではmedianが
+463.280 msから453.414 msへ2.1%短縮した。080は5 ms付近で採否の根拠にせず、適用されない032はIRとtext sizeが不変だった。
+
+| 問題 | Mal min / mean / median / p95 / max (ms) | direct C min / mean / median / p95 / max (ms) | Mal / C median |
+|:---|:---|:---|---:|
+| 032 | 86.045 / 93.133 / 91.048 / 105.615 / 106.543 | 51.652 / 58.855 / 57.135 / 73.097 / 84.848 | 1.59x |
+| 055 | 447.459 / 480.817 / 454.778 / 613.212 / 625.213 | 463.215 / 503.520 / 468.126 / 642.592 / 671.597 | 0.97x |
+| 080 | 4.453 / 4.976 / 4.811 / 6.007 / 7.270 | 2.869 / 3.414 / 3.075 / 4.929 / 6.198 | 1.56x |
+
+055のtext sizeは3,950 bytesから3,806 bytes、disassemblyは522行から481行へ減った。080は3,838 bytesから3,758 bytes、
+032は4,254 bytesのままである。各20個の値は
+`.scratch/typical90/performance/{032,055,080}/frame-replacement-vs-c.json`、変更前後の値は同directoryの
+`frame-replacement-before-after.json`に保存した。sample、maximum-order input、managed frameのruntime fixtureで結果とowner lifetimeを確認した。

@@ -155,6 +155,16 @@ impl Types {
             .expect("supported index width has an integer ABI alignment")
     }
 
+    pub(in crate::backend::llvm) fn maximum_value_alignment(self) -> usize {
+        self.target
+            .integer_alignments
+            .into_iter()
+            .chain(self.target.float_alignments)
+            .chain([self.target.pointer_alignment])
+            .max()
+            .expect("target layout has scalar and pointer alignments")
+    }
+
     fn product(
         self,
         elements: &[Type],

@@ -91,6 +91,55 @@ fn uses_the_target_size_type_for_control_storage_offsets() {
 }
 
 #[test]
+fn aligns_heterogeneous_frames_and_reserves_when_replacement_is_too_small() {
+    let source = SourceFile::new(
+        FileId::new(95),
+        "llvm-aligned-control.mal",
+        "walk :: (Int32, Float64) -> Float64 := (depth, value) -> {\n\
+           if (depth == 0i32) then { value } else {\n\
+             first := walk(depth - 1i32, value);\n\
+             second := walk(depth - 1i32, first);\n\
+             first + second;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { walk(2i32, 1.0f64).i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check aligned frame fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    assert!(
+        (0..execution.control.states.len())
+            .map(crate::control::ast::StateId)
+            .any(|site| execution.control_frames.replacement(site).is_some()),
+        "the second recursive call has a retired-frame replacement candidate"
+    );
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "synthetic-unknown-none",
+            data_layout: "e-p:32:32-i64:64-f64:128",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("heterogeneous frame fixture is supported");
+
+    assert_eq!(
+        artifacts
+            .module
+            .matches("call ptr @mal_control_reserve_frame")
+            .count(),
+        2
+    );
+    assert!(artifacts.module.contains(", i32 16)"));
+    assert!(artifacts.module.contains(", i32 32)"));
+}
+
+#[test]
 fn separates_pointer_representation_and_index_widths() {
     let source = SourceFile::new(
         FileId::new(90),

@@ -38,17 +38,90 @@ impl FrameLayout {
         } else {
             None
         };
-        let (footer, size) = if tagged {
+        let (footer, unpadded_size) = if tagged {
             let footer = align(offset, types.index_alignment())?;
             (Some(footer), footer.checked_add(types.index_size())?)
         } else {
             (None, align(offset.max(1), frame_alignment)?)
         };
+        let universal_alignment = types.maximum_value_alignment().max(4);
+        let size = align(unpadded_size, universal_alignment)?;
         Some(Self {
             fields,
             environment,
             footer,
             size,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::anf::ast::ValueId;
+    use crate::backend::llvm::TargetLayout;
+    use crate::check::ast::Type;
+    use crate::control::ast::LiveValue;
+    use crate::execution::ControlFrame;
+    use crate::source::{FileId, Span};
+
+    fn frame(types: Vec<Type>) -> ControlFrame {
+        ControlFrame {
+            resume: crate::control::ast::StateId(0),
+            fields: types
+                .into_iter()
+                .enumerate()
+                .map(|(index, ty)| LiveValue {
+                    id: ValueId::Temporary(u32::try_from(index).unwrap()),
+                    ty,
+                    span: Span::new(FileId::new(0), 0, 0),
+                })
+                .collect(),
+            carries_environment: false,
+        }
+    }
+
+    #[test]
+    fn pads_every_frame_to_the_target_wide_control_alignment() {
+        let types = Types::for_target(TargetLayout {
+            pointer_size: 4,
+            pointer_alignment: 4,
+            index_size: 4,
+            integer_alignments: [1, 2, 4, 8],
+            float_alignments: [4, 16],
+            supports_pointer_alignment: true,
+        })
+        .unwrap();
+
+        let narrow = FrameLayout::new(&frame(vec![Type::UInt8]), types, false).unwrap();
+        let wide = FrameLayout::new(&frame(vec![Type::Float64]), types, true).unwrap();
+
+        assert_eq!(types.maximum_value_alignment(), 16);
+        assert_eq!(narrow.size, 16);
+        assert_eq!(wide.fields[0].offset, 16);
+        assert_eq!(wide.size, 32);
+        assert_eq!(narrow.size % 16, 0);
+        assert_eq!(wide.size % 16, 0);
+    }
+
+    #[test]
+    fn keeps_consecutive_tagged_frame_starts_aligned_for_metadata() {
+        let types = Types::for_target(TargetLayout {
+            pointer_size: 2,
+            pointer_alignment: 1,
+            index_size: 2,
+            integer_alignments: [1, 1, 2, 2],
+            float_alignments: [1, 2],
+            supports_pointer_alignment: true,
+        })
+        .unwrap();
+
+        let first = FrameLayout::new(&frame(vec![Type::UInt8]), types, true).unwrap();
+        let second = FrameLayout::new(&frame(vec![Type::UInt16]), types, true).unwrap();
+
+        assert_eq!(types.maximum_value_alignment(), 2);
+        assert_eq!(first.size % 4, 0);
+        assert_eq!(second.size % 4, 0);
+        assert_eq!((first.size + second.size) % 4, 0);
     }
 }

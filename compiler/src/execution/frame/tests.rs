@@ -130,3 +130,136 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
             .any(|(exit, frame)| { plan.resume(*exit, *frame) == Some(FrameResume::Unreachable) })
     );
 }
+
+#[test]
+fn replaces_a_retired_frame_only_on_a_must_resume_path() {
+    let source = SourceFile::new(
+        FileId::new(91),
+        "retired-frame-replacement.mal",
+        "walk :: (Int32, Int32) -> Int32 := (depth, value) -> {\n\
+           if (depth == 0i32) then { value } else {\n\
+             first := walk(depth - 1i32, value);\n\
+             second := walk(depth - 1i32, first);\n\
+             first + second;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { walk(4i32, 1i32); };"
+            .into(),
+    );
+    let parsed = parser::parse(&source).expect("parse replacement fixture");
+    let resolved = resolve::resolve(&parsed).expect("resolve replacement fixture");
+    let checked = check::check(&resolved).expect("check replacement fixture");
+    let core = core::lower(&check::admit_monomorphic(checked).expect("specialize fixture"));
+    let anf = anf::lower(&core);
+    let closure = closure::convert(&anf);
+    let control = control::lower(&closure);
+    let closure_uses = ClosureUsePlan::new(&closure);
+    let applications = ApplicationGraph::new(&closure, &control, &closure_uses);
+    let optimizations = OptimizationPlan::new(
+        &closure,
+        &control,
+        &applications,
+        OptimizationSet::production(),
+    );
+    let continuations = ContinuationGraph::new(&applications, &optimizations);
+    let regions = ControlRegionPlan::new(&control, &continuations);
+    let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
+    let mut plan = ControlFramePlan::new(&control, &regions, &calls);
+
+    assert!(plan.is_valid(&control, &regions, &calls));
+    assert_eq!(plan.replacements.replacements.len(), 1);
+    let (&site, &retired) = plan
+        .replacements
+        .replacements
+        .iter()
+        .next()
+        .expect("second recursive call replaces the first frame");
+    assert!(plan.frames.contains_key(&site));
+    assert!(plan.frames.contains_key(&retired));
+    assert_ne!(site, retired);
+    plan.replacements.replacements.remove(&site);
+    assert!(!plan.is_valid(&control, &regions, &calls));
+}
+
+#[test]
+fn rejects_a_replacement_reached_from_both_entry_and_resume() {
+    let plan = frame_plan(
+        "walk :: Int32 -> Int32 := (depth) -> {\n\
+           if (depth == 0i32) then { 0i32 } else {\n\
+             first := if (depth == 1i32) then { walk(depth - 1i32) } else { 0i32 };\n\
+             second := walk(depth - 1i32);\n\
+             first + second;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { walk(3i32); };",
+    );
+
+    assert!(plan.replacements.replacements.is_empty());
+}
+
+#[test]
+fn rejects_a_replacement_after_distinct_retired_frames_merge() {
+    let plan = frame_plan(
+        "walk :: Int32 -> Int32 := (depth) -> {\n\
+           if (depth == 0i32) then { 0i32 } else {\n\
+             first := if (depth == 1i32)\n\
+               then { walk(depth - 1i32) }\n\
+               else { walk(depth - 1i32) };\n\
+             second := walk(depth - 1i32);\n\
+             first + second;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { walk(3i32); };",
+    );
+
+    assert!(plan.replacements.replacements.is_empty());
+}
+
+#[test]
+fn a_frame_call_barrier_starts_the_next_retired_relation() {
+    let plan = frame_plan(
+        "walk :: Int32 -> Int32 := (depth) -> {\n\
+           if (depth == 0i32) then { 1i32 } else {\n\
+             first := walk(depth - 1i32);\n\
+             second := walk(depth - 1i32);\n\
+             third := walk(depth - 1i32);\n\
+             first + second + third;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { walk(3i32); };",
+    );
+
+    assert_eq!(plan.replacements.replacements.len(), 2);
+    let (&third, &second) = plan
+        .replacements
+        .replacements
+        .iter()
+        .find(|(_, retired)| plan.replacements.replacements.contains_key(retired))
+        .expect("third frame replaces the retired second frame");
+    let first = plan.replacements.replacements[&second];
+    assert_eq!(plan.replacement(third), Some(second));
+    assert_ne!(plan.replacement(third), Some(first));
+}
+
+fn frame_plan(source: &str) -> ControlFramePlan {
+    let source = SourceFile::new(FileId::new(92), "frame-replacement.mal", source.into());
+    let parsed = parser::parse(&source).expect("parse replacement fixture");
+    let resolved = resolve::resolve(&parsed).expect("resolve replacement fixture");
+    let checked = check::check(&resolved).expect("check replacement fixture");
+    let core = core::lower(&check::admit_monomorphic(checked).expect("specialize fixture"));
+    let anf = anf::lower(&core);
+    let closure = closure::convert(&anf);
+    let control = control::lower(&closure);
+    let closure_uses = ClosureUsePlan::new(&closure);
+    let applications = ApplicationGraph::new(&closure, &control, &closure_uses);
+    let optimizations = OptimizationPlan::new(
+        &closure,
+        &control,
+        &applications,
+        OptimizationSet::production(),
+    );
+    let continuations = ContinuationGraph::new(&applications, &optimizations);
+    let regions = ControlRegionPlan::new(&control, &continuations);
+    let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
+    ControlFramePlan::new(&control, &regions, &calls)
+}
