@@ -92,6 +92,17 @@ impl FunctionEmitter<'_> {
                     if *index != 0 || function.environment.len() != 1 || *ty != Type::Address {
                         return None;
                     }
+                    let function_type = Type::Function {
+                        parameter: function.parameter.ty.clone().into(),
+                        result: function.body.result.ty.clone().into(),
+                    };
+                    if self.types.function_is_compact(&function_type) {
+                        return Some(EmittedValue {
+                            ty: Type::Address,
+                            representation: self.active_environment(),
+                            owned: false,
+                        });
+                    }
                     let tagged = self.active_environment();
                     let environment = self.register();
                     let bits = self.types.index_size().checked_mul(8)?;

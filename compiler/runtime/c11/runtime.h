@@ -104,7 +104,8 @@ size_t mal_runtime_packed_builder_new(
 size_t mal_runtime_packed_builder_new_unique(
     MalContext *context,
     void *builder,
-    const void *value
+    const void *value,
+    size_t stride
 );
 const void *mal_runtime_packed_builder_get(
     const void *builder,

@@ -1,5 +1,6 @@
 #include "bytes_internal.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -119,14 +120,16 @@ const unsigned char *mal_bytes_data(const MalBytes *owner) {
 }
 
 static size_t mal_bytes_capacity(size_t required) {
-    size_t capacity = 16;
-    while (capacity < required) {
-        if (capacity > SIZE_MAX / 2) {
-            return required;
-        }
-        capacity *= 2;
+    if (required <= 16) {
+        return 16;
     }
-    return capacity;
+    size_t highest_power = SIZE_MAX - SIZE_MAX / 2;
+    if (required > highest_power) {
+        return required;
+    }
+    unsigned int shift = (unsigned int)(sizeof(unsigned long long) * CHAR_BIT)
+        - (unsigned int)__builtin_clzll((unsigned long long)(required - 1));
+    return (size_t)1 << shift;
 }
 
 MalBytes *mal_bytes_append(
@@ -393,52 +396,64 @@ size_t mal_runtime_packed_builder_new(
     return index;
 }
 
+__attribute__((noinline))
+static MalBytesFlat *mal_packed_builder_grow_unique(
+    MalContext *context,
+    MalBytesFlat *flat,
+    size_t required
+) {
+    size_t capacity = mal_bytes_capacity(required);
+    if (capacity > SIZE_MAX - sizeof(MalBytesFlat)) {
+        mal_trap(context, "byte owner allocation size overflow");
+    }
+    if (flat == NULL) {
+        return mal_bytes_flat_allocate(
+            context,
+            required,
+            capacity,
+            0,
+            "packed builder allocation failed"
+        );
+    }
+    flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
+    if (flat == NULL) {
+        mal_trap(context, "packed builder allocation failed");
+    }
+    flat->capacity = capacity;
+    flat->header.length = (uint64_t)required;
+    return flat;
+}
+
+__attribute__((always_inline))
 size_t mal_runtime_packed_builder_new_unique(
     MalContext *context,
     void *opaque_builder,
-    const void *value
+    const void *value,
+    size_t stride
 ) {
     MalPackedBuilder *builder = opaque_builder;
     if (builder->count == SIZE_MAX) {
         mal_trap(context, "packed builder count overflow");
     }
     size_t index = builder->count;
-    if (builder->stride != 0) {
+    if (stride != 0) {
         size_t length = mal_packed_builder_bytes(
             context,
             builder->count,
-            builder->stride
+            stride
         );
         size_t required = mal_packed_builder_bytes(
             context,
             builder->count + 1,
-            builder->stride
+            stride
         );
-        MalBytesFlat *flat;
-        if (builder->owner == NULL) {
-            flat = mal_bytes_flat_allocate(
-                context,
-                required,
-                mal_bytes_capacity(required),
-                0,
-                "packed builder allocation failed"
-            );
+        MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
+        if (flat == NULL || required > flat->capacity) {
+            flat = mal_packed_builder_grow_unique(context, flat, required);
         } else {
-            flat = (MalBytesFlat *)builder->owner;
-            if (required > flat->capacity) {
-                size_t capacity = mal_bytes_capacity(required);
-                if (capacity > SIZE_MAX - sizeof(MalBytesFlat)) {
-                    mal_trap(context, "byte owner allocation size overflow");
-                }
-                flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
-                if (flat == NULL) {
-                    mal_trap(context, "packed builder allocation failed");
-                }
-                flat->capacity = capacity;
-            }
             flat->header.length = (uint64_t)required;
         }
-        memcpy(flat->bytes + length, value, builder->stride);
+        memcpy(flat->bytes + length, value, stride);
         builder->owner = &flat->header;
         builder->data = flat->bytes;
     }

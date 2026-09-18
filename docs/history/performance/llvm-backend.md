@@ -176,3 +176,18 @@ cost modelがruntime callを残してもfast pathは失われず、既にLTOが�
 raw sampleはignored scratchの029にある`control-auto-before-after.json`と
 `region-control-auto-before-after.json`、および032、055、080にある
 `control-inline-before-after.json`へ保存した。
+
+## 2026-09-18 — Packed unique appendとcompact capability environment
+
+`pack`のbuilderは一意なので、capacity内appendはprogram固有のelement strideとvalueを使う通常経路であり、allocationとgrowthだけが
+program非依存のruntime mechanismである。unique appendへstrideを明示して通常経路を`always_inline`とし、growthを独立した
+`noinline` helperへ分けた。capacityの二倍化loopは`__builtin_clzll`による次の二冪の計算へ置き換え、LTOによる全target幅分のloop展開を除いた。
+また、closed programで唯一のscoped inhabitantを持つfunction型はlifetime dispatchを必要としないため、compact capability representationから
+environment tagと利用時の`ptrmask`を除いた。ordinary functionと型を共有してcompactにできないcapabilityは従来のtagを保持する。
+
+029 maximum inputの交互30回測定では、Packedのmedianは267.011 msから247.574 msへ7.3%短縮した。幅500,000、query 0の
+初期化単独では交互20回のmedianが22.075 msから15.457 msへ30.0%短縮した。変更後のPackedとcurrent Regionの交互30回比較は
+190.183 ms対163.917 msで1.16xだった。Packed executableのtext sizeは9,169 bytesから6,789 bytesへ縮小した。
+growthをoptimizer判断でinlineした診断版は6,885 bytesで、実行時間に有意な改善がなかったため、責務境界と小さい生成物が一致する
+分離版を採択した。raw sampleはignored scratchの029にある`packed-fast-append-before-after.json`、
+`packed-fast-append-initialization.json`、`packed-fast-append-vs-region.json`へ保存した。

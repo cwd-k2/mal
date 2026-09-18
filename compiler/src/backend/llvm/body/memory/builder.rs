@@ -45,13 +45,17 @@ impl FunctionEmitter<'_> {
                 let [builder, value] = self.product_fields(argument, [&Type::Address, element])?;
                 let value_pointer = self.builder_value_pointer(&value, stride)?;
                 let index = self.register();
-                let operation = if operation == PackedBuilderOperation::NewUnique {
-                    "mal_runtime_packed_builder_new_unique"
+                let (operation, stride_argument) = if operation == PackedBuilderOperation::NewUnique
+                {
+                    (
+                        "mal_runtime_packed_builder_new_unique",
+                        format!(", {} {stride}", self.types.pointer_integer()?),
+                    )
                 } else {
-                    "mal_runtime_packed_builder_new"
+                    ("mal_runtime_packed_builder_new", String::new())
                 };
                 self.line(format!(
-                    "  {index} = call {} @{operation}(ptr %mal_context, ptr {}, ptr {value_pointer})",
+                    "  {index} = call {} @{operation}(ptr %mal_context, ptr {}, ptr {value_pointer}{stride_argument})",
                     self.types.pointer_integer()?,
                     builder.representation
                 ));

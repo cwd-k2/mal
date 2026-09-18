@@ -202,6 +202,11 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
         1
     );
     assert!(
+        artifacts
+            .module
+            .contains("declare i64 @mal_runtime_packed_builder_new_unique(ptr, ptr, ptr, i64)")
+    );
+    assert!(
         !artifacts
             .module
             .contains("call i64 @mal_runtime_packed_builder_new(")
@@ -225,9 +230,13 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
             .module
             .contains("call void @mal_runtime_packed_builder_put(")
     );
-    assert!(artifacts.module.contains("getelementptr i8, ptr"));
     assert!(
         artifacts
+            .module
+            .contains("declare ptr @llvm.ptrmask.p0.i64(ptr, i64)")
+    );
+    assert!(
+        !artifacts
             .module
             .contains("call ptr @llvm.ptrmask.p0.i64(ptr %mal_environment, i64 -2)")
     );
@@ -237,6 +246,38 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
             .contains("ptr @mal_runtime_packed_builder_get(ptr")
     );
     assert!(artifacts.module.contains(", i64 8)"));
+}
+
+#[test]
+fn keeps_scoped_environment_tags_for_noncompact_function_types() {
+    let source = SourceFile::new(
+        FileId::new(94),
+        "llvm-packed-builder-noncompact.mal",
+        "read :: USize -> Int64 := (index) -> { index.i64 }; fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (_, get, _) -> { _ := get(0usize); (); }; main :: Unit -> Int32 := () -> { _ := pack<Int64>(fill); _ := read(0usize); 0i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check mixed function fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("mixed function fixture is supported");
+
+    assert!(
+        artifacts
+            .module
+            .contains("call ptr @llvm.ptrmask.p0.i64(ptr %mal_environment, i64 -2)")
+    );
 }
 
 #[test]

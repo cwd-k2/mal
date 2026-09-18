@@ -102,7 +102,7 @@ pub(crate) fn generate(
              declare ptr @mal_runtime_packed_builder_start(ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_edit(ptr, ptr, {index}, {index}, {index})\n\
              declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr)\n\
-             declare {index} @mal_runtime_packed_builder_new_unique(ptr, ptr, ptr)\n\
+             declare {index} @mal_runtime_packed_builder_new_unique(ptr, ptr, ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_get(ptr, {index}, {index})\n\
              declare void @mal_runtime_packed_builder_put(ptr, ptr, {index}, ptr, {index})\n\
              declare void @mal_runtime_packed_builder_put_unique(ptr, {index}, ptr, {index})\n\

@@ -71,14 +71,14 @@ impl FunctionEmitter<'_> {
                         capture,
                     )?;
                     let environment = self.atom(capture)?;
-                    let tagged_environment = self.register();
-                    self.line(format!(
-                        "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
-                        environment.representation
-                    ));
                     if compact {
-                        tagged_environment
+                        environment.representation
                     } else {
+                        let tagged_environment = self.register();
+                        self.line(format!(
+                            "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
+                            environment.representation
+                        ));
                         let closure = self.register();
                         self.line(format!(
                             "  {closure} = insertvalue {} {}, ptr {}, 1",
