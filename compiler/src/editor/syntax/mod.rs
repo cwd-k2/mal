@@ -43,7 +43,11 @@ pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
                 }
                 TokenKind::ValueIdentifier
                     if matches!(index.checked_sub(1).and_then(|index| tokens.get(index)), Some(previous) if previous.kind == TokenKind::Dot)
-                        || matches!(tokens.get(index + 1), Some(next) if next.kind == TokenKind::LeftParen) =>
+                        || matches!(tokens.get(index + 1), Some(next) if next.kind == TokenKind::LeftParen)
+                        || (matches!(
+                            &source.text()[token.span.start()..token.span.end()],
+                            "pack" | "edit"
+                        ) && matches!(tokens.get(index + 1), Some(next) if next.kind == TokenKind::Less)) =>
                 {
                     SymbolKind::Function
                 }
@@ -175,5 +179,25 @@ mod tests {
         let document = analyze(&source).expect("lexical syntax document");
 
         assert_eq!(document.functions(), &["callback", "main"]);
+    }
+
+    #[test]
+    fn classifies_packed_intrinsics_as_functions_before_semantic_analysis() {
+        let source = SourceFile::new(
+            FileId::new(0),
+            "syntax.mal",
+            "value := pack<Int32>((new, _, _) -> ());\nnext := value.edit<Int32>((_, _, _) -> ());"
+                .into(),
+        );
+        let document = analyze(&source).expect("lexical syntax document");
+        let functions = document
+            .tokens()
+            .iter()
+            .filter(|token| token.kind == SymbolKind::Function)
+            .map(|token| &source.text()[token.span.start()..token.span.end()])
+            .collect::<Vec<_>>();
+
+        assert!(functions.contains(&"pack"));
+        assert!(functions.contains(&"edit"));
     }
 }

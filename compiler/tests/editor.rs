@@ -135,6 +135,34 @@ fn receiver_first_callees_support_function_editor_features() {
 }
 
 #[test]
+fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
+    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((new, _, _) -> { _ := new(1i32); () });\n\
+                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_, _, _) -> ());\n";
+    let document = malc::editor::analyze(&source(text)).expect("semantic document");
+
+    for (name, offset) in [
+        ("pack", text.find("pack<Int32>").unwrap()),
+        ("edit", text.find("edit<Int32>").unwrap()),
+    ] {
+        let occurrence = document
+            .occurrence_at(offset)
+            .expect("intrinsic occurrence");
+        assert_eq!(occurrence.name, name);
+        assert_eq!(occurrence.kind, SymbolKind::Function);
+        assert!(document.hover_at(offset).is_some());
+    }
+    for name in ["Cursor", "Region", "Packed", "pack", "edit"] {
+        assert!(
+            document
+                .completions()
+                .iter()
+                .any(|symbol| symbol.name == name),
+            "missing `{name}` completion"
+        );
+    }
+}
+
+#[test]
 fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
     let text = "closingParen :: UInt8 := ')';";
     let literal = text.find("')'").unwrap();

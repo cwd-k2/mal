@@ -1,7 +1,8 @@
 # Fallible tree example
 
-This example builds the same external-storage binary tree as `external-tree`, but allocation is
-recoverable and deterministically limited by an opaque host allocator. A five-node limit exercises
+Unlike the mal-owned indexed structure in `packed-tree`, this example deliberately uses external
+storage because allocation failure is recoverable and deterministically limited by an opaque host
+allocator. A five-node limit exercises
 the successful path. A three-node limit fails after a complete left subtree has been built.
 
 The `Tree` alias names an external-storage capability without claiming ownership of its referent.

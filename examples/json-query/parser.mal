@@ -6,22 +6,21 @@ Stats :: (UInt64, UInt64);
 ParseResult :: [Symbol, Stats];
 // Scan carries the unread input and an empty success message or a non-empty error message.
 Scan :: (Region<UInt8>, Symbol);
-// ParserState fields: 0 unread input, 1 packed frames, 2 frame depth, 3 statistics.
-ParserState :: (Region<UInt8>, UInt64, UInt64, Stats);
+// ParserState fields: 0 unread input, 1 frame stack, 2 frame depth, 3 statistics.
+ParserState :: (Region<UInt8>, Packed<UInt8>, UInt64, Stats);
 
-// The least-significant hexadecimal digit is the active frame. Parent frames act as explicit
-// return addresses, replacing mutually recursive array, object, and value parser functions.
-// The root frame occupies one digit, intentionally leaving room for 15 nested containers.
-_arrayFirst :: UInt64 := 1u64;
-_arrayValue :: UInt64 := 2u64;
-_arrayNext :: UInt64 := 3u64;
-_objectFirst :: UInt64 := 4u64;
-_objectKey :: UInt64 := 5u64;
-_objectColon :: UInt64 := 6u64;
-_objectValue :: UInt64 := 7u64;
-_objectNext :: UInt64 := 8u64;
-_rootValue :: UInt64 := 9u64;
-_rootDone :: UInt64 := 10u64;
+// The last Packed element is the active frame. Parent frames act as explicit return addresses,
+// replacing mutually recursive array, object, and value parser functions.
+_arrayFirst :: UInt8 := 1u8;
+_arrayValue :: UInt8 := 2u8;
+_arrayNext :: UInt8 := 3u8;
+_objectFirst :: UInt8 := 4u8;
+_objectKey :: UInt8 := 5u8;
+_objectColon :: UInt8 := 6u8;
+_objectValue :: UInt8 := 7u8;
+_objectNext :: UInt8 := 8u8;
+_rootValue :: UInt8 := 9u8;
+_rootDone :: UInt8 := 10u8;
 
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 
@@ -36,8 +35,8 @@ _isNonzeroDigit :: UInt8 -> Bool := (byte) -> byte >= '1' && byte <= '9';
 
 _isHexDigit :: UInt8 -> Bool := (byte) ->
     byte._isDigit()
-    || (byte >= 'a' && byte <= 'f')
-    || (byte >= 'A' && byte <= 'F');
+        || (byte >= 'a' && byte <= 'f')
+        || (byte >= 'A' && byte <= 'F');
 
 _skipWhitespace :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
     when (#source == 0usize) {
@@ -59,17 +58,26 @@ _includeValue :: (Stats, UInt64) -> Stats := (stats, depth) -> {
 };
 
 // Reading and replacing affect only the active frame; pushing and popping move the active end.
-_readFrame :: UInt64 -> UInt64 := (frames) -> frames % 16u64;
+_readFrame :: Packed<UInt8> -> UInt8 := (frames) -> frames # (#frames - 1usize);
 
-_replaceFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) ->
-    frames / 16u64 * 16u64 + frame;
+_replaceFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) -> {
+    index := #frames - 1usize;
+    frames.edit<UInt8>((_, _, put) -> {
+        put(index, frame);
+        ();
+    });
+};
 
-_pushFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) -> frames * 16u64 + frame;
+_pushFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) ->
+    frames.edit<UInt8>((new, _, _) -> {
+        _ := new(frame);
+        ();
+    });
 
-_popFrame :: UInt64 -> UInt64 := (frames) -> frames / 16u64;
+_popFrame :: Packed<UInt8> -> Packed<UInt8> := (frames) -> frames / (#frames - 1usize);
 
 // Completing a value rewrites its parent frame to the state that accepts a delimiter next.
-_completeValue :: UInt64 -> UInt64 := (frames) -> {
+_completeValue :: Packed<UInt8> -> Packed<UInt8> := (frames) -> {
     frame := frames._readFrame();
     if (frame == _arrayFirst || frame == _arrayValue)
     then frames._replaceFrame(_arrayNext)
@@ -283,9 +291,6 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
     // Object keys are syntax rather than JSON values, so only this value path updates statistics.
     nextStats := stats._includeValue(frameDepth);
     when (byte == '[' || byte == '{') {
-        when (frameDepth == 16u64) {
-            return(_parseFailure("JSON nesting exceeds 15 containers"));
-        };
         childFrame := if (byte == '[')
             then _arrayFirst
             else _objectFirst;
@@ -324,4 +329,12 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
 
 // ParseResult retains no view into source, so the host owner may be released after this call.
 parseDocument :: Region<UInt8> -> ParseResult := (source) ->
-    (source, _rootValue, 1u64, (0u64, 0u64))._parse();
+    (
+        source,
+        pack<UInt8>((new, _, _) -> {
+        _ := new(_rootValue);
+        ();
+    }),
+        1u64,
+        (0u64, 0u64)
+    )._parse();

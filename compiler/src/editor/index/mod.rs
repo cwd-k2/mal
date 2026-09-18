@@ -11,6 +11,16 @@ mod checked_ast;
 mod resolved_ast;
 mod type_display;
 
+const INDEXED_TYPES: [(&str, resolved::TypeId); 3] = [
+    ("Cursor", resolved::CURSOR_TYPE),
+    ("Region", resolved::REGION_TYPE),
+    ("Packed", resolved::PACKED_TYPE),
+];
+
+const PACK_DETAIL: &str = "((T -> USize, USize -> T, (USize, T) -> Unit) -> Unit) -> Packed<T>";
+const EDIT_DETAIL: &str =
+    "(Packed<T>, (T -> USize, USize -> T, (USize, T) -> Unit) -> Unit) -> Packed<T>";
+
 pub(super) fn build(
     resolved: &resolved::Program,
     checked: &checked::Program,
@@ -44,13 +54,19 @@ impl Index {
     fn new(resolved: &resolved::Program, checked: &checked::Program) -> Self {
         let mut index = Self {
             aliases: HashMap::new(),
-            value_types: HashMap::new(),
+            value_types: [
+                (crate::resolve::PACK_VALUE, PACK_DETAIL.to_owned()),
+                (crate::resolve::EDIT_VALUE, EDIT_DETAIL.to_owned()),
+            ]
+            .into_iter()
+            .collect(),
             type_details: crate::resolve::PREDEFINED_TYPES
                 .iter()
                 .map(|&(name, id)| (id, name.to_owned()))
+                .chain(INDEXED_TYPES.map(|(name, id)| (id, format!("{name}<T>"))))
                 .collect(),
             type_aliases: HashMap::new(),
-            functions: HashSet::new(),
+            functions: HashSet::from([crate::resolve::PACK_VALUE, crate::resolve::EDIT_VALUE]),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
             raw_occurrences: Vec::new(),
@@ -222,7 +238,7 @@ fn symbol_for(occurrence: &Occurrence) -> Symbol {
 }
 
 fn predefined_symbols() -> Vec<Symbol> {
-    let types = crate::resolve::PREDEFINED_TYPES
+    let scalar_types = crate::resolve::PREDEFINED_TYPES
         .iter()
         .map(|&(name, id)| Symbol {
             id: SymbolId::Type(id),
@@ -231,14 +247,29 @@ fn predefined_symbols() -> Vec<Symbol> {
             detail: Some(name.to_owned()),
             span: None,
         });
+    let indexed_types = INDEXED_TYPES.into_iter().map(|(name, id)| Symbol {
+        id: SymbolId::Type(id),
+        name: name.to_owned(),
+        kind: SymbolKind::Type,
+        detail: Some(format!("{name}<T>")),
+        span: None,
+    });
     let values = crate::resolve::PREDEFINED_VALUES
         .iter()
         .map(|&(name, id)| Symbol {
             id: SymbolId::Value(id),
             name: name.to_owned(),
-            kind: SymbolKind::Value,
-            detail: None,
+            kind: if matches!(id, crate::resolve::PACK_VALUE | crate::resolve::EDIT_VALUE) {
+                SymbolKind::Function
+            } else {
+                SymbolKind::Value
+            },
+            detail: match id {
+                crate::resolve::PACK_VALUE => Some(PACK_DETAIL.to_owned()),
+                crate::resolve::EDIT_VALUE => Some(EDIT_DETAIL.to_owned()),
+                _ => None,
+            },
             span: None,
         });
-    types.chain(values).collect()
+    scalar_types.chain(indexed_types).chain(values).collect()
 }

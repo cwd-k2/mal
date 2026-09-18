@@ -152,6 +152,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `driver/build` | source graph、optimization profile、artifact directory、generated input、Clang process、AtCoder carrierを一つのbuild use caseへ構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
+| `core/packed` | checked `pack`・`edit`をbuilder lifetimeを閉じるcore operation列へ変換 |
+| `core/packed/capability` | builderをcaptureする`new`・`get`・`put` capability lambdaを構成 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |

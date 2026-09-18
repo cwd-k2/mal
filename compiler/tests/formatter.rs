@@ -448,6 +448,25 @@ fn indents_multiline_arguments_from_the_call_line() {
 }
 
 #[test]
+fn indents_nested_blocks_inside_expression_body_continuations() {
+    let formatted = format(
+        "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\nsource.edit<Int32>((_, get, put) -> {\nput(0usize, get(0usize));\n()\n});",
+    );
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\n",
+            "    source.edit<Int32>((_, get, put) -> {\n",
+            "        put(0usize, get(0usize));\n",
+            "        ();\n",
+            "    });\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_explicit_top_level_groups_without_splitting_data_bindings() {
     let formatted = format("extern A;\n\nextern B;\nfirst:=1;\nsecond:=2;");
 

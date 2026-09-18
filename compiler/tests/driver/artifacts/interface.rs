@@ -153,7 +153,7 @@ fn checked_in_example_headers_match_the_compiler() {
         "json-query",
         "mini-database",
         "opaque-aggregate",
-        "external-tree",
+        "packed-tree",
         "print-and-closure",
         "typed-memory",
         "recoverable-file",

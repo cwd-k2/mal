@@ -38,6 +38,42 @@ fn serves_symbols_completion_and_semantic_tokens() {
 }
 
 #[test]
+fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
+    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((new, _, _) -> { _ := new(1i32); () });\n";
+    let uri = "file:///packed-editor.mal";
+    let mut server = open_document(uri, text);
+    let completion = request_at(
+        &mut server,
+        25,
+        "textDocument/completion",
+        uri,
+        text,
+        text.len(),
+    );
+    let items = completion["result"].as_array().unwrap();
+
+    for name in ["Cursor", "Region", "Packed"] {
+        assert!(
+            items
+                .iter()
+                .any(|item| item["label"] == name && item["kind"] == 7)
+        );
+    }
+    assert!(
+        items
+            .iter()
+            .any(|item| item["label"] == "pack" && item["kind"] == 3)
+    );
+
+    let tokens = server.handle(json!({
+        "jsonrpc": "2.0", "id": 26, "method": "textDocument/semanticTokens/full",
+        "params": {"textDocument": {"uri": uri}}
+    }));
+    let data = tokens.messages[0]["result"]["data"].as_array().unwrap();
+    assert!(data.chunks(5).any(|token| token[2] == 4 && token[3] == 3));
+}
+
+#[test]
 fn completes_lexical_functions_after_an_incomplete_receiver_suffix() {
     let text = "transform :: (Int32, Int32) -> Int32 := (value, option) -> value + option;\n\
                 count :: Int32 := 1;\n\

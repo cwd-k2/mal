@@ -111,68 +111,72 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
 
 /* Host-visible types */
 
-typedef MalType_Address MalType_Tree;
+typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
+typedef mal_repr_product_0_t mal_TreeNode_t;
 
-typedef mal_Address_t mal_Tree_t;
-
-/* Type helpers */
-
-static inline MalType_Tree mal_Tree_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Tree_t value) {
-    return mal_Address_return(call, value);
-}
+struct mal_detail_repr_product_0 {
+    mal_Int32_t field_0;
+    mal_UInt8_t field_1;
+    mal_USize_t field_2;
+    mal_USize_t field_3;
+};
 
 /* Canonical memory access */
 
-static inline mal_Address_t mal_detail_memory_read_Address(mal_call_t *call, const uint8_t *source) {
-    mal_Address_t value;
+static inline mal_Int32_t mal_detail_memory_read_Int32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
+    mal_Int32_t value;
     memcpy(&value, source, sizeof(value));
-    return mal_Address_return(call, value);
+    return value;
 }
 
-static inline void mal_detail_memory_write_Address(mal_call_t *call, uint8_t *destination, mal_Address_t value) {
-    mal_Address_return(call, value);
+static inline void mal_detail_memory_write_Int32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_Int32_t value) {
     memcpy(destination, &value, sizeof(value));
 }
 
-static inline mal_Tree_t mal_Tree_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_Address(call, (const uint8_t *)address + (index * 8));
+static inline mal_UInt8_t mal_detail_memory_read_UInt8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
+    mal_UInt8_t value;
+    memcpy(&value, source, sizeof(value));
+    return value;
 }
 
-static inline void mal_Tree_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Tree_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_Address(call, (uint8_t *)address + (index * 8), value);
+static inline void mal_detail_memory_write_UInt8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_UInt8_t value) {
+    memcpy(destination, &value, sizeof(value));
 }
 
-/* External operations */
+static inline mal_USize_t mal_detail_memory_read_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
+    mal_USize_t value;
+    memcpy(&value, source, sizeof(value));
+    return value;
+}
 
-MalType_Tree mal_ext_allocateNode(MalContext *context, MalType_ByteSize value);
-void mal_ext_releaseNode(MalContext *context, MalType_Tree value);
+static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_USize_t value) {
+    memcpy(destination, &value, sizeof(value));
+}
 
-/* External definition helpers */
+static inline mal_repr_product_0_t mal_detail_memory_read_0(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+    mal_repr_product_0_t value;
+    value.field_0 = mal_detail_memory_read_Int32(call, source + 0);
+    value.field_1 = mal_detail_memory_read_UInt8(call, source + 4);
+    value.field_2 = mal_detail_memory_read_USize(call, source + 8);
+    value.field_3 = mal_detail_memory_read_USize(call, source + 16);
+    return value;
+}
 
-#define MAL_HAS_EXTERN_allocateNode 1
-#define MAL_DEFINE_allocateNode(call, value) \
-static MalType_Tree mal_detail_allocateNode(mal_call_t *call, mal_ByteSize_t value); \
-MalType_Tree mal_ext_allocateNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_ByteSize value) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_allocateNode(&call, value); \
-} \
-static MalType_Tree mal_detail_allocateNode( \
-    mal_call_t *call, \
-    mal_ByteSize_t value \
-)
+static inline void mal_detail_memory_write_0(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
+    mal_detail_memory_write_Int32(call, destination + 0, value.field_0);
+    mal_detail_memory_write_UInt8(call, destination + 4, value.field_1);
+    mal_detail_memory_write_USize(call, destination + 8, value.field_2);
+    mal_detail_memory_write_USize(call, destination + 16, value.field_3);
+}
 
-#define MAL_HAS_EXTERN_releaseNode 1
-#define MAL_DEFINE_releaseNode(call, value) \
-static MalType_Unit mal_detail_releaseNode(mal_call_t *call, mal_Tree_t value); \
-void mal_ext_releaseNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Tree value) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_releaseNode(&call, value); \
-} \
-static MalType_Unit mal_detail_releaseNode( \
-    mal_call_t *call, \
-    mal_Tree_t value \
-)
+static inline mal_TreeNode_t mal_TreeNode_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+    mal_Address_return(call, address);
+    return mal_detail_memory_read_0(call, (const uint8_t *)address + (index * 24));
+}
+
+static inline void mal_TreeNode_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_TreeNode_t value) {
+    mal_Address_return(call, address);
+    mal_detail_memory_write_0(call, (uint8_t *)address + (index * 24), value);
+}
 
 #endif

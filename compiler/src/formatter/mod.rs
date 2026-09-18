@@ -36,6 +36,7 @@ struct Formatter<'a> {
     brackets: Vec<BracketLayout>,
     brace_depth: usize,
     binding_continuations: Vec<usize>,
+    expression_continuations: Vec<usize>,
     controls: ControlLayout,
     blocks: BlockLayout,
     top_level_breaks: Vec<usize>,
@@ -63,6 +64,7 @@ impl<'a> Formatter<'a> {
             brackets: Vec::new(),
             brace_depth: 0,
             binding_continuations: Vec::new(),
+            expression_continuations: Vec::new(),
             controls: ControlLayout::new(lexed, program),
             blocks: BlockLayout::new(source, lexed),
             top_level_breaks: top_level_breaks(source, lexed, program),
@@ -115,12 +117,15 @@ impl<'a> Formatter<'a> {
     }
 
     fn write_comment(&mut self, text: &str) {
-        let continuation_indent = self
+        let follows_arrow = self
             .token_index
             .checked_sub(1)
             .and_then(|index| self.lexed.tokens.get(index))
-            .is_some_and(|token| matches!(token.kind, TokenKind::Arrow | TokenKind::FatArrow))
-            .then_some(self.indent + 1);
+            .is_some_and(|token| matches!(token.kind, TokenKind::Arrow | TokenKind::FatArrow));
+        if follows_arrow {
+            self.start_expression_continuation();
+        }
+        let continuation_indent = follows_arrow.then_some(self.indent);
         if self
             .blocks
             .terminate
@@ -187,6 +192,11 @@ impl<'a> Formatter<'a> {
     fn should_preserve_blank_line(&self) -> bool {
         self.source_blank_line
             && matches!(self.previous, Previous::Semicolon | Previous::RightBrace)
+    }
+
+    fn start_expression_continuation(&mut self) {
+        self.indent += 1;
+        self.expression_continuations.push(self.brace_depth);
     }
 }
 

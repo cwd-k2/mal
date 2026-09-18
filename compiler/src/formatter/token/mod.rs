@@ -100,6 +100,10 @@ impl Formatter<'_> {
                     self.binding_continuations.pop();
                     self.indent = self.indent.saturating_sub(1);
                 }
+                while self.expression_continuations.last() == Some(&self.brace_depth) {
+                    self.expression_continuations.pop();
+                    self.indent = self.indent.saturating_sub(1);
+                }
                 self.pending_newline = true;
                 self.previous = Previous::Semicolon;
             }
@@ -285,6 +289,17 @@ impl Formatter<'_> {
             return;
         }
         if self.line_start {
+            return;
+        }
+
+        let follows_arrow = self
+            .lexed
+            .tokens
+            .get(token_index.saturating_sub(1))
+            .is_some_and(|token| matches!(token.kind, TokenKind::Arrow | TokenKind::FatArrow));
+        if follows_arrow {
+            self.start_expression_continuation();
+            self.newline();
             return;
         }
 

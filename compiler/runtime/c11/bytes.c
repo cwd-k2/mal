@@ -326,6 +326,18 @@ static void mal_packed_builder_make_editable(
         builder->count,
         builder->stride
     );
+    if (builder->owner == NULL) {
+        builder->offset = 0;
+        builder->editable = 1;
+        return;
+    }
+    if (builder->owner->kind == MAL_BYTES_FLAT
+        && builder->owner->references == 1
+        && builder->offset == 0
+        && builder->owner->length == (uint64_t)bytes) {
+        builder->editable = 1;
+        return;
+    }
     const unsigned char *source = bytes == 0
         ? NULL
         : mal_bytes_data(builder->owner) + builder->offset;

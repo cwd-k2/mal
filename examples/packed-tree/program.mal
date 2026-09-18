@@ -1,0 +1,37 @@
+// TreeNode fields: value, kind (0 = leaf, 1 = branch), left index, right index.
+TreeNode :: (Int32, UInt8, USize, USize);
+Tree :: Packed<TreeNode>;
+
+buildTree :: Unit -> Tree := () ->
+    pack<TreeNode>((new, _, put) -> {
+        root := new((1i32, 0u8, 0usize, 0usize));
+        left := new((2i32, 0u8, 0usize, 0usize));
+        leftLeft := new((3i32, 0u8, 0usize, 0usize));
+        leftRight := new((4i32, 0u8, 0usize, 0usize));
+        right := new((5i32, 0u8, 0usize, 0usize));
+        put(left, (2i32, 1u8, leftLeft, leftRight));
+        put(root, (1i32, 1u8, left, right));
+        ();
+    });
+
+sumNode :: (Tree, USize) -> Int32 := (tree, index) -> {
+    (value, kind, left, right) := tree # index;
+    if (kind == 0u8)
+    then value
+    else value + tree.sumNode(left) + tree.sumNode(right);
+};
+
+incrementRoot :: Tree -> Tree := (tree) ->
+    tree.edit<TreeNode>((_, get, put) -> {
+        (value, kind, left, right) := get(0usize);
+        put(0usize, (value + 1i32, kind, left, right));
+        ();
+    });
+
+main :: Unit -> Int32 := () -> {
+    tree := buildTree();
+    updated := tree.incrementRoot();
+    if (tree.sumNode(0usize) == 15i32 && updated.sumNode(0usize) == 16i32)
+    then 0
+    else 1;
+};

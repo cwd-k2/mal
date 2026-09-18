@@ -440,18 +440,10 @@ fn json_query_example_parses_stdin_and_selects_an_argument_query() {
     assert!(output.status.success());
     assert_eq!(output.stdout, b"{\"ok\":true,\"count\":3}\n");
 
-    let deepest_supported = format!("{}0{}", "[".repeat(15), "]".repeat(15));
-    let output = run_query("depth", &deepest_supported);
+    let deeply_nested = format!("{}0{}", "[".repeat(64), "]".repeat(64));
+    let output = run_query("depth", &deeply_nested);
     assert!(output.status.success());
-    assert_eq!(output.stdout, b"{\"ok\":true,\"depth\":16}\n");
-
-    let beyond_fixed_stack = format!("{}0{}", "[".repeat(16), "]".repeat(16));
-    let output = run_query("depth", &beyond_fixed_stack);
-    assert_eq!(output.status.code(), Some(1));
-    assert_eq!(
-        output.stdout,
-        b"{\"ok\":false,\"error\":\"JSON nesting exceeds 15 containers\"}\n"
-    );
+    assert_eq!(output.stdout, b"{\"ok\":true,\"depth\":65}\n");
 
     let output = run_query("count", "[1,]");
     assert_eq!(output.status.code(), Some(1));
@@ -648,12 +640,12 @@ fn fallible_tree_example_cleans_partial_construction() {
 }
 
 #[test]
-fn external_tree_example_builds_and_traverses_a_tree() {
+fn packed_tree_example_builds_edits_and_traverses_a_tree() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/external-tree");
+        .join("examples/packed-tree");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),
