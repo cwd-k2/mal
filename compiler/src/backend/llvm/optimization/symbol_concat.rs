@@ -26,7 +26,7 @@ pub(super) fn plan(
             if left.ty != Type::Symbol || right.ty != Type::Symbol {
                 continue;
             }
-            let dead = ownership.dead_values(site, binding_index);
+            let dead = ownership.drops_after_binding(site, binding_index);
             let left_id = binding_id(left);
             let right_id = binding_id(right);
             let mode = if left_id.is_some_and(|id| dead.contains(&id)) && left_id != right_id {

@@ -9,7 +9,7 @@ use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPla
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
-    dead_values: HashMap<(StateId, usize), Vec<ValueId>>,
+    drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
 }
 
@@ -89,10 +89,12 @@ impl Plan {
             live_in[index] = live;
         }
 
-        let mut dead_values = HashMap::new();
+        let mut drops_after_binding = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
             let mut live = terminator_live(&state.terminator, &live_in);
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
+                let mut drops = Vec::new();
+                collect_dead_pattern_bindings(&binding.pattern, &live, &mut drops);
                 let mut used = Vec::new();
                 visit_operation_atoms(&binding.operation, |atom| {
                     if let Some(id) = managed_binding_id(atom)
@@ -101,12 +103,9 @@ impl Plan {
                         used.push(id);
                     }
                 });
-                let dead = used
-                    .into_iter()
-                    .filter(|id| !live.contains(id))
-                    .collect::<Vec<_>>();
-                if !dead.is_empty() {
-                    dead_values.insert((StateId(state_index), binding_index), dead);
+                drops.extend(used.into_iter().filter(|id| !live.contains(id)));
+                if !drops.is_empty() {
+                    drops_after_binding.insert((StateId(state_index), binding_index), drops);
                 }
                 remove_pattern_bindings(&binding.pattern, &mut live);
                 visit_operation_atoms(&binding.operation, |atom| {
@@ -114,8 +113,19 @@ impl Plan {
                 });
             }
         }
-        let uses = collect_use_effects(control, calls, regions, frames, &live_in, &dead_values);
-        Self { dead_values, uses }
+        let uses = collect_use_effects(
+            control,
+            calls,
+            regions,
+            frames,
+            &live_in,
+            &drops_after_binding,
+        );
+        exclude_consumed_sources(control, &uses, &mut drops_after_binding);
+        Self {
+            drops_after_binding,
+            uses,
+        }
     }
 
     pub(crate) fn is_valid(
@@ -129,8 +139,8 @@ impl Plan {
         *self == Self::new(control, parameters, calls, regions, frames)
     }
 
-    pub(crate) fn dead_values(&self, state: StateId, binding: usize) -> &[ValueId] {
-        self.dead_values
+    pub(crate) fn drops_after_binding(&self, state: StateId, binding: usize) -> &[ValueId] {
+        self.drops_after_binding
             .get(&(state, binding))
             .map_or(&[], Vec::as_slice)
     }
@@ -226,6 +236,26 @@ fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {
     }
 }
 
+fn collect_dead_pattern_bindings(
+    pattern: &Pattern,
+    live_after: &HashSet<ValueId>,
+    drops: &mut Vec<ValueId>,
+) {
+    match pattern {
+        Pattern::Binding { id, ty } => {
+            if is_managed(ty) && !live_after.contains(id) {
+                drops.push(*id);
+            }
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_dead_pattern_bindings(element, live_after, drops);
+            }
+        }
+        Pattern::Wildcard { .. } => {}
+    }
+}
+
 fn terminator_live(terminator: &Terminator, live_in: &[HashSet<ValueId>]) -> HashSet<ValueId> {
     let mut live = HashSet::new();
     visit_terminator_successors(terminator, |successor| {
@@ -304,7 +334,7 @@ fn collect_use_effects(
     regions: &ControlRegionPlan,
     frames: &ControlFramePlan,
     live_in: &[HashSet<ValueId>],
-    dead_values: &HashMap<(StateId, usize), Vec<ValueId>>,
+    drop_candidates: &HashMap<(StateId, usize), Vec<ValueId>>,
 ) -> HashMap<UseId, UseEffect> {
     let mut uses = HashMap::new();
     let mut local_bindings = HashSet::new();
@@ -325,7 +355,7 @@ fn collect_use_effects(
         let site = StateId(state_index);
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let operands = binding_operands(&binding.operation);
-            let dead = dead_values
+            let dead = drop_candidates
                 .get(&(site, binding_index))
                 .map_or(&[][..], Vec::as_slice);
             for (operand_index, (operand, atom, owner_successor)) in operands.iter().enumerate() {
@@ -476,6 +506,36 @@ fn collect_use_effects(
     uses
 }
 
+fn exclude_consumed_sources(
+    control: &crate::control::ast::Program,
+    uses: &HashMap<UseId, UseEffect>,
+    drops: &mut HashMap<(StateId, usize), Vec<ValueId>>,
+) {
+    for (state_index, state) in control.states.iter().enumerate() {
+        let site = StateId(state_index);
+        for (binding_index, binding) in state.bindings.iter().enumerate() {
+            let consumed = binding_operands(&binding.operation)
+                .into_iter()
+                .filter_map(|(operand, atom, _)| {
+                    (uses.get(&UseId {
+                        state: site,
+                        location: UseLocation::Binding {
+                            binding: binding_index,
+                            operand,
+                        },
+                    }) == Some(&UseEffect::Consume))
+                    .then(|| binding_id(atom))
+                    .flatten()
+                })
+                .collect::<HashSet<_>>();
+            if let Some(binding_drops) = drops.get_mut(&(site, binding_index)) {
+                binding_drops.retain(|id| !consumed.contains(id));
+            }
+        }
+    }
+    drops.retain(|_, values| !values.is_empty());
+}
+
 fn terminator_argument(terminator: &Terminator) -> Option<&Atom> {
     match terminator {
         Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. } => Some(argument),
@@ -598,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    fn validates_the_exact_dead_value_facts() {
+    fn validates_the_exact_binding_drop_facts() {
         let source = SourceFile::new(
             FileId::new(90),
             "execution-ownership-plan.mal",
@@ -623,11 +683,11 @@ mod tests {
         ));
         let point = *execution
             .ownership
-            .dead_values
+            .drops_after_binding
             .keys()
             .next()
             .expect("dead managed value fact");
-        execution.ownership.dead_values.remove(&point);
+        execution.ownership.drops_after_binding.remove(&point);
         assert!(!execution.ownership.is_valid(
             &execution.control,
             &execution.parameters,
@@ -679,6 +739,55 @@ mod tests {
             plan.binding_use(site, binding, BindingOperand::ProductElement(1)),
             Some(UseEffect::Consume)
         );
+        let Operation::Product(elements) = &control.states[site.0].bindings[binding].operation
+        else {
+            unreachable!();
+        };
+        let source = binding_id(&elements[0]).expect("local duplicate source");
+        assert!(!plan.drops_after_binding(site, binding).contains(&source));
+    }
+
+    #[test]
+    fn drops_an_unused_managed_binding_immediately() {
+        let source = SourceFile::new(
+            FileId::new(95),
+            "execution-ownership-unused-result.mal",
+            "main :: Unit -> Int32 := () -> { unused := \"a\" + \"b\"; 0i32; };".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check unused result fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize unused result fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+
+        let (site, binding, id) = execution
+            .control
+            .states
+            .iter()
+            .enumerate()
+            .find_map(|(state_index, state)| {
+                state
+                    .bindings
+                    .iter()
+                    .enumerate()
+                    .find_map(|(binding_index, binding)| match binding.pattern {
+                        Pattern::Binding { id, ref ty }
+                            if is_managed(ty)
+                                && matches!(binding.operation, Operation::Atom(_)) =>
+                        {
+                            Some((StateId(state_index), binding_index, id))
+                        }
+                        _ => None,
+                    })
+            })
+            .expect("unused managed binding");
+        assert_eq!(
+            execution.ownership.drops_after_binding(site, binding),
+            &[id]
+        );
     }
 
     #[test]
@@ -716,7 +825,7 @@ mod tests {
             plan.binding_use(site, binding, BindingOperand::SymbolLength),
             Some(UseEffect::Borrow)
         );
-        assert!(!plan.dead_values(site, binding).is_empty());
+        assert!(!plan.drops_after_binding(site, binding).is_empty());
     }
 
     #[test]

@@ -13,9 +13,12 @@ impl FunctionEmitter<'_> {
                 self.optimizations.symbol_concat_mode(site, binding_index),
             )?;
             self.store_pattern(&binding.pattern, value.as_ref())?;
-            let mut dead = self.ownership.dead_values(site, binding_index).to_vec();
-            dead.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
-            for id in dead {
+            let mut drops = self
+                .ownership
+                .drops_after_binding(site, binding_index)
+                .to_vec();
+            drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
+            for id in drops {
                 self.release_dead_slot(id)?;
             }
         }
