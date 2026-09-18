@@ -393,6 +393,14 @@ fn pattern_handoff(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternH
     }
 }
 
+fn jump_value_effect(handoff: &PatternHandoff) -> UseEffect {
+    if handoff.has_owner_successor() {
+        UseEffect::Share
+    } else {
+        UseEffect::Borrow
+    }
+}
+
 fn terminator_live(terminator: &Terminator, live_in: &[HashSet<ValueId>]) -> HashSet<ValueId> {
     let mut live = HashSet::new();
     visit_terminator_successors(terminator, |successor| {
@@ -531,6 +539,17 @@ fn collect_use_effects(
             .forwarded_self_argument(site)
             .or_else(|| terminator_argument(&state.terminator));
         let mut terminator_uses = terminator_operands(&state.terminator, effective_argument);
+        if let Terminator::Jump { target, .. } = &state.terminator
+            && let Some((_, _, effect)) = terminator_uses
+                .iter_mut()
+                .find(|(operand, _, _)| *operand == TerminatorOperand::JumpValue)
+        {
+            *effect = jump_value_effect(
+                input_handoffs
+                    .get(target)
+                    .expect("every jump target has an input handoff"),
+            );
+        }
         let mode = calls.mode(site);
         let uses_common_control = regions
             .site_region(site)
@@ -621,6 +640,7 @@ fn collect_use_effects(
                     effect = UseEffect::Consume;
                 }
                 if operand == TerminatorOperand::JumpValue
+                    && effect != UseEffect::Borrow
                     && binding_id(atom).is_some_and(|id| {
                         local_bindings.contains(&id)
                             && match &state.terminator {
@@ -1205,6 +1225,11 @@ mod tests {
         assert_eq!(
             pattern_handoff(&pattern, &HashSet::new()),
             PatternHandoff::Drop
+        );
+        assert_eq!(jump_value_effect(&PatternHandoff::Drop), UseEffect::Borrow);
+        assert_eq!(
+            jump_value_effect(&PatternHandoff::Store(id)),
+            UseEffect::Share
         );
     }
 
