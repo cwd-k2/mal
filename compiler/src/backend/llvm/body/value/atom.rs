@@ -54,6 +54,15 @@ impl FunctionEmitter<'_> {
                 )
             }
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
+                if self
+                    .index
+                    .lowered_functions
+                    .get(&self.current_function)?
+                    .environment_ownership
+                    != crate::core::ast::EnvironmentOwnership::Owned
+                {
+                    return None;
+                }
                 let value_type = self.types.value(&atom.ty)?;
                 let with_code = self.register();
                 self.line(format!(
@@ -74,10 +83,21 @@ impl FunctionEmitter<'_> {
                 })
             }
             (ty, AtomKind::Reference(Reference::EnvironmentField(index))) => {
-                let function = self.current_function()?;
+                let function = *self.index.lowered_functions.get(&self.current_function)?;
                 let field = function.environment.get(*index)?;
                 if field.ty != *ty {
                     return None;
+                }
+                if function.environment_ownership == crate::core::ast::EnvironmentOwnership::Scoped
+                {
+                    if *index != 0 || function.environment.len() != 1 || *ty != Type::Address {
+                        return None;
+                    }
+                    return Some(EmittedValue {
+                        ty: Type::Address,
+                        representation: self.active_environment(),
+                        owned: false,
+                    });
                 }
                 let environment_type = Type::Product(
                     function

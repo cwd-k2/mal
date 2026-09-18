@@ -3,7 +3,8 @@ use crate::resolve::ast::LambdaId;
 
 use super::super::Lowerer;
 use super::super::ast::{
-    Capture, Expression, ExpressionKind, Lambda, PackedBuilderOperation, Parameter, ValueId,
+    Capture, EnvironmentOwnership, Expression, ExpressionKind, Lambda, PackedBuilderOperation,
+    Parameter, ValueId,
 };
 
 impl Lowerer {
@@ -87,15 +88,12 @@ impl Lowerer {
             parameter: parameter_type.clone().into(),
             result: result_type.into(),
         };
-        let id = LambdaId(self.next_lambda);
-        self.next_lambda = self
-            .next_lambda
-            .checked_add(1)
-            .expect("specialization reserved lambda identity space");
+        let id = self.capability_id(element, operation);
         Expression {
             kind: ExpressionKind::Lambda(Lambda {
                 id,
                 self_binding: None,
+                environment_ownership: EnvironmentOwnership::Scoped,
                 captures: vec![Capture {
                     source: builder,
                     binding: capture,
@@ -112,5 +110,29 @@ impl Lowerer {
             ty: function_type,
             span,
         }
+    }
+
+    fn capability_id(
+        &mut self,
+        element: &checked::Type,
+        operation: PackedBuilderOperation,
+    ) -> LambdaId {
+        if let Some((_, _, id)) =
+            self.packed_capabilities
+                .iter()
+                .find(|(candidate, candidate_operation, _)| {
+                    candidate == element && *candidate_operation == operation
+                })
+        {
+            return *id;
+        }
+        let id = LambdaId(self.next_lambda);
+        self.next_lambda = self
+            .next_lambda
+            .checked_add(1)
+            .expect("specialization reserved lambda identity space");
+        self.packed_capabilities
+            .push((element.clone(), operation, id));
+        id
     }
 }

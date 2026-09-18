@@ -165,6 +165,58 @@ fn emits_packed_views_indexing_and_symbol_conversion() {
 }
 
 #[test]
+fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
+    let source = SourceFile::new(
+        FileId::new(93),
+        "llvm-packed-builder.mal",
+        "fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (new, get, put) -> { index := new(1i64); put(index, get(index)); (); }; main :: Unit -> Int32 := () -> { first := pack<Int64>(fill); second := pack<Int64>(fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check scoped Packed fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("scoped Packed fixture is supported");
+
+    assert!(
+        !artifacts
+            .module
+            .contains("call ptr @mal_runtime_environment_allocate")
+    );
+    assert_eq!(
+        artifacts
+            .module
+            .matches("call ptr @mal_runtime_packed_builder_get")
+            .count(),
+        1
+    );
+    assert_eq!(
+        artifacts
+            .module
+            .matches("call void @mal_runtime_packed_builder_put")
+            .count(),
+        1
+    );
+    assert!(
+        artifacts
+            .module
+            .contains("ptr @mal_runtime_packed_builder_get(ptr %mal_context, ptr")
+    );
+    assert!(artifacts.module.contains(", i64 8)"));
+}
+
+#[test]
 fn emits_long_left_associative_expressions_without_host_recursion() {
     let expression = std::iter::repeat_n("0i32", 4096)
         .collect::<Vec<_>>()

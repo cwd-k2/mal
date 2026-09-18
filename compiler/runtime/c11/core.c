@@ -40,28 +40,57 @@ void *mal_runtime_environment_allocate(
     return header + 1;
 }
 
+__attribute__((always_inline))
 void *mal_runtime_environment_retain(MalContext *context, void *environment) {
     if (environment == NULL) {
         return NULL;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
     if (header->references == SIZE_MAX) {
+        return environment;
+    }
+    if (header->references == SIZE_MAX - 1) {
         mal_trap(context, "closure reference count overflow");
     }
     ++header->references;
     return environment;
 }
 
+__attribute__((always_inline))
 void mal_runtime_environment_release(void *environment) {
     if (environment == NULL) {
         return;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
+    if (header->references == SIZE_MAX) {
+        return;
+    }
     --header->references;
     if (header->references == 0) {
         header->destroy(environment);
         free(header);
     }
+}
+
+void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size) {
+    if (size > SIZE_MAX - sizeof(MalEnvironmentHeader)) {
+        mal_trap(context, "scoped environment size overflow");
+    }
+    MalEnvironmentHeader *header = mal_runtime_allocate(
+        context,
+        sizeof(MalEnvironmentHeader) + size
+    );
+    header->references = SIZE_MAX;
+    header->destroy = NULL;
+    return header + 1;
+}
+
+void mal_runtime_scoped_environment_deallocate(void *environment) {
+    if (environment == NULL) {
+        return;
+    }
+    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
+    free(header);
 }
 
 _Noreturn void mal_trap(MalContext *context, const char *message) {

@@ -102,8 +102,8 @@ pub(crate) fn generate(
              declare ptr @mal_runtime_packed_builder_start(ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_edit(ptr, ptr, {index}, {index}, {index})\n\
              declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr)\n\
-             declare ptr @mal_runtime_packed_builder_get(ptr, ptr, {index})\n\
-             declare void @mal_runtime_packed_builder_put(ptr, ptr, {index}, ptr)\n\
+             declare ptr @mal_runtime_packed_builder_get(ptr, ptr, {index}, {index})\n\
+             declare void @mal_runtime_packed_builder_put(ptr, ptr, {index}, ptr, {index})\n\
              declare void @mal_runtime_packed_builder_finish(ptr, ptr)\n\
              declare i8 @mal_runtime_symbol_at(ptr, {index}, {index})\n\
              declare void @mal_runtime_symbol_concatenate(ptr, ptr, ptr, {index}, {index}, ptr, {index}, {index})\n\

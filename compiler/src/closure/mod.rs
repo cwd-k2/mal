@@ -241,6 +241,27 @@ impl Converter {
     }
 
     fn lift_function(&mut self, lambda: &anf::Lambda) {
+        if let Some(existing) = self
+            .functions
+            .iter()
+            .find(|function| function.id == FunctionId::Lambda(lambda.id))
+        {
+            debug_assert_eq!(
+                existing
+                    .environment
+                    .iter()
+                    .map(|field| &field.ty)
+                    .collect::<Vec<_>>(),
+                lambda
+                    .captures
+                    .iter()
+                    .map(|capture| &capture.ty)
+                    .collect::<Vec<_>>()
+            );
+            debug_assert_eq!(existing.parameter.ty, lambda.parameter.ty);
+            debug_assert_eq!(existing.body.result.ty, lambda.body.result.ty);
+            return;
+        }
         let mut environment = lambda
             .captures
             .iter()
@@ -265,6 +286,7 @@ impl Converter {
             .collect();
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
+            environment_ownership: lambda.environment_ownership,
             environment: lambda
                 .captures
                 .iter()

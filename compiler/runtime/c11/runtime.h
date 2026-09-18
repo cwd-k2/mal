@@ -27,6 +27,8 @@ void *mal_runtime_environment_allocate(
     size_t size,
     void (*destroy)(void *)
 );
+void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size);
+void mal_runtime_scoped_environment_deallocate(void *environment);
 void *mal_runtime_environment_retain(MalContext *context, void *environment);
 void mal_runtime_environment_release(void *environment);
 void mal_control_destroy(MalContext *context);
@@ -102,13 +104,15 @@ size_t mal_runtime_packed_builder_new(
 const void *mal_runtime_packed_builder_get(
     MalContext *context,
     const void *builder,
-    size_t index
+    size_t index,
+    size_t stride
 );
 void mal_runtime_packed_builder_put(
     MalContext *context,
     void *builder,
     size_t index,
-    const void *value
+    const void *value,
+    size_t stride
 );
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);
 

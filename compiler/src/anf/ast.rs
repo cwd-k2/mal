@@ -1,7 +1,7 @@
 use crate::check::ast::{MemoryPrimitive, Type};
 use crate::core::ast::{
-    BinaryPrimitive, JoinId, PackedBuilderOperation, ProgramInterface, UnaryPrimitive,
-    ValueId as CoreValueId,
+    BinaryPrimitive, EnvironmentOwnership, JoinId, PackedBuilderOperation, ProgramInterface,
+    UnaryPrimitive, ValueId as CoreValueId,
 };
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
@@ -164,6 +164,7 @@ pub enum Operation {
 pub struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
+    pub environment_ownership: EnvironmentOwnership,
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Block,

@@ -129,7 +129,10 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn emit_environment_destructor(&mut self) -> Option<()> {
-        if self.function.environment.is_empty() {
+        let lowered = *self.index.lowered_functions.get(&self.current_function)?;
+        if self.function.environment.is_empty()
+            || lowered.environment_ownership == crate::core::ast::EnvironmentOwnership::Scoped
+        {
             return Some(());
         }
         let environment_type = Type::Product(

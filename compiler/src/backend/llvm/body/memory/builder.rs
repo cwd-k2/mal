@@ -72,10 +72,11 @@ impl FunctionEmitter<'_> {
                 }
                 let pointer = self.register();
                 self.line(format!(
-                    "  {pointer} = call ptr @mal_runtime_packed_builder_get(ptr %mal_context, ptr {}, {} {})",
+                    "  {pointer} = call ptr @mal_runtime_packed_builder_get(ptr %mal_context, ptr {}, {} {}, {} {stride})",
                     builder.representation,
                     self.types.pointer_integer()?,
-                    index.representation
+                    index.representation,
+                    self.types.pointer_integer()?
                 ));
                 self.emit_source_load_at(&pointer, element)
             }
@@ -89,10 +90,11 @@ impl FunctionEmitter<'_> {
                 let [index, value] = self.product_fields(&put, [&Type::USize, element])?;
                 let value_pointer = self.builder_value_pointer(&value, stride)?;
                 self.line(format!(
-                    "  call void @mal_runtime_packed_builder_put(ptr %mal_context, ptr {}, {} {}, ptr {value_pointer})",
+                    "  call void @mal_runtime_packed_builder_put(ptr %mal_context, ptr {}, {} {}, ptr {value_pointer}, {} {stride})",
                     builder.representation,
                     self.types.pointer_integer()?,
-                    index.representation
+                    index.representation,
+                    self.types.pointer_integer()?
                 ));
                 Some(EmittedValue {
                     ty: Type::Unit,

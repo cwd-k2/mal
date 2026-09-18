@@ -58,11 +58,21 @@ fn constructs_and_edits_packed_values_with_scoped_capabilities() {
              ();
            });
            many := pack<USize>((new, _, _) -> addRange(new, 0usize, 40usize));
+           nested := pack<Int32>((new, _, put) -> {
+             outer := new(5i32);
+             inner := pack<Int32>((innerNew, _, _) -> {
+               added := innerNew(9i32);
+               put(outer, added.i32);
+               ();
+             });
+             put(outer, inner # 0usize);
+             ();
+           });
            if (#original == 2usize && original # 0usize == 11i32
                && original # 1usize == 20i32 && #updated == 3usize
                && updated # 0usize == 41i32 && updated # 1usize == 20i32
                && updated # 2usize == 8i32 && #many == 40usize
-               && many # 39usize == 39usize)
+               && many # 39usize == 39usize && nested # 0usize == 9i32)
            then 0
            else 1;
          };",

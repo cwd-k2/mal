@@ -51,7 +51,29 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let closure = if captures.is_empty() {
+                let closure = if target.environment_ownership
+                    == crate::core::ast::EnvironmentOwnership::Scoped
+                {
+                    let [capture] = captures.as_slice() else {
+                        return None;
+                    };
+                    if capture.ty != Type::Address {
+                        return None;
+                    }
+                    self.require_binding_borrow(
+                        site,
+                        binding,
+                        BindingOperand::Capture(0),
+                        capture,
+                    )?;
+                    let environment = self.atom(capture)?;
+                    let closure = self.register();
+                    self.line(format!(
+                        "  {closure} = insertvalue {} {with_code}, ptr {}, 1",
+                        closure_type.llvm, environment.representation
+                    ));
+                    closure
+                } else if captures.is_empty() {
                     with_code
                 } else {
                     let environment_type = Type::Product(

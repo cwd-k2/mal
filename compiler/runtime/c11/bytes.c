@@ -271,10 +271,9 @@ static MalPackedBuilder *mal_packed_builder_allocate(
     MalContext *context,
     size_t stride
 ) {
-    MalPackedBuilder *builder = mal_bytes_allocate(
+    MalPackedBuilder *builder = mal_runtime_scoped_environment_allocate(
         context,
-        sizeof(MalPackedBuilder),
-        "packed builder allocation failed"
+        sizeof(MalPackedBuilder)
     );
     builder->owner = NULL;
     builder->offset = 0;
@@ -314,6 +313,7 @@ static size_t mal_packed_builder_bytes(
     return count * stride;
 }
 
+__attribute__((always_inline))
 static void mal_packed_builder_make_editable(
     MalContext *context,
     MalPackedBuilder *builder
@@ -384,42 +384,41 @@ size_t mal_runtime_packed_builder_new(
     return index;
 }
 
+__attribute__((always_inline))
 const void *mal_runtime_packed_builder_get(
     MalContext *context,
     const void *opaque_builder,
-    size_t index
+    size_t index,
+    size_t stride
 ) {
     const MalPackedBuilder *builder = opaque_builder;
-    if (index >= builder->count) {
-        mal_trap(context, "packed builder index out of bounds");
-    }
-    if (builder->stride == 0) {
+    (void)context;
+    if (stride == 0) {
         return NULL;
     }
     return mal_bytes_data(builder->owner)
         + builder->offset
-        + mal_packed_builder_bytes(context, index, builder->stride);
+        + index * stride;
 }
 
+__attribute__((always_inline))
 void mal_runtime_packed_builder_put(
     MalContext *context,
     void *opaque_builder,
     size_t index,
-    const void *value
+    const void *value,
+    size_t stride
 ) {
     MalPackedBuilder *builder = opaque_builder;
-    if (index >= builder->count) {
-        mal_trap(context, "packed builder index out of bounds");
-    }
-    if (builder->stride == 0) {
+    if (stride == 0) {
         return;
     }
     mal_packed_builder_make_editable(context, builder);
     MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
     memcpy(
-        flat->bytes + flat->start + index * builder->stride,
+        flat->bytes + flat->start + index * stride,
         value,
-        builder->stride
+        stride
     );
 }
 
@@ -428,5 +427,5 @@ void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builde
     result->owner = builder->owner;
     result->offset = builder->offset;
     result->length = builder->count;
-    free(builder);
+    mal_runtime_scoped_environment_deallocate(builder);
 }

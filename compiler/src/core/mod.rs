@@ -18,8 +18,8 @@ pub use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, Parameter, Pattern, Program,
-    TopLevelBinding, UnaryPrimitive, ValueId,
+    Binding, Capture, CaseArm, EnvironmentOwnership, Expression, ExpressionKind, Lambda, Parameter,
+    Pattern, Program, TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub fn lower(program: &checked::MonomorphicProgram) -> Program {
@@ -29,6 +29,11 @@ pub fn lower(program: &checked::MonomorphicProgram) -> Program {
 struct Lowerer {
     next_temporary: u32,
     next_lambda: u32,
+    packed_capabilities: Vec<(
+        checked::Type,
+        ast::PackedBuilderOperation,
+        crate::resolve::ast::LambdaId,
+    )>,
     joins: Vec<ast::Join>,
     result_targets: HashMap<crate::resolve::ast::ValueId, ast::JoinId>,
 }
@@ -38,6 +43,7 @@ impl Lowerer {
         Self {
             next_temporary: 0,
             next_lambda: 0,
+            packed_capabilities: Vec::new(),
             joins: Vec::new(),
             result_targets: HashMap::new(),
         }
@@ -349,6 +355,7 @@ impl Lowerer {
         Lambda {
             id: lambda.id,
             self_binding: lambda.self_binding.map(ValueId::Source),
+            environment_ownership: EnvironmentOwnership::Owned,
             captures: lambda
                 .captures
                 .iter()
