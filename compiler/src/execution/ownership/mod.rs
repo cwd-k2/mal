@@ -10,17 +10,17 @@ use super::{
     ParameterPlan,
 };
 
-mod handoff;
+mod destination;
 mod managed;
 
-pub(crate) use handoff::PatternHandoff;
-use handoff::plan_pattern;
+pub(crate) use destination::PatternDestination;
+use destination::plan_pattern;
 pub(crate) use managed::is_managed;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
-    input_handoffs: HashMap<StateId, PatternHandoff>,
-    binding_handoffs: HashMap<(StateId, usize), PatternHandoff>,
+    input_destinations: HashMap<StateId, PatternDestination>,
+    binding_destinations: HashMap<(StateId, usize), PatternDestination>,
     drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
     drops_on_edge: HashMap<EdgeId, Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
@@ -116,7 +116,7 @@ impl Plan {
         frames: &ControlFramePlan,
     ) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
-        let mut input_handoffs = HashMap::new();
+        let mut input_destinations = HashMap::new();
         for (index, state) in control.states.iter().enumerate() {
             debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
             let mut live = terminator_live(&state.terminator, &live_in);
@@ -127,18 +127,18 @@ impl Plan {
                 });
             }
             if let Some(input) = &state.input {
-                input_handoffs.insert(StateId(index), plan_pattern(input, &live));
+                input_destinations.insert(StateId(index), plan_pattern(input, &live));
                 remove_pattern_bindings(input, &mut live);
             }
             live_in[index] = live;
         }
 
-        let mut binding_handoffs = HashMap::new();
+        let mut binding_destinations = HashMap::new();
         let mut drops_after_binding = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
             let mut live = terminator_live(&state.terminator, &live_in);
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
-                binding_handoffs.insert(
+                binding_destinations.insert(
                     (StateId(state_index), binding_index),
                     plan_pattern(&binding.pattern, &live),
                 );
@@ -169,16 +169,16 @@ impl Plan {
             regions,
             frames,
             live_in: &live_in,
-            input_handoffs: &input_handoffs,
-            binding_handoffs: &binding_handoffs,
+            input_destinations: &input_destinations,
+            binding_destinations: &binding_destinations,
             drop_candidates: &drops_after_binding,
         });
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
         let drops_on_edge = collect_edge_drops(control, calls, frames, &live_in, &uses);
         let parameters = collect_parameter_effects(control, parameters);
         Self {
-            input_handoffs,
-            binding_handoffs,
+            input_destinations,
+            binding_destinations,
             drops_after_binding,
             drops_on_edge,
             uses,
@@ -203,16 +203,16 @@ impl Plan {
             .map_or(&[], Vec::as_slice)
     }
 
-    pub(crate) fn input_handoff(&self, state: StateId) -> Option<&PatternHandoff> {
-        self.input_handoffs.get(&state)
+    pub(crate) fn input_destination(&self, state: StateId) -> Option<&PatternDestination> {
+        self.input_destinations.get(&state)
     }
 
-    pub(crate) fn binding_handoff(
+    pub(crate) fn binding_destination(
         &self,
         state: StateId,
         binding: usize,
-    ) -> Option<&PatternHandoff> {
-        self.binding_handoffs.get(&(state, binding))
+    ) -> Option<&PatternDestination> {
+        self.binding_destinations.get(&(state, binding))
     }
 
     pub(crate) fn drops_on_edge(&self, state: StateId, path: ControlPath) -> &[ValueId] {
@@ -363,8 +363,8 @@ fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {
     }
 }
 
-fn jump_value_effect(handoff: &PatternHandoff) -> UseEffect {
-    if handoff.has_owner_successor() {
+fn jump_value_effect(destination: &PatternDestination) -> UseEffect {
+    if destination.has_owner_successor() {
         UseEffect::Share
     } else {
         UseEffect::Borrow
@@ -449,8 +449,8 @@ struct UseInputs<'a> {
     regions: &'a ControlRegionPlan,
     frames: &'a ControlFramePlan,
     live_in: &'a [HashSet<ValueId>],
-    input_handoffs: &'a HashMap<StateId, PatternHandoff>,
-    binding_handoffs: &'a HashMap<(StateId, usize), PatternHandoff>,
+    input_destinations: &'a HashMap<StateId, PatternDestination>,
+    binding_destinations: &'a HashMap<(StateId, usize), PatternDestination>,
     drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
 }
 
@@ -461,8 +461,8 @@ fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
         regions,
         frames,
         live_in,
-        input_handoffs,
-        binding_handoffs,
+        input_destinations,
+        binding_destinations,
         drop_candidates,
     } = inputs;
     let mut uses = HashMap::new();
@@ -485,9 +485,9 @@ fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let operands = binding_operands(&binding.operation);
             let atom_result_has_owner_successor = !matches!(binding.operation, Operation::Atom(_))
-                || binding_handoffs
+                || binding_destinations
                     .get(&(site, binding_index))
-                    .is_some_and(PatternHandoff::has_owner_successor);
+                    .is_some_and(PatternDestination::has_owner_successor);
             let dead = drop_candidates
                 .get(&(site, binding_index))
                 .map_or(&[][..], Vec::as_slice);
@@ -532,7 +532,7 @@ fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
                 .find(|(operand, _, _)| *operand == TerminatorOperand::JumpValue)
         {
             *effect = jump_value_effect(
-                input_handoffs
+                input_destinations
                     .get(target)
                     .expect("every jump target has an input handoff"),
             );
@@ -653,9 +653,9 @@ fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
             for (arm_ordinal, arm) in arms.iter().enumerate() {
                 let member = members.get(arm.index).expect("checked case member");
                 if is_managed(member)
-                    && input_handoffs
+                    && input_destinations
                         .get(&arm.target)
-                        .is_some_and(PatternHandoff::has_owner_successor)
+                        .is_some_and(PatternDestination::has_owner_successor)
                 {
                     let effect = if binding_id(scrutinee).is_some_and(|id| {
                         local_bindings.contains(&id) && !live_in[arm.target.0].contains(&id)
@@ -1086,8 +1086,8 @@ mod tests {
             })
             .expect("unused managed binding");
         assert_eq!(
-            execution.ownership.binding_handoff(site, binding),
-            Some(&PatternHandoff::Drop)
+            execution.ownership.binding_destination(site, binding),
+            Some(&PatternDestination::Discard)
         );
         let Operation::Atom(atom) = &execution.control.states[site.0].bindings[binding].operation
         else {
@@ -1229,11 +1229,14 @@ mod tests {
         };
         assert_eq!(
             plan_pattern(&pattern, &HashSet::new()),
-            PatternHandoff::Drop
+            PatternDestination::Discard
         );
-        assert_eq!(jump_value_effect(&PatternHandoff::Drop), UseEffect::Borrow);
         assert_eq!(
-            jump_value_effect(&PatternHandoff::Store(id)),
+            jump_value_effect(&PatternDestination::Discard),
+            UseEffect::Borrow
+        );
+        assert_eq!(
+            jump_value_effect(&PatternDestination::Store(id)),
             UseEffect::Share
         );
     }

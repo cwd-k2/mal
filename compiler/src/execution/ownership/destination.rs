@@ -6,37 +6,39 @@ use crate::closure::ast::Pattern;
 use super::managed::managed_paths;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum PatternHandoff {
+pub(crate) enum PatternDestination {
     Unmanaged,
     Store(ValueId),
-    Drop,
+    Discard,
     Product(Vec<Self>),
 }
 
-impl PatternHandoff {
+impl PatternDestination {
     pub(super) fn has_owner_successor(&self) -> bool {
         match self {
             Self::Store(_) => true,
             Self::Product(elements) => elements.iter().any(Self::has_owner_successor),
-            Self::Unmanaged | Self::Drop => false,
+            Self::Unmanaged | Self::Discard => false,
         }
     }
 }
 
-pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternHandoff {
+pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternDestination {
     match pattern {
         Pattern::Binding { ty, .. } if managed_paths(ty).next().is_none() => {
-            PatternHandoff::Unmanaged
+            PatternDestination::Unmanaged
         }
-        Pattern::Binding { id, .. } if live_after.contains(id) => PatternHandoff::Store(*id),
-        Pattern::Binding { .. } => PatternHandoff::Drop,
-        Pattern::Product { elements, .. } => PatternHandoff::Product(
+        Pattern::Binding { id, .. } if live_after.contains(id) => PatternDestination::Store(*id),
+        Pattern::Binding { .. } => PatternDestination::Discard,
+        Pattern::Product { elements, .. } => PatternDestination::Product(
             elements
                 .iter()
                 .map(|element| plan_pattern(element, live_after))
                 .collect(),
         ),
-        Pattern::Wildcard { ty, .. } if managed_paths(ty).next().is_some() => PatternHandoff::Drop,
-        Pattern::Wildcard { .. } => PatternHandoff::Unmanaged,
+        Pattern::Wildcard { ty, .. } if managed_paths(ty).next().is_some() => {
+            PatternDestination::Discard
+        }
+        Pattern::Wildcard { .. } => PatternDestination::Unmanaged,
     }
 }

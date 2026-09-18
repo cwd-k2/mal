@@ -286,8 +286,8 @@ impl FunctionEmitter<'_> {
         pattern: &Pattern,
         value: Option<&EmittedValue>,
     ) -> Option<()> {
-        let handoff = self.ownership.binding_handoff(state, binding)?.clone();
-        self.store_pattern_with_handoff(pattern, value, &handoff)
+        let destination = self.ownership.binding_destination(state, binding)?.clone();
+        self.store_pattern_to_destination(pattern, value, &destination)
     }
 
     pub(super) fn store_input_pattern(
@@ -296,20 +296,23 @@ impl FunctionEmitter<'_> {
         value: Option<&EmittedValue>,
     ) -> Option<()> {
         let pattern = self.control.states[state.0].input.as_ref()?.clone();
-        let handoff = self.ownership.input_handoff(state)?.clone();
-        self.store_pattern_with_handoff(&pattern, value, &handoff)
+        let destination = self.ownership.input_destination(state)?.clone();
+        self.store_pattern_to_destination(&pattern, value, &destination)
     }
 
-    fn store_pattern_with_handoff(
+    fn store_pattern_to_destination(
         &mut self,
         pattern: &Pattern,
         value: Option<&EmittedValue>,
-        handoff: &crate::execution::ownership::PatternHandoff,
+        destination: &crate::execution::ownership::PatternDestination,
     ) -> Option<()> {
         match pattern {
             Pattern::Binding { ty, .. }
                 if crate::execution::ownership::is_managed(ty)
-                    && matches!(handoff, crate::execution::ownership::PatternHandoff::Drop) =>
+                    && matches!(
+                        destination,
+                        crate::execution::ownership::PatternDestination::Discard
+                    ) =>
             {
                 let value = value?;
                 if value.ty != *ty {
@@ -322,8 +325,8 @@ impl FunctionEmitter<'_> {
             Pattern::Binding { id, ty }
                 if crate::execution::ownership::is_managed(ty)
                     && matches!(
-                        handoff,
-                        crate::execution::ownership::PatternHandoff::Store(target)
+                        destination,
+                        crate::execution::ownership::PatternDestination::Store(target)
                             if target == id
                     ) =>
             {
@@ -348,8 +351,8 @@ impl FunctionEmitter<'_> {
             Pattern::Binding { id, ty }
                 if self.types.value(ty).is_some()
                     && matches!(
-                        handoff,
-                        crate::execution::ownership::PatternHandoff::Unmanaged
+                        destination,
+                        crate::execution::ownership::PatternDestination::Unmanaged
                     ) =>
             {
                 let value = value?;
@@ -372,11 +375,11 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let aggregate_type = self.types.value(ty)?;
-                let handoffs = match handoff {
-                    crate::execution::ownership::PatternHandoff::Product(handoff_elements)
-                        if handoff_elements.len() == elements.len() =>
-                    {
-                        handoff_elements.as_slice()
+                let destinations = match destination {
+                    crate::execution::ownership::PatternDestination::Product(
+                        destination_elements,
+                    ) if destination_elements.len() == elements.len() => {
+                        destination_elements.as_slice()
                     }
                     _ => return None,
                 };
@@ -388,7 +391,7 @@ impl FunctionEmitter<'_> {
                         "  {register} = extractvalue {} {}, {index}",
                         aggregate_type.llvm, value.representation
                     ));
-                    self.store_pattern_with_handoff(
+                    self.store_pattern_to_destination(
                         element,
                         Some(&EmittedValue {
                             ty: element_type.clone(),
@@ -396,13 +399,16 @@ impl FunctionEmitter<'_> {
                             owned: value.owned
                                 && crate::execution::ownership::is_managed(element_type),
                         }),
-                        &handoffs[index],
+                        &destinations[index],
                     )?;
                 }
             }
             Pattern::Wildcard { ty, .. }
                 if crate::execution::ownership::is_managed(ty)
-                    && matches!(handoff, crate::execution::ownership::PatternHandoff::Drop) =>
+                    && matches!(
+                        destination,
+                        crate::execution::ownership::PatternDestination::Discard
+                    ) =>
             {
                 let value = value?;
                 if value.owned {
@@ -412,8 +418,8 @@ impl FunctionEmitter<'_> {
             Pattern::Wildcard { ty, .. }
                 if !crate::execution::ownership::is_managed(ty)
                     && matches!(
-                        handoff,
-                        crate::execution::ownership::PatternHandoff::Unmanaged
+                        destination,
+                        crate::execution::ownership::PatternDestination::Unmanaged
                     ) => {}
             _ => return None,
         }
