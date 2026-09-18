@@ -56,7 +56,8 @@ function returnではresultをowned handoffし、後継のないactivation-local
 `execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として決め、`execution::ownership`はapplication target、
 call mode、recursive regionとparameterが作るmanaged responsibilityからhandoffを計画する。native ABI callのcallerがcall完了まで
 authorityを保持し、self-tailまたはregion内遷移も外側のinvocationが同じauthorityを保持できる場合、parameter bindingはownerを
-複製せずborrowする。pureな`Atom`、product、sumによるargument構成も同じcall boundaryまでborrowできる。
+複製せずborrowする。pureな`Atom`、product、sumによるargument構成graphも同じcall boundaryまでborrowできる。分解aliasの
+provenanceは記述順で即決せず、parameter、case payload、pure constructionから得たauthorityを収集してから依存関係を解く。
 
 recursive controlがfresh managed valueを作る、managed resultを返す、managed call resultを受け取る、またはregion外targetを含む
 dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを包含できない。そのregionのparameterは従来どおり、native ABI
@@ -96,6 +97,7 @@ C shimがprocess argumentから作るdescriptorとargument bytesはborrowed exte
 ## 検証
 
 - managed slot、aggregate、sum、closure capture、frame、extern bridgeの各境界でretain/releaseの対応を実行testで確認する。
+- nested aggregateの分解と再構成で同じauthorityが保たれ、中間carrierがownerを複製しないことを確認する。
 - deep self recursionとfirst-class cycleでowner数がdepthに比例して残らないことを確認する。
 - activeでないsum payloadへretain、release、readを行わない。
 - allocation counterを使うfixtureはnormal return後にlive allocationがないことを確認する。

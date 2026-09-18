@@ -8,6 +8,7 @@ use super::{
     ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan,
 };
 
+mod authority;
 mod borrow;
 mod destination;
 mod drop_plan;

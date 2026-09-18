@@ -1,5 +1,6 @@
 use super::*;
 use crate::check::ast::Type;
+use crate::closure::ast::Pattern;
 use crate::control::ast::{Operation, StateId};
 use crate::source::{FileId, SourceFile};
 
@@ -65,6 +66,63 @@ fn borrows_pure_aggregate_inputs_when_the_result_has_no_owner_successor() {
             .iter()
             .all(|effect| *effect == Some(UseEffect::Borrow))
     );
+}
+
+#[test]
+fn propagates_borrowed_authority_through_nested_construction() {
+    let execution = lower(
+        "Problem :: (Symbol, Int64, Int64);\nChoice :: [(Symbol, Symbol), Unit];\nwalk :: (Problem, Int64) -> USize := (problem, remaining) -> { (text, first, second) := problem; if (remaining == 0i64) then { #text } else { (text, first, second).walk(remaining - 1i64) } };\nchoiceLength :: Choice -> USize := (choice) -> { choice[(pair) -> { (left, _) := pair; #left }, () -> { 0usize }] };\nmain :: Unit -> Int32 := () -> { problem :: Problem := (\"a\" + \"b\", 1i64, 2i64); _ := problem.walk(3i64); choice :: Choice := [some, none] => { some((\"c\" + \"d\", \"e\" + \"f\")) }; _ := choiceLength(choice); 0i32; };",
+    );
+    let construction_results = execution
+        .control
+        .states
+        .iter()
+        .flat_map(|state| &state.bindings)
+        .filter_map(|binding| {
+            matches!(
+                binding.operation,
+                Operation::Product(_) | Operation::SumInjection { .. }
+            )
+            .then(|| match binding.pattern {
+                Pattern::Binding { id, .. } => Some(id),
+                _ => None,
+            })
+            .flatten()
+        })
+        .collect::<HashSet<_>>();
+    let mut nested_product = false;
+    let mut nested_sum = false;
+    for (state_index, state) in execution.control.states.iter().enumerate() {
+        let site = StateId(state_index);
+        for (binding_index, binding) in state.bindings.iter().enumerate() {
+            match &binding.operation {
+                Operation::Product(elements) => {
+                    nested_product |= elements.iter().enumerate().any(|(index, element)| {
+                        managed_binding_id(element)
+                            .is_some_and(|source| construction_results.contains(&source))
+                            && execution.ownership.binding_use(
+                                site,
+                                binding_index,
+                                BindingOperand::ProductElement(index),
+                            ) == Some(UseEffect::Borrow)
+                    });
+                }
+                Operation::SumInjection { value, .. } => {
+                    nested_sum |= managed_binding_id(value)
+                        .is_some_and(|source| construction_results.contains(&source))
+                        && execution.ownership.binding_use(
+                            site,
+                            binding_index,
+                            BindingOperand::SumValue,
+                        ) == Some(UseEffect::Borrow);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    assert!(nested_product);
+    assert!(nested_sum);
 }
 
 #[test]

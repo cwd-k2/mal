@@ -2,11 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
-use crate::control::ast::{Operation, Program, Terminator};
+use crate::control::ast::{Program, Terminator};
 
 use super::liveness::{
-    collect_pattern_binding_order, managed_binding_id, remove_pattern_bindings, successors,
-    terminator_live, visit_operation_atoms,
+    managed_binding_id, remove_pattern_bindings, successors, terminator_live, visit_operation_atoms,
 };
 use super::parameter::ParameterBorrows;
 
@@ -19,161 +18,7 @@ impl BorrowPlan {
     pub(super) fn new(control: &Program, parameters: &ParameterBorrows) -> Self {
         let initial = Self::default();
         let live_in = initial.live_in(control);
-        let mut authorities = parameters
-            .bindings
-            .iter()
-            .map(|binding| (*binding, HashSet::new()))
-            .collect::<HashMap<_, _>>();
-        let mut discarded_results = HashSet::new();
-        for state in &control.states {
-            let mut live = terminator_live(&state.terminator, &live_in);
-            for binding in state.bindings.iter().rev() {
-                if let Operation::Atom(atom) = &binding.operation
-                    && let Some(source) = managed_binding_id(atom)
-                {
-                    let mut bindings = Vec::new();
-                    collect_pattern_binding_order(&binding.pattern, &mut bindings);
-                    if let Some(lenders) = authorities.get(&source).cloned() {
-                        for borrowed in bindings {
-                            if live.contains(&borrowed) {
-                                authorities.insert(borrowed, lenders.clone());
-                            }
-                        }
-                    } else if live.contains(&source) {
-                        for borrowed in bindings {
-                            if live.contains(&borrowed) {
-                                authorities.insert(borrowed, HashSet::from([source]));
-                            }
-                        }
-                    } else if !bindings.iter().any(|binding| live.contains(binding)) {
-                        discarded_results.insert(source);
-                    }
-                }
-                remove_pattern_bindings(&binding.pattern, &mut live);
-                visit_operation_atoms(&binding.operation, |atom| {
-                    if let Some(binding) = managed_binding_id(atom) {
-                        live.insert(binding);
-                    }
-                });
-            }
-        }
-        for state in &control.states {
-            let Terminator::Case { scrutinee, arms } = &state.terminator else {
-                continue;
-            };
-            let Some(source) = managed_binding_id(scrutinee) else {
-                continue;
-            };
-            for arm in arms {
-                let target = &control.states[arm.target.0];
-                if !target.live.iter().any(|value| value.id == source) {
-                    continue;
-                }
-                let Some(input) = &target.input else {
-                    continue;
-                };
-                let live = initial.body_live(target, &live_in);
-                let mut bindings = Vec::new();
-                collect_pattern_binding_order(input, &mut bindings);
-                for borrowed in bindings {
-                    if live.contains(&borrowed) {
-                        authorities.insert(borrowed, HashSet::from([source]));
-                    }
-                }
-            }
-        }
-
-        for (state_index, state) in control.states.iter().enumerate() {
-            let site = crate::control::ast::StateId(state_index);
-            if parameters.call_sites.contains(&site)
-                && let Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. } =
-                    &state.terminator
-                && let Some(source) = managed_binding_id(argument)
-            {
-                discarded_results.insert(source);
-            }
-        }
-
-        let mut definitions = HashMap::new();
-        let mut input_states = HashMap::new();
-        for (state_index, state) in control.states.iter().enumerate() {
-            if let Some(crate::closure::ast::Pattern::Binding { id, .. }) = &state.input {
-                input_states.insert(*id, crate::control::ast::StateId(state_index));
-            }
-            for binding in &state.bindings {
-                if let crate::closure::ast::Pattern::Binding { id, .. } = &binding.pattern {
-                    definitions.insert(*id, &binding.operation);
-                }
-            }
-        }
-        let mut pending = discarded_results.into_iter().collect::<Vec<_>>();
-        let mut visited = HashSet::new();
-        while let Some(discarded) = pending.pop() {
-            if !visited.insert(discarded) {
-                continue;
-            }
-            if let Some(operation) = definitions.get(&discarded) {
-                match operation {
-                    Operation::Atom(atom) => {
-                        if let Some(source) = managed_binding_id(atom) {
-                            authorities.insert(discarded, HashSet::from([source]));
-                            pending.push(source);
-                        }
-                    }
-                    Operation::Product(elements) => {
-                        authorities.insert(
-                            discarded,
-                            elements
-                                .iter()
-                                .filter_map(managed_binding_id)
-                                .collect::<HashSet<_>>(),
-                        );
-                    }
-                    Operation::SumInjection { value, .. } => {
-                        authorities
-                            .insert(discarded, managed_binding_id(value).into_iter().collect());
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-            let Some(target) = input_states.get(&discarded) else {
-                continue;
-            };
-            let mut sources = Vec::new();
-            for state in &control.states {
-                if let Terminator::Jump {
-                    target: successor,
-                    value,
-                } = &state.terminator
-                    && successor == target
-                    && let Some(source) = managed_binding_id(value)
-                {
-                    sources.push(source);
-                }
-            }
-            if !sources.is_empty() {
-                authorities.insert(discarded, HashSet::new());
-                pending.extend(sources);
-            }
-        }
-
-        let mut invalid = HashSet::new();
-        for state in &control.states {
-            let live = state
-                .live
-                .iter()
-                .map(|value| value.id)
-                .collect::<HashSet<_>>();
-            for borrowed in &live {
-                if let Some(sources) = authorities.get(borrowed)
-                    && !sources.iter().all(|source| live.contains(source))
-                {
-                    invalid.insert(*borrowed);
-                }
-            }
-        }
-        authorities.retain(|borrowed, _| !invalid.contains(borrowed));
+        let authorities = super::authority::collect(control, parameters, &live_in);
         Self { authorities }
     }
 
@@ -296,6 +141,46 @@ mod tests {
             ]))
         );
         assert!(execution.ownership.binding_is_borrowed(left));
+    }
+
+    #[test]
+    fn propagates_parameter_authority_through_a_dead_intermediate_alias() {
+        let source = SourceFile::new(
+            FileId::new(105),
+            "borrowed-nested-destructure.mal",
+            "inspect :: ((Symbol, Int64), Bool) -> USize := (argument) -> { (pair, _) := argument; (text, _) := pair; #text; };\nmain :: Unit -> Int32 := () -> { inspect(((\"a\" + \"b\", 0i64), true)).i32; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check nested destructure fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize nested destructure fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let text = execution
+            .control
+            .states
+            .iter()
+            .flat_map(|state| &state.bindings)
+            .find_map(|binding| match &binding.pattern {
+                Pattern::Product { elements, .. }
+                    if matches!(binding.operation, Operation::Atom(_)) =>
+                {
+                    elements.iter().find_map(|element| match element {
+                        Pattern::Binding {
+                            id,
+                            ty: Type::Symbol,
+                        } => Some(*id),
+                        _ => None,
+                    })
+                }
+                _ => None,
+            })
+            .expect("nested Symbol binding");
+
+        assert!(execution.ownership.binding_is_borrowed(text));
     }
 
     #[test]

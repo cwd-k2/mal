@@ -183,7 +183,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
 | `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
-| `execution/ownership/borrow` | `Atom(binding)`のpattern alias、sumをarm内でも保持するcase payload、caller-bounded parameterとcall argument、owner successorなしでdiscardされるpure aggregate resultのprovenanceを構成し、`Atom`とlocal `Jump`を越えたlender dependencyをlivenessへ加える |
+| `execution/ownership/authority` | caller-bounded parameter、case payload、discardされたpure constructionをauthority rootとして収集し、nested `Atom`、product、sumとpattern aliasの順序非依存なprovenanceを構成する |
+| `execution/ownership/borrow` | authority dependencyで閉じたmanaged livenessをcontrol state、binding、terminatorへ提供する |
 | `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
 | `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
