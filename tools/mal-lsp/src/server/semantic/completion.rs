@@ -65,7 +65,7 @@ pub(super) fn lexical_function_completions(
         .unwrap_or_default();
     let document = &server.documents[uri];
     let recovered_graph;
-    let graph = if let Some(graph) = &document.graph {
+    let graph = if let Some(graph) = document.graph() {
         Some(graph)
     } else {
         recovered_graph = syntax.and_then(|syntax| {

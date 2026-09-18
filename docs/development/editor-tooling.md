@@ -96,6 +96,9 @@ publishし、修正後は空のdiagnosticをpublishして以前の表示を消�
 diagnostic内容が直前のpublishから変わった場合だけpublishする。同一version、同一内容のdiagnosticは再送しない。
 現在以下のversionを持つchange notificationは古いbuffer内容を復元しないよう無視する。
 
+documentのsemantic analysis cacheは`Stale`、`Failed`、`Ready`のいずれかであり、source graphとsemantic indexはその状態に
+付随する。独立したfreshness flagとoptional resultの組合せは持たず、編集時には状態全体を`Stale`へ戻す。
+
 frontend analysisに失敗したversionでは、そのversionに対するsemantic requestをJSON-RPC errorにせず、hover、definition、renameは
 結果なし、referencesとdocument symbolは空の結果として返す。semantic tokenはcurrent sourceのsyntax indexによる分類へfallbackし、
 completionは上記のreceiver-first contextに限ってsyntax indexから候補を返す。一度失敗した同一versionをsemantic

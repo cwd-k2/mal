@@ -24,11 +24,20 @@ struct Document {
     id: FileId,
     version: i64,
     text: String,
-    analysis: Option<malc::pipeline::Analysis>,
-    graph: Option<SourceGraph>,
-    semantic: Option<malc::editor::SemanticDocument>,
-    analysis_current: bool,
+    analysis: AnalysisState,
     published_diagnostics: Option<PublishedDiagnostics>,
+}
+
+enum AnalysisState {
+    Stale,
+    Failed {
+        graph: Option<SourceGraph>,
+    },
+    Ready {
+        graph: Option<SourceGraph>,
+        analysis: malc::pipeline::Analysis,
+        semantic: Option<malc::editor::SemanticDocument>,
+    },
 }
 
 struct PublishedDiagnostics {
@@ -173,10 +182,7 @@ impl Server {
                             id,
                             version: item.version,
                             text: item.text,
-                            analysis: None,
-                            graph: None,
-                            semantic: None,
-                            analysis_current: false,
+                            analysis: AnalysisState::Stale,
                             published_diagnostics: None,
                         },
                     );

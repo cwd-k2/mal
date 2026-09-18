@@ -47,8 +47,8 @@ fn publishes_utf16_diagnostics_and_clears_them_after_a_change() {
         opened.messages[0]["params"]["diagnostics"][0]["range"]["end"]["character"],
         2
     );
-    assert!(server.documents["file:///unicode.mal"].semantic.is_none());
-    assert!(server.documents["file:///unicode.mal"].analysis.is_none());
+    assert!(!server.documents["file:///unicode.mal"].has_semantic());
+    assert!(!server.documents["file:///unicode.mal"].has_analysis());
 
     let changed = server.handle(json!({
         "jsonrpc": "2.0",
@@ -60,8 +60,8 @@ fn publishes_utf16_diagnostics_and_clears_them_after_a_change() {
     }));
     assert_eq!(changed.messages[0]["params"]["version"], 2);
     assert_eq!(changed.messages[0]["params"]["diagnostics"], json!([]));
-    assert!(server.documents["file:///unicode.mal"].semantic.is_none());
-    assert!(server.documents["file:///unicode.mal"].analysis.is_some());
+    assert!(!server.documents["file:///unicode.mal"].has_semantic());
+    assert!(server.documents["file:///unicode.mal"].has_analysis());
     request_at(
         &mut server,
         2,
@@ -70,7 +70,7 @@ fn publishes_utf16_diagnostics_and_clears_them_after_a_change() {
         "value :: Int32 := 1;",
         0,
     );
-    assert!(server.documents["file:///unicode.mal"].semantic.is_some());
+    assert!(server.documents["file:///unicode.mal"].has_semantic());
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn returns_no_semantic_result_while_the_current_source_is_invalid() {
             .len(),
         20
     );
-    assert!(server.documents[uri].analysis_current);
+    assert!(server.documents[uri].analysis_is_current());
 }
 
 #[test]

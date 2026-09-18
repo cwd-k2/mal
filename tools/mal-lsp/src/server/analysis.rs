@@ -4,7 +4,8 @@ use malc::source::SourceFile;
 use serde_json::{Value, json};
 
 use super::{
-    Document, PublishedDiagnostics, Server, position, publish_diagnostics, uri_to_path, zero_range,
+    AnalysisState, Document, PublishedDiagnostics, Server, position, publish_diagnostics,
+    uri_to_path, zero_range,
 };
 
 impl Server {
@@ -33,10 +34,7 @@ impl Server {
 
     pub(super) fn invalidate_analyses(&mut self) {
         for document in self.documents.values_mut() {
-            document.analysis = None;
-            document.graph = None;
-            document.semantic = None;
-            document.analysis_current = false;
+            document.analysis = AnalysisState::Stale;
         }
     }
 
@@ -69,15 +67,17 @@ impl Server {
             .filter_map(|(uri, document)| Some((uri_to_path(uri)?, document.text.clone())))
             .collect::<HashMap<_, _>>();
         let document = self.documents.get_mut(uri).expect("open document");
-        document.analysis_current = true;
         let Some(path) = uri_to_path(uri) else {
             return document.analyze_single(uri);
         };
         match malc::driver::load_source_graph_with_overlays(&path, &document.text, &overlays) {
             Ok(graph) => match malc::pipeline::analyze_graph(&graph) {
                 Ok(analysis) => {
-                    document.graph = Some(graph);
-                    document.analysis = Some(analysis);
+                    document.analysis = AnalysisState::Ready {
+                        graph: Some(graph),
+                        analysis,
+                        semantic: None,
+                    };
                     Vec::new()
                 }
                 Err(diagnostic) => {
@@ -91,68 +91,84 @@ impl Server {
                     } else {
                         lsp_diagnostic_at_root(source, diagnostic)
                     };
-                    document.graph = Some(graph);
+                    document.analysis = AnalysisState::Failed { graph: Some(graph) };
                     vec![diagnostic]
                 }
             },
             Err(load_error) => {
                 let source = document.source(uri);
-                match malc::pipeline::analyze(&source) {
+                let diagnostics = match malc::pipeline::analyze(&source) {
                     Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
                     Ok(_) => vec![json!({
                         "range": zero_range(), "severity": 1, "source": "malc",
                         "message": load_error.to_string()
                     })],
-                }
+                };
+                document.analysis = AnalysisState::Failed { graph: None };
+                diagnostics
             }
         }
     }
 
     pub(super) fn ensure_analyzed(&mut self, uri: &str) -> bool {
-        if let Some(document) = self.documents.get(uri)
-            && document.analysis_current
-        {
-            return document.analysis.is_some();
+        if let Some(document) = self.documents.get(uri) {
+            match &document.analysis {
+                AnalysisState::Ready { .. } => return true,
+                AnalysisState::Failed { .. } => return false,
+                AnalysisState::Stale => {}
+            }
         }
         self.analyze_document(uri);
-        self.documents
-            .get(uri)
-            .is_some_and(|document| document.analysis.is_some())
+        self.documents.get(uri).is_some_and(Document::has_analysis)
     }
 }
 
 impl Document {
     pub(super) fn source(&self, uri: &str) -> SourceFile {
-        self.graph.as_ref().map_or_else(
+        self.graph().map_or_else(
             || SourceFile::new(self.id, uri, self.text.clone()),
             |graph| SourceFile::new(graph.root(), graph.root_source().path(), self.text.clone()),
         )
     }
 
     pub(super) fn semantic(&mut self) -> Option<&malc::editor::SemanticDocument> {
-        if self.semantic.is_none() {
-            let analysis = self.analysis.as_ref()?;
-            self.semantic = Some(self.graph.as_ref().map_or_else(
+        let AnalysisState::Ready {
+            graph,
+            analysis,
+            semantic,
+        } = &mut self.analysis
+        else {
+            return None;
+        };
+        if semantic.is_none() {
+            *semantic = Some(graph.as_ref().map_or_else(
                 || malc::editor::from_analysis_for_file(analysis, self.id),
                 |graph| malc::editor::from_graph_analysis(graph, analysis, graph.root()),
             ));
         }
-        self.semantic.as_ref()
+        semantic.as_ref()
     }
 
     fn analyze_single(&mut self, uri: &str) -> Vec<Value> {
         let source = self.source(uri);
         match malc::pipeline::analyze(&source) {
             Ok(analysis) => {
-                self.analysis = Some(analysis);
+                self.analysis = AnalysisState::Ready {
+                    graph: None,
+                    analysis,
+                    semantic: None,
+                };
                 Vec::new()
             }
-            Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
+            Err(diagnostic) => {
+                self.analysis = AnalysisState::Failed { graph: None };
+                vec![lsp_diagnostic(&source, diagnostic)]
+            }
         }
     }
 
     pub(super) fn source_for(&self, span: malc::source::Span, uri: &str) -> Option<SourceFile> {
-        if let Some(graph) = &self.graph {
+        if let Some(graph) = self.graph() {
             let source = graph.source(span.file())?;
             return Some(SourceFile::new(
                 source.id(),
@@ -162,6 +178,33 @@ impl Document {
         }
         let source = self.source(uri);
         source.contains(span).then_some(source)
+    }
+
+    pub(super) fn graph(&self) -> Option<&malc::source::SourceGraph> {
+        match &self.analysis {
+            AnalysisState::Failed { graph } | AnalysisState::Ready { graph, .. } => graph.as_ref(),
+            AnalysisState::Stale => None,
+        }
+    }
+
+    pub(super) fn has_analysis(&self) -> bool {
+        matches!(&self.analysis, AnalysisState::Ready { .. })
+    }
+
+    #[cfg(test)]
+    pub(super) fn has_semantic(&self) -> bool {
+        matches!(
+            &self.analysis,
+            AnalysisState::Ready {
+                semantic: Some(_),
+                ..
+            }
+        )
+    }
+
+    #[cfg(test)]
+    pub(super) fn analysis_is_current(&self) -> bool {
+        !matches!(&self.analysis, AnalysisState::Stale)
     }
 }
 

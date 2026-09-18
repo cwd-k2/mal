@@ -378,7 +378,7 @@ impl Server {
     fn span_location(&self, root_uri: &str, span: Span) -> Option<(String, Value)> {
         let document = self.documents.get(root_uri)?;
         let source = document.source_for(span, root_uri)?;
-        let uri = document.graph.as_ref().map_or_else(
+        let uri = document.graph().map_or_else(
             || root_uri.to_owned(),
             |graph| {
                 if span.file() == graph.root() {
@@ -399,7 +399,7 @@ enum SemanticRequest<T> {
 }
 
 fn definition_display_path(document: &Document, root_uri: &str, source: &SourceFile) -> String {
-    if let Some(graph) = &document.graph
+    if let Some(graph) = document.graph()
         && let Some(root_directory) = graph.root_source().path().parent()
         && let Ok(relative) = source.path().strip_prefix(root_directory)
         && !relative.as_os_str().is_empty()
