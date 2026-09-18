@@ -1,11 +1,16 @@
 // CompileState fields: next source byte, next loop identity, generated function body.
 CompileState :: (USize, UInt64, Symbol);
-// Variant 0 is a diagnostic; variant 1 is a completed state.
-CompileResult :: [Symbol, CompileState];
+CompileStepResult :: [Symbol, CompileState];
+// Variant 0 is a diagnostic; variant 1 is a complete LLVM IR module.
+CompileResult :: [Symbol, Symbol];
 
-_failure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
+_stepFailure :: Symbol -> CompileStepResult := (message) -> [failure, success] => failure(message);
 
-_success :: CompileState -> CompileResult := (state) -> [failure, success] => success(state);
+_stepSuccess :: CompileState -> CompileStepResult := (state) -> [failure, success] => success(state);
+
+_compileFailure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
+
+_compileSuccess :: Symbol -> CompileResult := (output) -> [failure, success] => success(output);
 
 _digit :: UInt64 -> Symbol := (value) -> [return] => {
     when (value == 0u64) return("0");
@@ -56,38 +61,36 @@ _loopFooter :: UInt64 -> Symbol := (identity) -> {
 // The recursive call for an opening bracket consumes through its matching closing bracket.
 // All other transitions are tail calls, so comments and long straight-line programs use bounded
 // native stack.
-_compileUntil :: (Packed<UInt8>, USize, USize, UInt64, Bool, Symbol) -> CompileResult :=
-    (source, length, index, nextLoop, nested, output) -> [return] => {
-        when (index == length) {
+_compileUntil :: (Region<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResult :=
+    (source, index, nextLoop, nested, output) -> [return] => {
+        when (index == #source) {
             if (nested)
-            then return(_failure("unmatched '['\n"))
-            else return(_success((index, nextLoop, output)));
+            then return(_stepFailure("unmatched '['\n"))
+            else return(_stepSuccess((index, nextLoop, output)));
         };
 
-        byte := source # index;
+        (byte, _) := <-(?(source % index))@u8;
         when (byte == ']') {
             if (nested)
-            then return(_success((index + 1usize, nextLoop, output)))
-            else return(_failure("unmatched ']'\n"));
+            then return(_stepSuccess((index + 1usize, nextLoop, output)))
+            else return(_stepFailure("unmatched ']'\n"));
         };
 
         when (byte == '[') {
             identity := nextLoop;
             body := _compileUntil(
                 source,
-                length,
                 index + 1usize,
                 nextLoop + 1u64,
                 true,
                 output + identity._loopHeader()
             );
             return(body[
-                (message) -> _failure(message),
+                (message) -> _stepFailure(message),
                 (state) -> {
                     (afterBody, afterLoop, bodyOutput) := state;
                     _compileUntil(
                         source,
-                        length,
                         afterBody,
                         afterLoop,
                         nested,
@@ -100,7 +103,6 @@ _compileUntil :: (Packed<UInt8>, USize, USize, UInt64, Bool, Symbol) -> CompileR
         instruction := byte._simpleInstruction();
         return(_compileUntil(
             source,
-            length,
             index + 1usize,
             nextLoop,
             nested,
@@ -108,42 +110,15 @@ _compileUntil :: (Packed<UInt8>, USize, USize, UInt64, Bool, Symbol) -> CompileR
         ));
     };
 
-_preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
-    + "declare i32 @putchar(i32)\n\n"
-    + "@tape = internal global [30000 x i8] zeroinitializer\n"
-    + "@cursor = internal global ptr @tape\n\n"
-    + "define internal void @bf_right() {\nentry:\n"
-    + "  %p = load ptr, ptr @cursor\n"
-    + "  %next = getelementptr i8, ptr %p, i64 1\n"
-    + "  store ptr %next, ptr @cursor\n  ret void\n}\n\n"
-    + "define internal void @bf_left() {\nentry:\n"
-    + "  %p = load ptr, ptr @cursor\n"
-    + "  %next = getelementptr i8, ptr %p, i64 -1\n"
-    + "  store ptr %next, ptr @cursor\n  ret void\n}\n\n"
-    + "define internal i8 @bf_current() {\nentry:\n"
-    + "  %p = load ptr, ptr @cursor\n"
-    + "  %value = load i8, ptr %p\n  ret i8 %value\n}\n\n"
-    + "define internal void @bf_increment() {\nentry:\n"
-    + "  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n"
-    + "  %next = add i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\n"
-    + "define internal void @bf_decrement() {\nentry:\n"
-    + "  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n"
-    + "  %next = sub i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\n"
-    + "define internal void @bf_output() {\nentry:\n"
-    + "  %value = call i8 @bf_current()\n  %argument = zext i8 %value to i32\n"
-    + "  %ignored = call i32 @putchar(i32 %argument)\n  ret void\n}\n\n"
-    + "define internal void @bf_input() {\nentry:\n"
-    + "  %value = call i32 @getchar()\n  %byte = trunc i32 %value to i8\n"
-    + "  %p = load ptr, ptr @cursor\n  store i8 %byte, ptr %p\n  ret void\n}\n\n"
-    + "define i32 @main() {\nentry:\n";
+_preamble :: Symbol := "declare i32 @getchar()\ndeclare i32 @putchar(i32)\n\n@tape = internal global [30000 x i8] zeroinitializer\n@cursor = internal global ptr @tape\n\ndefine internal void @bf_right() {\nentry:\n  %p = load ptr, ptr @cursor\n  %next = getelementptr i8, ptr %p, i64 1\n  store ptr %next, ptr @cursor\n  ret void\n}\n\ndefine internal void @bf_left() {\nentry:\n  %p = load ptr, ptr @cursor\n  %next = getelementptr i8, ptr %p, i64 -1\n  store ptr %next, ptr @cursor\n  ret void\n}\n\ndefine internal i8 @bf_current() {\nentry:\n  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n  ret i8 %value\n}\n\ndefine internal void @bf_increment() {\nentry:\n  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n  %next = add i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\ndefine internal void @bf_decrement() {\nentry:\n  %p = load ptr, ptr @cursor\n  %value = load i8, ptr %p\n  %next = sub i8 %value, 1\n  store i8 %next, ptr %p\n  ret void\n}\n\ndefine internal void @bf_output() {\nentry:\n  %value = call i8 @bf_current()\n  %argument = zext i8 %value to i32\n  %ignored = call i32 @putchar(i32 %argument)\n  ret void\n}\n\ndefine internal void @bf_input() {\nentry:\n  %value = call i32 @getchar()\n  %byte = trunc i32 %value to i8\n  %p = load ptr, ptr @cursor\n  store i8 %byte, ptr %p\n  ret void\n}\n\ndefine i32 @main() {\nentry:\n";
 
-compile :: Packed<UInt8> -> CompileResult := (source) -> {
-    compiled := _compileUntil(source, #source, 0usize, 0u64, false, _preamble());
+compile :: Region<UInt8> -> CompileResult := (source) -> {
+    compiled := _compileUntil(source, 0usize, 0u64, false, _preamble);
     compiled[
-    (message) -> _failure(message),
+    (message) -> _compileFailure(message),
     (state) -> {
-        (index, nextLoop, output) := state;
-        _success((index, nextLoop, output + "  ret i32 0\n}\n"));
+        (_, _, output) := state;
+        _compileSuccess(output + "  ret i32 0\n}\n");
     }
     ];
 };

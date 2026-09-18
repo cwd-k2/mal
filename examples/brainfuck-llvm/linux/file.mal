@@ -1,8 +1,8 @@
 require "./memory.mal";
 require "./syscall.mal";
 
-// SourceSnapshot fields: 0 snapshot bytes, 1 source length, 2 mapping extent.
-SourceSnapshot :: (Address, USize, ByteSize);
+// SourceSnapshot fields: 0 source bytes borrowed from the mapping, 1 mapping extent.
+SourceSnapshot :: (Region<UInt8>, ByteSize);
 ReadResult :: [SourceSnapshot, UInt32];
 // MappingBuffer fields: 0 current mapping, 1 extent, 2 initialized byte length.
 MappingBuffer :: (Address, ByteSize, ByteSize);
@@ -61,7 +61,7 @@ _finishRead :: (Int32, MappingResult) -> ReadResult := (descriptor, result) -> {
     (buffer) -> {
         (memory, capacity, length) := buffer;
         closed[
-        () -> _readSuccess((memory, length.usize, capacity)),
+        () -> _readSuccess((memory@u8@(length.usize), capacity)),
         (error) -> {
             systemMunmap(memory, capacity);
             _readFailure(error);
@@ -141,6 +141,6 @@ readSource :: Symbol -> ReadResult := (path) -> [return] => {
 };
 
 releaseSource :: SourceSnapshot -> SyscallStatus := (source) -> {
-    (memory, _, mappingLength) := source;
-    systemMunmap(memory, mappingLength);
+    (bytes, mappingLength) := source;
+    systemMunmap(?bytes, mappingLength);
 };

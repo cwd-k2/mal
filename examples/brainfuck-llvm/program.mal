@@ -35,8 +35,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
     read := readSource(path);
     return(read[
         (source) -> {
-            (memory, length, _) := source;
-            bytes := <-memory@u8@length;
+            (bytes, _) := source;
             result := compile(bytes);
             status :: Int32 := result[
                 (message) -> {
@@ -44,10 +43,9 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
                     releaseSource(source);
                     1;
                 },
-                (state) -> {
-                    (_, _, output) := state;
-                    written := writeStdout(output);
+                (output) -> {
                     released := releaseSource(source);
+                    written := writeStdout(output);
                     _finishOutput(written, released);
                 }
             ];
