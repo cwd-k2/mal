@@ -671,6 +671,52 @@ mod tests {
     }
 
     #[test]
+    fn invalidates_a_consumed_sum_before_releasing_discarded_payload_leaves() {
+        let source = SourceFile::new(
+            FileId::new(98),
+            "case-payload-transfer-order.mal",
+            "Choice :: [(Symbol, Symbol), Unit];\n\
+             select :: Choice -> Symbol := (choice) -> {\n\
+               choice[(keep, _) -> { keep }, () -> { \"fallback\" }]\n\
+             };\n\
+             main :: Unit -> Int32 := () -> {\n\
+               result := select([only, empty] => { only(\"a\" + \"b\", \"c\" + \"d\") });\n\
+               (#result).i32;\n\
+             };"
+            .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check case ownership fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize case ownership fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution = crate::execution::lower(closure, crate::execution::OptimizationSet::none());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::none(),
+        )
+        .expect("case ownership fixture is supported");
+
+        let arm = artifacts
+            .module
+            .split_once("\nmal_case_")
+            .map(|(_, arm)| arm)
+            .expect("case arm block");
+        let invalidation = arm
+            .find("zeroinitializer, ptr %mal_slot_")
+            .expect("consumed sum invalidation");
+        let release = arm
+            .find("call void @mal_runtime_bytes_release")
+            .expect("discarded payload leaf release");
+        assert!(invalidation < release);
+    }
+
+    #[test]
     fn reads_supported_pointer_widths_from_target_data_layouts() {
         assert_eq!(target_layout("e-m:e-i64:64"), TargetLayout::natural(8, 8));
         for bits in 0_usize..=256 {

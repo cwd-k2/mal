@@ -189,8 +189,8 @@ impl FunctionEmitter<'_> {
                 }
             };
             let payload = self.prepare_case_payload(site, arm_ordinal, scrutinee_atom, payload)?;
-            self.store_input_pattern(arm.target, Some(&payload.value))?;
             self.commit_consumes(&payload)?;
+            self.store_input_pattern(arm.target, Some(&payload.value))?;
             self.emit_edge_drops(
                 site,
                 crate::execution::ownership::ControlPath::CaseArm(arm_ordinal),
