@@ -141,12 +141,12 @@ impl Document {
             return None;
         };
         if semantic.is_none() {
-            *semantic = Some(graph.as_ref().map_or_else(
+            *semantic = Some(Box::new(graph.as_ref().map_or_else(
                 || malc::editor::from_analysis_for_file(analysis, self.id),
                 |graph| malc::editor::from_graph_analysis(graph, analysis, graph.root()),
-            ));
+            )));
         }
-        semantic.as_ref()
+        semantic.as_deref()
     }
 
     fn analyze_single(&mut self, uri: &str) -> Vec<Value> {

@@ -36,7 +36,7 @@ enum AnalysisState {
     Ready {
         graph: Option<SourceGraph>,
         analysis: malc::pipeline::Analysis,
-        semantic: Option<malc::editor::SemanticDocument>,
+        semantic: Option<Box<malc::editor::SemanticDocument>>,
     },
 }
 
