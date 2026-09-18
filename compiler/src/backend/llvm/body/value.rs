@@ -284,7 +284,7 @@ impl FunctionEmitter<'_> {
         pattern: &Pattern,
         value: Option<&EmittedValue>,
     ) -> Option<()> {
-        self.store_pattern_with_drops(pattern, value, &[])
+        self.store_pattern_with_handoff(pattern, value, None)
     }
 
     pub(super) fn store_input_pattern(
@@ -293,19 +293,23 @@ impl FunctionEmitter<'_> {
         value: Option<&EmittedValue>,
     ) -> Option<()> {
         let pattern = self.control.states[state.0].input.as_ref()?.clone();
-        let drops = self.ownership.drops_after_input(state).to_vec();
-        self.store_pattern_with_drops(&pattern, value, &drops)
+        let handoff = self.ownership.input_handoff(state)?.clone();
+        self.store_pattern_with_handoff(&pattern, value, Some(&handoff))
     }
 
-    fn store_pattern_with_drops(
+    fn store_pattern_with_handoff(
         &mut self,
         pattern: &Pattern,
         value: Option<&EmittedValue>,
-        drops: &[crate::anf::ast::ValueId],
+        handoff: Option<&crate::execution::ownership::PatternHandoff>,
     ) -> Option<()> {
         match pattern {
-            Pattern::Binding { id, ty }
-                if crate::execution::ownership::is_managed(ty) && drops.contains(id) =>
+            Pattern::Binding { ty, .. }
+                if crate::execution::ownership::is_managed(ty)
+                    && matches!(
+                        handoff,
+                        Some(crate::execution::ownership::PatternHandoff::Drop)
+                    ) =>
             {
                 let value = value?;
                 if value.ty != *ty {
@@ -315,7 +319,16 @@ impl FunctionEmitter<'_> {
                     self.release_value(ty, &value.representation)?;
                 }
             }
-            Pattern::Binding { id, ty } if crate::execution::ownership::is_managed(ty) => {
+            Pattern::Binding { id, ty }
+                if crate::execution::ownership::is_managed(ty)
+                    && handoff.is_none_or(|handoff| {
+                        matches!(
+                            handoff,
+                            crate::execution::ownership::PatternHandoff::Store(target)
+                                if target == id
+                        )
+                    }) =>
+            {
                 let mut value = value?.clone();
                 if value.ty != *ty {
                     return None;
@@ -334,7 +347,15 @@ impl FunctionEmitter<'_> {
                     value_type.llvm, value.representation, slot.index, value_type.alignment
                 ));
             }
-            Pattern::Binding { id, ty } if self.types.value(ty).is_some() => {
+            Pattern::Binding { id, ty }
+                if self.types.value(ty).is_some()
+                    && handoff.is_none_or(|handoff| {
+                        matches!(
+                            handoff,
+                            crate::execution::ownership::PatternHandoff::Unmanaged
+                        )
+                    }) =>
+            {
                 let value = value?;
                 if value.ty != *ty {
                     return None;
@@ -355,6 +376,15 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let aggregate_type = self.types.value(ty)?;
+                let handoffs = match handoff {
+                    Some(crate::execution::ownership::PatternHandoff::Product(
+                        handoff_elements,
+                    )) if handoff_elements.len() == elements.len() => {
+                        Some(handoff_elements.as_slice())
+                    }
+                    Some(_) => return None,
+                    None => None,
+                };
                 for (index, (element, element_type)) in
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
@@ -363,7 +393,7 @@ impl FunctionEmitter<'_> {
                         "  {register} = extractvalue {} {}, {index}",
                         aggregate_type.llvm, value.representation
                     ));
-                    self.store_pattern_with_drops(
+                    self.store_pattern_with_handoff(
                         element,
                         Some(&EmittedValue {
                             ty: element_type.clone(),
@@ -371,18 +401,29 @@ impl FunctionEmitter<'_> {
                             owned: value.owned
                                 && crate::execution::ownership::is_managed(element_type),
                         }),
-                        drops,
+                        handoffs.map(|handoffs| &handoffs[index]),
                     )?;
                 }
             }
-            Pattern::Wildcard { ty, .. } => {
-                if crate::execution::ownership::is_managed(ty) {
-                    let value = value?;
-                    if value.owned {
-                        self.release_value(ty, &value.representation)?;
-                    }
+            Pattern::Wildcard { ty, .. }
+                if crate::execution::ownership::is_managed(ty)
+                    && handoff.is_none_or(|handoff| {
+                        matches!(handoff, crate::execution::ownership::PatternHandoff::Drop)
+                    }) =>
+            {
+                let value = value?;
+                if value.owned {
+                    self.release_value(ty, &value.representation)?;
                 }
             }
+            Pattern::Wildcard { ty, .. }
+                if !crate::execution::ownership::is_managed(ty)
+                    && handoff.is_none_or(|handoff| {
+                        matches!(
+                            handoff,
+                            crate::execution::ownership::PatternHandoff::Unmanaged
+                        )
+                    }) => {}
             _ => return None,
         }
         Some(())

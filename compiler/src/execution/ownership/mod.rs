@@ -10,9 +10,13 @@ use super::{
     ParameterPlan,
 };
 
+mod managed;
+
+pub(crate) use managed::is_managed;
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
-    drops_after_input: HashMap<StateId, Vec<ValueId>>,
+    input_handoffs: HashMap<StateId, PatternHandoff>,
     drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
     drops_on_edge: HashMap<EdgeId, Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
@@ -44,6 +48,24 @@ pub(crate) enum ParameterEffect {
     ShareInto(ValueId),
     ConsumeInto(ValueId),
     Drop,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum PatternHandoff {
+    Unmanaged,
+    Store(ValueId),
+    Drop,
+    Product(Vec<Self>),
+}
+
+impl PatternHandoff {
+    fn has_owner_successor(&self) -> bool {
+        match self {
+            Self::Store(_) => true,
+            Self::Product(elements) => elements.iter().any(Self::has_owner_successor),
+            Self::Unmanaged | Self::Drop => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -108,7 +130,7 @@ impl Plan {
         frames: &ControlFramePlan,
     ) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
-        let mut drops_after_input = HashMap::new();
+        let mut input_handoffs = HashMap::new();
         for (index, state) in control.states.iter().enumerate() {
             debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
             let mut live = terminator_live(&state.terminator, &live_in);
@@ -119,11 +141,7 @@ impl Plan {
                 });
             }
             if let Some(input) = &state.input {
-                let mut drops = Vec::new();
-                collect_dead_pattern_bindings(input, &live, &mut drops);
-                if !drops.is_empty() {
-                    drops_after_input.insert(StateId(index), drops);
-                }
+                input_handoffs.insert(StateId(index), pattern_handoff(input, &live));
                 remove_pattern_bindings(input, &mut live);
             }
             live_in[index] = live;
@@ -159,14 +177,14 @@ impl Plan {
             regions,
             frames,
             &live_in,
-            &drops_after_input,
+            &input_handoffs,
             &drops_after_binding,
         );
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
         let drops_on_edge = collect_edge_drops(control, calls, frames, &live_in, &uses);
         let parameters = collect_parameter_effects(control, parameters);
         Self {
-            drops_after_input,
+            input_handoffs,
             drops_after_binding,
             drops_on_edge,
             uses,
@@ -191,10 +209,8 @@ impl Plan {
             .map_or(&[], Vec::as_slice)
     }
 
-    pub(crate) fn drops_after_input(&self, state: StateId) -> &[ValueId] {
-        self.drops_after_input
-            .get(&state)
-            .map_or(&[], Vec::as_slice)
+    pub(crate) fn input_handoff(&self, state: StateId) -> Option<&PatternHandoff> {
+        self.input_handoffs.get(&state)
     }
 
     pub(crate) fn drops_on_edge(&self, state: StateId, path: ControlPath) -> &[ValueId] {
@@ -296,11 +312,6 @@ fn collect_parameter_effects(
     effects
 }
 
-pub(crate) fn is_managed(ty: &Type) -> bool {
-    ty.data_subtypes()
-        .any(|ty| matches!(ty, Type::Symbol | Type::Packed(_) | Type::Function { .. }))
-}
-
 fn successors(terminator: &Terminator) -> impl Iterator<Item = StateId> + '_ {
     let mut states = [None; 2];
     match terminator {
@@ -370,13 +381,19 @@ fn collect_dead_pattern_bindings(
     }
 }
 
-fn pattern_has_owner_successor(pattern: &Pattern, drops: &[ValueId]) -> bool {
+fn pattern_handoff(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternHandoff {
     match pattern {
-        Pattern::Binding { id, ty } => is_managed(ty) && !drops.contains(id),
-        Pattern::Product { elements, .. } => elements
-            .iter()
-            .any(|element| pattern_has_owner_successor(element, drops)),
-        Pattern::Wildcard { .. } => false,
+        Pattern::Binding { id, ty } if !is_managed(ty) => PatternHandoff::Unmanaged,
+        Pattern::Binding { id, .. } if live_after.contains(id) => PatternHandoff::Store(*id),
+        Pattern::Binding { .. } => PatternHandoff::Drop,
+        Pattern::Product { elements, .. } => PatternHandoff::Product(
+            elements
+                .iter()
+                .map(|element| pattern_handoff(element, live_after))
+                .collect(),
+        ),
+        Pattern::Wildcard { ty, .. } if is_managed(ty) => PatternHandoff::Drop,
+        Pattern::Wildcard { .. } => PatternHandoff::Unmanaged,
     }
 }
 
@@ -458,7 +475,7 @@ fn collect_use_effects(
     regions: &ControlRegionPlan,
     frames: &ControlFramePlan,
     live_in: &[HashSet<ValueId>],
-    drops_after_input: &HashMap<StateId, Vec<ValueId>>,
+    input_handoffs: &HashMap<StateId, PatternHandoff>,
     drop_candidates: &HashMap<(StateId, usize), Vec<ValueId>>,
 ) -> HashMap<UseId, UseEffect> {
     let mut uses = HashMap::new();
@@ -632,17 +649,10 @@ fn collect_use_effects(
         {
             for (arm_ordinal, arm) in arms.iter().enumerate() {
                 let member = members.get(arm.index).expect("checked case member");
-                let input = control.states[arm.target.0]
-                    .input
-                    .as_ref()
-                    .expect("case target input");
                 if is_managed(member)
-                    && pattern_has_owner_successor(
-                        input,
-                        drops_after_input
-                            .get(&arm.target)
-                            .map_or(&[][..], Vec::as_slice),
-                    )
+                    && input_handoffs
+                        .get(&arm.target)
+                        .is_some_and(PatternHandoff::has_owner_successor)
                 {
                     let effect = if binding_id(scrutinee).is_some_and(|id| {
                         local_bindings.contains(&id) && !live_in[arm.target.0].contains(&id)
@@ -935,18 +945,6 @@ mod tests {
     use crate::source::{FileId, SourceFile};
 
     #[test]
-    fn classifies_shared_type_dags_once_per_node() {
-        let mut unmanaged = Type::Unit;
-        for _ in 0..64 {
-            unmanaged = Type::Product(vec![unmanaged.clone(), unmanaged].into());
-        }
-        assert!(!is_managed(&unmanaged));
-
-        let managed = Type::Product(vec![unmanaged, Type::Symbol].into());
-        assert!(is_managed(&managed));
-    }
-
-    #[test]
     fn validates_the_exact_binding_drop_facts() {
         let source = SourceFile::new(
             FileId::new(90),
@@ -1197,9 +1195,10 @@ mod tests {
             id,
             ty: Type::Symbol,
         };
-        let mut drops = Vec::new();
-        collect_dead_pattern_bindings(&pattern, &HashSet::new(), &mut drops);
-        assert_eq!(drops, vec![id]);
+        assert_eq!(
+            pattern_handoff(&pattern, &HashSet::new()),
+            PatternHandoff::Drop
+        );
     }
 
     #[test]
