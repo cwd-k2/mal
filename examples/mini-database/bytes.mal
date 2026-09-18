@@ -44,7 +44,7 @@ _findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> 
 
 findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, start, byte) -> {
     if (start >= #source)
-    then#source
+    then #source
     else (source % start)._findByte(start, byte);
 };
 

@@ -10,6 +10,7 @@ Status: Current v0.6 policy and implementation
 - indentationはASCII space 4個とし、tabは出力しない。
 - outputの改行はLFとし、file末に1つのLFを置く。
 - `::`、`:=`、`->`とbinary operatorの両側、commaの後にspaceを置く。
+- keywordと同じ行に後続tokenがある場合は、その間にspaceを置く。
 - application、numeric conversion、delimiterの内側にspaceを置かない。
 - sourceで一行のblockは、body item、nested block、commentを持たなければ一行に置き、result直後の`;`を
   省く。sourceで複数行のblockは、単純なresultだけでも複数行のままにする。

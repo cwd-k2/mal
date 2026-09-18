@@ -66,6 +66,9 @@ impl Formatter<'_> {
             self.newline();
         }
         self.preserve_source_break(token_index, kind);
+        if matches!(self.previous, Previous::Keyword) {
+            self.space();
+        }
         if self.generic_delimiters[token_index] {
             match kind {
                 TokenKind::Less => {
@@ -131,9 +134,6 @@ impl Formatter<'_> {
                 self.previous = Previous::RightBracket;
             }
             TokenKind::Minus if !self.previous.ends_expression() => {
-                if matches!(self.previous, Previous::Keyword) {
-                    self.space();
-                }
                 self.write(text);
                 self.previous = Previous::Unary;
             }

@@ -63,6 +63,26 @@ fn formats_expression_bodies_for_binder_and_control_forms() {
 }
 
 #[test]
+fn separates_control_keywords_from_every_prefix_expression() {
+    for expression in [
+        "-value", "!value", "~value", "#value", "?value", "<-value", "*value",
+    ] {
+        let formatted = format(&format!(
+            "choose := (condition, value) -> if(condition)then{expression} else{expression};"
+        ));
+        assert!(
+            formatted.contains(&format!("then {expression}\n")),
+            "missing keyword boundary in:\n{formatted}"
+        );
+        assert!(
+            formatted.contains(&format!("else {expression};\n")),
+            "missing keyword boundary in:\n{formatted}"
+        );
+        assert_eq!(format(&formatted), formatted);
+    }
+}
+
+#[test]
 fn preserves_comments_and_literal_spelling() {
     let formatted =
         format("// heading\nnumber::UInt32:=0xff_ffu32;// value\ntext::Symbol:=\"a\\x62\";\n");
