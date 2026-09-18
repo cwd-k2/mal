@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::Pattern;
 
-use super::managed::managed_paths;
+use super::is_managed;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PatternDestination {
@@ -25,9 +25,7 @@ impl PatternDestination {
 
 pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternDestination {
     match pattern {
-        Pattern::Binding { ty, .. } if managed_paths(ty).next().is_none() => {
-            PatternDestination::Unmanaged
-        }
+        Pattern::Binding { ty, .. } if !is_managed(ty) => PatternDestination::Unmanaged,
         Pattern::Binding { id, .. } if live_after.contains(id) => PatternDestination::Store(*id),
         Pattern::Binding { .. } => PatternDestination::Discard,
         Pattern::Product { elements, .. } => PatternDestination::Product(
@@ -36,9 +34,7 @@ pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> 
                 .map(|element| plan_pattern(element, live_after))
                 .collect(),
         ),
-        Pattern::Wildcard { ty, .. } if managed_paths(ty).next().is_some() => {
-            PatternDestination::Discard
-        }
+        Pattern::Wildcard { ty, .. } if is_managed(ty) => PatternDestination::Discard,
         Pattern::Wildcard { .. } => PatternDestination::Unmanaged,
     }
 }
