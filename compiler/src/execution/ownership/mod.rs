@@ -60,6 +60,7 @@ pub(crate) enum UseLocation {
     },
     Terminator(TerminatorOperand),
     FrameField(usize),
+    CasePayload(usize),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -158,6 +159,7 @@ impl Plan {
             regions,
             frames,
             &live_in,
+            &drops_after_input,
             &drops_after_binding,
         );
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
@@ -233,6 +235,15 @@ impl Plan {
             .get(&UseId {
                 state,
                 location: UseLocation::FrameField(field),
+            })
+            .copied()
+    }
+
+    pub(crate) fn case_payload_use(&self, state: StateId, arm: usize) -> Option<UseEffect> {
+        self.uses
+            .get(&UseId {
+                state,
+                location: UseLocation::CasePayload(arm),
             })
             .copied()
     }
@@ -359,6 +370,16 @@ fn collect_dead_pattern_bindings(
     }
 }
 
+fn pattern_has_owner_successor(pattern: &Pattern, drops: &[ValueId]) -> bool {
+    match pattern {
+        Pattern::Binding { id, ty } => is_managed(ty) && !drops.contains(id),
+        Pattern::Product { elements, .. } => elements
+            .iter()
+            .any(|element| pattern_has_owner_successor(element, drops)),
+        Pattern::Wildcard { .. } => false,
+    }
+}
+
 fn terminator_live(terminator: &Terminator, live_in: &[HashSet<ValueId>]) -> HashSet<ValueId> {
     let mut live = HashSet::new();
     visit_terminator_successors(terminator, |successor| {
@@ -437,6 +458,7 @@ fn collect_use_effects(
     regions: &ControlRegionPlan,
     frames: &ControlFramePlan,
     live_in: &[HashSet<ValueId>],
+    drops_after_input: &HashMap<StateId, Vec<ValueId>>,
     drop_candidates: &HashMap<(StateId, usize), Vec<ValueId>>,
 ) -> HashMap<UseId, UseEffect> {
     let mut uses = HashMap::new();
@@ -605,6 +627,40 @@ fn collect_use_effects(
                 );
             }
         }
+        if let Terminator::Case { scrutinee, arms } = &state.terminator
+            && let Type::Sum(members) = &scrutinee.ty
+        {
+            for (arm_ordinal, arm) in arms.iter().enumerate() {
+                let member = members.get(arm.index).expect("checked case member");
+                let input = control.states[arm.target.0]
+                    .input
+                    .as_ref()
+                    .expect("case target input");
+                if is_managed(member)
+                    && pattern_has_owner_successor(
+                        input,
+                        drops_after_input
+                            .get(&arm.target)
+                            .map_or(&[][..], Vec::as_slice),
+                    )
+                {
+                    let effect = if binding_id(scrutinee).is_some_and(|id| {
+                        local_bindings.contains(&id) && !live_in[arm.target.0].contains(&id)
+                    }) {
+                        UseEffect::Consume
+                    } else {
+                        UseEffect::Share
+                    };
+                    uses.insert(
+                        UseId {
+                            state: site,
+                            location: UseLocation::CasePayload(arm_ordinal),
+                        },
+                        effect,
+                    );
+                }
+            }
+        }
     }
     uses
 }
@@ -668,7 +724,7 @@ fn collect_edge_drops(
         let effective_argument = calls
             .forwarded_self_argument(site)
             .or_else(|| terminator_argument(&state.terminator));
-        let mut consumed = terminator_operands(&state.terminator, effective_argument)
+        let mut consumed_at_terminator = terminator_operands(&state.terminator, effective_argument)
             .into_iter()
             .filter_map(|(operand, atom, _)| {
                 (uses.get(&UseId {
@@ -686,11 +742,22 @@ fn collect_edge_drops(
                     location: UseLocation::FrameField(field_index),
                 }) == Some(&UseEffect::Consume)
                 {
-                    consumed.insert(field.id);
+                    consumed_at_terminator.insert(field.id);
                 }
             }
         }
         for (path, successor) in control_paths(site, &state.terminator, calls, frames) {
+            let mut consumed = consumed_at_terminator.clone();
+            if let (ControlPath::CaseArm(arm), Terminator::Case { scrutinee, .. }) =
+                (path, &state.terminator)
+                && uses.get(&UseId {
+                    state: site,
+                    location: UseLocation::CasePayload(arm),
+                }) == Some(&UseEffect::Consume)
+                && let Some(id) = binding_id(scrutinee)
+            {
+                consumed.insert(id);
+            }
             let survivors = successor.map(|target| &live_in[target.0]);
             let drops = local_order
                 .iter()
@@ -1133,6 +1200,42 @@ mod tests {
         let mut drops = Vec::new();
         collect_dead_pattern_bindings(&pattern, &HashSet::new(), &mut drops);
         assert_eq!(drops, vec![id]);
+    }
+
+    #[test]
+    fn consumes_a_dead_sum_owner_into_its_active_case_payload() {
+        let source = SourceFile::new(
+            FileId::new(99),
+            "execution-ownership-case-payload.mal",
+            "Choice :: [Symbol, Symbol];\nselect :: Choice -> Symbol := (choice) -> { choice[(value) -> { value }, (value) -> { value }] };\nmake :: Symbol -> Choice := (value) -> [first, second] => { first(value) };\nmain :: Unit -> Int32 := () -> { (#select(make(\"x\"))).i32; };".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check case payload fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize case payload fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+        let (site, arm_count) = execution
+            .control
+            .states
+            .iter()
+            .enumerate()
+            .find_map(|(state, value)| match &value.terminator {
+                Terminator::Case { arms, .. } if arms.len() == 2 => {
+                    Some((StateId(state), arms.len()))
+                }
+                _ => None,
+            })
+            .expect("managed case");
+
+        for arm in 0..arm_count {
+            assert_eq!(
+                execution.ownership.case_payload_use(site, arm),
+                Some(UseEffect::Consume)
+            );
+        }
     }
 
     #[test]

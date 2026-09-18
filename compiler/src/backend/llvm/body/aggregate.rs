@@ -1,5 +1,5 @@
 use crate::check::ast::Type;
-use crate::closure::ast::Atom;
+use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{CaseArm, StateId};
 
 use super::types::is_bool;
@@ -137,6 +137,7 @@ impl FunctionEmitter<'_> {
         scrutinee: &Atom,
         arms: &[CaseArm],
     ) -> Option<()> {
+        let scrutinee_atom = scrutinee;
         let scrutinee = self.atom(scrutinee)?;
         let Type::Sum(members) = &scrutinee.ty else {
             return None;
@@ -187,8 +188,10 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 }
             };
+            let payload = self.prepare_case_payload(site, arm_ordinal, scrutinee_atom, payload)?;
             let input = self.control.states[arm.target.0].input.as_ref()?;
-            self.store_pattern(input, Some(&payload))?;
+            self.store_pattern(input, Some(&payload.value))?;
+            self.commit_consumes(&payload)?;
             self.emit_input_drops(arm.target)?;
             self.emit_edge_drops(
                 site,
@@ -197,6 +200,42 @@ impl FunctionEmitter<'_> {
             self.line(format!("  br label %mal_state_{}", arm.target.0));
         }
         Some(())
+    }
+
+    fn prepare_case_payload(
+        &mut self,
+        site: StateId,
+        arm: usize,
+        scrutinee: &Atom,
+        mut payload: EmittedValue,
+    ) -> Option<PreparedValue> {
+        if !crate::execution::ownership::is_managed(&payload.ty) {
+            return Some(PreparedValue {
+                value: payload,
+                consumed_slots: Vec::new(),
+            });
+        }
+        let mut consumed_slots = Vec::new();
+        match self.ownership.case_payload_use(site, arm) {
+            Some(UseEffect::Share) => self.retain_if_borrowed(&mut payload)?,
+            Some(UseEffect::Consume) => {
+                let AtomKind::Reference(Reference::Binding(id)) = scrutinee.kind else {
+                    return None;
+                };
+                let slot = self.slots.get(&id)?.clone();
+                if slot.ty != scrutinee.ty {
+                    return None;
+                }
+                payload.owned = true;
+                consumed_slots.push(slot);
+            }
+            Some(UseEffect::Borrow) => return None,
+            None => {}
+        }
+        Some(PreparedValue {
+            value: payload,
+            consumed_slots,
+        })
     }
 
     pub(super) fn emit_sum_payload(
