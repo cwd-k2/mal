@@ -223,17 +223,20 @@ pub enum BinaryPrimitive {
 pub struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
-    pub environment_ownership: EnvironmentOwnership,
+    pub kind: LambdaKind,
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Box<Expression>,
     pub joins: Vec<Join>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum EnvironmentOwnership {
-    Owned,
-    Scoped,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LambdaKind {
+    Ordinary,
+    PackedCapability {
+        operation: PackedBuilderOperation,
+        element: Type,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

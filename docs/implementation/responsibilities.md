@@ -153,14 +153,14 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
 | `core/packed` | checked `pack`・`edit`をbuilder lifetimeを閉じるcore operation列へ変換 |
-| `core/packed/capability` | builderをscoped environmentとしてcaptureする`new`・`get`・`put` capability lambdaを構成し、element型とoperationが同じintrinsic code identityを共有 |
+| `core/packed/capability` | builderをcaptureする`new`・`get`・`put` intrinsic capabilityを構成し、element型とoperationが同じcode identityを共有 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
-| `closure` | lambdaをfunctionとenvironmentへ変換し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
+| `closure` | ordinary lambdaとintrinsic capabilityをfunctionと各々のmanaged・scoped environmentへ変換し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成 |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
@@ -220,7 +220,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/memory/view` | Region admission、Packed transfer、slice、Symbol/Packed owner共有を出力 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
-| `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
+| `runtime/c11/core.c` | managed・scoped closure environmentのallocationとretain/release、およびprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
 | `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、scoped Packed builderを実装 |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |

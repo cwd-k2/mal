@@ -211,7 +211,7 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
     assert!(
         artifacts
             .module
-            .contains("ptr @mal_runtime_packed_builder_get(ptr %mal_context, ptr")
+            .contains("ptr @mal_runtime_packed_builder_get(ptr")
     );
     assert!(artifacts.module.contains(", i64 8)"));
 }

@@ -58,8 +58,8 @@ impl FunctionEmitter<'_> {
                     .index
                     .lowered_functions
                     .get(&self.current_function)?
-                    .environment_ownership
-                    != crate::core::ast::EnvironmentOwnership::Owned
+                    .kind
+                    .has_scoped_environment()
                 {
                     return None;
                 }
@@ -88,8 +88,7 @@ impl FunctionEmitter<'_> {
                 if field.ty != *ty {
                     return None;
                 }
-                if function.environment_ownership == crate::core::ast::EnvironmentOwnership::Scoped
-                {
+                if function.kind.has_scoped_environment() {
                     if *index != 0 || function.environment.len() != 1 || *ty != Type::Address {
                         return None;
                     }

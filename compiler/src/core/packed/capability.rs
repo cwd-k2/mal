@@ -3,8 +3,8 @@ use crate::resolve::ast::LambdaId;
 
 use super::super::Lowerer;
 use super::super::ast::{
-    Capture, EnvironmentOwnership, Expression, ExpressionKind, Lambda, PackedBuilderOperation,
-    Parameter, ValueId,
+    Capture, Expression, ExpressionKind, Lambda, LambdaKind, PackedBuilderOperation, Parameter,
+    ValueId,
 };
 
 impl Lowerer {
@@ -93,7 +93,10 @@ impl Lowerer {
             kind: ExpressionKind::Lambda(Lambda {
                 id,
                 self_binding: None,
-                environment_ownership: EnvironmentOwnership::Scoped,
+                kind: LambdaKind::PackedCapability {
+                    operation,
+                    element: element.clone(),
+                },
                 captures: vec![Capture {
                     source: builder,
                     binding: capture,

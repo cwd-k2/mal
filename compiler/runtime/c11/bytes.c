@@ -386,13 +386,11 @@ size_t mal_runtime_packed_builder_new(
 
 __attribute__((always_inline))
 const void *mal_runtime_packed_builder_get(
-    MalContext *context,
     const void *opaque_builder,
     size_t index,
     size_t stride
 ) {
     const MalPackedBuilder *builder = opaque_builder;
-    (void)context;
     if (stride == 0) {
         return NULL;
     }

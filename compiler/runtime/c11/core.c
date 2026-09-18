@@ -28,6 +28,9 @@ void *mal_runtime_environment_allocate(
     size_t size,
     void (*destroy)(void *)
 ) {
+    if (destroy == NULL) {
+        mal_trap(context, "closure environment destructor missing");
+    }
     if (size > SIZE_MAX - sizeof(MalEnvironmentHeader)) {
         mal_trap(context, "closure environment size overflow");
     }
@@ -46,10 +49,10 @@ void *mal_runtime_environment_retain(MalContext *context, void *environment) {
         return NULL;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    if (header->references == SIZE_MAX) {
+    if (header->destroy == NULL) {
         return environment;
     }
-    if (header->references == SIZE_MAX - 1) {
+    if (header->references == SIZE_MAX) {
         mal_trap(context, "closure reference count overflow");
     }
     ++header->references;
@@ -62,7 +65,7 @@ void mal_runtime_environment_release(void *environment) {
         return;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    if (header->references == SIZE_MAX) {
+    if (header->destroy == NULL) {
         return;
     }
     --header->references;
@@ -80,7 +83,7 @@ void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size) 
         context,
         sizeof(MalEnvironmentHeader) + size
     );
-    header->references = SIZE_MAX;
+    header->references = 0;
     header->destroy = NULL;
     return header + 1;
 }

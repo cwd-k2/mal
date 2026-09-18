@@ -18,8 +18,8 @@ pub use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    Binding, Capture, CaseArm, EnvironmentOwnership, Expression, ExpressionKind, Lambda, Parameter,
-    Pattern, Program, TopLevelBinding, UnaryPrimitive, ValueId,
+    Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, LambdaKind, Parameter, Pattern,
+    Program, TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub fn lower(program: &checked::MonomorphicProgram) -> Program {
@@ -355,7 +355,7 @@ impl Lowerer {
         Lambda {
             id: lambda.id,
             self_binding: lambda.self_binding.map(ValueId::Source),
-            environment_ownership: EnvironmentOwnership::Owned,
+            kind: LambdaKind::Ordinary,
             captures: lambda
                 .captures
                 .iter()

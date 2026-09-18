@@ -72,7 +72,7 @@ impl FunctionEmitter<'_> {
                 }
                 let pointer = self.register();
                 self.line(format!(
-                    "  {pointer} = call ptr @mal_runtime_packed_builder_get(ptr %mal_context, ptr {}, {} {}, {} {stride})",
+                    "  {pointer} = call ptr @mal_runtime_packed_builder_get(ptr {}, {} {}, {} {stride})",
                     builder.representation,
                     self.types.pointer_integer()?,
                     index.representation,

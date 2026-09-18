@@ -1,7 +1,7 @@
 use malc::anf;
 use malc::check;
 use malc::closure;
-use malc::closure::ast::{AtomKind, Function, Operation, Reference};
+use malc::closure::ast::{AtomKind, Function, FunctionKind, Operation, Reference};
 use malc::core;
 use malc::parser;
 use malc::resolve;
@@ -140,6 +140,30 @@ fn represents_capture_free_closures_without_environment_fields() {
             .iter()
             .all(|function| function.environment.is_empty())
     );
+}
+
+#[test]
+fn represents_shared_packed_capabilities_with_scoped_environments() {
+    let program = convert_ok(
+        "fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (new, get, put) -> { index := new(1i64); put(index, get(index)); (); };\n\
+         main :: Unit -> Int32 := () -> { first := pack<Int64>(fill); second := pack<Int64>(fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };",
+    );
+    let capabilities = program
+        .functions
+        .iter()
+        .filter(|function| matches!(&function.kind, FunctionKind::PackedCapability { .. }))
+        .collect::<Vec<_>>();
+    assert_eq!(capabilities.len(), 3);
+    assert!(capabilities.iter().all(|function| {
+        matches!(
+            &function.kind,
+            FunctionKind::PackedCapability {
+                element: check::ast::Type::Int64,
+                ..
+            }
+        ) && function.environment.len() == 1
+            && function.environment[0].ty == check::ast::Type::Address
+    }));
 }
 
 #[test]

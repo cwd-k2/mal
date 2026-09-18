@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomId, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, Operation,
-    Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Atom, AtomId, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, FunctionKind,
+    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub fn convert(program: &anf::Program) -> Program {
@@ -260,6 +260,7 @@ impl Converter {
             );
             debug_assert_eq!(existing.parameter.ty, lambda.parameter.ty);
             debug_assert_eq!(existing.body.result.ty, lambda.body.result.ty);
+            debug_assert_eq!(existing.kind, Self::function_kind(lambda));
             return;
         }
         let mut environment = lambda
@@ -286,7 +287,7 @@ impl Converter {
             .collect();
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
-            environment_ownership: lambda.environment_ownership,
+            kind: Self::function_kind(lambda),
             environment: lambda
                 .captures
                 .iter()
@@ -302,6 +303,18 @@ impl Converter {
             body,
             joins,
         });
+    }
+
+    fn function_kind(lambda: &anf::Lambda) -> FunctionKind {
+        match &lambda.kind {
+            crate::core::ast::LambdaKind::Ordinary => FunctionKind::Ordinary,
+            crate::core::ast::LambdaKind::PackedCapability { operation, element } => {
+                FunctionKind::PackedCapability {
+                    operation: *operation,
+                    element: element.clone(),
+                }
+            }
+        }
     }
 
     fn convert_case_arm(

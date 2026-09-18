@@ -128,7 +128,7 @@ impl Lowerer {
                 let lambda = Lambda {
                     id: lambda.id,
                     self_binding: lambda.self_binding.map(|id| self.core_id(id)),
-                    environment_ownership: lambda.environment_ownership,
+                    kind: lambda.kind.clone(),
                     captures: lambda
                         .captures
                         .iter()

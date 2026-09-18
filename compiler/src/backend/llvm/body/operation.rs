@@ -51,9 +51,7 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let closure = if target.environment_ownership
-                    == crate::core::ast::EnvironmentOwnership::Scoped
-                {
+                let closure = if target.kind.has_scoped_environment() {
                     let [capture] = captures.as_slice() else {
                         return None;
                     };

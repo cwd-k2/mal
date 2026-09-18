@@ -1,8 +1,7 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
 use crate::core::ast::{
-    BinaryPrimitive, EnvironmentOwnership, JoinId, PackedBuilderOperation, ProgramInterface,
-    UnaryPrimitive,
+    BinaryPrimitive, JoinId, PackedBuilderOperation, ProgramInterface, UnaryPrimitive,
 };
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
@@ -50,11 +49,26 @@ pub enum TopLevelPattern {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
     pub id: FunctionId,
-    pub environment_ownership: EnvironmentOwnership,
+    pub kind: FunctionKind,
     pub environment: Vec<EnvironmentField>,
     pub parameter: Parameter,
     pub body: Block,
     pub joins: Vec<Join>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FunctionKind {
+    Ordinary,
+    PackedCapability {
+        operation: PackedBuilderOperation,
+        element: Type,
+    },
+}
+
+impl FunctionKind {
+    pub fn has_scoped_environment(&self) -> bool {
+        matches!(self, Self::PackedCapability { .. })
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
