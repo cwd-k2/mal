@@ -10,9 +10,13 @@ whitespace. It defunctionalizes the recursive-descent control flow into one `_pa
 a central stack of parser frames instead of building a recursive syntax tree. Each four-bit frame
 records what the enclosing container must do after a child value completes. The intentionally
 fixed-width `UInt64` stack admits at most 15 nested containers; a dynamically allocated stack could
-remove this example-specific limit without changing the parser states. The host owns input and
-output buffers exposed through Address/USize descriptors; admission, Symbol construction, and
-decimal rendering stay in mal.
+remove this example-specific limit without changing the parser states.
+
+The host owns the stdin allocation. The mal parser borrows it as `Region<UInt8>` and returns only
+statistics or a static diagnostic, so the allocation can be released immediately after parsing;
+the complete input is never copied into a `Packed<UInt8>` or `Symbol`. Process arguments use the
+same borrowed-region query parser. Output rendering does use mal-owned `Symbol` values, then writes
+them in chunks through the fixed host buffer instead of treating its capacity as an output limit.
 
 Input is expected to be UTF-8. The example validates JSON token and structural syntax, including the
 shape of `\u` escapes, but does not decode Unicode escapes or reject unpaired UTF-16 surrogates.

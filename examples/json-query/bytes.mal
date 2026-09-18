@@ -1,0 +1,21 @@
+_startsWithAt :: (Region<UInt8>, Symbol, USize) -> Bool :=
+    (source, expected, index) -> [return] => {
+        when (index == #expected) {
+            return(true);
+        };
+        when (#source == 0usize) {
+            return(false);
+        };
+
+        (byte, _) := <-(?source)@u8;
+        when (byte != expected # index) {
+            return(false);
+        };
+        return((source % 1usize)._startsWithAt(expected, index + 1usize));
+    };
+
+startsWith :: (Region<UInt8>, Symbol) -> Bool := (source, expected) ->
+    source._startsWithAt(expected, 0usize);
+
+equalsSymbol :: (Region<UInt8>, Symbol) -> Bool := (source, expected) ->
+    #source == #expected && source.startsWith(expected);

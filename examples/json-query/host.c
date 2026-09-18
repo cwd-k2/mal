@@ -3,14 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static uint8_t output_buffer[1024];
+/* The mal writer chunks output to this nonempty process-lifetime buffer. */
+static uint8_t output_buffer[32];
 
 MAL_DEFINE_readStdin(call) {
     uint8_t *data = NULL;
     size_t length = 0;
     size_t capacity = 0;
 
-    /* The host retains this buffer until mal admits its bytes and releases the handle. */
+    /* The host retains this buffer until mal finishes its borrowed parse and releases the handle. */
     for (;;) {
         if (length == capacity) {
             size_t next_capacity = capacity == 0 ? 4096 : capacity * 2;

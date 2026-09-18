@@ -10,8 +10,11 @@ use super::{
     ParameterPlan,
 };
 
+mod handoff;
 mod managed;
 
+pub(crate) use handoff::PatternHandoff;
+use handoff::plan_pattern;
 pub(crate) use managed::is_managed;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -49,24 +52,6 @@ pub(crate) enum ParameterEffect {
     ShareInto(ValueId),
     ConsumeInto(ValueId),
     Drop,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum PatternHandoff {
-    Unmanaged,
-    Store(ValueId),
-    Drop,
-    Product(Vec<Self>),
-}
-
-impl PatternHandoff {
-    fn has_owner_successor(&self) -> bool {
-        match self {
-            Self::Store(_) => true,
-            Self::Product(elements) => elements.iter().any(Self::has_owner_successor),
-            Self::Unmanaged | Self::Drop => false,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -142,7 +127,7 @@ impl Plan {
                 });
             }
             if let Some(input) = &state.input {
-                input_handoffs.insert(StateId(index), pattern_handoff(input, &live));
+                input_handoffs.insert(StateId(index), plan_pattern(input, &live));
                 remove_pattern_bindings(input, &mut live);
             }
             live_in[index] = live;
@@ -155,7 +140,7 @@ impl Plan {
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
                 binding_handoffs.insert(
                     (StateId(state_index), binding_index),
-                    pattern_handoff(&binding.pattern, &live),
+                    plan_pattern(&binding.pattern, &live),
                 );
                 let mut used = Vec::new();
                 visit_operation_atoms(&binding.operation, |atom| {
@@ -375,22 +360,6 @@ fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {
             }
         }
         Pattern::Wildcard { .. } => {}
-    }
-}
-
-fn pattern_handoff(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternHandoff {
-    match pattern {
-        Pattern::Binding { id, ty } if !is_managed(ty) => PatternHandoff::Unmanaged,
-        Pattern::Binding { id, .. } if live_after.contains(id) => PatternHandoff::Store(*id),
-        Pattern::Binding { .. } => PatternHandoff::Drop,
-        Pattern::Product { elements, .. } => PatternHandoff::Product(
-            elements
-                .iter()
-                .map(|element| pattern_handoff(element, live_after))
-                .collect(),
-        ),
-        Pattern::Wildcard { ty, .. } if is_managed(ty) => PatternHandoff::Drop,
-        Pattern::Wildcard { .. } => PatternHandoff::Unmanaged,
     }
 }
 
@@ -1259,7 +1228,7 @@ mod tests {
             ty: Type::Symbol,
         };
         assert_eq!(
-            pattern_handoff(&pattern, &HashSet::new()),
+            plan_pattern(&pattern, &HashSet::new()),
             PatternHandoff::Drop
         );
         assert_eq!(jump_value_effect(&PatternHandoff::Drop), UseEffect::Borrow);

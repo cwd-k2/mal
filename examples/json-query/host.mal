@@ -8,12 +8,26 @@ OutputBuffer :: (Address, USize);
 // Keeping byte I/O in this small host interface leaves parsing and rendering in mal.
 extern readStdin :: Unit -> StdinBytes;
 extern releaseInput :: Input -> Unit;
+// outputBuffer returns process-lifetime writable storage with nonzero capacity.
 extern outputBuffer :: Unit -> OutputBuffer;
 extern writeBytes :: OutputBuffer -> Unit;
 
+_writePacked :: (Region<UInt8>, Packed<UInt8>) -> Unit := (buffer, remaining) -> [return] => {
+    when (#remaining == 0usize) {
+        return(());
+    };
+
+    remainingLength := #remaining;
+    capacity := #buffer;
+    transferred := if (remainingLength < capacity)
+        then remainingLength
+        else capacity;
+    buffer / transferred <- remaining / transferred;
+    writeBytes(?buffer, transferred);
+    return(_writePacked(buffer, remaining % transferred));
+};
+
 writeStdout :: Symbol -> Unit := (value) -> {
-    packed := *value;
-    (memory, _) := outputBuffer();
-    memory@u8@(#packed) <- packed;
-    writeBytes(memory, #packed);
+    (memory, capacity) := outputBuffer();
+    _writePacked(memory@u8@capacity, *value);
 };

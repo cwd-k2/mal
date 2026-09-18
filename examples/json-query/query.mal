@@ -1,3 +1,5 @@
+require "./bytes.mal";
+
 // Query is a sum: variant 0 selects count and variant 1 selects depth.
 Query :: [Unit, Unit];
 // The first variant carries a diagnostic; the second carries a validated query.
@@ -8,11 +10,11 @@ _countQuery :: Unit -> Query := () -> [count, depth] => count();
 
 _depthQuery :: Unit -> Query := () -> [count, depth] => depth();
 
-parseQuery :: Symbol -> QueryResult := (text) -> [failure, success] => {
-    when (text == "count") {
+parseQuery :: Region<UInt8> -> QueryResult := (text) -> [failure, success] => {
+    when (text.equalsSymbol("count")) {
         success(_countQuery());
     };
-    when (text == "depth") {
+    when (text.equalsSymbol("depth")) {
         success(_depthQuery());
     };
     failure("query must be count or depth");

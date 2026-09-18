@@ -1,14 +1,13 @@
-// JsonCursor fields: 0 complete input, 1 next unread byte.
-JsonCursor :: (Symbol, USize);
+require "./bytes.mal";
+
 // Stats fields: 0 JSON value count, 1 maximum value depth.
 Stats :: (UInt64, UInt64);
-Parsed :: (JsonCursor, Stats);
-// Variant 0 is an error message; variant 1 is the remaining cursor and accumulated statistics.
-ParseResult :: [Symbol, Parsed];
-// Scan carries the next cursor and an empty success message or a non-empty error message.
-Scan :: (JsonCursor, Symbol);
-// ParserState fields: 0 cursor, 1 packed frames, 2 frame depth, 3 statistics.
-ParserState :: (JsonCursor, UInt64, UInt64, Stats);
+// Variant 0 is an error message; variant 1 is the statistics for a complete document.
+ParseResult :: [Symbol, Stats];
+// Scan carries the unread input and an empty success message or a non-empty error message.
+Scan :: (Region<UInt8>, Symbol);
+// ParserState fields: 0 unread input, 1 packed frames, 2 frame depth, 3 statistics.
+ParserState :: (Region<UInt8>, UInt64, UInt64, Stats);
 
 // The least-significant hexadecimal digit is the active frame. Parent frames act as explicit
 // return addresses, replacing mutually recursive array, object, and value parser functions.
@@ -24,10 +23,9 @@ _objectNext :: UInt64 := 8u64;
 _rootValue :: UInt64 := 9u64;
 _rootDone :: UInt64 := 10u64;
 
-// The two sum result binders name ParseResult's alternative result edges.
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 
-_parseSuccess :: Parsed -> ParseResult := (parsed) -> [failure, success] => success(parsed);
+_parseSuccess :: Stats -> ParseResult := (stats) -> [failure, success] => success(stats);
 
 _isWhitespace :: UInt8 -> Bool := (byte) ->
     byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
@@ -41,20 +39,15 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
     || (byte >= 'a' && byte <= 'f')
     || (byte >= 'A' && byte <= 'F');
 
-_advance :: JsonCursor -> JsonCursor := (cursor) -> {
-    (source, index) := cursor;
-    (source, index + 1usize);
-};
-
-_skipWhitespace :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
-    (source, index) := cursor;
-    when (index == #source) {
-        return(cursor);
+_skipWhitespace :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
+    when (#source == 0usize) {
+        return(source);
     };
-    when ((source # index)._isWhitespace()) {
-        return((source, index + 1usize)._skipWhitespace());
+    (byte, _) := <-(?source)@u8;
+    when (byte._isWhitespace()) {
+        return((source % 1usize)._skipWhitespace());
     };
-    return(cursor);
+    return(source);
 };
 
 _includeValue :: (Stats, UInt64) -> Stats := (stats, depth) -> {
@@ -68,7 +61,8 @@ _includeValue :: (Stats, UInt64) -> Stats := (stats, depth) -> {
 // Reading and replacing affect only the active frame; pushing and popping move the active end.
 _readFrame :: UInt64 -> UInt64 := (frames) -> frames % 16u64;
 
-_replaceFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) -> frames / 16u64 * 16u64 + frame;
+_replaceFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) ->
+    frames / 16u64 * 16u64 + frame;
 
 _pushFrame :: (UInt64, UInt64) -> UInt64 := (frames, frame) -> frames * 16u64 + frame;
 
@@ -86,57 +80,47 @@ _completeValue :: UInt64 -> UInt64 := (frames) -> {
     };
 };
 
-_matchesAt :: (Symbol, USize, Symbol, USize) -> Bool :=
-    (source, start, expected, offset) -> [return] => {
-        when (offset == #expected) {
-            return(true);
-        };
-        when (start + offset == #source || source # (start + offset) != expected # offset) {
-            return(false);
-        };
-        return(source._matchesAt(start, expected, offset + 1usize));
-    };
-
-_consumeLiteral :: (JsonCursor, Symbol) -> Scan := (cursor, expected) -> {
-    (source, index) := cursor;
-    if (source._matchesAt(index, expected, 0usize))
-    then ((source, index + #expected), "")
-    else (cursor, "invalid JSON literal");
+_consumeLiteral :: (Region<UInt8>, Symbol) -> Scan := (source, expected) -> {
+    if (source.startsWith(expected))
+    then (source % #expected, "")
+    else (source, "invalid JSON literal");
 };
 
-_hasHexDigits :: (Symbol, USize, USize) -> Bool :=
-    (source, index, remaining) -> [return] => {
-        when (remaining == 0usize) {
-            return(true);
-        };
-        when (index == #source || !(source # index)._isHexDigit()) {
-            return(false);
-        };
-        return(source._hasHexDigits(index + 1usize, remaining - 1usize));
+_hasHexDigits :: (Region<UInt8>, USize) -> Bool := (source, remaining) -> [return] => {
+    when (remaining == 0usize) {
+        return(true);
     };
+    when (#source == 0usize) {
+        return(false);
+    };
+    (byte, _) := <-(?source)@u8;
+    when (!byte._isHexDigit()) {
+        return(false);
+    };
+    return((source % 1usize)._hasHexDigits(remaining - 1usize));
+};
 
-// The cursor starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: JsonCursor -> Scan := (cursor) -> [return] => {
-    (source, index) := cursor;
-    when (index == #source) {
-        return((cursor, "unterminated JSON string"));
+// The input starts after the opening quote. This validates escapes without decoding the string.
+_scanString :: Region<UInt8> -> Scan := (source) -> [return] => {
+    when (#source == 0usize) {
+        return((source, "unterminated JSON string"));
     };
-    byte := source # index;
+    (byte, _) := <-(?source)@u8;
     when (byte == '"') {
-        return(((source, index + 1usize), ""));
+        return((source % 1usize, ""));
     };
     when (byte < 0x20u8) {
-        return((cursor, "control byte in JSON string"));
+        return((source, "control byte in JSON string"));
     };
     when (byte != '\\') {
-        return((source, index + 1usize)._scanString());
+        return((source % 1usize)._scanString());
     };
 
-    escapeIndex := index + 1usize;
-    when (escapeIndex == #source) {
-        return((cursor, "unterminated JSON escape"));
+    afterSlash := source % 1usize;
+    when (#afterSlash == 0usize) {
+        return((source, "unterminated JSON escape"));
     };
-    escaped := source # escapeIndex;
+    (escaped, _) := <-(?afterSlash)@u8;
     simple := escaped == '"'
         || escaped == '\\'
         || escaped == '/'
@@ -146,71 +130,89 @@ _scanString :: JsonCursor -> Scan := (cursor) -> [return] => {
         || escaped == 'r'
         || escaped == 't';
     when (simple) {
-        return((source, escapeIndex + 1usize)._scanString());
+        return((afterSlash % 1usize)._scanString());
     };
-    when (escaped == 'u' && source._hasHexDigits(escapeIndex + 1usize, 4usize)) {
-        return((source, escapeIndex + 5usize)._scanString());
+    afterU := afterSlash % 1usize;
+    when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
+        return((afterU % 4usize)._scanString());
     };
-    return((cursor, "invalid JSON escape"));
+    return((source, "invalid JSON escape"));
 };
 
-_scanDigits :: JsonCursor -> JsonCursor := (cursor) -> [return] => {
-    (source, index) := cursor;
-    when (index == #source || !(source # index)._isDigit()) {
-        return(cursor);
+_scanDigits :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
+    when (#source == 0usize) {
+        return(source);
     };
-    return((source, index + 1usize)._scanDigits());
+    (byte, _) := <-(?source)@u8;
+    when (!byte._isDigit()) {
+        return(source);
+    };
+    return((source % 1usize)._scanDigits());
 };
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-_scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
-    (source, start) := cursor;
-    unsigned := if (source # start == '-')
-        then (source, start + 1usize)
-        else cursor;
-    (number, integerStart) := unsigned;
-    when (integerStart == #number) {
-        return((cursor, "incomplete JSON number"));
+_scanNumber :: Region<UInt8> -> Scan := (source) -> [return] => {
+    (firstByte, _) := <-(?source)@u8;
+    unsigned := if (firstByte == '-')
+        then source % 1usize
+        else source;
+    when (#unsigned == 0usize) {
+        return((source, "incomplete JSON number"));
     };
 
-    first := number # integerStart;
+    (first, _) := <-(?unsigned)@u8;
     integerEnd := if (first == '0')
-        then (number, integerStart + 1usize)
+        then unsigned % 1usize
         else {
             when (!first._isNonzeroDigit()) {
-                return((cursor, "invalid JSON number"));
+                return((source, "invalid JSON number"));
             };
-            (number, integerStart + 1usize)._scanDigits();
+            (unsigned % 1usize)._scanDigits();
         };
 
-    (afterInteger, integerEndIndex) := integerEnd;
-    afterFraction := if (integerEndIndex < #afterInteger && afterInteger # integerEndIndex == '.')
+    afterFraction := if (#integerEnd != 0usize)
         then {
-            fractionStart := integerEndIndex + 1usize;
-            when (fractionStart == #afterInteger || !(afterInteger # fractionStart)._isDigit()) {
-                return((cursor, "invalid JSON fraction"));
-            };
-            (afterInteger, fractionStart + 1usize)._scanDigits();
+            (next, _) := <-(?integerEnd)@u8;
+            if (next == '.')
+            then {
+                fraction := integerEnd % 1usize;
+                when (#fraction == 0usize) {
+                    return((source, "invalid JSON fraction"));
+                };
+                (digit, _) := <-(?fraction)@u8;
+                when (!digit._isDigit()) {
+                    return((source, "invalid JSON fraction"));
+                };
+                (fraction % 1usize)._scanDigits();
+            }
+            else integerEnd;
         }
         else integerEnd;
 
-    (afterDecimal, decimalEnd) := afterFraction;
-    exponent := decimalEnd < #afterDecimal
-        && (afterDecimal # decimalEnd == 'e' || afterDecimal # decimalEnd == 'E');
-    afterExponent := if (exponent)
+    afterExponent := if (#afterFraction != 0usize)
         then {
-            exponentStart := decimalEnd + 1usize;
-            when (exponentStart == #afterDecimal) {
-                return((cursor, "incomplete JSON exponent"));
-            };
-            signedStart := if (afterDecimal # exponentStart == '+' || afterDecimal # exponentStart == '-')
-                then exponentStart + 1usize
-                else exponentStart;
-            when (signedStart == #afterDecimal || !(afterDecimal # signedStart)._isDigit()) {
-                return((cursor, "invalid JSON exponent"));
-            };
-            (afterDecimal, signedStart + 1usize)._scanDigits();
+            (next, _) := <-(?afterFraction)@u8;
+            if (next == 'e' || next == 'E')
+            then {
+                exponent := afterFraction % 1usize;
+                when (#exponent == 0usize) {
+                    return((source, "incomplete JSON exponent"));
+                };
+                (firstExponent, _) := <-(?exponent)@u8;
+                digits := if (firstExponent == '+' || firstExponent == '-')
+                    then exponent % 1usize
+                    else exponent;
+                when (#digits == 0usize) {
+                    return((source, "invalid JSON exponent"));
+                };
+                (digit, _) := <-(?digits)@u8;
+                when (!digit._isDigit()) {
+                    return((source, "invalid JSON exponent"));
+                };
+                (digits % 1usize)._scanDigits();
+            }
+            else afterFraction;
         }
         else afterFraction;
     return((afterExponent, ""));
@@ -221,37 +223,36 @@ _scanNumber :: JsonCursor -> Scan := (cursor) -> [return] => {
 // returns a result, so malformed input cannot make an unchanged state loop forever.
 _parse :: ParserState -> ParseResult := (state) -> [return] => {
     (untrimmed, frames, frameDepth, stats) := state;
-    cursor := untrimmed._skipWhitespace();
-    (source, index) := cursor;
+    source := untrimmed._skipWhitespace();
     frame := frames._readFrame();
 
     when (frame == _rootDone) {
-        if (index == #source)
-        then return(_parseSuccess((cursor, stats)))
+        if (#source == 0usize)
+        then return(_parseSuccess(stats))
         else return(_parseFailure("trailing bytes after JSON value"));
     };
-    when (index == #source) {
+    when (#source == 0usize) {
         return(_parseFailure("expected JSON value or closing delimiter"));
     };
 
-    byte := source # index;
+    (byte, _) := <-(?source)@u8;
     // Delimiter states run before value recognition, preventing commas and closers from becoming
     // accidental values and distinguishing the first element from later elements.
     when (frame == _arrayNext) {
         when (byte == ']') {
-            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
         };
         when (byte == ',') {
-            return(_parse((cursor._advance(), frames._replaceFrame(_arrayValue), frameDepth, stats)));
+            return(_parse((source % 1usize, frames._replaceFrame(_arrayValue), frameDepth, stats)));
         };
         return(_parseFailure("expected comma or closing bracket"));
     };
     when (frame == _objectNext) {
         when (byte == '}') {
-            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
         };
         when (byte == ',') {
-            return(_parse((cursor._advance(), frames._replaceFrame(_objectKey), frameDepth, stats)));
+            return(_parse((source % 1usize, frames._replaceFrame(_objectKey), frameDepth, stats)));
         };
         return(_parseFailure("expected comma or closing brace"));
     };
@@ -259,23 +260,23 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
         when (byte != ':') {
             return(_parseFailure("expected colon after object key"));
         };
-        return(_parse((cursor._advance(), frames._replaceFrame(_objectValue), frameDepth, stats)));
+        return(_parse((source % 1usize, frames._replaceFrame(_objectValue), frameDepth, stats)));
     };
     when (frame == _objectFirst || frame == _objectKey) {
         when (frame == _objectFirst && byte == '}') {
-            return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
         };
         when (byte != '"') {
             return(_parseFailure("expected JSON object key"));
         };
-        (afterKey, keyError) := cursor._advance()._scanString();
+        (afterKey, keyError) := (source % 1usize)._scanString();
         when (#keyError != 0usize) {
             return(_parseFailure(keyError));
         };
         return(_parse((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats)));
     };
     when (frame == _arrayFirst && byte == ']') {
-        return(_parse((cursor._advance(), frames._popFrame(), frameDepth - 1u64, stats)));
+        return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
     };
 
     nextFrames := frames._completeValue();
@@ -288,11 +289,10 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
         childFrame := if (byte == '[')
             then _arrayFirst
             else _objectFirst;
-        // nextFrames preserves the enclosing return state while childFrame becomes active.
-        return(_parse((cursor._advance(), nextFrames._pushFrame(childFrame), frameDepth + 1u64, nextStats)));
+        return(_parse((source % 1usize, nextFrames._pushFrame(childFrame), frameDepth + 1u64, nextStats)));
     };
     when (byte == '"') {
-        (afterString, stringError) := cursor._advance()._scanString();
+        (afterString, stringError) := (source % 1usize)._scanString();
         when (#stringError != 0usize) {
             return(_parseFailure(stringError));
         };
@@ -306,14 +306,14 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
                 then "false"
                 else "null";
             };
-        (afterLiteral, literalError) := cursor._consumeLiteral(literal);
+        (afterLiteral, literalError) := source._consumeLiteral(literal);
         when (#literalError != 0usize) {
             return(_parseFailure(literalError));
         };
         return(_parse((afterLiteral, nextFrames, frameDepth, nextStats)));
     };
     when (byte == '-' || byte._isDigit()) {
-        (afterNumber, numberError) := cursor._scanNumber();
+        (afterNumber, numberError) := source._scanNumber();
         when (#numberError != 0usize) {
             return(_parseFailure(numberError));
         };
@@ -322,6 +322,6 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
     return(_parseFailure("expected JSON value"));
 };
 
-// The root sentinel makes trailing non-whitespace bytes an error after exactly one JSON value.
-parseDocument :: Symbol -> ParseResult := (source) ->
-    ((source, 0usize), _rootValue, 1u64, (0u64, 0u64))._parse();
+// ParseResult retains no view into source, so the host owner may be released after this call.
+parseDocument :: Region<UInt8> -> ParseResult := (source) ->
+    (source, _rootValue, 1u64, (0u64, 0u64))._parse();
