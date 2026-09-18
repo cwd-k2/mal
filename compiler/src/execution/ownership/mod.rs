@@ -178,15 +178,16 @@ impl Plan {
                 });
             }
         }
-        let uses = collect_use_effects(
+        let uses = collect_use_effects(UseInputs {
             control,
             calls,
             regions,
             frames,
-            &live_in,
-            &input_handoffs,
-            &drops_after_binding,
-        );
+            live_in: &live_in,
+            input_handoffs: &input_handoffs,
+            binding_handoffs: &binding_handoffs,
+            drop_candidates: &drops_after_binding,
+        });
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
         let drops_on_edge = collect_edge_drops(control, calls, frames, &live_in, &uses);
         let parameters = collect_parameter_effects(control, parameters);
@@ -473,15 +474,28 @@ fn visit_terminator_atoms(terminator: &Terminator, mut visit: impl FnMut(&Atom))
     }
 }
 
-fn collect_use_effects(
-    control: &crate::control::ast::Program,
-    calls: &ControlCallPlan,
-    regions: &ControlRegionPlan,
-    frames: &ControlFramePlan,
-    live_in: &[HashSet<ValueId>],
-    input_handoffs: &HashMap<StateId, PatternHandoff>,
-    drop_candidates: &HashMap<(StateId, usize), Vec<ValueId>>,
-) -> HashMap<UseId, UseEffect> {
+struct UseInputs<'a> {
+    control: &'a crate::control::ast::Program,
+    calls: &'a ControlCallPlan,
+    regions: &'a ControlRegionPlan,
+    frames: &'a ControlFramePlan,
+    live_in: &'a [HashSet<ValueId>],
+    input_handoffs: &'a HashMap<StateId, PatternHandoff>,
+    binding_handoffs: &'a HashMap<(StateId, usize), PatternHandoff>,
+    drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
+}
+
+fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
+    let UseInputs {
+        control,
+        calls,
+        regions,
+        frames,
+        live_in,
+        input_handoffs,
+        binding_handoffs,
+        drop_candidates,
+    } = inputs;
     let mut uses = HashMap::new();
     let mut local_bindings = HashSet::new();
     for function in &control.functions {
@@ -501,6 +515,10 @@ fn collect_use_effects(
         let site = StateId(state_index);
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let operands = binding_operands(&binding.operation);
+            let atom_result_has_owner_successor = !matches!(binding.operation, Operation::Atom(_))
+                || binding_handoffs
+                    .get(&(site, binding_index))
+                    .is_some_and(PatternHandoff::has_owner_successor);
             let dead = drop_candidates
                 .get(&(site, binding_index))
                 .map_or(&[][..], Vec::as_slice);
@@ -508,7 +526,7 @@ fn collect_use_effects(
                 if !is_managed(&atom.ty) {
                     continue;
                 }
-                let effect = if !owner_successor {
+                let effect = if !owner_successor || !atom_result_has_owner_successor {
                     UseEffect::Borrow
                 } else if let Some(id) = binding_id(atom) {
                     let has_later_same_source = operands[operand_index + 1..]
@@ -1102,6 +1120,24 @@ mod tests {
             execution.ownership.binding_handoff(site, binding),
             Some(&PatternHandoff::Drop)
         );
+        let Operation::Atom(atom) = &execution.control.states[site.0].bindings[binding].operation
+        else {
+            unreachable!();
+        };
+        assert_eq!(
+            execution
+                .ownership
+                .binding_use(site, binding, BindingOperand::Atom),
+            Some(UseEffect::Borrow)
+        );
+        if let Some(source) = binding_id(atom) {
+            assert!(
+                execution
+                    .ownership
+                    .drops_after_binding(site, binding)
+                    .contains(&source)
+            );
+        }
     }
 
     #[test]
