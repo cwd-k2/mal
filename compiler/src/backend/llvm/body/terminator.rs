@@ -6,6 +6,8 @@ impl FunctionEmitter<'_> {
         self.line(format!("mal_state_{}:", site.0));
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let value = self.emit_operation(
+                site,
+                binding_index,
                 &binding.operation,
                 pattern_value_type(&binding.pattern),
                 self.optimizations.symbol_concat_mode(site, binding_index),
@@ -23,8 +25,14 @@ impl FunctionEmitter<'_> {
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
         match terminator {
             Terminator::Return(value) => {
-                let mut value = self.atom(value)?;
-                self.retain_if_borrowed(&mut value)?;
+                let effect = self
+                    .ownership
+                    .terminator_use(site, crate::execution::ownership::TerminatorOperand::Return)
+                    .or_else(|| {
+                        (!crate::execution::ownership::is_managed(&value.ty))
+                            .then_some(crate::execution::ownership::UseEffect::Borrow)
+                    })?;
+                let value = self.atom_for_use(value, effect)?;
                 let result_type = self.current_result_type()?;
                 if value.ty != result_type {
                     return None;
@@ -35,7 +43,17 @@ impl FunctionEmitter<'_> {
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
             Terminator::Jump { target, value } => {
-                let value = self.atom(value)?;
+                let effect = self
+                    .ownership
+                    .terminator_use(
+                        site,
+                        crate::execution::ownership::TerminatorOperand::JumpValue,
+                    )
+                    .or_else(|| {
+                        (!crate::execution::ownership::is_managed(&value.ty))
+                            .then_some(crate::execution::ownership::UseEffect::Borrow)
+                    })?;
+                let value = self.atom_for_use(value, effect)?;
                 let input = self.control.states[target.0].input.as_ref()?;
                 self.store_pattern(input, Some(&value))?;
                 self.line(format!("  br label %mal_state_{}", target.0));

@@ -4,16 +4,29 @@ use crate::core::ast::UnaryPrimitive;
 
 use super::scalar::{arithmetic_instruction, scalar_type};
 use super::{EmittedValue, FunctionEmitter};
+use crate::execution::ownership::BindingOperand;
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_operation(
         &mut self,
+        site: crate::control::ast::StateId,
+        binding: usize,
         operation: &Operation,
         result_type: Option<&Type>,
         symbol_concat: super::super::optimization::SymbolConcatMode,
     ) -> Option<Option<EmittedValue>> {
         match operation {
-            Operation::Atom(atom) => self.atom(atom).map(Some),
+            Operation::Atom(atom) => self
+                .atom_for_use(
+                    atom,
+                    self.ownership
+                        .binding_use(site, binding, BindingOperand::Atom)
+                        .or_else(|| {
+                            (!crate::execution::ownership::is_managed(&atom.ty))
+                                .then_some(crate::execution::ownership::UseEffect::Borrow)
+                        })?,
+                )
+                .map(Some),
             Operation::MakeClosure { function, captures } => {
                 let result_type = result_type?.clone();
                 let Type::Function { .. } = &result_type else {
@@ -45,7 +58,20 @@ impl FunctionEmitter<'_> {
                             .map(|field| field.ty.clone())
                             .collect(),
                     );
-                    let environment_value = self.emit_product(captures, &environment_type)?;
+                    let effects = captures
+                        .iter()
+                        .enumerate()
+                        .map(|(index, atom)| {
+                            self.ownership
+                                .binding_use(site, binding, BindingOperand::Capture(index))
+                                .or_else(|| {
+                                    (!crate::execution::ownership::is_managed(&atom.ty))
+                                        .then_some(crate::execution::ownership::UseEffect::Borrow)
+                                })
+                        })
+                        .collect::<Option<Vec<_>>>()?;
+                    let environment_value =
+                        self.emit_product(captures, &environment_type, &effects)?;
                     let environment_layout = self.types.value(&environment_type)?;
                     let environment = self.register();
                     self.line(format!(
@@ -253,9 +279,31 @@ impl FunctionEmitter<'_> {
             } => self
                 .emit_memory(*primitive, argument, result_type?)
                 .map(Some),
-            Operation::Product(elements) => self.emit_product(elements, result_type?).map(Some),
+            Operation::Product(elements) => {
+                let effects = elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, atom)| {
+                        self.ownership
+                            .binding_use(site, binding, BindingOperand::ProductElement(index))
+                            .or_else(|| {
+                                (!crate::execution::ownership::is_managed(&atom.ty))
+                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
+                            })
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                self.emit_product(elements, result_type?, &effects)
+                    .map(Some)
+            }
             Operation::SumInjection { index, value } => {
-                self.emit_sum(*index, value, result_type?).map(Some)
+                let effect = self
+                    .ownership
+                    .binding_use(site, binding, BindingOperand::SumValue)
+                    .or_else(|| {
+                        (!crate::execution::ownership::is_managed(&value.ty))
+                            .then_some(crate::execution::ownership::UseEffect::Borrow)
+                    })?;
+                self.emit_sum(*index, value, result_type?, effect).map(Some)
             }
         }
     }

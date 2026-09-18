@@ -4,27 +4,33 @@ use crate::control::ast::{CaseArm, StateId};
 
 use super::types::is_bool;
 use super::{EmittedValue, FunctionEmitter};
+use crate::execution::ownership::UseEffect;
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_product(
         &mut self,
         elements: &[Atom],
         result_type: &Type,
+        effects: &[UseEffect],
     ) -> Option<EmittedValue> {
         let Type::Product(element_types) = result_type else {
             return None;
         };
-        if elements.len() != element_types.len() {
+        if elements.len() != element_types.len() || elements.len() != effects.len() {
             return None;
         }
         let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
-        for (index, (element, expected)) in elements.iter().zip(element_types.iter()).enumerate() {
-            let mut element = self.atom(element)?;
+        for (index, ((element, expected), effect)) in elements
+            .iter()
+            .zip(element_types.iter())
+            .zip(effects)
+            .enumerate()
+        {
+            let element = self.atom_for_use(element, *effect)?;
             if element.ty != *expected {
                 return None;
             }
-            self.retain_if_borrowed(&mut element)?;
             let element_type = self.types.value(expected)?;
             let register = self.register();
             self.line(format!(
@@ -45,8 +51,9 @@ impl FunctionEmitter<'_> {
         index: usize,
         value: &Atom,
         result_type: &Type,
+        effect: UseEffect,
     ) -> Option<EmittedValue> {
-        let value = self.atom(value)?;
+        let value = self.atom_for_use(value, effect)?;
         self.emit_sum_value(index, value, result_type, true)
     }
 

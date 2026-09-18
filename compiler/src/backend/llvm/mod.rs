@@ -636,6 +636,41 @@ mod tests {
     }
 
     #[test]
+    fn shares_duplicate_owner_successors_once_before_canonical_transfer() {
+        let source = SourceFile::new(
+            FileId::new(93),
+            "owner-successor-normalization.mal",
+            "duplicate :: Unit -> (Symbol, Symbol) := () -> { value := \"a\" + \"b\"; (value, value); };\n\
+             main :: Unit -> Int32 := () -> { pair := duplicate(); 0i32; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check ownership fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize ownership fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution = crate::execution::lower(closure, crate::execution::OptimizationSet::none());
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "x86_64-unknown-linux-gnu",
+                data_layout: "e-p:64:64",
+            },
+            OptimizationSet::none(),
+        )
+        .expect("ownership fixture is supported");
+
+        assert_eq!(
+            artifacts
+                .module
+                .matches("call ptr @mal_runtime_bytes_retain")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
     fn reads_supported_pointer_widths_from_target_data_layouts() {
         assert_eq!(target_layout("e-m:e-i64:64"), TargetLayout::natural(8, 8));
         for bits in 0_usize..=256 {

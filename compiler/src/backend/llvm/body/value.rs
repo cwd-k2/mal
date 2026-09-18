@@ -3,8 +3,33 @@ use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
 
 use super::scalar::{integer_literal, scalar_type};
 use super::{EmittedValue, FunctionEmitter};
+use crate::execution::ownership::UseEffect;
 
 impl FunctionEmitter<'_> {
+    pub(super) fn atom_for_use(&mut self, atom: &Atom, effect: UseEffect) -> Option<EmittedValue> {
+        let mut value = self.atom(atom)?;
+        match effect {
+            UseEffect::Borrow => {}
+            UseEffect::Share => self.retain_if_borrowed(&mut value)?,
+            UseEffect::Consume => {
+                let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+                    return None;
+                };
+                let slot = self.slots.get(&id)?.clone();
+                if slot.ty != atom.ty || !crate::execution::ownership::is_managed(&slot.ty) {
+                    return None;
+                }
+                let value_type = self.types.value(&slot.ty)?;
+                self.line(format!(
+                    "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, slot.index, value_type.alignment
+                ));
+                value.owned = true;
+            }
+        }
+        Some(value)
+    }
+
     pub(super) fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
         match (&atom.ty, &atom.kind) {
             (ty, AtomKind::Integer(value))
