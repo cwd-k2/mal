@@ -317,6 +317,21 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(&prepared)?;
                 Some(Some(result))
             }
+            Operation::PackedBuilder {
+                operation,
+                element,
+                argument,
+            } => {
+                self.require_binding_borrow(
+                    site,
+                    binding,
+                    BindingOperand::MemoryArgument,
+                    argument,
+                )?;
+                let argument = self.atom(argument)?;
+                self.emit_packed_builder(*operation, element, &argument, result_type?)
+                    .map(Some)
+            }
             Operation::Product(elements) => {
                 let effects = elements
                     .iter()

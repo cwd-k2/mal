@@ -101,6 +101,7 @@ x.f(y).g()
 表記に依存しない評価順は[評価戦略](execution.md#評価戦略)に定める。
 
 receiver-first applicationの`a.f()`は`f(a)`、`a.f(b, c)`は`f(a, b, c)`と同じapplicationである。
+generic calleeでも`a.f<T>(b)`は`f<T>(a, b)`と同じapplicationである。
 `f`はreceiverの型から探索せず、source位置で通常のvalue nameとして解決してから既存のfunction application型規則を
 適用する。receiver、残りの引数、calleeの順に評価する。
 

@@ -347,6 +347,11 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
+    PackedBuild {
+        source: Option<Box<Expression>>,
+        callback: Box<Expression>,
+        element: Type,
+    },
     SymbolLength {
         value: Box<Expression>,
     },

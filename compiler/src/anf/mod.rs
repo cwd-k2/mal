@@ -178,6 +178,22 @@ impl Lowerer {
                     },
                 )
             }
+            core::ExpressionKind::PackedBuilder {
+                operation,
+                element,
+                argument,
+            } => {
+                let (builder, argument) = self.lower_operand(argument);
+                builder.finish(
+                    self,
+                    expression,
+                    Operation::PackedBuilder {
+                        operation: *operation,
+                        element: element.clone(),
+                        argument,
+                    },
+                )
+            }
             core::ExpressionKind::ExternalCall { id, argument } => {
                 let (builder, argument) = self.lower_operand(argument);
                 builder.finish(

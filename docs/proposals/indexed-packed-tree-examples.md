@@ -4,7 +4,7 @@ Status: Draft example; non-normative
 
 この文書は[indexで結ぶ`Packed`構造](indexed-packed-structures.md)に対し、node追加とAVL rotationを
 `pack`と`edit`の`new/get/put`で書く具体例を示す。APIの型と意味は
-[`Packed`構築](packed-construction.md)と[`Packed`編集](packed-editing.md)を正とし、ここでは
+[`Packed`構築と編集](../spec/packed.md#scoped-constructionとediting)を正とし、ここでは
 tree固有のalgorithmとpreconditionだけを扱う。
 
 ## representation

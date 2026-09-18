@@ -9,6 +9,7 @@ mod bool;
 mod completion;
 mod external;
 mod interface;
+mod packed;
 mod pattern;
 mod primitive;
 
@@ -27,6 +28,7 @@ pub fn lower(program: &checked::MonomorphicProgram) -> Program {
 
 struct Lowerer {
     next_temporary: u32,
+    next_lambda: u32,
     joins: Vec<ast::Join>,
     result_targets: HashMap<crate::resolve::ast::ValueId, ast::JoinId>,
 }
@@ -35,12 +37,14 @@ impl Lowerer {
     fn new() -> Self {
         Self {
             next_temporary: 0,
+            next_lambda: 0,
             joins: Vec::new(),
             result_targets: HashMap::new(),
         }
     }
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
+        self.next_lambda = crate::check::next_lambda_identity(program);
         let mut bindings = program
             .items
             .iter()
@@ -125,6 +129,11 @@ impl Lowerer {
                 callee: Box::new(self.lower_expression(callee)),
                 argument: Box::new(self.lower_expression(argument)),
             },
+            checked::ExpressionKind::PackedBuild {
+                source,
+                callback,
+                element,
+            } => return self.lower_packed_build(source.as_deref(), callback, element, expression),
             checked::ExpressionKind::SymbolLength { value } => ExpressionKind::SymbolLength {
                 value: Box::new(self.lower_expression(value)),
             },

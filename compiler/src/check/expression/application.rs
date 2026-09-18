@@ -187,6 +187,17 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: Span,
     ) -> CheckResult<Expression> {
+        if let resolved::Expression::GenericReference {
+            reference,
+            arguments: type_arguments,
+        } = &callee.kind
+            && matches!(
+                reference.id,
+                crate::resolve::PACK_VALUE | crate::resolve::EDIT_VALUE
+            )
+        {
+            return self.check_packed_build(reference, type_arguments, arguments, span);
+        }
         if let resolved::Expression::Reference(reference) = &callee.kind
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {

@@ -46,6 +46,9 @@ pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &A
                     | crate::check::ast::MemoryPrimitive::SymbolToPacked
             ),
         )],
+        Operation::PackedBuilder { argument, .. } => {
+            vec![(BindingOperand::MemoryArgument, argument, false)]
+        }
         Operation::ExternalCall { argument, .. } => {
             vec![(BindingOperand::ExternalArgument, argument, false)]
         }

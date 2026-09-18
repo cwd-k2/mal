@@ -86,5 +86,30 @@ void mal_runtime_bytes_write(
     size_t offset,
     size_t length
 );
+void *mal_runtime_packed_builder_start(MalContext *context, size_t stride);
+void *mal_runtime_packed_builder_edit(
+    MalContext *context,
+    const void *owner,
+    size_t offset,
+    size_t count,
+    size_t stride
+);
+size_t mal_runtime_packed_builder_new(
+    MalContext *context,
+    void *builder,
+    const void *value
+);
+const void *mal_runtime_packed_builder_get(
+    MalContext *context,
+    const void *builder,
+    size_t index
+);
+void mal_runtime_packed_builder_put(
+    MalContext *context,
+    void *builder,
+    size_t index,
+    const void *value
+);
+void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);
 
 #endif

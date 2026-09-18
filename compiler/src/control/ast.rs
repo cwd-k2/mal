@@ -3,7 +3,7 @@ use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{
     Atom, EnvironmentField, FunctionId, Parameter, Pattern, TopLevelPattern,
 };
-use crate::core::ast::{BinaryPrimitive, UnaryPrimitive};
+use crate::core::ast::{BinaryPrimitive, PackedBuilderOperation, UnaryPrimitive};
 use crate::resolve::ast::ExternalOperationId;
 use crate::source::Span;
 
@@ -65,6 +65,11 @@ pub enum Operation {
     },
     Memory {
         primitive: MemoryPrimitive,
+        argument: Atom,
+    },
+    PackedBuilder {
+        operation: PackedBuilderOperation,
+        element: Type,
         argument: Atom,
     },
     ExternalCall {

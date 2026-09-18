@@ -15,6 +15,7 @@ mod interface;
 mod lambda;
 mod memory;
 mod operator;
+mod packed;
 mod product;
 mod specialization_identity;
 mod specialize;
@@ -56,6 +57,12 @@ pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Di
             .with_primary(item.span, "this generic binding has not been specialized"));
     }
     Ok(ast::MonomorphicProgram::new(program))
+}
+
+pub(crate) fn next_lambda_identity(program: &Program) -> u32 {
+    specialization_identity::next_identities(program)
+        .expect("an admitted monomorphic program has remaining identity space")
+        .lambda
 }
 
 enum CheckFailure {

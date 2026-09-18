@@ -1,6 +1,8 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::core::ast::{BinaryPrimitive, JoinId, ProgramInterface, UnaryPrimitive};
+use crate::core::ast::{
+    BinaryPrimitive, JoinId, PackedBuilderOperation, ProgramInterface, UnaryPrimitive,
+};
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
 use crate::source::Span;
 
@@ -159,6 +161,11 @@ pub enum Operation {
     },
     Memory {
         primitive: MemoryPrimitive,
+        argument: Atom,
+    },
+    PackedBuilder {
+        operation: PackedBuilderOperation,
+        element: Type,
         argument: Atom,
     },
     ExternalCall {

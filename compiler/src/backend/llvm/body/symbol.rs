@@ -78,6 +78,7 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
             captures.iter().any(atom_contains_value)
         }
         Operation::SymbolAt { .. } => true,
+        Operation::PackedBuilder { .. } => true,
         Operation::Memory {
             primitive:
                 crate::check::ast::MemoryPrimitive::AdmitRegion

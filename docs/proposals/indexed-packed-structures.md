@@ -3,8 +3,7 @@
 Status: Draft proposal; non-normative
 
 この文書は、再帰的なdata structureを`Representable`なrecord列とindexで表し、構造の再帰をoperationの再帰として扱う方針を評価する。
-構築capabilityは[`pack` proposal](packed-construction.md)、既存値からの置換と追加は
-[`edit` proposal](packed-editing.md)、現在のoperationは[`Region`と`Packed`](../spec/packed.md)を正とする。
+構築capabilityと既存値からの置換・追加は[`Region`と`Packed`](../spec/packed.md#scoped-constructionとediting)を正とする。
 
 ## 優先する方向
 

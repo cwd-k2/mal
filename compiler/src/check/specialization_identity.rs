@@ -116,6 +116,14 @@ impl IdentityBounds {
                 self.expression(callee);
                 self.expression(argument);
             }
+            ExpressionKind::PackedBuild {
+                source, callback, ..
+            } => {
+                if let Some(source) = source {
+                    self.expression(source);
+                }
+                self.expression(callback);
+            }
             ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
                 self.expression(argument);
             }

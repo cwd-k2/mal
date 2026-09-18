@@ -172,6 +172,9 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         | Operation::Memory {
             argument: value, ..
         }
+        | Operation::PackedBuilder {
+            argument: value, ..
+        }
         | Operation::ExternalCall {
             argument: value, ..
         }

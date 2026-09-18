@@ -223,13 +223,24 @@ impl Parser<'_> {
         let start = receiver.span.start();
         self.expect(&TokenKind::Dot, "`.`")?;
         let name = self.parse_name(&TokenKind::ValueIdentifier, "a function name after `.`")?;
-        let callee_span = name.span;
+        let callee_start = name.span.start();
+        let callee = if self.at(&TokenKind::Less) {
+            let arguments = self.parse_type_arguments()?;
+            let end = self.previous_generic_close_span().end();
+            Node::new(
+                Expression::GenericName { name, arguments },
+                self.span(callee_start, end),
+            )
+        } else {
+            let callee_span = name.span;
+            Node::new(Expression::Name(name), callee_span)
+        };
         let mut arguments = self.parse_arguments()?;
         arguments.insert(0, receiver);
         let end = self.previous_span().end();
         Ok(Node::new(
             Expression::Call {
-                callee: Box::new(Node::new(Expression::Name(name), callee_span)),
+                callee: Box::new(callee),
                 arguments,
             },
             self.span(start, end),

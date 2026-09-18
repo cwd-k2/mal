@@ -265,6 +265,17 @@ impl Specializer {
                 self.expression(callee, substitutions, self_instance)?;
                 self.expression(argument, substitutions, self_instance)?;
             }
+            ExpressionKind::PackedBuild {
+                source,
+                callback,
+                element,
+            } => {
+                *element = substitute_type(element, substitutions);
+                if let Some(source) = source {
+                    self.expression(source, substitutions, self_instance)?;
+                }
+                self.expression(callback, substitutions, self_instance)?;
+            }
             ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
                 self.expression(argument, substitutions, self_instance)?
             }

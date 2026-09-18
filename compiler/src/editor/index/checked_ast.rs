@@ -114,6 +114,14 @@ impl Index {
                 self.collect_checked_expression(callee);
                 self.collect_checked_expression(argument);
             }
+            ExpressionKind::PackedBuild {
+                source, callback, ..
+            } => {
+                if let Some(source) = source {
+                    self.collect_checked_expression(source);
+                }
+                self.collect_checked_expression(callback);
+            }
             ExpressionKind::SumElimination {
                 scrutinee,
                 continuations,

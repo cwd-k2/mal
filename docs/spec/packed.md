@@ -2,8 +2,8 @@
 
 Status: Accepted v0.6 profile
 
-この文書はexternal location列`Region<A>`とmal-owned immutable sequence `Packed<A>`のtransfer、slice、`Symbol`変換、
-host境界を定める。layoutとplacementは[external memory](memory.md)を正とする。
+この文書はexternal location列`Region<A>`とmal-owned immutable sequence `Packed<A>`のtransfer、slice、構築、編集、
+`Symbol`変換、host境界を定める。layoutとplacementは[external memory](memory.md)を正とする。
 
 ## Authority
 
@@ -47,6 +47,42 @@ owner、offset、countを持つslice viewを返す。operandは通常のexpressi
 storage allocation、byte copy、allocation failureを追加しない。
 external storageを直接ownerにするzero-copy Packed viewはない。
 
+## Scoped constructionとediting
+
+`pack`と`edit`はpredefined generic intrinsicである。`Representable(A)`を満たす型argumentを明示し、構築中だけ有効な
+`new`、`get`、`put` capabilityをcallbackへ渡す。
+
+```mal
+pack<A> ::
+    (((A -> USize), (USize -> A), ((USize, A) -> Unit)) -> Unit)
+    -> Packed<A>;
+
+edit<A> ::
+    (
+        Packed<A>,
+        ((A -> USize), (USize -> A), ((USize, A) -> Unit)) -> Unit
+    )
+    -> Packed<A>;
+```
+
+`pack<A>(callback)`はcount 0のbuilderを作る。`edit<A>(source, callback)`はsourceと同じ要素列とcountから始まるbuilderを
+作る。`source.edit<A>(callback)`はreceiver-first applicationによる同じoperationである。callbackの三つのparameterについて、
+`new(value)`は末尾へ追加してその安定したindexを返し、`get(index)`は現在値を返し、`put(index, value)`は現在値を置換する。
+先行するoperationの結果は後続のoperationから観測できる。
+
+引数は通常のapplication順で一度ずつ評価する。`pack`ではcallbackを評価してからbuilderを作る。`edit`ではsource、callbackの順に
+評価してからbuilderを作る。callbackが`Unit`で正常完了するとbuilderをfreezeし、count要素のowned `Packed<A>`を返す。
+capabilityはhelper、nested closure、recursive frameへ渡せるが、callbackの正常完了後には到達できない。callback resultの`Unit`、
+Mal内部に留まるfunction value、immutable capture、result binderのcapture規則がこのscopeを構成する。
+
+`edit`のsourceとresultは独立したimmutable valueとして振る舞う。source、そのslice、および`A = UInt8`の場合にownerを共有する
+`Symbol`は編集前と同じ値を返す。実装は最初の変更でcopy-on-writeを行い、変更がない場合はownerを共有してよい。source responsibilityと
+runtime ownerがともに一意な場合のstorage再利用は、observable semanticsを変えないoptimizationである。
+
+count、`count * stride(A)`、owner allocation sizeがtargetで表現できない場合と、必要なallocationのfailureはtrapする。
+`Packed<Unit>`ではstorageを持たず、`new`の回数をcountへ加えてよい。growth policy、余剰capacity、copy-on-writeと再利用の選択は
+implementation detailである。
+
 ## Partial I/O
 
 external allocation、deallocation、failure、ownershipはprogram固有のextern contractが定める。host operationはAddress、ByteSize、
@@ -64,6 +100,7 @@ partial inputはcapacity以下のUSizeと、そのprefixを初期化したとい
 | `Packed / USize`、`Packed % USize` | `count <= #packed` |
 | `Region # USize` | `index < #region`かつoffset計算がoverflowしない |
 | `Packed # USize` | `index < #packed` |
+| scoped `get(index)`、`put(index, value)` | `index <` builderの現在count |
 | `<-Region<A>` | 全locationがreadable、初期化済み、valid representationで、allocation sizeがtargetで表現可能 |
 | `Region<A> <- Packed<A>` | `#packed <= #region`で対象prefixがwritable |
 | host partial input | result USizeがcapacity以下で、そのprefixが初期化済み |

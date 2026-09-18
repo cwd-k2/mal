@@ -36,6 +36,8 @@ pub const PACKED_TYPE: TypeId = TypeId(18);
 predefined!(ValueId, VALUES;
     FALSE_VALUE = 0 => "false",
     TRUE_VALUE = 1 => "true",
+    PACK_VALUE = 2 => "pack",
+    EDIT_VALUE = 3 => "edit",
 );
 
 pub fn first_source_type_id() -> u32 {

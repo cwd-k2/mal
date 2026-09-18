@@ -242,6 +242,7 @@ fn collect_operation_uses(
         }
         Operation::SymbolAt { argument }
         | Operation::Memory { argument, .. }
+        | Operation::PackedBuilder { argument, .. }
         | Operation::ExternalCall { argument, .. }
         | Operation::SumInjection {
             value: argument, ..

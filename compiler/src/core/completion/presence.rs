@@ -19,6 +19,14 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     pending.push(Presence::Expression(argument));
                     pending.push(Presence::Expression(callee));
                 }
+                checked::ExpressionKind::PackedBuild {
+                    source, callback, ..
+                } => {
+                    pending.push(Presence::Expression(callback));
+                    if let Some(source) = source {
+                        pending.push(Presence::Expression(source));
+                    }
+                }
                 checked::ExpressionKind::If {
                     condition,
                     then_branch,

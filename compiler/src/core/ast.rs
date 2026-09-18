@@ -145,6 +145,11 @@ pub enum ExpressionKind {
         primitive: MemoryPrimitive,
         argument: Box<Expression>,
     },
+    PackedBuilder {
+        operation: PackedBuilderOperation,
+        element: Type,
+        argument: Box<Expression>,
+    },
     ExternalCall {
         id: ExternalOperationId,
         argument: Box<Expression>,
@@ -176,6 +181,16 @@ pub enum ExpressionKind {
         left: Box<Expression>,
         right: Box<Expression>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PackedBuilderOperation {
+    Start,
+    Edit,
+    New,
+    Get,
+    Put,
+    Finish,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

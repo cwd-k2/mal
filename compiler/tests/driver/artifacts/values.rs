@@ -30,6 +30,99 @@ fn builds_packed_slices_indexing_and_symbol_conversion() {
 }
 
 #[test]
+fn constructs_and_edits_packed_values_with_scoped_capabilities() {
+    let directory = NativeFixture::new("driver-packed-builder");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "addRange :: ((USize -> USize), USize, USize) -> Unit :=
+           (new, current, end) ->
+             if (current == end)
+             then ()
+             else {
+               _ := new(current);
+               addRange(new, current + 1usize, end);
+             };
+         main :: Unit -> Int32 := () -> {
+           original := pack<Int32>((new, get, put) -> {
+             first := new(10i32);
+             _ := new(20i32);
+             put(first, get(first) + 1i32);
+             ();
+           });
+           updated := original.edit<Int32>((new, get, put) -> {
+             put(0usize, get(0usize) + 30i32);
+             added := new(7i32);
+             put(added, get(added) + 1i32);
+             ();
+           });
+           many := pack<USize>((new, _, _) -> addRange(new, 0usize, 40usize));
+           if (#original == 2usize && original # 0usize == 11i32
+               && original # 1usize == 20i32 && #updated == 3usize
+               && updated # 0usize == 41i32 && updated # 1usize == 20i32
+               && updated # 2usize == 8i32 && #many == 40usize
+               && many # 39usize == 39usize)
+           then 0
+           else 1;
+         };",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn preserves_shared_sources_and_builds_zero_stride_packed_values() {
+    let directory = NativeFixture::new("driver-packed-builder-sharing");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {
+           text := \"abc\";
+           bytes := *text;
+           changed := bytes.edit<UInt8>((_, get, put) -> {
+             put(1usize, get(1usize) + 1u8);
+             ();
+           });
+           unchanged := bytes.edit<UInt8>((_, _, _) -> ());
+           units := pack<Unit>((new, _, _) -> {
+             _ := new(());
+             _ := new(());
+             _ := new(());
+             ();
+           });
+           if (text == \"abc\" && *bytes == \"abc\" && *unchanged == \"abc\"
+               && changed # 1usize == 99u8 && #units == 3usize)
+           then 0
+           else 1;
+         };",
+    );
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn transfers_between_regions_and_packed_storage() {
     let directory = NativeFixture::new("driver-region-packed");
     let source = directory.join("program.mal");

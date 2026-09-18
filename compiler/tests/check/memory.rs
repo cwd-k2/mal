@@ -61,6 +61,36 @@ fn checks_region_packed_transfer_views_and_symbol_conversion() {
 }
 
 #[test]
+fn checks_scoped_packed_construction_and_editing() {
+    check_ok(
+        "make :: Unit -> Packed<Int32> := () ->
+           pack<Int32>((new, get, put) -> {
+             index := new(10i32);
+             put(index, get(index) + 1i32);
+             ();
+           });
+         change :: Packed<Int32> -> Packed<Int32> := (source) ->
+           source.edit<Int32>((new, get, put) -> {
+             put(0usize, get(0usize) + 1i32);
+             _ := new(20i32);
+             ();
+           });",
+    );
+}
+
+#[test]
+fn rejects_invalid_packed_intrinsic_applications() {
+    for text in [
+        "bad := pack<Symbol>((_, _, _) -> ());",
+        "bad := pack<Int32>();",
+        "bad :: Packed<Int32> -> Packed<Int32> := (source) -> edit<Int32>(source);",
+        "bad := pack<Int32>((new, _, _) -> { _ := new(1u32); (); });",
+    ] {
+        assert!(check_error(text).primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn checks_view_slices_in_an_expected_view_context() {
     check_ok(
         "split :: (Region<UInt8>, Packed<UInt8>, USize) -> (Region<UInt8>, Packed<UInt8>) :=\n\

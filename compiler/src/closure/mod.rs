@@ -178,6 +178,15 @@ impl Converter {
                 primitive: *primitive,
                 argument: self.convert_atom(argument, environment),
             },
+            anf::Operation::PackedBuilder {
+                operation,
+                element,
+                argument,
+            } => Operation::PackedBuilder {
+                operation: *operation,
+                element: element.clone(),
+                argument: self.convert_atom(argument, environment),
+            },
             anf::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
                 id: *id,
                 argument: self.convert_atom(argument, environment),

@@ -344,6 +344,15 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
             primitive: *primitive,
             argument: argument.clone(),
         },
+        closure::Operation::PackedBuilder {
+            operation,
+            element,
+            argument,
+        } => Operation::PackedBuilder {
+            operation: *operation,
+            element: element.clone(),
+            argument: argument.clone(),
+        },
         closure::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
             id: *id,
             argument: argument.clone(),

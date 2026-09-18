@@ -39,6 +39,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [transfer/slice](../spec/packed.md#operation) | zero-count、prefix/remainder、index、Unit、Address element、operand一回評価 | external RegionからPackedへadmitしRegionへ戻す |
 | [Symbol conversion](../spec/packed.md#symbol-conversion) | owner/view共有、allocation failure環境での無割当変換、変換元activation終了後のresult lifetime | Symbol runtime ownershipとPacked slice lifetime |
+| [scoped construction/editing](../spec/packed.md#scoped-constructionとediting) | empty、growth、Unit、product/sum、read-after-new、read-your-writes、source不変性、generic receiver application | callback capabilityをhelper・再帰frameへ渡すnative fixture |
 | [partial I/O](../spec/packed.md#partial-io) | initialized/consumed prefix、zero progress、retry ordering、host postcondition | reusable byte Regionを使うstreaming host fixture |
 | [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Cursor/Region/Packed rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
 

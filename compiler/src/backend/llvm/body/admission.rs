@@ -59,6 +59,9 @@ fn admit_operation<'a>(
         | Operation::Memory {
             argument: value, ..
         }
+        | Operation::PackedBuilder {
+            argument: value, ..
+        }
         | Operation::ExternalCall {
             argument: value, ..
         }

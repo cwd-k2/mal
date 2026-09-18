@@ -83,7 +83,7 @@ productPattern ::= "(" pattern "," pattern ("," pattern)* ")"
 
 valueName      ::= VALUE_IDENT typeArguments?
 callSuffix     ::= "(" argumentList? ")"
-receiverSuffix ::= "." VALUE_IDENT "(" argumentList? ")"
+receiverSuffix ::= "." VALUE_IDENT typeArguments? "(" argumentList? ")"
 continuationSuffix ::= "[" "]"
                      | "[" expression ("," expression)* "]"
 conversionSuffix ::= "." ("i8" | "i16" | "i32" | "i64"
@@ -163,7 +163,7 @@ prefix `<-`のoperandには、それより強く結合するpostfix chain全体�
 `<-(address@u8!)`である。binary `<-`は全binary operatorより低く、左結合なので、`cursor <- first <- second`はstoreが返す
 次Cursorへ続けてstoreする。
 
-`expression.VALUE_IDENT(arguments)`はreceiver-first applicationであり、calleeをlexical scopeから解決する。field、property、method
+`expression.VALUE_IDENT typeArguments? (arguments)`はreceiver-first applicationであり、calleeをlexical scopeから解決する。field、property、method
 lookupを導入しない。`expression.VALUE_IDENT`だけの形はconversion suffix以外には存在しない。
 
 `[]`はempty sum type、`[A]`は不正である。`[k]`はUnitを`k`へ渡すapplication、`[k] => expression`はresult blockである。

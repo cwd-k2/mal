@@ -258,3 +258,163 @@ void mal_runtime_bytes_write(
         memcpy(destination, mal_bytes_data(owner) + offset, length);
     }
 }
+
+typedef struct {
+    MalBytes *owner;
+    size_t offset;
+    size_t count;
+    size_t stride;
+    uint8_t editable;
+} MalPackedBuilder;
+
+static MalPackedBuilder *mal_packed_builder_allocate(
+    MalContext *context,
+    size_t stride
+) {
+    MalPackedBuilder *builder = mal_bytes_allocate(
+        context,
+        sizeof(MalPackedBuilder),
+        "packed builder allocation failed"
+    );
+    builder->owner = NULL;
+    builder->offset = 0;
+    builder->count = 0;
+    builder->stride = stride;
+    builder->editable = 1;
+    return builder;
+}
+
+void *mal_runtime_packed_builder_start(MalContext *context, size_t stride) {
+    return mal_packed_builder_allocate(context, stride);
+}
+
+void *mal_runtime_packed_builder_edit(
+    MalContext *context,
+    const void *owner,
+    size_t offset,
+    size_t count,
+    size_t stride
+) {
+    MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
+    builder->owner = mal_bytes_retain(context, (MalBytes *)owner);
+    builder->offset = offset;
+    builder->count = count;
+    builder->editable = 0;
+    return builder;
+}
+
+static size_t mal_packed_builder_bytes(
+    MalContext *context,
+    size_t count,
+    size_t stride
+) {
+    if (stride != 0 && count > SIZE_MAX / stride) {
+        mal_trap(context, "packed builder byte size overflow");
+    }
+    return count * stride;
+}
+
+static void mal_packed_builder_make_editable(
+    MalContext *context,
+    MalPackedBuilder *builder
+) {
+    if (builder->editable) {
+        return;
+    }
+    size_t bytes = mal_packed_builder_bytes(
+        context,
+        builder->count,
+        builder->stride
+    );
+    const unsigned char *source = bytes == 0
+        ? NULL
+        : mal_bytes_data(builder->owner) + builder->offset;
+    MalBytes *copy = mal_bytes_flat_copy(
+        context,
+        source,
+        bytes,
+        "packed builder allocation failed"
+    );
+    mal_bytes_release(builder->owner);
+    builder->owner = copy;
+    builder->offset = 0;
+    builder->editable = 1;
+}
+
+size_t mal_runtime_packed_builder_new(
+    MalContext *context,
+    void *opaque_builder,
+    const void *value
+) {
+    MalPackedBuilder *builder = opaque_builder;
+    if (builder->count == SIZE_MAX) {
+        mal_trap(context, "packed builder count overflow");
+    }
+    size_t index = builder->count;
+    if (builder->stride != 0) {
+        mal_packed_builder_make_editable(context, builder);
+        size_t bytes = mal_packed_builder_bytes(
+            context,
+            builder->count,
+            builder->stride
+        );
+        builder->owner = mal_bytes_append(
+            context,
+            builder->owner,
+            0,
+            bytes,
+            value,
+            builder->stride,
+            "packed builder allocation failed"
+        );
+    }
+    ++builder->count;
+    return index;
+}
+
+const void *mal_runtime_packed_builder_get(
+    MalContext *context,
+    const void *opaque_builder,
+    size_t index
+) {
+    const MalPackedBuilder *builder = opaque_builder;
+    if (index >= builder->count) {
+        mal_trap(context, "packed builder index out of bounds");
+    }
+    if (builder->stride == 0) {
+        return NULL;
+    }
+    return mal_bytes_data(builder->owner)
+        + builder->offset
+        + mal_packed_builder_bytes(context, index, builder->stride);
+}
+
+void mal_runtime_packed_builder_put(
+    MalContext *context,
+    void *opaque_builder,
+    size_t index,
+    const void *value
+) {
+    MalPackedBuilder *builder = opaque_builder;
+    if (index >= builder->count) {
+        mal_trap(context, "packed builder index out of bounds");
+    }
+    if (builder->stride == 0) {
+        return;
+    }
+    mal_packed_builder_make_editable(context, builder);
+    MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
+    memcpy(
+        flat->bytes + flat->start + index * builder->stride,
+        value,
+        builder->stride
+    );
+}
+
+void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builder) {
+    MalPackedBuilder *builder = opaque_builder;
+    result->owner = builder->owner;
+    result->offset = builder->offset;
+    result->length = builder->count;
+    free(builder);
+}
