@@ -191,3 +191,27 @@ environment tagと利用時の`ptrmask`を除いた。ordinary functionと型を
 growthをoptimizer判断でinlineした診断版は6,885 bytesで、実行時間に有意な改善がなかったため、責務境界と小さい生成物が一致する
 分離版を採択した。raw sampleはignored scratchの029にある`packed-fast-append-before-after.json`、
 `packed-fast-append-initialization.json`、`packed-fast-append-vs-region.json`へ保存した。
+
+## 2026-09-18 — byte view authorityとvacant carrier初期化
+
+`5a496d0`でLLVM内の`Symbol`と`Packed<A>`をowner、byte offset、countではなく、owner、active data address、countのviewへ変更した。
+ownerはlifetime、dataは現在の観測範囲を支配し、index、slice、変換、比較はowner representationを再解釈しない。concatと`edit`の
+storage再利用境界だけがdataからowner-relative offsetを導出する。同時にownership planのpattern destinationを`Store`から
+`Initialize`へ改めた。control bindingのcarrierは初回にvacantであり、self-tailで再利用する前にも旧responsibilityは`Consume`または
+edge `Drop`で終了するため、backendが格納時に旧ownerを推測してreleaseする必要はない。
+
+maximum-order inputを3 warmup、交互20回で測定した。active data addressへの変更は001を20%短縮し、その後のvacant carrier初期化は
+さらに35%短縮した。最終のPacked/Region medianは001が7.171/7.023 ms、007が44.810/42.435 ms、010が
+17.182/17.220 ms、050が2.178/2.052 ms、078が14.364/13.373 msだった。029は193.088/166.949 msの1.16倍で
+変わらず、immutable indexingの残差とscoped mutationの残差を分離できた。raw sampleはignored scratchの各問題にある
+`active-data-before-after.json`、`vacant-carrier-before-after.json`、`vacant-carrier-vs-region.json`へ保存した。
+
+tree corpusとして003のimmutable raw edges、offsets、neighborsをPacked、BFS queueとdistanceだけをRegionにした。helperへ不要な
+Graph全体を渡す版はPacked/Region 1.66倍だったが、観測するneighborsだけを渡すと16.911/13.590 msの1.24倍になった。LTO後にも
+callerがownerを保持するnon-tail helper callごとにそのownerをretain/releaseしている。残る境界はcaller-boundedなinternal parameterの
+borrow proofであり、backend-localなretain/release相殺ではない。
+
+変更後に全269 sampleと79 maximum-order inputをdirect Cと再検証し、3 warmup、交互20回で全問を再測定した。全79問のmedian比は
+1.03倍、幾何平均は1.05倍、両方5 ms以上の51問では1.05倍と1.07倍だった。±5%を同等とするとMalが速い9問、同等34問、
+direct Cが速い36問であり、Packed変更によるsuite全体の回帰は認められない。個別結果とraw sampleはignored scratchの
+`llvm-results.md`と各`llvm-results.json`を正とする。
