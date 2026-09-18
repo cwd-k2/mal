@@ -148,17 +148,39 @@ impl Converter {
                 value: self.convert_atom(value, environment),
             },
             anf::Operation::Lambda(lambda) => {
-                let captures = lambda
-                    .captures
-                    .iter()
-                    .map(|capture| {
-                        self.reference_atom(capture.source, capture.ty.clone(), span, environment)
-                    })
-                    .collect();
                 self.lift_function(lambda);
-                Operation::MakeClosure {
-                    function: FunctionId::Lambda(lambda.id),
-                    captures,
+                let function = FunctionId::Lambda(lambda.id);
+                match &lambda.kind {
+                    crate::core::ast::LambdaKind::Ordinary => Operation::MakeClosure {
+                        function,
+                        captures: lambda
+                            .captures
+                            .iter()
+                            .map(|capture| {
+                                self.reference_atom(
+                                    capture.source,
+                                    capture.ty.clone(),
+                                    span,
+                                    environment,
+                                )
+                            })
+                            .collect(),
+                    },
+                    crate::core::ast::LambdaKind::PackedCapability { .. } => {
+                        let [capture] = lambda.captures.as_slice() else {
+                            unreachable!("Packed capability must capture exactly one builder");
+                        };
+                        debug_assert_eq!(capture.ty, crate::check::ast::Type::Address);
+                        Operation::MakePackedCapability {
+                            function,
+                            builder: self.reference_atom(
+                                capture.source,
+                                capture.ty.clone(),
+                                span,
+                                environment,
+                            ),
+                        }
+                    }
                 }
             }
             anf::Operation::Call { callee, argument } => Operation::Call {

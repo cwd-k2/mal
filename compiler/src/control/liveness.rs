@@ -184,6 +184,7 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
             captures.iter().for_each(visit)
         }
+        Operation::MakePackedCapability { builder, .. } => visit(builder),
         Operation::PrimitiveBinary { left, right, .. } => {
             visit(left);
             visit(right);

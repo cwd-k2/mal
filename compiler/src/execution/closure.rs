@@ -133,7 +133,8 @@ fn collect_candidates(block: &Block, candidates: &mut HashMap<ValueId, DirectClo
     for binding in &block.bindings {
         if let Pattern::Binding { id, .. } = binding.pattern {
             match &binding.operation {
-                Operation::MakeClosure { function, .. } => {
+                Operation::MakeClosure { function, .. }
+                | Operation::MakePackedCapability { function, .. } => {
                     candidates.insert(
                         id,
                         DirectClosure {
@@ -236,6 +237,7 @@ fn collect_operation_uses(
                 atom(capture, false);
             }
         }
+        Operation::MakePackedCapability { builder, .. } => atom(builder, false),
         Operation::Call { callee, argument } => {
             atom(callee, true);
             atom(argument, false);

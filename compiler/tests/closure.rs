@@ -164,6 +164,48 @@ fn represents_shared_packed_capabilities_with_scoped_environments() {
         ) && function.environment.len() == 1
             && function.environment[0].ty == check::ast::Type::Address
     }));
+
+    let constructions = program
+        .functions
+        .iter()
+        .flat_map(|function| &function.body.bindings)
+        .filter_map(|binding| match &binding.operation {
+            Operation::MakePackedCapability { function, builder } => Some((function, builder)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(constructions.len(), 6);
+    assert!(constructions.iter().all(|(id, builder)| {
+        builder.ty == check::ast::Type::Address
+            && matches!(
+                function(&program, **id).kind,
+                FunctionKind::PackedCapability { .. }
+            )
+    }));
+    let builders = constructions
+        .iter()
+        .map(|(_, builder)| match builder.kind {
+            AtomKind::Reference(Reference::Binding(id)) => id,
+            _ => panic!("Packed capability builder must preserve its binding identity"),
+        })
+        .collect::<Vec<_>>();
+    let first = builders[0];
+    let second = builders
+        .iter()
+        .copied()
+        .find(|builder| *builder != first)
+        .expect("the two packs must keep distinct builder identities");
+    assert_eq!(
+        builders.iter().filter(|builder| **builder == first).count(),
+        3
+    );
+    assert_eq!(
+        builders
+            .iter()
+            .filter(|builder| **builder == second)
+            .count(),
+        3
+    );
 }
 
 #[test]

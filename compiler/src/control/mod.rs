@@ -331,6 +331,12 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
             function: *function,
             captures: captures.clone(),
         },
+        closure::Operation::MakePackedCapability { function, builder } => {
+            Operation::MakePackedCapability {
+                function: *function,
+                builder: builder.clone(),
+            }
+        }
         closure::Operation::SymbolLength { value } => Operation::SymbolLength {
             value: value.clone(),
         },

@@ -101,6 +101,7 @@ pub(super) fn visit_operation_atoms(operation: &Operation, mut visit: impl FnMut
                 visit(atom);
             }
         }
+        Operation::MakePackedCapability { builder, .. } => visit(builder),
         Operation::SymbolAt { argument } => visit(argument),
         Operation::PrimitiveBinary { left, right, .. } => {
             visit(left);

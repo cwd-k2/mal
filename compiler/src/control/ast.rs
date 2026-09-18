@@ -57,6 +57,10 @@ pub enum Operation {
         function: FunctionId,
         captures: Vec<Atom>,
     },
+    MakePackedCapability {
+        function: FunctionId,
+        builder: Atom,
+    },
     SymbolLength {
         value: Atom,
     },

@@ -49,6 +49,9 @@ impl FunctionEmitter<'_> {
                     Some(with_code)
                 };
                 let target = *self.index.lowered_functions.get(function)?;
+                if target.kind != crate::closure::ast::FunctionKind::Ordinary {
+                    return None;
+                }
                 if captures.len() != target.environment.len()
                     || captures
                         .iter()
@@ -57,38 +60,7 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let closure = if target.kind.has_scoped_environment() {
-                    let [capture] = captures.as_slice() else {
-                        return None;
-                    };
-                    if capture.ty != Type::Address {
-                        return None;
-                    }
-                    self.require_binding_borrow(
-                        site,
-                        binding,
-                        BindingOperand::Capture(0),
-                        capture,
-                    )?;
-                    let environment = self.atom(capture)?;
-                    if compact {
-                        environment.representation
-                    } else {
-                        let tagged_environment = self.register();
-                        self.line(format!(
-                            "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
-                            environment.representation
-                        ));
-                        let closure = self.register();
-                        self.line(format!(
-                            "  {closure} = insertvalue {} {}, ptr {}, 1",
-                            closure_type.llvm,
-                            with_code.as_deref()?,
-                            tagged_environment
-                        ));
-                        closure
-                    }
-                } else if captures.is_empty() {
+                let closure = if captures.is_empty() {
                     with_code?
                 } else {
                     let environment_type = Type::Product(
@@ -132,6 +104,54 @@ impl FunctionEmitter<'_> {
                         "  {closure} = insertvalue {} {}, ptr {environment}, 1",
                         closure_type.llvm,
                         with_code.as_deref()?
+                    ));
+                    closure
+                };
+                Some(Some(EmittedValue {
+                    ty: result_type,
+                    representation: closure,
+                    owned: true,
+                }))
+            }
+            Operation::MakePackedCapability { function, builder } => {
+                let result_type = result_type?.clone();
+                let Type::Function { .. } = &result_type else {
+                    return None;
+                };
+                if builder.ty != Type::Address {
+                    return None;
+                }
+                let target = *self.index.lowered_functions.get(function)?;
+                if !matches!(
+                    target.kind,
+                    crate::closure::ast::FunctionKind::PackedCapability { .. }
+                ) || target.environment.len() != 1
+                    || target.environment[0].ty != Type::Address
+                {
+                    return None;
+                }
+                self.require_binding_borrow(site, binding, BindingOperand::PackedBuilder, builder)?;
+                let environment = self.atom(builder)?;
+                let closure_type = self.types.value(&result_type)?;
+                let compact = self.types.function_is_compact(&result_type);
+                let closure = if compact {
+                    environment.representation
+                } else {
+                    let with_code = self.register();
+                    self.line(format!(
+                        "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                        closure_type.llvm,
+                        super::function_name(*function)?
+                    ));
+                    let tagged_environment = self.register();
+                    self.line(format!(
+                        "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
+                        environment.representation
+                    ));
+                    let closure = self.register();
+                    self.line(format!(
+                        "  {closure} = insertvalue {} {with_code}, ptr {tagged_environment}, 1",
+                        closure_type.llvm
                     ));
                     closure
                 };

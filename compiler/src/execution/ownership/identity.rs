@@ -35,6 +35,7 @@ pub(crate) enum UseLocation {
 pub(crate) enum BindingOperand {
     Atom,
     Capture(usize),
+    PackedBuilder,
     ProductElement(usize),
     SumValue,
     SymbolLength,

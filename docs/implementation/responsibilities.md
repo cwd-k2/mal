@@ -5,6 +5,10 @@ Status: Current v0.6 implementation policy
 この文書はcompiler codeの分類、各stageのownership、表現の変換境界を定める。pipelineの構成は
 [compiler implementation notes](compiler.md)、言語の挙動は[`spec/`](../spec/)をauthorityとする。
 
+実装上のminimalityはcode量の最小化ではない。意味を所有するauthorityを一箇所に置き、後続stageがその事実を
+順方向に保存・消費でき、表現の形から意味を逆推論しないことを指す。局所的な短さより、原則から素直に導けることと
+stage間の摩擦の少なさを優先する。
+
 ## 分類
 
 codeの配置はpackage、依存library、interfaceの有無ではなく、扱う語彙と実装するpolicyで決める。
@@ -160,9 +164,9 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
-| `closure` | ordinary lambdaとintrinsic capabilityをfunctionと各々のmanaged・scoped environmentへ変換し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
+| `closure` | ordinary lambdaをfunctionとmanaged capture environmentへ変換し、intrinsic capabilityのfunction identityとbuilder provenanceを専用operationとして構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
-| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成 |
+| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、intrinsic capabilityのbuilder provenanceを専用operationのまま保持 |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
@@ -179,7 +183,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
 | `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
-| `execution/ownership/identity` | control edge、operand位置、parameter entry、owner use effectのidentity語彙を宣言 |
+| `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
 | `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
 | `execution/ownership/destination` | pattern leafを`Store`または`Discard` destinationへ写す |
@@ -198,6 +202,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
 | `backend/llvm/body/plan` | closure stageが確定したentry function、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
+| `backend/llvm/body/operation` | ordinary closureはcapture environmentから、intrinsic capabilityは明示されたbuilder provenanceからLLVM function valueを構成 |
 | `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
 | `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |

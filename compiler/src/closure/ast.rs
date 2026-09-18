@@ -165,6 +165,10 @@ pub enum Operation {
         function: FunctionId,
         captures: Vec<Atom>,
     },
+    MakePackedCapability {
+        function: FunctionId,
+        builder: Atom,
+    },
     Call {
         callee: Atom,
         argument: Atom,
