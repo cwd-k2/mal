@@ -18,9 +18,13 @@ LLVM内の`Symbol`と`Packed<A>`はowner pointer、byte offset、element count�
 
 ## slotとoperation
 
-managed local slotはzero状態で初期化する。borrowed atomをslot、aggregate、return、frame、または次のactivationへ保存するときは先にretainし、
-slotの旧値をreleaseしてから新しいshareを格納する。operationが新しいownerを返す場合はそのshareを直接移せる。wildcardがowned resultを
-捨てる場合は直ちにreleaseする。
+managed local slotはzero状態で初期化する。owner successorと終了点は
+[`D055`](../history/decisions/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
+LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
+
+一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
+後継のないresponsibilityとdestinationの旧値を`Drop`して格納をcommitする。owned resultを受け取るwildcardと
+使われないpattern leafは保存せず直接`Drop`する。borrowed valueをそのようなplaceに渡す場合は何もしない。
 
 control CFGのbackward livenessでbinding後にdeadとなるlocal ownerは、operation resultを保存してborrowを終えた直後にreleaseしてslotを
 zeroにする。これはowner responsibilityの終了であり、optimization設定によらない。`backend/llvm/optimization/symbol_concat`が有効で、
@@ -29,17 +33,15 @@ reference countが1であるflat storageだけを再利用する。
 techniqueが無効ならborrowするconcat後に通常どおりreleaseする。両operandが同じbindingならmoveせず、後続pathにuseがあるownerをreference
 countから推測して消費しない。
 
-function returnではresult shareを確保してからactivation-local slotをreleaseする。tail transitionでも次argumentと次environmentを先に
-確保し、その後に現在のlocalとenvironmentをreleaseする。aliasを早く解放しないため、この順序を変えてはならない。
+function returnではresultをowned handoffし、後継のないactivation-local responsibilityをreleaseする。tail transitionでも
+次argumentと次environmentの`Share`を完了し、`Consume`するsourceを失効させてから現在のlocalとenvironmentをreleaseする。
 
 ## parameter handoff
 
-`execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として一度だけ決める。LLVM backendはこのdestinationを受け、
-parameter patternのbinding有無を再解釈しない。
-
-region外のnative callではcallerがargument ownerをcallのreturnまで保持する。calleeの`Bind` prologueはmanaged argumentをretainしてlocal
-slotへ保存し、`Discard`は新しいshareを作らない。region内遷移と`DirectSelfTail`では、次のactivation用argument shareをcaller cleanupより
-先に確保する。`Bind`はそのshareをslotへ移し、`Discard`は一度releaseする。
+`execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として決め、`execution::ownership`はその行先と
+entryの由来からhandoffを計画する。region外のnative ABI entryはborrowedであるため、liveな`Bind`にだけ`Share`する。region内遷移と
+`DirectSelfTail`はowned handoffであり、liveな`Bind`へ`Consume`、使われない`Bind`または`Discard`へ`Drop`する。
+LLVM backendはentryの由来やparameterのlivenessを再推論しない。
 
 ## closure environment
 
@@ -51,8 +53,9 @@ capture-free closureはnull environmentを使う。self closureは実行中のac
 
 ## control frame
 
-recursive regionのnon-tail callではresume live-inのmanaged fieldをretainしてframeへ保存する。共通regionでresume後もenvironmentが必要なら
-caller environment ownerをframeへ移す。calleeへ渡すargumentとenvironmentを確保してからcaller localをcleanupする。
+recursive regionのnon-tail callではresume live-inのmanaged fieldと次activationのargumentを、ownership planの`Share`または`Consume`に従って
+frameとparameter handoffへ配布する。同じsourceに複数のowner successorがある場合は先行するsuccessorを`Share`し、最後の一つだけを
+`Consume`する。共通regionでresume後もenvironmentが必要ならcaller environment ownerをframeへ渡す。
 
 return時はcallee localとactive environmentをreleaseし、frame fieldとcaller environmentをresume activationへ移す。terminal returnでは
 root result以外のlocal、active environment、control storageを解放する。tail edgeはframe shareを作らない。
