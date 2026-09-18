@@ -277,15 +277,14 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
             .unwrap()
             .contains("MAL_DEFINE_sine")
     );
-    for runtime in [
-        "runtime.h",
-        "core.c",
-        "control.c",
-        "bytes.c",
-        "bytes_internal.h",
-        "symbol.c",
-    ] {
+    for runtime in ["runtime.h", "core.c", "control.c"] {
         assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
+    }
+    for runtime in ["bytes.c", "bytes_internal.h", "symbol.c"] {
+        assert!(
+            !artifacts.join(runtime).exists(),
+            "unused runtime input {runtime}"
+        );
     }
 }
 

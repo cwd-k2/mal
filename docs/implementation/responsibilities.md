@@ -190,7 +190,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
-| `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択 |
+| `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | program非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装 |
 | `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data accessと一意なstorageの拡張を実装 |

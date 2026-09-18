@@ -311,6 +311,12 @@ fn derives_symbol_runtime_dependencies_from_symbol_operations() {
     );
     let symbol_module = std::fs::read_to_string(symbol_artifacts.join("program.ll")).unwrap();
     assert!(symbol_module.contains("declare void @mal_runtime_symbol_concatenate"));
+    for runtime in ["bytes.c", "bytes_internal.h", "symbol.c"] {
+        assert!(
+            symbol_artifacts.join(runtime).is_file(),
+            "missing {runtime}"
+        );
+    }
 }
 
 #[test]

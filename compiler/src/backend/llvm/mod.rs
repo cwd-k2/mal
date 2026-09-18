@@ -52,6 +52,7 @@ pub(crate) fn generate(
     body::admit_target(program, layout).map_err(Error::Diagnostic)?;
     let body = body::generate(program, layout, optimizations)
         .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
+    let runtime = crate::backend::runtime::for_program(body.uses_byte_runtime);
     let types = body::types::Types::for_target(layout)
         .ok_or(Error::InconsistentExecutionPlan("target type construction"))?;
     let entry = AbiFunction::program_entry();
@@ -190,7 +191,7 @@ pub(crate) fn generate(
         module,
         shim,
         header: crate::backend::c::emit_header_for_target(&program.lowered.interface, layout),
-        runtime: crate::backend::runtime::control().into(),
+        runtime,
     })
 }
 
