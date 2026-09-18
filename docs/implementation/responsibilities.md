@@ -36,7 +36,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
-| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frameをbackend非依存の実行計画として構成 |
+| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
@@ -166,7 +166,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
-| `execution/ownership` | 型がmanaged ownerを含むかをbackend間で共通に分類 |
+| `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
 | `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。managed captureを持つfirst-class function、managed productとsum、direct・indirect call、self-tail edge、recursive regionのtyped continuation frame、transportableなextern callをadmit |
@@ -182,9 +182,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
-| `backend/llvm/body/ownership` | control CFGのbackward livenessからbinding後にresponsibilityを失うdead ownerを導出 |
-| `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、有効化されたtarget固有techniqueのemission decisionを構成 |
-| `backend/llvm/optimization/symbol_concat` | dead owner factから`Symbol` concatへmoveしてよいoperandを選択し、storage再利用可能なruntime operationを指示 |
+| `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、execution ownership factを変更しないtarget固有techniqueのemission decisionを構成 |
+| `backend/llvm/optimization/symbol_concat` | execution ownership planのdead responsibility factから`Symbol` concatがstorage再利用を試みてよいoperandを選択 |
 | `backend/llvm/body/frame` | direct-selfおよび共通recursive regionのcontinuation frame layout、code-pointer dispatch、suspend/resume時のlive ownerとactive environmentのtransferを構成 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
@@ -201,13 +200,14 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/c/types::TypeRegistry` | 子representation identityからbottom-upにinternするhost interface全体のstructural identityとC typeへのmapping |
 | `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを共有DAGのpostorderで収集する走査 |
 | `backend/c/types::HostTypes` | externから到達できる型とcheckerがcanonical memory accessを認めたaliasから、host-visible typeの集合を構成 |
-| `backend/c/types/host` | host-visible aggregateのconstructor、observer、checked projection、およびmanaged carrier operationの構成 |
+| `backend/c/types/host` | HostMappableなaggregateのconstructor、observer、およびchecked projectionの構成 |
 | `backend/c/types/host/declaration` | host adapter内部表現とpublic C headerに必要なhost-visible type declarationを構成 |
 | `backend/c/types/host/memory` | checkerが認めたnamed aliasについて、共有canonical layout planからunaligned-safeなC read/write helperを構成 |
 | `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
 
-generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のcontrolとowner操作は
-`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
+generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
+`execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは
+`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

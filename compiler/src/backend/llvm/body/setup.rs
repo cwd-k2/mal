@@ -6,7 +6,7 @@ impl<'a> FunctionEmitter<'a> {
         id: FunctionId,
         target: super::super::TargetLayout,
         top_levels: &'a TopLevelConstants,
-        ownership: &'a ownership::Plan,
+        ownership: &'a crate::execution::OwnershipPlan,
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
         let types = Types::for_target(target)?;

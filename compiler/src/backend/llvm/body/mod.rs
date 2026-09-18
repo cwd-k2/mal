@@ -13,7 +13,6 @@ mod call_emission;
 mod frame;
 mod memory;
 mod operation;
-pub(in crate::backend::llvm) mod ownership;
 mod plan;
 mod scalar;
 mod setup;
@@ -64,11 +63,13 @@ pub(super) fn generate(
     let types = Types::for_target(target)?;
     let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
     let top_levels = TopLevelConstants::new(execution, types, source_layouts)?;
-    let ownership = ownership::Plan::new(&execution.control);
     let index = ProgramIndex::new(execution)?;
-    let optimizations =
-        super::optimization::OptimizationPlan::new(&execution.control, &ownership, enabled);
-    debug_assert!(optimizations.is_valid(&execution.control, &ownership, enabled));
+    let optimizations = super::optimization::OptimizationPlan::new(
+        &execution.control,
+        &execution.ownership,
+        enabled,
+    );
+    debug_assert!(optimizations.is_valid(&execution.control, &execution.ownership, enabled));
     let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;
@@ -79,7 +80,7 @@ pub(super) fn generate(
             function.id,
             target,
             &top_levels,
-            &ownership,
+            &execution.ownership,
             &optimizations,
         )?;
         uses_control |= !emitter.frame_sites.is_empty();
@@ -117,7 +118,7 @@ struct FunctionEmitter<'a> {
     types: Types,
     source_layouts: crate::backend::source_layout::SourceLayouts,
     top_levels: &'a TopLevelConstants,
-    ownership: &'a ownership::Plan,
+    ownership: &'a crate::execution::OwnershipPlan,
     optimizations: &'a super::optimization::OptimizationPlan,
     next_register: usize,
     globals: String,

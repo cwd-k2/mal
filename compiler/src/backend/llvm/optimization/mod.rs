@@ -44,7 +44,7 @@ pub(super) enum SymbolConcatMode {
 impl OptimizationPlan {
     pub(super) fn new(
         control: &crate::control::ast::Program,
-        ownership: &super::body::ownership::Plan,
+        ownership: &crate::execution::OwnershipPlan,
         enabled: OptimizationSet,
     ) -> Self {
         let symbol_concatenations = if enabled.contains(Technique::SymbolConcatReuse) {
@@ -60,7 +60,7 @@ impl OptimizationPlan {
     pub(super) fn is_valid(
         &self,
         control: &crate::control::ast::Program,
-        ownership: &super::body::ownership::Plan,
+        ownership: &crate::execution::OwnershipPlan,
         enabled: OptimizationSet,
     ) -> bool {
         self.symbol_concatenations == Self::new(control, ownership, enabled).symbol_concatenations
@@ -94,7 +94,7 @@ mod tests {
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let control = crate::control::lower(&closure);
-        let ownership = super::super::body::ownership::Plan::new(&control);
+        let ownership = crate::execution::OwnershipPlan::new(&control);
         let enabled = OptimizationSet::none().with(Technique::SymbolConcatReuse);
         let mut plan = OptimizationPlan::new(&control, &ownership, enabled);
 

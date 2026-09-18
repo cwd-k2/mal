@@ -16,6 +16,7 @@ pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
 pub(crate) use optimization::{OptimizationPlan, OptimizationSet};
+pub(crate) use ownership::Plan as OwnershipPlan;
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 
@@ -27,6 +28,7 @@ pub(crate) struct Program {
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
+    pub(crate) ownership: OwnershipPlan,
 }
 
 pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
@@ -52,6 +54,8 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
     ));
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
+    let ownership = OwnershipPlan::new(&control);
+    debug_assert!(ownership.is_valid(&control));
     Program {
         lowered,
         control,
@@ -60,6 +64,7 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         control_calls,
         control_regions,
         control_frames,
+        ownership,
     }
 }
 

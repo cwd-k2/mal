@@ -9,7 +9,7 @@ use super::SymbolConcatMode;
 
 pub(super) fn plan(
     control: &crate::control::ast::Program,
-    ownership: &super::super::body::ownership::Plan,
+    ownership: &crate::execution::OwnershipPlan,
 ) -> HashMap<(StateId, usize), SymbolConcatMode> {
     let mut decisions = HashMap::new();
     for (state_index, state) in control.states.iter().enumerate() {
