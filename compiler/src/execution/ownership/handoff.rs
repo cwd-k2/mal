@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::Pattern;
 
-use super::is_managed;
+use super::managed::managed_paths;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PatternHandoff {
@@ -25,7 +25,9 @@ impl PatternHandoff {
 
 pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternHandoff {
     match pattern {
-        Pattern::Binding { ty, .. } if !is_managed(ty) => PatternHandoff::Unmanaged,
+        Pattern::Binding { ty, .. } if managed_paths(ty).next().is_none() => {
+            PatternHandoff::Unmanaged
+        }
         Pattern::Binding { id, .. } if live_after.contains(id) => PatternHandoff::Store(*id),
         Pattern::Binding { .. } => PatternHandoff::Drop,
         Pattern::Product { elements, .. } => PatternHandoff::Product(
@@ -34,7 +36,7 @@ pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> 
                 .map(|element| plan_pattern(element, live_after))
                 .collect(),
         ),
-        Pattern::Wildcard { ty, .. } if is_managed(ty) => PatternHandoff::Drop,
+        Pattern::Wildcard { ty, .. } if managed_paths(ty).next().is_some() => PatternHandoff::Drop,
         Pattern::Wildcard { .. } => PatternHandoff::Unmanaged,
     }
 }
