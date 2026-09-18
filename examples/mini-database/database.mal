@@ -63,7 +63,7 @@ initializeDatabase :: ByteBuffer -> ByteBuffer := (buffer) -> {
 
     // Clear record storage before publishing the header magic and format version.
     (memory / _databaseSize).clearBytes();
-    (?memory)@u8
+    (memory # 0usize)
         <- 'M'
         <- 'A'
         <- 'L'
@@ -145,7 +145,7 @@ _findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [retu
     when (index == _recordCount) {
         return(_recordCount);
     };
-    active := <-(?(database._recordAt(index)))@u8;
+    active := <-(database._recordAt(index) # 0usize);
     when (active == 0u8) {
         return(index);
     };
@@ -170,12 +170,12 @@ putRecord :: (ByteBuffer, Region<UInt8>, USize, USize, USize, USize) -> PutResul
 
         // Write payload lengths and bytes before marking the slot active.
         record := database._recordAt(slot);
-        (?(record % 1usize))@u8 <- keyLength.u8 <- valueLength.u8;
+        (record # 1usize) <- keyLength.u8 <- valueLength.u8;
         keyStorage := record % 8usize;
         valueStorage := record % 24usize;
         (lineBytes % keyStart).copyPrefix(keyStorage, keyLength);
         (lineBytes % valueStart).copyPrefix(valueStorage, valueLength);
-        (?record)@u8 <- 1u8;
+        (record # 0usize) <- 1u8;
         stored();
     };
 
@@ -188,7 +188,7 @@ lookupRecord :: (ByteBuffer, Region<UInt8>, USize, USize) -> LookupResult :=
         };
 
         record := database._recordAt(slot);
-        valueLength := <-(?(record % 2usize))@u8;
+        valueLength := <-(record # 2usize);
         found((record % 24usize) / valueLength.usize);
     };
 
@@ -200,6 +200,6 @@ deleteRecord :: (ByteBuffer, Region<UInt8>, USize, USize) -> Bool :=
             return(false);
         };
 
-        (?(database._recordAt(slot)))@u8 <- 0u8;
+        (database._recordAt(slot) # 0usize) <- 0u8;
         return(true);
     };

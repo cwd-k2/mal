@@ -22,7 +22,7 @@ _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     capacity := #memory;
 
     when (position < length) {
-        byte := <-(?(memory % position))@u8;
+        byte := <-(memory # position);
         read(((file, buffer, position + 1usize), byte));
     };
 
@@ -33,7 +33,7 @@ _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
         eof(next);
     };
 
-    byte := <-(?memory)@u8;
+    byte := <-(memory # 0usize);
     read(((file, filled, 1usize), byte));
 };
 
@@ -54,7 +54,7 @@ _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
             when (length > 0usize) {
-                previous := <-(?(line % (length - 1usize)))@u8;
+                previous := <-(line # (length - 1usize));
                 when (previous == '\r') {
                     return(_lineReady((next, (line, length - 1usize))));
                 };
@@ -67,7 +67,7 @@ _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
             return(_lineReady((next, buffer)));
         };
 
-        (?(line % length))@u8 <- byte;
+        (line # length) <- byte;
         return(next._readLineAt((line, length + 1usize)));
     }
     ];

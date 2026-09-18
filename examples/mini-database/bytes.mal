@@ -5,7 +5,7 @@ clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
         return(());
     };
 
-    (?memory)@u8 <- 0u8;
+    (memory # 0usize) <- 0u8;
     return((memory % 1usize).clearBytes());
 };
 
@@ -14,7 +14,7 @@ _rangeEquals :: (Region<UInt8>, Symbol, USize) -> Bool :=
         when (index == #expected) {
             return(true);
         };
-        actual := <-(?source)@u8;
+        actual := <-(source # 0usize);
         when (actual != expected # index) {
             return(false);
         };
@@ -34,7 +34,7 @@ _findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> 
     when (#source == 0usize) {
         return(index);
     };
-    actual := <-(?source)@u8;
+    actual := <-(source # 0usize);
     when (actual == byte) {
         return(index);
     };
@@ -53,8 +53,8 @@ prefixEquals :: (Region<UInt8>, Region<UInt8>, USize) -> Bool :=
         when (length == 0usize) {
             return(true);
         };
-        leftByte := <-(?left)@u8;
-        rightByte := <-(?right)@u8;
+        leftByte := <-(left # 0usize);
+        rightByte := <-(right # 0usize);
         when (leftByte != rightByte) {
             return(false);
         };
@@ -68,7 +68,7 @@ copyPrefix :: (Region<UInt8>, Region<UInt8>, USize) -> Unit :=
             return(());
         };
 
-        byte := <-(?source)@u8;
-        (?destination)@u8 <- byte;
+        byte := <-(source # 0usize);
+        (destination # 0usize) <- byte;
         return((source % 1usize).copyPrefix(destination % 1usize, length - 1usize));
     };

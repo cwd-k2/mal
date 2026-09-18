@@ -69,7 +69,7 @@ _compileUntil :: (Region<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResu
             else return(_stepSuccess((index, nextLoop, output)));
         };
 
-        byte := <-(?(source % index))@u8;
+        byte := <-(source # index);
         when (byte == ']') {
             if (nested)
             then return(_stepSuccess((index + 1usize, nextLoop, output)))

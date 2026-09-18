@@ -7,7 +7,7 @@ _startsWithAt :: (Region<UInt8>, Symbol, USize) -> Bool :=
             return(false);
         };
 
-        byte := <-(?source)@u8;
+        byte := <-(source # 0usize);
         when (byte != expected # index) {
             return(false);
         };
