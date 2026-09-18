@@ -38,6 +38,8 @@
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | `Address`、layout、memory placementを使う | [external memory](spec/memory.md) | [grammar](spec/grammar.md)、[`Region`と`Packed`](spec/packed.md) |
 | `Region`、`Packed`、partial I/Oを使う | [`Region`と`Packed`](spec/packed.md) | [external memory](spec/memory.md)、[authority](design/authority.md) |
+| growableな`Packed`構築案を検討する | [`pack`とpush producer](proposals/packed-construction.md) | [`Region`と`Packed`](spec/packed.md)、[managed ownership](implementation/ownership.md) |
+| immutableな`Packed`編集案を検討する | [scoped `Packed` editing](proposals/packed-editing.md) | [`pack` proposal](proposals/packed-construction.md)、[managed ownership](implementation/ownership.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
@@ -55,6 +57,7 @@
 | `design/` | 現在の設計policyと、複数の規範領域を横断する判断軸 |
 | `implementation/` | compiler/backend の現在の責務と構成 |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
+| `proposals/` | 未採択の設計素案と、判断前に解決する論点。現在のruleではない |
 | `research/` | 外部仕様・先行事例から得た根拠 |
 | `history/` | 過去の設計判断、退役事項、条件付き測定記録 |
 
