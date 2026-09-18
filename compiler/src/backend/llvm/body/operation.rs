@@ -305,14 +305,17 @@ impl FunctionEmitter<'_> {
                 primitive,
                 argument,
             } => {
-                self.require_binding_borrow(
-                    site,
-                    binding,
-                    BindingOperand::MemoryArgument,
-                    argument,
-                )?;
-                self.emit_memory(*primitive, argument, result_type?)
-                    .map(Some)
+                let effect = self
+                    .ownership
+                    .binding_use(site, binding, BindingOperand::MemoryArgument)
+                    .or_else(|| {
+                        (!crate::execution::ownership::is_managed(&argument.ty))
+                            .then_some(crate::execution::ownership::UseEffect::Borrow)
+                    })?;
+                let prepared = self.prepare_atom_for_use(argument, effect)?;
+                let result = self.emit_memory(*primitive, &prepared.value, result_type?)?;
+                self.commit_consumes(&prepared)?;
+                Some(Some(result))
             }
             Operation::Product(elements) => {
                 let effects = elements

@@ -1,16 +1,13 @@
-use crate::check::ast::{MemoryPrimitive, Type};
-use crate::closure::ast::Atom;
-
 use super::{EmittedValue, FunctionEmitter};
+use crate::check::ast::{MemoryPrimitive, Type};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_memory(
         &mut self,
         primitive: MemoryPrimitive,
-        argument: &Atom,
+        argument: &EmittedValue,
         result_type: &Type,
     ) -> Option<EmittedValue> {
-        let argument = self.atom(argument)?;
         match primitive {
             MemoryPrimitive::Place => {
                 let Type::Cursor(element) = result_type else {
@@ -21,7 +18,7 @@ impl FunctionEmitter<'_> {
                 }
                 Some(EmittedValue {
                     ty: result_type.clone(),
-                    representation: argument.representation,
+                    representation: argument.representation.clone(),
                     owned: false,
                 })
             }
@@ -30,7 +27,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 };
                 let cursor = Type::Cursor(element.clone());
-                let [address, count] = self.product_fields(&argument, [&cursor, &Type::USize])?;
+                let [address, count] = self.product_fields(argument, [&cursor, &Type::USize])?;
                 let region_type = self.types.value(result_type)?;
                 let with_address = self.register();
                 self.line(format!(
@@ -52,7 +49,7 @@ impl FunctionEmitter<'_> {
             }
             MemoryPrimitive::ProjectAddress => {
                 let address = match &argument.ty {
-                    Type::Cursor(_) => argument.representation,
+                    Type::Cursor(_) => argument.representation.clone(),
                     Type::Region(_) => {
                         let region_type = self.types.value(&argument.ty)?;
                         let address = self.register();
@@ -70,18 +67,18 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
-            MemoryPrimitive::Align => self.emit_align(argument, result_type),
-            MemoryPrimitive::LoadValue => self.emit_cursor_load(&argument, result_type),
-            MemoryPrimitive::StoreValue => self.emit_cursor_store(&argument, result_type),
-            MemoryPrimitive::AdmitRegion => self.emit_region_admission(&argument, result_type),
-            MemoryPrimitive::StorePacked => self.emit_packed_store(&argument, result_type),
+            MemoryPrimitive::Align => self.emit_align(argument.clone(), result_type),
+            MemoryPrimitive::LoadValue => self.emit_cursor_load(argument, result_type),
+            MemoryPrimitive::StoreValue => self.emit_cursor_store(argument, result_type),
+            MemoryPrimitive::AdmitRegion => self.emit_region_admission(argument, result_type),
+            MemoryPrimitive::StorePacked => self.emit_packed_store(argument, result_type),
             MemoryPrimitive::Prefix | MemoryPrimitive::RemainderView => {
-                self.emit_view_slice(primitive, &argument, result_type)
+                self.emit_view_slice(primitive, argument, result_type)
             }
-            MemoryPrimitive::ViewLength => self.emit_view_length(&argument, result_type),
-            MemoryPrimitive::PackedIndex => self.emit_packed_index(&argument, result_type),
-            MemoryPrimitive::PackedToSymbol => self.emit_packed_to_symbol(&argument, result_type),
-            MemoryPrimitive::SymbolToPacked => self.emit_symbol_to_packed(&argument, result_type),
+            MemoryPrimitive::ViewLength => self.emit_view_length(argument, result_type),
+            MemoryPrimitive::PackedIndex => self.emit_packed_index(argument, result_type),
+            MemoryPrimitive::PackedToSymbol => self.emit_packed_to_symbol(argument, result_type),
+            MemoryPrimitive::SymbolToPacked => self.emit_symbol_to_packed(argument, result_type),
         }
     }
 
@@ -180,12 +177,8 @@ impl FunctionEmitter<'_> {
             }
             Type::Packed(element) => {
                 let (owner, offset, old_count) = self.packed_fields(&view)?;
-                let retained = self.register();
-                self.line(format!(
-                    "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
-                ));
                 if prefix {
-                    self.make_packed(result_type, &retained, &offset, &count.representation, true)
+                    self.make_packed(result_type, &owner, &offset, &count.representation, true)
                 } else {
                     let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
@@ -200,7 +193,7 @@ impl FunctionEmitter<'_> {
                         self.types.pointer_integer()?,
                         count.representation
                     ));
-                    self.make_packed(result_type, &retained, &new_offset, &remainder, true)
+                    self.make_packed(result_type, &owner, &new_offset, &remainder, true)
                 }
             }
             _ => None,
@@ -262,11 +255,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let (owner, offset, count) = self.packed_fields(packed)?;
-        let retained = self.register();
-        self.line(format!(
-            "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
-        ));
-        self.make_byte_view(&Type::Symbol, &retained, &offset, &count, true)
+        self.make_byte_view(&Type::Symbol, &owner, &offset, &count, true)
     }
 
     fn emit_symbol_to_packed(
@@ -278,11 +267,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let (owner, offset, count) = self.byte_view_fields(symbol)?;
-        let retained = self.register();
-        self.line(format!(
-            "  {retained} = call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
-        ));
-        self.make_packed(result_type, &retained, &offset, &count, true)
+        self.make_packed(result_type, &owner, &offset, &count, true)
     }
 
     fn region_fields(&mut self, region: &EmittedValue) -> Option<(String, String)> {

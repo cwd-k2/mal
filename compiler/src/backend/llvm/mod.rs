@@ -423,7 +423,13 @@ mod tests {
         .expect("Packed fixture is supported");
 
         assert!(artifacts.module.contains("@mal_runtime_bytes_data"));
-        assert!(artifacts.module.contains("@mal_runtime_bytes_retain"));
+        assert_eq!(
+            artifacts
+                .module
+                .matches("call ptr @mal_runtime_bytes_retain")
+                .count(),
+            1
+        );
         assert!(
             artifacts
                 .module
