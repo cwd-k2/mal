@@ -13,8 +13,8 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
-| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md) |
-| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md) |
+| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md) |
+| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md) |
@@ -43,6 +43,7 @@ D054はD053のAddress-only boundaryを維持しつつ、canonical memoryとpubli
 D055はD033のborrowed parameter、owned result、managed leafの再帰規則を維持し、唯一のowner successorへのlast-use handoffを
 optional optimizationからexecution ownership planの正規形へ置き換える。runtime operationによるstorage再利用は置き換えない。
 D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loadのresultとRegion indexを置き換える。
+D057はD055のresponsibility保存則を維持し、aggregate ownerがlifetimeを包含するlocal aliasをowned bindingからborrowへ置き換える。
 
 ## 後継があるhistorical record
 

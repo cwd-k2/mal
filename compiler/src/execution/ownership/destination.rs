@@ -9,6 +9,7 @@ use super::is_managed;
 pub(crate) enum PatternDestination {
     Unmanaged,
     Initialize(ValueId),
+    Borrow(ValueId),
     Discard,
     Product(Vec<Self>),
 }
@@ -18,14 +19,23 @@ impl PatternDestination {
         match self {
             Self::Initialize(_) => true,
             Self::Product(elements) => elements.iter().any(Self::has_owner_successor),
-            Self::Unmanaged | Self::Discard => false,
+            Self::Unmanaged | Self::Borrow(_) | Self::Discard => false,
         }
     }
 }
 
-pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternDestination {
+pub(super) fn plan_borrowed_pattern(
+    pattern: &Pattern,
+    live_after: &HashSet<ValueId>,
+    borrowed_bindings: &HashSet<ValueId>,
+) -> PatternDestination {
     match pattern {
         Pattern::Binding { ty, .. } if !is_managed(ty) => PatternDestination::Unmanaged,
+        Pattern::Binding { id, .. }
+            if live_after.contains(id) && borrowed_bindings.contains(id) =>
+        {
+            PatternDestination::Borrow(*id)
+        }
         Pattern::Binding { id, .. } if live_after.contains(id) => {
             PatternDestination::Initialize(*id)
         }
@@ -33,7 +43,7 @@ pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> 
         Pattern::Product { elements, .. } => PatternDestination::Product(
             elements
                 .iter()
-                .map(|element| plan_pattern(element, live_after))
+                .map(|element| plan_borrowed_pattern(element, live_after, borrowed_bindings))
                 .collect(),
         ),
         Pattern::Wildcard { ty, .. } if is_managed(ty) => PatternDestination::Discard,

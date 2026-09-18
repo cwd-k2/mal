@@ -14,6 +14,7 @@ pub(super) fn collect_edge_drops(
     frames: &ControlFramePlan,
     live_in: &[HashSet<ValueId>],
     uses: &HashMap<UseId, UseEffect>,
+    borrowed_bindings: &HashSet<ValueId>,
 ) -> HashMap<EdgeId, Vec<ValueId>> {
     let mut local_order = Vec::new();
     for function in &control.functions {
@@ -29,7 +30,11 @@ pub(super) fn collect_edge_drops(
             collect_pattern_binding_order(&binding.pattern, &mut local_order);
         }
     }
-    let local_bindings = local_order.iter().copied().collect::<HashSet<_>>();
+    let local_bindings = local_order
+        .iter()
+        .copied()
+        .filter(|binding| !borrowed_bindings.contains(binding))
+        .collect::<HashSet<_>>();
     let mut result = HashMap::new();
     for (state_index, state) in control.states.iter().enumerate() {
         let site = StateId(state_index);

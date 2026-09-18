@@ -211,6 +211,16 @@ Graph全体を渡す版はPacked/Region 1.66倍だったが、観測するneighb
 callerがownerを保持するnon-tail helper callごとにそのownerをretain/releaseしている。残る境界はcaller-boundedなinternal parameterの
 borrow proofであり、backend-localなretain/release相殺ではない。
 
+032のimmutable time tableとban tableもPacked化した。要素数は最大でも110でgrowthは探索時間に対して無視できるが、aggregate
+`search`を保持してから二つのPacked fieldへ分解する初版はPacked 389.450 ms、Region 69.060 msの5.64倍だった。直接parameter
+patternにすると110.950/92.380 msの1.20倍になり、同じmanaged leafをaggregateとfield bindingの双方で所有していたことを分離した。
+`D057`に従いaggregate ownerがfield lifetimeを包含する場合にfieldをborrowすると、元のsourceのまま110.210/92.630 msの
+1.19倍になった。optimized IRではcandidateのself-tail反復にあったfield retain/releaseが消え、non-tail child activationとcaller
+frameの双方がownerを必要とする境界だけに残った。
+
+固定100,000要素を一度構築し、同じbuilder capability内でdisplay cycleを探索する058はPacked 1.660 ms、Region 1.580 msの
+1.05倍だった。小さいimmutable storageで深いnon-tail探索を行う032の差と合わせ、残差を償却growthだけには帰着できない。
+
 変更後に全269 sampleと79 maximum-order inputをdirect Cと再検証し、3 warmup、交互20回で全問を再測定した。全79問のmedian比は
 1.03倍、幾何平均は1.05倍、両方5 ms以上の51問では1.05倍と1.07倍だった。±5%を同等とするとMalが速い9問、同等34問、
 direct Cが速い36問であり、Packed変更によるsuite全体の回帰は認められない。個別結果とraw sampleはignored scratchの

@@ -68,6 +68,25 @@ impl FunctionEmitter<'_> {
                 ));
             }
             Pattern::Binding { id, ty }
+                if crate::execution::ownership::is_managed(ty)
+                    && matches!(
+                        destination,
+                        crate::execution::ownership::PatternDestination::Borrow(target)
+                            if target == id
+                    ) =>
+            {
+                let value = value?;
+                if value.ty != *ty {
+                    return None;
+                }
+                let slot = self.slots.get(id)?.clone();
+                let value_type = self.types.value(ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, value.representation, slot.index, value_type.alignment
+                ));
+            }
+            Pattern::Binding { id, ty }
                 if self.types.value(ty).is_some()
                     && matches!(
                         destination,

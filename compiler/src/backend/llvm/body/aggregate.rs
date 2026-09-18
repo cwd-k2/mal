@@ -61,7 +61,12 @@ impl FunctionEmitter<'_> {
         effect: UseEffect,
     ) -> Option<PreparedValue> {
         let prepared = self.prepare_atom_for_use(value, effect)?;
-        let value = self.emit_sum_value(index, prepared.value, result_type, true)?;
+        let value = self.emit_sum_value(
+            index,
+            prepared.value,
+            result_type,
+            effect != UseEffect::Borrow,
+        )?;
         Some(PreparedValue {
             value,
             consumed_slots: prepared.consumed_slots,
@@ -126,10 +131,11 @@ impl FunctionEmitter<'_> {
             "  {result} = load {}, ptr {storage}, align {}",
             sum_type.llvm, sum_type.alignment
         ));
+        let owned = value.owned;
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: result,
-            owned: crate::execution::ownership::is_managed(result_type),
+            owned,
         })
     }
 

@@ -1,5 +1,7 @@
 use super::*;
 
+#[path = "artifacts/aggregate_ownership.rs"]
+mod aggregate_ownership;
 #[path = "artifacts/calls.rs"]
 mod calls;
 #[path = "artifacts/closure_ownership.rs"]

@@ -28,6 +28,7 @@ pub(super) struct UseInputs<'a> {
     pub(super) input_destinations: &'a HashMap<StateId, PatternDestination>,
     pub(super) binding_destinations: &'a HashMap<(StateId, usize), PatternDestination>,
     pub(super) drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
+    pub(super) borrowed_bindings: &'a HashSet<ValueId>,
 }
 
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
@@ -40,6 +41,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
         input_destinations,
         binding_destinations,
         drop_candidates,
+        borrowed_bindings,
     } = inputs;
     let mut uses = HashMap::new();
     let mut local_bindings = HashSet::new();
@@ -56,14 +58,18 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
             insert_pattern_bindings(&binding.pattern, &mut local_bindings);
         }
     }
+    local_bindings.retain(|binding| !borrowed_bindings.contains(binding));
     for (state_index, state) in control.states.iter().enumerate() {
         let site = StateId(state_index);
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let operands = binding_operands(&binding.operation);
-            let atom_result_has_owner_successor = !matches!(binding.operation, Operation::Atom(_))
-                || binding_destinations
-                    .get(&(site, binding_index))
-                    .is_some_and(PatternDestination::has_owner_successor);
+            let result_has_owner_successor = binding_destinations
+                .get(&(site, binding_index))
+                .is_some_and(PatternDestination::has_owner_successor);
+            let operation_requires_owner_successors = !matches!(
+                binding.operation,
+                Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
+            ) || result_has_owner_successor;
             let dead = drop_candidates
                 .get(&(site, binding_index))
                 .map_or(&[][..], Vec::as_slice);
@@ -71,7 +77,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                 if !is_managed(&atom.ty) {
                     continue;
                 }
-                let effect = if !owner_successor || !atom_result_has_owner_successor {
+                let effect = if !owner_successor || !operation_requires_owner_successors {
                     UseEffect::Borrow
                 } else if let Some(id) = binding_id(atom) {
                     let has_later_same_source = operands[operand_index + 1..]
@@ -151,7 +157,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
         let mut owner_successors = Vec::new();
         if let Some(frame) = frame {
             for (field_index, field) in frame.fields.iter().enumerate() {
-                if is_managed(&field.ty) {
+                if is_managed(&field.ty) && !borrowed_bindings.contains(&field.id) {
                     owner_successors.push((
                         UseId {
                             state: site,

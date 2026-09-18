@@ -65,7 +65,9 @@ impl FunctionEmitter<'_> {
             .iter()
             .enumerate()
             .map(|(field_index, field)| {
-                let effect = if crate::execution::ownership::is_managed(&field.ty) {
+                let effect = if self.ownership.binding_is_borrowed(field.id) {
+                    crate::execution::ownership::UseEffect::Borrow
+                } else if crate::execution::ownership::is_managed(&field.ty) {
                     self.ownership.frame_field_use(site, field_index)?
                 } else {
                     crate::execution::ownership::UseEffect::Borrow

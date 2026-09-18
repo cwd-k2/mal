@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::super::ParameterDestination;
+use super::destination::plan_borrowed_pattern;
 use super::liveness::binding_id;
 use super::use_plan::jump_value_effect;
 use super::*;
@@ -273,7 +274,7 @@ fn classifies_an_unused_managed_state_input_as_a_drop() {
         ty: Type::Symbol,
     };
     assert_eq!(
-        plan_pattern(&pattern, &HashSet::new()),
+        plan_borrowed_pattern(&pattern, &HashSet::new(), &HashSet::new()),
         PatternDestination::Discard
     );
     assert_eq!(

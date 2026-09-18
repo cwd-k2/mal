@@ -31,6 +31,12 @@ ownerを共有するoperationだけが、そのoperandにowner successorを持�
 一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
 後継のないresponsibilityを`Drop`して格納をcommitする。owned resultを受け取るwildcardと
 使われないpattern leafは保存せず直接`Drop`する。borrowed valueをそのようなplaceに渡す場合は何もしない。
+`Atom(binding)`からpatternへ取り出したmanaged leafは、元のbindingがleafの全control lifetimeを包含する場合、ownerではないlocal
+aliasとして保存する。aliasのlivenessはlenderをliveに保ち、frameは両carrierを運んでもaliasをretainまたはreleaseしない。
+aliasが生きたproduct、sum、closure environment、returnなどのowner successorへescapeするときだけ`Share`する。owner successorを
+持たずdiscardされる純粋なproductとsumは、`Atom`とlocal `Jump`によるadministrative handoffを越えて構成要素をborrowする。
+closure生成はenvironment allocationと独立lifetimeを持つため、このpure aggregate規則の対象にしない。詳細は
+[`D057`](../history/decisions/D057.md)を正とする。
 control bindingはactivation内で一つのresponsibilityだけを初期化する。self-tailで同じcarrierを再利用する場合も、旧responsibilityは
 引数への`Consume`またはedgeの`Drop`でentryへ戻る前に終了する。したがってpattern destinationはvacant carrierへの`Initialize`であり、
 backendは格納時に旧値の存在を推測してreleaseしない。
@@ -65,6 +71,7 @@ capture-free closureはnull environmentを使う。self closureは実行中のac
 recursive regionのnon-tail callではresume live-inのmanaged fieldと次activationのargumentを、ownership planの`Share`または`Consume`に従って
 frameとparameter handoffへ配布する。同じsourceに複数のowner successorがある場合は先行するsuccessorを`Share`し、最後の一つだけを
 `Consume`する。共通regionでresume後もenvironmentが必要ならcaller environment ownerをframeへ渡す。
+borrowed local aliasのframe fieldはcarrierだけを保存し、同じresume lifetimeを包含するlender fieldがresponsibilityを保持する。
 
 return時はcallee localとactive environmentをreleaseし、frame fieldとcaller environmentをresume activationへ移す。terminal returnでは
 root result以外のlocal、active environment、control storageを解放する。tail edgeはframe shareを作らない。
