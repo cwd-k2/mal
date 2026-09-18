@@ -2,15 +2,32 @@ use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
-use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
+use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference};
 use crate::control::ast::{Operation, StateId, Terminator};
 
-use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan};
+use super::{
+    ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterDestination,
+    ParameterPlan,
+};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
+    parameters: HashMap<(FunctionId, ParameterEntry), ParameterEffect>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) enum ParameterEntry {
+    BorrowedAbi,
+    OwnedHandoff,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ParameterEffect {
+    ShareInto(ValueId),
+    ConsumeInto(ValueId),
+    Drop,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -68,7 +85,7 @@ pub(crate) enum UseEffect {
 impl Plan {
     pub(crate) fn new(
         control: &crate::control::ast::Program,
-        _parameters: &ParameterPlan,
+        parameters: &ParameterPlan,
         calls: &ControlCallPlan,
         regions: &ControlRegionPlan,
         frames: &ControlFramePlan,
@@ -122,9 +139,11 @@ impl Plan {
             &drops_after_binding,
         );
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
+        let parameters = collect_parameter_effects(control, parameters);
         Self {
             drops_after_binding,
             uses,
+            parameters,
         }
     }
 
@@ -180,6 +199,53 @@ impl Plan {
             })
             .copied()
     }
+
+    pub(crate) fn parameter_effect(
+        &self,
+        function: FunctionId,
+        entry: ParameterEntry,
+    ) -> Option<ParameterEffect> {
+        self.parameters.get(&(function, entry)).copied()
+    }
+}
+
+fn collect_parameter_effects(
+    control: &crate::control::ast::Program,
+    parameters: &ParameterPlan,
+) -> HashMap<(FunctionId, ParameterEntry), ParameterEffect> {
+    let mut effects = HashMap::new();
+    for function in &control.functions {
+        if !is_managed(&function.parameter.ty) {
+            continue;
+        }
+        match parameters
+            .destination(function.id)
+            .expect("every control function has a parameter destination")
+        {
+            ParameterDestination::Bind(binding)
+                if control.states[function.entry.0]
+                    .live
+                    .iter()
+                    .any(|value| value.id == binding) =>
+            {
+                effects.insert(
+                    (function.id, ParameterEntry::BorrowedAbi),
+                    ParameterEffect::ShareInto(binding),
+                );
+                effects.insert(
+                    (function.id, ParameterEntry::OwnedHandoff),
+                    ParameterEffect::ConsumeInto(binding),
+                );
+            }
+            ParameterDestination::Bind(_) | ParameterDestination::Discard => {
+                effects.insert(
+                    (function.id, ParameterEntry::OwnedHandoff),
+                    ParameterEffect::Drop,
+                );
+            }
+        }
+    }
+    effects
 }
 
 pub(crate) fn is_managed(ty: &Type) -> bool {
@@ -788,6 +854,70 @@ mod tests {
             execution.ownership.drops_after_binding(site, binding),
             &[id]
         );
+    }
+
+    #[test]
+    fn distinguishes_borrowed_and_owned_parameter_entries() {
+        let source = SourceFile::new(
+            FileId::new(96),
+            "execution-ownership-parameters.mal",
+            "keep :: Symbol -> Symbol := (value) -> { value; };\nignore :: Symbol -> Int32 := (value) -> { 0i32; };\ndiscard :: Symbol -> Int32 := (_) -> { 0i32; };\nmain :: Unit -> Int32 := () -> { discard(keep(\"x\")) + ignore(\"y\"); };".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check parameter ownership fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize parameter ownership fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+
+        for function in execution
+            .control
+            .functions
+            .iter()
+            .filter(|function| is_managed(&function.parameter.ty))
+        {
+            match execution
+                .parameters
+                .destination(function.id)
+                .expect("parameter destination")
+            {
+                ParameterDestination::Bind(binding)
+                    if execution.control.states[function.entry.0]
+                        .live
+                        .iter()
+                        .any(|value| value.id == binding) =>
+                {
+                    assert_eq!(
+                        execution
+                            .ownership
+                            .parameter_effect(function.id, ParameterEntry::BorrowedAbi),
+                        Some(ParameterEffect::ShareInto(binding))
+                    );
+                    assert_eq!(
+                        execution
+                            .ownership
+                            .parameter_effect(function.id, ParameterEntry::OwnedHandoff),
+                        Some(ParameterEffect::ConsumeInto(binding))
+                    );
+                }
+                ParameterDestination::Bind(_) | ParameterDestination::Discard => {
+                    assert_eq!(
+                        execution
+                            .ownership
+                            .parameter_effect(function.id, ParameterEntry::BorrowedAbi),
+                        None
+                    );
+                    assert_eq!(
+                        execution
+                            .ownership
+                            .parameter_effect(function.id, ParameterEntry::OwnedHandoff),
+                        Some(ParameterEffect::Drop)
+                    );
+                }
+            }
+        }
     }
 
     #[test]

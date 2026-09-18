@@ -184,7 +184,11 @@ impl FunctionEmitter<'_> {
                         }
                         self.commit_consumes(&value)?;
                         self.release_local_managed();
-                        self.emit_parameter_handoff(function.id, &value.value)?;
+                        self.emit_parameter_handoff(
+                            function.id,
+                            &value.value,
+                            crate::execution::ownership::ParameterEntry::OwnedHandoff,
+                        )?;
                         self.line(format!("  br label %mal_state_{}", function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {

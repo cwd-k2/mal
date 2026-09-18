@@ -236,16 +236,20 @@ impl<'a> FunctionEmitter<'a> {
                 symbol.llvm, symbol.alignment
             ));
         }
-        if let ParameterDestination::Bind(_) =
-            self.execution.parameters.destination(self.function.id)?
+        let parameter_destination = self.execution.parameters.destination(self.function.id)?;
+        if matches!(parameter_destination, ParameterDestination::Bind(_))
+            || crate::execution::ownership::is_managed(&self.function.parameter.ty)
         {
-            let mut parameter = EmittedValue {
+            let parameter = EmittedValue {
                 ty: self.function.parameter.ty.clone(),
                 representation: "%mal_parameter".into(),
                 owned: false,
             };
-            self.retain_if_borrowed(&mut parameter)?;
-            self.emit_parameter_handoff(self.function.id, &parameter)?;
+            self.emit_parameter_handoff(
+                self.function.id,
+                &parameter,
+                crate::execution::ownership::ParameterEntry::BorrowedAbi,
+            )?;
         }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 

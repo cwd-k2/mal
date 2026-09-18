@@ -119,7 +119,11 @@ impl FunctionEmitter<'_> {
             }
             self.commit_consumes(&argument)?;
             self.release_local_managed();
-            self.emit_parameter_handoff(self.function.id, &argument.value)?;
+            self.emit_parameter_handoff(
+                self.function.id,
+                &argument.value,
+                crate::execution::ownership::ParameterEntry::OwnedHandoff,
+            )?;
             self.line(format!("  br label %mal_state_{}", self.function.entry.0));
             Some(())
         }
@@ -304,7 +308,11 @@ impl FunctionEmitter<'_> {
     fn emit_region_target(&mut self, target: FunctionId, argument: &EmittedValue) -> Option<()> {
         let function = *self.index.control_functions.get(&target)?;
         let entry = function.entry;
-        self.emit_parameter_handoff(target, argument)?;
+        self.emit_parameter_handoff(
+            target,
+            argument,
+            crate::execution::ownership::ParameterEntry::OwnedHandoff,
+        )?;
         self.line(format!("  br label %mal_state_{}", entry.0));
         Some(())
     }
