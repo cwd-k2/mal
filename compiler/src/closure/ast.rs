@@ -50,7 +50,6 @@ pub enum TopLevelPattern {
 pub struct Function {
     pub id: FunctionId,
     pub kind: FunctionKind,
-    pub environment: Vec<EnvironmentField>,
     pub parameter: Parameter,
     pub body: Block,
     pub joins: Vec<Join>,
@@ -58,7 +57,9 @@ pub struct Function {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FunctionKind {
-    Ordinary,
+    Ordinary {
+        captures: Vec<CaptureField>,
+    },
     PackedCapability {
         operation: PackedBuilderOperation,
         element: Type,
@@ -66,8 +67,15 @@ pub enum FunctionKind {
 }
 
 impl FunctionKind {
-    pub fn has_scoped_environment(&self) -> bool {
+    pub fn is_packed_capability(&self) -> bool {
         matches!(self, Self::PackedCapability { .. })
+    }
+
+    pub fn captures(&self) -> Option<&[CaptureField]> {
+        match self {
+            Self::Ordinary { captures } => Some(captures),
+            Self::PackedCapability { .. } => None,
+        }
     }
 }
 
@@ -84,7 +92,7 @@ pub enum FunctionId {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EnvironmentField {
+pub struct CaptureField {
     pub ty: Type,
 }
 
@@ -150,7 +158,8 @@ pub enum AtomKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Reference {
     Binding(ValueId),
-    EnvironmentField(usize),
+    Capture(usize),
+    PackedBuilder,
     SelfClosure(FunctionId),
 }
 

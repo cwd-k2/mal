@@ -120,10 +120,11 @@ argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置�
 layout shapeを受け取る`#`は型検査でclosedなcanonical typeへ解決し、typed IRへ残す。strideはtarget data layoutから求め、
 productとsumではsource-levelの入れ子を保ったcanonical layout planを使う。layout shapeにない型identifierはparserで拒否する。
 
-function valueはcode pointerとenvironment pointerの組へlowerする。ordinary lambdaのcaptureはimmutable environmentへ格納し、
-capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。`Packed` intrinsic capabilityは
-ordinary capture listへ戻さず、closure conversionからcontrolとownershipを通してbuilder provenanceを専用operationとして保持する。
-backendはそのbuilderをscoped environmentとして直接使い、capture数や型からcapabilityであることを推測しない。
+function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
+immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
+`Packed` intrinsic capability kindはoperationとelement型を所有し、bodyからbuilderを専用referenceで参照する。生成siteのbuilder
+provenanceも専用operationとしてcontrolとownershipへ渡す。control IRはfunction environment schemaを複製しない。backendは
+capability kindとbuilder referenceを直接使い、environment fieldの個数や型からcapabilityであることを推測しない。
 
 call siteのcalleeがtop-level lambda、現在のself closure、またはidentityを追跡できるlocal closureならdirect entryへ進み、
 runtime選択が必要なcalleeだけ共通closure entryからindirect callする。

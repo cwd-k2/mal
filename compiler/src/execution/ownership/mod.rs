@@ -16,6 +16,8 @@ mod parameter;
 mod use_plan;
 
 #[cfg(test)]
+mod packed_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use destination::PatternDestination;

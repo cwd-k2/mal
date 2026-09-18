@@ -49,13 +49,16 @@ impl FunctionEmitter<'_> {
                     Some(with_code)
                 };
                 let target = *self.index.lowered_functions.get(function)?;
-                if target.kind != crate::closure::ast::FunctionKind::Ordinary {
+                let crate::closure::ast::FunctionKind::Ordinary {
+                    captures: environment,
+                } = &target.kind
+                else {
                     return None;
-                }
-                if captures.len() != target.environment.len()
+                };
+                if captures.len() != environment.len()
                     || captures
                         .iter()
-                        .zip(&target.environment)
+                        .zip(environment)
                         .any(|(capture, field)| capture.ty != field.ty)
                 {
                     return None;
@@ -63,13 +66,8 @@ impl FunctionEmitter<'_> {
                 let closure = if captures.is_empty() {
                     with_code?
                 } else {
-                    let environment_type = Type::Product(
-                        target
-                            .environment
-                            .iter()
-                            .map(|field| field.ty.clone())
-                            .collect(),
-                    );
+                    let environment_type =
+                        Type::Product(environment.iter().map(|field| field.ty.clone()).collect());
                     let effects = captures
                         .iter()
                         .enumerate()
@@ -125,9 +123,7 @@ impl FunctionEmitter<'_> {
                 if !matches!(
                     target.kind,
                     crate::closure::ast::FunctionKind::PackedCapability { .. }
-                ) || target.environment.len() != 1
-                    || target.environment[0].ty != Type::Address
-                {
+                ) {
                     return None;
                 }
                 self.require_binding_borrow(site, binding, BindingOperand::PackedBuilder, builder)?;

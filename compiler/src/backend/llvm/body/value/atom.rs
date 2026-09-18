@@ -59,7 +59,7 @@ impl FunctionEmitter<'_> {
                     .lowered_functions
                     .get(&self.current_function)?
                     .kind
-                    .has_scoped_environment()
+                    .is_packed_capability()
                 {
                     return None;
                 }
@@ -82,46 +82,15 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
-            (ty, AtomKind::Reference(Reference::EnvironmentField(index))) => {
+            (ty, AtomKind::Reference(Reference::Capture(index))) => {
                 let function = *self.index.lowered_functions.get(&self.current_function)?;
-                let field = function.environment.get(*index)?;
+                let captures = function.kind.captures()?;
+                let field = captures.get(*index)?;
                 if field.ty != *ty {
                     return None;
                 }
-                if function.kind.has_scoped_environment() {
-                    if *index != 0 || function.environment.len() != 1 || *ty != Type::Address {
-                        return None;
-                    }
-                    let function_type = Type::Function {
-                        parameter: function.parameter.ty.clone().into(),
-                        result: function.body.result.ty.clone().into(),
-                    };
-                    if self.types.function_is_compact(&function_type) {
-                        return Some(EmittedValue {
-                            ty: Type::Address,
-                            representation: self.active_environment(),
-                            owned: false,
-                        });
-                    }
-                    let tagged = self.active_environment();
-                    let environment = self.register();
-                    let bits = self.types.index_size().checked_mul(8)?;
-                    self.line(format!(
-                        "  {environment} = call ptr @llvm.ptrmask.p0.i{bits}(ptr {tagged}, i{bits} -2)"
-                    ));
-                    return Some(EmittedValue {
-                        ty: Type::Address,
-                        representation: environment,
-                        owned: false,
-                    });
-                }
-                let environment_type = Type::Product(
-                    function
-                        .environment
-                        .iter()
-                        .map(|field| field.ty.clone())
-                        .collect(),
-                );
+                let environment_type =
+                    Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
                 let fields = self.types.product_fields(&environment_type)?;
                 let offset = fields.get(*index)?.offset;
                 let environment = self.active_environment();
@@ -138,6 +107,34 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: value,
+                    owned: false,
+                })
+            }
+            (Type::Address, AtomKind::Reference(Reference::PackedBuilder)) => {
+                let function = *self.index.lowered_functions.get(&self.current_function)?;
+                if !function.kind.is_packed_capability() {
+                    return None;
+                }
+                let function_type = Type::Function {
+                    parameter: function.parameter.ty.clone().into(),
+                    result: function.body.result.ty.clone().into(),
+                };
+                if self.types.function_is_compact(&function_type) {
+                    return Some(EmittedValue {
+                        ty: Type::Address,
+                        representation: self.active_environment(),
+                        owned: false,
+                    });
+                }
+                let tagged = self.active_environment();
+                let environment = self.register();
+                let bits = self.types.index_size().checked_mul(8)?;
+                self.line(format!(
+                    "  {environment} = call ptr @llvm.ptrmask.p0.i{bits}(ptr {tagged}, i{bits} -2)"
+                ));
+                Some(EmittedValue {
+                    ty: Type::Address,
+                    representation: environment,
                     owned: false,
                 })
             }

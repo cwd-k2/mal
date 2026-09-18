@@ -5,7 +5,7 @@ use crate::anf::ast as anf;
 pub mod ast;
 
 use self::ast::{
-    Atom, AtomId, AtomKind, Binding, Block, EnvironmentField, Function, FunctionId, FunctionKind,
+    Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, FunctionKind,
     Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
@@ -268,29 +268,25 @@ impl Converter {
             .iter()
             .find(|function| function.id == FunctionId::Lambda(lambda.id))
         {
-            debug_assert_eq!(
-                existing
-                    .environment
-                    .iter()
-                    .map(|field| &field.ty)
-                    .collect::<Vec<_>>(),
-                lambda
-                    .captures
-                    .iter()
-                    .map(|capture| &capture.ty)
-                    .collect::<Vec<_>>()
-            );
             debug_assert_eq!(existing.parameter.ty, lambda.parameter.ty);
             debug_assert_eq!(existing.body.result.ty, lambda.body.result.ty);
             debug_assert_eq!(existing.kind, Self::function_kind(lambda));
             return;
         }
-        let mut environment = lambda
-            .captures
-            .iter()
-            .enumerate()
-            .map(|(index, capture)| (capture.binding, Reference::EnvironmentField(index)))
-            .collect::<HashMap<_, _>>();
+        let mut environment = match &lambda.kind {
+            crate::core::ast::LambdaKind::Ordinary => lambda
+                .captures
+                .iter()
+                .enumerate()
+                .map(|(index, capture)| (capture.binding, Reference::Capture(index)))
+                .collect::<HashMap<_, _>>(),
+            crate::core::ast::LambdaKind::PackedCapability { .. } => {
+                let [capture] = lambda.captures.as_slice() else {
+                    unreachable!("Packed capability must capture exactly one builder");
+                };
+                HashMap::from([(capture.binding, Reference::PackedBuilder)])
+            }
+        };
         if let Some(self_binding) = lambda.self_binding {
             environment.insert(
                 self_binding,
@@ -310,13 +306,6 @@ impl Converter {
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
             kind: Self::function_kind(lambda),
-            environment: lambda
-                .captures
-                .iter()
-                .map(|capture| EnvironmentField {
-                    ty: capture.ty.clone(),
-                })
-                .collect(),
             parameter: Parameter {
                 binding: lambda.parameter.binding,
                 ty: lambda.parameter.ty.clone(),
@@ -329,7 +318,15 @@ impl Converter {
 
     fn function_kind(lambda: &anf::Lambda) -> FunctionKind {
         match &lambda.kind {
-            crate::core::ast::LambdaKind::Ordinary => FunctionKind::Ordinary,
+            crate::core::ast::LambdaKind::Ordinary => FunctionKind::Ordinary {
+                captures: lambda
+                    .captures
+                    .iter()
+                    .map(|capture| CaptureField {
+                        ty: capture.ty.clone(),
+                    })
+                    .collect(),
+            },
             crate::core::ast::LambdaKind::PackedCapability { operation, element } => {
                 FunctionKind::PackedCapability {
                     operation: *operation,

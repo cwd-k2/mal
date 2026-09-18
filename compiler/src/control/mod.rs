@@ -69,7 +69,6 @@ impl Lowerer {
                 self.resolve_liveness(start, &locals);
                 Function {
                     id: function.id,
-                    environment: function.environment.clone(),
                     parameter: function.parameter.clone(),
                     entry,
                 }

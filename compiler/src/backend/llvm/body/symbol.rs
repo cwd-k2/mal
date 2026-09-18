@@ -29,12 +29,12 @@ pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -
         .any(|external| {
             type_contains_value(&external.parameter) || type_contains_value(&external.result)
         })
-        || execution.control.functions.iter().any(|function| {
-            function
-                .environment
-                .iter()
-                .any(|field| type_contains_value(&field.ty))
-                || type_contains_value(&function.parameter.ty)
+        || execution.lowered.functions.iter().any(|function| {
+            function.kind.captures().is_some_and(|captures| {
+                captures
+                    .iter()
+                    .any(|capture| type_contains_value(&capture.ty))
+            }) || type_contains_value(&function.parameter.ty)
         })
         || execution.control.states.iter().any(|state| {
             state.input.as_ref().is_some_and(pattern_contains_value)

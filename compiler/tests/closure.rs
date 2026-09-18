@@ -34,6 +34,13 @@ fn function(program: &closure::ast::Program, id: closure::ast::FunctionId) -> &F
         .expect("closure construction must name a lifted function")
 }
 
+fn capture_schema(function: &Function) -> &[closure::ast::CaptureField] {
+    function
+        .kind
+        .captures()
+        .expect("ordinary function should own a capture schema")
+}
+
 #[test]
 fn lifts_capturing_lambdas_and_materializes_their_environment() {
     let program = convert_ok(
@@ -43,7 +50,7 @@ fn lifts_capturing_lambdas_and_materializes_their_environment() {
     );
     let outer_id = closure_function_id(&program.bindings[0].value.bindings[0].operation);
     let outer = function(&program, outer_id);
-    assert!(outer.environment.is_empty());
+    assert!(capture_schema(outer).is_empty());
 
     let Operation::MakeClosure {
         function: inner_id,
@@ -60,13 +67,13 @@ fn lifts_capturing_lambdas_and_materializes_their_environment() {
     ));
 
     let inner = function(&program, *inner_id);
-    assert_eq!(inner.environment.len(), 1);
+    assert_eq!(capture_schema(inner).len(), 1);
     let Operation::PrimitiveBinary { left, right, .. } = &inner.body.bindings[0].operation else {
         panic!("expected the inner addition");
     };
     assert!(matches!(
         left.kind,
-        AtomKind::Reference(Reference::EnvironmentField(0))
+        AtomKind::Reference(Reference::Capture(0))
     ));
     assert!(matches!(
         right.kind,
@@ -100,7 +107,7 @@ fn forwards_an_inferred_capture_through_every_lifted_function() {
     ));
 
     let middle = function(&program, *middle_id);
-    assert_eq!(middle.environment.len(), 1);
+    assert_eq!(capture_schema(middle).len(), 1);
     let Operation::MakeClosure {
         function: inner_id,
         captures: inner_captures,
@@ -110,14 +117,14 @@ fn forwards_an_inferred_capture_through_every_lifted_function() {
     };
     assert!(matches!(
         inner_captures[0].kind,
-        AtomKind::Reference(Reference::EnvironmentField(0))
+        AtomKind::Reference(Reference::Capture(0))
     ));
 
     let inner = function(&program, *inner_id);
-    assert_eq!(inner.environment.len(), 1);
+    assert_eq!(capture_schema(inner).len(), 1);
     assert!(matches!(
         inner.body.result.kind,
-        AtomKind::Reference(Reference::EnvironmentField(0))
+        AtomKind::Reference(Reference::Capture(0))
     ));
 }
 
@@ -138,7 +145,7 @@ fn represents_capture_free_closures_without_environment_fields() {
         program
             .functions
             .iter()
-            .all(|function| function.environment.is_empty())
+            .all(|function| capture_schema(function).is_empty())
     );
 }
 
@@ -161,8 +168,16 @@ fn represents_shared_packed_capabilities_with_scoped_environments() {
                 element: check::ast::Type::Int64,
                 ..
             }
-        ) && function.environment.len() == 1
-            && function.environment[0].ty == check::ast::Type::Address
+        ) && function.body.bindings.iter().any(|binding| {
+            matches!(
+                &binding.operation,
+                Operation::Product(elements)
+                    if elements.iter().any(|element| matches!(
+                        element.kind,
+                        AtomKind::Reference(Reference::PackedBuilder)
+                    ))
+            )
+        })
     }));
 
     let constructions = program
@@ -280,7 +295,7 @@ fn preserves_captured_products_and_destructuring_patterns() {
     };
     let inner = function(&program, *inner_id);
     assert_eq!(
-        inner.environment[0].ty,
+        capture_schema(inner)[0].ty,
         malc::check::ast::Type::Product(
             vec![malc::check::ast::Type::Int32, malc::check::ast::Type::Int32,].into()
         )

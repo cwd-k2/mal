@@ -120,17 +120,16 @@ fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
            };\n\
          };",
     );
-    let inner = program
-        .functions
-        .iter()
-        .find(|function| !function.environment.is_empty())
-        .expect("capturing function should exist");
-    assert!(reachable_states(&program, inner).into_iter().any(|state| {
-        matches!(
-            state.terminator,
-            Terminator::Call { resume, .. }
-                if program.states[resume.0].needs_environment
-        )
+    assert!(program.functions.iter().any(|function| {
+        reachable_states(&program, function)
+            .into_iter()
+            .any(|state| {
+                matches!(
+                    state.terminator,
+                    Terminator::Call { resume, .. }
+                        if program.states[resume.0].needs_environment
+                )
+            })
     }));
 }
 

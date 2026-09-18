@@ -125,16 +125,14 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn emit_environment_destructor(&mut self) -> Option<()> {
         let lowered = *self.index.lowered_functions.get(&self.current_function)?;
-        if self.function.environment.is_empty() || lowered.kind.has_scoped_environment() {
+        let Some(captures) = lowered.kind.captures() else {
+            return Some(());
+        };
+        if captures.is_empty() {
             return Some(());
         }
-        let environment_type = Type::Product(
-            self.function
-                .environment
-                .iter()
-                .map(|field| field.ty.clone())
-                .collect(),
-        );
+        let environment_type =
+            Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
         self.line(format!(
             "define internal void @mal_destroy_environment_{}(ptr %mal_environment) {{",

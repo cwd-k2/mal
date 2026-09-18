@@ -214,8 +214,8 @@ fn function_type_is_scoped<'a>(
         function.parameter.ty == **parameter && function.body.result.ty == **result
     });
     matching.next().is_some_and(|first| {
-        first.kind.has_scoped_environment()
-            && matching.all(|function| function.kind.has_scoped_environment())
+        first.kind.is_packed_capability()
+            && matching.all(|function| function.kind.is_packed_capability())
     })
 }
 

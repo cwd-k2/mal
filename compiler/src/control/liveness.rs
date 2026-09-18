@@ -157,7 +157,9 @@ fn collect_atom_uses(
         AtomKind::Reference(Reference::Binding(id)) if !definitions.contains(&id) => {
             uses.insert(id);
         }
-        AtomKind::Reference(Reference::EnvironmentField(_) | Reference::SelfClosure(_)) => {
+        AtomKind::Reference(
+            Reference::Capture(_) | Reference::PackedBuilder | Reference::SelfClosure(_),
+        ) => {
             *environment = true;
         }
         _ => {}

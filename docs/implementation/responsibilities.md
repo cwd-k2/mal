@@ -164,9 +164,9 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
-| `closure` | ordinary lambdaをfunctionとmanaged capture environmentへ変換し、intrinsic capabilityのfunction identityとbuilder provenanceを専用operationとして構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
+| `closure` | ordinary function kindにcapture schemaを、intrinsic capability kindにoperationとelement型を持たせ、capability bodyのbuilder referenceと生成siteのbuilder provenanceを専用表現として構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
-| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、intrinsic capabilityのbuilder provenanceを専用operationのまま保持 |
+| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製せず、intrinsic capabilityのbuilder provenanceを専用operationのまま保持 |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |

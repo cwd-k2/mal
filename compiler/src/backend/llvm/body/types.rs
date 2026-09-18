@@ -61,7 +61,7 @@ impl Types {
             });
             matching.next().is_some_and(|function| {
                 function.id == *target
-                    && function.kind.has_scoped_environment()
+                    && function.kind.is_packed_capability()
                     && matching.next().is_none()
             })
         });

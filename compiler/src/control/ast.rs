@@ -1,8 +1,6 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
-use crate::closure::ast::{
-    Atom, EnvironmentField, FunctionId, Parameter, Pattern, TopLevelPattern,
-};
+use crate::closure::ast::{Atom, FunctionId, Parameter, Pattern, TopLevelPattern};
 use crate::core::ast::{BinaryPrimitive, PackedBuilderOperation, UnaryPrimitive};
 use crate::resolve::ast::ExternalOperationId;
 use crate::source::Span;
@@ -25,7 +23,6 @@ pub struct TopLevelBinding {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
     pub id: FunctionId,
-    pub environment: Vec<EnvironmentField>,
     pub parameter: Parameter,
     pub entry: StateId,
 }
