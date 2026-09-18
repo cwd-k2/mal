@@ -1308,6 +1308,61 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_memory_views_as_owner_successors() {
+        let source = SourceFile::new(
+            FileId::new(100),
+            "execution-ownership-memory-view.mal",
+            "inspect :: Symbol -> USize := (value) -> {\n  packed := *value;\n  prefix := packed / 1usize;\n  byte := packed # 0usize;\n  text := *prefix;\n  byte.usize + #text;\n};\nmain :: Unit -> Int32 := () -> { inspect(\"ab\").i32; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check memory ownership fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize memory ownership fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+
+        let mut effects = HashMap::new();
+        for (state_index, state) in execution.control.states.iter().enumerate() {
+            for (binding_index, binding) in state.bindings.iter().enumerate() {
+                let Operation::Memory { primitive, .. } = binding.operation else {
+                    continue;
+                };
+                if matches!(
+                    primitive,
+                    crate::check::ast::MemoryPrimitive::SymbolToPacked
+                        | crate::check::ast::MemoryPrimitive::Prefix
+                        | crate::check::ast::MemoryPrimitive::PackedToSymbol
+                ) {
+                    effects.insert(
+                        primitive,
+                        execution.ownership.binding_use(
+                            StateId(state_index),
+                            binding_index,
+                            BindingOperand::MemoryArgument,
+                        ),
+                    );
+                }
+            }
+        }
+
+        assert_eq!(
+            effects[&crate::check::ast::MemoryPrimitive::SymbolToPacked],
+            Some(UseEffect::Consume)
+        );
+        assert_eq!(
+            effects[&crate::check::ast::MemoryPrimitive::Prefix],
+            Some(UseEffect::Consume)
+        );
+        assert_eq!(
+            effects[&crate::check::ast::MemoryPrimitive::PackedToSymbol],
+            Some(UseEffect::Consume)
+        );
+    }
+
+    #[test]
     fn shares_a_frame_field_before_consuming_the_same_next_argument() {
         let source = SourceFile::new(
             FileId::new(94),
