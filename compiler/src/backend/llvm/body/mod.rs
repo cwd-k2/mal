@@ -177,6 +177,11 @@ struct EmittedValue {
     owned: bool,
 }
 
+struct PreparedValue {
+    value: EmittedValue,
+    consumed_slots: Vec<Slot>,
+}
+
 struct EmittedFunction {
     globals: String,
     definition: String,

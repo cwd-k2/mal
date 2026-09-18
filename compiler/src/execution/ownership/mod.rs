@@ -5,6 +5,8 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
 use crate::control::ast::{Operation, StateId, Terminator};
 
+use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan};
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     dead_values: HashMap<(StateId, usize), Vec<ValueId>>,
@@ -24,6 +26,7 @@ pub(crate) enum UseLocation {
         operand: BindingOperand,
     },
     Terminator(TerminatorOperand),
+    FrameField(usize),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -63,7 +66,13 @@ pub(crate) enum UseEffect {
 }
 
 impl Plan {
-    pub(crate) fn new(control: &crate::control::ast::Program) -> Self {
+    pub(crate) fn new(
+        control: &crate::control::ast::Program,
+        _parameters: &ParameterPlan,
+        calls: &ControlCallPlan,
+        regions: &ControlRegionPlan,
+        frames: &ControlFramePlan,
+    ) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
         for (index, state) in control.states.iter().enumerate() {
             debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
@@ -105,12 +114,19 @@ impl Plan {
                 });
             }
         }
-        let uses = collect_use_effects(control, &live_in, &dead_values);
+        let uses = collect_use_effects(control, calls, regions, frames, &live_in, &dead_values);
         Self { dead_values, uses }
     }
 
-    pub(crate) fn is_valid(&self, control: &crate::control::ast::Program) -> bool {
-        *self == Self::new(control)
+    pub(crate) fn is_valid(
+        &self,
+        control: &crate::control::ast::Program,
+        parameters: &ParameterPlan,
+        calls: &ControlCallPlan,
+        regions: &ControlRegionPlan,
+        frames: &ControlFramePlan,
+    ) -> bool {
+        *self == Self::new(control, parameters, calls, regions, frames)
     }
 
     pub(crate) fn dead_values(&self, state: StateId, binding: usize) -> &[ValueId] {
@@ -142,6 +158,15 @@ impl Plan {
             .get(&UseId {
                 state,
                 location: UseLocation::Terminator(operand),
+            })
+            .copied()
+    }
+
+    pub(crate) fn frame_field_use(&self, state: StateId, field: usize) -> Option<UseEffect> {
+        self.uses
+            .get(&UseId {
+                state,
+                location: UseLocation::FrameField(field),
             })
             .copied()
     }
@@ -275,6 +300,9 @@ fn visit_terminator_atoms(terminator: &Terminator, mut visit: impl FnMut(&Atom))
 
 fn collect_use_effects(
     control: &crate::control::ast::Program,
+    calls: &ControlCallPlan,
+    regions: &ControlRegionPlan,
+    frames: &ControlFramePlan,
     live_in: &[HashSet<ValueId>],
     dead_values: &HashMap<(StateId, usize), Vec<ValueId>>,
 ) -> HashMap<UseId, UseEffect> {
@@ -331,8 +359,94 @@ fn collect_use_effects(
                 );
             }
         }
-        for (operand, atom, mut effect) in terminator_operands(&state.terminator) {
+        let effective_argument = calls
+            .forwarded_self_argument(site)
+            .or_else(|| terminator_argument(&state.terminator));
+        let mut terminator_uses = terminator_operands(&state.terminator, effective_argument);
+        let mode = calls.mode(site);
+        let uses_common_control = regions
+            .site_region(site)
+            .is_some_and(|region| calls.requires_common_control(region));
+        let common_region_transition =
+            mode == Some(ControlCallMode::Dispatch) && uses_common_control;
+        let frame = frames.frame(site);
+        let callee_is_successor = uses_common_control
+            && matches!(
+                mode,
+                Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
+            );
+        let argument_is_successor = frame.is_some()
+            || matches!(
+                mode,
+                Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
+            )
+            || common_region_transition;
+        for (operand, _, effect) in &mut terminator_uses {
+            if matches!(
+                operand,
+                TerminatorOperand::CallCallee | TerminatorOperand::TailCallee
+            ) && callee_is_successor
+            {
+                *effect = UseEffect::Share;
+            }
+            if matches!(
+                operand,
+                TerminatorOperand::CallArgument | TerminatorOperand::TailArgument
+            ) && argument_is_successor
+            {
+                *effect = UseEffect::Share;
+            }
+        }
+
+        let mut owner_successors = Vec::new();
+        if let Some(frame) = frame {
+            for (field_index, field) in frame.fields.iter().enumerate() {
+                if is_managed(&field.ty) {
+                    owner_successors.push((
+                        UseId {
+                            state: site,
+                            location: UseLocation::FrameField(field_index),
+                        },
+                        Some(field.id),
+                    ));
+                }
+            }
+        }
+        for (operand, atom, effect) in &terminator_uses {
+            if *effect == UseEffect::Share && is_managed(&atom.ty) {
+                owner_successors.push((
+                    UseId {
+                        state: site,
+                        location: UseLocation::Terminator(*operand),
+                    },
+                    binding_id(atom).filter(|id| local_bindings.contains(id)),
+                ));
+            }
+        }
+        let mut seen_sources = HashSet::new();
+        let mut owner_effects = HashMap::new();
+        for (use_id, source) in owner_successors.into_iter().rev() {
+            let effect = match source {
+                Some(id) if seen_sources.insert(id) => UseEffect::Consume,
+                _ => UseEffect::Share,
+            };
+            owner_effects.insert(use_id, effect);
+        }
+        for (use_id, effect) in &owner_effects {
+            if matches!(use_id.location, UseLocation::FrameField(_)) {
+                uses.insert(*use_id, *effect);
+            }
+        }
+
+        for (operand, atom, mut effect) in terminator_uses {
             if is_managed(&atom.ty) {
+                effect = owner_effects
+                    .get(&UseId {
+                        state: site,
+                        location: UseLocation::Terminator(operand),
+                    })
+                    .copied()
+                    .unwrap_or(effect);
                 if operand == TerminatorOperand::Return
                     && binding_id(atom).is_some_and(|id| local_bindings.contains(&id))
                 {
@@ -360,6 +474,13 @@ fn collect_use_effects(
         }
     }
     uses
+}
+
+fn terminator_argument(terminator: &Terminator) -> Option<&Atom> {
+    match terminator {
+        Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. } => Some(argument),
+        _ => None,
+    }
 }
 
 fn insert_pattern_bindings(pattern: &Pattern, bindings: &mut HashSet<ValueId>) {
@@ -417,7 +538,10 @@ fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &Atom, bool)>
     }
 }
 
-fn terminator_operands(terminator: &Terminator) -> Vec<(TerminatorOperand, &Atom, UseEffect)> {
+fn terminator_operands<'a>(
+    terminator: &'a Terminator,
+    effective_argument: Option<&'a Atom>,
+) -> Vec<(TerminatorOperand, &'a Atom, UseEffect)> {
     match terminator {
         Terminator::Return(atom) => {
             vec![(TerminatorOperand::Return, atom, UseEffect::Share)]
@@ -429,11 +553,19 @@ fn terminator_operands(terminator: &Terminator) -> Vec<(TerminatorOperand, &Atom
             callee, argument, ..
         } => vec![
             (TerminatorOperand::CallCallee, callee, UseEffect::Borrow),
-            (TerminatorOperand::CallArgument, argument, UseEffect::Borrow),
+            (
+                TerminatorOperand::CallArgument,
+                effective_argument.unwrap_or(argument),
+                UseEffect::Borrow,
+            ),
         ],
         Terminator::TailCall { callee, argument } => vec![
             (TerminatorOperand::TailCallee, callee, UseEffect::Borrow),
-            (TerminatorOperand::TailArgument, argument, UseEffect::Borrow),
+            (
+                TerminatorOperand::TailArgument,
+                effective_argument.unwrap_or(argument),
+                UseEffect::Borrow,
+            ),
         ],
         Terminator::Case { scrutinee, .. } => vec![(
             TerminatorOperand::CaseScrutinee,
@@ -479,17 +611,30 @@ mod tests {
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let control = crate::control::lower(&closure);
-        let mut plan = Plan::new(&control);
+        let mut execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
 
-        assert!(plan.is_valid(&control));
-        let point = *plan
+        assert!(execution.ownership.is_valid(
+            &execution.control,
+            &execution.parameters,
+            &execution.control_calls,
+            &execution.control_regions,
+            &execution.control_frames,
+        ));
+        let point = *execution
+            .ownership
             .dead_values
             .keys()
             .next()
             .expect("dead managed value fact");
-        plan.dead_values.remove(&point);
-        assert!(!plan.is_valid(&control));
+        execution.ownership.dead_values.remove(&point);
+        assert!(!execution.ownership.is_valid(
+            &execution.control,
+            &execution.parameters,
+            &execution.control_calls,
+            &execution.control_regions,
+            &execution.control_frames,
+        ));
     }
 
     #[test]
@@ -506,8 +651,10 @@ mod tests {
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let control = crate::control::lower(&closure);
-        let plan = Plan::new(&control);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+        let control = &execution.control;
+        let plan = &execution.ownership;
 
         let (site, binding) = control
             .states
@@ -548,8 +695,10 @@ mod tests {
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let control = crate::control::lower(&closure);
-        let plan = Plan::new(&control);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+        let control = &execution.control;
+        let plan = &execution.ownership;
 
         let (site, binding) = control
             .states
@@ -568,5 +717,53 @@ mod tests {
             Some(UseEffect::Borrow)
         );
         assert!(!plan.dead_values(site, binding).is_empty());
+    }
+
+    #[test]
+    fn shares_a_frame_field_before_consuming_the_same_next_argument() {
+        let source = SourceFile::new(
+            FileId::new(94),
+            "execution-ownership-frame-argument.mal",
+            "extern choose :: Unit -> Bool;\nwalk :: Symbol -> Symbol := (value) -> {\n  if (choose()) then { value } else {\n    child := walk(value);\n    if (#value == 0usize) then { child } else { child };\n  };\n};\nmain :: Unit -> Int32 := () -> { result := walk(\"x\"); (#result).i32; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check frame ownership fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize frame ownership fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+        let (site, field_index) = execution
+            .control
+            .states
+            .iter()
+            .enumerate()
+            .find_map(|(state_index, state)| {
+                let site = StateId(state_index);
+                let frame = execution.control_frames.frame(site)?;
+                let Terminator::Call { argument, .. } = &state.terminator else {
+                    return None;
+                };
+                let argument_id = binding_id(argument)?;
+                frame
+                    .fields
+                    .iter()
+                    .position(|field| field.id == argument_id)
+                    .map(|field| (site, field))
+            })
+            .expect("frame field and argument share a source");
+
+        assert_eq!(
+            execution.ownership.frame_field_use(site, field_index),
+            Some(UseEffect::Share)
+        );
+        assert_eq!(
+            execution
+                .ownership
+                .terminator_use(site, TerminatorOperand::CallArgument),
+            Some(UseEffect::Consume)
+        );
     }
 }

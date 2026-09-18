@@ -54,8 +54,20 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
     ));
     let control_frames = ControlFramePlan::new(&control, &control_regions, &control_calls);
     debug_assert!(control_frames.is_valid(&control, &control_regions, &control_calls));
-    let ownership = OwnershipPlan::new(&control);
-    debug_assert!(ownership.is_valid(&control));
+    let ownership = OwnershipPlan::new(
+        &control,
+        &parameters,
+        &control_calls,
+        &control_regions,
+        &control_frames,
+    );
+    debug_assert!(ownership.is_valid(
+        &control,
+        &parameters,
+        &control_calls,
+        &control_regions,
+        &control_frames,
+    ));
     Program {
         lowered,
         control,

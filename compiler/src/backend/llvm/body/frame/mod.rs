@@ -1,4 +1,3 @@
-use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
@@ -43,9 +42,20 @@ impl FunctionEmitter<'_> {
             let tag = self.frame_tags.get(&site)?;
             self.line(format!("  store i32 {tag}, ptr {frame_pointer}, align 4"));
         }
-        for (field, layout) in frame.fields.iter().zip(&layout.fields) {
-            let mut value = self.load_binding(field.id)?;
-            self.retain_if_borrowed(&mut value)?;
+        let prepared_fields = frame
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(field_index, field)| {
+                let effect = if crate::execution::ownership::is_managed(&field.ty) {
+                    self.ownership.frame_field_use(site, field_index)?
+                } else {
+                    crate::execution::ownership::UseEffect::Borrow
+                };
+                self.prepare_binding_for_use(field.id, effect)
+            })
+            .collect::<Option<Vec<_>>>()?;
+        for (value, layout) in prepared_fields.iter().zip(&layout.fields) {
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
@@ -53,7 +63,7 @@ impl FunctionEmitter<'_> {
             ));
             self.line(format!(
                 "  store {} {}, ptr {pointer}, align {}",
-                layout.value_type.llvm, value.representation, layout.value_type.alignment
+                layout.value_type.llvm, value.value.representation, layout.value_type.alignment
             ));
         }
         if let Some(offset) = layout.environment {
@@ -82,15 +92,34 @@ impl FunctionEmitter<'_> {
             self.types.index_alignment()
         ));
         if self.common_region.is_some() {
-            self.emit_region_transition(site, callee, argument, frame.carries_environment)
+            self.emit_region_transition(
+                site,
+                callee,
+                argument,
+                frame.carries_environment,
+                &prepared_fields,
+            )
         } else {
-            let mut argument = self.atom(argument)?;
-            if argument.ty != self.function.parameter.ty {
+            let effect = self
+                .ownership
+                .terminator_use(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::CallArgument,
+                )
+                .or_else(|| {
+                    (!crate::execution::ownership::is_managed(&argument.ty))
+                        .then_some(crate::execution::ownership::UseEffect::Borrow)
+                })?;
+            let argument = self.prepare_atom_for_use(argument, effect)?;
+            if argument.value.ty != self.function.parameter.ty {
                 return None;
             }
-            self.retain_if_borrowed(&mut argument)?;
+            for field in &prepared_fields {
+                self.commit_consumes(field)?;
+            }
+            self.commit_consumes(&argument)?;
             self.release_local_managed();
-            self.emit_parameter_handoff(self.function.id, &argument)?;
+            self.emit_parameter_handoff(self.function.id, &argument.value)?;
             self.line(format!("  br label %mal_state_{}", self.function.entry.0));
             Some(())
         }
@@ -102,12 +131,33 @@ impl FunctionEmitter<'_> {
         callee: &Atom,
         argument: &Atom,
         preserve_environment: bool,
+        pending: &[super::PreparedValue],
     ) -> Option<()> {
-        let callee = self.atom(callee)?;
-        let Type::Function { parameter, result } = &callee.ty else {
+        let callee_effect = self
+            .ownership
+            .terminator_use(
+                site,
+                match &self.control.states[site.0].terminator {
+                    crate::control::ast::Terminator::Call { .. } => {
+                        crate::execution::ownership::TerminatorOperand::CallCallee
+                    }
+                    crate::control::ast::Terminator::TailCall { .. } => {
+                        crate::execution::ownership::TerminatorOperand::TailCallee
+                    }
+                    _ => return None,
+                },
+            )
+            .or_else(|| {
+                (!crate::execution::ownership::is_managed(&callee.ty))
+                    .then_some(crate::execution::ownership::UseEffect::Borrow)
+            })?;
+        let callee = self.prepare_atom_for_use(callee, callee_effect)?;
+        let Type::Function { parameter, result } = &callee.value.ty else {
             return None;
         };
-        let closure_type = self.types.value(&callee.ty)?;
+        let parameter = parameter.clone();
+        let result = result.clone();
+        let closure_type = self.types.value(&callee.value.ty)?;
         let direct_target = match self.execution.control_calls.mode(site)? {
             crate::execution::ControlCallMode::DirectRegion(target) => Some(target),
             crate::execution::ControlCallMode::Dispatch => None,
@@ -118,7 +168,7 @@ impl FunctionEmitter<'_> {
             let code = self.register();
             self.line(format!(
                 "  {code} = extractvalue {} {}, 0",
-                closure_type.llvm, callee.representation
+                closure_type.llvm, callee.value.representation
             ));
             Some(code)
         } else {
@@ -127,17 +177,33 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         self.line(format!(
             "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, callee.representation
+            closure_type.llvm, callee.value.representation
         ));
-        let retained_environment = self.register();
-        self.line(format!(
-            "  {retained_environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {environment})"
-        ));
-        let mut argument = self.atom(argument)?;
-        if argument.ty != **parameter {
+        let argument_operand = match &self.control.states[site.0].terminator {
+            crate::control::ast::Terminator::Call { .. } => {
+                crate::execution::ownership::TerminatorOperand::CallArgument
+            }
+            crate::control::ast::Terminator::TailCall { .. } => {
+                crate::execution::ownership::TerminatorOperand::TailArgument
+            }
+            _ => return None,
+        };
+        let argument_effect = self
+            .ownership
+            .terminator_use(site, argument_operand)
+            .or_else(|| {
+                (!crate::execution::ownership::is_managed(&argument.ty))
+                    .then_some(crate::execution::ownership::UseEffect::Borrow)
+            })?;
+        let argument = self.prepare_atom_for_use(argument, argument_effect)?;
+        if argument.value.ty != *parameter {
             return None;
         }
-        self.retain_if_borrowed(&mut argument)?;
+        for value in pending {
+            self.commit_consumes(value)?;
+        }
+        self.commit_consumes(&callee)?;
+        self.commit_consumes(&argument)?;
         self.release_local_managed();
         if !preserve_environment {
             let previous = self.active_environment();
@@ -146,7 +212,7 @@ impl FunctionEmitter<'_> {
             ));
         }
         self.line(format!(
-            "  store ptr {retained_environment}, ptr %mal_active_environment, align {}",
+            "  store ptr {environment}, ptr %mal_active_environment, align {}",
             self.types.pointer_alignment()
         ));
         let targets = self
@@ -158,15 +224,15 @@ impl FunctionEmitter<'_> {
             if !targets.contains(&target) {
                 return None;
             }
-            return self.emit_region_target(target, &argument);
+            return self.emit_region_target(target, &argument.value);
         }
         self.emit_region_dispatch(
             site,
             &targets,
             code.as_deref()?,
-            &retained_environment,
-            &argument,
-            result,
+            &environment,
+            &argument.value,
+            &result,
         )
     }
 
@@ -458,20 +524,5 @@ impl FunctionEmitter<'_> {
         )?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));
         Some(())
-    }
-
-    fn load_binding(&mut self, id: ValueId) -> Option<EmittedValue> {
-        let slot = self.slots.get(&id)?.clone();
-        let value_type = self.types.value(&slot.ty)?;
-        let register = self.register();
-        self.line(format!(
-            "  {register} = load {}, ptr %mal_slot_{}, align {}",
-            value_type.llvm, slot.index, value_type.alignment
-        ));
-        Some(EmittedValue {
-            ty: slot.ty,
-            representation: register,
-            owned: false,
-        })
     }
 }

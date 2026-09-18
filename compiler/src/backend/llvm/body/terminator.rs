@@ -32,12 +32,13 @@ impl FunctionEmitter<'_> {
                         (!crate::execution::ownership::is_managed(&value.ty))
                             .then_some(crate::execution::ownership::UseEffect::Borrow)
                     })?;
-                let value = self.atom_for_use(value, effect)?;
+                let value = self.prepare_atom_for_use(value, effect)?;
                 let result_type = self.current_result_type()?;
-                if value.ty != result_type {
+                if value.value.ty != result_type {
                     return None;
                 }
-                self.emit_continuation_return(site, &value)?;
+                self.commit_consumes(&value)?;
+                self.emit_continuation_return(site, &value.value)?;
             }
             Terminator::Goto(target) => {
                 self.line(format!("  br label %mal_state_{}", target.0));
@@ -53,9 +54,10 @@ impl FunctionEmitter<'_> {
                         (!crate::execution::ownership::is_managed(&value.ty))
                             .then_some(crate::execution::ownership::UseEffect::Borrow)
                     })?;
-                let value = self.atom_for_use(value, effect)?;
+                let value = self.prepare_atom_for_use(value, effect)?;
                 let input = self.control.states[target.0].input.as_ref()?;
-                self.store_pattern(input, Some(&value))?;
+                self.commit_consumes(&value)?;
+                self.store_pattern(input, Some(&value.value))?;
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
             Terminator::PrimitiveBranch {
@@ -65,6 +67,16 @@ impl FunctionEmitter<'_> {
                 otherwise,
                 then,
             } => {
+                self.require_terminator_borrow(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::BranchLeft,
+                    left,
+                )?;
+                self.require_terminator_borrow(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::BranchRight,
+                    right,
+                )?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
                 if left.ty != right.ty {
@@ -117,7 +129,7 @@ impl FunctionEmitter<'_> {
                 resume,
             } => match self.execution.control_calls.mode(site)? {
                 ControlCallMode::Direct(target) => {
-                    let result = self.emit_call(target, callee, argument, false)?;
+                    let result = self.emit_call(site, target, callee, argument, false)?;
                     let input = self.control.states[resume.0].input.as_ref()?;
                     self.store_pattern(input, Some(&result))?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
@@ -136,7 +148,7 @@ impl FunctionEmitter<'_> {
                     let Terminator::Call { callee, .. } = terminator else {
                         unreachable!()
                     };
-                    let result = self.emit_indirect_call(callee, argument, false)?;
+                    let result = self.emit_indirect_call(site, callee, argument, false)?;
                     let input = self.control.states[resume.0].input.as_ref()?;
                     self.store_pattern(input, Some(&result))?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
@@ -152,37 +164,54 @@ impl FunctionEmitter<'_> {
                             .control_calls
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
-                        let mut value = self.atom(argument)?;
+                        let effect = self
+                            .ownership
+                            .terminator_use(
+                                site,
+                                crate::execution::ownership::TerminatorOperand::TailArgument,
+                            )
+                            .or_else(|| {
+                                (!crate::execution::ownership::is_managed(&argument.ty))
+                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
+                            })?;
+                        let value = self.prepare_atom_for_use(argument, effect)?;
                         let function = self.current_function()?.clone();
-                        if function.parameter.ty != value.ty {
+                        if function.parameter.ty != value.value.ty {
                             return None;
                         }
-                        self.retain_if_borrowed(&mut value)?;
+                        self.commit_consumes(&value)?;
                         self.release_local_managed();
-                        self.emit_parameter_handoff(function.id, &value)?;
+                        self.emit_parameter_handoff(function.id, &value.value)?;
                         self.line(format!("  br label %mal_state_{}", function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
-                        let result = self.emit_call(target, callee, argument, true)?;
+                        let result = self.emit_call(site, target, callee, argument, true)?;
                         self.emit_continuation_return(site, &result)?;
                     }
                     ControlCallMode::DirectRegion(_) => {
-                        self.emit_region_transition(site, callee, argument, false)?;
+                        self.emit_region_transition(site, callee, argument, false, &[])?;
                     }
                     ControlCallMode::Dispatch => {
                         if self.common_region.is_some()
                             && self.execution.control_regions.site_region(site)
                                 == self.common_region
                         {
-                            self.emit_region_transition(site, callee, argument, false)?;
+                            self.emit_region_transition(site, callee, argument, false, &[])?;
                         } else {
-                            let result = self.emit_indirect_call(callee, argument, true)?;
+                            let result = self.emit_indirect_call(site, callee, argument, true)?;
                             self.emit_continuation_return(site, &result)?;
                         }
                     }
                 }
             }
-            Terminator::Case { scrutinee, arms } => self.emit_case(site, scrutinee, arms)?,
+            Terminator::Case { scrutinee, arms } => {
+                self.require_terminator_borrow(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::CaseScrutinee,
+                    scrutinee,
+                )?;
+                self.emit_case(site, scrutinee, arms)?;
+            }
         }
         Some(())
     }

@@ -2,12 +2,26 @@ use super::*;
 impl FunctionEmitter<'_> {
     pub(super) fn emit_call(
         &mut self,
+        site: StateId,
         target: FunctionId,
         callee: &Atom,
         argument: &Atom,
         tail: bool,
     ) -> Option<EmittedValue> {
         let target = *self.index.control_functions.get(&target)?;
+        let (callee_operand, argument_operand) = if tail {
+            (
+                crate::execution::ownership::TerminatorOperand::TailCallee,
+                crate::execution::ownership::TerminatorOperand::TailArgument,
+            )
+        } else {
+            (
+                crate::execution::ownership::TerminatorOperand::CallCallee,
+                crate::execution::ownership::TerminatorOperand::CallArgument,
+            )
+        };
+        self.require_terminator_borrow(site, callee_operand, callee)?;
+        self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
         let closure_type = self.types.value(&callee.ty)?;
         let environment = self.register();
@@ -108,10 +122,24 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn emit_indirect_call(
         &mut self,
+        site: StateId,
         callee: &Atom,
         argument: &Atom,
         tail: bool,
     ) -> Option<EmittedValue> {
+        let (callee_operand, argument_operand) = if tail {
+            (
+                crate::execution::ownership::TerminatorOperand::TailCallee,
+                crate::execution::ownership::TerminatorOperand::TailArgument,
+            )
+        } else {
+            (
+                crate::execution::ownership::TerminatorOperand::CallCallee,
+                crate::execution::ownership::TerminatorOperand::CallArgument,
+            )
+        };
+        self.require_terminator_borrow(site, callee_operand, callee)?;
+        self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
         let Type::Function { parameter, result } = &callee.ty else {
             return None;

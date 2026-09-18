@@ -17,7 +17,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<Option<EmittedValue>> {
         match operation {
             Operation::Atom(atom) => self
-                .atom_for_use(
+                .prepare_atom_for_use(
                     atom,
                     self.ownership
                         .binding_use(site, binding, BindingOperand::Atom)
@@ -26,7 +26,10 @@ impl FunctionEmitter<'_> {
                                 .then_some(crate::execution::ownership::UseEffect::Borrow)
                         })?,
                 )
-                .map(Some),
+                .and_then(|prepared| {
+                    self.commit_consumes(&prepared)?;
+                    Some(Some(prepared.value))
+                }),
             Operation::MakeClosure { function, captures } => {
                 let result_type = result_type?.clone();
                 let Type::Function { .. } = &result_type else {
@@ -83,9 +86,10 @@ impl FunctionEmitter<'_> {
                     self.line(format!(
                         "  store {} {}, ptr {environment}, align {}",
                         environment_layout.llvm,
-                        environment_value.representation,
+                        environment_value.value.representation,
                         environment_layout.alignment
                     ));
+                    self.commit_consumes(&environment_value)?;
                     let closure = self.register();
                     self.line(format!(
                         "  {closure} = insertvalue {} {with_code}, ptr {environment}, 1",
@@ -100,6 +104,7 @@ impl FunctionEmitter<'_> {
                 }))
             }
             Operation::PrimitiveUnary { operator, operand } => {
+                self.require_binding_borrow(site, binding, BindingOperand::UnaryOperand, operand)?;
                 let operand = self.atom(operand)?;
                 let scalar = scalar_type(&operand.ty, self.types.index_size())?;
                 let register = self.register();
@@ -131,10 +136,14 @@ impl FunctionEmitter<'_> {
                     && left.ty == Type::Symbol
                     && right.ty == Type::Symbol
                 {
+                    self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
+                    self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                     return self
                         .emit_symbol_concatenate(left, right, symbol_concat)
                         .map(Some);
                 }
+                self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
+                self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
                 if left.ty == Type::Address && right.ty == Type::ByteSize {
@@ -229,6 +238,12 @@ impl FunctionEmitter<'_> {
                 }))
             }
             Operation::NumericConversion { operand } => {
+                self.require_binding_borrow(
+                    site,
+                    binding,
+                    BindingOperand::NumericOperand,
+                    operand,
+                )?;
                 let operand = self.atom(operand)?;
                 let source = scalar_type(&operand.ty, self.types.index_size())?;
                 let result_type = result_type?.clone();
@@ -268,17 +283,37 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 }))
             }
-            Operation::SymbolLength { value } => self.emit_symbol_length(value).map(Some),
-            Operation::SymbolAt { argument } => self.emit_symbol_at(argument).map(Some),
-            Operation::ExternalCall { id, argument } => self
-                .emit_external_call(*id, argument, result_type?)
-                .map(Some),
+            Operation::SymbolLength { value } => {
+                self.require_binding_borrow(site, binding, BindingOperand::SymbolLength, value)?;
+                self.emit_symbol_length(value).map(Some)
+            }
+            Operation::SymbolAt { argument } => {
+                self.require_binding_borrow(site, binding, BindingOperand::SymbolAt, argument)?;
+                self.emit_symbol_at(argument).map(Some)
+            }
+            Operation::ExternalCall { id, argument } => {
+                self.require_binding_borrow(
+                    site,
+                    binding,
+                    BindingOperand::ExternalArgument,
+                    argument,
+                )?;
+                self.emit_external_call(*id, argument, result_type?)
+                    .map(Some)
+            }
             Operation::Memory {
                 primitive,
                 argument,
-            } => self
-                .emit_memory(*primitive, argument, result_type?)
-                .map(Some),
+            } => {
+                self.require_binding_borrow(
+                    site,
+                    binding,
+                    BindingOperand::MemoryArgument,
+                    argument,
+                )?;
+                self.emit_memory(*primitive, argument, result_type?)
+                    .map(Some)
+            }
             Operation::Product(elements) => {
                 let effects = elements
                     .iter()
@@ -292,8 +327,9 @@ impl FunctionEmitter<'_> {
                             })
                     })
                     .collect::<Option<Vec<_>>>()?;
-                self.emit_product(elements, result_type?, &effects)
-                    .map(Some)
+                let prepared = self.emit_product(elements, result_type?, &effects)?;
+                self.commit_consumes(&prepared)?;
+                Some(Some(prepared.value))
             }
             Operation::SumInjection { index, value } => {
                 let effect = self
@@ -303,7 +339,9 @@ impl FunctionEmitter<'_> {
                         (!crate::execution::ownership::is_managed(&value.ty))
                             .then_some(crate::execution::ownership::UseEffect::Borrow)
                     })?;
-                self.emit_sum(*index, value, result_type?, effect).map(Some)
+                let prepared = self.emit_sum(*index, value, result_type?, effect)?;
+                self.commit_consumes(&prepared)?;
+                Some(Some(prepared.value))
             }
         }
     }

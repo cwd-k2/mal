@@ -93,21 +93,23 @@ mod tests {
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
-        let control = crate::control::lower(&closure);
-        let ownership = crate::execution::OwnershipPlan::new(&control);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let control = &execution.control;
+        let ownership = &execution.ownership;
         let enabled = OptimizationSet::none().with(Technique::SymbolConcatReuse);
-        let mut plan = OptimizationPlan::new(&control, &ownership, enabled);
+        let mut plan = OptimizationPlan::new(control, ownership, enabled);
 
-        assert!(plan.is_valid(&control, &ownership, enabled));
+        assert!(plan.is_valid(control, ownership, enabled));
         let decision = *plan
             .symbol_concatenations
             .keys()
             .next()
             .expect("consuming concat decision");
         plan.symbol_concatenations.remove(&decision);
-        assert!(!plan.is_valid(&control, &ownership, enabled));
+        assert!(!plan.is_valid(control, ownership, enabled));
         assert!(
-            OptimizationPlan::new(&control, &ownership, OptimizationSet::none())
+            OptimizationPlan::new(control, ownership, OptimizationSet::none())
                 .symbol_concatenations
                 .is_empty()
         );

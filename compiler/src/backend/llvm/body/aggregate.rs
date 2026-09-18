@@ -3,7 +3,7 @@ use crate::closure::ast::Atom;
 use crate::control::ast::{CaseArm, StateId};
 
 use super::types::is_bool;
-use super::{EmittedValue, FunctionEmitter};
+use super::{EmittedValue, FunctionEmitter, PreparedValue};
 use crate::execution::ownership::UseEffect;
 
 impl FunctionEmitter<'_> {
@@ -12,7 +12,7 @@ impl FunctionEmitter<'_> {
         elements: &[Atom],
         result_type: &Type,
         effects: &[UseEffect],
-    ) -> Option<EmittedValue> {
+    ) -> Option<PreparedValue> {
         let Type::Product(element_types) = result_type else {
             return None;
         };
@@ -21,28 +21,33 @@ impl FunctionEmitter<'_> {
         }
         let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
+        let mut consumed_slots = Vec::new();
         for (index, ((element, expected), effect)) in elements
             .iter()
             .zip(element_types.iter())
             .zip(effects)
             .enumerate()
         {
-            let element = self.atom_for_use(element, *effect)?;
-            if element.ty != *expected {
+            let element = self.prepare_atom_for_use(element, *effect)?;
+            if element.value.ty != *expected {
                 return None;
             }
+            consumed_slots.extend(element.consumed_slots);
             let element_type = self.types.value(expected)?;
             let register = self.register();
             self.line(format!(
                 "  {register} = insertvalue {} {aggregate}, {} {}, {index}",
-                aggregate_type.llvm, element_type.llvm, element.representation
+                aggregate_type.llvm, element_type.llvm, element.value.representation
             ));
             aggregate = register;
         }
-        Some(EmittedValue {
-            ty: result_type.clone(),
-            representation: aggregate,
-            owned: crate::execution::ownership::is_managed(result_type),
+        Some(PreparedValue {
+            value: EmittedValue {
+                ty: result_type.clone(),
+                representation: aggregate,
+                owned: crate::execution::ownership::is_managed(result_type),
+            },
+            consumed_slots,
         })
     }
 
@@ -52,9 +57,13 @@ impl FunctionEmitter<'_> {
         value: &Atom,
         result_type: &Type,
         effect: UseEffect,
-    ) -> Option<EmittedValue> {
-        let value = self.atom_for_use(value, effect)?;
-        self.emit_sum_value(index, value, result_type, true)
+    ) -> Option<PreparedValue> {
+        let prepared = self.prepare_atom_for_use(value, effect)?;
+        let value = self.emit_sum_value(index, prepared.value, result_type, true)?;
+        Some(PreparedValue {
+            value,
+            consumed_slots: prepared.consumed_slots,
+        })
     }
 
     pub(super) fn emit_sum_value(
