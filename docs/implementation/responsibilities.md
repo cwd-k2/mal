@@ -132,7 +132,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/operator/arithmetic` | numeric、Address offset、Symbol concatenationのoperand選択とresult型を構成 |
 | `check/operator/logical` | Boolのshort-circuit operatorとright operandのabrupt completionを構成 |
-| `check/memory` | placement、Cursor/Region/Packed access、Address offsetの型規則を検査 |
+| `check/memory` | placement、Cursor/Region/Packed access、Address offsetの型規則を検査し、memory primitiveの論理operandをsource productとは区別して構成 |
 | `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion |
 | `check/types/properties` | `Representable` requirementと物理表現上限の反復的検査 |
 | `check/types/display` | canonical typeのboundedな診断表示 |
@@ -163,7 +163,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
-| `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
+| `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveの論理operandとlambda-local join identityを保持 |
 | `closure` | ordinary function kindにcapture schemaを、intrinsic capability kindにoperationとelement型を持たせ、capability bodyのbuilder referenceと生成siteのbuilder provenanceを専用表現として構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製せず、intrinsic capabilityのbuilder provenanceを専用operationのまま保持 |
@@ -187,7 +187,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
 | `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
 | `execution/ownership/destination` | pattern leafを`Store`または`Discard` destinationへ写す |
-| `execution/ownership/operand` | binding operationとterminatorの各operandをstableなuse identityへ列挙 |
+| `execution/ownership/operand` | binding operationとterminatorの各論理operandをstableなuse identityへ列挙し、memory observationのoperandへaggregate responsibilityを追加しない |
 | `execution/ownership/use_plan` | liveness、destination、call/frame factから`Borrow`、`Share`、`Consume`を各useへ割り当てる |
 | `execution/ownership/drop_plan` | use effectとedge successorからbinding直後およびcontrol edge上の`Drop`を構成 |
 | `execution/ownership/parameter` | borrowed ABI entryとowned handoffからparameterの`Share`、`Consume`、`Drop`を構成 |

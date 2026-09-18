@@ -46,9 +46,11 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     pending.push(Presence::Expression(right));
                     pending.push(Presence::Expression(left));
                 }
-                checked::ExpressionKind::SymbolAt { argument }
-                | checked::ExpressionKind::Memory { argument, .. } => {
+                checked::ExpressionKind::SymbolAt { argument } => {
                     pending.push(Presence::Expression(argument));
+                }
+                checked::ExpressionKind::Memory { operands, .. } => {
+                    pending.extend(operands.iter().rev().map(Presence::Expression));
                 }
                 checked::ExpressionKind::SumElimination {
                     scrutinee,

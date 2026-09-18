@@ -94,7 +94,7 @@ pub(crate) fn generate(
                 "byte runtime ABI construction",
             ))?;
         format!(
-            "declare ptr @mal_runtime_bytes_data(ptr)\n\
+            "declare ptr @mal_runtime_bytes_data(ptr) nofree nounwind willreturn memory(argmem: read)\n\
              declare ptr @mal_runtime_bytes_read(ptr, ptr, {index})\n\
              declare ptr @mal_runtime_bytes_retain(ptr, ptr)\n\
              declare void @mal_runtime_bytes_release(ptr)\n\

@@ -42,12 +42,13 @@ fn admit_operation<'a>(
     match operation {
         Operation::Memory {
             primitive: crate::check::ast::MemoryPrimitive::Align,
-            argument,
+            operands,
         } if !layouts.supports_alignment() => {
+            let operand = operands.first().expect("checked align operand");
             return Err(
                 Diagnostic::error("pointer alignment is not supported for the target")
                     .with_primary(
-                        argument.span,
+                        operand.span,
                         "this `!` operation requires integral pointers",
                     ),
             );
@@ -56,9 +57,6 @@ fn admit_operation<'a>(
         | Operation::Goto { value, .. }
         | Operation::SymbolLength { value }
         | Operation::SymbolAt { argument: value }
-        | Operation::Memory {
-            argument: value, ..
-        }
         | Operation::PackedBuilder {
             argument: value, ..
         }
@@ -71,6 +69,11 @@ fn admit_operation<'a>(
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
             for capture in captures {
                 admit_atom(capture, layouts, maximum)?;
+            }
+        }
+        Operation::Memory { operands, .. } => {
+            for operand in operands {
+                admit_atom(operand, layouts, maximum)?;
             }
         }
         Operation::MakePackedCapability { builder, .. } => {

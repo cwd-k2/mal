@@ -276,8 +276,13 @@ impl Specializer {
                 }
                 self.expression(callback, substitutions, self_instance)?;
             }
-            ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
+            ExpressionKind::SymbolAt { argument } => {
                 self.expression(argument, substitutions, self_instance)?
+            }
+            ExpressionKind::Memory { operands, .. } => {
+                for operand in operands {
+                    self.expression(operand, substitutions, self_instance)?;
+                }
             }
             ExpressionKind::SumElimination {
                 scrutinee,

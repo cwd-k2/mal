@@ -232,3 +232,28 @@ fn evaluates_product_elements_left_to_right_before_construction() {
         AtomKind::Reference(id) if id == binding_id(&bindings[1])
     ));
 }
+
+#[test]
+fn keeps_memory_operands_direct_and_evaluates_them_left_to_right() {
+    let program = lower_ok(
+        "make :: Unit -> Packed<UInt8> := () -> { *\"a\" };\n\
+         extern index :: Unit -> USize;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           (make() # index()).i32;\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, "main").body.bindings;
+    assert!(matches!(bindings[0].operation, Operation::Call { .. }));
+    assert!(matches!(bindings[1].operation, Operation::Call { .. }));
+    let Operation::Memory { operands, .. } = &bindings[2].operation else {
+        panic!("expected indexed memory operation");
+    };
+    assert!(matches!(
+        operands[0].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[0])
+    ));
+    assert!(matches!(
+        operands[1].kind,
+        AtomKind::Reference(id) if id == binding_id(&bindings[1])
+    ));
+}

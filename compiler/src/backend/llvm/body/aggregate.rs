@@ -45,7 +45,9 @@ impl FunctionEmitter<'_> {
             value: EmittedValue {
                 ty: result_type.clone(),
                 representation: aggregate,
-                owned: crate::execution::ownership::is_managed(result_type),
+                owned: element_types.iter().zip(effects).any(|(ty, effect)| {
+                    crate::execution::ownership::is_managed(ty) && *effect != UseEffect::Borrow
+                }),
             },
             consumed_slots,
         })

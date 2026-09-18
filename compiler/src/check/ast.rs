@@ -360,7 +360,7 @@ pub enum ExpressionKind {
     },
     Memory {
         primitive: MemoryPrimitive,
-        argument: Box<Expression>,
+        operands: Vec<Expression>,
     },
     NumericConversion {
         value: Box<Expression>,

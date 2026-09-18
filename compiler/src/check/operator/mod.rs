@@ -69,7 +69,7 @@ impl Checker {
                 return Ok(Expression {
                     kind: ExpressionKind::Memory {
                         primitive: MemoryPrimitive::ViewLength,
-                        argument: Box::new(value),
+                        operands: vec![value],
                     },
                     ty: Type::USize,
                     span,

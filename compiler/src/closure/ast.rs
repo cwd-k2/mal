@@ -190,7 +190,7 @@ pub enum Operation {
     },
     Memory {
         primitive: MemoryPrimitive,
-        argument: Atom,
+        operands: Vec<Atom>,
     },
     PackedBuilder {
         operation: PackedBuilderOperation,

@@ -132,11 +132,13 @@ impl Index {
                 }
             }
             ExpressionKind::SymbolLength { value }
-            | ExpressionKind::Memory {
-                argument: value, ..
-            }
             | ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => self.collect_checked_expression(value),
+            ExpressionKind::Memory { operands, .. } => {
+                for operand in operands {
+                    self.collect_checked_expression(operand);
+                }
+            }
             ExpressionKind::SymbolAt { argument } => self.collect_checked_expression(argument),
             ExpressionKind::If {
                 condition,

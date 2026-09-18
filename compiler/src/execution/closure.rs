@@ -243,12 +243,16 @@ fn collect_operation_uses(
             atom(argument, false);
         }
         Operation::SymbolAt { argument }
-        | Operation::Memory { argument, .. }
         | Operation::PackedBuilder { argument, .. }
         | Operation::ExternalCall { argument, .. }
         | Operation::SumInjection {
             value: argument, ..
         } => atom(argument, false),
+        Operation::Memory { operands, .. } => {
+            for operand in operands {
+                atom(operand, false);
+            }
+        }
         Operation::Case { scrutinee, arms } => {
             atom(scrutinee, false);
             for arm in arms {

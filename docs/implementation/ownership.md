@@ -15,12 +15,17 @@ LLVM内の`Symbol`と`Packed<A>`はowner pointer、byte offset、element count�
 共通のflat byte ownerをretainしてviewを組み替え、allocationもbyte copyも行わない。sliceは同じownerをretainしてoffsetとcountを
 変える。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
 再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
+完成したbyte ownerのdata viewはownerのlifetime中不変であり、取得operationはownerを変更せず、解放せず、失敗しない。このruntime
+interface contractをLLVM declarationにも付与し、同じownerからのdata view取得を通常のloop-invariant readとして扱えるようにする。
 
 ## slotとoperation
 
 managed local slotはzero状態で初期化する。owner successorと終了点は
 [`D055`](../history/decisions/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
 LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
+memory primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
+lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。slice、Symbol/Packed変換、transferのようにresultが
+ownerを共有するoperationだけが、そのoperandにowner successorを持つ。
 
 一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
 後継のないresponsibilityとdestinationの旧値を`Drop`して格納をcommitする。owned resultを受け取るwildcardと

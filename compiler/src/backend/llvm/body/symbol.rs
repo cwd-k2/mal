@@ -89,7 +89,7 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
                 | crate::check::ast::MemoryPrimitive::SymbolToPacked,
             ..
         } => true,
-        Operation::Memory { argument, .. } => atom_contains_value(argument),
+        Operation::Memory { operands, .. } => operands.iter().any(atom_contains_value),
         Operation::PrimitiveUnary { operand, .. } => atom_contains_value(operand),
         Operation::PrimitiveBinary { left, right, .. } => {
             atom_contains_value(left) || atom_contains_value(right)

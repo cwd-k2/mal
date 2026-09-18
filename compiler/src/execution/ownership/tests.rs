@@ -382,6 +382,7 @@ fn normalizes_memory_views_as_owner_successors() {
                 primitive,
                 crate::check::ast::MemoryPrimitive::SymbolToPacked
                     | crate::check::ast::MemoryPrimitive::Prefix
+                    | crate::check::ast::MemoryPrimitive::PackedIndex
                     | crate::check::ast::MemoryPrimitive::PackedToSymbol
             ) {
                 effects.insert(
@@ -389,7 +390,7 @@ fn normalizes_memory_views_as_owner_successors() {
                     execution.ownership.binding_use(
                         StateId(state_index),
                         binding_index,
-                        BindingOperand::MemoryArgument,
+                        BindingOperand::MemoryOperand(0),
                     ),
                 );
             }
@@ -402,7 +403,11 @@ fn normalizes_memory_views_as_owner_successors() {
     );
     assert_eq!(
         effects[&crate::check::ast::MemoryPrimitive::Prefix],
-        Some(UseEffect::Consume)
+        Some(UseEffect::Share)
+    );
+    assert_eq!(
+        effects[&crate::check::ast::MemoryPrimitive::PackedIndex],
+        Some(UseEffect::Borrow)
     );
     assert_eq!(
         effects[&crate::check::ast::MemoryPrimitive::PackedToSymbol],

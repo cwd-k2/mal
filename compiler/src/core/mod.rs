@@ -148,10 +148,13 @@ impl Lowerer {
             },
             checked::ExpressionKind::Memory {
                 primitive,
-                argument,
+                operands,
             } => ExpressionKind::Memory {
                 primitive: *primitive,
-                argument: Box::new(self.lower_expression(argument)),
+                operands: operands
+                    .iter()
+                    .map(|operand| self.lower_expression(operand))
+                    .collect(),
             },
             checked::ExpressionKind::NumericConversion { value } => {
                 ExpressionKind::NumericConversion {

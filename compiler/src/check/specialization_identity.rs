@@ -124,8 +124,13 @@ impl IdentityBounds {
                 }
                 self.expression(callback);
             }
-            ExpressionKind::SymbolAt { argument } | ExpressionKind::Memory { argument, .. } => {
+            ExpressionKind::SymbolAt { argument } => {
                 self.expression(argument);
+            }
+            ExpressionKind::Memory { operands, .. } => {
+                for operand in operands {
+                    self.expression(operand);
+                }
             }
             ExpressionKind::SumElimination {
                 scrutinee,

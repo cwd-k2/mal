@@ -357,16 +357,27 @@ impl FunctionEmitter<'_> {
             }
             Operation::Memory {
                 primitive,
-                argument,
+                operands,
             } => {
-                let effect = self
-                    .ownership
-                    .binding_use(site, binding, BindingOperand::MemoryArgument)
-                    .or_else(|| {
-                        (!crate::execution::ownership::is_managed(&argument.ty))
-                            .then_some(crate::execution::ownership::UseEffect::Borrow)
-                    })?;
-                let prepared = self.prepare_atom_for_use(argument, effect)?;
+                let effects = operands
+                    .iter()
+                    .enumerate()
+                    .map(|(index, operand)| {
+                        self.ownership
+                            .binding_use(site, binding, BindingOperand::MemoryOperand(index))
+                            .or_else(|| {
+                                (!crate::execution::ownership::is_managed(&operand.ty))
+                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
+                            })
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                let prepared = if let [operand] = operands.as_slice() {
+                    self.prepare_atom_for_use(operand, effects[0])?
+                } else {
+                    let argument_type =
+                        Type::Product(operands.iter().map(|operand| operand.ty.clone()).collect());
+                    self.emit_product(operands, &argument_type, &effects)?
+                };
                 let result = self.emit_memory(*primitive, &prepared.value, result_type?)?;
                 self.commit_consumes(&prepared)?;
                 Some(Some(result))
@@ -379,7 +390,7 @@ impl FunctionEmitter<'_> {
                 self.require_binding_borrow(
                     site,
                     binding,
-                    BindingOperand::MemoryArgument,
+                    BindingOperand::PackedBuilderArgument,
                     argument,
                 )?;
                 let argument = self.atom(argument)?;

@@ -143,7 +143,7 @@ pub enum ExpressionKind {
     },
     Memory {
         primitive: MemoryPrimitive,
-        argument: Box<Expression>,
+        operands: Vec<Expression>,
     },
     PackedBuilder {
         operation: PackedBuilderOperation,

@@ -40,7 +40,7 @@ impl Checker {
                 Ok(Expression {
                     kind: ExpressionKind::Memory {
                         primitive: MemoryPrimitive::Place,
-                        argument: Box::new(value),
+                        operands: vec![value],
                     },
                     ty: Type::Cursor(Box::new(element).into()),
                     span,
@@ -61,13 +61,7 @@ impl Checker {
                 Ok(Expression {
                     kind: ExpressionKind::Memory {
                         primitive: MemoryPrimitive::Region,
-                        argument: Box::new(Expression {
-                            kind: ExpressionKind::Product(vec![cursor, count]),
-                            ty: Type::Product(
-                                vec![Type::Cursor(element.clone()), Type::USize].into(),
-                            ),
-                            span,
-                        }),
+                        operands: vec![cursor, count],
                     },
                     ty: Type::Region(element),
                     span,
@@ -102,7 +96,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive: MemoryPrimitive::Align,
-                argument: Box::new(operand),
+                operands: vec![operand],
             },
             ty,
             span,
@@ -147,7 +141,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive,
-                argument: Box::new(operand),
+                operands: vec![operand],
             },
             ty,
             span,
@@ -167,11 +161,7 @@ impl Checker {
             return Ok(Expression {
                 kind: ExpressionKind::Memory {
                     primitive: MemoryPrimitive::StorePacked,
-                    argument: Box::new(Expression {
-                        kind: ExpressionKind::Product(vec![region, packed]),
-                        ty: Type::Product(vec![Type::Region(element.clone()), packed_type].into()),
-                        span,
-                    }),
+                    operands: vec![region, packed],
                 },
                 ty: Type::Region(element),
                 span,
@@ -192,13 +182,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive: MemoryPrimitive::StoreValue,
-                argument: Box::new(Expression {
-                    kind: ExpressionKind::Product(vec![cursor, value]),
-                    ty: Type::Product(
-                        vec![Type::Cursor(element.clone()), (*element).clone()].into(),
-                    ),
-                    span,
-                }),
+                operands: vec![cursor, value],
             },
             ty: Type::Cursor(element),
             span,
@@ -221,11 +205,7 @@ impl Checker {
                 } else {
                     MemoryPrimitive::RemainderView
                 },
-                argument: Box::new(Expression {
-                    kind: ExpressionKind::Product(vec![value, count]),
-                    ty: Type::Product(vec![ty.clone(), Type::USize].into()),
-                    span,
-                }),
+                operands: vec![value, count],
             },
             ty,
             span,
@@ -246,11 +226,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive: MemoryPrimitive::RegionIndex,
-                argument: Box::new(Expression {
-                    kind: ExpressionKind::Product(vec![region, index]),
-                    ty: Type::Product(vec![Type::Region(element.clone()), Type::USize].into()),
-                    span,
-                }),
+                operands: vec![region, index],
             },
             ty: Type::Cursor(element),
             span,
@@ -271,11 +247,7 @@ impl Checker {
         Ok(Expression {
             kind: ExpressionKind::Memory {
                 primitive: MemoryPrimitive::PackedIndex,
-                argument: Box::new(Expression {
-                    kind: ExpressionKind::Product(vec![packed, index]),
-                    ty: Type::Product(vec![Type::Packed(element.clone()), Type::USize].into()),
-                    span,
-                }),
+                operands: vec![packed, index],
             },
             ty: (*element).clone(),
             span,

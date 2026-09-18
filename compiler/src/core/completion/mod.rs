@@ -335,25 +335,14 @@ impl Lowerer {
                 };
                 self.lower_value_with(operand, result_type, &mut next)
             }
-            checked::ExpressionKind::SymbolAt { argument }
-            | checked::ExpressionKind::Memory { argument, .. } => {
+            checked::ExpressionKind::SymbolAt { argument } => {
                 let mut next = |lowerer: &mut Lowerer, argument: Expression| {
-                    let kind = match &value.kind {
-                        checked::ExpressionKind::SymbolAt { .. } => ExpressionKind::SymbolAt {
-                            argument: Box::new(argument),
-                        },
-                        checked::ExpressionKind::Memory { primitive, .. } => {
-                            ExpressionKind::Memory {
-                                primitive: *primitive,
-                                argument: Box::new(argument),
-                            }
-                        }
-                        _ => unreachable!(),
-                    };
                     continuation(
                         lowerer,
                         Expression {
-                            kind,
+                            kind: ExpressionKind::SymbolAt {
+                                argument: Box::new(argument),
+                            },
                             ty: value.ty.clone(),
                             span: value.span,
                         },
@@ -361,6 +350,19 @@ impl Lowerer {
                 };
                 self.lower_value_with(argument, result_type, &mut next)
             }
+            checked::ExpressionKind::Memory {
+                primitive,
+                operands,
+            } => self.lower_values_with(
+                operands,
+                result_type,
+                continuation,
+                |operands| ExpressionKind::Memory {
+                    primitive: *primitive,
+                    operands,
+                },
+                value,
+            ),
             _ => unreachable!("control-free values are lowered by the direct path"),
         }
     }

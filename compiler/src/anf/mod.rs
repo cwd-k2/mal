@@ -167,15 +167,19 @@ impl Lowerer {
             }
             core::ExpressionKind::Memory {
                 primitive,
-                argument,
+                operands,
             } => {
-                let (builder, argument) = self.lower_operand(argument);
+                let mut builder = ExpressionBuilder::default();
+                let operands = operands
+                    .iter()
+                    .map(|operand| builder.append(self, operand))
+                    .collect();
                 builder.finish(
                     self,
                     expression,
                     Operation::Memory {
                         primitive: *primitive,
-                        argument,
+                        operands,
                     },
                 )
             }

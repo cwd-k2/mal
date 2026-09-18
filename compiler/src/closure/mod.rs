@@ -195,10 +195,13 @@ impl Converter {
             },
             anf::Operation::Memory {
                 primitive,
-                argument,
+                operands,
             } => Operation::Memory {
                 primitive: *primitive,
-                argument: self.convert_atom(argument, environment),
+                operands: operands
+                    .iter()
+                    .map(|operand| self.convert_atom(operand, environment))
+                    .collect(),
             },
             anf::Operation::PackedBuilder {
                 operation,
