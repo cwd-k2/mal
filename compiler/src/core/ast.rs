@@ -188,6 +188,7 @@ pub enum PackedBuilderOperation {
     Start,
     Edit,
     New,
+    NewUnique,
     Get,
     Put,
     PutUnique,

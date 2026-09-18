@@ -9,7 +9,7 @@ impl<'a> FunctionEmitter<'a> {
         ownership: &'a crate::execution::OwnershipPlan,
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
-        let types = Types::for_target(target)?;
+        let types = Types::for_program(target, &execution.lowered.functions)?;
         let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
         let function = *index.control_functions.get(&id)?;
         let lowered = *index.lowered_functions.get(&id)?;
@@ -59,10 +59,10 @@ impl<'a> FunctionEmitter<'a> {
             for state in function_states {
                 let state = &execution.control.states[state.0];
                 if let Some(pattern) = &state.input {
-                    collect_pattern_slot(pattern, &mut slots, types)?;
+                    collect_pattern_slot(pattern, &mut slots, types.clone())?;
                 }
                 for binding in &state.bindings {
-                    collect_pattern_slot(&binding.pattern, &mut slots, types)?;
+                    collect_pattern_slot(&binding.pattern, &mut slots, types.clone())?;
                 }
             }
         }

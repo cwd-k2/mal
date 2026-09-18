@@ -18,7 +18,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
         let tagged = self.frame_sites.len() != 1;
-        let layout = FrameLayout::new(&frame, self.types, tagged)?;
+        let layout = FrameLayout::new(&frame, self.types.clone(), tagged)?;
         let index_type = self.types.pointer_integer()?;
         let top = self.register();
         self.line(format!(
@@ -32,7 +32,7 @@ impl FunctionEmitter<'_> {
             .replacement(site)
             .and_then(|retired| {
                 let retired = self.execution.control_frames.frame(retired)?;
-                FrameLayout::new(retired, self.types, tagged)
+                FrameLayout::new(retired, self.types.clone(), tagged)
             })
             .is_some_and(|retired| layout.size <= retired.size);
         if replacement {
@@ -179,7 +179,6 @@ impl FunctionEmitter<'_> {
         };
         let parameter = parameter.clone();
         let result = result.clone();
-        let closure_type = self.types.value(&callee.value.ty)?;
         let direct_target = match self.execution.control_calls.mode(site)? {
             crate::execution::ControlCallMode::DirectRegion(target) => Some(target),
             crate::execution::ControlCallMode::Dispatch => None,
@@ -187,20 +186,21 @@ impl FunctionEmitter<'_> {
             | crate::execution::ControlCallMode::DirectSelfTail => return None,
         };
         let code = if direct_target.is_none() {
-            let code = self.register();
-            self.line(format!(
-                "  {code} = extractvalue {} {}, 0",
-                closure_type.llvm, callee.value.representation
-            ));
-            Some(code)
+            if let Some(target) = self.types.compact_function(&callee.value.ty) {
+                Some(format!("@{}", super::function_name(target)?))
+            } else {
+                let closure_type = self.types.value(&callee.value.ty)?;
+                let code = self.register();
+                self.line(format!(
+                    "  {code} = extractvalue {} {}, 0",
+                    closure_type.llvm, callee.value.representation
+                ));
+                Some(code)
+            }
         } else {
             None
         };
-        let environment = self.register();
-        self.line(format!(
-            "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, callee.value.representation
-        ));
+        let environment = self.closure_environment(&callee.value)?;
         let argument_operand = match &self.control.states[site.0].terminator {
             crate::control::ast::Terminator::Call { .. } => {
                 crate::execution::ownership::TerminatorOperand::CallArgument

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::check::ast::{SharedTypeId, Type};
 
@@ -17,9 +17,10 @@ pub(in crate::backend::llvm) struct Field {
     pub(in crate::backend::llvm) offset: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(in crate::backend::llvm) struct Types {
     target: TargetLayout,
+    compact_functions: Arc<[(Type, crate::closure::ast::FunctionId)]>,
 }
 
 impl Types {
@@ -30,15 +31,63 @@ impl Types {
 
     pub(in crate::backend::llvm) fn for_target(target: TargetLayout) -> Option<Self> {
         TargetLayout::natural(target.pointer_size, target.index_size)?;
-        Some(Self { target })
+        Some(Self {
+            target,
+            compact_functions: Arc::new([]),
+        })
     }
 
-    pub(in crate::backend::llvm) fn value(self, ty: &Type) -> Option<ValueType> {
+    pub(in crate::backend::llvm) fn for_program(
+        target: TargetLayout,
+        functions: &[crate::closure::ast::Function],
+    ) -> Option<Self> {
+        let mut types = Self::for_target(target)?;
+        let mut candidates = Vec::new();
+        for function in functions {
+            let ty = Type::Function {
+                parameter: function.parameter.ty.clone().into(),
+                result: function.body.result.ty.clone().into(),
+            };
+            if !candidates.iter().any(|(candidate, _)| candidate == &ty) {
+                candidates.push((ty, function.id));
+            }
+        }
+        candidates.retain(|(ty, target)| {
+            let Type::Function { parameter, result } = ty else {
+                return false;
+            };
+            let mut matching = functions.iter().filter(|function| {
+                function.parameter.ty == **parameter && function.body.result.ty == **result
+            });
+            matching.next().is_some_and(|function| {
+                function.id == *target
+                    && function.kind.has_scoped_environment()
+                    && matching.next().is_none()
+            })
+        });
+        types.compact_functions = candidates.into();
+        Some(types)
+    }
+
+    pub(in crate::backend::llvm) fn function_is_compact(&self, ty: &Type) -> bool {
+        self.compact_function(ty).is_some()
+    }
+
+    pub(in crate::backend::llvm) fn compact_function(
+        &self,
+        ty: &Type,
+    ) -> Option<crate::closure::ast::FunctionId> {
+        self.compact_functions
+            .iter()
+            .find_map(|(candidate, target)| (candidate == ty).then_some(*target))
+    }
+
+    pub(in crate::backend::llvm) fn value(&self, ty: &Type) -> Option<ValueType> {
         self.value_cached(ty, &mut HashMap::new())
     }
 
     fn value_cached(
-        self,
+        &self,
         ty: &Type,
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
@@ -66,6 +115,11 @@ impl Types {
             Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
                 llvm: format!("i{}", self.target.pointer_size.checked_mul(8)?),
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
+            }),
+            Type::Function { .. } if self.function_is_compact(ty) => Some(ValueType {
+                llvm: "ptr".into(),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
@@ -109,7 +163,7 @@ impl Types {
         Some(value)
     }
 
-    fn byte_view(self) -> Option<ValueType> {
+    fn byte_view(&self) -> Option<ValueType> {
         aggregate_type(vec![
             ValueType {
                 llvm: "ptr".into(),
@@ -129,33 +183,33 @@ impl Types {
         ])
     }
 
-    pub(in crate::backend::llvm) fn pointer_integer(self) -> Option<String> {
+    pub(in crate::backend::llvm) fn pointer_integer(&self) -> Option<String> {
         Some(format!("i{}", self.target.index_size.checked_mul(8)?))
     }
 
-    pub(in crate::backend::llvm) fn pointer_representation_integer(self) -> Option<String> {
+    pub(in crate::backend::llvm) fn pointer_representation_integer(&self) -> Option<String> {
         Some(format!("i{}", self.target.pointer_size.checked_mul(8)?))
     }
 
-    pub(in crate::backend::llvm) fn pointer_size(self) -> usize {
+    pub(in crate::backend::llvm) fn pointer_size(&self) -> usize {
         self.target.pointer_size
     }
 
-    pub(in crate::backend::llvm) fn index_size(self) -> usize {
+    pub(in crate::backend::llvm) fn index_size(&self) -> usize {
         self.target.index_size
     }
 
-    pub(in crate::backend::llvm) fn pointer_alignment(self) -> usize {
+    pub(in crate::backend::llvm) fn pointer_alignment(&self) -> usize {
         self.target.pointer_alignment
     }
 
-    pub(in crate::backend::llvm) fn index_alignment(self) -> usize {
+    pub(in crate::backend::llvm) fn index_alignment(&self) -> usize {
         self.target
             .scalar_alignment((self.target.index_size * 8) as u8, false)
             .expect("supported index width has an integer ABI alignment")
     }
 
-    pub(in crate::backend::llvm) fn maximum_value_alignment(self) -> usize {
+    pub(in crate::backend::llvm) fn maximum_value_alignment(&self) -> usize {
         self.target
             .integer_alignments
             .into_iter()
@@ -166,7 +220,7 @@ impl Types {
     }
 
     fn product(
-        self,
+        &self,
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
@@ -174,7 +228,7 @@ impl Types {
     }
 
     fn sum(
-        self,
+        &self,
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
@@ -189,14 +243,14 @@ impl Types {
         aggregate_type(fields)
     }
 
-    pub(in crate::backend::llvm) fn product_fields(self, ty: &Type) -> Option<Vec<Field>> {
+    pub(in crate::backend::llvm) fn product_fields(&self, ty: &Type) -> Option<Vec<Field>> {
         let Type::Product(elements) = ty else {
             return None;
         };
         field_layouts(&self.fields(elements, &mut HashMap::new())?)
     }
 
-    pub(in crate::backend::llvm) fn sum_fields(self, ty: &Type) -> Option<Vec<Field>> {
+    pub(in crate::backend::llvm) fn sum_fields(&self, ty: &Type) -> Option<Vec<Field>> {
         let Type::Sum(elements) = ty else {
             return None;
         };
@@ -218,7 +272,7 @@ impl Types {
     }
 
     fn fields(
-        self,
+        &self,
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<Vec<ValueType>> {
@@ -229,7 +283,7 @@ impl Types {
     }
 
     fn sum_payload(
-        self,
+        &self,
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<Option<ValueType>> {
@@ -298,6 +352,21 @@ pub(super) fn align(value: usize, alignment: usize) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source::{FileId, SourceFile};
+
+    fn lowered(source: &str) -> crate::closure::ast::Program {
+        let source = SourceFile::new(FileId::new(102), "compact-functions.mal", source.into());
+        let checked = crate::pipeline::check(&source).expect("check compact function fixture");
+        let specialized = crate::check::specialize(checked).expect("specialize compact fixture");
+        crate::closure::convert(&crate::anf::lower(&crate::core::lower(&specialized)))
+    }
+
+    fn reader_type() -> Type {
+        Type::Function {
+            parameter: Type::USize.into(),
+            result: Type::Int64.into(),
+        }
+    }
 
     #[test]
     fn sums_use_one_maximum_sized_payload_region() {
@@ -338,5 +407,24 @@ mod tests {
         assert_eq!(types.value(&Type::UInt64).unwrap().alignment, 4);
         assert_eq!(types.value(&Type::Address).unwrap().alignment, 4);
         assert_eq!(types.value(&Type::Address).unwrap().size, 8);
+    }
+
+    #[test]
+    fn compacts_a_function_type_only_for_one_scoped_inhabitant() {
+        let scoped = lowered(
+            "fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (_, get, _) -> { _ := get(0usize); (); };\n\
+             main :: Unit -> Int32 := () -> { _ := pack<Int64>(fill); 0i32; };",
+        );
+        let target = crate::backend::llvm::target_layout("e-p:64:64").unwrap();
+        let types = Types::for_program(target, &scoped.functions).unwrap();
+        assert_eq!(types.value(&reader_type()).unwrap().llvm, "ptr");
+
+        let mixed = lowered(
+            "read :: USize -> Int64 := (_) -> { 0i64 };\n\
+             fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (_, get, _) -> { _ := get(0usize); (); };\n\
+             main :: Unit -> Int32 := () -> { _ := pack<Int64>(fill); _ := read(0usize); 0i32; };",
+        );
+        let types = Types::for_program(target, &mixed.functions).unwrap();
+        assert_eq!(types.value(&reader_type()).unwrap().llvm, "{ ptr, ptr }");
     }
 }

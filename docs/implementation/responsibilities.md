@@ -153,7 +153,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
 | `core/packed` | checked `pack`・`edit`をbuilder lifetimeを閉じるcore operation列へ変換 |
-| `core/packed/capability` | builderをcaptureする`new`・`get`・`put` intrinsic capabilityを構成し、`pack`のunique putと`edit`のcopy-on-write putを区別してelement型とoperationが同じcode identityを共有 |
+| `core/packed/capability` | builderをcaptureする`new`・`get`・`put` intrinsic capabilityを構成し、`pack`のunique append・putと`edit`のcopy-on-write operationを区別してelement型とoperationが同じcode identityを共有 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
@@ -193,7 +193,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/host_bridge/plan` | extern parameterとresultについて、LLVM value storageの再帰的layoutとmarshalling traversalをC emissionより先に確定 |
 | `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
-| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成 |
+| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成し、closed programで唯一のscoped inhabitantを持つfunction型をenvironment一語へ縮約 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
 | `backend/llvm/body/plan` | closure stageが確定したentry function、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |

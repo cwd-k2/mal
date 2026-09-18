@@ -60,9 +60,9 @@ pub(super) fn generate(
     enabled: super::optimization::OptimizationSet,
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
-    let types = Types::for_target(target)?;
+    let types = Types::for_program(target, &execution.lowered.functions)?;
     let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
-    let top_levels = TopLevelConstants::new(execution, types, source_layouts)?;
+    let top_levels = TopLevelConstants::new(execution, types.clone(), source_layouts)?;
     let index = ProgramIndex::new(execution)?;
     let optimizations = super::optimization::OptimizationPlan::new(
         &execution.control,

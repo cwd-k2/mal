@@ -197,6 +197,18 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
     assert_eq!(
         artifacts
             .module
+            .matches("call i64 @mal_runtime_packed_builder_new_unique")
+            .count(),
+        1
+    );
+    assert!(
+        !artifacts
+            .module
+            .contains("call i64 @mal_runtime_packed_builder_new(")
+    );
+    assert_eq!(
+        artifacts
+            .module
             .matches("call ptr @mal_runtime_packed_builder_get")
             .count(),
         1

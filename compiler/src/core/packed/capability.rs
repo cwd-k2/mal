@@ -19,7 +19,11 @@ impl Lowerer {
             builder,
             element.clone(),
             checked::Type::USize,
-            PackedBuilderOperation::New,
+            if unique {
+                PackedBuilderOperation::NewUnique
+            } else {
+                PackedBuilderOperation::New
+            },
             element,
             span,
         );

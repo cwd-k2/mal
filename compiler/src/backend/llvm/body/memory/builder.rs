@@ -37,7 +37,7 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(address(builder))
             }
-            PackedBuilderOperation::New => {
+            PackedBuilderOperation::New | PackedBuilderOperation::NewUnique => {
                 let argument_type = Type::Product(vec![Type::Address, element.clone()].into());
                 if argument.ty != argument_type || *result_type != Type::USize {
                     return None;
@@ -45,8 +45,13 @@ impl FunctionEmitter<'_> {
                 let [builder, value] = self.product_fields(argument, [&Type::Address, element])?;
                 let value_pointer = self.builder_value_pointer(&value, stride)?;
                 let index = self.register();
+                let operation = if operation == PackedBuilderOperation::NewUnique {
+                    "mal_runtime_packed_builder_new_unique"
+                } else {
+                    "mal_runtime_packed_builder_new"
+                };
                 self.line(format!(
-                    "  {index} = call {} @mal_runtime_packed_builder_new(ptr %mal_context, ptr {}, ptr {value_pointer})",
+                    "  {index} = call {} @{operation}(ptr %mal_context, ptr {}, ptr {value_pointer})",
                     self.types.pointer_integer()?,
                     builder.representation
                 ));

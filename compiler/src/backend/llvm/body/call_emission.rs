@@ -23,12 +23,7 @@ impl FunctionEmitter<'_> {
         self.require_terminator_borrow(site, callee_operand, callee)?;
         self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
-        let closure_type = self.types.value(&callee.ty)?;
-        let environment = self.register();
-        self.line(format!(
-            "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, callee.representation
-        ));
+        let environment = self.closure_environment(&callee)?;
         let arguments = if target.parameter.ty == Type::Unit {
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
@@ -183,17 +178,25 @@ impl FunctionEmitter<'_> {
         let Type::Function { parameter, result } = &callee.ty else {
             return None;
         };
-        let closure_type = self.types.value(&callee.ty)?;
-        let code = self.register();
-        self.line(format!(
-            "  {code} = extractvalue {} {}, 0",
-            closure_type.llvm, callee.representation
-        ));
-        let environment = self.register();
-        self.line(format!(
-            "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, callee.representation
-        ));
+        let (code, environment) = if let Some(target) = self.types.compact_function(&callee.ty) {
+            (
+                format!("@{}", super::function_name(target)?),
+                callee.representation.clone(),
+            )
+        } else {
+            let closure_type = self.types.value(&callee.ty)?;
+            let code = self.register();
+            self.line(format!(
+                "  {code} = extractvalue {} {}, 0",
+                closure_type.llvm, callee.representation
+            ));
+            let environment = self.register();
+            self.line(format!(
+                "  {environment} = extractvalue {} {}, 1",
+                closure_type.llvm, callee.representation
+            ));
+            (code, environment)
+        };
         let arguments = if **parameter == Type::Unit {
             if argument.ty != Type::Unit {
                 return None;
@@ -229,6 +232,19 @@ impl FunctionEmitter<'_> {
             .control_functions
             .get(&self.current_function)
             .copied()
+    }
+
+    pub(super) fn closure_environment(&mut self, closure: &EmittedValue) -> Option<String> {
+        if self.types.function_is_compact(&closure.ty) {
+            return Some(closure.representation.clone());
+        }
+        let closure_type = self.types.value(&closure.ty)?;
+        let environment = self.register();
+        self.line(format!(
+            "  {environment} = extractvalue {} {}, 1",
+            closure_type.llvm, closure.representation
+        ));
+        Some(environment)
     }
 
     pub(super) fn current_result_type(&self) -> Option<Type> {

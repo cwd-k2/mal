@@ -53,7 +53,7 @@ impl<'a> Value<'a> {
                         .map(|(element, layout)| {
                             Some(Field {
                                 offset: layout.offset,
-                                value: Self::new_cached(element, types, cache)?,
+                                value: Self::new_cached(element, types.clone(), cache)?,
                             })
                         })
                         .collect::<Option<Vec<_>>>()?,
@@ -83,7 +83,7 @@ fn product_fields<'a>(
         .map(|(element, layout)| {
             Some(Field {
                 offset: layout.offset,
-                value: Value::new_cached(element, types, cache)?,
+                value: Value::new_cached(element, types.clone(), cache)?,
             })
         })
         .collect()

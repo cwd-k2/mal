@@ -36,12 +36,18 @@ impl FunctionEmitter<'_> {
                     return None;
                 };
                 let closure_type = self.types.value(&result_type)?;
-                let with_code = self.register();
-                self.line(format!(
-                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                    closure_type.llvm,
-                    super::function_name(*function)?
-                ));
+                let compact = self.types.function_is_compact(&result_type);
+                let with_code = if compact {
+                    None
+                } else {
+                    let with_code = self.register();
+                    self.line(format!(
+                        "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                        closure_type.llvm,
+                        super::function_name(*function)?
+                    ));
+                    Some(with_code)
+                };
                 let target = *self.index.lowered_functions.get(function)?;
                 if captures.len() != target.environment.len()
                     || captures
@@ -70,14 +76,20 @@ impl FunctionEmitter<'_> {
                         "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
                         environment.representation
                     ));
-                    let closure = self.register();
-                    self.line(format!(
-                        "  {closure} = insertvalue {} {with_code}, ptr {}, 1",
-                        closure_type.llvm, tagged_environment
-                    ));
-                    closure
+                    if compact {
+                        tagged_environment
+                    } else {
+                        let closure = self.register();
+                        self.line(format!(
+                            "  {closure} = insertvalue {} {}, ptr {}, 1",
+                            closure_type.llvm,
+                            with_code.as_deref()?,
+                            tagged_environment
+                        ));
+                        closure
+                    }
                 } else if captures.is_empty() {
-                    with_code
+                    with_code?
                 } else {
                     let environment_type = Type::Product(
                         target
@@ -117,8 +129,9 @@ impl FunctionEmitter<'_> {
                     self.commit_consumes(&environment_value)?;
                     let closure = self.register();
                     self.line(format!(
-                        "  {closure} = insertvalue {} {with_code}, ptr {environment}, 1",
-                        closure_type.llvm
+                        "  {closure} = insertvalue {} {}, ptr {environment}, 1",
+                        closure_type.llvm,
+                        with_code.as_deref()?
                     ));
                     closure
                 };

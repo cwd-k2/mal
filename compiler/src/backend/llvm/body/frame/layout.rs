@@ -93,8 +93,8 @@ mod tests {
         })
         .unwrap();
 
-        let narrow = FrameLayout::new(&frame(vec![Type::UInt8]), types, false).unwrap();
-        let wide = FrameLayout::new(&frame(vec![Type::Float64]), types, true).unwrap();
+        let narrow = FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), false).unwrap();
+        let wide = FrameLayout::new(&frame(vec![Type::Float64]), types.clone(), true).unwrap();
 
         assert_eq!(types.maximum_value_alignment(), 16);
         assert_eq!(narrow.size, 16);
@@ -116,8 +116,8 @@ mod tests {
         })
         .unwrap();
 
-        let first = FrameLayout::new(&frame(vec![Type::UInt8]), types, true).unwrap();
-        let second = FrameLayout::new(&frame(vec![Type::UInt16]), types, true).unwrap();
+        let first = FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), true).unwrap();
+        let second = FrameLayout::new(&frame(vec![Type::UInt16]), types.clone(), true).unwrap();
 
         assert_eq!(types.maximum_value_alignment(), 2);
         assert_eq!(first.size % 4, 0);

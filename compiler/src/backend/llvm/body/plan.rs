@@ -92,7 +92,7 @@ impl TopLevelConstants {
             },
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand, values)?;
-                numeric_conversion(operand, result_type, self.types)?
+                numeric_conversion(operand, result_type, self.types.clone())?
             }
             Operation::Product(elements) => {
                 let Type::Product(element_types) = result_type else {
@@ -413,7 +413,7 @@ pub(super) fn collect_pattern_slot(
         }
         Pattern::Product { elements, .. } => {
             for element in elements {
-                collect_pattern_slot(element, slots, types)?;
+                collect_pattern_slot(element, slots, types.clone())?;
             }
         }
         Pattern::Wildcard { .. } => {}
