@@ -52,8 +52,9 @@ _writeBytesFully :: (File, ReadableBytes, USize) -> Unit :=
     };
 
 saveDatabase :: (File, ByteBuffer) -> Unit := (file, database) -> {
+    (storage, length) := database;
     file.rewindFile();
-    file._writeBytesFully(database.initializedBytes(), 0usize);
+    file._writeBytesFully((?storage, length), 0usize);
     file.flushFile();
 };
 
@@ -120,7 +121,7 @@ validateDatabase :: ByteBuffer -> Bool := (buffer) -> [return] => {
         && database._validateRecords(0usize));
 };
 
-_findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
+_findRecord :: (Region<UInt8>, Region<UInt8>, USize, USize, USize) -> USize :=
     (database, key, start, length, index) -> [return] => {
         when (index == _recordCount) {
             return(_recordCount);
@@ -132,7 +133,7 @@ _findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
         keyBytes := record % 8usize;
         matches := active == 1u8
             && keyLength.usize == length
-            && keyBytes.memoryEqualsAt(key, start, length, 0usize);
+            && keyBytes.prefixEquals(key % start, length);
         when (matches) {
             return(index);
         };
@@ -152,7 +153,7 @@ _findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [retu
     return(database._findFreeRecord(index + 1usize));
 };
 
-putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResult :=
+putRecord :: (ByteBuffer, Region<UInt8>, USize, USize, USize, USize) -> PutResult :=
     (databaseBuffer, lineBytes, keyStart, keyLength, valueStart, valueLength) -> [stored, invalid, full] => {
         (database, _) := databaseBuffer;
         when (keyLength == 0usize || keyLength > _keyCapacity || valueLength > _valueCapacity) {
@@ -172,13 +173,13 @@ putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResul
         (?(record % 1usize))@u8 <- keyLength.u8 <- valueLength.u8;
         keyStorage := record % 8usize;
         valueStorage := record % 24usize;
-        lineBytes.copyRange(keyStart, keyStorage, keyLength);
-        lineBytes.copyRange(valueStart, valueStorage, valueLength);
+        (lineBytes % keyStart).copyPrefix(keyStorage, keyLength);
+        (lineBytes % valueStart).copyPrefix(valueStorage, valueLength);
         (?record)@u8 <- 1u8;
         stored();
     };
 
-lookupRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> LookupResult :=
+lookupRecord :: (ByteBuffer, Region<UInt8>, USize, USize) -> LookupResult :=
     (databaseBuffer, lineBytes, keyStart, keyLength) -> [absent, found] => {
         (database, _) := databaseBuffer;
         slot := database._findRecord(lineBytes, keyStart, keyLength, 0usize);
@@ -191,7 +192,7 @@ lookupRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> LookupResult :=
         found((record % 24usize) / valueLength.usize);
     };
 
-deleteRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Bool :=
+deleteRecord :: (ByteBuffer, Region<UInt8>, USize, USize) -> Bool :=
     (databaseBuffer, lineBytes, keyStart, keyLength) -> [return] => {
         (database, _) := databaseBuffer;
         slot := database._findRecord(lineBytes, keyStart, keyLength, 0usize);

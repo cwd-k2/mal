@@ -1,11 +1,5 @@
 require "./host.mal";
 
-// Convert a byte buffer into the initialized descriptor used only at the host boundary.
-initializedBytes :: ByteBuffer -> ReadableBytes := (buffer) -> {
-    (storage, length) := buffer;
-    (?storage, length);
-};
-
 clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
     when (#memory == 0usize) {
         return(());
@@ -15,54 +9,66 @@ clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
     return((memory % 1usize).clearBytes());
 };
 
-_rangeEqualsAt :: (Packed<UInt8>, USize, Symbol, USize) -> Bool :=
-    (source, start, expected, index) -> [return] => {
+_rangeEquals :: (Region<UInt8>, Symbol, USize) -> Bool :=
+    (source, expected, index) -> [return] => {
         when (index == #expected) {
             return(true);
         };
-        when (source # (start + index) != expected # index) {
+        (actual, _) := <-(?source)@u8;
+        when (actual != expected # index) {
             return(false);
         };
 
-        return(source._rangeEqualsAt(start, expected, index + 1usize));
+        return((source % 1usize)._rangeEquals(expected, index + 1usize));
     };
 
-rangeEquals :: (Packed<UInt8>, USize, USize, Symbol) -> Bool :=
+rangeEquals :: (Region<UInt8>, USize, USize, Symbol) -> Bool :=
     (source, start, length, expected) -> {
         length == #expected
             && start <= #source
             && length <= #source - start
-            && source._rangeEqualsAt(start, expected, 0usize);
+            && (source % start)._rangeEquals(expected, 0usize);
     };
 
-findByte :: (Packed<UInt8>, USize, UInt8) -> USize :=
-    (source, index, byte) -> [return] => {
-        when (index >= #source) {
-            return(#source);
-        };
-        when (source # index == byte) {
-            return(index);
-        };
-
-        return(source.findByte(index + 1usize, byte));
+_findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> [return] => {
+    when (#source == 0usize) {
+        return(index);
+    };
+    (actual, _) := <-(?source)@u8;
+    when (actual == byte) {
+        return(index);
     };
 
-memoryEqualsAt :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> Bool :=
-    (memory, source, start, length, index) -> [return] => {
-        when (index == length) {
+    return((source % 1usize)._findByte(index + 1usize, byte));
+};
+
+findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, start, byte) -> {
+    if (start >= #source)
+    then#source
+    else (source % start)._findByte(start, byte);
+};
+
+prefixEquals :: (Region<UInt8>, Region<UInt8>, USize) -> Bool :=
+    (left, right, length) -> [return] => {
+        when (length == 0usize) {
             return(true);
         };
-        (left, _) := <-(?(memory % index))@u8;
-        when (left != source # (start + index)) {
+        (leftByte, _) := <-(?left)@u8;
+        (rightByte, _) := <-(?right)@u8;
+        when (leftByte != rightByte) {
             return(false);
         };
 
-        return(memory.memoryEqualsAt(source, start, length, index + 1usize));
+        return((left % 1usize).prefixEquals(right % 1usize, length - 1usize));
     };
 
-copyRange :: (Packed<UInt8>, USize, Region<UInt8>, USize) -> Unit :=
-    (source, start, destination, length) -> {
-        selected := (source % start) / length;
-        destination / length <- selected;
-        ();
+copyPrefix :: (Region<UInt8>, Region<UInt8>, USize) -> Unit :=
+    (source, destination, length) -> [return] => {
+        when (length == 0usize) {
+            return(());
+        };
+
+        (byte, _) := <-(?source)@u8;
+        (?destination)@u8 <- byte;
+        return((source % 1usize).copyPrefix(destination % 1usize, length - 1usize));
     };
