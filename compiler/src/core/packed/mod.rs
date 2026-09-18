@@ -36,7 +36,8 @@ impl Lowerer {
             ty: checked::Type::Address,
             span: expression.span,
         };
-        let capabilities = self.capabilities(builder_id, element, expression.span);
+        let capabilities =
+            self.capabilities(builder_id, element, source.is_none(), expression.span);
         let callback_call = Expression {
             kind: ExpressionKind::Call {
                 callee: Box::new(self.reference(callback_id, callback.ty.clone(), callback.span)),

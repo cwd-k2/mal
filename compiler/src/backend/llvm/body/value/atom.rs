@@ -92,9 +92,15 @@ impl FunctionEmitter<'_> {
                     if *index != 0 || function.environment.len() != 1 || *ty != Type::Address {
                         return None;
                     }
+                    let tagged = self.active_environment();
+                    let environment = self.register();
+                    let bits = self.types.index_size().checked_mul(8)?;
+                    self.line(format!(
+                        "  {environment} = call ptr @llvm.ptrmask.p0.i{bits}(ptr {tagged}, i{bits} -2)"
+                    ));
                     return Some(EmittedValue {
                         ty: Type::Address,
-                        representation: self.active_environment(),
+                        representation: environment,
                         owned: false,
                     });
                 }

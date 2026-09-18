@@ -12,6 +12,7 @@ impl Lowerer {
         &mut self,
         builder: ValueId,
         element: &checked::Type,
+        unique: bool,
         span: crate::source::Span,
     ) -> Expression {
         let new = self.capability(
@@ -36,7 +37,11 @@ impl Lowerer {
             builder,
             put_parameter,
             checked::Type::Unit,
-            PackedBuilderOperation::Put,
+            if unique {
+                PackedBuilderOperation::PutUnique
+            } else {
+                PackedBuilderOperation::Put
+            },
             element,
             span,
         );

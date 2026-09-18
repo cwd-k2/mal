@@ -190,6 +190,7 @@ pub enum PackedBuilderOperation {
     New,
     Get,
     Put,
+    PutUnique,
     Finish,
 }
 

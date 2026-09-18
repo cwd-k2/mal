@@ -204,9 +204,20 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
     assert_eq!(
         artifacts
             .module
-            .matches("call void @mal_runtime_packed_builder_put")
+            .matches("call void @mal_runtime_packed_builder_put_unique")
             .count(),
         1
+    );
+    assert!(
+        !artifacts
+            .module
+            .contains("call void @mal_runtime_packed_builder_put(")
+    );
+    assert!(artifacts.module.contains("getelementptr i8, ptr"));
+    assert!(
+        artifacts
+            .module
+            .contains("call ptr @llvm.ptrmask.p0.i64(ptr %mal_environment, i64 -2)")
     );
     assert!(
         artifacts

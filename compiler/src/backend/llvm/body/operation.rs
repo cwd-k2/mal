@@ -65,10 +65,15 @@ impl FunctionEmitter<'_> {
                         capture,
                     )?;
                     let environment = self.atom(capture)?;
+                    let tagged_environment = self.register();
+                    self.line(format!(
+                        "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
+                        environment.representation
+                    ));
                     let closure = self.register();
                     self.line(format!(
                         "  {closure} = insertvalue {} {with_code}, ptr {}, 1",
-                        closure_type.llvm, environment.representation
+                        closure_type.llvm, tagged_environment
                     ));
                     closure
                 } else if captures.is_empty() {

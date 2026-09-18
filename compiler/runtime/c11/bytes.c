@@ -261,6 +261,7 @@ void mal_runtime_bytes_write(
 
 typedef struct {
     MalBytes *owner;
+    unsigned char *data;
     size_t offset;
     size_t count;
     size_t stride;
@@ -276,6 +277,7 @@ static MalPackedBuilder *mal_packed_builder_allocate(
         sizeof(MalPackedBuilder)
     );
     builder->owner = NULL;
+    builder->data = NULL;
     builder->offset = 0;
     builder->count = 0;
     builder->stride = stride;
@@ -296,6 +298,9 @@ void *mal_runtime_packed_builder_edit(
 ) {
     MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
     builder->owner = mal_bytes_retain(context, (MalBytes *)owner);
+    builder->data = count == 0 || stride == 0
+        ? NULL
+        : (unsigned char *)mal_bytes_data(builder->owner) + offset;
     builder->offset = offset;
     builder->count = count;
     builder->editable = 0;
@@ -327,6 +332,7 @@ static void mal_packed_builder_make_editable(
         builder->stride
     );
     if (builder->owner == NULL) {
+        builder->data = NULL;
         builder->offset = 0;
         builder->editable = 1;
         return;
@@ -335,6 +341,7 @@ static void mal_packed_builder_make_editable(
         && builder->owner->references == 1
         && builder->offset == 0
         && builder->owner->length == (uint64_t)bytes) {
+        builder->data = (unsigned char *)mal_bytes_data(builder->owner);
         builder->editable = 1;
         return;
     }
@@ -349,6 +356,7 @@ static void mal_packed_builder_make_editable(
     );
     mal_bytes_release(builder->owner);
     builder->owner = copy;
+    builder->data = (unsigned char *)mal_bytes_data(copy);
     builder->offset = 0;
     builder->editable = 1;
 }
@@ -379,6 +387,7 @@ size_t mal_runtime_packed_builder_new(
             builder->stride,
             "packed builder allocation failed"
         );
+        builder->data = (unsigned char *)mal_bytes_data(builder->owner);
     }
     ++builder->count;
     return index;
@@ -394,9 +403,7 @@ const void *mal_runtime_packed_builder_get(
     if (stride == 0) {
         return NULL;
     }
-    return mal_bytes_data(builder->owner)
-        + builder->offset
-        + index * stride;
+    return builder->data + index * stride;
 }
 
 __attribute__((always_inline))
@@ -412,12 +419,20 @@ void mal_runtime_packed_builder_put(
         return;
     }
     mal_packed_builder_make_editable(context, builder);
-    MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
-    memcpy(
-        flat->bytes + flat->start + index * stride,
-        value,
-        stride
-    );
+    memcpy(builder->data + index * stride, value, stride);
+}
+
+__attribute__((always_inline))
+void mal_runtime_packed_builder_put_unique(
+    void *opaque_builder,
+    size_t index,
+    const void *value,
+    size_t stride
+) {
+    MalPackedBuilder *builder = opaque_builder;
+    if (stride != 0) {
+        memcpy(builder->data + index * stride, value, stride);
+    }
 }
 
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builder) {

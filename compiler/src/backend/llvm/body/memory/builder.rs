@@ -102,6 +102,28 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
+            PackedBuilderOperation::PutUnique => {
+                let put_type = Type::Product(vec![Type::USize, element.clone()].into());
+                let argument_type = Type::Product(vec![Type::Address, put_type.clone()].into());
+                if argument.ty != argument_type || *result_type != Type::Unit {
+                    return None;
+                }
+                let [builder, put] = self.product_fields(argument, [&Type::Address, &put_type])?;
+                let [index, value] = self.product_fields(&put, [&Type::USize, element])?;
+                let value_pointer = self.builder_value_pointer(&value, stride)?;
+                self.line(format!(
+                    "  call void @mal_runtime_packed_builder_put_unique(ptr {}, {} {}, ptr {value_pointer}, {} {stride})",
+                    builder.representation,
+                    self.types.pointer_integer()?,
+                    index.representation,
+                    self.types.pointer_integer()?
+                ));
+                Some(EmittedValue {
+                    ty: Type::Unit,
+                    representation: "0".into(),
+                    owned: false,
+                })
+            }
             PackedBuilderOperation::Finish => {
                 let packed_type = Type::Packed(element.clone().into());
                 if argument.ty != Type::Address || *result_type != packed_type {

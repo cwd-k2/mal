@@ -45,13 +45,10 @@ void *mal_runtime_environment_allocate(
 
 __attribute__((always_inline))
 void *mal_runtime_environment_retain(MalContext *context, void *environment) {
-    if (environment == NULL) {
-        return NULL;
-    }
-    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    if (header->destroy == NULL) {
+    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
         return environment;
     }
+    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
     if (header->references == SIZE_MAX) {
         mal_trap(context, "closure reference count overflow");
     }
@@ -61,13 +58,10 @@ void *mal_runtime_environment_retain(MalContext *context, void *environment) {
 
 __attribute__((always_inline))
 void mal_runtime_environment_release(void *environment) {
-    if (environment == NULL) {
+    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
         return;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    if (header->destroy == NULL) {
-        return;
-    }
     --header->references;
     if (header->references == 0) {
         header->destroy(environment);
@@ -76,24 +70,11 @@ void mal_runtime_environment_release(void *environment) {
 }
 
 void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size) {
-    if (size > SIZE_MAX - sizeof(MalEnvironmentHeader)) {
-        mal_trap(context, "scoped environment size overflow");
-    }
-    MalEnvironmentHeader *header = mal_runtime_allocate(
-        context,
-        sizeof(MalEnvironmentHeader) + size
-    );
-    header->references = 0;
-    header->destroy = NULL;
-    return header + 1;
+    return mal_runtime_allocate(context, size);
 }
 
 void mal_runtime_scoped_environment_deallocate(void *environment) {
-    if (environment == NULL) {
-        return;
-    }
-    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    free(header);
+    free(environment);
 }
 
 _Noreturn void mal_trap(MalContext *context, const char *message) {
