@@ -26,27 +26,27 @@ createBranch :: (Int32, Tree, Tree) -> Tree := (value, left, right) -> {
 };
 
 sumTree :: Tree -> Int32 := (node) -> [return] => {
-    (value, _) := <-node@i32;
-    (isBranch, _) := <-(node + #i32)@u8;
+    value := <-node@i32;
+    isBranch := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
         return(value);
     };
 
     children := (node + #i32 + #u8)@address;
-    (left, next) := <-children;
-    (right, _) := <-next;
+    left := <-children;
+    right := <-(?children + #address)@address;
     return(value + left.sumTree() + right.sumTree());
 };
 
 releaseTree :: Tree -> Unit := (node) -> [return] => {
-    (isBranch, _) := <-(node + #i32)@u8;
+    isBranch := <-(node + #i32)@u8;
     when (isBranch == 0u8) {
         return(node.releaseNode());
     };
 
     children := (node + #i32 + #u8)@address;
-    (left, next) := <-children;
-    (right, _) := <-next;
+    left := <-children;
+    right := <-(?children + #address)@address;
     left.releaseTree();
     right.releaseTree();
     return(node.releaseNode());

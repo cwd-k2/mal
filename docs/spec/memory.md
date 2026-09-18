@@ -78,7 +78,7 @@ numeric scalar、`Address`、`ByteSize`、`USize`のstrideとrequired alignment�
 storage幅はbit幅、Addressはdefault address spaceのpointer storage幅、ByteSizeとUSizeはpointer index幅を使う。byte orderと
 scalar representationはbackend host ABIが定める。
 
-`Unit`はstride 0、required alignment 1である。load/storeはstorageをdereferenceせず、次Cursorは同じlocationになる。
+`Unit`はstride 0、required alignment 1である。load/storeはstorageをdereferenceせず、storeが返す次Cursorは同じlocationになる。
 `Region<Unit>`はstorageを消費せず任意のUSizeを持てる。
 
 productはfieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで
@@ -107,19 +107,19 @@ Cursor<A>@USize             -> Region<A>
 Cursor<A>!                  -> Cursor<A>
 Region<A>!                  -> Region<A>
 Cursor<A> <- A              -> Cursor<A>
-<-Cursor<A>                 -> (A, Cursor<A>)
+<-Cursor<A>                 -> A
 ```
 
 `Address@Shape`はlocationを動かさず、shapeに対応するcanonical `A`のCursorを作る。別shapeへ切り替える場合は`?cursor`で
 Addressへ戻す。`Cursor<A>@USize`は現在locationからstrideを繰り返すRegionを作る。Cursorと一要素Regionは別の型である。
 
-loadは現在位置の値とstrideだけ進んだCursorのproductを返し、storeも同じ次Cursorを返す。どちらもexternal storageを
-consumeせず、referentのlifetimeを変更しない。store結果を使わない場合は通常のexpression statementとして捨てられ、
+loadは現在位置の値を返し、storeはstrideだけ進んだCursorを返す。どちらもexternal storageをconsumeせず、referentのlifetimeを
+変更しない。store結果を使わない場合は通常のexpression statementとして捨てられ、
 `_ := cursor <- value;`と明示する必要はない。結果破棄の一般則は[expression statement](expressions.md#expression-statement)に定める。
 
 ```mal
-(value, next) := <-address@u64;
-(<-address@u64)[(value, next) -> use(value, next)]
+value := <-address@u64;
+use(<-address@u64)
 
 end := address@u8
     <- first
@@ -143,7 +143,7 @@ callerまたはAddressを提供したhost contractは次の条件を満たす。
 | `Cursor@USize` | `USize * stride(A)`がoverflowせず、全locationが同じlive region内にある。USize 0またはstride 0では先頭が末尾の直後でもよい |
 | Cursor load | 現在の一要素がreadable、初期化済みでvalid representationを持つ |
 | Cursor store | 現在の一要素がwritableである |
-| load/store result | 次locationが同じlive region内または末尾の直後にある |
+| store result | 次locationが同じlive region内または末尾の直後にある |
 | `Cursor<A>!` | skipするpaddingと一要素分のextentが同じlive regionに収まる |
 | `Region<A>!` | skipするpaddingとUSize要素分のextentが同じlive regionに収まる。USize 0ではpaddingだけを対象とする |
 

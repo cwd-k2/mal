@@ -7,12 +7,13 @@ fn checks_typed_cursor_region_and_stride_operations() {
          useMemory :: Unit -> UInt64 := () -> {\n\
            cursor := memory()@u64;\n\
            next := cursor <- 41u64;\n\
-           (value, loadedNext) := <-cursor;\n\
-           region := loadedNext@3usize;\n\
+           value := <-cursor;\n\
+           region := next@3usize;\n\
+           indexed :: Cursor<UInt64> := region # 1usize;\n\
            projected :: Address := ?region;\n\
            shifted := projected + #u64;\n\
            _ := shifted@u8;\n\
-           value + (#(u8, u64)).u64;\n\
+           value + (<-indexed) + (#(u8, u64)).u64;\n\
          };",
     );
     let ExpressionKind::Lambda(function) = &top_binding(&program, 1).value.kind else {
@@ -76,6 +77,7 @@ fn rejects_packed_operations_for_wrong_element_or_operand_types() {
     for text in [
         "bad :: Packed<UInt16> -> Symbol := (packed) -> *packed;",
         "bad :: Packed<UInt8> -> UInt8 := (packed) -> packed # 0bytes;",
+        "bad :: Region<UInt8> -> Cursor<UInt8> := (region) -> region # 0bytes;",
         "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region / 1bytes;",
         "bad :: (Region<UInt8>, Packed<UInt16>) -> Region<UInt8> := (region, packed) -> region <- packed;",
     ] {

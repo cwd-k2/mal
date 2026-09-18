@@ -86,8 +86,8 @@ fn transfers_zero_stride_units_from_a_one_past_address() {
          main :: Unit -> Int32 := () -> {\n\
            cursor := onePast()@unit;\n\
            cursor <- ();\n\
-           (_, next) := <-cursor;\n\
-           region := next@7usize;\n\
+           _ := <-cursor;\n\
+           region := cursor@7usize;\n\
            packed := <-region;\n\
            remainder := region <- packed;\n\
            if (#packed == 7usize && #remainder == 0usize && sameAddress(?cursor, ?remainder))\n\
@@ -167,11 +167,11 @@ fn stores_and_loads_canonical_products_and_sums() {
            address := memory();\n\
            product := address@(u8, u64);\n\
            product <- (7u8, 35u64);\n\
-           ((first, second), _) := <-product;\n\
+           (first, second) := <-product;\n\
            choice :: Choice := [none, some] => some(42u64);\n\
            sum := (address + #(u8, u64))@[unit, u64];\n\
            sum <- choice;\n\
-           (loaded, _) := <-sum;\n\
+           loaded := <-sum;\n\
            selected := loaded[() -> 0i32, (value) -> value.i32];\n\
            first.i32 + second.i32 + selected;\n\
          };",
@@ -208,7 +208,7 @@ fn aligns_cursor_access_with_pointer_provenance() {
          main :: Unit -> Int32 := () -> {\n\
            cursor := (memory() + 1bytes)@u64!;\n\
            cursor <- 42u64;\n\
-           (value, _) := <-cursor;\n\
+           value := <-cursor;\n\
            value.i32;\n\
          };",
     );
@@ -592,11 +592,11 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
            pointerSlot@address <- base;\n\
            floatSlot := pointerSlot + #address;\n\
            floatSlot@f32 <- 1.5f32;\n\
-           (restored, _) := <-(pointerSlot@address);\n\
+           restored := <-(pointerSlot@address);\n\
            start := floatSlot - #address - #u64;\n\
-           (first, _) := <-(restored@u64);\n\
-           (second, _) := <-(start@u64);\n\
-           (float, _) := <-(floatSlot@f32);\n\
+           first := <-(restored@u64);\n\
+           second := <-(start@u64);\n\
+           float := <-(floatSlot@f32);\n\
            value := first + second;\n\
            if (float == 1.5f32) then { value.i32 - 84 } else { 1 };\n\
          };",

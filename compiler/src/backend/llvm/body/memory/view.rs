@@ -167,6 +167,27 @@ impl FunctionEmitter<'_> {
         self.emit_source_load_at(&pointer, result_type)
     }
 
+    pub(in crate::backend::llvm::body) fn emit_region_index(
+        &mut self,
+        argument: &EmittedValue,
+        result_type: &Type,
+    ) -> Option<EmittedValue> {
+        let Type::Cursor(element) = result_type else {
+            return None;
+        };
+        let region_type = Type::Region(element.clone());
+        let [region, index] = self.product_fields(argument, [&region_type, &Type::USize])?;
+        let (address, _) = self.region_fields(&region)?;
+        let stride = self.source_layouts.layout(element)?.stride;
+        let byte_offset = self.multiply_by_stride(&index.representation, stride)?;
+        let pointer = self.pointer_offset(&address, &byte_offset)?;
+        Some(EmittedValue {
+            ty: result_type.clone(),
+            representation: pointer,
+            owned: false,
+        })
+    }
+
     pub(in crate::backend::llvm::body) fn emit_packed_to_symbol(
         &mut self,
         packed: &EmittedValue,

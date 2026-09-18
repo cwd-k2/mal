@@ -90,7 +90,7 @@ fn emits_typed_scalar_cursor_access_with_exact_alignment() {
          main :: Unit -> Int32 := () -> {\n\
            cursor := memory()@u64;\n\
            cursor <- 41u64;\n\
-           (value, _) := <-cursor;\n\
+           value := <-cursor;\n\
            value.i32;\n\
          };"
         .into(),

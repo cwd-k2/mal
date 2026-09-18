@@ -57,7 +57,7 @@ generic codeは裸のAddressと`A`からlayoutを導けない。callerがconcret
 static layoutをgeneric functionへ渡す。
 
 ```mal
-readCursor<A> :: Cursor<A> -> (A, Cursor<A>) := (cursor) -> <-cursor;
+readCursor<A> :: Cursor<A> -> A := (cursor) -> <-cursor;
 writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> := (cursor, value) -> cursor <- value;
 ```
 

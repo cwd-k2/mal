@@ -120,10 +120,9 @@ impl Checker {
             (UnaryOperator::ProjectAddress, Type::Cursor(_) | Type::Region(_)) => {
                 (MemoryPrimitive::ProjectAddress, Type::Address)
             }
-            (UnaryOperator::Load, Type::Cursor(element)) => (
-                MemoryPrimitive::LoadValue,
-                Type::Product(vec![(**element).clone(), Type::Cursor(element.clone())].into()),
-            ),
+            (UnaryOperator::Load, Type::Cursor(element)) => {
+                (MemoryPrimitive::LoadValue, (**element).clone())
+            }
             (UnaryOperator::Load, Type::Region(element)) => {
                 (MemoryPrimitive::AdmitRegion, Type::Packed(element.clone()))
             }
@@ -229,6 +228,31 @@ impl Checker {
                 }),
             },
             ty,
+            span,
+        })
+    }
+
+    pub(super) fn check_region_index(
+        &mut self,
+        region: Expression,
+        index: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        let Type::Region(element) = &region.ty else {
+            unreachable!("caller checks Region")
+        };
+        let element = element.clone();
+        let (region, index) = self.check_after(region, index, Some(&Type::USize))?;
+        Ok(Expression {
+            kind: ExpressionKind::Memory {
+                primitive: MemoryPrimitive::RegionIndex,
+                argument: Box::new(Expression {
+                    kind: ExpressionKind::Product(vec![region, index]),
+                    ty: Type::Product(vec![Type::Region(element.clone()), Type::USize].into()),
+                    span,
+                }),
+            },
+            ty: Type::Cursor(element),
             span,
         })
     }

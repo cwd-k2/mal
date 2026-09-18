@@ -77,6 +77,7 @@ impl FunctionEmitter<'_> {
                 self.emit_view_slice(primitive, argument, result_type)
             }
             MemoryPrimitive::ViewLength => self.emit_view_length(argument, result_type),
+            MemoryPrimitive::RegionIndex => self.emit_region_index(argument, result_type),
             MemoryPrimitive::PackedIndex => self.emit_packed_index(argument, result_type),
             MemoryPrimitive::PackedToSymbol => self.emit_packed_to_symbol(argument, result_type),
             MemoryPrimitive::SymbolToPacked => self.emit_symbol_to_packed(argument, result_type),

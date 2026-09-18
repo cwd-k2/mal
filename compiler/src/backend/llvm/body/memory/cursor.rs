@@ -82,29 +82,10 @@ impl FunctionEmitter<'_> {
         let Type::Cursor(element) = &cursor.ty else {
             return None;
         };
-        let expected = Type::Product(vec![(**element).clone(), cursor.ty.clone()].into());
-        if *result_type != expected {
+        if result_type != element.as_ref() {
             return None;
         }
-        let value = self.emit_source_load(cursor, element)?;
-        let next = self.offset_cursor(cursor, element)?;
-        let product_type = self.types.value(result_type)?;
-        let value_type = self.types.value(element)?;
-        let with_value = self.register();
-        self.line(format!(
-            "  {with_value} = insertvalue {} poison, {} {}, 0",
-            product_type.llvm, value_type.llvm, value.representation
-        ));
-        let result = self.register();
-        self.line(format!(
-            "  {result} = insertvalue {} {with_value}, ptr {}, 1",
-            product_type.llvm, next.representation
-        ));
-        Some(EmittedValue {
-            ty: result_type.clone(),
-            representation: result,
-            owned: false,
-        })
+        self.emit_source_load(cursor, element)
     }
 
     pub(in crate::backend::llvm::body) fn emit_cursor_store(

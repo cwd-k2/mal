@@ -34,7 +34,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> {
         2;
     }
     else {
-        ((argumentAddress, argumentLength), _) := <-arguments@(address, bytesize);
+        (argumentAddress, argumentLength) := <-arguments@(address, bytesize);
         query := (argumentAddress@u8@(argumentLength.usize)).parseQuery();
         query[
         (message) -> {

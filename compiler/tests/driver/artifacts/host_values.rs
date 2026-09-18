@@ -15,7 +15,7 @@ fn accesses_canonical_memory_through_named_alias_helpers() {
            address := storage();\n\
            address@(i64, u8) <- (41i64, 1u8);\n\
            inspect(address);\n\
-           ((number, byte), _) := <-address@(i64, u8);\n\
+           (number, byte) := <-address@(i64, u8);\n\
            (number + byte.i64 - 44i64).i32;\n\
          };",
     );

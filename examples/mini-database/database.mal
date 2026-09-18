@@ -82,9 +82,9 @@ _validateRecords :: (Region<UInt8>, USize) -> Bool := (database, index) -> [retu
     };
 
     record := database._recordAt(index);
-    (active, afterActive) := <-(?record)@u8;
-    (keyLengthByte, afterKeyLength) := <-afterActive;
-    (valueLengthByte, _) := <-afterKeyLength;
+    active := <-(record # 0usize);
+    keyLengthByte := <-(record # 1usize);
+    valueLengthByte := <-(record # 2usize);
     keyLength := keyLengthByte.usize;
     valueLength := valueLengthByte.usize;
     valid := (active == 0u8 || active == 1u8)
@@ -104,12 +104,12 @@ validateDatabase :: ByteBuffer -> Bool := (buffer) -> [return] => {
         return(false);
     };
 
-    (magicM, afterMagicM) := <-(?database)@u8;
-    (magicA, afterMagicA) := <-afterMagicM;
-    (magicL, afterMagicL) := <-afterMagicA;
-    (magicD, afterMagicD) := <-afterMagicL;
-    (version, afterVersion) := <-afterMagicD;
-    (recordCount, _) := <-afterVersion;
+    magicM := <-(database # 0usize);
+    magicA := <-(database # 1usize);
+    magicL := <-(database # 2usize);
+    magicD := <-(database # 3usize);
+    version := <-(database # 4usize);
+    recordCount := <-(database # 5usize);
 
     // Validate fixed header fields before walking any record metadata.
     return(magicM == 'M'
@@ -128,8 +128,8 @@ _findRecord :: (Region<UInt8>, Region<UInt8>, USize, USize, USize) -> USize :=
         };
 
         record := database._recordAt(index);
-        (active, next) := <-(?record)@u8;
-        (keyLength, _) := <-next;
+        active := <-(record # 0usize);
+        keyLength := <-(record # 1usize);
         keyBytes := record % 8usize;
         matches := active == 1u8
             && keyLength.usize == length
@@ -145,7 +145,7 @@ _findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [retu
     when (index == _recordCount) {
         return(_recordCount);
     };
-    (active, _) := <-(?(database._recordAt(index)))@u8;
+    active := <-(?(database._recordAt(index)))@u8;
     when (active == 0u8) {
         return(index);
     };
@@ -188,7 +188,7 @@ lookupRecord :: (ByteBuffer, Region<UInt8>, USize, USize) -> LookupResult :=
         };
 
         record := database._recordAt(slot);
-        (valueLength, _) := <-(?(record % 2usize))@u8;
+        valueLength := <-(?(record % 2usize))@u8;
         found((record % 24usize) / valueLength.usize);
     };
 

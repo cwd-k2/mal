@@ -25,12 +25,14 @@ Packed<A> / USize           -> Packed<A>
 Packed<A> % USize           -> Packed<A>
 #Region<A>                  -> USize
 #Packed<A>                  -> USize
+Region<A> # USize           -> Cursor<A>
 Packed<A> # USize           -> A
 *Packed<UInt8>              -> Symbol
 *Symbol                     -> Packed<UInt8>
 ```
 
-`#region`はlocation数、`#packed`は読み出せる実在要素数を返す。`<-region`は全要素をindex順にadmitして新しいPackedを返す。
+`#region`はlocation数、`#packed`は読み出せる実在要素数を返す。`region # index`はindex番目のexternal locationをCursorとして返し、
+storageをdereferenceしない。`<-region`は全要素をindex順にadmitして新しいPackedを返す。
 `region <- packed`は先頭からobserveし、書いた範囲の直後から始まるsuffix Regionを返す。zero-count Regionのadmissionはempty
 Packed、zero-count Packedのstoreは元のRegionを返し、storageをdereferenceしない。`Packed<Unit>`はUSizeだけで表現してよい。
 
@@ -60,6 +62,7 @@ partial inputはcapacity以下のUSizeと、そのprefixを初期化したとい
 |---|---|
 | `Region / USize`、`Region % USize` | `count <= #region`かつprefix extentがoverflowしない |
 | `Packed / USize`、`Packed % USize` | `count <= #packed` |
+| `Region # USize` | `index < #region`かつoffset計算がoverflowしない |
 | `Packed # USize` | `index < #packed` |
 | `<-Region<A>` | 全locationがreadable、初期化済み、valid representationで、allocation sizeがtargetで表現可能 |
 | `Region<A> <- Packed<A>` | `#packed <= #region`で対象prefixがwritable |

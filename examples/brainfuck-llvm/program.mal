@@ -29,7 +29,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    ((pathAddress, pathLength), _) := <-arguments@(address, bytesize);
+    (pathAddress, pathLength) := <-arguments@(address, bytesize);
     path := *<-pathAddress@u8@(pathLength.usize);
     read := readSource(path);
     return(read[

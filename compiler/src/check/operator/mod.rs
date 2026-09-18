@@ -312,6 +312,9 @@ impl Checker {
         match operator.kind {
             BinaryOperator::Store => return self.check_memory_store(left, right, span),
             BinaryOperator::SymbolAt => {
+                if matches!(left.ty, Type::Region(_)) {
+                    return self.check_region_index(left, right, span);
+                }
                 if matches!(left.ty, Type::Packed(_)) {
                     return self.check_packed_index(left, right, span);
                 }

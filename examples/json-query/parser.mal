@@ -43,7 +43,7 @@ _skipWhitespace :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
     when (#source == 0usize) {
         return(source);
     };
-    (byte, _) := <-(?source)@u8;
+    byte := <-(?source)@u8;
     when (byte._isWhitespace()) {
         return((source % 1usize)._skipWhitespace());
     };
@@ -93,7 +93,7 @@ _hasHexDigits :: (Region<UInt8>, USize) -> Bool := (source, remaining) -> [retur
     when (#source == 0usize) {
         return(false);
     };
-    (byte, _) := <-(?source)@u8;
+    byte := <-(?source)@u8;
     when (!byte._isHexDigit()) {
         return(false);
     };
@@ -105,7 +105,7 @@ _scanString :: Region<UInt8> -> Scan := (source) -> [return] => {
     when (#source == 0usize) {
         return((source, "unterminated JSON string"));
     };
-    (byte, _) := <-(?source)@u8;
+    byte := <-(?source)@u8;
     when (byte == '"') {
         return((source % 1usize, ""));
     };
@@ -120,7 +120,7 @@ _scanString :: Region<UInt8> -> Scan := (source) -> [return] => {
     when (#afterSlash == 0usize) {
         return((source, "unterminated JSON escape"));
     };
-    (escaped, _) := <-(?afterSlash)@u8;
+    escaped := <-(?afterSlash)@u8;
     simple := escaped == '"'
         || escaped == '\\'
         || escaped == '/'
@@ -143,7 +143,7 @@ _scanDigits :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
     when (#source == 0usize) {
         return(source);
     };
-    (byte, _) := <-(?source)@u8;
+    byte := <-(?source)@u8;
     when (!byte._isDigit()) {
         return(source);
     };
@@ -153,7 +153,7 @@ _scanDigits :: Region<UInt8> -> Region<UInt8> := (source) -> [return] => {
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
 _scanNumber :: Region<UInt8> -> Scan := (source) -> [return] => {
-    (firstByte, _) := <-(?source)@u8;
+    firstByte := <-(?source)@u8;
     unsigned := if (firstByte == '-')
         then source % 1usize
         else source;
@@ -161,7 +161,7 @@ _scanNumber :: Region<UInt8> -> Scan := (source) -> [return] => {
         return((source, "incomplete JSON number"));
     };
 
-    (first, _) := <-(?unsigned)@u8;
+    first := <-(?unsigned)@u8;
     integerEnd := if (first == '0')
         then unsigned % 1usize
         else {
@@ -173,14 +173,14 @@ _scanNumber :: Region<UInt8> -> Scan := (source) -> [return] => {
 
     afterFraction := if (#integerEnd != 0usize)
         then {
-            (next, _) := <-(?integerEnd)@u8;
+            next := <-(?integerEnd)@u8;
             if (next == '.')
             then {
                 fraction := integerEnd % 1usize;
                 when (#fraction == 0usize) {
                     return((source, "invalid JSON fraction"));
                 };
-                (digit, _) := <-(?fraction)@u8;
+                digit := <-(?fraction)@u8;
                 when (!digit._isDigit()) {
                     return((source, "invalid JSON fraction"));
                 };
@@ -192,21 +192,21 @@ _scanNumber :: Region<UInt8> -> Scan := (source) -> [return] => {
 
     afterExponent := if (#afterFraction != 0usize)
         then {
-            (next, _) := <-(?afterFraction)@u8;
+            next := <-(?afterFraction)@u8;
             if (next == 'e' || next == 'E')
             then {
                 exponent := afterFraction % 1usize;
                 when (#exponent == 0usize) {
                     return((source, "incomplete JSON exponent"));
                 };
-                (firstExponent, _) := <-(?exponent)@u8;
+                firstExponent := <-(?exponent)@u8;
                 digits := if (firstExponent == '+' || firstExponent == '-')
                     then exponent % 1usize
                     else exponent;
                 when (#digits == 0usize) {
                     return((source, "invalid JSON exponent"));
                 };
-                (digit, _) := <-(?digits)@u8;
+                digit := <-(?digits)@u8;
                 when (!digit._isDigit()) {
                     return((source, "invalid JSON exponent"));
                 };
@@ -235,7 +235,7 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
         return(_parseFailure("expected JSON value or closing delimiter"));
     };
 
-    (byte, _) := <-(?source)@u8;
+    byte := <-(?source)@u8;
     // Delimiter states run before value recognition, preventing commas and closers from becoming
     // accidental values and distinguishing the first element from later elements.
     when (frame == _arrayNext) {

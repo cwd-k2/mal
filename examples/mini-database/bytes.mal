@@ -14,7 +14,7 @@ _rangeEquals :: (Region<UInt8>, Symbol, USize) -> Bool :=
         when (index == #expected) {
             return(true);
         };
-        (actual, _) := <-(?source)@u8;
+        actual := <-(?source)@u8;
         when (actual != expected # index) {
             return(false);
         };
@@ -34,7 +34,7 @@ _findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> 
     when (#source == 0usize) {
         return(index);
     };
-    (actual, _) := <-(?source)@u8;
+    actual := <-(?source)@u8;
     when (actual == byte) {
         return(index);
     };
@@ -53,8 +53,8 @@ prefixEquals :: (Region<UInt8>, Region<UInt8>, USize) -> Bool :=
         when (length == 0usize) {
             return(true);
         };
-        (leftByte, _) := <-(?left)@u8;
-        (rightByte, _) := <-(?right)@u8;
+        leftByte := <-(?left)@u8;
+        rightByte := <-(?right)@u8;
         when (leftByte != rightByte) {
             return(false);
         };
@@ -68,7 +68,7 @@ copyPrefix :: (Region<UInt8>, Region<UInt8>, USize) -> Unit :=
             return(());
         };
 
-        (byte, _) := <-(?source)@u8;
+        byte := <-(?source)@u8;
         (?destination)@u8 <- byte;
         return((source % 1usize).copyPrefix(destination % 1usize, length - 1usize));
     };

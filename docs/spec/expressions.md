@@ -108,7 +108,8 @@ receiver-first applicationの`a.f()`は`f(a)`、`a.f(b, c)`は`f(a, b, c)`と同
 field access、property、method value、bound functionを導入しない。
 
 [external memory](memory.md#placementとaccess)と[`Region`と`Packed`](packed.md#operation)のoperationは通常のexpressionとして
-評価する。Addressのbyte offsetは`+`と`-`、Symbol、Region、Packedのlengthとindexは`#`で表す。
+評価する。Addressのbyte offsetは`+`と`-`、Symbol、Region、Packedのlengthとindexは`#`で表す。Region indexはCursor、
+Packed indexは要素値を返す。
 
 external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
 実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
@@ -121,7 +122,7 @@ bulk transferはRegionとPackedが運ぶstatic layoutから決まる。
 ```mal
 stride :: Unit -> ByteSize := () -> #(address, bytesize);
 
-readUInt64 :: Cursor<UInt64> -> (UInt64, Cursor<UInt64>) :=
+readUInt64 :: Cursor<UInt64> -> UInt64 :=
     (cursor) -> <-cursor;
 ```
 

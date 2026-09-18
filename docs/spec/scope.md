@@ -56,8 +56,7 @@ extern allocate :: ByteSize -> Address;
 
 readInt64 :: (Address, USize) -> Int64 := (base, index) -> {
     cursor := (base + index * #i64)@i64;
-    (value, _) := <-cursor;
-    value;
+    <-cursor;
 };
 ```
 

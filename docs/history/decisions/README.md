@@ -20,7 +20,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
-| genericsとexternal memory | [D052](D052.md) |
+| genericsとexternal memory | [D052](D052.md)、[D056](D056.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
@@ -42,6 +42,7 @@ D054はD053のAddress-only boundaryを維持しつつ、canonical memoryとpubli
 限定して追加する。
 D055はD033のborrowed parameter、owned result、managed leafの再帰規則を維持し、唯一のowner successorへのlast-use handoffを
 optional optimizationからexecution ownership planの正規形へ置き換える。runtime operationによるstorage再利用は置き換えない。
+D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loadのresultとRegion indexを置き換える。
 
 ## 後継があるhistorical record
 

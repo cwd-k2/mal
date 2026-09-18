@@ -397,6 +397,7 @@ pub enum MemoryPrimitive {
     Prefix,
     RemainderView,
     ViewLength,
+    RegionIndex,
     PackedIndex,
     PackedToSymbol,
     SymbolToPacked,
