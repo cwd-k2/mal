@@ -69,6 +69,12 @@ impl FunctionEmitter<'_> {
             let effect = self.ownership.parameter_effect(target, entry);
             match (entry, effect, destination) {
                 (
+                    crate::execution::ownership::ParameterEntry::BorrowedAbi
+                    | crate::execution::ownership::ParameterEntry::OwnedHandoff,
+                    Some(crate::execution::ownership::ParameterEffect::BorrowInto(binding)),
+                    _,
+                ) if !value.owned => return self.store_parameter_binding(binding, value),
+                (
                     crate::execution::ownership::ParameterEntry::BorrowedAbi,
                     Some(crate::execution::ownership::ParameterEffect::ShareInto(binding)),
                     _,
@@ -78,6 +84,11 @@ impl FunctionEmitter<'_> {
                     return self.store_parameter_binding(binding, &value);
                 }
                 (crate::execution::ownership::ParameterEntry::BorrowedAbi, None, _)
+                    if !value.owned =>
+                {
+                    return Some(());
+                }
+                (crate::execution::ownership::ParameterEntry::OwnedHandoff, None, _)
                     if !value.owned =>
                 {
                     return Some(());

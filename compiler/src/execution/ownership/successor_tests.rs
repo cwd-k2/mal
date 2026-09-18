@@ -15,7 +15,7 @@ fn lower(source: &str) -> crate::execution::Program {
 }
 
 #[test]
-fn consumes_owned_leaves_when_reassembling_a_product() {
+fn shares_borrowed_parameter_leaves_when_returning_a_product() {
     let execution = lower(
         "rebuild :: (Symbol, Symbol) -> (Symbol, Symbol) := ((left, right)) -> { (left, right) };\nmain :: Unit -> Int32 := () -> { result := rebuild((\"a\" + \"b\", \"c\" + \"d\")); 0i32; };",
     );
@@ -44,13 +44,13 @@ fn consumes_owned_leaves_when_reassembling_a_product() {
         execution
             .ownership
             .binding_use(site, binding, BindingOperand::ProductElement(0)),
-        Some(UseEffect::Consume)
+        Some(UseEffect::Share)
     );
     assert_eq!(
         execution
             .ownership
             .binding_use(site, binding, BindingOperand::ProductElement(1)),
-        Some(UseEffect::Consume)
+        Some(UseEffect::Share)
     );
 }
 

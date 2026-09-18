@@ -261,7 +261,7 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
 }
 
 #[test]
-fn initializes_reused_managed_binding_carriers_without_speculative_release() {
+fn borrows_managed_tail_carriers_from_the_outer_call() {
     let source = SourceFile::new(
         FileId::new(95),
         "llvm-managed-tail-carrier.mal",
@@ -290,7 +290,7 @@ fn initializes_reused_managed_binding_carriers_without_speculative_release() {
             .module
             .matches("call void @mal_runtime_bytes_release")
             .count(),
-        2
+        0
     );
 }
 

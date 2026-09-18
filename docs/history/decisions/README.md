@@ -44,6 +44,8 @@ D055はD033のborrowed parameter、owned result、managed leafの再帰規則を
 optional optimizationからexecution ownership planの正規形へ置き換える。runtime operationによるstorage再利用は置き換えない。
 D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loadのresultとRegion indexを置き換える。
 D057はD055のresponsibility保存則を維持し、aggregate ownerがlifetimeを包含するlocal aliasをowned bindingからborrowへ置き換える。
+D058はD055とD057のresponsibility保存則をcall boundaryへ適用し、caller authorityが全pathを包含するparameterとargumentをborrowへ
+置き換える。
 
 ## 後継があるhistorical record
 

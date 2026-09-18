@@ -58,21 +58,19 @@ fn borrows_pure_aggregate_inputs_when_the_result_has_no_owner_successor() {
             }
         }
     }
-    assert_eq!(borrowed_results, 2);
-    assert_eq!(
-        effects,
-        vec![
-            Some(UseEffect::Borrow),
-            Some(UseEffect::Borrow),
-            Some(UseEffect::Borrow),
-        ]
+    assert_eq!(borrowed_results, 3);
+    assert_eq!(effects.len(), 5);
+    assert!(
+        effects
+            .iter()
+            .all(|effect| *effect == Some(UseEffect::Borrow))
     );
 }
 
 #[test]
 fn consumes_payloads_into_live_product_and_sum_results() {
     let execution = lower(
-        "Choice :: [Symbol, Unit];\npair :: (Symbol, Symbol) -> (Symbol, Symbol) := ((left, right)) -> { (left, right) };\nchoice :: Symbol -> Choice := (value) -> [some, none] => { some(value) };\nmain :: Unit -> Int32 := () -> { resultPair := pair((\"a\" + \"b\", \"c\" + \"d\")); resultChoice := choice(\"e\" + \"f\"); 0i32; };",
+        "Choice :: [Symbol, Unit];\npair :: (Symbol, Symbol) -> (Symbol, Symbol) := ((left, right)) -> { ownedLeft := left + \"x\"; ownedRight := right + \"y\"; (ownedLeft, ownedRight) };\nchoice :: Symbol -> Choice := (value) -> { owned := value + \"z\"; [some, none] => { some(owned) } };\nmain :: Unit -> Int32 := () -> { resultPair := pair((\"a\", \"b\")); resultChoice := choice(\"c\"); 0i32; };",
     );
     let mut product_consumes = 0;
     let mut sum_consumes = 0;
@@ -116,7 +114,7 @@ fn consumes_payloads_into_live_product_and_sum_results() {
 #[test]
 fn consumes_an_owned_capture_into_a_new_closure_environment() {
     let execution = lower(
-        "make :: Symbol -> (Unit -> Symbol) := (value) -> { closure :: Unit -> Symbol := () -> { value }; closure };\nmain :: Unit -> Int32 := () -> { closure := make(\"a\" + \"b\"); result := closure(); 0i32; };",
+        "make :: Symbol -> (Unit -> Symbol) := (value) -> { owned := value + \"x\"; closure :: Unit -> Symbol := () -> { owned }; closure };\nmain :: Unit -> Int32 := () -> { closure := make(\"a\"); result := closure(); 0i32; };",
     );
     let effect = execution
         .control

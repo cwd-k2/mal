@@ -4,7 +4,9 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
-use super::{ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan};
+use super::{
+    ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan,
+};
 
 mod borrow;
 mod destination;
@@ -21,6 +23,8 @@ mod construction_tests;
 #[cfg(test)]
 mod packed_tests;
 #[cfg(test)]
+mod parameter_tests;
+#[cfg(test)]
 mod successor_tests;
 #[cfg(test)]
 mod tests;
@@ -34,7 +38,7 @@ pub(crate) use identity::{
 };
 use liveness::{managed_binding_id, remove_pattern_bindings, visit_operation_atoms};
 pub(crate) use managed::is_managed;
-use parameter::collect_parameter_effects;
+use parameter::{ParameterBorrows, collect_parameter_effects};
 pub(crate) use parameter::{ParameterEffect, ParameterEntry};
 use use_plan::{UseInputs, collect_use_effects, exclude_consumed_sources};
 
@@ -52,12 +56,14 @@ pub(crate) struct Plan {
 impl Plan {
     pub(crate) fn new(
         control: &crate::control::ast::Program,
+        applications: &ApplicationGraph,
         parameters: &ParameterPlan,
         calls: &ControlCallPlan,
         regions: &ControlRegionPlan,
         frames: &ControlFramePlan,
     ) -> Self {
-        let borrows = BorrowPlan::new(control);
+        let parameter_borrows = ParameterBorrows::new(control, applications, calls, regions);
+        let borrows = BorrowPlan::new(control, &parameter_borrows);
         let live_in = borrows.live_in(control);
         let borrowed_bindings = borrows.bindings();
         let mut input_destinations = HashMap::new();
@@ -112,14 +118,22 @@ impl Plan {
             binding_destinations: &binding_destinations,
             drop_candidates: &drops_after_binding,
             borrowed_bindings: &borrowed_bindings,
+            parameter_borrows: &parameter_borrows,
         });
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
         for drops in drops_after_binding.values_mut() {
             drops.retain(|binding| !borrowed_bindings.contains(binding));
         }
-        let drops_on_edge =
-            collect_edge_drops(control, calls, frames, &live_in, &uses, &borrowed_bindings);
-        let parameters = collect_parameter_effects(control, parameters);
+        let drops_on_edge = collect_edge_drops(
+            control,
+            calls,
+            frames,
+            &borrows,
+            &live_in,
+            &uses,
+            &borrowed_bindings,
+        );
+        let parameters = collect_parameter_effects(control, parameters, &parameter_borrows);
         Self {
             input_destinations,
             binding_destinations,
@@ -134,12 +148,13 @@ impl Plan {
     pub(crate) fn is_valid(
         &self,
         control: &crate::control::ast::Program,
+        applications: &ApplicationGraph,
         parameters: &ParameterPlan,
         calls: &ControlCallPlan,
         regions: &ControlRegionPlan,
         frames: &ControlFramePlan,
     ) -> bool {
-        *self == Self::new(control, parameters, calls, regions, frames)
+        *self == Self::new(control, applications, parameters, calls, regions, frames)
     }
 
     pub(crate) fn drops_after_binding(&self, state: StateId, binding: usize) -> &[ValueId] {

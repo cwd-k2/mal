@@ -8,6 +8,7 @@ use super::liveness::{
     collect_pattern_binding_order, managed_binding_id, remove_pattern_bindings, successors,
     terminator_live, visit_operation_atoms,
 };
+use super::parameter::ParameterBorrows;
 
 #[derive(Default)]
 pub(super) struct BorrowPlan {
@@ -15,10 +16,14 @@ pub(super) struct BorrowPlan {
 }
 
 impl BorrowPlan {
-    pub(super) fn new(control: &Program) -> Self {
+    pub(super) fn new(control: &Program, parameters: &ParameterBorrows) -> Self {
         let initial = Self::default();
         let live_in = initial.live_in(control);
-        let mut authorities = HashMap::new();
+        let mut authorities = parameters
+            .bindings
+            .iter()
+            .map(|binding| (*binding, HashSet::new()))
+            .collect::<HashMap<_, _>>();
         let mut discarded_results = HashSet::new();
         for state in &control.states {
             let mut live = terminator_live(&state.terminator, &live_in);
@@ -28,7 +33,13 @@ impl BorrowPlan {
                 {
                     let mut bindings = Vec::new();
                     collect_pattern_binding_order(&binding.pattern, &mut bindings);
-                    if live.contains(&source) {
+                    if let Some(lenders) = authorities.get(&source).cloned() {
+                        for borrowed in bindings {
+                            if live.contains(&borrowed) {
+                                authorities.insert(borrowed, lenders.clone());
+                            }
+                        }
+                    } else if live.contains(&source) {
                         for borrowed in bindings {
                             if live.contains(&borrowed) {
                                 authorities.insert(borrowed, HashSet::from([source]));
@@ -69,6 +80,17 @@ impl BorrowPlan {
                         authorities.insert(borrowed, HashSet::from([source]));
                     }
                 }
+            }
+        }
+
+        for (state_index, state) in control.states.iter().enumerate() {
+            let site = crate::control::ast::StateId(state_index);
+            if parameters.call_sites.contains(&site)
+                && let Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. } =
+                    &state.terminator
+                && let Some(source) = managed_binding_id(argument)
+            {
+                discarded_results.insert(source);
             }
         }
 
@@ -118,7 +140,7 @@ impl BorrowPlan {
             let Some(target) = input_states.get(&discarded) else {
                 continue;
             };
-            authorities.insert(discarded, HashSet::new());
+            let mut sources = Vec::new();
             for state in &control.states {
                 if let Terminator::Jump {
                     target: successor,
@@ -127,8 +149,12 @@ impl BorrowPlan {
                     && successor == target
                     && let Some(source) = managed_binding_id(value)
                 {
-                    pending.push(source);
+                    sources.push(source);
                 }
+            }
+            if !sources.is_empty() {
+                authorities.insert(discarded, HashSet::new());
+                pending.extend(sources);
             }
         }
 

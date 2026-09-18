@@ -29,6 +29,7 @@ fn validates_the_exact_binding_drop_facts() {
 
     assert!(execution.ownership.is_valid(
         &execution.control,
+        &execution.applications,
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
@@ -43,6 +44,7 @@ fn validates_the_exact_binding_drop_facts() {
     execution.ownership.drops_after_binding.remove(&point);
     assert!(!execution.ownership.is_valid(
         &execution.control,
+        &execution.applications,
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
@@ -189,17 +191,26 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
                     .iter()
                     .any(|value| value.id == binding) =>
             {
+                let borrowed = execution.control.states[function.entry.0].input.is_none();
                 assert_eq!(
                     execution
                         .ownership
                         .parameter_effect(function.id, ParameterEntry::BorrowedAbi),
-                    Some(ParameterEffect::ShareInto(binding))
+                    Some(if borrowed {
+                        ParameterEffect::BorrowInto(binding)
+                    } else {
+                        ParameterEffect::ShareInto(binding)
+                    })
                 );
                 assert_eq!(
                     execution
                         .ownership
                         .parameter_effect(function.id, ParameterEntry::OwnedHandoff),
-                    Some(ParameterEffect::ConsumeInto(binding))
+                    Some(if borrowed {
+                        ParameterEffect::BorrowInto(binding)
+                    } else {
+                        ParameterEffect::ConsumeInto(binding)
+                    })
                 );
             }
             ParameterDestination::Bind(_) | ParameterDestination::Discard => {
@@ -213,7 +224,10 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
                     execution
                         .ownership
                         .parameter_effect(function.id, ParameterEntry::OwnedHandoff),
-                    Some(ParameterEffect::Drop)
+                    execution.control.states[function.entry.0]
+                        .input
+                        .is_some()
+                        .then_some(ParameterEffect::Drop)
                 );
             }
         }
@@ -225,7 +239,7 @@ fn drops_branch_local_only_on_the_path_that_does_not_need_it() {
     let source = SourceFile::new(
             FileId::new(97),
             "execution-ownership-branch-edge.mal",
-            "lengthOnOnePath :: Symbol -> USize := (value) -> { if (#value == 0usize) then { #value } else { 0usize }; };\nmain :: Unit -> Int32 := () -> { lengthOnOnePath(\"x\").i32; };".into(),
+            "lengthOnOnePath :: Symbol -> USize := (value) -> { owned := value + \"x\"; if (#owned == 0usize) then { #owned } else { 0usize }; };\nmain :: Unit -> Int32 := () -> { lengthOnOnePath(\"x\").i32; };".into(),
         );
     let checked = crate::pipeline::check(&source).expect("check branch edge fixture");
     let core = crate::core::lower(
@@ -234,12 +248,15 @@ fn drops_branch_local_only_on_the_path_that_does_not_need_it() {
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution = crate::execution::lower(closure, super::super::OptimizationSet::production());
-    let managed_parameters = execution
+    let managed_bindings = execution
         .control
-        .functions
+        .states
         .iter()
-        .filter(|function| is_managed(&function.parameter.ty))
-        .filter_map(|function| function.parameter.binding)
+        .flat_map(|state| state.bindings.iter())
+        .filter_map(|binding| match &binding.pattern {
+            Pattern::Binding { id, ty } if is_managed(ty) => Some(*id),
+            _ => None,
+        })
         .collect::<Vec<_>>();
     let differs_by_path = execution
         .control
@@ -249,15 +266,15 @@ fn drops_branch_local_only_on_the_path_that_does_not_need_it() {
         .find_map(|(state, value)| {
             let site = StateId(state);
             matches!(value.terminator, Terminator::PrimitiveBranch { .. }).then(|| {
-                managed_parameters.iter().any(|parameter| {
+                managed_bindings.iter().any(|binding| {
                     let otherwise = execution
                         .ownership
                         .drops_on_edge(site, ControlPath::BranchOtherwise)
-                        .contains(parameter);
+                        .contains(binding);
                     let then = execution
                         .ownership
                         .drops_on_edge(site, ControlPath::BranchThen)
-                        .contains(parameter);
+                        .contains(binding);
                     otherwise != then
                 })
             })
@@ -288,11 +305,11 @@ fn classifies_an_unused_managed_state_input_as_a_drop() {
 }
 
 #[test]
-fn consumes_a_dead_sum_owner_into_its_active_case_payload() {
+fn consumes_a_case_payload_when_the_sum_owner_ends_at_the_arm() {
     let source = SourceFile::new(
             FileId::new(99),
             "execution-ownership-case-payload.mal",
-            "Choice :: [Symbol, Symbol];\nselect :: Choice -> Symbol := (choice) -> { choice[(value) -> { value }, (value) -> { value }] };\nmake :: Symbol -> Choice := (value) -> [first, second] => { first(value) };\nmain :: Unit -> Int32 := () -> { (#select(make(\"x\"))).i32; };".into(),
+            "Choice :: [Symbol, Symbol];\nselect :: Symbol -> Symbol := (value) -> { owned := value + \"x\"; choice :: Choice := [first, second] => { first(owned) }; choice[(payload) -> { payload }, (payload) -> { payload }] };\nmain :: Unit -> Int32 := () -> { (#select(\"y\")).i32; };".into(),
         );
     let checked = crate::pipeline::check(&source).expect("check case payload fixture");
     let core = crate::core::lower(
@@ -311,7 +328,6 @@ fn consumes_a_dead_sum_owner_into_its_active_case_payload() {
             _ => None,
         })
         .expect("managed case");
-
     for arm in 0..arm_count {
         assert_eq!(
             execution.ownership.case_payload_use(site, arm),
@@ -362,7 +378,7 @@ fn normalizes_memory_views_as_owner_successors() {
     let source = SourceFile::new(
             FileId::new(100),
             "execution-ownership-memory-view.mal",
-            "inspect :: Symbol -> USize := (value) -> {\n  packed := *value;\n  prefix := packed / 1usize;\n  byte := packed # 0usize;\n  text := *prefix;\n  byte.usize + #text;\n};\nmain :: Unit -> Int32 := () -> { inspect(\"ab\").i32; };"
+            "inspect :: Symbol -> USize := (value) -> {\n  owned := value + \"x\";\n  packed := *owned;\n  prefix := packed / 1usize;\n  byte := packed # 0usize;\n  text := *prefix;\n  byte.usize + #text;\n};\nmain :: Unit -> Int32 := () -> { inspect(\"ab\").i32; };"
                 .into(),
         );
     let checked = crate::pipeline::check(&source).expect("check memory ownership fixture");

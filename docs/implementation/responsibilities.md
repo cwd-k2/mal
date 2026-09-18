@@ -183,15 +183,15 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
 | `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
-| `execution/ownership/borrow` | `Atom(binding)`のpattern alias、sumをarm内でも保持するcase payload、owner successorなしでdiscardされるpure aggregate resultのprovenanceを構成し、`Atom`とlocal `Jump`を越えたlender dependencyをlivenessへ加える |
+| `execution/ownership/borrow` | `Atom(binding)`のpattern alias、sumをarm内でも保持するcase payload、caller-bounded parameterとcall argument、owner successorなしでdiscardされるpure aggregate resultのprovenanceを構成し、`Atom`とlocal `Jump`を越えたlender dependencyをlivenessへ加える |
 | `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
 | `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
 | `execution/ownership/destination` | pattern leafを`Initialize`、`Borrow`、`Discard`またはunmanaged destinationへ写す |
 | `execution/ownership/operand` | binding operationとterminatorの各論理operandをstableなuse identityへ列挙し、memory observationのoperandへaggregate responsibilityを追加しない |
 | `execution/ownership/use_plan` | liveness、destination、call/frame factから`Borrow`、`Share`、`Consume`を各useへ割り当てる |
-| `execution/ownership/drop_plan` | use effectとedge successorからbinding直後およびcontrol edge上の`Drop`を構成 |
-| `execution/ownership/parameter` | borrowed ABI entryとowned handoffからparameterの`Share`、`Consume`、`Drop`を構成 |
+| `execution/ownership/drop_plan` | borrow authorityで閉じたliveness、use effect、edge successorからbinding直後およびcontrol edge上の`Drop`を構成 |
+| `execution/ownership/parameter` | application target、call mode、recursive region内のmanaged responsibilityからcaller-bounded parameterを分類し、entryごとの`Borrow`、`Share`、`Consume`、`Drop`を構成 |
 | `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
 | `backend/llvm` | admission済みexecution planをtarget tripleとdata layoutを持つLLVM moduleおよびC shimへ変換。managed captureを持つfirst-class function、managed productとsum、direct・indirect call、self-tail edge、recursive regionのtyped continuation frame、transportableなextern callをadmit |

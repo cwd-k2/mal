@@ -4,14 +4,16 @@ use crate::anf::ast::ValueId;
 use crate::control::ast::{StateId, Terminator};
 
 use super::super::{ControlCallMode, ControlCallPlan, ControlFramePlan};
+use super::borrow::BorrowPlan;
 use super::identity::{ControlPath, EdgeId, UseEffect, UseId, UseLocation};
-use super::liveness::{binding_id, collect_pattern_binding_order, terminator_live};
+use super::liveness::{binding_id, collect_pattern_binding_order};
 use super::operand::{terminator_argument, terminator_operands};
 
 pub(super) fn collect_edge_drops(
     control: &crate::control::ast::Program,
     calls: &ControlCallPlan,
     frames: &ControlFramePlan,
+    borrows: &BorrowPlan,
     live_in: &[HashSet<ValueId>],
     uses: &HashMap<UseId, UseEffect>,
     borrowed_bindings: &HashSet<ValueId>,
@@ -38,7 +40,7 @@ pub(super) fn collect_edge_drops(
     let mut result = HashMap::new();
     for (state_index, state) in control.states.iter().enumerate() {
         let site = StateId(state_index);
-        let live = terminator_live(&state.terminator, live_in);
+        let live = borrows.terminator_live(&state.terminator, live_in);
         let effective_argument = calls
             .forwarded_self_argument(site)
             .or_else(|| terminator_argument(&state.terminator));

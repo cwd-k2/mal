@@ -10,6 +10,7 @@ use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
 use super::liveness::{binding_id, insert_pattern_bindings};
 use super::managed::is_managed;
 use super::operand::{binding_operands, terminator_argument, terminator_operands};
+use super::parameter::ParameterBorrows;
 
 pub(super) fn jump_value_effect(destination: &PatternDestination) -> UseEffect {
     if destination.has_owner_successor() {
@@ -29,6 +30,7 @@ pub(super) struct UseInputs<'a> {
     pub(super) binding_destinations: &'a HashMap<(StateId, usize), PatternDestination>,
     pub(super) drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
     pub(super) borrowed_bindings: &'a HashSet<ValueId>,
+    pub(super) parameter_borrows: &'a ParameterBorrows,
 }
 
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
@@ -42,6 +44,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
         binding_destinations,
         drop_candidates,
         borrowed_bindings,
+        parameter_borrows,
     } = inputs;
     let mut uses = HashMap::new();
     let mut local_bindings = HashSet::new();
@@ -131,12 +134,13 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                 mode,
                 Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
             );
-        let argument_is_successor = frame.is_some()
-            || matches!(
-                mode,
-                Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
-            )
-            || common_region_transition;
+        let argument_is_successor = !parameter_borrows.call_sites.contains(&site)
+            && (frame.is_some()
+                || matches!(
+                    mode,
+                    Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
+                )
+                || common_region_transition);
         for (operand, _, effect) in &mut terminator_uses {
             if matches!(
                 operand,

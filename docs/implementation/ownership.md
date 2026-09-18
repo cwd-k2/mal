@@ -53,10 +53,18 @@ function returnではresultをowned handoffし、後継のないactivation-local
 
 ## parameter handoff
 
-`execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として決め、`execution::ownership`はその行先と
-entryの由来からhandoffを計画する。region外のnative ABI entryはborrowedであるため、liveな`Bind`にだけ`Share`する。region内遷移と
-`DirectSelfTail`はowned handoffであり、liveな`Bind`へ`Consume`、使われない`Bind`または`Discard`へ`Drop`する。
-LLVM backendはentryの由来やparameterのlivenessを再推論しない。
+`execution/parameter`はfunction parameterの行先を`Bind(slot)`または`Discard`として決め、`execution::ownership`はapplication target、
+call mode、recursive regionとparameterが作るmanaged responsibilityからhandoffを計画する。native ABI callのcallerがcall完了まで
+authorityを保持し、self-tailまたはregion内遷移も外側のinvocationが同じauthorityを保持できる場合、parameter bindingはownerを
+複製せずborrowする。pureな`Atom`、product、sumによるargument構成も同じcall boundaryまでborrowできる。
+
+recursive controlがfresh managed valueを作る、managed resultを返す、managed call resultを受け取る、またはregion外targetを含む
+dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを包含できない。そのregionのparameterは従来どおり、native ABI
+entryで`Share`し、owned handoffで`Consume`または`Drop`する。borrowed parameterからclosure capture、return、その他の独立ownerへ
+escapeするuseも`Share`する。edge dropは通常livenessを再計算せずborrow provenanceで閉じたlivenessを使い、aliasが最後に使われる
+edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/D058.md)を正とする。
+
+LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。
 
 ## closure environment
 
