@@ -52,8 +52,9 @@ public host ABI、wire formatをcanonical memory layoutへ暗黙に結合しな�
 配置規則とresource policyを分ける判断軸だけを所有する。
 
 memory、resource、host境界では、[EngramとExternのauthority](authority.md)から必要なadmission、observation、
-capability transferを導く。reference backendのEngram回収は[D033](../history/decisions/D033.md)のborrow/owned result規約に閉じ、
-Extern resourceのpolicyへ拡張しない。
+capability transferを導く。reference compilerのEngram回収は
+[managed ownership](../implementation/ownership.md)のresponsibility規約に閉じ、Extern resourceのpolicyへ拡張しない。採択理由は
+[D033](../history/decisions/D033.md)と[D055](../history/decisions/D055.md)を正とする。
 
 ## 意味論上の核
 

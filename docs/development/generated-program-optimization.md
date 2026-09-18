@@ -24,9 +24,10 @@ technique集合を明示的に渡す。後段はtechnique identityではなく�
 意味論や別のbackend contractを持たない。新しいtechniqueが既存plan型または無関係なstageの変更を要求する場合は、optimization追加ではなく
 authority境界の変更として先に検討する。
 
-LLVM backendではowner lifetimeのfactとstorage再利用のdecisionを分ける。dead ownerのreleaseは設定によらず行い、`Symbol` concatへ
-dead operandをmoveする選択だけをoptional techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、
-inliningは独自実装せずpinned LLVMへ委ねる。
+execution ownership planではowner lifetimeのfactとresponsibilityの後継を構成し、唯一のowner successorへのhandoffを設定によらず
+`Consume`へ正規化する。LLVM backendはこのplanとstorage再利用のdecisionを分ける。dead responsibilityの`Drop`は設定によらず行い、
+`Symbol` operationが移されたresponsibilityのstorageをruntime representationとcapacityに基づいて再利用する選択だけをoptional
+techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、inliningは独自実装せずpinned LLVMへ委ねる。
 
 ## technique追加contract
 

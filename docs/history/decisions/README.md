@@ -13,7 +13,8 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
-| minimalism | [D008](D008.md)、[D033](D033.md) |
+| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md) |
+| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md) |
@@ -22,7 +23,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | genericsとexternal memory | [D052](D052.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
 
-D012はD016とD032、D022はD024、D031はD033、D033はD034でrefineされているが、元の判断を撤回していない。
+D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
 D022、D024、D027、D031のsource spellingはD037が置き換える。
 D007のlambda parameter source spellingはD038が置き換える。
@@ -39,6 +40,8 @@ D053はD040のSymbol mappingを置き換え、HostMappableだけをpublic C ABI�
 returnに関する判断は維持する。
 D054はD053のAddress-only boundaryを維持しつつ、canonical memoryとpublic C carrierの変換をentry sourceのnamed alias helperへ
 限定して追加する。
+D055はD033のborrowed parameter、owned result、managed leafの再帰規則を維持し、唯一のowner successorへのlast-use handoffを
+optional optimizationからexecution ownership planの正規形へ置き換える。runtime operationによるstorage再利用は置き換えない。
 
 ## 後継があるhistorical record
 
