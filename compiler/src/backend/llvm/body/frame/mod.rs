@@ -118,12 +118,12 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(field)?;
             }
             self.commit_consumes(&argument)?;
-            self.release_local_managed();
             self.emit_parameter_handoff(
                 self.function.id,
                 &argument.value,
                 crate::execution::ownership::ParameterEntry::OwnedHandoff,
             )?;
+            self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
             self.line(format!("  br label %mal_state_{}", self.function.entry.0));
             Some(())
         }
@@ -208,7 +208,7 @@ impl FunctionEmitter<'_> {
         }
         self.commit_consumes(&callee)?;
         self.commit_consumes(&argument)?;
-        self.release_local_managed();
+        self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
         if !preserve_environment {
             let previous = self.active_environment();
             self.line(format!(
@@ -323,7 +323,6 @@ impl FunctionEmitter<'_> {
         result: &EmittedValue,
     ) -> Option<()> {
         let frame_sites = self.frame_sites.clone();
-        self.release_local_managed();
         if frame_sites.is_empty() {
             if self.common_region.is_some() {
                 let environment = self.active_environment();
@@ -530,6 +529,7 @@ impl FunctionEmitter<'_> {
                 owned: true,
             }),
         )?;
+        self.emit_input_drops(frame.resume)?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));
         Some(())
     }

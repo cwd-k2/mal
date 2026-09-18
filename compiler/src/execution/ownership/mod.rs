@@ -12,9 +12,25 @@ use super::{
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
+    drops_after_input: HashMap<StateId, Vec<ValueId>>,
     drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
+    drops_on_edge: HashMap<EdgeId, Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
     parameters: HashMap<(FunctionId, ParameterEntry), ParameterEffect>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct EdgeId {
+    pub(crate) state: StateId,
+    pub(crate) path: ControlPath,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) enum ControlPath {
+    Single,
+    BranchOtherwise,
+    BranchThen,
+    CaseArm(usize),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -91,6 +107,7 @@ impl Plan {
         frames: &ControlFramePlan,
     ) -> Self {
         let mut live_in = vec![HashSet::new(); control.states.len()];
+        let mut drops_after_input = HashMap::new();
         for (index, state) in control.states.iter().enumerate() {
             debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
             let mut live = terminator_live(&state.terminator, &live_in);
@@ -101,6 +118,11 @@ impl Plan {
                 });
             }
             if let Some(input) = &state.input {
+                let mut drops = Vec::new();
+                collect_dead_pattern_bindings(input, &live, &mut drops);
+                if !drops.is_empty() {
+                    drops_after_input.insert(StateId(index), drops);
+                }
                 remove_pattern_bindings(input, &mut live);
             }
             live_in[index] = live;
@@ -139,9 +161,12 @@ impl Plan {
             &drops_after_binding,
         );
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
+        let drops_on_edge = collect_edge_drops(control, calls, frames, &live_in, &uses);
         let parameters = collect_parameter_effects(control, parameters);
         Self {
+            drops_after_input,
             drops_after_binding,
+            drops_on_edge,
             uses,
             parameters,
         }
@@ -161,6 +186,18 @@ impl Plan {
     pub(crate) fn drops_after_binding(&self, state: StateId, binding: usize) -> &[ValueId] {
         self.drops_after_binding
             .get(&(state, binding))
+            .map_or(&[], Vec::as_slice)
+    }
+
+    pub(crate) fn drops_after_input(&self, state: StateId) -> &[ValueId] {
+        self.drops_after_input
+            .get(&state)
+            .map_or(&[], Vec::as_slice)
+    }
+
+    pub(crate) fn drops_on_edge(&self, state: StateId, path: ControlPath) -> &[ValueId] {
+        self.drops_on_edge
+            .get(&EdgeId { state, path })
             .map_or(&[], Vec::as_slice)
     }
 
@@ -602,6 +639,125 @@ fn exclude_consumed_sources(
     drops.retain(|_, values| !values.is_empty());
 }
 
+fn collect_edge_drops(
+    control: &crate::control::ast::Program,
+    calls: &ControlCallPlan,
+    frames: &ControlFramePlan,
+    live_in: &[HashSet<ValueId>],
+    uses: &HashMap<UseId, UseEffect>,
+) -> HashMap<EdgeId, Vec<ValueId>> {
+    let mut local_order = Vec::new();
+    for function in &control.functions {
+        if let Some(binding) = function.parameter.binding {
+            local_order.push(binding);
+        }
+    }
+    for state in &control.states {
+        if let Some(input) = &state.input {
+            collect_pattern_binding_order(input, &mut local_order);
+        }
+        for binding in &state.bindings {
+            collect_pattern_binding_order(&binding.pattern, &mut local_order);
+        }
+    }
+    let local_bindings = local_order.iter().copied().collect::<HashSet<_>>();
+    let mut result = HashMap::new();
+    for (state_index, state) in control.states.iter().enumerate() {
+        let site = StateId(state_index);
+        let live = terminator_live(&state.terminator, live_in);
+        let effective_argument = calls
+            .forwarded_self_argument(site)
+            .or_else(|| terminator_argument(&state.terminator));
+        let mut consumed = terminator_operands(&state.terminator, effective_argument)
+            .into_iter()
+            .filter_map(|(operand, atom, _)| {
+                (uses.get(&UseId {
+                    state: site,
+                    location: UseLocation::Terminator(operand),
+                }) == Some(&UseEffect::Consume))
+                .then(|| binding_id(atom))
+                .flatten()
+            })
+            .collect::<HashSet<_>>();
+        if let Some(frame) = frames.frame(site) {
+            for (field_index, field) in frame.fields.iter().enumerate() {
+                if uses.get(&UseId {
+                    state: site,
+                    location: UseLocation::FrameField(field_index),
+                }) == Some(&UseEffect::Consume)
+                {
+                    consumed.insert(field.id);
+                }
+            }
+        }
+        for (path, successor) in control_paths(site, &state.terminator, calls, frames) {
+            let survivors = successor.map(|target| &live_in[target.0]);
+            let drops = local_order
+                .iter()
+                .copied()
+                .filter(|id| {
+                    local_bindings.contains(id)
+                        && live.contains(id)
+                        && !consumed.contains(id)
+                        && survivors.is_none_or(|values| !values.contains(id))
+                })
+                .collect::<Vec<_>>();
+            if !drops.is_empty() {
+                result.insert(EdgeId { state: site, path }, drops);
+            }
+        }
+    }
+    result
+}
+
+fn collect_pattern_binding_order(pattern: &Pattern, bindings: &mut Vec<ValueId>) {
+    match pattern {
+        Pattern::Binding { id, .. } => bindings.push(*id),
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_pattern_binding_order(element, bindings);
+            }
+        }
+        Pattern::Wildcard { .. } => {}
+    }
+}
+
+fn control_paths(
+    site: StateId,
+    terminator: &Terminator,
+    calls: &ControlCallPlan,
+    frames: &ControlFramePlan,
+) -> Vec<(ControlPath, Option<StateId>)> {
+    match terminator {
+        Terminator::Goto(target) | Terminator::Jump { target, .. } => {
+            vec![(ControlPath::Single, Some(*target))]
+        }
+        Terminator::Call { resume, .. }
+            if frames.frame(site).is_none()
+                && matches!(
+                    calls.mode(site),
+                    Some(ControlCallMode::Direct(_) | ControlCallMode::Dispatch)
+                ) =>
+        {
+            vec![(ControlPath::Single, Some(*resume))]
+        }
+        Terminator::PrimitiveBranch {
+            otherwise, then, ..
+        } => vec![
+            (ControlPath::BranchOtherwise, Some(*otherwise)),
+            (ControlPath::BranchThen, Some(*then)),
+        ],
+        Terminator::Case { arms, .. } => arms
+            .iter()
+            .enumerate()
+            .map(|(arm, value)| (ControlPath::CaseArm(arm), Some(value.target)))
+            .collect(),
+        Terminator::Call { .. } | Terminator::Return(_) | Terminator::TailCall { .. } => {
+            vec![(ControlPath::Single, None)]
+        }
+    }
+}
+
 fn terminator_argument(terminator: &Terminator) -> Option<&Atom> {
     match terminator {
         Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. } => Some(argument),
@@ -918,6 +1074,65 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn drops_branch_local_only_on_the_path_that_does_not_need_it() {
+        let source = SourceFile::new(
+            FileId::new(97),
+            "execution-ownership-branch-edge.mal",
+            "lengthOnOnePath :: Symbol -> USize := (value) -> { if (#value == 0usize) then { #value } else { 0usize }; };\nmain :: Unit -> Int32 := () -> { lengthOnOnePath(\"x\").i32; };".into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check branch edge fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize branch edge fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, super::super::OptimizationSet::production());
+        let managed_parameters = execution
+            .control
+            .functions
+            .iter()
+            .filter(|function| is_managed(&function.parameter.ty))
+            .filter_map(|function| function.parameter.binding)
+            .collect::<Vec<_>>();
+        let differs_by_path = execution
+            .control
+            .states
+            .iter()
+            .enumerate()
+            .find_map(|(state, value)| {
+                let site = StateId(state);
+                matches!(value.terminator, Terminator::PrimitiveBranch { .. }).then(|| {
+                    managed_parameters.iter().any(|parameter| {
+                        let otherwise = execution
+                            .ownership
+                            .drops_on_edge(site, ControlPath::BranchOtherwise)
+                            .contains(parameter);
+                        let then = execution
+                            .ownership
+                            .drops_on_edge(site, ControlPath::BranchThen)
+                            .contains(parameter);
+                        otherwise != then
+                    })
+                })
+            })
+            .unwrap_or(false);
+        assert!(differs_by_path);
+    }
+
+    #[test]
+    fn classifies_an_unused_managed_state_input_as_a_drop() {
+        let id = ValueId::Temporary(17);
+        let pattern = Pattern::Binding {
+            id,
+            ty: Type::Symbol,
+        };
+        let mut drops = Vec::new();
+        collect_dead_pattern_bindings(&pattern, &HashSet::new(), &mut drops);
+        assert_eq!(drops, vec![id]);
     }
 
     #[test]

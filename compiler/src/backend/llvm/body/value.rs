@@ -375,6 +375,28 @@ impl FunctionEmitter<'_> {
         self.release_slot(&slot)
     }
 
+    pub(super) fn emit_edge_drops(
+        &mut self,
+        site: crate::control::ast::StateId,
+        path: crate::execution::ownership::ControlPath,
+    ) -> Option<()> {
+        let mut drops = self.ownership.drops_on_edge(site, path).to_vec();
+        drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
+        for id in drops {
+            self.release_dead_slot(id)?;
+        }
+        Some(())
+    }
+
+    pub(super) fn emit_input_drops(&mut self, state: crate::control::ast::StateId) -> Option<()> {
+        let mut drops = self.ownership.drops_after_input(state).to_vec();
+        drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
+        for id in drops {
+            self.release_dead_slot(id)?;
+        }
+        Some(())
+    }
+
     fn release_slot(&mut self, slot: &super::Slot) -> Option<()> {
         let value_type = self.types.value(&slot.ty)?;
         let value = self.register();
@@ -388,22 +410,6 @@ impl FunctionEmitter<'_> {
             value_type.llvm, slot.index, value_type.alignment
         ));
         Some(())
-    }
-
-    pub(super) fn release_local_managed(&mut self) {
-        let mut slots = self
-            .function_slots
-            .get(&self.current_function)
-            .into_iter()
-            .flatten()
-            .filter_map(|id| self.slots.get(id))
-            .filter(|slot| crate::execution::ownership::is_managed(&slot.ty))
-            .cloned()
-            .collect::<Vec<_>>();
-        slots.sort_by_key(|slot| slot.index);
-        for slot in slots {
-            self.release_slot(&slot).expect("managed slot is supported");
-        }
     }
 
     fn retain_value(&mut self, ty: &Type, value: &str) -> Option<String> {

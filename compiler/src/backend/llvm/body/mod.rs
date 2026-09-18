@@ -22,8 +22,8 @@ pub(super) mod types;
 mod value;
 
 use plan::{
-    TopLevelConstants, collect_pattern_ids, collect_pattern_slot, insert_slot, main_function,
-    pattern_value_type, reachable_states,
+    TopLevelConstants, collect_pattern_slot, insert_slot, main_function, pattern_value_type,
+    reachable_states,
 };
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
@@ -110,7 +110,6 @@ struct FunctionEmitter<'a> {
     state_functions: HashMap<StateId, FunctionId>,
     result_type: Type,
     slots: HashMap<ValueId, Slot>,
-    function_slots: HashMap<FunctionId, Vec<ValueId>>,
     frame_sites: Vec<StateId>,
     frame_tags: HashMap<StateId, u32>,
     external_storage: Option<(usize, usize)>,

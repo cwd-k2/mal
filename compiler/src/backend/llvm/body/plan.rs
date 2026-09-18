@@ -425,18 +425,6 @@ pub(super) fn collect_pattern_slot(
     Some(())
 }
 
-pub(super) fn collect_pattern_ids(pattern: &Pattern, ids: &mut Vec<ValueId>) {
-    match pattern {
-        Pattern::Binding { id, .. } => ids.push(*id),
-        Pattern::Product { elements, .. } => {
-            for element in elements {
-                collect_pattern_ids(element, ids);
-            }
-        }
-        Pattern::Wildcard { .. } => {}
-    }
-}
-
 pub(super) fn insert_slot(slots: &mut HashMap<ValueId, Slot>, id: ValueId, ty: Type) {
     if !slots.contains_key(&id) {
         slots.insert(

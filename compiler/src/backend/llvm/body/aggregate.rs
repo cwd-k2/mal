@@ -169,7 +169,7 @@ impl FunctionEmitter<'_> {
         ));
         self.line(format!("mal_invalid_case_{}:", site.0));
         self.line("  unreachable");
-        for arm in arms {
+        for (arm_ordinal, arm) in arms.iter().enumerate() {
             let member = members.get(arm.index)?;
             self.line(format!("mal_case_{}_{}:", site.0, arm.index));
             let payload = if is_bool(&scrutinee.ty) {
@@ -189,6 +189,11 @@ impl FunctionEmitter<'_> {
             };
             let input = self.control.states[arm.target.0].input.as_ref()?;
             self.store_pattern(input, Some(&payload))?;
+            self.emit_input_drops(arm.target)?;
+            self.emit_edge_drops(
+                site,
+                crate::execution::ownership::ControlPath::CaseArm(arm_ordinal),
+            )?;
             self.line(format!("  br label %mal_state_{}", arm.target.0));
         }
         Some(())

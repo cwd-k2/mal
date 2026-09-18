@@ -49,35 +49,22 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         let mut slots = HashMap::new();
-        let mut function_slots = HashMap::new();
         for (function_id, function_states) in &function_states {
             let region_function = *index.control_functions.get(function_id)?;
-            let mut ids = Vec::new();
             if let ParameterDestination::Bind(id) =
                 execution.parameters.destination(*function_id)?
             {
                 insert_slot(&mut slots, id, region_function.parameter.ty.clone());
-                ids.push(id);
             }
             for state in function_states {
                 let state = &execution.control.states[state.0];
                 if let Some(pattern) = &state.input {
                     collect_pattern_slot(pattern, &mut slots, types)?;
-                    collect_pattern_ids(pattern, &mut ids);
                 }
                 for binding in &state.bindings {
                     collect_pattern_slot(&binding.pattern, &mut slots, types)?;
-                    collect_pattern_ids(&binding.pattern, &mut ids);
                 }
             }
-            let mut unique = Vec::new();
-            let mut seen = std::collections::HashSet::new();
-            for id in ids {
-                if seen.insert(id) {
-                    unique.push(id);
-                }
-            }
-            function_slots.insert(*function_id, unique);
         }
         let frame_sites = states
             .iter()
@@ -151,7 +138,6 @@ impl<'a> FunctionEmitter<'a> {
             states,
             state_functions,
             slots,
-            function_slots,
             frame_sites,
             frame_tags,
             external_storage,

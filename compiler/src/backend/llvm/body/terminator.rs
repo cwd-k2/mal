@@ -41,9 +41,11 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 self.commit_consumes(&value)?;
+                self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                 self.emit_continuation_return(site, &value.value)?;
             }
             Terminator::Goto(target) => {
+                self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
             Terminator::Jump { target, value } => {
@@ -61,6 +63,8 @@ impl FunctionEmitter<'_> {
                 let input = self.control.states[target.0].input.as_ref()?;
                 self.commit_consumes(&value)?;
                 self.store_pattern(input, Some(&value.value))?;
+                self.emit_input_drops(*target)?;
+                self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
             Terminator::PrimitiveBranch {
@@ -121,10 +125,46 @@ impl FunctionEmitter<'_> {
                         scalar.llvm, left.representation, right.representation
                     ));
                 }
+                let then_drops = !self
+                    .ownership
+                    .drops_on_edge(site, crate::execution::ownership::ControlPath::BranchThen)
+                    .is_empty();
+                let otherwise_drops = !self
+                    .ownership
+                    .drops_on_edge(
+                        site,
+                        crate::execution::ownership::ControlPath::BranchOtherwise,
+                    )
+                    .is_empty();
+                let then_label = if then_drops {
+                    format!("mal_edge_{}_then", site.0)
+                } else {
+                    format!("mal_state_{}", then.0)
+                };
+                let otherwise_label = if otherwise_drops {
+                    format!("mal_edge_{}_otherwise", site.0)
+                } else {
+                    format!("mal_state_{}", otherwise.0)
+                };
                 self.line(format!(
-                    "  br i1 {condition}, label %mal_state_{}, label %mal_state_{}",
-                    then.0, otherwise.0
+                    "  br i1 {condition}, label %{then_label}, label %{otherwise_label}"
                 ));
+                if then_drops {
+                    self.line(format!("mal_edge_{}_then:", site.0));
+                    self.emit_edge_drops(
+                        site,
+                        crate::execution::ownership::ControlPath::BranchThen,
+                    )?;
+                    self.line(format!("  br label %mal_state_{}", then.0));
+                }
+                if otherwise_drops {
+                    self.line(format!("mal_edge_{}_otherwise:", site.0));
+                    self.emit_edge_drops(
+                        site,
+                        crate::execution::ownership::ControlPath::BranchOtherwise,
+                    )?;
+                    self.line(format!("  br label %mal_state_{}", otherwise.0));
+                }
             }
             Terminator::Call {
                 callee,
@@ -135,6 +175,8 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_call(site, target, callee, argument, false)?;
                     let input = self.control.states[resume.0].input.as_ref()?;
                     self.store_pattern(input, Some(&result))?;
+                    self.emit_input_drops(*resume)?;
+                    self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }
                 ControlCallMode::Dispatch
@@ -154,6 +196,8 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_indirect_call(site, callee, argument, false)?;
                     let input = self.control.states[resume.0].input.as_ref()?;
                     self.store_pattern(input, Some(&result))?;
+                    self.emit_input_drops(*resume)?;
+                    self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }
                 ControlCallMode::DirectSelfTail => return None,
@@ -183,16 +227,23 @@ impl FunctionEmitter<'_> {
                             return None;
                         }
                         self.commit_consumes(&value)?;
-                        self.release_local_managed();
                         self.emit_parameter_handoff(
                             function.id,
                             &value.value,
                             crate::execution::ownership::ParameterEntry::OwnedHandoff,
                         )?;
+                        self.emit_edge_drops(
+                            site,
+                            crate::execution::ownership::ControlPath::Single,
+                        )?;
                         self.line(format!("  br label %mal_state_{}", function.entry.0));
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(site, target, callee, argument, true)?;
+                        self.emit_edge_drops(
+                            site,
+                            crate::execution::ownership::ControlPath::Single,
+                        )?;
                         self.emit_continuation_return(site, &result)?;
                     }
                     ControlCallMode::DirectRegion(_) => {
@@ -206,6 +257,10 @@ impl FunctionEmitter<'_> {
                             self.emit_region_transition(site, callee, argument, false, &[])?;
                         } else {
                             let result = self.emit_indirect_call(site, callee, argument, true)?;
+                            self.emit_edge_drops(
+                                site,
+                                crate::execution::ownership::ControlPath::Single,
+                            )?;
                             self.emit_continuation_return(site, &result)?;
                         }
                     }
