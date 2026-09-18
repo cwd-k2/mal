@@ -10,11 +10,8 @@ void mal_control_destroy(MalContext *context) {
     arena->capacity = 0;
 }
 
-static void *mal_control_reserve_bytes(MalContext *context, size_t required_bytes) {
+static void *mal_control_grow(MalContext *context, size_t required_bytes) {
     MalControlArena *arena = &context->control;
-    if (required_bytes <= arena->capacity) {
-        return arena->storage;
-    }
     size_t capacity = arena->capacity == 0 ? 64 : arena->capacity;
     while (capacity < required_bytes) {
         if (capacity > SIZE_MAX / 2) {
@@ -32,6 +29,7 @@ static void *mal_control_reserve_bytes(MalContext *context, size_t required_byte
     return storage;
 }
 
+__attribute__((always_inline))
 void *mal_control_reserve_frame(
     MalContext *context,
     size_t current_bytes,
@@ -40,9 +38,14 @@ void *mal_control_reserve_frame(
     if (current_bytes > SIZE_MAX - frame_size) {
         mal_trap(context, "control storage size overflow");
     }
-    return mal_control_reserve_bytes(context, current_bytes + frame_size);
+    size_t required_bytes = current_bytes + frame_size;
+    if (required_bytes <= context->control.capacity) {
+        return context->control.storage;
+    }
+    return mal_control_grow(context, required_bytes);
 }
 
+__attribute__((always_inline))
 void *mal_control_storage(MalContext *context) {
     return context->control.storage;
 }

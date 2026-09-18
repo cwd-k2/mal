@@ -162,3 +162,17 @@ direct Cが速い36問である。
 032は4,254 bytesのままである。各20個の値は
 `.scratch/typical90/performance/{032,055,080}/frame-replacement-vs-c.json`、変更前後の値は同directoryの
 `frame-replacement-before-after.json`に保存した。sample、maximum-order input、managed frameのruntime fixtureで結果とowner lifetimeを確認した。
+
+## 2026-09-18 — control storage fast pathの確定inline
+
+program固有のframe layoutとtop offsetを持つLLVM側に対し、`mal_control_storage`とcapacity内の
+`mal_control_reserve_frame`は単なるarena field accessである。一方、capacity growthはprogram非依存のruntime責務である。この境界に従い、
+field accessとcapacity判定を`always_inline`、growth loopをoptimizer判断のinternal helperとした。これにより大きなcontrol functionでLTOの
+cost modelがruntime callを残してもfast pathは失われず、既にLTOが全体をinlineできるprogramの生成物は変わらない。
+
+同じcurrent compilerで再構築した029では、Packed版のmedianが218.845 msから181.925 msへ16.9%短縮した。Region版は
+146.314 msから145.825 msで同等、text sizeも4,663 bytesで不変だった。既存のframe-heavyな032、055、080は変更前後でtext sizeが
+それぞれ4,254、3,806、3,758 bytesのまま一致し、median差も±1%内だった。029 Packedのtext sizeは9,225 bytesから9,169 bytesへ減った。
+raw sampleはignored scratchの029にある`control-auto-before-after.json`と
+`region-control-auto-before-after.json`、および032、055、080にある
+`control-inline-before-after.json`へ保存した。
