@@ -213,7 +213,10 @@ impl TopLevelConstants {
                 self.globals
                     .push_str(&super::symbol::literal_definition(&name, bytes));
                 let index = self.types.pointer_integer()?;
-                format!("{{ ptr @{name}, {index} 0, {index} {} }}", bytes.len())
+                format!(
+                    "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} 24), {index} {} }}",
+                    bytes.len()
+                )
             }
             AtomKind::Unit if atom.ty == Type::Unit => "0".into(),
             AtomKind::Reference(Reference::Binding(id)) => return values.get(id).cloned(),

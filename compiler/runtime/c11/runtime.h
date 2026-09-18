@@ -15,7 +15,7 @@ typedef struct MalContext {
 
 typedef struct {
     void *owner;
-    size_t offset;
+    const unsigned char *data;
     size_t length;
 } MalBytesView;
 
@@ -43,43 +43,41 @@ const uint8_t *mal_runtime_bytes_data(const void *owner);
 void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t length);
 void *mal_runtime_bytes_retain(MalContext *context, const void *owner);
 void mal_runtime_bytes_release(const void *owner);
-uint8_t mal_runtime_symbol_at(const void *owner, size_t offset, size_t index);
+uint8_t mal_runtime_symbol_at(const void *data, size_t index);
 void mal_runtime_symbol_concatenate(
     MalContext *context,
     MalBytesView *result,
     const void *left_owner,
-    size_t left_offset,
+    const void *left_data,
     size_t left_length,
     const void *right_owner,
-    size_t right_offset,
+    const void *right_data,
     size_t right_length
 );
 void mal_runtime_symbol_concatenate_consuming_left(
     MalContext *context,
     MalBytesView *result,
     void *left_owner,
-    size_t left_offset,
+    const void *left_data,
     size_t left_length,
     const void *right_owner,
-    size_t right_offset,
+    const void *right_data,
     size_t right_length
 );
 void mal_runtime_symbol_concatenate_consuming_right(
     MalContext *context,
     MalBytesView *result,
     const void *left_owner,
-    size_t left_offset,
+    const void *left_data,
     size_t left_length,
     void *right_owner,
-    size_t right_offset,
+    const void *right_data,
     size_t right_length
 );
 uint8_t mal_runtime_symbol_equal(
-    const void *left_owner,
-    size_t left_offset,
+    const void *left_data,
     size_t left_length,
-    const void *right_owner,
-    size_t right_offset,
+    const void *right_data,
     size_t right_length
 );
 void mal_runtime_bytes_write(
@@ -92,7 +90,7 @@ void *mal_runtime_packed_builder_start(MalContext *context, size_t stride);
 void *mal_runtime_packed_builder_edit(
     MalContext *context,
     const void *owner,
-    size_t offset,
+    const void *data,
     size_t count,
     size_t stride
 );

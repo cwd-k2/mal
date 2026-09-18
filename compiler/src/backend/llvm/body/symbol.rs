@@ -2,7 +2,7 @@ use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, Terminator};
 
-use super::{EmittedValue, FunctionEmitter};
+use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
 
 pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
     let contents = bytes
@@ -123,7 +123,7 @@ impl FunctionEmitter<'_> {
         if value.ty != Type::Symbol {
             return None;
         }
-        let (_, _, length) = self.byte_view_fields(&value)?;
+        let length = self.byte_view_fields(&value)?.count;
         Some(EmittedValue {
             ty: Type::USize,
             representation: length,
@@ -134,11 +134,10 @@ impl FunctionEmitter<'_> {
     pub(super) fn emit_symbol_at(&mut self, argument: &Atom) -> Option<EmittedValue> {
         let argument = self.atom(argument)?;
         let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
-        let (owner, offset, _) = self.byte_view_fields(&symbol)?;
+        let data = self.byte_view_fields(&symbol)?.data;
         let result = self.register();
         self.line(format!(
-            "  {result} = call i8 @mal_runtime_symbol_at(ptr {owner}, {} {offset}, {} {})",
-            self.types.pointer_integer()?,
+            "  {result} = call i8 @mal_runtime_symbol_at(ptr {data}, {} {})",
             self.types.pointer_integer()?,
             index.representation
         ));
@@ -172,8 +171,16 @@ impl FunctionEmitter<'_> {
         if left.ty != Type::Symbol || right.ty != Type::Symbol {
             return None;
         }
-        let (left_owner, left_offset, left_length) = self.byte_view_fields(&left)?;
-        let (right_owner, right_offset, right_length) = self.byte_view_fields(&right)?;
+        let ByteViewFields {
+            owner: left_owner,
+            data: left_data,
+            count: left_length,
+        } = self.byte_view_fields(&left)?;
+        let ByteViewFields {
+            owner: right_owner,
+            data: right_data,
+            count: right_length,
+        } = self.byte_view_fields(&right)?;
         let result_type = self.types.value(&Type::Symbol)?;
         if !self.needs_symbol_result_slot {
             return None;
@@ -187,7 +194,7 @@ impl FunctionEmitter<'_> {
             "mal_runtime_symbol_concatenate"
         };
         self.line(format!(
-            "  call void @{operation}(ptr %mal_context, ptr {result_storage}, ptr {left_owner}, {0} {left_offset}, {0} {left_length}, ptr {right_owner}, {0} {right_offset}, {0} {right_length})",
+            "  call void @{operation}(ptr %mal_context, ptr {result_storage}, ptr {left_owner}, ptr {left_data}, {0} {left_length}, ptr {right_owner}, ptr {right_data}, {0} {right_length})",
             self.types.pointer_integer()?
         ));
         let result = self.register();

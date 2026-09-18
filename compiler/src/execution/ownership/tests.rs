@@ -281,7 +281,7 @@ fn classifies_an_unused_managed_state_input_as_a_drop() {
         UseEffect::Borrow
     );
     assert_eq!(
-        jump_value_effect(&PatternDestination::Store(id)),
+        jump_value_effect(&PatternDestination::Initialize(id)),
         UseEffect::Share
     );
 }

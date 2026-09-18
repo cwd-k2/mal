@@ -108,8 +108,8 @@ program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM
 ties-to-evenを満たすLLVM instructionを選ぶ。
 
 productはLLVM struct、sumはtagと最大payloadを収めるbyte regionのstruct、Boolは`i1`で表現する。sum payloadは
-variant固有型としてalignment 1でload/storeし、非active variantのstorageを持たない。`Symbol`と`Packed<A>`はowner pointer、byte offset、
-element countのviewとし、literalはLLVM moduleのstatic byte ownerを参照する。動的なbyte ownerはC11 runtimeのreference-counted flat
+variant固有型としてalignment 1でload/storeし、非active variantのstorageを持たない。`Symbol`と`Packed<A>`はowner pointer、active data
+address、element countのviewとし、literalはLLVM moduleのstatic byte ownerとそのdataを参照する。動的なbyte ownerはC11 runtimeのreference-counted flat
 storageを使う。`Symbol`と`Packed<UInt8>`の変換はownerを共有し、連結だけが新しいstorageを必要に応じて確保する。dead operandのownerが
 一意かつview全体ならflat storageを再利用する。比較とbyte accessはallocationを行わない。targetで表現不能なallocation sizeと
 allocation failureはmal trapへ写像する。
@@ -135,7 +135,7 @@ recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte stora
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
 `Address`はLLVMの`ptr`、`Cursor`はaddress、`Region`はaddressとcountの組へlowerする。canonical representationのload/storeは
-保証されたalignmentを仮定せず、exact accessでは`align 1`のmemory operationを使う。`Packed`はimmutable byte owner、offset、countを
+保証されたalignmentを仮定せず、exact accessでは`align 1`のmemory operationを使う。`Packed`はimmutable byte owner、active data address、countを
 運び、sliceと`Region`間のtransferをprogram固有layoutに従って行う。region、permission、initialization、lifetimeはtyped IRへ補わず、
 source-levelの[`memory` contract](../spec/memory.md)として保持する。
 

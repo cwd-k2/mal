@@ -2,6 +2,7 @@ use crate::check::ast::Type;
 use crate::core::ast::PackedBuilderOperation;
 
 use super::super::{EmittedValue, FunctionEmitter};
+use super::ByteViewFields;
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_packed_builder(
@@ -29,10 +30,10 @@ impl FunctionEmitter<'_> {
                 if argument.ty != packed_type || *result_type != Type::Address {
                     return None;
                 }
-                let (owner, offset, count) = self.byte_view_fields(argument)?;
+                let ByteViewFields { owner, data, count } = self.byte_view_fields(argument)?;
                 let builder = self.register();
                 self.line(format!(
-                    "  {builder} = call ptr @mal_runtime_packed_builder_edit(ptr %mal_context, ptr {owner}, {0} {offset}, {0} {count}, {0} {stride})",
+                    "  {builder} = call ptr @mal_runtime_packed_builder_edit(ptr %mal_context, ptr {owner}, ptr {data}, {0} {count}, {0} {stride})",
                     self.types.pointer_integer()?
                 ));
                 Some(address(builder))

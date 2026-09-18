@@ -152,6 +152,11 @@ fn emits_packed_views_indexing_and_symbol_conversion() {
     assert!(artifacts.module.contains(
         "declare ptr @mal_runtime_bytes_data(ptr) nofree nounwind willreturn memory(argmem: read)"
     ));
+    assert!(
+        !artifacts
+            .module
+            .contains("call ptr @mal_runtime_bytes_data")
+    );
     assert_eq!(
         artifacts
             .module
@@ -247,7 +252,46 @@ fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
             .module
             .contains("ptr @mal_runtime_packed_builder_get(ptr")
     );
+    assert!(
+        !artifacts
+            .module
+            .contains("call ptr @mal_runtime_bytes_data")
+    );
     assert!(artifacts.module.contains(", i64 8)"));
+}
+
+#[test]
+fn initializes_reused_managed_binding_carriers_without_speculative_release() {
+    let source = SourceFile::new(
+        FileId::new(95),
+        "llvm-managed-tail-carrier.mal",
+        "walk :: (Symbol, Int32) -> Int32 := (text, remaining) -> { if (remaining == 0i32) then { (#text).i32 } else { walk((text, remaining - 1i32)) }; }; main :: Unit -> Int32 := () -> { walk((\"x\", 4i32)) - 1i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check managed tail carrier fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("managed tail carrier fixture is supported");
+
+    assert_eq!(
+        artifacts
+            .module
+            .matches("call void @mal_runtime_bytes_release")
+            .count(),
+        2
+    );
 }
 
 #[test]

@@ -8,7 +8,7 @@ use super::is_managed;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PatternDestination {
     Unmanaged,
-    Store(ValueId),
+    Initialize(ValueId),
     Discard,
     Product(Vec<Self>),
 }
@@ -16,7 +16,7 @@ pub(crate) enum PatternDestination {
 impl PatternDestination {
     pub(super) fn has_owner_successor(&self) -> bool {
         match self {
-            Self::Store(_) => true,
+            Self::Initialize(_) => true,
             Self::Product(elements) => elements.iter().any(Self::has_owner_successor),
             Self::Unmanaged | Self::Discard => false,
         }
@@ -26,7 +26,9 @@ impl PatternDestination {
 pub(super) fn plan_pattern(pattern: &Pattern, live_after: &HashSet<ValueId>) -> PatternDestination {
     match pattern {
         Pattern::Binding { ty, .. } if !is_managed(ty) => PatternDestination::Unmanaged,
-        Pattern::Binding { id, .. } if live_after.contains(id) => PatternDestination::Store(*id),
+        Pattern::Binding { id, .. } if live_after.contains(id) => {
+            PatternDestination::Initialize(*id)
+        }
         Pattern::Binding { .. } => PatternDestination::Discard,
         Pattern::Product { elements, .. } => PatternDestination::Product(
             elements

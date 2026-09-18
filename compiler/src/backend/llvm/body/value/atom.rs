@@ -36,7 +36,7 @@ impl FunctionEmitter<'_> {
             }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {
                 if bytes.is_empty() {
-                    return self.make_byte_view(&Type::Symbol, "null", "0", "0", true);
+                    return self.make_byte_view(&Type::Symbol, "null", "null", "0", true);
                 }
                 let name = format!(
                     "mal_symbol_literal_{}_{}",
@@ -45,10 +45,12 @@ impl FunctionEmitter<'_> {
                 );
                 self.globals
                     .push_str(&super::super::symbol::literal_definition(&name, bytes));
+                let data = self.register();
+                self.line(format!("  {data} = getelementptr i8, ptr @{name}, i64 24"));
                 self.make_byte_view(
                     &Type::Symbol,
                     &format!("@{name}"),
-                    "0",
+                    &data,
                     &bytes.len().to_string(),
                     true,
                 )

@@ -36,8 +36,8 @@ storageをdereferenceしない。`<-region`は全要素をindex順にadmitして
 `region <- packed`は先頭からobserveし、書いた範囲の直後から始まるsuffix Regionを返す。zero-count Regionのadmissionはempty
 Packed、zero-count Packedのstoreは元のRegionを返し、storageをdereferenceしない。`Packed<Unit>`はUSizeだけで表現してよい。
 
-`value / count`はprefix、`value % count`はremainderを返す。Regionはstorageをdereferenceせずviewを分ける。Packedは同じbuffer
-owner、offset、countを持つslice viewを返す。operandは通常のexpressionと同じ順で一度だけ評価する。
+`value / count`はprefix、`value % count`はremainderを返す。Regionはstorageをdereferenceせずviewを分ける。Packedは同じbacking
+storageを共有するslice viewを返す。operandは通常のexpressionと同じ順で一度だけ評価する。
 
 ## Symbol conversion
 

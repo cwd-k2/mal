@@ -171,9 +171,9 @@ impl Types {
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: self.pointer_integer()?,
-                alignment: self.index_alignment(),
-                size: self.target.index_size,
+                llvm: "ptr".into(),
+                alignment: self.target.pointer_alignment,
+                size: self.target.pointer_size,
             },
             ValueType {
                 llvm: self.pointer_integer()?,

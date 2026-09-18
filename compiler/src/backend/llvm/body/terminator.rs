@@ -89,13 +89,16 @@ impl FunctionEmitter<'_> {
                 }
                 let condition = self.register();
                 if left.ty == Type::Symbol {
-                    let (left_owner, left_offset, left_length) = self.byte_view_fields(&left)?;
-                    let (right_owner, right_offset, right_length) =
-                        self.byte_view_fields(&right)?;
+                    let left = self.byte_view_fields(&left)?;
+                    let right = self.byte_view_fields(&right)?;
                     let equality = self.register();
+                    let index_type = self.types.pointer_integer()?;
                     self.line(format!(
-                        "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {left_owner}, {0} {left_offset}, {0} {left_length}, ptr {right_owner}, {0} {right_offset}, {0} {right_length})",
-                        self.types.pointer_integer()?
+                        "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, {index_type} {}, ptr {}, {index_type} {})",
+                        left.data,
+                        left.count,
+                        right.data,
+                        right.count
                     ));
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => "ne",

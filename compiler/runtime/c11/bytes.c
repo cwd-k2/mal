@@ -119,6 +119,13 @@ const unsigned char *mal_bytes_data(const MalBytes *owner) {
     return flat->bytes + flat->start;
 }
 
+size_t mal_bytes_offset(const MalBytes *owner, const unsigned char *data) {
+    if (owner == NULL) {
+        return 0;
+    }
+    return (size_t)(data - mal_bytes_data(owner));
+}
+
 static size_t mal_bytes_capacity(size_t required) {
     if (required <= 16) {
         return 16;
@@ -295,16 +302,14 @@ void *mal_runtime_packed_builder_start(MalContext *context, size_t stride) {
 void *mal_runtime_packed_builder_edit(
     MalContext *context,
     const void *owner,
-    size_t offset,
+    const void *data,
     size_t count,
     size_t stride
 ) {
     MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
     builder->owner = mal_bytes_retain(context, (MalBytes *)owner);
-    builder->data = count == 0 || stride == 0
-        ? NULL
-        : (unsigned char *)mal_bytes_data(builder->owner) + offset;
-    builder->offset = offset;
+    builder->data = stride == 0 ? NULL : (unsigned char *)data;
+    builder->offset = mal_bytes_offset(builder->owner, data);
     builder->count = count;
     builder->editable = 0;
     return builder;
@@ -506,7 +511,7 @@ void mal_runtime_packed_builder_put_unique(
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builder) {
     MalPackedBuilder *builder = opaque_builder;
     result->owner = builder->owner;
-    result->offset = builder->offset;
+    result->data = builder->data;
     result->length = builder->count;
     mal_runtime_scoped_environment_deallocate(builder);
 }

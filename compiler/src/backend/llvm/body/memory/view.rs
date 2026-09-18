@@ -2,6 +2,12 @@ use crate::check::ast::{MemoryPrimitive, Type};
 
 use super::super::{EmittedValue, FunctionEmitter};
 
+pub(in crate::backend::llvm::body) struct ByteViewFields {
+    pub(in crate::backend::llvm::body) owner: String,
+    pub(in crate::backend::llvm::body) data: String,
+    pub(in crate::backend::llvm::body) count: String,
+}
+
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_region_admission(
         &mut self,
@@ -27,7 +33,16 @@ impl FunctionEmitter<'_> {
             ));
             owner
         };
-        self.make_packed(result_type, &owner, "0", &count, true)
+        let data = if stride == 0 {
+            "null".to_string()
+        } else {
+            let data = self.register();
+            self.line(format!(
+                "  {data} = call ptr @mal_runtime_bytes_data(ptr {owner})"
+            ));
+            data
+        };
+        self.make_packed(result_type, &owner, &data, &count, true)
     }
 
     pub(in crate::backend::llvm::body) fn emit_packed_store(
@@ -41,11 +56,10 @@ impl FunctionEmitter<'_> {
         let packed_type = Type::Packed(element.clone());
         let [region, packed] = self.product_fields(argument, [result_type, &packed_type])?;
         let (address, region_count) = self.region_fields(&region)?;
-        let (owner, offset, count) = self.packed_fields(&packed)?;
+        let ByteViewFields { data, count, .. } = self.packed_fields(&packed)?;
         let stride = self.source_layouts.layout(element)?.stride;
         let bytes = self.multiply_by_stride(&count, stride)?;
         if stride != 0 {
-            let data = self.packed_data_pointer(&owner, &offset)?;
             self.line(format!(
                 "  call void @llvm.memcpy.p0.p0.i{}(ptr {address}, ptr {data}, {} {bytes}, i1 false)",
                 self.types.index_size() * 8,
@@ -97,24 +111,24 @@ impl FunctionEmitter<'_> {
                 }
             }
             Type::Packed(element) => {
-                let (owner, offset, old_count) = self.packed_fields(&view)?;
+                let ByteViewFields {
+                    owner,
+                    data,
+                    count: old_count,
+                } = self.packed_fields(&view)?;
                 if prefix {
-                    self.make_packed(result_type, &owner, &offset, &count.representation, true)
+                    self.make_packed(result_type, &owner, &data, &count.representation, true)
                 } else {
                     let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
-                    let new_offset = self.register();
-                    self.line(format!(
-                        "  {new_offset} = add {} {offset}, {bytes}",
-                        self.types.pointer_integer()?
-                    ));
+                    let new_data = self.pointer_offset(&data, &bytes)?;
                     let remainder = self.register();
                     self.line(format!(
                         "  {remainder} = sub {} {old_count}, {}",
                         self.types.pointer_integer()?,
                         count.representation
                     ));
-                    self.make_packed(result_type, &owner, &new_offset, &remainder, true)
+                    self.make_packed(result_type, &owner, &new_data, &remainder, true)
                 }
             }
             _ => None,
@@ -131,7 +145,7 @@ impl FunctionEmitter<'_> {
         }
         let count = match &view.ty {
             Type::Region(_) => self.region_fields(view)?.1,
-            Type::Packed(_) => self.packed_fields(view)?.2,
+            Type::Packed(_) => self.packed_fields(view)?.count,
             _ => return None,
         };
         Some(EmittedValue {
@@ -148,7 +162,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<EmittedValue> {
         let packed_type = Type::Packed(result_type.clone().into());
         let [packed, index] = self.product_fields(argument, [&packed_type, &Type::USize])?;
-        let (owner, offset, _) = self.packed_fields(&packed)?;
+        let ByteViewFields { data, .. } = self.packed_fields(&packed)?;
         if *result_type == Type::Unit {
             return Some(EmittedValue {
                 ty: Type::Unit,
@@ -158,12 +172,7 @@ impl FunctionEmitter<'_> {
         }
         let stride = self.source_layouts.layout(result_type)?.stride;
         let element_offset = self.multiply_by_stride(&index.representation, stride)?;
-        let absolute = self.register();
-        self.line(format!(
-            "  {absolute} = add {} {offset}, {element_offset}",
-            self.types.pointer_integer()?
-        ));
-        let pointer = self.packed_data_pointer(&owner, &absolute)?;
+        let pointer = self.pointer_offset(&data, &element_offset)?;
         self.emit_source_load_at(&pointer, result_type)
     }
 
@@ -196,8 +205,14 @@ impl FunctionEmitter<'_> {
         if *result_type != Type::Symbol || packed.ty != Type::Packed(Type::UInt8.into()) {
             return None;
         }
-        let (owner, offset, count) = self.packed_fields(packed)?;
-        self.make_byte_view(&Type::Symbol, &owner, &offset, &count, true)
+        let fields = self.packed_fields(packed)?;
+        self.make_byte_view(
+            &Type::Symbol,
+            &fields.owner,
+            &fields.data,
+            &fields.count,
+            true,
+        )
     }
 
     pub(in crate::backend::llvm::body) fn emit_symbol_to_packed(
@@ -208,8 +223,14 @@ impl FunctionEmitter<'_> {
         if symbol.ty != Type::Symbol || *result_type != Type::Packed(Type::UInt8.into()) {
             return None;
         }
-        let (owner, offset, count) = self.byte_view_fields(symbol)?;
-        self.make_packed(result_type, &owner, &offset, &count, true)
+        let fields = self.byte_view_fields(symbol)?;
+        self.make_packed(
+            result_type,
+            &fields.owner,
+            &fields.data,
+            &fields.count,
+            true,
+        )
     }
 
     fn region_fields(&mut self, region: &EmittedValue) -> Option<(String, String)> {
@@ -230,7 +251,7 @@ impl FunctionEmitter<'_> {
         Some((address, count))
     }
 
-    fn packed_fields(&mut self, packed: &EmittedValue) -> Option<(String, String, String)> {
+    fn packed_fields(&mut self, packed: &EmittedValue) -> Option<ByteViewFields> {
         let Type::Packed(_) = &packed.ty else {
             return None;
         };
@@ -240,7 +261,7 @@ impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn byte_view_fields(
         &mut self,
         value: &EmittedValue,
-    ) -> Option<(String, String, String)> {
+    ) -> Option<ByteViewFields> {
         if !matches!(value.ty, Type::Symbol | Type::Packed(_)) {
             return None;
         }
@@ -254,8 +275,8 @@ impl FunctionEmitter<'_> {
             ));
             fields.push(field);
         }
-        let [owner, offset, count]: [String; 3] = fields.try_into().ok()?;
-        Some((owner, offset, count))
+        let [owner, data, count]: [String; 3] = fields.try_into().ok()?;
+        Some(ByteViewFields { owner, data, count })
     }
 
     fn make_region(&mut self, ty: &Type, address: &str, count: &str) -> Option<EmittedValue> {
@@ -282,18 +303,18 @@ impl FunctionEmitter<'_> {
         &mut self,
         ty: &Type,
         owner: &str,
-        offset: &str,
+        data: &str,
         count: &str,
         owned: bool,
     ) -> Option<EmittedValue> {
-        self.make_byte_view(ty, owner, offset, count, owned)
+        self.make_byte_view(ty, owner, data, count, owned)
     }
 
     pub(in crate::backend::llvm::body) fn make_byte_view(
         &mut self,
         ty: &Type,
         owner: &str,
-        offset: &str,
+        data: &str,
         count: &str,
         owned: bool,
     ) -> Option<EmittedValue> {
@@ -306,15 +327,14 @@ impl FunctionEmitter<'_> {
             "  {with_owner} = insertvalue {} poison, ptr {owner}, 0",
             runtime.llvm
         ));
-        let with_offset = self.register();
+        let with_data = self.register();
         self.line(format!(
-            "  {with_offset} = insertvalue {} {with_owner}, {} {offset}, 1",
-            runtime.llvm,
-            self.types.pointer_integer()?
+            "  {with_data} = insertvalue {} {with_owner}, ptr {data}, 1",
+            runtime.llvm
         ));
         let result = self.register();
         self.line(format!(
-            "  {result} = insertvalue {} {with_offset}, {} {count}, 2",
+            "  {result} = insertvalue {} {with_data}, {} {count}, 2",
             runtime.llvm,
             self.types.pointer_integer()?
         ));
@@ -347,13 +367,5 @@ impl FunctionEmitter<'_> {
             self.types.pointer_integer()?
         ));
         Some(result)
-    }
-
-    fn packed_data_pointer(&mut self, owner: &str, offset: &str) -> Option<String> {
-        let data = self.register();
-        self.line(format!(
-            "  {data} = call ptr @mal_runtime_bytes_data(ptr {owner})"
-        ));
-        self.pointer_offset(&data, offset)
     }
 }

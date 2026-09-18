@@ -272,6 +272,6 @@ fn lowers_symbol_length_to_usize_on_a_32_bit_target() {
     )
     .expect("32-bit Symbol length fixture is supported");
 
-    assert!(artifacts.module.contains("extractvalue { ptr, i32, i32 }"));
+    assert!(artifacts.module.contains("extractvalue { ptr, ptr, i32 }"));
     assert!(!artifacts.module.contains("mal_runtime_symbol_length"));
 }

@@ -11,12 +11,13 @@ Status: Current v0.6 implementation policy
 `Unit`、`Address`、`ByteSize`、`USize`、`Cursor`、`Region`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
-LLVM内の`Symbol`と`Packed<A>`はowner pointer、byte offset、element countからなるviewである。`Symbol`と`Packed<UInt8>`の変換は
-共通のflat byte ownerをretainしてviewを組み替え、allocationもbyte copyも行わない。sliceは同じownerをretainしてoffsetとcountを
+LLVM内の`Symbol`と`Packed<A>`はowner pointer、active data address、element countからなるviewである。ownerがstorage lifetime、dataが
+現在の観測範囲をそれぞれ支配する。`Symbol`と`Packed<UInt8>`の変換は
+共通のflat byte ownerをretainしてviewを組み替え、allocationもbyte copyも行わない。sliceは同じownerをretainし、dataとcountだけを
 変える。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
 再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
-完成したbyte ownerのdata viewはownerのlifetime中不変であり、取得operationはownerを変更せず、解放せず、失敗しない。このruntime
-interface contractをLLVM declarationにも付与し、同じownerからのdata view取得を通常のloop-invariant readとして扱えるようにする。
+完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
+storage再利用を判断するconcatとeditのruntime境界だけがownerに対するdataのoffsetを導出する。
 
 ## slotとoperation
 
@@ -28,8 +29,11 @@ lengthのobservationへ引数伝達だけのaggregate responsibilityを作らな
 ownerを共有するoperationだけが、そのoperandにowner successorを持つ。
 
 一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
-後継のないresponsibilityとdestinationの旧値を`Drop`して格納をcommitする。owned resultを受け取るwildcardと
+後継のないresponsibilityを`Drop`して格納をcommitする。owned resultを受け取るwildcardと
 使われないpattern leafは保存せず直接`Drop`する。borrowed valueをそのようなplaceに渡す場合は何もしない。
+control bindingはactivation内で一つのresponsibilityだけを初期化する。self-tailで同じcarrierを再利用する場合も、旧responsibilityは
+引数への`Consume`またはedgeの`Drop`でentryへ戻る前に終了する。したがってpattern destinationはvacant carrierへの`Initialize`であり、
+backendは格納時に旧値の存在を推測してreleaseしない。
 
 control CFGのbackward livenessでbinding後にdeadとなるlocal ownerは、operation resultを保存してborrowを終えた直後にreleaseしてslotを
 zeroにする。これはowner responsibilityの終了であり、optimization設定によらない。`backend/llvm/optimization/symbol_concat`が有効で、

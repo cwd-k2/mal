@@ -51,7 +51,7 @@ impl FunctionEmitter<'_> {
                 if crate::execution::ownership::is_managed(ty)
                     && matches!(
                         destination,
-                        crate::execution::ownership::PatternDestination::Store(target)
+                        crate::execution::ownership::PatternDestination::Initialize(target)
                             if target == id
                     ) =>
             {
@@ -61,13 +61,7 @@ impl FunctionEmitter<'_> {
                 }
                 self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
-                let previous = self.register();
                 let value_type = self.types.value(ty)?;
-                self.line(format!(
-                    "  {previous} = load {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, slot.index, value_type.alignment
-                ));
-                self.release_value(ty, &previous)?;
                 self.line(format!(
                     "  store {} {}, ptr %mal_slot_{}, align {}",
                     value_type.llvm, value.representation, slot.index, value_type.alignment
