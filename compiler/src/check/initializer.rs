@@ -1,13 +1,16 @@
-use crate::ast::{Node, UnaryOperator};
+use crate::ast::{BinaryOperator, UnaryOperator};
 use crate::diagnostic::Diagnostic;
-use crate::resolve::ast::{self as resolved, FALSE_VALUE, TRUE_VALUE};
+use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
 
 use super::Checker;
+use super::ast::{Expression, ExpressionKind, Type};
+use super::float::is_float;
+use super::integer::is_integer;
 
 impl Checker {
     pub(super) fn check_top_level_initializer(
         &self,
-        expression: &Node<resolved::Expression>,
+        expression: &Expression,
     ) -> Result<(), Diagnostic> {
         if is_top_level_initializer(expression, &self.external_values) {
             Ok(())
@@ -15,7 +18,7 @@ impl Checker {
             Err(
                 Diagnostic::error("invalid top-level initializer").with_primary(
                     expression.span,
-                    "top-level values must be closed literals, numeric conversions, external functions, or lambdas",
+                    "top-level values must be closed, constant expressions or functions",
                 ),
             )
         }
@@ -23,47 +26,60 @@ impl Checker {
 }
 
 fn is_top_level_initializer(
-    expression: &Node<resolved::Expression>,
-    external_values: &std::collections::HashSet<resolved::ValueId>,
+    expression: &Expression,
+    external_values: &std::collections::HashSet<crate::resolve::ast::ValueId>,
 ) -> bool {
     match &expression.kind {
-        resolved::Expression::Integer(_)
-        | resolved::Expression::Float(_)
-        | resolved::Expression::Byte(_)
-        | resolved::Expression::Symbol(_)
-        | resolved::Expression::Unit => true,
-        resolved::Expression::Reference(reference) => {
+        ExpressionKind::Integer(_)
+        | ExpressionKind::Float(_)
+        | ExpressionKind::Symbol(_)
+        | ExpressionKind::StorageSize(_)
+        | ExpressionKind::Unit => true,
+        ExpressionKind::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)
                 || external_values.contains(&reference.id)
         }
-        resolved::Expression::Parenthesized(inner) => {
-            is_top_level_initializer(inner, external_values)
-        }
-        resolved::Expression::Product(elements) => elements
+        ExpressionKind::Parenthesized(inner) => is_top_level_initializer(inner, external_values),
+        ExpressionKind::Product(elements) => elements
             .iter()
             .all(|element| is_top_level_initializer(element, external_values)),
-        resolved::Expression::Conversion { value, .. } => {
+        ExpressionKind::NumericConversion { value } => {
             is_top_level_initializer(value, external_values)
         }
-        resolved::Expression::Call { callee, arguments }
-            if matches!(callee.kind, resolved::Expression::Conversion { .. }) =>
-        {
-            is_top_level_initializer(callee, external_values)
-                && arguments
-                    .iter()
-                    .all(|argument| is_top_level_initializer(argument, external_values))
+        ExpressionKind::SumInjection { value, .. } => {
+            is_top_level_initializer(value, external_values)
         }
-        resolved::Expression::Lambda(_) => true,
-        resolved::Expression::Block(_) | resolved::Expression::ResultBlock { .. } => false,
-        resolved::Expression::Unary {
+        ExpressionKind::Lambda(_) => true,
+        ExpressionKind::Unary {
             operator, operand, ..
         } => {
             operator.kind == UnaryOperator::Negate
-                && matches!(
-                    operand.kind,
-                    resolved::Expression::Integer(_) | resolved::Expression::Float(_)
-                )
+                && is_constant_numeric(&operand.ty)
+                && is_top_level_initializer(operand, external_values)
+        }
+        ExpressionKind::Binary {
+            operator,
+            left,
+            right,
+        } => {
+            is_constant_binary(operator.kind, &left.ty, &right.ty)
+                && is_top_level_initializer(left, external_values)
+                && is_top_level_initializer(right, external_values)
         }
         _ => false,
     }
+}
+
+fn is_constant_numeric(ty: &Type) -> bool {
+    is_integer(ty) || is_float(ty)
+}
+
+fn is_constant_binary(operator: BinaryOperator, left: &Type, right: &Type) -> bool {
+    if left != right || !is_integer(left) {
+        return false;
+    }
+    matches!(
+        operator,
+        BinaryOperator::Multiply | BinaryOperator::Add | BinaryOperator::Subtract
+    )
 }

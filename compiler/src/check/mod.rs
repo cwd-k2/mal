@@ -199,7 +199,7 @@ impl Checker {
                 }
                 resolved::TopItem::Binding(binding) => {
                     let checked = self.check_binding(binding, item.span)?;
-                    self.check_top_level_initializer(&binding.value)?;
+                    self.check_top_level_initializer(&checked.value)?;
                     validate_entry_binding(&checked)?;
                     TopItem::Binding(Box::new(checked))
                 }
@@ -261,7 +261,7 @@ impl Checker {
                 },
             );
             let checked_value = self.check_value_expression(value, Some(&ty))?;
-            self.check_top_level_initializer(value)?;
+            self.check_top_level_initializer(&checked_value)?;
             Ok(ast::GenericBinding {
                 binding: binding.clone(),
                 parameters: parameters.to_vec(),

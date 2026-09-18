@@ -321,6 +321,32 @@ fn references_closed_top_level_numeric_constants_through_llvm() {
 }
 
 #[test]
+fn references_target_layout_arithmetic_constants_through_llvm() {
+    let directory = NativeFixture::new("driver-llvm-layout-arithmetic-constant");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "recordSize :: ByteSize := #u8 + #usize + 4bytes + #address;\n\
+         main :: Unit -> Int32 := () -> { recordSize.usize.i32 - 21; };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn references_structural_closed_top_level_values_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-structural-top-level");
     let source = directory.join("program.mal");

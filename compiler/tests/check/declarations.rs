@@ -68,6 +68,15 @@ fn admits_external_functions_as_closed_top_level_values() {
 }
 
 #[test]
+fn admits_closed_storage_size_arithmetic_at_top_level() {
+    let program = check_ok("recordSize :: ByteSize := #u8 + #usize + 4bytes + #address;");
+
+    let value = &top_binding(&program, 0).value;
+    assert_eq!(value.ty, Type::ByteSize);
+    assert!(matches!(value.kind, ExpressionKind::Binary { .. }));
+}
+
+#[test]
 fn expands_aliases_and_compares_types_structurally() {
     let program = check_ok(
         "Flag :: [Unit, Unit];\n\
@@ -323,6 +332,15 @@ fn rejects_effectful_top_level_initializers() {
     let error = check_error(
         "extern read :: Unit -> Int32;\n\
          value :: Int32 := read();",
+    );
+    assert_eq!(error.message, "invalid top-level initializer");
+}
+
+#[test]
+fn rejects_top_level_arithmetic_over_another_top_level_value() {
+    let error = check_error(
+        "base :: ByteSize := #u8;\n\
+         recordSize :: ByteSize := base + #usize;",
     );
     assert_eq!(error.message, "invalid top-level initializer");
 }

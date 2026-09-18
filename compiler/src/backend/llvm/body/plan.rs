@@ -170,6 +170,30 @@ impl TopLevelConstants {
                     kind: ConstantKind::Value(representation),
                 }
             }
+            Operation::PrimitiveBinary {
+                operator,
+                left,
+                right,
+            } => {
+                let left = self.atom(left, values)?;
+                let right = self.atom(right, values)?;
+                if left.ty != right.ty {
+                    return None;
+                }
+                let scalar = super::scalar::scalar_type(&left.ty, self.types.index_size())?;
+                let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
+                let representation = format!(
+                    "{instruction} ({} {}, {} {})",
+                    scalar.llvm,
+                    left.representation()?,
+                    scalar.llvm,
+                    right.representation()?
+                );
+                Constant {
+                    ty: left.ty,
+                    kind: ConstantKind::Value(representation),
+                }
+            }
             _ => return None,
         };
         (value.ty == *result_type).then_some(value)
