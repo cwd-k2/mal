@@ -17,6 +17,7 @@ pub(crate) use managed::is_managed;
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     input_handoffs: HashMap<StateId, PatternHandoff>,
+    binding_handoffs: HashMap<(StateId, usize), PatternHandoff>,
     drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
     drops_on_edge: HashMap<EdgeId, Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
@@ -147,12 +148,15 @@ impl Plan {
             live_in[index] = live;
         }
 
+        let mut binding_handoffs = HashMap::new();
         let mut drops_after_binding = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
             let mut live = terminator_live(&state.terminator, &live_in);
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
-                let mut drops = Vec::new();
-                collect_dead_pattern_bindings(&binding.pattern, &live, &mut drops);
+                binding_handoffs.insert(
+                    (StateId(state_index), binding_index),
+                    pattern_handoff(&binding.pattern, &live),
+                );
                 let mut used = Vec::new();
                 visit_operation_atoms(&binding.operation, |atom| {
                     if let Some(id) = managed_binding_id(atom)
@@ -161,7 +165,10 @@ impl Plan {
                         used.push(id);
                     }
                 });
-                drops.extend(used.into_iter().filter(|id| !live.contains(id)));
+                let drops = used
+                    .into_iter()
+                    .filter(|id| !live.contains(id))
+                    .collect::<Vec<_>>();
                 if !drops.is_empty() {
                     drops_after_binding.insert((StateId(state_index), binding_index), drops);
                 }
@@ -185,6 +192,7 @@ impl Plan {
         let parameters = collect_parameter_effects(control, parameters);
         Self {
             input_handoffs,
+            binding_handoffs,
             drops_after_binding,
             drops_on_edge,
             uses,
@@ -211,6 +219,14 @@ impl Plan {
 
     pub(crate) fn input_handoff(&self, state: StateId) -> Option<&PatternHandoff> {
         self.input_handoffs.get(&state)
+    }
+
+    pub(crate) fn binding_handoff(
+        &self,
+        state: StateId,
+        binding: usize,
+    ) -> Option<&PatternHandoff> {
+        self.binding_handoffs.get(&(state, binding))
     }
 
     pub(crate) fn drops_on_edge(&self, state: StateId, path: ControlPath) -> &[ValueId] {
@@ -355,26 +371,6 @@ fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {
         Pattern::Product { elements, .. } => {
             for element in elements {
                 remove_pattern_bindings(element, live);
-            }
-        }
-        Pattern::Wildcard { .. } => {}
-    }
-}
-
-fn collect_dead_pattern_bindings(
-    pattern: &Pattern,
-    live_after: &HashSet<ValueId>,
-    drops: &mut Vec<ValueId>,
-) {
-    match pattern {
-        Pattern::Binding { id, ty } => {
-            if is_managed(ty) && !live_after.contains(id) {
-                drops.push(*id);
-            }
-        }
-        Pattern::Product { elements, .. } => {
-            for element in elements {
-                collect_dead_pattern_bindings(element, live_after, drops);
             }
         }
         Pattern::Wildcard { .. } => {}
@@ -878,9 +874,20 @@ fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &Atom, bool)>
         Operation::SymbolAt { argument } => {
             vec![(BindingOperand::SymbolAt, argument, false)]
         }
-        Operation::Memory { argument, .. } => {
-            vec![(BindingOperand::MemoryArgument, argument, false)]
-        }
+        Operation::Memory {
+            primitive,
+            argument,
+        } => vec![(
+            BindingOperand::MemoryArgument,
+            argument,
+            matches!(
+                primitive,
+                crate::check::ast::MemoryPrimitive::Prefix
+                    | crate::check::ast::MemoryPrimitive::RemainderView
+                    | crate::check::ast::MemoryPrimitive::PackedToSymbol
+                    | crate::check::ast::MemoryPrimitive::SymbolToPacked
+            ),
+        )],
         Operation::ExternalCall { argument, .. } => {
             vec![(BindingOperand::ExternalArgument, argument, false)]
         }
@@ -1050,7 +1057,7 @@ mod tests {
         let execution =
             crate::execution::lower(closure, super::super::OptimizationSet::production());
 
-        let (site, binding, id) = execution
+        let (site, binding) = execution
             .control
             .states
             .iter()
@@ -1061,19 +1068,19 @@ mod tests {
                     .iter()
                     .enumerate()
                     .find_map(|(binding_index, binding)| match binding.pattern {
-                        Pattern::Binding { id, ref ty }
+                        Pattern::Binding { ref ty, .. }
                             if is_managed(ty)
                                 && matches!(binding.operation, Operation::Atom(_)) =>
                         {
-                            Some((StateId(state_index), binding_index, id))
+                            Some((StateId(state_index), binding_index))
                         }
                         _ => None,
                     })
             })
             .expect("unused managed binding");
         assert_eq!(
-            execution.ownership.drops_after_binding(site, binding),
-            &[id]
+            execution.ownership.binding_handoff(site, binding),
+            Some(&PatternHandoff::Drop)
         );
     }
 
