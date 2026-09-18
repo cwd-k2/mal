@@ -483,7 +483,6 @@ impl FunctionEmitter<'_> {
                 return Some(());
             }
         }
-        let input = self.control.states[frame.resume.0].input.as_ref()?;
         for (field, layout) in frame.fields.iter().zip(&layout.fields) {
             let pointer = self.register();
             self.line(format!(
@@ -521,15 +520,14 @@ impl FunctionEmitter<'_> {
                 self.types.pointer_alignment()
             ));
         }
-        self.store_pattern(
-            input,
+        self.store_input_pattern(
+            frame.resume,
             Some(&EmittedValue {
                 ty: result.ty.clone(),
                 representation: result.representation.clone(),
                 owned: true,
             }),
         )?;
-        self.emit_input_drops(frame.resume)?;
         self.line(format!("  br label %mal_state_{}", frame.resume.0));
         Some(())
     }

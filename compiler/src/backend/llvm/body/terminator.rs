@@ -60,10 +60,8 @@ impl FunctionEmitter<'_> {
                             .then_some(crate::execution::ownership::UseEffect::Borrow)
                     })?;
                 let value = self.prepare_atom_for_use(value, effect)?;
-                let input = self.control.states[target.0].input.as_ref()?;
                 self.commit_consumes(&value)?;
-                self.store_pattern(input, Some(&value.value))?;
-                self.emit_input_drops(*target)?;
+                self.store_input_pattern(*target, Some(&value.value))?;
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
@@ -173,9 +171,7 @@ impl FunctionEmitter<'_> {
             } => match self.execution.control_calls.mode(site)? {
                 ControlCallMode::Direct(target) => {
                     let result = self.emit_call(site, target, callee, argument, false)?;
-                    let input = self.control.states[resume.0].input.as_ref()?;
-                    self.store_pattern(input, Some(&result))?;
-                    self.emit_input_drops(*resume)?;
+                    self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }
@@ -194,9 +190,7 @@ impl FunctionEmitter<'_> {
                         unreachable!()
                     };
                     let result = self.emit_indirect_call(site, callee, argument, false)?;
-                    let input = self.control.states[resume.0].input.as_ref()?;
-                    self.store_pattern(input, Some(&result))?;
-                    self.emit_input_drops(*resume)?;
+                    self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }

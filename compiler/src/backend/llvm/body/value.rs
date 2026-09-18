@@ -284,7 +284,37 @@ impl FunctionEmitter<'_> {
         pattern: &Pattern,
         value: Option<&EmittedValue>,
     ) -> Option<()> {
+        self.store_pattern_with_drops(pattern, value, &[])
+    }
+
+    pub(super) fn store_input_pattern(
+        &mut self,
+        state: crate::control::ast::StateId,
+        value: Option<&EmittedValue>,
+    ) -> Option<()> {
+        let pattern = self.control.states[state.0].input.as_ref()?.clone();
+        let drops = self.ownership.drops_after_input(state).to_vec();
+        self.store_pattern_with_drops(&pattern, value, &drops)
+    }
+
+    fn store_pattern_with_drops(
+        &mut self,
+        pattern: &Pattern,
+        value: Option<&EmittedValue>,
+        drops: &[crate::anf::ast::ValueId],
+    ) -> Option<()> {
         match pattern {
+            Pattern::Binding { id, ty }
+                if crate::execution::ownership::is_managed(ty) && drops.contains(id) =>
+            {
+                let value = value?;
+                if value.ty != *ty {
+                    return None;
+                }
+                if value.owned {
+                    self.release_value(ty, &value.representation)?;
+                }
+            }
             Pattern::Binding { id, ty } if crate::execution::ownership::is_managed(ty) => {
                 let mut value = value?.clone();
                 if value.ty != *ty {
@@ -333,7 +363,7 @@ impl FunctionEmitter<'_> {
                         "  {register} = extractvalue {} {}, {index}",
                         aggregate_type.llvm, value.representation
                     ));
-                    self.store_pattern(
+                    self.store_pattern_with_drops(
                         element,
                         Some(&EmittedValue {
                             ty: element_type.clone(),
@@ -341,6 +371,7 @@ impl FunctionEmitter<'_> {
                             owned: value.owned
                                 && crate::execution::ownership::is_managed(element_type),
                         }),
+                        drops,
                     )?;
                 }
             }
@@ -381,15 +412,6 @@ impl FunctionEmitter<'_> {
         path: crate::execution::ownership::ControlPath,
     ) -> Option<()> {
         let mut drops = self.ownership.drops_on_edge(site, path).to_vec();
-        drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
-        for id in drops {
-            self.release_dead_slot(id)?;
-        }
-        Some(())
-    }
-
-    pub(super) fn emit_input_drops(&mut self, state: crate::control::ast::StateId) -> Option<()> {
-        let mut drops = self.ownership.drops_after_input(state).to_vec();
         drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
         for id in drops {
             self.release_dead_slot(id)?;
