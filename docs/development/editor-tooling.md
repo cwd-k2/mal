@@ -75,6 +75,13 @@ run-external code $"--extensionDevelopmentPath=($extension_path)" .
 cargo run --manifest-path tools/mal-lsp/Cargo.toml --locked
 ```
 
+module責務は次のように分ける。
+
+- `server`はJSON-RPC methodのdispatchとopen document lifecycleを所有する。
+- `server/analysis`はsource graph、frontend analysis、semantic indexの状態遷移とdiagnostic変換を所有する。
+- `server/requirement`はrequirement completionとdocument linkを所有する。
+- `server/semantic`はhover、navigation、rename、symbol、completion、semantic tokenのLSP表現を所有する。
+
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに
 成功したときに利用できる。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
