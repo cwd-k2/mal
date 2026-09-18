@@ -38,9 +38,9 @@
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | `Address`、layout、memory placementを使う | [external memory](spec/memory.md) | [grammar](spec/grammar.md)、[`Region`と`Packed`](spec/packed.md) |
 | `Region`、`Packed`、partial I/Oを使う | [`Region`と`Packed`](spec/packed.md) | [external memory](spec/memory.md)、[authority](design/authority.md) |
-| growableな`Packed`構築案を検討する | [`pack`とpush producer](proposals/packed-construction.md) | [`Region`と`Packed`](spec/packed.md)、[managed ownership](implementation/ownership.md) |
+| growableな`Packed`構築案を検討する | [scoped `Packed` construction](proposals/packed-construction.md) | [`Region`と`Packed`](spec/packed.md)、[managed ownership](implementation/ownership.md) |
 | immutableな`Packed`編集案を検討する | [scoped `Packed` editing](proposals/packed-editing.md) | [`pack` proposal](proposals/packed-construction.md)、[managed ownership](implementation/ownership.md) |
-| 再帰的なmal-owned dataを検討する | [`Packed` indirectionによる再帰型](proposals/recursive-packed-types.md) | [`pack` proposal](proposals/packed-construction.md)、[managed ownership](implementation/ownership.md) |
+| treeやgraphのmal-owned dataを検討する | [indexで結ぶ`Packed`構造](proposals/indexed-packed-structures.md) | [`pack` proposal](proposals/packed-construction.md)、[挿入とbalance例](proposals/indexed-packed-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
