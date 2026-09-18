@@ -350,4 +350,15 @@ fn validates_an_explicit_entry_point_signature() {
     let error = check_error("main :: Unit -> UInt64 := () -> 0u64;");
     assert_eq!(error.message, "invalid entry point type");
     assert!(error.primary.unwrap().message.contains("USize, Address"));
+
+    let unit = check_ok("main :: Unit -> Int32 := () -> 0i32;");
+    assert_eq!(
+        unit.entry.expect("checked entry point").parameter,
+        malc::check::ast::EntryParameter::Unit
+    );
+    let arguments = check_ok("main :: (USize, Address) -> Int32 := (_, _) -> { 0i32; };");
+    assert_eq!(
+        arguments.entry.expect("checked entry point").parameter,
+        malc::check::ast::EntryParameter::ProcessArguments
+    );
 }

@@ -28,15 +28,29 @@ impl Converter {
 
     fn convert_program(mut self, program: &anf::Program) -> Program {
         let empty_environment = HashMap::new();
-        let bindings = program
+        let bindings: Vec<_> = program
             .bindings
             .iter()
             .map(|binding| self.convert_top_level_binding(binding, &empty_environment))
             .collect();
+        let entry = program.entry.map(|entry| {
+            let binding = bindings
+                .iter()
+                .find(|binding| {
+                    matches!(binding.pattern, TopLevelPattern::Binding { id, .. } if id == entry.binding)
+                })
+                .expect("entry identity names a reachable top-level binding");
+            ast::EntryPoint {
+                function: top_level_function(binding)
+                    .expect("checked entry binding lowers to a capture-free closure"),
+                parameter: entry.parameter,
+            }
+        });
         Program {
             interface: program.interface.clone(),
             bindings,
             functions: self.functions,
+            entry,
             span: program.span,
         }
     }
@@ -345,4 +359,23 @@ impl Converter {
         self.next_atom += 1;
         id
     }
+}
+
+fn top_level_function(binding: &TopLevelBinding) -> Option<FunctionId> {
+    let AtomKind::Reference(Reference::Binding(result)) = binding.value.result.kind else {
+        return None;
+    };
+    binding.value.bindings.iter().find_map(|binding| {
+        let Pattern::Binding { id, .. } = binding.pattern else {
+            return None;
+        };
+        match &binding.operation {
+            Operation::MakeClosure { function, captures }
+                if id == result && captures.is_empty() =>
+            {
+                Some(*function)
+            }
+            _ => None,
+        }
+    })
 }

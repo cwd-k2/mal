@@ -1,44 +1,11 @@
 use std::collections::HashMap;
 
-use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::ValueId;
 
-use super::super::ast::{Pattern, TopItem, Type};
+use super::super::ast::Pattern;
 
 const LIMIT: usize = 65_536;
-
-pub(super) fn entry_binding<'a>(
-    items: impl IntoIterator<Item = &'a Node<TopItem>>,
-    program_span: crate::source::Span,
-) -> Result<ValueId, Diagnostic> {
-    for item in items {
-        let TopItem::Binding(binding) = &item.kind else {
-            continue;
-        };
-        if let Pattern::Binding { binding, ty } = &binding.pattern
-            && binding.name.text == "main"
-        {
-            let valid = matches!(
-                ty,
-                Type::Function { parameter, result }
-                    if **result == Type::Int32
-                        && (**parameter == Type::Unit
-                            || **parameter
-                                == Type::Product(vec![Type::USize, Type::Address].into()))
-            );
-            if !valid {
-                return Err(Diagnostic::error("invalid entry point type").with_primary(
-                    binding.name.span,
-                    "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
-                ));
-            }
-            return Ok(binding.id);
-        }
-    }
-    Err(Diagnostic::error("missing entry point")
-        .with_primary(program_span, "the root file must declare `main`"))
-}
 
 pub(super) fn collect_pattern_bindings(
     pattern: &Pattern,

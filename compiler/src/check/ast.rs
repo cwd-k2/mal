@@ -190,6 +190,19 @@ fn shared_id(ty: &Type) -> Option<SharedTypeId> {
 pub struct Program {
     pub items: Vec<Node<TopItem>>,
     pub span: Span,
+    pub entry: Option<EntryPoint>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EntryPoint {
+    pub binding: ValueId,
+    pub parameter: EntryParameter,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EntryParameter {
+    Unit,
+    ProcessArguments,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

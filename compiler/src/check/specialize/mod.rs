@@ -11,7 +11,7 @@ use super::types::substitute_type;
 
 mod admission;
 
-use admission::{admit_specialization, collect_pattern_bindings, entry_binding};
+use admission::{admit_specialization, collect_pattern_bindings};
 
 pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnostic> {
     let identities = next_identities(&program).ok_or_else(|| {
@@ -21,6 +21,10 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         )
     })?;
     let program_span = program.span;
+    let entry = program.entry.ok_or_else(|| {
+        Diagnostic::error("missing entry point")
+            .with_primary(program_span, "the root file must declare `main`")
+    })?;
     let mut definitions = HashMap::new();
     let mut bindings = Vec::new();
     let mut binding_items = HashMap::new();
@@ -52,8 +56,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         next_value: identities.value,
         next_lambda: identities.lambda,
     };
-    let main = specializer.main_binding(program_span)?;
-    specializer.request_binding(main)?;
+    specializer.request_binding(entry.binding)?;
     let mut cursor = 0;
     while cursor < specializer.pending.len() {
         let (generic, arguments, binding) = specializer.pending[cursor].clone();
@@ -94,6 +97,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
     Ok(MonomorphicProgram::new(Program {
         items,
         span: program_span,
+        entry: Some(entry),
     }))
 }
 
@@ -113,10 +117,6 @@ struct Specializer {
 }
 
 impl Specializer {
-    fn main_binding(&self, program_span: crate::source::Span) -> Result<ValueId, Diagnostic> {
-        entry_binding(self.bindings.iter().flatten(), program_span)
-    }
-
     fn request_binding(&mut self, id: ValueId) -> Result<(), Diagnostic> {
         let Some(&index) = self.binding_items.get(&id) else {
             return Ok(());

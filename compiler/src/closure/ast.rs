@@ -9,7 +9,14 @@ pub struct Program {
     pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
+    pub entry: Option<EntryPoint>,
     pub span: Span,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EntryPoint {
+    pub function: FunctionId,
+    pub parameter: crate::check::ast::EntryParameter,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

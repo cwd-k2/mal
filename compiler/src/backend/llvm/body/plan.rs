@@ -10,22 +10,14 @@ use super::types::Types;
 use crate::backend::source_layout::SourceLayouts;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
-    let binding = execution.lowered.bindings.iter().find(|binding| {
-        matches!(&binding.pattern, TopLevelPattern::Binding { name, .. } if name == "main")
-    })?;
-    let TopLevelPattern::Binding { ty, .. } = &binding.pattern else {
-        return None;
+    let entry = execution.lowered.entry?;
+    let parameter = match entry.parameter {
+        crate::check::ast::EntryParameter::Unit => Type::Unit,
+        crate::check::ast::EntryParameter::ProcessArguments => {
+            Type::Product(vec![Type::USize, Type::Address].into())
+        }
     };
-    let Type::Function { parameter, result } = ty else {
-        return None;
-    };
-    if **result != Type::Int32
-        || (**parameter != Type::Unit
-            && **parameter != Type::Product(vec![Type::USize, Type::Address].into()))
-    {
-        return None;
-    }
-    Some((closure_binding_function(binding)?, (**parameter).clone()))
+    Some((entry.function, parameter))
 }
 
 pub(super) struct TopLevelConstants {
@@ -385,25 +377,6 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
     Some(Constant {
         ty: result_type.clone(),
         kind: ConstantKind::Value(representation),
-    })
-}
-
-fn closure_binding_function(binding: &crate::closure::ast::TopLevelBinding) -> Option<FunctionId> {
-    let AtomKind::Reference(Reference::Binding(result)) = binding.value.result.kind else {
-        return None;
-    };
-    binding.value.bindings.iter().find_map(|binding| {
-        let Pattern::Binding { id, .. } = binding.pattern else {
-            return None;
-        };
-        match &binding.operation {
-            crate::closure::ast::Operation::MakeClosure { function, captures }
-                if id == result && captures.is_empty() =>
-            {
-                Some(*function)
-            }
-            _ => None,
-        }
     })
 }
 

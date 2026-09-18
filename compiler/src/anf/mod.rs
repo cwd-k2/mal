@@ -28,6 +28,10 @@ impl Lowerer {
                 .iter()
                 .map(|binding| self.lower_top_level_binding(binding))
                 .collect(),
+            entry: program.entry.map(|entry| ast::EntryPoint {
+                binding: self.core_id(entry.binding),
+                parameter: entry.parameter,
+            }),
             span: program.span,
         }
     }

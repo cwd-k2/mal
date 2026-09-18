@@ -64,6 +64,10 @@ impl Lowerer {
         Program {
             interface: lower_interface(program),
             bindings,
+            entry: program.entry.map(|entry| ast::EntryPoint {
+                binding: ValueId::Source(entry.binding),
+                parameter: entry.parameter,
+            }),
             span: program.span,
         }
     }

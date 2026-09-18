@@ -15,7 +15,14 @@ pub enum ValueId {
 pub struct Program {
     pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
+    pub entry: Option<EntryPoint>,
     pub span: Span,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EntryPoint {
+    pub binding: ValueId,
+    pub parameter: crate::check::ast::EntryParameter,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

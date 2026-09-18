@@ -137,6 +137,7 @@ impl Checker {
         self.collect_external_signatures(program)?;
 
         let mut items = Vec::with_capacity(program.items.len());
+        let mut entry = None;
         for item in &program.items {
             if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
                 continue;
@@ -200,7 +201,9 @@ impl Checker {
                 resolved::TopItem::Binding(binding) => {
                     let checked = self.check_binding(binding, item.span)?;
                     self.check_top_level_initializer(&checked.value)?;
-                    validate_entry_binding(&checked)?;
+                    if let Some(candidate) = entry_point(&checked)? {
+                        entry = Some(candidate);
+                    }
                     TopItem::Binding(Box::new(checked))
                 }
                 resolved::TopItem::GenericBinding { .. } => {
@@ -215,6 +218,7 @@ impl Checker {
         Ok(Program {
             items,
             span: program.span,
+            entry,
         })
     }
 
@@ -443,26 +447,37 @@ impl Checker {
     }
 }
 
-fn validate_entry_binding(binding: &Binding) -> Result<(), Diagnostic> {
+fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic> {
     let Pattern::Binding { binding: name, ty } = &binding.pattern else {
-        return Ok(());
+        return Ok(None);
     };
     if name.name.text != "main" {
-        return Ok(());
+        return Ok(None);
     }
-    let valid = matches!(
-        ty,
-        Type::Function { parameter, result }
-            if **result == Type::Int32
-                && (**parameter == Type::Unit
-                    || **parameter == Type::Product(vec![Type::USize, Type::Address].into()))
-    );
-    if valid {
-        Ok(())
-    } else {
-        Err(Diagnostic::error("invalid entry point type").with_primary(
+    let Type::Function { parameter, result } = ty else {
+        return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
             "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
-        ))
+        ));
+    };
+    let parameter = if **parameter == Type::Unit {
+        ast::EntryParameter::Unit
+    } else if **parameter == Type::Product(vec![Type::USize, Type::Address].into()) {
+        ast::EntryParameter::ProcessArguments
+    } else {
+        return Err(Diagnostic::error("invalid entry point type").with_primary(
+            name.name.span,
+            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+        ));
+    };
+    if **result != Type::Int32 {
+        return Err(Diagnostic::error("invalid entry point type").with_primary(
+            name.name.span,
+            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+        ));
     }
+    Ok(Some(ast::EntryPoint {
+        binding: name.id,
+        parameter,
+    }))
 }

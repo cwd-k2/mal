@@ -34,7 +34,7 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `lexer` | 文字列からtokenへのadmissionとlexical error |
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
 | `resolve` | name identity、scope、lexical captureの推論 |
-| `types` / `check` | canonical typeとtyped AST、type ruleのvalidation |
+| `types` / `check` | canonical typeとtyped AST、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
@@ -93,7 +93,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | lexer/parser | generic parameter/argument、closed shape、postfix chain、共有tokenをsource-oriented ASTへ構成する。型やnameから構文を選ばない |
 | resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
 | check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
-| specialization | generic宣言の有無によらず`main`から到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
+| specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
@@ -119,7 +119,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
 | `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
 | `resolve/expression` | expression、左結合operator列の反復走査、transitive capture、result authorityの解決とnested lambdaからのcapture拒否 |
-| `check` | program順序、value environment、result target、body item列の到達可能性、checked itemの構成 |
+| `check` | program順序、value environment、entry identityとparameter form、result target、body item列の到達可能性、checked itemの構成 |
 | `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
 | `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
@@ -149,7 +149,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、lambda-local join identityを保持 |
-| `closure` | lambdaをfunctionとenvironmentへ変換し、同じfunction内のjoin bodyを保持 |
+| `closure` | lambdaをfunctionとenvironmentへ変換し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成 |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
@@ -177,7 +177,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
-| `backend/llvm/body/plan` | root、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
+| `backend/llvm/body/plan` | closure stageが確定したentry function、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
 | `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
 | `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |

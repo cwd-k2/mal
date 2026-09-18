@@ -49,6 +49,39 @@ fn emits_targeted_llvm_and_a_c_shim_from_one_bridge_plan() {
 }
 
 #[test]
+fn selects_the_entry_function_from_checked_identity() {
+    let source = SourceFile::new(
+        FileId::new(94),
+        "llvm-entry-identity.mal",
+        "main :: Unit -> Int32 := () -> { 7i32; };".into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check LLVM fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let mut closure = crate::closure::convert(&anf);
+    let crate::closure::ast::TopLevelPattern::Binding { name, .. } =
+        &mut closure.bindings[0].pattern
+    else {
+        panic!("entry is a binding");
+    };
+    name.clear();
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("entry metadata is not reinterpreted by the backend");
+    assert!(artifacts.module.contains("ret i32 7"));
+}
+
+#[test]
 fn emits_typed_scalar_cursor_access_with_exact_alignment() {
     let source = SourceFile::new(
         FileId::new(89),
