@@ -328,3 +328,22 @@ direct Cとstdoutが一致した。
 大きく、個別medianでは1,310.9から1,155.9 ms、roundごとのpaired median比では0.99だった。039と043もpaired comparisonで
 1.01倍のnoise内だった一方、039のmain textは4,124から3,791 bytesへ縮小した。したがって大幅な時間改善とは扱わず、runtimeが
 所有する一つのoverflow factへ重複判断を戻すminimalityと、instruction・code size削減を採択理由とする。
+
+## 2026-09-19 — 疎なbulkと再帰frameの分離
+
+023の旧`pack`版は最大入力でRSS 442,572 KiB、minor fault 110,292だったのに対し、Regionとdirect Cは約187,720 KiB、
+46,800だった。allocation syscallではstorageが260 KiBから512 MiBまで11回拡張されていた。2^24要素の疎なzero tableを
+逐次`new(0)`したため、RegionとCでは`calloc`後に未変更のまま残るpageまで物理化したことが差の原因だった。
+
+profile数とcompatibility pair数は入力幅から漸化式で厳密に求められる。canonical sourceでその合計を`bulk` capacityへ渡すと、
+maximum outputを保ったままRSS 187,724 KiB、minor fault 46,797となった。2 warmup、回転10 roundのmedianはexact bulk
+1,120.34 ms、旧pack 1,152.59 ms、Region 1,023.86 ms、direct C 803.74 msだった。これはruntime growth policyの変更ではなく、
+既知の正確なsizeをsourceのconstruction authorityへ戻した改善である。
+
+032のdirect Cはbestをmutable cellへ保存する一方、旧malはbestをnon-tail再帰のresultとして全frameから返していた。同じalgorithmへ
+揃えるため、Packed版を`bulk`で初期値を作り、`edit`中の探索でbestを更新し、freeze後に読む形へ変更した。診断Regionにも同じ
+mutable cellを使った。3 warmup、回転20 roundのmedianはPacked 58.84 ms、Region 58.82 ms、旧Packed 64.96 ms、direct C
+38.00 msだった。Packed固有差はなくなったが、最終assemblyではMalがnon-tail childごとに不変な探索contextを含む96--104 byteを
+control frameへ保存し、Cは`Search *`一語を渡していた。semantic live-in自体は正しいため、backendが独自にfieldを削る根拠にはしない。
+将来の改善には、recursive regionの全edgeが同じparameter bindingをpass-throughする事実をexecution stageで証明し、ownershipと
+resumeを保ったphysical frame decisionへする必要がある。
