@@ -316,6 +316,7 @@ fn passes_active_data_to_non_growing_buffer_helpers() {
         .and_then(|body| body.split("\ndefine ").next())
         .expect("baseline read helper");
     assert!(!production_read.contains("@mal_runtime_packed_builder_data_slot"));
+    assert!(production_read.contains("ptr noalias %mal_buffer_data"));
     assert!(baseline_read.contains("@mal_runtime_packed_builder_data_slot"));
 }
 

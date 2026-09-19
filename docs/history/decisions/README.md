@@ -22,7 +22,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | source file requirement | [D032](D032.md) |
 | genericsとexternal memory | [D052](D052.md)、[D056](D056.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
-| Packed execution | [D058](D058.md)、[D061](D061.md)、[D062](D062.md)、[D063](D063.md) |
+| Packed execution | [D058](D058.md)、[D061](D061.md)、[D062](D062.md)、[D063](D063.md)、[D064](D064.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -50,6 +50,7 @@ D058はD055とD057のresponsibility保存則をcall boundaryへ適用し、calle
 D061は三つのintrinsic capabilityとtarget解析を一つの`Buffer<A>` authorityとdirect operationで置き換える。
 D062は仕様が許す二つのprepare時点からcallback前の一度を選び、D060のlazy preparationを置き換える。
 D063はD059のcapability単位のstable accessを置き換え、non-growing Buffer helperのinternal ABIをactive dataへ変換する。
+D064は同じABIへfunction invocation中だけ有効なactive dataの`noalias` contractを加える。
 
 ## 後継があるhistorical record
 

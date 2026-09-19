@@ -172,14 +172,19 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(super) fn emit(mut self) -> Option<EmittedFunction> {
         self.emit_environment_destructor()?;
+        let direct_buffer = self.optimizations.uses_direct_buffer(self.function.id);
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            format!(
+            let mut parameters = format!(
                 "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
                 parameter.llvm
-            )
+            );
+            if direct_buffer {
+                parameters.push_str(", ptr noalias %mal_buffer_data");
+            }
+            parameters
         };
         let result = self.types.value(&self.result_type)?;
         self.line(format!(
@@ -248,9 +253,18 @@ impl<'a> FunctionEmitter<'a> {
         if matches!(parameter_destination, ParameterDestination::Bind(_))
             || crate::execution::ownership::is_managed(&self.function.parameter.ty)
         {
+            let representation = if direct_buffer {
+                self.replace_buffer_leaf(
+                    &self.function.parameter.ty.clone(),
+                    "%mal_parameter",
+                    "%mal_buffer_data",
+                )?
+            } else {
+                "%mal_parameter".into()
+            };
             let parameter = EmittedValue {
                 ty: self.function.parameter.ty.clone(),
-                representation: "%mal_parameter".into(),
+                representation,
                 owned: false,
             };
             self.emit_parameter_handoff(

@@ -200,6 +200,50 @@ fn prepares_edit_once_before_lowering_recursive_packed_access() {
 }
 
 #[test]
+fn preserves_a_packed_source_observed_during_its_edit() {
+    let directory = NativeFixture::new("driver-llvm-packed-buffer-noalias");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "update :: (Buffer<Int32>, Packed<Int32>) -> Unit := (buffer, source) -> {
+           buffer.put(0usize, (source # 0usize) + 2i32);
+           buffer.put(1usize, (source # 1usize) + 3i32);
+         };
+
+         main :: Unit -> Int32 := () -> {
+           original := pack<Int32>((buffer) -> {
+             _ := buffer.new(40i32);
+             _ := buffer.new(50i32);
+             ();
+           });
+           changed := original.edit<Int32>((buffer) -> update(buffer, original));
+           (original # 0usize) - 40i32 + (original # 1usize) - 50i32
+             + (changed # 0usize) - 42i32 + (changed # 1usize) - 53i32;
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&executable).status.code(), Some(0));
+
+    let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(llvm.contains("ptr noalias %mal_buffer_data"));
+}
+
+#[test]
 fn prepares_an_edit_before_entering_its_callback() {
     let directory = NativeFixture::new("driver-llvm-noop-packed-edit");
     let source = directory.join("program.mal");

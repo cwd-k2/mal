@@ -302,3 +302,18 @@ slot loadとelement accessへ別々の独自TBAA tagを付けていたが、LTO�
 共有しない。したがってslot tagはC側の更新とaliasしないという、実装境界を越えた未証明の主張だった。data slot loadを保守的な
 untagged accessへ戻し、mal-owned element storageのtagだけを維持した。`get`の直後に`new`してgrowthを繰り返すbaseline/production
 native regressionと、通常Packed corpusのmaximum-order比較でこの境界を検査する。
+
+## 2026-09-19 — Buffer helper invocationのnoalias active data
+
+011の自然なpack-edit-walk版を最終assemblyまで比較すると、DPを更新するBuffer storeのために、別のimmutable Packedから読むjobの
+durationとrewardがinner loopで再loadされていた。最大RSSはPacked、edit、Region、direct Cのすべてで約1.98 MiB、major faultは0、
+editとRegionのmemory-management syscallはともに11回であり、working setやallocation量ではこの差を説明できなかった。
+
+callback中のimmutable Packedとmutable Bufferを恒久的な別TBAA typeにする診断版は同じ再loadを除去したが、freeze後にはPacked resultが
+Bufferと同じstorageを読むため棄却した。代わりにD063のnon-growing helper ABIへactive data pointerを一つ追加し、そのfunction引数に
+だけ`noalias`を付けた。edit callback前のprepareは、同じownerを観測できるimmutable viewが残る場合にcopyするため、この契約は
+function invocation中だけ成立する。複数Buffer leafは互いにaliasし得るので対象外にした。
+
+変更前、変更後、Region、direct Cを3 warmup・回転20回で測った011のmedianは11.293、6.524、7.391、7.310 msだった。
+shared sourceをcallback内で読みながらeditするnative regressionを通し、通常Packed 67問とedit 9問もmaximum inputでRegionおよび
+direct Cとstdoutが一致した。

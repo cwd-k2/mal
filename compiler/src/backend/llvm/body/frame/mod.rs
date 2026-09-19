@@ -289,11 +289,12 @@ impl FunctionEmitter<'_> {
             let arguments = if argument.ty == Type::Unit {
                 format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
             } else {
-                let argument_type = self.types.value(&argument.ty)?;
-                format!(
-                    "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
-                    argument_type.llvm, argument.representation
-                )
+                let target_uses_direct_buffer = self
+                    .optimizations
+                    .site_uses_direct_buffer(&self.execution.applications, site);
+                let argument =
+                    self.adapt_buffer_argument(argument.clone(), target_uses_direct_buffer)?;
+                self.call_arguments(environment, &argument, target_uses_direct_buffer)?
             };
             let returned = self.register();
             self.line(format!(
