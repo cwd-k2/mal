@@ -53,8 +53,8 @@ impl Checker {
                 let ExpressionKind::Product(mut elements) = checked.kind else {
                     unreachable!("two checked arguments form a product")
                 };
-                let callback = elements.pop().expect("bulk has a callback argument");
-                let capacity = elements.pop().expect("bulk has a capacity argument");
+                let callback = elements.pop().expect("make has a callback argument");
+                let capacity = elements.pop().expect("make has a capacity argument");
                 (
                     PackedBuild::Make {
                         capacity: Box::new(capacity),

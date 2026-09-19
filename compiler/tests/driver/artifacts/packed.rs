@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn starts_a_count_zero_buffer_with_requested_capacity() {
-    let directory = NativeFixture::new("driver-llvm-packed-bulk");
+    let directory = NativeFixture::new("driver-llvm-packed-make");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     let artifacts = directory.join("artifacts");

@@ -10,8 +10,9 @@ continues through core, ANF, closure conversion, application control planning, a
 
 The implemented language slice includes closures, products, sums, fixed-width integers, strict
 floating point, byte and `Symbol` literals, postfix numeric conversions, explicit generics,
-target-sized quantities, typed `Cursor` and `Region` external memory access, owned `Packed`
-sequences, external opaque types, and the aggregate C host ABI. See the
+target-sized quantities, scoped `Region` views over external `Address` values, owned `Packed`
+sequences and their scoped `Buffer` construction, external opaque types, and the aggregate C host
+ABI. See the
 [compiler responsibilities](../docs/implementation/responsibilities.md) and
 [implementation notes](../docs/implementation/compiler.md) for the current structure.
 

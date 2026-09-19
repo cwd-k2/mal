@@ -10,7 +10,7 @@ Status: Draft proposal; non-normative
 recursive typeおよびmanaged elementを持つ`Packed`は本proposalの前提にしない。まず現行の`Representable(T)`境界を保ち、次を組み合わせる。
 
 - topologyを`USize` indexとして`Packed<NodeRecord>`へ格納する。
-- 新しい構造は`pack((buffer) -> ...)`内の`Buffer` operationで構築する。
+- 新しい構造は`make(capacity, (buffer) -> ...)`内の`Buffer` operationで構築する。
 - 既存構造へのnode追加または置換は`edit(source, (buffer) -> ...)`内で行う。
 - traversal、結合、挿入、rotationはindexを辿る通常の再帰関数として書く。
 
@@ -60,8 +60,8 @@ mergeAt ::
 
 mergeTrees :: (Tree, Tree) -> Tree :=
     (leftTree, rightTree) ->
-        pack<TreeNode>((buffer) -> {
-            _ := mergeAt(
+        make<TreeNode>(#leftTree, (buffer) -> {
+            mergeAt(
                 leftTree, 0usize, rightTree, 0usize, buffer
             );
             ()
@@ -73,7 +73,7 @@ mergeTrees :: (Tree, Tree) -> Tree :=
 
 ## topologyを保つ`edit`
 
-同じshapeなら、左treeのlinkを保ったまま値だけを更新できる。この用途ではnode追加がないため`pack`より`edit`が狭く、ownerが一意なら
+同じshapeなら、左treeのlinkを保ったまま値だけを更新できる。この用途ではnode追加がないため`make`より`edit`が狭く、ownerが一意なら
 storage再利用の余地もある。
 
 ```mal
@@ -96,7 +96,7 @@ addIntoAt ::
 
 mergeSameShape :: (Tree, Tree) -> Tree :=
     (leftTree, rightTree) ->
-        edit<TreeNode>(leftTree, (buffer) ->
+        leftTree.edit<TreeNode>((buffer) ->
             addIntoAt(rightTree, 0usize, 0usize, buffer)
         );
 ```
@@ -130,4 +130,4 @@ graphにcycleがある場合、単純な再帰traversalは停止しない。visi
 - index remapとheader conventionのprogram負担が、型検査とmanaged element runtimeの追加costを上回る。
 
 再評価時にはrecursive aliasだけでなく、managed elementの構築、index resultのownership、slice、growth時のmove、深さに依存しないreleaseを
-一緒に解決する。これらは`pack`によるflat indexed structureの採択を妨げない独立段階とする。
+一緒に解決する。これらは`Packed`によるflat indexed structureの採択を妨げない独立段階とする。

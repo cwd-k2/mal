@@ -3,7 +3,7 @@
 Status: Draft example; non-normative
 
 この文書は[indexで結ぶ`Packed`構造](indexed-packed-structures.md)に対し、node追加とAVL rotationを
-`pack`と`edit`が渡す`Buffer`の`new/get/put`で書く具体例を示す。APIの型と意味は
+`make`と`edit`が渡す`Buffer`の`new/get/put`で書く具体例を示す。APIの型と意味は
 [`Packed`構築と編集](../spec/packed.md#scoped-constructionとediting)を正とし、ここでは
 tree固有のalgorithmとpreconditionだけを扱う。
 
@@ -141,7 +141,7 @@ parentへ書き戻す。構造の再帰を型ではなくこのoperation contrac
 
 ```mal
 balancedExample :: Unit -> AvlTree := () ->
-    pack<AvlEntry>((buffer) -> {
+    make<AvlEntry>(7usize, (buffer) -> {
         header := buffer.new((0i32, 0usize, 0usize, 0usize));
 
         root1 := insertAt(0usize, 30i32, buffer);
@@ -174,7 +174,7 @@ nodeの物理順序は`new`の実行順のままであり、rootがどのindex�
 ```mal
 insertTree :: (AvlTree, Int32) -> AvlTree :=
     (source, key) ->
-        edit<AvlEntry>(source, (buffer) -> {
+        source.edit<AvlEntry>((buffer) -> {
             (_, _, oldRoot, _) := buffer.get(0usize);
             newRoot := insertAt(oldRoot, key, buffer);
             buffer.put(0usize, (0i32, 0usize, newRoot, 0usize));
@@ -185,4 +185,4 @@ sourceは不変である。correctness baselineは最初の`new`または`put`�
 capacityに余裕がある場合は同じstorageをresultへ移して追加できるが、これはoptional optimizationでありobservable semanticsには含めない。
 
 同じnode数のrotationやkey更新では`new`を使わず、`get/put`だけでよい。末尾の未使用nodeは完成後の`/`で落とせるが、中間の
-unreachable nodeを除いてindexを詰め直す処理は`pack`で再構築する。
+unreachable nodeを除いてindexを詰め直す処理は`make`で再構築する。
