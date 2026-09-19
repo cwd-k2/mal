@@ -18,7 +18,8 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(site)?.clone();
         let tagged = self.frame_sites.len() != 1;
-        let layout = FrameLayout::new(&frame, self.types.clone(), tagged)?;
+        let pass_through = self.physical_frame_pass_through(&frame);
+        let layout = FrameLayout::new(&frame, self.types.clone(), tagged, &pass_through)?;
         let index_type = self.types.pointer_integer()?;
         let top = self.register();
         self.line(format!(
@@ -32,7 +33,8 @@ impl FunctionEmitter<'_> {
             .replacement(site)
             .and_then(|retired| {
                 let retired = self.execution.control_frames.frame(retired)?;
-                FrameLayout::new(retired, self.types.clone(), tagged)
+                let pass_through = self.physical_frame_pass_through(retired);
+                FrameLayout::new(retired, self.types.clone(), tagged, &pass_through)
             })
             .is_some_and(|retired| layout.size <= retired.size);
         if replacement {
@@ -75,7 +77,8 @@ impl FunctionEmitter<'_> {
                 self.prepare_binding_for_use(field.id, effect)
             })
             .collect::<Option<Vec<_>>>()?;
-        for (value, layout) in prepared_fields.iter().zip(&layout.fields) {
+        for layout in &layout.fields {
+            let value = prepared_fields.get(layout.index)?;
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
@@ -147,6 +150,22 @@ impl FunctionEmitter<'_> {
             self.line(format!("  br label %mal_state_{}", self.function.entry.0));
             Some(())
         }
+    }
+
+    fn physical_frame_pass_through(
+        &self,
+        frame: &crate::execution::ControlFrame,
+    ) -> std::collections::HashSet<crate::anf::ast::ValueId> {
+        frame
+            .fields
+            .iter()
+            .filter(|field| {
+                frame.pass_through.contains(&field.id)
+                    && (!crate::execution::ownership::is_managed(&field.ty)
+                        || self.ownership.binding_is_borrowed(field.id))
+            })
+            .map(|field| field.id)
+            .collect()
     }
 
     pub(super) fn emit_region_transition(

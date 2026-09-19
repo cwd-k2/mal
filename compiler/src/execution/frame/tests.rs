@@ -40,22 +40,22 @@ fn validates_exact_frame_sites_and_payloads() {
     let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
     let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
-    let mut plan = ControlFramePlan::new(&control, &regions, &calls);
+    let mut plan = ControlFramePlan::new(&control, &regions, &calls, &optimizations);
 
-    assert!(plan.is_valid(&control, &regions, &calls));
+    assert!(plan.is_valid(&control, &regions, &calls, &optimizations));
     assert!(!plan.frames.is_empty());
     assert!(!plan.resumes.pairs.is_empty());
 
     let frame_site = *plan.frames.keys().next().expect("frame site");
     let mut frame = plan.frames.remove(&frame_site).expect("frame");
-    assert!(!plan.is_valid(&control, &regions, &calls));
+    assert!(!plan.is_valid(&control, &regions, &calls, &optimizations));
     let resume = frame.resume;
     frame.resume = control.functions[0].entry;
     plan.frames.insert(frame_site, frame.clone());
-    assert!(!plan.is_valid(&control, &regions, &calls));
+    assert!(!plan.is_valid(&control, &regions, &calls, &optimizations));
     frame.resume = resume;
     plan.frames.insert(frame_site, frame);
-    assert!(plan.is_valid(&control, &regions, &calls));
+    assert!(plan.is_valid(&control, &regions, &calls, &optimizations));
 
     let relation = *plan
         .resumes
@@ -64,7 +64,7 @@ fn validates_exact_frame_sites_and_payloads() {
         .next()
         .expect("compatible frame resume");
     plan.resumes.compatible.remove(&relation);
-    assert!(!plan.is_valid(&control, &regions, &calls));
+    assert!(!plan.is_valid(&control, &regions, &calls, &optimizations));
 }
 
 #[test]
@@ -114,9 +114,9 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
     let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
     let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
-    let plan = ControlFramePlan::new(&control, &regions, &calls);
+    let plan = ControlFramePlan::new(&control, &regions, &calls, &optimizations);
 
-    assert!(plan.is_valid(&control, &regions, &calls));
+    assert!(plan.is_valid(&control, &regions, &calls, &optimizations));
     assert!(
         plan.resumes
             .pairs
@@ -164,9 +164,9 @@ fn replaces_a_retired_frame_only_on_a_must_resume_path() {
     let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
     let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
-    let mut plan = ControlFramePlan::new(&control, &regions, &calls);
+    let mut plan = ControlFramePlan::new(&control, &regions, &calls, &optimizations);
 
-    assert!(plan.is_valid(&control, &regions, &calls));
+    assert!(plan.is_valid(&control, &regions, &calls, &optimizations));
     assert_eq!(plan.replacements.replacements.len(), 1);
     let (&site, &retired) = plan
         .replacements
@@ -178,7 +178,7 @@ fn replaces_a_retired_frame_only_on_a_must_resume_path() {
     assert!(plan.frames.contains_key(&retired));
     assert_ne!(site, retired);
     plan.replacements.replacements.remove(&site);
-    assert!(!plan.is_valid(&control, &regions, &calls));
+    assert!(!plan.is_valid(&control, &regions, &calls, &optimizations));
 }
 
 #[test]
@@ -261,5 +261,5 @@ fn frame_plan(source: &str) -> ControlFramePlan {
     let continuations = ContinuationGraph::new(&applications, &optimizations);
     let regions = ControlRegionPlan::new(&control, &continuations);
     let calls = ControlCallPlan::new(&control, &applications, &optimizations, &regions);
-    ControlFramePlan::new(&control, &regions, &calls)
+    ControlFramePlan::new(&control, &regions, &calls, &optimizations)
 }

@@ -6,6 +6,7 @@ use crate::control::ast::{self as control, StateId};
 use super::ApplicationGraph;
 
 mod direct_call;
+mod frame_pass_through;
 mod self_tail;
 mod tail_forwarder;
 mod unique_capture;
@@ -16,6 +17,7 @@ pub(crate) enum Technique {
     SelfTail,
     TailForwarder,
     UniqueCapture,
+    FramePassThrough,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,6 +34,7 @@ impl OptimizationSet {
             .with(Technique::SelfTail)
             .with(Technique::TailForwarder)
             .with(Technique::UniqueCapture)
+            .with(Technique::FramePassThrough)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -48,6 +51,7 @@ pub(crate) struct OptimizationPlan {
     forwarded_self_arguments: HashMap<StateId, closure::Atom>,
     direct_targets: HashMap<StateId, FunctionId>,
     unique_captures: HashSet<AtomId>,
+    frame_pass_through: HashMap<StateId, HashSet<crate::anf::ast::ValueId>>,
 }
 
 impl OptimizationPlan {
@@ -79,11 +83,17 @@ impl OptimizationPlan {
         } else {
             HashSet::new()
         };
+        let frame_pass_through = if enabled.contains(Technique::FramePassThrough) {
+            frame_pass_through::plan(control, applications)
+        } else {
+            HashMap::new()
+        };
         Self {
             fused_sites,
             forwarded_self_arguments,
             direct_targets,
             unique_captures,
+            frame_pass_through,
         }
     }
 
@@ -103,6 +113,7 @@ impl OptimizationPlan {
             && self.forwarded_self_arguments == expected.forwarded_self_arguments
             && self.direct_targets == expected.direct_targets
             && self.unique_captures == expected.unique_captures
+            && self.frame_pass_through == expected.frame_pass_through
     }
 
     pub(super) fn forwarded_self_arguments(&self) -> &HashMap<StateId, closure::Atom> {
@@ -115,6 +126,13 @@ impl OptimizationPlan {
 
     pub(crate) fn takes_unique_capture(&self, atom: AtomId) -> bool {
         self.unique_captures.contains(&atom)
+    }
+
+    pub(crate) fn frame_pass_through(
+        &self,
+        site: StateId,
+    ) -> Option<&HashSet<crate::anf::ast::ValueId>> {
+        self.frame_pass_through.get(&site)
     }
 }
 
@@ -177,6 +195,7 @@ mod tests {
         assert!(plan.forwarded_self_arguments.is_empty());
         assert!(plan.direct_targets.is_empty());
         assert!(plan.unique_captures.is_empty());
+        assert!(plan.frame_pass_through.is_empty());
         assert!(plan.is_valid(&closure, &control, &applications, OptimizationSet::none()));
     }
 
@@ -215,6 +234,50 @@ mod tests {
                 .unique_captures
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn selects_only_parameter_fields_preserved_by_every_self_recursive_edge() {
+        let source = SourceFile::new(
+            FileId::new(93),
+            "frame-pass-through-plan.mal",
+            "walk :: (Int32, Int32) -> Int32 := (fixed, depth) -> {
+               if (depth == 0i32) then { fixed } else {
+                 child := walk(fixed, depth - 1i32);
+                 child + fixed;
+               };
+             };
+             changed :: (Int32, Int32) -> Int32 := (fixed, depth) -> {
+               if (depth == 0i32) then { fixed } else {
+                 child := changed(fixed + 1i32, depth - 1i32);
+                 child + fixed;
+               };
+             };
+             main :: Unit -> Int32 := () -> { walk(1i32, 2i32) + changed(1i32, 2i32) - 8i32; };"
+                .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check frame pass-through fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize frame pass-through fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let enabled = OptimizationSet::none().with(Technique::FramePassThrough);
+        let mut plan = OptimizationPlan::new(&closure, &control, &applications, enabled);
+
+        assert_eq!(plan.frame_pass_through.len(), 1);
+        assert_eq!(plan.frame_pass_through.values().next().unwrap().len(), 1);
+        assert!(plan.is_valid(&closure, &control, &applications, enabled));
+        assert!(
+            OptimizationPlan::new(&closure, &control, &applications, OptimizationSet::none())
+                .frame_pass_through
+                .is_empty()
+        );
+        plan.frame_pass_through.clear();
+        assert!(!plan.is_valid(&closure, &control, &applications, enabled));
     }
 
     #[test]

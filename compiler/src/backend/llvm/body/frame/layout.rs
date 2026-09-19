@@ -8,6 +8,7 @@ pub(super) struct FrameLayout {
 }
 
 pub(super) struct FieldLayout {
+    pub(super) index: usize,
     pub(super) offset: usize,
     pub(super) value_type: ValueType,
 }
@@ -17,16 +18,24 @@ impl FrameLayout {
         frame: &crate::execution::ControlFrame,
         types: Types,
         tagged: bool,
+        pass_through: &std::collections::HashSet<crate::anf::ast::ValueId>,
     ) -> Option<Self> {
         let mut offset = usize::from(tagged) * 4;
         let mut frame_alignment = 1;
         let mut fields = Vec::with_capacity(frame.fields.len());
-        for field in &frame.fields {
+        for (index, field) in frame.fields.iter().enumerate() {
+            if pass_through.contains(&field.id) {
+                continue;
+            }
             let value_type = types.value(&field.ty)?;
             frame_alignment = frame_alignment.max(value_type.alignment);
             offset = align(offset, value_type.alignment)?;
             let size = value_type.size;
-            fields.push(FieldLayout { offset, value_type });
+            fields.push(FieldLayout {
+                index,
+                offset,
+                value_type,
+            });
             offset = offset.checked_add(size)?;
         }
         let environment = if frame.carries_environment {
@@ -78,6 +87,7 @@ mod tests {
                 })
                 .collect(),
             carries_environment: false,
+            pass_through: std::collections::HashSet::new(),
         }
     }
 
@@ -93,8 +103,11 @@ mod tests {
         })
         .unwrap();
 
-        let narrow = FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), false).unwrap();
-        let wide = FrameLayout::new(&frame(vec![Type::Float64]), types.clone(), true).unwrap();
+        let empty = std::collections::HashSet::new();
+        let narrow =
+            FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), false, &empty).unwrap();
+        let wide =
+            FrameLayout::new(&frame(vec![Type::Float64]), types.clone(), true, &empty).unwrap();
 
         assert_eq!(types.maximum_value_alignment(), 16);
         assert_eq!(narrow.size, 16);
@@ -116,8 +129,11 @@ mod tests {
         })
         .unwrap();
 
-        let first = FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), true).unwrap();
-        let second = FrameLayout::new(&frame(vec![Type::UInt16]), types.clone(), true).unwrap();
+        let empty = std::collections::HashSet::new();
+        let first =
+            FrameLayout::new(&frame(vec![Type::UInt8]), types.clone(), true, &empty).unwrap();
+        let second =
+            FrameLayout::new(&frame(vec![Type::UInt16]), types.clone(), true, &empty).unwrap();
 
         assert_eq!(types.maximum_value_alignment(), 2);
         assert_eq!(first.size % 4, 0);

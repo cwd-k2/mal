@@ -1,4 +1,56 @@
 use super::*;
+
+#[test]
+fn omits_self_recursive_parameter_fields_preserved_by_every_edge() {
+    let directory = NativeFixture::new("driver-llvm-frame-pass-through");
+    let source = directory.join("program.mal");
+    let baseline = directory.join("baseline");
+    let production = directory.join("production");
+    let baseline_artifacts = directory.join("baseline-artifacts");
+    let production_artifacts = directory.join("production-artifacts");
+    directory.write(
+        "program.mal",
+        "Values :: Packed<Int32>;
+         walk :: (Values, Int32) -> Int32 := (fixed, depth) -> {
+           if (depth == 0i32) then { fixed # 0usize } else {
+             child := walk(fixed, depth - 1i32);
+             child + fixed # 0usize;
+           };
+         };
+         main :: Unit -> Int32 := () -> {
+           fixed := bulk<Int32>(1usize, (buffer) -> { _ := buffer.new(1i32); (); });
+           walk(fixed, 10000i32) - 10001i32;
+         };",
+    );
+
+    for (executable, artifacts, profile) in [
+        (&baseline, &baseline_artifacts, "baseline"),
+        (&production, &production_artifacts, "production"),
+    ] {
+        let output = directory.malc([
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(profile),
+        ]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(executable).status.code(), Some(0));
+    }
+
+    let baseline_module = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
+    let production_module =
+        std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
+    assert!(baseline_module.contains("i64 24)"));
+    assert!(production_module.contains("i64 8)"));
+}
 #[test]
 fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
     let directory = NativeFixture::new("driver-llvm-frame");

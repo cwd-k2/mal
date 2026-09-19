@@ -185,6 +185,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/optimization/tail_forwarder` | pure tail-forwarder fusion候補 |
 | `execution/optimization/direct_call` | known-target call候補 |
 | `execution/optimization/unique_capture` | 一回限りのentry callbackで移動可能なcapture |
+| `execution/optimization/frame_pass_through` | 全自己再帰edgeが保持するparameter field |
 | `execution/continuation` | possible application graphから選択済みcontinuation elisionを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | applicationのcall mode |

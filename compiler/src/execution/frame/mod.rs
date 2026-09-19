@@ -19,6 +19,7 @@ pub(crate) struct ControlFramePlan {
 pub(crate) struct ControlFrame {
     pub(crate) resume: StateId,
     pub(crate) fields: Vec<LiveValue>,
+    pub(crate) pass_through: HashSet<crate::anf::ast::ValueId>,
     pub(crate) carries_environment: bool,
 }
 
@@ -27,6 +28,7 @@ impl ControlFramePlan {
         program: &control::Program,
         regions: &ControlRegionPlan,
         calls: &ControlCallPlan,
+        optimizations: &super::OptimizationPlan,
     ) -> Self {
         let mut frames = HashMap::new();
         for (index, state) in program.states.iter().enumerate() {
@@ -43,6 +45,10 @@ impl ControlFramePlan {
                 ControlFrame {
                     resume,
                     fields: resume_state.live.clone(),
+                    pass_through: optimizations
+                        .frame_pass_through(site)
+                        .cloned()
+                        .unwrap_or_default(),
                     carries_environment: resume_state.needs_environment
                         && calls.requires_common_control(region),
                 },
@@ -74,6 +80,7 @@ impl ControlFramePlan {
         program: &control::Program,
         regions: &ControlRegionPlan,
         calls: &ControlCallPlan,
+        optimizations: &super::OptimizationPlan,
     ) -> bool {
         let expected_sites = program
             .states
@@ -119,6 +126,15 @@ impl ControlFramePlan {
                         .iter()
                         .zip(&program.states[frame.resume.0].live)
                         .all(|(field, live)| field == live)
+                    && frame.pass_through
+                        == optimizations
+                            .frame_pass_through(*site)
+                            .cloned()
+                            .unwrap_or_default()
+                    && frame
+                        .pass_through
+                        .iter()
+                        .all(|id| frame.fields.iter().any(|field| field.id == *id))
                     && frame.carries_environment
                         == (program.states[frame.resume.0].needs_environment
                             && regions

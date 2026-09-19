@@ -64,7 +64,8 @@ impl FunctionEmitter<'_> {
         ));
         if let [frame_site] = frame_sites.as_slice() {
             let frame = self.execution.control_frames.frame(*frame_site)?.clone();
-            let layout = FrameLayout::new(&frame, self.types.clone(), false)?;
+            let pass_through = self.physical_frame_pass_through(&frame);
+            let layout = FrameLayout::new(&frame, self.types.clone(), false, &pass_through)?;
             let previous_top = self.register();
             self.line(format!(
                 "  {previous_top} = sub {index_type} {top}, {}",
@@ -154,7 +155,8 @@ impl FunctionEmitter<'_> {
         tagged: bool,
     ) -> Option<()> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
-        let layout = FrameLayout::new(&frame, self.types.clone(), tagged)?;
+        let pass_through = self.physical_frame_pass_through(&frame);
+        let layout = FrameLayout::new(&frame, self.types.clone(), tagged, &pass_through)?;
         self.line(format!(
             "mal_frame_{}_from_{}:",
             frame_site.0, return_site.0
@@ -170,7 +172,8 @@ impl FunctionEmitter<'_> {
                 return Some(());
             }
         }
-        for (field, layout) in frame.fields.iter().zip(&layout.fields) {
+        for layout in &layout.fields {
+            let field = frame.fields.get(layout.index)?;
             let pointer = self.register();
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",

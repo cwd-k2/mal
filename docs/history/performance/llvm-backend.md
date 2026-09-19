@@ -340,10 +340,8 @@ maximum outputを保ったままRSS 187,724 KiB、minor fault 46,797となった
 1,120.34 ms、旧pack 1,152.59 ms、Region 1,023.86 ms、direct C 803.74 msだった。これはruntime growth policyの変更ではなく、
 既知の正確なsizeをsourceのconstruction authorityへ戻した改善である。
 
-032のdirect Cはbestをmutable cellへ保存する一方、旧malはbestをnon-tail再帰のresultとして全frameから返していた。同じalgorithmへ
-揃えるため、Packed版を`bulk`で初期値を作り、`edit`中の探索でbestを更新し、freeze後に読む形へ変更した。診断Regionにも同じ
-mutable cellを使った。3 warmup、回転20 roundのmedianはPacked 58.84 ms、Region 58.82 ms、旧Packed 64.96 ms、direct C
-38.00 msだった。Packed固有差はなくなったが、最終assemblyではMalがnon-tail childごとに不変な探索contextを含む96--104 byteを
+032のdirect Cはbestをmutable cellへ保存する一方、自然なmal版はbestをnon-tail再帰のresultとして全frameから返す。比較variantとして
+Packedの初期値を`bulk`で作り、`edit`中の探索でbestを更新し、freeze後に読む形も測定した。3 warmup、回転20 roundのmedianは
+mutable Packed 58.84 ms、同形Region 58.82 ms、自然なPacked 64.96 ms、direct C 38.00 msだった。canonical sourceは自然な再帰を
+維持し、Packed mutability版をvariantとする。最終assemblyでは自然なmal版がnon-tail childごとに不変な探索contextを含む96 byteを
 control frameへ保存し、Cは`Search *`一語を渡していた。semantic live-in自体は正しいため、backendが独自にfieldを削る根拠にはしない。
-将来の改善には、recursive regionの全edgeが同じparameter bindingをpass-throughする事実をexecution stageで証明し、ownershipと
-resumeを保ったphysical frame decisionへする必要がある。

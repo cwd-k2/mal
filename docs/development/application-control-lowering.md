@@ -46,8 +46,10 @@ parameter patternを再解釈せず、このdestinationをtarget固有のowner o
 ## continuation frame
 
 同じregion内のnon-tail callだけがcallerをsuspendする。frameはresume state、resume時に必要なlive value、および共通regionで必要な
-active closure environment ownerを保持する。frame field集合はresume stateのlive-inと一致し、backendがclosure IR suffixを再走査して
-増減してはならない。top-level valueはconstant planから再取得できるためframeへ保存しない。`execution/frame/resume`は同じcontrol
+active closure environment ownerを保持する。semantic field集合はresume stateのlive-inと一致し、backendがclosure IR suffixを再走査して
+増減してはならない。全自己再帰edgeが同じparameter bindingを保持するというexecution decisionがあり、そのfieldがownership上borrowの
+場合だけ、LLVMのphysical layoutはfieldをslotに常駐させてframeへのstoreとresume loadを省ける。top-level valueはconstant planから再取得
+できるためframeへ保存しない。`execution/frame/resume`は同じcontrol
 machineに属するreturn siteとframe tagだけを組にし、result型とresume input型が一致する組を`Resume`、それ以外を`Unreachable`とする。
 
 `execution/frame/replacement`はfunctionとtop-levelの入口を通常到達、frameのresume stateをそのframeの退役後到達として

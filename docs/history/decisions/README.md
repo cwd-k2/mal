@@ -51,6 +51,7 @@ D061は三つのintrinsic capabilityとtarget解析を一つの`Buffer<A>` autho
 D062は仕様が許す二つのprepare時点からcallback前の一度を選び、D060のlazy preparationを置き換える。
 D063はD059のcapability単位のstable accessを置き換え、non-growing Buffer helperのinternal ABIをactive dataへ変換する。
 D064は同じABIへfunction invocation中だけ有効なactive dataの`noalias` contractを加える。
+D065は自己再帰の全edgeが保持するparameter fieldを、semantic live-inに残したまま物理frameから除く。
 
 ## 後継があるhistorical record
 
