@@ -244,6 +244,52 @@ fn preserves_a_packed_source_observed_during_its_edit() {
 }
 
 #[test]
+fn preserves_a_packed_source_across_recursive_buffer_updates() {
+    let directory = NativeFixture::new("driver-llvm-recursive-packed-buffer-noalias");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "update :: (Buffer<Int32>, Packed<Int32>, USize) -> Unit := (buffer, source, remaining) -> {
+           if (remaining == 0usize)
+           then { () }
+           else {
+             buffer.put(0usize, buffer.get(0usize) + (source # 0usize) - 39i32);
+             update(buffer, source, remaining - 1usize);
+           };
+         };
+
+         main :: Unit -> Int32 := () -> {
+           original := pack<Int32>((buffer) -> {
+             _ := buffer.new(40i32);
+             ();
+           });
+           changed := original.edit<Int32>((buffer) -> update(buffer, original, 2usize));
+           (original # 0usize) - 40i32 + (changed # 0usize) - 42i32;
+         };",
+    );
+
+    for (profile, name) in [(Some("baseline"), "baseline"), (None, "production")] {
+        let executable = directory.join(name);
+        let mut arguments = vec![
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ];
+        if let Some(profile) = profile {
+            arguments.extend([OsStr::new("--optimization"), OsStr::new(profile)]);
+        }
+        let output = directory.malc(arguments);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(&executable).status.code(), Some(0));
+    }
+}
+
+#[test]
 fn prepares_an_edit_before_entering_its_callback() {
     let directory = NativeFixture::new("driver-llvm-noop-packed-edit");
     let source = directory.join("program.mal");

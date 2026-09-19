@@ -168,7 +168,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveの論理operandとlambda-local join identityを保持 |
 | `closure` | ordinary functionのcapture schemaを構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
-| `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
+| `core/bool` | Bool eliminationを明示的な`case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製しない |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |

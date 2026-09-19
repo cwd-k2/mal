@@ -67,6 +67,29 @@ fn lowers_multiple_parameters_to_product_destructuring() {
 }
 
 #[test]
+fn preserves_the_result_type_of_a_flattened_binary_chain() {
+    let program = lower_ok(
+        "main :: Unit -> Int32 := () -> {\n\
+           40i32 + 3i32 - 1i32;\n\
+         };",
+    );
+    let body = top_lambda(&program, "main");
+    assert_eq!(body.ty, malc::check::ast::Type::Int32);
+    let ExpressionKind::Let { binding, body } = &body.kind else {
+        panic!("the inner operation should be evaluated before the outer operation");
+    };
+    assert_eq!(binding.value.ty, malc::check::ast::Type::Int32);
+    assert_eq!(body.ty, malc::check::ast::Type::Int32);
+    assert!(matches!(
+        body.kind,
+        ExpressionKind::PrimitiveBinary {
+            operator: BinaryPrimitive::Subtract,
+            ..
+        }
+    ));
+}
+
+#[test]
 fn lowers_result_binders_to_a_lambda_local_join() {
     let program = lower_ok(
         "absolute :: Int32 -> Int32 := (x) -> [return] => {\n\

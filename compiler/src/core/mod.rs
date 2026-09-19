@@ -465,6 +465,31 @@ impl Lowerer {
         }
     }
 
+    fn temporary_let(
+        &self,
+        id: ValueId,
+        value: Expression,
+        body: Expression,
+        span: Span,
+    ) -> Expression {
+        let ty = body.ty.clone();
+        Expression {
+            kind: ExpressionKind::Let {
+                binding: Box::new(Binding {
+                    pattern: Pattern::Binding {
+                        id,
+                        ty: value.ty.clone(),
+                    },
+                    value,
+                    span,
+                }),
+                body: Box::new(body),
+            },
+            ty,
+            span,
+        }
+    }
+
     fn temporary(&mut self) -> ValueId {
         let id = ValueId::Temporary(self.next_temporary);
         self.next_temporary += 1;

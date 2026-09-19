@@ -3,7 +3,7 @@ use crate::check::ast as checked;
 use crate::source::Span;
 
 use super::Lowerer;
-use super::ast::{Binding, Expression, ExpressionKind, Pattern, ValueId};
+use super::ast::{Expression, ExpressionKind, ValueId};
 
 impl Lowerer {
     pub(super) fn lower_if(
@@ -127,30 +127,6 @@ impl Lowerer {
             bool_type(),
             span,
         )
-    }
-
-    pub(super) fn temporary_let(
-        &self,
-        id: ValueId,
-        value: Expression,
-        body: Expression,
-        span: Span,
-    ) -> Expression {
-        Expression {
-            kind: ExpressionKind::Let {
-                binding: Box::new(Binding {
-                    pattern: Pattern::Binding {
-                        id,
-                        ty: value.ty.clone(),
-                    },
-                    value,
-                    span,
-                }),
-                body: Box::new(body),
-            },
-            ty: bool_type(),
-            span,
-        }
     }
 
     pub(super) fn bool_value(&self, value: bool, span: Span) -> Expression {
