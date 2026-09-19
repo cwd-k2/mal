@@ -14,21 +14,21 @@ extern writeBytes :: OutputBuffer -> Unit;
 
 _writePacked :: (Address, USize, Packed<UInt8>) -> Unit :=
     (memory, capacity, remaining) -> [return] => {
-    when (#remaining == 0usize) {
-        return(());
-    };
+        when (#remaining == 0usize) {
+            return(());
+        };
 
-    remainingLength := #remaining;
-    transferred := if (remainingLength < capacity)
-        then remainingLength
-        else capacity;
-    memory.view<UInt8>(0usize, transferred, (buffer) -> {
-        buffer.set(remaining / transferred);
-        ();
-    });
-    writeBytes(memory, transferred);
-    return(_writePacked(memory, capacity, remaining % transferred));
-};
+        remainingLength := #remaining;
+        transferred := if (remainingLength < capacity)
+            then remainingLength
+            else capacity;
+        memory.view<UInt8>(0usize, transferred, (buffer) -> {
+            buffer.set(remaining / transferred);
+            ();
+        });
+        writeBytes(memory, transferred);
+        return(_writePacked(memory, capacity, remaining % transferred));
+    };
 
 writeStdout :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
