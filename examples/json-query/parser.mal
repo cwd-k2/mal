@@ -62,15 +62,15 @@ _readFrame :: Packed<UInt8> -> UInt8 := (frames) -> frames # (#frames - 1usize);
 
 _replaceFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) -> {
     index := #frames - 1usize;
-    frames.edit<UInt8>((_, _, put) -> {
-        put(index, frame);
+    frames.edit<UInt8>((buffer) -> {
+        buffer.put(index, frame);
         ();
     });
 };
 
 _pushFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) ->
-    frames.edit<UInt8>((new, _, _) -> {
-        _ := new(frame);
+    frames.edit<UInt8>((buffer) -> {
+        _ := buffer.new(frame);
         ();
     });
 
@@ -331,8 +331,8 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
 parseDocument :: Region<UInt8> -> ParseResult := (source) ->
     (
         source,
-        pack<UInt8>((new, _, _) -> {
-        _ := new(_rootValue);
+        pack<UInt8>((buffer) -> {
+        _ := buffer.new(_rootValue);
         ();
     }),
         1u64,

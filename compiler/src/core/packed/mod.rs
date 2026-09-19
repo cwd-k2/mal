@@ -2,8 +2,6 @@ use super::Lowerer;
 use super::ast::{Binding, Expression, ExpressionKind, PackedBuilderOperation, Pattern, ValueId};
 use crate::check::ast as checked;
 
-mod capability;
-
 impl Lowerer {
     pub(super) fn lower_packed_build(
         &mut self,
@@ -23,6 +21,7 @@ impl Lowerer {
             _ => unreachable!(),
         };
 
+        let buffer_type = checked::Type::Buffer(element.clone().into());
         let builder = Expression {
             kind: ExpressionKind::PackedBuilder {
                 operation: if source.is_some() {
@@ -33,15 +32,17 @@ impl Lowerer {
                 element: element.clone(),
                 argument: Box::new(start_argument),
             },
-            ty: checked::Type::Address,
+            ty: buffer_type.clone(),
             span: expression.span,
         };
-        let capabilities =
-            self.capabilities(builder_id, element, source.is_none(), expression.span);
         let callback_call = Expression {
             kind: ExpressionKind::Call {
                 callee: Box::new(self.reference(callback_id, callback.ty.clone(), callback.span)),
-                argument: Box::new(capabilities),
+                argument: Box::new(self.reference(
+                    builder_id,
+                    buffer_type.clone(),
+                    expression.span,
+                )),
             },
             ty: checked::Type::Unit,
             span: expression.span,
@@ -52,7 +53,7 @@ impl Lowerer {
                 element: element.clone(),
                 argument: Box::new(self.reference(
                     builder_id,
-                    checked::Type::Address,
+                    buffer_type.clone(),
                     expression.span,
                 )),
             },
@@ -71,7 +72,7 @@ impl Lowerer {
         let after_builder = self.let_expression(
             Pattern::Binding {
                 id: builder_id,
-                ty: checked::Type::Address,
+                ty: buffer_type,
             },
             builder,
             after_callback,
@@ -101,6 +102,56 @@ impl Lowerer {
         }
     }
 
+    pub(super) fn lower_buffer_operation(
+        &mut self,
+        primitive: checked::MemoryPrimitive,
+        operands: &[checked::Expression],
+        expression: &checked::Expression,
+    ) -> Expression {
+        let [buffer, rest @ ..] = operands else {
+            unreachable!("checked Buffer operation has a receiver")
+        };
+        let checked::Type::Buffer(element) = &buffer.ty else {
+            unreachable!("checked Buffer operation has a Buffer receiver")
+        };
+        let buffer = self.lower_expression(buffer);
+        let (operation, argument) = match (primitive, rest) {
+            (checked::MemoryPrimitive::BufferNew, [value]) => {
+                let value = self.lower_expression(value);
+                (
+                    PackedBuilderOperation::New,
+                    self.product(vec![buffer, value], expression.span),
+                )
+            }
+            (checked::MemoryPrimitive::BufferGet, [index]) => {
+                let index = self.lower_expression(index);
+                (
+                    PackedBuilderOperation::Get,
+                    self.product(vec![buffer, index], expression.span),
+                )
+            }
+            (checked::MemoryPrimitive::BufferPut, [index, value]) => {
+                let index = self.lower_expression(index);
+                let value = self.lower_expression(value);
+                let put = self.product(vec![index, value], expression.span);
+                (
+                    PackedBuilderOperation::Put,
+                    self.product(vec![buffer, put], expression.span),
+                )
+            }
+            _ => unreachable!("checked Buffer operation has valid operands"),
+        };
+        Expression {
+            kind: ExpressionKind::PackedBuilder {
+                operation,
+                element: element.as_ref().clone(),
+                argument: Box::new(argument),
+            },
+            ty: expression.ty.clone(),
+            span: expression.span,
+        }
+    }
+
     fn let_expression(
         &self,
         pattern: Pattern,
@@ -127,6 +178,20 @@ impl Lowerer {
         Expression {
             kind: ExpressionKind::Unit,
             ty: checked::Type::Unit,
+            span,
+        }
+    }
+
+    fn product(&self, elements: Vec<Expression>, span: crate::source::Span) -> Expression {
+        Expression {
+            ty: checked::Type::Product(
+                elements
+                    .iter()
+                    .map(|element| element.ty.clone())
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            kind: ExpressionKind::Product(elements),
             span,
         }
     }

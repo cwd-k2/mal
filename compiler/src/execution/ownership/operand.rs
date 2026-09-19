@@ -18,9 +18,6 @@ pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &A
             .enumerate()
             .map(|(index, atom)| (BindingOperand::Capture(index), atom, true))
             .collect(),
-        Operation::MakePackedCapability { builder, .. } => {
-            vec![(BindingOperand::PackedBuilder, builder, false)]
-        }
         Operation::Product(elements) => elements
             .iter()
             .enumerate()

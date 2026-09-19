@@ -1,7 +1,7 @@
 use malc::anf;
 use malc::check;
 use malc::closure;
-use malc::closure::ast::{AtomKind, Function, FunctionKind, Operation, Reference};
+use malc::closure::ast::{AtomKind, Function, Operation, Reference};
 use malc::core;
 use malc::parser;
 use malc::resolve;
@@ -150,77 +150,18 @@ fn represents_capture_free_closures_without_environment_fields() {
 }
 
 #[test]
-fn represents_shared_packed_capabilities_with_scoped_environments() {
+fn keeps_buffer_operations_direct_through_closure_conversion() {
     let program = convert_ok(
-        "fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (new, get, put) -> { index := new(1i64); put(index, get(index)); (); };\n\
+        "fill :: Buffer<Int64> -> Unit := (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index)); (); };\n\
          main :: Unit -> Int32 := () -> { first := pack<Int64>(fill); second := pack<Int64>(fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };",
     );
-    let capabilities = program
-        .functions
-        .iter()
-        .filter(|function| matches!(&function.kind, FunctionKind::PackedCapability { .. }))
-        .collect::<Vec<_>>();
-    assert_eq!(capabilities.len(), 3);
-    assert!(capabilities.iter().all(|function| {
-        matches!(
-            &function.kind,
-            FunctionKind::PackedCapability {
-                element: check::ast::Type::Int64,
-                ..
-            }
-        ) && function.body.bindings.iter().any(|binding| {
-            matches!(
-                &binding.operation,
-                Operation::Product(elements)
-                    if elements.iter().any(|element| matches!(
-                        element.kind,
-                        AtomKind::Reference(Reference::PackedBuilder)
-                    ))
-            )
-        })
-    }));
-
-    let constructions = program
+    let buffer_operations = program
         .functions
         .iter()
         .flat_map(|function| &function.body.bindings)
-        .filter_map(|binding| match &binding.operation {
-            Operation::MakePackedCapability { function, builder } => Some((function, builder)),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(constructions.len(), 6);
-    assert!(constructions.iter().all(|(id, builder)| {
-        builder.ty == check::ast::Type::Address
-            && matches!(
-                function(&program, **id).kind,
-                FunctionKind::PackedCapability { .. }
-            )
-    }));
-    let builders = constructions
-        .iter()
-        .map(|(_, builder)| match builder.kind {
-            AtomKind::Reference(Reference::Binding(id)) => id,
-            _ => panic!("Packed capability builder must preserve its binding identity"),
-        })
-        .collect::<Vec<_>>();
-    let first = builders[0];
-    let second = builders
-        .iter()
-        .copied()
-        .find(|builder| *builder != first)
-        .expect("the two packs must keep distinct builder identities");
-    assert_eq!(
-        builders.iter().filter(|builder| **builder == first).count(),
-        3
-    );
-    assert_eq!(
-        builders
-            .iter()
-            .filter(|builder| **builder == second)
-            .count(),
-        3
-    );
+        .filter(|binding| matches!(binding.operation, Operation::PackedBuilder { .. }))
+        .count();
+    assert_eq!(buffer_operations, 7);
 }
 
 #[test]

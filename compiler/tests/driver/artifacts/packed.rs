@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn lowers_post_growth_packed_access_through_stable_data() {
+fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let directory = NativeFixture::new("driver-llvm-stable-packed-data");
     let source = directory.join("program.mal");
     let baseline = directory.join("baseline");
@@ -11,10 +11,10 @@ fn lowers_post_growth_packed_access_through_stable_data() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           values := pack<Int32>((new, get, put) -> {
-             new(40i32);
-             value := get(0usize);
-             put(0usize, value + 2i32);
+           values := pack<Int32>((buffer) -> {
+             buffer.new(40i32);
+             value := buffer.get(0usize);
+             buffer.put(0usize, value + 2i32);
              ();
            });
            (values # 0usize) - 42i32;
@@ -47,9 +47,9 @@ fn lowers_post_growth_packed_access_through_stable_data() {
 
     let baseline_llvm = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
     let production_llvm = std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
-    assert!(!baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
+    assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
-    assert!(production_llvm.contains("call ptr @llvm.invariant.start.p0"));
+    assert!(!production_llvm.contains("call ptr @mal_runtime_packed_builder_get"));
     assert!(production_llvm.contains("getelementptr i8, ptr"));
 }
 
@@ -63,21 +63,21 @@ fn prepares_edit_lazily_while_lowering_recursive_packed_access() {
     let production_artifacts = directory.join("production-artifacts");
     directory.write(
         "program.mal",
-        "update :: (USize -> Int32, (USize, Int32) -> Unit, USize) -> Unit := (get, put, remaining) -> {
+        "update :: (Buffer<Int32>, USize) -> Unit := (buffer, remaining) -> {
            if (remaining == 0usize)
            then { () }
            else {
-             put(0usize, get(0usize) + 1i32);
-             update(get, put, remaining - 1usize);
+             buffer.put(0usize, buffer.get(0usize) + 1i32);
+             update(buffer, remaining - 1usize);
            };
          };
 
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((new, _, _) -> {
-             new(40i32);
+           original := pack<Int32>((buffer) -> {
+             buffer.new(40i32);
              ();
            });
-           changed := original.edit<Int32>((_, get, put) -> update(get, put, 2usize));
+           changed := original.edit<Int32>((buffer) -> update(buffer, 2usize));
            (original # 0usize) - 40i32 + (changed # 0usize) - 42i32;
          };",
     );
@@ -108,11 +108,11 @@ fn prepares_edit_lazily_while_lowering_recursive_packed_access() {
 
     let baseline_llvm = std::fs::read_to_string(baseline_artifacts.join("program.ll")).unwrap();
     let production_llvm = std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
-    assert!(!baseline_llvm.contains("call ptr @mal_runtime_packed_builder_prepare_edit"));
-    assert!(!baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
+    assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_prepare_edit"));
+    assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_prepare_edit"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
-    assert!(production_llvm.contains("call ptr @llvm.ptrmask.p0.i64"));
+    assert!(!production_llvm.contains("call ptr @mal_runtime_packed_builder_get"));
 }
 
 #[test]
@@ -124,12 +124,12 @@ fn does_not_prepare_an_edit_without_a_put_application() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((new, _, _) -> {
-             new(40i32);
+           original := pack<Int32>((buffer) -> {
+             buffer.new(40i32);
              ();
            });
-           unchanged := original.edit<Int32>((_, get, _) -> {
-             _ := get(0usize);
+           unchanged := original.edit<Int32>((buffer) -> {
+             _ := buffer.get(0usize);
              ();
            });
            (original # 0usize) - 40i32 + (unchanged # 0usize) - 40i32;

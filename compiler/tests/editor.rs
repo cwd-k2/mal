@@ -136,8 +136,8 @@ fn receiver_first_callees_support_function_editor_features() {
 
 #[test]
 fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
-    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((new, _, _) -> { _ := new(1i32); () });\n\
-                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_, _, _) -> ());\n";
+    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> { _ := buffer.new(1i32); () });\n\
+                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_) -> ());\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     for (name, offset) in [
@@ -151,7 +151,9 @@ fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
         assert_eq!(occurrence.kind, SymbolKind::Function);
         assert!(document.hover_at(offset).is_some());
     }
-    for name in ["Cursor", "Region", "Packed", "pack", "edit"] {
+    for name in [
+        "Cursor", "Region", "Packed", "Buffer", "pack", "edit", "new", "get", "put",
+    ] {
         assert!(
             document
                 .completions()

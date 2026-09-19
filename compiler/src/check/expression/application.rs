@@ -199,6 +199,11 @@ impl Checker {
             return self.check_packed_build(reference, type_arguments, arguments, span);
         }
         if let resolved::Expression::Reference(reference) = &callee.kind
+            && self.is_buffer_operation_call(reference, arguments)
+        {
+            return self.check_buffer_operation(reference, arguments, span);
+        }
+        if let resolved::Expression::Reference(reference) = &callee.kind
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_argument(arguments, &target.parameter, span)?;

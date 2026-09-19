@@ -11,15 +11,18 @@ mod checked_ast;
 mod resolved_ast;
 mod type_display;
 
-const INDEXED_TYPES: [(&str, resolved::TypeId); 3] = [
+const INDEXED_TYPES: [(&str, resolved::TypeId); 4] = [
     ("Cursor", resolved::CURSOR_TYPE),
     ("Region", resolved::REGION_TYPE),
     ("Packed", resolved::PACKED_TYPE),
+    ("Buffer", resolved::BUFFER_TYPE),
 ];
 
-const PACK_DETAIL: &str = "((T -> USize, USize -> T, (USize, T) -> Unit) -> Unit) -> Packed<T>";
-const EDIT_DETAIL: &str =
-    "(Packed<T>, (T -> USize, USize -> T, (USize, T) -> Unit) -> Unit) -> Packed<T>";
+const PACK_DETAIL: &str = "(Buffer<T> -> Unit) -> Packed<T>";
+const EDIT_DETAIL: &str = "(Packed<T>, Buffer<T> -> Unit) -> Packed<T>";
+const NEW_DETAIL: &str = "(Buffer<T>, T) -> USize";
+const GET_DETAIL: &str = "(Buffer<T>, USize) -> T";
+const PUT_DETAIL: &str = "(Buffer<T>, USize, T) -> Unit";
 
 pub(super) fn build(
     resolved: &resolved::Program,
@@ -57,6 +60,9 @@ impl Index {
             value_types: [
                 (crate::resolve::PACK_VALUE, PACK_DETAIL.to_owned()),
                 (crate::resolve::EDIT_VALUE, EDIT_DETAIL.to_owned()),
+                (crate::resolve::NEW_VALUE, NEW_DETAIL.to_owned()),
+                (crate::resolve::GET_VALUE, GET_DETAIL.to_owned()),
+                (crate::resolve::PUT_VALUE, PUT_DETAIL.to_owned()),
             ]
             .into_iter()
             .collect(),
@@ -66,7 +72,13 @@ impl Index {
                 .chain(INDEXED_TYPES.map(|(name, id)| (id, format!("{name}<T>"))))
                 .collect(),
             type_aliases: HashMap::new(),
-            functions: HashSet::from([crate::resolve::PACK_VALUE, crate::resolve::EDIT_VALUE]),
+            functions: HashSet::from([
+                crate::resolve::PACK_VALUE,
+                crate::resolve::EDIT_VALUE,
+                crate::resolve::NEW_VALUE,
+                crate::resolve::GET_VALUE,
+                crate::resolve::PUT_VALUE,
+            ]),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
             raw_occurrences: Vec::new(),
@@ -259,7 +271,14 @@ fn predefined_symbols() -> Vec<Symbol> {
         .map(|&(name, id)| Symbol {
             id: SymbolId::Value(id),
             name: name.to_owned(),
-            kind: if matches!(id, crate::resolve::PACK_VALUE | crate::resolve::EDIT_VALUE) {
+            kind: if matches!(
+                id,
+                crate::resolve::PACK_VALUE
+                    | crate::resolve::EDIT_VALUE
+                    | crate::resolve::NEW_VALUE
+                    | crate::resolve::GET_VALUE
+                    | crate::resolve::PUT_VALUE
+            ) {
                 SymbolKind::Function
             } else {
                 SymbolKind::Value
@@ -267,6 +286,9 @@ fn predefined_symbols() -> Vec<Symbol> {
             detail: match id {
                 crate::resolve::PACK_VALUE => Some(PACK_DETAIL.to_owned()),
                 crate::resolve::EDIT_VALUE => Some(EDIT_DETAIL.to_owned()),
+                crate::resolve::NEW_VALUE => Some(NEW_DETAIL.to_owned()),
+                crate::resolve::GET_VALUE => Some(GET_DETAIL.to_owned()),
+                crate::resolve::PUT_VALUE => Some(PUT_DETAIL.to_owned()),
                 _ => None,
             },
             span: None,

@@ -22,8 +22,6 @@ mod use_plan;
 #[cfg(test)]
 mod construction_tests;
 #[cfg(test)]
-mod packed_tests;
-#[cfg(test)]
 mod parameter_tests;
 #[cfg(test)]
 mod successor_tests;

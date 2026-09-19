@@ -64,27 +64,48 @@ fn checks_region_packed_transfer_views_and_symbol_conversion() {
 fn checks_scoped_packed_construction_and_editing() {
     check_ok(
         "make :: Unit -> Packed<Int32> := () ->
-           pack<Int32>((new, get, put) -> {
-             index := new(10i32);
-             put(index, get(index) + 1i32);
+           pack<Int32>((buffer) -> {
+             index := buffer.new(10i32);
+             buffer.put(index, buffer.get(index) + 1i32);
              ();
            });
          change :: Packed<Int32> -> Packed<Int32> := (source) ->
-           source.edit<Int32>((new, get, put) -> {
-             put(0usize, get(0usize) + 1i32);
-             _ := new(20i32);
+           source.edit<Int32>((buffer) -> {
+             buffer.put(0usize, buffer.get(0usize) + 1i32);
+             _ := buffer.new(20i32);
              ();
            });",
     );
 }
 
 #[test]
+fn passes_one_buffer_through_helpers_and_supports_ufcs_operations() {
+    check_ok(
+        "update :: (Buffer<Int32>, USize) -> Unit := (buffer, index) -> {
+           put(buffer, index, get(buffer, index) + 1i32);
+           ();
+         };
+         get :: Int32 -> Int32 := (value) -> value;
+         make :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> {
+           index := buffer.new(get(10i32));
+           update(buffer, index);
+           ();
+         });",
+    );
+}
+
+#[test]
 fn rejects_invalid_packed_intrinsic_applications() {
     for text in [
-        "bad := pack<Symbol>((_, _, _) -> ());",
+        "bad := pack<Symbol>((_) -> ());",
         "bad := pack<Int32>();",
         "bad :: Packed<Int32> -> Packed<Int32> := (source) -> edit<Int32>(source);",
-        "bad := pack<Int32>((new, _, _) -> { _ := new(1u32); (); });",
+        "bad := pack<Int32>((buffer) -> { _ := buffer.new(1u32); (); });",
+        "bad := pack<Int32>((buffer) -> buffer);",
+        "bad := pack<Int32>((buffer) -> { buffer.get(); (); });",
+        "bad := pack<Int32>((buffer) -> { buffer.put(0usize, 1u32); (); });",
+        "bad :: Buffer<Symbol> -> Unit := (_) -> ();",
+        "extern bad :: Buffer<Int32> -> Unit;",
     ] {
         assert!(check_error(text).primary.is_some(), "input: {text}");
     }

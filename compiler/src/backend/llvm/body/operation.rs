@@ -36,25 +36,16 @@ impl FunctionEmitter<'_> {
                     return None;
                 };
                 let closure_type = self.types.value(&result_type)?;
-                let compact = self.types.function_is_compact(&result_type);
-                let with_code = if compact {
-                    None
-                } else {
-                    let with_code = self.register();
-                    self.line(format!(
-                        "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                        closure_type.llvm,
-                        super::function_name(*function)?
-                    ));
-                    Some(with_code)
-                };
+                let with_code = self.register();
+                self.line(format!(
+                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
+                    closure_type.llvm,
+                    super::function_name(*function)?
+                ));
                 let target = *self.index.lowered_functions.get(function)?;
                 let crate::closure::ast::FunctionKind::Ordinary {
                     captures: environment,
-                } = &target.kind
-                else {
-                    return None;
-                };
+                } = &target.kind;
                 if captures.len() != environment.len()
                     || captures
                         .iter()
@@ -64,7 +55,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let closure = if captures.is_empty() {
-                    with_code?
+                    with_code
                 } else {
                     let environment_type =
                         Type::Product(environment.iter().map(|field| field.ty.clone()).collect());
@@ -100,54 +91,7 @@ impl FunctionEmitter<'_> {
                     let closure = self.register();
                     self.line(format!(
                         "  {closure} = insertvalue {} {}, ptr {environment}, 1",
-                        closure_type.llvm,
-                        with_code.as_deref()?
-                    ));
-                    closure
-                };
-                Some(Some(EmittedValue {
-                    ty: result_type,
-                    representation: closure,
-                    owned: true,
-                }))
-            }
-            Operation::MakePackedCapability { function, builder } => {
-                let result_type = result_type?.clone();
-                let Type::Function { .. } = &result_type else {
-                    return None;
-                };
-                if builder.ty != Type::Address {
-                    return None;
-                }
-                let target = *self.index.lowered_functions.get(function)?;
-                if !matches!(
-                    target.kind,
-                    crate::closure::ast::FunctionKind::PackedCapability { .. }
-                ) {
-                    return None;
-                }
-                self.require_binding_borrow(site, binding, BindingOperand::PackedBuilder, builder)?;
-                let environment = self.atom(builder)?;
-                let closure_type = self.types.value(&result_type)?;
-                let compact = self.types.function_is_compact(&result_type);
-                let closure = if compact {
-                    environment.representation
-                } else {
-                    let with_code = self.register();
-                    self.line(format!(
-                        "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                        closure_type.llvm,
-                        super::function_name(*function)?
-                    ));
-                    let tagged_environment = self.register();
-                    self.line(format!(
-                        "  {tagged_environment} = getelementptr i8, ptr {}, i64 1",
-                        environment.representation
-                    ));
-                    let closure = self.register();
-                    self.line(format!(
-                        "  {closure} = insertvalue {} {with_code}, ptr {tagged_environment}, 1",
-                        closure_type.llvm
+                        closure_type.llvm, with_code
                     ));
                     closure
                 };

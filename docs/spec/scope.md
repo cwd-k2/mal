@@ -12,7 +12,7 @@ Status: Accepted v0.6 profile
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
 - `Address`、canonical memory layout、`Cursor`、`Region`によるexternal memory access
-- mal-owned immutable sequence `Packed`
+- mal-owned immutable sequence `Packed`とそのscoped構築・編集authority `Buffer`
 - extern boundary
 - optional process argument entry
 

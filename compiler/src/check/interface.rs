@@ -120,6 +120,7 @@ impl Checker {
             | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
+            | Type::Buffer(_)
             | Type::Function { .. } => {
                 vec![self.alias_name(source)]
             }
@@ -227,7 +228,8 @@ pub(super) fn is_host_mappable(ty: &Type) -> bool {
             | Type::Function { .. }
             | Type::Cursor(_)
             | Type::Region(_)
-            | Type::Packed(_) => return false,
+            | Type::Packed(_)
+            | Type::Buffer(_) => return false,
         }
     }
     true

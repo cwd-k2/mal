@@ -29,11 +29,6 @@ pub fn lower(program: &checked::MonomorphicProgram) -> Program {
 struct Lowerer {
     next_temporary: u32,
     next_lambda: u32,
-    packed_capabilities: Vec<(
-        checked::Type,
-        ast::PackedBuilderOperation,
-        crate::resolve::ast::LambdaId,
-    )>,
     joins: Vec<ast::Join>,
     result_targets: HashMap<crate::resolve::ast::ValueId, ast::JoinId>,
 }
@@ -43,7 +38,6 @@ impl Lowerer {
         Self {
             next_temporary: 0,
             next_lambda: 0,
-            packed_capabilities: Vec::new(),
             joins: Vec::new(),
             result_targets: HashMap::new(),
         }
@@ -149,13 +143,23 @@ impl Lowerer {
             checked::ExpressionKind::Memory {
                 primitive,
                 operands,
-            } => ExpressionKind::Memory {
-                primitive: *primitive,
-                operands: operands
-                    .iter()
-                    .map(|operand| self.lower_expression(operand))
-                    .collect(),
-            },
+            } => {
+                if matches!(
+                    primitive,
+                    checked::MemoryPrimitive::BufferNew
+                        | checked::MemoryPrimitive::BufferGet
+                        | checked::MemoryPrimitive::BufferPut
+                ) {
+                    return self.lower_buffer_operation(*primitive, operands, expression);
+                }
+                ExpressionKind::Memory {
+                    primitive: *primitive,
+                    operands: operands
+                        .iter()
+                        .map(|operand| self.lower_expression(operand))
+                        .collect(),
+                }
+            }
             checked::ExpressionKind::NumericConversion { value } => {
                 ExpressionKind::NumericConversion {
                     value: Box::new(self.lower_expression(value)),

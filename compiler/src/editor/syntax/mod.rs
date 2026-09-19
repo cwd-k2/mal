@@ -186,7 +186,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(0),
             "syntax.mal",
-            "value := pack<Int32>((new, _, _) -> ());\nnext := value.edit<Int32>((_, _, _) -> ());"
+            "value := pack<Int32>((buffer) -> ());\nnext := value.edit<Int32>((buffer) -> ());"
                 .into(),
         );
         let document = analyze(&source).expect("lexical syntax document");

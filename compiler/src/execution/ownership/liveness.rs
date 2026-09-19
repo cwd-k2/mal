@@ -100,7 +100,6 @@ pub(super) fn visit_operation_atoms(operation: &Operation, mut visit: impl FnMut
                 visit(atom);
             }
         }
-        Operation::MakePackedCapability { builder, .. } => visit(builder),
         Operation::Memory { operands, .. } => {
             for operand in operands {
                 visit(operand);

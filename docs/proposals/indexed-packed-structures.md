@@ -3,15 +3,15 @@
 Status: Draft proposal; non-normative
 
 この文書は、再帰的なdata structureを`Representable`なrecord列とindexで表し、構造の再帰をoperationの再帰として扱う方針を評価する。
-構築capabilityと既存値からの置換・追加は[`Region`と`Packed`](../spec/packed.md#scoped-constructionとediting)を正とする。
+構築中の`Buffer`と既存値からの置換・追加は[`Region`と`Packed`](../spec/packed.md#scoped-constructionとediting)を正とする。
 
 ## 優先する方向
 
 recursive typeおよびmanaged elementを持つ`Packed`は本proposalの前提にしない。まず現行の`Representable(T)`境界を保ち、次を組み合わせる。
 
 - topologyを`USize` indexとして`Packed<NodeRecord>`へ格納する。
-- 新しい構造は`pack(new, get, put)`で構築する。
-- 既存構造へのnode追加または置換は`edit(new, get, put)`で行う。
+- 新しい構造は`pack((buffer) -> ...)`内の`Buffer` operationで構築する。
+- 既存構造へのnode追加または置換は`edit(source, (buffer) -> ...)`内で行う。
 - traversal、結合、挿入、rotationはindexを辿る通常の再帰関数として書く。
 
 この方向でtree、DAG、cycleを持つgraph、AST、control-flow graphを表現できる。Packedをindirectionに使うrecursive aliasは
@@ -36,43 +36,40 @@ preconditionであり、`Packed`の型自体は保証しない。
 物理indexが一致する必要はない。
 
 ```mal
-NewNode :: TreeNode -> USize;
-PutNode :: (USize, TreeNode) -> Unit;
-
 mergeAt ::
-    (Tree, USize, Tree, USize, NewNode, PutNode) -> USize :=
-    (leftTree, leftIndex, rightTree, rightIndex, new, put) -> {
+    (Tree, USize, Tree, USize, Buffer<TreeNode>) -> USize :=
+    (leftTree, leftIndex, rightTree, rightIndex, buffer) -> {
         (leftValue, kind, leftLeft, leftRight) := leftTree # leftIndex;
         (rightValue, _, rightLeft, rightRight) := rightTree # rightIndex;
         value := leftValue + rightValue;
-        output := new((value, 0u8, 0usize, 0usize));
+        output := buffer.new((value, 0u8, 0usize, 0usize));
 
         if (kind == 0u8)
         then output
         else {
             outputLeft := mergeAt(
-                leftTree, leftLeft, rightTree, rightLeft, new, put
+                leftTree, leftLeft, rightTree, rightLeft, buffer
             );
             outputRight := mergeAt(
-                leftTree, leftRight, rightTree, rightRight, new, put
+                leftTree, leftRight, rightTree, rightRight, buffer
             );
-            put(output, (value, 1u8, outputLeft, outputRight));
+            buffer.put(output, (value, 1u8, outputLeft, outputRight));
             output
         }
     };
 
 mergeTrees :: (Tree, Tree) -> Tree :=
     (leftTree, rightTree) ->
-        pack<TreeNode>((new, _, put) -> {
+        pack<TreeNode>((buffer) -> {
             _ := mergeAt(
-                leftTree, 0usize, rightTree, 0usize, new, put
+                leftTree, 0usize, rightTree, 0usize, buffer
             );
             ()
         });
 ```
 
 この例は左右の`kind`とshapeが一致することをpreconditionとする。shapeが異なる結合でも、欠けたchildをcopyするpolicyを
-`mergeAt`へ加えれば同じcapabilityで構築できる。
+`mergeAt`へ加えれば同じ`Buffer`で構築できる。
 
 ## topologyを保つ`edit`
 
@@ -80,30 +77,27 @@ mergeTrees :: (Tree, Tree) -> Tree :=
 storage再利用の余地もある。
 
 ```mal
-GetNode :: USize -> TreeNode;
-PutExistingNode :: (USize, TreeNode) -> Unit;
-
 addIntoAt ::
-    (Tree, USize, USize, GetNode, PutExistingNode) -> Unit :=
-    (rightTree, leftIndex, rightIndex, get, put) -> {
-        (leftValue, kind, leftLeft, leftRight) := get(leftIndex);
+    (Tree, USize, USize, Buffer<TreeNode>) -> Unit :=
+    (rightTree, leftIndex, rightIndex, buffer) -> {
+        (leftValue, kind, leftLeft, leftRight) := buffer.get(leftIndex);
         (rightValue, _, rightLeft, rightRight) := rightTree # rightIndex;
-        put(leftIndex, (
+        buffer.put(leftIndex, (
             leftValue + rightValue, kind, leftLeft, leftRight
         ));
 
         if (kind == 0u8)
         then ()
         else {
-            addIntoAt(rightTree, leftLeft, rightLeft, get, put);
-            addIntoAt(rightTree, leftRight, rightRight, get, put);
+            addIntoAt(rightTree, leftLeft, rightLeft, buffer);
+            addIntoAt(rightTree, leftRight, rightRight, buffer);
         }
     };
 
 mergeSameShape :: (Tree, Tree) -> Tree :=
     (leftTree, rightTree) ->
-        edit<TreeNode>(leftTree, (_, get, put) ->
-            addIntoAt(rightTree, 0usize, 0usize, get, put)
+        edit<TreeNode>(leftTree, (buffer) ->
+            addIntoAt(rightTree, 0usize, 0usize, buffer)
         );
 ```
 
@@ -115,7 +109,7 @@ node挿入は`edit`の`new`で表せる。AVL rotationを含む完全な形は
 | 観点 | flat indexed structure |
 |---|---|
 | runtime representation | 現行のflat `Packed<Representable record>`を維持 |
-| 構築 | `new/get/put`のscoped capabilityが必要 |
+| 構築 | `new/get/put`を持つscoped `Buffer`が必要 |
 | traversal | recursive typeのpatternではなくindexを辿るoperationになる |
 | ownership | element destructorや再帰owner graphを追加しない |
 | sharingとcycle | 複数edgeやback-edgeを同じindexへ向けて表現可能 |

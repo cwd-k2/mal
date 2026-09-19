@@ -82,7 +82,8 @@ impl TypeRegistry {
             | Type::Parameter { .. }
             | Type::Cursor(_)
             | Type::Region(_)
-            | Type::Packed(_) => {
+            | Type::Packed(_)
+            | Type::Buffer(_) => {
                 unreachable!("these types never enter the C host registry")
             }
         }
@@ -120,7 +121,8 @@ impl TypeRegistry {
             | Type::Parameter { .. }
             | Type::Cursor(_)
             | Type::Region(_)
-            | Type::Packed(_) => {
+            | Type::Packed(_)
+            | Type::Buffer(_) => {
                 unreachable!("these types are not host mappable")
             }
         }
@@ -155,7 +157,8 @@ impl TypeRegistry {
                 | Type::Parameter { .. }
                 | Type::Cursor(_)
                 | Type::Region(_)
-                | Type::Packed(_) => {
+                | Type::Packed(_)
+                | Type::Buffer(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             };
@@ -240,7 +243,8 @@ impl TypeRegistry {
                 | Type::Parameter { .. }
                 | Type::Cursor(_)
                 | Type::Region(_)
-                | Type::Packed(_) => {
+                | Type::Packed(_)
+                | Type::Buffer(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             }

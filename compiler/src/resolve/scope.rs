@@ -73,11 +73,15 @@ impl Resolver {
         name: &ast::Name,
         owner: ValueOwner,
     ) -> Result<ValueBinding, Diagnostic> {
-        if self
+        let existing = self
             .value_scopes
             .last()
             .expect("value scope")
-            .contains_key(&name.text)
+            .get(&name.text);
+        let shadows_buffer_operation = owner == ValueOwner::TopLevel
+            && matches!(name.text.as_str(), "new" | "get" | "put")
+            && existing.is_some_and(|binding| binding.owner == ValueOwner::Predefined);
+        if (existing.is_some() && !shadows_buffer_operation)
             || (owner == ValueOwner::TopLevel && self.externals.contains_key(&name.text))
         {
             return Err(self.duplicate(name, "value"));
@@ -120,6 +124,7 @@ impl Resolver {
                 "Cursor" => Some(super::predefined::CURSOR_TYPE),
                 "Region" => Some(super::predefined::REGION_TYPE),
                 "Packed" => Some(super::predefined::PACKED_TYPE),
+                "Buffer" => Some(super::predefined::BUFFER_TYPE),
                 _ => None,
             })
             .ok_or_else(|| self.unknown(name, "type"))?;
@@ -137,6 +142,7 @@ impl Resolver {
             "Cursor" => Some(super::predefined::CURSOR_TYPE),
             "Region" => Some(super::predefined::REGION_TYPE),
             "Packed" => Some(super::predefined::PACKED_TYPE),
+            "Buffer" => Some(super::predefined::BUFFER_TYPE),
             _ => None,
         };
         if let Some(binding) = self.types.get(&name.text) {

@@ -45,6 +45,7 @@ fn first_nonrepresentable_type(ty: &Type) -> Option<&Type> {
             | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
+            | Type::Buffer(_)
             | Type::Sum(_) => return Some(ty),
             _ => {}
         }
@@ -83,6 +84,7 @@ pub(in crate::check) fn is_memory_representable(ty: &Type) -> bool {
             | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
+            | Type::Buffer(_)
             | Type::Sum(_) => return false,
         }
     }
@@ -97,7 +99,10 @@ pub(in crate::check) fn representable_requirements(ty: &Type) -> HashSet<TypeId>
             Type::Parameter { id, .. } if required => {
                 requirements.insert(*id);
             }
-            Type::Cursor(element) | Type::Region(element) | Type::Packed(element) => {
+            Type::Cursor(element)
+            | Type::Region(element)
+            | Type::Packed(element)
+            | Type::Buffer(element) => {
                 pending.push((element, true));
             }
             Type::Product(elements) | Type::Sum(elements) => {

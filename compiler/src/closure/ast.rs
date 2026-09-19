@@ -57,24 +57,13 @@ pub struct Function {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FunctionKind {
-    Ordinary {
-        captures: Vec<CaptureField>,
-    },
-    PackedCapability {
-        operation: PackedBuilderOperation,
-        element: Type,
-    },
+    Ordinary { captures: Vec<CaptureField> },
 }
 
 impl FunctionKind {
-    pub fn is_packed_capability(&self) -> bool {
-        matches!(self, Self::PackedCapability { .. })
-    }
-
     pub fn captures(&self) -> Option<&[CaptureField]> {
         match self {
             Self::Ordinary { captures } => Some(captures),
-            Self::PackedCapability { .. } => None,
         }
     }
 }
@@ -159,7 +148,6 @@ pub enum AtomKind {
 pub enum Reference {
     Binding(ValueId),
     Capture(usize),
-    PackedBuilder,
     SelfClosure(FunctionId),
 }
 
@@ -173,10 +161,6 @@ pub enum Operation {
     MakeClosure {
         function: FunctionId,
         captures: Vec<Atom>,
-    },
-    MakePackedCapability {
-        function: FunctionId,
-        builder: Atom,
     },
     Call {
         callee: Atom,

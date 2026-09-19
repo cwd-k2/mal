@@ -30,42 +30,42 @@ fn builds_packed_slices_indexing_and_symbol_conversion() {
 }
 
 #[test]
-fn constructs_and_edits_packed_values_with_scoped_capabilities() {
+fn constructs_and_edits_packed_values_with_scoped_buffers() {
     let directory = NativeFixture::new("driver-packed-builder");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "addRange :: ((USize -> USize), USize, USize) -> Unit :=
-           (new, current, end) ->
+        "addRange :: (Buffer<USize>, USize, USize) -> Unit :=
+           (buffer, current, end) ->
              if (current == end)
              then ()
              else {
-               _ := new(current);
-               addRange(new, current + 1usize, end);
+               _ := buffer.new(current);
+               addRange(buffer, current + 1usize, end);
              };
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((new, get, put) -> {
-             first := new(10i32);
-             _ := new(20i32);
-             put(first, get(first) + 1i32);
+           original := pack<Int32>((buffer) -> {
+             first := buffer.new(10i32);
+             _ := buffer.new(20i32);
+             buffer.put(first, buffer.get(first) + 1i32);
              ();
            });
-           updated := original.edit<Int32>((new, get, put) -> {
-             put(0usize, get(0usize) + 30i32);
-             added := new(7i32);
-             put(added, get(added) + 1i32);
+           updated := original.edit<Int32>((buffer) -> {
+             buffer.put(0usize, buffer.get(0usize) + 30i32);
+             added := buffer.new(7i32);
+             buffer.put(added, buffer.get(added) + 1i32);
              ();
            });
-           many := pack<USize>((new, _, _) -> addRange(new, 0usize, 40usize));
-           nested := pack<Int32>((new, _, put) -> {
-             outer := new(5i32);
-             inner := pack<Int32>((innerNew, _, _) -> {
-               added := innerNew(9i32);
-               put(outer, added.i32);
+           many := pack<USize>((buffer) -> addRange(buffer, 0usize, 40usize));
+           nested := pack<Int32>((buffer) -> {
+             outer := buffer.new(5i32);
+             inner := pack<Int32>((innerBuffer) -> {
+               added := innerBuffer.new(9i32);
+               buffer.put(outer, added.i32);
                ();
              });
-             put(outer, inner # 0usize);
+             buffer.put(outer, inner # 0usize);
              ();
            });
            if (#original == 2usize && original # 0usize == 11i32
@@ -101,15 +101,15 @@ fn preserves_shared_sources_and_builds_zero_stride_packed_values() {
         "main :: Unit -> Int32 := () -> {
            text := \"abc\";
            bytes := *text;
-           changed := bytes.edit<UInt8>((_, get, put) -> {
-             put(1usize, get(1usize) + 1u8);
+           changed := bytes.edit<UInt8>((buffer) -> {
+             buffer.put(1usize, buffer.get(1usize) + 1u8);
              ();
            });
-           unchanged := bytes.edit<UInt8>((_, _, _) -> ());
-           units := pack<Unit>((new, _, _) -> {
-             _ := new(());
-             _ := new(());
-             _ := new(());
+           unchanged := bytes.edit<UInt8>((_) -> ());
+           units := pack<Unit>((buffer) -> {
+             _ := buffer.new(());
+             _ := buffer.new(());
+             _ := buffer.new(());
              ();
            });
            if (text == \"abc\" && *bytes == \"abc\" && *unchanged == \"abc\"

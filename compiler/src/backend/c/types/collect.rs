@@ -41,7 +41,8 @@ impl TypeRegistry {
                 | Type::Parameter { .. }
                 | Type::Cursor(_)
                 | Type::Region(_)
-                | Type::Packed(_) => {
+                | Type::Packed(_)
+                | Type::Buffer(_) => {
                     unreachable!("open or memory-indexed types are not host mappable")
                 }
             }
@@ -108,7 +109,8 @@ impl TypeRegistry {
             | Type::Parameter { .. }
             | Type::Cursor(_)
             | Type::Region(_)
-            | Type::Packed(_) => {
+            | Type::Packed(_)
+            | Type::Buffer(_) => {
                 unreachable!("open or memory-indexed types are not host mappable")
             }
         }

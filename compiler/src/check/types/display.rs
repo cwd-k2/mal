@@ -40,6 +40,11 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                     pending.push(TypeNamePart::Type(element));
                     "Packed<"
                 }
+                Type::Buffer(element) => {
+                    pending.push(TypeNamePart::Text(">"));
+                    pending.push(TypeNamePart::Type(element));
+                    "Buffer<"
+                }
                 Type::External { name, .. } => name,
                 Type::Product(elements) => {
                     push_aggregate_name(&mut pending, elements, ")");

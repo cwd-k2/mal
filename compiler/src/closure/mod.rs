@@ -150,37 +150,20 @@ impl Converter {
             anf::Operation::Lambda(lambda) => {
                 self.lift_function(lambda);
                 let function = FunctionId::Lambda(lambda.id);
-                match &lambda.kind {
-                    crate::core::ast::LambdaKind::Ordinary => Operation::MakeClosure {
-                        function,
-                        captures: lambda
-                            .captures
-                            .iter()
-                            .map(|capture| {
-                                self.reference_atom(
-                                    capture.source,
-                                    capture.ty.clone(),
-                                    span,
-                                    environment,
-                                )
-                            })
-                            .collect(),
-                    },
-                    crate::core::ast::LambdaKind::PackedCapability { .. } => {
-                        let [capture] = lambda.captures.as_slice() else {
-                            unreachable!("Packed capability must capture exactly one builder");
-                        };
-                        debug_assert_eq!(capture.ty, crate::check::ast::Type::Address);
-                        Operation::MakePackedCapability {
-                            function,
-                            builder: self.reference_atom(
+                Operation::MakeClosure {
+                    function,
+                    captures: lambda
+                        .captures
+                        .iter()
+                        .map(|capture| {
+                            self.reference_atom(
                                 capture.source,
                                 capture.ty.clone(),
                                 span,
                                 environment,
-                            ),
-                        }
-                    }
+                            )
+                        })
+                        .collect(),
                 }
             }
             anf::Operation::Call { callee, argument } => Operation::Call {
@@ -276,20 +259,12 @@ impl Converter {
             debug_assert_eq!(existing.kind, Self::function_kind(lambda));
             return;
         }
-        let mut environment = match &lambda.kind {
-            crate::core::ast::LambdaKind::Ordinary => lambda
-                .captures
-                .iter()
-                .enumerate()
-                .map(|(index, capture)| (capture.binding, Reference::Capture(index)))
-                .collect::<HashMap<_, _>>(),
-            crate::core::ast::LambdaKind::PackedCapability { .. } => {
-                let [capture] = lambda.captures.as_slice() else {
-                    unreachable!("Packed capability must capture exactly one builder");
-                };
-                HashMap::from([(capture.binding, Reference::PackedBuilder)])
-            }
-        };
+        let mut environment = lambda
+            .captures
+            .iter()
+            .enumerate()
+            .map(|(index, capture)| (capture.binding, Reference::Capture(index)))
+            .collect::<HashMap<_, _>>();
         if let Some(self_binding) = lambda.self_binding {
             environment.insert(
                 self_binding,
@@ -320,7 +295,7 @@ impl Converter {
     }
 
     fn function_kind(lambda: &anf::Lambda) -> FunctionKind {
-        match &lambda.kind {
+        match lambda.kind {
             crate::core::ast::LambdaKind::Ordinary => FunctionKind::Ordinary {
                 captures: lambda
                     .captures
@@ -330,12 +305,6 @@ impl Converter {
                     })
                     .collect(),
             },
-            crate::core::ast::LambdaKind::PackedCapability { operation, element } => {
-                FunctionKind::PackedCapability {
-                    operation: *operation,
-                    element: element.clone(),
-                }
-            }
         }
     }
 

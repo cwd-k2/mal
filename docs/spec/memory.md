@@ -42,8 +42,8 @@ Representable((A...))       if all Representable(A)
 Representable([A...])       if the sum has at least two variants and all Representable(A)
 ```
 
-function、external opaque type、`Cursor<A>`、`Region<A>`、`Packed<A>`、empty sumはrepresentableでない。
-transparent aliasは展開後に判定する。`Cursor<A>`、`Region<A>`、`Packed<A>`は`Representable(A)`の場合だけwell-formedである。
+function、external opaque type、`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`、empty sumはrepresentableでない。
+transparent aliasは展開後に判定する。`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
 このjudgmentはstorageにvalidなrepresentationが実在することを証明しない。
 
 ## Layout shape

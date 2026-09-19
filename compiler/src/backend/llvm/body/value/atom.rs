@@ -56,15 +56,6 @@ impl FunctionEmitter<'_> {
                 )
             }
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
-                if self
-                    .index
-                    .lowered_functions
-                    .get(&self.current_function)?
-                    .kind
-                    .is_packed_capability()
-                {
-                    return None;
-                }
                 let value_type = self.types.value(&atom.ty)?;
                 let with_code = self.register();
                 self.line(format!(
@@ -109,34 +100,6 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: value,
-                    owned: false,
-                })
-            }
-            (Type::Address, AtomKind::Reference(Reference::PackedBuilder)) => {
-                let function = *self.index.lowered_functions.get(&self.current_function)?;
-                if !function.kind.is_packed_capability() {
-                    return None;
-                }
-                let function_type = Type::Function {
-                    parameter: function.parameter.ty.clone().into(),
-                    result: function.body.result.ty.clone().into(),
-                };
-                if self.types.function_is_compact(&function_type) {
-                    return Some(EmittedValue {
-                        ty: Type::Address,
-                        representation: self.active_environment(),
-                        owned: false,
-                    });
-                }
-                let tagged = self.active_environment();
-                let environment = self.register();
-                let bits = self.types.index_size().checked_mul(8)?;
-                self.line(format!(
-                    "  {environment} = call ptr @llvm.ptrmask.p0.i{bits}(ptr {tagged}, i{bits} -2)"
-                ));
-                Some(EmittedValue {
-                    ty: Type::Address,
-                    representation: environment,
                     owned: false,
                 })
             }

@@ -67,6 +67,10 @@ impl TypeFingerprints {
                             pending.push(Fingerprint::Aggregate(None, 20, 1));
                             pending.push(Fingerprint::Type(element));
                         }
+                        Type::Buffer(element) => {
+                            pending.push(Fingerprint::Aggregate(None, 21, 1));
+                            pending.push(Fingerprint::Type(element));
+                        }
                         _ => values.push(atom_fingerprint(ty)),
                     }
                 }
@@ -125,7 +129,8 @@ fn atom_fingerprint(ty: &Type) -> u64 {
         | Type::Function { .. }
         | Type::Cursor(_)
         | Type::Region(_)
-        | Type::Packed(_) => {
+        | Type::Packed(_)
+        | Type::Buffer(_) => {
             unreachable!("aggregate fingerprints are composed from their children")
         }
     }

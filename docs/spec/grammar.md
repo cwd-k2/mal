@@ -66,7 +66,7 @@ atomicType   ::= TYPE_IDENT typeArguments?
 sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 ```
 
-`Cursor`、`Region`、`Packed`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
+`Cursor`、`Region`、`Packed`、`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
 
 ## Expression form

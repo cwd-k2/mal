@@ -157,9 +157,7 @@ fn collect_atom_uses(
         AtomKind::Reference(Reference::Binding(id)) if !definitions.contains(&id) => {
             uses.insert(id);
         }
-        AtomKind::Reference(
-            Reference::Capture(_) | Reference::PackedBuilder | Reference::SelfClosure(_),
-        ) => {
+        AtomKind::Reference(Reference::Capture(_) | Reference::SelfClosure(_)) => {
             *environment = true;
         }
         _ => {}
@@ -184,7 +182,6 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
             captures.iter().for_each(visit)
         }
         Operation::Memory { operands, .. } => operands.iter().for_each(visit),
-        Operation::MakePackedCapability { builder, .. } => visit(builder),
         Operation::PrimitiveBinary { left, right, .. } => {
             visit(left);
             visit(right);

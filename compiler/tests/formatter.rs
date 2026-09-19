@@ -450,15 +450,15 @@ fn indents_multiline_arguments_from_the_call_line() {
 #[test]
 fn indents_nested_blocks_inside_expression_body_continuations() {
     let formatted = format(
-        "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\nsource.edit<Int32>((_, get, put) -> {\nput(0usize, get(0usize));\n()\n});",
+        "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\nsource.edit<Int32>((buffer) -> {\nbuffer.put(0usize, buffer.get(0usize));\n()\n});",
     );
 
     assert_eq!(
         formatted,
         concat!(
             "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\n",
-            "    source.edit<Int32>((_, get, put) -> {\n",
-            "        put(0usize, get(0usize));\n",
+            "    source.edit<Int32>((buffer) -> {\n",
+            "        buffer.put(0usize, buffer.get(0usize));\n",
             "        ();\n",
             "    });\n",
         )

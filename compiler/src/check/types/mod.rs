@@ -1,9 +1,10 @@
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
-    self as resolved, ADDRESS_TYPE, BOOL_TYPE, BYTE_SIZE_TYPE, CURSOR_TYPE, FLOAT32_TYPE,
-    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PACKED_TYPE, REGION_TYPE,
-    SYMBOL_TYPE, TypeId, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, CURSOR_TYPE,
+    FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PACKED_TYPE,
+    REGION_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+    UINT64_TYPE, UNIT_TYPE,
 };
 use crate::source::Span;
 
@@ -197,18 +198,17 @@ impl Checker {
                 }
                 Expansion::Application(constructor, arity) => {
                     let arguments = take_last(&mut values, arity);
-                    let expected =
-                        if matches!(constructor.id, CURSOR_TYPE | REGION_TYPE | PACKED_TYPE) {
-                            1
-                        } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
-                            definition.parameters.len()
-                        } else {
-                            return Err(Diagnostic::error("type does not accept arguments")
-                                .with_primary(
-                                    constructor.name.span,
-                                    "remove these type arguments",
-                                ));
-                        };
+                    let expected = if matches!(
+                        constructor.id,
+                        CURSOR_TYPE | REGION_TYPE | PACKED_TYPE | BUFFER_TYPE
+                    ) {
+                        1
+                    } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
+                        definition.parameters.len()
+                    } else {
+                        return Err(Diagnostic::error("type does not accept arguments")
+                            .with_primary(constructor.name.span, "remove these type arguments"));
+                    };
                     if arity != expected {
                         return Err(Diagnostic::error("generic type argument arity mismatch")
                             .with_primary(
@@ -228,6 +228,10 @@ impl Checker {
                         let element = arguments.into_iter().next().unwrap();
                         ensure_memory_representable(&element, constructor.name.span)?;
                         values.push(Type::Packed(element.into()));
+                    } else if constructor.id == BUFFER_TYPE {
+                        let element = arguments.into_iter().next().unwrap();
+                        ensure_memory_representable(&element, constructor.name.span)?;
+                        values.push(Type::Buffer(element.into()));
                     } else {
                         if !self.expanding.insert(constructor.id) {
                             return Err(Diagnostic::error("recursive generic type alias")
@@ -345,6 +349,7 @@ pub(super) fn substitute_type(
         Type::Cursor(element) => Type::Cursor(substitute_type(element, substitutions).into()),
         Type::Region(element) => Type::Region(substitute_type(element, substitutions).into()),
         Type::Packed(element) => Type::Packed(substitute_type(element, substitutions).into()),
+        Type::Buffer(element) => Type::Buffer(substitute_type(element, substitutions).into()),
         Type::Product(elements) => Type::Product(
             elements
                 .iter()

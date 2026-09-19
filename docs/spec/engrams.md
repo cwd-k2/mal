@@ -29,7 +29,7 @@ Engramへ包んでもresource ownershipは移らない。
 
 Cursor loadとRegionからPackedへのtransferはadmissionである。Cursor/Region storeはobservationである。extern resultとparameterは
 HostMappableなEngram leafのadmissionまたはobservationと、Addressやexternal opaque valueのcapability transferだけを行う。
-`Symbol`、`Packed`、`Region`はextern signatureへ現れない。
+`Symbol`、`Packed`、`Buffer`、`Region`はextern signatureへ現れない。
 
 backend adapterはraw host operationとmal valueの間に立つtrusted boundary codeである。adapterがruntime contextを使って
 admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、

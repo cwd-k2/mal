@@ -188,17 +188,13 @@ impl FunctionEmitter<'_> {
             | crate::execution::ControlCallMode::DirectSelfTail => return None,
         };
         let code = if direct_target.is_none() {
-            if let Some(target) = self.types.compact_function(&callee.value.ty) {
-                Some(format!("@{}", super::function_name(target)?))
-            } else {
-                let closure_type = self.types.value(&callee.value.ty)?;
-                let code = self.register();
-                self.line(format!(
-                    "  {code} = extractvalue {} {}, 0",
-                    closure_type.llvm, callee.value.representation
-                ));
-                Some(code)
-            }
+            let closure_type = self.types.value(&callee.value.ty)?;
+            let code = self.register();
+            self.line(format!(
+                "  {code} = extractvalue {} {}, 0",
+                closure_type.llvm, callee.value.representation
+            ));
+            Some(code)
         } else {
             None
         };

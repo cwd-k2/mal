@@ -10,7 +10,8 @@ mod predefined;
 mod scope;
 
 pub use self::predefined::{
-    EDIT_VALUE, PACK_VALUE, TYPES as PREDEFINED_TYPES, VALUES as PREDEFINED_VALUES,
+    EDIT_VALUE, GET_VALUE, NEW_VALUE, PACK_VALUE, PUT_VALUE, TYPES as PREDEFINED_TYPES,
+    VALUES as PREDEFINED_VALUES,
 };
 
 use self::ast::{

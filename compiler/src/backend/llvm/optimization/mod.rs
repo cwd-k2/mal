@@ -2,15 +2,11 @@ use std::collections::HashMap;
 
 use crate::control::ast::StateId;
 
-mod packed_data;
 mod symbol_concat;
-
-pub(in crate::backend::llvm) use packed_data::StablePackedAccess;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
     SymbolConcatReuse,
-    StablePackedAccess,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -22,9 +18,7 @@ impl OptimizationSet {
     }
 
     pub(crate) const fn production() -> Self {
-        Self::none()
-            .with(Technique::SymbolConcatReuse)
-            .with(Technique::StablePackedAccess)
+        Self::none().with(Technique::SymbolConcatReuse)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -38,7 +32,6 @@ impl OptimizationSet {
 
 #[derive(Eq, PartialEq)]
 pub(super) struct OptimizationPlan {
-    packed_data: packed_data::StablePackedAccessPlan,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
 }
 
@@ -51,18 +44,12 @@ pub(super) enum SymbolConcatMode {
 
 impl OptimizationPlan {
     pub(super) fn new(execution: &crate::execution::Program, enabled: OptimizationSet) -> Self {
-        let packed_data = if enabled.contains(Technique::StablePackedAccess) {
-            packed_data::StablePackedAccessPlan::new(execution)
-        } else {
-            packed_data::StablePackedAccessPlan::empty()
-        };
         let symbol_concatenations = if enabled.contains(Technique::SymbolConcatReuse) {
             symbol_concat::plan(&execution.control, &execution.ownership)
         } else {
             HashMap::new()
         };
         Self {
-            packed_data,
             symbol_concatenations,
         }
     }
@@ -73,13 +60,6 @@ impl OptimizationPlan {
         enabled: OptimizationSet,
     ) -> bool {
         self == &Self::new(execution, enabled)
-    }
-
-    pub(in crate::backend::llvm) fn stable_packed_access(
-        &self,
-        site: StateId,
-    ) -> Option<&StablePackedAccess> {
-        self.packed_data.stable_access(site)
     }
 
     pub(super) fn symbol_concat_mode(&self, site: StateId, binding: usize) -> SymbolConcatMode {

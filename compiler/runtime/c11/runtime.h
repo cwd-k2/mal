@@ -100,30 +100,6 @@ size_t mal_runtime_packed_builder_new(
     void *builder,
     const void *value
 );
-size_t mal_runtime_packed_builder_new_unique(
-    MalContext *context,
-    void *builder,
-    const void *value,
-    size_t stride
-);
-const void *mal_runtime_packed_builder_get(
-    const void *builder,
-    size_t index,
-    size_t stride
-);
-void mal_runtime_packed_builder_put(
-    MalContext *context,
-    void *builder,
-    size_t index,
-    const void *value,
-    size_t stride
-);
-void mal_runtime_packed_builder_put_unique(
-    void *builder,
-    size_t index,
-    const void *value,
-    size_t stride
-);
 void *const *mal_runtime_packed_builder_data_slot(const void *builder);
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);
 

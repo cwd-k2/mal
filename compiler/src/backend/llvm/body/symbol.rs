@@ -77,7 +77,6 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
             captures.iter().any(atom_contains_value)
         }
-        Operation::MakePackedCapability { builder, .. } => atom_contains_value(builder),
         Operation::SymbolAt { .. } => true,
         Operation::PackedBuilder { .. } => true,
         Operation::Memory {

@@ -3,7 +3,7 @@
 Status: Draft example; non-normative
 
 この文書は[indexで結ぶ`Packed`構造](indexed-packed-structures.md)に対し、node追加とAVL rotationを
-`pack`と`edit`の`new/get/put`で書く具体例を示す。APIの型と意味は
+`pack`と`edit`が渡す`Buffer`の`new/get/put`で書く具体例を示す。APIの型と意味は
 [`Packed`構築と編集](../spec/packed.md#scoped-constructionとediting)を正とし、ここでは
 tree固有のalgorithmとpreconditionだけを扱う。
 
@@ -17,9 +17,6 @@ index 0をheader兼null sentinelとし、nodeはindex 1以降に置く。header�
 AvlEntry :: (Int32, USize, USize, USize);
 AvlTree :: Packed<AvlEntry>;
 
-NewEntry :: AvlEntry -> USize;
-GetEntry :: USize -> AvlEntry;
-PutEntry :: (USize, AvlEntry) -> Unit;
 ```
 
 `0usize` linkはchildなしを表す。nodeのheightはleafで1、nullで0とする。完成したtreeはheaderを必ず持ち、すべてのchild indexが
@@ -28,47 +25,47 @@ PutEntry :: (USize, AvlEntry) -> Unit;
 ## heightとrotation
 
 ```mal
-heightOf :: (USize, GetEntry) -> USize :=
-    (index, get) ->
+heightOf :: (USize, Buffer<AvlEntry>) -> USize :=
+    (index, buffer) ->
         if (index == 0usize)
         then 0usize
         else {
-            (_, height, _, _) := get(index);
+            (_, height, _, _) := buffer.get(index);
             height
         };
 
-refreshHeight :: (USize, GetEntry, PutEntry) -> Unit :=
-    (index, get, put) -> {
-        (key, _, left, right) := get(index);
-        leftHeight := heightOf(left, get);
-        rightHeight := heightOf(right, get);
+refreshHeight :: (USize, Buffer<AvlEntry>) -> Unit :=
+    (index, buffer) -> {
+        (key, _, left, right) := buffer.get(index);
+        leftHeight := heightOf(left, buffer);
+        rightHeight := heightOf(right, buffer);
         height := if (leftHeight > rightHeight)
             then leftHeight + 1usize
             else rightHeight + 1usize;
-        put(index, (key, height, left, right));
+        buffer.put(index, (key, height, left, right));
     };
 
-rotateRight :: (USize, GetEntry, PutEntry) -> USize :=
-    (root, get, put) -> {
-        (rootKey, rootHeight, pivot, rootRight) := get(root);
-        (pivotKey, pivotHeight, pivotLeft, pivotRight) := get(pivot);
+rotateRight :: (USize, Buffer<AvlEntry>) -> USize :=
+    (root, buffer) -> {
+        (rootKey, rootHeight, pivot, rootRight) := buffer.get(root);
+        (pivotKey, pivotHeight, pivotLeft, pivotRight) := buffer.get(pivot);
 
-        put(root, (rootKey, rootHeight, pivotRight, rootRight));
-        refreshHeight(root, get, put);
-        put(pivot, (pivotKey, pivotHeight, pivotLeft, root));
-        refreshHeight(pivot, get, put);
+        buffer.put(root, (rootKey, rootHeight, pivotRight, rootRight));
+        refreshHeight(root, buffer);
+        buffer.put(pivot, (pivotKey, pivotHeight, pivotLeft, root));
+        refreshHeight(pivot, buffer);
         pivot
     };
 
-rotateLeft :: (USize, GetEntry, PutEntry) -> USize :=
-    (root, get, put) -> {
-        (rootKey, rootHeight, rootLeft, pivot) := get(root);
-        (pivotKey, pivotHeight, pivotLeft, pivotRight) := get(pivot);
+rotateLeft :: (USize, Buffer<AvlEntry>) -> USize :=
+    (root, buffer) -> {
+        (rootKey, rootHeight, rootLeft, pivot) := buffer.get(root);
+        (pivotKey, pivotHeight, pivotLeft, pivotRight) := buffer.get(pivot);
 
-        put(root, (rootKey, rootHeight, rootLeft, pivotLeft));
-        refreshHeight(root, get, put);
-        put(pivot, (pivotKey, pivotHeight, root, pivotRight));
-        refreshHeight(pivot, get, put);
+        buffer.put(root, (rootKey, rootHeight, rootLeft, pivotLeft));
+        refreshHeight(root, buffer);
+        buffer.put(pivot, (pivotKey, pivotHeight, root, pivotRight));
+        refreshHeight(pivot, buffer);
         pivot
     };
 ```
@@ -79,59 +76,59 @@ record全体を置換するため一時的に保持し、直後の`refreshHeight
 ## rebalanceと挿入
 
 ```mal
-rebalance :: (USize, Int32, GetEntry, PutEntry) -> USize :=
-    (index, insertedKey, get, put) -> {
-        (key, height, left, right) := get(index);
-        leftHeight := heightOf(left, get);
-        rightHeight := heightOf(right, get);
+rebalance :: (USize, Int32, Buffer<AvlEntry>) -> USize :=
+    (index, insertedKey, buffer) -> {
+        (key, height, left, right) := buffer.get(index);
+        leftHeight := heightOf(left, buffer);
+        rightHeight := heightOf(right, buffer);
 
         if (leftHeight > rightHeight + 1usize)
         then {
-            (leftKey, _, _, _) := get(left);
+            (leftKey, _, _, _) := buffer.get(left);
             if (insertedKey < leftKey)
-            then rotateRight(index, get, put)
+            then rotateRight(index, buffer)
             else {
-                newLeft := rotateLeft(left, get, put);
-                put(index, (key, height, newLeft, right));
-                rotateRight(index, get, put)
+                newLeft := rotateLeft(left, buffer);
+                buffer.put(index, (key, height, newLeft, right));
+                rotateRight(index, buffer)
             }
         }
         else if (rightHeight > leftHeight + 1usize)
         then {
-            (rightKey, _, _, _) := get(right);
+            (rightKey, _, _, _) := buffer.get(right);
             if (insertedKey > rightKey)
-            then rotateLeft(index, get, put)
+            then rotateLeft(index, buffer)
             else {
-                newRight := rotateRight(right, get, put);
-                put(index, (key, height, left, newRight));
-                rotateLeft(index, get, put)
+                newRight := rotateRight(right, buffer);
+                buffer.put(index, (key, height, left, newRight));
+                rotateLeft(index, buffer)
             }
         }
         else index
     };
 
 insertAt ::
-    (USize, Int32, NewEntry, GetEntry, PutEntry) -> USize :=
-    (index, insertedKey, new, get, put) -> {
+    (USize, Int32, Buffer<AvlEntry>) -> USize :=
+    (index, insertedKey, buffer) -> {
         if (index == 0usize)
-        then new((insertedKey, 1usize, 0usize, 0usize))
+        then buffer.new((insertedKey, 1usize, 0usize, 0usize))
         else {
-            (key, height, left, right) := get(index);
+            (key, height, left, right) := buffer.get(index);
 
             if (insertedKey == key)
             then index
             else if (insertedKey < key)
             then {
-                newLeft := insertAt(left, insertedKey, new, get, put);
-                put(index, (key, height, newLeft, right));
-                refreshHeight(index, get, put);
-                rebalance(index, insertedKey, get, put)
+                newLeft := insertAt(left, insertedKey, buffer);
+                buffer.put(index, (key, height, newLeft, right));
+                refreshHeight(index, buffer);
+                rebalance(index, insertedKey, buffer)
             }
             else {
-                newRight := insertAt(right, insertedKey, new, get, put);
-                put(index, (key, height, left, newRight));
-                refreshHeight(index, get, put);
-                rebalance(index, insertedKey, get, put)
+                newRight := insertAt(right, insertedKey, buffer);
+                buffer.put(index, (key, height, left, newRight));
+                refreshHeight(index, buffer);
+                rebalance(index, insertedKey, buffer)
             }
         }
     };
@@ -144,17 +141,17 @@ parentへ書き戻す。構造の再帰を型ではなくこのoperation contrac
 
 ```mal
 balancedExample :: Unit -> AvlTree := () ->
-    pack<AvlEntry>((new, get, put) -> {
-        header := new((0i32, 0usize, 0usize, 0usize));
+    pack<AvlEntry>((buffer) -> {
+        header := buffer.new((0i32, 0usize, 0usize, 0usize));
 
-        root1 := insertAt(0usize, 30i32, new, get, put);
-        root2 := insertAt(root1, 20i32, new, get, put);
-        root3 := insertAt(root2, 10i32, new, get, put);
-        root4 := insertAt(root3, 25i32, new, get, put);
-        root5 := insertAt(root4, 40i32, new, get, put);
-        root6 := insertAt(root5, 50i32, new, get, put);
+        root1 := insertAt(0usize, 30i32, buffer);
+        root2 := insertAt(root1, 20i32, buffer);
+        root3 := insertAt(root2, 10i32, buffer);
+        root4 := insertAt(root3, 25i32, buffer);
+        root5 := insertAt(root4, 40i32, buffer);
+        root6 := insertAt(root5, 50i32, buffer);
 
-        put(header, (0i32, 0usize, root6, 0usize));
+        buffer.put(header, (0i32, 0usize, root6, 0usize));
     });
 ```
 
@@ -177,10 +174,10 @@ nodeの物理順序は`new`の実行順のままであり、rootがどのindex�
 ```mal
 insertTree :: (AvlTree, Int32) -> AvlTree :=
     (source, key) ->
-        edit<AvlEntry>(source, (new, get, put) -> {
-            (_, _, oldRoot, _) := get(0usize);
-            newRoot := insertAt(oldRoot, key, new, get, put);
-            put(0usize, (0i32, 0usize, newRoot, 0usize));
+        edit<AvlEntry>(source, (buffer) -> {
+            (_, _, oldRoot, _) := buffer.get(0usize);
+            newRoot := insertAt(oldRoot, key, buffer);
+            buffer.put(0usize, (0i32, 0usize, newRoot, 0usize));
         });
 ```
 

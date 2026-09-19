@@ -39,7 +39,7 @@ fn serves_symbols_completion_and_semantic_tokens() {
 
 #[test]
 fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
-    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((new, _, _) -> { _ := new(1i32); () });\n";
+    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> { _ := buffer.new(1i32); () });\n";
     let uri = "file:///packed-editor.mal";
     let mut server = open_document(uri, text);
     let completion = request_at(
@@ -52,7 +52,7 @@ fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
     );
     let items = completion["result"].as_array().unwrap();
 
-    for name in ["Cursor", "Region", "Packed"] {
+    for name in ["Cursor", "Region", "Packed", "Buffer"] {
         assert!(
             items
                 .iter()
@@ -64,6 +64,13 @@ fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
             .iter()
             .any(|item| item["label"] == "pack" && item["kind"] == 3)
     );
+    for name in ["new", "get", "put"] {
+        assert!(
+            items
+                .iter()
+                .any(|item| item["label"] == name && item["kind"] == 3)
+        );
+    }
 
     let tokens = server.handle(json!({
         "jsonrpc": "2.0", "id": 26, "method": "textDocument/semanticTokens/full",

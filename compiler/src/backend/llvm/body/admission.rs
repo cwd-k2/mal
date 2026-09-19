@@ -76,9 +76,6 @@ fn admit_operation<'a>(
                 admit_atom(operand, layouts, maximum)?;
             }
         }
-        Operation::MakePackedCapability { builder, .. } => {
-            admit_atom(builder, layouts, maximum)?;
-        }
         Operation::Call { callee, argument } => {
             admit_atom(callee, layouts, maximum)?;
             admit_atom(argument, layouts, maximum)?;

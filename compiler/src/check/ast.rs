@@ -29,6 +29,7 @@ pub enum Type {
     Cursor(Arc<Type>),
     Region(Arc<Type>),
     Packed(Arc<Type>),
+    Buffer(Arc<Type>),
     External {
         id: TypeId,
         name: String,
@@ -84,7 +85,8 @@ impl PartialEq for Type {
                 ) if left_id == right_id && left_name == right_name => {}
                 (Self::Cursor(left), Self::Cursor(right))
                 | (Self::Region(left), Self::Region(right))
-                | (Self::Packed(left), Self::Packed(right)) => pending.push((left, right)),
+                | (Self::Packed(left), Self::Packed(right))
+                | (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
                 (
                     Self::External {
                         id: left_id,
@@ -406,6 +408,9 @@ pub enum MemoryPrimitive {
     PackedIndex,
     PackedToSymbol,
     SymbolToPacked,
+    BufferNew,
+    BufferGet,
+    BufferPut,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

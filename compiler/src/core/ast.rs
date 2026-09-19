@@ -188,10 +188,8 @@ pub enum PackedBuilderOperation {
     Start,
     Edit,
     New,
-    NewUnique,
     Get,
     Put,
-    PutUnique,
     Finish,
 }
 
@@ -235,10 +233,6 @@ pub struct Lambda {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LambdaKind {
     Ordinary,
-    PackedCapability {
-        operation: PackedBuilderOperation,
-        element: Type,
-    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

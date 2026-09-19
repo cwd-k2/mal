@@ -69,7 +69,6 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(value.into())
             }
-            Type::Function { .. } if self.function_type_is_scoped(ty) => Some(value.into()),
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
@@ -123,7 +122,6 @@ impl FunctionEmitter<'_> {
                     "  call void @mal_runtime_bytes_release(ptr {owner})"
                 ));
             }
-            Type::Function { .. } if self.function_type_is_scoped(ty) => {}
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
@@ -154,10 +152,6 @@ impl FunctionEmitter<'_> {
             _ => {}
         }
         Some(())
-    }
-
-    fn function_type_is_scoped(&self, ty: &Type) -> bool {
-        function_type_is_scoped(self.index.lowered_functions.values().copied(), ty)
     }
 
     fn emit_sum_lifetime(
@@ -200,68 +194,5 @@ impl FunctionEmitter<'_> {
         }
         self.line(format!("mal_{operation}_{id}_done:"));
         Some(())
-    }
-}
-
-fn function_type_is_scoped<'a>(
-    functions: impl Iterator<Item = &'a crate::closure::ast::Function>,
-    ty: &Type,
-) -> bool {
-    let Type::Function { parameter, result } = ty else {
-        return false;
-    };
-    let mut matching = functions.filter(|function| {
-        function.parameter.ty == **parameter && function.body.result.ty == **result
-    });
-    matching.next().is_some_and(|first| {
-        first.kind.is_packed_capability()
-            && matching.all(|function| function.kind.is_packed_capability())
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::source::{FileId, SourceFile};
-
-    fn lowered(source: &str) -> crate::closure::ast::Program {
-        let source = SourceFile::new(FileId::new(101), "scoped-functions.mal", source.into());
-        let checked = crate::pipeline::check(&source).expect("check scoped function fixture");
-        let specialized = crate::check::specialize(checked).expect("specialize scoped fixture");
-        crate::closure::convert(&crate::anf::lower(&crate::core::lower(&specialized)))
-    }
-
-    fn reader_type() -> Type {
-        Type::Function {
-            parameter: Type::USize.into(),
-            result: Type::Int64.into(),
-        }
-    }
-
-    #[test]
-    fn classifies_a_function_type_from_every_closed_program_inhabitant() {
-        let program = lowered(
-            "fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (_, get, _) -> { _ := get(0usize); (); };\n\
-             main :: Unit -> Int32 := () -> { _ := pack<Int64>(fill); 0i32; };",
-        );
-
-        assert!(function_type_is_scoped(
-            program.functions.iter(),
-            &reader_type()
-        ));
-    }
-
-    #[test]
-    fn preserves_managed_lifetime_when_an_ordinary_inhabitant_matches() {
-        let program = lowered(
-            "read :: USize -> Int64 := (_) -> { 0i64 };\n\
-             fill :: ((Int64 -> USize), (USize -> Int64), ((USize, Int64) -> Unit)) -> Unit := (_, get, _) -> { _ := get(0usize); (); };\n\
-             main :: Unit -> Int32 := () -> { _ := pack<Int64>(fill); _ := read(0usize); 0i32; };",
-        );
-
-        assert!(!function_type_is_scoped(
-            program.functions.iter(),
-            &reader_type()
-        ));
     }
 }

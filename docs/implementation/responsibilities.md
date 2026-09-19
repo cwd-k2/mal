@@ -127,7 +127,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
 | `check/expression` | expression kindのdispatch、reference、literal、product、memory formをexpected typeへ照合 |
 | `check/expression/application` | ordinary・receiver-first・continuation application、result transfer、empty eliminationの型とcompletionを構成 |
-| `check/packed` | predefined `pack`・`edit`の型argument、Representable requirement、callback capability signatureを検査 |
+| `check/packed` | predefined `pack`・`edit`の型argument、Representable requirement、`Buffer<A>` callbackと`new`・`get`・`put`の型を検査 |
 | `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/operator/arithmetic` | numeric、Address offset、Symbol concatenationのoperand選択とresult型を構成 |
@@ -156,17 +156,16 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `driver/build` | source graph、optimization profile、artifact directory、generated input、Clang process、AtCoder carrierを一つのbuild use caseへ構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
-| `core/packed` | checked `pack`・`edit`をbuilder lifetimeを閉じるcore operation列へ変換 |
-| `core/packed/capability` | builderをcaptureする`new`・`get`・`put` intrinsic capabilityを構成し、`pack`のunique append・putと`edit`のcopy-on-write operationを区別してelement型とoperationが同じcode identityを共有 |
+| `core/packed` | checked `pack`・`edit`と`Buffer` operationを、builder lifetimeを閉じるcore operation列へ変換 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
 | `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveの論理operandとlambda-local join identityを保持 |
-| `closure` | ordinary function kindにcapture schemaを、intrinsic capability kindにoperationとelement型を持たせ、capability bodyのbuilder referenceと生成siteのbuilder provenanceを専用表現として構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
+| `closure` | ordinary functionのcapture schemaを構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationとoperator中間値を明示的な`let` / `case`へ変換 |
-| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製せず、intrinsic capabilityのbuilder provenanceを専用operationのまま保持 |
+| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製しない |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
 | `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
 | `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
@@ -185,7 +184,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
 | `execution/ownership/authority` | caller-bounded parameter、case payload、discardされたpure constructionをauthority rootとして収集し、nested `Atom`、product、sumとpattern aliasの順序非依存なprovenanceを構成する |
 | `execution/ownership/borrow` | authority dependencyで閉じたmanaged livenessをcontrol state、binding、terminatorへ提供する |
-| `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
+| `execution/ownership/identity` | control edge、ordinary closure capture、operation operand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
 | `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
 | `execution/ownership/destination` | pattern leafを`Initialize`、`Borrow`、`Discard`またはunmanaged destinationへ写す |
@@ -199,12 +198,12 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/host_bridge/plan` | extern parameterとresultについて、LLVM value storageの再帰的layoutとmarshalling traversalをC emissionより先に確定 |
 | `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
 | `backend/llvm/shim` | process argument descriptorの構築とinternal root bridgeを呼ぶC11 entry pointを構成 |
-| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成し、closed programで唯一のscoped inhabitantを持つfunction型をuntagged environment一語へ縮約 |
+| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
 | `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
 | `backend/llvm/body/plan` | closure stageが確定したentry function、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
 | `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
-| `backend/llvm/body/operation` | ordinary closureはcapture environmentから、intrinsic capabilityは明示されたbuilder provenanceからLLVM function valueを構成 |
+| `backend/llvm/body/operation` | ordinary closureのcapture environmentからLLVM function valueを構成 |
 | `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
 | `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
@@ -212,16 +211,14 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/value/atom` | closure atomをtarget literal、reference load、closure carrierへ変換 |
 | `backend/llvm/body/value/use_effect` | execution ownership useをborrow、retain、source slot失効へ変換 |
 | `backend/llvm/body/value/pattern` | executionのpattern destinationへtyped valueを格納または破棄 |
-| `backend/llvm/body/value/lifetime` | managed typeを再帰走査してretain、release、dead slot cleanupを出力し、closed program上の全inhabitantがscopedなfunction型のlifetime operationをidentityへ縮約 |
+| `backend/llvm/body/value/lifetime` | managed typeを再帰走査してretain、release、dead slot cleanupを出力 |
 | `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、execution ownership factを変更しないtarget固有techniqueのemission decisionを構成 |
-| `backend/llvm/optimization/packed_data` | admitted application graphとcontrol continuation、およびchecked-in runtimeの無効化operationからPacked direct access、edit preparation、data slot invariant可否を選択 |
 | `backend/llvm/optimization/symbol_concat` | execution ownership planのdead responsibility factから`Symbol` concatがstorage再利用を試みてよいoperandを選択 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
-| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、unique・copy-on-write capability operation、freezeを出力する |
-| `backend/llvm/body/memory/stable_builder` | LLVM optimization planが選択したPacked direct accessをruntimeのlazy edit preparationとdata slot contractから出力し、builder layoutを再推論しない |
+| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、`Buffer`のappend・direct access、lazy edit preparation、freezeを出力する |
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
 | `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
@@ -231,7 +228,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storage取得とcapacity内reserveをprogram側へinline |
-| `runtime/c11/bytes.c` | LLVM artifact内部のcanonical alignmentを満たすreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builder、lazy edit preparation、data slot accessを実装し、unique appendとedit判定のfast pathをprogram側へinline |
+| `runtime/c11/bytes.c` | LLVM artifact内部のcanonical alignmentを満たすreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builder、lazy edit preparation、data slot accessを実装 |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
 | `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |

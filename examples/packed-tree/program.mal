@@ -3,14 +3,14 @@ TreeNode :: (Int32, UInt8, USize, USize);
 Tree :: Packed<TreeNode>;
 
 buildTree :: Unit -> Tree := () ->
-    pack<TreeNode>((new, _, put) -> {
-        root := new((1i32, 0u8, 0usize, 0usize));
-        left := new((2i32, 0u8, 0usize, 0usize));
-        leftLeft := new((3i32, 0u8, 0usize, 0usize));
-        leftRight := new((4i32, 0u8, 0usize, 0usize));
-        right := new((5i32, 0u8, 0usize, 0usize));
-        put(left, (2i32, 1u8, leftLeft, leftRight));
-        put(root, (1i32, 1u8, left, right));
+    pack<TreeNode>((buffer) -> {
+        root := buffer.new((1i32, 0u8, 0usize, 0usize));
+        left := buffer.new((2i32, 0u8, 0usize, 0usize));
+        leftLeft := buffer.new((3i32, 0u8, 0usize, 0usize));
+        leftRight := buffer.new((4i32, 0u8, 0usize, 0usize));
+        right := buffer.new((5i32, 0u8, 0usize, 0usize));
+        buffer.put(left, (2i32, 1u8, leftLeft, leftRight));
+        buffer.put(root, (1i32, 1u8, left, right));
         ();
     });
 
@@ -22,9 +22,9 @@ sumNode :: (Tree, USize) -> Int32 := (tree, index) -> {
 };
 
 incrementRoot :: Tree -> Tree := (tree) ->
-    tree.edit<TreeNode>((_, get, put) -> {
-        (value, kind, left, right) := get(0usize);
-        put(0usize, (value + 1i32, kind, left, right));
+    tree.edit<TreeNode>((buffer) -> {
+        (value, kind, left, right) := buffer.get(0usize);
+        buffer.put(0usize, (value + 1i32, kind, left, right));
         ();
     });
 

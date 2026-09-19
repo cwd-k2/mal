@@ -386,38 +386,6 @@ void *mal_runtime_packed_builder_prepare_edit(
     return builder->data;
 }
 
-size_t mal_runtime_packed_builder_new(
-    MalContext *context,
-    void *opaque_builder,
-    const void *value
-) {
-    MalPackedBuilder *builder = opaque_builder;
-    if (builder->count == SIZE_MAX) {
-        mal_trap(context, "packed builder count overflow");
-    }
-    size_t index = builder->count;
-    if (builder->stride != 0) {
-        mal_packed_builder_make_editable(context, builder);
-        size_t bytes = mal_packed_builder_bytes(
-            context,
-            builder->count,
-            builder->stride
-        );
-        builder->owner = mal_bytes_append(
-            context,
-            builder->owner,
-            0,
-            bytes,
-            value,
-            builder->stride,
-            "packed builder allocation failed"
-        );
-        builder->data = (unsigned char *)mal_bytes_data(builder->owner);
-    }
-    ++builder->count;
-    return index;
-}
-
 __attribute__((noinline))
 static MalBytesFlat *mal_packed_builder_grow_unique(
     MalContext *context,
@@ -446,28 +414,27 @@ static MalBytesFlat *mal_packed_builder_grow_unique(
     return flat;
 }
 
-__attribute__((always_inline))
-size_t mal_runtime_packed_builder_new_unique(
+size_t mal_runtime_packed_builder_new(
     MalContext *context,
     void *opaque_builder,
-    const void *value,
-    size_t stride
+    const void *value
 ) {
     MalPackedBuilder *builder = opaque_builder;
     if (builder->count == SIZE_MAX) {
         mal_trap(context, "packed builder count overflow");
     }
     size_t index = builder->count;
-    if (stride != 0) {
+    if (builder->stride != 0) {
+        mal_packed_builder_make_editable(context, builder);
         size_t length = mal_packed_builder_bytes(
             context,
             builder->count,
-            stride
+            builder->stride
         );
         size_t required = mal_packed_builder_bytes(
             context,
             builder->count + 1,
-            stride
+            builder->stride
         );
         MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
         if (flat == NULL || required > flat->capacity) {
@@ -475,54 +442,12 @@ size_t mal_runtime_packed_builder_new_unique(
         } else {
             flat->header.length = (uint64_t)required;
         }
-        memcpy(flat->bytes + length, value, stride);
+        memcpy(flat->bytes + length, value, builder->stride);
         builder->owner = &flat->header;
         builder->data = flat->bytes;
     }
     ++builder->count;
     return index;
-}
-
-__attribute__((always_inline))
-const void *mal_runtime_packed_builder_get(
-    const void *opaque_builder,
-    size_t index,
-    size_t stride
-) {
-    const MalPackedBuilder *builder = opaque_builder;
-    if (stride == 0) {
-        return NULL;
-    }
-    return builder->data + index * stride;
-}
-
-__attribute__((always_inline))
-void mal_runtime_packed_builder_put(
-    MalContext *context,
-    void *opaque_builder,
-    size_t index,
-    const void *value,
-    size_t stride
-) {
-    MalPackedBuilder *builder = opaque_builder;
-    if (stride == 0) {
-        return;
-    }
-    mal_packed_builder_make_editable(context, builder);
-    memcpy(builder->data + index * stride, value, stride);
-}
-
-__attribute__((always_inline))
-void mal_runtime_packed_builder_put_unique(
-    void *opaque_builder,
-    size_t index,
-    const void *value,
-    size_t stride
-) {
-    MalPackedBuilder *builder = opaque_builder;
-    if (stride != 0) {
-        memcpy(builder->data + index * stride, value, stride);
-    }
 }
 
 void *const *mal_runtime_packed_builder_data_slot(const void *opaque_builder) {

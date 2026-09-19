@@ -13,7 +13,7 @@ T ::=
   | ByteSize | USize
   | Symbol
   | Address
-  | Cursor<T> | Region<T> | Packed<T>
+  | Cursor<T> | Region<T> | Packed<T> | Buffer<T>
   | (T, T, ...)
   | []
   | [T, T, ...]
@@ -46,7 +46,7 @@ mal-ownedなimmutable sequenceであり、Symbolとは別の型である。
 
 `Address`はordinary byte-addressable external storageへのopaque capabilityである。`Cursor<T>`はAddressとcanonical layout、
 `Region<T>`はそれにUSizeを加えた有限location列を運ぶ。これらはreferentのownership、permission、lifetimeを持たない。
-`Packed<T>`はmal-ownedなimmutable有限sequenceである。型形成とoperationは[external memory](memory.md)と
+`Packed<T>`はmal-ownedなimmutable有限sequence、`Buffer<T>`はそのscopedな構築・編集authorityである。型形成とoperationは[external memory](memory.md)と
 [`Region`と`Packed`](packed.md)に定める。
 
 ## Unit

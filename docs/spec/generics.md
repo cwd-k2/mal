@@ -42,7 +42,7 @@ double<A> :: A -> A := (value) -> value + value; // error
 ## Requirements
 
 `Requirements(T)`はalias展開後の型`T`が要求するbuilt-in judgmentの有限集合である。product、sum、functionは要素のrequirementを
-再帰的に合併する。`Cursor<A>`、`Region<A>`、`Packed<A>`は`Representable(A)`を加え、type argument内のrequirementも加える。
+再帰的に合併する。`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`を加え、type argument内のrequirementも加える。
 
 compilerは`Representable(T)`をclosedな定義で正規化する。representableなconcrete base caseは消去し、productとsumは各要素へ
 分解し、opaqueな型parameterだけをatomとして残す。既知の非representable型はdeclarationで拒否する。
