@@ -58,6 +58,75 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
 }
 
 #[test]
+fn passes_current_packed_data_to_helpers_before_and_after_growth() {
+    let directory = NativeFixture::new("driver-llvm-direct-packed-data");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "adjust :: ((Buffer<Int32>, USize), Int32) -> Int32 := (view, increment) -> {
+           (buffer, index) := view;
+           previous := buffer.get(index);
+           buffer.put(index, previous + increment);
+           previous;
+         };
+
+         capturedAdjust :: (Buffer<Int32>, Int32) -> Int32 := (buffer, increment) -> {
+           nested :: (Unit -> Int32) := () -> {
+             previous := buffer.get(0usize);
+             buffer.put(0usize, previous + increment);
+             previous;
+           };
+           nested();
+         };
+
+         append :: (Buffer<Int32>, Int32) -> Unit := (buffer, remaining) -> {
+           if (remaining == 0i32)
+           then { () }
+           else {
+             _ := buffer.new(remaining);
+             append(buffer, remaining - 1i32);
+           };
+         };
+
+         main :: Unit -> Int32 := () -> {
+           values := pack<Int32>((buffer) -> {
+             _ := buffer.new(10i32);
+             _ := adjust(((buffer, 0usize), 1i32));
+             append(buffer, 64i32);
+             _ := adjust(((buffer, 0usize), 31i32));
+             previous := capturedAdjust(buffer, 1i32);
+             _ := buffer.new(previous);
+             ();
+           });
+           (values # 0usize) - 43i32 + (values # 65usize) - 42i32;
+         };",
+    );
+
+    for (profile, name) in [(Some("baseline"), "baseline"), (None, "production")] {
+        let executable = directory.join(name);
+        let artifacts = directory.join(format!("{name}-artifacts"));
+        let mut arguments = vec![
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--artifact-dir"),
+            artifacts.as_os_str(),
+        ];
+        if let Some(profile) = profile {
+            arguments.extend([OsStr::new("--optimization"), OsStr::new(profile)]);
+        }
+        let output = directory.malc(arguments);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(&executable).status.code(), Some(0));
+    }
+}
+
+#[test]
 fn prepares_edit_once_before_lowering_recursive_packed_access() {
     let directory = NativeFixture::new("driver-llvm-prepared-packed-edit");
     let source = directory.join("program.mal");

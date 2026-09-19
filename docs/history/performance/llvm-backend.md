@@ -274,3 +274,18 @@ application graphとrecursive control regionを閉じてもこの契約を満た
 誤最適化を検出したため、このtechniqueは棄却した。正しい後続案にはscopedな別mechanismが必要である。raw sampleはignored scratchの
 `.scratch/typical90/performance/023/stable-epoch-before-after.json`と
 `.scratch/typical90/performance/043/packed-edit-variants.json`に記録した。
+
+## 2026-09-19 — non-growing Buffer helperのinternal ABI
+
+恒久的なmemory metadataでstable epochを表す案に代え、呼出し時点のactive data addressを値として渡すLLVM内部ABIを採択した。
+対象functionはproductだけを通る`Buffer` parameterを持ち、到達するbuilder operationが`get`と`put`だけであるものに限る。
+application targetとrecursive control regionを閉じ、`Buffer` result、closure capture、Bufferをcaptureするnested closure、未対応aggregate、
+direct/non-direct表現が混在するindirect siteを除外する。growth可能なcallerから対象helperへ入る各境界でdata slotを一度読み、product内の
+Buffer leafだけをactive data addressへ置換する。このためgrowth前後に同じhelperを呼んでも、各呼出しはその時点のaddressを受け取る。
+runtime ABI、source-level `Buffer` contract、element alignmentは変更しない。baseline profileは従来のbuilder pointer ABIだけを使う。
+
+023の自然なpack-edit-walk版を2 warmup・回転10回で変更前後比較すると、medianは1169.863 msから1138.779 msへ2.7%短縮した。
+同じ測定のRegionは1013.410 ms、direct Cは794.112 msだった。変更後compilerで再構築した四者の確認測定ではPacked
+1129.920 ms、edit 1122.040 ms、Region 999.100 ms、direct C 795.960 msである。9個のedit corpusはmaximum-order inputで
+Packed、edit、Region、direct Cのstdoutがすべて一致した。baseline/productionのnative regressionはnested product、growth前後の
+同一helper、Bufferをcaptureするnested closureを含む。誤った`invariant.load`は使わない。

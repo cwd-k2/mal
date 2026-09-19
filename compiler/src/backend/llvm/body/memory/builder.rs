@@ -87,16 +87,7 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     });
                 }
-                let slot = self.register();
-                self.line(format!(
-                    "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {})",
-                    builder.representation
-                ));
-                let data = self.register();
-                self.line(format!(
-                    "  {data} = load ptr, ptr {slot}, align {}, !tbaa !4",
-                    self.types.pointer_alignment()
-                ));
+                let data = self.active_buffer_data(&builder)?;
                 let pointer = self.builder_element_pointer(&data, &index, stride)?;
                 self.emit_aligned_builder_load_at(&pointer, element)
             }
@@ -110,16 +101,7 @@ impl FunctionEmitter<'_> {
                 let [builder, put] = self.product_fields(argument, [&buffer_type, &put_type])?;
                 let [index, value] = self.product_fields(&put, [&Type::USize, element])?;
                 if stride != 0 {
-                    let slot = self.register();
-                    self.line(format!(
-                        "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {})",
-                        builder.representation
-                    ));
-                    let data = self.register();
-                    self.line(format!(
-                        "  {data} = load ptr, ptr {slot}, align {}, !tbaa !4",
-                        self.types.pointer_alignment()
-                    ));
+                    let data = self.active_buffer_data(&builder)?;
                     let pointer = self.builder_element_pointer(&data, &index, stride)?;
                     self.emit_aligned_builder_store_at(&pointer, &value)?;
                 }
@@ -156,6 +138,23 @@ impl FunctionEmitter<'_> {
                 })
             }
         }
+    }
+
+    fn active_buffer_data(&mut self, buffer: &EmittedValue) -> Option<String> {
+        if self.optimizations.uses_direct_buffer(self.current_function) {
+            return Some(buffer.representation.clone());
+        }
+        let slot = self.register();
+        self.line(format!(
+            "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {})",
+            buffer.representation
+        ));
+        let data = self.register();
+        self.line(format!(
+            "  {data} = load ptr, ptr {slot}, align {}, !tbaa !4",
+            self.types.pointer_alignment()
+        ));
+        Some(data)
     }
 
     fn builder_value_pointer(&mut self, value: &EmittedValue, stride: usize) -> Option<String> {

@@ -265,6 +265,56 @@ fn emits_scoped_buffer_operations_without_closure_environments() {
 }
 
 #[test]
+fn passes_active_data_to_non_growing_buffer_helpers() {
+    let source = SourceFile::new(
+        FileId::new(97),
+        "llvm-direct-buffer-abi.mal",
+        "read :: Buffer<Int64> -> Int64 := (buffer) -> { buffer.get(0usize); }; main :: Unit -> Int32 := () -> { values := pack<Int64>((buffer) -> { _ := buffer.new(1i64); buffer.put(0usize, read(buffer)); }); (values # 0usize).i32 - 1i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check direct Buffer ABI fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let production = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("production direct Buffer ABI fixture is supported");
+    let baseline = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::none(),
+    )
+    .expect("baseline direct Buffer ABI fixture is supported");
+
+    let production_read = production
+        .module
+        .split("define internal i64")
+        .nth(1)
+        .and_then(|body| body.split("\ndefine ").next())
+        .expect("production read helper");
+    let baseline_read = baseline
+        .module
+        .split("define internal i64")
+        .nth(1)
+        .and_then(|body| body.split("\ndefine ").next())
+        .expect("baseline read helper");
+    assert!(!production_read.contains("@mal_runtime_packed_builder_data_slot"));
+    assert!(baseline_read.contains("@mal_runtime_packed_builder_data_slot"));
+}
+
+#[test]
 fn borrows_managed_tail_carriers_from_the_outer_call() {
     let source = SourceFile::new(
         FileId::new(95),

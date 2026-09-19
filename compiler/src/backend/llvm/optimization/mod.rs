@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
+mod buffer_abi;
 mod symbol_concat;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
+    BufferDirectAbi,
     SymbolConcatReuse,
 }
 
@@ -18,7 +21,9 @@ impl OptimizationSet {
     }
 
     pub(crate) const fn production() -> Self {
-        Self::none().with(Technique::SymbolConcatReuse)
+        Self::none()
+            .with(Technique::BufferDirectAbi)
+            .with(Technique::SymbolConcatReuse)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -32,6 +37,7 @@ impl OptimizationSet {
 
 #[derive(Eq, PartialEq)]
 pub(super) struct OptimizationPlan {
+    direct_buffer_functions: HashSet<FunctionId>,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
 }
 
@@ -44,12 +50,18 @@ pub(super) enum SymbolConcatMode {
 
 impl OptimizationPlan {
     pub(super) fn new(execution: &crate::execution::Program, enabled: OptimizationSet) -> Self {
+        let direct_buffer_functions = if enabled.contains(Technique::BufferDirectAbi) {
+            buffer_abi::plan(execution)
+        } else {
+            HashSet::new()
+        };
         let symbol_concatenations = if enabled.contains(Technique::SymbolConcatReuse) {
             symbol_concat::plan(&execution.control, &execution.ownership)
         } else {
             HashMap::new()
         };
         Self {
+            direct_buffer_functions,
             symbol_concatenations,
         }
     }
@@ -68,6 +80,27 @@ impl OptimizationPlan {
             .copied()
             .unwrap_or(SymbolConcatMode::Borrow)
     }
+
+    pub(super) fn uses_direct_buffer(&self, function: FunctionId) -> bool {
+        self.direct_buffer_functions.contains(&function)
+    }
+
+    pub(super) fn site_uses_direct_buffer(
+        &self,
+        applications: &crate::execution::ApplicationGraph,
+        site: StateId,
+    ) -> bool {
+        applications.targets(site).is_some_and(|targets| {
+            !targets.is_empty()
+                && targets
+                    .iter()
+                    .all(|target| self.uses_direct_buffer(*target))
+        })
+    }
+}
+
+pub(super) fn type_contains_buffer(ty: &crate::check::ast::Type) -> bool {
+    buffer_abi::contains_buffer(ty)
 }
 
 #[cfg(test)]
@@ -105,6 +138,11 @@ mod tests {
         assert!(
             OptimizationPlan::new(&execution, OptimizationSet::none())
                 .symbol_concatenations
+                .is_empty()
+        );
+        assert!(
+            OptimizationPlan::new(&execution, OptimizationSet::none())
+                .direct_buffer_functions
                 .is_empty()
         );
     }

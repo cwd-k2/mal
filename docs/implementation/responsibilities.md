@@ -205,7 +205,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
 | `backend/llvm/body/operation` | ordinary closureのcapture environmentからLLVM function valueを構成 |
 | `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
-| `backend/llvm/body/call_emission` | direct・indirect call、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
+| `backend/llvm/body/call_emission` | direct・indirect call、選択済みinternal Buffer ABIへのproduct leaf変換、parameter handoff、environment destructor、およびemitter内のvalue nameを構成 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
 | `backend/llvm/body/value/atom` | closure atomをtarget literal、reference load、closure carrierへ変換 |
@@ -213,6 +213,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/value/pattern` | executionのpattern destinationへtyped valueを格納または破棄 |
 | `backend/llvm/body/value/lifetime` | managed typeを再帰走査してretain、release、dead slot cleanupを出力 |
 | `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、execution ownership factを変更しないtarget固有techniqueのemission decisionを構成 |
+| `backend/llvm/optimization/buffer_abi` | application graphとcontrol regionを閉じ、growth、Buffer capture・result、未対応aggregate、表現が混在するindirect callを拒否して、active dataを直接渡せるinternal functionを選択 |
 | `backend/llvm/optimization/symbol_concat` | execution ownership planのdead responsibility factから`Symbol` concatがstorage再利用を試みてよいoperandを選択 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
