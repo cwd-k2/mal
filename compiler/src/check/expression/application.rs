@@ -284,7 +284,11 @@ impl Checker {
                 })
             }
             [argument] => self.check_expression(argument, Some(parameter)),
-            _ => self.check_product(arguments, span, Some(parameter)),
+            _ => {
+                let argument = self.check_product(arguments, span, Some(parameter))?;
+                self.require_type(&argument.ty, parameter, argument.span)?;
+                Ok(argument)
+            }
         }
     }
 

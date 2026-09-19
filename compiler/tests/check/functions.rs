@@ -39,6 +39,26 @@ fn checks_function_application_and_zero_argument_unit_lowering() {
 }
 
 #[test]
+fn rejects_multi_argument_application_with_the_wrong_arity() {
+    assert_eq!(
+        check_error(
+            "takePair :: (Int32, Int32) -> Int32 := (left, _) -> { left; };\n\
+             bad :: Int32 := takePair(1, 2, 3);"
+        )
+        .message,
+        "type mismatch"
+    );
+    assert_eq!(
+        check_error(
+            "observe :: (Int32, Int32) -> Int32 := (_, value) -> { value; };\n\
+             bad :: Int32 := 1.observe(2, 3);"
+        )
+        .message,
+        "type mismatch"
+    );
+}
+
+#[test]
 fn checks_return_as_an_ordinary_local_name() {
     check_ok("value :: Unit -> Int64 := () -> { return := 1; return; };");
 }
