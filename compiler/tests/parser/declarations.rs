@@ -98,7 +98,7 @@ fn parses_generic_aliases_bindings_and_nested_indexed_types() {
     let program = parse_ok(
         "Pair<A> :: (A, A);\n\
          identity<A> :: A -> A := (value) -> value;\n\
-         read :: Region<Packed<UInt8>> -> Packed<UInt8> := (region) -> identity<Packed<UInt8>>(<-region);",
+         read :: Packed<(Address, USize)> -> Packed<(Address, USize)> := (values) -> identity<Packed<(Address, USize)>>(values);",
     );
 
     let TopItem::GenericTypeAlias {
