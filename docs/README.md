@@ -38,6 +38,7 @@
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | `Address`、layout、memory placementを使う | [external memory](spec/memory.md) | [grammar](spec/grammar.md)、[`Region`と`Packed`](spec/packed.md) |
 | `Region`、`Packed`、partial I/Oを使う | [`Region`と`Packed`](spec/packed.md) | [external memory](spec/memory.md)、[authority](design/authority.md) |
+| external memory APIの再設計を検討する | [scoped external memory surface](proposals/scoped-external-memory.md) | [external memory](spec/memory.md)、[`Region`と`Packed`](spec/packed.md) |
 | scoped `Packed`構築・編集を使う | [`Region`と`Packed`](spec/packed.md#scoped-constructionとediting) | [managed ownership](implementation/ownership.md) |
 | treeやgraphのmal-owned dataを検討する | [indexで結ぶ`Packed`構造](proposals/indexed-packed-structures.md) | [`Region`と`Packed`](spec/packed.md#scoped-constructionとediting)、[挿入とbalance例](proposals/indexed-packed-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
