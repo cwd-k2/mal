@@ -95,10 +95,12 @@ void *mal_runtime_packed_builder_edit(
     size_t stride
 );
 void *mal_runtime_packed_builder_prepare_edit(MalContext *context, void *builder);
+// The builder is prepared before its callback, and stride must match its element type.
 size_t mal_runtime_packed_builder_new(
     MalContext *context,
     void *builder,
-    const void *value
+    const void *value,
+    size_t stride
 );
 void *const *mal_runtime_packed_builder_data_slot(const void *builder);
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);

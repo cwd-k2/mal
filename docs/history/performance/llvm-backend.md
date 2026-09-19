@@ -289,3 +289,10 @@ runtime ABI、source-level `Buffer` contract、element alignmentは変更しな�
 1129.920 ms、edit 1122.040 ms、Region 999.100 ms、direct C 795.960 msである。9個のedit corpusはmaximum-order inputで
 Packed、edit、Region、direct Cのstdoutがすべて一致した。baseline/productionのnative regressionはnested product、growth前後の
 同一helper、Bufferをcaptureするnested closureを含む。誤った`invariant.load`は使わない。
+
+同じ準備境界から、`new`時点のbuilderは常にeditableであることも導ける。`pack`のstartはeditableな空builderを作り、`edit`はcallbackへ
+入る前に一度だけprepareする。したがってappendごとのeditable判定を除き、element strideをbuilder metadataから再読込せずLLVMから
+runtime internal ABIへ定数で渡す。011、023、039、043の変更前後を3 warmup・交互20回で測定したpaired median比はそれぞれ
+0.99、1.00、0.93、1.00だった。039のtext sizeは12,353 bytesから8,993 bytes、023は16,228 bytesから12,900 bytes、
+043は11,979 bytesから9,611 bytesへ減った。このABIはsource contractではなく、coreが所有するcallback前prepare順序をruntimeへ伝える
+内部境界である。

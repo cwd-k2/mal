@@ -238,6 +238,11 @@ fn emits_scoped_buffer_operations_without_closure_environments() {
             .count(),
         1
     );
+    assert!(
+        artifacts
+            .module
+            .contains("ptr %mal_packed_new_value, i64 8)")
+    );
     assert_eq!(
         artifacts
             .module

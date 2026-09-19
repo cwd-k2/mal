@@ -63,9 +63,8 @@ impl FunctionEmitter<'_> {
                 let value_pointer = self.builder_value_pointer(&value, stride)?;
                 let index = self.register();
                 self.line(format!(
-                    "  {index} = call {} @mal_runtime_packed_builder_new(ptr %mal_context, ptr {}, ptr {value_pointer})",
-                    self.types.pointer_integer()?,
-                    builder.representation
+                    "  {index} = call {0} @mal_runtime_packed_builder_new(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
+                    self.types.pointer_integer()?, builder.representation
                 ));
                 Some(EmittedValue {
                     ty: Type::USize,

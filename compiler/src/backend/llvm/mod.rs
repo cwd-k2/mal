@@ -110,7 +110,7 @@ pub(crate) fn generate(
              declare ptr @mal_runtime_packed_builder_start(ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_edit(ptr, ptr, ptr, {index}, {index})\n\
              declare ptr @mal_runtime_packed_builder_prepare_edit(ptr, ptr)\n\
-             declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr)\n\
+             declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
              declare void @mal_runtime_packed_builder_finish(ptr, ptr)\n\
              declare i8 @mal_runtime_symbol_at(ptr, {index})\n\

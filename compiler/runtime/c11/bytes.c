@@ -418,24 +418,24 @@ __attribute__((always_inline))
 size_t mal_runtime_packed_builder_new(
     MalContext *context,
     void *opaque_builder,
-    const void *value
+    const void *value,
+    size_t stride
 ) {
     MalPackedBuilder *builder = opaque_builder;
     if (builder->count == SIZE_MAX) {
         mal_trap(context, "packed builder count overflow");
     }
     size_t index = builder->count;
-    if (builder->stride != 0) {
-        mal_packed_builder_make_editable(context, builder);
+    if (stride != 0) {
         size_t length = mal_packed_builder_bytes(
             context,
             builder->count,
-            builder->stride
+            stride
         );
         size_t required = mal_packed_builder_bytes(
             context,
             builder->count + 1,
-            builder->stride
+            stride
         );
         MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
         if (flat == NULL || required > flat->capacity) {
@@ -443,7 +443,7 @@ size_t mal_runtime_packed_builder_new(
         } else {
             flat->header.length = (uint64_t)required;
         }
-        memcpy(flat->bytes + length, value, builder->stride);
+        memcpy(flat->bytes + length, value, stride);
         builder->owner = &flat->header;
         builder->data = flat->bytes;
     }
