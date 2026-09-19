@@ -50,6 +50,8 @@ fn omits_self_recursive_parameter_fields_preserved_by_every_edge() {
         std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
     assert!(baseline_module.contains("i64 24)"));
     assert!(production_module.contains("i64 8)"));
+    assert!(!baseline_module.contains("%mal_local_control_top"));
+    assert!(production_module.contains("%mal_local_control_top"));
 }
 #[test]
 fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {

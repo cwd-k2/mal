@@ -76,6 +76,10 @@ impl<'a> FunctionEmitter<'a> {
             .enumerate()
             .map(|(tag, site)| Some((*site, u32::try_from(tag).ok()?)))
             .collect::<Option<HashMap<_, _>>>()?;
+        let local_control_top = optimizations.localizes_control_top(id);
+        if local_control_top && frame_sites.is_empty() {
+            return None;
+        }
         if frame_sites.iter().any(|site| {
             let frame = execution
                 .control_frames
@@ -156,6 +160,7 @@ impl<'a> FunctionEmitter<'a> {
             slots,
             frame_sites,
             frame_tags,
+            local_control_top,
             external_storage,
             packed_new_storage,
             needs_symbol_result_slot,
@@ -203,6 +208,18 @@ impl<'a> FunctionEmitter<'a> {
                 self.types.pointer_integer()?,
                 self.types.index_alignment()
             ));
+            if self.local_control_top {
+                self.line(format!(
+                    "  %mal_local_control_top = alloca {}, align {}",
+                    self.types.pointer_integer()?,
+                    self.types.index_alignment()
+                ));
+                self.line(format!(
+                    "  store {} %mal_control_base, ptr %mal_local_control_top, align {}",
+                    self.types.pointer_integer()?,
+                    self.types.index_alignment()
+                ));
+            }
         }
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();
         slots.sort_by_key(|slot| slot.index);

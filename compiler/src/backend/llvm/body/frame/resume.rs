@@ -30,7 +30,8 @@ impl FunctionEmitter<'_> {
         let index_type = self.types.pointer_integer()?;
         let top = self.register();
         self.line(format!(
-            "  {top} = load {index_type}, ptr %mal_control_top, align {}",
+            "  {top} = load {index_type}, ptr {}, align {}",
+            self.control_top_pointer(),
             self.types.index_alignment()
         ));
         let finished = self.register();
@@ -42,6 +43,7 @@ impl FunctionEmitter<'_> {
             site.0, site.0
         ));
         self.line(format!("mal_return_done_{}:", site.0));
+        self.sync_control_top()?;
         if self.common_region.is_some() {
             let environment = self.active_environment();
             self.line(format!(
@@ -72,7 +74,8 @@ impl FunctionEmitter<'_> {
                 layout.size
             ));
             self.line(format!(
-                "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
+                "  store {index_type} {previous_top}, ptr {}, align {}",
+                self.control_top_pointer(),
                 self.types.index_alignment()
             ));
             let frame_pointer = self.register();
@@ -106,7 +109,8 @@ impl FunctionEmitter<'_> {
             self.types.index_alignment()
         ));
         self.line(format!(
-            "  store {index_type} {previous_top}, ptr %mal_control_top, align {}",
+            "  store {index_type} {previous_top}, ptr {}, align {}",
+            self.control_top_pointer(),
             self.types.index_alignment()
         ));
         let frame_pointer = self.register();

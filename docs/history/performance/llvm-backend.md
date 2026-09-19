@@ -345,3 +345,11 @@ Packedの初期値を`bulk`で作り、`edit`中の探索でbestを更新し、f
 mutable Packed 58.84 ms、同形Region 58.82 ms、自然なPacked 64.96 ms、direct C 38.00 msだった。canonical sourceは自然な再帰を
 維持し、Packed mutability版をvariantとする。最終assemblyでは自然なmal版がnon-tail childごとに不変な探索contextを含む96 byteを
 control frameへ保存し、Cは`Search *`一語を渡していた。semantic live-in自体は正しいため、backendが独自にfieldを削る根拠にはしない。
+
+全自己再帰edgeで保持されるparameter fieldをexecution authorityから選び、ownership上borrowのfieldだけを物理frameから除いた後、
+自然な032のframeは96 bytesから40 bytesへ縮小した。さらにregion invocation内のcontrol topをlocal slotへ置き、native Mal call境界で
+共有topへ同期した。LLVMはlocal slotをSSA化し、frame push/popごとの共有top load/storeを除去した。3 warmup、回転30 roundでは029が
+160.30 msから150.40 ms、5 warmup、回転50 roundでは自然な032が65.09 msから59.64 msへ短縮した。032のCallgrind instructionは
+1,510,740,155から1,390,884,286、main function textは1,852 bytesから1,800 bytesへ減った。growable control storageとbounded native
+stackは維持し、native recursionへは戻していない。032のresource計測5回では変更前後ともmaximum RSSのmedianは1,736 KiBで、
+memory消費の増加もなかった。

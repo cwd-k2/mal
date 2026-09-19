@@ -9,7 +9,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 
 | Area | Decisions |
 |---|---|
-| compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md) |
+| compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md)、[D065](D065.md)、[D066](D066.md) |
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
@@ -52,6 +52,7 @@ D062は仕様が許す二つのprepare時点からcallback前の一度を選び�
 D063はD059のcapability単位のstable accessを置き換え、non-growing Buffer helperのinternal ABIをactive dataへ変換する。
 D064は同じABIへfunction invocation中だけ有効なactive dataの`noalias` contractを加える。
 D065は自己再帰の全edgeが保持するparameter fieldを、semantic live-inに残したまま物理frameから除く。
+D066はrecursive region invocation内のcontrol topをlocal SSAへ置き、native Mal call境界で共有topへ同期する。
 
 ## 後継があるhistorical record
 

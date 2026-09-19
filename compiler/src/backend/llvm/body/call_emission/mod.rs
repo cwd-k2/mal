@@ -45,6 +45,7 @@ impl FunctionEmitter<'_> {
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
         let tail = if tail { "tail " } else { "" };
+        self.sync_control_top()?;
         self.line(format!(
             "  {register} = {tail}call {} @{}({arguments})",
             result_value_type.llvm,
@@ -111,6 +112,7 @@ impl FunctionEmitter<'_> {
         let result_type = self.types.value(result)?;
         let register = self.register();
         let tail = if tail { "tail " } else { "" };
+        self.sync_control_top()?;
         self.line(format!(
             "  {register} = {tail}call {} {code}({arguments})",
             result_type.llvm

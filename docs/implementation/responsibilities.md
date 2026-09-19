@@ -226,6 +226,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/call_emission/buffer` | Buffer ABI representation変換 |
 | `backend/llvm/body/call_emission/environment` | closure environment境界 |
 | `backend/llvm/body/call_emission/parameter` | parameter responsibility handoff |
+| `backend/llvm/body/control_top` | region-local top accessとnative Mal call境界の共有top同期 |
 | `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
 | `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
 | `backend/llvm/body/value/atom` | closure atomをtarget literal、reference load、closure carrierへ変換 |
@@ -236,6 +237,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/optimization/buffer_abi` | active-data ABIを使うfunction集合 |
 | `backend/llvm/optimization/buffer_abi/analysis` | call graphとcontrol region上のABI closure |
 | `backend/llvm/optimization/buffer_abi/shape` | direct化できるBuffer parameter shapeとleaf数 |
+| `backend/llvm/optimization/control_top` | local control topを使うrecursive function集合 |
 | `backend/llvm/optimization/symbol_concat` | concat storage再利用候補 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |

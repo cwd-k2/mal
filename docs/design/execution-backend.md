@@ -75,6 +75,10 @@ frame constructor、typed payload、resume targetはprogram固有なのでLLVM I
 cacheはC runtimeが構成する。managed valueをframeへmoveし復元する順序はexecution planが定め、LLVM backendがtyped operationへ
 refineする。
 
+region invocation内のcurrent topはprogram固有のcontrol stateなのでLLVM functionのlocal SSAへ置いてよい。別のMal functionをnative
+callする境界では共有topへ同期し、calleeが外側frameの後ろから同じarenaを使えるようにする。local topのaddressはcalleeへ渡さず、
+terminal return時にはinvocation baseを共有topへ戻す。
+
 既知のstate遷移はLLVM basic blockへの直接branchにし、runtime target選択が必要な箇所だけdispatchする。全遷移を一つのcentral
 dispatcherへ戻すことや、多数のpredecessorを持つblockを無条件に作ることをbackendの正しさの条件にしない。
 

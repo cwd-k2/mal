@@ -82,6 +82,10 @@ stateを選び、fieldとenvironmentをlocal slotへ戻してresultをresume inp
 各recursive region invocationはentry時のtopをbaseとして保持する。topがそのbaseへ戻ったらresultをnative callerへ返すため、外側regionの
 frameを保持したまま別regionを呼んでも同じarena上で互いのframeを解釈しない。
 
+LLVM backendはframeを持つregion invocationのtopをfunction-local slotへ置ける。region内のpushとpopはlocal topを更新し、別のMal
+functionをnative callする直前とinvocationのterminal returnで共有topへ同期する。local slotのaddressはcall境界へ渡さないため、LLVMは
+region内topをSSA valueへ昇格できる。arena capacityとgrowthは引き続きC runtime、frame offsetと同期位置はLLVM backendが所有する。
+
 ## ownerと失敗
 
 managed valueをframeへ保存するときはframeが独立したownership shareを持つ。local cleanup後もcallee argumentとenvironmentがliveである

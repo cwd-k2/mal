@@ -23,7 +23,8 @@ impl FunctionEmitter<'_> {
         let index_type = self.types.pointer_integer()?;
         let top = self.register();
         self.line(format!(
-            "  {top} = load {index_type}, ptr %mal_control_top, align {}",
+            "  {top} = load {index_type}, ptr {}, align {}",
+            self.control_top_pointer(),
             self.types.index_alignment()
         ));
         let storage = self.register();
@@ -111,7 +112,8 @@ impl FunctionEmitter<'_> {
             ));
         }
         self.line(format!(
-            "  store {index_type} {next_top}, ptr %mal_control_top, align {}",
+            "  store {index_type} {next_top}, ptr {}, align {}",
+            self.control_top_pointer(),
             self.types.index_alignment()
         ));
         if self.common_region.is_some() {
@@ -316,6 +318,7 @@ impl FunctionEmitter<'_> {
                 self.call_arguments(environment, &argument, target_uses_direct_buffer)?
             };
             let returned = self.register();
+            self.sync_control_top()?;
             self.line(format!(
                 "  {returned} = call {} {code}({arguments})",
                 result_type.llvm
