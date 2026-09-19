@@ -31,6 +31,15 @@ _Static_assert(offsetof(MalBytes, references) == 0, "byte owner reference offset
 _Static_assert(offsetof(MalBytes, length) == 8, "byte owner length offset mismatch");
 _Static_assert(offsetof(MalBytes, kind) == 16, "byte owner kind offset mismatch");
 _Static_assert(offsetof(MalBytesStatic, bytes) == 24, "static byte offset mismatch");
+_Static_assert(_Alignof(max_align_t) >= 8, "byte owner allocation alignment is insufficient");
+_Static_assert(
+    offsetof(MalBytesStatic, bytes) % 8 == 0,
+    "static byte storage must preserve canonical alignment"
+);
+_Static_assert(
+    offsetof(MalBytesFlat, bytes) % 8 == 0,
+    "flat byte storage must preserve canonical alignment"
+);
 
 MalBytes *mal_bytes_flat_copy(
     MalContext *context,

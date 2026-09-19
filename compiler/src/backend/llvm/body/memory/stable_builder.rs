@@ -41,7 +41,7 @@ impl FunctionEmitter<'_> {
                     return Some(unit());
                 }
                 let pointer = self.element_pointer(&data, argument, stride)?;
-                self.emit_source_load_at(&pointer, &access.element)
+                self.emit_aligned_source_load_at(&pointer, &access.element)
             }
             PackedBuilderOperation::Put | PackedBuilderOperation::PutUnique => {
                 let parameter = Type::Product(vec![Type::USize, access.element.clone()].into());
@@ -52,7 +52,7 @@ impl FunctionEmitter<'_> {
                     self.product_fields(argument, [&Type::USize, &access.element])?;
                 if stride != 0 {
                     let pointer = self.element_pointer(&data, &index, stride)?;
-                    self.emit_source_store_at(&pointer, &value)?;
+                    self.emit_aligned_source_store_at(&pointer, &value)?;
                 }
                 Some(unit())
             }

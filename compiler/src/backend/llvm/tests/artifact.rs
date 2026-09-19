@@ -172,6 +172,36 @@ fn emits_packed_views_indexing_and_symbol_conversion() {
 }
 
 #[test]
+fn emits_canonical_alignment_for_packed_storage_access() {
+    let source = SourceFile::new(
+        FileId::new(92),
+        "llvm-packed-alignment.mal",
+        "main :: Unit -> Int32 := () -> { values := pack<Int64>((new, get, put) -> { index := new(1i64); put(index, get(index) + 1i64); (); }); (values # 0usize).i32 - 2i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check aligned Packed fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64-i64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("aligned Packed fixture is supported");
+
+    assert!(artifacts.module.contains("load i64, ptr"));
+    assert!(artifacts.module.contains("store i64"));
+    assert!(artifacts.module.contains("align 8"));
+}
+
+#[test]
 fn emits_shared_scoped_packed_capabilities_without_owned_environments() {
     let source = SourceFile::new(
         FileId::new(93),

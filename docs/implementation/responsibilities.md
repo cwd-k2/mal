@@ -225,13 +225,13 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
 | `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
-| `backend/llvm/body/memory/storage` | canonical scalar・product・sumのunaligned load/storeを出力 |
+| `backend/llvm/body/memory/storage` | canonical scalar・product・sumについて、external storageのunaligned accessとmal-owned storageの保証済みalignmentを区別してload/storeを出力 |
 | `backend/llvm/body/memory/view` | Region admission、Packed transfer、slice、Symbol/Packed owner共有を出力 |
 | `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storage取得とcapacity内reserveをprogram側へinline |
-| `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builder、lazy edit preparation、data slot accessを実装し、unique appendとedit判定のfast pathをprogram側へinline |
+| `runtime/c11/bytes.c` | LLVM artifact内部のcanonical alignmentを満たすreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builder、lazy edit preparation、data slot accessを実装し、unique appendとedit判定のfast pathをprogram側へinline |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
 | `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |

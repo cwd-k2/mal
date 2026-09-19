@@ -88,7 +88,7 @@ impl FunctionEmitter<'_> {
                     index.representation,
                     self.types.pointer_integer()?
                 ));
-                self.emit_source_load_at(&pointer, element)
+                self.emit_aligned_source_load_at(&pointer, element)
             }
             PackedBuilderOperation::Put => {
                 let put_type = Type::Product(vec![Type::USize, element.clone()].into());
@@ -167,12 +167,13 @@ impl FunctionEmitter<'_> {
         if stride == 0 {
             return Some("null".into());
         }
+        let alignment = self.source_layouts.layout(&value.ty)?.alignment;
         let storage = self.register();
         self.line(format!(
-            "  {storage} = alloca i8, {} {stride}, align 1",
+            "  {storage} = alloca i8, {} {stride}, align {alignment}",
             self.types.pointer_integer()?
         ));
-        self.emit_source_store_at(&storage, value)?;
+        self.emit_aligned_source_store_at(&storage, value)?;
         Some(storage)
     }
 }

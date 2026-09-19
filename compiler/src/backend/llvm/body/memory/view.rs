@@ -173,7 +173,7 @@ impl FunctionEmitter<'_> {
         let stride = self.source_layouts.layout(result_type)?.stride;
         let element_offset = self.multiply_by_stride(&index.representation, stride)?;
         let pointer = self.pointer_offset(&data, &element_offset)?;
-        self.emit_source_load_at(&pointer, result_type)
+        self.emit_aligned_source_load_at(&pointer, result_type)
     }
 
     pub(in crate::backend::llvm::body) fn emit_region_index(

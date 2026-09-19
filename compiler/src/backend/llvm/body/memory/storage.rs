@@ -16,6 +16,23 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
     ) -> Option<EmittedValue> {
+        self.emit_source_load_at_with_alignment(pointer, element, false)
+    }
+
+    pub(in crate::backend::llvm::body) fn emit_aligned_source_load_at(
+        &mut self,
+        pointer: &str,
+        element: &Type,
+    ) -> Option<EmittedValue> {
+        self.emit_source_load_at_with_alignment(pointer, element, true)
+    }
+
+    fn emit_source_load_at_with_alignment(
+        &mut self,
+        pointer: &str,
+        element: &Type,
+        aligned: bool,
+    ) -> Option<EmittedValue> {
         if *element == Type::Unit {
             return Some(EmittedValue {
                 ty: Type::Unit,
@@ -29,7 +46,8 @@ impl FunctionEmitter<'_> {
             let mut product = "poison".to_string();
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
                 let field_pointer = self.source_pointer_offset(pointer, field.offset)?;
-                let field_value = self.emit_source_load_at(&field_pointer, field_type)?;
+                let field_value =
+                    self.emit_source_load_at_with_alignment(&field_pointer, field_type, aligned)?;
                 let llvm_type = self.types.value(field_type)?;
                 let inserted = self.register();
                 self.line(format!(
@@ -47,8 +65,13 @@ impl FunctionEmitter<'_> {
         if let Type::Sum(variants) = element {
             let layout = self.source_layouts.sum(element)?;
             let source_tag = self.register();
+            let alignment = if aligned {
+                self.source_layouts.layout(element)?.alignment
+            } else {
+                1
+            };
             self.line(format!(
-                "  {source_tag} = load i{}, ptr {pointer}, align 1",
+                "  {source_tag} = load i{}, ptr {pointer}, align {alignment}",
                 layout.tag_bits
             ));
             if super::super::types::is_bool(element) {
@@ -96,7 +119,8 @@ impl FunctionEmitter<'_> {
             self.line("  unreachable");
             for (index, variant) in variants.iter().enumerate() {
                 self.line(format!("{stem}_variant_{index}:"));
-                let payload = self.emit_source_load_at(&payload_pointer, variant)?;
+                let payload =
+                    self.emit_source_load_at_with_alignment(&payload_pointer, variant, aligned)?;
                 let sum = self.emit_sum_value(index, payload, element, false)?;
                 self.line(format!(
                     "  store {} {}, ptr {storage}, align {}",
@@ -135,9 +159,14 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value_type = self.types.value(element)?;
+        let alignment = if aligned {
+            self.source_layouts.layout(element)?.alignment
+        } else {
+            1
+        };
         let value = self.register();
         self.line(format!(
-            "  {value} = load {}, ptr {pointer}, align 1",
+            "  {value} = load {}, ptr {pointer}, align {alignment}",
             value_type.llvm
         ));
         Some(EmittedValue {
@@ -160,6 +189,23 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
+        self.emit_source_store_at_with_alignment(pointer, value, false)
+    }
+
+    pub(in crate::backend::llvm::body) fn emit_aligned_source_store_at(
+        &mut self,
+        pointer: &str,
+        value: &EmittedValue,
+    ) -> Option<()> {
+        self.emit_source_store_at_with_alignment(pointer, value, true)
+    }
+
+    fn emit_source_store_at_with_alignment(
+        &mut self,
+        pointer: &str,
+        value: &EmittedValue,
+        aligned: bool,
+    ) -> Option<()> {
         if value.ty == Type::Unit {
             return Some(());
         }
@@ -173,13 +219,14 @@ impl FunctionEmitter<'_> {
                     runtime.llvm, value.representation
                 ));
                 let field_pointer = self.source_pointer_offset(pointer, field.offset)?;
-                self.emit_source_store_at(
+                self.emit_source_store_at_with_alignment(
                     &field_pointer,
                     &EmittedValue {
                         ty: field_type.clone(),
                         representation: field_value,
                         owned: false,
                     },
+                    aligned,
                 )?;
             }
             return Some(());
@@ -212,8 +259,13 @@ impl FunctionEmitter<'_> {
                 self.line(format!("  {extended} = zext i32 {tag} to i64"));
                 extended
             };
+            let alignment = if aligned {
+                self.source_layouts.layout(&value.ty)?.alignment
+            } else {
+                1
+            };
             self.line(format!(
-                "  store i{} {source_tag}, ptr {pointer}, align 1",
+                "  store i{} {source_tag}, ptr {pointer}, align {alignment}",
                 layout.tag_bits
             ));
             let stem = self.register();
@@ -233,13 +285,14 @@ impl FunctionEmitter<'_> {
             for (index, variant) in variants.iter().enumerate() {
                 self.line(format!("{stem}_variant_{index}:"));
                 let payload = self.emit_sum_payload(&value.ty, variant, &value.representation)?;
-                self.emit_source_store_at(
+                self.emit_source_store_at_with_alignment(
                     &payload_pointer,
                     &EmittedValue {
                         ty: variant.clone(),
                         representation: payload,
                         owned: false,
                     },
+                    aligned,
                 )?;
                 self.line(format!("  br label %{stem}_stored"));
             }
@@ -265,8 +318,13 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value_type = self.types.value(&value.ty)?;
+        let alignment = if aligned {
+            self.source_layouts.layout(&value.ty)?.alignment
+        } else {
+            1
+        };
         self.line(format!(
-            "  store {} {}, ptr {pointer}, align 1",
+            "  store {} {}, ptr {pointer}, align {alignment}",
             value_type.llvm, value.representation
         ));
         Some(())
