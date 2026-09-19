@@ -4,7 +4,9 @@ use crate::anf::ast::ValueId;
 use crate::check::ast::Type;
 use crate::control::ast::{Operation, StateId, Terminator};
 
-use super::super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan};
+use super::super::{
+    ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan, OptimizationPlan,
+};
 use super::destination::PatternDestination;
 use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
 use super::liveness::{binding_id, insert_pattern_bindings};
@@ -22,6 +24,7 @@ pub(super) fn jump_value_effect(destination: &PatternDestination) -> UseEffect {
 
 pub(super) struct UseInputs<'a> {
     pub(super) control: &'a crate::control::ast::Program,
+    pub(super) optimizations: &'a OptimizationPlan,
     pub(super) calls: &'a ControlCallPlan,
     pub(super) regions: &'a ControlRegionPlan,
     pub(super) frames: &'a ControlFramePlan,
@@ -36,6 +39,7 @@ pub(super) struct UseInputs<'a> {
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
     let UseInputs {
         control,
+        optimizations,
         calls,
         regions,
         frames,
@@ -82,6 +86,8 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                 }
                 let effect = if !owner_successor || !operation_requires_owner_successors {
                     UseEffect::Borrow
+                } else if optimizations.takes_unique_capture(atom.id) {
+                    UseEffect::Consume
                 } else if let Some(id) = binding_id(atom) {
                     let has_later_same_source = operands[operand_index + 1..]
                         .iter()

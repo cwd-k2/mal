@@ -165,7 +165,7 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare i8 @mal_runtime_environment_is_unique(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         types

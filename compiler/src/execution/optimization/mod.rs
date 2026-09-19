@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::closure::ast::{self as closure, FunctionId};
+use crate::closure::ast::{self as closure, AtomId, FunctionId};
 use crate::control::ast::{self as control, StateId};
 
 use super::ApplicationGraph;
@@ -8,12 +8,14 @@ use super::ApplicationGraph;
 mod direct_call;
 mod self_tail;
 mod tail_forwarder;
+mod unique_capture;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
     DirectCall,
     SelfTail,
     TailForwarder,
+    UniqueCapture,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29,6 +31,7 @@ impl OptimizationSet {
             .with(Technique::DirectCall)
             .with(Technique::SelfTail)
             .with(Technique::TailForwarder)
+            .with(Technique::UniqueCapture)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -44,6 +47,7 @@ pub(crate) struct OptimizationPlan {
     fused_sites: HashSet<StateId>,
     forwarded_self_arguments: HashMap<StateId, closure::Atom>,
     direct_targets: HashMap<StateId, FunctionId>,
+    unique_captures: HashSet<AtomId>,
 }
 
 impl OptimizationPlan {
@@ -70,10 +74,16 @@ impl OptimizationPlan {
         } else {
             HashMap::new()
         };
+        let unique_captures = if enabled.contains(Technique::UniqueCapture) {
+            unique_capture::plan(closure, control, applications)
+        } else {
+            HashSet::new()
+        };
         Self {
             fused_sites,
             forwarded_self_arguments,
             direct_targets,
+            unique_captures,
         }
     }
 
@@ -92,6 +102,7 @@ impl OptimizationPlan {
         self.fused_sites == expected.fused_sites
             && self.forwarded_self_arguments == expected.forwarded_self_arguments
             && self.direct_targets == expected.direct_targets
+            && self.unique_captures == expected.unique_captures
     }
 
     pub(super) fn forwarded_self_arguments(&self) -> &HashMap<StateId, closure::Atom> {
@@ -100,6 +111,10 @@ impl OptimizationPlan {
 
     pub(crate) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
         self.direct_targets.get(&site).copied()
+    }
+
+    pub(crate) fn takes_unique_capture(&self, atom: AtomId) -> bool {
+        self.unique_captures.contains(&atom)
     }
 }
 
@@ -161,7 +176,78 @@ mod tests {
         assert!(plan.fused_sites.is_empty());
         assert!(plan.forwarded_self_arguments.is_empty());
         assert!(plan.direct_targets.is_empty());
+        assert!(plan.unique_captures.is_empty());
         assert!(plan.is_valid(&closure, &control, &applications, OptimizationSet::none()));
+    }
+
+    #[test]
+    fn selects_a_managed_capture_only_for_one_final_invocation() {
+        let source = SourceFile::new(
+            FileId::new(92),
+            "unique-capture-plan.mal",
+            "main :: Unit -> Int32 := () -> {
+               source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
+               _ := pack<Unit>((_) -> {
+                 changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
+                 _ := changed # 0usize;
+                 ();
+               });
+               0;
+             };"
+            .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check unique capture fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize unique capture fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let enabled = OptimizationSet::none().with(Technique::UniqueCapture);
+        let plan = OptimizationPlan::new(&closure, &control, &applications, enabled);
+
+        assert!(!plan.unique_captures.is_empty());
+        assert!(plan.is_valid(&closure, &control, &applications, enabled));
+        assert!(
+            OptimizationPlan::new(&closure, &control, &applications, OptimizationSet::none())
+                .unique_captures
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn rejects_a_single_capture_site_repeated_by_a_recursive_caller() {
+        let source = SourceFile::new(
+            FileId::new(93),
+            "repeated-capture-site.mal",
+            "repeat :: ((Unit -> Unit), Int32) -> Unit := (callback, remaining) -> {
+               if (remaining == 0i32)
+               then { () }
+               else { callback(); repeat(callback, remaining - 1i32) };
+             };
+             main :: Unit -> Int32 := () -> {
+               value := \"capture\";
+               callback :: Unit -> Unit := () -> { _ := #value; (); };
+               repeat(callback, 2i32);
+               0;
+             };"
+            .into(),
+        );
+        let checked = crate::pipeline::check(&source).expect("check repeated capture fixture");
+        let core = crate::core::lower(
+            &crate::check::specialize(checked).expect("specialize repeated capture fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let control = crate::control::lower(&closure);
+        let uses = ClosureUsePlan::new(&closure);
+        let applications = ApplicationGraph::new(&closure, &control, &uses);
+        let enabled = OptimizationSet::none().with(Technique::UniqueCapture);
+        let plan = OptimizationPlan::new(&closure, &control, &applications, enabled);
+
+        assert!(plan.unique_captures.is_empty());
     }
 
     #[test]

@@ -69,6 +69,15 @@ void mal_runtime_environment_release(void *environment) {
     }
 }
 
+__attribute__((always_inline))
+uint8_t mal_runtime_environment_is_unique(const void *environment) {
+    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
+        return 0;
+    }
+    const MalEnvironmentHeader *header = (const MalEnvironmentHeader *)environment - 1;
+    return header->references == 1;
+}
+
 void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size) {
     return mal_runtime_allocate(context, size);
 }

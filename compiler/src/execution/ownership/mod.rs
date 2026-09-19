@@ -5,7 +5,8 @@ use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
 use super::{
-    ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, ParameterPlan,
+    ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, OptimizationPlan,
+    ParameterPlan,
 };
 
 mod authority;
@@ -52,15 +53,49 @@ pub(crate) struct Plan {
     borrowed_bindings: HashSet<ValueId>,
 }
 
-impl Plan {
+pub(crate) struct Inputs<'a> {
+    control: &'a crate::control::ast::Program,
+    applications: &'a ApplicationGraph,
+    optimizations: &'a OptimizationPlan,
+    parameters: &'a ParameterPlan,
+    calls: &'a ControlCallPlan,
+    regions: &'a ControlRegionPlan,
+    frames: &'a ControlFramePlan,
+}
+
+impl<'a> Inputs<'a> {
     pub(crate) fn new(
-        control: &crate::control::ast::Program,
-        applications: &ApplicationGraph,
-        parameters: &ParameterPlan,
-        calls: &ControlCallPlan,
-        regions: &ControlRegionPlan,
-        frames: &ControlFramePlan,
+        control: &'a crate::control::ast::Program,
+        applications: &'a ApplicationGraph,
+        optimizations: &'a OptimizationPlan,
+        parameters: &'a ParameterPlan,
+        calls: &'a ControlCallPlan,
+        regions: &'a ControlRegionPlan,
+        frames: &'a ControlFramePlan,
     ) -> Self {
+        Self {
+            control,
+            applications,
+            optimizations,
+            parameters,
+            calls,
+            regions,
+            frames,
+        }
+    }
+}
+
+impl Plan {
+    pub(crate) fn new(inputs: Inputs<'_>) -> Self {
+        let Inputs {
+            control,
+            applications,
+            optimizations,
+            parameters,
+            calls,
+            regions,
+            frames,
+        } = inputs;
         let parameter_borrows = ParameterBorrows::new(control, applications, calls, regions);
         let borrows = BorrowPlan::new(control, &parameter_borrows);
         let live_in = borrows.live_in(control);
@@ -109,6 +144,7 @@ impl Plan {
         }
         let uses = collect_use_effects(UseInputs {
             control,
+            optimizations,
             calls,
             regions,
             frames,
@@ -144,16 +180,8 @@ impl Plan {
         }
     }
 
-    pub(crate) fn is_valid(
-        &self,
-        control: &crate::control::ast::Program,
-        applications: &ApplicationGraph,
-        parameters: &ParameterPlan,
-        calls: &ControlCallPlan,
-        regions: &ControlRegionPlan,
-        frames: &ControlFramePlan,
-    ) -> bool {
-        *self == Self::new(control, applications, parameters, calls, regions, frames)
+    pub(crate) fn is_valid(&self, inputs: Inputs<'_>) -> bool {
+        *self == Self::new(inputs)
     }
 
     pub(crate) fn drops_after_binding(&self, state: StateId, binding: usize) -> &[ValueId] {

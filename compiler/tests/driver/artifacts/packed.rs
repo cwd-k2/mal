@@ -74,6 +74,83 @@ fn initializes_builder_scratch_padding_before_runtime_byte_inspection() {
 }
 
 #[test]
+fn takes_a_capture_only_from_a_uniquely_invoked_callback() {
+    let directory = NativeFixture::new("driver-llvm-packed-unique-capture");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {
+           source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
+           _ := pack<Unit>((_) -> {
+             changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
+             _ := changed # 0usize;
+             ();
+           });
+           0;
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&executable).status.code(), Some(0));
+    let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(llvm.contains("call i8 @mal_runtime_environment_is_unique"));
+    assert!(llvm.contains("mal_capture_take_"));
+}
+
+#[test]
+fn keeps_a_capture_in_a_callback_invoked_more_than_once() {
+    let directory = NativeFixture::new("driver-llvm-packed-shared-callback");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {
+           source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
+           callback :: Buffer<Unit> -> Unit := (_) -> {
+             changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
+             _ := changed # 0usize;
+             ();
+           };
+           _ := pack<Unit>(callback);
+           _ := pack<Unit>(callback);
+           0;
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&executable).status.code(), Some(0));
+    let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(!llvm.contains("call i8 @mal_runtime_environment_is_unique"));
+}
+
+#[test]
 fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let directory = NativeFixture::new("driver-llvm-stable-packed-data");
     let source = directory.join("program.mal");

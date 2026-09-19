@@ -76,21 +76,7 @@ impl FunctionEmitter<'_> {
                 })
             }
             (ty, AtomKind::Reference(Reference::Capture(index))) => {
-                let function = *self.index.lowered_functions.get(&self.current_function)?;
-                let captures = function.kind.captures()?;
-                let field = captures.get(*index)?;
-                if field.ty != *ty {
-                    return None;
-                }
-                let environment_type =
-                    Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
-                let fields = self.types.product_fields(&environment_type)?;
-                let offset = fields.get(*index)?.offset;
-                let environment = self.active_environment();
-                let pointer = self.register();
-                self.line(format!(
-                    "  {pointer} = getelementptr i8, ptr {environment}, i64 {offset}"
-                ));
+                let pointer = self.capture_pointer(*index, ty)?;
                 let value_type = self.types.value(ty)?;
                 let value = self.register();
                 self.line(format!(
@@ -134,6 +120,29 @@ impl FunctionEmitter<'_> {
             }),
             _ => None,
         }
+    }
+
+    pub(in crate::backend::llvm::body) fn capture_pointer(
+        &mut self,
+        index: usize,
+        ty: &Type,
+    ) -> Option<String> {
+        let function = *self.index.lowered_functions.get(&self.current_function)?;
+        let captures = function.kind.captures()?;
+        let field = captures.get(index)?;
+        if field.ty != *ty {
+            return None;
+        }
+        let environment_type =
+            Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
+        let fields = self.types.product_fields(&environment_type)?;
+        let offset = fields.get(index)?.offset;
+        let environment = self.active_environment();
+        let pointer = self.register();
+        self.line(format!(
+            "  {pointer} = getelementptr i8, ptr {environment}, i64 {offset}"
+        ));
+        Some(pointer)
     }
 
     fn constant(&mut self, constant: super::super::plan::Constant) -> Option<EmittedValue> {

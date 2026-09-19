@@ -26,15 +26,22 @@ fn validates_the_exact_binding_drop_facts() {
     let closure = crate::closure::convert(&anf);
     let mut execution =
         crate::execution::lower(closure, super::super::OptimizationSet::production());
-
-    assert!(execution.ownership.is_valid(
+    let optimizations = super::super::OptimizationPlan::new(
+        &execution.lowered,
         &execution.control,
         &execution.applications,
+        super::super::OptimizationSet::production(),
+    );
+
+    assert!(execution.ownership.is_valid(Inputs::new(
+        &execution.control,
+        &execution.applications,
+        &optimizations,
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
         &execution.control_frames,
-    ));
+    )));
     let point = *execution
         .ownership
         .drops_after_binding
@@ -42,14 +49,15 @@ fn validates_the_exact_binding_drop_facts() {
         .next()
         .expect("dead managed value fact");
     execution.ownership.drops_after_binding.remove(&point);
-    assert!(!execution.ownership.is_valid(
+    assert!(!execution.ownership.is_valid(Inputs::new(
         &execution.control,
         &execution.applications,
+        &optimizations,
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
         &execution.control_frames,
-    ));
+    )));
 }
 
 #[test]
