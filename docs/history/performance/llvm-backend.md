@@ -317,3 +317,14 @@ function invocation中だけ成立する。複数Buffer leafは互いにaliasし
 変更前、変更後、Region、direct Cを3 warmup・回転20回で測った011のmedianは11.293、6.524、7.391、7.310 msだった。
 shared sourceをcallback内で読みながらeditするnative regressionを通し、通常Packed 67問とedit 9問もmaximum inputでRegionおよび
 direct Cとstdoutが一致した。
+
+## 2026-09-19 — Packed appendのoverflow authority
+
+`mal_runtime_packed_builder_new`はcount overflowに加え、現在のcountと次のcountを別々にbyte sizeへ変換していたため、同じstride境界を
+一要素ごとに重複検査していた。non-zero strideでは`count < SIZE_MAX / stride`が次要素のcountとbyte範囲を同時に保証する。zero stride
+だけをcount単独の上限として分け、lengthとrequiredを一度ずつ構成する形へ簡約した。
+
+023の変更前後はCallgrindで9,619,081,931から9,404,871,079 instructionsへ2.2%減った。maximum inputの回転10回はmachine noiseが
+大きく、個別medianでは1,310.9から1,155.9 ms、roundごとのpaired median比では0.99だった。039と043もpaired comparisonで
+1.01倍のnoise内だった一方、039のmain textは4,124から3,791 bytesへ縮小した。したがって大幅な時間改善とは扱わず、runtimeが
+所有する一つのoverflow factへ重複判断を戻すminimalityと、instruction・code size削減を採択理由とする。

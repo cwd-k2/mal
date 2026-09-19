@@ -422,21 +422,13 @@ size_t mal_runtime_packed_builder_new(
     size_t stride
 ) {
     MalPackedBuilder *builder = opaque_builder;
-    if (builder->count == SIZE_MAX) {
-        mal_trap(context, "packed builder count overflow");
-    }
     size_t index = builder->count;
     if (stride != 0) {
-        size_t length = mal_packed_builder_bytes(
-            context,
-            builder->count,
-            stride
-        );
-        size_t required = mal_packed_builder_bytes(
-            context,
-            builder->count + 1,
-            stride
-        );
+        if (builder->count >= SIZE_MAX / stride) {
+            mal_trap(context, "packed builder byte size overflow");
+        }
+        size_t length = builder->count * stride;
+        size_t required = (builder->count + 1) * stride;
         MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
         if (flat == NULL || required > flat->capacity) {
             flat = mal_packed_builder_grow_unique(context, flat, required);
@@ -446,6 +438,8 @@ size_t mal_runtime_packed_builder_new(
         memcpy(flat->bytes + length, value, stride);
         builder->owner = &flat->header;
         builder->data = flat->bytes;
+    } else if (builder->count == SIZE_MAX) {
+        mal_trap(context, "packed builder count overflow");
     }
     ++builder->count;
     return index;
