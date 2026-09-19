@@ -13,7 +13,7 @@ fn parameter_binding(lambda: &resolved::Lambda) -> &resolved::ValueBinding {
 #[test]
 fn capture_sources_and_environment_bindings_have_distinct_identities() {
     let program = resolve_ok(
-        "make := (x) -> {\n\
+        "factory := (x) -> {\n\
            (y) -> { x + y; };\n\
          };",
     );
