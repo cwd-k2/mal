@@ -75,28 +75,33 @@ impl Server {
             .and_then(|occurrence| semantic.definition(occurrence.id))
             .cloned();
         let uri = params["textDocument"]["uri"].as_str().unwrap_or_default();
-        let (documentation, location) = definition.map_or((None, None), |definition| {
-            let Some(document) = self.documents.get(uri) else {
-                return (None, None);
-            };
-            let Some(definition_source) = document.source_for(definition.span, uri) else {
-                return (None, None);
-            };
-            let documentation = definition
-                .declaration_span
-                .and_then(|span| malc::editor::declaration_documentation(&definition_source, span));
-            let location = definition_source
-                .location(definition.span.start())
-                .map(|position| {
-                    format!(
-                        "{}:{}:{}",
-                        definition_display_path(document, uri, &definition_source),
-                        position.line,
-                        position.column
-                    )
+        let predefined_documentation = occurrence
+            .as_ref()
+            .and_then(|occurrence| occurrence.documentation.clone());
+        let (documentation, location) =
+            definition.map_or((predefined_documentation, None), |definition| {
+                let Some(document) = self.documents.get(uri) else {
+                    return (None, None);
+                };
+                let Some(definition_source) = document.source_for(definition.span, uri) else {
+                    return (None, None);
+                };
+                let documentation = definition.declaration_span.and_then(|span| {
+                    malc::editor::declaration_documentation(&definition_source, span)
                 });
-            (documentation, location)
-        });
+                let location =
+                    definition_source
+                        .location(definition.span.start())
+                        .map(|position| {
+                            format!(
+                                "{}:{}:{}",
+                                definition_display_path(document, uri, &definition_source),
+                                position.line,
+                                position.column
+                            )
+                        });
+                (documentation, location)
+            });
         success(
             id,
             json!({

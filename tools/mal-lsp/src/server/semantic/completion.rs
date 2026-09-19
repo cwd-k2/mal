@@ -16,7 +16,11 @@ pub(super) fn completion_items(semantic: &SemanticDocument, functions_only: bool
             json!({
                 "label": symbol.name,
                 "kind": completion_kind(symbol.kind),
-                "detail": symbol.detail
+                "detail": symbol.detail,
+                "documentation": symbol.documentation.as_ref().map(|documentation| json!({
+                    "kind": "markdown",
+                    "value": documentation
+                }))
             })
         })
         .collect()

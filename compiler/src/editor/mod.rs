@@ -39,6 +39,7 @@ pub struct Occurrence {
     pub kind: SymbolKind,
     pub role: OccurrenceRole,
     pub detail: Option<String>,
+    pub documentation: Option<String>,
     pub declaration_span: Option<Span>,
 }
 
@@ -48,6 +49,7 @@ pub struct Symbol {
     pub name: String,
     pub kind: SymbolKind,
     pub detail: Option<String>,
+    pub documentation: Option<String>,
     pub span: Option<Span>,
 }
 

@@ -76,11 +76,11 @@ impl Resolver {
             next_lambda: 0,
             synthetic_span,
         };
-        for &(name, id) in PREDEFINED_TYPES {
-            resolver.add_predefined_type(name, id);
+        for entry in PREDEFINED_TYPES {
+            resolver.add_predefined_type(entry.name, entry.id);
         }
-        for &(name, id) in PREDEFINED_VALUES {
-            resolver.add_predefined_value(name, id);
+        for entry in PREDEFINED_VALUES {
+            resolver.add_predefined_value(entry.name, entry.id);
         }
         resolver
     }
@@ -106,11 +106,11 @@ impl Resolver {
         self.recursive_lambda = None;
         self.lambda_frames.clear();
         self.synthetic_span = Span::new(span.file(), span.start(), span.start());
-        for &(name, id) in PREDEFINED_TYPES {
-            self.add_predefined_type(name, id);
+        for entry in PREDEFINED_TYPES {
+            self.add_predefined_type(entry.name, entry.id);
         }
-        for &(name, id) in PREDEFINED_VALUES {
-            self.add_predefined_value(name, id);
+        for entry in PREDEFINED_VALUES {
+            self.add_predefined_value(entry.name, entry.id);
         }
     }
 

@@ -136,8 +136,9 @@ fn receiver_first_callees_support_function_editor_features() {
 
 #[test]
 fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
-    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); () });\n\
-                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_) -> ());\n";
+    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(1usize, (buffer) -> { buffer.new(1i32); () });\n\
+                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_) -> ());\n\
+                admit :: Address -> Packed<Int32> := (address) -> address.pack<Int32>(0usize, 1usize);\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     for (name, offset) in [
@@ -152,7 +153,7 @@ fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
         assert!(document.hover_at(offset).is_some());
     }
     for name in [
-        "Cursor", "Region", "Packed", "Buffer", "pack", "edit", "new", "get", "put",
+        "Region", "Packed", "Buffer", "pack", "make", "edit", "view", "new", "get", "put", "set",
     ] {
         assert!(
             document
@@ -162,6 +163,15 @@ fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
             "missing `{name}` completion"
         );
     }
+
+    let make = document
+        .occurrence_at(text.find("make<Int32>").unwrap())
+        .expect("make occurrence");
+    assert!(
+        make.documentation
+            .as_deref()
+            .is_some_and(|documentation| documentation.contains("initial allocation"))
+    );
 }
 
 #[test]
@@ -219,7 +229,7 @@ fn sum_result_annotations_navigate_to_the_alias() {
     );
     assert_eq!(
         document
-            .hover_at(text.rfind("create(1)").unwrap() + 4)
+            .hover_at(text.rfind("create(1)").unwrap() + "create".len())
             .unwrap()
             .ty,
         "[Unit, Int32]"
@@ -361,14 +371,22 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
 }
 
 #[test]
-fn reports_the_type_of_a_typed_cursor_placement() {
-    let text = "cursor :: Address -> Cursor<Int64> := (address) -> address@i64;";
-    let offset = text.rfind("i64").unwrap();
+fn reports_the_type_of_a_region_method() {
+    let text = "read :: Region<Int64> -> Int64 := (region) -> region.get(0usize);";
+    let offset = text.rfind("get").unwrap();
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let hover = document.hover_at(offset).expect("cursor placement hover");
+    let hover = document.hover_at(offset).expect("region get hover");
 
-    assert_eq!(hover.ty, "Cursor<Int64>");
-    assert!(hover.occurrence.is_none());
+    assert_eq!(hover.ty, "(Buffer<T>, USize) -> T");
+    assert_eq!(hover.occurrence.unwrap().name, "get");
+    assert!(
+        hover
+            .occurrence
+            .unwrap()
+            .documentation
+            .as_deref()
+            .is_some_and(|documentation| documentation.contains("Region<T>"))
+    );
 }
 
 #[test]

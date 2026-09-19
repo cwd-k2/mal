@@ -219,7 +219,7 @@ fn exit_succeeds_only_after_shutdown() {
 
 #[test]
 fn serves_hover_navigation_references_and_identity_safe_rename() {
-    let text = "make :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
+    let text = "create :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
     let uri = "file:///semantic.mal";
     let mut server = open_document(uri, text);
     let reference = text.find("{ x;").unwrap() + 2;
@@ -229,7 +229,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
     assert_eq!(hover["result"]["contents"]["kind"], "markdown");
     assert_eq!(
         hover["result"]["contents"]["value"],
-        "```mal\nx :: Int32\n```\n\nparameter\n\nDefined in `semantic.mal:1:28`"
+        "```mal\nx :: Int32\n```\n\nparameter\n\nDefined in `semantic.mal:1:30`"
     );
     assert_eq!(
         hover["result"]["range"]["start"],
@@ -308,7 +308,7 @@ fn preserves_declared_type_aliases_in_hover() {
 
 #[test]
 fn expands_a_sum_result_type_hover_by_exactly_one_alias_layer() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
     let uri = "file:///sum-result-hover.mal";
     let mut server = open_document(uri, text);
     let constructor = text.find("-> Choice").unwrap() + 3;
@@ -332,25 +332,25 @@ fn expands_a_sum_result_type_hover_by_exactly_one_alias_layer() {
         "textDocument/hover",
         uri,
         text,
-        text.find("make ::").unwrap(),
+        text.find("create ::").unwrap(),
     );
     assert_eq!(
         function["result"]["contents"]["value"],
-        "```mal\nmake :: Payload -> Choice\n```\n\nfunction\n\nDefined in `sum-result-hover.mal:3:1`"
+        "```mal\ncreate :: Payload -> Choice\n```\n\nfunction\n\nDefined in `sum-result-hover.mal:3:1`"
     );
 
-    let call = text.rfind("make(1)").unwrap();
+    let call = text.rfind("create(1)").unwrap();
     let result = request_at(
         &mut server,
         18,
         "textDocument/hover",
         uri,
         text,
-        call + "make".len(),
+        call + "create".len(),
     );
     assert_eq!(
         result["result"]["contents"]["value"],
-        "```mal\nmake(1) :: [Unit, Int32]\n```"
+        "```mal\ncreate(1) :: [Unit, Int32]\n```"
     );
 }
 
@@ -383,8 +383,51 @@ fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
 }
 
 #[test]
+fn serves_reference_documentation_for_predefined_memory_operations() {
+    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(1usize, (buffer) -> { buffer.new(1i32); () });";
+    let uri = "file:///predefined-hover.mal";
+    let mut server = open_document(uri, text);
+
+    let make = request_at(
+        &mut server,
+        21,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("make<Int32>").unwrap(),
+    );
+    let make_contents = make["result"]["contents"]["value"].as_str().unwrap();
+    assert!(make_contents.contains("make :: (USize, Buffer<T> -> Unit) -> Packed<T>"));
+    assert!(make_contents.contains("eager initial allocation request"));
+
+    let packed = request_at(
+        &mut server,
+        22,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("Packed<Int32>").unwrap(),
+    );
+    let packed_contents = packed["result"]["contents"]["value"].as_str().unwrap();
+    assert!(packed_contents.contains("Packed<T>"));
+    assert!(packed_contents.contains("immutable, finite sequence"));
+
+    let new = request_at(
+        &mut server,
+        23,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("new(1i32)").unwrap(),
+    );
+    let new_contents = new["result"]["contents"]["value"].as_str().unwrap();
+    assert!(new_contents.contains("new :: (Buffer<T>, T) -> USize"));
+    assert!(new_contents.contains("stable element index"));
+}
+
+#[test]
 fn serves_hover_and_definition_for_an_alias_in_an_indexed_type() {
-    let text = "Byte :: UInt8;\nidentity :: Cursor<Byte> -> Cursor<Byte> := (cursor) -> cursor;";
+    let text = "Byte :: UInt8;\nread :: Region<Byte> -> Byte := (region) -> region.get(0usize);";
     let uri = "file:///indexed-type.mal";
     let mut server = open_document(uri, text);
     let reference = text.rfind("Byte").unwrap();

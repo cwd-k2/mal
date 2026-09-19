@@ -39,7 +39,7 @@ fn serves_symbols_completion_and_semantic_tokens() {
 
 #[test]
 fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
-    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> { _ := buffer.new(1i32); () });\n";
+    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(1usize, (buffer) -> { buffer.new(1i32); () });\n";
     let uri = "file:///packed-editor.mal";
     let mut server = open_document(uri, text);
     let completion = request_at(
@@ -52,19 +52,21 @@ fn serves_packed_intrinsics_as_functions_and_indexed_type_completions() {
     );
     let items = completion["result"].as_array().unwrap();
 
-    for name in ["Cursor", "Region", "Packed", "Buffer"] {
+    for name in ["Region", "Packed", "Buffer"] {
         assert!(
             items
                 .iter()
                 .any(|item| item["label"] == name && item["kind"] == 7)
         );
     }
-    assert!(
-        items
-            .iter()
-            .any(|item| item["label"] == "pack" && item["kind"] == 3)
-    );
-    for name in ["new", "get", "put"] {
+    assert!(items.iter().any(|item| {
+        item["label"] == "pack"
+            && item["kind"] == 3
+            && item["documentation"]["value"]
+                .as_str()
+                .is_some_and(|documentation| documentation.contains("half-open element range"))
+    }));
+    for name in ["make", "edit", "view", "new", "get", "put", "set"] {
         assert!(
             items
                 .iter()

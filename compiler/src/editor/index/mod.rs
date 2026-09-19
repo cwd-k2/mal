@@ -8,23 +8,9 @@ use super::{Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, Symb
 
 mod aliases;
 mod checked_ast;
+mod predefined;
 mod resolved_ast;
 mod type_display;
-
-const INDEXED_TYPES: [(&str, resolved::TypeId); 3] = [
-    ("Region", resolved::REGION_TYPE),
-    ("Packed", resolved::PACKED_TYPE),
-    ("Buffer", resolved::BUFFER_TYPE),
-];
-
-const PACK_DETAIL: &str = "(Address, USize, USize) -> Packed<T>";
-const MAKE_DETAIL: &str = "(USize, Buffer<T> -> Unit) -> Packed<T>";
-const EDIT_DETAIL: &str = "(Packed<T>, Buffer<T> -> Unit) -> Packed<T>";
-const VIEW_DETAIL: &str = "(Address, USize, USize, Region<T> -> R) -> R";
-const NEW_DETAIL: &str = "(Buffer<T>, T) -> USize";
-const GET_DETAIL: &str = "(Buffer<T>, USize) -> T";
-const PUT_DETAIL: &str = "(Buffer<T>, USize, T) -> Unit";
-const SET_DETAIL: &str = "(Region<T>, Packed<T>) -> Region<T>";
 
 pub(super) fn build(
     resolved: &resolved::Program,
@@ -59,34 +45,10 @@ impl Index {
     fn new(resolved: &resolved::Program, checked: &checked::Program) -> Self {
         let mut index = Self {
             aliases: HashMap::new(),
-            value_types: [
-                (crate::resolve::PACK_VALUE, PACK_DETAIL.to_owned()),
-                (crate::resolve::MAKE_VALUE, MAKE_DETAIL.to_owned()),
-                (crate::resolve::EDIT_VALUE, EDIT_DETAIL.to_owned()),
-                (crate::resolve::VIEW_VALUE, VIEW_DETAIL.to_owned()),
-                (crate::resolve::NEW_VALUE, NEW_DETAIL.to_owned()),
-                (crate::resolve::GET_VALUE, GET_DETAIL.to_owned()),
-                (crate::resolve::PUT_VALUE, PUT_DETAIL.to_owned()),
-                (crate::resolve::SET_VALUE, SET_DETAIL.to_owned()),
-            ]
-            .into_iter()
-            .collect(),
-            type_details: crate::resolve::PREDEFINED_TYPES
-                .iter()
-                .map(|&(name, id)| (id, name.to_owned()))
-                .chain(INDEXED_TYPES.map(|(name, id)| (id, format!("{name}<T>"))))
-                .collect(),
+            value_types: predefined::value_types(),
+            type_details: predefined::type_details(),
             type_aliases: HashMap::new(),
-            functions: HashSet::from([
-                crate::resolve::PACK_VALUE,
-                crate::resolve::MAKE_VALUE,
-                crate::resolve::EDIT_VALUE,
-                crate::resolve::VIEW_VALUE,
-                crate::resolve::NEW_VALUE,
-                crate::resolve::GET_VALUE,
-                crate::resolve::PUT_VALUE,
-                crate::resolve::SET_VALUE,
-            ]),
+            functions: predefined::functions(),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
             raw_occurrences: Vec::new(),
@@ -120,6 +82,7 @@ impl Index {
                 Occurrence {
                     kind: self.kind(id),
                     detail: self.detail(id),
+                    documentation: predefined::documentation(id).map(str::to_owned),
                     id,
                     name: raw.name,
                     span: raw.span,
@@ -158,7 +121,7 @@ impl Index {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let mut completions = predefined_symbols();
+        let mut completions = predefined::symbols();
         completions.extend(top_level.into_iter().filter(|symbol| {
             let Some(span) = symbol.span else {
                 return false;
@@ -253,59 +216,7 @@ fn symbol_for(occurrence: &Occurrence) -> Symbol {
         name: occurrence.name.clone(),
         kind: occurrence.kind,
         detail: occurrence.detail.clone(),
+        documentation: occurrence.documentation.clone(),
         span: Some(occurrence.span),
     }
-}
-
-fn predefined_symbols() -> Vec<Symbol> {
-    let scalar_types = crate::resolve::PREDEFINED_TYPES
-        .iter()
-        .map(|&(name, id)| Symbol {
-            id: SymbolId::Type(id),
-            name: name.to_owned(),
-            kind: SymbolKind::Type,
-            detail: Some(name.to_owned()),
-            span: None,
-        });
-    let indexed_types = INDEXED_TYPES.into_iter().map(|(name, id)| Symbol {
-        id: SymbolId::Type(id),
-        name: name.to_owned(),
-        kind: SymbolKind::Type,
-        detail: Some(format!("{name}<T>")),
-        span: None,
-    });
-    let values = crate::resolve::PREDEFINED_VALUES
-        .iter()
-        .map(|&(name, id)| Symbol {
-            id: SymbolId::Value(id),
-            name: name.to_owned(),
-            kind: if matches!(
-                id,
-                crate::resolve::PACK_VALUE
-                    | crate::resolve::MAKE_VALUE
-                    | crate::resolve::EDIT_VALUE
-                    | crate::resolve::VIEW_VALUE
-                    | crate::resolve::NEW_VALUE
-                    | crate::resolve::GET_VALUE
-                    | crate::resolve::PUT_VALUE
-                    | crate::resolve::SET_VALUE
-            ) {
-                SymbolKind::Function
-            } else {
-                SymbolKind::Value
-            },
-            detail: match id {
-                crate::resolve::PACK_VALUE => Some(PACK_DETAIL.to_owned()),
-                crate::resolve::MAKE_VALUE => Some(MAKE_DETAIL.to_owned()),
-                crate::resolve::EDIT_VALUE => Some(EDIT_DETAIL.to_owned()),
-                crate::resolve::VIEW_VALUE => Some(VIEW_DETAIL.to_owned()),
-                crate::resolve::NEW_VALUE => Some(NEW_DETAIL.to_owned()),
-                crate::resolve::GET_VALUE => Some(GET_DETAIL.to_owned()),
-                crate::resolve::PUT_VALUE => Some(PUT_DETAIL.to_owned()),
-                crate::resolve::SET_VALUE => Some(SET_DETAIL.to_owned()),
-                _ => None,
-            },
-            span: None,
-        });
-    scalar_types.chain(indexed_types).chain(values).collect()
 }
