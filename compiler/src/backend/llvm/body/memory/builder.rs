@@ -172,6 +172,11 @@ impl FunctionEmitter<'_> {
             return Some("null".into());
         }
         let storage = "%mal_packed_new_value";
+        let layout = self.source_layouts.layout(&value.ty)?;
+        self.line(format!(
+            "  store [{stride} x i8] zeroinitializer, ptr {storage}, align {}",
+            layout.alignment
+        ));
         self.emit_aligned_source_store_at(storage, value)?;
         Some(storage.into())
     }
