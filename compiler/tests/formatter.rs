@@ -64,9 +64,7 @@ fn formats_expression_bodies_for_binder_and_control_forms() {
 
 #[test]
 fn separates_control_keywords_from_every_prefix_expression() {
-    for expression in [
-        "-value", "!value", "~value", "#value", "?value", "<-value", "*value",
-    ] {
+    for expression in ["-value", "!value", "~value", "#value", "*value"] {
         let formatted = format(&format!(
             "choose := (condition, value) -> if(condition)then{expression} else{expression};"
         ));
@@ -197,26 +195,19 @@ fn formats_unary_and_binary_symbol_operators() {
 }
 
 #[test]
-fn formats_memory_operators_canonically() {
+fn formats_memory_primitives_canonically() {
     let formatted = format(
-        "read := <- address @ u8 !; projected := ? cursor; bytes := * packed; copied := * <- address @ u8 @ count; write := cursor <- value;\n\
-         region := address\n@u8\n@count\n!; end := cursor\n<- first\n<- second;",
+        "owned := pack < UInt8 > ( address, start, end ); bytes := * owned;\n\
+         result := address . view < UInt8 > ( start, end, (region) -> region . get (0usize));\n\
+         updated := owned . edit < UInt8 > ((buffer) -> buffer . put (0usize, value));",
     );
     assert_eq!(
         formatted,
         concat!(
-            "read := <-address@u8!;\n",
-            "projected := ?cursor;\n",
-            "bytes := *packed;\n",
-            "copied := *<-address@u8@count;\n",
-            "write := cursor <- value;\n",
-            "region := address\n",
-            "    @u8\n",
-            "    @count\n",
-            "    !;\n",
-            "end := cursor\n",
-            "    <- first\n",
-            "    <- second;\n",
+            "owned := pack<UInt8>(address, start, end);\n",
+            "bytes := *owned;\n",
+            "result := address.view<UInt8>(start, end, (region) -> region.get(0usize));\n",
+            "updated := owned.edit<UInt8>((buffer) -> buffer.put(0usize, value));\n",
         )
     );
     assert_eq!(format(&formatted), formatted);
