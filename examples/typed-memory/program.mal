@@ -5,21 +5,34 @@ extern incrementSample :: Address -> Unit;
 
 Sample :: (Int64, UInt8);
 
+// Return the displaced value rather than letting the scoped Region escape.
+replace<A> :: (Region<A>, A) -> A := (region, value) -> {
+    previous := region.get(0usize);
+    region.put(0usize, value);
+    previous;
+};
+
 main :: Unit -> Int32 := () -> {
     base := unalignedStorage();
+
+    // Host storage has no static alignment authority; every external view is lowered safely.
     alignedSample := base.view<Sample>(0usize, 1usize, (region) -> {
         region.put(0usize, (1i64, 2u8));
         region.get(0usize);
     });
     (alignedNumber, alignedSmall) := alignedSample;
+
+    // These products deliberately begin one byte past an aligned address.
     firstAddress := base + 1bytes;
     secondAddress := firstAddress + #(i64, u8);
     firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (7i64, 9u8)));
     secondAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (40i64, 1u8)));
+
+    // Each Region closes before the next one opens; ordinary Sample values carry the exchange.
     firstValue := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
-    secondValue := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
-    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, secondValue));
-    secondAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, firstValue));
+    displaced := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.replace<Sample>(firstValue));
+    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, displaced));
+
     incrementSample(firstAddress);
     incremented := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
     moved := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));

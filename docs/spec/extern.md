@@ -26,7 +26,10 @@ external operationは宣言によって通常のtop-level function valueとし�
 main :: Unit -> Unit := () -> {
     (mem, address) := alloc(5bytes);
     bytes := *"hello";
-    view<UInt8>(address, 0usize, #bytes, (region) -> { _ := region.set(bytes); () });
+    address.view<UInt8>(0usize, #bytes, (region) -> {
+        region.set(bytes);
+        ();
+    });
     output(address, #bytes);
     release(mem);
 };

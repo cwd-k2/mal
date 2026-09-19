@@ -122,7 +122,7 @@ productとsumではsource-levelの入れ子を保ったcanonical layout planを�
 
 function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
 immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
-`Buffer<A>`はscoped builderへの一語のreferenceとしてlowerし、`new`・`get`・`put`はclosure applicationにせず
+`Buffer<A>`はscopedな構築・編集stateへの一語のreferenceとしてlowerし、`new`・`get`・`put`はclosure applicationにせず
 typed memory operationとしてcore以降へ渡す。control IRはfunction environment schemaを複製しない。backendは
 operationとelement型を直接使い、function environmentの形からbuilder operationを推測しない。
 
@@ -134,7 +134,7 @@ closure environmentの最後のreleaseではcaptureを逆順に破棄する。ta
 recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
-`Address`はLLVMの`ptr`、`Cursor`はaddress、`Region`はaddressとcountの組へlowerする。external storageのexact accessは
+`Address`はLLVMの`ptr`、`Region`はaddressとcountの組へlowerする。external storageのexact accessは
 alignmentを仮定せず`align 1`のmemory operationを使い、runtimeが整列を保証する`Packed`と`Buffer`はcanonical alignmentを使う。`Packed`はimmutable byte owner、active data address、countを
 運び、sliceと`Region`間のtransferをprogram固有layoutに従って行う。region、permission、initialization、lifetimeはtyped IRへ補わず、
 source-levelの[`memory` contract](../spec/memory.md)として保持する。

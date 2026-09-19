@@ -27,7 +27,6 @@ _get :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Unit :=
             writeSymbol("VALUE ");
             writeSymbol(*value);
             writeSymbol("\n");
-            ();
         }
         ];
     };

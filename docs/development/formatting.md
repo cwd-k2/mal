@@ -25,9 +25,8 @@ Status: Current v0.6 policy and implementation
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
   曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで
   一段深くし、それ以外のcontinuation行も一段深くする。
-- receiver-first application、conversion、placement、align-upを含むpostfix chainのsuffix直前にsource改行があれば、
+- receiver-first applicationとconversionを含むpostfix chainのsuffix直前にsource改行があれば、
   一段深いchain継続として保つ。
-- binary `<-` chainの継続行はoperatorから始め、一段深くする。
 
 line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。

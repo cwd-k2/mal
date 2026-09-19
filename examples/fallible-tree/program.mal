@@ -30,6 +30,7 @@ sumTree :: Tree -> Int32 := (node) -> [return] => {
         return(value);
     };
 
+    // Snapshot both child capabilities before recursive traversal releases either subtree.
     children := (node + #i32 + #u8).pack<Address>(0usize, 2usize);
     left := children # 0usize;
     right := children # 1usize;
@@ -42,6 +43,7 @@ releaseTree :: (Tree, Allocator) -> Unit := (node, allocator) -> [return] => {
         return(allocator.releaseNode(node));
     };
 
+    // Packed owns the descriptor pair, not the allocations reached through those addresses.
     children := (node + #i32 + #u8).pack<Address>(0usize, 2usize);
     left := children # 0usize;
     right := children # 1usize;

@@ -16,7 +16,9 @@ semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表�
 typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 source declarationを持つsymbolでは宣言元fileからの相対pathと1始まりの行・columnも表示する。宣言の直前に空行を挟まず
 連続する単独行の`//` commentはdocumentationとして表示し、各行の`//`直後にある一つのspaceと行末空白を除く。同じ行で
-codeの後にあるcomment、宣言との間に空行があるcomment、predefined symbolと名前のないexpressionにはdocumentationを付けない。
+codeの後にあるcommentと宣言との間に空行があるcommentはdocumentationとして扱わない。predefined type、value、memory intrinsic、
+Region/Buffer methodはcompilerのpredefined metadataにある英語reference documentationを表示する。signatureに加えてscope、offsetの単位、
+返り値、主要preconditionを説明し、completion itemにも同じdocumentationを付ける。名前のないexpressionにはdocumentationを付けない。
 byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
 TextMate grammarはreceiver-first applicationのcalleeをfunction、`.`をaccessor punctuationとして分類する。
 semantic analysisではcalleeを通常のfunction referenceとして扱い、hover、definition、references、rename、

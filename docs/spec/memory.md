@@ -117,7 +117,7 @@ Regionはsource-level constructorを持たず、`view`のcallback parameterと�
 receiver-first表記は`get(region, index)`、`put(region, index, value)`と同じpredefined operation identityを指す。
 
 ```mal
-view<Int64>(address, 0usize, count, (region) -> {
+address.view<Int64>(0usize, count, (region) -> {
     first := region.get(0usize);
     region.put(1usize, first);
 });

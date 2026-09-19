@@ -8,7 +8,7 @@ Status: Current v0.6 implementation policy
 ## managed type
 
 `Symbol`、`Packed`、function closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、
-`Unit`、`Address`、`ByteSize`、`USize`、`Cursor`、`Region`、external opaque valueはownerを持たない。この分類は
+`Unit`、`Address`、`ByteSize`、`USize`、`Region`、`Buffer`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
 LLVM内の`Symbol`と`Packed<A>`はowner pointer、active data address、element countからなるviewである。ownerがstorage lifetime、dataが

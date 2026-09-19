@@ -84,6 +84,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
+    // Keep host argument descriptors immutable while resource handling proceeds independently.
     descriptors := arguments.pack<(Address, ByteSize)>(0usize, argumentCount);
     (pathAddress, pathLength) := descriptors # 0usize;
     result := copyPath(pathAddress, pathLength.usize);

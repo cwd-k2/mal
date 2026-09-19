@@ -64,7 +64,6 @@ _replaceFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) -> {
     index := #frames - 1usize;
     frames.edit<UInt8>((buffer) -> {
         buffer.put(index, frame);
-        ();
     });
 };
 

@@ -4,6 +4,7 @@ Tree :: Packed<TreeNode>;
 
 buildTree :: Unit -> Tree := () ->
     make<TreeNode>(0usize, (buffer) -> {
+        // Indices returned by new remain stable when later appends grow the buffer.
         root := buffer.new((1i32, 0u8, 0usize, 0usize));
         left := buffer.new((2i32, 0u8, 0usize, 0usize));
         leftLeft := buffer.new((3i32, 0u8, 0usize, 0usize));
@@ -11,7 +12,6 @@ buildTree :: Unit -> Tree := () ->
         right := buffer.new((5i32, 0u8, 0usize, 0usize));
         buffer.put(left, (2i32, 1u8, leftLeft, leftRight));
         buffer.put(root, (1i32, 1u8, left, right));
-        ();
     });
 
 sumNode :: (Tree, USize) -> Int32 := (tree, index) -> {
@@ -23,9 +23,9 @@ sumNode :: (Tree, USize) -> Int32 := (tree, index) -> {
 
 incrementRoot :: Tree -> Tree := (tree) ->
     tree.edit<TreeNode>((buffer) -> {
+        // edit publishes a new Packed tree; the source remains available to the caller.
         (value, kind, left, right) := buffer.get(0usize);
         buffer.put(0usize, (value + 1i32, kind, left, right));
-        ();
     });
 
 main :: Unit -> Int32 := () -> {

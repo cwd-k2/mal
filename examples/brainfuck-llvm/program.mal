@@ -29,6 +29,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
+    // Process arguments stay host-owned; admit the descriptor and path before opening the file.
     (pathAddress, pathLength) := arguments.pack<(Address, ByteSize)>(0usize, 1usize) # 0usize;
     path := *pathAddress.pack<UInt8>(0usize, pathLength.usize);
     read := readSource(path);

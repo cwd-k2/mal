@@ -46,6 +46,7 @@ _sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
     if (#packed > capacity)
     then _socketFailure(90u32)
     else {
+        // Writable authority exists only while staging this packet into host storage.
         memory.view<UInt8>(0usize, #packed, (region) -> {
             region.set(packed);
             ();
@@ -60,6 +61,7 @@ _receiveExpected :: Socket -> Bool := (socket) -> {
     result[
     (packet) -> {
         (sequence, length) := packet;
+        // The host result initializes exactly this prefix; Packed owns the admitted copy.
         payload := *memory.pack<UInt8>(0usize, length);
         sequence == 42u64 && payload == "hello from mal";
     },

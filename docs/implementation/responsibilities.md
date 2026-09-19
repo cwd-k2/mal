@@ -102,7 +102,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Packed` ownerとslice viewをmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | 共通のflat byte owner、slice lifetime、Unitのcount-only表現、Symbolと`Packed<UInt8>`のallocation-free owner共有を実装する |
-| C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとCursor/Region/Packedをpublic interfaceから拒否する |
+| C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとRegion/Packed/Bufferをpublic interfaceから拒否する |
 | process shim | argvをcanonical `(address, bytesize)` descriptor列へmaterializeし、`(USize, Address)` rootへ渡す |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
@@ -137,7 +137,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/operator/arithmetic` | numeric、Address offset、Symbol concatenationのoperand選択とresult型を構成 |
 | `check/operator/logical` | Boolのshort-circuit operatorとright operandのabrupt completionを構成 |
-| `check/memory` | placement、Cursor/Region/Packed access、Address offsetの型規則を検査し、memory primitiveの論理operandをsource productとは区別して構成 |
+| `check/memory` | Addressからの`pack`/`view`、Region/Buffer access、Address offsetの型規則を検査し、memory primitiveの論理operandをsource productとは区別して構成 |
 | `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion |
 | `check/types/properties` | `Representable` requirementと物理表現上限の反復的検査 |
 | `check/types/display` | canonical typeのboundedな診断表示 |
@@ -161,7 +161,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `driver/build` | source graph、optimization profile、artifact directory、generated input、Clang process、AtCoder carrierを一つのbuild use caseへ構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
-| `core/packed` | scoped builderのcore operation順序 |
+| `core/packed` | scoped BufferによるPacked構築・編集のcore operation順序 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
@@ -244,10 +244,10 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
-| `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
-| `backend/llvm/body/memory/builder` | scoped builder operationのLLVM emission |
+| `backend/llvm/body/memory` | `Address`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
+| `backend/llvm/body/memory/builder` | scoped Buffer operationのLLVM emission |
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
-| `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
+| `backend/llvm/body/memory/region` | Regionのunaligned access、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
 | `backend/llvm/body/memory/storage` | canonical scalar・product・sumについて、external storageのunaligned accessとmal-owned storageの保証済みalignmentを区別してload/storeを出力 |
 | `backend/llvm/body/memory/view` | Region admission、Packed transfer、slice、Symbol/Packed owner共有を出力 |
@@ -255,7 +255,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storageとcapacityの取得およびreserveをinternal ABIで提供 |
-| `runtime/c11/bytes.c` | byte ownerとscoped Packed builderのstorage policy |
+| `runtime/c11/bytes.c` | byte ownerとscoped Bufferのstorage policy |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
 | `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |

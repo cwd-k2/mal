@@ -61,10 +61,10 @@ productとして公開せず、`getelementptr`、`load`、`store`などのpointe
 
 malの`Address`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityである。LLVM backendはdefault address
 spaceの`ptr`、C host ABIは`void *`へ写すが、それらは別々のbackendとembeddingの表現である。sourceはpointerの内部表現を観測せず、
-`ByteSize`による位置の派生とcanonical layoutを持つ`Cursor`、`Region`を通じてstorageへaccessする。
+`ByteSize`による位置の派生と、callbackへ閉じたcanonical layout付き`Region`を通じてstorageへaccessする。
 
-`Address + ByteSize`と`Address - ByteSize`は整数演算ではなく、pointer capabilityを保ったbyte位置の派生である。LLVM backendでは
-`getelementptr i8`へ変換し、pointerをintegerへ変換してから加減算しない。canonical representationに含まれる`Address`もintegerとして
+`Address + ByteSize`は整数演算ではなく、pointer capabilityを保った前方byte位置の派生である。LLVM backendでは
+`getelementptr i8`へ変換し、pointerをintegerへ変換してから加算しない。canonical representationに含まれる`Address`もintegerとして
 観測せず、pointer valueとして保存、復元する。採択済みのsource operationとlayout authorityは
 [external memory specification](../spec/memory.md)を正とする。
 
