@@ -69,13 +69,39 @@ impl Lowerer {
             finish,
             expression.span,
         );
+        let callback_and_finish = if source.is_some() {
+            let prepare = Expression {
+                kind: ExpressionKind::PackedBuilder {
+                    operation: PackedBuilderOperation::Prepare,
+                    element: element.clone(),
+                    argument: Box::new(self.reference(
+                        builder_id,
+                        buffer_type.clone(),
+                        expression.span,
+                    )),
+                },
+                ty: checked::Type::Unit,
+                span: expression.span,
+            };
+            self.let_expression(
+                Pattern::Wildcard {
+                    ty: checked::Type::Unit,
+                    span: expression.span,
+                },
+                prepare,
+                after_callback,
+                expression.span,
+            )
+        } else {
+            after_callback
+        };
         let after_builder = self.let_expression(
             Pattern::Binding {
                 id: builder_id,
                 ty: buffer_type,
             },
             builder,
-            after_callback,
+            callback_and_finish,
             expression.span,
         );
         let after_callback_value = self.let_expression(

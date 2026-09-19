@@ -79,8 +79,8 @@ Bufferはhelper、nested closure、recursive frameへ渡せるが、callbackの�
 Mal内部に留まるfunction value、immutable capture、result binderのcapture規則がこのscopeを構成する。
 
 `edit`のsourceとresultは独立したimmutable valueとして振る舞う。source、そのslice、および`A = UInt8`の場合にownerを共有する
-`Symbol`は編集前と同じ値を返す。実装は最初の変更でcopy-on-writeを行い、変更がない場合はownerを共有してよい。source responsibilityと
-runtime ownerがともに一意な場合のstorage再利用は、observable semanticsを変えないoptimizationである。
+`Symbol`は編集前と同じ値を返す。実装はcallbackの開始前または最初の変更時にwritable storageを確立し、変更がない場合はownerを共有してよい。
+source responsibilityとruntime ownerがともに一意な場合のstorage再利用は、observable semanticsを変えないoptimizationである。
 
 count、`count * stride(A)`、owner allocation sizeがtargetで表現できない場合と、必要なallocationのfailureはtrapする。
 `Packed<Unit>`ではstorageを持たず、`new`の回数をcountへ加えてよい。growth policy、余剰capacity、copy-on-writeと再利用の選択は

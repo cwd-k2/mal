@@ -187,6 +187,7 @@ pub enum ExpressionKind {
 pub enum PackedBuilderOperation {
     Start,
     Edit,
+    Prepare,
     New,
     Get,
     Put,

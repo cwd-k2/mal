@@ -54,7 +54,7 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
 }
 
 #[test]
-fn prepares_edit_lazily_while_lowering_recursive_packed_access() {
+fn prepares_edit_once_before_lowering_recursive_packed_access() {
     let directory = NativeFixture::new("driver-llvm-prepared-packed-edit");
     let source = directory.join("program.mal");
     let baseline = directory.join("baseline");
@@ -112,11 +112,17 @@ fn prepares_edit_lazily_while_lowering_recursive_packed_access() {
     assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_prepare_edit"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
+    assert_eq!(
+        production_llvm
+            .matches("call ptr @mal_runtime_packed_builder_prepare_edit")
+            .count(),
+        1
+    );
     assert!(!production_llvm.contains("call ptr @mal_runtime_packed_builder_get"));
 }
 
 #[test]
-fn does_not_prepare_an_edit_without_a_put_application() {
+fn prepares_an_edit_before_entering_its_callback() {
     let directory = NativeFixture::new("driver-llvm-noop-packed-edit");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -152,5 +158,9 @@ fn does_not_prepare_an_edit_without_a_put_application() {
     assert_eq!(directory.run(&executable).status.code(), Some(0));
 
     let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
-    assert!(!llvm.contains("call ptr @mal_runtime_packed_builder_prepare_edit"));
+    assert_eq!(
+        llvm.matches("call ptr @mal_runtime_packed_builder_prepare_edit")
+            .count(),
+        1
+    );
 }

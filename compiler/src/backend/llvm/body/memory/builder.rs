@@ -39,6 +39,20 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(buffer(builder, buffer_type))
             }
+            PackedBuilderOperation::Prepare => {
+                if argument.ty != buffer_type || *result_type != Type::Unit {
+                    return None;
+                }
+                self.line(format!(
+                    "  call ptr @mal_runtime_packed_builder_prepare_edit(ptr %mal_context, ptr {})",
+                    argument.representation
+                ));
+                Some(EmittedValue {
+                    ty: Type::Unit,
+                    representation: "0".into(),
+                    owned: false,
+                })
+            }
             PackedBuilderOperation::New => {
                 let argument_type =
                     Type::Product(vec![buffer_type.clone(), element.clone()].into());
@@ -96,10 +110,15 @@ impl FunctionEmitter<'_> {
                 let [builder, put] = self.product_fields(argument, [&buffer_type, &put_type])?;
                 let [index, value] = self.product_fields(&put, [&Type::USize, element])?;
                 if stride != 0 {
+                    let slot = self.register();
+                    self.line(format!(
+                        "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {})",
+                        builder.representation
+                    ));
                     let data = self.register();
                     self.line(format!(
-                        "  {data} = call ptr @mal_runtime_packed_builder_prepare_edit(ptr %mal_context, ptr {})",
-                        builder.representation
+                        "  {data} = load ptr, ptr {slot}, align {}",
+                        self.types.pointer_alignment()
                     ));
                     let pointer = self.builder_element_pointer(&data, &index, stride)?;
                     self.emit_aligned_source_store_at(&pointer, &value)?;

@@ -450,6 +450,7 @@ size_t mal_runtime_packed_builder_new(
     return index;
 }
 
+__attribute__((always_inline))
 void *const *mal_runtime_packed_builder_data_slot(const void *opaque_builder) {
     const MalPackedBuilder *builder = opaque_builder;
     return (void *const *)&builder->data;
