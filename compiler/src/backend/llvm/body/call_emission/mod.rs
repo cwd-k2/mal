@@ -51,6 +51,9 @@ impl FunctionEmitter<'_> {
             result_value_type.llvm,
             function_name(target.id)?
         ));
+        if self.optimizations.localizes_control_storage(target.id) {
+            self.refresh_control_storage()?;
+        }
         Some(EmittedValue {
             ty: result_type,
             representation: register,
@@ -117,6 +120,12 @@ impl FunctionEmitter<'_> {
             "  {register} = {tail}call {} {code}({arguments})",
             result_type.llvm
         ));
+        if self
+            .optimizations
+            .site_may_relocate_control_storage(&self.execution.applications, site)
+        {
+            self.refresh_control_storage()?;
+        }
         Some(EmittedValue {
             ty: (**result).clone(),
             representation: register,

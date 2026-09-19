@@ -79,7 +79,7 @@ pub(crate) fn generate(
         .join("\n\n");
     let control_declarations = if body.uses_control {
         format!(
-            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\n\n",
+            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\n\n",
             types
                 .pointer_integer()
                 .ok_or(Error::InconsistentExecutionPlan("control ABI construction"))?

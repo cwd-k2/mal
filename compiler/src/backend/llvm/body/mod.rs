@@ -10,6 +10,7 @@ mod admission;
 mod aggregate;
 mod bridge;
 mod call_emission;
+mod control_storage;
 mod control_top;
 mod frame;
 mod memory;
@@ -109,6 +110,7 @@ struct FunctionEmitter<'a> {
     slots: HashMap<ValueId, Slot>,
     frame_sites: Vec<StateId>,
     frame_tags: HashMap<StateId, u32>,
+    local_control_storage: bool,
     local_control_top: bool,
     external_storage: Option<(usize, usize)>,
     packed_new_storage: Option<(usize, usize)>,

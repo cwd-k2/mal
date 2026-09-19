@@ -52,6 +52,8 @@ fn omits_self_recursive_parameter_fields_preserved_by_every_edge() {
     assert!(production_module.contains("i64 8)"));
     assert!(!baseline_module.contains("%mal_local_control_top"));
     assert!(production_module.contains("%mal_local_control_top"));
+    assert!(!baseline_module.contains("%mal_local_control_storage"));
+    assert!(production_module.contains("%mal_local_control_storage"));
 }
 #[test]
 fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {
@@ -496,7 +498,8 @@ fn replaces_retired_frame_storage_with_managed_live_fields() {
             .count(),
         1
     );
-    assert!(module.matches("call ptr @mal_control_storage").count() >= 2);
+    assert!(module.contains("%mal_local_control_storage = alloca ptr"));
+    assert!(module.contains("call i64 @mal_control_capacity"));
 }
 
 #[test]

@@ -60,10 +60,7 @@ impl FunctionEmitter<'_> {
             self.line("  unreachable");
         }
         self.line(format!("mal_return_pop_{}:", site.0));
-        let storage = self.register();
-        self.line(format!(
-            "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
-        ));
+        let storage = self.current_control_storage()?;
         if let [frame_site] = frame_sites.as_slice() {
             let frame = self.execution.control_frames.frame(*frame_site)?.clone();
             let pass_through = self.physical_frame_pass_through(&frame);

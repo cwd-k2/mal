@@ -39,6 +39,7 @@ void *mal_control_reserve_frame(
     size_t frame_size
 );
 void *mal_control_storage(MalContext *context);
+size_t mal_control_capacity(MalContext *context);
 
 const uint8_t *mal_runtime_bytes_data(const void *owner);
 void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t length);

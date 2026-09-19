@@ -49,3 +49,8 @@ __attribute__((always_inline))
 void *mal_control_storage(MalContext *context) {
     return context->control.storage;
 }
+
+__attribute__((always_inline))
+size_t mal_control_capacity(MalContext *context) {
+    return context->control.capacity;
+}

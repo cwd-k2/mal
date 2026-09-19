@@ -353,3 +353,9 @@ control frameへ保存し、Cは`Search *`一語を渡していた。semantic li
 1,510,740,155から1,390,884,286、main function textは1,852 bytesから1,800 bytesへ減った。growable control storageとbounded native
 stackは維持し、native recursionへは戻していない。032のresource計測5回では変更前後ともmaximum RSSのmedianは1,736 KiBで、
 memory消費の増加もなかった。
+
+続いて同じregion invocation内のcontrol storage pointerとcapacityをlocal viewへcacheし、growthとcontrol frameを持つnative Mal call後だけ
+runtimeから再取得した。3 warmup、回転30 roundで自然な032は60.23 msから54.62 msへさらに9.3%、029は151.12 msから142.75 msへ
+5.5%短縮した。Cachegrindのdata referenceは331,318,817から
+254,149,393へ23.3%、writeは115,742,866から63,514,611へ45.1%減った。一方instructionは1,390,886,499から1,429,903,582へ
+2.8%増えたため、この改善は命令削減ではなくcontext経由のmemory dependencyを切った結果である。

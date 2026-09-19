@@ -20,14 +20,6 @@ impl FunctionEmitter<'_> {
         let tagged = self.frame_sites.len() != 1;
         let pass_through = self.physical_frame_pass_through(&frame);
         let layout = FrameLayout::new(&frame, self.types.clone(), tagged, &pass_through)?;
-        let index_type = self.types.pointer_integer()?;
-        let top = self.register();
-        self.line(format!(
-            "  {top} = load {index_type}, ptr {}, align {}",
-            self.control_top_pointer(),
-            self.types.index_alignment()
-        ));
-        let storage = self.register();
         let replacement = self
             .execution
             .control_frames
@@ -38,26 +30,12 @@ impl FunctionEmitter<'_> {
                 FrameLayout::new(retired, self.types.clone(), tagged, &pass_through)
             })
             .is_some_and(|retired| layout.size <= retired.size);
-        if replacement {
-            // A nested call may have grown and relocated the control storage after the
-            // retired frame was popped, so reload its current pointer before overwriting it.
-            self.line(format!(
-                "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
-            ));
-        } else {
-            self.line(format!(
-                "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {})",
-                layout.size
-            ));
-        }
-        let next_top = self.register();
-        self.line(format!(
-            "  {next_top} = add {index_type} {top}, {}",
-            layout.size
-        ));
+        let reservation = self.reserve_control_frame(layout.size, replacement)?;
+        let index_type = self.types.pointer_integer()?;
         let frame_pointer = self.register();
         self.line(format!(
-            "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {top}"
+            "  {frame_pointer} = getelementptr i8, ptr {}, {index_type} {}",
+            reservation.storage, reservation.top
         ));
         if tagged {
             let tag = self.frame_tags.get(&site)?;
@@ -107,12 +85,14 @@ impl FunctionEmitter<'_> {
                 "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
             ));
             self.line(format!(
-                "  store {index_type} {top}, ptr {footer}, align {}",
+                "  store {index_type} {}, ptr {footer}, align {}",
+                reservation.top,
                 self.types.index_alignment()
             ));
         }
         self.line(format!(
-            "  store {index_type} {next_top}, ptr {}, align {}",
+            "  store {index_type} {}, ptr {}, align {}",
+            reservation.next_top,
             self.control_top_pointer(),
             self.types.index_alignment()
         ));
@@ -323,6 +303,12 @@ impl FunctionEmitter<'_> {
                 "  {returned} = call {} {code}({arguments})",
                 result_type.llvm
             ));
+            if self
+                .optimizations
+                .site_may_relocate_control_storage(&self.execution.applications, site)
+            {
+                self.refresh_control_storage()?;
+            }
             if argument.owned {
                 self.release_value(&argument.ty, &argument.representation)?;
             }

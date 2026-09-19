@@ -84,7 +84,9 @@ frameを保持したまま別regionを呼んでも同じarena上で互いのfram
 
 LLVM backendはframeを持つregion invocationのtopをfunction-local slotへ置ける。region内のpushとpopはlocal topを更新し、別のMal
 functionをnative callする直前とinvocationのterminal returnで共有topへ同期する。local slotのaddressはcall境界へ渡さないため、LLVMは
-region内topをSSA valueへ昇格できる。arena capacityとgrowthは引き続きC runtime、frame offsetと同期位置はLLVM backendが所有する。
+region内topをSSA valueへ昇格できる。storage pointerとcapacityもlocal viewへcacheし、growthまたはcontrol frameを持つnative Mal
+call後だけruntimeから再取得できる。arena capacityとgrowthは引き続きC runtime、frame offset、cache invalidation、同期位置はLLVM
+backendが所有する。
 
 ## ownerと失敗
 

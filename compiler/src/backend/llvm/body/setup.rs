@@ -77,7 +77,8 @@ impl<'a> FunctionEmitter<'a> {
             .map(|(tag, site)| Some((*site, u32::try_from(tag).ok()?)))
             .collect::<Option<HashMap<_, _>>>()?;
         let local_control_top = optimizations.localizes_control_top(id);
-        if local_control_top && frame_sites.is_empty() {
+        let local_control_storage = optimizations.localizes_control_storage(id);
+        if (local_control_top || local_control_storage) && frame_sites.is_empty() {
             return None;
         }
         if frame_sites.iter().any(|site| {
@@ -160,6 +161,7 @@ impl<'a> FunctionEmitter<'a> {
             slots,
             frame_sites,
             frame_tags,
+            local_control_storage,
             local_control_top,
             external_storage,
             packed_new_storage,
@@ -219,6 +221,18 @@ impl<'a> FunctionEmitter<'a> {
                     self.types.pointer_integer()?,
                     self.types.index_alignment()
                 ));
+            }
+            if self.local_control_storage {
+                self.line(format!(
+                    "  %mal_local_control_storage = alloca ptr, align {}",
+                    self.types.pointer_alignment()
+                ));
+                self.line(format!(
+                    "  %mal_local_control_capacity = alloca {}, align {}",
+                    self.types.pointer_integer()?,
+                    self.types.index_alignment()
+                ));
+                self.refresh_control_storage()?;
             }
         }
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();

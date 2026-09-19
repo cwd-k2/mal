@@ -4,12 +4,14 @@ use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
 mod buffer_abi;
+mod control_storage;
 mod control_top;
 mod symbol_concat;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
     BufferDirectAbi,
+    LocalControlStorage,
     LocalControlTop,
     SymbolConcatReuse,
 }
@@ -25,6 +27,7 @@ impl OptimizationSet {
     pub(crate) const fn production() -> Self {
         Self::none()
             .with(Technique::BufferDirectAbi)
+            .with(Technique::LocalControlStorage)
             .with(Technique::LocalControlTop)
             .with(Technique::SymbolConcatReuse)
     }
@@ -40,6 +43,7 @@ impl OptimizationSet {
 
 #[derive(Eq, PartialEq)]
 pub(super) struct OptimizationPlan {
+    local_control_storage_functions: HashSet<FunctionId>,
     local_control_top_functions: HashSet<FunctionId>,
     direct_buffer_functions: HashSet<FunctionId>,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
@@ -54,6 +58,11 @@ pub(super) enum SymbolConcatMode {
 
 impl OptimizationPlan {
     pub(super) fn new(execution: &crate::execution::Program, enabled: OptimizationSet) -> Self {
+        let local_control_storage_functions = if enabled.contains(Technique::LocalControlStorage) {
+            control_storage::plan(execution)
+        } else {
+            HashSet::new()
+        };
         let local_control_top_functions = if enabled.contains(Technique::LocalControlTop) {
             control_top::plan(execution)
         } else {
@@ -70,6 +79,7 @@ impl OptimizationPlan {
             HashMap::new()
         };
         Self {
+            local_control_storage_functions,
             local_control_top_functions,
             direct_buffer_functions,
             symbol_concatenations,
@@ -97,6 +107,22 @@ impl OptimizationPlan {
 
     pub(super) fn localizes_control_top(&self, function: FunctionId) -> bool {
         self.local_control_top_functions.contains(&function)
+    }
+
+    pub(super) fn localizes_control_storage(&self, function: FunctionId) -> bool {
+        self.local_control_storage_functions.contains(&function)
+    }
+
+    pub(super) fn site_may_relocate_control_storage(
+        &self,
+        applications: &crate::execution::ApplicationGraph,
+        site: StateId,
+    ) -> bool {
+        applications.targets(site).is_some_and(|targets| {
+            targets
+                .iter()
+                .any(|target| self.localizes_control_storage(*target))
+        })
     }
 
     pub(super) fn site_uses_direct_buffer(
@@ -160,6 +186,11 @@ mod tests {
         );
         assert!(
             OptimizationPlan::new(&execution, OptimizationSet::none())
+                .local_control_storage_functions
+                .is_empty()
+        );
+        assert!(
+            OptimizationPlan::new(&execution, OptimizationSet::none())
                 .local_control_top_functions
                 .is_empty()
         );
@@ -197,6 +228,14 @@ mod tests {
                 .is_empty()
         );
         plan.local_control_top_functions.clear();
+        assert!(!plan.is_valid(&execution, enabled));
+
+        let enabled = OptimizationSet::none().with(Technique::LocalControlStorage);
+        let mut plan = OptimizationPlan::new(&execution, enabled);
+        assert_eq!(plan.local_control_storage_functions.len(), 1);
+        assert!(plan.local_control_top_functions.is_empty());
+        assert!(plan.is_valid(&execution, enabled));
+        plan.local_control_storage_functions.clear();
         assert!(!plan.is_valid(&execution, enabled));
     }
 }

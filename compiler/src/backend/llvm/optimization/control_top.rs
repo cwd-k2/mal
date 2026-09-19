@@ -3,7 +3,9 @@ use std::collections::HashSet;
 use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
-pub(super) fn plan(execution: &crate::execution::Program) -> HashSet<FunctionId> {
+pub(in crate::backend::llvm::optimization) fn plan(
+    execution: &crate::execution::Program,
+) -> HashSet<FunctionId> {
     let framed_regions = execution
         .control
         .states
