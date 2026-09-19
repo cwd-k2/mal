@@ -3,7 +3,7 @@ TreeNode :: (Int32, UInt8, USize, USize);
 Tree :: Packed<TreeNode>;
 
 buildTree :: Unit -> Tree := () ->
-    pack<TreeNode>((buffer) -> {
+    make<TreeNode>(0usize, (buffer) -> {
         root := buffer.new((1i32, 0u8, 0usize, 0usize));
         left := buffer.new((2i32, 0u8, 0usize, 0usize));
         leftLeft := buffer.new((3i32, 0u8, 0usize, 0usize));

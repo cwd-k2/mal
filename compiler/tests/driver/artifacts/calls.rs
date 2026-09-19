@@ -107,18 +107,18 @@ fn calls_first_class_wrappers_around_typed_memory_operations() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Reader :: Cursor<Int64> -> Int64;\n\
-         Writer :: (Cursor<Int64>, Int64) -> Unit;\n\
+         Reader :: Region<Int64> -> Int64;\n\
+         Writer :: (Region<Int64>, Int64) -> Unit;\n\
          extern memory :: Unit -> Address;\n\
-         read :: Reader := (cursor) -> <-cursor;\n\
-         write :: Writer := (cursor, value) -> { cursor <- value; () };\n\
-         readWith :: (Reader, Cursor<Int64>) -> Int64 := (reader, cursor) -> { reader(cursor); };\n\
-         writeWith :: (Writer, Cursor<Int64>, Int64) -> Unit := (writer, cursor, value) -> { writer(cursor, value); };\n\
-         main :: Unit -> Int32 := () -> {\n\
-           cursor := memory()@i64;\n\
-           writeWith(write, cursor, 42i64);\n\
-           (readWith(read, cursor) - 42i64).i32;\n\
-         };",
+         read :: Reader := (region) -> region.get(0usize);\n\
+         write :: Writer := (region, value) -> region.put(0usize, value);\n\
+         readWith :: (Reader, Region<Int64>) -> Int64 := (reader, region) -> reader(region);\n\
+         writeWith :: (Writer, Region<Int64>, Int64) -> Unit := (writer, region, value) -> writer(region, value);\n\
+         main :: Unit -> Int32 := () ->\n\
+           view<Int64>(memory(), 0usize, 1usize, (region) -> {\n\
+             writeWith(write, region, 42i64);\n\
+             (readWith(read, region) - 42i64).i32;\n\
+           });",
     );
     directory.write(
         "host.c",
@@ -155,16 +155,16 @@ fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Reader :: Cursor<Int64> -> Int64;\n\
+         Reader :: Region<Int64> -> Int64;\n\
          extern memory :: Unit -> Address;\n\
-         read :: Reader := (cursor) -> <-cursor;\n\
-         apply :: (Reader, Cursor<Int64>) -> Int64 := (reader, cursor) -> { reader(cursor); };\n\
-         recurse :: Cursor<Int64> -> Int64 := (cursor) -> { apply(recurse, cursor); };\n\
-         main :: Unit -> Int32 := () -> {\n\
-           cursor := memory()@i64;\n\
-           cursor <- 42i64;\n\
-           (apply(read, cursor) - 42i64).i32;\n\
-         };",
+         read :: Reader := (region) -> region.get(0usize);\n\
+         apply :: (Reader, Region<Int64>) -> Int64 := (reader, region) -> reader(region);\n\
+         recurse :: Region<Int64> -> Int64 := (region) -> apply(recurse, region);\n\
+         main :: Unit -> Int32 := () ->\n\
+           view<Int64>(memory(), 0usize, 1usize, (region) -> {\n\
+             region.put(0usize, 42i64);\n\
+             (apply(read, region) - 42i64).i32;\n\
+           });",
     );
     directory.write(
         "host.c",

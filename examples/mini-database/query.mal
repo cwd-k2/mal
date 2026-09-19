@@ -3,7 +3,7 @@ require "./bytes.mal";
 require "./input.mal";
 require "./database.mal";
 
-_put :: (ByteBuffer, File, Region<UInt8>, USize, USize, USize, USize) -> Unit :=
+_put :: (ByteBuffer, File, Packed<UInt8>, USize, USize, USize, USize) -> Unit :=
     (database, file, line, keyStart, keyLength, valueStart, valueLength) -> {
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
 
@@ -17,7 +17,7 @@ _put :: (ByteBuffer, File, Region<UInt8>, USize, USize, USize, USize) -> Unit :=
         ];
     };
 
-_get :: (ByteBuffer, Region<UInt8>, USize, USize) -> Unit :=
+_get :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Unit :=
     (database, line, keyStart, keyLength) -> {
         result := database.lookupRecord(line, keyStart, keyLength);
 
@@ -25,14 +25,14 @@ _get :: (ByteBuffer, Region<UInt8>, USize, USize) -> Unit :=
         () -> writeSymbol("NOT FOUND\n"),
         (value) -> {
             writeSymbol("VALUE ");
-            writeSymbol(*<-value);
+            writeSymbol(*value);
             writeSymbol("\n");
             ();
         }
         ];
     };
 
-_delete :: (ByteBuffer, File, Region<UInt8>, USize, USize) -> Unit :=
+_delete :: (ByteBuffer, File, Packed<UInt8>, USize, USize) -> Unit :=
     (database, file, line, keyStart, keyLength) -> {
         if (database.deleteRecord(line, keyStart, keyLength))
         then {
@@ -43,7 +43,7 @@ _delete :: (ByteBuffer, File, Region<UInt8>, USize, USize) -> Unit :=
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
-_handleQuery :: (ByteBuffer, File, Region<UInt8>) -> Unit := (database, file, line) -> [return] => {
+_handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, line) -> [return] => {
     length := #line;
 
     when (length >= 4usize && line.rangeEquals(0usize, 4usize, "get ")) {
@@ -88,9 +88,7 @@ runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
         result[
         (_) -> (),
         (state) -> [return] => {
-            (next, lineBuffer) := state;
-            (lineStorage, lineLength) := lineBuffer;
-            line := lineStorage / lineLength;
+            (next, line) := state;
             length := #line;
 
             when (length == 0usize || line.rangeEquals(0usize, length, "quit")) {

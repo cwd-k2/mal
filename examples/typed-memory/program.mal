@@ -5,26 +5,24 @@ extern incrementSample :: Address -> Unit;
 
 Sample :: (Int64, UInt8);
 
-swap<A> :: (Cursor<A>, Cursor<A>) -> Unit := (left, right) -> {
-    leftValue := <-left;
-    rightValue := <-right;
-    left <- rightValue;
-    right <- leftValue;
-    ();
-};
-
 main :: Unit -> Int32 := () -> {
     base := unalignedStorage();
-    aligned := base@(i64, u8)!;
-    aligned <- (1i64, 2u8);
-    (alignedNumber, alignedSmall) := <-aligned;
-    first := (base + 1bytes)@(i64, u8);
-    second := first <- (7i64, 9u8);
-    second <- (40i64, 1u8);
-    swap<Sample>(first, second);
-    incrementSample(?first);
-    incremented := <-first;
-    moved := <-second;
+    alignedSample := base.view<Sample>(0usize, 1usize, (region) -> {
+        region.put(0usize, (1i64, 2u8));
+        region.get(0usize);
+    });
+    (alignedNumber, alignedSmall) := alignedSample;
+    firstAddress := base + 1bytes;
+    secondAddress := firstAddress + #(i64, u8);
+    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (7i64, 9u8)));
+    secondAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (40i64, 1u8)));
+    firstValue := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
+    secondValue := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
+    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, secondValue));
+    secondAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, firstValue));
+    incrementSample(firstAddress);
+    incremented := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
+    moved := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
     (number, small) := incremented;
     (movedNumber, movedSmall) := moved;
     if (alignedNumber == 1i64

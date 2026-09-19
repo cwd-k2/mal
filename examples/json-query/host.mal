@@ -12,22 +12,25 @@ extern releaseInput :: Input -> Unit;
 extern outputBuffer :: Unit -> OutputBuffer;
 extern writeBytes :: OutputBuffer -> Unit;
 
-_writePacked :: (Region<UInt8>, Packed<UInt8>) -> Unit := (buffer, remaining) -> [return] => {
+_writePacked :: (Address, USize, Packed<UInt8>) -> Unit :=
+    (memory, capacity, remaining) -> [return] => {
     when (#remaining == 0usize) {
         return(());
     };
 
     remainingLength := #remaining;
-    capacity := #buffer;
     transferred := if (remainingLength < capacity)
         then remainingLength
         else capacity;
-    buffer / transferred <- remaining / transferred;
-    writeBytes(?buffer, transferred);
-    return(_writePacked(buffer, remaining % transferred));
+    memory.view<UInt8>(0usize, transferred, (buffer) -> {
+        buffer.set(remaining / transferred);
+        ();
+    });
+    writeBytes(memory, transferred);
+    return(_writePacked(memory, capacity, remaining % transferred));
 };
 
 writeStdout :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    _writePacked(memory@u8@capacity, *value);
+    _writePacked(memory, capacity, *value);
 };

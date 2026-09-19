@@ -9,10 +9,13 @@ bufferCapacity :: USize := 16usize;
 main :: Unit -> Int32 := () -> {
     address := transferBuffer();
     length := receive(address, bufferCapacity);
-    value := *<-address@u8@length;
+    value := *address.pack<UInt8>(0usize, length);
     valid := #value == 8usize && value # 3usize == 227u8 && value # 6usize == 0u8 && value # 7usize == 255u8 && value == "malあ\0\xff";
     outgoing := *(value + "!");
-    address@u8@(#outgoing) <- outgoing;
+    address.view<UInt8>(0usize, #outgoing, (region) -> {
+        region.set(outgoing);
+        ();
+    });
     send(address, #outgoing);
     if (valid)
     then 0

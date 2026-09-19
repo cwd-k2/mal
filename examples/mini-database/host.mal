@@ -1,9 +1,8 @@
 require "./host.c";
 
-// AllocatedBytes is the host-mappable allocation result; ByteBuffer is the internal region and its
-// initialized prefix length.
+// ByteBuffer fields are address, capacity, and initialized prefix length.
 AllocatedBytes :: (Address, USize);
-ByteBuffer :: (Region<UInt8>, USize);
+ByteBuffer :: (Address, USize, USize);
 // Host transfer descriptors keep direction explicit at the extern boundary.
 ReadableBytes :: (Address, USize);
 WritableBytes :: (Address, USize);
@@ -32,33 +31,34 @@ extern writeStdout :: ReadableBytes -> Unit;
 extern writeStderr :: ReadableBytes -> Unit;
 extern failNow :: Unit -> Unit;
 
-_writePacked :: (ReadableBytes -> Unit, Region<UInt8>, Packed<UInt8>) -> Unit :=
-    (write, buffer, remaining) -> [return] => {
+_writePacked :: (ReadableBytes -> Unit, Address, USize, Packed<UInt8>) -> Unit :=
+    (write, memory, capacity, remaining) -> [return] => {
         when (#remaining == 0usize) {
             return(());
         };
 
         remainingLength := #remaining;
-        capacity := #buffer;
         transferred := if (remainingLength < capacity)
             then remainingLength
             else capacity;
         prefix := remaining / transferred;
-        buffer / transferred <- prefix;
-        write((?buffer, transferred));
-        return(_writePacked(write, buffer, remaining % transferred));
+        memory.view<UInt8>(0usize, transferred, (buffer) -> {
+            buffer.set(prefix);
+            ();
+        });
+        write((memory, transferred));
+        return(_writePacked(write, memory, capacity, remaining % transferred));
     };
 
 writeSymbol :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    _writePacked(writeStdout, memory@u8@capacity, *value);
+    _writePacked(writeStdout, memory, capacity, *value);
 };
 
 fail :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    buffer := memory@u8@capacity;
-    _writePacked(writeStderr, buffer, *value);
-    _writePacked(writeStderr, buffer, *"\n");
+    _writePacked(writeStderr, memory, capacity, *value);
+    _writePacked(writeStderr, memory, capacity, *"\n");
     failNow();
 };
 

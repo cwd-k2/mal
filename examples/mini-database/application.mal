@@ -12,14 +12,14 @@ executeDatabase :: (Address, USize) -> Int32 := (path) -> {
     input := standardInput();
 
     (databaseMemory, databaseCapacity) := allocator.allocateBuffer(databaseReadCapacity);
-    databaseStorage := (databaseMemory@u8@databaseCapacity, 0usize);
+    databaseStorage := (databaseMemory, databaseCapacity, 0usize);
     (queryMemory, queryCapacity) := allocator.allocateBuffer(_queryStorageSize);
-    query := (queryMemory@u8@queryCapacity, 0usize);
+    query := (queryMemory, queryCapacity, 0usize);
     (inputMemory, inputCapacity) := allocator.allocateBuffer(_inputStorageSize);
-    inputBuffer := (inputMemory@u8@inputCapacity, 0usize);
+    inputBuffer := (inputMemory, inputCapacity, 0usize);
 
     loadedDatabase := file.readDatabaseFile(databaseStorage);
-    (_, loaded) := loadedDatabase;
+    (_, _, loaded) := loadedDatabase;
     database := if (loaded == 0usize)
         then loadedDatabase.initializeDatabase()
         else {

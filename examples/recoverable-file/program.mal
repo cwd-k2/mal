@@ -84,7 +84,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    descriptors := <-arguments@(address, bytesize)@argumentCount;
+    descriptors := arguments.pack<(Address, ByteSize)>(0usize, argumentCount);
     (pathAddress, pathLength) := descriptors # 0usize;
     result := copyPath(pathAddress, pathLength.usize);
     status :: Int32 := result[

@@ -10,7 +10,7 @@ _countQuery :: Unit -> Query := () -> [count, depth] => count();
 
 _depthQuery :: Unit -> Query := () -> [count, depth] => depth();
 
-parseQuery :: Region<UInt8> -> QueryResult := (text) -> [failure, success] => {
+parseQuery :: Packed<UInt8> -> QueryResult := (text) -> [failure, success] => {
     when (text.equalsSymbol("count")) {
         success(_countQuery());
     };

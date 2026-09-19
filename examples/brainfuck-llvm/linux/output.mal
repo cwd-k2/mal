@@ -42,7 +42,10 @@ writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> {
         mapped := mapAnonymousReadWrite(extent);
         mapped[
         (memory) -> {
-            memory@u8@length <- packed;
+            memory.view<UInt8>(0usize, length, (region) -> {
+                region.set(packed);
+                ();
+            });
             written := _writeAll(descriptor, memory, extent);
             _finishWrite(memory, extent, written);
         },

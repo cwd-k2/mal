@@ -46,7 +46,10 @@ _sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
     if (#packed > capacity)
     then _socketFailure(90u32)
     else {
-        memory@u8@(#packed) <- packed;
+        memory.view<UInt8>(0usize, #packed, (region) -> {
+            region.set(packed);
+            ();
+        });
         socket.sendPacket(sequence, memory, #packed);
     };
 };
@@ -57,7 +60,7 @@ _receiveExpected :: Socket -> Bool := (socket) -> {
     result[
     (packet) -> {
         (sequence, length) := packet;
-        payload := *<-memory@u8@length;
+        payload := *memory.pack<UInt8>(0usize, length);
         sequence == 42u64 && payload == "hello from mal";
     },
     (error) -> {

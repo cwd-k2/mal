@@ -58,13 +58,12 @@ fn constructs_and_edits_packed_values_with_scoped_buffers() {
              ();
            });
            many := make<USize>(0usize, (buffer) -> addRange(buffer, 0usize, 40usize));
+           inner := make<Int32>(0usize, (innerBuffer) -> {
+             _ := innerBuffer.new(9i32);
+             ();
+           });
            nested := make<Int32>(0usize, (buffer) -> {
              outer := buffer.new(5i32);
-             inner := make<Int32>(0usize, (innerBuffer) -> {
-               added := innerBuffer.new(9i32);
-               buffer.put(outer, added.i32);
-               ();
-             });
              buffer.put(outer, inner # 0usize);
              ();
            });
@@ -143,10 +142,8 @@ fn transfers_between_regions_and_packed_storage() {
          extern sourceMemory :: Unit -> Address;\n\
          extern targetMemory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
-           source := sourceMemory()@u8@3usize;\n\
-           packed := <-source;\n\
-           target := targetMemory()@u8@3usize;\n\
-           target <- packed;\n\
+           packed := pack<UInt8>(sourceMemory(), 0usize, 3usize);\n\
+           view<UInt8>(targetMemory(), 0usize, 3usize, (target) -> { _ := target.set(packed); (); });\n\
            (packed # 0usize).i32 + (packed # 2usize).i32;\n\
          };",
     );
@@ -185,15 +182,11 @@ fn transfers_zero_stride_units_from_a_one_past_address() {
         "program.mal",
         "require \"host.c\";\n\
          extern onePast :: Unit -> Address;\n\
-         extern sameAddress :: (Address, Address) -> Bool;\n\
          main :: Unit -> Int32 := () -> {\n\
-           cursor := onePast()@unit;\n\
-           cursor <- ();\n\
-           _ := <-cursor;\n\
-           region := cursor@7usize;\n\
-           packed := <-region;\n\
-           remainder := region <- packed;\n\
-           if (#packed == 7usize && #remainder == 0usize && sameAddress(?cursor, ?remainder))\n\
+           address := onePast();\n\
+           packed := pack<Unit>(address, 0usize, 7usize);\n\
+           remainderLength := view<Unit>(address, 0usize, 7usize, (region) -> #region.set(packed));\n\
+           if (#packed == 7usize && remainderLength == 0usize)\n\
            then 0\n\
            else 1;\n\
          };",
@@ -203,12 +196,7 @@ fn transfers_zero_stride_units_from_a_one_past_address() {
         "#include \"program.mal.h\"\n\
          static uint8_t byte;\n\
          MAL_DEFINE_onePast(call) { return mal_Address_return(call, &byte + 1); }\n\
-         MAL_DEFINE_sameAddress(call, value) {\n\
-             return mal_Bool_return(\n\
-                 call,\n\
-                 value.field_0 == value.field_1 ? mal_true : mal_false\n\
-             );\n\
-         }\n",
+",
     );
     let output = directory.malc([
         OsStr::new("build"),
@@ -268,13 +256,15 @@ fn stores_and_loads_canonical_products_and_sums() {
          extern memory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
            address := memory();\n\
-           product := address@(u8, u64);\n\
-           product <- (7u8, 35u64);\n\
-           (first, second) := <-product;\n\
+           (first, second) := view<(UInt8, UInt64)>(address, 0usize, 1usize, (product) -> {\n\
+             product.put(0usize, (7u8, 35u64));\n\
+             product.get(0usize);\n\
+           });\n\
            choice :: Choice := [none, some] => some(42u64);\n\
-           sum := (address + #(u8, u64))@[unit, u64];\n\
-           sum <- choice;\n\
-           loaded := <-sum;\n\
+           loaded := view<Choice>(address + #(u8, u64), 0usize, 1usize, (sum) -> {\n\
+             sum.put(0usize, choice);\n\
+             sum.get(0usize);\n\
+           });\n\
            selected := loaded[() -> 0i32, (value) -> value.i32];\n\
            first.i32 + second.i32 + selected;\n\
          };",
@@ -300,20 +290,19 @@ fn stores_and_loads_canonical_products_and_sums() {
 }
 
 #[test]
-fn aligns_cursor_access_with_pointer_provenance() {
-    let directory = NativeFixture::new("driver-cursor-align");
+fn accesses_an_unaligned_region_with_pointer_provenance() {
+    let directory = NativeFixture::new("driver-region-unaligned");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"host.c\";\n\
          extern memory :: Unit -> Address;\n\
-         main :: Unit -> Int32 := () -> {\n\
-           cursor := (memory() + 1bytes)@u64!;\n\
-           cursor <- 42u64;\n\
-           value := <-cursor;\n\
-           value.i32;\n\
-         };",
+         main :: Unit -> Int32 := () ->\n\
+           view<UInt64>(memory() + 1bytes, 0usize, 1usize, (region) -> {\n\
+             region.put(0usize, 42u64);\n\
+             region.get(0usize).i32;\n\
+           });",
     );
     directory.write(
         "host.c",
@@ -690,16 +679,15 @@ fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
          extern memory :: ByteSize -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
            base := memory(64bytes);\n\
-           base@u64 <- 42u64;\n\
+           _ := view<UInt64>(base, 0usize, 1usize, (region) -> region.put(0usize, 42u64));\n\
            pointerSlot := base + #u64;\n\
-           pointerSlot@address <- base;\n\
+           _ := view<Address>(pointerSlot, 0usize, 1usize, (region) -> region.put(0usize, base));\n\
            floatSlot := pointerSlot + #address;\n\
-           floatSlot@f32 <- 1.5f32;\n\
-           restored := <-(pointerSlot@address);\n\
-           start := floatSlot - #address - #u64;\n\
-           first := <-(restored@u64);\n\
-           second := <-(start@u64);\n\
-           float := <-(floatSlot@f32);\n\
+           _ := view<Float32>(floatSlot, 0usize, 1usize, (region) -> region.put(0usize, 1.5f32));\n\
+           restored := view<Address>(pointerSlot, 0usize, 1usize, (region) -> region.get(0usize));\n\
+           first := view<UInt64>(restored, 0usize, 1usize, (region) -> region.get(0usize));\n\
+           second := view<UInt64>(base, 0usize, 1usize, (region) -> region.get(0usize));\n\
+           float := view<Float32>(floatSlot, 0usize, 1usize, (region) -> region.get(0usize));\n\
            value := first + second;\n\
            if (float == 1.5f32) then { value.i32 - 84 } else { 1 };\n\
          };",

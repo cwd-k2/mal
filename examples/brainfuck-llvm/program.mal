@@ -29,12 +29,12 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    (pathAddress, pathLength) := <-arguments@(address, bytesize);
-    path := *<-pathAddress@u8@(pathLength.usize);
+    (pathAddress, pathLength) := arguments.pack<(Address, ByteSize)>(0usize, 1usize) # 0usize;
+    path := *pathAddress.pack<UInt8>(0usize, pathLength.usize);
     read := readSource(path);
     return(read[
         (source) -> {
-            (bytes, _) := source;
+            (bytes, _, _) := source;
             result := compile(bytes);
             status :: Int32 := result[
                 (message) -> {

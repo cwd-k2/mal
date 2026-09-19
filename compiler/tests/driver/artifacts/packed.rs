@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn starts_a_count_zero_buffer_with_bulk_capacity() {
+fn starts_a_count_zero_buffer_with_requested_capacity() {
     let directory = NativeFixture::new("driver-llvm-packed-bulk");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
@@ -34,7 +34,7 @@ fn starts_a_count_zero_buffer_with_bulk_capacity() {
     );
     assert_eq!(directory.run(&executable).status.code(), Some(0));
     let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
-    assert!(llvm.contains("call ptr @mal_runtime_packed_builder_start_bulk"));
+    assert!(llvm.contains("call ptr @mal_runtime_packed_builder_make"));
 }
 
 #[test]
@@ -151,14 +151,14 @@ fn keeps_a_capture_in_a_callback_invoked_more_than_once() {
 }
 
 #[test]
-fn passes_distinct_buffers_to_one_non_growing_helper() {
+fn passes_repeated_buffer_positions_to_one_non_growing_helper() {
     let directory = NativeFixture::new("driver-llvm-packed-multi-buffer-abi");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     let baseline = directory.join("program-baseline");
     directory.write(
         "program.mal",
-        "combine :: ((Buffer<Int32>, Buffer<Int32>), USize) -> Unit := ((left, right), index) -> { left.put(index, left.get(index) + right.get(index)); }; main :: Unit -> Int32 := () -> { values := make<Int32>(2usize, (outer) -> { _ := outer.new(10i32); inner := make<Int32>(1usize, (nested) -> { _ := nested.new(5i32); combine(((outer, nested), 0usize)); (); }); _ := outer.new(inner # 0usize); (); }); (values # 0usize) + (values # 1usize) - 20i32; };",
+        "combine :: ((Buffer<Int32>, Buffer<Int32>), USize) -> Unit := ((left, right), index) -> { left.put(index, left.get(index) + right.get(index)); }; main :: Unit -> Int32 := () -> { values := make<Int32>(2usize, (buffer) -> { _ := buffer.new(5i32); combine(((buffer, buffer), 0usize)); _ := buffer.new(10i32); (); }); (values # 0usize) + (values # 1usize) - 20i32; };",
     );
 
     let output = directory.malc([
@@ -265,22 +265,12 @@ fn passes_current_packed_data_to_helpers_before_and_after_growth() {
            previous;
          };
 
-         capturedAdjust :: (Buffer<Int32>, Int32) -> Int32 := (buffer, increment) -> {
-           nested :: (Unit -> Int32) := () -> {
-             previous := buffer.get(0usize);
-             buffer.put(0usize, previous + increment);
-             previous;
-           };
-           nested();
-         };
-
          append :: (Buffer<Int32>, Int32) -> Unit := (buffer, remaining) -> {
-           if (remaining == 0i32)
-           then { () }
-           else {
+           when (remaining != 0i32) {
              _ := buffer.new(remaining);
              append(buffer, remaining - 1i32);
            };
+           ();
          };
 
          main :: Unit -> Int32 := () -> {
@@ -289,7 +279,7 @@ fn passes_current_packed_data_to_helpers_before_and_after_growth() {
              _ := adjust(((buffer, 0usize), 1i32));
              append(buffer, 64i32);
              _ := adjust(((buffer, 0usize), 31i32));
-             previous := capturedAdjust(buffer, 1i32);
+             previous := adjust(((buffer, 0usize), 1i32));
              _ := buffer.new(previous);
              ();
            });

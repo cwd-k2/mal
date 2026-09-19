@@ -15,8 +15,8 @@ createLeaf :: (Allocator, Int32) -> TreeResult := (allocator, value) -> {
     allocated := allocator.allocateNode(#i32 + #u8);
     allocated[
     (node) -> [created, failed] => {
-        node@i32 <- value;
-        (node + #i32)@u8 <- 0u8;
+        node.view<Int32>(0usize, 1usize, (region) -> region.put(0usize, value));
+        (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.put(0usize, 0u8));
         created(node);
     },
     () -> [created, failed] => failed()
@@ -24,27 +24,27 @@ createLeaf :: (Allocator, Int32) -> TreeResult := (allocator, value) -> {
 };
 
 sumTree :: Tree -> Int32 := (node) -> [return] => {
-    value := <-node@i32;
-    isBranch := <-(node + #i32)@u8;
+    value := node.view<Int32>(0usize, 1usize, (region) -> region.get(0usize));
+    isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
     when (isBranch == 0u8) {
         return(value);
     };
 
-    children := (node + #i32 + #u8)@address;
-    left := <-children;
-    right := <-(?children + #address)@address;
+    children := (node + #i32 + #u8).pack<Address>(0usize, 2usize);
+    left := children # 0usize;
+    right := children # 1usize;
     return(value + left.sumTree() + right.sumTree());
 };
 
 releaseTree :: (Tree, Allocator) -> Unit := (node, allocator) -> [return] => {
-    isBranch := <-(node + #i32)@u8;
+    isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
     };
 
-    children := (node + #i32 + #u8)@address;
-    left := <-children;
-    right := <-(?children + #address)@address;
+    children := (node + #i32 + #u8).pack<Address>(0usize, 2usize);
+    left := children # 0usize;
+    right := children # 1usize;
     left.releaseTree(allocator);
     right.releaseTree(allocator);
     return(allocator.releaseNode(node));
@@ -55,11 +55,12 @@ createOwnedBranch :: (Allocator, Int32, Tree, Tree) -> TreeResult :=
         allocated := allocator.allocateNode(#i32 + #u8 + 2usize * #address);
         allocated[
         (node) -> [created, failed] => {
-            node@i32 <- value;
-            (node + #i32)@u8 <- 1u8;
-            children := (node + #i32 + #u8)@address;
-            next := children <- left;
-            next <- right;
+            node.view<Int32>(0usize, 1usize, (region) -> region.put(0usize, value));
+            (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.put(0usize, 1u8));
+            (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) -> {
+                children.put(0usize, left);
+                children.put(1usize, right);
+            });
             created(node);
         },
         () -> [created, failed] => {

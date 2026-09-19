@@ -25,7 +25,10 @@ extern writeBytes :: OutputBuffer -> Unit;
 writeSymbol :: Symbol -> Unit := (value) -> {
     packed := *value;
     (memory, _) := outputBuffer();
-    memory@u8@(#packed) <- packed;
+    memory.view<UInt8>(0usize, #packed, (region) -> {
+        region.set(packed);
+        ();
+    });
     writeBytes(memory, #packed);
 };
 
@@ -60,7 +63,10 @@ appendSymbol :: (OwnedBuffer, Symbol) -> BufferResult := (buffer, value) -> [ret
         (resized) -> [success, failure] => {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
             packed := *value;
-            (nextMemory + length.bytes)@u8@additional <- packed;
+            nextMemory.view<UInt8>(length, required, (region) -> {
+                region.set(packed);
+                ();
+            });
             success((nextAllocation, nextMemory, nextCapacityValue, required));
         },
         (error) -> [success, failure] => failure(error)
@@ -89,7 +95,9 @@ checkStoredDescriptor :: BorrowedBytes -> Bool := (borrowed) -> {
     allocated[
     (descriptor) -> {
         (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-        descriptorMemory@(address, usize) <- (memory, length);
+        descriptorMemory.view<(Address, USize)>(0usize, 1usize, (region) -> {
+            region.put(0usize, (memory, length));
+        });
         validateStoredDescriptor(allocation, descriptorMemory);
         descriptorAllocation.releaseBuffer();
         true;

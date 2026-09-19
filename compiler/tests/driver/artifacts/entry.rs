@@ -399,9 +399,9 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
         "program.mal",
         "Arguments :: (USize, Address);\n\
          argumentAt :: (Address, USize) -> Symbol := (arguments, index) -> {\n\
-           descriptors := <-(arguments@(address, bytesize)@(index + 1usize));\n\
+           descriptors := pack<(Address, ByteSize)>(arguments, 0usize, index + 1usize);\n\
            (address, length) := descriptors # index;\n\
-           *(<-(address@u8@(length.usize)));\n\
+           *pack<UInt8>(address, 0usize, length.usize);\n\
          };\n\
          main :: Arguments -> Int32 := (count, arguments) -> {\n\
            first := argumentAt(arguments, 0usize);\n\

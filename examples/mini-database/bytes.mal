@@ -5,24 +5,23 @@ clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
         return(());
     };
 
-    (memory # 0usize) <- 0u8;
+    memory.put(0usize, 0u8);
     return((memory % 1usize).clearBytes());
 };
 
-_rangeEquals :: (Region<UInt8>, Symbol, USize) -> Bool :=
+_rangeEquals :: (Packed<UInt8>, Symbol, USize) -> Bool :=
     (source, expected, index) -> [return] => {
         when (index == #expected) {
             return(true);
         };
-        actual := <-(source # 0usize);
-        when (actual != expected # index) {
+        when (source # index != expected # index) {
             return(false);
         };
 
-        return((source % 1usize)._rangeEquals(expected, index + 1usize));
+        return(source._rangeEquals(expected, index + 1usize));
     };
 
-rangeEquals :: (Region<UInt8>, USize, USize, Symbol) -> Bool :=
+rangeEquals :: (Packed<UInt8>, USize, USize, Symbol) -> Bool :=
     (source, start, length, expected) -> {
         length == #expected
             && start <= #source
@@ -30,45 +29,41 @@ rangeEquals :: (Region<UInt8>, USize, USize, Symbol) -> Bool :=
             && (source % start)._rangeEquals(expected, 0usize);
     };
 
-_findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> [return] => {
-    when (#source == 0usize) {
+_findByte :: (Packed<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> [return] => {
+    when (index == #source) {
         return(index);
     };
-    actual := <-(source # 0usize);
-    when (actual == byte) {
+    when (source # index == byte) {
         return(index);
     };
 
-    return((source % 1usize)._findByte(index + 1usize, byte));
+    return(source._findByte(index + 1usize, byte));
 };
 
-findByte :: (Region<UInt8>, USize, UInt8) -> USize := (source, start, byte) -> {
+findByte :: (Packed<UInt8>, USize, UInt8) -> USize := (source, start, byte) -> {
     if (start >= #source)
     then #source
-    else (source % start)._findByte(start, byte);
+    else source._findByte(start, byte);
 };
 
-prefixEquals :: (Region<UInt8>, Region<UInt8>, USize) -> Bool :=
+prefixEquals :: (Packed<UInt8>, Packed<UInt8>, USize) -> Bool :=
     (left, right, length) -> [return] => {
         when (length == 0usize) {
             return(true);
         };
-        leftByte := <-(left # 0usize);
-        rightByte := <-(right # 0usize);
-        when (leftByte != rightByte) {
+        when (left # 0usize != right # 0usize) {
             return(false);
         };
 
         return((left % 1usize).prefixEquals(right % 1usize, length - 1usize));
     };
 
-copyPrefix :: (Region<UInt8>, Region<UInt8>, USize) -> Unit :=
+copyPrefix :: (Packed<UInt8>, Region<UInt8>, USize) -> Unit :=
     (source, destination, length) -> [return] => {
         when (length == 0usize) {
             return(());
         };
 
-        byte := <-(source # 0usize);
-        (destination # 0usize) <- byte;
+        destination.put(0usize, source # 0usize);
         return((source % 1usize).copyPrefix(destination % 1usize, length - 1usize));
     };
