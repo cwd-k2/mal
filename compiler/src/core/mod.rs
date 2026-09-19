@@ -130,10 +130,10 @@ impl Lowerer {
                 argument: Box::new(self.lower_expression(argument)),
             },
             checked::ExpressionKind::PackedBuild {
-                source,
+                build,
                 callback,
                 element,
-            } => return self.lower_packed_build(source.as_deref(), callback, element, expression),
+            } => return self.lower_packed_build(build, callback, element, expression),
             checked::ExpressionKind::SymbolLength { value } => ExpressionKind::SymbolLength {
                 value: Box::new(self.lower_expression(value)),
             },

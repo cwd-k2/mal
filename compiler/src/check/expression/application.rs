@@ -193,7 +193,9 @@ impl Checker {
         } = &callee.kind
             && matches!(
                 reference.id,
-                crate::resolve::PACK_VALUE | crate::resolve::EDIT_VALUE
+                crate::resolve::PACK_VALUE
+                    | crate::resolve::BULK_VALUE
+                    | crate::resolve::EDIT_VALUE
             )
         {
             return self.check_packed_build(reference, type_arguments, arguments, span);

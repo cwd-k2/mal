@@ -115,10 +115,16 @@ impl Index {
                 self.collect_checked_expression(argument);
             }
             ExpressionKind::PackedBuild {
-                source, callback, ..
+                build, callback, ..
             } => {
-                if let Some(source) = source {
-                    self.collect_checked_expression(source);
+                match build {
+                    checked::PackedBuild::Pack => {}
+                    checked::PackedBuild::Bulk { capacity } => {
+                        self.collect_checked_expression(capacity);
+                    }
+                    checked::PackedBuild::Edit { source } => {
+                        self.collect_checked_expression(source);
+                    }
                 }
                 self.collect_checked_expression(callback);
             }

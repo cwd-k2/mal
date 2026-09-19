@@ -5,18 +5,30 @@ use crate::check::ast as checked;
 impl Lowerer {
     pub(super) fn lower_packed_build(
         &mut self,
-        source: Option<&checked::Expression>,
+        build: &checked::PackedBuild,
         callback: &checked::Expression,
         element: &checked::Type,
         expression: &checked::Expression,
     ) -> Expression {
-        let source = source.map(|source| self.lower_expression(source));
+        let (initial, start_operation, needs_prepare) = match build {
+            checked::PackedBuild::Pack => (None, PackedBuilderOperation::Start, false),
+            checked::PackedBuild::Bulk { capacity } => (
+                Some(self.lower_expression(capacity)),
+                PackedBuilderOperation::StartBulk,
+                false,
+            ),
+            checked::PackedBuild::Edit { source } => (
+                Some(self.lower_expression(source)),
+                PackedBuilderOperation::Edit,
+                true,
+            ),
+        };
         let callback = self.lower_expression(callback);
         let callback_id = self.temporary();
         let builder_id = self.temporary();
-        let source_id = source.as_ref().map(|_| self.temporary());
-        let start_argument = match (&source, source_id) {
-            (Some(source), Some(id)) => self.reference_from_expression(id, source),
+        let initial_id = initial.as_ref().map(|_| self.temporary());
+        let start_argument = match (&initial, initial_id) {
+            (Some(initial), Some(id)) => self.reference_from_expression(id, initial),
             (None, None) => self.unit(expression.span),
             _ => unreachable!(),
         };
@@ -24,11 +36,7 @@ impl Lowerer {
         let buffer_type = checked::Type::Buffer(element.clone().into());
         let builder = Expression {
             kind: ExpressionKind::PackedBuilder {
-                operation: if source.is_some() {
-                    PackedBuilderOperation::Edit
-                } else {
-                    PackedBuilderOperation::Start
-                },
+                operation: start_operation,
                 element: element.clone(),
                 argument: Box::new(start_argument),
             },
@@ -69,7 +77,7 @@ impl Lowerer {
             finish,
             expression.span,
         );
-        let callback_and_finish = if source.is_some() {
+        let callback_and_finish = if needs_prepare {
             let prepare = Expression {
                 kind: ExpressionKind::PackedBuilder {
                     operation: PackedBuilderOperation::Prepare,
@@ -113,13 +121,13 @@ impl Lowerer {
             after_builder,
             expression.span,
         );
-        if let (Some(source), Some(source_id)) = (source, source_id) {
+        if let (Some(initial), Some(initial_id)) = (initial, initial_id) {
             self.let_expression(
                 Pattern::Binding {
-                    id: source_id,
-                    ty: source.ty.clone(),
+                    id: initial_id,
+                    ty: initial.ty.clone(),
                 },
-                source,
+                initial,
                 after_callback_value,
                 expression.span,
             )

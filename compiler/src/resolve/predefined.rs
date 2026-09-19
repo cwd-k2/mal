@@ -42,6 +42,7 @@ predefined!(ValueId, VALUES;
     NEW_VALUE = 4 => "new",
     GET_VALUE = 5 => "get",
     PUT_VALUE = 6 => "put",
+    BULK_VALUE = 7 => "bulk",
 );
 
 pub fn first_source_type_id() -> u32 {

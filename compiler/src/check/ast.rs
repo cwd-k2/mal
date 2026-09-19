@@ -287,6 +287,13 @@ pub struct Expression {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PackedBuild {
+    Pack,
+    Bulk { capacity: Box<Expression> },
+    Edit { source: Box<Expression> },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Completion {
     Value(Expression),
     Abrupt(AbruptExpression),
@@ -350,7 +357,7 @@ pub enum ExpressionKind {
         argument: Box<Expression>,
     },
     PackedBuild {
-        source: Option<Box<Expression>>,
+        build: PackedBuild,
         callback: Box<Expression>,
         element: Type,
     },

@@ -131,7 +131,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
 | `check/expression` | expression kindのdispatch、reference、literal、product、memory formをexpected typeへ照合 |
 | `check/expression/application` | ordinary・receiver-first・continuation application、result transfer、empty eliminationの型とcompletionを構成 |
-| `check/packed` | predefined `pack`・`edit`の型argument、Representable requirement、`Buffer<A>` callbackと`new`・`get`・`put`の型を検査 |
+| `check/packed/build` | scoped Packed構築intrinsicの型を検査 |
+| `check/packed/buffer` | Buffer operationのidentityと型を検査 |
 | `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
 | `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
 | `check/operator/arithmetic` | numeric、Address offset、Symbol concatenationのoperand選択とresult型を構成 |

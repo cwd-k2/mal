@@ -87,6 +87,11 @@ void mal_runtime_bytes_write(
     size_t length
 );
 void *mal_runtime_packed_builder_start(MalContext *context, size_t stride);
+void *mal_runtime_packed_builder_start_bulk(
+    MalContext *context,
+    size_t stride,
+    size_t capacity
+);
 void *mal_runtime_packed_builder_edit(
     MalContext *context,
     const void *owner,

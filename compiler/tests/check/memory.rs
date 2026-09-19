@@ -74,6 +74,11 @@ fn checks_scoped_packed_construction_and_editing() {
              buffer.put(0usize, buffer.get(0usize) + 1i32);
              _ := buffer.new(20i32);
              ();
+           });
+         makeBulk :: Unit -> Packed<Int32> := () ->
+           bulk<Int32>(16usize, (buffer) -> {
+             _ := buffer.new(30i32);
+             ();
            });",
     );
 }
@@ -99,6 +104,9 @@ fn rejects_invalid_packed_intrinsic_applications() {
     for text in [
         "bad := pack<Symbol>((_) -> ());",
         "bad := pack<Int32>();",
+        "bad := bulk<Int32>((_) -> ());",
+        "bad := bulk<Int32>(1i32, (_) -> ());",
+        "bad := bulk<Symbol>(1usize, (_) -> ());",
         "bad :: Packed<Int32> -> Packed<Int32> := (source) -> edit<Int32>(source);",
         "bad := pack<Int32>((buffer) -> { _ := buffer.new(1u32); (); });",
         "bad := pack<Int32>((buffer) -> buffer);",

@@ -1,6 +1,43 @@
 use super::*;
 
 #[test]
+fn starts_a_count_zero_buffer_with_bulk_capacity() {
+    let directory = NativeFixture::new("driver-llvm-packed-bulk");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {
+           values := bulk<Int32>(8usize, (buffer) -> {
+             first := buffer.new(40i32);
+             second := buffer.new(2i32);
+             buffer.put(first, buffer.get(first) + buffer.get(second));
+             ();
+           });
+           (#values).i32 - 2i32 + (values # 0usize) - 42i32;
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&executable).status.code(), Some(0));
+    let llvm = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert!(llvm.contains("call ptr @mal_runtime_packed_builder_start_bulk"));
+}
+
+#[test]
 fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let directory = NativeFixture::new("driver-llvm-stable-packed-data");
     let source = directory.join("program.mal");

@@ -117,10 +117,16 @@ impl IdentityBounds {
                 self.expression(argument);
             }
             ExpressionKind::PackedBuild {
-                source, callback, ..
+                build, callback, ..
             } => {
-                if let Some(source) = source {
-                    self.expression(source);
+                match build {
+                    crate::check::ast::PackedBuild::Pack => {}
+                    crate::check::ast::PackedBuild::Bulk { capacity } => {
+                        self.expression(capacity);
+                    }
+                    crate::check::ast::PackedBuild::Edit { source } => {
+                        self.expression(source);
+                    }
                 }
                 self.expression(callback);
             }

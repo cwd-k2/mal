@@ -43,6 +43,24 @@ static MalBytesFlat *mal_bytes_flat_allocate(
     return flat;
 }
 
+static MalBytesFlat *mal_bytes_flat_allocate_zeroed(
+    MalContext *context,
+    size_t length,
+    size_t capacity,
+    const char *allocation_failure
+) {
+    if (capacity > SIZE_MAX - sizeof(MalBytesFlat) || length > capacity) {
+        mal_trap(context, "byte owner allocation size overflow");
+    }
+    MalBytesFlat *flat = calloc(1, sizeof(MalBytesFlat) + capacity);
+    if (flat == NULL) {
+        mal_trap(context, allocation_failure);
+    }
+    flat->header = (MalBytes){1, (uint64_t)length, MAL_BYTES_FLAT, {0}};
+    flat->capacity = capacity;
+    return flat;
+}
+
 MalBytes *mal_bytes_flat_copy(
     MalContext *context,
     const void *source,
@@ -275,6 +293,7 @@ typedef struct {
     size_t offset;
     size_t count;
     size_t stride;
+    size_t zeroed_until;
     uint8_t editable;
 } MalPackedBuilder;
 
@@ -291,6 +310,7 @@ static MalPackedBuilder *mal_packed_builder_allocate(
     builder->offset = 0;
     builder->count = 0;
     builder->stride = stride;
+    builder->zeroed_until = 0;
     builder->editable = 1;
     return builder;
 }
@@ -324,6 +344,27 @@ static size_t mal_packed_builder_bytes(
         mal_trap(context, "packed builder byte size overflow");
     }
     return count * stride;
+}
+
+void *mal_runtime_packed_builder_start_bulk(
+    MalContext *context,
+    size_t stride,
+    size_t capacity
+) {
+    MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
+    size_t bytes = mal_packed_builder_bytes(context, capacity, stride);
+    if (bytes != 0) {
+        MalBytesFlat *flat = mal_bytes_flat_allocate_zeroed(
+            context,
+            0,
+            bytes,
+            "packed builder allocation failed"
+        );
+        builder->owner = &flat->header;
+        builder->data = flat->bytes;
+        builder->zeroed_until = bytes;
+    }
+    return builder;
 }
 
 __attribute__((noinline))
@@ -435,7 +476,17 @@ size_t mal_runtime_packed_builder_new(
         } else {
             flat->header.length = (uint64_t)required;
         }
-        memcpy(flat->bytes + length, value, stride);
+        int value_is_zero = 1;
+        const unsigned char *value_bytes = value;
+        for (size_t byte = 0; byte < stride; ++byte) {
+            if (value_bytes[byte] != 0) {
+                value_is_zero = 0;
+                break;
+            }
+        }
+        if (!value_is_zero || required > builder->zeroed_until) {
+            memcpy(flat->bytes + length, value, stride);
+        }
         builder->owner = &flat->header;
         builder->data = flat->bytes;
     } else if (builder->count == SIZE_MAX) {

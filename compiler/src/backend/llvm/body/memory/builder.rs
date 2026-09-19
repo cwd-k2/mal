@@ -26,6 +26,17 @@ impl FunctionEmitter<'_> {
                 ));
                 Some(buffer(builder, buffer_type))
             }
+            PackedBuilderOperation::StartBulk => {
+                if argument.ty != Type::USize || *result_type != buffer_type {
+                    return None;
+                }
+                let builder = self.register();
+                self.line(format!(
+                    "  {builder} = call ptr @mal_runtime_packed_builder_start_bulk(ptr %mal_context, {0} {stride}, {0} {1})",
+                    self.types.pointer_integer()?, argument.representation
+                ));
+                Some(buffer(builder, buffer_type))
+            }
             PackedBuilderOperation::Edit => {
                 let packed_type = Type::Packed(element.clone().into());
                 if argument.ty != packed_type || *result_type != buffer_type {

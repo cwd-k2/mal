@@ -49,12 +49,19 @@ external storageを直接ownerにするzero-copy Packed viewはない。
 
 ## Scoped constructionとediting
 
-`pack`と`edit`はpredefined generic intrinsicである。`Representable(A)`を満たす型argumentを明示し、構築中だけ有効な
-`Buffer<A>` authorityをcallbackへ渡す。`Buffer<A>`にはsource-level constructorがなく、`pack`または`edit`だけが作る。
+`pack`、`bulk`、`edit`はpredefined generic intrinsicである。`Representable(A)`を満たす型argumentを明示し、構築中だけ有効な
+`Buffer<A>` authorityをcallbackへ渡す。`Buffer<A>`にはsource-level constructorがなく、これらのintrinsicだけが作る。
 
 ```mal
 pack<A> ::
     (Buffer<A> -> Unit)
+    -> Packed<A>;
+
+bulk<A> ::
+    (
+        USize,
+        Buffer<A> -> Unit
+    )
     -> Packed<A>;
 
 edit<A> ::
@@ -65,16 +72,20 @@ edit<A> ::
     -> Packed<A>;
 ```
 
-`pack<A>(callback)`はcount 0のbuilderを作る。`edit<A>(source, callback)`はsourceと同じ要素列とcountから始まるbuilderを
-作る。`source.edit<A>(callback)`はreceiver-first applicationによる同じoperationである。callback parameter `buffer`について、
+`pack<A>(callback)`はcount 0のbuilderを作る。`bulk<A>(capacity, callback)`もcount 0から始めるが、callback開始前に
+`capacity`要素までのstorageを確保する。capacityはhintではなく、表現可能なsizeとallocationをこの時点で検査する要求である。
+callbackが追加する要素数はcapacity以下に制限されず、超えた場合も通常どおりgrowthする。
+`edit<A>(source, callback)`はsourceと同じ要素列とcountから始まるbuilderを作る。
+`source.edit<A>(callback)`はreceiver-first applicationによる同じoperationである。callback parameter `buffer`について、
 `buffer.new(value)`は末尾へ追加してその安定したindexを返し、`buffer.get(index)`は現在値を返し、
 `buffer.put(index, value)`は現在値を置換する。これらはそれぞれ`new(buffer, value)`、`get(buffer, index)`、
 `put(buffer, index, value)`というreceiver-firstでない同じoperationとしても書ける。element型はBuffer operandから決まり、
 明示的なtype argumentを取らない。
 先行するoperationの結果は後続のoperationから観測できる。
 
-引数は通常のapplication順で一度ずつ評価する。`pack`ではcallbackを評価してからbuilderを作る。`edit`ではsource、callbackの順に
-評価してからbuilderを作る。callbackが`Unit`で正常完了するとbuilderをfreezeし、count要素のowned `Packed<A>`を返す。
+引数は通常のapplication順で一度ずつ評価する。`pack`ではcallbackを評価してからbuilderを作る。`bulk`ではcapacity、callbackの順、
+`edit`ではsource、callbackの順に評価してからbuilderを作る。callbackが`Unit`で正常完了するとbuilderをfreezeし、count要素の
+owned `Packed<A>`を返す。
 Bufferはhelper、nested closure、recursive frameへ渡せるが、callbackの正常完了後には到達できない。callback resultの`Unit`、
 Mal内部に留まるfunction value、immutable capture、result binderのcapture規則がこのscopeを構成する。
 

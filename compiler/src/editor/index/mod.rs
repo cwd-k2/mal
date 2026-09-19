@@ -19,6 +19,7 @@ const INDEXED_TYPES: [(&str, resolved::TypeId); 4] = [
 ];
 
 const PACK_DETAIL: &str = "(Buffer<T> -> Unit) -> Packed<T>";
+const BULK_DETAIL: &str = "(USize, Buffer<T> -> Unit) -> Packed<T>";
 const EDIT_DETAIL: &str = "(Packed<T>, Buffer<T> -> Unit) -> Packed<T>";
 const NEW_DETAIL: &str = "(Buffer<T>, T) -> USize";
 const GET_DETAIL: &str = "(Buffer<T>, USize) -> T";
@@ -59,6 +60,7 @@ impl Index {
             aliases: HashMap::new(),
             value_types: [
                 (crate::resolve::PACK_VALUE, PACK_DETAIL.to_owned()),
+                (crate::resolve::BULK_VALUE, BULK_DETAIL.to_owned()),
                 (crate::resolve::EDIT_VALUE, EDIT_DETAIL.to_owned()),
                 (crate::resolve::NEW_VALUE, NEW_DETAIL.to_owned()),
                 (crate::resolve::GET_VALUE, GET_DETAIL.to_owned()),
@@ -74,6 +76,7 @@ impl Index {
             type_aliases: HashMap::new(),
             functions: HashSet::from([
                 crate::resolve::PACK_VALUE,
+                crate::resolve::BULK_VALUE,
                 crate::resolve::EDIT_VALUE,
                 crate::resolve::NEW_VALUE,
                 crate::resolve::GET_VALUE,
@@ -274,6 +277,7 @@ fn predefined_symbols() -> Vec<Symbol> {
             kind: if matches!(
                 id,
                 crate::resolve::PACK_VALUE
+                    | crate::resolve::BULK_VALUE
                     | crate::resolve::EDIT_VALUE
                     | crate::resolve::NEW_VALUE
                     | crate::resolve::GET_VALUE
@@ -285,6 +289,7 @@ fn predefined_symbols() -> Vec<Symbol> {
             },
             detail: match id {
                 crate::resolve::PACK_VALUE => Some(PACK_DETAIL.to_owned()),
+                crate::resolve::BULK_VALUE => Some(BULK_DETAIL.to_owned()),
                 crate::resolve::EDIT_VALUE => Some(EDIT_DETAIL.to_owned()),
                 crate::resolve::NEW_VALUE => Some(NEW_DETAIL.to_owned()),
                 crate::resolve::GET_VALUE => Some(GET_DETAIL.to_owned()),

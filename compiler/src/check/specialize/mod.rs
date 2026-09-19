@@ -266,13 +266,19 @@ impl Specializer {
                 self.expression(argument, substitutions, self_instance)?;
             }
             ExpressionKind::PackedBuild {
-                source,
+                build,
                 callback,
                 element,
             } => {
                 *element = substitute_type(element, substitutions);
-                if let Some(source) = source {
-                    self.expression(source, substitutions, self_instance)?;
+                match build {
+                    crate::check::ast::PackedBuild::Pack => {}
+                    crate::check::ast::PackedBuild::Bulk { capacity } => {
+                        self.expression(capacity, substitutions, self_instance)?;
+                    }
+                    crate::check::ast::PackedBuild::Edit { source } => {
+                        self.expression(source, substitutions, self_instance)?;
+                    }
                 }
                 self.expression(callback, substitutions, self_instance)?;
             }
