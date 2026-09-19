@@ -108,23 +108,22 @@ generic calleeでも`a.f<T>(b)`は`f<T>(a, b)`と同じapplicationである。
 `.`、value name、parenthesized argument listは全体で一つのapplication suffixである。`a.f`はexpressionではなく、
 field access、property、method value、bound functionを導入しない。
 
-[external memory](memory.md#placementとaccess)と[`Region`と`Packed`](packed.md#operation)のoperationは通常のexpressionとして
-評価する。Addressのbyte offsetは`+`と`-`、Symbol、Region、Packedのlengthとindexは`#`で表す。Region indexはCursor、
-Packed indexは要素値を返す。
+[external memory](memory.md#address-derivationとtyped-view)と[`Region`と`Packed`](packed.md#operation)のoperationは通常のexpressionとして
+評価する。Addressの前方byte offsetは`+`、Symbol、Region、PackedのlengthとPackedのindexは`#`で表す。
 
 external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
 実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
 
 ## Memory expression
 
-型identifierはexpression operatorとして使わない。stride queryはlowercaseのclosed layout shape、load/storeはCursor、
-bulk transferはRegionとPackedが運ぶstatic layoutから決まる。
+型identifierはexpression operatorとして使わない。stride queryはlowercaseのclosed layout shapeを使う。Regionのaccess、Addressから
+Packedへのadmission、PackedからRegionへのobservationはindexed typeが運ぶstatic layoutから決まる。
 
 ```mal
 stride :: Unit -> ByteSize := () -> #(address, bytesize);
 
-readUInt64 :: Cursor<UInt64> -> UInt64 :=
-    (cursor) -> <-cursor;
+readUInt64 :: Address -> UInt64 :=
+    (address) -> view<UInt64>(address, 0usize, 1usize, (region) -> region.get(0usize));
 ```
 
 型、評価、preconditionは[external memory](memory.md)と[`Region`と`Packed`](packed.md)に定める。
@@ -254,7 +253,7 @@ float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
 target quantity: ByteSize、USizeに定めたclosed family
-address:  Address + ByteSize, Address - ByteSize
+address:  Address + ByteSize
 Symbol:   Symbol + Symbol, == !=
 ```
 

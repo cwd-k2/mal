@@ -11,7 +11,7 @@ Status: Accepted v0.6 profile
 - fixed-width numeric、`ByteSize`、`USize`、logical、bit operation
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
-- `Address`、canonical memory layout、`Cursor`、`Region`によるexternal memory access
+- `Address`、canonical memory layout、`Region`によるexternal memory access
 - mal-owned immutable sequence `Packed`とそのscoped構築・編集authority `Buffer`
 - extern boundary
 - optional process argument entry
@@ -47,16 +47,15 @@ field name、implicit constructor、nominal identityはない。
 
 ## Memoryとmutable data
 
-languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressをshapeでCursorへ置き、USizeを加えて
-Regionを作る。exact placementとunaligned accessは共通mechanism、alignment、permission、lifetime、allocation failure policyは
+languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressとelement offsetの半開区間を`view`へ渡して
+Regionを作る。unaligned accessは共通mechanism、alignment、permission、lifetime、allocation failure policyは
 必要なoperationのcontractが所有する。
 
 ```mal
 extern allocate :: ByteSize -> Address;
 
 readInt64 :: (Address, USize) -> Int64 := (base, index) -> {
-    cursor := (base + index * #i64)@i64;
-    <-cursor;
+    view<Int64>(base, index, index + 1usize, (region) -> region.get(0usize));
 };
 ```
 

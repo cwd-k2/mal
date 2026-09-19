@@ -82,18 +82,16 @@ main :: Arguments -> Int32 := (argumentCount, arguments) ->
     if (argumentCount == 0usize)
     then 0
     else {
-        descriptors := arguments@(address, bytesize)@argumentCount;
-        packed := <-descriptors;
+        packed := pack<(Address, ByteSize)>(arguments, 0usize, argumentCount);
         (data, length) := packed # 0usize;
-        bytes := data@u8@length.usize;
-        first :: Symbol := *(<-bytes);
+        first :: Symbol := *pack<UInt8>(data, 0usize, length.usize);
         0;
     };
 ```
 
 productの第一要素は実行ファイル名を除くargument数である。第二要素はread-onlyな外部descriptor列の先頭を指す。
-各descriptorはcanonical shape `(address, bytesize)`を持ち、argument bytesのAddressとByteSizeを表す。descriptor列をRegionとして
-placementし、必要なdescriptorとbyte regionだけをPackedまたはSymbolへadmitする。
+各descriptorはcanonical shape `(address, bytesize)`を持ち、argument bytesのAddressとByteSizeを表す。必要なdescriptorと
+byte regionだけを`pack`でPackedまたはSymbolへadmitする。
 argument数が0でも第二要素はnullではなく、`main`のreturnまで有効な長さ0のregionを指す。
 
 argument bytesはhost process interfaceが渡した終端NULを含まないbyte列であり、UTF-8を保証しない。descriptor列と

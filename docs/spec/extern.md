@@ -26,7 +26,7 @@ external operationは宣言によって通常のtop-level function valueとし�
 main :: Unit -> Unit := () -> {
     (mem, address) := alloc(5bytes);
     bytes := *"hello";
-    address@u8@(#bytes) <- bytes;
+    view<UInt8>(address, 0usize, #bytes, (region) -> { _ := region.set(bytes); () });
     output(address, #bytes);
     release(mem);
 };
@@ -52,7 +52,7 @@ HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize) = true
 HostMappable(external opaque type) = true
 HostMappable((A...)) = all HostMappable(A)
 HostMappable([A...]) = all HostMappable(A)
-HostMappable(Symbol | function | Cursor<A> | Region<A> | Packed<A> | Buffer<A>) = false
+HostMappable(Symbol | function | Region<A> | Packed<A> | Buffer<A>) = false
 ```
 
 aliasはconcreteなtype argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic C symbolやheaderへ
@@ -123,7 +123,7 @@ admission、observation、capability transferと各leafのlifetime authorityは
 carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
-mal側はRegionを分割し、保持するprefixだけをPackedまたはSymbolへadmitする。
+mal側は返されたUSizeをend offsetとして`pack`し、保持するprefixだけをPackedまたはSymbolへadmitする。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../history/decisions/D015.md)に記録する。

@@ -2,7 +2,7 @@
 
 Status: Accepted v0.6 profile
 
-この文書はexternal storageのaddress、target依存量、canonical memory representation、placement、access、未検査preconditionを
+この文書はexternal storageのaddress、target依存量、canonical memory representation、typed view、access、未検査preconditionを
 定める。有限regionとmal-owned sequenceのtransferは[`Region`と`Packed`](packed.md)、surface grammarは
 [字句と文法](grammar.md)を正とする。
 
@@ -10,7 +10,7 @@ Status: Accepted v0.6 profile
 
 `Address`はordinary byte-addressable external storageのlocationを運ぶcopyableなcapabilityである。numeric value、null、
 要素型、extent、permission、ownership、alignment保証を持たず、複製してもreferentのlifetimeを延長しない。
-`Address + ByteSize`と`Address - ByteSize`は同じstorage capabilityからbyte位置を派生させる。Address同士の演算、equality、
+`Address + ByteSize`は同じstorage capabilityから前方のbyte位置を派生させる。Addressの減算、Address同士の演算、equality、
 literal、integerとの変換はない。
 
 `ByteSize`はtargetがobject sizeとbyte offsetに使うunsigned量、`USize`は有限collectionの要素数とindexに使うunsigned量である。
@@ -25,8 +25,8 @@ length :: USize := 8usize;
 `USize * ByteSize`と`ByteSize * USize`は`ByteSize`、`ByteSize * ByteSize`はerrorである。加減乗算はtarget幅でwrapする。
 divisionとremainderはdivisorがzeroでないことをpreconditionとする。memory extentとして使う数学的な積はoverflowしてはならない。
 
-`Cursor<A>`はAddressとcanonicalな`A`に一意なstatic layoutを運ぶ。`Region<A>`は同じlayoutを持つUSize個のlocationを運ぶ。
-どちらもstorageのinitialization、permission、allocation identity、ownership、lifetimeを取得しない。
+`Region<A>`はAddress、canonicalな`A`に一意なstatic layout、USize個のlocationを運ぶ。storageのinitialization、permission、
+allocation identity、ownership、lifetimeを取得しない。
 
 ## Representable
 
@@ -42,13 +42,13 @@ Representable((A...))       if all Representable(A)
 Representable([A...])       if the sum has at least two variants and all Representable(A)
 ```
 
-function、external opaque type、`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`、empty sumはrepresentableでない。
-transparent aliasは展開後に判定する。`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
+function、external opaque type、`Region<A>`、`Packed<A>`、`Buffer<A>`、empty sumはrepresentableでない。
+transparent aliasは展開後に判定する。`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
 このjudgmentはstorageにvalidなrepresentationが実在することを証明しない。
 
 ## Layout shape
 
-layout shapeは`@`によるplacementまたは`#`によるstride queryだけが受け取るcompile-time構文operandである。binding、parameter、
+layout shapeは`#`によるstride queryだけが受け取るcompile-time構文operandである。binding、parameter、
 result、field、capture、extern argumentとして運ばず、compilerがtarget constantへ解決する。shapeは次のclosed spellingからなる。
 
 ```text
@@ -78,8 +78,8 @@ numeric scalar、`Address`、`ByteSize`、`USize`のstrideとrequired alignment�
 storage幅はbit幅、Addressはdefault address spaceのpointer storage幅、ByteSizeとUSizeはpointer index幅を使う。byte orderと
 scalar representationはbackend host ABIが定める。
 
-`Unit`はstride 0、required alignment 1である。load/storeはstorageをdereferenceせず、storeが返す次Cursorは同じlocationになる。
-`Region<Unit>`はstorageを消費せず任意のUSizeを持てる。
+`Unit`はstride 0、required alignment 1である。canonical layoutのstrideが0になる型はstorageをdereferenceせず、
+Region、Packed、Bufferではlogical countだけを持つ。Unitだけからなるproductとtransparent aliasにも同じ規則を適用する。
 
 productはfieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで
 前方へ丸める。全体alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで前方へ丸める。
@@ -95,42 +95,36 @@ storeはproduct field、sum tag、選択payloadだけを書き、paddingと非�
 file、network、永続storageのformatではない。
 reference C hostがこのlayoutを読み書きする場合は、public carrierをcastせず、[C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
 
-## Placementとaccess
+## Address derivationとtyped view
 
 ```text
 Address + ByteSize          -> Address
-Address - ByteSize          -> Address
-Address@Shape               -> Cursor<A>
-Cursor<A>@USize             -> Region<A>
-?Cursor<A>                  -> Address
-?Region<A>                  -> Address
-Cursor<A>!                  -> Cursor<A>
-Region<A>!                  -> Region<A>
-Cursor<A> <- A              -> Cursor<A>
-<-Cursor<A>                 -> A
+view<A>(Address, USize, USize, Region<A> -> R) -> R
+Region<A>.get(USize)        -> A
+Region<A>.put(USize, A)     -> Unit
 ```
 
-`Address@Shape`はlocationを動かさず、shapeに対応するcanonical `A`のCursorを作る。別shapeへ切り替える場合は`?cursor`で
-Addressへ戻す。`Cursor<A>@USize`は現在locationからstrideを繰り返すRegionを作る。Cursorと一要素Regionは別の型である。
+`view`の二つのUSizeはelement単位の`offsetStart`と`offsetEnd`であり、半開区間`[offsetStart, offsetEnd)`を表す。
+引数を通常のapplication順で一度ずつ評価した後にRegionを形成し、callbackを一度適用する。strideがnonzeroなら先頭は
+`address + offsetStart * stride(A)`、zeroならAddressを派生または観測しない。どちらもRegionのlengthは
+`offsetEnd - offsetStart`である。`view`はallocationせず、callback resultをそのまま返す。ここで`R`はintrinsicがcallbackから
+決めるresult型を表し、Region、Buffer、またはこれらを再帰的に含んではならない。
 
-loadは現在位置の値を返し、storeはstrideだけ進んだCursorを返す。どちらもexternal storageをconsumeせず、referentのlifetimeを
-変更しない。store結果を使わない場合は通常のexpression statementとして捨てられ、
-`_ := cursor <- value;`と明示する必要はない。結果破棄の一般則は[expression statement](expressions.md#expression-statement)に定める。
+Regionはsource-level constructorを持たず、`view`のcallback parameterとして導入する。Region parameterとその派生値には
+[`Region`と`Packed`](packed.md#scoped-authority)のlexical escape制約を適用する。
+
+`get`はindex位置の値をadmitし、`put`はindex位置へ値をobserveする。external storageをconsumeせず、referentのlifetimeを変更しない。
+receiver-first表記は`get(region, index)`、`put(region, index, value)`と同じpredefined operation identityを指す。
 
 ```mal
-value := <-address@u64;
-use(<-address@u64)
-
-end := address@u8
-    <- first
-    <- second;
+view<Int64>(address, 0usize, count, (region) -> {
+    first := region.get(0usize);
+    region.put(1usize, first);
+});
 ```
 
-exact Cursor accessはunaligned accessを認める。backendは保証されたalignmentがなければalignment 1のload/storeまたは同等の
-byte accessへlowerする。postfix `!`は現在位置から`A`のrequired alignmentを満たす最初のlocationへのalign-upである。
-RegionではUSizeを保存し、USize 0でもlocationをalign-upする。exact placementは全backendのbaseline、`!`はpointer provenanceを
-保って実装できるintegral-pointer targetだけのcapabilityとし、未対応targetは`!`を使うartifactをsource diagnosticで拒否する。
-alignmentの数値queryはない。
+Region accessは1より強いalignmentを仮定しない。backendはalignment 1のload/storeまたは同等のunaligned-safe accessへlowerする。
+実Addressのalignmentを利用するfast pathはoptimizationとしてよいが、source-levelのalign-up、alignment assertion、数値queryはない。
 
 ## 未検査precondition
 
@@ -138,21 +132,17 @@ callerまたはAddressを提供したhost contractは次の条件を満たす。
 
 | Operation | Precondition |
 |---|---|
-| `Address +/- ByteSize` | 数学的offsetがoverflowせず、resultが同じlive region内または末尾の直後にある |
-| `Address@Shape` | なし |
-| `Cursor@USize` | `USize * stride(A)`がoverflowせず、全locationが同じlive region内にある。USize 0またはstride 0では先頭が末尾の直後でもよい |
-| Cursor load | 現在の一要素がreadable、初期化済みでvalid representationを持つ |
-| Cursor store | 現在の一要素がwritableである |
-| store result | 次locationが同じlive region内または末尾の直後にある |
-| `Cursor<A>!` | skipするpaddingと一要素分のextentが同じlive regionに収まる |
-| `Region<A>!` | skipするpaddingとUSize要素分のextentが同じlive regionに収まる。USize 0ではpaddingだけを対象とする |
+| `Address + ByteSize` | 数学的offsetがoverflowせず、resultが同じlive region内または末尾の直後にある |
+| `view<A>(address, start, end, ...)` | `start <= end`である。strideがnonzeroならbyte offsetがoverflowせず、半開区間が同じlive region内にある。empty区間では先頭が末尾直後でもよい |
+| `region.get(index)` | `index < #region`である。strideがnonzeroならoffsetがoverflowせず、locationがreadable、初期化済みでvalid representationを持つ |
+| `region.put(index, value)` | `index < #region`である。strideがnonzeroならoffsetがoverflowせず、locationがwritableである |
 
 primitiveはbounds、permission、initialization、lifetime、extent、overflow、Address representation、sum tagを検査しない。
 precondition違反時の特定の結果を保証しない。実装が内部corruptionを避けるためにtrapしても、そのtrapはimplementation detailである。
 preconditionを満たしたoperationがmal-owned storageを必要とし、allocationに失敗した場合はtrapする。
 
-末尾の直後を指すCursorは保持、Addressへの投影、USize 0のRegion形成に使える。通常のload/storeには使えない。
-Unit accessと`Region<Unit>`はpermission、initialization、storage extentを要素へ要求しない。
+zero-stride elementはAddress referent、permission、initialization、storage extentを要求しない。`get`はbounds内で型の唯一の値を返し、
+`put`はbounds内でstorageを変更しない。
 
 ## Target contract
 

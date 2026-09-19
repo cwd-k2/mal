@@ -20,7 +20,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
-| genericsとexternal memory | [D052](D052.md)、[D056](D056.md) |
+| genericsとexternal memory | [D052](D052.md)、[D056](D056.md)、[D068](D068.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
 | Packed execution | [D058](D058.md)、[D061](D061.md)、[D062](D062.md)、[D063](D063.md)、[D064](D064.md) |
 
@@ -54,6 +54,8 @@ D064は同じABIへfunction invocation中だけ有効なactive dataの`noalias` 
 D065は自己再帰の全edgeが保持するparameter fieldを、semantic live-inに残したまま物理frameから除く。
 D066はrecursive region invocation内のcontrol topをlocal SSAへ置き、native Mal call境界で共有topへ同期する。
 D067は同じinvocationでcontrol storageとcapacityをcacheし、growthとnative Mal call後に更新する。
+D068はD052とD056のCursor、placement、load/store operator、Region projectionをscoped Region APIで置き換え、D061の
+`pack`と`bulk`をcapacity必須の`make`へ統合する。
 
 ## 後継があるhistorical record
 
@@ -77,6 +79,7 @@ D067は同じinvocationでcontrol storageとcapacityをcacheし、growthとnativ
 | [D050: bodyをexpressionに統一しbinder境界へ`->`を置く](D050.md) | [D051](D051.md) |
 | [D059: Packed builder dataのstable direct access](D059.md) | [D061](D061.md)、[D063](D063.md) |
 | [D060: editのlazy preparation](D060.md) | [D062](D062.md) |
+| [D052: generic canonical memory operation](D052.md)、[D056: Cursor value-result access](D056.md) | [D068](D068.md) |
 | [D022: pointer primitive](D022.md)、[D024: pointer memory operation](D024.md)、[D037: 型修飾memory primitive](D037.md) | [D052](D052.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、

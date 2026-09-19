@@ -66,7 +66,7 @@ atomicType   ::= TYPE_IDENT typeArguments?
 sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 ```
 
-`Cursor`、`Region`、`Packed`、`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
+`Region`、`Packed`、`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
 
 ## Expression form
@@ -89,10 +89,6 @@ continuationSuffix ::= "[" "]"
 conversionSuffix ::= "." ("i8" | "i16" | "i32" | "i64"
                            | "u8" | "u16" | "u32" | "u64"
                            | "f32" | "f64" | "bytes" | "usize")
-placementSuffix ::= "@" placementOperand
-postfixAlign    ::= "!"
-
-placementOperand ::= shape | VALUE_IDENT | numericLiteral | "(" expression ")"
 shape ::= shapeAtom
         | "(" shape "," shape ("," shape)* ")"
         | "[" shape "," shape ("," shape)* "]"
@@ -110,14 +106,10 @@ whenExpr ::= "when" "(" expression ")" expression
 ```
 
 primary expressionはliteral、valueName、Unit、parenthesized expression、product、unit application、lambda、block、result block、
-`if`、`when`からなる。primaryの後へcall、receiver、continuation、conversion、placement、postfix align suffixをsource orderで
-0個以上適用する。`@`直後のclosed shape spellingはshape、それ以外のname、literal、parenthesized expressionはUSize operandである。
-したがって`@usize`はUSize shape、`@elementCount`はvalueである。shape atomと同じspellingのvalueをUSize operandに使う場合と、
-operatorを含むUSizeには括弧を使い、`@(usize)`、`@(elementCount + 1usize)`と書く。
+`if`、`when`からなる。primaryの後へcall、receiver、continuation、conversion suffixをsource orderで0個以上適用する。
 
 prefix `#`の直後もclosed shape spellingならstride query、それ以外はvalue length queryである。shape atomと同じspellingの
 valueをlength queryに使う場合は`#(count)`のように括弧を使う。shapeにuser-defined aliasとTYPE_IDENTは現れない。
-lexerは`<-`を`<`と`-`より先に一つのtokenとして認識する。
 
 Symbol literalとbyte literalは次の形を持つ。
 
@@ -140,8 +132,8 @@ byte literalのraw characterはASCII `0x20`から`0x7e`のうちsingle quoteとb
 | Level | Form | Associativity |
 |---|---|---|
 | primary/name suffix | primary、`name<T, ...>` | — |
-| postfix chain | call、continuation、receiver、conversion、`@operand`、postfix `!` | left |
-| prefix | `-`、prefix `!`、`~`、`#`、`?`、prefix `<-`、prefix `*` | right |
+| postfix chain | call、continuation、receiver、conversion | left |
+| prefix | `-`、`!`、`~`、`#`、prefix `*` | right |
 | indexed access | binary `#` | non-associative |
 | multiplicative | `* / %` | left |
 | additive | `+ -` | left |
@@ -153,15 +145,10 @@ byte literalのraw characterはASCII `0x20`から`0x7e`のうちsingle quoteとb
 | bit OR | `|` | left |
 | logical AND | `&&` | left |
 | logical OR | `||` | left |
-| store/observe | binary `<-` | left |
 
-postfix chainは左から適用する。prefix/postfix `!`、prefix/binary `#`、prefix/binary `*`と`<-`はoperand位置で区別する。
+postfix chainは左から適用する。prefix/binary `#`とprefix/binary `*`はoperand位置で区別する。
 conversion suffixはparenthesized argumentを伴わず、receiver suffixは必ず`.name(...)`なので曖昧にならない。binary `#`、relational、
 equalityは同levelでchainできない。assignment operatorはない。
-
-prefix `<-`のoperandには、それより強く結合するpostfix chain全体が入るため、`<-address@u8!`は
-`<-(address@u8!)`である。binary `<-`は全binary operatorより低く、左結合なので、`cursor <- first <- second`はstoreが返す
-次Cursorへ続けてstoreする。
 
 `expression.VALUE_IDENT typeArguments? (arguments)`はreceiver-first applicationであり、calleeをlexical scopeから解決する。field、property、method
 lookupを導入しない。`expression.VALUE_IDENT`だけの形はconversion suffix以外には存在しない。
@@ -171,8 +158,8 @@ lookupを導入しない。`expression.VALUE_IDENT`だけの形はconversion suf
 
 ## Formatting boundary
 
-identifierとgeneric `<`、comma以外のtype argument、closing `>`の間にspaceを置かない。prefixとpostfixはoperandへ密着させ、
-binary operatorの両側へspaceを置く。postfix chainの継続行は一段indentする。binary `<-`のchainはoperatorから始まる継続行にできる。
+identifierとgeneric `<`、comma以外のtype argument、closing `>`の間にspaceを置かない。prefixはoperandへ密着させ、
+binary operatorの両側へspaceを置く。postfix chainの継続行は一段indentする。
 
 ## 存在しない構文
 

@@ -42,26 +42,29 @@ double<A> :: A -> A := (value) -> value + value; // error
 ## Requirements
 
 `Requirements(T)`はalias展開後の型`T`が要求するbuilt-in judgmentの有限集合である。product、sum、functionは要素のrequirementを
-再帰的に合併する。`Cursor<A>`、`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`を加え、type argument内のrequirementも加える。
+再帰的に合併する。`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`を加え、type argument内のrequirementも加える。
 
 compilerは`Representable(T)`をclosedな定義で正規化する。representableなconcrete base caseは消去し、productとsumは各要素へ
 分解し、opaqueな型parameterだけをatomとして残す。既知の非representable型はdeclarationで拒否する。
-`Cursor<(A, UInt64)>`から得るrequirementは`Representable(A)`である。
+`Region<(A, UInt64)>`から得るrequirementは`Representable(A)`である。
 
 generic aliasはdefinitionのresult type、generic value bindingは明示signatureからrequirementを集める。本体内だけに現れ、signatureから
 導けないrequirementを型parameterへ要求するoperationはerrorである。型applicationはconcrete argumentを代入し、aliasを展開した後に
 全requirementを検査する。generic本体内のapplicationでは、代入後のrequirementがcaller bindingのrequirementから導けることを検査する。
 満たさないapplicationはspecialization前のcompile-time errorである。
 
-generic codeは裸のAddressと`A`からlayoutを導けない。callerがconcrete shapeからCursorまたはRegionを作り、indexed typeが持つ
-static layoutをgeneric functionへ渡す。
+generic codeは裸のAddressと`A`からlayoutを導けない。callerがconcrete type argumentで`view`をspecializeしてRegionを作り、
+indexed typeが持つstatic layoutをgeneric functionへ渡す。
 
 ```mal
-readCursor<A> :: Cursor<A> -> A := (cursor) -> <-cursor;
-writeCursor<A> :: (Cursor<A>, A) -> Cursor<A> := (cursor, value) -> cursor <- value;
+readFirst<A> :: Region<A> -> A := (region) -> region.get(0usize);
+writeFirst<A> :: (Region<A>, A) -> Unit := (region, value) -> region.put(0usize, value);
 ```
 
 indexed typeはlayoutの存在だけを示し、extent、permission、initialization、lifetime、valid representationを証明しない。
+
+alias展開後にRegion、Buffer、またはこれらを再帰的に含む型を通常のgeneric type parameterへ代入してはならない。
+generic signatureが`Region<A>`または`Buffer<A>`を直接含むことは認め、parameterへscoped authority規則を適用する。
 
 ## Specialization
 

@@ -95,10 +95,10 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 
 `mal_Address_t`は`void *`であり、null以外をvalidな`Address`とする。terminal return helperはAddressを含むresultを再帰的に
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
-境界通過によって変化しない。`Cursor`、`Region`、`Packed`、`Buffer`はpublic C ABIへ出せない。
+境界通過によって変化しない。`Region`、`Packed`、`Buffer`はpublic C ABIへ出せない。
 
 public headerはHostMappableなbuiltin carrierとhelper、extern signatureから到達できるHostMappableなaggregateとopaque型、および
-後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Cursor`、`Region`、`Packed`、`Buffer`、function、およびそれらを含む
+後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Region`、`Packed`、`Buffer`、function、およびそれらを含む
 aggregateの型名、内部carrier、ownership helperを宣言しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは

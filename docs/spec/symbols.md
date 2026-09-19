@@ -14,7 +14,7 @@ valid UTF-8も保証しない。
 
 literalのbytesはprogram imageのstatic storageに置いてよい。連結とexternal bytesのadmissionで得るruntime storageは
 host storageを参照せず、malが所有する。`Packed<UInt8>`からの変換は、そのmal-owned storageのownerとbyte viewを共有する新しい
-`Symbol` valueを返す。host bytesは`Address`と長さでexternal memoryとして受け取り、RegionからPackedへのadmissionと`*`による
+`Symbol` valueを返す。host bytesは`Address`と長さでexternal memoryとして受け取り、`pack<UInt8>`によるadmissionと`*`による
 allocation-freeな変換を経てSymbolにする。
 
 ## literal
@@ -60,8 +60,8 @@ opaque typeを使う。
 
 ## mutable bytesとの分離
 
-`Symbol`の内容は変更できない。mutableな外部storageは`Region<UInt8>`またはexternal opaque typeで表す。RegionをPackedへ
-admitし、prefix `*`でSymbolへ変換できる。反対方向は`*symbol`でPackedを得てRegionへstoreする。
+`Symbol`の内容は変更できない。mutableな外部storageは`Region<UInt8>`またはexternal opaque typeで表す。Addressのbyte範囲を
+`pack<UInt8>`でadmitし、prefix `*`でSymbolへ変換できる。反対方向は`*symbol`でPackedを得てRegionの`set`でstoreする。
 
 反復回数がboundedでない入力をすべて`Symbol`へ変換すれば、実装が回収可能と判断するまでstorageを必要とする。
-stream処理では再利用可能なRegionへ入力し、保持すべきprefixだけをPackedまたはSymbolとしてadmitする。
+stream処理では再利用可能なRegionへ入力し、保持すべきprefixのAddress範囲だけをPackedまたはSymbolとしてadmitする。

@@ -9,7 +9,7 @@ Engramはsource-levelの型名ではなく、mal program内部に刻まれた意
 lifetime authorityはmalに属する。実装がstatic storage、arena、region、tracing、reference countingのどれを使うかは、
 観測できない限りsource semanticsではない。
 
-Externはmalの外部にあるstate、storage、resource、作用の領域である。`Address`、`Cursor`、`Region`はexternal storageへのcapabilityであり、
+Externはmalの外部にあるstate、storage、resource、作用の領域である。`Address`、`Region`はexternal storageへのcapabilityであり、
 external opaque valueはhost resourceへのcopyable handleである。いずれもcopyしてもreferentのlifetimeを延長しない。
 close、free、permission、alias、failureは個々のhost contractが定める。
 
@@ -27,7 +27,7 @@ Engramへ包んでもresource ownershipは移らない。
 | observation | EngramからExtern | call中にborrowするか外部storageへcopyし、malのidentityとlifetimeを渡さない |
 | capability transfer | 双方向 | `Address`またはexternal opaque valueを運び、referentのauthorityをExternに残す |
 
-Cursor loadとRegionからPackedへのtransferはadmissionである。Cursor/Region storeはobservationである。extern resultとparameterは
+Region getとAddressからPackedへの`pack`はadmissionである。Region put/setはobservationである。extern resultとparameterは
 HostMappableなEngram leafのadmissionまたはobservationと、Addressやexternal opaque valueのcapability transferだけを行う。
 `Symbol`、`Packed`、`Buffer`、`Region`はextern signatureへ現れない。
 
@@ -35,8 +35,8 @@ backend adapterはraw host operationとmal valueの間に立つtrusted boundary 
 admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、
 contextやEngramのlifetime authorityを取得しない。
 
-Addressのextern parameter/resultとAddressを含むCursor load/storeはcapability transferである。Address loadは任意のbytesを
-有効なcapabilityに変換せず、hostまたはCursor storeが書いた有効なpointer representationだけを復元できる。
+Addressのextern parameter/resultとAddressを含むRegion get/putはcapability transferである。Address admissionは任意のbytesを
+有効なcapabilityに変換せず、hostまたはRegion putが書いた有効なpointer representationだけを復元できる。
 external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
 
 external opaque valueを外部storageへ保存し、後で復元する必要がある場合、hostはその型に固有の`extern`
@@ -44,7 +44,7 @@ operationを定義できる。保存表現、有効な値の範囲、復元後�
 Externのauthorityに残り、保存や復元によってreferentのlifetimeは延長されない。malのpredefined memory
 primitiveがopaque valueの表現を定めないことは[external memory](memory.md#representable)に定める。
 
-外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。PackedからRegionへのtransferが
+外部storageへEngramのdescriptor、managed pointer、rootを書いて後で復元する経路は提供しない。Regionの`set`が
 書くのはelementのcanonical representationだけである。Externはmal内部のidentityを生成できず、malのlifetimeを延長できない。
 
 ## composition
