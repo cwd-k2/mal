@@ -255,3 +255,22 @@ hot loopのindirect capability callが消え、copy本体はcold helperへ分離
 自然なPackedは201.44 ms、同じ走査形のRegionは194.18 ms、direct Cは193.93 msで、それぞれ1.04倍だった。stdoutはすべて一致した。
 raw sampleはignored scratchの004にある`packed-edit-five-way.json`、`packed-edit-prepared-five-way.json`、
 `packed-edit-lazy-slowpath.json`へ保存した。
+
+## 2026-09-19 — Packed append fast pathとstable data epochの棄却
+
+043の自然なpack-edit-walk版は、最大入力で必要になるheapの過去最大が約299万entryであるのに、Region版の固定上限に合わせて
+3200万entryを`new(0)`で構築していた。heapをheader、distances、stepsの後へ置き、edit中にhigh-water markを越えた時だけ末尾へ
+appendする形へ直した。これにより固定上限版のmedian 402msは269msへ短縮し、Region 226msに対する比は1.78倍から1.19倍になった。
+出力はmaximum inputで一致した。
+
+capacity内appendはruntime layoutを所有するC側の通常経路、allocationとgrowthは同じruntimeのslow pathである。この境界を保ったまま
+`mal_runtime_packed_builder_new`をLTOで確定inlineした。旧固定heap版の3 warmup・回転10回では402msから360msへ10.5%短縮し、
+high-water版では281msから269msへ4.5%短縮した。growth helperは引き続き`noinline`である。
+
+`new`を含まない023 helper群についてactive data slot loadへ診断的に`invariant.load`を付けたところ、2 warmup・回転10回のmedianは
+1172msから1148msへ2.0%短縮した。Regionは1001ms、direct Cは792msだった。しかし`invariant.load`はfunction内のepochではなく、
+同じmemory locationが恒久的に不変であることを要求する。同じbuilder slotはcallbackの前後や別のcontrol stateで変化し得るため、
+application graphとrecursive control regionを閉じてもこの契約を満たさない。zero-stride Packedとtree editのruntime fixtureが実際に
+誤最適化を検出したため、このtechniqueは棄却した。正しい後続案にはscopedな別mechanismが必要である。raw sampleはignored scratchの
+`.scratch/typical90/performance/023/stable-epoch-before-after.json`と
+`.scratch/typical90/performance/043/packed-edit-variants.json`に記録した。
