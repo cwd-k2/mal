@@ -285,8 +285,8 @@ Buffer leafだけをactive data addressへ置換する。このためgrowth前�
 runtime ABI、source-level `Buffer` contract、element alignmentは変更しない。baseline profileは従来のbuilder pointer ABIだけを使う。
 
 023の自然なpack-edit-walk版を2 warmup・回転10回で変更前後比較すると、medianは1169.863 msから1138.779 msへ2.7%短縮した。
-同じ測定のRegionは1013.410 ms、direct Cは794.112 msだった。変更後compilerで再構築した四者の確認測定ではPacked
-1129.920 ms、edit 1122.040 ms、Region 999.100 ms、direct C 795.960 msである。9個のedit corpusはmaximum-order inputで
+同じ測定のRegionは1013.410 ms、direct Cは794.112 msだった。slot TBAA修正後に再構築し、2 warmup・回転10回で測った四者はPacked
+1134.360 ms、edit 1141.130 ms、Region 1014.750 ms、direct C 798.560 msである。9個のedit corpusはmaximum-order inputで
 Packed、edit、Region、direct Cのstdoutがすべて一致した。baseline/productionのnative regressionはnested product、growth前後の
 同一helper、Bufferをcaptureするnested closureを含む。誤った`invariant.load`は使わない。
 
