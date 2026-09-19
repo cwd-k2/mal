@@ -49,6 +49,10 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let production_llvm = std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
     assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
+    assert!(production_llvm.contains("!tbaa !4"));
+    assert!(production_llvm.contains("!tbaa !5"));
+    assert!(production_llvm.contains("mal packed builder data slot"));
+    assert!(production_llvm.contains("mal packed element storage"));
     assert!(!production_llvm.contains("call ptr @mal_runtime_packed_builder_get"));
     assert!(production_llvm.contains("getelementptr i8, ptr"));
 }

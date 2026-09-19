@@ -87,6 +87,14 @@ pub(crate) fn generate(
     } else {
         String::new()
     };
+    let packed_alias_metadata = body.uses_byte_runtime.then_some(
+        "!0 = !{!\"Simple C/C++ TBAA\"}\n\
+         !1 = !{!\"omnipotent char\", !0, i64 0}\n\
+         !2 = !{!\"mal packed builder data slot\", !1, i64 0}\n\
+         !3 = !{!\"mal packed element storage\", !1, i64 0}\n\
+         !4 = !{!2, !2, i64 0}\n\
+         !5 = !{!3, !3, i64 0}\n",
+    );
     let byte_declarations = if body.uses_byte_runtime {
         let index = types
             .pointer_integer()
@@ -158,7 +166,7 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         types
@@ -177,6 +185,7 @@ pub(crate) fn generate(
         external_declarations,
         body.globals,
         body.definitions,
+        packed_alias_metadata.unwrap_or_default(),
         entry.llvm_signature(),
         control_entry,
         entry_argument,

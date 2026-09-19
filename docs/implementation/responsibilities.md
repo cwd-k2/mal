@@ -218,7 +218,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
-| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、callback前のsingle edit preparation、`Buffer`のappend・direct access、freezeを出力する |
+| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、callback前のsingle edit preparation、`Buffer`のappend・direct access、builder data slotとelement storageの非alias情報、freezeを出力する |
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
 | `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
@@ -228,7 +228,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storage取得とcapacity内reserveをprogram側へinline |
-| `runtime/c11/bytes.c` | LLVM artifact内部のcanonical alignmentを満たすreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builder、edit preparation、data slot accessを実装 |
+| `runtime/c11/bytes.c` | LLVM artifact内部のcanonical alignmentを満たすreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、element storageとは別allocationに置くactive data view付きscoped Packed builder、edit preparation、data slot accessを実装 |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
 | `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |

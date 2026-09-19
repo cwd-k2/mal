@@ -16,7 +16,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
     ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, false)
+        self.emit_source_load_at_with_alignment(pointer, element, false, "")
     }
 
     pub(in crate::backend::llvm::body) fn emit_aligned_source_load_at(
@@ -24,7 +24,15 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
     ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, true)
+        self.emit_source_load_at_with_alignment(pointer, element, true, "")
+    }
+
+    pub(in crate::backend::llvm::body) fn emit_aligned_builder_load_at(
+        &mut self,
+        pointer: &str,
+        element: &Type,
+    ) -> Option<EmittedValue> {
+        self.emit_source_load_at_with_alignment(pointer, element, true, ", !tbaa !5")
     }
 
     fn emit_source_load_at_with_alignment(
@@ -32,6 +40,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
         aligned: bool,
+        metadata: &str,
     ) -> Option<EmittedValue> {
         if *element == Type::Unit {
             return Some(EmittedValue {
@@ -46,8 +55,12 @@ impl FunctionEmitter<'_> {
             let mut product = "poison".to_string();
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
                 let field_pointer = self.source_pointer_offset(pointer, field.offset)?;
-                let field_value =
-                    self.emit_source_load_at_with_alignment(&field_pointer, field_type, aligned)?;
+                let field_value = self.emit_source_load_at_with_alignment(
+                    &field_pointer,
+                    field_type,
+                    aligned,
+                    metadata,
+                )?;
                 let llvm_type = self.types.value(field_type)?;
                 let inserted = self.register();
                 self.line(format!(
@@ -71,8 +84,8 @@ impl FunctionEmitter<'_> {
                 1
             };
             self.line(format!(
-                "  {source_tag} = load i{}, ptr {pointer}, align {alignment}",
-                layout.tag_bits
+                "  {source_tag} = load i{}, ptr {pointer}, align {alignment}{metadata}",
+                layout.tag_bits,
             ));
             if super::super::types::is_bool(element) {
                 let value = self.register();
@@ -119,8 +132,12 @@ impl FunctionEmitter<'_> {
             self.line("  unreachable");
             for (index, variant) in variants.iter().enumerate() {
                 self.line(format!("{stem}_variant_{index}:"));
-                let payload =
-                    self.emit_source_load_at_with_alignment(&payload_pointer, variant, aligned)?;
+                let payload = self.emit_source_load_at_with_alignment(
+                    &payload_pointer,
+                    variant,
+                    aligned,
+                    metadata,
+                )?;
                 let sum = self.emit_sum_value(index, payload, element, false)?;
                 self.line(format!(
                     "  store {} {}, ptr {storage}, align {}",
@@ -166,8 +183,8 @@ impl FunctionEmitter<'_> {
         };
         let value = self.register();
         self.line(format!(
-            "  {value} = load {}, ptr {pointer}, align {alignment}",
-            value_type.llvm
+            "  {value} = load {}, ptr {pointer}, align {alignment}{metadata}",
+            value_type.llvm,
         ));
         Some(EmittedValue {
             ty: element.clone(),
@@ -189,7 +206,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, false)
+        self.emit_source_store_at_with_alignment(pointer, value, false, "")
     }
 
     pub(in crate::backend::llvm::body) fn emit_aligned_source_store_at(
@@ -197,7 +214,15 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, true)
+        self.emit_source_store_at_with_alignment(pointer, value, true, "")
+    }
+
+    pub(in crate::backend::llvm::body) fn emit_aligned_builder_store_at(
+        &mut self,
+        pointer: &str,
+        value: &EmittedValue,
+    ) -> Option<()> {
+        self.emit_source_store_at_with_alignment(pointer, value, true, ", !tbaa !5")
     }
 
     fn emit_source_store_at_with_alignment(
@@ -205,6 +230,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
         aligned: bool,
+        metadata: &str,
     ) -> Option<()> {
         if value.ty == Type::Unit {
             return Some(());
@@ -227,6 +253,7 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     },
                     aligned,
+                    metadata,
                 )?;
             }
             return Some(());
@@ -236,7 +263,9 @@ impl FunctionEmitter<'_> {
             if super::super::types::is_bool(&value.ty) {
                 let tag = self.register();
                 self.line(format!("  {tag} = zext i1 {} to i8", value.representation));
-                self.line(format!("  store i8 {tag}, ptr {pointer}, align 1"));
+                self.line(format!(
+                    "  store i8 {tag}, ptr {pointer}, align 1{metadata}"
+                ));
                 return Some(());
             }
             let runtime = self.types.value(&value.ty)?;
@@ -265,8 +294,8 @@ impl FunctionEmitter<'_> {
                 1
             };
             self.line(format!(
-                "  store i{} {source_tag}, ptr {pointer}, align {alignment}",
-                layout.tag_bits
+                "  store i{} {source_tag}, ptr {pointer}, align {alignment}{metadata}",
+                layout.tag_bits,
             ));
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
@@ -293,6 +322,7 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     },
                     aligned,
+                    metadata,
                 )?;
                 self.line(format!("  br label %{stem}_stored"));
             }
@@ -324,7 +354,7 @@ impl FunctionEmitter<'_> {
             1
         };
         self.line(format!(
-            "  store {} {}, ptr {pointer}, align {alignment}",
+            "  store {} {}, ptr {pointer}, align {alignment}{metadata}",
             value_type.llvm, value.representation
         ));
         Some(())

@@ -94,11 +94,11 @@ impl FunctionEmitter<'_> {
                 ));
                 let data = self.register();
                 self.line(format!(
-                    "  {data} = load ptr, ptr {slot}, align {}",
+                    "  {data} = load ptr, ptr {slot}, align {}, !tbaa !4",
                     self.types.pointer_alignment()
                 ));
                 let pointer = self.builder_element_pointer(&data, &index, stride)?;
-                self.emit_aligned_source_load_at(&pointer, element)
+                self.emit_aligned_builder_load_at(&pointer, element)
             }
             PackedBuilderOperation::Put => {
                 let put_type = Type::Product(vec![Type::USize, element.clone()].into());
@@ -117,11 +117,11 @@ impl FunctionEmitter<'_> {
                     ));
                     let data = self.register();
                     self.line(format!(
-                        "  {data} = load ptr, ptr {slot}, align {}",
+                        "  {data} = load ptr, ptr {slot}, align {}, !tbaa !4",
                         self.types.pointer_alignment()
                     ));
                     let pointer = self.builder_element_pointer(&data, &index, stride)?;
-                    self.emit_aligned_source_store_at(&pointer, &value)?;
+                    self.emit_aligned_builder_store_at(&pointer, &value)?;
                 }
                 Some(EmittedValue {
                     ty: Type::Unit,
