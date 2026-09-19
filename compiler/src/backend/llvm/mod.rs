@@ -90,10 +90,8 @@ pub(crate) fn generate(
     let packed_alias_metadata = body.uses_byte_runtime.then_some(
         "!0 = !{!\"Simple C/C++ TBAA\"}\n\
          !1 = !{!\"omnipotent char\", !0, i64 0}\n\
-         !2 = !{!\"mal packed builder data slot\", !1, i64 0}\n\
-         !3 = !{!\"mal packed element storage\", !1, i64 0}\n\
-         !4 = !{!2, !2, i64 0}\n\
-         !5 = !{!3, !3, i64 0}\n",
+         !2 = !{!\"mal packed element storage\", !1, i64 0}\n\
+         !3 = !{!2, !2, i64 0}\n",
     );
     let byte_declarations = if body.uses_byte_runtime {
         let index = types

@@ -32,7 +32,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
     ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, true, ", !tbaa !5")
+        self.emit_source_load_at_with_alignment(pointer, element, true, ", !tbaa !3")
     }
 
     fn emit_source_load_at_with_alignment(
@@ -222,7 +222,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, true, ", !tbaa !5")
+        self.emit_source_store_at_with_alignment(pointer, value, true, ", !tbaa !3")
     }
 
     fn emit_source_store_at_with_alignment(

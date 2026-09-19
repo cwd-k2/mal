@@ -296,3 +296,9 @@ runtime internal ABIへ定数で渡す。011、023、039、043の変更前後を
 0.99、1.00、0.93、1.00だった。039のtext sizeは12,353 bytesから8,993 bytes、023は16,228 bytesから12,900 bytes、
 043は11,979 bytesから9,611 bytesへ減った。このABIはsource contractではなく、coreが所有するcallback前prepare順序をruntimeへ伝える
 内部境界である。
+
+この簡約でgrowthを含む050の最終IRがdata slot loadを`new`の前からhoistし、最大入力で旧storageを参照する誤りも顕在化した。
+slot loadとelement accessへ別々の独自TBAA tagを付けていたが、LTOされるC runtimeの`builder->data` storeはLLVM emitterのmetadata treeを
+共有しない。したがってslot tagはC側の更新とaliasしないという、実装境界を越えた未証明の主張だった。data slot loadを保守的な
+untagged accessへ戻し、mal-owned element storageのtagだけを維持した。`get`の直後に`new`してgrowthを繰り返すbaseline/production
+native regressionと、通常Packed corpusのmaximum-order比較でこの境界を検査する。

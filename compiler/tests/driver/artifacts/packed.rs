@@ -10,14 +10,21 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let production_artifacts = directory.join("production-artifacts");
     directory.write(
         "program.mal",
-        "main :: Unit -> Int32 := () -> {
+        "fill :: (Buffer<Int32>, Int32, Int32) -> Unit := (buffer, index, limit) -> {
+           if (index > limit)
+           then { () }
+           else {
+             _ := buffer.new(buffer.get((index - 1i32).usize) + 1i32);
+             fill(buffer, index + 1i32, limit);
+           };
+         };
+
+         main :: Unit -> Int32 := () -> {
            values := pack<Int32>((buffer) -> {
-             buffer.new(40i32);
-             value := buffer.get(0usize);
-             buffer.put(0usize, value + 2i32);
-             ();
+             _ := buffer.new(0i32);
+             buffer.fill(1i32, 128i32);
            });
-           (values # 0usize) - 42i32;
+           (values # 128usize) - 128i32;
          };",
     );
 
@@ -49,9 +56,7 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let production_llvm = std::fs::read_to_string(production_artifacts.join("program.ll")).unwrap();
     assert!(baseline_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
     assert!(production_llvm.contains("call ptr @mal_runtime_packed_builder_data_slot"));
-    assert!(production_llvm.contains("!tbaa !4"));
-    assert!(production_llvm.contains("!tbaa !5"));
-    assert!(production_llvm.contains("mal packed builder data slot"));
+    assert!(production_llvm.contains("!tbaa !3"));
     assert!(production_llvm.contains("mal packed element storage"));
     assert!(!production_llvm.contains("call ptr @mal_runtime_packed_builder_get"));
     assert!(production_llvm.contains("getelementptr i8, ptr"));
