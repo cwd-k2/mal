@@ -23,11 +23,12 @@ impl FunctionEmitter<'_> {
         self.require_terminator_borrow(site, callee_operand, callee)?;
         self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
-        let environment = self.closure_environment(&callee)?;
         if let Some(access) = self.optimizations.stable_packed_access(site).cloned() {
+            let environment = self.packed_builder_environment(&callee)?;
             let argument = self.atom(argument)?;
             return self.emit_stable_packed_access(&access, &environment, &argument);
         }
+        let environment = self.closure_environment(&callee)?;
         let arguments = if target.parameter.ty == Type::Unit {
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
@@ -191,6 +192,11 @@ impl FunctionEmitter<'_> {
         let Type::Function { parameter, result } = &callee.ty else {
             return None;
         };
+        if let Some(access) = self.optimizations.stable_packed_access(site).cloned() {
+            let environment = self.packed_builder_environment(&callee)?;
+            let argument = self.atom(argument)?;
+            return self.emit_stable_packed_access(&access, &environment, &argument);
+        }
         let (code, environment) = if let Some(target) = self.types.compact_function(&callee.ty) {
             (
                 format!("@{}", super::function_name(target)?),
@@ -258,6 +264,19 @@ impl FunctionEmitter<'_> {
             closure_type.llvm, closure.representation
         ));
         Some(environment)
+    }
+
+    fn packed_builder_environment(&mut self, closure: &EmittedValue) -> Option<String> {
+        let environment = self.closure_environment(closure)?;
+        if self.types.function_is_compact(&closure.ty) {
+            return Some(environment);
+        }
+        let untagged = self.register();
+        let bits = self.types.index_size().checked_mul(8)?;
+        self.line(format!(
+            "  {untagged} = call ptr @llvm.ptrmask.p0.i{bits}(ptr {environment}, i{bits} -2)"
+        ));
+        Some(untagged)
     }
 
     pub(super) fn current_result_type(&self) -> Option<Type> {

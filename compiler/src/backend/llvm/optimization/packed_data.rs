@@ -8,6 +8,8 @@ use crate::core::ast::PackedBuilderOperation;
 pub(in crate::backend::llvm) struct StablePackedAccess {
     pub(in crate::backend::llvm) operation: PackedBuilderOperation,
     pub(in crate::backend::llvm) element: crate::check::ast::Type,
+    pub(in crate::backend::llvm) stable_data: bool,
+    pub(in crate::backend::llvm) prepares_edit: bool,
 }
 
 #[derive(Eq, PartialEq)]
@@ -118,21 +120,30 @@ impl StablePackedAccessPlan {
                     .collect::<Option<Vec<_>>>()?;
                 let (access, remaining) = accesses.split_first()?;
                 let access = (*access).clone();
-                let stable_access = matches!(
+                let direct_access = matches!(
                     access.0,
-                    PackedBuilderOperation::Get | PackedBuilderOperation::PutUnique
-                ) && remaining.iter().all(|candidate| **candidate == access);
+                    PackedBuilderOperation::Get
+                        | PackedBuilderOperation::Put
+                        | PackedBuilderOperation::PutUnique
+                ) && remaining
+                    .iter()
+                    .all(|candidate| equivalent_access(&access, candidate));
                 let local_after = match control.states[site.0].terminator {
                     Terminator::Call { resume, .. } => future[resume.0],
                     Terminator::TailCall { .. } => false,
                     _ => return None,
                 };
                 let caller_after = caller.is_some_and(|id| after_return.get(&id) == Some(&true));
-                (stable_access && !local_after && !caller_after).then_some((
+                let prepares_edit = accesses
+                    .iter()
+                    .any(|candidate| candidate.0 == PackedBuilderOperation::Put);
+                direct_access.then_some((
                     site,
                     StablePackedAccess {
                         operation: access.0,
                         element: access.1,
+                        stable_data: !local_after && !caller_after && !prepares_edit,
+                        prepares_edit,
                     },
                 ))
             })
@@ -151,6 +162,21 @@ impl StablePackedAccessPlan {
     pub(super) fn stable_access(&self, site: StateId) -> Option<&StablePackedAccess> {
         self.stable_applications.get(&site)
     }
+}
+
+fn equivalent_access(
+    left: &(PackedBuilderOperation, crate::check::ast::Type),
+    right: &(PackedBuilderOperation, crate::check::ast::Type),
+) -> bool {
+    left.1 == right.1
+        && (left.0 == right.0
+            || matches!(
+                (left.0, right.0),
+                (
+                    PackedBuilderOperation::Put | PackedBuilderOperation::PutUnique,
+                    PackedBuilderOperation::Put | PackedBuilderOperation::PutUnique
+                )
+            ))
 }
 
 fn successors(terminator: &Terminator) -> impl Iterator<Item = StateId> + '_ {

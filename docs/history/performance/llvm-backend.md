@@ -241,3 +241,17 @@ runtime表現に依存するためexecution factにはせず、空集合で通�
 011の最終assemblyではhot loop内の大半のbuilder metadata reloadが消えた。一方、同じbuilder由来のget/put carrierを診断的に一つへ
 置換して再LTOした版は現行版に対して30回のmedian比が1.00倍で、Region比も1.45倍のままだった。最終mainのinstruction数は現行Packed
 412、carrier置換版463、Region 311である。builder provenanceの一般化は適用範囲を広げ得るが、この残差の主因としては採択しない。
+
+## 2026-09-19 — lazy edit preparationと自然なpack-edit-walk
+
+004に、入力をimmutable `Packed`へ構築し、別の`Packed`を`edit`して行・列和を作り、freeze後の両方を走査して出力する版を加えた。
+比較用にone-shot Packed、既存Region、同じmulti-pass走査形のRegion、direct Cを用意した。変更前の3 warmup・交互20回では、自然な
+pack-edit-walkが205.49 ms、同じ走査形のRegionが186.34 msで1.10倍だった。IRではrecursive helper内の各要素について`get`と
+`put`のindirect capability callが残り、edit `Put` helperがcopy-on-write判定を反復していた。
+
+callback開始時のeager preparationは198.63 msまで短縮したが、`put`しないeditにもcopyとallocation failureを追加し得るため棄却した。
+実際の`Put` applicationでだけeditable化し、inline flag判定からcopy-on-writeの`noinline` slow pathを呼ぶ形を採択した。最終assemblyでは
+hot loopのindirect capability callが消え、copy本体はcold helperへ分離された。同じmaximum-order inputを3 warmup・回転30回で測定すると、
+自然なPackedは201.44 ms、同じ走査形のRegionは194.18 ms、direct Cは193.93 msで、それぞれ1.04倍だった。stdoutはすべて一致した。
+raw sampleはignored scratchの004にある`packed-edit-five-way.json`、`packed-edit-prepared-five-way.json`、
+`packed-edit-lazy-slowpath.json`へ保存した。

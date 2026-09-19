@@ -94,6 +94,7 @@ void *mal_runtime_packed_builder_edit(
     size_t count,
     size_t stride
 );
+void *mal_runtime_packed_builder_prepare_edit(MalContext *context, void *builder);
 size_t mal_runtime_packed_builder_new(
     MalContext *context,
     void *builder,

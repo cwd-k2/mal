@@ -326,14 +326,11 @@ static size_t mal_packed_builder_bytes(
     return count * stride;
 }
 
-__attribute__((always_inline))
-static void mal_packed_builder_make_editable(
+__attribute__((noinline))
+static void mal_packed_builder_make_editable_slow(
     MalContext *context,
     MalPackedBuilder *builder
 ) {
-    if (builder->editable) {
-        return;
-    }
     size_t bytes = mal_packed_builder_bytes(
         context,
         builder->count,
@@ -367,6 +364,26 @@ static void mal_packed_builder_make_editable(
     builder->data = (unsigned char *)mal_bytes_data(copy);
     builder->offset = 0;
     builder->editable = 1;
+}
+
+__attribute__((always_inline))
+static void mal_packed_builder_make_editable(
+    MalContext *context,
+    MalPackedBuilder *builder
+) {
+    if (!builder->editable) {
+        mal_packed_builder_make_editable_slow(context, builder);
+    }
+}
+
+__attribute__((always_inline))
+void *mal_runtime_packed_builder_prepare_edit(
+    MalContext *context,
+    void *opaque_builder
+) {
+    mal_packed_builder_make_editable(context, opaque_builder);
+    MalPackedBuilder *builder = opaque_builder;
+    return builder->data;
 }
 
 size_t mal_runtime_packed_builder_new(

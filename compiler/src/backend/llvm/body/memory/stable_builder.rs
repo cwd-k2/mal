@@ -10,20 +10,31 @@ impl FunctionEmitter<'_> {
         builder: &str,
         argument: &EmittedValue,
     ) -> Option<EmittedValue> {
-        let slot = self.register();
-        self.line(format!(
-            "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {builder})"
-        ));
-        self.line(format!(
-            "  call ptr @llvm.invariant.start.p0(i64 {}, ptr {slot})",
-            self.types.pointer_size()
-        ));
-        let data = self.register();
-        self.line(format!(
-            "  {data} = load ptr, ptr {slot}, align {}",
-            self.types.pointer_alignment()
-        ));
         let stride = self.source_layouts.layout(&access.element)?.stride;
+        let data = if access.prepares_edit && stride != 0 {
+            let data = self.register();
+            self.line(format!(
+                "  {data} = call ptr @mal_runtime_packed_builder_prepare_edit(ptr %mal_context, ptr {builder})"
+            ));
+            data
+        } else {
+            let slot = self.register();
+            self.line(format!(
+                "  {slot} = call ptr @mal_runtime_packed_builder_data_slot(ptr {builder})"
+            ));
+            if access.stable_data {
+                self.line(format!(
+                    "  call ptr @llvm.invariant.start.p0(i64 {}, ptr {slot})",
+                    self.types.pointer_size()
+                ));
+            }
+            let data = self.register();
+            self.line(format!(
+                "  {data} = load ptr, ptr {slot}, align {}",
+                self.types.pointer_alignment()
+            ));
+            data
+        };
         match access.operation {
             PackedBuilderOperation::Get if argument.ty == Type::USize => {
                 if access.element == Type::Unit {
@@ -32,7 +43,7 @@ impl FunctionEmitter<'_> {
                 let pointer = self.element_pointer(&data, argument, stride)?;
                 self.emit_source_load_at(&pointer, &access.element)
             }
-            PackedBuilderOperation::PutUnique => {
+            PackedBuilderOperation::Put | PackedBuilderOperation::PutUnique => {
                 let parameter = Type::Product(vec![Type::USize, access.element.clone()].into());
                 if argument.ty != parameter {
                     return None;

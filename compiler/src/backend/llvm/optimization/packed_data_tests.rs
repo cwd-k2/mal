@@ -51,20 +51,44 @@ fn validates_the_exact_optional_stable_access_decisions() {
 }
 
 #[test]
-fn keeps_access_dynamic_when_unique_growth_can_follow() {
+fn validates_the_exact_lazy_edit_access_decisions() {
+    let execution = lower(
+        "main :: Unit -> Int32 := () -> { original := pack<Int32>((new, _, _) -> { new(1i32); (); }); changed := edit<Int32>(original, (_, _, put) -> { put(0usize, 2i32); (); }); (changed # 0usize); };",
+    );
+    let enabled = OptimizationSet::none().with(Technique::StablePackedAccess);
+    let mut plan = OptimizationPlan::new(&execution, enabled);
+    let site = sites(&execution, PackedBuilderOperation::Put)
+        .next()
+        .expect("Put application");
+
+    let decision = plan.stable_packed_access(site).expect("direct Put access");
+    assert!(decision.prepares_edit);
+    assert!(!decision.stable_data);
+    assert!(plan.is_valid(&execution, enabled));
+    plan.packed_data.stable_applications.remove(&site);
+    assert!(!plan.is_valid(&execution, enabled));
+    assert!(
+        OptimizationPlan::new(&execution, OptimizationSet::none())
+            .stable_packed_access(site)
+            .is_none()
+    );
+}
+
+#[test]
+fn reloads_direct_access_when_unique_growth_can_follow() {
     let execution = lower(
         "main :: Unit -> Int32 := () -> { values := pack<Int32>((new, get, _) -> { new(1i32); value := get(0usize); new(value); (); }); (values # 0usize); };",
     );
     let plan = StablePackedAccessPlan::new(&execution);
 
-    assert!(
-        sites(&execution, PackedBuilderOperation::Get)
-            .all(|site| plan.stable_access(site).is_none())
-    );
+    assert!(sites(&execution, PackedBuilderOperation::Get).all(|site| {
+        plan.stable_access(site)
+            .is_some_and(|access| !access.stable_data)
+    }));
 }
 
 #[test]
-fn keeps_edit_access_dynamic_across_copy_on_write() {
+fn prepares_edit_before_selecting_stable_get_and_put_access() {
     let execution = lower(
         "main :: Unit -> Int32 := () -> { original := pack<Int32>((new, _, _) -> { new(1i32); (); }); changed := edit<Int32>(original, (_, get, put) -> { value := get(0usize); put(0usize, value + 1i32); (); }); (changed # 0usize); };",
     );
@@ -72,11 +96,79 @@ fn keeps_edit_access_dynamic_across_copy_on_write() {
 
     assert!(
         sites(&execution, PackedBuilderOperation::Get)
-            .all(|site| plan.stable_access(site).is_none())
+            .all(|site| plan.stable_access(site).is_some())
+    );
+    assert!(sites(&execution, PackedBuilderOperation::Put).all(|site| {
+        plan.stable_access(site)
+            .is_some_and(|access| access.prepares_edit)
+    }));
+}
+
+#[test]
+fn reloads_lazy_edit_access_when_growth_can_follow() {
+    let execution = lower(
+        "main :: Unit -> Int32 := () -> { original := pack<Int32>((new, _, _) -> { new(1i32); (); }); changed := edit<Int32>(original, (new, get, put) -> { value := get(0usize); put(0usize, value + 1i32); new(value); (); }); (changed # 0usize); };",
+    );
+    let plan = StablePackedAccessPlan::new(&execution);
+
+    assert!(sites(&execution, PackedBuilderOperation::Get).all(|site| {
+        plan.stable_access(site)
+            .is_some_and(|access| !access.stable_data)
+    }));
+    assert!(sites(&execution, PackedBuilderOperation::Put).all(|site| {
+        plan.stable_access(site)
+            .is_some_and(|access| access.prepares_edit && !access.stable_data)
+    }));
+}
+
+#[test]
+fn stabilizes_prepared_edit_access_passed_through_a_recursive_helper() {
+    let execution = lower(
+        "Access :: (USize -> Int32, (USize, Int32) -> Unit); update :: (Access, USize) -> Unit := ((get, put), remaining) -> { if (remaining == 0usize) then { () } else { put(0usize, get(0usize) + 1i32); update((get, put), remaining - 1usize); }; }; main :: Unit -> Int32 := () -> { original := pack<Int32>((new, _, _) -> { new(0i32); (); }); changed := edit<Int32>(original, (_, get, put) -> update((get, put), 2usize)); changed # 0usize; };",
+    );
+    let plan = StablePackedAccessPlan::new(&execution);
+
+    assert!(
+        sites(&execution, PackedBuilderOperation::Get)
+            .all(|site| plan.stable_access(site).is_some())
     );
     assert!(
         sites(&execution, PackedBuilderOperation::Put)
-            .all(|site| plan.stable_access(site).is_none())
+            .all(|site| plan.stable_access(site).is_some())
+    );
+}
+
+#[test]
+fn stabilizes_prepared_edit_access_nested_with_scalar_state() {
+    let execution = lower(
+        "Access :: (USize -> Int32, (USize, Int32) -> Unit, USize); update :: (Access, USize) -> Unit := ((get, put, offset), remaining) -> { if (remaining == 0usize) then { () } else { put(offset, get(offset) + 1i32); update((get, put, offset), remaining - 1usize); }; }; main :: Unit -> Int32 := () -> { original := pack<Int32>((new, _, _) -> { new(0i32); (); }); changed := edit<Int32>(original, (_, get, put) -> update((get, put, 0usize), 2usize)); changed # 0usize; };",
+    );
+    let plan = StablePackedAccessPlan::new(&execution);
+
+    assert!(
+        sites(&execution, PackedBuilderOperation::Get)
+            .all(|site| plan.stable_access(site).is_some())
+    );
+    assert!(
+        sites(&execution, PackedBuilderOperation::Put)
+            .all(|site| plan.stable_access(site).is_some())
+    );
+}
+
+#[test]
+fn stabilizes_prepared_edit_access_alongside_an_immutable_packed_input() {
+    let execution = lower(
+        "Grid :: Packed<Int32>; Access :: (Grid, USize -> Int32, (USize, Int32) -> Unit, USize); update :: (Access, USize) -> Unit := ((grid, get, put, offset), remaining) -> { if (remaining == 0usize) then { () } else { value := grid # 0usize; put(offset, get(offset) + value); update((grid, get, put, offset), remaining - 1usize); }; }; main :: Unit -> Int32 := () -> { grid := pack<Int32>((new, _, _) -> { new(1i32); (); }); original := pack<Int32>((new, _, _) -> { new(0i32); (); }); changed := edit<Int32>(original, (_, get, put) -> update((grid, get, put, 0usize), 2usize)); changed # 0usize; };",
+    );
+    let plan = StablePackedAccessPlan::new(&execution);
+
+    assert!(
+        sites(&execution, PackedBuilderOperation::Get)
+            .all(|site| plan.stable_access(site).is_some())
+    );
+    assert!(
+        sites(&execution, PackedBuilderOperation::Put)
+            .all(|site| plan.stable_access(site).is_some())
     );
 }
 

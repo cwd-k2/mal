@@ -101,6 +101,7 @@ pub(crate) fn generate(
              declare void @mal_runtime_bytes_write(ptr, ptr, {index}, {index})\n\
              declare ptr @mal_runtime_packed_builder_start(ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_edit(ptr, ptr, ptr, {index}, {index})\n\
+             declare ptr @mal_runtime_packed_builder_prepare_edit(ptr, ptr)\n\
              declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr)\n\
              declare {index} @mal_runtime_packed_builder_new_unique(ptr, ptr, ptr, {index})\n\
              declare ptr @mal_runtime_packed_builder_get(ptr, {index}, {index})\n\
