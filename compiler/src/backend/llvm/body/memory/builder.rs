@@ -143,14 +143,9 @@ impl FunctionEmitter<'_> {
         if stride == 0 {
             return Some("null".into());
         }
-        let alignment = self.source_layouts.layout(&value.ty)?.alignment;
-        let storage = self.register();
-        self.line(format!(
-            "  {storage} = alloca i8, {} {stride}, align {alignment}",
-            self.types.pointer_integer()?
-        ));
-        self.emit_aligned_source_store_at(&storage, value)?;
-        Some(storage)
+        let storage = "%mal_packed_new_value";
+        self.emit_aligned_source_store_at(storage, value)?;
+        Some(storage.into())
     }
 
     fn builder_element_pointer(

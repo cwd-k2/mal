@@ -238,6 +238,14 @@ fn emits_scoped_buffer_operations_without_closure_environments() {
             .count(),
         1
     );
+    assert_eq!(
+        artifacts
+            .module
+            .matches("%mal_packed_new_value = alloca [8 x i8], align 8")
+            .count(),
+        1
+    );
+    assert!(!artifacts.module.contains("= alloca i8, i64 8"));
     assert!(
         !artifacts
             .module

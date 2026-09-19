@@ -118,6 +118,22 @@ impl<'a> FunctionEmitter<'a> {
                     )
                 })
         });
+        let packed_new_storage = states
+            .iter()
+            .flat_map(|state| &execution.control.states[state.0].bindings)
+            .filter_map(|binding| match &binding.operation {
+                Operation::PackedBuilder {
+                    operation: crate::core::ast::PackedBuilderOperation::New,
+                    element,
+                    ..
+                } => source_layouts.layout(element),
+                _ => None,
+            })
+            .filter(|layout| layout.stride != 0)
+            .fold(None, |storage, layout| {
+                let (size, alignment) = storage.unwrap_or((0usize, 1usize));
+                Some((size.max(layout.stride), alignment.max(layout.alignment)))
+            });
         let mut external_storage = None;
         for id in external_ids {
             let external = *index.externals.get(&id)?;
@@ -141,6 +157,7 @@ impl<'a> FunctionEmitter<'a> {
             frame_sites,
             frame_tags,
             external_storage,
+            packed_new_storage,
             needs_symbol_result_slot,
             types,
             source_layouts,
@@ -220,6 +237,11 @@ impl<'a> FunctionEmitter<'a> {
             self.line(format!(
                 "  %mal_symbol_result = alloca {}, align {}",
                 symbol.llvm, symbol.alignment
+            ));
+        }
+        if let Some((size, alignment)) = self.packed_new_storage {
+            self.line(format!(
+                "  %mal_packed_new_value = alloca [{size} x i8], align {alignment}"
             ));
         }
         let parameter_destination = self.execution.parameters.destination(self.function.id)?;
