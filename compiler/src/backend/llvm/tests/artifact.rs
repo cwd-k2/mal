@@ -321,6 +321,59 @@ fn passes_active_data_to_non_growing_buffer_helpers() {
 }
 
 #[test]
+fn passes_each_active_data_pointer_to_multi_buffer_helpers() {
+    let source = SourceFile::new(
+        FileId::new(98),
+        "llvm-multi-buffer-abi.mal",
+        "readPair :: ((Buffer<Int64>, Buffer<Int64>), USize) -> Int64 := ((left, right), index) -> { left.get(index) + right.get(index); }; main :: Unit -> Int32 := () -> { values := bulk<Int64>(1usize, (buffer) -> { _ := buffer.new(1i64); _ := readPair(((buffer, buffer), 0usize)); (); }); (values # 0usize).i32 - 1i32; };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check multi-Buffer ABI fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let production = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("production multi-Buffer ABI fixture is supported");
+    let baseline = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::none(),
+    )
+    .expect("baseline multi-Buffer ABI fixture is supported");
+
+    fn function_body(module: &str) -> &str {
+        module
+            .split("define internal i64")
+            .nth(1)
+            .and_then(|body| body.split("\ndefine ").next())
+            .expect("multi-Buffer read helper")
+    }
+    let production_read = function_body(&production.module);
+    let baseline_read = function_body(&baseline.module);
+    assert!(!production_read.contains("@mal_runtime_packed_builder_data_slot"));
+    assert!(!production_read.contains("%mal_buffer_data"));
+    assert_eq!(
+        baseline_read
+            .matches("@mal_runtime_packed_builder_data_slot")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn borrows_managed_tail_carriers_from_the_outer_call() {
     let source = SourceFile::new(
         FileId::new(95),

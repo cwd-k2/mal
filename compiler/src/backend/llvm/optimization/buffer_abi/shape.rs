@@ -3,17 +3,25 @@ use std::collections::HashSet;
 use crate::check::ast::Type;
 
 pub(super) fn buffer_parameter_is_supported(ty: &Type) -> bool {
+    buffer_leaf_count(ty).is_some_and(|count| count != 0)
+}
+
+pub(in crate::backend::llvm::optimization) fn has_single_buffer(ty: &Type) -> bool {
+    buffer_leaf_count(ty) == Some(1)
+}
+
+fn buffer_leaf_count(ty: &Type) -> Option<usize> {
     let mut pending = vec![ty];
     let mut buffers = 0usize;
     while let Some(ty) = pending.pop() {
         match ty {
             Type::Buffer(_) => buffers += 1,
             Type::Product(elements) => pending.extend(elements.iter()),
-            _ if contains_buffer(ty) => return false,
+            _ if contains_buffer(ty) => return None,
             _ => {}
         }
     }
-    buffers == 1
+    Some(buffers)
 }
 
 pub(crate) fn contains_buffer(ty: &Type) -> bool {
@@ -45,13 +53,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn admits_exactly_one_buffer_leaf_in_a_product() {
+    fn counts_direct_buffer_leaves_in_products() {
         let buffer = Type::Buffer(Type::Int32.into());
         assert!(buffer_parameter_is_supported(&Type::Product(
             vec![Type::USize, buffer.clone()].into()
         )));
-        assert!(!buffer_parameter_is_supported(&Type::Product(
-            vec![buffer.clone(), buffer].into()
+        let multiple = Type::Product(vec![buffer.clone(), buffer.clone()].into());
+        assert!(buffer_parameter_is_supported(&multiple));
+        assert!(!has_single_buffer(&multiple));
+        assert!(has_single_buffer(&Type::Product(
+            vec![Type::USize, buffer].into()
         )));
     }
 }

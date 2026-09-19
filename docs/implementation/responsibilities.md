@@ -234,7 +234,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/optimization` | target固有emission decisionの集約 |
 | `backend/llvm/optimization/buffer_abi` | active-data ABIを使うfunction集合 |
 | `backend/llvm/optimization/buffer_abi/analysis` | call graphとcontrol region上のABI closure |
-| `backend/llvm/optimization/buffer_abi/shape` | 単一Buffer leafを持つparameter shape |
+| `backend/llvm/optimization/buffer_abi/shape` | direct化できるBuffer parameter shapeとleaf数 |
 | `backend/llvm/optimization/symbol_concat` | concat storage再利用候補 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |

@@ -1,4 +1,4 @@
-use crate::backend::llvm::optimization::type_contains_buffer;
+use crate::backend::llvm::optimization::{type_contains_buffer, type_has_single_buffer};
 use crate::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -39,7 +39,7 @@ impl FunctionEmitter<'_> {
             "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
             value_type.llvm, argument.representation
         );
-        if target_uses_direct_buffer {
+        if target_uses_direct_buffer && type_has_single_buffer(&argument.ty) {
             let data = self.buffer_leaf_representation(&argument.ty, &argument.representation)?;
             arguments.push_str(&format!(", ptr {data}"));
         }

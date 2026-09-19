@@ -5,7 +5,7 @@ use crate::closure::ast::FunctionId;
 mod analysis;
 mod shape;
 
-pub(super) use shape::contains_buffer;
+pub(super) use shape::{contains_buffer, has_single_buffer};
 
 pub(super) fn plan(execution: &crate::execution::Program) -> HashSet<FunctionId> {
     let functions = execution
@@ -28,6 +28,8 @@ pub(super) fn plan(execution: &crate::execution::Program) -> HashSet<FunctionId>
         .filter(|function| {
             stable.contains(&function.id)
                 && shape::buffer_parameter_is_supported(&function.parameter.ty)
+                && (shape::has_single_buffer(&function.parameter.ty)
+                    || analysis::has_no_control_frame(execution, functions[&function.id].entry))
                 && !contains_buffer(&function.body.result.ty)
                 && !analysis::captures_buffer_in_nested_closure(
                     execution,

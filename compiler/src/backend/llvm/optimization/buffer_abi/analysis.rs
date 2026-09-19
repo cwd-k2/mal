@@ -95,6 +95,11 @@ pub(super) fn has_no_relocation(execution: &crate::execution::Program, entry: St
     })
 }
 
+pub(super) fn has_no_control_frame(execution: &crate::execution::Program, entry: StateId) -> bool {
+    reachable_states(&execution.control, entry)
+        .all(|state| execution.control_frames.frame(state).is_none())
+}
+
 pub(super) fn captures_buffer_in_nested_closure(
     execution: &crate::execution::Program,
     entry: StateId,

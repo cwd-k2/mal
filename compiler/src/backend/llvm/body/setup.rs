@@ -181,7 +181,11 @@ impl<'a> FunctionEmitter<'a> {
                 "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
                 parameter.llvm
             );
-            if direct_buffer {
+            if direct_buffer
+                && crate::backend::llvm::optimization::type_has_single_buffer(
+                    &self.function.parameter.ty,
+                )
+            {
                 parameters.push_str(", ptr noalias %mal_buffer_data");
             }
             parameters
@@ -253,7 +257,10 @@ impl<'a> FunctionEmitter<'a> {
         if matches!(parameter_destination, ParameterDestination::Bind(_))
             || crate::execution::ownership::is_managed(&self.function.parameter.ty)
         {
-            let representation = if direct_buffer {
+            let representation = if direct_buffer
+                && crate::backend::llvm::optimization::type_has_single_buffer(
+                    &self.function.parameter.ty,
+                ) {
                 self.replace_buffer_leaf(
                     &self.function.parameter.ty.clone(),
                     "%mal_parameter",

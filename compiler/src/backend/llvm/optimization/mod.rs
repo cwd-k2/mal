@@ -103,6 +103,10 @@ pub(super) fn type_contains_buffer(ty: &crate::check::ast::Type) -> bool {
     buffer_abi::contains_buffer(ty)
 }
 
+pub(super) fn type_has_single_buffer(ty: &crate::check::ast::Type) -> bool {
+    buffer_abi::has_single_buffer(ty)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

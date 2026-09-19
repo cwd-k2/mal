@@ -151,6 +151,46 @@ fn keeps_a_capture_in_a_callback_invoked_more_than_once() {
 }
 
 #[test]
+fn passes_distinct_buffers_to_one_non_growing_helper() {
+    let directory = NativeFixture::new("driver-llvm-packed-multi-buffer-abi");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let baseline = directory.join("program-baseline");
+    directory.write(
+        "program.mal",
+        "combine :: ((Buffer<Int32>, Buffer<Int32>), USize) -> Unit := ((left, right), index) -> { left.put(index, left.get(index) + right.get(index)); }; main :: Unit -> Int32 := () -> { values := bulk<Int32>(2usize, (outer) -> { _ := outer.new(10i32); inner := bulk<Int32>(1usize, (nested) -> { _ := nested.new(5i32); combine(((outer, nested), 0usize)); (); }); _ := outer.new(inner # 0usize); (); }); (values # 0usize) + (values # 1usize) - 20i32; };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&executable).status.code(), Some(0));
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        baseline.as_os_str(),
+        OsStr::new("--optimization"),
+        OsStr::new("baseline"),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(&baseline).status.code(), Some(0));
+}
+
+#[test]
 fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
     let directory = NativeFixture::new("driver-llvm-stable-packed-data");
     let source = directory.join("program.mal");
