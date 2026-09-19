@@ -184,7 +184,6 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
 | `execution/ownership/authority` | caller-bounded parameter、case payload、discardされたpure constructionをauthority rootとして収集し、nested `Atom`、product、sumとpattern aliasの順序非依存なprovenanceを構成する |
-| `execution/packed` | application graphとcontrol continuationからPacked builder metadataを将来変更し得るexecutionを固定点で求め、以後の変更がないunique `get`・`put` applicationへstable data access factを付与する |
 | `execution/ownership/borrow` | authority dependencyで閉じたmanaged livenessをcontrol state、binding、terminatorへ提供する |
 | `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
@@ -215,13 +214,14 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/value/pattern` | executionのpattern destinationへtyped valueを格納または破棄 |
 | `backend/llvm/body/value/lifetime` | managed typeを再帰走査してretain、release、dead slot cleanupを出力し、closed program上の全inhabitantがscopedなfunction型のlifetime operationをidentityへ縮約 |
 | `backend/llvm/optimization` | 空集合でも成立するLLVM loweringに対し、execution ownership factを変更しないtarget固有techniqueのemission decisionを構成 |
+| `backend/llvm/optimization/packed_data` | admitted application graphとcontrol continuation、およびchecked-in runtimeの無効化operationからstable Packed direct accessを選択 |
 | `backend/llvm/optimization/symbol_concat` | execution ownership planのdead responsibility factから`Symbol` concatがstorage再利用を試みてよいoperandを選択 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
 | `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、unique・copy-on-write capability operation、freezeを出力する |
-| `backend/llvm/body/memory/stable_builder` | executionが証明したstable Packed data accessをruntimeのdata slot contractから出力し、builder layoutを再推論しない |
+| `backend/llvm/body/memory/stable_builder` | LLVM optimization planが選択したstable Packed direct accessをruntimeのdata slot contractから出力し、builder layoutを再推論しない |
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
 | `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |

@@ -225,3 +225,19 @@ frameの双方がownerを必要とする境界だけに残った。
 1.03倍、幾何平均は1.05倍、両方5 ms以上の51問では1.05倍と1.07倍だった。±5%を同等とするとMalが速い9問、同等34問、
 direct Cが速い36問であり、Packed変更によるsuite全体の回帰は認められない。個別結果とraw sampleはignored scratchの
 `llvm-results.md`と各`llvm-results.json`を正とする。
+
+## 2026-09-19 — growth後のPacked direct access
+
+固定長のmutable workspaceを使う011と063では、builderのgrowth完了後もunique `get`と`put`がruntime callを経由し、element storeが
+builder metadata loadを無効化していた。admitted application graphとcontrol continuationから後続の`New`、`NewUnique`、edit `Put`が
+ないsiteを保守的に選び、checked-in runtimeのdata slot contractを通してLLVMから直接load/storeするtechniqueを採択した。この選択は
+runtime表現に依存するためexecution factにはせず、空集合で通常のcapability callへ戻るLLVM optimization planに置いた。
+
+同一のClang 21.1.8、production profile、maximum-order inputで3回warmup後に20回交互測定した。変更前のPacked / Region median比は
+011が1.91倍、063が1.72倍、変更後はそれぞれ1.44倍と1.54倍だった。変更後の値は011が9.892 / 6.856 ms、063が
+18.171 / 11.809 msで、最大入力の出力は一致した。executableのtext sizeは011が5,706 / 4,043 bytes、063が
+5,415 / 3,576 bytesだった。raw sampleはignored scratchの各問題にある`stable-backend-vs-region.json`へ保存した。
+
+011の最終assemblyではhot loop内の大半のbuilder metadata reloadが消えた。一方、同じbuilder由来のget/put carrierを診断的に一つへ
+置換して再LTOした版は現行版に対して30回のmedian比が1.00倍で、Region比も1.45倍のままだった。最終mainのinstruction数は現行Packed
+412、carrier置換版463、Region 311である。builder provenanceの一般化は適用範囲を広げ得るが、この残差の主因としては採択しない。

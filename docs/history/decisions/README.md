@@ -47,8 +47,8 @@ D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loa
 D057はD055のresponsibility保存則を維持し、aggregate ownerがlifetimeを包含するlocal aliasをowned bindingからborrowへ置き換える。
 D058はD055とD057のresponsibility保存則をcall boundaryへ適用し、caller authorityが全pathを包含するparameterとargumentをborrowへ
 置き換える。
-D059はPacked builderのidentity証明とは独立に、将来のmetadata mutationがないexecution区間を保守的に証明し、stable data accessを
-backendへ渡す。
+D059はPacked builderのidentityを意味論へ追加せず、admitted execution planとchecked-in runtime mechanismからstable data accessを
+LLVM backendの任意techniqueとして選択する。
 
 ## 後継があるhistorical record
 

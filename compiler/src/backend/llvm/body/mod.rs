@@ -64,12 +64,8 @@ pub(super) fn generate(
     let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
     let top_levels = TopLevelConstants::new(execution, types.clone(), source_layouts)?;
     let index = ProgramIndex::new(execution)?;
-    let optimizations = super::optimization::OptimizationPlan::new(
-        &execution.control,
-        &execution.ownership,
-        enabled,
-    );
-    debug_assert!(optimizations.is_valid(&execution.control, &execution.ownership, enabled));
+    let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
+    debug_assert!(optimizations.is_valid(execution, enabled));
     let mut globals = top_levels.globals().to_string();
     let mut definitions = String::new();
     let mut uses_control = false;

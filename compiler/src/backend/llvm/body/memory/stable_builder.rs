@@ -6,7 +6,7 @@ use super::super::{EmittedValue, FunctionEmitter};
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_stable_packed_access(
         &mut self,
-        access: &crate::execution::StablePackedAccess,
+        access: &crate::backend::llvm::optimization::StablePackedAccess,
         builder: &str,
         argument: &EmittedValue,
     ) -> Option<EmittedValue> {

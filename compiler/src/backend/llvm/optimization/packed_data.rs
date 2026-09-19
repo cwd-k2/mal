@@ -1,28 +1,25 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{FunctionId, FunctionKind};
-use crate::control::ast::{Program, StateId, Terminator};
+use crate::control::ast::{StateId, Terminator};
 use crate::core::ast::PackedBuilderOperation;
 
-use super::ApplicationGraph;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct StablePackedAccess {
-    pub(crate) operation: PackedBuilderOperation,
-    pub(crate) element: crate::check::ast::Type,
+pub(in crate::backend::llvm) struct StablePackedAccess {
+    pub(in crate::backend::llvm) operation: PackedBuilderOperation,
+    pub(in crate::backend::llvm) element: crate::check::ast::Type,
 }
 
 #[derive(Eq, PartialEq)]
-pub(crate) struct PackedDataPlan {
-    stable_applications: HashMap<StateId, StablePackedAccess>,
+pub(crate) struct StablePackedAccessPlan {
+    pub(super) stable_applications: HashMap<StateId, StablePackedAccess>,
 }
 
-impl PackedDataPlan {
-    pub(crate) fn new(
-        lowered: &crate::closure::ast::Program,
-        control: &Program,
-        applications: &ApplicationGraph,
-    ) -> Self {
+impl StablePackedAccessPlan {
+    pub(super) fn new(execution: &crate::execution::Program) -> Self {
+        let lowered = &execution.lowered;
+        let control = &execution.control;
+        let applications = &execution.applications;
         let operations = lowered
             .functions
             .iter()
@@ -145,17 +142,14 @@ impl PackedDataPlan {
         }
     }
 
-    pub(crate) fn stable_access(&self, site: StateId) -> Option<&StablePackedAccess> {
-        self.stable_applications.get(&site)
+    pub(super) fn empty() -> Self {
+        Self {
+            stable_applications: HashMap::new(),
+        }
     }
 
-    pub(crate) fn is_valid(
-        &self,
-        lowered: &crate::closure::ast::Program,
-        control: &Program,
-        applications: &ApplicationGraph,
-    ) -> bool {
-        self == &Self::new(lowered, control, applications)
+    pub(super) fn stable_access(&self, site: StateId) -> Option<&StablePackedAccess> {
+        self.stable_applications.get(&site)
     }
 }
 
@@ -174,5 +168,5 @@ fn successors(terminator: &Terminator) -> impl Iterator<Item = StateId> + '_ {
 }
 
 #[cfg(test)]
-#[path = "packed_tests.rs"]
+#[path = "packed_data_tests.rs"]
 mod tests;

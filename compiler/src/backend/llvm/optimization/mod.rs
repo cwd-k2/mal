@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use crate::control::ast::StateId;
 
+mod packed_data;
 mod symbol_concat;
+
+pub(in crate::backend::llvm) use packed_data::StablePackedAccess;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
     SymbolConcatReuse,
+    StablePackedAccess,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,7 +22,9 @@ impl OptimizationSet {
     }
 
     pub(crate) const fn production() -> Self {
-        Self::none().with(Technique::SymbolConcatReuse)
+        Self::none()
+            .with(Technique::SymbolConcatReuse)
+            .with(Technique::StablePackedAccess)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -30,7 +36,9 @@ impl OptimizationSet {
     }
 }
 
+#[derive(Eq, PartialEq)]
 pub(super) struct OptimizationPlan {
+    packed_data: packed_data::StablePackedAccessPlan,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
 }
 
@@ -42,28 +50,36 @@ pub(super) enum SymbolConcatMode {
 }
 
 impl OptimizationPlan {
-    pub(super) fn new(
-        control: &crate::control::ast::Program,
-        ownership: &crate::execution::OwnershipPlan,
-        enabled: OptimizationSet,
-    ) -> Self {
+    pub(super) fn new(execution: &crate::execution::Program, enabled: OptimizationSet) -> Self {
+        let packed_data = if enabled.contains(Technique::StablePackedAccess) {
+            packed_data::StablePackedAccessPlan::new(execution)
+        } else {
+            packed_data::StablePackedAccessPlan::empty()
+        };
         let symbol_concatenations = if enabled.contains(Technique::SymbolConcatReuse) {
-            symbol_concat::plan(control, ownership)
+            symbol_concat::plan(&execution.control, &execution.ownership)
         } else {
             HashMap::new()
         };
         Self {
+            packed_data,
             symbol_concatenations,
         }
     }
 
     pub(super) fn is_valid(
         &self,
-        control: &crate::control::ast::Program,
-        ownership: &crate::execution::OwnershipPlan,
+        execution: &crate::execution::Program,
         enabled: OptimizationSet,
     ) -> bool {
-        self.symbol_concatenations == Self::new(control, ownership, enabled).symbol_concatenations
+        self == &Self::new(execution, enabled)
+    }
+
+    pub(in crate::backend::llvm) fn stable_packed_access(
+        &self,
+        site: StateId,
+    ) -> Option<&StablePackedAccess> {
+        self.packed_data.stable_access(site)
     }
 
     pub(super) fn symbol_concat_mode(&self, site: StateId, binding: usize) -> SymbolConcatMode {
@@ -95,21 +111,19 @@ mod tests {
         let closure = crate::closure::convert(&anf);
         let execution =
             crate::execution::lower(closure, crate::execution::OptimizationSet::production());
-        let control = &execution.control;
-        let ownership = &execution.ownership;
         let enabled = OptimizationSet::none().with(Technique::SymbolConcatReuse);
-        let mut plan = OptimizationPlan::new(control, ownership, enabled);
+        let mut plan = OptimizationPlan::new(&execution, enabled);
 
-        assert!(plan.is_valid(control, ownership, enabled));
+        assert!(plan.is_valid(&execution, enabled));
         let decision = *plan
             .symbol_concatenations
             .keys()
             .next()
             .expect("consuming concat decision");
         plan.symbol_concatenations.remove(&decision);
-        assert!(!plan.is_valid(control, ownership, enabled));
+        assert!(!plan.is_valid(&execution, enabled));
         assert!(
-            OptimizationPlan::new(control, ownership, OptimizationSet::none())
+            OptimizationPlan::new(&execution, OptimizationSet::none())
                 .symbol_concatenations
                 .is_empty()
         );
