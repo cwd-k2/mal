@@ -414,6 +414,7 @@ static MalBytesFlat *mal_packed_builder_grow_unique(
     return flat;
 }
 
+__attribute__((always_inline))
 size_t mal_runtime_packed_builder_new(
     MalContext *context,
     void *opaque_builder,
