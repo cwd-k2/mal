@@ -22,7 +22,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | source file requirement | [D032](D032.md) |
 | genericsとexternal memory | [D052](D052.md)、[D056](D056.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
-| Packed execution | [D058](D058.md)、[D061](D061.md) |
+| Packed execution | [D058](D058.md)、[D061](D061.md)、[D062](D062.md)、[D063](D063.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -47,10 +47,9 @@ D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loa
 D057はD055のresponsibility保存則を維持し、aggregate ownerがlifetimeを包含するlocal aliasをowned bindingからborrowへ置き換える。
 D058はD055とD057のresponsibility保存則をcall boundaryへ適用し、caller authorityが全pathを包含するparameterとargumentをborrowへ
 置き換える。
-D059はPacked builderのidentityを意味論へ追加せず、admitted execution planとchecked-in runtime mechanismからstable data accessを
-LLVM backendの任意techniqueとして選択する。
-D060はedit callback開始時のeager copyを退け、実際の最初の`Put`でだけcopy-on-writeを行うdirect accessとcold slow pathへ拡張する。
-D061はD059とD060のlazy copy-on-writeを維持し、三つのintrinsic capabilityとそのtarget解析を一つの`Buffer<A>` authorityとdirect operationで置き換える。
+D061は三つのintrinsic capabilityとtarget解析を一つの`Buffer<A>` authorityとdirect operationで置き換える。
+D062は仕様が許す二つのprepare時点からcallback前の一度を選び、D060のlazy preparationを置き換える。
+D063はD059のcapability単位のstable accessを置き換え、non-growing Buffer helperのinternal ABIをactive dataへ変換する。
 
 ## 後継があるhistorical record
 
@@ -72,7 +71,8 @@ D061はD059とD060のlazy copy-on-writeを維持し、三つのintrinsic capabil
 | [D042: applicationをvalueとcontinuationの双方向表記に統一する](D042.md) | [D048](D048.md) |
 | [D048: 直和の構築をsum return binderに限定する](D048.md) | [D049](D049.md) |
 | [D050: bodyをexpressionに統一しbinder境界へ`->`を置く](D050.md) | [D051](D051.md) |
-| [D059: Packed builder dataのstable direct access](D059.md)、[D060: editのlazy preparation](D060.md) | [D061](D061.md) |
+| [D059: Packed builder dataのstable direct access](D059.md) | [D061](D061.md)、[D063](D063.md) |
+| [D060: editのlazy preparation](D060.md) | [D062](D062.md) |
 | [D022: pointer primitive](D022.md)、[D024: pointer memory operation](D024.md)、[D037: 型修飾memory primitive](D037.md) | [D052](D052.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
