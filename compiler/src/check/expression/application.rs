@@ -186,6 +186,7 @@ impl Checker {
         callee: &Node<resolved::Expression>,
         arguments: &[Node<resolved::Expression>],
         span: Span,
+        expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if let resolved::Expression::GenericReference {
             reference,
@@ -193,17 +194,38 @@ impl Checker {
         } = &callee.kind
             && matches!(
                 reference.id,
-                crate::resolve::PACK_VALUE
-                    | crate::resolve::BULK_VALUE
-                    | crate::resolve::EDIT_VALUE
+                crate::resolve::MAKE_VALUE | crate::resolve::EDIT_VALUE
             )
         {
             return self.check_packed_build(reference, type_arguments, arguments, span);
         }
-        if let resolved::Expression::Reference(reference) = &callee.kind
-            && self.is_buffer_operation_call(reference, arguments)
+        if let resolved::Expression::GenericReference {
+            reference,
+            arguments: type_arguments,
+        } = &callee.kind
+            && matches!(
+                reference.id,
+                crate::resolve::PACK_VALUE | crate::resolve::VIEW_VALUE
+            )
         {
-            return self.check_buffer_operation(reference, arguments, span);
+            return self.check_memory_intrinsic(
+                reference,
+                type_arguments,
+                arguments,
+                span,
+                expected,
+            );
+        }
+        if let resolved::Expression::Reference(reference) = &callee.kind
+            && matches!(
+                reference.id,
+                crate::resolve::NEW_VALUE
+                    | crate::resolve::GET_VALUE
+                    | crate::resolve::PUT_VALUE
+                    | crate::resolve::SET_VALUE
+            )
+        {
+            return self.check_memory_operation(reference, arguments, span);
         }
         if let resolved::Expression::Reference(reference) = &callee.kind
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
@@ -270,7 +292,7 @@ impl Checker {
         })
     }
 
-    pub(super) fn check_argument(
+    pub(crate) fn check_argument(
         &mut self,
         arguments: &[Node<resolved::Expression>],
         parameter: &Type,

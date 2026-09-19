@@ -75,12 +75,12 @@ fn orders_primitive_operands_left_to_right() {
 #[test]
 fn evaluates_an_argument_before_its_callee_and_application() {
     let program = lower_ok(
-        "make :: Unit -> (Unit -> Int32) := () -> {\n\
+        "create :: Unit -> (Unit -> Int32) := () -> {\n\
            () -> { 4; };\n\
          };\n\
          argument :: Unit -> Unit := () -> { (); };\n\
          main :: Unit -> Int32 := () -> {\n\
-           make()(argument());\n\
+           create()(argument());\n\
          };",
     );
     let bindings = &top_lambda(&program, "main").body.bindings;
@@ -236,10 +236,10 @@ fn evaluates_product_elements_left_to_right_before_construction() {
 #[test]
 fn keeps_memory_operands_direct_and_evaluates_them_left_to_right() {
     let program = lower_ok(
-        "make :: Unit -> Packed<UInt8> := () -> { *\"a\" };\n\
+        "create :: Unit -> Packed<UInt8> := () -> { *\"a\" };\n\
          extern index :: Unit -> USize;\n\
          main :: Unit -> Int32 := () -> {\n\
-           (make() # index()).i32;\n\
+           (create() # index()).i32;\n\
          };",
     );
     let bindings = &top_lambda(&program, "main").body.bindings;

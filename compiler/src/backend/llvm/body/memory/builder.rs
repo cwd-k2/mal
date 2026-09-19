@@ -15,24 +15,13 @@ impl FunctionEmitter<'_> {
         let stride = self.source_layouts.layout(element)?.stride;
         let buffer_type = Type::Buffer(element.clone().into());
         match operation {
-            PackedBuilderOperation::Start => {
-                if argument.ty != Type::Unit || *result_type != buffer_type {
-                    return None;
-                }
-                let builder = self.register();
-                self.line(format!(
-                    "  {builder} = call ptr @mal_runtime_packed_builder_start(ptr %mal_context, {} {stride})",
-                    self.types.pointer_integer()?
-                ));
-                Some(buffer(builder, buffer_type))
-            }
-            PackedBuilderOperation::StartBulk => {
+            PackedBuilderOperation::Make => {
                 if argument.ty != Type::USize || *result_type != buffer_type {
                     return None;
                 }
                 let builder = self.register();
                 self.line(format!(
-                    "  {builder} = call ptr @mal_runtime_packed_builder_start_bulk(ptr %mal_context, {0} {stride}, {0} {1})",
+                    "  {builder} = call ptr @mal_runtime_packed_builder_make(ptr %mal_context, {0} {stride}, {0} {1})",
                     self.types.pointer_integer()?, argument.representation
                 ));
                 Some(buffer(builder, buffer_type))

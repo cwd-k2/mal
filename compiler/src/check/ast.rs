@@ -26,7 +26,6 @@ pub enum Type {
         id: TypeId,
         name: String,
     },
-    Cursor(Arc<Type>),
     Region(Arc<Type>),
     Packed(Arc<Type>),
     Buffer(Arc<Type>),
@@ -83,8 +82,7 @@ impl PartialEq for Type {
                         name: right_name,
                     },
                 ) if left_id == right_id && left_name == right_name => {}
-                (Self::Cursor(left), Self::Cursor(right))
-                | (Self::Region(left), Self::Region(right))
+                (Self::Region(left), Self::Region(right))
                 | (Self::Packed(left), Self::Packed(right))
                 | (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
                 (
@@ -288,8 +286,7 @@ pub struct Expression {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PackedBuild {
-    Pack,
-    Bulk { capacity: Box<Expression> },
+    Make { capacity: Box<Expression> },
     Edit { source: Box<Expression> },
 }
 
@@ -361,6 +358,11 @@ pub enum ExpressionKind {
         callback: Box<Expression>,
         element: Type,
     },
+    RegionView {
+        range: Box<Expression>,
+        callback: Box<Expression>,
+        element: Type,
+    },
     SymbolLength {
         value: Box<Expression>,
     },
@@ -400,18 +402,15 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MemoryPrimitive {
-    Place,
-    Region,
-    ProjectAddress,
-    Align,
-    LoadValue,
-    StoreValue,
-    AdmitRegion,
-    StorePacked,
+    FormRegion,
+    RegionGet,
+    RegionPut,
+    PackAddress,
+    RegionSet,
+    PackedConcat,
     Prefix,
     RemainderView,
     ViewLength,
-    RegionIndex,
     PackedIndex,
     PackedToSymbol,
     SymbolToPacked,

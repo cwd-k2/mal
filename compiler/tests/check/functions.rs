@@ -223,7 +223,7 @@ fn rejects_invalid_sum_continuations_and_type_applications() {
 #[test]
 fn propagates_types_through_capture_bindings() {
     let program = check_ok(
-        "make :: Int32 -> (Int32 -> Int32) := (x) -> {\n\
+        "create :: Int32 -> (Int32 -> Int32) := (x) -> {\n\
            (y) -> { x + y; };\n\
          };",
     );

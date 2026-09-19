@@ -34,7 +34,7 @@ fn pratt_parser_preserves_precedence_and_left_associativity() {
 
 #[test]
 fn calls_bind_more_tightly_than_unary_operators() {
-    let expression = binding_value("value := -make()(1);");
+    let expression = binding_value("value := -create()(1);");
     let Expression::Unary { operator, operand } = expression else {
         panic!("expected unary expression");
     };
@@ -47,7 +47,7 @@ fn calls_bind_more_tightly_than_unary_operators() {
 
 #[test]
 fn parses_symbol_length_and_byte_access_with_access_precedence() {
-    let Expression::Unary { operator, operand } = binding_value(r#"value := #make();"#) else {
+    let Expression::Unary { operator, operand } = binding_value(r#"value := #create();"#) else {
         panic!("expected Symbol length");
     };
     assert_eq!(operator.kind, UnaryOperator::SymbolLength);
@@ -92,34 +92,13 @@ fn rejects_non_associative_operator_chains() {
 }
 
 #[test]
-fn parses_closed_shapes_memory_operators_and_postfix_chains() {
+fn parses_closed_shape_stride_queries() {
     let Expression::StrideQuery(shape) = binding_value("value := #(address, bytesize);") else {
         panic!("expected a stride query");
     };
     assert!(
         matches!(shape.kind, malc::ast::LayoutShape::Product(ref members) if members.len() == 2)
     );
-
-    let Expression::Align(placement) = binding_value("value := address@u64@count!;") else {
-        panic!("expected postfix alignment");
-    };
-    assert!(matches!(placement.kind, Expression::Placement { .. }));
-
-    let Expression::Binary { operator, .. } = binding_value("value := cursor <- item;") else {
-        panic!("expected store");
-    };
-    assert_eq!(operator.kind, BinaryOperator::Store);
-
-    let Expression::Unary { operator, .. } = binding_value("value := <-cursor;") else {
-        panic!("expected load");
-    };
-    assert_eq!(operator.kind, UnaryOperator::Load);
-
-    let Expression::Unary { operator, operand } = binding_value("value := <-address@u8;") else {
-        panic!("expected load");
-    };
-    assert_eq!(operator.kind, UnaryOperator::Load);
-    assert!(matches!(operand.kind, Expression::Placement { .. }));
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use crate::ast::{BodyItem, Expression, PlacementOperand, Program, TopItem, TypeExpression};
+use crate::ast::{BodyItem, Expression, Program, TopItem, TypeExpression};
 use crate::lexer::{Lexed, TokenKind};
 
 pub(super) fn delimiters(lexed: &Lexed, program: &Program) -> Vec<bool> {
@@ -106,7 +106,7 @@ impl Marker<'_> {
                         self.ty(argument);
                     }
                 }
-                Expression::Parenthesized(inner) | Expression::Align(inner) => pending.push(inner),
+                Expression::Parenthesized(inner) => pending.push(inner),
                 Expression::Product(elements) => pending.extend(elements.iter().rev()),
                 Expression::Block(block) | Expression::ResultBlock { body: block, .. } => {
                     self.body(&block.items, &block.result);
@@ -125,12 +125,6 @@ impl Marker<'_> {
                 }
                 Expression::Conversion { value, .. } | Expression::Unary { operand: value, .. } => {
                     pending.push(value)
-                }
-                Expression::Placement { value, operand } => {
-                    if let PlacementOperand::Value(operand) = operand {
-                        pending.push(operand);
-                    }
-                    pending.push(value);
                 }
                 Expression::If {
                     condition,

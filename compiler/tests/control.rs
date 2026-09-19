@@ -113,7 +113,7 @@ fn records_only_caller_values_live_after_a_non_tail_call() {
 fn carries_the_caller_environment_when_a_resume_uses_a_capture() {
     let program = lower_ok(
         "identity :: Int32 -> Int32 := (x) -> { x; };\n\
-         make :: Int32 -> (Int32 -> Int32) := (captured) -> {\n\
+         create :: Int32 -> (Int32 -> Int32) := (captured) -> {\n\
            (argument) -> {\n\
              called := identity(argument);\n\
              called + captured;\n\

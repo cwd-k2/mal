@@ -11,19 +11,20 @@ mod checked_ast;
 mod resolved_ast;
 mod type_display;
 
-const INDEXED_TYPES: [(&str, resolved::TypeId); 4] = [
-    ("Cursor", resolved::CURSOR_TYPE),
+const INDEXED_TYPES: [(&str, resolved::TypeId); 3] = [
     ("Region", resolved::REGION_TYPE),
     ("Packed", resolved::PACKED_TYPE),
     ("Buffer", resolved::BUFFER_TYPE),
 ];
 
-const PACK_DETAIL: &str = "(Buffer<T> -> Unit) -> Packed<T>";
-const BULK_DETAIL: &str = "(USize, Buffer<T> -> Unit) -> Packed<T>";
+const PACK_DETAIL: &str = "(Address, USize, USize) -> Packed<T>";
+const MAKE_DETAIL: &str = "(USize, Buffer<T> -> Unit) -> Packed<T>";
 const EDIT_DETAIL: &str = "(Packed<T>, Buffer<T> -> Unit) -> Packed<T>";
+const VIEW_DETAIL: &str = "(Address, USize, USize, Region<T> -> R) -> R";
 const NEW_DETAIL: &str = "(Buffer<T>, T) -> USize";
 const GET_DETAIL: &str = "(Buffer<T>, USize) -> T";
 const PUT_DETAIL: &str = "(Buffer<T>, USize, T) -> Unit";
+const SET_DETAIL: &str = "(Region<T>, Packed<T>) -> Region<T>";
 
 pub(super) fn build(
     resolved: &resolved::Program,
@@ -60,11 +61,13 @@ impl Index {
             aliases: HashMap::new(),
             value_types: [
                 (crate::resolve::PACK_VALUE, PACK_DETAIL.to_owned()),
-                (crate::resolve::BULK_VALUE, BULK_DETAIL.to_owned()),
+                (crate::resolve::MAKE_VALUE, MAKE_DETAIL.to_owned()),
                 (crate::resolve::EDIT_VALUE, EDIT_DETAIL.to_owned()),
+                (crate::resolve::VIEW_VALUE, VIEW_DETAIL.to_owned()),
                 (crate::resolve::NEW_VALUE, NEW_DETAIL.to_owned()),
                 (crate::resolve::GET_VALUE, GET_DETAIL.to_owned()),
                 (crate::resolve::PUT_VALUE, PUT_DETAIL.to_owned()),
+                (crate::resolve::SET_VALUE, SET_DETAIL.to_owned()),
             ]
             .into_iter()
             .collect(),
@@ -76,11 +79,13 @@ impl Index {
             type_aliases: HashMap::new(),
             functions: HashSet::from([
                 crate::resolve::PACK_VALUE,
-                crate::resolve::BULK_VALUE,
+                crate::resolve::MAKE_VALUE,
                 crate::resolve::EDIT_VALUE,
+                crate::resolve::VIEW_VALUE,
                 crate::resolve::NEW_VALUE,
                 crate::resolve::GET_VALUE,
                 crate::resolve::PUT_VALUE,
+                crate::resolve::SET_VALUE,
             ]),
             parameters: HashSet::new(),
             typed_regions: Vec::new(),
@@ -277,11 +282,13 @@ fn predefined_symbols() -> Vec<Symbol> {
             kind: if matches!(
                 id,
                 crate::resolve::PACK_VALUE
-                    | crate::resolve::BULK_VALUE
+                    | crate::resolve::MAKE_VALUE
                     | crate::resolve::EDIT_VALUE
+                    | crate::resolve::VIEW_VALUE
                     | crate::resolve::NEW_VALUE
                     | crate::resolve::GET_VALUE
                     | crate::resolve::PUT_VALUE
+                    | crate::resolve::SET_VALUE
             ) {
                 SymbolKind::Function
             } else {
@@ -289,11 +296,13 @@ fn predefined_symbols() -> Vec<Symbol> {
             },
             detail: match id {
                 crate::resolve::PACK_VALUE => Some(PACK_DETAIL.to_owned()),
-                crate::resolve::BULK_VALUE => Some(BULK_DETAIL.to_owned()),
+                crate::resolve::MAKE_VALUE => Some(MAKE_DETAIL.to_owned()),
                 crate::resolve::EDIT_VALUE => Some(EDIT_DETAIL.to_owned()),
+                crate::resolve::VIEW_VALUE => Some(VIEW_DETAIL.to_owned()),
                 crate::resolve::NEW_VALUE => Some(NEW_DETAIL.to_owned()),
                 crate::resolve::GET_VALUE => Some(GET_DETAIL.to_owned()),
                 crate::resolve::PUT_VALUE => Some(PUT_DETAIL.to_owned()),
+                crate::resolve::SET_VALUE => Some(SET_DETAIL.to_owned()),
                 _ => None,
             },
             span: None,

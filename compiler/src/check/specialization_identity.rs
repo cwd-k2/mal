@@ -120,14 +120,19 @@ impl IdentityBounds {
                 build, callback, ..
             } => {
                 match build {
-                    crate::check::ast::PackedBuild::Pack => {}
-                    crate::check::ast::PackedBuild::Bulk { capacity } => {
+                    crate::check::ast::PackedBuild::Make { capacity } => {
                         self.expression(capacity);
                     }
                     crate::check::ast::PackedBuild::Edit { source } => {
                         self.expression(source);
                     }
                 }
+                self.expression(callback);
+            }
+            ExpressionKind::RegionView {
+                range, callback, ..
+            } => {
+                self.expression(range);
                 self.expression(callback);
             }
             ExpressionKind::SymbolAt { argument } => {

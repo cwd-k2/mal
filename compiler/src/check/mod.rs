@@ -94,6 +94,7 @@ struct Checker {
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
     used_result_targets: HashSet<ValueId>,
+    scoped_values: HashSet<ValueId>,
 }
 
 #[derive(Clone)]
@@ -130,6 +131,7 @@ impl Checker {
             externals: HashMap::new(),
             result_targets: HashMap::new(),
             used_result_targets: HashSet::new(),
+            scoped_values: HashSet::new(),
         }
     }
 
@@ -330,6 +332,9 @@ impl Checker {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) => {
                 self.values.insert(binding.id, ty.clone());
+                if types::contains_scoped_value(ty) {
+                    self.scoped_values.insert(binding.id);
+                }
                 Ok(Pattern::Binding {
                     binding: binding.clone(),
                     ty: ty.clone(),

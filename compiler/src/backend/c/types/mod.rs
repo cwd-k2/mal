@@ -80,7 +80,6 @@ impl TypeRegistry {
             Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
             Type::Symbol
             | Type::Parameter { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_) => {
@@ -119,7 +118,6 @@ impl TypeRegistry {
             }
             Type::Symbol
             | Type::Parameter { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_) => {
@@ -155,7 +153,6 @@ impl TypeRegistry {
                 | Type::USize => unreachable!(),
                 Type::Symbol
                 | Type::Parameter { .. }
-                | Type::Cursor(_)
                 | Type::Region(_)
                 | Type::Packed(_)
                 | Type::Buffer(_) => {
@@ -241,7 +238,6 @@ impl TypeRegistry {
                 | Type::USize => unreachable!(),
                 Type::Symbol
                 | Type::Parameter { .. }
-                | Type::Cursor(_)
                 | Type::Region(_)
                 | Type::Packed(_)
                 | Type::Buffer(_) => {

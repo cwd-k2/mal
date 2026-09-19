@@ -188,7 +188,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(88),
             "borrowed-case-payload.mal",
-            "Choice :: [Symbol, Symbol];\nkeep :: Choice -> Choice := (choice) -> { choice[(value) -> { length := #value; choice }, (value) -> { length := #value; choice }] };\nmake :: Symbol -> Choice := (value) -> [first, second] => { first(value) };\nmain :: Unit -> Int32 := () -> { result := keep(make(\"a\" + \"b\")); 0i32; };".into(),
+            "Choice :: [Symbol, Symbol];\nkeep :: Choice -> Choice := (choice) -> { choice[(value) -> { length := #value; choice }, (value) -> { length := #value; choice }] };\ncreate :: Symbol -> Choice := (value) -> [first, second] => { first(value) };\nmain :: Unit -> Int32 := () -> { result := keep(create(\"a\" + \"b\")); 0i32; };".into(),
         );
         let checked = crate::pipeline::check(&source).expect("check borrowed case fixture");
         let core = crate::core::lower(

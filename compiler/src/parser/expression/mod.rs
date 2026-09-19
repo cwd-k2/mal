@@ -37,16 +37,6 @@ impl Parser<'_> {
                 };
                 continue;
             }
-            if self.at(&TokenKind::At) && 23 >= minimum {
-                left = self.parse_placement(left)?;
-                continue;
-            }
-            if self.at(&TokenKind::Bang) && 23 >= minimum {
-                let end = self.advance().span.end();
-                let start = left.span.start();
-                left = Node::new(Expression::Align(Box::new(left)), self.span(start, end));
-                continue;
-            }
             let Some((operator, precedence, is_non_associative)) = self.binary_operator() else {
                 break;
             };
@@ -219,7 +209,6 @@ impl Parser<'_> {
             TokenKind::Slash => (BinaryOperator::Divide, 19, false),
             TokenKind::Percent => (BinaryOperator::Remainder, 19, false),
             TokenKind::Hash => (BinaryOperator::SymbolAt, 21, true),
-            TokenKind::LeftArrow => (BinaryOperator::Store, 0, false),
             _ => return None,
         })
     }
@@ -230,8 +219,6 @@ impl Parser<'_> {
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
             TokenKind::Hash => Some(UnaryOperator::SymbolLength),
-            TokenKind::Question => Some(UnaryOperator::ProjectAddress),
-            TokenKind::LeftArrow => Some(UnaryOperator::Load),
             TokenKind::Star => Some(UnaryOperator::Star),
             _ => None,
         }

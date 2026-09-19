@@ -23,7 +23,7 @@ typedef struct {
     MalBytes header;
     size_t capacity;
     size_t start;
-    unsigned char bytes[];
+    _Alignas(max_align_t) unsigned char bytes[];
 } MalBytesFlat;
 
 _Static_assert(sizeof(MalBytes) == 24, "byte owner header layout mismatch");
@@ -37,7 +37,7 @@ _Static_assert(
     "static byte storage must preserve canonical alignment"
 );
 _Static_assert(
-    offsetof(MalBytesFlat, bytes) % 8 == 0,
+    offsetof(MalBytesFlat, bytes) % _Alignof(max_align_t) == 0,
     "flat byte storage must preserve canonical alignment"
 );
 

@@ -153,7 +153,7 @@ fn represents_capture_free_closures_without_environment_fields() {
 fn keeps_buffer_operations_direct_through_closure_conversion() {
     let program = convert_ok(
         "fill :: Buffer<Int64> -> Unit := (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index)); (); };\n\
-         main :: Unit -> Int32 := () -> { first := pack<Int64>(fill); second := pack<Int64>(fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };",
+         main :: Unit -> Int32 := () -> { first := make<Int64>(0usize, fill); second := make<Int64>(0usize, fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };",
     );
     let buffer_operations = program
         .functions
@@ -218,7 +218,7 @@ fn represents_local_self_references_with_the_current_closure() {
 #[test]
 fn preserves_captured_products_and_destructuring_patterns() {
     let program = convert_ok(
-        "make :: Unit -> (Unit -> Int32) := () -> {\n\
+        "create :: Unit -> (Unit -> Int32) := () -> {\n\
            pair := (20i32, 22i32);\n\
            () -> {\n\
              (left, right) := pair;\n\

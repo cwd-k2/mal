@@ -136,7 +136,7 @@ fn receiver_first_callees_support_function_editor_features() {
 
 #[test]
 fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
-    let text = "build :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> { _ := buffer.new(1i32); () });\n\
+    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); () });\n\
                 revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_) -> ());\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
@@ -190,7 +190,7 @@ fn numeric_conversion_suffixes_have_value_hover_without_type_navigation() {
 
 #[test]
 fn sum_result_annotations_navigate_to_the_alias() {
-    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\nmake :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { make(1) };\n";
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();
     let constructor_offset = text.find("-> Choice").unwrap() + 3;
@@ -211,12 +211,15 @@ fn sum_result_annotations_navigate_to_the_alias() {
         "[Unit, Payload]"
     );
     assert_eq!(
-        document.hover_at(text.find("make ::").unwrap()).unwrap().ty,
+        document
+            .hover_at(text.find("create ::").unwrap())
+            .unwrap()
+            .ty,
         "Payload -> Choice"
     );
     assert_eq!(
         document
-            .hover_at(text.rfind("make(1)").unwrap() + 4)
+            .hover_at(text.rfind("create(1)").unwrap() + 4)
             .unwrap()
             .ty,
         "[Unit, Int32]"
@@ -305,7 +308,7 @@ fn symbol_operators_report_their_result_types() {
 
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
-    let text = "make :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
+    let text = "create :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
     let parameter_offset = text.find("(x)").unwrap() + 1;
     let inner_reference_offset = text.find("{ x;").unwrap() + 2;

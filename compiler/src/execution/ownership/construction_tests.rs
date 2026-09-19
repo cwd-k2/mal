@@ -172,7 +172,7 @@ fn consumes_payloads_into_live_product_and_sum_results() {
 #[test]
 fn consumes_an_owned_capture_into_a_new_closure_environment() {
     let execution = lower(
-        "make :: Symbol -> (Unit -> Symbol) := (value) -> { owned := value + \"x\"; closure :: Unit -> Symbol := () -> { owned }; closure };\nmain :: Unit -> Int32 := () -> { closure := make(\"a\"); result := closure(); 0i32; };",
+        "create :: Symbol -> (Unit -> Symbol) := (value) -> { owned := value + \"x\"; closure :: Unit -> Symbol := () -> { owned }; closure };\nmain :: Unit -> Int32 := () -> { closure := create(\"a\"); result := closure(); 0i32; };",
     );
     let effect = execution
         .control

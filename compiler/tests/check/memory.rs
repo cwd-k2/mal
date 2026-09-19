@@ -1,20 +1,18 @@
 use super::*;
 
 #[test]
-fn checks_typed_cursor_region_and_stride_operations() {
+fn checks_typed_region_and_stride_operations() {
     let program = check_ok(
         "extern memory :: Unit -> Address;\n\
-         useMemory :: Unit -> UInt64 := () -> {\n\
-           cursor := memory()@u64;\n\
-           next := cursor <- 41u64;\n\
-           value := <-cursor;\n\
-           region := next@3usize;\n\
-           indexed :: Cursor<UInt64> := region # 1usize;\n\
-           projected :: Address := ?region;\n\
-           shifted := projected + #u64;\n\
-           _ := shifted@u8;\n\
-           value + (<-indexed) + (#(u8, u64)).u64;\n\
-         };",
+         useMemory :: Unit -> UInt64 := () ->\n\
+           view<UInt64>(memory(), 0usize, 3usize, (region) -> {\n\
+             region.put(0usize, 41u64);\n\
+             prefix := region / 2usize;\n\
+             remainder := region % 1usize;\n\
+             shifted := memory() + #u64;\n\
+             _ := shifted;\n\
+             prefix.get(0usize) + remainder.get(0usize) + (#(u8, u64)).u64;\n\
+           });",
     );
     let ExpressionKind::Lambda(function) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
@@ -23,10 +21,10 @@ fn checks_typed_cursor_region_and_stride_operations() {
 }
 
 #[test]
-fn permits_discarding_a_store_result_as_an_expression_statement() {
+fn permits_discarding_a_put_result_as_an_expression_statement() {
     check_ok(
-        "write :: (Cursor<UInt8>, UInt8) -> Unit := (cursor, value) -> {\n\
-           cursor <- value;\n\
+        "write :: (Region<UInt8>, UInt8) -> Unit := (region, value) -> {\n\
+           region.put(0usize, value);\n\
            ();\n\
          };",
     );
@@ -35,10 +33,10 @@ fn permits_discarding_a_store_result_as_an_expression_statement() {
 #[test]
 fn rejects_mismatched_typed_memory_operations() {
     for text in [
-        "bad :: Address -> Unit := (address) -> { address@u64 <- 1u8; (); };",
-        "bad :: Address -> Address := (address) -> ?address;",
-        "bad :: Address -> UInt64 := (address) -> <-(address@u64@1usize);",
-        "bad := 1u64@u8;",
+        "bad :: Region<UInt64> -> Unit := (region) -> region.put(0usize, 1u8);",
+        "bad :: Region<UInt64> -> UInt64 := (region) -> region.get(0bytes);",
+        "bad :: Region<UInt64> -> Region<UInt64> := (region) -> region;",
+        "bad :: Address -> Packed<UInt64> := (address) -> pack<UInt64>(address, 0bytes, 1usize);",
     ] {
         assert!(check_error(text).primary.is_some(), "input: {text}");
     }
@@ -47,24 +45,39 @@ fn rejects_mismatched_typed_memory_operations() {
 #[test]
 fn checks_region_packed_transfer_views_and_symbol_conversion() {
     check_ok(
-        "admit :: Region<UInt8> -> Packed<UInt8> := (region) -> <-region;\n\
-         store :: (Region<UInt8>, Packed<UInt8>) -> Region<UInt8> :=\n\
-           (region, packed) -> region <- packed;\n\
+        "admit :: (Address, USize) -> Packed<UInt8> := (address, count) ->\n\
+           pack<UInt8>(address, 0usize, count);\n\
+         store :: (Region<UInt8>, Packed<UInt8>) -> Unit :=\n\
+           (region, packed) -> { _ := region.set(packed); (); };\n\
          inspect :: (Packed<UInt8>, USize) -> (UInt8, USize, Symbol) :=\n\
            (packed, count) -> {\n\
              prefix := packed / count;\n\
-             _ := packed % count;\n\
-             (packed # 0usize, #prefix, *prefix);\n\
+             remainder := packed % count;\n\
+             joined := prefix + remainder;\n\
+             (joined # 0usize, #prefix, *prefix);\n\
            };\n\
          bytes :: Symbol -> Packed<UInt8> := (symbol) -> *symbol;",
     );
 }
 
 #[test]
+fn keeps_region_and_buffer_authority_inside_their_invocation() {
+    for text in [
+        "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region;",
+        "bad :: Region<UInt8> -> (Region<UInt8>, USize) := (region) -> (region, #region);",
+        "bad :: Region<UInt8> -> UInt8 := (region) -> { read :: Unit -> UInt8 := () -> region.get(0usize); read(); };",
+        "bad := make<UInt8>(0usize, (buffer) -> { read :: Unit -> UInt8 := () -> buffer.get(0usize); _ := read(); (); });",
+        "identity<A> :: A -> A := (value) -> value; bad :: Region<UInt8> -> Unit := (region) -> { _ := identity<Region<UInt8>>(region); (); };",
+    ] {
+        assert!(check_error(text).primary.is_some(), "input: {text}");
+    }
+}
+
+#[test]
 fn checks_scoped_packed_construction_and_editing() {
     check_ok(
-        "make :: Unit -> Packed<Int32> := () ->
-           pack<Int32>((buffer) -> {
+        "create :: Unit -> Packed<Int32> := () ->
+           make<Int32>(0usize, (buffer) -> {
              index := buffer.new(10i32);
              buffer.put(index, buffer.get(index) + 1i32);
              ();
@@ -76,7 +89,7 @@ fn checks_scoped_packed_construction_and_editing() {
              ();
            });
          makeBulk :: Unit -> Packed<Int32> := () ->
-           bulk<Int32>(16usize, (buffer) -> {
+           make<Int32>(16usize, (buffer) -> {
              _ := buffer.new(30i32);
              ();
            });",
@@ -91,7 +104,7 @@ fn passes_one_buffer_through_helpers_and_supports_ufcs_operations() {
            ();
          };
          get :: Int32 -> Int32 := (value) -> value;
-         make :: Unit -> Packed<Int32> := () -> pack<Int32>((buffer) -> {
+         create :: Unit -> Packed<Int32> := () -> make<Int32>(0usize, (buffer) -> {
            index := buffer.new(get(10i32));
            update(buffer, index);
            ();
@@ -102,16 +115,16 @@ fn passes_one_buffer_through_helpers_and_supports_ufcs_operations() {
 #[test]
 fn rejects_invalid_packed_intrinsic_applications() {
     for text in [
-        "bad := pack<Symbol>((_) -> ());",
-        "bad := pack<Int32>();",
-        "bad := bulk<Int32>((_) -> ());",
-        "bad := bulk<Int32>(1i32, (_) -> ());",
-        "bad := bulk<Symbol>(1usize, (_) -> ());",
+        "bad := make<Symbol>(0usize, (_) -> ());",
+        "bad := make<Int32>(0usize);",
+        "bad := make<Int32>((_) -> ());",
+        "bad := make<Int32>(1i32, (_) -> ());",
+        "bad := make<Symbol>(1usize, (_) -> ());",
         "bad :: Packed<Int32> -> Packed<Int32> := (source) -> edit<Int32>(source);",
-        "bad := pack<Int32>((buffer) -> { _ := buffer.new(1u32); (); });",
-        "bad := pack<Int32>((buffer) -> buffer);",
-        "bad := pack<Int32>((buffer) -> { buffer.get(); (); });",
-        "bad := pack<Int32>((buffer) -> { buffer.put(0usize, 1u32); (); });",
+        "bad := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1u32); (); });",
+        "bad := make<Int32>(0usize, (buffer) -> buffer);",
+        "bad := make<Int32>(0usize, (buffer) -> { buffer.get(); (); });",
+        "bad := make<Int32>(0usize, (buffer) -> { buffer.put(0usize, 1u32); (); });",
         "bad :: Buffer<Symbol> -> Unit := (_) -> ();",
         "extern bad :: Buffer<Int32> -> Unit;",
     ] {
@@ -122,11 +135,11 @@ fn rejects_invalid_packed_intrinsic_applications() {
 #[test]
 fn checks_view_slices_in_an_expected_view_context() {
     check_ok(
-        "split :: (Region<UInt8>, Packed<UInt8>, USize) -> (Region<UInt8>, Packed<UInt8>) :=\n\
+        "split :: (Region<UInt8>, Packed<UInt8>, USize) -> (UInt8, Packed<UInt8>) :=\n\
            (region, packed, count) -> {\n\
              prefix :: Region<UInt8> := region / count;\n\
              remainder :: Packed<UInt8> := packed % count;\n\
-             (prefix, remainder);\n\
+             (prefix.get(0usize), remainder);\n\
            };",
     );
 }
@@ -136,9 +149,9 @@ fn rejects_packed_operations_for_wrong_element_or_operand_types() {
     for text in [
         "bad :: Packed<UInt16> -> Symbol := (packed) -> *packed;",
         "bad :: Packed<UInt8> -> UInt8 := (packed) -> packed # 0bytes;",
-        "bad :: Region<UInt8> -> Cursor<UInt8> := (region) -> region # 0bytes;",
+        "bad :: Region<UInt8> -> UInt8 := (region) -> region.get(0bytes);",
         "bad :: Region<UInt8> -> Region<UInt8> := (region) -> region / 1bytes;",
-        "bad :: (Region<UInt8>, Packed<UInt16>) -> Region<UInt8> := (region, packed) -> region <- packed;",
+        "bad :: (Region<UInt8>, Packed<UInt16>) -> Unit := (region, packed) -> { _ := region.set(packed); (); };",
     ] {
         assert!(check_error(text).primary.is_some(), "input: {text}");
     }

@@ -117,7 +117,6 @@ impl Checker {
             | Type::ByteSize
             | Type::USize
             | Type::Parameter { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_)
@@ -226,7 +225,6 @@ pub(super) fn is_host_mappable(ty: &Type) -> bool {
             Type::Symbol
             | Type::Parameter { .. }
             | Type::Function { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_) => return false,

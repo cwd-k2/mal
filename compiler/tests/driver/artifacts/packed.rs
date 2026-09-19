@@ -9,7 +9,7 @@ fn starts_a_count_zero_buffer_with_bulk_capacity() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           values := bulk<Int32>(8usize, (buffer) -> {
+           values := make<Int32>(8usize, (buffer) -> {
              first := buffer.new(40i32);
              second := buffer.new(2i32);
              buffer.put(first, buffer.get(first) + buffer.get(second));
@@ -46,7 +46,7 @@ fn initializes_builder_scratch_padding_before_runtime_byte_inspection() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           values := bulk<(UInt8, Int64)>(1usize, (buffer) -> {
+           values := make<(UInt8, Int64)>(1usize, (buffer) -> {
              _ := buffer.new((0u8, 0));
              ();
            });
@@ -82,8 +82,8 @@ fn takes_a_capture_only_from_a_uniquely_invoked_callback() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
-           _ := pack<Unit>((_) -> {
+           source := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); (); });
+           _ := make<Unit>(0usize, (_) -> {
              changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
              _ := changed # 0usize;
              ();
@@ -120,14 +120,14 @@ fn keeps_a_capture_in_a_callback_invoked_more_than_once() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
+           source := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); (); });
            callback :: Buffer<Unit> -> Unit := (_) -> {
              changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
              _ := changed # 0usize;
              ();
            };
-           _ := pack<Unit>(callback);
-           _ := pack<Unit>(callback);
+           _ := make<Unit>(0usize, callback);
+           _ := make<Unit>(0usize, callback);
            0;
          };",
     );
@@ -158,7 +158,7 @@ fn passes_distinct_buffers_to_one_non_growing_helper() {
     let baseline = directory.join("program-baseline");
     directory.write(
         "program.mal",
-        "combine :: ((Buffer<Int32>, Buffer<Int32>), USize) -> Unit := ((left, right), index) -> { left.put(index, left.get(index) + right.get(index)); }; main :: Unit -> Int32 := () -> { values := bulk<Int32>(2usize, (outer) -> { _ := outer.new(10i32); inner := bulk<Int32>(1usize, (nested) -> { _ := nested.new(5i32); combine(((outer, nested), 0usize)); (); }); _ := outer.new(inner # 0usize); (); }); (values # 0usize) + (values # 1usize) - 20i32; };",
+        "combine :: ((Buffer<Int32>, Buffer<Int32>), USize) -> Unit := ((left, right), index) -> { left.put(index, left.get(index) + right.get(index)); }; main :: Unit -> Int32 := () -> { values := make<Int32>(2usize, (outer) -> { _ := outer.new(10i32); inner := make<Int32>(1usize, (nested) -> { _ := nested.new(5i32); combine(((outer, nested), 0usize)); (); }); _ := outer.new(inner # 0usize); (); }); (values # 0usize) + (values # 1usize) - 20i32; };",
     );
 
     let output = directory.malc([
@@ -210,7 +210,7 @@ fn lowers_post_growth_buffer_access_through_the_active_data_slot() {
          };
 
          main :: Unit -> Int32 := () -> {
-           values := pack<Int32>((buffer) -> {
+           values := make<Int32>(0usize, (buffer) -> {
              _ := buffer.new(0i32);
              buffer.fill(1i32, 128i32);
            });
@@ -284,7 +284,7 @@ fn passes_current_packed_data_to_helpers_before_and_after_growth() {
          };
 
          main :: Unit -> Int32 := () -> {
-           values := pack<Int32>((buffer) -> {
+           values := make<Int32>(0usize, (buffer) -> {
              _ := buffer.new(10i32);
              _ := adjust(((buffer, 0usize), 1i32));
              append(buffer, 64i32);
@@ -341,7 +341,7 @@ fn prepares_edit_once_before_lowering_recursive_packed_access() {
          };
 
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((buffer) -> {
+           original := make<Int32>(0usize, (buffer) -> {
              buffer.new(40i32);
              ();
            });
@@ -403,7 +403,7 @@ fn preserves_a_packed_source_observed_during_its_edit() {
          };
 
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((buffer) -> {
+           original := make<Int32>(0usize, (buffer) -> {
              _ := buffer.new(40i32);
              _ := buffer.new(50i32);
              ();
@@ -449,7 +449,7 @@ fn preserves_a_packed_source_across_recursive_buffer_updates() {
          };
 
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((buffer) -> {
+           original := make<Int32>(0usize, (buffer) -> {
              _ := buffer.new(40i32);
              ();
            });
@@ -488,7 +488,7 @@ fn prepares_an_edit_before_entering_its_callback() {
     directory.write(
         "program.mal",
         "main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((buffer) -> {
+           original := make<Int32>(0usize, (buffer) -> {
              buffer.new(40i32);
              ();
            });

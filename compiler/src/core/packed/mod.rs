@@ -11,10 +11,9 @@ impl Lowerer {
         expression: &checked::Expression,
     ) -> Expression {
         let (initial, start_operation, needs_prepare) = match build {
-            checked::PackedBuild::Pack => (None, PackedBuilderOperation::Start, false),
-            checked::PackedBuild::Bulk { capacity } => (
+            checked::PackedBuild::Make { capacity } => (
                 Some(self.lower_expression(capacity)),
-                PackedBuilderOperation::StartBulk,
+                PackedBuilderOperation::Make,
                 false,
             ),
             checked::PackedBuild::Edit { source } => (
@@ -186,7 +185,7 @@ impl Lowerer {
         }
     }
 
-    fn let_expression(
+    pub(crate) fn let_expression(
         &self,
         pattern: Pattern,
         value: Expression,

@@ -65,20 +65,6 @@ impl Resolver {
                 type_ref: self.conversion_type_reference(type_name)?,
                 value: Box::new(self.resolve_expression(value)?),
             },
-            ast::Expression::Placement { value, operand } => Expression::Placement {
-                value: Box::new(self.resolve_expression(value)?),
-                operand: match operand {
-                    ast::PlacementOperand::Shape(shape) => {
-                        super::ast::PlacementOperand::Shape(shape.clone())
-                    }
-                    ast::PlacementOperand::Value(value) => super::ast::PlacementOperand::Value(
-                        Box::new(self.resolve_expression(value)?),
-                    ),
-                },
-            },
-            ast::Expression::Align(value) => {
-                Expression::Align(Box::new(self.resolve_expression(value)?))
-            }
             ast::Expression::StrideQuery(shape) => Expression::StrideQuery(shape.clone()),
             ast::Expression::If {
                 condition,

@@ -1,4 +1,3 @@
-mod buffer;
 mod build;
 
 use super::ast::Type;

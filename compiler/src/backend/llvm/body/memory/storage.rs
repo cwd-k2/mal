@@ -3,14 +3,6 @@ use crate::check::ast::Type;
 use super::super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
-    pub(in crate::backend::llvm::body) fn emit_source_load(
-        &mut self,
-        cursor: &EmittedValue,
-        element: &Type,
-    ) -> Option<EmittedValue> {
-        self.emit_source_load_at(&cursor.representation, element)
-    }
-
     pub(in crate::backend::llvm::body) fn emit_source_load_at(
         &mut self,
         pointer: &str,
@@ -191,14 +183,6 @@ impl FunctionEmitter<'_> {
             representation: value,
             owned: false,
         })
-    }
-
-    pub(in crate::backend::llvm::body) fn emit_source_store(
-        &mut self,
-        cursor: &EmittedValue,
-        value: &EmittedValue,
-    ) -> Option<()> {
-        self.emit_source_store_at(&cursor.representation, value)
     }
 
     pub(in crate::backend::llvm::body) fn emit_source_store_at(

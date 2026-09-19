@@ -24,14 +24,19 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 } => {
                     pending.push(Presence::Expression(callback));
                     match build {
-                        checked::PackedBuild::Pack => {}
-                        checked::PackedBuild::Bulk { capacity } => {
+                        checked::PackedBuild::Make { capacity } => {
                             pending.push(Presence::Expression(capacity));
                         }
                         checked::PackedBuild::Edit { source } => {
                             pending.push(Presence::Expression(source));
                         }
                     }
+                }
+                checked::ExpressionKind::RegionView {
+                    range, callback, ..
+                } => {
+                    pending.push(Presence::Expression(callback));
+                    pending.push(Presence::Expression(range));
                 }
                 checked::ExpressionKind::If {
                     condition,

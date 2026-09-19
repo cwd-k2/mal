@@ -9,6 +9,7 @@ mod bool;
 mod completion;
 mod external;
 mod interface;
+mod memory;
 mod packed;
 mod pattern;
 mod primitive;
@@ -134,6 +135,11 @@ impl Lowerer {
                 callback,
                 element,
             } => return self.lower_packed_build(build, callback, element, expression),
+            checked::ExpressionKind::RegionView {
+                range,
+                callback,
+                element,
+            } => return self.lower_region_view(range, callback, element, expression),
             checked::ExpressionKind::SymbolLength { value } => ExpressionKind::SymbolLength {
                 value: Box::new(self.lower_expression(value)),
             },
@@ -231,8 +237,6 @@ impl Lowerer {
                         UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
                         UnaryOperator::LogicalNot
                         | UnaryOperator::SymbolLength
-                        | UnaryOperator::ProjectAddress
-                        | UnaryOperator::Load
                         | UnaryOperator::Star => {
                             unreachable!("type checking rejects non-numeric core primitives")
                         }

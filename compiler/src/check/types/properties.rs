@@ -9,6 +9,34 @@ use super::{Type, type_name};
 const MAX_REPRESENTATION_UNITS: usize = 65_536;
 const MAX_REPRESENTATION_DEPTH: usize = 64;
 
+pub(in crate::check) fn contains_scoped_value(ty: &Type) -> bool {
+    contains_scoped(ty, false)
+}
+
+pub(in crate::check) fn contains_scoped_anywhere(ty: &Type) -> bool {
+    contains_scoped(ty, true)
+}
+
+fn contains_scoped(ty: &Type, descend_functions: bool) -> bool {
+    let mut pending = vec![ty];
+    let mut visited = HashSet::new();
+    while let Some(ty) = pending.pop() {
+        if ty.shared_id().is_some_and(|id| !visited.insert(id)) {
+            continue;
+        }
+        match ty {
+            Type::Region(_) | Type::Buffer(_) => return true,
+            Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+            Type::Function { parameter, result } if descend_functions => {
+                pending.push(parameter);
+                pending.push(result);
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 pub(in crate::check) fn ensure_memory_representable(
     ty: &Type,
     span: Span,
@@ -42,7 +70,6 @@ fn first_nonrepresentable_type(ty: &Type) -> Option<&Type> {
             Type::Symbol
             | Type::External { .. }
             | Type::Function { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_)
@@ -81,7 +108,6 @@ pub(in crate::check) fn is_memory_representable(ty: &Type) -> bool {
             Type::Symbol
             | Type::External { .. }
             | Type::Function { .. }
-            | Type::Cursor(_)
             | Type::Region(_)
             | Type::Packed(_)
             | Type::Buffer(_)
@@ -99,10 +125,7 @@ pub(in crate::check) fn representable_requirements(ty: &Type) -> HashSet<TypeId>
             Type::Parameter { id, .. } if required => {
                 requirements.insert(*id);
             }
-            Type::Cursor(element)
-            | Type::Region(element)
-            | Type::Packed(element)
-            | Type::Buffer(element) => {
+            Type::Region(element) | Type::Packed(element) | Type::Buffer(element) => {
                 pending.push((element, true));
             }
             Type::Product(elements) | Type::Sum(elements) => {

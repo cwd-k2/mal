@@ -18,7 +18,7 @@ fn omits_self_recursive_parameter_fields_preserved_by_every_edge() {
            };
          };
          main :: Unit -> Int32 := () -> {
-           fixed := bulk<Int32>(1usize, (buffer) -> { _ := buffer.new(1i32); (); });
+           fixed := make<Int32>(1usize, (buffer) -> { _ := buffer.new(1i32); (); });
            walk(fixed, 10000i32) - 10001i32;
          };",
     );

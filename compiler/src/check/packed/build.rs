@@ -1,7 +1,7 @@
 use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
-use crate::resolve::{BULK_VALUE, EDIT_VALUE, PACK_VALUE};
+use crate::resolve::{EDIT_VALUE, MAKE_VALUE};
 use crate::source::Span;
 
 use super::super::ast::{Expression, ExpressionKind, PackedBuild, Type};
@@ -47,11 +47,7 @@ impl Checker {
         let packed = Type::Packed(element.clone().into());
         let callback_type = callback_type(&element);
         let (build, callback) = match (reference.id, arguments) {
-            (PACK_VALUE, [callback]) => (
-                PackedBuild::Pack,
-                self.check_expression(callback, Some(&callback_type))?,
-            ),
-            (BULK_VALUE, [_, _]) => {
+            (MAKE_VALUE, [_, _]) => {
                 let parameter = Type::Product(vec![Type::USize, callback_type.clone()].into());
                 let checked = self.check_product(arguments, span, Some(&parameter))?;
                 let ExpressionKind::Product(mut elements) = checked.kind else {
@@ -60,7 +56,7 @@ impl Checker {
                 let callback = elements.pop().expect("bulk has a callback argument");
                 let capacity = elements.pop().expect("bulk has a capacity argument");
                 (
-                    PackedBuild::Bulk {
+                    PackedBuild::Make {
                         capacity: Box::new(capacity),
                     },
                     callback,
@@ -81,11 +77,8 @@ impl Checker {
                     callback,
                 )
             }
-            (PACK_VALUE, _) => {
-                return Err(argument_arity_error("pack", 1, arguments.len(), span).into());
-            }
-            (BULK_VALUE, _) => {
-                return Err(argument_arity_error("bulk", 2, arguments.len(), span).into());
+            (MAKE_VALUE, _) => {
+                return Err(argument_arity_error("make", 2, arguments.len(), span).into());
             }
             (EDIT_VALUE, _) => {
                 return Err(argument_arity_error("edit", 2, arguments.len(), span).into());

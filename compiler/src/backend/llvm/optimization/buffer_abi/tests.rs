@@ -11,13 +11,11 @@ fn admits_only_closed_direct_buffer_abis() {
         "read :: Buffer<Int64> -> Int64 := (buffer) -> { buffer.get(0usize); };\n\
          grow :: Buffer<Int64> -> Int64 := (buffer) -> { _ := buffer.new(2i64); buffer.get(0usize); };\n\
          forwardGrow :: Buffer<Int64> -> Int64 := (buffer) -> { grow(buffer); };\n\
-         identity :: Buffer<Int64> -> Buffer<Int64> := (buffer) -> { buffer; };\n\
-         capture :: Buffer<Int64> -> Int64 := (buffer) -> { nested :: (Unit -> Int64) := () -> { buffer.get(0usize); }; nested(); };\n\
          mixedRead :: Buffer<Int32> -> Int32 := (buffer) -> { buffer.get(0usize); };\n\
          mixedGrow :: Buffer<Int32> -> Int32 := (buffer) -> { _ := buffer.new(2i32); buffer.get(0usize); };\n\
          applyMixed :: ((Buffer<Int32> -> Int32), Buffer<Int32>) -> Int32 := (function, buffer) -> { function(buffer); };\n\
          framed :: ((Buffer<Int64>, Buffer<Int64>), Int32) -> Int64 := ((left, right), remaining) -> { if (remaining == 0i32) then { left.get(0usize) } else { prior := framed(((left, right), remaining - 1i32)); prior + right.get(0usize) }; };\n\
-         main :: Unit -> Int32 := () -> { values := pack<Int64>((buffer) -> { _ := buffer.new(1i64); _ := read(buffer); _ := forwardGrow(buffer); _ := capture(buffer); _ := framed(((buffer, buffer), 1i32)); returned := identity(buffer); captured :: (Unit -> Int64) := () -> { returned.get(0usize); }; _ := captured(); (); }); other := pack<Int32>((buffer) -> { _ := buffer.new(1i32); _ := applyMixed((mixedRead, buffer)); _ := applyMixed((mixedGrow, buffer)); (); }); (values # 0usize).i32 + (other # 0usize) - 2i32; };"
+         main :: Unit -> Int32 := () -> { values := make<Int64>(0usize, (buffer) -> { _ := buffer.new(1i64); _ := read(buffer); _ := forwardGrow(buffer); _ := framed(((buffer, buffer), 1i32)); (); }); other := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); _ := applyMixed((mixedRead, buffer)); _ := applyMixed((mixedGrow, buffer)); (); }); (values # 0usize).i32 + (other # 0usize) - 2i32; };"
             .into(),
     );
     let checked = crate::pipeline::check(&source).expect("check direct Buffer ABI fixture");

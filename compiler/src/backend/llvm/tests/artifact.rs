@@ -82,20 +82,21 @@ fn selects_the_entry_function_from_checked_identity() {
 }
 
 #[test]
-fn emits_typed_scalar_cursor_access_with_exact_alignment() {
+fn emits_typed_region_access_with_unaligned_operations() {
     let source = SourceFile::new(
         FileId::new(89),
-        "llvm-cursor.mal",
+        "llvm-region.mal",
         "extern memory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
-           cursor := memory()@u64;\n\
-           cursor <- 41u64;\n\
-           value := <-cursor;\n\
+           value := view<UInt64>(memory(), 0usize, 1usize, (region) -> {\n\
+             region.put(0usize, 41u64);\n\
+             region.get(0usize);\n\
+           });\n\
            value.i32;\n\
          };"
         .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check cursor fixture");
+    let checked = crate::pipeline::check(&source).expect("check Region fixture");
     let core =
         crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
     let anf = crate::anf::lower(&core);
@@ -110,7 +111,7 @@ fn emits_typed_scalar_cursor_access_with_exact_alignment() {
         },
         OptimizationSet::production(),
     )
-    .expect("typed scalar cursor fixture is supported");
+    .expect("typed Region fixture is supported");
 
     assert!(artifacts.module.contains("store i64 %mal_value"));
     assert!(artifacts.module.contains("load i64, ptr"));
@@ -176,7 +177,7 @@ fn emits_canonical_alignment_for_packed_storage_access() {
     let source = SourceFile::new(
         FileId::new(92),
         "llvm-packed-alignment.mal",
-        "main :: Unit -> Int32 := () -> { values := pack<Int64>((buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index) + 1i64); (); }); (values # 0usize).i32 - 2i32; };"
+        "main :: Unit -> Int32 := () -> { values := make<Int64>(0usize, (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index) + 1i64); (); }); (values # 0usize).i32 - 2i32; };"
             .into(),
     );
     let checked = crate::pipeline::check(&source).expect("check aligned Packed fixture");
@@ -206,7 +207,7 @@ fn emits_scoped_buffer_operations_without_closure_environments() {
     let source = SourceFile::new(
         FileId::new(93),
         "llvm-packed-builder.mal",
-        "fill :: Buffer<Int64> -> Unit := (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index)); (); }; main :: Unit -> Int32 := () -> { first := pack<Int64>(fill); second := pack<Int64>(fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };"
+        "fill :: Buffer<Int64> -> Unit := (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index)); (); }; main :: Unit -> Int32 := () -> { first := make<Int64>(0usize, fill); second := make<Int64>(0usize, fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };"
             .into(),
     );
     let checked = crate::pipeline::check(&source).expect("check scoped Packed fixture");
@@ -274,7 +275,7 @@ fn passes_active_data_to_non_growing_buffer_helpers() {
     let source = SourceFile::new(
         FileId::new(97),
         "llvm-direct-buffer-abi.mal",
-        "read :: Buffer<Int64> -> Int64 := (buffer) -> { buffer.get(0usize); }; main :: Unit -> Int32 := () -> { values := pack<Int64>((buffer) -> { _ := buffer.new(1i64); buffer.put(0usize, read(buffer)); }); (values # 0usize).i32 - 1i32; };"
+        "read :: Buffer<Int64> -> Int64 := (buffer) -> { buffer.get(0usize); }; main :: Unit -> Int32 := () -> { values := make<Int64>(0usize, (buffer) -> { _ := buffer.new(1i64); buffer.put(0usize, read(buffer)); }); (values # 0usize).i32 - 1i32; };"
             .into(),
     );
     let checked = crate::pipeline::check(&source).expect("check direct Buffer ABI fixture");
@@ -325,7 +326,7 @@ fn passes_each_active_data_pointer_to_multi_buffer_helpers() {
     let source = SourceFile::new(
         FileId::new(98),
         "llvm-multi-buffer-abi.mal",
-        "readPair :: ((Buffer<Int64>, Buffer<Int64>), USize) -> Int64 := ((left, right), index) -> { left.get(index) + right.get(index); }; main :: Unit -> Int32 := () -> { values := bulk<Int64>(1usize, (buffer) -> { _ := buffer.new(1i64); _ := readPair(((buffer, buffer), 0usize)); (); }); (values # 0usize).i32 - 1i32; };"
+        "readPair :: ((Buffer<Int64>, Buffer<Int64>), USize) -> Int64 := ((left, right), index) -> { left.get(index) + right.get(index); }; main :: Unit -> Int32 := () -> { values := make<Int64>(1usize, (buffer) -> { _ := buffer.new(1i64); _ := readPair(((buffer, buffer), 0usize)); (); }); (values # 0usize).i32 - 1i32; };"
             .into(),
     );
     let checked = crate::pipeline::check(&source).expect("check multi-Buffer ABI fixture");
@@ -516,9 +517,9 @@ fn emits_shared_extern_sum_helpers_once_per_type() {
 fn admits_direct_self_handoffs_to_wildcard_parameters() {
     for (index, source) in [
         "extern again :: Unit -> Bool; walk :: Int32 -> Int32 := (_) -> { if (again()) then { child := walk(1i32); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(0i32); };",
-        "extern again :: Unit -> Bool; make :: Int32 -> (Unit -> Int32) := (value) -> { () -> { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) -> { if (again()) then { child := walk(make(1i32)); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(make(0i32)); };",
+        "extern again :: Unit -> Bool; create :: Int32 -> (Unit -> Int32) := (value) -> { () -> { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) -> { if (again()) then { child := walk(create(1i32)); child + 1i32; } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(create(0i32)); };",
         "extern again :: Unit -> Bool; walk :: Int32 -> Int32 := (_) -> { if (again()) then { walk(1i32) } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(0i32); };",
-        "extern again :: Unit -> Bool; make :: Int32 -> (Unit -> Int32) := (value) -> { () -> { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) -> { if (again()) then { walk(make(1i32)) } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(make(0i32)); };",
+        "extern again :: Unit -> Bool; create :: Int32 -> (Unit -> Int32) := (value) -> { () -> { value }; }; walk :: (Unit -> Int32) -> Int32 := (_) -> { if (again()) then { walk(create(1i32)) } else { 0i32 }; }; main :: Unit -> Int32 := () -> { walk(create(0i32)); };",
     ]
     .into_iter()
     .enumerate()

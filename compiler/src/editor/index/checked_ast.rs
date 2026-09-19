@@ -118,14 +118,19 @@ impl Index {
                 build, callback, ..
             } => {
                 match build {
-                    checked::PackedBuild::Pack => {}
-                    checked::PackedBuild::Bulk { capacity } => {
+                    checked::PackedBuild::Make { capacity } => {
                         self.collect_checked_expression(capacity);
                     }
                     checked::PackedBuild::Edit { source } => {
                         self.collect_checked_expression(source);
                     }
                 }
+                self.collect_checked_expression(callback);
+            }
+            ExpressionKind::RegionView {
+                range, callback, ..
+            } => {
+                self.collect_checked_expression(range);
                 self.collect_checked_expression(callback);
             }
             ExpressionKind::SumElimination {

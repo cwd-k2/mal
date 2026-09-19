@@ -40,19 +40,6 @@ fn admit_operation<'a>(
     blocks: &mut Vec<&'a Block>,
 ) -> Result<(), Diagnostic> {
     match operation {
-        Operation::Memory {
-            primitive: crate::check::ast::MemoryPrimitive::Align,
-            operands,
-        } if !layouts.supports_alignment() => {
-            let operand = operands.first().expect("checked align operand");
-            return Err(
-                Diagnostic::error("pointer alignment is not supported for the target")
-                    .with_primary(
-                        operand.span,
-                        "this `!` operation requires integral pointers",
-                    ),
-            );
-        }
         Operation::Atom(value)
         | Operation::Goto { value, .. }
         | Operation::SymbolLength { value }

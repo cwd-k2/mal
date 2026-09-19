@@ -57,7 +57,7 @@ fn shares_borrowed_parameter_leaves_when_returning_a_product() {
 #[test]
 fn shares_a_borrowed_leaf_only_when_a_closure_environment_escapes() {
     let execution = lower(
-        "make :: (Symbol, Symbol) -> (Unit -> Symbol) := (pair) -> { (left, _) := pair; closure :: Unit -> Symbol := () -> { left }; (againLeft, _) := pair; length := #againLeft; closure; };\nmain :: Unit -> Int32 := () -> { closure := make((\"a\" + \"b\", \"c\" + \"d\")); result := closure(); 0i32; };",
+        "create :: (Symbol, Symbol) -> (Unit -> Symbol) := (pair) -> { (left, _) := pair; closure :: Unit -> Symbol := () -> { left }; (againLeft, _) := pair; length := #againLeft; closure; };\nmain :: Unit -> Int32 := () -> { closure := create((\"a\" + \"b\", \"c\" + \"d\")); result := closure(); 0i32; };",
     );
     let (site, binding) = execution
         .control

@@ -35,9 +35,7 @@ pub(crate) fn contains_buffer(ty: &Type) -> bool {
         }
         match ty {
             Type::Buffer(_) => return true,
-            Type::Cursor(element) | Type::Region(element) | Type::Packed(element) => {
-                pending.push(element)
-            }
+            Type::Region(element) | Type::Packed(element) => pending.push(element),
             Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
             Type::Function { parameter, result } => {
                 pending.extend([parameter.as_ref(), result.as_ref()]);

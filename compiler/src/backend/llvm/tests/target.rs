@@ -211,44 +211,6 @@ fn rejects_target_sized_literals_with_a_source_diagnostic() {
 }
 
 #[test]
-fn rejects_alignment_on_a_target_without_integral_pointers() {
-    let source = SourceFile::new(
-        FileId::new(94),
-        "llvm-unsupported-align.mal",
-        "extern memory :: Unit -> Address;\n\
-         main :: Unit -> Int32 := () -> { memory()@u64!; 0; };"
-            .into(),
-    );
-    let checked = crate::pipeline::check(&source).expect("check alignment fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    let execution =
-        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
-
-    let error = match generate(
-        &execution,
-        Target {
-            triple: "synthetic-unknown-none",
-            data_layout: "e-p:64:64-ni:0",
-        },
-        OptimizationSet::production(),
-    ) {
-        Ok(_) => panic!("non-integral pointer alignment must be rejected"),
-        Err(error) => error,
-    };
-    let Error::Diagnostic(diagnostic) = error else {
-        panic!("target capability failure must return a diagnostic")
-    };
-    assert_eq!(
-        diagnostic.message,
-        "pointer alignment is not supported for the target"
-    );
-    assert!(diagnostic.primary.is_some());
-}
-
-#[test]
 fn lowers_symbol_length_to_usize_on_a_32_bit_target() {
     let source = SourceFile::new(
         FileId::new(93),

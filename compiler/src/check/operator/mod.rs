@@ -25,7 +25,6 @@ impl Checker {
     ) -> Option<Type> {
         match operator.kind {
             BinaryOperator::SymbolAt => Some(Type::Symbol),
-            BinaryOperator::Store => None,
             BinaryOperator::Add | BinaryOperator::Subtract => expected
                 .filter(|ty| {
                     **ty == Type::Address
@@ -182,10 +181,6 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if operator.kind == BinaryOperator::Store {
-            let left = self.check_before(left, None, right.span)?;
-            return self.check_memory_store(left, right, span);
-        }
         if operator.kind == BinaryOperator::SymbolAt {
             let left = self.check_before(left, None, right.span)?;
             return self.check_binary_after_left(operator, left, right, span);
@@ -284,10 +279,7 @@ impl Checker {
                     .ok_or_else(|| unsupported_binary(operator.kind, &left))?;
                 (left, right, result)
             }
-            BinaryOperator::SymbolAt
-            | BinaryOperator::Store
-            | BinaryOperator::Add
-            | BinaryOperator::Subtract => {
+            BinaryOperator::SymbolAt | BinaryOperator::Add | BinaryOperator::Subtract => {
                 unreachable!("specialized operators are checked separately")
             }
         };
@@ -310,11 +302,7 @@ impl Checker {
         span: Span,
     ) -> CheckResult<Expression> {
         match operator.kind {
-            BinaryOperator::Store => return self.check_memory_store(left, right, span),
             BinaryOperator::SymbolAt => {
-                if matches!(left.ty, Type::Region(_)) {
-                    return self.check_region_index(left, right, span);
-                }
                 if matches!(left.ty, Type::Packed(_)) {
                     return self.check_packed_index(left, right, span);
                 }
@@ -391,10 +379,7 @@ impl Checker {
             BinaryOperator::Equal | BinaryOperator::NotEqual => {
                 numeric || left.ty == bool_type() || left.ty == Type::Symbol
             }
-            BinaryOperator::SymbolAt
-            | BinaryOperator::Store
-            | BinaryOperator::LogicalAnd
-            | BinaryOperator::LogicalOr => {
+            BinaryOperator::SymbolAt | BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
                 unreachable!("specialized operators return above")
             }
         };

@@ -1,56 +1,10 @@
-use crate::ast::{Expression, LayoutShape, Node, PlacementOperand};
+use crate::ast::{Expression, LayoutShape, Node};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::TokenKind;
 
 use super::super::Parser;
 
 impl Parser<'_> {
-    pub(super) fn parse_placement(
-        &mut self,
-        value: Node<Expression>,
-    ) -> Result<Node<Expression>, Diagnostic> {
-        let start = value.span.start();
-        self.expect(&TokenKind::At, "`@`")?;
-        let checkpoint = (
-            self.position,
-            self.pending_generic_closers,
-            self.generic_close_span,
-        );
-        let shape = self
-            .starts_layout_shape()
-            .then(|| self.parse_layout_shape())
-            .transpose();
-        let operand = if let Ok(Some(shape)) = shape {
-            PlacementOperand::Shape(shape)
-        } else {
-            (
-                self.position,
-                self.pending_generic_closers,
-                self.generic_close_span,
-            ) = checkpoint;
-            if self.at(&TokenKind::LeftParen) {
-                PlacementOperand::Value(Box::new(self.parse_parenthesized_expression()?))
-            } else if self.at(&TokenKind::ValueIdentifier)
-                || matches!(self.current().kind, TokenKind::Integer(_))
-            {
-                PlacementOperand::Value(Box::new(self.parse_prefix()?))
-            } else {
-                return Err(self.expected("a layout shape or USize placement operand"));
-            }
-        };
-        let end = match &operand {
-            PlacementOperand::Shape(shape) => shape.span.end(),
-            PlacementOperand::Value(value) => value.span.end(),
-        };
-        Ok(Node::new(
-            Expression::Placement {
-                value: Box::new(value),
-                operand,
-            },
-            self.span(start, end),
-        ))
-    }
-
     pub(super) fn at_conversion_suffix(&self) -> bool {
         if !self.at(&TokenKind::Dot) {
             return false;

@@ -183,7 +183,6 @@ impl<'a> Lexer<'a> {
 
     fn lex_punctuation(&mut self, start: usize) -> Result<(), Diagnostic> {
         let (kind, width) = match (self.peek(), self.peek_next()) {
-            (Some(b'<'), Some(b'-')) => (TokenKind::LeftArrow, 2),
             (Some(b':'), Some(b':')) => (TokenKind::DoubleColon, 2),
             (Some(b':'), Some(b'=')) => (TokenKind::Bind, 2),
             (Some(b'-'), Some(b'>')) => (TokenKind::Arrow, 2),
@@ -258,8 +257,6 @@ impl<'a> Lexer<'a> {
             (Some(b'^'), _) => (TokenKind::Caret, 1),
             (Some(b'.'), _) => (TokenKind::Dot, 1),
             (Some(b'#'), _) => (TokenKind::Hash, 1),
-            (Some(b'@'), _) => (TokenKind::At, 1),
-            (Some(b'?'), _) => (TokenKind::Question, 1),
             _ => {
                 let character = self.source.text()[start..]
                     .chars()

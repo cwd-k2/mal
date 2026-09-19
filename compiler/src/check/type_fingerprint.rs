@@ -55,20 +55,16 @@ impl TypeFingerprints {
                             pending.push(Fingerprint::Type(result));
                             pending.push(Fingerprint::Type(parameter));
                         }
-                        Type::Cursor(element) => {
+                        Type::Region(element) => {
                             pending.push(Fingerprint::Aggregate(None, 18, 1));
                             pending.push(Fingerprint::Type(element));
                         }
-                        Type::Region(element) => {
+                        Type::Packed(element) => {
                             pending.push(Fingerprint::Aggregate(None, 19, 1));
                             pending.push(Fingerprint::Type(element));
                         }
-                        Type::Packed(element) => {
-                            pending.push(Fingerprint::Aggregate(None, 20, 1));
-                            pending.push(Fingerprint::Type(element));
-                        }
                         Type::Buffer(element) => {
-                            pending.push(Fingerprint::Aggregate(None, 21, 1));
+                            pending.push(Fingerprint::Aggregate(None, 20, 1));
                             pending.push(Fingerprint::Type(element));
                         }
                         _ => values.push(atom_fingerprint(ty)),
@@ -127,7 +123,6 @@ fn atom_fingerprint(ty: &Type) -> u64 {
         Type::Product(_)
         | Type::Sum(_)
         | Type::Function { .. }
-        | Type::Cursor(_)
         | Type::Region(_)
         | Type::Packed(_)
         | Type::Buffer(_) => {

@@ -79,9 +79,7 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
 #[test]
 fn lexes_every_operator_and_delimiter() {
     assert_eq!(
-        kinds(
-            "_ ( ) { } [ ] < <= > >= , ; :: := -> => <- + - * / % ! != == ~ & && | || ^ . # @ ? << >>"
-        ),
+        kinds("_ ( ) { } [ ] < <= > >= , ; :: := -> => + - * / % ! != == ~ & && | || ^ . # << >>"),
         vec![
             TokenKind::Underscore,
             TokenKind::LeftParen,
@@ -100,7 +98,6 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::Bind,
             TokenKind::Arrow,
             TokenKind::FatArrow,
-            TokenKind::LeftArrow,
             TokenKind::Plus,
             TokenKind::Minus,
             TokenKind::Star,
@@ -117,8 +114,6 @@ fn lexes_every_operator_and_delimiter() {
             TokenKind::Caret,
             TokenKind::Dot,
             TokenKind::Hash,
-            TokenKind::At,
-            TokenKind::Question,
             TokenKind::ShiftLeft,
             TokenKind::ShiftRight,
             TokenKind::Eof,

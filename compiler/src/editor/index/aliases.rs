@@ -55,13 +55,6 @@ impl Index {
             Expression::Conversion { value, .. } => {
                 self.collect_aliases_expression(&value.kind);
             }
-            Expression::Placement { value, operand } => {
-                self.collect_aliases_expression(&value.kind);
-                if let resolved::PlacementOperand::Value(operand) = operand {
-                    self.collect_aliases_expression(&operand.kind);
-                }
-            }
-            Expression::Align(value) => self.collect_aliases_expression(&value.kind),
             Expression::If {
                 condition,
                 then_branch,

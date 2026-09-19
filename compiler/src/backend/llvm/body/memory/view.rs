@@ -9,26 +9,33 @@ pub(in crate::backend::llvm::body) struct ByteViewFields {
 }
 
 impl FunctionEmitter<'_> {
-    pub(in crate::backend::llvm::body) fn emit_region_admission(
+    pub(in crate::backend::llvm::body) fn emit_address_pack(
         &mut self,
-        region: &EmittedValue,
+        argument: &EmittedValue,
         result_type: &Type,
     ) -> Option<EmittedValue> {
-        let Type::Region(element) = &region.ty else {
+        let Type::Packed(element) = result_type else {
             return None;
         };
-        if *result_type != Type::Packed(element.clone()) {
-            return None;
-        }
-        let (address, count) = self.region_fields(region)?;
+        let [address, start, end] =
+            self.product_fields(argument, [&Type::Address, &Type::USize, &Type::USize])?;
         let stride = self.source_layouts.layout(element)?.stride;
+        let count = self.register();
+        self.line(format!(
+            "  {count} = sub {} {}, {}",
+            self.types.pointer_integer()?,
+            end.representation,
+            start.representation
+        ));
         let owner = if stride == 0 {
             "null".to_string()
         } else {
+            let start_bytes = self.multiply_by_stride(&start.representation, stride)?;
+            let first = self.pointer_offset(&address.representation, &start_bytes)?;
             let bytes = self.multiply_by_stride(&count, stride)?;
             let owner = self.register();
             self.line(format!(
-                "  {owner} = call ptr @mal_runtime_bytes_read(ptr %mal_context, ptr {address}, {} {bytes})",
+                "  {owner} = call ptr @mal_runtime_bytes_read(ptr %mal_context, ptr {first}, {} {bytes})",
                 self.types.pointer_integer()?
             ));
             owner
@@ -66,13 +73,70 @@ impl FunctionEmitter<'_> {
                 self.types.pointer_integer()?
             ));
         }
-        let suffix_address = self.pointer_offset(&address, &bytes)?;
+        let suffix_address = if stride == 0 {
+            address
+        } else {
+            self.pointer_offset(&address, &bytes)?
+        };
         let suffix_count = self.register();
         self.line(format!(
             "  {suffix_count} = sub {} {region_count}, {count}",
             self.types.pointer_integer()?
         ));
         self.make_region(result_type, &suffix_address, &suffix_count)
+    }
+
+    pub(in crate::backend::llvm::body) fn emit_packed_concat(
+        &mut self,
+        argument: &EmittedValue,
+        result_type: &Type,
+    ) -> Option<EmittedValue> {
+        let Type::Packed(element) = result_type else {
+            return None;
+        };
+        let [left, right] = self.product_fields(argument, [result_type, result_type])?;
+        let left = self.packed_fields(&left)?;
+        let right = self.packed_fields(&right)?;
+        let count = self.register();
+        self.line(format!(
+            "  {count} = add {} {}, {}",
+            self.types.pointer_integer()?,
+            left.count,
+            right.count
+        ));
+        let stride = self.source_layouts.layout(element)?.stride;
+        if stride == 0 {
+            return self.make_packed(result_type, "null", "null", &count, false);
+        }
+        let left_bytes = self.multiply_by_stride(&left.count, stride)?;
+        let right_bytes = self.multiply_by_stride(&right.count, stride)?;
+        let runtime = self.types.value(result_type)?;
+        let storage = self.register();
+        self.line(format!(
+            "  {storage} = alloca {}, align {}",
+            runtime.llvm, runtime.alignment
+        ));
+        self.line(format!(
+            "  call void @mal_runtime_symbol_concatenate(ptr %mal_context, ptr {storage}, ptr {}, ptr {}, {integer} {left_bytes}, ptr {}, ptr {}, {integer} {right_bytes})",
+            left.owner, left.data, right.owner, right.data,
+            integer = self.types.pointer_integer()?
+        ));
+        let bytes_view = self.register();
+        self.line(format!(
+            "  {bytes_view} = load {}, ptr {storage}, align {}",
+            runtime.llvm, runtime.alignment
+        ));
+        let packed = self.register();
+        self.line(format!(
+            "  {packed} = insertvalue {} {bytes_view}, {} {count}, 2",
+            runtime.llvm,
+            self.types.pointer_integer()?
+        ));
+        Some(EmittedValue {
+            ty: result_type.clone(),
+            representation: packed,
+            owned: true,
+        })
     }
 
     pub(in crate::backend::llvm::body) fn emit_view_slice(
@@ -100,7 +164,11 @@ impl FunctionEmitter<'_> {
                 } else {
                     let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
-                    let address = self.pointer_offset(&address, &bytes)?;
+                    let address = if stride == 0 {
+                        address
+                    } else {
+                        self.pointer_offset(&address, &bytes)?
+                    };
                     let remainder = self.register();
                     self.line(format!(
                         "  {remainder} = sub {} {old_count}, {}",
@@ -121,7 +189,11 @@ impl FunctionEmitter<'_> {
                 } else {
                     let stride = self.source_layouts.layout(element)?.stride;
                     let bytes = self.multiply_by_stride(&count.representation, stride)?;
-                    let new_data = self.pointer_offset(&data, &bytes)?;
+                    let new_data = if stride == 0 {
+                        data
+                    } else {
+                        self.pointer_offset(&data, &bytes)?
+                    };
                     let remainder = self.register();
                     self.line(format!(
                         "  {remainder} = sub {} {old_count}, {}",
@@ -176,27 +248,6 @@ impl FunctionEmitter<'_> {
         self.emit_aligned_source_load_at(&pointer, result_type)
     }
 
-    pub(in crate::backend::llvm::body) fn emit_region_index(
-        &mut self,
-        argument: &EmittedValue,
-        result_type: &Type,
-    ) -> Option<EmittedValue> {
-        let Type::Cursor(element) = result_type else {
-            return None;
-        };
-        let region_type = Type::Region(element.clone());
-        let [region, index] = self.product_fields(argument, [&region_type, &Type::USize])?;
-        let (address, _) = self.region_fields(&region)?;
-        let stride = self.source_layouts.layout(element)?.stride;
-        let byte_offset = self.multiply_by_stride(&index.representation, stride)?;
-        let pointer = self.pointer_offset(&address, &byte_offset)?;
-        Some(EmittedValue {
-            ty: result_type.clone(),
-            representation: pointer,
-            owned: false,
-        })
-    }
-
     pub(in crate::backend::llvm::body) fn emit_packed_to_symbol(
         &mut self,
         packed: &EmittedValue,
@@ -233,7 +284,10 @@ impl FunctionEmitter<'_> {
         )
     }
 
-    fn region_fields(&mut self, region: &EmittedValue) -> Option<(String, String)> {
+    pub(in crate::backend::llvm::body) fn region_fields(
+        &mut self,
+        region: &EmittedValue,
+    ) -> Option<(String, String)> {
         let Type::Region(_) = &region.ty else {
             return None;
         };
@@ -279,7 +333,12 @@ impl FunctionEmitter<'_> {
         Some(ByteViewFields { owner, data, count })
     }
 
-    fn make_region(&mut self, ty: &Type, address: &str, count: &str) -> Option<EmittedValue> {
+    pub(in crate::backend::llvm::body) fn make_region(
+        &mut self,
+        ty: &Type,
+        address: &str,
+        count: &str,
+    ) -> Option<EmittedValue> {
         let runtime = self.types.value(ty)?;
         let with_address = self.register();
         self.line(format!(
@@ -345,7 +404,11 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    fn multiply_by_stride(&mut self, value: &str, stride: usize) -> Option<String> {
+    pub(in crate::backend::llvm::body) fn multiply_by_stride(
+        &mut self,
+        value: &str,
+        stride: usize,
+    ) -> Option<String> {
         if stride == 0 {
             return Some("0".into());
         }
@@ -360,7 +423,11 @@ impl FunctionEmitter<'_> {
         Some(result)
     }
 
-    fn pointer_offset(&mut self, pointer: &str, offset: &str) -> Option<String> {
+    pub(in crate::backend::llvm::body) fn pointer_offset(
+        &mut self,
+        pointer: &str,
+        offset: &str,
+    ) -> Option<String> {
         let result = self.register();
         self.line(format!(
             "  {result} = getelementptr i8, ptr {pointer}, {} {offset}",

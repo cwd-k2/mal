@@ -122,11 +122,6 @@ pub enum Expression {
         type_name: Name,
         value: Box<Node<Expression>>,
     },
-    Placement {
-        value: Box<Node<Expression>>,
-        operand: PlacementOperand,
-    },
-    Align(Box<Node<Expression>>),
     StrideQuery(Node<LayoutShape>),
     If {
         condition: Box<Node<Expression>>,
@@ -146,12 +141,6 @@ pub enum Expression {
         left: Box<Node<Expression>>,
         right: Box<Node<Expression>>,
     },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PlacementOperand {
-    Shape(Node<LayoutShape>),
-    Value(Box<Node<Expression>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -202,15 +191,12 @@ pub enum UnaryOperator {
     LogicalNot,
     BitwiseNot,
     SymbolLength,
-    ProjectAddress,
-    Load,
     Star,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     SymbolAt,
-    Store,
     Multiply,
     Divide,
     Remainder,

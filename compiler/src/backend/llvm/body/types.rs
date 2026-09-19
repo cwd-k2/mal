@@ -65,7 +65,7 @@ impl Types {
                 alignment: 1,
                 size: 1,
             }),
-            Type::Address | Type::Cursor(_) | Type::Buffer(_) => Some(ValueType {
+            Type::Address | Type::Buffer(_) => Some(ValueType {
                 llvm: "ptr".into(),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,

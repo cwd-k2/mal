@@ -46,7 +46,7 @@ pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
                         || matches!(tokens.get(index + 1), Some(next) if next.kind == TokenKind::LeftParen)
                         || (matches!(
                             &source.text()[token.span.start()..token.span.end()],
-                            "pack" | "edit"
+                            "pack" | "make" | "edit" | "view"
                         ) && matches!(tokens.get(index + 1), Some(next) if next.kind == TokenKind::Less)) =>
                 {
                     SymbolKind::Function
@@ -186,7 +186,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(0),
             "syntax.mal",
-            "value := pack<Int32>((buffer) -> ());\nnext := value.edit<Int32>((buffer) -> ());"
+            "value := make<Int32>(0usize, (buffer) -> ());\nnext := value.edit<Int32>((buffer) -> ());"
                 .into(),
         );
         let document = analyze(&source).expect("lexical syntax document");
@@ -197,7 +197,7 @@ mod tests {
             .map(|token| &source.text()[token.span.start()..token.span.end()])
             .collect::<Vec<_>>();
 
-        assert!(functions.contains(&"pack"));
+        assert!(functions.contains(&"make"));
         assert!(functions.contains(&"edit"));
     }
 }

@@ -315,10 +315,6 @@ static MalPackedBuilder *mal_packed_builder_allocate(
     return builder;
 }
 
-void *mal_runtime_packed_builder_start(MalContext *context, size_t stride) {
-    return mal_packed_builder_allocate(context, stride);
-}
-
 void *mal_runtime_packed_builder_edit(
     MalContext *context,
     const void *owner,
@@ -346,7 +342,7 @@ static size_t mal_packed_builder_bytes(
     return count * stride;
 }
 
-void *mal_runtime_packed_builder_start_bulk(
+void *mal_runtime_packed_builder_make(
     MalContext *context,
     size_t stride,
     size_t capacity

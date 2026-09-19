@@ -205,8 +205,8 @@ mod tests {
             FileId::new(92),
             "unique-capture-plan.mal",
             "main :: Unit -> Int32 := () -> {
-               source := pack<Int32>((buffer) -> { _ := buffer.new(1i32); (); });
-               _ := pack<Unit>((_) -> {
+               source := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); (); });
+               _ := make<Unit>(0usize, (_) -> {
                  changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
                  _ := changed # 0usize;
                  ();
@@ -373,9 +373,9 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(90),
             "singleton-target.mal",
-            "make :: Int32 -> (Int32 -> Int32) := (captured) -> { (value) -> { captured + value; }; };\n\
+            "create :: Int32 -> (Int32 -> Int32) := (captured) -> { (value) -> { captured + value; }; };\n\
              apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> { function(value); };\n\
-             main :: Unit -> Int32 := () -> { apply(make(40i32), 2i32); };"
+             main :: Unit -> Int32 := () -> { apply(create(40i32), 2i32); };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse singleton target fixture");

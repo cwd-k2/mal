@@ -130,7 +130,7 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "Loop<A> :: Loop<A>; value := 0;",
             "recursive generic type alias",
         ),
-        ("value :: Cursor := 0;", "generic type requires arguments"),
+        ("value :: Region := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
     }
@@ -138,13 +138,13 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
 
 #[test]
 fn forms_indexed_memory_types_only_for_representable_elements() {
-    let error = check_error("Callback :: Int32 -> Int32; value :: Cursor<Callback> := 0;");
+    let error = check_error("Callback :: Int32 -> Int32; value :: Region<Callback> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 
     let error = check_error("value :: Region<[]> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 
-    let error = check_error("value :: Packed<Cursor<UInt8>> := 0;");
+    let error = check_error("value :: Packed<Region<UInt8>> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 }
 
@@ -152,7 +152,7 @@ fn forms_indexed_memory_types_only_for_representable_elements() {
 fn rejects_non_host_mappable_types_at_the_host_boundary() {
     for source in [
         "extern inspect :: Symbol -> Unit;",
-        "extern inspect :: Cursor<UInt8> -> Unit;",
+        "extern inspect :: Buffer<UInt8> -> Unit;",
         "extern inspect :: Unit -> Region<UInt8>;",
         "extern inspect :: (Int32, Packed<UInt8>) -> Unit;",
         "Payload :: [UInt8, Symbol]; extern inspect :: Payload -> Unit;",

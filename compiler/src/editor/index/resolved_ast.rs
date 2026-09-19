@@ -377,13 +377,6 @@ impl Index {
                 }
             }
             Expression::Conversion { value, .. } => self.collect_resolved_expression(value),
-            Expression::Placement { value, operand } => {
-                self.collect_resolved_expression(value);
-                if let resolved::PlacementOperand::Value(operand) = operand {
-                    self.collect_resolved_expression(operand);
-                }
-            }
-            Expression::Align(value) => self.collect_resolved_expression(value),
             Expression::If {
                 condition,
                 then_branch,

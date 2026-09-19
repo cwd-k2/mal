@@ -272,14 +272,22 @@ impl Specializer {
             } => {
                 *element = substitute_type(element, substitutions);
                 match build {
-                    crate::check::ast::PackedBuild::Pack => {}
-                    crate::check::ast::PackedBuild::Bulk { capacity } => {
+                    crate::check::ast::PackedBuild::Make { capacity } => {
                         self.expression(capacity, substitutions, self_instance)?;
                     }
                     crate::check::ast::PackedBuild::Edit { source } => {
                         self.expression(source, substitutions, self_instance)?;
                     }
                 }
+                self.expression(callback, substitutions, self_instance)?;
+            }
+            ExpressionKind::RegionView {
+                range,
+                callback,
+                element,
+            } => {
+                *element = substitute_type(element, substitutions);
+                self.expression(range, substitutions, self_instance)?;
                 self.expression(callback, substitutions, self_instance)?;
             }
             ExpressionKind::SymbolAt { argument } => {

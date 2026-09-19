@@ -45,7 +45,7 @@ fn constructs_and_edits_packed_values_with_scoped_buffers() {
                addRange(buffer, current + 1usize, end);
              };
          main :: Unit -> Int32 := () -> {
-           original := pack<Int32>((buffer) -> {
+           original := make<Int32>(0usize, (buffer) -> {
              first := buffer.new(10i32);
              _ := buffer.new(20i32);
              buffer.put(first, buffer.get(first) + 1i32);
@@ -57,10 +57,10 @@ fn constructs_and_edits_packed_values_with_scoped_buffers() {
              buffer.put(added, buffer.get(added) + 1i32);
              ();
            });
-           many := pack<USize>((buffer) -> addRange(buffer, 0usize, 40usize));
-           nested := pack<Int32>((buffer) -> {
+           many := make<USize>(0usize, (buffer) -> addRange(buffer, 0usize, 40usize));
+           nested := make<Int32>(0usize, (buffer) -> {
              outer := buffer.new(5i32);
-             inner := pack<Int32>((innerBuffer) -> {
+             inner := make<Int32>(0usize, (innerBuffer) -> {
                added := innerBuffer.new(9i32);
                buffer.put(outer, added.i32);
                ();
@@ -106,7 +106,7 @@ fn preserves_shared_sources_and_builds_zero_stride_packed_values() {
              ();
            });
            unchanged := bytes.edit<UInt8>((_) -> ());
-           units := pack<Unit>((buffer) -> {
+           units := make<Unit>(0usize, (buffer) -> {
              _ := buffer.new(());
              _ := buffer.new(());
              _ := buffer.new(());

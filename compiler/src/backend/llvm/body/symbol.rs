@@ -81,7 +81,9 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
         Operation::PackedBuilder { .. } => true,
         Operation::Memory {
             primitive:
-                crate::check::ast::MemoryPrimitive::AdmitRegion
+                crate::check::ast::MemoryPrimitive::PackAddress
+                | crate::check::ast::MemoryPrimitive::RegionSet
+                | crate::check::ast::MemoryPrimitive::PackedConcat
                 | crate::check::ast::MemoryPrimitive::Prefix
                 | crate::check::ast::MemoryPrimitive::RemainderView
                 | crate::check::ast::MemoryPrimitive::PackedToSymbol

@@ -35,10 +35,6 @@ impl SourceLayouts {
         Self { target }
     }
 
-    pub(crate) fn supports_alignment(self) -> bool {
-        self.target.supports_pointer_alignment
-    }
-
     pub(crate) fn layout(self, ty: &Type) -> Option<Layout> {
         self.layout_cached(ty, &mut std::collections::HashMap::new())
     }

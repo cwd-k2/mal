@@ -84,6 +84,19 @@ impl Checker {
                     .iter()
                     .map(|argument| self.expand_type(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                if let Some(argument) = arguments
+                    .iter()
+                    .find(|argument| super::types::contains_scoped_anywhere(argument))
+                {
+                    return Err(Diagnostic::error(
+                        "scoped authority cannot be a generic type argument",
+                    )
+                    .with_primary(
+                        reference.name.span,
+                        format!("`{}` contains Region or Buffer", type_name(argument)),
+                    )
+                    .into());
+                }
                 if self
                     .active_generic
                     .as_ref()
@@ -183,7 +196,7 @@ impl Checker {
                 self.check_lambda(lambda, expression.span, expected)?
             }
             resolved::Expression::Call { callee, arguments } => {
-                self.check_call(callee, arguments, expression.span)?
+                self.check_call(callee, arguments, expression.span, expected)?
             }
             resolved::Expression::ContinuationApplication {
                 value,
@@ -229,10 +242,6 @@ impl Checker {
                     span: expression.span,
                 }
             }
-            resolved::Expression::Placement { value, operand } => {
-                self.check_placement(value, operand, expression.span)?
-            }
-            resolved::Expression::Align(operand) => self.check_align(operand, expression.span)?,
             resolved::Expression::StrideQuery(shape) => {
                 self.check_stride_query(shape, expression.span)
             }
@@ -251,12 +260,7 @@ impl Checker {
                 self.check_when(condition, body, expression.span)?
             }
             resolved::Expression::Unary { operator, operand } => {
-                if matches!(
-                    operator.kind,
-                    crate::ast::UnaryOperator::ProjectAddress
-                        | crate::ast::UnaryOperator::Load
-                        | crate::ast::UnaryOperator::Star
-                ) {
+                if matches!(operator.kind, crate::ast::UnaryOperator::Star) {
                     self.check_memory_unary(operator.kind, operand, expression.span)?
                 } else {
                     self.check_unary(operator, operand, expression.span, expected)?

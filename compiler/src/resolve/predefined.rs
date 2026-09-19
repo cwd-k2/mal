@@ -29,10 +29,9 @@ predefined!(TypeId, TYPES;
     ADDRESS_TYPE = 15 => "Address",
 );
 
-pub const CURSOR_TYPE: TypeId = TypeId(16);
-pub const REGION_TYPE: TypeId = TypeId(17);
-pub const PACKED_TYPE: TypeId = TypeId(18);
-pub const BUFFER_TYPE: TypeId = TypeId(19);
+pub const REGION_TYPE: TypeId = TypeId(16);
+pub const PACKED_TYPE: TypeId = TypeId(17);
+pub const BUFFER_TYPE: TypeId = TypeId(18);
 
 predefined!(ValueId, VALUES;
     FALSE_VALUE = 0 => "false",
@@ -42,7 +41,9 @@ predefined!(ValueId, VALUES;
     NEW_VALUE = 4 => "new",
     GET_VALUE = 5 => "get",
     PUT_VALUE = 6 => "put",
-    BULK_VALUE = 7 => "bulk",
+    MAKE_VALUE = 7 => "make",
+    VIEW_VALUE = 8 => "view",
+    SET_VALUE = 9 => "set",
 );
 
 pub fn first_source_type_id() -> u32 {

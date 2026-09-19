@@ -86,13 +86,6 @@ impl ControlLayout {
                     pending.push((value, false));
                 }
                 Expression::Conversion { value, .. } => pending.push((value, false)),
-                Expression::Placement { value, operand } => {
-                    if let crate::ast::PlacementOperand::Value(operand) = operand {
-                        pending.push((operand, false));
-                    }
-                    pending.push((value, false));
-                }
-                Expression::Align(value) => pending.push((value, false)),
                 Expression::If {
                     condition,
                     then_branch,

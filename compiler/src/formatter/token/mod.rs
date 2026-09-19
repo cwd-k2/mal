@@ -141,36 +141,10 @@ impl Formatter<'_> {
                 self.write(text);
                 self.previous = Previous::Unary;
             }
-            TokenKind::Bang => {
-                if self.previous.ends_expression() {
-                    self.trim_space();
-                    self.write(text);
-                    self.previous = Previous::Word;
-                } else {
-                    self.write(text);
-                    self.previous = Previous::Unary;
-                }
-            }
-            TokenKind::Tilde | TokenKind::Question => {
+            TokenKind::Bang | TokenKind::Tilde => {
                 if self.previous.ends_expression() {
                     self.space();
                 }
-                self.write(text);
-                self.previous = Previous::Unary;
-            }
-            TokenKind::LeftArrow => {
-                if self.previous.ends_expression() {
-                    self.space();
-                    self.write(text);
-                    self.space();
-                    self.previous = Previous::Operator;
-                } else {
-                    self.write(text);
-                    self.previous = Previous::Unary;
-                }
-            }
-            TokenKind::At => {
-                self.trim_space();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
@@ -331,14 +305,11 @@ impl Formatter<'_> {
                     .map(|token| &token.kind),
                 Some(TokenKind::TypeIdentifier)
             );
-        let postfix_suffix =
-            matches!(kind, TokenKind::At | TokenKind::Bang) && self.previous.ends_expression();
         let binary_before = is_breakable_operator(kind) && self.previous.ends_expression();
         let binary_after = matches!(self.previous, Previous::Operator);
         let list_item = matches!(self.previous, Previous::LeftParen | Previous::Comma);
         let list_end = matches!(kind, TokenKind::RightParen | TokenKind::RightBracket);
-        if receiver_call || postfix_suffix || binary_before || binary_after || list_item || list_end
-        {
+        if receiver_call || binary_before || binary_after || list_item || list_end {
             self.newline();
             self.source_line_indent = Some(if list_item {
                 self.parenthesis_indents
@@ -379,7 +350,6 @@ fn is_breakable_operator(kind: &TokenKind) -> bool {
             | TokenKind::PipePipe
             | TokenKind::Caret
             | TokenKind::Hash
-            | TokenKind::LeftArrow
             | TokenKind::ShiftLeft
             | TokenKind::ShiftRight
     )

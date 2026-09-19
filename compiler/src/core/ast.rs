@@ -185,8 +185,7 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PackedBuilderOperation {
-    Start,
-    StartBulk,
+    Make,
     Edit,
     Prepare,
     New,
