@@ -16,6 +16,8 @@ mod handoff;
 mod host_values;
 #[path = "artifacts/interface.rs"]
 mod interface;
+#[path = "artifacts/packed.rs"]
+mod packed;
 #[path = "artifacts/symbols.rs"]
 mod symbols;
 #[path = "artifacts/values.rs"]

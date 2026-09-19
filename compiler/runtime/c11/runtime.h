@@ -123,6 +123,7 @@ void mal_runtime_packed_builder_put_unique(
     const void *value,
     size_t stride
 );
+void *const *mal_runtime_packed_builder_data_slot(const void *builder);
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);
 
 #endif

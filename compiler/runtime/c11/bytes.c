@@ -508,6 +508,11 @@ void mal_runtime_packed_builder_put_unique(
     }
 }
 
+void *const *mal_runtime_packed_builder_data_slot(const void *opaque_builder) {
+    const MalPackedBuilder *builder = opaque_builder;
+    return (void *const *)&builder->data;
+}
+
 void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builder) {
     MalPackedBuilder *builder = opaque_builder;
     result->owner = builder->owner;

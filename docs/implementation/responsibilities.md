@@ -184,6 +184,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/frame/replacement` | control入口とframe resumeからのmust-dataflowにより、次のsuspension siteまで退役frame容量が利用可能なpathを導出 |
 | `execution/ownership` | 型のmanaged leaf分類とcontrol CFG上のmanaged responsibility livenessを構成し、authorityからplan全体を再構成するvalidatorを所有 |
 | `execution/ownership/authority` | caller-bounded parameter、case payload、discardされたpure constructionをauthority rootとして収集し、nested `Atom`、product、sumとpattern aliasの順序非依存なprovenanceを構成する |
+| `execution/packed` | application graphとcontrol continuationからPacked builder metadataを将来変更し得るexecutionを固定点で求め、以後の変更がないunique `get`・`put` applicationへstable data access factを付与する |
 | `execution/ownership/borrow` | authority dependencyで閉じたmanaged livenessをcontrol state、binding、terminatorへ提供する |
 | `execution/ownership/identity` | control edge、ordinary closure captureとintrinsic capability builderを区別するoperand位置、parameter entry、owner use effectのidentity語彙を宣言 |
 | `execution/ownership/managed` | `Symbol`、`Packed`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
@@ -219,7 +220,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
 | `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
 | `backend/llvm/body/memory` | `Address`、`Cursor`、`Region`、canonical layout、`Packed` transferをtarget layoutに従うLLVM memory operationへ変換 |
-| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、unique・copy-on-write capability operation、freezeを出力し、unique appendのelement strideをruntime fast pathへ渡す |
+| `backend/llvm/body/memory/builder` | scoped Packed builderのstart、copy-on-write edit、unique・copy-on-write capability operation、freezeを出力する |
+| `backend/llvm/body/memory/stable_builder` | executionが証明したstable Packed data accessをruntimeのdata slot contractから出力し、builder layoutを再推論しない |
 | `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
 | `backend/llvm/body/memory/cursor` | Cursor/Region alignment、Address offset、view lengthとindexを出力 |
 | `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
@@ -229,7 +231,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
 | `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
 | `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storage取得とcapacity内reserveをprogram側へinline |
-| `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builderを実装し、unique appendのcapacity内fast pathをprogram側へinline |
+| `runtime/c11/bytes.c` | LLVM artifact内部のreference-counted flat byte owner、allocation、retain/release、contiguous data access、一意なstorageの拡張、active data viewを持つscoped Packed builderとdata slot accessを実装し、unique appendのcapacity内fast pathをprogram側へinline |
 | `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
 | `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
 | `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |

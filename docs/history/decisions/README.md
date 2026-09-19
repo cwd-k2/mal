@@ -13,7 +13,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
-| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md) |
+| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md)、[D059](D059.md) |
 | managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
@@ -22,6 +22,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | source file requirement | [D032](D032.md) |
 | genericsとexternal memory | [D052](D052.md)、[D056](D056.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
+| Packed execution | [D058](D058.md)、[D059](D059.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -46,6 +47,8 @@ D056はD052のcanonical layoutとRegion/Packed transferを維持し、Cursor loa
 D057はD055のresponsibility保存則を維持し、aggregate ownerがlifetimeを包含するlocal aliasをowned bindingからborrowへ置き換える。
 D058はD055とD057のresponsibility保存則をcall boundaryへ適用し、caller authorityが全pathを包含するparameterとargumentをborrowへ
 置き換える。
+D059はPacked builderのidentity証明とは独立に、将来のmetadata mutationがないexecution区間を保守的に証明し、stable data accessを
+backendへ渡す。
 
 ## 後継があるhistorical record
 

@@ -106,6 +106,7 @@ pub(crate) fn generate(
              declare ptr @mal_runtime_packed_builder_get(ptr, {index}, {index})\n\
              declare void @mal_runtime_packed_builder_put(ptr, ptr, {index}, ptr, {index})\n\
              declare void @mal_runtime_packed_builder_put_unique(ptr, {index}, ptr, {index})\n\
+             declare ptr @mal_runtime_packed_builder_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
              declare void @mal_runtime_packed_builder_finish(ptr, ptr)\n\
              declare i8 @mal_runtime_symbol_at(ptr, {index})\n\
              declare void @mal_runtime_symbol_concatenate(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
@@ -160,7 +161,7 @@ pub(crate) fn generate(
         }
     };
     let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
+        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
         types

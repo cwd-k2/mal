@@ -24,6 +24,10 @@ impl FunctionEmitter<'_> {
         self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
+        if let Some(access) = self.execution.packed_data.stable_access(site).cloned() {
+            let argument = self.atom(argument)?;
+            return self.emit_stable_packed_access(&access, &environment, &argument);
+        }
         let arguments = if target.parameter.ty == Type::Unit {
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
