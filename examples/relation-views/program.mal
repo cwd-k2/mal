@@ -11,6 +11,8 @@ _loop<A, B> :: (A, A -> [A, B]) -> B :=
         (result) -> result
     ];
 
+// Existential traversal stops at the first matching row. Its empty result is false because
+// there is no witness.
 _anyPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
     _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
         when (index == #values) {
@@ -23,6 +25,8 @@ _anyPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
         continue(index + 1usize);
     });
 
+// Universal traversal stops at the first counterexample. Its empty result is true because no row
+// violates the predicate.
 _allPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
     _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
         when (index == #values) {
@@ -35,6 +39,8 @@ _allPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
         continue(index + 1usize);
     });
 
+// A fold has no early domain result, so the loop state pairs the shared cursor with the evolving
+// accumulator and returns it only after every row has contributed.
 _foldPacked<A, B> :: (Packed<A>, B, (B, A) -> B) -> B := (values, initial, combine) ->
     _loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
         when (index == #values) {
@@ -52,6 +58,8 @@ buildRows :: Unit -> PairRows := () ->
         ();
     });
 
+// The following operations give the same carrier three meanings. Their callbacks describe only
+// one row; the named traversal combinators own cursor movement, termination, and empty input.
 hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
     rows._anyPacked<PairRow>((row) -> {
         (rowSource, rowTarget) := row;
