@@ -39,6 +39,16 @@ _isRejected :: SocketStatus -> Bool := (status) -> {
 
 _socketFailure :: UInt32 -> SocketStatus := (error) -> [complete, failed] => failed(error);
 
+_equalsSymbol :: (Region<UInt8>, Symbol, USize) -> Bool := (bytes, expected, index) -> [return] => {
+    when (index == #expected) {
+        return(true);
+    };
+    when (bytes.get(index) != expected # index) {
+        return(false);
+    };
+    return(bytes._equalsSymbol(expected, index + 1usize));
+};
+
 _sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
     (sequence, payload) := packet;
     packed := *payload;
@@ -61,9 +71,12 @@ _receiveExpected :: Socket -> Bool := (socket) -> {
     result[
     (packet) -> {
         (sequence, length) := packet;
-        // The host result initializes exactly this prefix; Packed owns the admitted copy.
-        payload := *memory.pack<UInt8>(0usize, length);
-        sequence == 42u64 && payload == "hello from mal";
+        expected := "hello from mal";
+        sequence == 42u64
+            && length == #expected
+            && memory.view<UInt8>(0usize, length, (payload) ->
+            payload._equalsSymbol(expected, 0usize)
+            );
     },
     (error) -> {
         writeError(error);

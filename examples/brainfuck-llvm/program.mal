@@ -5,17 +5,9 @@ require "./linux/syscall.mal";
 
 Arguments :: (USize, Address);
 
-_finishOutput :: (SyscallStatus, SyscallStatus) -> Int32 := (written, released) -> {
+_finishOutput :: SyscallStatus -> Int32 := (written) -> {
     written[
-    () -> {
-        released[
-        () -> 0,
-        (error) -> {
-            writeStderr("cannot release source, errno " + error.u64.decimal() + "\n");
-            1;
-        }
-        ];
-    },
+    () -> 0,
     (error) -> {
         writeStderr("cannot write output, errno " + error.u64.decimal() + "\n");
         1;
@@ -29,24 +21,21 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    // Process arguments stay host-owned; admit the descriptor and path before opening the file.
+    // Admit the descriptor and path before using the argument as a program value.
     (pathAddress, pathLength) := arguments.pack<(Address, ByteSize)>(0usize, 1usize) # 0usize;
     path := *pathAddress.pack<UInt8>(0usize, pathLength.usize);
     read := readSource(path);
     return(read[
         (source) -> {
-            (bytes, _, _) := source;
-            result := compile(bytes);
+            result := compile(source);
             status :: Int32 := result[
                 (message) -> {
                     writeStderr(message);
-                    releaseSource(source);
                     1;
                 },
                 (output) -> {
-                    released := releaseSource(source);
                     written := writeStdout(output);
-                    _finishOutput(written, released);
+                    _finishOutput(written);
                 }
             ];
             status;

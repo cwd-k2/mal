@@ -4,9 +4,10 @@ This example stores an immutable binary tree as `Packed<TreeNode>`. Child links 
 indices into the same packed value, so the structure needs no host allocator, raw `Address`, or
 per-node lifetime protocol.
 
-`buildTree` uses `pack<TreeNode>` to reserve parent slots before their child indices are known and
-then fills the links with `put`. `incrementRoot` uses `Tree.edit<TreeNode>` to derive a new tree while
-the original remains unchanged. Recursive traversal reads nodes through ordinary packed indexing.
+`buildTree` uses `make<TreeNode>` to construct the tree through a scoped `Buffer<TreeNode>`. It appends
+parent slots before their child indices are known, then fills the links with `put`.
+`incrementRoot` uses `Tree.edit<TreeNode>` to derive a new tree while the original remains unchanged.
+Recursive traversal reads nodes through ordinary packed indexing.
 
 Use external storage instead when a data structure genuinely belongs to a host resource or needs
 recoverable allocation failure. The neighboring `fallible-tree` example deliberately keeps that

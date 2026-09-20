@@ -12,11 +12,11 @@ frame records what the enclosing container must do after a child value completes
 replaces or pushes the active frame, while a Packed prefix pops it, so nesting is limited only by
 the target-sized count and available memory.
 
-The host owns the stdin allocation. The mal parser borrows it as `Region<UInt8>` and returns only
-statistics or a static diagnostic, so the allocation can be released immediately after parsing;
-the complete input is never copied into a `Packed<UInt8>` or `Symbol`. Process arguments use the
-same borrowed-region query parser. Output rendering does use mal-owned `Symbol` values, then writes
-them in chunks through the fixed host buffer instead of treating its capacity as an output limit.
+The host owns the stdin allocation. The program admits its initialized prefix into a mal-owned
+`Packed<UInt8>` before releasing that allocation, so parsing no longer depends on host storage.
+It admits the selected process argument for the same reason: arguments become ordinary program
+values at the entry point. Output rendering uses mal-owned `Symbol` values, then writes them in
+chunks through the fixed host buffer instead of treating its capacity as an output limit.
 
 Input is expected to be UTF-8. The example validates JSON token and structural syntax, including the
 shape of `\u` escapes, but does not decode Unicode escapes or reject unpaired UTF-16 surrogates.

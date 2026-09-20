@@ -9,6 +9,8 @@ The `Tree` alias names an external-storage capability without claiming ownership
 The mal program treats constructor arguments as logically owned. `createOwnedBranch` either transfers
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.
+Traversal borrows each node through short `Region` callbacks. Child `Address` values are ordinary
+capabilities, so they leave the callback as a product without allocating a `Packed<Address>` snapshot.
 
 The host tracks every live node and traps if `destroyAllocator` is called before all nodes have been
 released. This makes partial-construction leaks observable in the end-to-end test. The protocol is

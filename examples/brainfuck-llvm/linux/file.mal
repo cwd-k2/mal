@@ -1,9 +1,7 @@
 require "./memory.mal";
 require "./syscall.mal";
 
-// SourceSnapshot fields: 0 owned source bytes, 1 mapping address, 2 mapping extent.
-SourceSnapshot :: (Packed<UInt8>, Address, ByteSize);
-ReadResult :: [SourceSnapshot, UInt32];
+ReadResult :: [Packed<UInt8>, UInt32];
 // MappingBuffer fields: 0 current mapping, 1 extent, 2 initialized byte length.
 MappingBuffer :: (Address, ByteSize, ByteSize);
 MappingFailure :: (MappingBuffer, UInt32);
@@ -17,7 +15,7 @@ _fileTooLarge :: UInt32 := 27u32;
 
 _readFailure :: UInt32 -> ReadResult := (error) -> [success, failure] => failure(error);
 
-_readSuccess :: SourceSnapshot -> ReadResult := (source) -> [success, failure] => success(source);
+_readSuccess :: Packed<UInt8> -> ReadResult := (source) -> [success, failure] => success(source);
 
 _bufferFailure :: MappingFailure -> MappingResult := (failureValue) -> [success, failure] =>
     failure(failureValue);
@@ -61,7 +59,14 @@ _finishRead :: (Int32, MappingResult) -> ReadResult := (descriptor, result) -> {
     (buffer) -> {
         (memory, capacity, length) := buffer;
         closed[
-        () -> _readSuccess((memory.pack<UInt8>(0usize, length.usize), memory, capacity)),
+        () -> {
+            source := memory.pack<UInt8>(0usize, length.usize);
+            released := systemMunmap(memory, capacity);
+            released[
+            () -> _readSuccess(source),
+            (error) -> _readFailure(error)
+            ];
+        },
         (error) -> {
             systemMunmap(memory, capacity);
             _readFailure(error);
@@ -141,9 +146,4 @@ readSource :: Symbol -> ReadResult := (path) -> [return] => {
         },
         (error) -> _readFailure(error)
     ]);
-};
-
-releaseSource :: SourceSnapshot -> SyscallStatus := (source) -> {
-    (_, memory, mappingLength) := source;
-    systemMunmap(memory, mappingLength);
 };

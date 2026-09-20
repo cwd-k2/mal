@@ -10,17 +10,17 @@ This frame is the operation-specific socket contract, not a canonical memory rep
 `Packet` product.
 The adapter completes partial socket `write` and `read` operations and reports recoverable failures with
 errno-compatible result variants. Payloads are limited to 256 bytes. Mal stores outgoing Packed bytes
-in a borrowed external packet buffer and admits the initialized receive prefix into a Symbol. The
-program first verifies that a 257-byte packet is rejected without writing a partial frame, then sends
-and receives a valid packet.
+in a borrowed external packet buffer and compares the initialized receive prefix through a scoped
+`Region<UInt8>` because the bytes are needed only during validation. The program first verifies that
+a 257-byte packet is rejected without writing a partial frame, then sends and receives a valid packet.
 
 `host.c` uses `MAL_DEFINE_<operation>` entries, Address/USize byte descriptors, and variant-specific
 terminal returns. The host never observes a Symbol or a mal-managed owner.
 
 The `Socket` handle, packet buffer, and operating-system socket lifetime remain under Extern authority.
-`Packet` and the received `Symbol` are Engrams; the adapter validates the frame and reports the
-initialized prefix before mal admits it. Copying a `Socket` does not duplicate its file descriptor or make
-multiple calls to `closeSocket` valid.
+The outgoing `Packet` is an Engram; the adapter validates the received frame and reports its initialized
+prefix before mal borrows it. Copying a `Socket` does not duplicate its file descriptor or make multiple
+calls to `closeSocket` valid.
 
 From the repository root in Nushell:
 

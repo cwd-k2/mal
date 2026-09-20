@@ -51,7 +51,10 @@ _readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
 
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
-            lineLength := if (length > 0usize && line.pack<UInt8>(0usize, length) # (length - 1usize) == '\r')
+            endsWithCarriageReturn := length > 0usize && line.view<UInt8>(length - 1usize, length, (last) ->
+                last.get(0usize) == '\r'
+            );
+            lineLength := if (endsWithCarriageReturn)
                 then length - 1usize
                 else length;
             return(_lineReady((next, line.pack<UInt8>(0usize, lineLength))));

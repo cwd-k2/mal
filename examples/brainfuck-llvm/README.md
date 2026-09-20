@@ -2,24 +2,24 @@
 
 This compiler is implemented in mal. Its C host implementations only invoke the Linux `mmap`,
 `mremap`, `munmap`, `openat`, `lseek`, `close`, `read`, and `write` system calls and translate their
-results to typed mal sums. mal constructs the terminated path, snapshots the Brainfuck source into
+results to typed mal sums. mal constructs the terminated path, reads the Brainfuck source through
 a growable anonymous mapping, handles partial reads and writes, validates bracket nesting, and
 writes a complete LLVM IR module to standard output. The generated program uses a fixed 30,000-byte
 tape and the host C library's `getchar` and `putchar`; moving outside the tape is invalid Brainfuck
 input for this example, and end-of-file on input becomes byte `255`.
 
-`SourceSnapshot` is a `(Region<UInt8>, ByteSize)` containing a borrowed view of the source bytes and
-the mapping extent needed by `munmap`. Compilation reads the region only while the mapping is live; it
-does not copy the source into a mal-owned `Packed<UInt8>`, and no `Region` escapes in `CompileResult`.
-Non-command bytes are comments. Recursive compilation of `[` assigns a unique LLVM block identity and
-stops at the matching `]`, while straight-line input is processed by tail recursion.
+After the final read, `linux/file.mal` admits the initialized source prefix into a mal-owned
+`Packed<UInt8>` and immediately releases the external mapping. Compilation therefore depends only on
+the admitted source value, not on mapping lifetime or release authority. Non-command bytes are
+comments. Recursive compilation of `[` assigns a unique LLVM block identity and stops at the matching
+`]`, while straight-line input is processed by tail recursion.
 
 The implementation is split by responsibility:
 
 - `compiler.mal` translates Brainfuck instructions and loops to LLVM IR.
 - `linux/syscall.mal` declares only typed Linux syscall transports.
 - `linux/memory.mal` constructs and resizes anonymous mappings.
-- `linux/file.mal` terminates paths, opens files, and reads source snapshots into owned mappings.
+- `linux/file.mal` terminates paths, reads files through growable mappings, and admits source values.
 - `linux/output.mal` copies `Symbol` bytes to mappings and handles partial writes.
 - `linux/syscall.c` moves values between the generated C ABI and Linux syscall registers.
 
