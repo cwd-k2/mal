@@ -43,6 +43,11 @@ call modeは次の四つである。
 function parameterのcontrol bindingは`execution/parameter`がcall mode共通の`Bind(slot)`または`Discard`へ変換する。backendは
 parameter patternを再解釈せず、このdestinationをtarget固有のowner operationとstorageへ変換する。
 
+`execution/self_tail_parameter`は`DirectSelfTail` siteについて、転送後のargumentとparameter patternのbinding対応、control use、
+ownershipを統合する。全edgeで保持されるmanaged leafと、一回だけ使われるunmanagedな先頭分解から、backendがparameter leafとして
+扱ってよいpatternとentry prefixを構成する。条件を満たさないfunctionはplanへ入れない。target固有の表現は
+[実行backendの責務境界](../design/execution-backend.md#control-storage)が所有する。
+
 ## continuation frame
 
 同じregion内のnon-tail callだけがcallerをsuspendする。frameはresume state、resume時に必要なlive value、および共通regionで必要な
@@ -110,6 +115,8 @@ contractの変更が必要なら、単なるoptimizationではなくexecution au
 - 空のoptimization setと各techniqueの単独有効化で同じresult、effect order、trap、owner lifetime、bounded native stackを保持する。
 - region内non-tail siteとframe集合、frame fieldとresume live-inが一致し、退役frame容量の再利用元が全到達pathで一意である。
 - tail edgeがframeを増やさず、深いself recursionとfirst-class cycleでnative stack使用量がdepthに比例しない。
+- self-tail parameterのleaf化を無効にした経路、aggregateを後続で使う不適用経路、およびborrowed managed fieldを保持する適用経路が
+  同じresultとowner lifetimeを持つ。
 - heterogeneous frame、managed field、environment owner、複数target dispatchを実行testで確認する。
 - heterogeneous result型を持つ共通region、wildcard parameterへのmanaged argument、同じ構造型を持つ異なる役割のfunctionを確認する。
 - frame storage growth後にpointerを再取得し、result、evaluation order、extern trace、trap、managed lifetimeを保持する。

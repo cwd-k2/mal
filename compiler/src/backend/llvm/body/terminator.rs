@@ -3,6 +3,12 @@ impl FunctionEmitter<'_> {
     pub(super) fn emit_state(&mut self, site: StateId) -> Option<()> {
         self.current_function = self.function_for_state(site)?;
         let state = &self.control.states[site.0];
+        let self_tail_parameter = self
+            .current_function()
+            .filter(|function| function.entry == site)
+            .filter(|function| self.optimizations.self_tail_parameter(function.id))
+            .and_then(|function| self.execution.self_tail_parameters.get(function.id))
+            .cloned();
         self.line(format!("mal_state_{}:", site.0));
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let value = self.emit_operation(
@@ -20,6 +26,14 @@ impl FunctionEmitter<'_> {
             drops.sort_by_key(|id| self.slots.get(id).map_or(usize::MAX, |slot| slot.index));
             for id in drops {
                 self.release_dead_slot(id)?;
+            }
+            if self_tail_parameter
+                .as_ref()
+                .is_some_and(|parameter| parameter.binding_count == binding_index + 1)
+            {
+                let label = self_tail_entry_label(self.current_function)?;
+                self.line(format!("  br label %{label}"));
+                self.line(format!("{label}:"));
             }
         }
         self.emit_terminator(site, &state.terminator)
@@ -224,16 +238,31 @@ impl FunctionEmitter<'_> {
                             return None;
                         }
                         self.commit_consumes(&value)?;
-                        self.emit_parameter_handoff(
-                            function.id,
-                            &value.value,
-                            crate::execution::ownership::ParameterEntry::OwnedHandoff,
-                        )?;
+                        let self_tail_parameter = self
+                            .optimizations
+                            .self_tail_parameter(function.id)
+                            .then(|| self.execution.self_tail_parameters.get(function.id))
+                            .flatten()
+                            .cloned();
+                        if let Some(parameter) = &self_tail_parameter {
+                            self.store_self_tail_pattern(&parameter.pattern, &value.value)?;
+                        } else {
+                            self.emit_parameter_handoff(
+                                function.id,
+                                &value.value,
+                                crate::execution::ownership::ParameterEntry::OwnedHandoff,
+                            )?;
+                        }
                         self.emit_edge_drops(
                             site,
                             crate::execution::ownership::ControlPath::Single,
                         )?;
-                        self.line(format!("  br label %mal_state_{}", function.entry.0));
+                        let target = if self_tail_parameter.is_some() {
+                            self_tail_entry_label(function.id)?
+                        } else {
+                            format!("mal_state_{}", function.entry.0)
+                        };
+                        self.line(format!("  br label %{target}"));
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(site, target, callee, argument, true)?;

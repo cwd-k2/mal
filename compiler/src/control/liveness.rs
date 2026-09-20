@@ -1,10 +1,31 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
 use super::Lowerer;
 use super::ast::{LiveValue, Operation, State, StateId, Terminator};
+
+pub(crate) fn binding_use_counts(program: &super::ast::Program) -> HashMap<ValueId, usize> {
+    let mut uses = HashMap::new();
+    for state in &program.states {
+        for binding in &state.bindings {
+            visit_operation(&binding.operation, &mut |atom| {
+                count_binding_use(atom, &mut uses)
+            });
+        }
+        visit_terminator(&state.terminator, &mut |atom| {
+            count_binding_use(atom, &mut uses)
+        });
+    }
+    uses
+}
+
+fn count_binding_use(atom: &Atom, uses: &mut HashMap<ValueId, usize>) {
+    if let AtomKind::Reference(Reference::Binding(id)) = atom.kind {
+        *uses.entry(id).or_default() += 1;
+    }
+}
 
 impl Lowerer {
     pub(super) fn resolve_liveness(&mut self, start: usize, locals: &[LiveValue]) {

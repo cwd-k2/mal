@@ -7,6 +7,7 @@ mod liveness;
 use self::ast::{
     Binding, CaseArm, Function, Operation, Program, State, StateId, Terminator, TopLevelBinding,
 };
+pub(crate) use self::liveness::binding_use_counts;
 use self::liveness::local_values;
 
 pub fn lower(program: &closure::Program) -> Program {

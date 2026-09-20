@@ -20,5 +20,9 @@ mod interface;
 mod packed;
 #[path = "artifacts/symbols.rs"]
 mod symbols;
+#[path = "artifacts/value_aggregates.rs"]
+mod value_aggregates;
+#[path = "artifacts/value_scalars.rs"]
+mod value_scalars;
 #[path = "artifacts/values.rs"]
 mod values;

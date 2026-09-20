@@ -161,6 +161,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `driver/build` | source graph、optimization profile、artifact directory、generated input、Clang process、AtCoder carrierを一つのbuild use caseへ構成 |
 | `core/interface` | checked programからhost-visible metadataだけを抽出 |
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
+| `core/expression` | checked expression kindをcore expressionへdispatchし、既に所有moduleが持つcontrol、memory、Packed loweringへ接続 |
+| `core/lambda` | lambda parameterとbody item列をcore binding、lexical join、closure captureへ変換 |
 | `core/packed` | scoped BufferによるPacked構築・編集のcore operation順序 |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
@@ -172,7 +174,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/bool` | Bool eliminationを明示的な`case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製しない |
 | `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
-| `control/liveness` | stateごとのlocal valueとclosure environmentのbackward livenessを構成 |
+| `control/liveness` | stateごとのlocal valueとclosure environmentのbackward liveness、およびcontrol bindingのuse countを構成 |
 
 ### Execution plan
 
@@ -185,11 +187,13 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/optimization/tail_forwarder` | pure tail-forwarder fusion候補 |
 | `execution/optimization/direct_call` | known-target call候補 |
 | `execution/optimization/unique_capture` | 一回限りのentry callbackで移動可能なcapture |
-| `execution/optimization/frame_pass_through` | 全自己再帰edgeが保持するparameter field |
+| `execution/optimization/frame_pass_through` | 全自己再帰edgeが保持するframe parameter field |
+| `execution/pass_through` | parameter patternとargumentの構造的なbinding対応 |
 | `execution/continuation` | possible application graphから選択済みcontinuation elisionを除いたcontinuation edgeを構成 |
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | applicationのcall mode |
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
+| `execution/self_tail_parameter` | use、ownership、全direct self-tail edgeを満たすparameter leaf handoffとentry prefix |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
 | `execution/frame/replacement` | 退役frame容量を再利用できるcontrol path |
@@ -240,6 +244,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `backend/llvm/optimization/buffer_abi/shape` | direct化できるBuffer parameter shapeとleaf数 |
 | `backend/llvm/optimization/control_storage` | local control storage viewを使うrecursive function集合 |
 | `backend/llvm/optimization/control_top` | local control topを使うrecursive function集合 |
+| `backend/llvm/optimization/self_tail_parameter` | execution planがadmitしたself-tail parameter leaf emissionの有効化 |
 | `backend/llvm/optimization/symbol_concat` | concat storage再利用候補 |
 | `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
 | `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |

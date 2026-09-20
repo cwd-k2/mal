@@ -37,8 +37,8 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 
 | Owner | Responsibility |
 |---|---|
-| Execution plan | application graph、tail fusion、recursive SCC、edge mode、resume liveness、frameが運ぶsemantic valueとowner |
-| Generated LLVM IR | function body、basic block、call、branch、dispatch、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
+| Execution plan | application graph、tail fusion、recursive SCC、edge mode、self-tail parameter leafとしてadmitしたpatternとentry prefix、resume liveness、frameが運ぶsemantic valueとowner |
+| Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
 | Generated C shim | process entry、LLVM moduleのroot呼出し、extern call marshalling、terminal return、public valueと内部valueの変換 |
 | Generated C header | host-visible type、operation definition macro、observer、constructor、public C ABI version |
@@ -84,6 +84,10 @@ terminal return時にはinvocation baseを共有topへ戻す。
 
 既知のstate遷移はLLVM basic blockへの直接branchにし、runtime target選択が必要な箇所だけdispatchする。全遷移を一つのcentral
 dispatcherへ戻すことや、多数のpredecessorを持つblockを無条件に作ることをbackendの正しさの条件にしない。
+
+direct self-tail parameter planを有効にしたfunctionでは、admit済みpatternを物理leaf slotへ展開し、back edgeでleafを更新してadmit済み
+entry prefixの後へbranchする。backendはuse、binding同一性、ownership、prefix purityを再推論しない。これはLLVMのmem2regとphi形成へ
+loop-carried valueを公開するtarget固有の表現選択である。
 
 LLVM coroutine intrinsicはreference backendに使わない。malは外部resume、suspended coroutine identity、destroy operationを必要とせず、
 recursive regionではcoroutine frame allocationのelisionも通常期待できない。既存control IRのframeとresumeを直接lowerする。

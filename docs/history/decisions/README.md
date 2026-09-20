@@ -9,7 +9,7 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 
 | Area | Decisions |
 |---|---|
-| compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md)、[D065](D065.md)、[D066](D066.md)、[D067](D067.md) |
+| compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md)、[D065](D065.md)、[D066](D066.md)、[D067](D067.md)、[D069](D069.md) |
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
@@ -56,6 +56,7 @@ D066はrecursive region invocation内のcontrol topをlocal SSAへ置き、nativ
 D067は同じinvocationでcontrol storageとcapacityをcacheし、growthとnative Mal call後に更新する。
 D068はD052とD056のCursor、placement、load/store operator、Region projectionをscoped Region APIで置き換え、D061の
 `pack`と`bulk`をcapacity必須の`make`へ統合する。
+D069はdirect self-tail parameterの純粋な先頭分解をleaf handoffへrefineし、LLVMのSSA promotionへloop-carried valueを公開する。
 
 ## 後継があるhistorical record
 

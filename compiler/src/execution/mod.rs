@@ -8,7 +8,9 @@ mod frame;
 mod optimization;
 pub(crate) mod ownership;
 mod parameter;
+mod pass_through;
 mod region;
+mod self_tail_parameter;
 
 pub(crate) use application::ApplicationGraph;
 pub(crate) use call::{ControlCallMode, ControlCallPlan};
@@ -19,6 +21,7 @@ pub(crate) use optimization::{OptimizationPlan, OptimizationSet};
 pub(crate) use ownership::{Inputs as OwnershipInputs, Plan as OwnershipPlan};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
+pub(crate) use self_tail_parameter::SelfTailParameterPlan;
 
 pub(crate) struct Program {
     pub(crate) lowered: closure_ast::Program,
@@ -29,6 +32,7 @@ pub(crate) struct Program {
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
     pub(crate) ownership: OwnershipPlan,
+    pub(crate) self_tail_parameters: SelfTailParameterPlan,
 }
 
 pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
@@ -78,6 +82,14 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &control_regions,
         &control_frames,
     )));
+    let self_tail_parameters =
+        SelfTailParameterPlan::new(&control, &applications, &control_calls, &ownership);
+    debug_assert!(self_tail_parameters.is_valid(
+        &control,
+        &applications,
+        &control_calls,
+        &ownership
+    ));
     Program {
         lowered,
         control,
@@ -87,6 +99,7 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         control_regions,
         control_frames,
         ownership,
+        self_tail_parameters,
     }
 }
 

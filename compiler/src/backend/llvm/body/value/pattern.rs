@@ -4,6 +4,57 @@ use crate::closure::ast::Pattern;
 use super::super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
+    pub(in crate::backend::llvm::body) fn store_self_tail_pattern(
+        &mut self,
+        pattern: &Pattern,
+        value: &EmittedValue,
+    ) -> Option<()> {
+        match pattern {
+            Pattern::Binding { ty, .. }
+                if crate::execution::ownership::is_managed(ty) && value.ty == *ty => {}
+            Pattern::Binding { id, ty }
+                if !crate::execution::ownership::is_managed(ty) && value.ty == *ty =>
+            {
+                let slot = self.slots.get(id)?.clone();
+                let value_type = self.types.value(ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr %mal_slot_{}, align {}",
+                    value_type.llvm, value.representation, slot.index, value_type.alignment
+                ));
+            }
+            Pattern::Product { elements, ty, .. } if value.ty == *ty => {
+                let Type::Product(element_types) = ty else {
+                    return None;
+                };
+                if elements.len() != element_types.len() {
+                    return None;
+                }
+                let aggregate_type = self.types.value(ty)?;
+                for (index, (element, element_type)) in
+                    elements.iter().zip(element_types.iter()).enumerate()
+                {
+                    let register = self.register();
+                    self.line(format!(
+                        "  {register} = extractvalue {} {}, {index}",
+                        aggregate_type.llvm, value.representation
+                    ));
+                    self.store_self_tail_pattern(
+                        element,
+                        &EmittedValue {
+                            ty: element_type.clone(),
+                            representation: register,
+                            owned: false,
+                        },
+                    )?;
+                }
+            }
+            Pattern::Wildcard { ty, .. }
+                if !crate::execution::ownership::is_managed(ty) && value.ty == *ty => {}
+            _ => return None,
+        }
+        Some(())
+    }
+
     pub(in crate::backend::llvm::body) fn store_binding_pattern(
         &mut self,
         state: crate::control::ast::StateId,

@@ -359,3 +359,18 @@ runtimeから再取得した。3 warmup、回転30 roundで自然な032は60.23 
 5.5%短縮した。Cachegrindのdata referenceは331,318,817から
 254,149,393へ23.3%、writeは115,742,866から63,514,611へ45.1%減った。一方instructionは1,390,886,499から1,429,903,582へ
 2.8%増えたため、この改善は命令削減ではなくcontext経由のmemory dependencyを切った結果である。
+
+## 2026-09-20 — direct self-tail parameterのleaf handoff
+
+`453be2e`から現行`make` APIで032を再生成すると、candidateを進めるdirect self-tail edgeに、変化しないparameter fieldのidentity copyが
+残っていた。execution planで転送後argumentとparameter patternのbinding対応、control use、ownershipを統合し、安全なleaf patternと
+entry prefixをadmitした。LLVM backendはこのplanを物理leaf slotとprefix後へのback edgeへ変換した。これによりbackendがsemanticな
+適用条件を再推論せず、特定の問題、source名、型の組合せにも依存せず、LLVMのmem2regがloop-carried leafをphiへ変換できる。
+
+maximum inputの出力を変更前、変更後、値返却C、mutable-best Cで照合した。Callgrind 3.27.1のinstruction referenceは
+1,429,901,337から1,256,528,743へ12.1%減り、executable textは7,152 bytesから6,736 bytesへ縮小した。同じbinaryをwarmup 3回、
+回転30 roundで測ったmedianは変更前82.204 ms、変更後80.754 ms、値返却C 57.472 ms、mutable-best C 55.799 msだった。
+wall-clockの1.8%差はhost noiseに対して小さいが、hot edgeのmachine-level identity copy消失とdeterministicなinstruction削減が一致するため
+採択した。変更後の全269 sampleと79 maximum-order inputもdirect Cと一致した。raw sampleはignored scratchの
+`032/artifacts/measurements/self-tail-leaves-comparison.json`と
+`self-tail-leaves.callgrind`へ保存した。

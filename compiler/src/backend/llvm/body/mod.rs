@@ -196,3 +196,7 @@ fn function_number(id: FunctionId) -> Option<u32> {
     let FunctionId::Lambda(id) = id;
     Some(id.0)
 }
+
+fn self_tail_entry_label(id: FunctionId) -> Option<String> {
+    Some(format!("mal_self_tail_entry_{}", function_number(id)?))
+}
