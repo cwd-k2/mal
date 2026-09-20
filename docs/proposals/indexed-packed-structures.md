@@ -2,7 +2,8 @@
 
 Status: Draft proposal; non-normative
 
-この文書は、再帰的なdata structureを`Representable`なrecord列とindexで表し、構造の再帰をoperationの再帰として扱う方針を評価する。
+この文書は、[表現と関係を分ける](../design/representation-and-relations.md)方針をtreeとgraphへ適用し、再帰的なdata structureを
+`Representable`なrecord列とindexで表す具体案を評価する。
 構築中の`Buffer`と既存値からの置換・追加は[`Region`と`Packed`](../spec/packed.md#scoped-constructionとediting)を正とする。
 
 ## 優先する方向
@@ -27,8 +28,9 @@ TreeNode :: (Int32, UInt8, USize, USize);
 Tree :: Packed<TreeNode>;
 ```
 
-rootをindex 0とし、branchの第三、第四要素をleft、right indexとする。`kind`の値、rootの位置、child bounds、acyclic性はprogramの
-preconditionであり、`Packed`の型自体は保証しない。
+rootをindex 0とし、branchの第三、第四要素をleft、right indexとする。ここで`Packed<TreeNode>`はcarrierであり、indexはそのcarrierに
+相対的な座標である。`kind`の値、rootの位置、child relation、child bounds、acyclic性はprogramのpreconditionであり、`Packed`の型自体は
+保証しない。
 
 ## 再帰的な結合
 

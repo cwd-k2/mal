@@ -39,7 +39,7 @@
 | `Address`、layout、typed viewを使う | [external memory](spec/memory.md) | [grammar](spec/grammar.md)、[`Region`と`Packed`](spec/packed.md) |
 | `Region`、`Packed`、partial I/Oを使う | [`Region`と`Packed`](spec/packed.md) | [external memory](spec/memory.md)、[authority](design/authority.md) |
 | scoped `Packed`構築・編集を使う | [`Region`と`Packed`](spec/packed.md#scoped-constructionとediting) | [managed ownership](implementation/ownership.md) |
-| treeやgraphのmal-owned dataを検討する | [indexで結ぶ`Packed`構造](proposals/indexed-packed-structures.md) | [`Region`と`Packed`](spec/packed.md#scoped-constructionとediting)、[挿入とbalance例](proposals/indexed-packed-tree-examples.md) |
+| table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Region`と`Packed`](spec/packed.md)、[indexで結ぶ`Packed`構造](proposals/indexed-packed-structures.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
