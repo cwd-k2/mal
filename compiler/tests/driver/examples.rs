@@ -663,7 +663,7 @@ fn packed_tree_example_builds_edits_and_traverses_a_tree() {
 
 #[test]
 fn relation_modeling_examples_build_and_validate_their_results() {
-    for name in ["relation-views", "spreadsheet"] {
+    for name in ["relation-views", "csr-dijkstra", "spreadsheet"] {
         let directory = NativeFixture::new(name);
         let example = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()

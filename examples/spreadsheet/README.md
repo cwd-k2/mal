@@ -4,6 +4,10 @@ This example represents a spreadsheet as finite dimensions and a flat immutable 
 rows. A row stores a formula kind, a literal value, and two source coordinates. The type describes
 that carrier; `_evaluateAt` interprets source coordinates as dependency edges.
 
+The literal is payload, the formula kind selects how the row is interpreted, and the source
+coordinates are relation indicators only for sum and product rows. Row-major position supplies cell
+identity; physical adjacency between cells does not imply a dependency.
+
 Cells use row-major coordinates. Literal cells ignore both source fields, sum and product cells read
 them as references, and the requested result is computed without materializing a recursive formula
 value. `validSheet` establishes the example's invariant before evaluation: dimensions match the row
@@ -25,4 +29,3 @@ From the repository root in Nushell:
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/spreadsheet/program.mal --output /tmp/mal-spreadsheet
 /tmp/mal-spreadsheet
 ```
-

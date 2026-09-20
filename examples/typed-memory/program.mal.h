@@ -112,7 +112,7 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
 /* Host-visible types */
 
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
-typedef mal_repr_product_0_t mal_Sample_t;
+typedef mal_repr_product_0_t mal_SampleRecord_t;
 
 struct mal_detail_repr_product_0 {
     mal_Int64_t field_0;
@@ -153,12 +153,12 @@ static inline void mal_detail_memory_write_0(mal_call_t *call MAL_DETAIL_MAYBE_U
     mal_detail_memory_write_UInt8(call, destination + 8, value.field_1);
 }
 
-static inline mal_Sample_t mal_Sample_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+static inline mal_SampleRecord_t mal_SampleRecord_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
     return mal_detail_memory_read_0(call, (const uint8_t *)address + (index * 16));
 }
 
-static inline void mal_Sample_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Sample_t value) {
+static inline void mal_SampleRecord_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_SampleRecord_t value) {
     mal_Address_return(call, address);
     mal_detail_memory_write_0(call, (uint8_t *)address + (index * 16), value);
 }

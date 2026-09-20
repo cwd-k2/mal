@@ -2,12 +2,13 @@ require "./host.c";
 
 extern printInt32 :: Int32 -> Unit;
 
+// The result captures x as ordinary closure state; callers only observe its function type.
 makeAdder :: Int32 -> (Int32 -> Int32) := (x) -> (y) -> x + y;
 
 main :: Unit -> Int32 := () -> {
     printInt32(1);
     addTen := makeAdder(10);
     printInt32(addTen(5));
-    printInt32(2147483647 + 1);
+    printInt32(2147483647 + 1); // Int32 arithmetic wraps before the host observes it.
     0;
 };

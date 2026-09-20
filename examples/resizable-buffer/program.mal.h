@@ -165,7 +165,7 @@ struct MalRepr_Product_6 {
 typedef MalRepr_Product_1 MalType_OwnedBuffer;
 typedef MalRepr_Product_4 MalType_BorrowedBytes;
 typedef MalRepr_Product_6 MalType_OutputBuffer;
-typedef MalRepr_Sum_2 MalType_BufferResult;
+typedef MalRepr_Sum_2 MalType_OwnedBufferResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocation_t;
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
@@ -178,7 +178,7 @@ typedef struct mal_detail_repr_product_6 mal_repr_product_6_t;
 typedef mal_repr_product_1_t mal_OwnedBuffer_t;
 typedef mal_repr_product_4_t mal_BorrowedBytes_t;
 typedef mal_repr_product_6_t mal_OutputBuffer_t;
-typedef mal_repr_sum_2_t mal_BufferResult_t;
+typedef mal_repr_sum_2_t mal_OwnedBufferResult_t;
 
 struct mal_detail_repr_product_0 {
     mal_USize_t field_0;
@@ -317,22 +317,22 @@ static inline MalType_OutputBuffer mal_OutputBuffer_return(mal_call_t *call MAL_
     return (MalRepr_Product_6){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
-#define mal_BufferResult_tag_0 UINT32_C(0)
-static inline mal_BufferResult_t mal_BufferResult_make_0(mal_OwnedBuffer_t value) {
-    return (mal_BufferResult_t){ .tag = mal_BufferResult_tag_0, .payload.variant_0 = value };
+#define mal_OwnedBufferResult_tag_0 UINT32_C(0)
+static inline mal_OwnedBufferResult_t mal_OwnedBufferResult_make_0(mal_OwnedBuffer_t value) {
+    return (mal_OwnedBufferResult_t){ .tag = mal_OwnedBufferResult_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_BufferResult mal_BufferResult_return_0(mal_call_t *call, mal_OwnedBuffer_t value) {
-    return mal_detail_to_raw_2(call, (mal_BufferResult_t){ .tag = mal_BufferResult_tag_0, .payload.variant_0 = value });
+static inline MalType_OwnedBufferResult mal_OwnedBufferResult_return_0(mal_call_t *call, mal_OwnedBuffer_t value) {
+    return mal_detail_to_raw_2(call, (mal_OwnedBufferResult_t){ .tag = mal_OwnedBufferResult_tag_0, .payload.variant_0 = value });
 }
 
-#define mal_BufferResult_tag_1 UINT32_C(1)
-static inline mal_BufferResult_t mal_BufferResult_make_1(mal_UInt32_t value) {
-    return (mal_BufferResult_t){ .tag = mal_BufferResult_tag_1, .payload.variant_1 = value };
+#define mal_OwnedBufferResult_tag_1 UINT32_C(1)
+static inline mal_OwnedBufferResult_t mal_OwnedBufferResult_make_1(mal_UInt32_t value) {
+    return (mal_OwnedBufferResult_t){ .tag = mal_OwnedBufferResult_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalType_BufferResult mal_BufferResult_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_2(call, (mal_BufferResult_t){ .tag = mal_BufferResult_tag_1, .payload.variant_1 = value });
+static inline MalType_OwnedBufferResult mal_OwnedBufferResult_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_2(call, (mal_OwnedBufferResult_t){ .tag = mal_OwnedBufferResult_tag_1, .payload.variant_1 = value });
 }
 
 /* Canonical memory access */
@@ -382,8 +382,8 @@ static inline void mal_OutputBuffer_write(mal_call_t *call, mal_Address_t addres
 
 /* External operations */
 
-MalType_BufferResult mal_ext_allocateBuffer(MalContext *context, MalType_USize argument_0, MalType_USize argument_1);
-MalType_BufferResult mal_ext_resizeBuffer(MalContext *context, MalType_OwnedBuffer argument_0, MalType_USize argument_1);
+MalType_OwnedBufferResult mal_ext_allocateBuffer(MalContext *context, MalType_USize argument_0, MalType_USize argument_1);
+MalType_OwnedBufferResult mal_ext_resizeBuffer(MalContext *context, MalType_OwnedBuffer argument_0, MalType_USize argument_1);
 void mal_ext_releaseBuffer(MalContext *context, MalType_Allocation value);
 MalType_Bool mal_ext_isCurrentBuffer(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2, MalType_USize argument_3);
 MalType_Bool mal_ext_isCurrentBorrow(MalContext *context, MalType_Allocation argument_0, MalType_Address argument_1, MalType_USize argument_2);
@@ -396,24 +396,24 @@ void mal_ext_writeBytes(MalContext *context, MalType_Address argument_0, MalType
 
 #define MAL_HAS_EXTERN_allocateBuffer 1
 #define MAL_DEFINE_allocateBuffer(call, value) \
-static MalType_BufferResult mal_detail_allocateBuffer(mal_call_t *call, mal_repr_product_0_t value); \
-MalType_BufferResult mal_ext_allocateBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_USize argument_0, MalType_USize argument_1) { \
+static MalType_OwnedBufferResult mal_detail_allocateBuffer(mal_call_t *call, mal_repr_product_0_t value); \
+MalType_OwnedBufferResult mal_ext_allocateBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_USize argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_allocateBuffer(&call, (mal_repr_product_0_t){ .field_0 = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_BufferResult mal_detail_allocateBuffer( \
+static MalType_OwnedBufferResult mal_detail_allocateBuffer( \
     mal_call_t *call, \
     mal_repr_product_0_t value \
 )
 
 #define MAL_HAS_EXTERN_resizeBuffer 1
 #define MAL_DEFINE_resizeBuffer(call, value) \
-static MalType_BufferResult mal_detail_resizeBuffer(mal_call_t *call, mal_repr_product_3_t value); \
-MalType_BufferResult mal_ext_resizeBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_OwnedBuffer argument_0, MalType_USize argument_1) { \
+static MalType_OwnedBufferResult mal_detail_resizeBuffer(mal_call_t *call, mal_repr_product_3_t value); \
+MalType_OwnedBufferResult mal_ext_resizeBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_OwnedBuffer argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_resizeBuffer(&call, (mal_repr_product_3_t){ .field_0 = (mal_repr_product_1_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_0.bits }, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_1, .field_2 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_2, .field_3 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.field_3 }, .field_1 = ((MalRepr_Product_3){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_BufferResult mal_detail_resizeBuffer( \
+static MalType_OwnedBufferResult mal_detail_resizeBuffer( \
     mal_call_t *call, \
     mal_repr_product_3_t value \
 )

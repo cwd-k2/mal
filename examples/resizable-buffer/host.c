@@ -68,38 +68,38 @@ static void write_current_borrow(
 
 MAL_DEFINE_allocateBuffer(call, value) {
     if (value.field_0 == 0 || value.field_0 > value.field_1) {
-        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
+        return mal_OwnedBufferResult_return_1(call, (uint32_t)EINVAL);
     }
     AllocationHandle *handle = malloc(sizeof(*handle));
     uint8_t *memory = malloc(value.field_0);
     if (handle == NULL || memory == NULL) {
         free(handle);
         free(memory);
-        return mal_BufferResult_return_1(call, (uint32_t)ENOMEM);
+        return mal_OwnedBufferResult_return_1(call, (uint32_t)ENOMEM);
     }
     handle->memory = memory;
     handle->capacity = value.field_0;
     handle->limit = value.field_1;
     handle->retired = NULL;
-    return mal_BufferResult_return_0(call, buffer_value(handle, 0));
+    return mal_OwnedBufferResult_return_0(call, buffer_value(handle, 0));
 }
 
 MAL_DEFINE_resizeBuffer(call, value) {
     mal_OwnedBuffer_t buffer = value.field_0;
     size_t targetCapacity = value.field_1;
     if (!is_current_buffer(buffer)) {
-        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
+        return mal_OwnedBufferResult_return_1(call, (uint32_t)EINVAL);
     }
     AllocationHandle *handle = allocation_handle(buffer.field_0);
     if (targetCapacity < buffer.field_3 || targetCapacity > handle->limit) {
-        return mal_BufferResult_return_1(call, (uint32_t)EINVAL);
+        return mal_OwnedBufferResult_return_1(call, (uint32_t)EINVAL);
     }
     uint8_t *nextMemory = malloc(targetCapacity);
     RetiredStorage *retired = malloc(sizeof(*retired));
     if (nextMemory == NULL || retired == NULL) {
         free(nextMemory);
         free(retired);
-        return mal_BufferResult_return_1(call, (uint32_t)ENOMEM);
+        return mal_OwnedBufferResult_return_1(call, (uint32_t)ENOMEM);
     }
     if (buffer.field_3 > 0) {
         memcpy(nextMemory, handle->memory, buffer.field_3);
@@ -109,7 +109,7 @@ MAL_DEFINE_resizeBuffer(call, value) {
     handle->retired = retired;
     handle->memory = nextMemory;
     handle->capacity = targetCapacity;
-    return mal_BufferResult_return_0(call, buffer_value(handle, buffer.field_3));
+    return mal_OwnedBufferResult_return_0(call, buffer_value(handle, buffer.field_3));
 }
 
 MAL_DEFINE_releaseBuffer(call, allocation) {

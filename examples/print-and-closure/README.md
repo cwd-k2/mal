@@ -1,6 +1,9 @@
 # Print and closure example
 
-This example exercises a host `Int32 -> Unit` operation, source-ordered effects, an escaping closure, and wrapping `Int32` arithmetic through the public compiler driver.
+This example exercises a host `Int32 -> Unit` operation, source-ordered effects, an escaping closure,
+and wrapping `Int32` arithmetic through the public compiler driver. `makeAdder` returns code together
+with captured `x`; it does not expose or prescribe the compiler's closure layout. The three writes
+also make evaluation order observable.
 
 From the repository root in Nushell:
 

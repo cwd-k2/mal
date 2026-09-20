@@ -42,7 +42,7 @@ MAL_DEFINE_readStdin(call) {
     return mal_StdinBytes_return(
         call,
         (mal_StdinBytes_t){
-            .field_0 = mal_Input_from_bits((uintptr_t)data),
+            .field_0 = mal_InputAllocation_from_bits((uintptr_t)data),
             .field_1 = data,
             .field_2 = length,
         }
@@ -50,7 +50,7 @@ MAL_DEFINE_readStdin(call) {
 }
 
 MAL_DEFINE_releaseInput(call, input) {
-    free((void *)mal_Input_to_bits(input));
+    free((void *)mal_InputAllocation_to_bits(input));
     return mal_Unit_return(call);
 }
 

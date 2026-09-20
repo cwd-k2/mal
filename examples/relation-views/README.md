@@ -9,6 +9,11 @@ edge or an interval, and its transparent alias proves neither graph nor interval
 operation owns its interpretation and preconditions. In particular, `validIntervals` is relevant to
 the interval view but not to the edge view.
 
+Under the graph interpretation, both fields are node coordinates and the ordered pair is a stored
+relation. Under the interval interpretation, they are boundary coordinates and the half-open
+membership operation derives a containment relation. The representation is identical; the field
+roles and valid invariants are not.
+
 This deliberately small example makes the separation observable: row `(3, 5)` is the directed edge
 from 3 to 5, while the interval view says that it contains 3 and 4 but not 5. No carrier conversion or
 copy is needed to select an interpretation.
@@ -19,4 +24,3 @@ From the repository root in Nushell:
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/relation-views/program.mal --output /tmp/mal-relation-views
 /tmp/mal-relation-views
 ```
-

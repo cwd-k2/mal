@@ -1,0 +1,185 @@
+// NodeOffsets partitions edge slots by source node. NeighborNodes relates each edge slot to a
+// destination node. EdgeCosts is payload joined to NeighborNodes by the shared edge slot.
+NodeOffsets :: Packed<Int64>;
+NeighborNodes :: Packed<Int64>;
+EdgeCosts :: Packed<Int64>;
+WeightedCsr :: (Int64, NodeOffsets, NeighborNodes, EdgeCosts);
+
+// The two workspace columns share a node coordinate but describe independent algorithm state.
+Int64BufferView :: (Buffer<Int64>, USize);
+NodeDistances :: Int64BufferView;
+VisitedFlags :: Int64BufferView;
+DijkstraWorkspace :: (NodeDistances, VisitedFlags);
+
+infinity :: Int64 := 2_305_843_009_213_693_951;
+
+appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) -> {
+    if (remaining == 0usize)
+    then { () }
+    else {
+        _ := buffer.new(value);
+        buffer.appendRepeated(remaining - 1usize, value);
+    };
+};
+
+at :: (Int64BufferView, Int64) -> Int64 := ((buffer, offset), index) ->
+    buffer.get(offset + index.usize);
+
+assign :: (Int64BufferView, Int64, Int64) -> Unit := ((buffer, offset), index, value) ->
+    buffer.put(offset + index.usize, value);
+
+_validOffsetsAt :: (NodeOffsets, Int64, Int64) -> Bool := (offsets, node, edgeCount) -> [return] => {
+    when (node + 1 == (#offsets).i64) {
+        return(offsets # node.usize == edgeCount);
+    };
+    current := offsets # node.usize;
+    next := offsets # (node + 1).usize;
+    when (current < 0 || current > next || next > edgeCount) {
+        return(false);
+    };
+    return(offsets._validOffsetsAt(node + 1, edgeCount));
+};
+
+_validNeighborsAt :: (NeighborNodes, Int64, Int64) -> Bool :=
+    (neighbors, edge, nodeCount) -> [return] => {
+        when (edge == (#neighbors).i64) {
+            return(true);
+        };
+        neighbor := neighbors # edge.usize;
+        when (neighbor < 0 || neighbor >= nodeCount) {
+            return(false);
+        };
+        return(neighbors._validNeighborsAt(edge + 1, nodeCount));
+    };
+
+_validCostsAt :: (EdgeCosts, Int64) -> Bool := (costs, edge) -> [return] => {
+    when (edge == (#costs).i64) {
+        return(true);
+    };
+    when (costs # edge.usize < 0) {
+        return(false);
+    };
+    return(costs._validCostsAt(edge + 1));
+};
+
+validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
+    (nodeCount, offsets, neighbors, costs) := graph;
+    nodeCount > 0
+        && #offsets == (nodeCount + 1).usize
+        && offsets # 0usize == 0
+        && #neighbors == #costs
+        && offsets._validOffsetsAt(0, (#neighbors).i64)
+        && neighbors._validNeighborsAt(0, nodeCount)
+        && costs._validCostsAt(0);
+};
+
+selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
+    (workspace, node, nodeCount, closest, closestDistance) -> [return] => {
+        when (node == nodeCount) {
+            return(closest);
+        };
+        (distances, visited) := workspace;
+        distance := distances.at(node);
+        better := visited.at(node) == 0 && distance < closestDistance;
+        return(workspace.selectClosest(
+            node + 1,
+            nodeCount,
+            if (better)
+            then { node }
+            else { closest },
+            if (better)
+            then { distance }
+            else { closestDistance }
+        ));
+    };
+
+relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
+    (graph, workspace, sourceDistance, edge, end) -> [return] => {
+        when (edge == end) {
+            return(());
+        };
+        (_, _, neighbors, costs) := graph;
+        (distances, _) := workspace;
+        neighbor := neighbors # edge.usize;
+        candidate := sourceDistance + costs # edge.usize;
+        when (candidate < distances.at(neighbor)) {
+            distances.assign(neighbor, candidate);
+        };
+        return(graph.relaxEdgeRange(workspace, sourceDistance, edge + 1, end));
+    };
+
+runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
+    (graph, workspace, remaining) -> [return] => {
+        when (remaining == 0) {
+            return(());
+        };
+        (nodeCount, offsets, _, _) := graph;
+        (distances, visited) := workspace;
+        closest := workspace.selectClosest(0, nodeCount, -1, infinity);
+        when (closest < 0) {
+            return(());
+        };
+        visited.assign(closest, 1);
+        graph.relaxEdgeRange(
+            workspace,
+            distances.at(closest),
+            offsets # closest.usize,
+            offsets # (closest + 1).usize
+        );
+        return(graph.runDijkstraRounds(workspace, remaining - 1));
+    };
+
+shortestDistance :: (WeightedCsr, Int64, Int64) -> Int64 := (graph, source, target) -> {
+    (nodeCount, _, _, _) := graph;
+    workspace := make<Int64>((nodeCount * 2).usize, (buffer) -> {
+        buffer.appendRepeated(nodeCount.usize, infinity);
+        buffer.appendRepeated(nodeCount.usize, 0);
+    });
+    solved := workspace.edit<Int64>((buffer) -> {
+        distances :: NodeDistances := (buffer, 0usize);
+        visited :: VisitedFlags := (buffer, nodeCount.usize);
+        distances.assign(source, 0);
+        graph.runDijkstraRounds((distances, visited), nodeCount);
+    });
+    solved # target.usize;
+};
+
+buildGraph :: Unit -> WeightedCsr := () -> {
+    offsets := make<Int64>(6usize, (buffer) -> {
+        buffer.new(0);
+        buffer.new(2);
+        buffer.new(4);
+        buffer.new(6);
+        buffer.new(7);
+        buffer.new(7);
+        ();
+    });
+    neighbors := make<Int64>(7usize, (buffer) -> {
+        buffer.new(1);
+        buffer.new(2);
+        buffer.new(2);
+        buffer.new(3);
+        buffer.new(3);
+        buffer.new(4);
+        buffer.new(4);
+        ();
+    });
+    costs := make<Int64>(7usize, (buffer) -> {
+        buffer.new(2);
+        buffer.new(5);
+        buffer.new(1);
+        buffer.new(2);
+        buffer.new(1);
+        buffer.new(5);
+        buffer.new(3);
+        ();
+    });
+    (5, offsets, neighbors, costs);
+};
+
+main :: Unit -> Int32 := () -> {
+    graph := buildGraph();
+    if (graph.validWeightedCsr() && graph.shortestDistance(0, 4) == 7)
+    then 0
+    else 1;
+};

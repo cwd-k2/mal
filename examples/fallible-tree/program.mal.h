@@ -135,15 +135,15 @@ struct MalRepr_Product_2 {
     MalType_Address field_1;
 };
 
-typedef MalType_Address MalType_Tree;
-typedef MalRepr_Sum_1 MalType_TreeResult;
+typedef MalType_Address MalType_NodeAddress;
+typedef MalRepr_Sum_1 MalType_NodeBuildResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocator_t;
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
 typedef struct mal_detail_repr_sum_1 mal_repr_sum_1_t;
 typedef struct mal_detail_repr_product_2 mal_repr_product_2_t;
-typedef mal_Address_t mal_Tree_t;
-typedef mal_repr_sum_1_t mal_TreeResult_t;
+typedef mal_Address_t mal_NodeAddress_t;
+typedef mal_repr_sum_1_t mal_NodeBuildResult_t;
 
 struct mal_detail_repr_product_0 {
     mal_Allocator_t field_0;
@@ -231,26 +231,26 @@ static inline MalType_Allocator mal_Allocator_return(mal_call_t *call MAL_DETAIL
     return (MalType_Allocator){ .bits = value.mal_detail_bits };
 }
 
-static inline MalType_Tree mal_Tree_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Tree_t value) {
+static inline MalType_NodeAddress mal_NodeAddress_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_NodeAddress_t value) {
     return mal_Address_return(call, value);
 }
 
-#define mal_TreeResult_tag_0 UINT32_C(0)
-static inline mal_TreeResult_t mal_TreeResult_make_0(mal_Tree_t value) {
-    return (mal_TreeResult_t){ .tag = mal_TreeResult_tag_0, .payload.variant_0 = value };
+#define mal_NodeBuildResult_tag_0 UINT32_C(0)
+static inline mal_NodeBuildResult_t mal_NodeBuildResult_make_0(mal_NodeAddress_t value) {
+    return (mal_NodeBuildResult_t){ .tag = mal_NodeBuildResult_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalType_TreeResult mal_TreeResult_return_0(mal_call_t *call, mal_Tree_t value) {
-    return mal_detail_to_raw_1(call, (mal_TreeResult_t){ .tag = mal_TreeResult_tag_0, .payload.variant_0 = value });
+static inline MalType_NodeBuildResult mal_NodeBuildResult_return_0(mal_call_t *call, mal_NodeAddress_t value) {
+    return mal_detail_to_raw_1(call, (mal_NodeBuildResult_t){ .tag = mal_NodeBuildResult_tag_0, .payload.variant_0 = value });
 }
 
-#define mal_TreeResult_tag_1 UINT32_C(1)
-static inline mal_TreeResult_t mal_TreeResult_make_1(void) {
-    return (mal_TreeResult_t){ .tag = mal_TreeResult_tag_1, .payload.variant_1 = (mal_Unit_t){ 0 } };
+#define mal_NodeBuildResult_tag_1 UINT32_C(1)
+static inline mal_NodeBuildResult_t mal_NodeBuildResult_make_1(void) {
+    return (mal_NodeBuildResult_t){ .tag = mal_NodeBuildResult_tag_1, .payload.variant_1 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalType_TreeResult mal_TreeResult_return_1(mal_call_t *call) {
-    return mal_detail_to_raw_1(call, (mal_TreeResult_t){ .tag = mal_TreeResult_tag_1, .payload.variant_1 = (mal_Unit_t){ 0 } });
+static inline MalType_NodeBuildResult mal_NodeBuildResult_return_1(mal_call_t *call) {
+    return mal_detail_to_raw_1(call, (mal_NodeBuildResult_t){ .tag = mal_NodeBuildResult_tag_1, .payload.variant_1 = (mal_Unit_t){ 0 } });
 }
 
 /* Canonical memory access */
@@ -308,22 +308,22 @@ static inline void mal_detail_memory_write_1(mal_call_t *call MAL_DETAIL_MAYBE_U
     }
 }
 
-static inline mal_Tree_t mal_Tree_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+static inline mal_NodeAddress_t mal_NodeAddress_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
     return mal_detail_memory_read_Address(call, (const uint8_t *)address + (index * 8));
 }
 
-static inline void mal_Tree_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Tree_t value) {
+static inline void mal_NodeAddress_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_NodeAddress_t value) {
     mal_Address_return(call, address);
     mal_detail_memory_write_Address(call, (uint8_t *)address + (index * 8), value);
 }
 
-static inline mal_TreeResult_t mal_TreeResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+static inline mal_NodeBuildResult_t mal_NodeBuildResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
     return mal_detail_memory_read_1(call, (const uint8_t *)address + (index * 16));
 }
 
-static inline void mal_TreeResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_TreeResult_t value) {
+static inline void mal_NodeBuildResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_NodeBuildResult_t value) {
     mal_Address_return(call, address);
     mal_detail_memory_write_1(call, (uint8_t *)address + (index * 16), value);
 }
@@ -331,8 +331,8 @@ static inline void mal_TreeResult_write(mal_call_t *call, mal_Address_t address,
 /* External operations */
 
 MalType_Allocator mal_ext_createAllocator(MalContext *context, MalType_USize value);
-MalType_TreeResult mal_ext_allocateNode(MalContext *context, MalType_Allocator argument_0, MalType_ByteSize argument_1);
-void mal_ext_releaseNode(MalContext *context, MalType_Allocator argument_0, MalType_Tree argument_1);
+MalType_NodeBuildResult mal_ext_allocateNode(MalContext *context, MalType_Allocator argument_0, MalType_ByteSize argument_1);
+void mal_ext_releaseNode(MalContext *context, MalType_Allocator argument_0, MalType_NodeAddress argument_1);
 void mal_ext_destroyAllocator(MalContext *context, MalType_Allocator value);
 
 /* External definition helpers */
@@ -351,12 +351,12 @@ static MalType_Allocator mal_detail_createAllocator( \
 
 #define MAL_HAS_EXTERN_allocateNode 1
 #define MAL_DEFINE_allocateNode(call, value) \
-static MalType_TreeResult mal_detail_allocateNode(mal_call_t *call, mal_repr_product_0_t value); \
-MalType_TreeResult mal_ext_allocateNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_ByteSize argument_1) { \
+static MalType_NodeBuildResult mal_detail_allocateNode(mal_call_t *call, mal_repr_product_0_t value); \
+MalType_NodeBuildResult mal_ext_allocateNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_ByteSize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_allocateNode(&call, (mal_repr_product_0_t){ .field_0 = (mal_Allocator_t){ .mal_detail_bits = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_0){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
-static MalType_TreeResult mal_detail_allocateNode( \
+static MalType_NodeBuildResult mal_detail_allocateNode( \
     mal_call_t *call, \
     mal_repr_product_0_t value \
 )
@@ -364,7 +364,7 @@ static MalType_TreeResult mal_detail_allocateNode( \
 #define MAL_HAS_EXTERN_releaseNode 1
 #define MAL_DEFINE_releaseNode(call, value) \
 static MalType_Unit mal_detail_releaseNode(mal_call_t *call, mal_repr_product_2_t value); \
-void mal_ext_releaseNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_Tree argument_1) { \
+void mal_ext_releaseNode(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocator argument_0, MalType_NodeAddress argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     mal_detail_releaseNode(&call, (mal_repr_product_2_t){ .field_0 = (mal_Allocator_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \

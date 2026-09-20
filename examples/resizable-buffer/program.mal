@@ -7,13 +7,13 @@ OwnedBuffer :: (Allocation, Address, USize, USize);
 // BorrowedBytes fields: 0 allocation identity, 1 readable memory, 2 byte length.
 BorrowedBytes :: (Allocation, Address, USize);
 OutputBuffer :: (Address, USize);
-// BufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
-BufferResult :: [OwnedBuffer, UInt32];
-// BorrowResult variant 0 carries an in-bounds borrowed view; variant 1 reports invalid bounds.
-BorrowResult :: [BorrowedBytes, Unit];
+// OwnedBufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
+OwnedBufferResult :: [OwnedBuffer, UInt32];
+// BorrowedBytesResult variant 0 carries an in-bounds borrowed view; variant 1 reports invalid bounds.
+BorrowedBytesResult :: [BorrowedBytes, Unit];
 
-extern allocateBuffer :: (USize, USize) -> BufferResult;
-extern resizeBuffer :: (OwnedBuffer, USize) -> BufferResult;
+extern allocateBuffer :: (USize, USize) -> OwnedBufferResult;
+extern resizeBuffer :: (OwnedBuffer, USize) -> OwnedBufferResult;
 extern releaseBuffer :: Allocation -> Unit;
 extern isCurrentBuffer :: OwnedBuffer -> Bool;
 extern isCurrentBorrow :: BorrowedBytes -> Bool;
@@ -32,9 +32,9 @@ writeSymbol :: Symbol -> Unit := (value) -> {
     writeBytes(memory, #packed);
 };
 
-_bufferSuccess :: OwnedBuffer -> BufferResult := (buffer) -> [success, failure] => success(buffer);
+_bufferSuccess :: OwnedBuffer -> OwnedBufferResult := (buffer) -> [success, failure] => success(buffer);
 
-_bufferFailure :: UInt32 -> BufferResult := (error) -> [success, failure] => failure(error);
+_bufferFailure :: UInt32 -> OwnedBufferResult := (error) -> [success, failure] => failure(error);
 
 nextCapacity :: (USize, USize) -> USize := (capacity, required) -> [return] => {
     when (capacity >= required) {
@@ -46,7 +46,7 @@ nextCapacity :: (USize, USize) -> USize := (capacity, required) -> [return] => {
     return((capacity * 2usize).nextCapacity(required));
 };
 
-appendSymbol :: (OwnedBuffer, Symbol) -> BufferResult := (buffer, value) -> [return] => {
+appendSymbol :: (OwnedBuffer, Symbol) -> OwnedBufferResult := (buffer, value) -> [return] => {
     (allocation, memory, capacity, length) := buffer;
     additional := (#value).usize;
     when (additional > (-1u64).usize - length) {
@@ -59,7 +59,7 @@ appendSymbol :: (OwnedBuffer, Symbol) -> BufferResult := (buffer, value) -> [ret
             target := capacity.nextCapacity(required);
             buffer.resizeBuffer(target);
         };
-    result :: BufferResult := available[
+    result :: OwnedBufferResult := available[
         (resized) -> [success, failure] => {
             (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
             packed := *value;
@@ -74,7 +74,7 @@ appendSymbol :: (OwnedBuffer, Symbol) -> BufferResult := (buffer, value) -> [ret
     return(result);
 };
 
-borrowBytes :: (OwnedBuffer, USize, USize) -> BorrowResult :=
+borrowBytes :: (OwnedBuffer, USize, USize) -> BorrowedBytesResult :=
     (buffer, start, length) -> [borrowed, invalid] => {
         (allocation, memory, _, initialized) := buffer;
         when (start <= initialized && length <= initialized - start) {

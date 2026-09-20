@@ -1,13 +1,13 @@
 require "./bytes.mal";
 
-// Stats fields: 0 JSON value count, 1 maximum value depth.
-Stats :: (UInt64, UInt64);
+// JsonStatistics fields: 0 JSON value count, 1 maximum value depth.
+JsonStatistics :: (UInt64, UInt64);
 // Variant 0 is an error message; variant 1 is the statistics for a complete document.
-ParseResult :: [Symbol, Stats];
-// Scan carries the unread input and an empty success message or a non-empty error message.
-Scan :: (Packed<UInt8>, Symbol);
+ParseResult :: [Symbol, JsonStatistics];
+// ScanProgress carries the unread input and an empty success message or a non-empty error message.
+ScanProgress :: (Packed<UInt8>, Symbol);
 // ParserState fields: 0 unread input, 1 frame stack, 2 frame depth, 3 statistics.
-ParserState :: (Packed<UInt8>, Packed<UInt8>, UInt64, Stats);
+ParserState :: (Packed<UInt8>, Packed<UInt8>, UInt64, JsonStatistics);
 
 // The last Packed element is the active frame. Parent frames act as explicit return addresses,
 // replacing mutually recursive array, object, and value parser functions.
@@ -24,7 +24,7 @@ _rootDone :: UInt8 := 10u8;
 
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 
-_parseSuccess :: Stats -> ParseResult := (stats) -> [failure, success] => success(stats);
+_parseSuccess :: JsonStatistics -> ParseResult := (stats) -> [failure, success] => success(stats);
 
 _isWhitespace :: UInt8 -> Bool := (byte) ->
     byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
@@ -49,7 +49,7 @@ _skipWhitespace :: Packed<UInt8> -> Packed<UInt8> := (source) -> [return] => {
     return(source);
 };
 
-_includeValue :: (Stats, UInt64) -> Stats := (stats, depth) -> {
+_includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) -> {
     (count, maximumDepth) := stats;
     nextDepth := if (maximumDepth >= depth)
         then maximumDepth
@@ -87,7 +87,7 @@ _completeValue :: Packed<UInt8> -> Packed<UInt8> := (frames) -> {
     };
 };
 
-_consumeLiteral :: (Packed<UInt8>, Symbol) -> Scan := (source, expected) -> {
+_consumeLiteral :: (Packed<UInt8>, Symbol) -> ScanProgress := (source, expected) -> {
     if (source.startsWith(expected))
     then (source % #expected, "")
     else (source, "invalid JSON literal");
@@ -108,7 +108,7 @@ _hasHexDigits :: (Packed<UInt8>, USize) -> Bool := (source, remaining) -> [retur
 };
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: Packed<UInt8> -> Scan := (source) -> [return] => {
+_scanString :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
     when (#source == 0usize) {
         return((source, "unterminated JSON string"));
     };
@@ -159,7 +159,7 @@ _scanDigits :: Packed<UInt8> -> Packed<UInt8> := (source) -> [return] => {
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-_scanNumber :: Packed<UInt8> -> Scan := (source) -> [return] => {
+_scanNumber :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
     firstByte := source # 0usize;
     unsigned := if (firstByte == '-')
         then source % 1usize

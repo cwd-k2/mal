@@ -1,6 +1,6 @@
 # Typed external memory example
 
-This example obtains mutable storage from the host and accesses canonical `Sample` values through
+This example obtains mutable storage from the host and accesses canonical `SampleRecord` values through
 short-lived typed views. The first view starts at the host allocation; two later views deliberately
 start at unaligned addresses. The generic `replace<A>` helper receives one scoped `Region<A>` and
 returns the displaced ordinary value. The caller uses that value between sequential views, so no

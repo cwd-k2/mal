@@ -3,7 +3,7 @@ require "./host.c";
 extern unalignedStorage :: Unit -> Address;
 extern incrementSample :: Address -> Unit;
 
-Sample :: (Int64, UInt8);
+SampleRecord :: (Int64, UInt8);
 
 // Return the displaced value rather than letting the scoped Region escape.
 replace<A> :: (Region<A>, A) -> A := (region, value) -> {
@@ -16,7 +16,7 @@ main :: Unit -> Int32 := () -> {
     base := unalignedStorage();
 
     // Host storage has no static alignment authority; every external view is lowered safely.
-    alignedSample := base.view<Sample>(0usize, 1usize, (region) -> {
+    alignedSample := base.view<SampleRecord>(0usize, 1usize, (region) -> {
         region.put(0usize, (1i64, 2u8));
         region.get(0usize);
     });
@@ -25,17 +25,17 @@ main :: Unit -> Int32 := () -> {
     // These products deliberately begin one byte past an aligned address.
     firstAddress := base + 1bytes;
     secondAddress := firstAddress + #(i64, u8);
-    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (7i64, 9u8)));
-    secondAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, (40i64, 1u8)));
+    firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, (7i64, 9u8)));
+    secondAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, (40i64, 1u8)));
 
-    // Each Region closes before the next one opens; ordinary Sample values carry the exchange.
-    firstValue := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
-    displaced := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.replace<Sample>(firstValue));
-    firstAddress.view<Sample>(0usize, 1usize, (region) -> region.put(0usize, displaced));
+    // Each Region closes before the next one opens; ordinary SampleRecord values carry the exchange.
+    firstValue := firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.get(0usize));
+    displaced := secondAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.replace<SampleRecord>(firstValue));
+    firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, displaced));
 
     incrementSample(firstAddress);
-    incremented := firstAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
-    moved := secondAddress.view<Sample>(0usize, 1usize, (region) -> region.get(0usize));
+    incremented := firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.get(0usize));
+    moved := secondAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.get(0usize));
     (number, small) := incremented;
     (movedNumber, movedSmall) := moved;
     if (alignedNumber == 1i64

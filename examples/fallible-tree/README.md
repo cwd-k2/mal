@@ -5,13 +5,16 @@ storage because allocation failure is recoverable and deterministically limited 
 allocator. A five-node limit exercises
 the successful path. A three-node limit fails after a complete left subtree has been built.
 
-The `Tree` alias names an external-storage capability without claiming ownership of its referent or
-proving that the pointed-to records form a tree. Construction operations establish the node layout and
-child relation as a host-backed protocol.
+`NodeAddress` names only an external-storage coordinate. It does not claim ownership of its referent or
+prove that the pointed-to record is initialized, has a known tag, or belongs to a tree. A leaf record
+stores `(value, 0)`; a branch record stores `(value, 1, leftAddress, rightAddress)`. The child addresses
+are relation indicators, while the value and tag are payload and interpretation metadata. Construction
+operations establish this layout and relation as a host-backed protocol.
 The mal program treats constructor arguments as logically owned. `createOwnedBranch` either transfers
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.
-Traversal borrows each node through short `Region` callbacks. Child `Address` values are ordinary
+`NodeBuildResult` reports either a root coordinate or allocation failure; the alias itself does not
+certify the complete reachable structure. Traversal borrows each node through short `Region` callbacks. Child `Address` values are ordinary
 capabilities, so they leave the callback as a product without allocating a `Packed<Address>` snapshot.
 
 The host tracks every live node and traps if `destroyAllocator` is called before all nodes have been

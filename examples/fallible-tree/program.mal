@@ -2,16 +2,17 @@ require "./host.c";
 
 extern Allocator;
 
-// Tree is an external-storage capability; TreeResult reports recoverable allocation failure.
-Tree :: Address;
-TreeResult :: [Tree, Unit];
+// NodeAddress is only an external-storage coordinate. NodeBuildResult reports recoverable allocation
+// failure; successful constructors establish the record layout and child relation described below.
+NodeAddress :: Address;
+NodeBuildResult :: [NodeAddress, Unit];
 
 extern createAllocator :: USize -> Allocator;
-extern allocateNode :: (Allocator, ByteSize) -> TreeResult;
-extern releaseNode :: (Allocator, Tree) -> Unit;
+extern allocateNode :: (Allocator, ByteSize) -> NodeBuildResult;
+extern releaseNode :: (Allocator, NodeAddress) -> Unit;
 extern destroyAllocator :: Allocator -> Unit;
 
-createLeaf :: (Allocator, Int32) -> TreeResult := (allocator, value) -> {
+createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> {
     allocated := allocator.allocateNode(#i32 + #u8);
     allocated[
     (node) -> [created, failed] => {
@@ -23,7 +24,7 @@ createLeaf :: (Allocator, Int32) -> TreeResult := (allocator, value) -> {
     ];
 };
 
-sumTree :: Tree -> Int32 := (node) -> [return] => {
+sumSubtree :: NodeAddress -> Int32 := (node) -> [return] => {
     value := node.view<Int32>(0usize, 1usize, (region) -> region.get(0usize));
     isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
     when (isBranch == 0u8) {
@@ -34,10 +35,10 @@ sumTree :: Tree -> Int32 := (node) -> [return] => {
     (left, right) := (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) ->
         (children.get(0usize), children.get(1usize))
     );
-    return(value + left.sumTree() + right.sumTree());
+    return(value + left.sumSubtree() + right.sumSubtree());
 };
 
-releaseTree :: (Tree, Allocator) -> Unit := (node, allocator) -> [return] => {
+releaseSubtree :: (NodeAddress, Allocator) -> Unit := (node, allocator) -> [return] => {
     isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
@@ -46,12 +47,12 @@ releaseTree :: (Tree, Allocator) -> Unit := (node, allocator) -> [return] => {
     (left, right) := (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) ->
         (children.get(0usize), children.get(1usize))
     );
-    left.releaseTree(allocator);
-    right.releaseTree(allocator);
+    left.releaseSubtree(allocator);
+    right.releaseSubtree(allocator);
     return(allocator.releaseNode(node));
 };
 
-createOwnedBranch :: (Allocator, Int32, Tree, Tree) -> TreeResult :=
+createOwnedBranch :: (Allocator, Int32, NodeAddress, NodeAddress) -> NodeBuildResult :=
     (allocator, value, left, right) -> {
         allocated := allocator.allocateNode(#i32 + #u8 + 2usize * #address);
         allocated[
@@ -65,14 +66,14 @@ createOwnedBranch :: (Allocator, Int32, Tree, Tree) -> TreeResult :=
             created(node);
         },
         () -> [created, failed] => {
-            left.releaseTree(allocator);
-            right.releaseTree(allocator);
+            left.releaseSubtree(allocator);
+            right.releaseSubtree(allocator);
             failed();
         }
         ];
     };
 
-buildLeftSubtree :: Allocator -> TreeResult := (allocator) -> {
+buildLeftSubtree :: Allocator -> NodeBuildResult := (allocator) -> {
     first := allocator.createLeaf(3);
     first[
     (left) -> {
@@ -80,7 +81,7 @@ buildLeftSubtree :: Allocator -> TreeResult := (allocator) -> {
         second[
         (right) -> allocator.createOwnedBranch(2, left, right),
         () -> [created, failed] => {
-            left.releaseTree(allocator);
+            left.releaseSubtree(allocator);
             failed();
         }
         ];
@@ -89,7 +90,7 @@ buildLeftSubtree :: Allocator -> TreeResult := (allocator) -> {
     ];
 };
 
-buildTree :: Allocator -> TreeResult := (allocator) -> {
+buildTree :: Allocator -> NodeBuildResult := (allocator) -> {
     leftResult := allocator.buildLeftSubtree();
     leftResult[
     (left) -> {
@@ -97,7 +98,7 @@ buildTree :: Allocator -> TreeResult := (allocator) -> {
         rightResult[
         (right) -> allocator.createOwnedBranch(1, left, right),
         () -> [created, failed] => {
-            left.releaseTree(allocator);
+            left.releaseSubtree(allocator);
             failed();
         }
         ];
@@ -110,9 +111,9 @@ successfulBuild :: Unit -> Bool := () -> {
     allocator := createAllocator(5usize);
     result := allocator.buildTree();
     valid := result[
-        (tree) -> {
-            total := tree.sumTree();
-            tree.releaseTree(allocator);
+        (root) -> {
+            total := root.sumSubtree();
+            root.releaseSubtree(allocator);
             total == 15;
         },
         () -> false
@@ -125,8 +126,8 @@ failedBuildCleansPartialTree :: Unit -> Bool := () -> {
     allocator := createAllocator(3usize);
     result := allocator.buildTree();
     failed := result[
-        (tree) -> {
-            tree.releaseTree(allocator);
+        (root) -> {
+            root.releaseSubtree(allocator);
             false;
         },
         () -> true

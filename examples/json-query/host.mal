@@ -1,13 +1,13 @@
 require "./host.c";
 
 Arguments :: (USize, Address);
-extern Input;
-StdinBytes :: (Input, Address, USize);
+extern InputAllocation;
+StdinBytes :: (InputAllocation, Address, USize);
 OutputBuffer :: (Address, USize);
 
 // Keeping byte I/O in this small host interface leaves parsing and rendering in mal.
 extern readStdin :: Unit -> StdinBytes;
-extern releaseInput :: Input -> Unit;
+extern releaseInput :: InputAllocation -> Unit;
 // outputBuffer returns process-lifetime writable storage with nonzero capacity.
 extern outputBuffer :: Unit -> OutputBuffer;
 extern writeBytes :: OutputBuffer -> Unit;

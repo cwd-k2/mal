@@ -1,3 +1,4 @@
+// total and remaining are the complete loop state; the recursive edge has no pending work.
 sumDownFrom :: (Int64, Int64) -> Int64 := (total, remaining) -> [return] => {
     when (remaining == 0) {
         return(total);

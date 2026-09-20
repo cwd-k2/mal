@@ -110,13 +110,13 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
 
 /* Host-visible types */
 
-typedef struct { uintptr_t bits; } MalType_Input;
+typedef struct { uintptr_t bits; } MalType_InputAllocation;
 
 typedef struct MalRepr_Product_0 MalRepr_Product_0;
 typedef struct MalRepr_Product_1 MalRepr_Product_1;
 
 struct MalRepr_Product_0 {
-    MalType_Input field_0;
+    MalType_InputAllocation field_0;
     MalType_Address field_1;
     MalType_USize field_2;
 };
@@ -129,14 +129,14 @@ struct MalRepr_Product_1 {
 typedef MalRepr_Product_0 MalType_StdinBytes;
 typedef MalRepr_Product_1 MalType_OutputBuffer;
 
-typedef struct { uintptr_t mal_detail_bits; } mal_Input_t;
+typedef struct { uintptr_t mal_detail_bits; } mal_InputAllocation_t;
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
 typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
 typedef mal_repr_product_0_t mal_StdinBytes_t;
 typedef mal_repr_product_1_t mal_OutputBuffer_t;
 
 struct mal_detail_repr_product_0 {
-    mal_Input_t field_0;
+    mal_InputAllocation_t field_0;
     mal_Address_t field_1;
     mal_USize_t field_2;
 };
@@ -149,27 +149,27 @@ struct mal_detail_repr_product_1 {
 /* Type helpers */
 
 static inline MalRepr_Product_0 mal_repr_product_0_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_Input){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
+    return (MalRepr_Product_0){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
 static inline MalRepr_Product_1 mal_repr_product_1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
     return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
-static inline mal_Input_t mal_Input_from_bits(uintptr_t bits) {
-    return (mal_Input_t){ .mal_detail_bits = bits };
+static inline mal_InputAllocation_t mal_InputAllocation_from_bits(uintptr_t bits) {
+    return (mal_InputAllocation_t){ .mal_detail_bits = bits };
 }
 
-static inline uintptr_t mal_Input_to_bits(mal_Input_t value) {
+static inline uintptr_t mal_InputAllocation_to_bits(mal_InputAllocation_t value) {
     return value.mal_detail_bits;
 }
 
-static inline MalType_Input mal_Input_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Input_t value) {
-    return (MalType_Input){ .bits = value.mal_detail_bits };
+static inline MalType_InputAllocation mal_InputAllocation_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_InputAllocation_t value) {
+    return (MalType_InputAllocation){ .bits = value.mal_detail_bits };
 }
 
 static inline MalType_StdinBytes mal_StdinBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_StdinBytes_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_Input){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
+    return (MalRepr_Product_0){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
 static inline MalType_OutputBuffer mal_OutputBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_OutputBuffer_t value) {
@@ -179,7 +179,7 @@ static inline MalType_OutputBuffer mal_OutputBuffer_return(mal_call_t *call MAL_
 /* External operations */
 
 MalType_StdinBytes mal_ext_readStdin(MalContext *context);
-void mal_ext_releaseInput(MalContext *context, MalType_Input value);
+void mal_ext_releaseInput(MalContext *context, MalType_InputAllocation value);
 MalType_OutputBuffer mal_ext_outputBuffer(MalContext *context);
 void mal_ext_writeBytes(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 
@@ -198,14 +198,14 @@ static MalType_StdinBytes mal_detail_readStdin( \
 
 #define MAL_HAS_EXTERN_releaseInput 1
 #define MAL_DEFINE_releaseInput(call, value) \
-static MalType_Unit mal_detail_releaseInput(mal_call_t *call, mal_Input_t value); \
-void mal_ext_releaseInput(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Input value) { \
+static MalType_Unit mal_detail_releaseInput(mal_call_t *call, mal_InputAllocation_t value); \
+void mal_ext_releaseInput(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_InputAllocation value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_releaseInput(&call, (mal_Input_t){ .mal_detail_bits = value.bits }); \
+    mal_detail_releaseInput(&call, (mal_InputAllocation_t){ .mal_detail_bits = value.bits }); \
 } \
 static MalType_Unit mal_detail_releaseInput( \
     mal_call_t *call, \
-    mal_Input_t value \
+    mal_InputAllocation_t value \
 )
 
 #define MAL_HAS_EXTERN_outputBuffer 1
