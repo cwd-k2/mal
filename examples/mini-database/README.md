@@ -23,12 +23,14 @@ The shared-memory interface uses three representations with separate responsibil
 - `Allocator` is an opaque C-owned arena handle. All allocations remain live until the arena is
   destroyed.
 - `AllocatedBytes` is the host-mappable `(Address, capacity)` descriptor returned by the C allocator.
-  Mal immediately places it as a `Region<UInt8>`; `ByteBuffer` pairs that region with its initialized
-  prefix length and is updated immutably by mal code.
+  `ByteBuffer` adds its initialized prefix length without turning the address into lasting read or
+  write authority.
 - `WritableBytes` and `ReadableBytes` are directional `(Address, USize)` descriptors used only at the
   host boundary.
-- Each completed query line remains a borrowed `Region<UInt8>` while it is parsed and copied into the
-  database. No owned byte sequence is created merely to inspect one line.
+- Short `view` callbacks borrow database and query storage only while reading or writing it. No owned
+  byte sequence is created merely to validate a file, search records, or inspect one line.
+- A successful lookup uses `pack` only for the selected value range because those bytes cross the
+  database borrow boundary as an owned result.
 - `Reader` combines a `File`, an input `ByteBuffer`, and a cursor. Sum values return either end-of-file or
   a byte together with the next immutable reader state.
 
@@ -40,11 +42,11 @@ Comments beside positional product and sum aliases name each field or variant. T
 of the example's protocol documentation: transparent aliases do not create named fields or nominal
 variants in the language.
 
-Standard input is transferred into one reusable 4 KiB region. The mal program carries unread input
+Standard input is transferred into one reusable 4 KiB buffer. The mal program carries unread input
 between calls, detects line endings and overlong lines, and copies the current line into a second
-reusable buffer. The query region remains borrowed throughout dispatch and is reused only after the
-query returns. `Packed<UInt8>` is used where ownership is real: splitting an immutable `Symbol` for
-output.
+reusable buffer. Each query operation opens only the scoped views it needs, and the storage is reused
+after the query returns. `Packed<UInt8>` is used where ownership is real: returning a found database
+value and splitting an immutable `Symbol` for output.
 
 The query language is:
 

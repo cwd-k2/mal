@@ -76,15 +76,15 @@ initializeDatabase :: ByteBuffer -> ByteBuffer := (buffer) -> {
 _recordAddress :: (Address, USize) -> Address := (database, index) ->
     database + (_headerSize + index * _recordSize).bytes;
 
-_validateRecords :: (Packed<UInt8>, USize) -> Bool := (database, index) -> [return] => {
+_validateRecords :: (Region<UInt8>, USize) -> Bool := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(true);
     };
 
     record := (database % (_headerSize + index * _recordSize)) / _recordSize;
-    active := record # 0usize;
-    keyLength := (record # 1usize).usize;
-    valueLength := (record # 2usize).usize;
+    active := record.get(0usize);
+    keyLength := record.get(1usize).usize;
+    valueLength := record.get(2usize).usize;
     valid := (active == 0u8 || active == 1u8)
         && keyLength <= _keyCapacity
         && valueLength <= _valueCapacity
@@ -102,26 +102,40 @@ validateDatabase :: ByteBuffer -> Bool := (buffer) -> [return] => {
         return(false);
     };
 
-    database := memory.pack<UInt8>(0usize, length);
-    return(database # 0usize == 'M'
-        && database # 1usize == 'A'
-        && database # 2usize == 'L'
-        && database # 3usize == 'D'
-        && database # 4usize == 1u8
-        && database # 5usize == 64u8
-        && database._validateRecords(0usize));
+    // Validation only observes the borrowed file buffer, so it does not create an owned copy.
+    return(memory.view<UInt8>(0usize, length, (database) ->
+        database.get(0usize) == 'M'
+            && database.get(1usize) == 'A'
+            && database.get(2usize) == 'L'
+            && database.get(3usize) == 'D'
+            && database.get(4usize) == 1u8
+            && database.get(5usize) == 64u8
+            && database._validateRecords(0usize)
+    ));
 };
 
-_findRecord :: (Packed<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
+_regionPrefixEquals :: (Region<UInt8>, Packed<UInt8>, USize) -> Bool :=
+    (left, right, length) -> [return] => {
+        when (length == 0usize) {
+            return(true);
+        };
+        when (left.get(0usize) != right # 0usize) {
+            return(false);
+        };
+
+        return((left % 1usize)._regionPrefixEquals(right % 1usize, length - 1usize));
+    };
+
+_findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
     (database, key, start, length, index) -> [return] => {
         when (index == _recordCount) {
             return(_recordCount);
         };
 
         record := database % (_headerSize + index * _recordSize);
-        matches := record # 0usize == 1u8
-            && (record # 1usize).usize == length
-            && (record % 8usize).prefixEquals(key % start, length);
+        matches := record.get(0usize) == 1u8
+            && record.get(1usize).usize == length
+            && (record % 8usize)._regionPrefixEquals(key % start, length);
         when (matches) {
             return(index);
         };
@@ -129,12 +143,12 @@ _findRecord :: (Packed<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
         return(database._findRecord(key, start, length, index + 1usize));
     };
 
-_findFreeRecord :: (Packed<UInt8>, USize) -> USize := (database, index) -> [return] => {
+_findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(_recordCount);
     };
     recordOffset := _headerSize + index * _recordSize;
-    when (database # recordOffset == 0u8) {
+    when (database.get(recordOffset) == 0u8) {
         return(index);
     };
 
@@ -148,11 +162,12 @@ putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResul
             invalid();
         };
 
-        database := memory.pack<UInt8>(0usize, length);
-        existing := database._findRecord(line, keyStart, keyLength, 0usize);
-        slot := if (existing == _recordCount)
+        slot := memory.view<UInt8>(0usize, length, (database) -> {
+            existing := database._findRecord(line, keyStart, keyLength, 0usize);
+            if (existing == _recordCount)
             then database._findFreeRecord(0usize)
             else existing;
+        });
         when (slot == _recordCount) {
             full();
         };
@@ -172,22 +187,31 @@ putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResul
 lookupRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> LookupResult :=
     (databaseBuffer, line, keyStart, keyLength) -> [absent, found] => {
         (memory, _, length) := databaseBuffer;
-        database := memory.pack<UInt8>(0usize, length);
-        slot := database._findRecord(line, keyStart, keyLength, 0usize);
+        (slot, valueLength) := memory.view<UInt8>(0usize, length, (database) -> {
+            foundSlot := database._findRecord(line, keyStart, keyLength, 0usize);
+            foundLength := if (foundSlot == _recordCount)
+                then 0usize
+                else {
+                    record := database % (_headerSize + foundSlot * _recordSize);
+                    record.get(2usize).usize;
+                };
+            (foundSlot, foundLength);
+        });
         when (slot == _recordCount) {
             absent();
         };
 
-        record := database % (_headerSize + slot * _recordSize);
-        valueLength := (record # 2usize).usize;
-        found((record % 24usize) / valueLength);
+        // Only the value crosses the borrow boundary, so only that range becomes owned.
+        valueStart := _headerSize + slot * _recordSize + 24usize;
+        found(memory.pack<UInt8>(valueStart, valueStart + valueLength));
     };
 
 deleteRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Bool :=
     (databaseBuffer, line, keyStart, keyLength) -> [return] => {
         (memory, _, length) := databaseBuffer;
-        database := memory.pack<UInt8>(0usize, length);
-        slot := database._findRecord(line, keyStart, keyLength, 0usize);
+        slot := memory.view<UInt8>(0usize, length, (database) ->
+            database._findRecord(line, keyStart, keyLength, 0usize)
+        );
         when (slot == _recordCount) {
             return(false);
         };
