@@ -37,12 +37,15 @@ impl Formatter<'_> {
         self.write(text);
         self.brace_depth += 1;
         if self.blocks.compact[token_index] {
+            self.block_indent_deltas.push(0);
             self.enter_if_branch(self.brace_depth);
             self.space();
             self.previous = Previous::LeftBrace;
             return;
         }
-        self.indent += 1;
+        let indent_delta = self.line_indent.saturating_sub(self.indent) + 1;
+        self.indent += indent_delta;
+        self.block_indent_deltas.push(indent_delta);
         self.enter_if_branch(self.brace_depth);
         self.newline();
         self.previous = Previous::LeftBrace;
@@ -51,6 +54,10 @@ impl Formatter<'_> {
     pub(super) fn write_right_brace(&mut self, token_index: usize, text: &str) {
         self.brace_depth = self.brace_depth.saturating_sub(1);
         let closing_depth = self.brace_depth + 1;
+        let indent_delta = self
+            .block_indent_deltas
+            .pop()
+            .expect("right brace has a matching left brace");
         if self.blocks.compact[token_index] {
             self.space();
             self.write(text);
@@ -62,8 +69,10 @@ impl Formatter<'_> {
             self.trim_space();
             self.write(";");
         }
-        self.indent = self.indent.saturating_sub(1);
+        let closing_indent = self.indent.saturating_sub(1);
+        self.indent = self.indent.saturating_sub(indent_delta);
         self.newline();
+        self.source_line_indent = Some(closing_indent);
         self.write(text);
         self.finish_if_branch(closing_depth);
         self.previous = Previous::RightBrace;

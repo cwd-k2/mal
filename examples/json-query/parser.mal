@@ -333,9 +333,9 @@ parseDocument :: Packed<UInt8> -> ParseResult := (source) ->
     (
         source,
         make<ParserFrame>(0usize, (buffer) -> {
-        buffer.new(_rootValue);
-        ();
-    }),
+            buffer.new(_rootValue);
+            ();
+        }),
         1u64,
         (0u64, 0u64)
     )._parse();

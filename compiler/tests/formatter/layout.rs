@@ -220,6 +220,29 @@ fn indents_nested_blocks_inside_expression_body_continuations() {
 }
 
 #[test]
+fn indents_blocks_from_their_parenthesized_list_position() {
+    let formatted = format(
+        "parse := (source) ->\n(\nsource,\nmake<Frame>(0usize, (buffer) -> {\nbuffer.new(value);\n()\n}),\n1u64\n).parse();",
+    );
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "parse := (source) ->\n",
+            "    (\n",
+            "        source,\n",
+            "        make<Frame>(0usize, (buffer) -> {\n",
+            "            buffer.new(value);\n",
+            "            ();\n",
+            "        }),\n",
+            "        1u64\n",
+            "    ).parse();\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_explicit_top_level_groups_without_splitting_data_bindings() {
     let formatted = format("extern A;\n\nextern B;\nfirst:=1;\nsecond:=2;");
 
