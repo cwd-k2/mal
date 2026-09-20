@@ -1,9 +1,9 @@
-// TreeNode fields: value, kind (0 = leaf, 1 = branch), left index, right index.
-TreeNode :: (Int32, UInt8, USize, USize);
-Tree :: Packed<TreeNode>;
+// NodeRow fields: value, kind (0 = leaf, 1 = branch), left coordinate, right coordinate.
+NodeRow :: (Int32, UInt8, USize, USize);
+NodeRows :: Packed<NodeRow>;
 
-buildTree :: Unit -> Tree := () ->
-    make<TreeNode>(0usize, (buffer) -> {
+buildTreeRows :: Unit -> NodeRows := () ->
+    make<NodeRow>(0usize, (buffer) -> {
         // Indices returned by new remain stable when later appends grow the buffer.
         root := buffer.new((1i32, 0u8, 0usize, 0usize));
         left := buffer.new((2i32, 0u8, 0usize, 0usize));
@@ -14,24 +14,24 @@ buildTree :: Unit -> Tree := () ->
         buffer.put(root, (1i32, 1u8, left, right));
     });
 
-sumNode :: (Tree, USize) -> Int32 := (tree, index) -> {
-    (value, kind, left, right) := tree # index;
+sumTreeAt :: (NodeRows, USize) -> Int32 := (rows, coordinate) -> {
+    (value, kind, left, right) := rows # coordinate;
     if (kind == 0u8)
     then value
-    else value + tree.sumNode(left) + tree.sumNode(right);
+    else value + rows.sumTreeAt(left) + rows.sumTreeAt(right);
 };
 
-incrementRoot :: Tree -> Tree := (tree) ->
-    tree.edit<TreeNode>((buffer) -> {
-        // edit publishes a new Packed tree; the source remains available to the caller.
+incrementRoot :: NodeRows -> NodeRows := (rows) ->
+    rows.edit<NodeRow>((buffer) -> {
+        // This transformation preserves coordinates and the child relation.
         (value, kind, left, right) := buffer.get(0usize);
         buffer.put(0usize, (value + 1i32, kind, left, right));
     });
 
 main :: Unit -> Int32 := () -> {
-    tree := buildTree();
-    updated := tree.incrementRoot();
-    if (tree.sumNode(0usize) == 15i32 && updated.sumNode(0usize) == 16i32)
+    rows := buildTreeRows();
+    updated := rows.incrementRoot();
+    if (rows.sumTreeAt(0usize) == 15i32 && updated.sumTreeAt(0usize) == 16i32)
     then 0
     else 1;
 };

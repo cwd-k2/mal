@@ -5,7 +5,9 @@ storage because allocation failure is recoverable and deterministically limited 
 allocator. A five-node limit exercises
 the successful path. A three-node limit fails after a complete left subtree has been built.
 
-The `Tree` alias names an external-storage capability without claiming ownership of its referent.
+The `Tree` alias names an external-storage capability without claiming ownership of its referent or
+proving that the pointed-to records form a tree. Construction operations establish the node layout and
+child relation as a host-backed protocol.
 The mal program treats constructor arguments as logically owned. `createOwnedBranch` either transfers
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.

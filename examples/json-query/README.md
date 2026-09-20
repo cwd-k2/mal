@@ -12,6 +12,11 @@ frame records what the enclosing container must do after a child value completes
 replaces or pushes the active frame, while a Packed prefix pops it, so nesting is limited only by
 the target-sized count and available memory.
 
+The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
+give input positions their token meaning and frame values their control-state meaning. Recursive JSON
+topology therefore exists in the transition relation followed by `_parse`, not in a recursive value
+type or a materialized syntax tree.
+
 The host owns the stdin allocation. The program admits its initialized prefix into a mal-owned
 `Packed<UInt8>` before releasing that allocation, so parsing no longer depends on host storage.
 It admits the selected process argument for the same reason: arguments become ordinary program

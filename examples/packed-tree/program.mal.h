@@ -112,7 +112,7 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
 /* Host-visible types */
 
 typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
-typedef mal_repr_product_0_t mal_TreeNode_t;
+typedef mal_repr_product_0_t mal_NodeRow_t;
 
 struct mal_detail_repr_product_0 {
     mal_Int32_t field_0;
@@ -169,12 +169,12 @@ static inline void mal_detail_memory_write_0(mal_call_t *call MAL_DETAIL_MAYBE_U
     mal_detail_memory_write_USize(call, destination + 16, value.field_3);
 }
 
-static inline mal_TreeNode_t mal_TreeNode_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
+static inline mal_NodeRow_t mal_NodeRow_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
     return mal_detail_memory_read_0(call, (const uint8_t *)address + (index * 24));
 }
 
-static inline void mal_TreeNode_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_TreeNode_t value) {
+static inline void mal_NodeRow_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_NodeRow_t value) {
     mal_Address_return(call, address);
     mal_detail_memory_write_0(call, (uint8_t *)address + (index * 24), value);
 }

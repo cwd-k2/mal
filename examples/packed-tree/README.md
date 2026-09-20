@@ -1,13 +1,15 @@
 # Packed tree example
 
-This example stores an immutable binary tree as `Packed<TreeNode>`. Child links are stable `USize`
-indices into the same packed value, so the structure needs no host allocator, raw `Address`, or
-per-node lifetime protocol.
+This example uses `Packed<NodeRow>` as the finite carrier for an immutable binary tree. The carrier
+alone is not a tree: `buildTreeRows` establishes that coordinate 0 is the root and that branch fields
+form bounded, acyclic left and right relations. `sumTreeAt` interprets those carrier-relative
+coordinates while traversing the logical tree.
 
-`buildTree` uses `make<TreeNode>` to construct the tree through a scoped `Buffer<TreeNode>`. It appends
-parent slots before their child indices are known, then fills the links with `put`.
-`incrementRoot` uses `Tree.edit<TreeNode>` to derive a new tree while the original remains unchanged.
-Recursive traversal reads nodes through ordinary packed indexing.
+`buildTreeRows` uses `make<NodeRow>` to construct the rows through a scoped `Buffer<NodeRow>`. It
+appends parent slots before their child coordinates are known, then fills the relation with `put`.
+`incrementRoot` uses `edit<NodeRow>` to derive a new carrier while the original remains unchanged.
+Because it neither resizes nor reorders rows, existing coordinates keep their meaning. A compaction or
+sort would instead need to remap every child coordinate.
 
 Use external storage instead when a data structure genuinely belongs to a host resource or needs
 recoverable allocation failure. The neighboring `fallible-tree` example deliberately keeps that

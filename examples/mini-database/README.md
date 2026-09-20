@@ -4,6 +4,11 @@ This example implements a persistent fixed-capacity key-value database. The mal 
 binary layout, validation, query parser, lookup, updates, complete-file transfer, and line framing.
 Its C adapter supplies only allocation, thin file operations, and byte output.
 
+The database storage is a byte carrier rather than a nominal database value. `database.mal` interprets
+offsets as header and record relations, validates file bytes before query operations use them, and
+preserves the active-slot and length invariants during updates. The same `Region<UInt8>` mechanism
+would not acquire these database meanings without those operations.
+
 The source is split by authority and operation rather than kept in one application module:
 
 - `host.mal` defines positional boundary descriptors and the extern contract.
