@@ -15,8 +15,10 @@ Status: Current v0.6 policy and implementation
 - sourceで一行のblockは、body item、nested block、commentを持たなければ一行に置き、result直後の`;`を
   省く。sourceで複数行のblockは、単純なresultだけでも複数行のままにする。
 - それ以外のblockはbraceと内容を別の行に置き、resultを含む各行を`;`で終える。
-- `if`のconditionの後で改行する。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を
-  `if`と同じindentに置き、bindingなどのRHSにある`if`では一段深いcontinuation indentに置く。
+- 別のexpressionが値を要求する位置に埋め込まれ、sourceでconditionと両branchを一行に置いた短い`if`は一行のまま
+  整形する。sourceで改行した`if`は改行を保ち、`then`と`else`の一方だけを同じ行に
+  残さない。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を`if`と同じindentに置き、bindingや
+  lambda bodyなどのRHSにある`if`では一段深いcontinuation indentに置く。
 - 複数continuationのapplicationはvalueの後で改行する。block直下のexpressionとして行頭から始まる場合は
   continuationと閉じ`]`をvalueと同じindentに置き、bindingなどのRHSにある場合はcontinuationだけを一段深くし、
   閉じ`]`をbindingと同じindentへ戻す。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。

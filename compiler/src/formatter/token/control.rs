@@ -1,14 +1,20 @@
 use super::Previous;
 use crate::formatter::Formatter;
 
+#[derive(Clone, Copy)]
+pub(in crate::formatter) struct IfLayout {
+    continuation: bool,
+    inline: bool,
+}
+
 pub(in crate::formatter) enum IfStage {
-    Condition(bool),
-    ThenKeyword(bool),
-    ThenBranch(usize, bool),
-    AwaitElse(bool),
-    ElseKeyword(bool),
-    ElseBranch(usize, bool),
-    Finished(bool),
+    Condition(IfLayout),
+    ThenKeyword(IfLayout),
+    ThenBranch(usize, IfLayout),
+    AwaitElse(IfLayout),
+    ElseKeyword(IfLayout),
+    ElseBranch(usize, IfLayout),
+    Finished(IfLayout),
 }
 
 impl Formatter<'_> {
@@ -17,16 +23,16 @@ impl Formatter<'_> {
             let Some(stage) = self.ifs.pop() else {
                 break;
             };
-            let continuation = match stage {
-                IfStage::Condition(continuation)
-                | IfStage::ThenKeyword(continuation)
-                | IfStage::ThenBranch(_, continuation)
-                | IfStage::AwaitElse(continuation)
-                | IfStage::ElseKeyword(continuation)
-                | IfStage::ElseBranch(_, continuation)
-                | IfStage::Finished(continuation) => continuation,
+            let layout = match stage {
+                IfStage::Condition(layout)
+                | IfStage::ThenKeyword(layout)
+                | IfStage::ThenBranch(_, layout)
+                | IfStage::AwaitElse(layout)
+                | IfStage::ElseKeyword(layout)
+                | IfStage::ElseBranch(_, layout)
+                | IfStage::Finished(layout) => layout,
             };
-            if continuation {
+            if layout.continuation && !layout.inline {
                 self.indent = self.indent.saturating_sub(1);
             }
         }
@@ -95,35 +101,45 @@ impl Formatter<'_> {
     }
 
     pub(super) fn write_then(&mut self, text: &str) {
-        self.newline();
-        let continuation = match self.ifs.last().expect("matched condition") {
-            IfStage::Condition(continuation) => *continuation,
+        let layout = match self.ifs.last().expect("matched condition") {
+            IfStage::Condition(layout) => *layout,
             _ => unreachable!("matched condition"),
         };
-        if continuation {
+        if layout.inline {
+            self.space();
+        } else {
+            self.newline();
+        }
+        if layout.continuation && !layout.inline {
             self.indent += 1;
         }
         self.write(text);
-        *self.ifs.last_mut().expect("matched condition") = IfStage::ThenKeyword(continuation);
+        *self.ifs.last_mut().expect("matched condition") = IfStage::ThenKeyword(layout);
         self.previous = Previous::Keyword;
     }
 
     pub(super) fn write_else(&mut self, text: &str) {
-        self.newline();
-        self.write(text);
-        let continuation = match self.ifs.last().expect("matched then branch") {
-            IfStage::AwaitElse(continuation) | IfStage::ThenKeyword(continuation) => *continuation,
+        let layout = match self.ifs.last().expect("matched then branch") {
+            IfStage::AwaitElse(layout) | IfStage::ThenKeyword(layout) => *layout,
             _ => unreachable!("matched then branch"),
         };
-        *self.ifs.last_mut().expect("matched then branch") = IfStage::ElseKeyword(continuation);
+        if layout.inline {
+            self.space();
+        } else {
+            self.newline();
+        }
+        self.write(text);
+        *self.ifs.last_mut().expect("matched then branch") = IfStage::ElseKeyword(layout);
         self.previous = Previous::Keyword;
     }
 
     pub(super) fn write_if(&mut self, token_index: usize, text: &str) {
         self.space_before_control_keyword();
         self.write(text);
-        self.ifs
-            .push(IfStage::Condition(!self.controls.is_aligned(token_index)));
+        self.ifs.push(IfStage::Condition(IfLayout {
+            continuation: !self.controls.is_aligned(token_index),
+            inline: self.controls.is_inline(token_index),
+        }));
         self.previous = Previous::Keyword;
     }
 
@@ -143,11 +159,11 @@ impl Formatter<'_> {
     fn enter_if_branch(&mut self, depth: usize) {
         if let Some(stage) = self.ifs.last_mut() {
             match stage {
-                IfStage::ThenKeyword(continuation) => {
-                    *stage = IfStage::ThenBranch(depth, *continuation);
+                IfStage::ThenKeyword(layout) => {
+                    *stage = IfStage::ThenBranch(depth, *layout);
                 }
-                IfStage::ElseKeyword(continuation) => {
-                    *stage = IfStage::ElseBranch(depth, *continuation);
+                IfStage::ElseKeyword(layout) => {
+                    *stage = IfStage::ElseBranch(depth, *layout);
                 }
                 _ => {}
             }
@@ -157,15 +173,11 @@ impl Formatter<'_> {
     fn finish_if_branch(&mut self, closing_depth: usize) {
         if let Some(stage) = self.ifs.last_mut() {
             match stage {
-                IfStage::ThenBranch(branch_depth, continuation)
-                    if *branch_depth == closing_depth =>
-                {
-                    *stage = IfStage::AwaitElse(*continuation);
+                IfStage::ThenBranch(branch_depth, layout) if *branch_depth == closing_depth => {
+                    *stage = IfStage::AwaitElse(*layout);
                 }
-                IfStage::ElseBranch(branch_depth, continuation)
-                    if *branch_depth == closing_depth =>
-                {
-                    *stage = IfStage::Finished(*continuation);
+                IfStage::ElseBranch(branch_depth, layout) if *branch_depth == closing_depth => {
+                    *stage = IfStage::Finished(*layout);
                 }
                 _ => {}
             }

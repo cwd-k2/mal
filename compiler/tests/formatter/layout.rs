@@ -44,6 +44,53 @@ fn indents_control_branches_used_as_binding_rhs() {
 }
 
 #[test]
+fn keeps_short_if_values_inline_in_expression_arguments() {
+    let formatted = format(
+        "choose := (condition) -> { select(if(condition)then{1}else{2}, if(condition)then{3}else{4}); };",
+    );
+
+    assert!(formatted.contains(concat!(
+        "    select(if (condition) then { 1 } else { 2 }, ",
+        "if (condition) then { 3 } else { 4 });\n",
+    )));
+    assert_eq!(format(&formatted), formatted);
+
+    assert_eq!(
+        format("result := select(if(condition)then 1 else 2);"),
+        "result := select(if (condition) then 1 else 2);\n"
+    );
+
+    assert_eq!(
+        format("result := select(if(condition)\nthen {1}\nelse {2});"),
+        concat!(
+            "result := select(if (condition)\n",
+            "    then { 1 }\n",
+            "    else { 2 });\n",
+        )
+    );
+}
+
+#[test]
+fn expands_both_if_branches_when_either_branch_is_multiline() {
+    for input in [
+        "result := select(if(condition)then{1}else{value:=2;value});",
+        "result := select(if(condition)then{value:=1;value}else{2});",
+    ] {
+        let formatted = format(input);
+
+        assert!(
+            formatted.contains(concat!("if (condition)\n", "    then ",)),
+            "then branch was not expanded:\n{formatted}"
+        );
+        assert!(
+            formatted.contains("\n    else "),
+            "else branch was not expanded symmetrically:\n{formatted}"
+        );
+        assert_eq!(format(&formatted), formatted);
+    }
+}
+
+#[test]
 fn keeps_single_continuation_chains_inline() {
     assert_eq!(format("result:=value[f][g];"), "result := value[f][g];\n");
 }

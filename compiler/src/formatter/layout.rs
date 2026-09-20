@@ -96,6 +96,10 @@ impl BlockLayout {
             terminate,
         }
     }
+
+    pub(super) fn is_compact(&self, token_index: usize) -> bool {
+        self.compact[token_index]
+    }
 }
 
 struct OpenBlock {

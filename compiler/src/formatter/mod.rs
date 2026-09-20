@@ -47,6 +47,8 @@ struct Formatter<'a> {
 
 impl<'a> Formatter<'a> {
     fn new(source: &'a SourceFile, lexed: &'a Lexed, program: &Program) -> Self {
+        let blocks = BlockLayout::new(source, lexed);
+        let controls = ControlLayout::new(source, lexed, program, &blocks);
         Self {
             source,
             lexed,
@@ -67,8 +69,8 @@ impl<'a> Formatter<'a> {
             brace_depth: 0,
             binding_continuations: Vec::new(),
             expression_continuations: Vec::new(),
-            controls: ControlLayout::new(lexed, program),
-            blocks: BlockLayout::new(source, lexed),
+            controls,
+            blocks,
             top_level_breaks: top_level_breaks(source, lexed, program),
             next_top_level_break: 0,
             generic_delimiters: generic::delimiters(lexed, program),

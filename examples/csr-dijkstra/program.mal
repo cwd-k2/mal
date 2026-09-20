@@ -87,12 +87,8 @@ selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
         return(workspace.selectClosest(
             node + 1,
             nodeCount,
-            if (better)
-            then { node }
-            else { closest },
-            if (better)
-            then { distance }
-            else { closestDistance }
+            if (better) then { node } else { closest },
+            if (better) then { distance } else { closestDistance }
         ));
     };
 
