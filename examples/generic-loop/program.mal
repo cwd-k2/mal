@@ -5,25 +5,25 @@ loop<A, B> :: (A, A -> [A, B]) -> B :=
     ];
 
 sumOddBelow :: UInt64 -> UInt64 := (limit) ->
-    loop<(UInt64, UInt64), UInt64>(
-        (0u64, 0u64),
-        (state) -> [continue, break] => {
-            (index, total) := state;
-            when (index == limit) break(total);
-            when (index % 2u64 == 0u64) continue((index + 1u64, total));
-            continue((index + 1u64, total + index));
-        }
-    );
+    loop<(UInt64, UInt64), UInt64>((0u64, 0u64), (index, total) -> [continue, break] => {
+        when (index == limit) {
+            break(total);
+        };
+        when (index % 2u64 == 0u64) {
+            continue((index + 1u64, total));
+        };
+
+        continue((index + 1u64, total + index));
+    });
 
 repeat :: (USize, Symbol) -> Symbol := (count, part) ->
-    loop<(USize, Symbol), Symbol>(
-        (0usize, ""),
-        (state) -> [continue, break] => {
-            (index, result) := state;
-            when (index == count) break(result);
-            continue((index + 1usize, result + part));
-        }
-    );
+    loop<(USize, Symbol), Symbol>((0usize, ""), (index, result) -> [continue, break] => {
+        when (index == count) {
+            break(result);
+        };
+
+        continue((index + 1usize, result + part));
+    });
 
 main :: Unit -> Int32 := () -> {
     sum := sumOddBelow(1_000_000u64);
