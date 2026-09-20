@@ -29,3 +29,6 @@ From the repository root in Nushell:
 nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/spreadsheet/program.mal --output /tmp/mal-spreadsheet
 /tmp/mal-spreadsheet
 ```
+
+The executable produces no output and exits with status 0 after validation, initial evaluation, and
+recalculation through the edited carrier all succeed.

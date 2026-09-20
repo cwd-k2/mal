@@ -9,6 +9,8 @@ _statusSuccess :: Unit -> SyscallStatus := () -> [success, failure] => success()
 
 _statusFailure :: UInt32 -> SyscallStatus := (error) -> [success, failure] => failure(error);
 
+// Partial writes advance both the address and remaining extent; zero progress becomes an error rather
+// than recurring with an unchanged state.
 _writeAll :: (Int32, Address, ByteSize) -> SyscallStatus := (descriptor, memory, remaining) -> [return] => {
     when (remaining == 0bytes) {
         return(_statusSuccess());

@@ -27,6 +27,8 @@ _closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> {
     _readFailure(error);
 };
 
+// Each tail step either grows the owned mapping or advances its initialized prefix. Failure carries
+// the current mapping so the common finishing path can still release it.
 _readInto :: (Int32, MappingBuffer) -> MappingResult := (descriptor, buffer) -> [return] => {
     (memory, capacity, length) := buffer;
     when (length == capacity) {

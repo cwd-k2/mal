@@ -21,6 +21,7 @@ buildSheet :: Unit -> SheetImage := () -> {
     (2usize, 3usize, cells);
 };
 
+// Admission follows physical row order so an earlier coordinate is proof of an acyclic dependency.
 _validCellRows :: (CellRows, USize) -> Bool := (cells, index) -> [return] => {
     when (index == #cells) {
         return(true);
@@ -46,6 +47,8 @@ _cellIndex :: (SheetImage, USize, USize) -> USize := (sheet, row, column) -> {
     row * columns + column;
 };
 
+// Evaluation remains structural recursion: a formula combines two results after both dependency
+// calls return, so it is not a cursor-only loop edge.
 _evaluateAt :: (CellRows, USize) -> Int64 := (cells, index) -> [return] => {
     (kind, literal, left, right) := cells # index;
     when (kind == 0u8) {

@@ -15,16 +15,16 @@ only inside the resize branch, consumes the selected capacity, and then resumes 
 allocation protocol. This is the expression-level counterpart of writing a local `while` loop; the
 iteration state and result remain ordinary typed values.
 
-The program also stores an `(Address, USize)` borrowed-view descriptor through its canonical product memory
-representation and lets C reconstruct that descriptor. The opaque `Allocation` is deliberately not
-stored: its authority remains in C and is passed as a separate extern argument. An out-of-bounds
+The program also stores an `(Address, USize)` borrowed-view descriptor through its canonical product
+memory representation and lets C reconstruct that descriptor. The opaque `Allocation` is deliberately
+not stored: its authority remains in C and is passed as a separate extern argument. An out-of-bounds
 borrow request exercises the checked failure variant without constructing an address outside the
 allocation.
 
-This is a logical ownership protocol rather than language-enforced safety. `Allocation`, `OwnedBuffer`, and
-`BorrowedBytes` remain copyable. Old descriptors can still be passed around after resize, and using their
-`Address` directly would violate the host contract. `releaseBuffer` must be called exactly once with the
-current allocation handle.
+This is a logical ownership protocol rather than language-enforced safety. `Allocation`, `OwnedBuffer`,
+and `BorrowedBytes` remain copyable. Old descriptors can still be passed around after resize, and using
+their `Address` directly would violate the host contract. `releaseBuffer` must be called exactly once
+with the current allocation handle.
 
 From the repository root in Nushell:
 

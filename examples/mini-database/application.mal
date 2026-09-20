@@ -6,7 +6,7 @@ _queryStorageSize :: USize := 257usize;
 _inputStorageSize :: USize := 4096usize;
 
 executeDatabase :: (Address, USize) -> Int32 := (path) -> {
-    // allocator owns every byte buffer below and outlives all views derived from them.
+    // Allocator owns every byte buffer below and outlives all views derived from them.
     allocator := createAllocator();
     file := openReadWriteCreate(path);
     input := standardInput();

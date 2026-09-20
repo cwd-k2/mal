@@ -38,6 +38,8 @@ sumSubtree :: NodeAddress -> Int32 := (node) -> [return] => {
     return(value + left.sumSubtree() + right.sumSubtree());
 };
 
+// Post-order recursion releases both children before their parent; that cleanup order is the domain
+// operation and cannot be replaced by a cursor-only loop without an explicit work stack.
 releaseSubtree :: (NodeAddress, Allocator) -> Unit := (node, allocator) -> [return] => {
     isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
     when (isBranch == 0u8) {

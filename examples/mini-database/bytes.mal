@@ -1,5 +1,7 @@
 require "./host.mal";
 
+// Region is scoped authority, so clearing advances a directly passed subregion instead of capturing
+// it in a generic iteration callback.
 clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
     when (#memory == 0usize) {
         return(());
@@ -9,6 +11,8 @@ clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
     return((memory % 1usize).clearBytes());
 };
 
+// Comparison and search keep their distinct short-circuit results in named byte operations. Their
+// cursor recursion is already hidden from database and query callers.
 _rangeEquals :: (Packed<UInt8>, Symbol, USize) -> Bool :=
     (source, expected, index) -> [return] => {
         when (index == #expected) {
@@ -58,6 +62,7 @@ prefixEquals :: (Packed<UInt8>, Packed<UInt8>, USize) -> Bool :=
         return((left % 1usize).prefixEquals(right % 1usize, length - 1usize));
     };
 
+// Copying passes each shortened Region directly so writable authority never enters closure state.
 copyPrefix :: (Packed<UInt8>, Region<UInt8>, USize) -> Unit :=
     (source, destination, length) -> [return] => {
         when (length == 0usize) {

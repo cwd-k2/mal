@@ -36,6 +36,8 @@ bufferSize :: USize := 4096usize;
 
 _completed :: Unit -> CopyResult := () -> [complete, failed] => complete();
 
+// A tail step owns one read result: EOF completes, bytes make observable progress, and an error exits
+// through CopyResult before copyPath performs the common close-and-release cleanup.
 copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> {
     (memory, capacity, _) := buffer;
     result := file.readFile((memory, capacity));

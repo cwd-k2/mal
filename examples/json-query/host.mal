@@ -17,6 +17,7 @@ extern outputBuffer :: Unit -> OutputBuffer;
 // Writes an initialized prefix of the staging buffer to standard output.
 extern writeBytes :: OutputBuffer -> Unit;
 
+// Each tail step publishes one bounded chunk before carrying the untouched suffix forward.
 _writePacked :: (Address, USize, Packed<UInt8>) -> Unit :=
     (memory, capacity, remaining) -> [return] => {
         when (#remaining == 0usize) {

@@ -81,6 +81,8 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
     return(writeSymbol("ERROR commands: put/get/del/quit\n"));
 };
 
+// The next Reader is part of the input protocol result, so the interpreter recurs with that explicit
+// state after handling one line and stops on EOF, an empty line, or `quit`.
 runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
     (reader, file, database, query) -> {
         result := reader.readLine(query);

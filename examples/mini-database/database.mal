@@ -76,6 +76,8 @@ initializeDatabase :: ByteBuffer -> ByteBuffer := (buffer) -> {
 _recordAddress :: (Address, USize) -> Address := (database, index) ->
     database + (_headerSize + index * _recordSize).bytes;
 
+// Fixed-layout record scans pass the borrowed database Region directly. A generic predicate closure
+// could not capture that scoped authority, while these helpers also give callers domain result names.
 _validateRecords :: (Region<UInt8>, USize) -> Bool := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(true);
@@ -126,6 +128,7 @@ _regionPrefixEquals :: (Region<UInt8>, Packed<UInt8>, USize) -> Bool :=
         return((left % 1usize)._regionPrefixEquals(right % 1usize, length - 1usize));
     };
 
+// The record count is the not-found coordinate, so search never invents a second sentinel space.
 _findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
     (database, key, start, length, index) -> [return] => {
         when (index == _recordCount) {
@@ -143,6 +146,7 @@ _findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
         return(database._findRecord(key, start, length, index + 1usize));
     };
 
+// Free-slot search shares the same end coordinate but has a different row predicate from key lookup.
 _findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(_recordCount);

@@ -1,3 +1,5 @@
+// The shrinking source and expected-byte coordinate are the complete comparison state. This helper
+// has one policy, so exposing a higher-order loop would add a callback without removing duplication.
 _startsWithAt :: (Packed<UInt8>, Symbol, USize) -> Bool :=
     (source, expected, index) -> [return] => {
         when (index == #expected) {

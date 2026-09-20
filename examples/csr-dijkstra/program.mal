@@ -18,6 +18,28 @@ DijkstraWorkspace :: (NodeDistances, VisitedFlags);
 
 infinity :: Int64 := 2_305_843_009_213_693_951;
 
+// The sum separates another complete state from the independently typed result of an iteration.
+_loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> _loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
+// Validation needs both a row and its coordinate because CSR offsets relate adjacent rows.
+_allIndexed<A> :: (Packed<A>, (USize, A) -> Bool) -> Bool := (values, predicate) ->
+    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+        when (index == #values) {
+            break(true);
+        };
+        when (!predicate(index, values # index)) {
+            break(false);
+        };
+
+        continue(index + 1usize);
+    });
+
+// Buffer is scoped construction authority, so it remains a direct argument instead of being
+// captured by a generic repetition callback.
 appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) -> {
     if (remaining == 0usize)
     then { () }
@@ -33,51 +55,27 @@ at :: (Int64BufferView, Int64) -> Int64 := ((buffer, offset), index) ->
 assign :: (Int64BufferView, Int64, Int64) -> Unit := ((buffer, offset), index, value) ->
     buffer.put(offset + index.usize, value);
 
-_validOffsetsAt :: (NodeOffsets, Int64, Int64) -> Bool := (offsets, node, edgeCount) -> [return] => {
-    when (node + 1 == (#offsets).i64) {
-        return(offsets # node.usize == edgeCount);
-    };
-    current := offsets # node.usize;
-    next := offsets # (node + 1).usize;
-    when (current < 0 || current > next || next > edgeCount) {
-        return(false);
-    };
-    return(offsets._validOffsetsAt(node + 1, edgeCount));
-};
-
-_validNeighborsAt :: (NeighborNodes, Int64, Int64) -> Bool :=
-    (neighbors, edge, nodeCount) -> [return] => {
-        when (edge == (#neighbors).i64) {
-            return(true);
-        };
-        neighbor := neighbors # edge.usize;
-        when (neighbor < 0 || neighbor >= nodeCount) {
-            return(false);
-        };
-        return(neighbors._validNeighborsAt(edge + 1, nodeCount));
-    };
-
-_validCostsAt :: (EdgeCosts, Int64) -> Bool := (costs, edge) -> [return] => {
-    when (edge == (#costs).i64) {
-        return(true);
-    };
-    when (costs # edge.usize < 0) {
-        return(false);
-    };
-    return(costs._validCostsAt(edge + 1));
-};
-
 validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
     (nodeCount, offsets, neighbors, costs) := graph;
     nodeCount > 0
         && #offsets == (nodeCount + 1).usize
         && offsets # 0usize == 0
         && #neighbors == #costs
-        && offsets._validOffsetsAt(0, (#neighbors).i64)
-        && neighbors._validNeighborsAt(0, nodeCount)
-        && costs._validCostsAt(0);
+        && offsets._allIndexed<Int64>((node, current) -> {
+            last := node + 1usize == #offsets;
+            if (last)
+            then current == (#neighbors).i64
+            else {
+                next := offsets # (node + 1usize);
+                current >= 0 && current <= next && next <= (#neighbors).i64;
+            };
+        })
+        && neighbors._allIndexed<Int64>((_, neighbor) -> neighbor >= 0 && neighbor < nodeCount)
+        && costs._allIndexed<Int64>((_, cost) -> cost >= 0);
 };
 
+// Workspace contains scoped Buffer authority. Passing it as a direct recursive argument keeps that
+// authority visible; capturing it in a generic fold callback would be rejected.
 selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
     (workspace, node, nodeCount, closest, closestDistance) -> [return] => {
         when (node == nodeCount) {
@@ -98,6 +96,8 @@ selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
         ));
     };
 
+// This domain recursion likewise passes writable workspace directly while visiting one CSR edge
+// range; a generic forEach closure must not hide the scoped authority in its environment.
 relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
     (graph, workspace, sourceDistance, edge, end) -> [return] => {
         when (edge == end) {

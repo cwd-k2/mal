@@ -74,8 +74,21 @@ The control-flow examples separate repetition policy from domain work at differe
 sum. `json-query` uses the same shape for a whole parser state machine. `resizable-buffer` evaluates a
 loop only as one local expression inside a larger allocation protocol. `relation-views` shares
 `any`, `all`, and `fold` carrier traversal while leaving edge and interval meaning in domain callbacks.
-Direct recursion remains in examples where returning from a child is itself part of the domain
-operation, such as tree traversal and nested Brainfuck compilation.
+
+The examples choose a control form by the information that must cross an iteration edge:
+
+| Control form | Examples | Reason for the form |
+| --- | --- | --- |
+| Named operations derived from a generic loop | `generic-loop`, `relation-views`, immutable validation in `csr-dijkstra` | Cursor movement and termination are reusable, while callbacks need only ordinary values. |
+| A local generic loop expression | `resizable-buffer` | Repetition is one phase inside a larger operation and produces a value consumed afterward. |
+| A domain state machine driven by a generic loop | `json-query` | Each transition replaces the complete parser state or returns the parse result. |
+| Named direct tail recursion | `mini-database`, `recoverable-file`, `socket-packet`, Brainfuck file I/O, mutable Dijkstra passes | Progress, failure, or scoped authority belongs to the operation itself; a callback would hide context or add no shared policy. |
+| Structural recursion with work after a child returns | `packed-tree`, `spreadsheet`, `fallible-tree`, nested Brainfuck compilation, decimal rendering | The recursive shape or return order is part of the domain computation rather than a plain iteration edge. |
+| No recursive control | The remaining focused ABI and scalar examples | Their teaching goal is a boundary or value rule, so adding an iteration abstraction would be unrelated noise. |
+
+In particular, a scoped `Buffer` or `Region` must be passed directly to a helper rather than captured
+by an iteration callback. This makes the authority boundary one of the criteria for retaining named
+direct recursion; surface uniformity is not a reason to obscure it.
 
 All `.mal` files are formatter fixtures. Representative directories also build and execute through the
 public compiler driver in `compiler/tests/driver/examples.rs`.

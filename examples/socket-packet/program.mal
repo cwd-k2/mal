@@ -41,6 +41,8 @@ _isRejected :: SocketStatus -> Bool := (status) -> {
 
 _socketFailure :: UInt32 -> SocketStatus := (error) -> [complete, failed] => failed(error);
 
+// The receive Region is scoped authority and therefore remains a direct recursive argument while
+// comparison short-circuits on the first unequal byte.
 _equalsSymbol :: (Region<UInt8>, Symbol, USize) -> Bool := (bytes, expected, index) -> [return] => {
     when (index == #expected) {
         return(true);

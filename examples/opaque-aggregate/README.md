@@ -1,7 +1,8 @@
 # Opaque aggregate example
 
-This example passes a copyable opaque `Allocation` handle and a `USize` count as one product parameter and returns
-them inside a sum aggregate. The host adapter is compiled against the generated program header.
+This example passes a copyable opaque `Allocation` handle and a `USize` count as one product parameter
+and returns them inside a sum aggregate. The host adapter is compiled against the generated program
+header.
 
 `ResizeResult` documents the variant roles, but remains a structural sum. Likewise, placing
 `Allocation` in a product neither transfers ownership nor makes the handle linear; the host contract

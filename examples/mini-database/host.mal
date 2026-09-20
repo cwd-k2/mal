@@ -45,6 +45,7 @@ extern writeStderr :: ReadableBytes -> Unit;
 // Terminates after an error message has been emitted.
 extern failNow :: Unit -> Unit;
 
+// Each tail step lends one bounded chunk to the selected sink and carries only the remaining bytes.
 _writePacked :: (ReadableBytes -> Unit, Address, USize, Packed<UInt8>) -> Unit :=
     (write, memory, capacity, remaining) -> [return] => {
         when (#remaining == 0usize) {
