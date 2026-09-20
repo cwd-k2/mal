@@ -172,7 +172,7 @@ putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResul
             full();
         };
 
-        // Write payload lengths and bytes before marking the slot active.
+        // recordAddress identifies the selected fixed-size slot; its active byte is published last.
         recordAddress := memory._recordAddress(slot);
         recordAddress.view<UInt8>(0usize, _recordSize, (record) -> {
             record.put(1usize, keyLength.u8);

@@ -8,6 +8,7 @@ WritableBytes :: (Address, USize);
 extern Allocation;
 extern File;
 
+// IoError preserves the host error code across recoverable result variants.
 IoError :: UInt32;
 // OwnedBuffer fields: 0 allocation authority, 1 mal-visible byte buffer descriptor.
 OwnedBuffer :: (Allocation, ByteBuffer);

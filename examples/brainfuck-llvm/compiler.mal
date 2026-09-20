@@ -1,5 +1,6 @@
 // CompileState fields: next source byte, next loop identity, generated function body.
 CompileState :: (USize, UInt64, Symbol);
+// CompileStepResult carries a diagnostic or the state immediately after one recursive source range.
 CompileStepResult :: [Symbol, CompileState];
 // Variant 0 is a diagnostic; variant 1 is a complete LLVM IR module.
 CompileResult :: [Symbol, Symbol];

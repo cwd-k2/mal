@@ -1,15 +1,20 @@
 require "./host.c";
 
+// Arguments fields: 0 argument count, 1 first external descriptor address.
 Arguments :: (USize, Address);
 extern InputAllocation;
+// StdinBytes fields: 0 allocation authority, 1 readable memory, 2 initialized byte length.
 StdinBytes :: (InputAllocation, Address, USize);
+// OutputBuffer fields: 0 process-lifetime writable memory, 1 nonzero byte capacity.
 OutputBuffer :: (Address, USize);
 
-// Keeping byte I/O in this small host interface leaves parsing and rendering in mal.
+// Reads standard input into storage retained until releaseInput receives its allocation authority.
 extern readStdin :: Unit -> StdinBytes;
+// Releases the storage returned by readStdin after no derived view can be used again.
 extern releaseInput :: InputAllocation -> Unit;
-// outputBuffer returns process-lifetime writable storage with nonzero capacity.
+// Returns reusable process-lifetime staging storage for standard output.
 extern outputBuffer :: Unit -> OutputBuffer;
+// Writes an initialized prefix of the staging buffer to standard output.
 extern writeBytes :: OutputBuffer -> Unit;
 
 _writePacked :: (Address, USize, Packed<UInt8>) -> Unit :=

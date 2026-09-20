@@ -1,34 +1,48 @@
 require "./host.c";
 
-// ByteBuffer fields are address, capacity, and initialized prefix length.
+// AllocatedBytes fields: 0 allocator-owned memory, 1 byte capacity.
 AllocatedBytes :: (Address, USize);
+// ByteBuffer fields: 0 allocator-owned memory, 1 capacity, 2 initialized prefix length.
 ByteBuffer :: (Address, USize, USize);
-// Host transfer descriptors keep direction explicit at the extern boundary.
+// ReadableBytes grants the host read access to a byte range for one call.
 ReadableBytes :: (Address, USize);
+// WritableBytes grants the host write access to a byte range for one call.
 WritableBytes :: (Address, USize);
+// OutputBuffer fields: 0 process-lifetime writable memory, 1 nonzero byte capacity.
 OutputBuffer :: (Address, USize);
 
 extern Allocator;
 extern File;
 
-// Process-lifetime allocation authority.
+// Creates allocation authority that owns every buffer subsequently allocated through it.
 extern createAllocator :: Unit -> Allocator;
+// Allocates nonempty storage retained until its allocator is destroyed.
 extern allocateBuffer :: (Allocator, USize) -> AllocatedBytes;
+// Releases the allocator and every buffer allocated through it.
 extern destroyAllocator :: Allocator -> Unit;
 
-// Borrowed file handles and positional byte transfer.
+// Opens an existing database for update or creates it; failures terminate through the host boundary.
 extern openReadWriteCreate :: ReadableBytes -> File;
+// Returns the process-owned standard-input handle, which must not be closed by this program.
 extern standardInput :: Unit -> File;
+// Reads at most the writable range length and returns the transferred byte count.
 extern readFile :: (File, WritableBytes) -> USize;
+// Writes at most the readable range length and returns the transferred byte count.
 extern writeFile :: (File, ReadableBytes) -> USize;
+// Moves the file position to its first byte.
 extern rewindFile :: File -> Unit;
+// Publishes buffered writes to the host file system.
 extern flushFile :: File -> Unit;
+// Closes a database file handle after its final transfer.
 extern closeFile :: File -> Unit;
 
-// Process output and unrecoverable host failure.
+// Returns reusable process-lifetime staging storage for standard output or error.
 extern outputBuffer :: Unit -> OutputBuffer;
+// Writes a prefix of the staging buffer to standard output.
 extern writeStdout :: ReadableBytes -> Unit;
+// Writes a prefix of the staging buffer to standard error.
 extern writeStderr :: ReadableBytes -> Unit;
+// Terminates after an error message has been emitted.
 extern failNow :: Unit -> Unit;
 
 _writePacked :: (ReadableBytes -> Unit, Address, USize, Packed<UInt8>) -> Unit :=

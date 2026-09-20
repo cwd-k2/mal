@@ -1,10 +1,11 @@
 // NodeRow fields: value, kind (0 = leaf, 1 = branch), left coordinate, right coordinate.
 NodeRow :: (Int32, UInt8, USize, USize);
+// NodeRows is the physical row carrier; branch rows interpret two coordinates as child edges.
 NodeRows :: Packed<NodeRow>;
 
 buildTreeRows :: Unit -> NodeRows := () ->
     make<NodeRow>(0usize, (buffer) -> {
-        // Indices returned by new remain stable when later appends grow the buffer.
+        // root is a stable carrier coordinate even when later appends grow the buffer.
         root := buffer.new((1i32, 0u8, 0usize, 0usize));
         left := buffer.new((2i32, 0u8, 0usize, 0usize));
         leftLeft := buffer.new((3i32, 0u8, 0usize, 0usize));

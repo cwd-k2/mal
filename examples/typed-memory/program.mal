@@ -3,6 +3,7 @@ require "./host.c";
 extern unalignedStorage :: Unit -> Address;
 extern incrementSample :: Address -> Unit;
 
+// SampleRecord is the typed two-field layout exchanged across external byte storage.
 SampleRecord :: (Int64, UInt8);
 
 // Return the displaced value rather than letting the scoped Region escape.
@@ -15,20 +16,21 @@ replace<A> :: (Region<A>, A) -> A := (region, value) -> {
 main :: Unit -> Int32 := () -> {
     base := unalignedStorage();
 
-    // Host storage has no static alignment authority; every external view is lowered safely.
+    // alignedSample carries an ordinary value copied out before the external Region closes.
     alignedSample := base.view<SampleRecord>(0usize, 1usize, (region) -> {
         region.put(0usize, (1i64, 2u8));
         region.get(0usize);
     });
     (alignedNumber, alignedSmall) := alignedSample;
 
-    // These products deliberately begin one byte past an aligned address.
+    // firstAddress deliberately begins one byte past the host allocation's aligned base.
     firstAddress := base + 1bytes;
+    // secondAddress advances by the exact product layout rather than a guessed byte count.
     secondAddress := firstAddress + #(i64, u8);
     firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, (7i64, 9u8)));
     secondAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, (40i64, 1u8)));
 
-    // Each Region closes before the next one opens; ordinary SampleRecord values carry the exchange.
+    // firstValue carries data between two external views without letting either Region escape.
     firstValue := firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.get(0usize));
     displaced := secondAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.replace<SampleRecord>(firstValue));
     firstAddress.view<SampleRecord>(0usize, 1usize, (region) -> region.put(0usize, displaced));

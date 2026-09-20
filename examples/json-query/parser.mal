@@ -6,21 +6,23 @@ JsonStatistics :: (UInt64, UInt64);
 ParseResult :: [Symbol, JsonStatistics];
 // ScanProgress carries the unread input and an empty success message or a non-empty error message.
 ScanProgress :: (Packed<UInt8>, Symbol);
-// ParserState fields: 0 unread input, 1 frame stack, 2 frame depth, 3 statistics.
-ParserState :: (Packed<UInt8>, Packed<UInt8>, UInt64, JsonStatistics);
+// ParserFrame encodes the continuation selected when the parser returns to one stack coordinate.
+ParserFrame :: UInt8;
+// ParserFrames is an explicit return stack whose last element is the active continuation.
+ParserFrames :: Packed<ParserFrame>;
+// ParserState fields: 0 unread input, 1 return stack, 2 value depth, 3 statistics.
+ParserState :: (Packed<UInt8>, ParserFrames, UInt64, JsonStatistics);
 
-// The last Packed element is the active frame. Parent frames act as explicit return addresses,
-// replacing mutually recursive array, object, and value parser functions.
-_arrayFirst :: UInt8 := 1u8;
-_arrayValue :: UInt8 := 2u8;
-_arrayNext :: UInt8 := 3u8;
-_objectFirst :: UInt8 := 4u8;
-_objectKey :: UInt8 := 5u8;
-_objectColon :: UInt8 := 6u8;
-_objectValue :: UInt8 := 7u8;
-_objectNext :: UInt8 := 8u8;
-_rootValue :: UInt8 := 9u8;
-_rootDone :: UInt8 := 10u8;
+_arrayFirst :: ParserFrame := 1u8;
+_arrayValue :: ParserFrame := 2u8;
+_arrayNext :: ParserFrame := 3u8;
+_objectFirst :: ParserFrame := 4u8;
+_objectKey :: ParserFrame := 5u8;
+_objectColon :: ParserFrame := 6u8;
+_objectValue :: ParserFrame := 7u8;
+_objectNext :: ParserFrame := 8u8;
+_rootValue :: ParserFrame := 9u8;
+_rootDone :: ParserFrame := 10u8;
 
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 
@@ -57,26 +59,26 @@ _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) ->
     (count + 1u64, nextDepth);
 };
 
-// Reading and replacing affect only the active frame; pushing and popping move the active end.
-_readFrame :: Packed<UInt8> -> UInt8 := (frames) -> frames # (#frames - 1usize);
+// Returns the active continuation at the end of a nonempty return stack.
+_readFrame :: ParserFrames -> ParserFrame := (frames) -> frames # (#frames - 1usize);
 
-_replaceFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) -> {
+_replaceFrame :: (ParserFrames, ParserFrame) -> ParserFrames := (frames, frame) -> {
     index := #frames - 1usize;
-    frames.edit<UInt8>((buffer) -> {
+    frames.edit<ParserFrame>((buffer) -> {
         buffer.put(index, frame);
     });
 };
 
-_pushFrame :: (Packed<UInt8>, UInt8) -> Packed<UInt8> := (frames, frame) ->
-    frames.edit<UInt8>((buffer) -> {
+_pushFrame :: (ParserFrames, ParserFrame) -> ParserFrames := (frames, frame) ->
+    frames.edit<ParserFrame>((buffer) -> {
         buffer.new(frame);
         ();
     });
 
-_popFrame :: Packed<UInt8> -> Packed<UInt8> := (frames) -> frames / (#frames - 1usize);
+_popFrame :: ParserFrames -> ParserFrames := (frames) -> frames / (#frames - 1usize);
 
 // Completing a value rewrites its parent frame to the state that accepts a delimiter next.
-_completeValue :: Packed<UInt8> -> Packed<UInt8> := (frames) -> {
+_completeValue :: ParserFrames -> ParserFrames := (frames) -> {
     frame := frames._readFrame();
     if (frame == _arrayFirst || frame == _arrayValue)
     then frames._replaceFrame(_arrayNext)
@@ -326,11 +328,11 @@ _parse :: ParserState -> ParseResult := (state) -> [return] => {
     return(_parseFailure("expected JSON value"));
 };
 
-// The parser owns its immutable input independently of the host buffer.
+// Parses one complete owned byte sequence and rejects trailing non-whitespace input.
 parseDocument :: Packed<UInt8> -> ParseResult := (source) ->
     (
         source,
-        make<UInt8>(0usize, (buffer) -> {
+        make<ParserFrame>(0usize, (buffer) -> {
         buffer.new(_rootValue);
         ();
     }),

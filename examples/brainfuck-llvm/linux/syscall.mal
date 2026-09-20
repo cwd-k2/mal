@@ -9,12 +9,19 @@ OffsetResult :: [UInt64, UInt32];
 TransferResult :: [ByteSize, UInt32];
 SyscallStatus :: [Unit, UInt32];
 
-// These operations only adapt typed mal values to Linux syscall registers and errno results.
+// Maps one request and returns either its base address or an errno-compatible code.
 extern systemMmap :: MapRequest -> AddressResult;
+// Resizes an existing mapping and returns either its current base address or an error code.
 extern systemMremap :: ResizeRequest -> AddressResult;
+// Releases an exact mapped range and reports any host rejection.
 extern systemMunmap :: (Address, ByteSize) -> SyscallStatus;
+// Opens a path relative to a directory descriptor without taking ownership of the path bytes.
 extern systemOpenat :: (Int32, Address, Int32, UInt32) -> FileDescriptorResult;
+// Moves a descriptor offset and reports its resulting absolute coordinate.
 extern systemLseek :: (Int32, Int64, Int32) -> OffsetResult;
+// Closes a descriptor and reports an errno-compatible failure code.
 extern systemClose :: Int32 -> SyscallStatus;
+// Reads at most the requested extent into caller-owned writable storage.
 extern systemRead :: (Int32, Address, ByteSize) -> TransferResult;
+// Writes at most the requested extent from caller-owned readable storage.
 extern systemWrite :: (Int32, Address, ByteSize) -> TransferResult;

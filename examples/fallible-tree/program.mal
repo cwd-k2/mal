@@ -2,9 +2,9 @@ require "./host.c";
 
 extern Allocator;
 
-// NodeAddress is only an external-storage coordinate. NodeBuildResult reports recoverable allocation
-// failure; successful constructors establish the record layout and child relation described below.
+// NodeAddress is an external-storage coordinate whose record layout is established by constructors.
 NodeAddress :: Address;
+// NodeBuildResult carries a constructed root coordinate or a recoverable allocation failure.
 NodeBuildResult :: [NodeAddress, Unit];
 
 extern createAllocator :: USize -> Allocator;

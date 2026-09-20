@@ -1,5 +1,6 @@
-// PairRows is a finite carrier. Operations decide what relation its coordinates denote.
+// PairRow is a physical pair of coordinates with no relation fixed by the product type itself.
 PairRow :: (USize, USize);
+// PairRows is a finite carrier that operations may interpret as edges, intervals, or another relation.
 PairRows :: Packed<PairRow>;
 
 buildRows :: Unit -> PairRows := () ->

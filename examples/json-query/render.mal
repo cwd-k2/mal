@@ -40,12 +40,13 @@ _renderDecimal :: UInt64 -> Symbol := (value) -> {
     else (value / 10u64)._renderDecimal() + digit;
 };
 
-// These factories make both case arms produce the same first-class JsonStatistics -> Symbol value.
+// Returns a first-class renderer that selects the value-count coordinate from JsonStatistics.
 renderCount :: Unit -> (JsonStatistics -> Symbol) := () -> (stats) -> {
     (count, _) := stats;
     "{\"ok\":true,\"count\":" + count._renderDecimal() + "}";
 };
 
+// Returns a first-class renderer that selects the maximum-depth coordinate from JsonStatistics.
 renderDepth :: Unit -> (JsonStatistics -> Symbol) := () -> (stats) -> {
     (_, depth) := stats;
     "{\"ok\":true,\"depth\":" + depth._renderDecimal() + "}";

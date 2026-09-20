@@ -6,6 +6,7 @@ extern Allocation;
 OwnedBuffer :: (Allocation, Address, USize, USize);
 // BorrowedBytes fields: 0 allocation identity, 1 readable memory, 2 byte length.
 BorrowedBytes :: (Allocation, Address, USize);
+// OutputBuffer fields: 0 process-lifetime writable memory, 1 byte capacity.
 OutputBuffer :: (Address, USize);
 // OwnedBufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
 OwnedBufferResult :: [OwnedBuffer, UInt32];

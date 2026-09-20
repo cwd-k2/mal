@@ -1,14 +1,19 @@
-// NodeOffsets partitions edge slots by source node. NeighborNodes relates each edge slot to a
-// destination node. EdgeCosts is payload joined to NeighborNodes by the shared edge slot.
+// NodeOffsets maps each node boundary to an edge-slot offset; adjacent offsets delimit its edges.
 NodeOffsets :: Packed<Int64>;
+// NeighborNodes maps each edge slot to its destination-node coordinate.
 NeighborNodes :: Packed<Int64>;
+// EdgeCosts stores the nonnegative weight joined to NeighborNodes by the shared edge slot.
 EdgeCosts :: Packed<Int64>;
+// WeightedCsr carries a node count and three columns whose relation is established by validation.
 WeightedCsr :: (Int64, NodeOffsets, NeighborNodes, EdgeCosts);
 
-// The two workspace columns share a node coordinate but describe independent algorithm state.
+// Int64BufferView addresses a logical column by a buffer and its first physical slot.
 Int64BufferView :: (Buffer<Int64>, USize);
+// NodeDistances stores the current best distance at each node coordinate.
 NodeDistances :: Int64BufferView;
+// VisitedFlags stores whether each node coordinate has been finalized.
 VisitedFlags :: Int64BufferView;
+// DijkstraWorkspace joins independent distance and visited columns by node coordinate.
 DijkstraWorkspace :: (NodeDistances, VisitedFlags);
 
 infinity :: Int64 := 2_305_843_009_213_693_951;

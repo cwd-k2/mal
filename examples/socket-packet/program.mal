@@ -8,9 +8,11 @@ Packet :: (UInt64, Symbol);
 SocketPair :: (Socket, Socket);
 // SocketStatus variant 0 means complete; variant 1 carries an errno-compatible error code.
 SocketStatus :: [Unit, UInt32];
-// ReceiveResult variant 0 carries a complete packet; variant 1 carries an error code.
+// ReceivedPacket fields: 0 sequence number, 1 payload length in the shared packet buffer.
 ReceivedPacket :: (UInt64, USize);
+// ReceiveResult variant 0 carries a complete packet descriptor; variant 1 carries an error code.
 ReceiveResult :: [ReceivedPacket, UInt32];
+// PacketBuffer fields: 0 process-owned transfer memory, 1 byte capacity.
 PacketBuffer :: (Address, USize);
 
 extern createSocketPair :: Unit -> SocketPair;
