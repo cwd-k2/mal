@@ -3,6 +3,47 @@ PairRow :: (USize, USize);
 // PairRows is a finite carrier that operations may interpret as edges, intervals, or another relation.
 PairRows :: Packed<PairRow>;
 
+// Carrier traversal is independent of the relation assigned to each row. The step sum keeps
+// early completion distinct from the next cursor instead of reserving a sentinel index.
+_loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> _loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
+_anyPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
+    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+        when (index == #values) {
+            break(false);
+        };
+        when (predicate(values # index)) {
+            break(true);
+        };
+
+        continue(index + 1usize);
+    });
+
+_allPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
+    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+        when (index == #values) {
+            break(true);
+        };
+        when (!predicate(values # index)) {
+            break(false);
+        };
+
+        continue(index + 1usize);
+    });
+
+_foldPacked<A, B> :: (Packed<A>, B, (B, A) -> B) -> B := (values, initial, combine) ->
+    _loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
+        when (index == #values) {
+            break(result);
+        };
+
+        continue((index + 1usize, combine(result, values # index)));
+    });
+
 buildRows :: Unit -> PairRows := () ->
     make<PairRow>(3usize, (buffer) -> {
         buffer.new((0usize, 3usize));
@@ -11,49 +52,26 @@ buildRows :: Unit -> PairRows := () ->
         ();
     });
 
-_hasDirectedEdgeAt :: (PairRows, USize, USize, USize) -> Bool :=
-    (rows, source, target, index) -> [return] => {
-        when (index == #rows) {
-            return(false);
-        };
-        (rowSource, rowTarget) := rows # index;
-        when (rowSource == source && rowTarget == target) {
-            return(true);
-        };
-        return(rows._hasDirectedEdgeAt(source, target, index + 1usize));
-    };
-
 hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
-    rows._hasDirectedEdgeAt(source, target, 0usize);
+    rows._anyPacked<PairRow>((row) -> {
+        (rowSource, rowTarget) := row;
+        rowSource == source && rowTarget == target;
+    });
 
-_validIntervalsAt :: (PairRows, USize) -> Bool := (rows, index) -> [return] => {
-    when (index == #rows) {
-        return(true);
-    };
-    (start, end) := rows # index;
-    when (start > end) {
-        return(false);
-    };
-    return(rows._validIntervalsAt(index + 1usize));
-};
-
-validIntervals :: PairRows -> Bool := (rows) -> rows._validIntervalsAt(0usize);
-
-_coverageAt :: (PairRows, USize, USize, USize) -> USize :=
-    (rows, coordinate, index, count) -> [return] => {
-        when (index == #rows) {
-            return(count);
-        };
-        (start, end) := rows # index;
-        included := start <= coordinate && coordinate < end;
-        nextCount := if (included)
-            then count + 1usize
-            else count;
-        return(rows._coverageAt(coordinate, index + 1usize, nextCount));
-    };
+validIntervals :: PairRows -> Bool := (rows) ->
+    rows._allPacked<PairRow>((row) -> {
+        (start, end) := row;
+        start <= end;
+    });
 
 coverageAt :: (PairRows, USize) -> USize := (rows, coordinate) ->
-    rows._coverageAt(coordinate, 0usize, 0usize);
+    rows._foldPacked<PairRow, USize>(0usize, (count, row) -> {
+        (start, end) := row;
+        included := start <= coordinate && coordinate < end;
+        if (included)
+        then count + 1usize
+        else count;
+    });
 
 main :: Unit -> Int32 := () -> {
     rows := buildRows();

@@ -69,5 +69,13 @@ The remaining focused examples isolate particular mechanisms: [`print-and-closur
 [`strict-float`](strict-float/), [`opaque-aggregate`](opaque-aggregate/), and the larger
 [`brainfuck-llvm`](brainfuck-llvm/) compiler.
 
+The control-flow examples separate repetition policy from domain work at different scales.
+`generic-loop` derives named range, repetition, search, and fold operations from a continue-or-break
+sum. `json-query` uses the same shape for a whole parser state machine. `resizable-buffer` evaluates a
+loop only as one local expression inside a larger allocation protocol. `relation-views` shares
+`any`, `all`, and `fold` carrier traversal while leaving edge and interval meaning in domain callbacks.
+Direct recursion remains in examples where returning from a child is itself part of the domain
+operation, such as tree traversal and nested Brainfuck compilation.
+
 All `.mal` files are formatter fixtures. Representative directories also build and execute through the
 public compiler driver in `compiler/tests/driver/examples.rs`.

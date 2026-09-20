@@ -39,6 +39,24 @@ mechanismが一つの規則から予測できる状態を指す。minimalityの�
 変更規模や一度に追加する機能数も、それ自体ではminimalityの尺度にしない。基礎modelを理解した後に、個別の型や
 operationの挙動を同じ規則から導けるなら、個別codecや例外を多数残すより広い一つのmechanismの方が小さくなり得る。
 
+### 反復controlとdomain stepを分ける
+
+自己再帰が次の状態を選ぶだけで、各stepの後に未完了の処理を残さない場合、再帰そのものをdomain operationへ
+埋め込む必要はない。変化する値を明示的なstate、一回分の処理をstep、次状態と最終結果の選択を直和として分ければ、
+同じmechanismから`upto`、`times`、`fold`、`any`、program固有のstate machineを定義できる。利用側にはmechanism名の
+`loop`を常に露出させず、走査範囲、empty case、順序、早期終了を表す用途上の名前を選んでよい。
+
+この分離は関数全体をloopへ変える規則ではない。前処理の後でloop expressionから値を得て後続処理へ戻る局所利用も
+できる。採用するのは、終了判定やcursor更新の重複を一箇所へ集め、domain callbackを「現在の要素をどう扱うか」に
+近づけられる場合である。closure、state product、追加の抽象名が直接再帰より多くの知識を要求するだけなら分離しない。
+
+子から戻った後にも処理を行うtree traversal、入力のnesting自体を表す構造再帰、resource cleanupの順序を表す再帰は、
+単純な反復へ置き換えない。明示work stackなど別の表現が必要なら、反復combinatorの導入とは別の設計判断として扱う。
+実行例は[`generic-loop`](../../examples/generic-loop/)、parser state machineは
+[`json-query`](../../examples/json-query/)、処理途中の局所利用は
+[`resizable-buffer`](../../examples/resizable-buffer/)、carrier走査とrelation解釈の分離は
+[`relation-views`](../../examples/relation-views/)に置く。
+
 external operationのcontractは宣言に置き、applicationごとに同じ分類を再記述しない。external functionも通常の
 function valueと同じ参照、shadowing、application規則に従い、境界transportだけを宣言されたidentityから決める。
 
