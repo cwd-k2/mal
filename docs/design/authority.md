@@ -4,6 +4,7 @@ Status: Current design policy
 
 この文書は、memory、resource、host境界を設計するときの判断軸を定める。規範的な型とoperationは
 [EngramとExtern](../spec/engrams.md)を正とし、ここでは個別のABIやsyntaxを重複させない。
+値をoperationへ適用する解釈と、その後のcontrolとの関係は[値、解釈、control](value-interpretation-and-control.md)に置く。
 
 ## ownershipより先にauthorityを問う
 

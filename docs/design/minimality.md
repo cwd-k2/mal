@@ -78,16 +78,18 @@ capability transferを導く。reference compilerのEngram回収は
 
 ## 意味論上の核
 
-言語の性質を説明するための核は次とする。
+言語の性質を説明するための核は次とする。値、application、dynamic continuationの関係は
+[値、解釈、control](value-interpretation-and-control.md)を正とする。
 
 ```text
-variable, lambda, value/continuation application
+variable, lambda, application
 Unit
 product, sum
 primitive scalar
 ```
 
-`f(a)`と`a[f]`は同じapplication、直和の除去は複数continuationへのapplicationである。`Bool`は
+`f(a)`と`a[f]`は同じapplicationであり、その評価が一回のinvocationを始める。直和の除去は複数continuation templateから
+active variantに対応する一つを選ぶapplicationである。`Bool`は
 `[Unit, Unit]`、`if`はBoolへのcontinuation application、`binding`はlambda/applicationへ消去できる。
 blockの末尾式はlambdaの結果である。`fix`/自己再帰を足すと停止性を失い、`extern`を足すとhostとの
 観測可能な作用が生まれるため、純粋な核とは分けて考える。

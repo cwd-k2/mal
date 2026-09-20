@@ -4,6 +4,7 @@ Status: Current design policy
 
 この文書は、再帰的または相互参照を持つdomain structureをmalで表すときの設計方針を定める。個々の型とoperationは
 [型](../spec/types.md)、[external memory](../spec/memory.md)、[`Region`と`Packed`](../spec/packed.md)を正とする。
+carrierをoperationへ適用して解釈する全体の設計軸は[値、解釈、control](value-interpretation-and-control.md)に置く。
 
 ## 有限な表現から構造を得る
 

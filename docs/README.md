@@ -11,26 +11,28 @@
 初めて読む場合は次の順を推奨する。
 
 1. [最小性の方針](design/minimality.md)
-2. [EngramとExternのauthority](design/authority.md)
-3. [言語の範囲](spec/scope.md)
-4. [型](spec/types.md)
-5. [EngramとExtern](spec/engrams.md)
-6. [parametric polymorphism](spec/generics.md)
-7. [Symbol](spec/symbols.md)
-8. [external memory](spec/memory.md)
-9. [`Region`と`Packed`](spec/packed.md)
-10. [式と binding](spec/expressions.md)
-11. [result boundaryとcompletion](spec/control.md)
-12. [実行意味論](spec/execution.md)
-13. [`extern` 境界](spec/extern.md)
-14. [C host ABI](spec/c-host-abi.md)
-15. [プログラム構造](spec/programs.md)
-16. [字句・文法](spec/grammar.md)
+2. [値、解釈、control](design/value-interpretation-and-control.md)
+3. [EngramとExternのauthority](design/authority.md)
+4. [言語の範囲](spec/scope.md)
+5. [型](spec/types.md)
+6. [EngramとExtern](spec/engrams.md)
+7. [parametric polymorphism](spec/generics.md)
+8. [Symbol](spec/symbols.md)
+9. [external memory](spec/memory.md)
+10. [`Region`と`Packed`](spec/packed.md)
+11. [式と binding](spec/expressions.md)
+12. [result boundaryとcompletion](spec/control.md)
+13. [実行意味論](spec/execution.md)
+14. [`extern` 境界](spec/extern.md)
+15. [C host ABI](spec/c-host-abi.md)
+16. [プログラム構造](spec/programs.md)
+17. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
 | 目的 | 最初に読む文書 | 次に参照するauthority |
 |---|---|---|
+| 値、application、continuationの設計軸を理解する | [値、解釈、control](design/value-interpretation-and-control.md) | [実行意味論](spec/execution.md)、[result boundaryとcompletion](spec/control.md) |
 | `malc`を使う | [reference compiler利用contract](development/compiler-usage.md) | [C host ABI](spec/c-host-abi.md) |
 | formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
@@ -76,8 +78,11 @@
 
 ## v0.6の短い定義
 
-- malはstrict call-by-valueの型付き関数型言語であり、immutable binding、関数、lexical result block、直積、直和、固定幅scalar、
-  explicit parametric polymorphism、immutable byte値`Symbol`を持つ。
+- malは再利用可能な値、明示的なapplication、affineなdynamic controlを中心とするstrict call-by-valueの静的型付き言語であり、
+  immutable binding、function value、lexical result block、直積、直和、固定幅scalar、explicit parametric polymorphism、
+  immutable byte値`Symbol`を持つ。
+- dataのdomain上の意味はcarrierだけから推測せず、operationとinvariantが定める。applicationは値とoperationを接続し、
+  各dynamic continuationは高々一度だけ進む。
 - mal内部で意味とlifetime authorityを持つ値をEngramと総称し、外部resourceへのcapabilityから区別する。
 - external storageは`Address`、canonical layout、scoped `Region`でaccessし、mal-owned sequenceは`Packed`で保持する。
 - 外部世界との作用はexternal operationのapplicationと明示的なmemory accessに限定する。allocation、deallocation、I/O、
