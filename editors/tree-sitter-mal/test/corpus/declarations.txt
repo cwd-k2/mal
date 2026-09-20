@@ -1,0 +1,77 @@
+==================
+Declarations
+==================
+
+require "./support.mal";
+extern Handle;
+extern write :: (Handle, Symbol) -> Unit;
+Pair<T> :: (T, UInt8);
+Choice :: [Int32, UInt8];
+identity<T> :: T -> T := (value) -> value;
+answer :: Int32 := 42i32;
+
+---
+
+(source_file
+  (require_declaration
+    (symbol_literal))
+  (top_level_item
+    (extern_type_declaration
+      (type_identifier)))
+  (top_level_item
+    (extern_value_declaration
+      (value_identifier)
+      (atomic_type
+        (product_type
+          (atomic_type
+            (type_identifier))
+          (atomic_type
+            (type_identifier))))
+      (atomic_type
+        (type_identifier))))
+  (top_level_item
+    (type_alias
+      (type_identifier)
+      (type_parameters
+        (type_identifier))
+      (atomic_type
+        (product_type
+          (atomic_type
+            (type_identifier))
+          (atomic_type
+            (type_identifier))))))
+  (top_level_item
+    (type_alias
+      (type_identifier)
+      (atomic_type
+        (sum_type
+          (atomic_type
+            (type_identifier))
+          (atomic_type
+            (type_identifier))))))
+  (top_level_item
+    (generic_binding
+      (value_identifier)
+      (type_parameters
+        (type_identifier))
+      (atomic_type
+        (type_identifier))
+      (atomic_type
+        (type_identifier))
+      (primary_expression
+        (lambda_expression
+          (lambda_parameters
+            (pattern
+              (value_identifier)))
+          (primary_expression
+            (value_name
+              (value_identifier)))))))
+  (top_level_item
+    (binding
+      (pattern
+        (value_identifier))
+      (atomic_type
+        (type_identifier))
+      (primary_expression
+        (literal
+          (integer_literal))))))

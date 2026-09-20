@@ -69,6 +69,27 @@ let extension_path = (pwd | path join editors/vscode)
 run-external code $"--extensionDevelopmentPath=($extension_path)" .
 ```
 
+## NeovimとHelix
+
+`editors/tree-sitter-mal/`はNeovimとHelixが共有するparser source、highlight、indent、text object queryを所有する。
+`grammar.js`から生成する`src/parser.c`、`src/grammar.json`、`src/node-types.json`はconsumerがgeneratorなしでparserを
+buildできるようrepositoryへ含める。platform固有のshared libraryは`.artifacts/editor-runtime/`へ生成し、repositoryへ含めない。
+生成時に同梱されるTree-sitter headerにはupstreamのMIT licenseを`third-party/tree-sitter/LICENSE`として添付する。このdirectoryは
+外部由来のnoticeだけを所有し、grammarとquery自体にはrepository rootのMIT licenseを適用する。
+
+rootの`.nvim.lua`と`.nvim/lsp/mal.lua`はNeovim 0.11以降のproject-local filetype、Tree-sitter、built-in LSP設定である。
+rootの`.helix/languages.toml`はHelixのproject-local languageと`mal-lsp`設定である。両editor用のserver、parser、queryを準備して
+起動するにはrepository rootで次を実行する。各editorがproject-local設定を読む前に、内容を確認してworkspaceをtrustする。
+
+```nu
+nu scripts/editor-dev.nu neovim
+nu scripts/editor-dev.nu helix
+```
+
+`--prepare-only`を指定するとeditorを起動せず生成と検証まで行う。Helixのlexical highlight、indent、text objectはTree-sitter queryを
+使う。Helixは`mal-lsp`のsemantic tokenを利用しない。NeovimはTree-sitterによるlexical highlightへ`mal-lsp`のsemantic tokenを
+重ねる。LSP機能の内容は次節を正とする。
+
 ## language server
 
 `tools/mal-lsp/`はstdioでLSP JSON-RPCを扱う。開発環境では次のcommandで起動できる。

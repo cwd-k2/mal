@@ -1,0 +1,114 @@
+==================
+Expressions
+==================
+
+main :: Unit -> Int32 := () -> [return] => {
+    packed := *"mal";
+    when (#packed == 0usize) {
+        return(1i32);
+    };
+    value := packed.view<UInt8>(0usize, #packed, (region) -> region.get(0usize));
+    if (value == '\x6d') then 0i32 else -1i32;
+};
+
+---
+
+(source_file
+  (top_level_item
+    (binding
+      (pattern
+        (value_identifier))
+      (atomic_type
+        (type_identifier))
+      (atomic_type
+        (type_identifier))
+      (primary_expression
+        (lambda_expression
+          (lambda_parameters)
+          (primary_expression
+            (result_block
+              (value_identifier)
+              (primary_expression
+                (block
+                  (binding
+                    (pattern
+                      (value_identifier))
+                    (prefix_expression
+                      (primary_expression
+                        (literal
+                          (symbol_literal)))))
+                  (expression_statement
+                    (primary_expression
+                      (when_expression
+                        (binary_expression
+                          (prefix_expression
+                            (primary_expression
+                              (value_name
+                                (value_identifier))))
+                          (primary_expression
+                            (literal
+                              (integer_literal))))
+                        (primary_expression
+                          (block
+                            (expression_statement
+                              (postfix_expression
+                                (primary_expression
+                                  (value_name
+                                    (value_identifier)))
+                                (postfix_suffix
+                                  (call_suffix
+                                    (primary_expression
+                                      (literal
+                                        (integer_literal))))))))))))
+                  (binding
+                    (pattern
+                      (value_identifier))
+                    (postfix_expression
+                      (primary_expression
+                        (value_name
+                          (value_identifier)))
+                      (postfix_suffix
+                        (receiver_suffix
+                          (value_identifier)
+                          (type_arguments
+                            (atomic_type
+                              (type_identifier)))
+                          (primary_expression
+                            (literal
+                              (integer_literal)))
+                          (prefix_expression
+                            (primary_expression
+                              (value_name
+                                (value_identifier))))
+                          (primary_expression
+                            (lambda_expression
+                              (lambda_parameters
+                                (pattern
+                                  (value_identifier)))
+                              (postfix_expression
+                                (primary_expression
+                                  (value_name
+                                    (value_identifier)))
+                                (postfix_suffix
+                                  (receiver_suffix
+                                    (value_identifier)
+                                    (primary_expression
+                                      (literal
+                                        (integer_literal))))))))))))
+                  (expression_statement
+                    (primary_expression
+                      (if_expression
+                        (binary_expression
+                          (primary_expression
+                            (value_name
+                              (value_identifier)))
+                          (primary_expression
+                            (literal
+                              (byte_literal))))
+                        (primary_expression
+                          (literal
+                            (integer_literal)))
+                        (prefix_expression
+                          (primary_expression
+                            (literal
+                              (integer_literal))))))))))))))))

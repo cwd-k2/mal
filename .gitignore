@@ -3,6 +3,7 @@
 /editors/vscode/node_modules/
 /editors/vscode/server/mal-lsp
 /.scratch/
+/.artifacts/editor-runtime/
 /.direnv/
 /.vscode/*
 !/.vscode/settings.json

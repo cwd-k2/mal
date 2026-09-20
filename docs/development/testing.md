@@ -48,7 +48,8 @@ nix develop
 nu scripts/check.nu
 ```
 
-このscriptはcompiler、language server、VS Code extension、VSIX package、Nix flakeを順に検証する。VS Codeの
+このscriptはcompiler、language server、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
+committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
 `node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。
 
 compilerだけを変更中にfocused verificationを行う場合は、`compiler/`から次を実行する。
@@ -70,6 +71,16 @@ rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定す
 cargo fmt --manifest-path tools/mal-lsp/Cargo.toml --check
 cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- -D warnings
 cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
+```
+
+Tree-sitter grammarを変更した場合はrepository rootで次を実行する。
+
+```nu
+cd editors/tree-sitter-mal
+tree-sitter generate
+tree-sitter test
+let sources = (rg --files ../.. -g "*.mal" | lines)
+tree-sitter parse --quiet ...$sources
 ```
 
 `editors/vscode/`のfocused verificationは次で行う。完了時のrepository checkではdependency install、server同梱、

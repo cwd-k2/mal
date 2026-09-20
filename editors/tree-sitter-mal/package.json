@@ -1,0 +1,23 @@
+{
+  "name": "tree-sitter-mal",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for mal",
+  "license": "MIT",
+  "keywords": [
+    "incremental",
+    "parsing",
+    "tree-sitter",
+    "mal"
+  ],
+  "tree-sitter": [
+    {
+      "scope": "source.mal",
+      "file-types": [
+        "mal"
+      ],
+      "highlights": [
+        "queries/highlights.scm"
+      ]
+    }
+  ]
+}

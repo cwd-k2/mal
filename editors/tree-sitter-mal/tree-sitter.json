@@ -1,0 +1,28 @@
+{
+  "grammars": [
+    {
+      "name": "mal",
+      "camelcase": "Mal",
+      "scope": "source.mal",
+      "path": ".",
+      "file-types": [
+        "mal"
+      ],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^mal$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for mal",
+    "authors": [
+      {
+        "name": "mal project"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/cwd-k2/mal"
+    }
+  }
+}

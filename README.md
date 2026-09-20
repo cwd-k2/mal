@@ -7,9 +7,10 @@ The language keeps allocation, files, networking, clocks, randomness, and other 
 the host side of an explicit `extern` boundary.
 
 The repository contains the Rust reference compiler (`malc`), an LLVM execution backend with a C11
-runtime and generated host interface, checked examples, a formatter, an LSP server, and VS Code
-support. The current profile is under development; generated artifacts and host ABI compatibility
-are not guaranteed across compiler versions.
+runtime and generated host interface, checked examples, a formatter, an LSP server, and VS Code,
+Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. The current profile is under
+development; generated artifacts and host ABI compatibility are not guaranteed across compiler
+versions.
 
 ## Start here
 
@@ -46,3 +47,7 @@ This repository is licensed under the [MIT License](LICENSE), except for the C11
 programs produced by `malc`; MIT-0 permits distributing those copies without an attribution
 condition. These licenses do not claim rights in source programs merely because they are compiled
 with `malc`.
+
+The generated Tree-sitter headers under `editors/tree-sitter-mal/src/tree_sitter/` retain the
+upstream MIT terms in
+[`third-party/tree-sitter/LICENSE`](editors/tree-sitter-mal/third-party/tree-sitter/LICENSE).

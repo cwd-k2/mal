@@ -91,6 +91,9 @@
           rust-analyzer
           sccache
           nushell
+          tree-sitter
+          helix-unwrapped
+          neovim
           clang
           lld
           hyperfine

@@ -1,0 +1,56 @@
+==================
+Trailing comma
+==================
+
+value := call(1,);
+
+---
+
+(source_file
+  (top_level_item
+    (binding
+      (pattern
+        (value_identifier))
+      (postfix_expression
+        (primary_expression
+          (value_name
+            (value_identifier)))
+        (postfix_suffix
+          (call_suffix
+            (primary_expression
+              (literal
+                (integer_literal)))
+            (ERROR)))))))
+
+==================
+Unsupported declaration keyword
+==================
+
+let value := 1;
+
+---
+
+(source_file
+  (ERROR
+    (value_identifier))
+  (top_level_item
+    (binding
+      (pattern
+        (value_identifier))
+      (primary_expression
+        (literal
+          (integer_literal))))))
+
+==================
+Unterminated symbol
+==================
+
+value := "unterminated;
+
+---
+
+(source_file
+  (ERROR
+    (pattern
+      (value_identifier))
+    (UNEXPECTED '\n')))

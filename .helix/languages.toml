@@ -1,0 +1,14 @@
+[language-server.mal-lsp]
+command = "tools/mal-lsp/target/release/mal-lsp"
+
+[[language]]
+name = "mal"
+language-id = "mal"
+scope = "source.mal"
+file-types = ["mal"]
+roots = [".git"]
+comment-tokens = "//"
+indent = { tab-width = 4, unit = "    " }
+grammar = "mal"
+language-servers = ["mal-lsp"]
+auto-format = true
