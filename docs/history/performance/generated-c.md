@@ -68,7 +68,7 @@ process時間は各Hyperfine invocationに測らせる。
 分離した。
 
 mixed-toolchainで得た比率は調査候補の発見にだけ使い、採用値やcompiler改善幅には使わない。source、生成物、Hyperfine JSONなどの
-raw artifactはlocalの`.scratch/`に置き、tracked repositoryには含めない。
+raw artifactはlocal workspaceだけに置き、tracked repositoryには含めない。
 
 ## application control lowering実装前後
 
@@ -441,7 +441,7 @@ productは従来のaggregate calling conventionへfallbackする。明示的なn
 ## C表現の横断監査
 
 current generated C、Clang `-O2`後のLLVM IR、extern境界と動的closureを個別に含む独立設計のsynthetic programを比較した。
-source、生成物、計測dataは`.scratch/`だけに置いた。
+source、生成物、計測dataはlocal workspaceだけに置いた。
 
 | 対象 | C source上の表現 | `-O2`後の結果 | 判断 |
 |---|---|---|---|

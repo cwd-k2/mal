@@ -159,9 +159,7 @@ direct Cが速い36問である。
 | 080 | 4.453 / 4.976 / 4.811 / 6.007 / 7.270 | 2.869 / 3.414 / 3.075 / 4.929 / 6.198 | 1.56x |
 
 055のtext sizeは3,950 bytesから3,806 bytes、disassemblyは522行から481行へ減った。080は3,838 bytesから3,758 bytes、
-032は4,254 bytesのままである。各20個の値は
-`.scratch/typical90/performance/{032,055,080}/frame-replacement-vs-c.json`、変更前後の値は同directoryの
-`frame-replacement-before-after.json`に保存した。sample、maximum-order input、managed frameのruntime fixtureで結果とowner lifetimeを確認した。
+032は4,254 bytesのままである。sample、maximum-order input、managed frameのruntime fixtureで結果とowner lifetimeを確認した。
 
 ## 2026-09-18 — control storage fast pathの確定inline
 
@@ -271,9 +269,7 @@ high-water版では281msから269msへ4.5%短縮した。growth helperは引き�
 1172msから1148msへ2.0%短縮した。Regionは1001ms、direct Cは792msだった。しかし`invariant.load`はfunction内のepochではなく、
 同じmemory locationが恒久的に不変であることを要求する。同じbuilder slotはcallbackの前後や別のcontrol stateで変化し得るため、
 application graphとrecursive control regionを閉じてもこの契約を満たさない。zero-stride Packedとtree editのruntime fixtureが実際に
-誤最適化を検出したため、このtechniqueは棄却した。正しい後続案にはscopedな別mechanismが必要である。raw sampleはignored scratchの
-`.scratch/typical90/performance/023/stable-epoch-before-after.json`と
-`.scratch/typical90/performance/043/packed-edit-variants.json`に記録した。
+誤最適化を検出したため、このtechniqueは棄却した。正しい後続案にはscopedな別mechanismが必要である。
 
 ## 2026-09-19 — non-growing Buffer helperのinternal ABI
 

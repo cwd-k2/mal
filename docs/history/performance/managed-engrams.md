@@ -33,9 +33,9 @@ aggregate copyを作らずlast-use transferし、全next leafの評価後にtran
 全tail edgeで不変なmanaged slotと、その冒頭で得るnested fieldはknown direct callへborrowし、loop内のparameter-entry
 retain/releaseを発生させない。borrowed parameterがresultへescapeする場合はcopyを一回行う。
 
-## pressure suite
+## pressure workload
 
-localのignored `.scratch/pressure/`は次のworkloadを持つ。
+採択時のlocal pressure suiteは次のworkloadを持つ。
 
 | Workload | Shape | 主に検査するcost |
 |---|---|---|
@@ -51,12 +51,7 @@ counterを持つ。
 
 runnerはiteration数と`Symbol` bytesを別C translation unitへ渡し、allocator builtinを無効にしてClangによるworkloadの
 除去を防ぐ。小さいpeak live-allocation上限と終了時live allocationゼロを検査し、通常buildとASan/UBSan buildを実行する。
-ptrace環境ではLeakSanitizerを使えないため、leakはruntime counterで検査する。
-
-```nu
-nu .scratch/pressure/run.nu
-nu .scratch/pressure/run.nu --sanitize
-```
+ptrace環境ではLeakSanitizerを使えないため、leakはruntime counterで検査した。
 
 2026-09-07時点では両方が全caseを通過した。`symbol-growth`の1万byte構築は約9,999回のallocationからtest上限32回以内に
 減少し、`closure-churn`の20万environment allocationは0になった。local algorithm corpusでは269 sampleと
