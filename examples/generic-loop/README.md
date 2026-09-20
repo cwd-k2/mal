@@ -5,10 +5,35 @@ This example implements iteration as the generic function
 or variant 1 with the loop result. Call sites name the existing direct result binders `continue` and
 `break`; those names are not special syntax.
 
-`sumOddBelow` carries an index and accumulator, uses an early `continue` to skip even values, and
-performs one million transitions. `repeat` carries an owned `Symbol` through the same abstraction and
-returns a different type from its complete state. Together they exercise scalar, product, captured,
-and managed values without adding mutable bindings or a loop primitive.
+The example derives several iteration styles from the same function:
+
+| Function | Visited values | Empty case | Result |
+|---|---|---|---|
+| `upto` | `start` through `end`, ascending and inclusive | `start > end` | Final accumulator |
+| `downto` | `start` through `end`, descending and inclusive | `start < end` | Final accumulator |
+| `times` | Exactly `count` transformations | `count == 0` | Initial value |
+| `anyUpto` | An inclusive ascending range until a match | Reversed range | `false` |
+| `foldPacked` | Every element in index order | Empty `Packed` | Initial accumulator |
+
+Their call sites use receiver-first application where the starting value or repetition count is the
+natural subject. `sumOddThrough` traverses one million values, `factorialDownFrom` descends without
+unsigned underflow at the endpoint, and `repeat` carries an owned `Symbol`. Together they exercise
+scalar, product, captured, managed, collection, and early-result paths without adding mutable
+bindings or a loop primitive.
+
+`upto`, `downto`, and `foldPacked` pass the accumulator before the current element or index, matching
+the order in their type signatures. Their implementations check the terminal endpoint before
+performing the final unsigned increment or decrement. Thus `upto` remains defined when `end` is the
+largest `UInt64`, and `downto` remains defined when `end` is zero.
+
+Receiver-first application is used only where the receiver is a useful subject: a starting value,
+repetition count, or sequence. It remains ordinary lexical function application—`start.upto(...)`
+does not perform type-directed method lookup. The lower-level `loop(state, step)` keeps prefix form
+because an arbitrary state product is configuration, not a domain object.
+
+`foldPacked` is the pure accumulator-carrying counterpart of a collection `for`. An effectful
+`forEach` can use the same cursor state with a callback returning `Unit`; it is omitted because this
+standalone example deliberately has no host-visible effects.
 
 The recursive call in `loop` has no work pending after it. The reference compiler closes the step
 closure and sum continuation into a recursive control region, places activation-local temporaries in
@@ -22,4 +47,4 @@ nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build exa
 /tmp/mal-generic-loop
 ```
 
-The executable prints nothing and exits with status 0 after checking both results.
+The executable prints nothing and exits with status 0 after checking every derived iteration form.

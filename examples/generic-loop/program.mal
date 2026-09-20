@@ -1,34 +1,119 @@
+// The callback keeps all mutable-looking state explicit. Its first variant feeds the next state
+// back into the same step, while its second variant finishes with an independently typed result.
 loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
         (nextState) -> loop<A, B>(nextState, step),
         (result) -> result
     ];
 
-sumOddBelow :: UInt64 -> UInt64 := (limit) ->
-    loop<(UInt64, UInt64), UInt64>((0u64, 0u64), (index, total) -> [continue, break] => {
-        when (index == limit) {
-            break(total);
-        };
-        when (index % 2u64 == 0u64) {
-            continue((index + 1u64, total));
+// Both range folds include their endpoints. A reversed range performs no steps, and the equality
+// check prevents the final increment or decrement from overflowing an unsigned endpoint.
+upto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial, step) ->
+    loop<(UInt64, A), A>((start, initial), (index, value) -> [continue, break] => {
+        when (index > end) {
+            break(value);
         };
 
-        continue((index + 1u64, total + index));
+        next := step(value, index);
+        when (index == end) {
+            break(next);
+        };
+
+        continue((index + 1u64, next));
     });
 
-repeat :: (USize, Symbol) -> Symbol := (count, part) ->
-    loop<(USize, Symbol), Symbol>((0usize, ""), (index, result) -> [continue, break] => {
+downto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial, step) ->
+    loop<(UInt64, A), A>((start, initial), (index, value) -> [continue, break] => {
+        when (index < end) {
+            break(value);
+        };
+
+        next := step(value, index);
+        when (index == end) {
+            break(next);
+        };
+
+        continue((index - 1u64, next));
+    });
+
+// A count describes the number of transformations rather than an inclusive endpoint. In
+// particular, zero applications preserve the initial value.
+times<A> :: (USize, A, A -> A) -> A := (count, initial, step) ->
+    loop<(USize, A), A>((0usize, initial), (index, value) -> [continue, break] => {
         when (index == count) {
+            break(value);
+        };
+
+        continue((index + 1usize, step(value)));
+    });
+
+// Search keeps its cursor as the loop state and can return before visiting the remaining range.
+anyUpto :: (UInt64, UInt64, UInt64 -> Bool) -> Bool := (start, end, predicate) ->
+    loop<UInt64, Bool>(start, (index) -> [continue, break] => {
+        when (index > end) {
+            break(false);
+        };
+
+        when (predicate(index)) {
+            break(true);
+        };
+        when (index == end) {
+            break(false);
+        };
+
+        continue(index + 1u64);
+    });
+
+// Packed stays immutable: only the cursor and accumulated result cross the loop back edge.
+foldPacked<A, B> :: (Packed<A>, B, (B, A) -> B) -> B := (values, initial, step) ->
+    loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
+        when (index == #values) {
             break(result);
         };
 
-        continue((index + 1usize, result + part));
+        continue((index + 1usize, step(result, values # index)));
     });
 
+// Here the starting value is a natural subject, so receiver-first application reads as a range.
+sumOddThrough :: UInt64 -> UInt64 := (limit) ->
+    0u64.upto<UInt64>(limit, 0u64, (total, index) ->
+        if (index % 2u64 == 0u64)
+            then total
+            else total + index
+    );
+
+factorialDownFrom :: UInt64 -> UInt64 := (start) ->
+    start.downto<UInt64>(1u64, 1u64, (product, value) -> product * value);
+
+// The carried type can also be a managed value; repetition does not imply numeric state.
+repeat :: (USize, Symbol) -> Symbol := (count, part) ->
+    count.times<Symbol>("", (result) -> result + part);
+
 main :: Unit -> Int32 := () -> {
-    sum := sumOddBelow(1_000_000u64);
+    sum := sumOddThrough(999_999u64);
+    factorial := factorialDownFrom(10u64);
     text := repeat(4usize, "mal");
-    if (sum == 250_000_000_000u64 && text == "malmalmalmal")
+
+    found := 10u64.anyUpto(20u64, (value) -> value == 17u64);
+    empty := 20u64.anyUpto(10u64, (_) -> true);
+
+    numbers := make<UInt64>(4usize, (buffer) -> {
+        _ := buffer.new(10u64);
+        _ := buffer.new(20u64);
+        _ := buffer.new(30u64);
+        _ := buffer.new(40u64);
+        ();
+    });
+    packedSum := numbers.foldPacked<UInt64, UInt64>(0u64, (total, value) -> total + value);
+
+    if (
+        sum == 250_000_000_000u64
+        && factorial == 3_628_800u64
+        && text == "malmalmalmal"
+        && found
+        && !empty
+        && packedSum == 100u64
+    )
     then 0
     else 1;
 };
