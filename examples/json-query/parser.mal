@@ -13,6 +13,14 @@ ParserFrames :: Packed<ParserFrame>;
 // ParserState fields: 0 unread input, 1 return stack, 2 value depth, 3 statistics.
 ParserState :: (Packed<UInt8>, ParserFrames, UInt64, JsonStatistics);
 
+// ParserState is an explicit machine configuration, so iteration can distinguish the next
+// configuration from the final ParseResult without giving either one a sentinel representation.
+_loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> _loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
 _arrayFirst :: ParserFrame := 1u8;
 _arrayValue :: ParserFrame := 2u8;
 _arrayNext :: ParserFrame := 3u8;
@@ -227,106 +235,112 @@ _scanNumber :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
     return((afterExponent, ""));
 };
 
-// This single tail-recursive dispatcher executes the state at the top of the packed frame stack.
+// This single loop-driven dispatcher executes the state at the top of the packed frame stack.
 // Every transition either consumes input, changes the active state, pops a completed container, or
 // returns a result, so malformed input cannot make an unchanged state loop forever.
-_parse :: ParserState -> ParseResult := (state) -> [return] => {
-    (untrimmed, frames, frameDepth, stats) := state;
-    source := untrimmed._skipWhitespace();
-    frame := frames._readFrame();
+_parse :: ParserState -> ParseResult := (initial) ->
+    _loop<ParserState, ParseResult>(initial, (state) -> [continue, break] => {
+        (untrimmed, frames, frameDepth, stats) := state;
+        source := untrimmed._skipWhitespace();
+        frame := frames._readFrame();
 
-    when (frame == _rootDone) {
-        if (#source == 0usize)
-        then return(_parseSuccess(stats))
-        else return(_parseFailure("trailing bytes after JSON value"));
-    };
-    when (#source == 0usize) {
-        return(_parseFailure("expected JSON value or closing delimiter"));
-    };
+        when (frame == _rootDone) {
+            if (#source == 0usize)
+            then break(_parseSuccess(stats))
+            else break(_parseFailure("trailing bytes after JSON value"));
+        };
+        when (#source == 0usize) {
+            break(_parseFailure("expected JSON value or closing delimiter"));
+        };
 
-    byte := source # 0usize;
-    // Delimiter states run before value recognition, preventing commas and closers from becoming
-    // accidental values and distinguishing the first element from later elements.
-    when (frame == _arrayNext) {
-        when (byte == ']') {
-            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
-        };
-        when (byte == ',') {
-            return(_parse((source % 1usize, frames._replaceFrame(_arrayValue), frameDepth, stats)));
-        };
-        return(_parseFailure("expected comma or closing bracket"));
-    };
-    when (frame == _objectNext) {
-        when (byte == '}') {
-            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
-        };
-        when (byte == ',') {
-            return(_parse((source % 1usize, frames._replaceFrame(_objectKey), frameDepth, stats)));
-        };
-        return(_parseFailure("expected comma or closing brace"));
-    };
-    when (frame == _objectColon) {
-        when (byte != ':') {
-            return(_parseFailure("expected colon after object key"));
-        };
-        return(_parse((source % 1usize, frames._replaceFrame(_objectValue), frameDepth, stats)));
-    };
-    when (frame == _objectFirst || frame == _objectKey) {
-        when (frame == _objectFirst && byte == '}') {
-            return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
-        };
-        when (byte != '"') {
-            return(_parseFailure("expected JSON object key"));
-        };
-        (afterKey, keyError) := (source % 1usize)._scanString();
-        when (#keyError != 0usize) {
-            return(_parseFailure(keyError));
-        };
-        return(_parse((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats)));
-    };
-    when (frame == _arrayFirst && byte == ']') {
-        return(_parse((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats)));
-    };
-
-    nextFrames := frames._completeValue();
-    // Object keys are syntax rather than JSON values, so only this value path updates statistics.
-    nextStats := stats._includeValue(frameDepth);
-    when (byte == '[' || byte == '{') {
-        childFrame := if (byte == '[')
-            then _arrayFirst
-            else _objectFirst;
-        return(_parse((source % 1usize, nextFrames._pushFrame(childFrame), frameDepth + 1u64, nextStats)));
-    };
-    when (byte == '"') {
-        (afterString, stringError) := (source % 1usize)._scanString();
-        when (#stringError != 0usize) {
-            return(_parseFailure(stringError));
-        };
-        return(_parse((afterString, nextFrames, frameDepth, nextStats)));
-    };
-    when (byte == 't' || byte == 'f' || byte == 'n') {
-        literal := if (byte == 't')
-            then "true"
-            else {
-                if (byte == 'f')
-                then "false"
-                else "null";
+        byte := source # 0usize;
+        // Delimiter states run before value recognition, preventing commas and closers from becoming
+        // accidental values and distinguishing the first element from later elements.
+        when (frame == _arrayNext) {
+            when (byte == ']') {
+                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
             };
-        (afterLiteral, literalError) := source._consumeLiteral(literal);
-        when (#literalError != 0usize) {
-            return(_parseFailure(literalError));
+            when (byte == ',') {
+                continue((source % 1usize, frames._replaceFrame(_arrayValue), frameDepth, stats));
+            };
+            break(_parseFailure("expected comma or closing bracket"));
         };
-        return(_parse((afterLiteral, nextFrames, frameDepth, nextStats)));
-    };
-    when (byte == '-' || byte._isDigit()) {
-        (afterNumber, numberError) := source._scanNumber();
-        when (#numberError != 0usize) {
-            return(_parseFailure(numberError));
+        when (frame == _objectNext) {
+            when (byte == '}') {
+                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+            };
+            when (byte == ',') {
+                continue((source % 1usize, frames._replaceFrame(_objectKey), frameDepth, stats));
+            };
+            break(_parseFailure("expected comma or closing brace"));
         };
-        return(_parse((afterNumber, nextFrames, frameDepth, nextStats)));
-    };
-    return(_parseFailure("expected JSON value"));
-};
+        when (frame == _objectColon) {
+            when (byte != ':') {
+                break(_parseFailure("expected colon after object key"));
+            };
+            continue((source % 1usize, frames._replaceFrame(_objectValue), frameDepth, stats));
+        };
+        when (frame == _objectFirst || frame == _objectKey) {
+            when (frame == _objectFirst && byte == '}') {
+                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+            };
+            when (byte != '"') {
+                break(_parseFailure("expected JSON object key"));
+            };
+            (afterKey, keyError) := (source % 1usize)._scanString();
+            when (#keyError != 0usize) {
+                break(_parseFailure(keyError));
+            };
+            continue((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats));
+        };
+        when (frame == _arrayFirst && byte == ']') {
+            continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+        };
+
+        nextFrames := frames._completeValue();
+        // Object keys are syntax rather than JSON values, so only this value path updates statistics.
+        nextStats := stats._includeValue(frameDepth);
+        when (byte == '[' || byte == '{') {
+            childFrame := if (byte == '[')
+                then _arrayFirst
+                else _objectFirst;
+            continue((
+                source % 1usize,
+                nextFrames._pushFrame(childFrame),
+                frameDepth + 1u64,
+                nextStats
+            ));
+        };
+        when (byte == '"') {
+            (afterString, stringError) := (source % 1usize)._scanString();
+            when (#stringError != 0usize) {
+                break(_parseFailure(stringError));
+            };
+            continue((afterString, nextFrames, frameDepth, nextStats));
+        };
+        when (byte == 't' || byte == 'f' || byte == 'n') {
+            literal := if (byte == 't')
+                then "true"
+                else {
+                    if (byte == 'f')
+                    then "false"
+                    else "null";
+                };
+            (afterLiteral, literalError) := source._consumeLiteral(literal);
+            when (#literalError != 0usize) {
+                break(_parseFailure(literalError));
+            };
+            continue((afterLiteral, nextFrames, frameDepth, nextStats));
+        };
+        when (byte == '-' || byte._isDigit()) {
+            (afterNumber, numberError) := source._scanNumber();
+            when (#numberError != 0usize) {
+                break(_parseFailure(numberError));
+            };
+            continue((afterNumber, nextFrames, frameDepth, nextStats));
+        };
+        break(_parseFailure("expected JSON value"));
+    });
 
 // Parses one complete owned byte sequence and rejects trailing non-whitespace input.
 parseDocument :: Packed<UInt8> -> ParseResult := (source) ->

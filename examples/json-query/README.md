@@ -7,10 +7,12 @@ mal program and written to standard output.
 
 The parser accepts objects, arrays, strings with JSON escapes, numbers, booleans, null, and JSON
 whitespace. It defunctionalizes the recursive-descent control flow into one `_parse` dispatcher and
-a central `Packed<UInt8>` stack of parser frames instead of building a recursive syntax tree. Each
-frame records what the enclosing container must do after a child value completes. `edit<UInt8>`
-replaces or pushes the active frame, while a Packed prefix pops it, so nesting is limited only by
-the target-sized count and available memory.
+a central `Packed<UInt8>` stack of parser frames instead of building a recursive syntax tree. `_parse`
+uses the same continue-or-break sum encoding introduced by the
+[`generic-loop`](../generic-loop/) example: `continue` carries the next complete `ParserState`, while
+`break` carries the final `ParseResult`. Each frame records what the enclosing container must do after
+a child value completes. `edit<UInt8>` replaces or pushes the active frame, while a Packed prefix pops
+it, so nesting is limited only by the target-sized count and available memory.
 
 The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
 give input positions their token meaning and frame values their control-state meaning. Recursive JSON
