@@ -59,7 +59,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-development shellは`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo projectとtoolchainを使い、
+development shellは検証scriptを実行するNushellと`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo projectとtoolchainを使い、
 完了判定では上記の全targetに対するClippyをwarning-freeにする。
 
 rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定する。

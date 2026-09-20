@@ -90,8 +90,12 @@
           clippy
           rust-analyzer
           sccache
+          nushell
           clang
           lld
+          hyperfine
+          valgrind
+          time
           nodejs
         ];
         RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";

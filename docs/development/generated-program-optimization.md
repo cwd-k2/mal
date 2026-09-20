@@ -55,6 +55,7 @@ cross-translation-unit optimizationの効果として扱う。
 
 wall-clockは同じinput、warmup、run数で交互に測り、5 ms未満のcaseを採否の主根拠にしない。noiseを含む単発値ではなくmedianと範囲を残す。
 instruction count、branch、allocation counter、peak resident memory、artifact sizeなど再現しやすい第二指標を少なくとも一つ併用する。
+toolの選択、基本command、local生成物の扱いは[性能調査toolと作業領域](performance-investigation.md)を正とする。
 
 ## workload
 

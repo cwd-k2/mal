@@ -46,7 +46,7 @@
 | C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
-| 性能を評価する | [性能測定履歴](history/performance/) | [generated program最適化policy](development/generated-program-optimization.md)、[test方針](development/testing.md) |
+| 性能を評価する | [性能調査toolと作業領域](development/performance-investigation.md) | [generated program最適化policy](development/generated-program-optimization.md)、[性能測定履歴](history/performance/)、[test方針](development/testing.md) |
 | 外部事例を調べる | [関連調査](research/prior-art.md) | link先の一次資料 |
 
 ## 文書の役割
