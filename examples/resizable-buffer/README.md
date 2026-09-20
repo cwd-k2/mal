@@ -9,6 +9,12 @@ moves storage and invalidates every earlier `OwnedBuffer` and `BorrowedBytes`; a
 the original allocation unchanged. The program verifies both cases with host operations that inspect
 descriptors without dereferencing their `Address` values.
 
+Capacity growth also demonstrates that user-defined control need not occupy a whole function.
+`appendSymbol` computes the required length, evaluates a generic continue-or-break `loop` expression
+only inside the resize branch, consumes the selected capacity, and then resumes the surrounding
+allocation protocol. This is the expression-level counterpart of writing a local `while` loop; the
+iteration state and result remain ordinary typed values.
+
 The program also stores an `(Address, USize)` borrowed-view descriptor through its canonical product memory
 representation and lets C reconstruct that descriptor. The opaque `Allocation` is deliberately not
 stored: its authority remains in C and is passed as a separate extern argument. An out-of-bounds

@@ -23,6 +23,13 @@ extern validateStoredDescriptor :: (Allocation, Address) -> Unit;
 extern outputBuffer :: Unit -> OutputBuffer;
 extern writeBytes :: OutputBuffer -> Unit;
 
+// A step returns either the complete state for another iteration or a separately typed result.
+_loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> _loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
 writeSymbol :: Symbol -> Unit := (value) -> {
     packed := *value;
     (memory, _) := outputBuffer();
@@ -37,16 +44,6 @@ _bufferSuccess :: OwnedBuffer -> OwnedBufferResult := (buffer) -> [success, fail
 
 _bufferFailure :: UInt32 -> OwnedBufferResult := (error) -> [success, failure] => failure(error);
 
-nextCapacity :: (USize, USize) -> USize := (capacity, required) -> [return] => {
-    when (capacity >= required) {
-        return(capacity);
-    };
-    when (capacity > (-1u64).usize / 2usize) {
-        return(required);
-    };
-    return((capacity * 2usize).nextCapacity(required));
-};
-
 appendSymbol :: (OwnedBuffer, Symbol) -> OwnedBufferResult := (buffer, value) -> [return] => {
     (allocation, memory, capacity, length) := buffer;
     additional := (#value).usize;
@@ -57,7 +54,18 @@ appendSymbol :: (OwnedBuffer, Symbol) -> OwnedBufferResult := (buffer, value) ->
     available := if (required <= capacity)
         then _bufferSuccess(buffer)
         else {
-            target := capacity.nextCapacity(required);
+            // Growth is a local phase of append: the surrounding function computes its inputs,
+            // consumes its result, and continues with the allocation protocol afterward.
+            target := _loop<USize, USize>(capacity, (candidate) -> [continue, break] => {
+                when (candidate >= required) {
+                    break(candidate);
+                };
+                when (candidate > (-1u64).usize / 2usize) {
+                    break(required);
+                };
+
+                continue(candidate * 2usize);
+            });
             buffer.resizeBuffer(target);
         };
     result :: OwnedBufferResult := available[
