@@ -662,6 +662,35 @@ fn packed_tree_example_builds_edits_and_traverses_a_tree() {
 }
 
 #[test]
+fn relation_modeling_examples_build_and_validate_their_results() {
+    for name in ["relation-views", "spreadsheet"] {
+        let directory = NativeFixture::new(name);
+        let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("compiler has a repository parent")
+            .join("examples")
+            .join(name);
+        let executable = directory.join("example");
+        let output = directory.malc([
+            OsStr::new("build"),
+            example.join("program.mal").as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ]);
+        assert!(
+            output.status.success(),
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let output = directory.run(executable);
+        assert!(output.status.success(), "{name}: {}", output.status);
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+    }
+}
+
+#[test]
 fn strict_float_example_preserves_bits_across_the_host_abi() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))

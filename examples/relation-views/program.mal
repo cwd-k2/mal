@@ -1,0 +1,68 @@
+// PairRows is a finite carrier. Operations decide what relation its coordinates denote.
+PairRow :: (USize, USize);
+PairRows :: Packed<PairRow>;
+
+buildRows :: Unit -> PairRows := () ->
+    make<PairRow>(3usize, (buffer) -> {
+        buffer.new((0usize, 3usize));
+        buffer.new((3usize, 5usize));
+        buffer.new((2usize, 4usize));
+        ();
+    });
+
+_hasDirectedEdgeAt :: (PairRows, USize, USize, USize) -> Bool :=
+    (rows, source, target, index) -> [return] => {
+        when (index == #rows) {
+            return(false);
+        };
+        (rowSource, rowTarget) := rows # index;
+        when (rowSource == source && rowTarget == target) {
+            return(true);
+        };
+        return(rows._hasDirectedEdgeAt(source, target, index + 1usize));
+    };
+
+hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
+    rows._hasDirectedEdgeAt(source, target, 0usize);
+
+_validIntervalsAt :: (PairRows, USize) -> Bool := (rows, index) -> [return] => {
+    when (index == #rows) {
+        return(true);
+    };
+    (start, end) := rows # index;
+    when (start > end) {
+        return(false);
+    };
+    return(rows._validIntervalsAt(index + 1usize));
+};
+
+validIntervals :: PairRows -> Bool := (rows) -> rows._validIntervalsAt(0usize);
+
+_coverageAt :: (PairRows, USize, USize, USize) -> USize :=
+    (rows, coordinate, index, count) -> [return] => {
+        when (index == #rows) {
+            return(count);
+        };
+        (start, end) := rows # index;
+        included := start <= coordinate && coordinate < end;
+        nextCount := if (included)
+            then count + 1usize
+            else count;
+        return(rows._coverageAt(coordinate, index + 1usize, nextCount));
+    };
+
+coverageAt :: (PairRows, USize) -> USize := (rows, coordinate) ->
+    rows._coverageAt(coordinate, 0usize, 0usize);
+
+main :: Unit -> Int32 := () -> {
+    rows := buildRows();
+    directed := rows.hasDirectedEdge(3usize, 5usize)
+        && !rows.hasDirectedEdge(5usize, 3usize);
+    intervals := rows.validIntervals()
+        && rows.coverageAt(2usize) == 2usize
+        && rows.coverageAt(3usize) == 2usize
+        && rows.coverageAt(5usize) == 0usize;
+    if (directed && intervals)
+    then 0
+    else 1;
+};
