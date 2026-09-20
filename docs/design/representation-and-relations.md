@@ -26,6 +26,11 @@ authorityを与え、operationが関係を与える。
 carrierはrow、column、byte、node recordなどを保持する有限な表現である。index、offset、`Address`は単独でdomain identityにはならず、
 特定のcarrierに対する座標として意味を持つ。同じ`USize`値でも、別の`Packed`を対象にすれば別の要素を指す。
 
+carrierのcolumnが保持する値と、column間またはrow間のrelationを区別する。例えばheap-indexedなsegment indexのmaximum columnと
+pending-assignment columnは、共通のnode IDをkeyとして結合されるpayloadであり、edgeやparentを保持するrelation indicatorではない。
+親子relationは`2 * node`と`2 * node + 1`を解釈するoperationが与える。反対にCSRのoffset columnや明示的なparent columnは、別の
+payloadへ到達する座標を保持するrelation indicatorである。隣接した物理配置や同じindexで読めることだけを、stored relationと呼ばない。
+
 treeを`Packed<NodeRow>`で表す場合、`Packed`が保証するのは有限なrow列である。root位置、child fieldの解釈、child bounds、
 reachability、acyclicityを加えたときに初めてtreeになる。databaseをbyte regionで表す場合も、record offset、active flag、key relation、
 uniquenessをoperationが定める。
@@ -71,11 +76,10 @@ EngramとExternの境界判断は[authority](authority.md)を正とする。doma
 再帰的またはindexedな表現を追加するときは、次を確認する。
 
 1. carrierは何を保持し、どのauthorityがそのlifetimeを支配するか。
-2. index、offset、tag、keyをどのrelationとして読むか。
+2. 各fieldまたはcolumnはpayloadかrelation indicatorか。index、offset、tag、keyをどのrelationとして読むか。
 3. raw representationとvalidなdomain structureの境界はどこか。
 4. constructor、validator、transformerのどれが各invariantを所有するか。
 5. 座標はどのcarrierに相対的で、変換時にremapが必要か。
 6. traversalの深さとcycleを、再帰、iteration、work stack、visited relationのどれで扱うか。
 7. operationのaccess patternに対してAoS、SoA、edge table、byte encodingのどれが適切か。
 8. 別のlayoutまたは別のlogical interpretationへ差し替えても、domain operationの契約を保てるか。
-
