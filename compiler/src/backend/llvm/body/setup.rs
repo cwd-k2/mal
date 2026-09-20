@@ -172,6 +172,8 @@ impl<'a> FunctionEmitter<'a> {
             ownership,
             optimizations,
             next_register: 0,
+            next_entry_alloca: 0,
+            entry_allocas: String::new(),
             globals: String::new(),
             output: String::new(),
         })
@@ -311,12 +313,15 @@ impl<'a> FunctionEmitter<'a> {
                 crate::execution::ownership::ParameterEntry::BorrowedAbi,
             )?;
         }
+        let entry_alloca_offset = self.output.len();
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 
         for site in self.states.clone() {
             self.emit_state(site)?;
         }
         self.line("}");
+        self.output
+            .insert_str(entry_alloca_offset, &self.entry_allocas);
         Some(EmittedFunction {
             globals: self.globals,
             definition: self.output,

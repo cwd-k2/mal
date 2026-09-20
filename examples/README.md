@@ -31,6 +31,7 @@ adapter to change together, even though mal compares the underlying types struct
 | `opaque-aggregate` | opaque handle inside product and sum ABI values | structural host round trip |
 | `print-and-closure` | scalar ABI values and a closure environment | ordered effects and captured addition |
 | `tail-recursion` | scalar accumulator state | bounded-stack recursive control |
+| `generic-loop` | explicit generic state and a step closure | iteration by continue-or-break sum results |
 | `numeric-conversion` | fixed-width scalar values | wrapping and modulo conversion |
 | `strict-float` | binary floating-point scalars | exact rounding and host-ABI bit preservation |
 
@@ -63,7 +64,8 @@ The neighboring authority examples show why logical structure and resource polic
   lifetime.
 
 The remaining focused examples isolate particular mechanisms: [`print-and-closure`](print-and-closure/),
-[`tail-recursion`](tail-recursion/), [`numeric-conversion`](numeric-conversion/),
+[`tail-recursion`](tail-recursion/), [`generic-loop`](generic-loop/),
+[`numeric-conversion`](numeric-conversion/),
 [`strict-float`](strict-float/), [`opaque-aggregate`](opaque-aggregate/), and the larger
 [`brainfuck-llvm`](brainfuck-llvm/) compiler.
 

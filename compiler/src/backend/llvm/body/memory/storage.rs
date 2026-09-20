@@ -105,11 +105,7 @@ impl FunctionEmitter<'_> {
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
             let runtime = self.types.value(element)?;
-            let storage = self.register();
-            self.line(format!(
-                "  {storage} = alloca {}, align {}",
-                runtime.llvm, runtime.alignment
-            ));
+            let storage = self.entry_alloca(&runtime.llvm, runtime.alignment);
             let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset)?;
             let cases = variants
                 .iter()

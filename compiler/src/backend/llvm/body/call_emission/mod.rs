@@ -157,6 +157,14 @@ impl FunctionEmitter<'_> {
         register
     }
 
+    pub(super) fn entry_alloca(&mut self, llvm: &str, alignment: usize) -> String {
+        let storage = format!("%mal_alloca_{}", self.next_entry_alloca);
+        self.next_entry_alloca += 1;
+        self.entry_allocas
+            .push_str(&format!("  {storage} = alloca {llvm}, align {alignment}\n"));
+        storage
+    }
+
     pub(super) fn label_id(&mut self) -> usize {
         let id = self.next_register;
         self.next_register += 1;

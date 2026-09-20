@@ -116,11 +116,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let runtime = self.types.value(&packed_type)?;
-                let storage = self.register();
-                self.line(format!(
-                    "  {storage} = alloca {}, align {}",
-                    runtime.llvm, runtime.alignment
-                ));
+                let storage = self.entry_alloca(&runtime.llvm, runtime.alignment);
                 self.line(format!(
                     "  call void @mal_runtime_packed_builder_finish(ptr {storage}, ptr {})",
                     argument.representation

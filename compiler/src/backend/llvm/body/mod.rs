@@ -121,6 +121,8 @@ struct FunctionEmitter<'a> {
     ownership: &'a crate::execution::OwnershipPlan,
     optimizations: &'a super::optimization::OptimizationPlan,
     next_register: usize,
+    next_entry_alloca: usize,
+    entry_allocas: String,
     globals: String,
     output: String,
 }

@@ -370,3 +370,21 @@ wall-clockの1.8%差はhost noiseに対して小さいが、hot edgeのmachine-l
 採択した。変更後の全269 sampleと79 maximum-order inputもdirect Cと一致した。raw sampleはignored scratchの
 `032/artifacts/measurements/self-tail-leaves-comparison.json`と
 `self-tail-leaves.callgrind`へ保存した。
+
+## 2026-09-20 — activation-local temporaryのentry配置
+
+genericな`loop<A, B>`を100万回実行すると、recursive control region自体はLLVM function内のback edgeになっていたにもかかわらず
+native stack overflowした。sum構築とpayload抽出の一時`alloca`をcase block内で実行しており、同じfunction invocationが戻るまで
+周回ごとのstack領域が退役しなかったことが原因だった。backend内を再調査すると、Packed builder finish、canonical memoryからの
+sum load、Packed連結のresult storageにも同じ配置があった。これらのstatic-size temporaryをfunction entryへ一度だけ配置し、state
+emission中のblockには`alloca`を残さない形へ統一した。
+
+`5df3f05`を変更前としてrelease compilerを別worktreeで作り、現行pressure suiteを同じsourceとproduction profileで生成した。
+全6 workloadは変更前後ともstatus 0だった。3 warmup、20 runのHyperfineによるoutlier scanでは、5 ms未満の5 workloadに判断可能な
+回帰はなく、`aggregate-churn`のmedianは7.59 msから2.20 msへ短縮した。Callgrind 3.27.1のinstruction referenceは
+33,377,800から22,177,786へ33.6%、executable textは2,695 bytesから2,349 bytesへ減った。短いworkloadのwall-clock差は
+採択根拠にせず、bounded native stackの回復を正しさの理由、hotなsum pathのinstructionとtext削減を副次的な改善とする。
+
+追加したgeneric loop exampleはbaselineとproductionの両方で100万transitionを実行し、production binaryは128 KiBのstack上限でも
+status 0、通常実行のmaximum RSSは1,440 KiBだった。focused LLVM artifact testはsumだけでなく上記のPacked経路もrecursive fixtureで
+生成し、全temporary `alloca`が最初のback edgeより前のentry blockにあることを検査する。

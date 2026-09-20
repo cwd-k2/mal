@@ -2,6 +2,60 @@ use super::super::*;
 use crate::source::{FileId, SourceFile};
 
 #[test]
+fn places_activation_temporaries_in_the_entry_block_before_recursive_back_edges() {
+    let source = SourceFile::new(
+        FileId::new(99),
+        "generic-loop-entry-alloca.mal",
+        "Choice :: [UInt64, UInt64];\n\
+         choose :: UInt64 -> Choice := (value) -> [left, right] => left(value);\n\
+         loop<A, B> :: (A, A -> [A, B]) -> B := (state, step) -> step(state)[(next) -> loop<A, B>(next, step), (result) -> result];\n\
+         main :: Unit -> Int32 := () -> {\n\
+           initial := make<Choice>(1usize, (buffer) -> { _ := buffer.new(choose(1u64)); (); });\n\
+           loop<(USize, Packed<Choice>), Int32>((0usize, initial), (state) -> [next, done] => {\n\
+             (index, values) := state;\n\
+             when (index == 4usize) done(0i32);\n\
+             joined := values + values;\n\
+             value := (joined # 0usize)[(left) -> left, (right) -> right];\n\
+             next((index + value.usize, joined));\n\
+           });\n\
+         };"
+            .into(),
+    );
+    let checked = crate::pipeline::check(&source).expect("check generic loop fixture");
+    let core =
+        crate::core::lower(&crate::check::specialize(checked).expect("specialize generic loop"));
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("generic loop fixture is supported");
+
+    for definition in artifacts.module.split("\ndefine internal ").skip(1) {
+        let body = definition
+            .split_once("\n}\n")
+            .map_or(definition, |(body, _)| body);
+        let mut left_entry = false;
+        for line in body.lines() {
+            if line.ends_with(':') && line != "entry:" {
+                left_entry = true;
+            }
+            assert!(
+                !left_entry || !line.contains(" = alloca "),
+                "alloca outside the entry block: {line}"
+            );
+        }
+    }
+}
+
+#[test]
 fn borrows_managed_tail_carriers_from_the_outer_call() {
     let source = SourceFile::new(
         FileId::new(95),

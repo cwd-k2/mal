@@ -108,11 +108,7 @@ impl FunctionEmitter<'_> {
             "  {tag} = insertvalue {} zeroinitializer, i32 {index}, 0",
             sum_type.llvm
         ));
-        let storage = self.register();
-        self.line(format!(
-            "  {storage} = alloca {}, align {}",
-            sum_type.llvm, sum_type.alignment
-        ));
+        let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
         self.line(format!(
             "  store {} {tag}, ptr {storage}, align {}",
             sum_type.llvm, sum_type.alignment
@@ -252,11 +248,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<String> {
         let sum_type = self.types.value(sum)?;
         let member_type = self.types.value(member)?;
-        let storage = self.register();
-        self.line(format!(
-            "  {storage} = alloca {}, align {}",
-            sum_type.llvm, sum_type.alignment
-        ));
+        let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
         self.line(format!(
             "  store {} {value}, ptr {storage}, align {}",
             sum_type.llvm, sum_type.alignment

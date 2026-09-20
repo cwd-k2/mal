@@ -1,0 +1,34 @@
+loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
+sumOddBelow :: UInt64 -> UInt64 := (limit) ->
+    loop<(UInt64, UInt64), UInt64>(
+        (0u64, 0u64),
+        (state) -> [continue, break] => {
+            (index, total) := state;
+            when (index == limit) break(total);
+            when (index % 2u64 == 0u64) continue((index + 1u64, total));
+            continue((index + 1u64, total + index));
+        }
+    );
+
+repeat :: (USize, Symbol) -> Symbol := (count, part) ->
+    loop<(USize, Symbol), Symbol>(
+        (0usize, ""),
+        (state) -> [continue, break] => {
+            (index, result) := state;
+            when (index == count) break(result);
+            continue((index + 1usize, result + part));
+        }
+    );
+
+main :: Unit -> Int32 := () -> {
+    sum := sumOddBelow(1_000_000u64);
+    text := repeat(4usize, "mal");
+    if (sum == 250_000_000_000u64 && text == "malmalmalmal")
+    then 0
+    else 1;
+};

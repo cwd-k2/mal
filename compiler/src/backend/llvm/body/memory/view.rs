@@ -111,11 +111,7 @@ impl FunctionEmitter<'_> {
         let left_bytes = self.multiply_by_stride(&left.count, stride)?;
         let right_bytes = self.multiply_by_stride(&right.count, stride)?;
         let runtime = self.types.value(result_type)?;
-        let storage = self.register();
-        self.line(format!(
-            "  {storage} = alloca {}, align {}",
-            runtime.llvm, runtime.alignment
-        ));
+        let storage = self.entry_alloca(&runtime.llvm, runtime.alignment);
         self.line(format!(
             "  call void @mal_runtime_symbol_concatenate(ptr %mal_context, ptr {storage}, ptr {}, ptr {}, {integer} {left_bytes}, ptr {}, ptr {}, {integer} {right_bytes})",
             left.owner, left.data, right.owner, right.data,

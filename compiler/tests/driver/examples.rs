@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn generic_loop_example_runs_in_baseline_and_production_profiles() {
+    let directory = NativeFixture::new("generic-loop");
+    let program = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("compiler has a repository parent")
+        .join("examples/generic-loop/program.mal");
+
+    for profile in ["baseline", "production"] {
+        let executable = directory.join(profile);
+        let output = directory.malc([
+            OsStr::new("build"),
+            program.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(profile),
+        ]);
+        assert!(
+            output.status.success(),
+            "{profile}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let output = directory.run(executable);
+        assert!(output.status.success(), "{profile}: {}", output.status);
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+    }
+}
+
+#[test]
 fn print_and_closure_example_builds_and_runs_through_the_public_cli() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
