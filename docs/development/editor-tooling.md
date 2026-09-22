@@ -90,6 +90,11 @@ queries/mal/indents.scm
 queries/mal/textobjects.scm
 ```
 
+compiler、language server、editor runtimeをすべて使うconsumerは、三つを同じrevisionからまとめた
+`packages.${system}.toolchain`をdevelopment shellへ追加できる。`toolchain/bin`は`malc`と`mal-lsp`、package rootは上記の
+editor runtime layoutを持つ。compilerだけ、language serverだけ、またはruntimeだけが必要なconsumerには、対応する細粒度packageを
+使用する。
+
 Neovimではpackage rootを`runtimepath`へ追加し、`.mal` filetype、`vim.treesitter.start`、commandを`mal-lsp`とするbuilt-in
 LSP configをconsumer側で登録する。Helixではpackage rootを`HELIX_RUNTIME`で公開し、projectの`languages.toml`でgrammarを
 `mal`、language server commandを`mal-lsp`とする。editorのuser configuration、workspace trust、root detection、起動directoryに

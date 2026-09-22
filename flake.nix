@@ -86,6 +86,25 @@
           | grep ' tree_sitter_mal$' >/dev/null
         touch $out
       '';
+      toolchain = pkgs.symlinkJoin {
+        name = "mal-toolchain-${pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION)}";
+        paths = [ malc mal-lsp editor-runtime ];
+        meta = {
+          description = "Compiler, language server, and editor runtime for mal development";
+          mainProgram = "malc";
+          license = with pkgs.lib.licenses; [ mit mit0 ];
+        };
+      };
+      toolchain-check = pkgs.runCommand "mal-toolchain-check" { } ''
+        test -x ${toolchain}/bin/malc
+        test -x ${toolchain}/bin/mal-lsp
+        test -s ${toolchain}/parser/mal.so
+        test -s ${toolchain}/grammars/mal.so
+        test -s ${toolchain}/queries/mal/highlights.scm
+        test -s ${toolchain}/queries/mal/indents.scm
+        test -s ${toolchain}/queries/mal/textobjects.scm
+        touch $out
+      '';
       vscode-check = pkgs.buildNpmPackage {
         pname = "mal-language-support-check";
         version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
@@ -115,7 +134,7 @@
     {
       packages.${system} = {
         default = malc;
-        inherit malc mal-lsp editor-runtime;
+        inherit malc mal-lsp editor-runtime toolchain;
       };
 
       apps.${system} = {
@@ -126,6 +145,7 @@
       checks.${system} = {
         inherit malc mal-lsp vscode-check;
         editor-runtime = editor-runtime-check;
+        toolchain = toolchain-check;
       };
 
       devShells.${system}.default = pkgs.mkShell {

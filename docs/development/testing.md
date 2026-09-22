@@ -51,7 +51,8 @@ nu scripts/check.nu
 このscriptはcompiler、language server、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
 committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
 `node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。Nix flakeは
-editor runtimeをbuildし、NeovimとHelixのparser path、三つのquery、exportされたTree-sitter symbolを検査する。
+editor runtimeをbuildし、NeovimとHelixのparser path、三つのquery、exportされたTree-sitter symbolを検査する。toolchain packageが
+同じcompiler、language server、runtimeを一つのconsumer向けlayoutで公開することも検査する。
 
 compilerだけを変更中にfocused verificationを行う場合は、`compiler/`から次を実行する。
 
