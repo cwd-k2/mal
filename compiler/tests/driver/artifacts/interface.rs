@@ -17,6 +17,7 @@ fn emit_header_writes_a_standalone_host_interface() {
          Managed :: (Int64, Symbol);\n\
          extern increment :: Count -> Count;\n\
          extern consume :: Bytes -> USize;\n\
+         extern _privateConsume :: Bytes -> USize;\n\
          internal :: Symbol := \"mal-owned\";",
     );
 
@@ -43,7 +44,9 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(header.contains("#define MAL_C_ABI_VERSION 0x000800u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
+    assert!(header.contains("#define MAL_HAS_EXTERN__privateConsume 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(call, value)"));
+    assert!(header.contains("#define MAL_DEFINE__privateConsume(call, value)"));
     assert!(!header.contains("Symbol"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(!directory.join("generated/program.c").exists());

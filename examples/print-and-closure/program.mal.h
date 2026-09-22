@@ -110,18 +110,18 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
 
 /* External operations */
 
-void mal_ext_printInt32(MalContext *context, MalType_Int32 value);
+void mal_ext__printInt32(MalContext *context, MalType_Int32 value);
 
 /* External definition helpers */
 
-#define MAL_HAS_EXTERN_printInt32 1
-#define MAL_DEFINE_printInt32(call, value) \
-static MalType_Unit mal_detail_printInt32(mal_call_t *call, mal_Int32_t value); \
-void mal_ext_printInt32(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 value) { \
+#define MAL_HAS_EXTERN__printInt32 1
+#define MAL_DEFINE__printInt32(call, value) \
+static MalType_Unit mal_detail__printInt32(mal_call_t *call, mal_Int32_t value); \
+void mal_ext__printInt32(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_printInt32(&call, value); \
+    mal_detail__printInt32(&call, value); \
 } \
-static MalType_Unit mal_detail_printInt32( \
+static MalType_Unit mal_detail__printInt32( \
     mal_call_t *call, \
     mal_Int32_t value \
 )
