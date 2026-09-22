@@ -1,5 +1,5 @@
 {
-  description = "mal v0.5 reference compiler and development environment";
+  description = "mal v0.6 reference compiler and development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -41,6 +41,51 @@
           license = with pkgs.lib.licenses; [ mit mit0 ];
         };
       };
+      editor-runtime = pkgs.stdenv.mkDerivation {
+        pname = "mal-editor-runtime";
+        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        src = ./editors/tree-sitter-mal;
+
+        dontConfigure = true;
+
+        buildPhase = ''
+          runHook preBuild
+          $CC -std=c11 -O2 -shared -fPIC -Isrc -o mal.so src/parser.c
+          runHook postBuild
+        '';
+
+        installPhase = ''
+          runHook preInstall
+          install -Dm755 mal.so $out/parser/mal.so
+          install -Dm755 mal.so $out/grammars/mal.so
+          install -Dm644 queries/highlights.scm $out/queries/mal/highlights.scm
+          install -Dm644 queries/indents.scm $out/queries/mal/indents.scm
+          install -Dm644 queries/textobjects.scm $out/queries/mal/textobjects.scm
+          install -Dm644 ${./LICENSE} $out/share/licenses/mal-editor-runtime/LICENSE
+          install -Dm644 $src/third-party/tree-sitter/LICENSE \
+            $out/share/licenses/mal-editor-runtime/tree-sitter-LICENSE
+          runHook postInstall
+        '';
+
+        meta = {
+          description = "Tree-sitter parser and queries for mal editor integrations";
+          license = pkgs.lib.licenses.mit;
+        };
+      };
+      editor-runtime-check = pkgs.runCommand "mal-editor-runtime-check" {
+        nativeBuildInputs = [ pkgs.binutils ];
+      } ''
+        test -s ${editor-runtime}/parser/mal.so
+        test -s ${editor-runtime}/grammars/mal.so
+        cmp ${editor-runtime}/parser/mal.so ${editor-runtime}/grammars/mal.so
+        test -s ${editor-runtime}/queries/mal/highlights.scm
+        test -s ${editor-runtime}/queries/mal/indents.scm
+        test -s ${editor-runtime}/queries/mal/textobjects.scm
+        readelf --file-header ${editor-runtime}/parser/mal.so >/dev/null
+        nm --dynamic --defined-only ${editor-runtime}/parser/mal.so \
+          | grep ' tree_sitter_mal$' >/dev/null
+        touch $out
+      '';
       vscode-check = pkgs.buildNpmPackage {
         pname = "mal-language-support-check";
         version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
@@ -64,13 +109,13 @@
       malcApp = {
         type = "app";
         program = "${malc}/bin/malc";
-        meta.description = "mal v0.5 reference compiler";
+        meta.description = "mal v0.6 reference compiler";
       };
     in
     {
       packages.${system} = {
         default = malc;
-        inherit malc mal-lsp;
+        inherit malc mal-lsp editor-runtime;
       };
 
       apps.${system} = {
@@ -80,6 +125,7 @@
 
       checks.${system} = {
         inherit malc mal-lsp vscode-check;
+        editor-runtime = editor-runtime-check;
       };
 
       devShells.${system}.default = pkgs.mkShell {

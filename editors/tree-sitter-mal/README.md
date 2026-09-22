@@ -13,8 +13,10 @@ tree-sitter test
 ```
 
 `src/parser.c`, `src/grammar.json`, and `src/node-types.json` are committed so consumers can build
-the parser without running the JavaScript grammar generator. Platform-specific shared libraries are
-created under the ignored `.artifacts/editor-runtime/` directory by `scripts/editor-dev.nu`.
+the parser without running the JavaScript grammar generator. The repository flake builds the
+platform-specific parser and queries as `packages.${system}.editor-runtime`. Local editor
+development also creates shared libraries under the ignored `.artifacts/editor-runtime/` directory
+through `scripts/editor-dev.nu`.
 
 The grammar, queries, and generated parser are covered by the repository's MIT license. Headers
 copied from Tree-sitter during generation retain Tree-sitter's MIT terms in

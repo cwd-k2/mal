@@ -78,6 +78,27 @@ buildできるようrepositoryへ含める。platform固有のshared libraryは`
 生成時に同梱されるTree-sitter headerにはupstreamのMIT licenseを`third-party/tree-sitter/LICENSE`として添付する。このdirectoryは
 外部由来のnoticeだけを所有し、grammarとquery自体にはrepository rootのMIT licenseを適用する。
 
+repository flakeは対象system向けにcompileしたparserと同じrevisionのqueryを
+`packages.${system}.editor-runtime`として公開する。別のflakeは`mal`をinputに置き、`malc`と`mal-lsp`と同様にこのpackageを
+参照できる。consumerにTree-sitter CLI、Node.js、生成処理は要求しない。package layoutは次のとおりである。
+
+```text
+parser/mal.so
+grammars/mal.so
+queries/mal/highlights.scm
+queries/mal/indents.scm
+queries/mal/textobjects.scm
+```
+
+Neovimではpackage rootを`runtimepath`へ追加し、`.mal` filetype、`vim.treesitter.start`、commandを`mal-lsp`とするbuilt-in
+LSP configをconsumer側で登録する。Helixではpackage rootを`HELIX_RUNTIME`で公開し、projectの`languages.toml`でgrammarを
+`mal`、language server commandを`mal-lsp`とする。editorのuser configuration、workspace trust、root detection、起動directoryに
+依存するlauncherはconsumerが所有し、mal repositoryの絶対pathや`tools/*/target`を参照しない。
+
+C host adapterを編集するprojectは、対応する`.mal` sourceから`malc emit-header`でheaderを生成する。NixのClang wrapperを使う
+場合、`.clangd`でC11を指定し、clangdへ`--query-driver=/nix/store/*-clang-wrapper-*/bin/clang`を渡す。この設定はTree-sitterや
+mal language serverとは別のC editor integrationである。
+
 rootの`.nvim.lua`と`.nvim/lsp/mal.lua`はNeovim 0.11以降のproject-local filetype、Tree-sitter、built-in LSP設定である。
 rootの`.helix/languages.toml`はHelixのproject-local languageと`mal-lsp`設定である。両editor用のserver、parser、queryを準備して
 起動するにはrepository rootで次を実行する。各editorがproject-local設定を読む前に、内容を確認してworkspaceをtrustする。
