@@ -64,14 +64,14 @@ anyUpto :: (UInt64, UInt64, UInt64 -> Bool) -> Bool := (start, end, predicate) -
         continue(index + 1u64);
     });
 
-// Packed stays immutable: only the cursor and accumulated result cross the loop back edge.
-foldPacked<A, B> :: (Packed<A>, B, (B, A) -> B) -> B := (values, initial, step) ->
+// Buffer identity stays stable: only the cursor and accumulated result cross the loop back edge.
+foldBuffer<A, B> :: (Buffer<A>, B, (B, A) -> B) -> B := (values, initial, step) ->
     loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
         when (index == #values) {
             break(result);
         };
 
-        continue((index + 1usize, step(result, values # index)));
+        continue((index + 1usize, step(result, values.get(index))));
     });
 
 // Here the starting value is a natural subject, so receiver-first application reads as a range.
@@ -97,14 +97,12 @@ main :: Unit -> Int32 := () -> {
     found := 10u64.anyUpto(20u64, (value) -> value == 17u64);
     empty := 20u64.anyUpto(10u64, (_) -> true);
 
-    numbers := make<UInt64>(4usize, (buffer) -> {
-        _ := buffer.new(10u64);
-        _ := buffer.new(20u64);
-        _ := buffer.new(30u64);
-        _ := buffer.new(40u64);
-        ();
-    });
-    packedSum := numbers.foldPacked<UInt64, UInt64>(0u64, (total, value) -> total + value);
+    numbers := make<UInt64>(4usize);
+    numbers.new(10u64);
+    numbers.new(20u64);
+    numbers.new(30u64);
+    numbers.new(40u64);
+    bufferSum := numbers.foldBuffer<UInt64, UInt64>(0u64, (total, value) -> total + value);
 
     if (
         sum == 250_000_000_000u64
@@ -112,7 +110,7 @@ main :: Unit -> Int32 := () -> {
         && text == "malmalmalmal"
         && found
         && !empty
-        && packedSum == 100u64
+        && bufferSum == 100u64
     )
     then 0
     else 1;

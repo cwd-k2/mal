@@ -14,7 +14,6 @@ impl Lowerer {
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
             checked::ExpressionKind::Float(bits) => ExpressionKind::Float(*bits),
             checked::ExpressionKind::Symbol(value) => ExpressionKind::Symbol(value.clone()),
-            checked::ExpressionKind::StorageSize(ty) => ExpressionKind::StorageSize(ty.clone()),
             checked::ExpressionKind::Unit => ExpressionKind::Unit,
             checked::ExpressionKind::Product(elements) => ExpressionKind::Product(
                 elements
@@ -36,16 +35,6 @@ impl Lowerer {
                 callee: Box::new(self.lower_expression(callee)),
                 argument: Box::new(self.lower_expression(argument)),
             },
-            checked::ExpressionKind::PackedBuild {
-                build,
-                callback,
-                element,
-            } => return self.lower_packed_build(build, callback, element, expression),
-            checked::ExpressionKind::RegionView {
-                range,
-                callback,
-                element,
-            } => return self.lower_region_view(range, callback, element, expression),
             checked::ExpressionKind::SymbolLength { value } => ExpressionKind::SymbolLength {
                 value: Box::new(self.lower_expression(value)),
             },
@@ -58,7 +47,8 @@ impl Lowerer {
             } => {
                 if matches!(
                     primitive,
-                    checked::MemoryPrimitive::BufferNew
+                    checked::MemoryPrimitive::BufferMake
+                        | checked::MemoryPrimitive::BufferNew
                         | checked::MemoryPrimitive::BufferGet
                         | checked::MemoryPrimitive::BufferPut
                 ) {

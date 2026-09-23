@@ -49,27 +49,24 @@ test("keeps a closing parenthesis inside ')' in a Symbol literal token", async (
 test('highlights v0.6 memory syntax', async () => {
   const grammar = await loadGrammar();
   const line =
-    'owned := address.pack<UInt8>(0usize, 16usize); size := #address + 0x10bytes; bytes := *owned;';
+    'bytes := from<UInt8>(address, 0usize, 16usize); size := #bytes;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
   }));
 
-  for (const operator of ['#', '+', '*']) {
+  for (const operator of ['#']) {
     assert.ok(
       tokens
         .find((token) => token.text === operator)
         .scopes.includes('keyword.operator.mal'),
     );
   }
-  for (const literal of ['16usize', '0x10bytes']) {
+  for (const literal of ['0usize', '16usize']) {
     assert.ok(
       tokens
         .find((token) => token.text === literal)
-        .scopes.includes('constant.numeric.integer.decimal.mal') ||
-      tokens
-        .find((token) => token.text === literal)
-        .scopes.includes('constant.numeric.integer.hexadecimal.mal'),
+        .scopes.includes('constant.numeric.integer.decimal.mal'),
     );
   }
 });

@@ -63,8 +63,7 @@ pub(super) fn generate(
 ) -> Option<Output> {
     let (main, main_parameter) = main_function(execution)?;
     let types = Types::for_program(target, &execution.lowered.functions)?;
-    let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
-    let top_levels = TopLevelConstants::new(execution, types.clone(), source_layouts)?;
+    let top_levels = TopLevelConstants::new(execution, types.clone())?;
     let index = ProgramIndex::new(execution)?;
     let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
     debug_assert!(optimizations.is_valid(execution, enabled));
@@ -113,7 +112,7 @@ struct FunctionEmitter<'a> {
     local_control_storage: bool,
     local_control_top: bool,
     external_storage: Option<(usize, usize)>,
-    packed_new_storage: Option<(usize, usize)>,
+    buffer_new_storage: Option<(usize, usize)>,
     needs_symbol_result_slot: bool,
     types: Types,
     source_layouts: crate::backend::source_layout::SourceLayouts,

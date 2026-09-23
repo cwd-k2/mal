@@ -55,16 +55,8 @@ impl TypeFingerprints {
                             pending.push(Fingerprint::Type(result));
                             pending.push(Fingerprint::Type(parameter));
                         }
-                        Type::Region(element) => {
-                            pending.push(Fingerprint::Aggregate(None, 18, 1));
-                            pending.push(Fingerprint::Type(element));
-                        }
-                        Type::Packed(element) => {
-                            pending.push(Fingerprint::Aggregate(None, 19, 1));
-                            pending.push(Fingerprint::Type(element));
-                        }
                         Type::Buffer(element) => {
-                            pending.push(Fingerprint::Aggregate(None, 20, 1));
+                            pending.push(Fingerprint::Aggregate(None, 18, 1));
                             pending.push(Fingerprint::Type(element));
                         }
                         _ => values.push(atom_fingerprint(ty)),
@@ -120,12 +112,7 @@ fn atom_fingerprint(ty: &Type) -> u64 {
             id.hash(&mut hasher);
             name.hash(&mut hasher);
         }
-        Type::Product(_)
-        | Type::Sum(_)
-        | Type::Function { .. }
-        | Type::Region(_)
-        | Type::Packed(_)
-        | Type::Buffer(_) => {
+        Type::Product(_) | Type::Sum(_) | Type::Function { .. } | Type::Buffer(_) => {
             unreachable!("aggregate fingerprints are composed from their children")
         }
     }

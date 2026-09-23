@@ -320,9 +320,7 @@ fn rejects_operations_outside_target_quantity_algebra() {
 }
 
 #[test]
-fn checks_address_offsets_and_rejects_address_values_as_numbers() {
-    check_ok("forward :: (Address, ByteSize) -> Address := (address, offset) -> address + offset;");
-
+fn rejects_address_values_as_numbers() {
     for text in [
         "bad :: (Address, Address) -> Bool := (left, right) -> left == right;",
         "bad :: (Address, ByteSize) -> Address := (address, offset) -> address - offset;",
@@ -333,8 +331,7 @@ fn checks_address_offsets_and_rejects_address_values_as_numbers() {
         assert!(
             message.contains("not defined")
                 || message.contains("type mismatch")
-                || message.contains("numeric value")
-                || message.contains("forward byte offset"),
+                || message.contains("numeric value"),
             "input: {text}"
         );
     }

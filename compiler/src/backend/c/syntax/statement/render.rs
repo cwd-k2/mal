@@ -37,25 +37,6 @@ impl Statement {
                 output.push_str(") ");
                 then.render_braced(output, depth);
             }
-            Self::For {
-                initializer,
-                initial_value,
-                condition,
-                step,
-                body,
-            } => {
-                write_indent(output, depth);
-                output.push_str("for (");
-                output.push_str(&initializer.render());
-                output.push_str(" = ");
-                initial_value.render(output);
-                output.push_str("; ");
-                condition.render(output);
-                output.push_str("; ");
-                step.render(output);
-                output.push_str(") ");
-                body.render_braced(output, depth);
-            }
             Self::Switch { value, cases } => {
                 write_indent(output, depth);
                 output.push_str("switch (");

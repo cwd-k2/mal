@@ -1,6 +1,5 @@
 use super::*;
 
-mod buffer;
 mod environment;
 mod parameter;
 
@@ -36,9 +35,11 @@ impl FunctionEmitter<'_> {
             if argument.ty != target.parameter.ty {
                 return None;
             }
-            let target_uses_direct_buffer = self.optimizations.uses_direct_buffer(target.id);
-            let argument = self.adapt_buffer_argument(argument, target_uses_direct_buffer)?;
-            self.call_arguments(&environment, &argument, target_uses_direct_buffer)?
+            let argument_type = self.types.value(&argument.ty)?;
+            format!(
+                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
+                argument_type.llvm, argument.representation
+            )
         };
         let lowered = *self.index.lowered_functions.get(&target.id)?;
         let result_type = lowered.body.result.ty.clone();
@@ -106,11 +107,11 @@ impl FunctionEmitter<'_> {
             if argument.ty != **parameter {
                 return None;
             }
-            let target_uses_direct_buffer = self
-                .optimizations
-                .site_uses_direct_buffer(&self.execution.applications, site);
-            let argument = self.adapt_buffer_argument(argument, target_uses_direct_buffer)?;
-            self.call_arguments(&environment, &argument, target_uses_direct_buffer)?
+            let argument_type = self.types.value(&argument.ty)?;
+            format!(
+                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
+                argument_type.llvm, argument.representation
+            )
         };
         let result_type = self.types.value(result)?;
         let register = self.register();

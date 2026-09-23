@@ -133,8 +133,8 @@ internal invariant failureはこの言語上のtrap条件に含めない。
 reference compilerのC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
 host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
 
-Address、Region accessのregion、permission、initialization、lifetime違反とoffsetのprecondition違反はhost contract違反であり、
-特定の実行結果を保証しない。詳細は[memory](memory.md)に定める。
+Addressを使うcopyの範囲、permission、initialization、lifetime違反はhost contract違反であり、Buffer accessのindexと
+copy offsetのprecondition違反も特定の実行結果を保証しない。詳細は[memory](memory.md)に定める。
 
 ## core calculus
 

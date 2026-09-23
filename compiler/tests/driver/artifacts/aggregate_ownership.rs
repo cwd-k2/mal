@@ -50,7 +50,7 @@ fn does_not_create_owners_for_discarded_product_and_sum_results() {
          main :: Unit -> Int32 := () -> {\n\
            left := \"a\" + \"b\";\n\
            right := \"c\" + \"d\";\n\
-           _ := (left, right);\n\
+           (left, right);\n\
            choice :: Choice := [some, none] => { some(left) };\n\
            0i32;\n\
          };",

@@ -1,77 +1,51 @@
 require "./host.mal";
 require "./bytes.mal";
 
-// Reader fields: 0 source file, 1 reusable buffer, 2 next unread byte.
-Reader :: (File, ByteBuffer, USize);
-// ByteRead variant 0 carries the reader at EOF; variant 1 carries the next reader and byte.
+// Reader fields: file, host transfer storage, capacity, current managed chunk, next byte.
+Reader :: (File, Address, USize, Buffer<UInt8>, USize);
 ByteRead :: [Reader, (Reader, UInt8)];
-
-// LineState fields: 0 next reader, 1 completed line bytes.
-LineState :: (Reader, Packed<UInt8>);
-// LineRead variant 0 carries the reader at EOF; variant 1 carries one completed line.
+LineState :: (Reader, Buffer<UInt8>);
 LineRead :: [Reader, LineState];
 
-_lineAtEof :: Reader -> LineRead := (reader) -> [eof, ready] => eof(reader);
-
-_lineReady :: LineState -> LineRead := (state) -> [eof, ready] => ready(state);
-
-// Return buffered data first; refill only when the cursor reaches initialized bytes.
 _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
-    (file, buffer, position) := reader;
-    (memory, capacity, length) := buffer;
-
-    when (position < length) {
-        byte := memory.view<UInt8>(position, position + 1usize, (bytes) -> bytes.get(0usize));
-        read(((file, buffer, position + 1usize), byte));
+    (file, memory, capacity, bytes, position) := reader;
+    when (position < #bytes) {
+        read(((file, memory, capacity, bytes, position + 1usize), bytes.get(position)));
     };
-
-    transferred := file.readFile((memory, capacity));
-    filled := (memory, capacity, transferred);
-    next := (file, filled, 0usize);
+    transferred := readFile(file, memory, 0usize, capacity);
+    // Snapshot the initialized prefix before the host transfer area is reused.
+    nextBytes := from<UInt8>(memory, 0usize, transferred);
+    next := (file, memory, capacity, nextBytes, 0usize);
     when (transferred == 0usize) {
         eof(next);
     };
-
-    byte := memory.view<UInt8>(0usize, 1usize, (bytes) -> bytes.get(0usize));
-    read(((file, filled, 1usize), byte));
+    read(((file, memory, capacity, nextBytes, 1usize), nextBytes.get(0usize)));
 };
 
-_readLineAt :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
-    (line, capacity, length) := buffer;
+_readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> {
     result := reader._readByte();
     result[
-    (next) -> [return] => {
-        when (length == 0usize) {
-            return(_lineAtEof(next));
-        };
-        return(_lineReady((next, line.pack<UInt8>(0usize, length))));
-    },
+    (next) -> if (#line == 0usize)
+        then [eof, ready] => eof(next)
+        else [eof, ready] => ready((next, line)),
     (read) -> [return] => {
         (next, byte) := read;
-
         // A completed line excludes LF and an optional preceding CR.
         when (byte == '\n') {
-            endsWithCarriageReturn := length > 0usize && line.view<UInt8>(length - 1usize, length, (last) ->
-                last.get(0usize) == '\r'
-            );
-            lineLength := if (endsWithCarriageReturn)
-                then length - 1usize
-                else length;
-            return(_lineReady((next, line.pack<UInt8>(0usize, lineLength))));
+            lineLength := #line;
+            when (lineLength > 0usize && line.get(lineLength - 1usize) == '\r') {
+                return([eof, ready] => ready((next, line.copySlice(0usize, lineLength - 1usize))));
+            };
+            return([eof, ready] => ready((next, line)));
         };
-
-        when (length + 1usize == capacity) {
+        when (#line == 256usize) {
             fail("query line exceeds its buffer");
-            return(_lineReady((next, line.pack<UInt8>(0usize, length))));
+            return([eof, ready] => ready((next, line)));
         };
-
-        line.view<UInt8>(length, length + 1usize, (destination) -> destination.put(0usize, byte));
-        return(next._readLineAt((line, capacity, length + 1usize)));
+        line.new(byte);
+        return(next._readLineAt(line));
     }
     ];
 };
 
-readLine :: (Reader, ByteBuffer) -> LineRead := (reader, buffer) -> {
-    (line, capacity, _) := buffer;
-    reader._readLineAt((line, capacity, 0usize));
-};
+readLine :: Reader -> LineRead := (reader) -> reader._readLineAt(make<UInt8>(257usize));

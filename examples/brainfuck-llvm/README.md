@@ -9,7 +9,7 @@ tape and the host C library's `getchar` and `putchar`; moving outside the tape i
 input for this example, and end-of-file on input becomes byte `255`.
 
 After the final read, `linux/file.mal` admits the initialized source prefix into a mal-owned
-`Packed<UInt8>` and immediately releases the external mapping. Compilation therefore depends only on
+`Buffer<UInt8>` and immediately releases the external mapping. Compilation therefore depends only on
 the admitted source value, not on mapping lifetime or release authority. Non-command bytes are
 comments. Recursive compilation of `[` assigns a unique LLVM block identity and stops at the matching
 `]`, while straight-line input is processed by tail recursion.

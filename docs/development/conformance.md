@@ -10,17 +10,17 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、layout shape、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
+| [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
 | [numeric conversion](../spec/expressions.md#primitive-operator) | 全closed suffix、rounding、modulo、float-to-integer precondition | conversionを含むLLVM artifactのcompile/execute |
 | [types](../spec/types.md) | indexed type arity、alias expansion、recursive alias、type position以外のTYPE_IDENT rejection | editor hover/navigationとgenerated diagnostic |
-| [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument descriptor | `(USize, Address)` process entryを実際のargvで実行 |
+| [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument pointer | `(USize, Address)` process entryを実際のargvで実行 |
 
 ## Generics
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
 | [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、arity mismatch、explicit application、first-classな単相value、generic extern rejection | required fileを跨ぐgeneric application |
-| [requirements](../spec/generics.md#requirements) | signature内のnested indexed type、alias展開、requirement不足、既知の非representable型、scoped type argument rejection | 型parameterを渡すgeneric間applicationとRegion/Packed/Bufferを直接受け取るgeneric function |
+| [requirements](../spec/generics.md#requirements) | signature内のnested indexed type、alias展開、requirement不足、既知の非representable型 | 型parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
 
 ## Memory layoutとaccess
@@ -29,19 +29,18 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、function、opaque、indexed type | representable aggregateのstore/load round-trip |
 | [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
-| [typed view/access](../spec/memory.md#address-derivationとtyped-view) | `view`の半開区間、Region get/put、unaligned external access、callback result、scope escape rejection | compiled artifactでscalar/product/sum/Addressをaccess |
-| [preconditions](../spec/memory.md#未検査precondition) | 成立例、one-pastの形成、zero-count、zero-strideと、loweringに防御分岐を加えないこと | preconditionをsource trapへ変えないbaseline artifact |
-| [target contract](../spec/memory.md#target-contract) | pointer representation幅とindex幅の分離、unrepresentable layout、external `align 1`とmal-owned canonical alignment | reference targetとsynthetic data layout fixtures |
+| [Buffer access](../spec/memory.md#buffer) | make/new/get/put、empty、growth、Unit、product/sum、alias越しのread-your-writes | managed lifetimeを含むcompiled artifact |
+| [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、rangeとhost lifetime contract | C host copy artifact |
+| [target contract](../spec/memory.md#canonical-representationとtarget-contract) | pointer representation幅とindex幅の分離、unrepresentable layout、canonical alignment | reference targetとsynthetic data layout fixtures |
 
-## Region、Packed、Symbol
+## Buffer、Symbol
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [transfer/slice](../spec/packed.md#operation) | zero-count、prefix/remainder、index、Unit、Address element、operand一回評価 | external RegionからPackedへadmitしRegionへ戻す |
-| [Symbol conversion](../spec/packed.md#symbol-conversion) | owner/view共有、allocation failure環境での無割当変換、変換元activation終了後のresult lifetime | Symbol runtime ownershipとPacked slice lifetime |
-| [scoped construction/editing](../spec/packed.md#scoped-constructionとediting) | empty、growth、Unit、product/sum、read-after-new、read-your-writes、source不変性、generic receiver application | callback capabilityをhelper・再帰frameへ渡すnative fixture |
-| [partial I/O](../spec/packed.md#partial-io) | initialized/consumed prefix、zero progress、retry ordering、host postcondition | reusable byte Regionを使うstreaming host fixture |
-| [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Region/Packed/Buffer rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
+| [C host copy](../spec/memory.md#c-host-copy-boundary) | offset、length、zero-count、Unit、Address element、operand一回評価 | host storageからBufferへcopyしhost storageへ戻す |
+| [Symbol conversion](../spec/memory.md#symbol-conversion) | snapshot independence、変換元activation終了後のresult lifetime | mutation前後のSymbol/Buffer比較 |
+| [managed construction](../spec/memory.md#buffer) | empty、growth、Unit、product/sum、read-after-new、alias越しのmutation、generic receiver application | Bufferをhelper・closure・再帰frameへ渡すnative fixture |
+| [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Buffer rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
 
 ## ABI
 

@@ -44,11 +44,6 @@ fn validates_the_exact_symbol_concat_decisions() {
     );
     assert!(
         OptimizationPlan::new(&execution, OptimizationSet::none())
-            .direct_buffer_functions
-            .is_empty()
-    );
-    assert!(
-        OptimizationPlan::new(&execution, OptimizationSet::none())
             .self_tail_parameters
             .is_empty()
     );

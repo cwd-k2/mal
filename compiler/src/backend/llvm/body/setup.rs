@@ -123,12 +123,12 @@ impl<'a> FunctionEmitter<'a> {
                     )
                 })
         });
-        let packed_new_storage = states
+        let buffer_new_storage = states
             .iter()
             .flat_map(|state| &execution.control.states[state.0].bindings)
             .filter_map(|binding| match &binding.operation {
-                Operation::PackedBuilder {
-                    operation: crate::core::ast::PackedBuilderOperation::New,
+                Operation::Buffer {
+                    operation: crate::core::ast::BufferOperation::New,
                     element,
                     ..
                 } => source_layouts.layout(element),
@@ -164,7 +164,7 @@ impl<'a> FunctionEmitter<'a> {
             local_control_storage,
             local_control_top,
             external_storage,
-            packed_new_storage,
+            buffer_new_storage,
             needs_symbol_result_slot,
             types,
             source_layouts,
@@ -181,23 +181,14 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(super) fn emit(mut self) -> Option<EmittedFunction> {
         self.emit_environment_destructor()?;
-        let direct_buffer = self.optimizations.uses_direct_buffer(self.function.id);
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            let mut parameters = format!(
+            format!(
                 "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
                 parameter.llvm
-            );
-            if direct_buffer
-                && crate::backend::llvm::optimization::type_has_single_buffer(
-                    &self.function.parameter.ty,
-                )
-            {
-                parameters.push_str(", ptr noalias %mal_buffer_data");
-            }
-            parameters
+            )
         };
         let result = self.types.value(&self.result_type)?;
         self.line(format!(
@@ -281,30 +272,18 @@ impl<'a> FunctionEmitter<'a> {
                 symbol.llvm, symbol.alignment
             ));
         }
-        if let Some((size, alignment)) = self.packed_new_storage {
+        if let Some((size, alignment)) = self.buffer_new_storage {
             self.line(format!(
-                "  %mal_packed_new_value = alloca [{size} x i8], align {alignment}"
+                "  %mal_buffer_new_value = alloca [{size} x i8], align {alignment}"
             ));
         }
         let parameter_destination = self.execution.parameters.destination(self.function.id)?;
         if matches!(parameter_destination, ParameterDestination::Bind(_))
             || crate::execution::ownership::is_managed(&self.function.parameter.ty)
         {
-            let representation = if direct_buffer
-                && crate::backend::llvm::optimization::type_has_single_buffer(
-                    &self.function.parameter.ty,
-                ) {
-                self.replace_buffer_leaf(
-                    &self.function.parameter.ty.clone(),
-                    "%mal_parameter",
-                    "%mal_buffer_data",
-                )?
-            } else {
-                "%mal_parameter".into()
-            };
             let parameter = EmittedValue {
                 ty: self.function.parameter.ty.clone(),
-                representation,
+                representation: "%mal_parameter".into(),
                 owned: false,
             };
             self.emit_parameter_handoff(

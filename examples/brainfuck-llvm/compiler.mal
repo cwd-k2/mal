@@ -62,7 +62,7 @@ _loopFooter :: UInt64 -> Symbol := (identity) -> {
 // The recursive call for an opening bracket consumes through its matching closing bracket.
 // All other transitions are tail calls, so comments and long straight-line programs use bounded
 // native stack.
-_compileUntil :: (Packed<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResult :=
+_compileUntil :: (Buffer<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResult :=
     (source, index, nextLoop, nested, output) -> [return] => {
         when (index == #source) {
             if (nested)
@@ -70,7 +70,7 @@ _compileUntil :: (Packed<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResu
             else return(_stepSuccess((index, nextLoop, output)));
         };
 
-        byte := source # index;
+        byte := source.get(index);
         when (byte == ']') {
             if (nested)
             then return(_stepSuccess((index + 1usize, nextLoop, output)))
@@ -178,7 +178,7 @@ _preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
     + "define i32 @main() {\n"
     + "entry:\n";
 
-compile :: Packed<UInt8> -> CompileResult := (source) -> {
+compile :: Buffer<UInt8> -> CompileResult := (source) -> {
     compiled := _compileUntil(source, 0usize, 0u64, false, _preamble());
     compiled[
     (message) -> _compileFailure(message),

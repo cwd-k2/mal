@@ -108,23 +108,20 @@ program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM
 ties-to-evenを満たすLLVM instructionを選ぶ。
 
 productはLLVM struct、sumはtagと最大payloadを収めるbyte regionのstruct、Boolは`i1`で表現する。sum payloadは
-variant固有型としてalignment 1でload/storeし、非active variantのstorageを持たない。`Symbol`と`Packed<A>`はowner pointer、active data
-address、element countのviewとし、literalはLLVM moduleのstatic byte ownerとそのdataを参照する。動的なbyte ownerはC11 runtimeのreference-counted flat
-storageを使う。`Symbol`と`Packed<UInt8>`の変換はownerを共有し、連結だけが新しいstorageを必要に応じて確保する。dead operandのownerが
-一意かつview全体ならflat storageを再利用する。比較とbyte accessはallocationを行わない。targetで表現不能なallocation sizeと
+variant固有型としてalignment 1でload/storeし、非active variantのstorageを持たない。`Symbol`はowner pointer、active data
+address、byte countのviewとし、literalはLLVM moduleのstatic byte ownerを参照する。動的なSymbol ownerはC11 runtimeの
+reference-counted flat storageを使う。`Symbol`と`Buffer<UInt8>`の変換はsource-levelのsnapshot semanticsを保ち、変換後の
+Buffer mutationをSymbolから観測させない。比較とbyte accessはallocationを行わない。targetで表現不能なallocation sizeと
 allocation failureはmal trapへ写像する。
 
 extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
-argument-aware entryではC shimが`argv[1]`以降を外部descriptor列へ置き、LLVM rootを`(USize, Address)`で呼ぶ。
-
-layout shapeを受け取る`#`は型検査でclosedなcanonical typeへ解決し、typed IRへ残す。strideはtarget data layoutから求め、
-productとsumではsource-levelの入れ子を保ったcanonical layout planを使う。layout shapeにない型identifierはparserで拒否する。
+argument-aware entryではC shimが`argc - 1`と`argv + 1`をLLVM rootの`(USize, Address)`へ渡す。
 
 function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
 immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
-`Buffer<A>`はscopedな構築・編集stateへの一語のreferenceとしてlowerし、`new`・`get`・`put`はclosure applicationにせず
+`Buffer<A>`はmanaged runtime objectへの一語のreferenceとしてlowerし、`new`・`get`・`put`はclosure applicationにせず
 typed memory operationとしてcore以降へ渡す。control IRはfunction environment schemaを複製しない。backendは
-operationとelement型を直接使い、function environmentの形からbuilder operationを推測しない。
+operationとelement型を直接使い、function environmentの形からBuffer operationを推測しない。
 
 call siteのcalleeがtop-level lambda、現在のself closure、またはidentityを追跡できるlocal closureならdirect entryへ進み、
 runtime選択が必要なcalleeだけ共通closure entryからindirect callする。
@@ -134,9 +131,9 @@ closure environmentの最後のreleaseではcaptureを逆順に破棄する。ta
 recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
-`Address`はLLVMの`ptr`、`Region`はaddressとcountの組へlowerする。external storageのexact accessは
-alignmentを仮定せず`align 1`のmemory operationを使い、runtimeが整列を保証する`Packed`と`Buffer`はcanonical alignmentを使う。`Packed`はimmutable byte owner、active data address、countを
-運び、sliceと`Region`間のtransferをprogram固有layoutに従って行う。region、permission、initialization、lifetimeはtyped IRへ補わず、
+`Address`はLLVMの`ptr`、`Buffer`はmanaged runtime objectへのpointerへlowerする。C host copy primitiveは
+canonical representationをruntime objectとhost storageの間でcopyし、Buffer element accessはruntimeが保証するalignmentを使う。
+host storageの範囲、permission、initialization、lifetimeはtyped IRへ補わず、
 source-levelの[`memory` contract](../spec/memory.md)として保持する。
 
 C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの

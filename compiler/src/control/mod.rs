@@ -344,11 +344,11 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
             primitive: *primitive,
             operands: operands.clone(),
         },
-        closure::Operation::PackedBuilder {
+        closure::Operation::Buffer {
             operation,
             element,
             argument,
-        } => Operation::PackedBuilder {
+        } => Operation::Buffer {
             operation: *operation,
             element: element.clone(),
             argument: argument.clone(),

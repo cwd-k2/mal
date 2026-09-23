@@ -18,15 +18,14 @@
 6. [EngramとExtern](spec/engrams.md)
 7. [parametric polymorphism](spec/generics.md)
 8. [Symbol](spec/symbols.md)
-9. [external memory](spec/memory.md)
-10. [`Region`と`Packed`](spec/packed.md)
-11. [式と binding](spec/expressions.md)
-12. [result boundaryとcompletion](spec/control.md)
-13. [実行意味論](spec/execution.md)
-14. [`extern` 境界](spec/extern.md)
-15. [C host ABI](spec/c-host-abi.md)
-16. [プログラム構造](spec/programs.md)
-17. [字句・文法](spec/grammar.md)
+9. [AddressとBuffer](spec/memory.md)
+10. [式と binding](spec/expressions.md)
+11. [result boundaryとcompletion](spec/control.md)
+12. [実行意味論](spec/execution.md)
+13. [`extern` 境界](spec/extern.md)
+14. [C host ABI](spec/c-host-abi.md)
+15. [プログラム構造](spec/programs.md)
+16. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
@@ -38,10 +37,8 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](design/execution-backend.md) | [生成物例](development/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
-| `Address`、layout、typed viewを使う | [external memory](spec/memory.md) | [grammar](spec/grammar.md)、[`Region`と`Packed`](spec/packed.md) |
-| `Region`、`Packed`、partial I/Oを使う | [`Region`と`Packed`](spec/packed.md) | [external memory](spec/memory.md)、[authority](design/authority.md) |
-| scoped `Packed`構築・編集を使う | [`Region`と`Packed`](spec/packed.md#scoped-constructionとediting) | [managed ownership](implementation/ownership.md) |
-| table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Region`と`Packed`](spec/packed.md)、[indexで結ぶ`Packed`構造](proposals/indexed-packed-structures.md) |
+| `Address`、`Buffer`、C host copyを使う | [AddressとBuffer](spec/memory.md) | [C host ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
+| table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md) |
 | application control loweringを変更する | [application control lowering](development/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
@@ -84,7 +81,8 @@
 - dataのdomain上の意味はcarrierだけから推測せず、operationとinvariantが定める。applicationは値とoperationを接続し、
   各dynamic continuationは高々一度だけ進む。
 - mal内部で意味とlifetime authorityを持つ値をEngramと総称し、外部resourceへのcapabilityから区別する。
-- external storageは`Address`、canonical layout、scoped `Region`でaccessし、mal-owned sequenceは`Packed`で保持する。
+- host-managed resourceはopaqueな`Address`で運び、直接accessしない。mutableなmal-owned sequenceはmanaged `Buffer`で保持し、
+  C host storageとは明示的なcopy primitiveだけで往復する。
 - 外部世界との作用はexternal operationのapplicationと明示的なmemory accessに限定する。allocation、deallocation、I/O、
   ファイル、ネットワーク、時刻、乱数、threadはhost側の責務とする。
 - reference compiler `malc`はRustで実装し、executionをLLVM module、process entryとhost bridgeをC11 shim、program非依存の

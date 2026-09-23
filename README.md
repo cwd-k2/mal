@@ -50,7 +50,7 @@ The v0.6 development profile includes:
 
 - immutable bindings, lexical closures and result blocks, products and sums, fixed-width numeric
   types, and parametric polymorphism;
-- immutable `Symbol` and `Packed` values, plus typed views over external memory;
+- immutable `Symbol` values, managed shared-mutable `Buffer` values, and opaque host `Address` capabilities;
 - explicit external effects through `extern` operations.
 
 Allocation, files, networking, clocks, randomness, and other platform policy remain on the host

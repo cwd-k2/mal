@@ -31,13 +31,13 @@ MAL_DEFINE_createAllocator(call, limit) {
     return mal_Allocator_return(call, mal_Allocator_from_bits((uintptr_t)allocator));
 }
 
-MAL_DEFINE_allocateNode(call, value) {
-    AllocatorHandle *handle = allocator_handle(value.field_0);
-    if (handle->live == handle->limit || value.field_1 == 0) {
+MAL_DEFINE_allocateNode(call, allocator) {
+    AllocatorHandle *handle = allocator_handle(allocator);
+    if (handle->live == handle->limit) {
         return mal_NodeBuildResult_return_1(call);
     }
     NodeAllocation *allocation = malloc(sizeof(*allocation));
-    uint8_t *memory = malloc(value.field_1);
+    uint8_t *memory = malloc(sizeof(mal_NodeRecord_t));
     if (allocation == NULL || memory == NULL) {
         free(allocation);
         free(memory);

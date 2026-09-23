@@ -2,8 +2,7 @@ require "./host.mal";
 require "./bytes.mal";
 
 databaseReadCapacity :: USize := 4113usize;
-
-// One byte beyond the file size lets validation distinguish a complete file from an oversized one.
+// A valid image is a 16-byte header followed by 64 fixed-size records.
 _databaseSize :: USize := 4112usize;
 _headerSize :: USize := 16usize;
 _recordSize :: USize := 64usize;
@@ -11,216 +10,167 @@ _recordCount :: USize := 64usize;
 _keyCapacity :: USize := 16usize;
 _valueCapacity :: USize := 40usize;
 
-// File bytes are a 16-byte header followed by 64 records of 64 bytes.
-// Record offsets are 0 active, 1 key length, 2 value length, 8 key, and 24 value.
-
-// PutResult variants are 0 stored, 1 invalid input, and 2 full storage.
+// Database keeps host transfer storage beside the managed image copied from it.
+Database :: (Address, Buffer<UInt8>);
+// PutResult distinguishes success, invalid field lengths, and exhausted record slots.
 PutResult :: [Unit, Unit, Unit];
-// LookupResult variant 0 means absent; variant 1 carries the value bytes.
-LookupResult :: [Unit, Packed<UInt8>];
+// LookupResult distinguishes a missing key from an owned value-byte snapshot.
+LookupResult :: [Unit, Buffer<UInt8>];
 
-// Fill the buffer until it reaches capacity or the file reports EOF.
-readDatabaseFile :: (File, ByteBuffer) -> ByteBuffer := (file, buffer) -> [return] => {
-    (memory, capacity, length) := buffer;
-    when (length == capacity) {
-        return(buffer);
+// Offset stays in the host call so mal never derives an Address.
+readDatabaseFile :: (File, Address, USize, USize) -> USize :=
+    (file, memory, capacity, length) -> [return] => {
+        when (length == capacity) {
+            return(length);
+        };
+        transferred := readFile(file, memory, length, capacity - length);
+        when (transferred == 0usize) {
+            return(length);
+        };
+        return(readDatabaseFile(file, memory, capacity, length + transferred));
     };
 
-    transferred := file.readFile((memory + length.bytes, capacity - length));
-    when (transferred == 0usize) {
-        return(buffer);
-    };
-
-    return(file.readDatabaseFile((memory, capacity, length + transferred)));
-};
-
-_writeBytesFully :: (File, ReadableBytes, USize) -> Unit :=
-    (file, bytes, written) -> [return] => {
-        (memory, length) := bytes;
+_writeBytesFully :: (File, Address, USize, USize) -> Unit :=
+    (file, memory, length, written) -> [return] => {
         when (written == length) {
             return(());
         };
-
-        transferred := file.writeFile((memory + written.bytes, length - written));
+        transferred := writeFile(file, memory, written, length - written);
         when (transferred == 0usize) {
             fail("file write made no progress");
             return(());
         };
-
-        return(file._writeBytesFully(bytes, written + transferred));
+        return(_writeBytesFully(file, memory, length, written + transferred));
     };
 
-saveDatabase :: (File, ByteBuffer) -> Unit := (file, database) -> {
-    (memory, _, length) := database;
-    file.rewindFile();
-    file._writeBytesFully((memory, length), 0usize);
-    file.flushFile();
+saveDatabase :: (File, Database) -> Unit := (file, (memory, bytes)) -> {
+    // The host observes bytes only after the complete managed image has been staged.
+    bytes.into(memory, 0usize, #bytes);
+    rewindFile(file);
+    _writeBytesFully(file, memory, #bytes, 0usize);
+    flushFile(file);
 };
 
-initializeDatabase :: ByteBuffer -> ByteBuffer := (buffer) -> {
-    (memory, capacity, _) := buffer;
-
-    // Clear record storage before publishing the header magic and format version.
-    memory.view<UInt8>(0usize, _databaseSize, (database) -> {
-        database.clearBytes();
-        database.put(0usize, 'M');
-        database.put(1usize, 'A');
-        database.put(2usize, 'L');
-        database.put(3usize, 'D');
-        database.put(4usize, 1u8);
-        database.put(5usize, 64u8);
-    });
-    (memory, capacity, _databaseSize);
+_appendZeros :: (Buffer<UInt8>, USize) -> Unit := (bytes, remaining) -> [return] => {
+    when (remaining == 0usize) {
+        return(());
+    };
+    bytes.new(0u8);
+    return(_appendZeros(bytes, remaining - 1usize));
 };
 
-_recordAddress :: (Address, USize) -> Address := (database, index) ->
-    database + (_headerSize + index * _recordSize).bytes;
+initializeDatabase :: Address -> Database := (memory) -> {
+    bytes := make<UInt8>(_databaseSize);
+    bytes._appendZeros(_databaseSize);
+    bytes.put(0usize, 'M');
+    bytes.put(1usize, 'A');
+    bytes.put(2usize, 'L');
+    bytes.put(3usize, 'D');
+    bytes.put(4usize, 1u8);
+    bytes.put(5usize, 64u8);
+    (memory, bytes);
+};
 
-// Fixed-layout record scans pass the borrowed database Region directly. A generic predicate closure
-// could not capture that scoped authority, while these helpers also give callers domain result names.
-_validateRecords :: (Region<UInt8>, USize) -> Bool := (database, index) -> [return] => {
+_validateRecords :: (Buffer<UInt8>, USize) -> Bool := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(true);
     };
-
-    record := (database % (_headerSize + index * _recordSize)) / _recordSize;
-    active := record.get(0usize);
-    keyLength := record.get(1usize).usize;
-    valueLength := record.get(2usize).usize;
+    offset := _headerSize + index * _recordSize;
+    active := database.get(offset);
+    keyLength := database.get(offset + 1usize).usize;
+    valueLength := database.get(offset + 2usize).usize;
     valid := (active == 0u8 || active == 1u8)
-        && keyLength <= _keyCapacity
-        && valueLength <= _valueCapacity
+        && keyLength <= _keyCapacity && valueLength <= _valueCapacity
         && (active == 0u8 || keyLength > 0usize);
     when (!valid) {
         return(false);
     };
-
     return(database._validateRecords(index + 1usize));
 };
 
-validateDatabase :: ByteBuffer -> Bool := (buffer) -> [return] => {
-    (memory, _, length) := buffer;
-    when (length != _databaseSize) {
-        return(false);
-    };
+validateDatabase :: Buffer<UInt8> -> Bool := (database) ->
+    #database == _databaseSize
+        && database.get(0usize) == 'M' && database.get(1usize) == 'A'
+        && database.get(2usize) == 'L' && database.get(3usize) == 'D'
+        && database.get(4usize) == 1u8 && database.get(5usize) == 64u8
+        && database._validateRecords(0usize);
 
-    // Validation only observes the borrowed file buffer, so it does not create an owned copy.
-    return(memory.view<UInt8>(0usize, length, (database) ->
-        database.get(0usize) == 'M'
-            && database.get(1usize) == 'A'
-            && database.get(2usize) == 'L'
-            && database.get(3usize) == 'D'
-            && database.get(4usize) == 1u8
-            && database.get(5usize) == 64u8
-            && database._validateRecords(0usize)
-    ));
-};
-
-_regionPrefixEquals :: (Region<UInt8>, Packed<UInt8>, USize) -> Bool :=
-    (left, right, length) -> [return] => {
+_prefixEquals :: (Buffer<UInt8>, USize, Buffer<UInt8>, USize, USize) -> Bool :=
+    (left, leftStart, right, rightStart, length) -> [return] => {
         when (length == 0usize) {
             return(true);
         };
-        when (left.get(0usize) != right # 0usize) {
+        when (left.get(leftStart) != right.get(rightStart)) {
             return(false);
         };
-
-        return((left % 1usize)._regionPrefixEquals(right % 1usize, length - 1usize));
+        return(left._prefixEquals(leftStart + 1usize, right, rightStart + 1usize, length - 1usize));
     };
 
-// The record count is the not-found coordinate, so search never invents a second sentinel space.
-_findRecord :: (Region<UInt8>, Packed<UInt8>, USize, USize, USize) -> USize :=
+_findRecord :: (Buffer<UInt8>, Buffer<UInt8>, USize, USize, USize) -> USize :=
     (database, key, start, length, index) -> [return] => {
         when (index == _recordCount) {
             return(_recordCount);
         };
-
-        record := database % (_headerSize + index * _recordSize);
-        matches := record.get(0usize) == 1u8
-            && record.get(1usize).usize == length
-            && (record % 8usize)._regionPrefixEquals(key % start, length);
+        offset := _headerSize + index * _recordSize;
+        matches := database.get(offset) == 1u8
+            && database.get(offset + 1usize).usize == length
+            && database._prefixEquals(offset + 8usize, key, start, length);
         when (matches) {
             return(index);
         };
-
         return(database._findRecord(key, start, length, index + 1usize));
     };
 
-// Free-slot search shares the same end coordinate but has a different row predicate from key lookup.
-_findFreeRecord :: (Region<UInt8>, USize) -> USize := (database, index) -> [return] => {
+_findFreeRecord :: (Buffer<UInt8>, USize) -> USize := (database, index) -> [return] => {
     when (index == _recordCount) {
         return(_recordCount);
     };
-    recordOffset := _headerSize + index * _recordSize;
-    when (database.get(recordOffset) == 0u8) {
+    when (database.get(_headerSize + index * _recordSize) == 0u8) {
         return(index);
     };
-
     return(database._findFreeRecord(index + 1usize));
 };
 
-putRecord :: (ByteBuffer, Packed<UInt8>, USize, USize, USize, USize) -> PutResult :=
-    (databaseBuffer, line, keyStart, keyLength, valueStart, valueLength) -> [stored, invalid, full] => {
-        (memory, _, length) := databaseBuffer;
+putRecord :: (Database, Buffer<UInt8>, USize, USize, USize, USize) -> PutResult :=
+    ((_, database), line, keyStart, keyLength, valueStart, valueLength) -> [stored, invalid, full] => {
         when (keyLength == 0usize || keyLength > _keyCapacity || valueLength > _valueCapacity) {
             invalid();
         };
-
-        slot := memory.view<UInt8>(0usize, length, (database) -> {
-            existing := database._findRecord(line, keyStart, keyLength, 0usize);
-            if (existing == _recordCount)
+        existing := database._findRecord(line, keyStart, keyLength, 0usize);
+        slot := if (existing == _recordCount)
             then database._findFreeRecord(0usize)
             else existing;
-        });
         when (slot == _recordCount) {
             full();
         };
-
-        // recordAddress identifies the selected fixed-size slot; its active byte is published last.
-        recordAddress := memory._recordAddress(slot);
-        recordAddress.view<UInt8>(0usize, _recordSize, (record) -> {
-            record.put(1usize, keyLength.u8);
-            record.put(2usize, valueLength.u8);
-            (line % keyStart).copyPrefix(record % 8usize, keyLength);
-            (line % valueStart).copyPrefix(record % 24usize, valueLength);
-            record.put(0usize, 1u8);
-        });
+        offset := _headerSize + slot * _recordSize;
+        database.put(offset + 1usize, keyLength.u8);
+        database.put(offset + 2usize, valueLength.u8);
+        line.copyRange(keyStart, database, offset + 8usize, keyLength);
+        line.copyRange(valueStart, database, offset + 24usize, valueLength);
+        // Publish the record only after its lengths and payload bytes are complete.
+        database.put(offset, 1u8);
         stored();
     };
 
-lookupRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> LookupResult :=
-    (databaseBuffer, line, keyStart, keyLength) -> [absent, found] => {
-        (memory, _, length) := databaseBuffer;
-        (slot, valueLength) := memory.view<UInt8>(0usize, length, (database) -> {
-            foundSlot := database._findRecord(line, keyStart, keyLength, 0usize);
-            foundLength := if (foundSlot == _recordCount)
-                then 0usize
-                else {
-                    record := database % (_headerSize + foundSlot * _recordSize);
-                    record.get(2usize).usize;
-                };
-            (foundSlot, foundLength);
-        });
+lookupRecord :: (Database, Buffer<UInt8>, USize, USize) -> LookupResult :=
+    ((_, database), line, keyStart, keyLength) -> [absent, found] => {
+        slot := database._findRecord(line, keyStart, keyLength, 0usize);
         when (slot == _recordCount) {
             absent();
         };
-
-        // Only the value crosses the borrow boundary, so only that range becomes owned.
-        valueStart := _headerSize + slot * _recordSize + 24usize;
-        found(memory.pack<UInt8>(valueStart, valueStart + valueLength));
+        offset := _headerSize + slot * _recordSize;
+        valueLength := database.get(offset + 2usize).usize;
+        found(database.copySlice(offset + 24usize, valueLength));
     };
 
-deleteRecord :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Bool :=
-    (databaseBuffer, line, keyStart, keyLength) -> [return] => {
-        (memory, _, length) := databaseBuffer;
-        slot := memory.view<UInt8>(0usize, length, (database) ->
-            database._findRecord(line, keyStart, keyLength, 0usize)
-        );
-        when (slot == _recordCount) {
-            return(false);
+deleteRecord :: (Database, Buffer<UInt8>, USize, USize) -> Bool :=
+    ((_, database), line, keyStart, keyLength) -> {
+        slot := database._findRecord(line, keyStart, keyLength, 0usize);
+        if (slot == _recordCount)
+        then false
+        else {
+            database.put(_headerSize + slot * _recordSize, 0u8);
+            true;
         };
-
-        recordAddress := memory._recordAddress(slot);
-        recordAddress.view<UInt8>(0usize, 1usize, (record) -> record.put(0usize, 0u8));
-        return(true);
     };

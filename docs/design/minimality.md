@@ -49,7 +49,7 @@ operationの挙動を同じ規則から導けるなら、個別codecや例外を
 この分離は関数全体をloopへ変える規則ではない。前処理の後でloop expressionから値を得て後続処理へ戻る局所利用も
 できる。採用するのは、終了判定やcursor更新の重複を一箇所へ集め、domain callbackを「現在の要素をどう扱うか」に
 近づけられる場合である。closure、state product、追加の抽象名が直接再帰より多くの知識を要求するだけなら分離しない。
-特にscoped `Buffer`や`Region`はclosureへcaptureせずhelperへ直接渡す必要がある。このauthorityを反復callbackから隠す
+特にhost resourceのauthorityはoperation contractに明示する。このauthorityを反復callbackから隠す
 抽象化は行わず、domain名を持つ直接再帰で引数とlifetimeを露出させる。
 
 子から戻った後にも処理を行うtree traversal、入力のnesting自体を表す構造再帰、resource cleanupの順序を表す再帰は、

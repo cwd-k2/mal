@@ -1,7 +1,7 @@
 require "./memory.mal";
 require "./syscall.mal";
 
-ReadResult :: [Packed<UInt8>, UInt32];
+ReadResult :: [Buffer<UInt8>, UInt32];
 // MappingBuffer fields: 0 current mapping, 1 extent, 2 initialized byte length.
 MappingBuffer :: (Address, ByteSize, ByteSize);
 MappingFailure :: (MappingBuffer, UInt32);
@@ -15,7 +15,7 @@ _fileTooLarge :: UInt32 := 27u32;
 
 _readFailure :: UInt32 -> ReadResult := (error) -> [success, failure] => failure(error);
 
-_readSuccess :: Packed<UInt8> -> ReadResult := (source) -> [success, failure] => success(source);
+_readSuccess :: Buffer<UInt8> -> ReadResult := (source) -> [success, failure] => success(source);
 
 _bufferFailure :: MappingFailure -> MappingResult := (failureValue) -> [success, failure] =>
     failure(failureValue);
@@ -44,7 +44,7 @@ _readInto :: (Int32, MappingBuffer) -> MappingResult := (descriptor, buffer) -> 
             (error) -> _bufferFailure((buffer, error))
         ]);
     };
-    transferred := systemRead(descriptor, memory + length, capacity - length);
+    transferred := systemRead(descriptor, memory, length, capacity - length);
     return(transferred[
         (count) -> {
             if (count == 0bytes)
@@ -62,7 +62,7 @@ _finishRead :: (Int32, MappingResult) -> ReadResult := (descriptor, result) -> {
         (memory, capacity, length) := buffer;
         closed[
         () -> {
-            source := memory.pack<UInt8>(0usize, length.usize);
+            source := from<UInt8>(memory, 0usize, length.usize);
             released := systemMunmap(memory, capacity);
             released[
             () -> _readSuccess(source),
@@ -130,20 +130,17 @@ _openPath :: (Address, ByteSize) -> ReadResult := (path, pathMappingLength) -> {
 };
 
 readSource :: Symbol -> ReadResult := (path) -> [return] => {
-    packed := *path;
-    length := #packed;
+    bytes := *path;
+    length := #bytes;
     when (length == (-1u64).usize) {
         return(_readFailure(_invalidArgument));
     };
-    mappingLength := length * #u8 + 1bytes;
+    mappingLength := length.bytes + 1bytes;
     mapped := mapAnonymousReadWrite(mappingLength);
     return(mapped[
         (memory) -> {
-            memory.view<UInt8>(0usize, length, (region) -> {
-                region.set(packed);
-                ();
-            });
-            memory.view<UInt8>(length, length + 1usize, (region) -> region.put(0usize, 0u8));
+            bytes.into(memory, 0usize, length);
+            storeZero(memory, length.bytes);
             _openPath(memory, mappingLength);
         },
         (error) -> _readFailure(error)

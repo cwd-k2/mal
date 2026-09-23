@@ -18,7 +18,7 @@ fn lower(source: &str) -> crate::execution::Program {
 #[test]
 fn borrows_pure_aggregate_inputs_when_the_result_has_no_owner_successor() {
     let execution = lower(
-        "Choice :: [Symbol, Unit];\ndiscard :: (Symbol, Symbol) -> Unit := ((left, right)) -> { _ := (left, right); choice :: Choice := [some, none] => { some(left) }; () };\nmain :: Unit -> Int32 := () -> { discard((\"a\" + \"b\", \"c\" + \"d\")); 0i32; };",
+        "Choice :: [Symbol, Unit];\ndiscard :: (Symbol, Symbol) -> Unit := ((left, right)) -> { (left, right); choice :: Choice := [some, none] => { some(left) }; () };\nmain :: Unit -> Int32 := () -> { discard((\"a\" + \"b\", \"c\" + \"d\")); 0i32; };",
     );
     let mut effects = Vec::new();
     let mut borrowed_results = 0;
@@ -71,7 +71,7 @@ fn borrows_pure_aggregate_inputs_when_the_result_has_no_owner_successor() {
 #[test]
 fn propagates_borrowed_authority_through_nested_construction() {
     let execution = lower(
-        "Problem :: (Symbol, Int64, Int64);\nChoice :: [(Symbol, Symbol), Unit];\nwalk :: (Problem, Int64) -> USize := (problem, remaining) -> { (text, first, second) := problem; if (remaining == 0i64) then { #text } else { (text, first, second).walk(remaining - 1i64) } };\nchoiceLength :: Choice -> USize := (choice) -> { choice[(pair) -> { (left, _) := pair; #left }, () -> { 0usize }] };\nmain :: Unit -> Int32 := () -> { problem :: Problem := (\"a\" + \"b\", 1i64, 2i64); _ := problem.walk(3i64); choice :: Choice := [some, none] => { some((\"c\" + \"d\", \"e\" + \"f\")) }; _ := choiceLength(choice); 0i32; };",
+        "Problem :: (Symbol, Int64, Int64);\nChoice :: [(Symbol, Symbol), Unit];\nwalk :: (Problem, Int64) -> USize := (problem, remaining) -> { (text, first, second) := problem; if (remaining == 0i64) then { #text } else { (text, first, second).walk(remaining - 1i64) } };\nchoiceLength :: Choice -> USize := (choice) -> { choice[(pair) -> { (left, _) := pair; #left }, () -> { 0usize }] };\nmain :: Unit -> Int32 := () -> { problem :: Problem := (\"a\" + \"b\", 1i64, 2i64); problem.walk(3i64); choice :: Choice := [some, none] => { some((\"c\" + \"d\", \"e\" + \"f\")) }; choiceLength(choice); 0i32; };",
     );
     let construction_results = execution
         .control

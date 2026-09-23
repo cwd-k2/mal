@@ -2,22 +2,20 @@
 // Kinds are 0 literal, 1 sum, and 2 product.
 CellRow :: (UInt8, Int64, USize, USize);
 // CellRows is the row-major physical carrier; source coordinates give formula rows their dependency edges.
-CellRows :: Packed<CellRow>;
+CellRows :: Buffer<CellRow>;
 // SheetImage fields: row count, column count, and row-major cell carrier.
 SheetImage :: (USize, USize, CellRows);
 
 buildSheet :: Unit -> SheetImage := () -> {
-    cells := make<CellRow>(6usize, (buffer) -> {
-        // A1 = 10, B1 = 20, C1 = A1 + B1.
-        buffer.new((0u8, 10i64, 0usize, 0usize));
-        buffer.new((0u8, 20i64, 0usize, 0usize));
-        buffer.new((1u8, 0i64, 0usize, 1usize));
-        // A2 = B1 + C1, B2 = 2, C2 = A2 * B2.
-        buffer.new((1u8, 0i64, 1usize, 2usize));
-        buffer.new((0u8, 2i64, 0usize, 0usize));
-        buffer.new((2u8, 0i64, 3usize, 4usize));
-        ();
-    });
+    cells := make<CellRow>(6usize);
+    // A1 = 10, B1 = 20, C1 = A1 + B1.
+    cells.new((0u8, 10i64, 0usize, 0usize));
+    cells.new((0u8, 20i64, 0usize, 0usize));
+    cells.new((1u8, 0i64, 0usize, 1usize));
+    // A2 = B1 + C1, B2 = 2, C2 = A2 * B2.
+    cells.new((1u8, 0i64, 1usize, 2usize));
+    cells.new((0u8, 2i64, 0usize, 0usize));
+    cells.new((2u8, 0i64, 3usize, 4usize));
     (2usize, 3usize, cells);
 };
 
@@ -26,7 +24,7 @@ _validCellRows :: (CellRows, USize) -> Bool := (cells, index) -> [return] => {
     when (index == #cells) {
         return(true);
     };
-    (kind, _, left, right) := cells # index;
+    (kind, _, left, right) := cells.get(index);
     when (kind > 2u8) {
         return(false);
     };
@@ -50,7 +48,7 @@ _cellIndex :: (SheetImage, USize, USize) -> USize := (sheet, row, column) -> {
 // Evaluation remains structural recursion: a formula combines two results after both dependency
 // calls return, so it is not a cursor-only loop edge.
 _evaluateAt :: (CellRows, USize) -> Int64 := (cells, index) -> [return] => {
-    (kind, literal, left, right) := cells # index;
+    (kind, literal, left, right) := cells.get(index);
     when (kind == 0u8) {
         return(literal);
     };
@@ -70,10 +68,8 @@ setLiteral :: (SheetImage, USize, USize, Int64) -> SheetImage :=
     (sheet, row, column, value) -> {
         (rows, columns, cells) := sheet;
         index := sheet._cellIndex(row, column);
-        updated := cells.edit<CellRow>((buffer) ->
-            buffer.put(index, (0u8, value, 0usize, 0usize))
-        );
-        (rows, columns, updated);
+        cells.put(index, (0u8, value, 0usize, 0usize));
+        (rows, columns, cells);
     };
 
 main :: Unit -> Int32 := () -> {
@@ -83,6 +79,7 @@ main :: Unit -> Int32 := () -> {
         && sheet.evaluateCell(1usize, 2usize) == 100i64;
 
     updated := sheet.setLiteral(0usize, 1usize, 5i64);
+    // updated and sheet contain the same cell Buffer; the new name documents the next interpretation.
     recalculated := updated.validSheet()
         && updated.evaluateCell(0usize, 2usize) == 15i64
         && updated.evaluateCell(1usize, 2usize) == 40i64;

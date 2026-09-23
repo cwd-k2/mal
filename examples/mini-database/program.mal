@@ -8,7 +8,7 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
         return(2);
     };
 
-    (pathAddress, pathLength) :=
-        arguments.pack<(Address, ByteSize)>(0usize, 1usize) # 0usize;
-    return(executeDatabase(pathAddress, pathLength.usize));
+    addresses := from<Address>(arguments, 0usize, 1usize);
+    pathAddress := addresses.get(0usize);
+    return(executeDatabase(pathAddress, argumentLength(pathAddress)));
 };

@@ -167,7 +167,7 @@ fn serves_typed_hover_for_a_byte_literal_containing_a_closing_parenthesis() {
 
 #[test]
 fn serves_reference_documentation_for_predefined_memory_operations() {
-    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(1usize, (buffer) -> { buffer.new(1i32); () });";
+    let text = "build :: Unit -> Buffer<Int32> := () -> make<Int32>(1usize);";
     let uri = "file:///predefined-hover.mal";
     let mut server = open_document(uri, text);
 
@@ -180,20 +180,20 @@ fn serves_reference_documentation_for_predefined_memory_operations() {
         text.find("make<Int32>").unwrap(),
     );
     let make_contents = make["result"]["contents"]["value"].as_str().unwrap();
-    assert!(make_contents.contains("make :: (USize, Buffer<T> -> Unit) -> Packed<T>"));
-    assert!(make_contents.contains("eager initial allocation request"));
+    assert!(make_contents.contains("make :: USize -> Buffer<T>"));
+    assert!(make_contents.contains("initial capacity"));
 
-    let packed = request_at(
+    let buffer = request_at(
         &mut server,
         22,
         "textDocument/hover",
         uri,
         text,
-        text.find("Packed<Int32>").unwrap(),
+        text.find("Buffer<Int32>").unwrap(),
     );
-    let packed_contents = packed["result"]["contents"]["value"].as_str().unwrap();
-    assert!(packed_contents.contains("Packed<T>"));
-    assert!(packed_contents.contains("immutable, finite sequence"));
+    let buffer_contents = buffer["result"]["contents"]["value"].as_str().unwrap();
+    assert!(buffer_contents.contains("Buffer<T>"));
+    assert!(buffer_contents.contains("mutable mal-owned sequence"));
 
     let new = request_at(
         &mut server,
@@ -201,16 +201,15 @@ fn serves_reference_documentation_for_predefined_memory_operations() {
         "textDocument/hover",
         uri,
         text,
-        text.find("new(1i32)").unwrap(),
+        text.find("make<Int32>").unwrap(),
     );
     let new_contents = new["result"]["contents"]["value"].as_str().unwrap();
-    assert!(new_contents.contains("new :: (Buffer<T>, T) -> USize"));
-    assert!(new_contents.contains("stable element index"));
+    assert!(new_contents.contains("make :: USize -> Buffer<T>"));
 }
 
 #[test]
 fn serves_hover_and_definition_for_an_alias_in_an_indexed_type() {
-    let text = "Byte :: UInt8;\nread :: Region<Byte> -> Byte := (region) -> region.get(0usize);";
+    let text = "Byte :: UInt8;\nread :: Buffer<Byte> -> Byte := (buffer) -> buffer.get(0usize);";
     let uri = "file:///indexed-type.mal";
     let mut server = open_document(uri, text);
     let reference = text.rfind("Byte").unwrap();

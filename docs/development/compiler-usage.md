@@ -74,7 +74,7 @@ malc build source.mal --output program --clang-arg '-lm'
 - `emit-atcoder`は`build`と同じ`--output`、`--optimization`、`--artifact-dir`、`--clang-arg`を受け取る。
 
 生成した実行可能fileのcommand-line argumentは、source-level `main`が`(USize, Address) -> Int32`型なら
-canonical `(Address, ByteSize)` descriptor列として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
+実行ファイル名を除いたcountとC hostの`argv + 1`として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
 contractは[program specification](../spec/programs.md#entry-point)に定める。
 
 親directoryは必要に応じて作成し、同名の出力は置き換える。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の

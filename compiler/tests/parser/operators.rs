@@ -92,16 +92,6 @@ fn rejects_non_associative_operator_chains() {
 }
 
 #[test]
-fn parses_closed_shape_stride_queries() {
-    let Expression::StrideQuery(shape) = binding_value("value := #(address, bytesize);") else {
-        panic!("expected a stride query");
-    };
-    assert!(
-        matches!(shape.kind, malc::ast::LayoutShape::Product(ref members) if members.len() == 2)
-    );
-}
-
-#[test]
 fn keeps_comparison_and_shift_distinct_from_generic_delimiters() {
     let comparison = binding_value("value := left < right;");
     assert!(matches!(

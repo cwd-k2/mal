@@ -14,10 +14,6 @@ pub(in crate::backend) enum Expr {
         name: Identifier,
         indirect: bool,
     },
-    Subscript {
-        value: Box<Self>,
-        index: Box<Self>,
-    },
     Cast {
         ty: TypeName,
         value: Box<Self>,
@@ -121,13 +117,6 @@ impl Expr {
         }
     }
 
-    pub(in crate::backend) fn subscript(self, index: Self) -> Self {
-        Self::Subscript {
-            value: Box::new(self),
-            index: Box::new(index),
-        }
-    }
-
     pub(in crate::backend) fn cast(ty: impl Into<TypeName>, value: Self) -> Self {
         Self::Cast {
             ty: ty.into(),
@@ -153,7 +142,6 @@ impl Expr {
     unary_constructors! {
         address_of => AddressOf,
         dereference => Dereference,
-        pre_increment => PreIncrement,
     }
 
     binary_constructors! {
@@ -161,10 +149,8 @@ impl Expr {
         add => Add,
         subtract => Subtract,
         multiply => Multiply,
-        divide => Divide,
         equal => Equal,
         not_equal => NotEqual,
-        less => Less,
         greater => Greater,
         logical_and => LogicalAnd,
     }

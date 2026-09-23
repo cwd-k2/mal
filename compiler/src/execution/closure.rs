@@ -241,7 +241,7 @@ fn collect_operation_uses(
             atom(argument, false);
         }
         Operation::SymbolAt { argument }
-        | Operation::PackedBuilder { argument, .. }
+        | Operation::Buffer { argument, .. }
         | Operation::ExternalCall { argument, .. }
         | Operation::SumInjection {
             value: argument, ..

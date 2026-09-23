@@ -88,27 +88,33 @@ void mal_runtime_bytes_write(
     size_t offset,
     size_t length
 );
-void *mal_runtime_packed_builder_make(
+void *mal_runtime_buffer_make(
     MalContext *context,
     size_t stride,
     size_t capacity
 );
-void *mal_runtime_packed_builder_edit(
+size_t mal_runtime_buffer_new(
     MalContext *context,
-    const void *owner,
-    const void *data,
-    size_t count,
-    size_t stride
-);
-void *mal_runtime_packed_builder_prepare_edit(MalContext *context, void *builder);
-// The builder is prepared before its callback, and stride must match its element type.
-size_t mal_runtime_packed_builder_new(
-    MalContext *context,
-    void *builder,
+    void *buffer,
     const void *value,
     size_t stride
 );
-void *const *mal_runtime_packed_builder_data_slot(const void *builder);
-void mal_runtime_packed_builder_finish(MalBytesView *result, void *builder);
+void *const *mal_runtime_buffer_data_slot(const void *buffer);
+size_t mal_runtime_buffer_count(const void *buffer);
+void *mal_runtime_buffer_from(
+    MalContext *context,
+    const void *source,
+    size_t offset,
+    size_t count,
+    size_t stride
+);
+void mal_runtime_buffer_into(
+    MalContext *context,
+    const void *buffer,
+    void *destination,
+    size_t offset,
+    size_t count,
+    size_t stride
+);
 
 #endif

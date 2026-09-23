@@ -108,25 +108,22 @@ generic calleeでも`a.f<T>(b)`は`f<T>(a, b)`と同じapplicationである。
 `.`、value name、parenthesized argument listは全体で一つのapplication suffixである。`a.f`はexpressionではなく、
 field access、property、method value、bound functionを導入しない。
 
-[external memory](memory.md#address-derivationとtyped-view)と[`Region`と`Packed`](packed.md#operation)のoperationは通常のexpressionとして
-評価する。Addressの前方byte offsetは`+`、Symbol、Region、PackedのlengthとPackedのindexは`#`で表す。
+[AddressとBuffer](memory.md)のoperationは通常のexpressionとして評価する。`Symbol`と`Buffer`のlengthは`#`で表す。
 
 external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
 実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
 
 ## Memory expression
 
-型identifierはexpression operatorとして使わない。stride queryはlowercaseのclosed layout shapeを使う。Regionのaccess、Addressから
-Packedへのadmission、PackedからRegionへのobservationはindexed typeが運ぶstatic layoutから決まる。
+`Address`の先はhost contractの領域であり、malは直接dereferenceやoffset計算を行わない。C host profileとの固定長copyでは、
+indexed typeがcanonical representationを決める。
 
 ```mal
-stride :: Unit -> ByteSize := () -> #(address, bytesize);
-
 readUInt64 :: Address -> UInt64 :=
-    (address) -> view<UInt64>(address, 0usize, 1usize, (region) -> region.get(0usize));
+    (address) -> from<UInt64>(address, 0usize, 1usize).get(0usize);
 ```
 
-型、評価、preconditionは[external memory](memory.md)と[`Region`と`Packed`](packed.md)に定める。
+型、評価、preconditionは[AddressとBuffer](memory.md)に定める。
 
 ## if
 
@@ -253,7 +250,6 @@ float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 Bool:     ! && || == !=
 target quantity: ByteSize、USizeに定めたclosed family
-address:  Address + ByteSize
 Symbol:   Symbol + Symbol, == !=
 ```
 

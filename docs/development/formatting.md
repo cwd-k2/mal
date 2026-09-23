@@ -37,8 +37,7 @@ line commentのcontentsと順序を保持する。tokenと同じsource lineに�
 numeric separator、suffix、byte/Symbol escapeを含むliteralのbyte spellingは変更しない。formatterは
 malformed sourceを補正せず、lexerまたはparserのstructured diagnosticを返す。
 
-generic parameterとargumentではidentifierと`<`、comma以外のtype argument、closing `>`を密着させる。layout shapeは
-対応するsource delimiterとlowercase atomを保持する。formatterはshapeをtype名へ、またはtype名をshapeへ変換しない。
+generic parameterとargumentではidentifierと`<`、comma以外のtype argument、closing `>`を密着させる。
 
 ## application notation
 

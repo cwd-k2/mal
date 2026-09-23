@@ -190,7 +190,7 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::Atom(value)
         | Operation::SymbolLength { value }
         | Operation::SymbolAt { argument: value }
-        | Operation::PackedBuilder {
+        | Operation::Buffer {
             argument: value, ..
         }
         | Operation::ExternalCall {

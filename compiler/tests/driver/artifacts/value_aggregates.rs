@@ -9,18 +9,18 @@ fn stores_and_loads_canonical_products_and_sums() {
         "program.mal",
         "require \"host.c\";\n\
          Choice :: [Unit, UInt64];\n\
-         extern memory :: Unit -> Address;\n\
+         extern productMemory :: Unit -> Address;\n\
+         extern sumMemory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
-           address := memory();\n\
-           (first, second) := view<(UInt8, UInt64)>(address, 0usize, 1usize, (product) -> {\n\
-             product.put(0usize, (7u8, 35u64));\n\
-             product.get(0usize);\n\
-           });\n\
+           product := make<(UInt8, UInt64)>(1usize);\n\
+           product.new((7u8, 35u64));\n\
+           product.into(productMemory(), 0usize, 1usize);\n\
+           (first, second) := from<(UInt8, UInt64)>(productMemory(), 0usize, 1usize).get(0usize);\n\
            choice :: Choice := [none, some] => some(42u64);\n\
-           loaded := view<Choice>(address + #(u8, u64), 0usize, 1usize, (sum) -> {\n\
-             sum.put(0usize, choice);\n\
-             sum.get(0usize);\n\
-           });\n\
+           choices := make<Choice>(1usize);\n\
+           choices.new(choice);\n\
+           choices.into(sumMemory(), 0usize, 1usize);\n\
+           loaded := from<Choice>(sumMemory(), 0usize, 1usize).get(0usize);\n\
            selected := loaded[() -> 0i32, (value) -> value.i32];\n\
            first.i32 + second.i32 + selected;\n\
          };",
@@ -28,8 +28,10 @@ fn stores_and_loads_canonical_products_and_sums() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         static uint8_t bytes[32];\n\
-         MAL_DEFINE_memory(call) { return mal_Address_return(call, bytes); }\n",
+         static uint8_t product_bytes[16];\n\
+         static uint8_t sum_bytes[16];\n\
+         MAL_DEFINE_productMemory(call) { return mal_Address_return(call, product_bytes); }\n\
+         MAL_DEFINE_sumMemory(call) { return mal_Address_return(call, sum_bytes); }\n",
     );
     let output = directory.malc([
         OsStr::new("build"),
@@ -46,25 +48,26 @@ fn stores_and_loads_canonical_products_and_sums() {
 }
 
 #[test]
-fn accesses_an_unaligned_region_with_pointer_provenance() {
-    let directory = NativeFixture::new("driver-region-unaligned");
+fn accesses_unaligned_storage_through_buffer_copies() {
+    let directory = NativeFixture::new("driver-buffer-unaligned");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"host.c\";\n\
          extern memory :: Unit -> Address;\n\
-         main :: Unit -> Int32 := () ->\n\
-           view<UInt64>(memory() + 1bytes, 0usize, 1usize, (region) -> {\n\
-             region.put(0usize, 42u64);\n\
-             region.get(0usize).i32;\n\
-           });",
+         main :: Unit -> Int32 := () -> {\n\
+           values := make<UInt64>(1usize);\n\
+           values.new(42u64);\n\
+           values.into(memory(), 0usize, 1usize);\n\
+           from<UInt64>(memory(), 0usize, 1usize).get(0usize).i32;\n\
+         };",
     );
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
          static uint8_t bytes[24];\n\
-         MAL_DEFINE_memory(call) { return mal_Address_return(call, bytes); }\n",
+         MAL_DEFINE_memory(call) { return mal_Address_return(call, bytes + 1); }\n",
     );
     let output = directory.malc([
         OsStr::new("build"),

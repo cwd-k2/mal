@@ -328,7 +328,7 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(&prepared)?;
                 Some(Some(result))
             }
-            Operation::PackedBuilder {
+            Operation::Buffer {
                 operation,
                 element,
                 argument,
@@ -336,11 +336,11 @@ impl FunctionEmitter<'_> {
                 self.require_binding_borrow(
                     site,
                     binding,
-                    BindingOperand::PackedBuilderArgument,
+                    BindingOperand::BufferArgument,
                     argument,
                 )?;
                 let argument = self.atom(argument)?;
-                self.emit_packed_builder(*operation, element, &argument, result_type?)
+                self.emit_buffer(*operation, element, &argument, result_type?)
                     .map(Some)
             }
             Operation::Product(elements) => {

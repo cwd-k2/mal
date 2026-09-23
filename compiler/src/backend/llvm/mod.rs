@@ -87,10 +87,10 @@ pub(crate) fn generate(
     } else {
         String::new()
     };
-    let packed_alias_metadata = body.uses_byte_runtime.then_some(
+    let buffer_alias_metadata = body.uses_byte_runtime.then_some(
         "!0 = !{!\"Simple C/C++ TBAA\"}\n\
          !1 = !{!\"omnipotent char\", !0, i64 0}\n\
-         !2 = !{!\"mal packed element storage\", !1, i64 0}\n\
+         !2 = !{!\"mal buffer element storage\", !1, i64 0}\n\
          !3 = !{!2, !2, i64 0}\n",
     );
     let byte_declarations = if body.uses_byte_runtime {
@@ -105,12 +105,12 @@ pub(crate) fn generate(
              declare ptr @mal_runtime_bytes_retain(ptr, ptr)\n\
              declare void @mal_runtime_bytes_release(ptr)\n\
              declare void @mal_runtime_bytes_write(ptr, ptr, {index}, {index})\n\
-             declare ptr @mal_runtime_packed_builder_make(ptr, {index}, {index})\n\
-             declare ptr @mal_runtime_packed_builder_edit(ptr, ptr, ptr, {index}, {index})\n\
-             declare ptr @mal_runtime_packed_builder_prepare_edit(ptr, ptr)\n\
-             declare {index} @mal_runtime_packed_builder_new(ptr, ptr, ptr, {index})\n\
-             declare ptr @mal_runtime_packed_builder_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
-             declare void @mal_runtime_packed_builder_finish(ptr, ptr)\n\
+             declare ptr @mal_runtime_buffer_make(ptr, {index}, {index})\n\
+             declare {index} @mal_runtime_buffer_new(ptr, ptr, ptr, {index})\n\
+             declare ptr @mal_runtime_buffer_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
+             declare {index} @mal_runtime_buffer_count(ptr) nofree nounwind willreturn memory(argmem: read)\n\
+             declare ptr @mal_runtime_buffer_from(ptr, ptr, {index}, {index}, {index})\n\
+             declare void @mal_runtime_buffer_into(ptr, ptr, ptr, {index}, {index}, {index})\n\
              declare i8 @mal_runtime_symbol_at(ptr, {index})\n\
              declare void @mal_runtime_symbol_concatenate(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
              declare void @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
@@ -183,7 +183,7 @@ pub(crate) fn generate(
         external_declarations,
         body.globals,
         body.definitions,
-        packed_alias_metadata.unwrap_or_default(),
+        buffer_alias_metadata.unwrap_or_default(),
         entry.llvm_signature(),
         control_entry,
         entry_argument,

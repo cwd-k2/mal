@@ -63,7 +63,7 @@ MAL_DEFINE_readBytes(call, bytes) {
 }
 ```
 
-hostはcapacity以下のprefixだけを初期化する。mal側はresultをcapacity以下とするcontractを信頼し、そのprefixをRegionからPackedへ
+hostはcapacity以下のprefixだけを初期化する。mal側はresultをcapacity以下とするcontractを信頼し、そのprefixをhost storageからBufferへ
 admitしてから外部bufferを再利用できる。host-owned pointerを`Symbol` resultとして返さない。
 
 ## Product and sum
@@ -174,7 +174,7 @@ result transfer前のexternal resourceはadapterが片付ける。generic `mal_c
 - bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
 - parameter、local、nested field、resultは同じ`mal_<T>_t`規則を使う。
 - public aggregateとopaque型はHostMappableなextern surface、またはentry sourceのcanonical memory helper対象aliasから到達する。
-- byte列はAddressと長さで借り、Symbol、Packed、Region、managed ownerをhost codeへ出さない。
+- byte列はAddressと長さで借り、Symbol、Buffer、managed ownerをhost codeへ出さない。
 - productは通常のC valueとしてcopy、変更、再構成できる。
 - sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。
 - Engramのadmission、Extern capabilityのtransfer、Extern cleanupを一つのownershipへ統合しない。

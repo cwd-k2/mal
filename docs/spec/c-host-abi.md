@@ -22,8 +22,8 @@ generated headerと対応するbuild artifactは一組であり、異なるcompi
 ```
 
 `main :: Unit -> Int32`は`main(void)`へ、`main :: (USize, Address) -> Int32`は`main(int, char **)`へlowerする。
-後者ではshimが各argumentをcanonical shape `(address, bytesize)`のdescriptorへ変換する。C structのlayoutをsource memory layoutとして
-reinterpretしない。descriptorとargument bytesは`main`のreturnまでread-onlyで有効である。
+後者ではshimが実行ファイル名を除いたcountと`argv + 1`をそのまま渡す。pointer列とargument bytesは`main`のreturnまで
+read-onlyで有効であり、各C stringの長さと解釈はhost contractが提供する。
 
 ## Host operation
 
@@ -95,16 +95,16 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 
 `mal_Address_t`は`void *`であり、null以外をvalidな`Address`とする。terminal return helperはAddressを含むresultを再帰的に
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
-境界通過によって変化しない。`Region`、`Packed`、`Buffer`はpublic C ABIへ出せない。
+境界通過によって変化しない。`Buffer`はpublic C ABIへ出せない。
 
 public headerはHostMappableなbuiltin carrierとhelper、extern signatureから到達できるHostMappableなaggregateとopaque型、および
-後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Region`、`Packed`、`Buffer`、function、およびそれらを含む
+後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Buffer`、function、およびそれらを含む
 aggregateの型名、内部carrier、ownership helperを宣言しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
 指定範囲をcall中だけborrowし、書き込みではmalが用意した範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
 call後に保持せず、mal-owned valueのidentity、owner、連続表現を観測しない。長さ、permission、初期化、partial transferの
-postconditionは[`Region`と`Packed`](packed.md#partial-io)とoperation固有のcontractを正とする。
+postconditionは[AddressとBuffer](memory.md)とoperation固有のcontractを正とする。
 
 ## Canonical memory access
 

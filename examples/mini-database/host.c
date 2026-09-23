@@ -106,9 +106,10 @@ MAL_DEFINE_standardInput(call) {
 
 MAL_DEFINE_readFile(call, value) {
     FILE *handle = file_handle(value.field_0);
-    void *memory = value.field_1.field_0;
-    size_t capacity = value.field_1.field_1;
-    size_t length = fread(memory, 1, capacity, handle);
+    uint8_t *memory = value.field_1;
+    size_t offset = value.field_2;
+    size_t capacity = value.field_3;
+    size_t length = fread(memory + offset, 1, capacity, handle);
     if (ferror(handle)) {
         mal_call_trap(call, "cannot read file");
     }
@@ -117,13 +118,18 @@ MAL_DEFINE_readFile(call, value) {
 
 MAL_DEFINE_writeFile(call, value) {
     FILE *handle = file_handle(value.field_0);
-    void *memory = value.field_1.field_0;
-    size_t length = value.field_1.field_1;
-    size_t written = fwrite(memory, 1, length, handle);
+    const uint8_t *memory = value.field_1;
+    size_t offset = value.field_2;
+    size_t length = value.field_3;
+    size_t written = fwrite(memory + offset, 1, length, handle);
     if (ferror(handle)) {
         mal_call_trap(call, "cannot write file");
     }
     return mal_USize_return(call, written);
+}
+
+MAL_DEFINE_argumentLength(call, address) {
+    return mal_USize_return(call, strlen((const char *)address));
 }
 
 MAL_DEFINE_rewindFile(call, file) {

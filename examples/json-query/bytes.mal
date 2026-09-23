@@ -1,23 +1,31 @@
-// The shrinking source and expected-byte coordinate are the complete comparison state. This helper
-// has one policy, so exposing a higher-order loop would add a callback without removing duplication.
-_startsWithAt :: (Packed<UInt8>, Symbol, USize) -> Bool :=
+// Bytes is a logical cursor that shares one managed Buffer identity.
+Bytes :: (Buffer<UInt8>, USize);
+
+byteCount :: Bytes -> USize := ((buffer, offset)) -> #buffer - offset;
+
+byteAt :: (Bytes, USize) -> UInt8 := ((buffer, offset), index) ->
+    buffer.get(offset + index);
+
+dropBytes :: (Bytes, USize) -> Bytes := ((buffer, offset), count) ->
+    (buffer, offset + count);
+
+_startsWithAt :: (Bytes, Symbol, USize) -> Bool :=
     (source, expected, index) -> [return] => {
         when (index == #expected) {
             return(true);
         };
-        when (#source == 0usize) {
+        when (source.byteCount() == 0usize) {
             return(false);
         };
-
-        byte := source # 0usize;
-        when (byte != expected # index) {
+        expectedBytes := *expected;
+        when (source.byteAt(0usize) != expectedBytes.get(index)) {
             return(false);
         };
-        return((source % 1usize)._startsWithAt(expected, index + 1usize));
+        return(source.dropBytes(1usize)._startsWithAt(expected, index + 1usize));
     };
 
-startsWith :: (Packed<UInt8>, Symbol) -> Bool := (source, expected) ->
+startsWith :: (Bytes, Symbol) -> Bool := (source, expected) ->
     source._startsWithAt(expected, 0usize);
 
-equalsSymbol :: (Packed<UInt8>, Symbol) -> Bool := (source, expected) ->
-    #source == #expected && source.startsWith(expected);
+equalsSymbol :: (Bytes, Symbol) -> Bool := (source, expected) ->
+    source.byteCount() == #expected && source.startsWith(expected);

@@ -195,25 +195,6 @@ fn formats_unary_and_binary_symbol_operators() {
 }
 
 #[test]
-fn formats_memory_primitives_canonically() {
-    let formatted = format(
-        "owned := pack < UInt8 > ( address, start, end ); bytes := * owned;\n\
-         result := address . view < UInt8 > ( start, end, (region) -> region . get (0usize));\n\
-         updated := owned . edit < UInt8 > ((buffer) -> buffer . put (0usize, value));",
-    );
-    assert_eq!(
-        formatted,
-        concat!(
-            "owned := pack<UInt8>(address, start, end);\n",
-            "bytes := *owned;\n",
-            "result := address.view<UInt8>(start, end, (region) -> region.get(0usize));\n",
-            "updated := owned.edit<UInt8>((buffer) -> buffer.put(0usize, value));\n",
-        )
-    );
-    assert_eq!(format(&formatted), formatted);
-}
-
-#[test]
 fn groups_declarations_and_separates_top_level_bindings() {
     let formatted = format(
         "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\

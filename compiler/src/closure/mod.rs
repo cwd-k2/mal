@@ -186,11 +186,11 @@ impl Converter {
                     .map(|operand| self.convert_atom(operand, environment))
                     .collect(),
             },
-            anf::Operation::PackedBuilder {
+            anf::Operation::Buffer {
                 operation,
                 element,
                 argument,
-            } => Operation::PackedBuilder {
+            } => Operation::Buffer {
                 operation: *operation,
                 element: element.clone(),
                 argument: self.convert_atom(argument, environment),
@@ -352,7 +352,6 @@ impl Converter {
             anf::AtomKind::Integer(value) => AtomKind::Integer(*value),
             anf::AtomKind::Float(bits) => AtomKind::Float(*bits),
             anf::AtomKind::Symbol(value) => AtomKind::Symbol(value.clone()),
-            anf::AtomKind::StorageSize(ty) => AtomKind::StorageSize(ty.clone()),
             anf::AtomKind::Unit => AtomKind::Unit,
         };
         Atom {

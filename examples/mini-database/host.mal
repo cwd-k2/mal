@@ -25,10 +25,9 @@ extern destroyAllocator :: Allocator -> Unit;
 extern openReadWriteCreate :: ReadableBytes -> File;
 // Returns the process-owned standard-input handle, which must not be closed by this program.
 extern standardInput :: Unit -> File;
-// Reads at most the writable range length and returns the transferred byte count.
-extern readFile :: (File, WritableBytes) -> USize;
-// Writes at most the readable range length and returns the transferred byte count.
-extern writeFile :: (File, ReadableBytes) -> USize;
+// Offset and length are byte coordinates within the host buffer.
+extern readFile :: (File, Address, USize, USize) -> USize;
+extern writeFile :: (File, Address, USize, USize) -> USize;
 // Moves the file position to its first byte.
 extern rewindFile :: File -> Unit;
 // Publishes buffered writes to the host file system.
@@ -44,36 +43,33 @@ extern writeStdout :: ReadableBytes -> Unit;
 extern writeStderr :: ReadableBytes -> Unit;
 // Terminates after an error message has been emitted.
 extern failNow :: Unit -> Unit;
+extern argumentLength :: Address -> USize;
 
 // Each tail step lends one bounded chunk to the selected sink and carries only the remaining bytes.
-_writePacked :: (ReadableBytes -> Unit, Address, USize, Packed<UInt8>) -> Unit :=
-    (write, memory, capacity, remaining) -> [return] => {
-        when (#remaining == 0usize) {
+_writeBuffer :: (ReadableBytes -> Unit, Address, USize, Buffer<UInt8>, USize) -> Unit :=
+    (write, memory, capacity, bytes, offset) -> [return] => {
+        when (offset == #bytes) {
             return(());
         };
 
-        remainingLength := #remaining;
+        remainingLength := #bytes - offset;
         transferred := if (remainingLength < capacity)
             then remainingLength
             else capacity;
-        prefix := remaining / transferred;
-        memory.view<UInt8>(0usize, transferred, (buffer) -> {
-            buffer.set(prefix);
-            ();
-        });
+        bytes.into(memory, offset, transferred);
         write((memory, transferred));
-        return(_writePacked(write, memory, capacity, remaining % transferred));
+        return(_writeBuffer(write, memory, capacity, bytes, offset + transferred));
     };
 
 writeSymbol :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    _writePacked(writeStdout, memory, capacity, *value);
+    _writeBuffer(writeStdout, memory, capacity, *value, 0usize);
 };
 
 fail :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    _writePacked(writeStderr, memory, capacity, *value);
-    _writePacked(writeStderr, memory, capacity, *"\n");
+    _writeBuffer(writeStderr, memory, capacity, *value, 0usize);
+    _writeBuffer(writeStderr, memory, capacity, *"\n", 0usize);
     failNow();
 };
 

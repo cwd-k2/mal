@@ -148,8 +148,7 @@ impl Marker<'_> {
                 | Expression::Float(_)
                 | Expression::Byte(_)
                 | Expression::Symbol(_)
-                | Expression::Unit
-                | Expression::StrideQuery(_) => {}
+                | Expression::Unit => {}
             }
         }
     }

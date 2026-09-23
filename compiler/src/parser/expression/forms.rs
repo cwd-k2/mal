@@ -1,4 +1,4 @@
-use crate::ast::{Expression, LayoutShape, Node};
+use crate::ast::{Expression, Node};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::TokenKind;
 
@@ -48,80 +48,6 @@ impl Parser<'_> {
                 value: Box::new(value),
             },
             self.span(start, end),
-        ))
-    }
-
-    pub(super) fn starts_layout_shape(&self) -> bool {
-        match self.current().kind {
-            TokenKind::ValueIdentifier => matches!(
-                &self.source.text()[self.current_span().start()..self.current_span().end()],
-                "unit"
-                    | "i8"
-                    | "i16"
-                    | "i32"
-                    | "i64"
-                    | "u8"
-                    | "u16"
-                    | "u32"
-                    | "u64"
-                    | "f32"
-                    | "f64"
-                    | "address"
-                    | "bytesize"
-                    | "usize"
-                    | "bool"
-            ),
-            TokenKind::LeftParen | TokenKind::LeftBracket => true,
-            _ => false,
-        }
-    }
-
-    pub(super) fn parse_layout_shape(&mut self) -> Result<Node<LayoutShape>, Diagnostic> {
-        let start = self.current_span().start();
-        if self.at(&TokenKind::ValueIdentifier) {
-            let token = self.advance();
-            let text = &self.source.text()[token.span.start()..token.span.end()];
-            let kind = match text {
-                "unit" => LayoutShape::Unit,
-                "i8" => LayoutShape::Int8,
-                "i16" => LayoutShape::Int16,
-                "i32" => LayoutShape::Int32,
-                "i64" => LayoutShape::Int64,
-                "u8" => LayoutShape::UInt8,
-                "u16" => LayoutShape::UInt16,
-                "u32" => LayoutShape::UInt32,
-                "u64" => LayoutShape::UInt64,
-                "f32" => LayoutShape::Float32,
-                "f64" => LayoutShape::Float64,
-                "address" => LayoutShape::Address,
-                "bytesize" => LayoutShape::ByteSize,
-                "usize" => LayoutShape::USize,
-                "bool" => LayoutShape::Bool,
-                _ => return Err(self.expected("a closed layout shape")),
-            };
-            return Ok(Node::new(kind, token.span));
-        }
-        let (close, product) = if self.take(&TokenKind::LeftParen).is_some() {
-            (TokenKind::RightParen, true)
-        } else if self.take(&TokenKind::LeftBracket).is_some() {
-            (TokenKind::RightBracket, false)
-        } else {
-            return Err(self.expected("a closed layout shape"));
-        };
-        let first = self.parse_layout_shape()?;
-        self.expect(&TokenKind::Comma, "`,` after the first shape member")?;
-        let mut members = vec![first, self.parse_layout_shape()?];
-        while self.take(&TokenKind::Comma).is_some() {
-            members.push(self.parse_layout_shape()?);
-        }
-        let right = self.expect(&close, if product { "`)`" } else { "`]`" })?;
-        Ok(Node::new(
-            if product {
-                LayoutShape::Product(members)
-            } else {
-                LayoutShape::Sum(members)
-            },
-            self.span(start, right.span.end()),
         ))
     }
 

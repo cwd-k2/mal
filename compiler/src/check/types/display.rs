@@ -25,16 +25,6 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                 Type::ByteSize => "ByteSize",
                 Type::USize => "USize",
                 Type::Parameter { name, .. } => name,
-                Type::Region(element) => {
-                    pending.push(TypeNamePart::Text(">"));
-                    pending.push(TypeNamePart::Type(element));
-                    "Region<"
-                }
-                Type::Packed(element) => {
-                    pending.push(TypeNamePart::Text(">"));
-                    pending.push(TypeNamePart::Type(element));
-                    "Packed<"
-                }
                 Type::Buffer(element) => {
                     pending.push(TypeNamePart::Text(">"));
                     pending.push(TypeNamePart::Type(element));

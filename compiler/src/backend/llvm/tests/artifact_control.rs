@@ -10,13 +10,13 @@ fn places_activation_temporaries_in_the_entry_block_before_recursive_back_edges(
          choose :: UInt64 -> Choice := (value) -> [left, right] => left(value);\n\
          loop<A, B> :: (A, A -> [A, B]) -> B := (state, step) -> step(state)[(next) -> loop<A, B>(next, step), (result) -> result];\n\
          main :: Unit -> Int32 := () -> {\n\
-           initial := make<Choice>(1usize, (buffer) -> { _ := buffer.new(choose(1u64)); (); });\n\
-           loop<(USize, Packed<Choice>), Int32>((0usize, initial), (state) -> [next, done] => {\n\
+           initial := make<Choice>(1usize);\n\
+           initial.new(choose(1u64));\n\
+           loop<(USize, Buffer<Choice>), Int32>((0usize, initial), (state) -> [next, done] => {\n\
              (index, values) := state;\n\
              when (index == 4usize) done(0i32);\n\
-             joined := values + values;\n\
-             value := (joined # 0usize)[(left) -> left, (right) -> right];\n\
-             next((index + value.usize, joined));\n\
+             value := values.get(0usize)[(left) -> left, (right) -> right];\n\
+             next((index + value.usize, values));\n\
            });\n\
          };"
             .into(),

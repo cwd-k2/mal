@@ -64,7 +64,7 @@ impl Checker {
     ) -> CheckResult<Expression> {
         if operator.kind == UnaryOperator::SymbolLength {
             let value = self.check_expression(operand, None)?;
-            if matches!(value.ty, Type::Region(_) | Type::Packed(_)) {
+            if matches!(value.ty, Type::Buffer(_)) {
                 return Ok(Expression {
                     kind: ExpressionKind::Memory {
                         primitive: MemoryPrimitive::ViewLength,
@@ -187,14 +187,6 @@ impl Checker {
         }
         if matches!(
             operator.kind,
-            BinaryOperator::Divide | BinaryOperator::Remainder
-        ) && expected.is_none_or(|ty| matches!(ty, Type::Region(_) | Type::Packed(_)))
-        {
-            let left = self.check_before(left, expected, right.span)?;
-            return self.check_binary_after_left(operator, left, right, span);
-        }
-        if matches!(
-            operator.kind,
             BinaryOperator::Add | BinaryOperator::Subtract
         ) {
             return self.check_pointer_or_numeric_arithmetic(operator, left, right, span, expected);
@@ -303,9 +295,6 @@ impl Checker {
     ) -> CheckResult<Expression> {
         match operator.kind {
             BinaryOperator::SymbolAt => {
-                if matches!(left.ty, Type::Packed(_)) {
-                    return self.check_packed_index(left, right, span);
-                }
                 self.require_type(&left.ty, &Type::Symbol, left.span)?;
                 let (left, right) = self.check_after(left, right, Some(&Type::USize))?;
                 return Ok(Expression {
@@ -324,9 +313,6 @@ impl Checker {
                 self.require_type(&left.ty, &bool_type(), left.span)?;
                 return self.check_logical_after_left(operator, left, right, span);
             }
-            BinaryOperator::Add | BinaryOperator::Subtract if left.ty == Type::Address => {
-                return self.check_address_offset(operator, left, right, span);
-            }
             BinaryOperator::Add if left.ty == Type::Symbol => {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
                 return Ok(Expression {
@@ -338,11 +324,6 @@ impl Checker {
                     ty: Type::Symbol,
                     span,
                 });
-            }
-            BinaryOperator::Divide | BinaryOperator::Remainder
-                if matches!(left.ty, Type::Region(_) | Type::Packed(_)) =>
-            {
-                return self.check_view_slice(operator.kind, left, right, span);
             }
             _ => {}
         }

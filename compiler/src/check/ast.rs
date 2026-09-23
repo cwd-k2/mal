@@ -26,8 +26,6 @@ pub enum Type {
         id: TypeId,
         name: String,
     },
-    Region(Arc<Type>),
-    Packed(Arc<Type>),
     Buffer(Arc<Type>),
     External {
         id: TypeId,
@@ -82,9 +80,7 @@ impl PartialEq for Type {
                         name: right_name,
                     },
                 ) if left_id == right_id && left_name == right_name => {}
-                (Self::Region(left), Self::Region(right))
-                | (Self::Packed(left), Self::Packed(right))
-                | (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
+                (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
                 (
                     Self::External {
                         id: left_id,
@@ -285,12 +281,6 @@ pub struct Expression {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PackedBuild {
-    Make { capacity: Box<Expression> },
-    Edit { source: Box<Expression> },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Completion {
     Value(Expression),
     Abrupt(AbruptExpression),
@@ -338,7 +328,6 @@ pub enum ExpressionKind {
     Integer(i128),
     Float(u64),
     Symbol(Vec<u8>),
-    StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
     Parenthesized(Box<Expression>),
@@ -352,16 +341,6 @@ pub enum ExpressionKind {
     Call {
         callee: Box<Expression>,
         argument: Box<Expression>,
-    },
-    PackedBuild {
-        build: PackedBuild,
-        callback: Box<Expression>,
-        element: Type,
-    },
-    RegionView {
-        range: Box<Expression>,
-        callback: Box<Expression>,
-        element: Type,
     },
     SymbolLength {
         value: Box<Expression>,
@@ -402,18 +381,12 @@ pub enum ExpressionKind {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MemoryPrimitive {
-    FormRegion,
-    RegionGet,
-    RegionPut,
-    PackAddress,
-    RegionSet,
-    PackedConcat,
-    Prefix,
-    RemainderView,
+    BufferMake,
+    BufferFromAddress,
+    BufferIntoAddress,
     ViewLength,
-    PackedIndex,
-    PackedToSymbol,
-    SymbolToPacked,
+    BufferToSymbol,
+    SymbolToBuffer,
     BufferNew,
     BufferGet,
     BufferPut,

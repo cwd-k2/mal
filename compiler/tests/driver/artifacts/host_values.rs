@@ -13,12 +13,12 @@ fn accesses_canonical_memory_through_named_alias_helpers() {
          extern inspect :: Address -> Unit;\n\
          main :: Unit -> Int32 := () -> {\n\
            address := storage();\n\
-           view<(Int64, UInt8)>(address, 0usize, 1usize, (region) -> {\n\
-             region.put(0usize, (41i64, 1u8));\n\
-             inspect(address);\n\
-             (number, byte) := region.get(0usize);\n\
-             (number + byte.i64 - 44i64).i32;\n\
-           });\n\
+           values := make<Sample>(1usize);\n\
+           values.new((41i64, 1u8));\n\
+           values.into(address, 0usize, 1usize);\n\
+           inspect(address);\n\
+           (number, byte) := from<Sample>(address, 0usize, 1usize).get(0usize);\n\
+           (number + byte.i64 - 44i64).i32;\n\
          };",
     );
     directory.write(
@@ -73,7 +73,7 @@ fn bridges_bytes_through_borrowed_addresses_in_the_public_c_abi() {
          main :: Unit -> Int32 := () -> {\n\
            address := memory();\n\
            bytes := *(\"x\" + \"y\");\n\
-           view<UInt8>(address, 0usize, #bytes, (region) -> { _ := region.set(bytes); (); });\n\
+           bytes.into(address, 0usize, #bytes);\n\
            inspect(address, #bytes).i32 - 1;\n\
          };",
     );
@@ -127,9 +127,9 @@ fn marshals_address_products_through_the_public_c_abi() {
          main :: Unit -> Int32 := () -> {\n\
            address := memory();\n\
            bytes := *\"ab\";\n\
-           view<UInt8>(address, 0usize, #bytes, (region) -> { _ := region.set(bytes); (); });\n\
+           bytes.into(address, 0usize, #bytes);\n\
            (number, returned, length) := exchange(41u64, address, #bytes);\n\
-           if (number == 42u64 && *pack<UInt8>(returned, 0usize, length) == \"ab\")\n\
+           if (number == 42u64 && *from<UInt8>(returned, 0usize, length) == \"ab\")\n\
            then 0\n\
            else 1;\n\
          };",
@@ -194,7 +194,7 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
          main :: Unit -> Int32 := () -> {\n\
            address := memory();\n\
            bytes := *\"ab\";\n\
-           view<UInt8>(address, 0usize, #bytes, (region) -> { _ := region.set(bytes); (); });\n\
+           bytes.into(address, 0usize, #bytes);\n\
            (number, choice) := exchange(41u8, makeChoice(7u64, (address, #bytes)));\n\
            choice[\n\
              () -> { 1 },\n\
@@ -203,7 +203,7 @@ fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
                (returnedAddress, length) := returned;\n\
                if (number == 42u8) then {\n\
                  if (bias == 7u64) then {\n\
-                   if (*pack<UInt8>(returnedAddress, 0usize, length) == \"ab\") then { 0 } else { 2 };\n\
+                   if (*from<UInt8>(returnedAddress, 0usize, length) == \"ab\") then { 0 } else { 2 };\n\
                  } else { 3 };\n\
                } else { 4 };\n\
              }];\n\

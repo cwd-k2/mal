@@ -186,7 +186,7 @@ impl Checker {
         callee: &Node<resolved::Expression>,
         arguments: &[Node<resolved::Expression>],
         span: Span,
-        expected: Option<&Type>,
+        _expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if let resolved::Expression::GenericReference {
             reference,
@@ -194,27 +194,10 @@ impl Checker {
         } = &callee.kind
             && matches!(
                 reference.id,
-                crate::resolve::MAKE_VALUE | crate::resolve::EDIT_VALUE
+                crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
             )
         {
-            return self.check_packed_build(reference, type_arguments, arguments, span);
-        }
-        if let resolved::Expression::GenericReference {
-            reference,
-            arguments: type_arguments,
-        } = &callee.kind
-            && matches!(
-                reference.id,
-                crate::resolve::PACK_VALUE | crate::resolve::VIEW_VALUE
-            )
-        {
-            return self.check_memory_intrinsic(
-                reference,
-                type_arguments,
-                arguments,
-                span,
-                expected,
-            );
+            return self.check_memory_intrinsic(reference, type_arguments, arguments, span);
         }
         if let resolved::Expression::Reference(reference) = &callee.kind
             && matches!(
@@ -222,7 +205,7 @@ impl Checker {
                 crate::resolve::NEW_VALUE
                     | crate::resolve::GET_VALUE
                     | crate::resolve::PUT_VALUE
-                    | crate::resolve::SET_VALUE
+                    | crate::resolve::INTO_VALUE
             )
         {
             return self.check_memory_operation(reference, arguments, span);

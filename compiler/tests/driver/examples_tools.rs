@@ -252,12 +252,12 @@ fn fallible_tree_example_cleans_partial_construction() {
 }
 
 #[test]
-fn packed_tree_example_builds_edits_and_traverses_a_tree() {
+fn buffer_tree_example_builds_mutates_and_traverses_a_tree() {
     let directory = NativeFixture::new("driver");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("compiler has a repository parent")
-        .join("examples/packed-tree");
+        .join("examples/buffer-tree");
     let executable = directory.join("example");
     let output = directory.malc([
         OsStr::new("build"),

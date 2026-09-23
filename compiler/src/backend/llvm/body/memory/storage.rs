@@ -3,23 +3,7 @@ use crate::check::ast::Type;
 use super::super::{EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
-    pub(in crate::backend::llvm::body) fn emit_source_load_at(
-        &mut self,
-        pointer: &str,
-        element: &Type,
-    ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, false, "")
-    }
-
-    pub(in crate::backend::llvm::body) fn emit_aligned_source_load_at(
-        &mut self,
-        pointer: &str,
-        element: &Type,
-    ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, true, "")
-    }
-
-    pub(in crate::backend::llvm::body) fn emit_aligned_builder_load_at(
+    pub(in crate::backend::llvm::body) fn emit_aligned_buffer_load_at(
         &mut self,
         pointer: &str,
         element: &Type,
@@ -181,14 +165,6 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    pub(in crate::backend::llvm::body) fn emit_source_store_at(
-        &mut self,
-        pointer: &str,
-        value: &EmittedValue,
-    ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, false, "")
-    }
-
     pub(in crate::backend::llvm::body) fn emit_aligned_source_store_at(
         &mut self,
         pointer: &str,
@@ -197,7 +173,7 @@ impl FunctionEmitter<'_> {
         self.emit_source_store_at_with_alignment(pointer, value, true, "")
     }
 
-    pub(in crate::backend::llvm::body) fn emit_aligned_builder_store_at(
+    pub(in crate::backend::llvm::body) fn emit_aligned_buffer_store_at(
         &mut self,
         pointer: &str,
         value: &EmittedValue,

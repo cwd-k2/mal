@@ -122,7 +122,6 @@ pub enum Expression {
         type_name: Name,
         value: Box<Node<Expression>>,
     },
-    StrideQuery(Node<LayoutShape>),
     If {
         condition: Box<Node<Expression>>,
         then_branch: ExpressionBlock,
@@ -141,27 +140,6 @@ pub enum Expression {
         left: Box<Node<Expression>>,
         right: Box<Node<Expression>>,
     },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum LayoutShape {
-    Unit,
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-    Float32,
-    Float64,
-    Address,
-    ByteSize,
-    USize,
-    Bool,
-    Product(Vec<Node<LayoutShape>>),
-    Sum(Vec<Node<LayoutShape>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

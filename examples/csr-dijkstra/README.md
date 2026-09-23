@@ -1,6 +1,6 @@
 # CSR Dijkstra example
 
-This example stores a directed weighted graph in three immutable columns. `NodeOffsets` partitions
+This example stores a directed weighted graph in three Buffer columns. `NodeOffsets` partitions
 edge slots into one range per source node, `NeighborNodes` maps each edge slot to a destination node,
 and `EdgeCosts` supplies payload joined by that same edge slot. None of the three carriers is a graph
 by itself. `WeightedCsr` and its operations define how their coordinates relate.
@@ -17,11 +17,10 @@ The example deliberately selects the next node with an O(V²) scan so the CSR re
 only data-structure concern. A binary heap could replace that selection policy, but its parent/child
 relation would be another algorithmic interpretation of indices rather than a property of CSR.
 
-The immutable columns share `_allIndexed` for validation because only a coordinate and ordinary row
-value cross that abstraction. The mutable algorithm passes `DijkstraWorkspace` directly through
-named recursion instead: its `Buffer` is scoped authority and cannot be hidden in a captured fold or
-`forEach` callback. This difference is intentional—the useful abstraction boundary follows authority,
-not superficial similarity between the scans.
+The graph columns share `_allIndexed` for validation because only a coordinate and ordinary row value
+cross that abstraction. The mutable workspace is passed explicitly through named recursion so each
+algorithm step makes its read/write subject visible. Buffer could be captured by a closure, but doing
+so would hide the state transition that this example is intended to teach.
 
 From the repository root in Nushell:
 

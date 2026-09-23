@@ -121,8 +121,6 @@ impl Resolver {
             .get(&name.text)
             .map(|binding| binding.id)
             .or(match name.text.as_str() {
-                "Region" => Some(super::predefined::REGION_TYPE),
-                "Packed" => Some(super::predefined::PACKED_TYPE),
                 "Buffer" => Some(super::predefined::BUFFER_TYPE),
                 _ => None,
             })
@@ -138,8 +136,6 @@ impl Resolver {
         name: &ast::Name,
     ) -> Result<TypeReference, Diagnostic> {
         let builtin = match name.text.as_str() {
-            "Region" => Some(super::predefined::REGION_TYPE),
-            "Packed" => Some(super::predefined::PACKED_TYPE),
             "Buffer" => Some(super::predefined::BUFFER_TYPE),
             _ => None,
         };

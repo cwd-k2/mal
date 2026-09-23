@@ -1,4 +1,5 @@
 require "./host.c";
+require "./bytes.mal";
 
 // Arguments fields: 0 argument count, 1 first external descriptor address.
 Arguments :: (USize, Address);
@@ -16,27 +17,25 @@ extern releaseInput :: InputAllocation -> Unit;
 extern outputBuffer :: Unit -> OutputBuffer;
 // Writes an initialized prefix of the staging buffer to standard output.
 extern writeBytes :: OutputBuffer -> Unit;
+extern argumentLength :: Address -> USize;
 
 // Each tail step publishes one bounded chunk before carrying the untouched suffix forward.
-_writePacked :: (Address, USize, Packed<UInt8>) -> Unit :=
-    (memory, capacity, remaining) -> [return] => {
-        when (#remaining == 0usize) {
+_writeBuffer :: (Address, USize, Buffer<UInt8>, USize) -> Unit :=
+    (memory, capacity, bytes, offset) -> [return] => {
+        when (offset == #bytes) {
             return(());
         };
 
-        remainingLength := #remaining;
+        remainingLength := #bytes - offset;
         transferred := if (remainingLength < capacity)
             then remainingLength
             else capacity;
-        memory.view<UInt8>(0usize, transferred, (buffer) -> {
-            buffer.set(remaining / transferred);
-            ();
-        });
+        bytes.into(memory, offset, transferred);
         writeBytes(memory, transferred);
-        return(_writePacked(memory, capacity, remaining % transferred));
+        return(_writeBuffer(memory, capacity, bytes, offset + transferred));
     };
 
 writeStdout :: Symbol -> Unit := (value) -> {
     (memory, capacity) := outputBuffer();
-    _writePacked(memory, capacity, *value);
+    _writeBuffer(memory, capacity, *value, 0usize);
 };

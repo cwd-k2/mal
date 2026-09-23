@@ -1,6 +1,6 @@
 use crate::check::ast::{MemoryPrimitive, Type};
 use crate::core::ast::{
-    BinaryPrimitive, JoinId, LambdaKind, PackedBuilderOperation, ProgramInterface, UnaryPrimitive,
+    BinaryPrimitive, BufferOperation, JoinId, LambdaKind, ProgramInterface, UnaryPrimitive,
     ValueId as CoreValueId,
 };
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
@@ -95,7 +95,6 @@ pub enum AtomKind {
     Integer(i128),
     Float(u64),
     Symbol(Vec<u8>),
-    StorageSize(Type),
     Unit,
 }
 
@@ -121,8 +120,8 @@ pub enum Operation {
         primitive: MemoryPrimitive,
         operands: Vec<Atom>,
     },
-    PackedBuilder {
-        operation: PackedBuilderOperation,
+    Buffer {
+        operation: BufferOperation,
         element: Type,
         argument: Atom,
     },

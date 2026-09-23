@@ -68,8 +68,8 @@ fn admits_external_functions_as_closed_top_level_values() {
 }
 
 #[test]
-fn admits_closed_storage_size_arithmetic_at_top_level() {
-    let program = check_ok("recordSize :: ByteSize := #u8 + #usize + 4bytes + #address;");
+fn admits_closed_byte_size_arithmetic_at_top_level() {
+    let program = check_ok("recordSize :: ByteSize := 1bytes + 8bytes + 4bytes + 8bytes;");
 
     let value = &top_binding(&program, 0).value;
     assert_eq!(value.ty, Type::ByteSize);
@@ -130,7 +130,7 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "Loop<A> :: Loop<A>; value := 0;",
             "recursive generic type alias",
         ),
-        ("value :: Region := 0;", "generic type requires arguments"),
+        ("value :: Buffer := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
     }
@@ -138,13 +138,13 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
 
 #[test]
 fn forms_indexed_memory_types_only_for_representable_elements() {
-    let error = check_error("Callback :: Int32 -> Int32; value :: Region<Callback> := 0;");
+    let error = check_error("Callback :: Int32 -> Int32; value :: Buffer<Callback> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 
-    let error = check_error("value :: Region<[]> := 0;");
+    let error = check_error("value :: Buffer<[]> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 
-    let error = check_error("value :: Packed<Region<UInt8>> := 0;");
+    let error = check_error("value :: Buffer<Buffer<UInt8>> := 0;");
     assert_eq!(error.message, "memory element type is not representable");
 }
 
@@ -153,8 +153,8 @@ fn rejects_non_host_mappable_types_at_the_host_boundary() {
     for source in [
         "extern inspect :: Symbol -> Unit;",
         "extern inspect :: Buffer<UInt8> -> Unit;",
-        "extern inspect :: Unit -> Region<UInt8>;",
-        "extern inspect :: (Int32, Packed<UInt8>) -> Unit;",
+        "extern inspect :: Unit -> Buffer<UInt8>;",
+        "extern inspect :: (Int32, Buffer<UInt8>) -> Unit;",
         "Payload :: [UInt8, Symbol]; extern inspect :: Payload -> Unit;",
     ] {
         assert_eq!(
@@ -339,8 +339,8 @@ fn rejects_effectful_top_level_initializers() {
 #[test]
 fn rejects_top_level_arithmetic_over_another_top_level_value() {
     let error = check_error(
-        "base :: ByteSize := #u8;\n\
-         recordSize :: ByteSize := base + #usize;",
+        "base :: ByteSize := 1bytes;\n\
+         recordSize :: ByteSize := base + 8bytes;",
     );
     assert_eq!(error.message, "invalid top-level initializer");
 }

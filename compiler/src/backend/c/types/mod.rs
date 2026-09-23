@@ -78,11 +78,7 @@ impl TypeRegistry {
             Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
             Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
             Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
-            Type::Symbol
-            | Type::Parameter { .. }
-            | Type::Region(_)
-            | Type::Packed(_)
-            | Type::Buffer(_) => {
+            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                 unreachable!("these types never enter the C host registry")
             }
         }
@@ -116,11 +112,7 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Symbol
-            | Type::Parameter { .. }
-            | Type::Region(_)
-            | Type::Packed(_)
-            | Type::Buffer(_) => {
+            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                 unreachable!("these types are not host mappable")
             }
         }
@@ -151,11 +143,7 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol
-                | Type::Parameter { .. }
-                | Type::Region(_)
-                | Type::Packed(_)
-                | Type::Buffer(_) => {
+                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             };
@@ -236,11 +224,7 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol
-                | Type::Parameter { .. }
-                | Type::Region(_)
-                | Type::Packed(_)
-                | Type::Buffer(_) => {
+                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                     unreachable!("these types never enter the C host registry")
                 }
             }

@@ -19,11 +19,12 @@ fn execution(source: &str) -> crate::execution::Program {
 #[test]
 fn selects_preserved_managed_fields() {
     let execution = execution(
-        "walk :: (Packed<Int32>, Int32) -> Int32 := (values, left) -> {
-           if (left == 0i32) then { values # 0usize } else { walk(values, left - 1i32) };
+        "walk :: (Buffer<Int32>, Int32) -> Int32 := (values, left) -> {
+           if (left == 0i32) then { values.get(0usize) } else { walk(values, left - 1i32) };
          };
          main :: Unit -> Int32 := () -> {
-           values := make<Int32>(1usize, (buffer) -> { _ := buffer.new(7i32); (); });
+           values := make<Int32>(1usize);
+           values.new(7i32);
            walk(values, 1i32) - 7i32;
          };",
     );
@@ -54,13 +55,14 @@ fn selects_preserved_managed_fields() {
 #[test]
 fn rejects_changed_managed_fields() {
     let execution = execution(
-        "walk :: (Packed<Int32>, Packed<Int32>, Int32) -> Int32 :=
+        "walk :: (Buffer<Int32>, Buffer<Int32>, Int32) -> Int32 :=
            (left, right, count) -> {
-             if (count == 0i32) then { left # 0usize }
+             if (count == 0i32) then { left.get(0usize) }
              else { walk(right, left, count - 1i32) };
            };
          main :: Unit -> Int32 := () -> {
-           values := make<Int32>(1usize, (buffer) -> { _ := buffer.new(7i32); (); });
+           values := make<Int32>(1usize);
+           values.new(7i32);
            walk(values, values, 1i32) - 7i32;
          };",
     );

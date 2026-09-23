@@ -218,7 +218,7 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
 }
 
 #[test]
-fn resizable_buffer_example_handles_growth_borrows_and_stale_aliases() {
+fn resizable_buffer_example_observes_growth_through_an_alias() {
     let directory = NativeFixture::new("resizable-buffer");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -241,7 +241,7 @@ fn resizable_buffer_example_handles_growth_borrows_and_stale_aliases() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
-        "al\nmal-shared-buffer\nresize rejected\n"
+        "al\nmal-shared-buffer\n"
     );
     assert!(output.stderr.is_empty());
 }

@@ -29,11 +29,6 @@ impl FunctionEmitter<'_> {
                 representation: format!("0x{bits:016X}"),
                 owned: false,
             }),
-            (Type::ByteSize, AtomKind::StorageSize(measured)) => Some(EmittedValue {
-                ty: Type::ByteSize,
-                representation: self.source_layouts.layout(measured)?.stride.to_string(),
-                owned: false,
-            }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {
                 if bytes.is_empty() {
                     return self.make_byte_view(&Type::Symbol, "null", "null", "0", true);

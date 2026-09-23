@@ -11,8 +11,8 @@ Status: Accepted v0.6 profile
 - fixed-width numeric、`ByteSize`、`USize`、logical、bit operation
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
-- `Address`、canonical memory layout、`Region`によるexternal memory access
-- mal-owned immutable sequence `Packed`とそのscoped構築・編集authority `Buffer`
+- opaqueな`Address` capabilityとcanonical memory layout
+- mal-ownedで共有可変な`Buffer`
 - extern boundary
 - optional process argument entry
 
@@ -47,20 +47,21 @@ field name、implicit constructor、nominal identityはない。
 
 ## Memoryとmutable data
 
-languageはexternal storageのallocation policyを持たない。host contractから受け取ったAddressとelement offsetの半開区間を`view`へ渡して
-Regionを作る。unaligned accessは共通mechanism、alignment、permission、lifetime、allocation failure policyは
-必要なoperationのcontractが所有する。
+languageはexternal storageのallocation policyを持たない。C host profileではhost contractから受け取った
+`Address`、element offset、lengthを`from<T>`へ渡し、独立した`Buffer<T>`へcopyする。alignment、範囲、permission、
+lifetime、allocation failure policyは必要なoperationのcontractが所有する。
 
 ```mal
 extern allocate :: ByteSize -> Address;
 
 readInt64 :: (Address, USize) -> Int64 := (base, index) -> {
-    view<Int64>(base, index, index + 1usize, (region) -> region.get(0usize));
+    values := from<Int64>(base, index, 1usize);
+    values.get(0usize);
 };
 ```
 
-mal内に保持する有限sequenceは`Packed<A>`へadmitできる。更新を繰り返すbuffer、file、socket、deviceはRegionまたはexternal opaque
-typeとextern operationで表す。`Region`と`Packed`の規則は[該当仕様](packed.md)に定める。
+mal内に保持する有限sequenceは`Buffer<A>`へcopyできる。file、socket、deviceはexternal opaque typeとextern operationで表す。
+`Address`と`Buffer`の規則は[該当仕様](memory.md)に定める。
 
 ## Standard library
 

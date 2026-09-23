@@ -57,43 +57,6 @@ fn an_empty_set_makes_no_optional_execution_decisions() {
 }
 
 #[test]
-fn selects_a_managed_capture_only_for_one_final_invocation() {
-    let source = SourceFile::new(
-        FileId::new(92),
-        "unique-capture-plan.mal",
-        "main :: Unit -> Int32 := () -> {
-           source := make<Int32>(0usize, (buffer) -> { _ := buffer.new(1i32); (); });
-           _ := make<Unit>(0usize, (_) -> {
-             changed := source.edit<Int32>((buffer) -> buffer.put(0usize, 2i32));
-             _ := changed # 0usize;
-             ();
-           });
-           0;
-         };"
-        .into(),
-    );
-    let checked = crate::pipeline::check(&source).expect("check unique capture fixture");
-    let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize unique capture fixture"),
-    );
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    let control = crate::control::lower(&closure);
-    let uses = ClosureUsePlan::new(&closure);
-    let applications = ApplicationGraph::new(&closure, &control, &uses);
-    let enabled = OptimizationSet::none().with(Technique::UniqueCapture);
-    let plan = OptimizationPlan::new(&closure, &control, &applications, enabled);
-
-    assert!(!plan.unique_captures.is_empty());
-    assert!(plan.is_valid(&closure, &control, &applications, enabled));
-    assert!(
-        OptimizationPlan::new(&closure, &control, &applications, OptimizationSet::none())
-            .unique_captures
-            .is_empty()
-    );
-}
-
-#[test]
 fn selects_only_parameter_fields_preserved_by_every_self_recursive_edge() {
     let source = SourceFile::new(
         FileId::new(93),
@@ -180,7 +143,7 @@ fn rejects_a_single_capture_site_repeated_by_a_recursive_caller() {
          };
          main :: Unit -> Int32 := () -> {
            value := \"capture\";
-           callback :: Unit -> Unit := () -> { _ := #value; (); };
+           callback :: Unit -> Unit := () -> { #value; (); };
            repeat(callback, 2i32);
            0;
          };"

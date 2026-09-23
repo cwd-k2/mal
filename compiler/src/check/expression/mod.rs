@@ -84,19 +84,6 @@ impl Checker {
                     .iter()
                     .map(|argument| self.expand_type(argument))
                     .collect::<Result<Vec<_>, _>>()?;
-                if let Some(argument) = arguments
-                    .iter()
-                    .find(|argument| super::types::contains_scoped_anywhere(argument))
-                {
-                    return Err(Diagnostic::error(
-                        "scoped authority cannot be a generic type argument",
-                    )
-                    .with_primary(
-                        reference.name.span,
-                        format!("`{}` contains Region or Buffer", type_name(argument)),
-                    )
-                    .into());
-                }
                 if self
                     .active_generic
                     .as_ref()
@@ -241,9 +228,6 @@ impl Checker {
                     ty: target,
                     span: expression.span,
                 }
-            }
-            resolved::Expression::StrideQuery(shape) => {
-                self.check_stride_query(shape, expression.span)
             }
             resolved::Expression::If {
                 condition,

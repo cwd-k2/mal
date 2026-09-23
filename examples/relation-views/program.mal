@@ -1,7 +1,7 @@
 // PairRow is a physical pair of coordinates with no relation fixed by the product type itself.
 PairRow :: (USize, USize);
 // PairRows is a finite carrier that operations may interpret as edges, intervals, or another relation.
-PairRows :: Packed<PairRow>;
+PairRows :: Buffer<PairRow>;
 
 // Carrier traversal is independent of the relation assigned to each row. The step sum keeps
 // early completion distinct from the next cursor instead of reserving a sentinel index.
@@ -13,12 +13,12 @@ _loop<A, B> :: (A, A -> [A, B]) -> B :=
 
 // Existential traversal stops at the first matching row. Its empty result is false because
 // there is no witness.
-_anyPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
+_anyBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
     _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(false);
         };
-        when (predicate(values # index)) {
+        when (predicate(values.get(index))) {
             break(true);
         };
 
@@ -27,12 +27,12 @@ _anyPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
 
 // Universal traversal stops at the first counterexample. Its empty result is true because no row
 // violates the predicate.
-_allPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
+_allBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
     _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(true);
         };
-        when (!predicate(values # index)) {
+        when (!predicate(values.get(index))) {
             break(false);
         };
 
@@ -41,39 +41,39 @@ _allPacked<A> :: (Packed<A>, A -> Bool) -> Bool := (values, predicate) ->
 
 // A fold has no early domain result, so the loop state pairs the shared cursor with the evolving
 // accumulator and returns it only after every row has contributed.
-_foldPacked<A, B> :: (Packed<A>, B, (B, A) -> B) -> B := (values, initial, combine) ->
+_foldBuffer<A, B> :: (Buffer<A>, B, (B, A) -> B) -> B := (values, initial, combine) ->
     _loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
         when (index == #values) {
             break(result);
         };
 
-        continue((index + 1usize, combine(result, values # index)));
+        continue((index + 1usize, combine(result, values.get(index))));
     });
 
-buildRows :: Unit -> PairRows := () ->
-    make<PairRow>(3usize, (buffer) -> {
-        buffer.new((0usize, 3usize));
-        buffer.new((3usize, 5usize));
-        buffer.new((2usize, 4usize));
-        ();
-    });
+buildRows :: Unit -> PairRows := () -> {
+    buffer := make<PairRow>(3usize);
+    buffer.new((0usize, 3usize));
+    buffer.new((3usize, 5usize));
+    buffer.new((2usize, 4usize));
+    buffer;
+};
 
 // The following operations give the same carrier three meanings. Their callbacks describe only
 // one row; the named traversal combinators own cursor movement, termination, and empty input.
 hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
-    rows._anyPacked<PairRow>((row) -> {
+    rows._anyBuffer<PairRow>((row) -> {
         (rowSource, rowTarget) := row;
         rowSource == source && rowTarget == target;
     });
 
 validIntervals :: PairRows -> Bool := (rows) ->
-    rows._allPacked<PairRow>((row) -> {
+    rows._allBuffer<PairRow>((row) -> {
         (start, end) := row;
         start <= end;
     });
 
 coverageAt :: (PairRows, USize) -> USize := (rows, coordinate) ->
-    rows._foldPacked<PairRow, USize>(0usize, (count, row) -> {
+    rows._foldBuffer<PairRow, USize>(0usize, (count, row) -> {
         (start, end) := row;
         included := start <= coordinate && coordinate < end;
         if (included)

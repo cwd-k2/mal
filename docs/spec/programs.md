@@ -57,7 +57,7 @@ distance :: (Point, Point) -> Float64 :=
 
 type alias と extern declaration が導入する名前は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
 
-top-level valueのRHSは、literal、product/sum、numeric conversion、external function、shape stride query、lambda、および
+top-level valueのRHSは、literal、product/sum、numeric conversion、external function、lambda、および
 それらからなる作用のない closed expression に制限する。他のtop-level valueへの参照とfunction applicationは認めない。
 direct blockとdirect result blockもtop-level initializerには認めない。
 `false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある
@@ -77,25 +77,28 @@ command-line argumentを受け取る実行可能programは、代わりに次のe
 
 ```mal
 Arguments :: (USize, Address);
+extern argumentLength :: Address -> USize;
 
 main :: Arguments -> Int32 := (argumentCount, arguments) ->
     if (argumentCount == 0usize)
     then 0
     else {
-        packed := pack<(Address, ByteSize)>(arguments, 0usize, argumentCount);
-        (data, length) := packed # 0usize;
-        first :: Symbol := *pack<UInt8>(data, 0usize, length.usize);
+        pointers := from<Address>(arguments, 0usize, argumentCount);
+        firstAddress := pointers.get(0usize);
+        // An operation-specific extern contract supplies the byte length.
+        first :: Symbol := *from<UInt8>(firstAddress, 0usize, argumentLength(firstAddress));
         0;
     };
 ```
 
-productの第一要素は実行ファイル名を除くargument数である。第二要素はread-onlyな外部descriptor列の先頭を指す。
-各descriptorはcanonical shape `(address, bytesize)`を持ち、argument bytesのAddressとByteSizeを表す。必要なdescriptorと
-byte regionだけを`pack`でPackedまたはSymbolへadmitする。
-argument数が0でも第二要素はnullではなく、`main`のreturnまで有効な長さ0のregionを指す。
+productの第一要素は実行ファイル名を除くargument数である。第二要素はhostが提供するargument collection capabilityである。
+そのrepresentationはmal language profileに含めない。reference C hostでは`argv[1]`以降のC pointer列を指し、
+`from<Address>`で必要なpointerをBufferへcopyできる。各C stringのlengthやencoding interpretationはextern contractが提供する。
+argument数が0のときも第二要素はhost contractが定める値であり、要素を読み出してはならない。
 
-argument bytesはhost process interfaceが渡した終端NULを含まないbyte列であり、UTF-8を保証しない。descriptor列と
-各byte regionは`main`のreturnまでread-onlyで有効である。`count`以上のdescriptorへaccessしてはならない。
+argument bytesの終端、encoding、access operationはhost profileが定める。reference C hostでは各Addressが終端NULを持つC stringを
+指すが、`from<UInt8>`へ渡すlengthには終端NULを含める必要はない。pointer列と各byte regionは`main`のreturnまでread-onlyで有効である。
+`count`以上のpointerをcopyしてはならない。
 
 `Unit -> Int32`と`(USize, Address) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
 [D030](../history/decisions/D030.md)に記録する。

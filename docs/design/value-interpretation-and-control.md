@@ -55,7 +55,7 @@ lexical target、実行中のdynamic continuation、backendのresume targetを�
 確立したvalue carrierはbindingから繰り返し利用できる。ただし、carrierの再利用は、その内部の`Address`やexternal opaque
 valueが指すreferentの複製、lifetime延長、再利用可能性を意味しない。
 
-型とcarrierはdomain上の意味をすべて内包しない。`Packed<NodeRow>`がtreeであるにはroot、edge、bounds、acyclicityを解釈する
+型とcarrierはdomain上の意味をすべて内包しない。`Buffer<NodeRow>`がtreeであるにはroot、edge、bounds、acyclicityを解釈する
 operationとinvariantが必要であり、`(Address, USize)`がreadable bytesであるには範囲、permission、initialization、lifetimeを
 定めるoperation contractが必要である。carrier、relation、invariantの分担は[表現と関係を分ける](representation-and-relations.md)
 を正とする。

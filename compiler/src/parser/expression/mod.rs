@@ -66,28 +66,6 @@ impl Parser<'_> {
     }
 
     fn parse_prefix(&mut self) -> Result<Node<Expression>, Diagnostic> {
-        if self.at(&TokenKind::Hash) {
-            let checkpoint = (
-                self.position,
-                self.pending_generic_closers,
-                self.generic_close_span,
-            );
-            let start = self.advance().span.start();
-            if self.starts_layout_shape()
-                && let Ok(shape) = self.parse_layout_shape()
-            {
-                let end = shape.span.end();
-                return Ok(Node::new(
-                    Expression::StrideQuery(shape),
-                    self.span(start, end),
-                ));
-            }
-            (
-                self.position,
-                self.pending_generic_closers,
-                self.generic_close_span,
-            ) = checkpoint;
-        }
         if let Some(operator) = self.unary_operator() {
             let token = self.advance().clone();
             let minimum = if operator == UnaryOperator::SymbolLength {

@@ -132,7 +132,7 @@ fn visit_operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::Atom(atom)
         | Operation::SymbolLength { value: atom }
         | Operation::SymbolAt { argument: atom }
-        | Operation::PackedBuilder { argument: atom, .. }
+        | Operation::Buffer { argument: atom, .. }
         | Operation::ExternalCall { argument: atom, .. }
         | Operation::NumericConversion { operand: atom }
         | Operation::SumInjection { value: atom, .. }

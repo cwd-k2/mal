@@ -20,7 +20,7 @@ closingParen :: UInt8 := ')';
 
 message :: Symbol := "mal\n";
 
-pointerStorageSize :: ByteSize := #address;
+bufferLength :: USize := #buffer;
 
 inspect :: Symbol -> USize := (value) -> #value + (value # 1usize).usize;
 

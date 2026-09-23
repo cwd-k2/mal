@@ -114,25 +114,6 @@ impl Index {
                 self.collect_checked_expression(callee);
                 self.collect_checked_expression(argument);
             }
-            ExpressionKind::PackedBuild {
-                build, callback, ..
-            } => {
-                match build {
-                    checked::PackedBuild::Make { capacity } => {
-                        self.collect_checked_expression(capacity);
-                    }
-                    checked::PackedBuild::Edit { source } => {
-                        self.collect_checked_expression(source);
-                    }
-                }
-                self.collect_checked_expression(callback);
-            }
-            ExpressionKind::RegionView {
-                range, callback, ..
-            } => {
-                self.collect_checked_expression(range);
-                self.collect_checked_expression(callback);
-            }
             ExpressionKind::SumElimination {
                 scrutinee,
                 continuations,
@@ -175,7 +156,6 @@ impl Index {
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
-            | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
         }
     }

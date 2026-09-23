@@ -151,20 +151,20 @@ fn checked_in_example_headers_match_the_compiler() {
         .expect("compiler directory has a repository parent");
     let examples = [
         "brainfuck-llvm",
+        "buffer-tree",
         "fallible-tree",
-        "numeric-conversion",
         "json-query",
         "mini-database",
+        "numeric-conversion",
         "opaque-aggregate",
-        "packed-tree",
         "print-and-closure",
-        "typed-memory",
         "recoverable-file",
         "resizable-buffer",
         "socket-packet",
         "strict-float",
         "symbol-round-trip",
         "tail-recursion",
+        "typed-memory",
     ];
 
     for example in examples {
@@ -322,4 +322,50 @@ fn source_graph_overlays_open_mal_buffers() {
         dependency_text
     );
     malc::pipeline::check_graph(&graph).expect("check overlaid graph");
+}
+
+#[test]
+fn copies_between_c_host_storage_and_a_shared_managed_buffer() {
+    let directory = NativeFixture::new("driver-c-host-buffer-copy");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";
+         extern storage :: Unit -> Address;
+         extern verify :: Unit -> Int32;
+         main :: Unit -> Int32 := () -> {
+           values := from<UInt32>(storage(), 1usize, 2usize);
+           alias := values;
+           alias.put(0usize, 41u32);
+           values.new(99u32);
+           values.into(storage(), 0usize, 2usize);
+           if (values.get(0usize) == 41u32 && alias.get(2usize) == 99u32)
+           then verify()
+           else 1i32;
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         #include <stdint.h>\n\
+         static uint32_t values[] = {10, 20, 30};\n\
+         MAL_DEFINE_storage(call) { return mal_Address_return(call, values); }\n\
+         MAL_DEFINE_verify(call) {\n\
+             return mal_Int32_return(call, values[0] == 41 && values[1] == 30 ? 0 : 2);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
 }

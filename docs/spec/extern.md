@@ -7,7 +7,7 @@ Status: Accepted v0.6 profile
 I/O、allocation、deallocation、filesystem、network、clock、randomness、process、thread、およびhost固有の
 resource operationはmalの意味論へ個別に取り込まず、program固有のexternal operationに置く。external storageへの
 capabilityは`Address`またはexternal opaque typeで運び、canonical memory representationとの固定された変換には
-[external memory](memory.md)と[`Region`と`Packed`](packed.md)を使う。
+[AddressとBuffer](memory.md)を使う。
 
 ```mal
 extern Mem;
@@ -26,10 +26,7 @@ external operationは宣言によって通常のtop-level function valueとし�
 main :: Unit -> Unit := () -> {
     (mem, address) := alloc(5bytes);
     bytes := *"hello";
-    address.view<UInt8>(0usize, #bytes, (region) -> {
-        region.set(bytes);
-        ();
-    });
+    bytes.into(address, 0usize, #bytes);
     output(address, #bytes);
     release(mem);
 };
@@ -55,7 +52,7 @@ HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize) = true
 HostMappable(external opaque type) = true
 HostMappable((A...)) = all HostMappable(A)
 HostMappable([A...]) = all HostMappable(A)
-HostMappable(Symbol | function | Region<A> | Packed<A> | Buffer<A>) = false
+HostMappable(Symbol | function | Buffer<A>) = false
 ```
 
 aliasはconcreteなtype argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic C symbolやheaderへ
@@ -65,11 +62,10 @@ aliasはconcreteなtype argumentを代入して完全に展開した後に判定
 ```text
 HostMappable((Address, USize)) = true
 HostMappable(Symbol)           = false
-HostMappable(Region<UInt8>)    = false
-HostMappable(Packed<UInt8>)    = false
+HostMappable(Buffer<UInt8>)    = false
 ```
 
-byte列は`Symbol`、`Packed<UInt8>`、`Region<UInt8>`のcarrierとして渡さず、`Address`と`USize`または`ByteSize`を含む
+byte列は`Symbol`や`Buffer<UInt8>`のcarrierとして渡さず、`Address`と`USize`または`ByteSize`を含む
 operation固有のHostMappableな型で渡す。productの構造的一致だけではpermissionやborrowの方向を決めず、operation contractが
 readable inputまたはwritable capacityと、その範囲、初期化、lifetimeを定める。call-scopedなAddress parameterとそこから派生した
 pointerをhostはcall後に保持しない。extern resultのAddressはcall後にも有効なcapabilityだけを返せる。
@@ -126,7 +122,7 @@ admission、observation、capability transferと各leafのlifetime authorityは
 carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
-mal側は返されたUSizeをend offsetとして`pack`し、保持するprefixだけをPackedまたはSymbolへadmitする。
+mal側は返されたcountを`from<UInt8>`のlengthとしてBufferへcopyし、必要ならSymbol snapshotへ変換する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
 決定理由は[D015](../history/decisions/D015.md)に記録する。
@@ -138,7 +134,7 @@ resource、またはtrap時の一般的なstack unwindingをcleanupしない。t
 取得した一時resourceを残さない構成にするか、operation固有のcleanup手段を用意する。
 
 Addressを返すoperationは、指すlive region、permission、lifetimeをhost contractに定める。Addressの複製はstorageを複製せず、
-lifetimeを延長しない。partial I/Oのpostconditionは[`Region`と`Packed`](packed.md#partial-io)に定める。
+lifetimeを延長しない。Addressをcopy primitiveへ渡す場合のpreconditionは[AddressとBuffer](memory.md#未検査precondition)に従う。
 
 ## ABI と adapter
 

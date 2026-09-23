@@ -5,13 +5,13 @@ JsonStatistics :: (UInt64, UInt64);
 // Variant 0 is an error message; variant 1 is the statistics for a complete document.
 ParseResult :: [Symbol, JsonStatistics];
 // ScanProgress carries the unread input and an empty success message or a non-empty error message.
-ScanProgress :: (Packed<UInt8>, Symbol);
+ScanProgress :: (Bytes, Symbol);
 // ParserFrame encodes the continuation selected when the parser returns to one stack coordinate.
 ParserFrame :: UInt8;
-// ParserFrames is an explicit return stack whose last element is the active continuation.
-ParserFrames :: Packed<ParserFrame>;
+// ParserFrames keeps reusable storage and a logical stack length.
+ParserFrames :: (Buffer<ParserFrame>, USize);
 // ParserState fields: 0 unread input, 1 return stack, 2 value depth, 3 statistics.
-ParserState :: (Packed<UInt8>, ParserFrames, UInt64, JsonStatistics);
+ParserState :: (Bytes, ParserFrames, UInt64, JsonStatistics);
 
 // ParserState is an explicit machine configuration, so iteration can distinguish the next
 // configuration from the final ParseResult without giving either one a sentinel representation.
@@ -48,13 +48,13 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
         || (byte >= 'a' && byte <= 'f')
         || (byte >= 'A' && byte <= 'F');
 
-_skipWhitespace :: Packed<UInt8> -> Packed<UInt8> := (source) -> [return] => {
-    when (#source == 0usize) {
+_skipWhitespace :: Bytes -> Bytes := (source) -> [return] => {
+    when (source.byteCount() == 0usize) {
         return(source);
     };
-    byte := source # 0usize;
+    byte := source.byteAt(0usize);
     when (byte._isWhitespace()) {
-        return((source % 1usize)._skipWhitespace());
+        return((source.dropBytes(1usize))._skipWhitespace());
     };
     return(source);
 };
@@ -68,22 +68,24 @@ _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) ->
 };
 
 // Returns the active continuation at the end of a nonempty return stack.
-_readFrame :: ParserFrames -> ParserFrame := (frames) -> frames # (#frames - 1usize);
+_readFrame :: ParserFrames -> ParserFrame := ((frames, count)) -> frames.get(count - 1usize);
 
-_replaceFrame :: (ParserFrames, ParserFrame) -> ParserFrames := (frames, frame) -> {
-    index := #frames - 1usize;
-    frames.edit<ParserFrame>((buffer) -> {
-        buffer.put(index, frame);
-    });
+_replaceFrame :: (ParserFrames, ParserFrame) -> ParserFrames := ((frames, count), frame) -> {
+    frames.put(count - 1usize, frame);
+    (frames, count);
 };
 
-_pushFrame :: (ParserFrames, ParserFrame) -> ParserFrames := (frames, frame) ->
-    frames.edit<ParserFrame>((buffer) -> {
-        buffer.new(frame);
+_pushFrame :: (ParserFrames, ParserFrame) -> ParserFrames := ((frames, count), frame) -> {
+    if (count == #frames)
+    then {
+        frames.new(frame);
         ();
-    });
+    }
+    else frames.put(count, frame);
+    (frames, count + 1usize);
+};
 
-_popFrame :: ParserFrames -> ParserFrames := (frames) -> frames / (#frames - 1usize);
+_popFrame :: ParserFrames -> ParserFrames := ((frames, count)) -> (frames, count - 1usize);
 
 // Completing a value rewrites its parent frame to the state that accepts a delimiter next.
 _completeValue :: ParserFrames -> ParserFrames := (frames) -> {
@@ -97,47 +99,47 @@ _completeValue :: ParserFrames -> ParserFrames := (frames) -> {
     };
 };
 
-_consumeLiteral :: (Packed<UInt8>, Symbol) -> ScanProgress := (source, expected) -> {
+_consumeLiteral :: (Bytes, Symbol) -> ScanProgress := (source, expected) -> {
     if (source.startsWith(expected))
-    then (source % #expected, "")
+    then (source.dropBytes(#expected), "")
     else (source, "invalid JSON literal");
 };
 
-_hasHexDigits :: (Packed<UInt8>, USize) -> Bool := (source, remaining) -> [return] => {
+_hasHexDigits :: (Bytes, USize) -> Bool := (source, remaining) -> [return] => {
     when (remaining == 0usize) {
         return(true);
     };
-    when (#source == 0usize) {
+    when (source.byteCount() == 0usize) {
         return(false);
     };
-    byte := source # 0usize;
+    byte := source.byteAt(0usize);
     when (!byte._isHexDigit()) {
         return(false);
     };
-    return((source % 1usize)._hasHexDigits(remaining - 1usize));
+    return((source.dropBytes(1usize))._hasHexDigits(remaining - 1usize));
 };
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
-    when (#source == 0usize) {
+_scanString :: Bytes -> ScanProgress := (source) -> [return] => {
+    when (source.byteCount() == 0usize) {
         return((source, "unterminated JSON string"));
     };
-    byte := source # 0usize;
+    byte := source.byteAt(0usize);
     when (byte == '"') {
-        return((source % 1usize, ""));
+        return((source.dropBytes(1usize), ""));
     };
     when (byte < 0x20u8) {
         return((source, "control byte in JSON string"));
     };
     when (byte != '\\') {
-        return((source % 1usize)._scanString());
+        return((source.dropBytes(1usize))._scanString());
     };
 
-    afterSlash := source % 1usize;
-    when (#afterSlash == 0usize) {
+    afterSlash := source.dropBytes(1usize);
+    when (afterSlash.byteCount() == 0usize) {
         return((source, "unterminated JSON escape"));
     };
-    escaped := afterSlash # 0usize;
+    escaped := afterSlash.byteAt(0usize);
     simple := escaped == '"'
         || escaped == '\\'
         || escaped == '/'
@@ -147,87 +149,87 @@ _scanString :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
         || escaped == 'r'
         || escaped == 't';
     when (simple) {
-        return((afterSlash % 1usize)._scanString());
+        return((afterSlash.dropBytes(1usize))._scanString());
     };
-    afterU := afterSlash % 1usize;
+    afterU := afterSlash.dropBytes(1usize);
     when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
-        return((afterU % 4usize)._scanString());
+        return((afterU.dropBytes(4usize))._scanString());
     };
     return((source, "invalid JSON escape"));
 };
 
-_scanDigits :: Packed<UInt8> -> Packed<UInt8> := (source) -> [return] => {
-    when (#source == 0usize) {
+_scanDigits :: Bytes -> Bytes := (source) -> [return] => {
+    when (source.byteCount() == 0usize) {
         return(source);
     };
-    byte := source # 0usize;
+    byte := source.byteAt(0usize);
     when (!byte._isDigit()) {
         return(source);
     };
-    return((source % 1usize)._scanDigits());
+    return((source.dropBytes(1usize))._scanDigits());
 };
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-_scanNumber :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
-    firstByte := source # 0usize;
+_scanNumber :: Bytes -> ScanProgress := (source) -> [return] => {
+    firstByte := source.byteAt(0usize);
     unsigned := if (firstByte == '-')
-        then source % 1usize
+        then source.dropBytes(1usize)
         else source;
-    when (#unsigned == 0usize) {
+    when (unsigned.byteCount() == 0usize) {
         return((source, "incomplete JSON number"));
     };
 
-    first := unsigned # 0usize;
+    first := unsigned.byteAt(0usize);
     integerEnd := if (first == '0')
-        then unsigned % 1usize
+        then unsigned.dropBytes(1usize)
         else {
             when (!first._isNonzeroDigit()) {
                 return((source, "invalid JSON number"));
             };
-            (unsigned % 1usize)._scanDigits();
+            (unsigned.dropBytes(1usize))._scanDigits();
         };
 
-    afterFraction := if (#integerEnd != 0usize)
+    afterFraction := if (integerEnd.byteCount() != 0usize)
         then {
-            next := integerEnd # 0usize;
+            next := integerEnd.byteAt(0usize);
             if (next == '.')
             then {
-                fraction := integerEnd % 1usize;
-                when (#fraction == 0usize) {
+                fraction := integerEnd.dropBytes(1usize);
+                when (fraction.byteCount() == 0usize) {
                     return((source, "invalid JSON fraction"));
                 };
-                digit := fraction # 0usize;
+                digit := fraction.byteAt(0usize);
                 when (!digit._isDigit()) {
                     return((source, "invalid JSON fraction"));
                 };
-                (fraction % 1usize)._scanDigits();
+                (fraction.dropBytes(1usize))._scanDigits();
             }
             else integerEnd;
         }
         else integerEnd;
 
-    afterExponent := if (#afterFraction != 0usize)
+    afterExponent := if (afterFraction.byteCount() != 0usize)
         then {
-            next := afterFraction # 0usize;
+            next := afterFraction.byteAt(0usize);
             if (next == 'e' || next == 'E')
             then {
-                exponent := afterFraction % 1usize;
-                when (#exponent == 0usize) {
+                exponent := afterFraction.dropBytes(1usize);
+                when (exponent.byteCount() == 0usize) {
                     return((source, "incomplete JSON exponent"));
                 };
-                firstExponent := exponent # 0usize;
+                firstExponent := exponent.byteAt(0usize);
                 digits := if (firstExponent == '+' || firstExponent == '-')
-                    then exponent % 1usize
+                    then exponent.dropBytes(1usize)
                     else exponent;
-                when (#digits == 0usize) {
+                when (digits.byteCount() == 0usize) {
                     return((source, "invalid JSON exponent"));
                 };
-                digit := digits # 0usize;
+                digit := digits.byteAt(0usize);
                 when (!digit._isDigit()) {
                     return((source, "invalid JSON exponent"));
                 };
-                (digits % 1usize)._scanDigits();
+                (digits.dropBytes(1usize))._scanDigits();
             }
             else afterFraction;
         }
@@ -235,7 +237,7 @@ _scanNumber :: Packed<UInt8> -> ScanProgress := (source) -> [return] => {
     return((afterExponent, ""));
 };
 
-// This single loop-driven dispatcher executes the state at the top of the packed frame stack.
+// This single loop-driven dispatcher executes the state at the top of the buffer frame stack.
 // Every transition either consumes input, changes the active state, pops a completed container, or
 // returns a result, so malformed input cannot make an unchanged state loop forever.
 _parse :: ParserState -> ParseResult := (initial) ->
@@ -245,32 +247,32 @@ _parse :: ParserState -> ParseResult := (initial) ->
         frame := frames._readFrame();
 
         when (frame == _rootDone) {
-            if (#source == 0usize)
+            if (source.byteCount() == 0usize)
             then break(_parseSuccess(stats))
             else break(_parseFailure("trailing bytes after JSON value"));
         };
-        when (#source == 0usize) {
+        when (source.byteCount() == 0usize) {
             break(_parseFailure("expected JSON value or closing delimiter"));
         };
 
-        byte := source # 0usize;
+        byte := source.byteAt(0usize);
         // Delimiter states run before value recognition, preventing commas and closers from becoming
         // accidental values and distinguishing the first element from later elements.
         when (frame == _arrayNext) {
             when (byte == ']') {
-                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
             };
             when (byte == ',') {
-                continue((source % 1usize, frames._replaceFrame(_arrayValue), frameDepth, stats));
+                continue((source.dropBytes(1usize), frames._replaceFrame(_arrayValue), frameDepth, stats));
             };
             break(_parseFailure("expected comma or closing bracket"));
         };
         when (frame == _objectNext) {
             when (byte == '}') {
-                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
             };
             when (byte == ',') {
-                continue((source % 1usize, frames._replaceFrame(_objectKey), frameDepth, stats));
+                continue((source.dropBytes(1usize), frames._replaceFrame(_objectKey), frameDepth, stats));
             };
             break(_parseFailure("expected comma or closing brace"));
         };
@@ -278,23 +280,23 @@ _parse :: ParserState -> ParseResult := (initial) ->
             when (byte != ':') {
                 break(_parseFailure("expected colon after object key"));
             };
-            continue((source % 1usize, frames._replaceFrame(_objectValue), frameDepth, stats));
+            continue((source.dropBytes(1usize), frames._replaceFrame(_objectValue), frameDepth, stats));
         };
         when (frame == _objectFirst || frame == _objectKey) {
             when (frame == _objectFirst && byte == '}') {
-                continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
             };
             when (byte != '"') {
                 break(_parseFailure("expected JSON object key"));
             };
-            (afterKey, keyError) := (source % 1usize)._scanString();
+            (afterKey, keyError) := (source.dropBytes(1usize))._scanString();
             when (#keyError != 0usize) {
                 break(_parseFailure(keyError));
             };
             continue((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats));
         };
         when (frame == _arrayFirst && byte == ']') {
-            continue((source % 1usize, frames._popFrame(), frameDepth - 1u64, stats));
+            continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
         };
 
         nextFrames := frames._completeValue();
@@ -305,14 +307,14 @@ _parse :: ParserState -> ParseResult := (initial) ->
                 then _arrayFirst
                 else _objectFirst;
             continue((
-                source % 1usize,
+                source.dropBytes(1usize),
                 nextFrames._pushFrame(childFrame),
                 frameDepth + 1u64,
                 nextStats
             ));
         };
         when (byte == '"') {
-            (afterString, stringError) := (source % 1usize)._scanString();
+            (afterString, stringError) := (source.dropBytes(1usize))._scanString();
             when (#stringError != 0usize) {
                 break(_parseFailure(stringError));
             };
@@ -343,13 +345,10 @@ _parse :: ParserState -> ParseResult := (initial) ->
     });
 
 // Parses one complete owned byte sequence and rejects trailing non-whitespace input.
-parseDocument :: Packed<UInt8> -> ParseResult := (source) ->
+parseDocument :: Buffer<UInt8> -> ParseResult := (buffer) ->
     (
-        source,
-        make<ParserFrame>(0usize, (buffer) -> {
-            buffer.new(_rootValue);
-            ();
-        }),
+        (buffer, 0usize),
+        (make<ParserFrame>(1usize), 0usize)._pushFrame(_rootValue),
         1u64,
         (0u64, 0u64)
     )._parse();

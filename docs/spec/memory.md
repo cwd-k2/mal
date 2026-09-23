@@ -1,32 +1,20 @@
-# external memory
+# AddressとBuffer
 
 Status: Accepted v0.6 profile
 
-この文書はexternal storageのaddress、target依存量、canonical memory representation、typed view、access、未検査preconditionを
-定める。有限regionとmal-owned sequenceのtransferは[`Region`と`Packed`](packed.md)、surface grammarは
-[字句と文法](grammar.md)を正とする。
+この文書はhost-managed storageを指す`Address`、mal-owned mutable sequenceである`Buffer<T>`、C host profileのcopy境界を定める。
+surface syntaxは[字句と文法](grammar.md)、public C representationは[C host ABI](c-host-abi.md)を正とする。
 
-## 基本型
+## Address
 
-`Address`はordinary byte-addressable external storageのlocationを運ぶcopyableなcapabilityである。numeric value、null、
-要素型、extent、permission、ownership、alignment保証を持たず、複製してもreferentのlifetimeを延長しない。
-`Address + ByteSize`は同じstorage capabilityから前方のbyte位置を派生させる。Addressの減算、Address同士の演算、equality、
-literal、integerとの変換はない。
+`Address`はhost-managed resourceを指すcopyableなopaque capabilityである。数値、null、要素型、extent、permission、ownership、
+alignment、allocation identityをsource-levelでは持たない。複製してもreferentのlifetimeを延長しない。
 
-`ByteSize`はtargetがobject sizeとbyte offsetに使うunsigned量、`USize`は有限collectionの要素数とindexに使うunsigned量である。
-両型はdefault address spaceのpointer index幅を持つ別のsource typeであり、literal suffixは`bytes`と`usize`である。
+mal codeは`Address`をdereference、変更、比較、加減算、integer変換できない。通常のoperationはAddressの向こう側にある表現を
+知らず、Addressを解釈する能力はextern contractまたは後述するC host copy primitiveだけが与える。
 
-```mal
-extent :: ByteSize := 64bytes;
-length :: USize := 8usize;
-```
-
-同じ型同士の加減算と比較、明示的numeric conversionを両型に認める。`USize`には乗除算とremainderも認める。
-`USize * ByteSize`と`ByteSize * USize`は`ByteSize`、`ByteSize * ByteSize`はerrorである。加減乗算はtarget幅でwrapする。
-divisionとremainderはdivisorがzeroでないことをpreconditionとする。memory extentとして使う数学的な積はoverflowしてはならない。
-
-`Region<A>`はAddress、canonicalな`A`に一意なstatic layout、USize個のlocationを運ぶ。storageのinitialization、permission、
-allocation identity、ownership、lifetimeを取得しない。
+`ByteSize`はhost contractがbyte量に使うtarget幅のunsigned量、`USize`は有限collectionの要素数、index、capacityに使う
+target幅のunsigned量である。両者は別のsource typeで、literal suffixは`bytes`と`usize`である。
 
 ## Representable
 
@@ -42,110 +30,105 @@ Representable((A...))       if all Representable(A)
 Representable([A...])       if the sum has at least two variants and all Representable(A)
 ```
 
-function、external opaque type、`Region<A>`、`Packed<A>`、`Buffer<A>`、empty sumはrepresentableでない。
-transparent aliasは展開後に判定する。`Region<A>`、`Packed<A>`、`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
-このjudgmentはstorageにvalidなrepresentationが実在することを証明しない。
+`Symbol`、function、external opaque type、`Buffer<A>`、empty sumはrepresentableでない。transparent aliasは展開後に判定する。
+`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
 
-## Layout shape
-
-layout shapeは`#`によるstride queryだけが受け取るcompile-time構文operandである。binding、parameter、
-result、field、capture、extern argumentとして運ばず、compilerがtarget constantへ解決する。shapeは次のclosed spellingからなる。
-
-```text
-unit
-i8 i16 i32 i64
-u8 u16 u32 u64
-f32 f64
-address bytesize usize
-bool
-```
-
-`bool`はpredefined `Bool`のcanonical type `[Unit, Unit]`を表す唯一のshape aliasである。user-defined aliasと型identifierは
-shapeに現れない。productとsumはsource typeと同じdelimiterを使い、flatなn項構造とnested構造を区別する。
-
-```text
-(i8, u64, i32)
-((i8, u64), i32)
-[unit, i32, address]
-[unit, [i32, address]]
-```
-
-一要素product、一要素sum、empty sum shapeはない。`#shape`は一要素のstrideを`ByteSize`で返すtarget constantである。
+RepresentableはC host copy boundaryでcanonical representationを持ち、Buffer storageへ値を格納できることを表す。
+Address referentが実際にそのrepresentationを持つことや、access可能であることは証明しない。
 
 ## Canonical layout
 
 numeric scalar、`Address`、`ByteSize`、`USize`のstrideとrequired alignmentはtarget data layoutから決める。numeric scalarの
-storage幅はbit幅、Addressはdefault address spaceのpointer storage幅、ByteSizeとUSizeはpointer index幅を使う。byte orderと
-scalar representationはbackend host ABIが定める。
+storage幅はbit幅、Addressはdefault address spaceのpointer representation幅、ByteSizeとUSizeはpointer index幅を使う。
+byte orderとscalar representationはbackend host ABIが定める。
 
-`Unit`はstride 0、required alignment 1である。canonical layoutのstrideが0になる型はstorageをdereferenceせず、
-Region、Packed、Bufferではlogical countだけを持つ。Unitだけからなるproductとtransparent aliasにも同じ規則を適用する。
+`Unit`はstride 0、required alignment 1である。canonical layoutのstrideが0になる型はstorageをdereferenceせず、Bufferと
+C host copy primitiveはlogical countだけを扱う。Unitだけからなるproductとtransparent aliasにも同じ規則を適用する。
 
 productはfieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで
 前方へ丸める。全体alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで前方へ丸める。
 nested productはflattenしない。
 
 sumは0-based variant indexのtag、padding、全variantで共有するpayload領域の順に配置する。tagはvariant数を表せる最小の
-`UInt8`、`UInt16`、`UInt32`、`UInt64`を使い、`2^64`を超えるvariantを拒否する。payload alignmentは全variantの最大値、
-payload offsetはtag末尾からそのalignmentまで丸める。payload extentは全variant strideの最大値、sum alignmentはtagと
-全variantの最大値、sum strideはpayload末尾から全体alignmentまで丸める。
+`UInt8`、`UInt16`、`UInt32`、`UInt64`を使い、`2^64`を超えるvariantを拒否する。payload offsetはtag末尾から全variantの
+最大alignmentまで前方へ丸め、payload extentは全variant strideの最大値とする。sum strideはpayload末尾からsum全体の
+alignmentまで前方へ丸める。
 
 storeはproduct field、sum tag、選択payloadだけを書き、paddingと非選択payloadを変更しなくてよい。loadはそれらを読まない。
-このlayoutは同じartifactと対応adapterの範囲だけで有効であり、mal runtime representation、public C aggregate carrier、
-file、network、永続storageのformatではない。
-reference C hostがこのlayoutを読み書きする場合は、public carrierをcastせず、[C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
+このlayoutは同じartifactと対応adapterの間だけで有効であり、mal runtime representation、public C aggregate carrier、file、
+network、永続storageのformatではない。reference C hostがこのlayoutを読む場合はpublic carrierをcastせず、
+[C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
 
-## Address derivationとtyped view
+## Canonical representationとtarget contract
+
+backendはcanonical memory専用のtarget layout planを作り、runtime valueの内部layoutを再利用しない。default address spaceの
+pointer representation幅、pointer index幅、primitive ABI alignmentをtarget data layoutから別々に取得する。layout、stride、
+offset、allocation sizeをtargetのobject sizeで表現できない型はartifact生成時に拒否する。reference C backendのmappingは
+[C host ABI](c-host-abi.md)に定める。
+
+## Buffer
+
+`Buffer<A>`はmal-ownedなmutable有限要素列である。値はbuffer identityへの共有参照としてcopyされ、どのaliasから行った変更も
+同じBufferを指す全aliasから観測できる。参照が到達不能になった後のstorage回収はbackendとruntimeが行い、source-levelの
+`free`、retain、releaseは存在しない。
 
 ```text
-Address + ByteSize          -> Address
-view<A>(Address, USize, USize, Region<A> -> R) -> R
-Region<A>.get(USize)        -> A
-Region<A>.put(USize, A)     -> Unit
+make<A>(USize)                     -> Buffer<A>
+#Buffer<A>                         -> USize
+Buffer<A>.new(A)                   -> USize
+Buffer<A>.get(USize)               -> A
+Buffer<A>.put(USize, A)            -> Unit
 ```
 
-`view`の二つのUSizeはelement単位の`offsetStart`と`offsetEnd`であり、半開区間`[offsetStart, offsetEnd)`を表す。
-引数を通常のapplication順で一度ずつ評価した後にRegionを形成し、callbackを一度適用する。strideがnonzeroなら先頭は
-`address + offsetStart * stride(A)`、zeroならAddressを派生または観測しない。どちらもRegionのlengthは
-`offsetEnd - offsetStart`である。`view`はallocationせず、callback resultをそのまま返す。ここで`R`はintrinsicがcallbackから
-決めるresult型を表し、Region、Buffer、またはこれらを再帰的に含んではならない。
+`make<A>(capacity)`はcount 0のBufferを返す。capacityは初期allocationの要求であり、論理countではない。後続の`new`はcapacityを
+超えてgrowthできる。`new`は末尾へ追加し、その安定した0-based indexを返す。`get`と`put`は現在のindexを読み書きする。
+receiver-firstでない`new(buffer, value)`、`get(buffer, index)`、`put(buffer, index, value)`も同じpredefined operationである。
 
-Regionはsource-level constructorを持たず、`view`のcallback parameterとして導入する。Region parameterとその派生値には
-[`Region`と`Packed`](packed.md#scoped-authority)のlexical escape制約を適用する。
+operationのoperandはsource順に一度だけ評価する。count、capacity、stride、allocation byte数をtargetで表現できない場合と
+allocationに失敗した場合はtrapする。stride 0でもcount overflowはtrapする。
 
-`get`はindex位置の値をadmitし、`put`はindex位置へ値をobserveする。external storageをconsumeせず、referentのlifetimeを変更しない。
-receiver-first表記は`get(region, index)`、`put(region, index, value)`と同じpredefined operation identityを指す。
+Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argumentに置ける。Buffer elementだけは
+`Representable`に閉じるため、Buffer storageから別のmanaged ownerへのedgeは生じない。
 
-```mal
-address.view<Int64>(0usize, count, (region) -> {
-    first := region.get(0usize);
-    region.put(1usize, first);
-});
+## Symbol conversion
+
+```text
+*Buffer<UInt8> -> Symbol
+*Symbol        -> Buffer<UInt8>
 ```
 
-Region accessは1より強いalignmentを仮定しない。backendはalignment 1のload/storeまたは同等のunaligned-safe accessへlowerする。
-実Addressのalignmentを利用するfast pathはoptimizationとしてよいが、source-levelのalign-up、alignment assertion、数値queryはない。
+`*buffer`は変換時点のbytesを持つimmutableなSymbol snapshotを返す。以後のBuffer変更はresultを変更しない。
+`*symbol`は同じbytesで初期化した変更可能なBufferを返し、Symbolは変更されない。実装はcopy-on-writeでstorageを共有してよいが、
+source-levelのaliasingとimmutabilityを変えてはならない。operandはconsumeされず、変換後も利用できる。
+
+## C host copy boundary
+
+次のpredefined generic operationはC host profileだけが提供する。offsetとlengthは`A`の要素単位であり、byte単位ではない。
+
+```text
+from<A>(Address, USize, USize)             -> Buffer<A>
+Buffer<A>.into(Address, USize, USize)      -> Unit
+```
+
+`from<A>(address, offset, length)`はhost storageの半開区間`[offset, offset + length)`をsource順にcopyし、countが`length`の
+新しいBufferを返す。`buffer.into(address, offset, length)`はBufferの同じ半開区間をhost storageの先頭へcopyする。
+`into`はBufferを変更またはconsumeしない。receiver-firstでない形は`into(buffer, address, offset, length)`である。
+
+copyにはC host profileのcanonical representationを使う。numeric scalar、Address、ByteSize、USizeの幅とalignmentはtarget ABI、
+productはsource順のfieldとpadding、sumはvariant tagとactive payloadを使う。public C aggregate carrier自体のlayoutとは独立であり、
+同じrepresentationをhost codeが扱う場合はgenerated canonical memory helperを使う。
+
+stride 0の型はstorageをdereferenceせず、logical countだけをcopyする。offsetとlengthの加算、byte offset、allocation sizeがtargetで
+表現できない場合と、mal-owned allocationに失敗した場合はtrapする。
 
 ## 未検査precondition
 
-callerまたはAddressを提供したhost contractは次の条件を満たす。
-
 | Operation | Precondition |
 |---|---|
-| `Address + ByteSize` | 数学的offsetがoverflowせず、resultが同じlive region内または末尾の直後にある |
-| `view<A>(address, start, end, ...)` | `start <= end`である。strideがnonzeroならbyte offsetがoverflowせず、半開区間が同じlive region内にある。empty区間では先頭が末尾直後でもよい |
-| `region.get(index)` | `index < #region`である。strideがnonzeroならoffsetがoverflowせず、locationがreadable、初期化済みでvalid representationを持つ |
-| `region.put(index, value)` | `index < #region`である。strideがnonzeroならoffsetがoverflowせず、locationがwritableである |
+| `buffer.get(index)`、`buffer.put(index, value)` | `index < #buffer` |
+| `from<A>(address, offset, length)` | 対象rangeが同じlive storage内にあり、readable、初期化済みで、各要素がvalid canonical representationを持つ |
+| `buffer.into(address, offset, length)` | `offset + length <= #buffer`で、destinationが`length`要素分writableである |
 
-primitiveはbounds、permission、initialization、lifetime、extent、overflow、Address representation、sum tagを検査しない。
-precondition違反時の特定の結果を保証しない。実装が内部corruptionを避けるためにtrapしても、そのtrapはimplementation detailである。
-preconditionを満たしたoperationがmal-owned storageを必要とし、allocationに失敗した場合はtrapする。
-
-zero-stride elementはAddress referent、permission、initialization、storage extentを要求しない。`get`はbounds内で型の唯一の値を返し、
-`put`はbounds内でstorageを変更しない。
-
-## Target contract
-
-backendはsource memory layout専用のtarget layout planを作り、runtime valueの内部layoutを再利用しない。default address spaceの
-pointer representation幅、pointer index幅、primitive ABI alignmentをtarget data layoutから別々に取得する。layout計算をtargetの
-object sizeで表現できない型はartifact生成時に拒否する。reference C backendのmappingは[C host ABI](c-host-abi.md)に定める。
+host storageのextent、permission、initialization、lifetime、overlap、Address representationはhost contractが所有する。
+primitiveはこれらを検査せず、違反時の結果を保証しない。zero-stride elementはhost storageのreadability、writability、extentを要求しない。
+Address要素をBufferへcopyしても、そのreferentのlifetimeは延長しない。

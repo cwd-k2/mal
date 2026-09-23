@@ -57,7 +57,7 @@ impl FunctionEmitter<'_> {
 
     fn retain_value(&mut self, ty: &Type, value: &str) -> Option<String> {
         match ty {
-            Type::Symbol | Type::Packed(_) => {
+            Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
                 self.line(format!(
@@ -78,6 +78,12 @@ impl FunctionEmitter<'_> {
                 ));
                 self.line(format!(
                     "  call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {environment})"
+                ));
+                Some(value.into())
+            }
+            Type::Buffer(_) => {
+                self.line(format!(
+                    "  call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {value})"
                 ));
                 Some(value.into())
             }
@@ -111,7 +117,7 @@ impl FunctionEmitter<'_> {
         value: &str,
     ) -> Option<()> {
         match ty {
-            Type::Symbol | Type::Packed(_) => {
+            Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
                 self.line(format!(
@@ -133,6 +139,9 @@ impl FunctionEmitter<'_> {
                     "  call void @mal_runtime_environment_release(ptr {environment})"
                 ))
             }
+            Type::Buffer(_) => self.line(format!(
+                "  call void @mal_runtime_environment_release(ptr {value})"
+            )),
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
                 for (index, element) in elements.iter().enumerate() {

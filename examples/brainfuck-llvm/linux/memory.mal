@@ -6,6 +6,8 @@ _mapPrivate :: Int32 := 2i32;
 _mapAnonymous :: Int32 := 0x20i32;
 _remapMayMove :: Int32 := 1i32;
 
+// All mappings start without an address hint and at file offset zero. The descriptor distinguishes
+// anonymous mappings from future file-backed callers without duplicating the syscall shape.
 _map :: (ByteSize, Int32, Int32, Int32) -> AddressResult :=
     (length, protection, flags, descriptor) -> systemMmap(
         [none, some] => none(),
@@ -27,5 +29,6 @@ mapAnonymousReadWrite :: ByteSize -> AddressResult := (length) ->
         -1i32
     );
 
+// A successful remap may return a different base address, so callers must replace the old one.
 resizeMapping :: (Address, ByteSize, ByteSize) -> AddressResult := (memory, oldLength, newLength) ->
     systemMremap(memory, oldLength, newLength, _remapMayMove);

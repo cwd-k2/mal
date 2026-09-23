@@ -16,8 +16,8 @@ pub struct LambdaId(pub u32);
 
 pub use super::predefined::{
     ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FALSE_VALUE, FLOAT32_TYPE, FLOAT64_TYPE,
-    INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PACKED_TYPE, REGION_TYPE, SYMBOL_TYPE,
-    TRUE_VALUE, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TRUE_VALUE, U_SIZE_TYPE,
+    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -151,7 +151,6 @@ pub enum Expression {
         type_ref: TypeReference,
         value: Box<Node<Expression>>,
     },
-    StrideQuery(Node<crate::ast::LayoutShape>),
     If {
         condition: Box<Node<Expression>>,
         then_branch: ExpressionBlock,

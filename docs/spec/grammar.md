@@ -66,7 +66,7 @@ atomicType   ::= TYPE_IDENT typeArguments?
 sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 ```
 
-`Region`、`Packed`、`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
+`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
 
 ## Expression form
@@ -108,8 +108,7 @@ whenExpr ::= "when" "(" expression ")" expression
 primary expressionはliteral、valueName、Unit、parenthesized expression、product、unit application、lambda、block、result block、
 `if`、`when`からなる。primaryの後へcall、receiver、continuation、conversion suffixをsource orderで0個以上適用する。
 
-prefix `#`の直後もclosed shape spellingならstride query、それ以外はvalue length queryである。shape atomと同じspellingの
-valueをlength queryに使う場合は`#(count)`のように括弧を使う。shapeにuser-defined aliasとTYPE_IDENTは現れない。
+prefix `#`はvalue length queryである。operandを明確に区切る場合は`#(count)`のように括弧を使える。
 
 Symbol literalとbyte literalは次の形を持つ。
 

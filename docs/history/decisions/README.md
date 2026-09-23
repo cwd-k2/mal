@@ -13,16 +13,15 @@ statusは各decisionを正とし、ここでは現行判断とhistorical record�
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
-| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md)、[D061](D061.md) |
-| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md) |
+| minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md) |
+| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md)、[D058](D058.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
-| genericsとexternal memory | [D052](D052.md)、[D056](D056.md)、[D068](D068.md) |
+| genericsとexternal memory | [D052](D052.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md) |
-| Packed execution | [D058](D058.md)、[D061](D061.md)、[D062](D062.md)、[D063](D063.md)、[D064](D064.md) |
 
 D012はD016とD032、D022はD024、D031はD033、D033はD034とD055でrefineされているが、元の判断を撤回していない。
 D008のmemory management節はD033が、D009、D022、D028、D029、D033のtrapに関する一部はD035が置き換える。
@@ -58,6 +57,10 @@ D068はD052とD056のCursor、placement、load/store operator、Region projectio
 `pack`と`bulk`をcapacity必須の`make`へ統合する。
 D069はdirect self-tail parameterの純粋な先頭分解をleaf handoffへrefineし、LLVMのSSA promotionへloop-carried valueを公開する。
 
+現在のBuffer value modelはD052のgeneric specializationとcanonical layoutを維持する一方、D056、D061からD064、D068の
+Region、Packed、scoped construction、edit、専用Buffer ABI最適化を置き換える。現在の規範は
+[`memory`](../../spec/memory.md)を正とする。
+
 ## 後継があるhistorical record
 
 | Record | Current successor |
@@ -82,6 +85,7 @@ D069はdirect self-tail parameterの純粋な先頭分解をleaf handoffへrefin
 | [D060: editのlazy preparation](D060.md) | [D062](D062.md) |
 | [D052: generic canonical memory operation](D052.md)、[D056: Cursor value-result access](D056.md) | [D068](D068.md) |
 | [D022: pointer primitive](D022.md)、[D024: pointer memory operation](D024.md)、[D037: 型修飾memory primitive](D037.md) | [D052](D052.md) |
+| [D056: Cursor value-result access](D056.md)、[D061: scoped Buffer authority](D061.md)、[D062: edit preparation](D062.md)、[D063: active data ABI](D063.md)、[D064: active data noalias](D064.md)、[D068: scoped Region API](D068.md) | [current Buffer model](../../spec/memory.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、
 必ずsuccessorと[`spec/`](../../spec/)を確認する。

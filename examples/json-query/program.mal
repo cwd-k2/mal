@@ -10,7 +10,7 @@ _reportParseError :: Symbol -> Int32 := (message) -> {
 
 _runQuery :: Query -> Int32 := (query) -> {
     (input, address, length) := readStdin();
-    source := address.pack<UInt8>(0usize, length);
+    source := from<UInt8>(address, 0usize, length);
     releaseInput(input);
     parsed := source.parseDocument();
     // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
@@ -35,9 +35,10 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> {
         2;
     }
     else {
-        (argumentAddress, argumentLength) :=
-            arguments.pack<(Address, ByteSize)>(0usize, 1usize) # 0usize;
-        query := argumentAddress.pack<UInt8>(0usize, argumentLength.usize).parseQuery();
+        argumentAddresses := from<Address>(arguments, 0usize, 1usize);
+        argumentAddress := argumentAddresses.get(0usize);
+        queryBytes := from<UInt8>(argumentAddress, 0usize, argumentLength(argumentAddress));
+        query := (queryBytes, 0usize).parseQuery();
         query[
         (message) -> {
             writeStdout(message.renderError() + "\n");

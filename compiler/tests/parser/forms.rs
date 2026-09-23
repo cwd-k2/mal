@@ -171,17 +171,17 @@ fn parses_receiver_first_calls_as_normal_calls() {
 #[test]
 fn parses_generic_receiver_first_calls_as_normal_generic_calls() {
     let Expression::Call { callee, arguments } =
-        binding_value("value := source.edit<Int32>(callback);")
+        binding_value("value := address.from<Int32>(0usize, 1usize);")
     else {
         panic!("expected a receiver-first call");
     };
     assert!(matches!(
         &callee.kind,
         Expression::GenericName { name, arguments }
-            if name.text == "edit" && arguments.len() == 1
+            if name.text == "from" && arguments.len() == 1
     ));
-    assert_eq!(arguments.len(), 2);
-    assert!(matches!(&arguments[0].kind, Expression::Name(name) if name.text == "source"));
+    assert_eq!(arguments.len(), 3);
+    assert!(matches!(&arguments[0].kind, Expression::Name(name) if name.text == "address"));
 }
 
 #[test]

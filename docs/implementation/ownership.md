@@ -7,17 +7,15 @@ Status: Current v0.6 implementation policy
 
 ## managed type
 
-`Symbol`、`Packed`、function closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、
-`Unit`、`Address`、`ByteSize`、`USize`、`Region`、`Buffer`、external opaque valueはownerを持たない。この分類は
+`Symbol`、`Buffer`、function closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、
+`Unit`、`Address`、`ByteSize`、`USize`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
-LLVM内の`Symbol`と`Packed<A>`はowner pointer、active data address、element countからなるviewである。ownerがstorage lifetime、dataが
-現在の観測範囲をそれぞれ支配する。`Symbol`と`Packed<UInt8>`の変換は
-共通のflat byte ownerをretainしてviewを組み替え、allocationもbyte copyも行わない。sliceは同じownerをretainし、dataとcountだけを
-変える。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
+LLVM内の`Symbol`はowner pointer、active data address、byte countからなるviewであり、`Buffer<A>`はmanaged runtime objectへの
+pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic valueを作るsnapshot copyである。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
 再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
 完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
-storage再利用を判断するconcatとeditのruntime境界だけがownerに対するdataのoffsetを導出する。
+storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
 
 ## slotとoperation
 
@@ -25,8 +23,8 @@ managed local slotはzero状態で初期化する。owner successorと終了点�
 [`D055`](../history/decisions/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
 LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
 memory primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
-lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。slice、Symbol/Packed変換、transferのようにresultが
-ownerを共有するoperationだけが、そのoperandにowner successorを持つ。
+lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionやC host copyはresultとoperandの
+ownerを共有しない。
 
 一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
 後継のないresponsibilityを`Drop`して格納をcommitする。owned resultを受け取るwildcardと
@@ -91,8 +89,8 @@ extern parameterはcall中だけborrowされる。hostが保持する場合はpu
 pointer/out-pointer bridgeがMal ownerへ変換する。`Symbol` resultはruntime ownership pointerとして受け入れ、aggregateとsumはactive fieldだけを
 再帰的に変換する。invalid Boolまたはsum tagはpayloadを読む前にtrapする。
 
-C shimがprocess argumentから作るdescriptorとargument bytesはborrowed external storageであり、`main`のreturnまでだけ有効である。
-`Region<UInt8>`を`Packed<UInt8>`へadmitした時点でruntime-owned bytesとなり、`Symbol`への変換後もownerを保つ。
+C shimが渡すargument pointer列とargument bytesはborrowed external storageであり、`main`のreturnまでだけ有効である。
+`from<UInt8>`がcopyを完了した時点でruntime-owned Bufferとなる。`Symbol`への変換は別のownerへsnapshotする。
 
 ## 検証
 

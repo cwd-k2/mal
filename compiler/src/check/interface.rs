@@ -117,8 +117,6 @@ impl Checker {
             | Type::ByteSize
             | Type::USize
             | Type::Parameter { .. }
-            | Type::Region(_)
-            | Type::Packed(_)
             | Type::Buffer(_)
             | Type::Function { .. } => {
                 vec![self.alias_name(source)]
@@ -222,12 +220,9 @@ pub(super) fn is_host_mappable(ty: &Type) -> bool {
             | Type::USize
             | Type::External { .. } => {}
             Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
-            Type::Symbol
-            | Type::Parameter { .. }
-            | Type::Function { .. }
-            | Type::Region(_)
-            | Type::Packed(_)
-            | Type::Buffer(_) => return false,
+            Type::Symbol | Type::Parameter { .. } | Type::Function { .. } | Type::Buffer(_) => {
+                return false;
+            }
         }
     }
     true

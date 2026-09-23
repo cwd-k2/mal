@@ -43,15 +43,13 @@ predefined_types!(
     UINT32_TYPE = 7 => ("UInt32", "UInt32", "A 32-bit unsigned integer."),
     UINT64_TYPE = 8 => ("UInt64", "UInt64", "A 64-bit unsigned integer."),
     BOOL_TYPE = 9 => ("Bool", "Bool", "A Boolean value: either `true` or `false`."),
-    SYMBOL_TYPE = 10 => ("Symbol", "Symbol", "An immutable byte string owned by mal. `*symbol` obtains a zero-copy `Packed<UInt8>` view."),
+    SYMBOL_TYPE = 10 => ("Symbol", "Symbol", "An immutable byte string owned by mal. `*symbol` creates a mutable `Buffer<UInt8>` snapshot."),
     FLOAT32_TYPE = 11 => ("Float32", "Float32", "An IEEE 754 binary32 floating-point number."),
     FLOAT64_TYPE = 12 => ("Float64", "Float64", "An IEEE 754 binary64 floating-point number."),
-    BYTE_SIZE_TYPE = 13 => ("ByteSize", "ByteSize", "A target-width size measured in bytes. Multiply a `USize` by a layout constant such as `#i64` to obtain one."),
+    BYTE_SIZE_TYPE = 13 => ("ByteSize", "ByteSize", "A target-width unsigned quantity measured in bytes for host contracts."),
     U_SIZE_TYPE = 14 => ("USize", "USize", "A target-width unsigned integer used for element counts, indices, capacities, and element offsets."),
-    ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque location in host-managed storage. `Address + ByteSize` derives another location without granting read or write authority."),
-    REGION_TYPE = 16 => ("Region", "Region<T>", "A mutable view of external storage, valid only during the invocation that receives it. A `Region<T>` cannot be returned or captured by a nested lambda."),
-    PACKED_TYPE = 17 => ("Packed", "Packed<T>", "An immutable, finite sequence owned by mal. Prefix and remainder operations share ownership; concatenation preserves both operands."),
-    BUFFER_TYPE = 18 => ("Buffer", "Buffer<T>", "The scoped construction authority supplied by `make` or `edit`. Use `new`, `get`, and `put` only during that callback invocation."),
+    ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque capability for host-managed storage. Only host-profile copy primitives and extern contracts interpret its referent."),
+    BUFFER_TYPE = 16 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
 );
 
 macro_rules! predefined_values {
@@ -73,14 +71,12 @@ macro_rules! predefined_values {
 predefined_values!(
     FALSE_VALUE = 0 => ("false", Some("Bool"), "The Boolean value for a false condition.", false),
     TRUE_VALUE = 1 => ("true", Some("Bool"), "The Boolean value for a true condition.", false),
-    PACK_VALUE = 2 => ("pack", Some("(Address, USize, USize) -> Packed<T>"), "Admits the half-open element range `[start, end)` at an address into an owned `Packed<T>`. Offsets are measured in elements, and the host must guarantee readable, initialized storage for the entire range.", true),
-    EDIT_VALUE = 3 => ("edit", Some("(Packed<T>, Buffer<T> -> Unit) -> Packed<T>"), "Creates a new `Packed<T>` by exposing a scoped `Buffer<T>` initialized from `source`. The source remains an independent immutable value; the buffer cannot escape the callback.", true),
-    NEW_VALUE = 4 => ("new", Some("(Buffer<T>, T) -> USize"), "Appends a value to a scoped `Buffer<T>` and returns its stable element index. The buffer may grow, so keep data as `Packed<T>` outside construction callbacks.", true),
-    GET_VALUE = 5 => ("get", Some("(Buffer<T>, USize) -> T"), "Reads an element from a scoped `Buffer<T>` or `Region<T>`. The index must be within the buffer's current count or the region's length.", true),
-    PUT_VALUE = 6 => ("put", Some("(Buffer<T>, USize, T) -> Unit"), "Replaces an element in a scoped `Buffer<T>` or writes an element through a `Region<T>`. The index must be in bounds and external storage must be writable.", true),
-    MAKE_VALUE = 7 => ("make", Some("(USize, Buffer<T> -> Unit) -> Packed<T>"), "Builds a `Packed<T>` with a scoped `Buffer<T>`. `capacity` is an eager initial allocation request; append with `buffer.new(value)` and let the returned `Packed<T>` leave the callback.", true),
-    VIEW_VALUE = 8 => ("view", Some("(Address, USize, USize, Region<T> -> R) -> R"), "Exposes the half-open element range `[start, end)` at an address as a `Region<T>` for one callback invocation. Offsets are measured in elements; the region cannot escape or be captured by a nested lambda.", true),
-    SET_VALUE = 9 => ("set", Some("(Region<T>, Packed<T>) -> Region<T>"), "Writes every element of a `Packed<T>` to the start of a `Region<T>` and returns the unwritten suffix. The destination must be writable and at least as long as the source.", true),
+    NEW_VALUE = 2 => ("new", Some("(Buffer<T>, T) -> USize"), "Appends a value to a `Buffer<T>` and returns its stable element index.", true),
+    GET_VALUE = 3 => ("get", Some("(Buffer<T>, USize) -> T"), "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
+    PUT_VALUE = 4 => ("put", Some("(Buffer<T>, USize, T) -> Unit"), "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
+    MAKE_VALUE = 5 => ("make", Some("USize -> Buffer<T>"), "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
+    FROM_VALUE = 6 => ("from", Some("(Address, USize, USize) -> Buffer<T>"), "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
+    INTO_VALUE = 7 => ("into", Some("(Buffer<T>, Address, USize, USize) -> Unit"), "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
 );
 
 pub fn first_source_type_id() -> u32 {

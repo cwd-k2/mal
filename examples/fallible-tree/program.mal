@@ -6,18 +6,27 @@ extern Allocator;
 NodeAddress :: Address;
 // NodeBuildResult carries a constructed root coordinate or a recoverable allocation failure.
 NodeBuildResult :: [NodeAddress, Unit];
+NodeRecord :: (Int32, UInt8, Address, Address);
 
 extern createAllocator :: USize -> Allocator;
-extern allocateNode :: (Allocator, ByteSize) -> NodeBuildResult;
+extern allocateNode :: Allocator -> NodeBuildResult;
 extern releaseNode :: (Allocator, NodeAddress) -> Unit;
 extern destroyAllocator :: Allocator -> Unit;
 
+writeNode :: (NodeAddress, NodeRecord) -> Unit := (node, record) -> {
+    value := make<NodeRecord>(1usize);
+    value.new(record);
+    value.into(node, 0usize, 1usize);
+};
+
+readNode :: NodeAddress -> NodeRecord := (node) ->
+    from<NodeRecord>(node, 0usize, 1usize).get(0usize);
+
 createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> {
-    allocated := allocator.allocateNode(#i32 + #u8);
+    allocated := allocator.allocateNode();
     allocated[
     (node) -> [created, failed] => {
-        node.view<Int32>(0usize, 1usize, (region) -> region.put(0usize, value));
-        (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.put(0usize, 0u8));
+        node.writeNode((value, 0u8, node, node));
         created(node);
     },
     () -> [created, failed] => failed()
@@ -25,30 +34,22 @@ createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> {
 };
 
 sumSubtree :: NodeAddress -> Int32 := (node) -> [return] => {
-    value := node.view<Int32>(0usize, 1usize, (region) -> region.get(0usize));
-    isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
+    (value, isBranch, left, right) := node.readNode();
     when (isBranch == 0u8) {
         return(value);
     };
 
-    // Ordinary Address values can leave the view; no owned sequence is needed for two fields.
-    (left, right) := (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) ->
-        (children.get(0usize), children.get(1usize))
-    );
     return(value + left.sumSubtree() + right.sumSubtree());
 };
 
 // Post-order recursion releases both children before their parent; that cleanup order is the domain
 // operation and cannot be replaced by a cursor-only loop without an explicit work stack.
 releaseSubtree :: (NodeAddress, Allocator) -> Unit := (node, allocator) -> [return] => {
-    isBranch := (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.get(0usize));
+    (_, isBranch, left, right) := node.readNode();
     when (isBranch == 0u8) {
         return(allocator.releaseNode(node));
     };
 
-    (left, right) := (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) ->
-        (children.get(0usize), children.get(1usize))
-    );
     left.releaseSubtree(allocator);
     right.releaseSubtree(allocator);
     return(allocator.releaseNode(node));
@@ -56,15 +57,10 @@ releaseSubtree :: (NodeAddress, Allocator) -> Unit := (node, allocator) -> [retu
 
 createOwnedBranch :: (Allocator, Int32, NodeAddress, NodeAddress) -> NodeBuildResult :=
     (allocator, value, left, right) -> {
-        allocated := allocator.allocateNode(#i32 + #u8 + 2usize * #address);
+        allocated := allocator.allocateNode();
         allocated[
         (node) -> [created, failed] => {
-            node.view<Int32>(0usize, 1usize, (region) -> region.put(0usize, value));
-            (node + #i32).view<UInt8>(0usize, 1usize, (region) -> region.put(0usize, 1u8));
-            (node + #i32 + #u8).view<Address>(0usize, 2usize, (children) -> {
-                children.put(0usize, left);
-                children.put(1usize, right);
-            });
+            node.writeNode((value, 1u8, left, right));
             created(node);
         },
         () -> [created, failed] => {

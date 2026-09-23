@@ -40,12 +40,12 @@ fn renders_storage_and_control_expressions() {
     );
     let expression = Expr::conditional(
         Expr::greater(Expr::identifier("count"), Expr::number("0")),
-        slot.subscript(Expr::number("1")),
+        Expr::dereference(slot),
         Expr::sizeof_value(Expr::identifier("fallback")),
     );
 
     assert_eq!(
         expression.to_string(),
-        "(count > 0) ? (storage + (index * 16))[1] : sizeof(fallback)"
+        "(count > 0) ? *(storage + (index * 16)) : sizeof(fallback)"
     );
 }

@@ -11,20 +11,21 @@ _statusFailure :: UInt32 -> SyscallStatus := (error) -> [success, failure] => fa
 
 // Partial writes advance both the address and remaining extent; zero progress becomes an error rather
 // than recurring with an unchanged state.
-_writeAll :: (Int32, Address, ByteSize) -> SyscallStatus := (descriptor, memory, remaining) -> [return] => {
-    when (remaining == 0bytes) {
-        return(_statusSuccess());
+_writeAll :: (Int32, Address, ByteSize, ByteSize) -> SyscallStatus :=
+    (descriptor, memory, offset, remaining) -> [return] => {
+        when (remaining == 0bytes) {
+            return(_statusSuccess());
+        };
+        transferred := systemWrite(descriptor, memory, offset, remaining);
+        return(transferred[
+            (length) -> {
+                if (length == 0bytes)
+                then _statusFailure(_inputOutputError)
+                else _writeAll(descriptor, memory, offset + length, remaining - length);
+            },
+            (error) -> _statusFailure(error)
+        ]);
     };
-    transferred := systemWrite(descriptor, memory, remaining);
-    return(transferred[
-        (length) -> {
-            if (length == 0bytes)
-            then _statusFailure(_inputOutputError)
-            else _writeAll(descriptor, memory + length, remaining - length);
-        },
-        (error) -> _statusFailure(error)
-    ]);
-};
 
 _finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, length, written) -> {
     unmapped := systemMunmap(memory, length);
@@ -35,20 +36,17 @@ _finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, 
 };
 
 writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> {
-    packed := *value;
-    length := #packed;
-    extent := length * #u8;
+    bytes := *value;
+    length := #bytes;
+    extent := length.bytes;
     if (length == 0usize)
     then _statusSuccess()
     else {
         mapped := mapAnonymousReadWrite(extent);
         mapped[
         (memory) -> {
-            memory.view<UInt8>(0usize, length, (region) -> {
-                region.set(packed);
-                ();
-            });
-            written := _writeAll(descriptor, memory, extent);
+            bytes.into(memory, 0usize, length);
+            written := _writeAll(descriptor, memory, 0bytes, extent);
             _finishWrite(memory, extent, written);
         },
         (error) -> _statusFailure(error)

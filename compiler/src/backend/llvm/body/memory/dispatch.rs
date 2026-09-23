@@ -10,20 +10,17 @@ impl FunctionEmitter<'_> {
         result_type: &Type,
     ) -> Option<EmittedValue> {
         match primitive {
-            MemoryPrimitive::FormRegion => self.emit_form_region(argument, result_type),
-            MemoryPrimitive::RegionGet => self.emit_region_get(argument, result_type),
-            MemoryPrimitive::RegionPut => self.emit_region_put(argument, result_type),
-            MemoryPrimitive::PackAddress => self.emit_address_pack(argument, result_type),
-            MemoryPrimitive::RegionSet => self.emit_packed_store(argument, result_type),
-            MemoryPrimitive::PackedConcat => self.emit_packed_concat(argument, result_type),
-            MemoryPrimitive::Prefix | MemoryPrimitive::RemainderView => {
-                self.emit_view_slice(primitive, argument, result_type)
+            MemoryPrimitive::BufferFromAddress => {
+                self.emit_buffer_from_address(argument, result_type)
             }
-            MemoryPrimitive::ViewLength => self.emit_view_length(argument, result_type),
-            MemoryPrimitive::PackedIndex => self.emit_packed_index(argument, result_type),
-            MemoryPrimitive::PackedToSymbol => self.emit_packed_to_symbol(argument, result_type),
-            MemoryPrimitive::SymbolToPacked => self.emit_symbol_to_packed(argument, result_type),
-            MemoryPrimitive::BufferNew
+            MemoryPrimitive::BufferIntoAddress => {
+                self.emit_buffer_into_address(argument, result_type)
+            }
+            MemoryPrimitive::ViewLength => self.emit_buffer_length(argument, result_type),
+            MemoryPrimitive::BufferToSymbol => self.emit_buffer_to_symbol(argument, result_type),
+            MemoryPrimitive::SymbolToBuffer => self.emit_symbol_to_buffer(argument, result_type),
+            MemoryPrimitive::BufferMake
+            | MemoryPrimitive::BufferNew
             | MemoryPrimitive::BufferGet
             | MemoryPrimitive::BufferPut => None,
         }

@@ -33,28 +33,16 @@ pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &A
             vec![(BindingOperand::SymbolAt, argument, false)]
         }
         Operation::Memory {
-            primitive,
+            primitive: _,
             operands,
             ..
         } => operands
             .iter()
             .enumerate()
-            .map(|(index, operand)| {
-                (
-                    BindingOperand::MemoryOperand(index),
-                    operand,
-                    matches!(
-                        primitive,
-                        crate::check::ast::MemoryPrimitive::Prefix
-                            | crate::check::ast::MemoryPrimitive::RemainderView
-                            | crate::check::ast::MemoryPrimitive::PackedToSymbol
-                            | crate::check::ast::MemoryPrimitive::SymbolToPacked
-                    ),
-                )
-            })
+            .map(|(index, operand)| (BindingOperand::MemoryOperand(index), operand, false))
             .collect(),
-        Operation::PackedBuilder { argument, .. } => {
-            vec![(BindingOperand::PackedBuilderArgument, argument, false)]
+        Operation::Buffer { argument, .. } => {
+            vec![(BindingOperand::BufferArgument, argument, false)]
         }
         Operation::ExternalCall { argument, .. } => {
             vec![(BindingOperand::ExternalArgument, argument, false)]

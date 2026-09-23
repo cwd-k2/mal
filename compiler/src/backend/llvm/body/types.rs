@@ -88,19 +88,6 @@ impl Types {
                     size: self.target.pointer_size,
                 },
             ]),
-            Type::Region(_) => aggregate_type(vec![
-                ValueType {
-                    llvm: "ptr".into(),
-                    alignment: self.target.pointer_alignment,
-                    size: self.target.pointer_size,
-                },
-                ValueType {
-                    llvm: self.pointer_integer()?,
-                    alignment: self.index_alignment(),
-                    size: self.target.index_size,
-                },
-            ]),
-            Type::Packed(_) => self.byte_view(),
             Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
                 llvm: "i1".into(),

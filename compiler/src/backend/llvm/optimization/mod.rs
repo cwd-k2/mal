@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
-mod buffer_abi;
 mod control_storage;
 mod control_top;
 mod self_tail_parameter;
@@ -11,7 +10,6 @@ mod symbol_concat;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
-    BufferDirectAbi,
     LocalControlStorage,
     LocalControlTop,
     SelfTailParameter,
@@ -28,7 +26,6 @@ impl OptimizationSet {
 
     pub(crate) const fn production() -> Self {
         Self::none()
-            .with(Technique::BufferDirectAbi)
             .with(Technique::LocalControlStorage)
             .with(Technique::LocalControlTop)
             .with(Technique::SelfTailParameter)
@@ -48,7 +45,6 @@ impl OptimizationSet {
 pub(super) struct OptimizationPlan {
     local_control_storage_functions: HashSet<FunctionId>,
     local_control_top_functions: HashSet<FunctionId>,
-    direct_buffer_functions: HashSet<FunctionId>,
     self_tail_parameters: HashSet<FunctionId>,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
 }
@@ -72,11 +68,6 @@ impl OptimizationPlan {
         } else {
             HashSet::new()
         };
-        let direct_buffer_functions = if enabled.contains(Technique::BufferDirectAbi) {
-            buffer_abi::plan(execution)
-        } else {
-            HashSet::new()
-        };
         let self_tail_parameters = if enabled.contains(Technique::SelfTailParameter) {
             self_tail_parameter::plan(execution)
         } else {
@@ -90,7 +81,6 @@ impl OptimizationPlan {
         Self {
             local_control_storage_functions,
             local_control_top_functions,
-            direct_buffer_functions,
             self_tail_parameters,
             symbol_concatenations,
         }
@@ -109,10 +99,6 @@ impl OptimizationPlan {
             .get(&(site, binding))
             .copied()
             .unwrap_or(SymbolConcatMode::Borrow)
-    }
-
-    pub(super) fn uses_direct_buffer(&self, function: FunctionId) -> bool {
-        self.direct_buffer_functions.contains(&function)
     }
 
     pub(super) fn localizes_control_top(&self, function: FunctionId) -> bool {
@@ -138,27 +124,6 @@ impl OptimizationPlan {
                 .any(|target| self.localizes_control_storage(*target))
         })
     }
-
-    pub(super) fn site_uses_direct_buffer(
-        &self,
-        applications: &crate::execution::ApplicationGraph,
-        site: StateId,
-    ) -> bool {
-        applications.targets(site).is_some_and(|targets| {
-            !targets.is_empty()
-                && targets
-                    .iter()
-                    .all(|target| self.uses_direct_buffer(*target))
-        })
-    }
-}
-
-pub(super) fn type_contains_buffer(ty: &crate::check::ast::Type) -> bool {
-    buffer_abi::contains_buffer(ty)
-}
-
-pub(super) fn type_has_single_buffer(ty: &crate::check::ast::Type) -> bool {
-    buffer_abi::has_single_buffer(ty)
 }
 
 #[cfg(test)]

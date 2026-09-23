@@ -1,13 +1,9 @@
 # Typed external memory example
 
-This example obtains mutable storage from the host and accesses canonical `SampleRecord` values through
-short-lived typed views. The first view starts at the host allocation; two later views deliberately
-start at unaligned addresses. The generic `replace<A>` helper receives one scoped `Region<A>` and
-returns the displaced ordinary value. The caller uses that value between sequential views, so no
-borrowed authority escapes or overlaps another callback. A C host operation then reads, updates,
-and writes the first unaligned sample through the generated canonical-memory helpers. The program
-exits with status 0 when aligned access, exact unaligned access, the swap, and the cross-language
-update preserve the products.
+This example obtains deliberately unaligned host storage and exchanges two canonical
+`SampleRecord` values through `from<SampleRecord>` and `buffer.into`. The mal-owned Buffer supports
+ordinary mutation while the `Address` remains opaque; the C host performs one in-place update using
+the generated canonical-memory helper.
 
 From the repository root in Nushell:
 

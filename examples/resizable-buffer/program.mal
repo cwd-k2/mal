@@ -1,211 +1,40 @@
 require "./host.c";
 
-extern Allocation;
+// Both externs operate on reusable host transfer storage; no Buffer identity crosses this boundary.
+extern transferBuffer :: Unit -> Address;
+extern writeBytes :: (Address, USize) -> Unit;
 
-// OwnedBuffer fields: 0 allocation authority, 1 writable memory, 2 capacity, 3 initialized length.
-OwnedBuffer :: (Allocation, Address, USize, USize);
-// BorrowedBytes fields: 0 allocation identity, 1 readable memory, 2 byte length.
-BorrowedBytes :: (Allocation, Address, USize);
-// OutputBuffer fields: 0 process-lifetime writable memory, 1 byte capacity.
-OutputBuffer :: (Address, USize);
-// OwnedBufferResult variant 0 carries the current owned buffer; variant 1 carries an error code.
-OwnedBufferResult :: [OwnedBuffer, UInt32];
-// BorrowedBytesResult variant 0 carries an in-bounds borrowed view; variant 1 reports invalid bounds.
-BorrowedBytesResult :: [BorrowedBytes, Unit];
-
-extern allocateBuffer :: (USize, USize) -> OwnedBufferResult;
-extern resizeBuffer :: (OwnedBuffer, USize) -> OwnedBufferResult;
-extern releaseBuffer :: Allocation -> Unit;
-extern isCurrentBuffer :: OwnedBuffer -> Bool;
-extern isCurrentBorrow :: BorrowedBytes -> Bool;
-extern writeBorrowedBytes :: BorrowedBytes -> Unit;
-extern validateStoredDescriptor :: (Allocation, Address) -> Unit;
-extern outputBuffer :: Unit -> OutputBuffer;
-extern writeBytes :: OutputBuffer -> Unit;
-
-// A step returns either the complete state for another iteration or a separately typed result.
-_loop<A, B> :: (A, A -> [A, B]) -> B :=
-    (state, step) -> step(state)[
-        (nextState) -> _loop<A, B>(nextState, step),
-        (result) -> result
-    ];
-
-writeSymbol :: Symbol -> Unit := (value) -> {
-    packed := *value;
-    (memory, _) := outputBuffer();
-    memory.view<UInt8>(0usize, #packed, (region) -> {
-        region.set(packed);
-        ();
-    });
-    writeBytes(memory, #packed);
-};
-
-_bufferSuccess :: OwnedBuffer -> OwnedBufferResult := (buffer) -> [success, failure] => success(buffer);
-
-_bufferFailure :: UInt32 -> OwnedBufferResult := (error) -> [success, failure] => failure(error);
-
-appendSymbol :: (OwnedBuffer, Symbol) -> OwnedBufferResult := (buffer, value) -> [return] => {
-    (allocation, memory, capacity, length) := buffer;
-    additional := (#value).usize;
-    when (additional > (-1u64).usize - length) {
-        return(_bufferFailure(1u32));
+// The cursor is the complete recursive state. Appending may grow destination without invalidating
+// either Buffer value because aliases refer to the same managed identity.
+append :: (Buffer<UInt8>, Buffer<UInt8>, USize) -> Unit := (destination, source, index) -> [return] => {
+    when (index == #source) {
+        return(());
     };
-    required := length + additional;
-    available := if (required <= capacity)
-        then _bufferSuccess(buffer)
-        else {
-            // Growth is a local phase of append: the surrounding function computes its inputs,
-            // consumes its result, and continues with the allocation protocol afterward.
-            target := _loop<USize, USize>(capacity, (candidate) -> [continue, break] => {
-                when (candidate >= required) {
-                    break(candidate);
-                };
-                when (candidate > (-1u64).usize / 2usize) {
-                    break(required);
-                };
-
-                continue(candidate * 2usize);
-            });
-            buffer.resizeBuffer(target);
-        };
-    result :: OwnedBufferResult := available[
-        (resized) -> [success, failure] => {
-            (nextAllocation, nextMemory, nextCapacityValue, _) := resized;
-            packed := *value;
-            nextMemory.view<UInt8>(length, required, (region) -> {
-                region.set(packed);
-                ();
-            });
-            success((nextAllocation, nextMemory, nextCapacityValue, required));
-        },
-        (error) -> [success, failure] => failure(error)
-    ];
-    return(result);
+    destination.new(source.get(index));
+    return(destination.append(source, index + 1usize));
 };
 
-borrowBytes :: (OwnedBuffer, USize, USize) -> BorrowedBytesResult :=
-    (buffer, start, length) -> [borrowed, invalid] => {
-        (allocation, memory, _, initialized) := buffer;
-        when (start <= initialized && length <= initialized - start) {
-            borrowed((allocation, memory + start.bytes, length));
-        };
-        invalid();
-    };
+appendSymbol :: (Buffer<UInt8>, Symbol) -> Unit := (destination, value) ->
+    destination.append(*value, 0usize);
 
-releaseOwnedBuffer :: OwnedBuffer -> Unit := (buffer) -> {
-    (allocation, _, _, _) := buffer;
-    allocation.releaseBuffer();
-};
-
-checkStoredDescriptor :: BorrowedBytes -> Bool := (borrowed) -> {
-    (allocation, memory, length) := borrowed;
-    descriptorSize := #(address, usize);
-    allocated := allocateBuffer(descriptorSize.usize, descriptorSize.usize);
-    allocated[
-    (descriptor) -> {
-        (descriptorAllocation, descriptorMemory, _, _) := descriptor;
-        descriptorMemory.view<(Address, USize)>(0usize, 1usize, (region) -> {
-            region.put(0usize, (memory, length));
-        });
-        validateStoredDescriptor(allocation, descriptorMemory);
-        descriptorAllocation.releaseBuffer();
-        true;
-    },
-    (_) -> false
-    ];
-};
-
-finishLimitTest :: (OwnedBuffer, Bool) -> Int32 := (buffer, aliasesInvalid) -> {
-    rejected := buffer.appendSymbol(
-        "this append is intentionally larger than the allocation limit for the pressure test"
-    );
-    rejected[
-    (unexpected) -> {
-        unexpected.releaseOwnedBuffer();
-        5;
-    },
-    (_) -> {
-        current := buffer.isCurrentBuffer();
-        buffer.releaseOwnedBuffer();
-        if (aliasesInvalid && current)
-        then {
-            writeSymbol("resize rejected\n");
-            0;
-        }
-        else 6;
-    }
-    ];
-};
-
-afterGrowth :: (OwnedBuffer, BorrowedBytes) -> Int32 := (before, staleBorrow) -> {
-    grownResult := before.appendSymbol("-shared-buffer");
-    grownResult[
-    (grown) -> {
-        aliasesInvalid := !before.isCurrentBuffer() && !staleBorrow.isCurrentBorrow();
-        (_, _, _, length) := grown;
-        borrowResult := grown.borrowBytes(0usize, length);
-        borrowResult[
-        (currentBorrow) -> {
-            if (currentBorrow.checkStoredDescriptor())
-            then {
-                writeSymbol("\n");
-                grown.finishLimitTest(aliasesInvalid);
-            }
-            else {
-                grown.releaseOwnedBuffer();
-                4;
-            };
-        },
-        () -> {
-            grown.releaseOwnedBuffer();
-            4;
-        }
-        ];
-    },
-    (_) -> {
-        before.releaseOwnedBuffer();
-        3;
-    }
-    ];
-};
-
-withInitialValue :: OwnedBuffer -> Int32 := (initial) -> {
-    appended := initial.appendSymbol("mal");
-    appended[
-    (buffer) -> {
-        invalidBorrow := buffer.borrowBytes(2usize, 2usize);
-        invalidBorrow[
-        (_) -> {
-            buffer.releaseOwnedBuffer();
-            8;
-        },
-        () -> {
-            borrowResult := buffer.borrowBytes(1usize, 2usize);
-            borrowResult[
-            (borrowed) -> {
-                writeBorrowedBytes(borrowed);
-                writeSymbol("\n");
-                buffer.afterGrowth(borrowed);
-            },
-            () -> {
-                buffer.releaseOwnedBuffer();
-                2;
-            }
-            ];
-        }
-        ];
-    },
-    (_) -> {
-        initial.releaseOwnedBuffer();
-        1;
-    }
-    ];
+// Copy only the requested logical range into host storage immediately before the external write.
+writeRange :: (Buffer<UInt8>, USize, USize) -> Unit := (bytes, offset, length) -> {
+    memory := transferBuffer();
+    bytes.into(memory, offset, length);
+    writeBytes(memory, length);
 };
 
 main :: Unit -> Int32 := () -> {
-    allocated := allocateBuffer(4usize, 64usize);
-    allocated[
-    (buffer) -> buffer.withInitialValue(),
-    (_) -> 7
-    ];
+    bytes := make<UInt8>(2usize);
+    bytes.appendSymbol("mal");
+
+    // Assignment copies the managed identity. Growth and mutation remain visible through both names.
+    alias := bytes;
+    alias.appendSymbol("-shared-buffer\n");
+
+    bytes.writeRange(1usize, 2usize);
+    newline := *"\n";
+    newline.writeRange(0usize, #newline);
+    bytes.writeRange(0usize, #bytes);
+    0;
 };

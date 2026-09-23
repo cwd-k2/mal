@@ -13,7 +13,7 @@ The example derives several iteration styles from the same function:
 | `downto` | `start` through `end`, descending and inclusive | `start < end` | Final accumulator |
 | `times` | Exactly `count` transformations | `count == 0` | Initial value |
 | `anyUpto` | An inclusive ascending range until a match | Reversed range | `false` |
-| `foldPacked` | Every element in index order | Empty `Packed` | Initial accumulator |
+| `foldBuffer` | Every element in index order | Empty `Buffer` | Initial accumulator |
 
 Their call sites use receiver-first application where the starting value or repetition count is the
 natural subject. `sumOddThrough` traverses one million values, `factorialDownFrom` descends without
@@ -21,7 +21,7 @@ unsigned underflow at the endpoint, and `repeat` carries an owned `Symbol`. Toge
 scalar, product, captured, managed, collection, and early-result paths without adding mutable
 bindings or a loop primitive.
 
-`upto`, `downto`, and `foldPacked` pass the accumulator before the current element or index, matching
+`upto`, `downto`, and `foldBuffer` pass the accumulator before the current element or index, matching
 the order in their type signatures. Their implementations check the terminal endpoint before
 performing the final unsigned increment or decrement. Thus `upto` remains defined when `end` is the
 largest `UInt64`, and `downto` remains defined when `end` is zero.
@@ -31,7 +31,7 @@ repetition count, or sequence. It remains ordinary lexical function applicationâ
 does not perform type-directed method lookup. The lower-level `loop(state, step)` keeps prefix form
 because an arbitrary state product is configuration, not a domain object.
 
-`foldPacked` is the pure accumulator-carrying counterpart of a collection `for`. An effectful
+`foldBuffer` is the pure accumulator-carrying counterpart of a collection `for`. An effectful
 `forEach` can use the same cursor state with a callback returning `Unit`; it is omitted because this
 standalone example deliberately has no host-visible effects.
 

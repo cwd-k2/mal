@@ -1,74 +1,62 @@
-require "./host.mal";
-
-// Region is scoped authority, so clearing advances a directly passed subregion instead of capturing
-// it in a generic iteration callback.
-clearBytes :: Region<UInt8> -> Unit := (memory) -> [return] => {
-    when (#memory == 0usize) {
-        return(());
-    };
-
-    memory.put(0usize, 0u8);
-    return((memory % 1usize).clearBytes());
-};
-
-// Comparison and search keep their distinct short-circuit results in named byte operations. Their
-// cursor recursion is already hidden from database and query callers.
-_rangeEquals :: (Packed<UInt8>, Symbol, USize) -> Bool :=
-    (source, expected, index) -> [return] => {
+// Compare one Symbol snapshot without constructing a slice of the source Buffer.
+_rangeEquals :: (Buffer<UInt8>, USize, Buffer<UInt8>, USize) -> Bool :=
+    (source, start, expected, index) -> [return] => {
         when (index == #expected) {
             return(true);
         };
-        when (source # index != expected # index) {
+        when (source.get(start + index) != expected.get(index)) {
             return(false);
         };
-
-        return(source._rangeEquals(expected, index + 1usize));
+        return(source._rangeEquals(start, expected, index + 1usize));
     };
 
-rangeEquals :: (Packed<UInt8>, USize, USize, Symbol) -> Bool :=
+rangeEquals :: (Buffer<UInt8>, USize, USize, Symbol) -> Bool :=
     (source, start, length, expected) -> {
-        length == #expected
+        bytes := *expected;
+        length == #bytes
             && start <= #source
             && length <= #source - start
-            && (source % start)._rangeEquals(expected, 0usize);
+            && source._rangeEquals(start, bytes, 0usize);
     };
 
-_findByte :: (Packed<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> [return] => {
-    when (index == #source) {
+_findByte :: (Buffer<UInt8>, USize, UInt8) -> USize := (source, index, byte) -> [return] => {
+    when (index == #source || source.get(index) == byte) {
         return(index);
     };
-    when (source # index == byte) {
-        return(index);
-    };
-
     return(source._findByte(index + 1usize, byte));
 };
 
-findByte :: (Packed<UInt8>, USize, UInt8) -> USize := (source, start, byte) -> {
+findByte :: (Buffer<UInt8>, USize, UInt8) -> USize := (source, start, byte) ->
     if (start >= #source)
-    then #source
-    else source._findByte(start, byte);
-};
+        then #source
+        else source._findByte(start, byte);
 
-prefixEquals :: (Packed<UInt8>, Packed<UInt8>, USize) -> Bool :=
-    (left, right, length) -> [return] => {
-        when (length == 0usize) {
-            return(true);
-        };
-        when (left # 0usize != right # 0usize) {
-            return(false);
-        };
-
-        return((left % 1usize).prefixEquals(right % 1usize, length - 1usize));
-    };
-
-// Copying passes each shortened Region directly so writable authority never enters closure state.
-copyPrefix :: (Packed<UInt8>, Region<UInt8>, USize) -> Unit :=
-    (source, destination, length) -> [return] => {
+// Copying uses explicit coordinates so source and destination may be larger carriers.
+copyRange :: (Buffer<UInt8>, USize, Buffer<UInt8>, USize, USize) -> Unit :=
+    (source, sourceStart, destination, destinationStart, length) -> [return] => {
         when (length == 0usize) {
             return(());
         };
-
-        destination.put(0usize, source # 0usize);
-        return((source % 1usize).copyPrefix(destination % 1usize, length - 1usize));
+        destination.put(destinationStart, source.get(sourceStart));
+        return(source.copyRange(
+            sourceStart + 1usize,
+            destination,
+            destinationStart + 1usize,
+            length - 1usize
+        ));
     };
+
+_fillSlice :: (Buffer<UInt8>, USize, USize, Buffer<UInt8>) -> Unit :=
+    (source, start, remaining, result) -> [return] => {
+        when (remaining == 0usize) {
+            return(());
+        };
+        result.new(source.get(start));
+        return(_fillSlice(source, start + 1usize, remaining - 1usize, result));
+    };
+
+copySlice :: (Buffer<UInt8>, USize, USize) -> Buffer<UInt8> := (source, start, length) -> {
+    result := make<UInt8>(length);
+    _fillSlice(source, start, length, result);
+    result;
+};

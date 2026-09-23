@@ -37,11 +37,7 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => {}
-                Type::Symbol
-                | Type::Parameter { .. }
-                | Type::Region(_)
-                | Type::Packed(_)
-                | Type::Buffer(_) => {
+                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                     unreachable!("open or memory-indexed types are not host mappable")
                 }
             }
@@ -104,11 +100,7 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Symbol
-            | Type::Parameter { .. }
-            | Type::Region(_)
-            | Type::Packed(_)
-            | Type::Buffer(_) => {
+            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                 unreachable!("open or memory-indexed types are not host mappable")
             }
         }

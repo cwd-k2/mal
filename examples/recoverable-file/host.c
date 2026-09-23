@@ -107,3 +107,7 @@ MAL_DEFINE_writeError(call, error) {
     }
     return mal_Unit_return(call);
 }
+
+MAL_DEFINE_argumentLength(call, address) {
+    return mal_USize_return(call, strlen((const char *)address));
+}

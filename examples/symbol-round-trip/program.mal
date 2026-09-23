@@ -1,5 +1,7 @@
 require "./host.c";
 
+// The Address names reusable host scratch storage. receive initializes a prefix, while send reads
+// a prefix; neither operation retains the address beyond its call.
 extern transferBuffer :: Unit -> Address;
 extern receive :: (Address, USize) -> USize;
 extern send :: (Address, USize) -> Unit;
@@ -11,14 +13,15 @@ main :: Unit -> Int32 := () -> {
     length := receive(address, bufferCapacity);
 
     // Admit the initialized host prefix before the transfer buffer is reused for output.
-    value := *address.pack<UInt8>(0usize, length);
-    valid := #value == 8usize && value # 3usize == 227u8 && value # 6usize == 0u8 && value # 7usize == 255u8 && value == "malあ\0\xff";
+    bytes := from<UInt8>(address, 0usize, length);
+    value := *bytes;
+    valid := #value == 8usize
+        && bytes.get(3usize) == 227u8
+        && bytes.get(6usize) == 0u8
+        && bytes.get(7usize) == 255u8
+        && value == "malあ\0\xff";
     outgoing := *(value + "!");
-    address.view<UInt8>(0usize, #outgoing, (region) -> {
-        region.set(outgoing);
-        // set returns the unwritten suffix; this callback intentionally publishes no Region.
-        ();
-    });
+    outgoing.into(address, 0usize, #outgoing);
     send(address, #outgoing);
     if (valid)
     then 0

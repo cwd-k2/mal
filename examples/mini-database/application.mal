@@ -2,37 +2,33 @@ require "./host.mal";
 require "./database.mal";
 require "./query.mal";
 
-_queryStorageSize :: USize := 257usize;
-_inputStorageSize :: USize := 4096usize;
+_inputCapacity :: USize := 4096usize;
 
 executeDatabase :: (Address, USize) -> Int32 := (path) -> {
-    // Allocator owns every byte buffer below and outlives all views derived from them.
+    // The allocator owns only reusable host transfer areas; database values remain managed Buffers.
     allocator := createAllocator();
     file := openReadWriteCreate(path);
     input := standardInput();
 
     (databaseMemory, databaseCapacity) := allocator.allocateBuffer(databaseReadCapacity);
-    databaseStorage := (databaseMemory, databaseCapacity, 0usize);
-    (queryMemory, queryCapacity) := allocator.allocateBuffer(_queryStorageSize);
-    query := (queryMemory, queryCapacity, 0usize);
-    (inputMemory, inputCapacity) := allocator.allocateBuffer(_inputStorageSize);
-    inputBuffer := (inputMemory, inputCapacity, 0usize);
-
-    loadedDatabase := file.readDatabaseFile(databaseStorage);
-    (_, _, loaded) := loadedDatabase;
+    loaded := readDatabaseFile(file, databaseMemory, databaseCapacity, 0usize);
     database := if (loaded == 0usize)
-        then loadedDatabase.initializeDatabase()
+        then initializeDatabase(databaseMemory)
         else {
-            when (!loadedDatabase.validateDatabase()) {
+            // Admission copies first; validation decides whether those bytes form a database image.
+            bytes := from<UInt8>(databaseMemory, 0usize, loaded);
+            when (!bytes.validateDatabase()) {
                 fail("invalid database file");
             };
-            loadedDatabase;
+            (databaseMemory, bytes);
         };
 
-    (input, inputBuffer, 0usize).runQueries(file, database, query);
+    (inputMemory, inputCapacity) := allocator.allocateBuffer(_inputCapacity);
+    reader := (input, inputMemory, inputCapacity, make<UInt8>(0usize), 0usize);
+    reader.runQueries(file, database);
 
-    // No buffer view may be used after destroying its allocator.
     file.closeFile();
+    // No Address-backed transfer operation occurs after the allocator is destroyed.
     allocator.destroyAllocator();
     0;
 };

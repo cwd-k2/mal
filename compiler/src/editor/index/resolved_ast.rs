@@ -406,7 +406,6 @@ impl Index {
             | Expression::Float(_)
             | Expression::Byte(_)
             | Expression::Symbol(_)
-            | Expression::StrideQuery(_)
             | Expression::Unit => {}
         }
     }

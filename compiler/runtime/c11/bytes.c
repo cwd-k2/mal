@@ -265,7 +265,7 @@ const uint8_t *mal_runtime_bytes_data(const void *owner) {
 }
 
 void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t length) {
-    return mal_bytes_flat_copy(context, source, length, "packed allocation failed");
+    return mal_bytes_flat_copy(context, source, length, "byte allocation failed");
 }
 
 void *mal_runtime_bytes_retain(MalContext *context, const void *owner) {
@@ -290,141 +290,73 @@ void mal_runtime_bytes_write(
 typedef struct {
     MalBytes *owner;
     unsigned char *data;
-    size_t offset;
     size_t count;
     size_t stride;
     size_t zeroed_until;
-    uint8_t editable;
-} MalPackedBuilder;
+} MalBuffer;
 
-static MalPackedBuilder *mal_packed_builder_allocate(
+static MalBuffer *mal_buffer_allocate(
+    MalContext *context,
+    size_t stride
+);
+
+static void mal_buffer_destroy(void *opaque_buffer) {
+    MalBuffer *buffer = opaque_buffer;
+    mal_bytes_release(buffer->owner);
+}
+
+static MalBuffer *mal_buffer_allocate(
     MalContext *context,
     size_t stride
 ) {
-    MalPackedBuilder *builder = mal_runtime_scoped_environment_allocate(
+    MalBuffer *buffer = mal_runtime_environment_allocate(
         context,
-        sizeof(MalPackedBuilder)
+        sizeof(MalBuffer),
+        mal_buffer_destroy
     );
-    builder->owner = NULL;
-    builder->data = NULL;
-    builder->offset = 0;
-    builder->count = 0;
-    builder->stride = stride;
-    builder->zeroed_until = 0;
-    builder->editable = 1;
-    return builder;
+    buffer->owner = NULL;
+    buffer->data = NULL;
+    buffer->count = 0;
+    buffer->stride = stride;
+    buffer->zeroed_until = 0;
+    return buffer;
 }
 
-void *mal_runtime_packed_builder_edit(
-    MalContext *context,
-    const void *owner,
-    const void *data,
-    size_t count,
-    size_t stride
-) {
-    MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
-    builder->owner = mal_bytes_retain(context, (MalBytes *)owner);
-    builder->data = stride == 0 ? NULL : (unsigned char *)data;
-    builder->offset = mal_bytes_offset(builder->owner, data);
-    builder->count = count;
-    builder->editable = 0;
-    return builder;
-}
-
-static size_t mal_packed_builder_bytes(
+static size_t mal_buffer_bytes(
     MalContext *context,
     size_t count,
     size_t stride
 ) {
     if (stride != 0 && count > SIZE_MAX / stride) {
-        mal_trap(context, "packed builder byte size overflow");
+        mal_trap(context, "buffer byte size overflow");
     }
     return count * stride;
 }
 
-void *mal_runtime_packed_builder_make(
+void *mal_runtime_buffer_make(
     MalContext *context,
     size_t stride,
     size_t capacity
 ) {
-    MalPackedBuilder *builder = mal_packed_builder_allocate(context, stride);
-    size_t bytes = mal_packed_builder_bytes(context, capacity, stride);
+    MalBuffer *buffer = mal_buffer_allocate(context, stride);
+    size_t bytes = mal_buffer_bytes(context, capacity, stride);
     if (bytes != 0) {
         MalBytesFlat *flat = mal_bytes_flat_allocate_zeroed(
             context,
             0,
             bytes,
-            "packed builder allocation failed"
+            "buffer allocation failed"
         );
-        builder->owner = &flat->header;
-        builder->data = flat->bytes;
-        builder->zeroed_until = bytes;
+        buffer->owner = &flat->header;
+        buffer->data = flat->bytes;
+        buffer->zeroed_until = bytes;
     }
-    return builder;
+    return buffer;
 }
+
 
 __attribute__((noinline))
-static void mal_packed_builder_make_editable_slow(
-    MalContext *context,
-    MalPackedBuilder *builder
-) {
-    size_t bytes = mal_packed_builder_bytes(
-        context,
-        builder->count,
-        builder->stride
-    );
-    if (builder->owner == NULL) {
-        builder->data = NULL;
-        builder->offset = 0;
-        builder->editable = 1;
-        return;
-    }
-    if (builder->owner->kind == MAL_BYTES_FLAT
-        && builder->owner->references == 1
-        && builder->offset == 0
-        && builder->owner->length == (uint64_t)bytes) {
-        builder->data = (unsigned char *)mal_bytes_data(builder->owner);
-        builder->editable = 1;
-        return;
-    }
-    const unsigned char *source = bytes == 0
-        ? NULL
-        : mal_bytes_data(builder->owner) + builder->offset;
-    MalBytes *copy = mal_bytes_flat_copy(
-        context,
-        source,
-        bytes,
-        "packed builder allocation failed"
-    );
-    mal_bytes_release(builder->owner);
-    builder->owner = copy;
-    builder->data = (unsigned char *)mal_bytes_data(copy);
-    builder->offset = 0;
-    builder->editable = 1;
-}
-
-__attribute__((always_inline))
-static void mal_packed_builder_make_editable(
-    MalContext *context,
-    MalPackedBuilder *builder
-) {
-    if (!builder->editable) {
-        mal_packed_builder_make_editable_slow(context, builder);
-    }
-}
-
-__attribute__((always_inline))
-void *mal_runtime_packed_builder_prepare_edit(
-    MalContext *context,
-    void *opaque_builder
-) {
-    mal_packed_builder_make_editable(context, opaque_builder);
-    MalPackedBuilder *builder = opaque_builder;
-    return builder->data;
-}
-
-__attribute__((noinline))
-static MalBytesFlat *mal_packed_builder_grow_unique(
+static MalBytesFlat *mal_buffer_grow_unique(
     MalContext *context,
     MalBytesFlat *flat,
     size_t required
@@ -439,12 +371,12 @@ static MalBytesFlat *mal_packed_builder_grow_unique(
             required,
             capacity,
             0,
-            "packed builder allocation failed"
+            "buffer allocation failed"
         );
     }
     flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
     if (flat == NULL) {
-        mal_trap(context, "packed builder allocation failed");
+        mal_trap(context, "buffer allocation failed");
     }
     flat->capacity = capacity;
     flat->header.length = (uint64_t)required;
@@ -452,23 +384,23 @@ static MalBytesFlat *mal_packed_builder_grow_unique(
 }
 
 __attribute__((always_inline))
-size_t mal_runtime_packed_builder_new(
+size_t mal_runtime_buffer_new(
     MalContext *context,
-    void *opaque_builder,
+    void *opaque_buffer,
     const void *value,
     size_t stride
 ) {
-    MalPackedBuilder *builder = opaque_builder;
-    size_t index = builder->count;
+    MalBuffer *buffer = opaque_buffer;
+    size_t index = buffer->count;
     if (stride != 0) {
-        if (builder->count >= SIZE_MAX / stride) {
-            mal_trap(context, "packed builder byte size overflow");
+        if (buffer->count >= SIZE_MAX / stride) {
+            mal_trap(context, "buffer byte size overflow");
         }
-        size_t length = builder->count * stride;
-        size_t required = (builder->count + 1) * stride;
-        MalBytesFlat *flat = (MalBytesFlat *)builder->owner;
+        size_t length = buffer->count * stride;
+        size_t required = (buffer->count + 1) * stride;
+        MalBytesFlat *flat = (MalBytesFlat *)buffer->owner;
         if (flat == NULL || required > flat->capacity) {
-            flat = mal_packed_builder_grow_unique(context, flat, required);
+            flat = mal_buffer_grow_unique(context, flat, required);
         } else {
             flat->header.length = (uint64_t)required;
         }
@@ -480,28 +412,76 @@ size_t mal_runtime_packed_builder_new(
                 break;
             }
         }
-        if (!value_is_zero || required > builder->zeroed_until) {
+        if (!value_is_zero || required > buffer->zeroed_until) {
             memcpy(flat->bytes + length, value, stride);
         }
-        builder->owner = &flat->header;
-        builder->data = flat->bytes;
-    } else if (builder->count == SIZE_MAX) {
-        mal_trap(context, "packed builder count overflow");
+        buffer->owner = &flat->header;
+        buffer->data = flat->bytes;
+    } else if (buffer->count == SIZE_MAX) {
+        mal_trap(context, "buffer count overflow");
     }
-    ++builder->count;
+    ++buffer->count;
     return index;
 }
 
 __attribute__((always_inline))
-void *const *mal_runtime_packed_builder_data_slot(const void *opaque_builder) {
-    const MalPackedBuilder *builder = opaque_builder;
-    return (void *const *)&builder->data;
+void *const *mal_runtime_buffer_data_slot(const void *opaque_buffer) {
+    const MalBuffer *buffer = opaque_buffer;
+    return (void *const *)&buffer->data;
 }
 
-void mal_runtime_packed_builder_finish(MalBytesView *result, void *opaque_builder) {
-    MalPackedBuilder *builder = opaque_builder;
-    result->owner = builder->owner;
-    result->data = builder->data;
-    result->length = builder->count;
-    mal_runtime_scoped_environment_deallocate(builder);
+size_t mal_runtime_buffer_count(const void *opaque_buffer) {
+    const MalBuffer *buffer = opaque_buffer;
+    return buffer->count;
+}
+
+void *mal_runtime_buffer_from(
+    MalContext *context,
+    const void *source,
+    size_t offset,
+    size_t count,
+    size_t stride
+) {
+    MalBuffer *buffer = mal_runtime_buffer_make(context, stride, count);
+    if (stride == 0) {
+        buffer->count = count;
+        return buffer;
+    }
+    if (offset > SIZE_MAX - count || offset + count > SIZE_MAX / stride) {
+        mal_trap(context, "buffer copy range overflow");
+    }
+    if (count == 0) {
+        return buffer;
+    }
+    size_t source_offset = offset * stride;
+    size_t bytes = count * stride;
+    memcpy(buffer->data, (const unsigned char *)source + source_offset, bytes);
+    ((MalBytesFlat *)buffer->owner)->header.length = (uint64_t)bytes;
+    buffer->count = count;
+    return buffer;
+}
+
+void mal_runtime_buffer_into(
+    MalContext *context,
+    const void *opaque_buffer,
+    void *destination,
+    size_t offset,
+    size_t count,
+    size_t stride
+) {
+    const MalBuffer *buffer = opaque_buffer;
+    if (offset > buffer->count || count > buffer->count - offset) {
+        mal_trap(context, "buffer copy range out of bounds");
+    }
+    if (stride == 0 || count == 0) {
+        return;
+    }
+    if (offset > SIZE_MAX - count || offset + count > SIZE_MAX / stride) {
+        mal_trap(context, "buffer copy range overflow");
+    }
+    memcpy(
+        destination,
+        buffer->data + offset * stride,
+        count * stride
+    );
 }

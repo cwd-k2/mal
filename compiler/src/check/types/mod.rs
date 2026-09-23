@@ -2,8 +2,8 @@ use crate::ast::Node;
 use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
     self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE,
-    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, PACKED_TYPE, REGION_TYPE,
-    SYMBOL_TYPE, TypeId, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
+    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 use crate::source::Span;
 
@@ -14,9 +14,8 @@ mod properties;
 
 pub(super) use display::type_name;
 pub(super) use properties::{
-    contains_scoped_anywhere, contains_scoped_value, ensure_memory_representable,
-    ensure_representable, is_memory_representable, representable_requirements,
-    satisfies_representable_requirement,
+    ensure_memory_representable, ensure_representable, is_memory_representable,
+    representable_requirements, satisfies_representable_requirement,
 };
 
 #[derive(Clone)]
@@ -175,9 +174,7 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
-                    } else if matches!(id, REGION_TYPE | PACKED_TYPE | BUFFER_TYPE)
-                        || self.generic_aliases.contains_key(&id)
-                    {
+                    } else if id == BUFFER_TYPE || self.generic_aliases.contains_key(&id) {
                         return Err(Diagnostic::error("generic type requires arguments")
                             .with_primary(use_span, "supply the declared type arguments"));
                     } else {
@@ -198,18 +195,14 @@ impl Checker {
                 }
                 Expansion::Application(constructor, arity) => {
                     let arguments = take_last(&mut values, arity);
-                    let expected =
-                        if matches!(constructor.id, REGION_TYPE | PACKED_TYPE | BUFFER_TYPE) {
-                            1
-                        } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
-                            definition.parameters.len()
-                        } else {
-                            return Err(Diagnostic::error("type does not accept arguments")
-                                .with_primary(
-                                    constructor.name.span,
-                                    "remove these type arguments",
-                                ));
-                        };
+                    let expected = if constructor.id == BUFFER_TYPE {
+                        1
+                    } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
+                        definition.parameters.len()
+                    } else {
+                        return Err(Diagnostic::error("type does not accept arguments")
+                            .with_primary(constructor.name.span, "remove these type arguments"));
+                    };
                     if arity != expected {
                         return Err(Diagnostic::error("generic type argument arity mismatch")
                             .with_primary(
@@ -217,15 +210,7 @@ impl Checker {
                                 format!("expected {expected} arguments but found {arity}"),
                             ));
                     }
-                    if constructor.id == REGION_TYPE {
-                        let element = arguments.into_iter().next().unwrap();
-                        ensure_memory_representable(&element, constructor.name.span)?;
-                        values.push(Type::Region(element.into()));
-                    } else if constructor.id == PACKED_TYPE {
-                        let element = arguments.into_iter().next().unwrap();
-                        ensure_memory_representable(&element, constructor.name.span)?;
-                        values.push(Type::Packed(element.into()));
-                    } else if constructor.id == BUFFER_TYPE {
+                    if constructor.id == BUFFER_TYPE {
                         let element = arguments.into_iter().next().unwrap();
                         ensure_memory_representable(&element, constructor.name.span)?;
                         values.push(Type::Buffer(element.into()));
@@ -343,8 +328,6 @@ pub(super) fn substitute_type(
 ) -> Type {
     match ty {
         Type::Parameter { id, .. } => substitutions.get(id).cloned().unwrap_or_else(|| ty.clone()),
-        Type::Region(element) => Type::Region(substitute_type(element, substitutions).into()),
-        Type::Packed(element) => Type::Packed(substitute_type(element, substitutions).into()),
         Type::Buffer(element) => Type::Buffer(substitute_type(element, substitutions).into()),
         Type::Product(elements) => Type::Product(
             elements

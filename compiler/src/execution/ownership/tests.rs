@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use super::super::ParameterDestination;
 use super::destination::plan_borrowed_pattern;
@@ -379,65 +379,6 @@ fn borrows_a_final_observation_before_dropping_its_source() {
         Some(UseEffect::Borrow)
     );
     assert!(!plan.drops_after_binding(site, binding).is_empty());
-}
-
-#[test]
-fn normalizes_memory_views_as_owner_successors() {
-    let source = SourceFile::new(
-            FileId::new(100),
-            "execution-ownership-memory-view.mal",
-            "inspect :: Symbol -> USize := (value) -> {\n  owned := value + \"x\";\n  packed := *owned;\n  prefix := packed / 1usize;\n  byte := packed # 0usize;\n  text := *prefix;\n  byte.usize + #text;\n};\nmain :: Unit -> Int32 := () -> { inspect(\"ab\").i32; };"
-                .into(),
-        );
-    let checked = crate::pipeline::check(&source).expect("check memory ownership fixture");
-    let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize memory ownership fixture"),
-    );
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    let execution = crate::execution::lower(closure, super::super::OptimizationSet::production());
-
-    let mut effects = HashMap::new();
-    for (state_index, state) in execution.control.states.iter().enumerate() {
-        for (binding_index, binding) in state.bindings.iter().enumerate() {
-            let Operation::Memory { primitive, .. } = binding.operation else {
-                continue;
-            };
-            if matches!(
-                primitive,
-                crate::check::ast::MemoryPrimitive::SymbolToPacked
-                    | crate::check::ast::MemoryPrimitive::Prefix
-                    | crate::check::ast::MemoryPrimitive::PackedIndex
-                    | crate::check::ast::MemoryPrimitive::PackedToSymbol
-            ) {
-                effects.insert(
-                    primitive,
-                    execution.ownership.binding_use(
-                        StateId(state_index),
-                        binding_index,
-                        BindingOperand::MemoryOperand(0),
-                    ),
-                );
-            }
-        }
-    }
-
-    assert_eq!(
-        effects[&crate::check::ast::MemoryPrimitive::SymbolToPacked],
-        Some(UseEffect::Consume)
-    );
-    assert_eq!(
-        effects[&crate::check::ast::MemoryPrimitive::Prefix],
-        Some(UseEffect::Share)
-    );
-    assert_eq!(
-        effects[&crate::check::ast::MemoryPrimitive::PackedIndex],
-        Some(UseEffect::Borrow)
-    );
-    assert_eq!(
-        effects[&crate::check::ast::MemoryPrimitive::PackedToSymbol],
-        Some(UseEffect::Consume)
-    );
 }
 
 #[test]

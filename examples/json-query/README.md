@@ -7,12 +7,13 @@ mal program and written to standard output.
 
 The parser accepts objects, arrays, strings with JSON escapes, numbers, booleans, null, and JSON
 whitespace. It defunctionalizes the recursive-descent control flow into one `_parse` dispatcher and
-a central `Packed<UInt8>` stack of parser frames instead of building a recursive syntax tree. `_parse`
+a central `Buffer<ParserFrame>` stack instead of building a recursive syntax tree. `_parse`
 uses the same continue-or-break sum encoding introduced by the
 [`generic-loop`](../generic-loop/) example: `continue` carries the next complete `ParserState`, while
 `break` carries the final `ParseResult`. Each frame records what the enclosing container must do after
-a child value completes. `edit<UInt8>` replaces or pushes the active frame, while a Packed prefix pops
-it, so nesting is limited only by the target-sized count and available memory.
+a child value completes. The stack pairs reusable Buffer storage with a logical count: push appends or
+reuses one slot, replacement uses `put`, and pop decrements the logical count. Nesting is limited only
+by the target-sized count and available memory.
 
 The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
 give input positions their token meaning and frame values their control-state meaning. Recursive JSON
@@ -20,7 +21,7 @@ topology therefore exists in the transition relation followed by `_parse`, not i
 type or a materialized syntax tree.
 
 The host owns the stdin allocation. The program admits its initialized prefix into a mal-owned
-`Packed<UInt8>` before releasing that allocation, so parsing no longer depends on host storage.
+`Buffer<UInt8>` before releasing that allocation, so parsing no longer depends on host storage.
 It admits the selected process argument for the same reason: arguments become ordinary program
 values at the entry point. Output rendering uses mal-owned `Symbol` values, then writes them in
 chunks through the fixed host buffer instead of treating its capacity as an output limit.

@@ -6,13 +6,12 @@ use std::collections::HashMap;
 
 pub mod ast;
 mod bool;
+mod buffer;
 mod completion;
 mod expression;
 mod external;
 mod interface;
 mod lambda;
-mod memory;
-mod packed;
 mod pattern;
 mod primitive;
 

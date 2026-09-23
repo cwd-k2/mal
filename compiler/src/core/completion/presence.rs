@@ -19,25 +19,6 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     pending.push(Presence::Expression(argument));
                     pending.push(Presence::Expression(callee));
                 }
-                checked::ExpressionKind::PackedBuild {
-                    build, callback, ..
-                } => {
-                    pending.push(Presence::Expression(callback));
-                    match build {
-                        checked::PackedBuild::Make { capacity } => {
-                            pending.push(Presence::Expression(capacity));
-                        }
-                        checked::PackedBuild::Edit { source } => {
-                            pending.push(Presence::Expression(source));
-                        }
-                    }
-                }
-                checked::ExpressionKind::RegionView {
-                    range, callback, ..
-                } => {
-                    pending.push(Presence::Expression(callback));
-                    pending.push(Presence::Expression(range));
-                }
                 checked::ExpressionKind::If {
                     condition,
                     then_branch,
@@ -76,7 +57,6 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 | checked::ExpressionKind::Integer(_)
                 | checked::ExpressionKind::Float(_)
                 | checked::ExpressionKind::Symbol(_)
-                | checked::ExpressionKind::StorageSize(_)
                 | checked::ExpressionKind::Unit => {}
             },
             Presence::Block(block) => {

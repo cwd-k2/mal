@@ -116,25 +116,6 @@ impl IdentityBounds {
                 self.expression(callee);
                 self.expression(argument);
             }
-            ExpressionKind::PackedBuild {
-                build, callback, ..
-            } => {
-                match build {
-                    crate::check::ast::PackedBuild::Make { capacity } => {
-                        self.expression(capacity);
-                    }
-                    crate::check::ast::PackedBuild::Edit { source } => {
-                        self.expression(source);
-                    }
-                }
-                self.expression(callback);
-            }
-            ExpressionKind::RegionView {
-                range, callback, ..
-            } => {
-                self.expression(range);
-                self.expression(callback);
-            }
             ExpressionKind::SymbolAt { argument } => {
                 self.expression(argument);
             }
@@ -168,7 +149,6 @@ impl IdentityBounds {
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
-            | ExpressionKind::StorageSize(_)
             | ExpressionKind::Unit => {}
         }
     }

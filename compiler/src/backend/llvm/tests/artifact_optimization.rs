@@ -47,11 +47,12 @@ fn scalarizes_preserved_self_tail_parameter_fields_only_when_enabled() {
     let source = SourceFile::new(
         FileId::new(99),
         "self-tail-parameter-optimization.mal",
-        "walk :: (Packed<Int32>, Int32) -> Int32 := (values, left) -> {
-           if (left == 0i32) then { values # 0usize } else { walk(values, left - 1i32) };
+        "walk :: (Buffer<Int32>, Int32) -> Int32 := (values, left) -> {
+           if (left == 0i32) then { values.get(0usize) } else { walk(values, left - 1i32) };
          };
          main :: Unit -> Int32 := () -> {
-           values := make<Int32>(1usize, (buffer) -> { _ := buffer.new(7i32); (); });
+           values := make<Int32>(1usize);
+           values.new(7i32);
            walk(values, 2i32) - 7i32;
          };"
         .into(),

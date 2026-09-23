@@ -182,12 +182,11 @@ mod tests {
     }
 
     #[test]
-    fn classifies_packed_intrinsics_as_functions_before_semantic_analysis() {
+    fn classifies_buffer_intrinsics_as_functions_before_semantic_analysis() {
         let source = SourceFile::new(
             FileId::new(0),
             "syntax.mal",
-            "value := make<Int32>(0usize, (buffer) -> ());\nnext := value.edit<Int32>((buffer) -> ());"
-                .into(),
+            "value := make<Int32>(0usize);\nnext := value.new(1i32);".into(),
         );
         let document = analyze(&source).expect("lexical syntax document");
         let functions = document
@@ -198,6 +197,6 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(functions.contains(&"make"));
-        assert!(functions.contains(&"edit"));
+        assert!(functions.contains(&"new"));
     }
 }

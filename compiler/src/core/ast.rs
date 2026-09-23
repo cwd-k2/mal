@@ -119,7 +119,6 @@ pub enum ExpressionKind {
     Integer(i128),
     Float(u64),
     Symbol(Vec<u8>),
-    StorageSize(Type),
     Unit,
     Product(Vec<Expression>),
     Let {
@@ -145,8 +144,8 @@ pub enum ExpressionKind {
         primitive: MemoryPrimitive,
         operands: Vec<Expression>,
     },
-    PackedBuilder {
-        operation: PackedBuilderOperation,
+    Buffer {
+        operation: BufferOperation,
         element: Type,
         argument: Box<Expression>,
     },
@@ -184,14 +183,11 @@ pub enum ExpressionKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PackedBuilderOperation {
+pub enum BufferOperation {
     Make,
-    Edit,
-    Prepare,
     New,
     Get,
     Put,
-    Finish,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

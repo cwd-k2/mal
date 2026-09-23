@@ -1,6 +1,6 @@
 # Fallible tree example
 
-Unlike the mal-owned indexed structure in `packed-tree`, this example deliberately uses external
+Unlike the mal-owned indexed structure in `buffer-tree`, this example deliberately uses external
 storage because allocation failure is recoverable and deterministically limited by an opaque host
 allocator. A five-node limit exercises
 the successful path. A three-node limit fails after a complete left subtree has been built.
@@ -14,9 +14,9 @@ The mal program treats constructor arguments as logically owned. `createOwnedBra
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.
 `NodeBuildResult` reports either a root coordinate or allocation failure; the alias itself does not
-certify the complete reachable structure. Traversal borrows each node through short `Region`
-callbacks. Child `Address` values are ordinary capabilities, so they leave the callback as a product
-without allocating a `Packed<Address>` snapshot.
+certify the complete reachable structure. Traversal copies one `NodeRecord` at a time with
+`from<NodeRecord>`. Child `Address` values remain ordinary capability fields; copying them does not
+extend the lifetime of their referents.
 
 The host tracks every live node and traps if `destroyAllocator` is called before all nodes have been
 released. This makes partial-construction leaks observable in the end-to-end test. The protocol is

@@ -45,14 +45,6 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let mut captures = Vec::with_capacity(lambda.captures.len());
         for capture in &lambda.captures {
-            if self.scoped_values.contains(&capture.source.id) {
-                return Err(Diagnostic::error("scoped authority cannot be captured")
-                    .with_primary(
-                        capture.source.name.span,
-                        "pass it directly to a helper instead",
-                    )
-                    .into());
-            }
             let ty = self.value_type(&capture.source)?;
             self.values.insert(capture.binding.id, ty.clone());
             captures.push(Capture {
@@ -82,14 +74,6 @@ impl Checker {
                 .clone()
                 .expect("abrupt lambda body has a declared result"),
         };
-        if super::types::contains_scoped_value(&result_type) {
-            return Err(Diagnostic::error("scoped authority cannot be returned")
-                .with_primary(
-                    lambda.body.result.span,
-                    "Region and Buffer values are limited to this invocation",
-                )
-                .into());
-        }
         let ty = Type::Function {
             parameter: expected_parameter.clone().into(),
             result: result_type.clone().into(),

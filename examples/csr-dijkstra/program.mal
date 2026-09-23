@@ -1,9 +1,9 @@
 // NodeOffsets maps each node boundary to an edge-slot offset; adjacent offsets delimit its edges.
-NodeOffsets :: Packed<Int64>;
+NodeOffsets :: Buffer<Int64>;
 // NeighborNodes maps each edge slot to its destination-node coordinate.
-NeighborNodes :: Packed<Int64>;
+NeighborNodes :: Buffer<Int64>;
 // EdgeCosts stores the nonnegative weight joined to NeighborNodes by the shared edge slot.
-EdgeCosts :: Packed<Int64>;
+EdgeCosts :: Buffer<Int64>;
 // WeightedCsr carries a node count and three columns whose relation is established by validation.
 WeightedCsr :: (Int64, NodeOffsets, NeighborNodes, EdgeCosts);
 
@@ -26,25 +26,24 @@ _loop<A, B> :: (A, A -> [A, B]) -> B :=
     ];
 
 // Validation needs both a row and its coordinate because CSR offsets relate adjacent rows.
-_allIndexed<A> :: (Packed<A>, (USize, A) -> Bool) -> Bool := (values, predicate) ->
+_allIndexed<A> :: (Buffer<A>, (USize, A) -> Bool) -> Bool := (values, predicate) ->
     _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(true);
         };
-        when (!predicate(index, values # index)) {
+        when (!predicate(index, values.get(index))) {
             break(false);
         };
 
         continue(index + 1usize);
     });
 
-// Buffer is scoped construction authority, so it remains a direct argument instead of being
-// captured by a generic repetition callback.
+// Passing the destination explicitly keeps the mutation visible at every recursive step.
 appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) -> {
     if (remaining == 0usize)
     then { () }
     else {
-        _ := buffer.new(value);
+        buffer.new(value);
         buffer.appendRepeated(remaining - 1usize, value);
     };
 };
@@ -59,14 +58,14 @@ validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
     (nodeCount, offsets, neighbors, costs) := graph;
     nodeCount > 0
         && #offsets == (nodeCount + 1).usize
-        && offsets # 0usize == 0
+        && offsets.get(0usize) == 0
         && #neighbors == #costs
         && offsets._allIndexed<Int64>((node, current) -> {
             last := node + 1usize == #offsets;
             if (last)
             then current == (#neighbors).i64
             else {
-                next := offsets # (node + 1usize);
+                next := offsets.get(node + 1usize);
                 current >= 0 && current <= next && next <= (#neighbors).i64;
             };
         })
@@ -74,8 +73,7 @@ validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
         && costs._allIndexed<Int64>((_, cost) -> cost >= 0);
 };
 
-// Workspace contains scoped Buffer authority. Passing it as a direct recursive argument keeps that
-// authority visible; capturing it in a generic fold callback would be rejected.
+// The workspace is explicit state: both logical columns alias one managed Buffer.
 selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
     (workspace, node, nodeCount, closest, closestDistance) -> [return] => {
         when (node == nodeCount) {
@@ -92,8 +90,7 @@ selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
         ));
     };
 
-// This domain recursion likewise passes writable workspace directly while visiting one CSR edge
-// range; a generic forEach closure must not hide the scoped authority in its environment.
+// Edge relaxation passes the writable workspace directly so the state transition stays visible.
 relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
     (graph, workspace, sourceDistance, edge, end) -> [return] => {
         when (edge == end) {
@@ -101,8 +98,8 @@ relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit 
         };
         (_, _, neighbors, costs) := graph;
         (distances, _) := workspace;
-        neighbor := neighbors # edge.usize;
-        candidate := sourceDistance + costs # edge.usize;
+        neighbor := neighbors.get(edge.usize);
+        candidate := sourceDistance + costs.get(edge.usize);
         when (candidate < distances.at(neighbor)) {
             distances.assign(neighbor, candidate);
         };
@@ -124,57 +121,48 @@ runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
         graph.relaxEdgeRange(
             workspace,
             distances.at(closest),
-            offsets # closest.usize,
-            offsets # (closest + 1).usize
+            offsets.get(closest.usize),
+            offsets.get((closest + 1).usize)
         );
         return(graph.runDijkstraRounds(workspace, remaining - 1));
     };
 
 shortestDistance :: (WeightedCsr, Int64, Int64) -> Int64 := (graph, source, target) -> {
     (nodeCount, _, _, _) := graph;
-    workspace := make<Int64>((nodeCount * 2).usize, (buffer) -> {
-        buffer.appendRepeated(nodeCount.usize, infinity);
-        buffer.appendRepeated(nodeCount.usize, 0);
-    });
-    solved := workspace.edit<Int64>((buffer) -> {
-        distances :: NodeDistances := (buffer, 0usize);
-        visited :: VisitedFlags := (buffer, nodeCount.usize);
-        distances.assign(source, 0);
-        graph.runDijkstraRounds((distances, visited), nodeCount);
-    });
-    solved # target.usize;
+    workspace := make<Int64>((nodeCount * 2).usize);
+    workspace.appendRepeated(nodeCount.usize, infinity);
+    workspace.appendRepeated(nodeCount.usize, 0);
+    distances :: NodeDistances := (workspace, 0usize);
+    visited :: VisitedFlags := (workspace, nodeCount.usize);
+    distances.assign(source, 0);
+    graph.runDijkstraRounds((distances, visited), nodeCount);
+    workspace.get(target.usize);
 };
 
 buildGraph :: Unit -> WeightedCsr := () -> {
-    offsets := make<Int64>(6usize, (buffer) -> {
-        buffer.new(0);
-        buffer.new(2);
-        buffer.new(4);
-        buffer.new(6);
-        buffer.new(7);
-        buffer.new(7);
-        ();
-    });
-    neighbors := make<Int64>(7usize, (buffer) -> {
-        buffer.new(1);
-        buffer.new(2);
-        buffer.new(2);
-        buffer.new(3);
-        buffer.new(3);
-        buffer.new(4);
-        buffer.new(4);
-        ();
-    });
-    costs := make<Int64>(7usize, (buffer) -> {
-        buffer.new(2);
-        buffer.new(5);
-        buffer.new(1);
-        buffer.new(2);
-        buffer.new(1);
-        buffer.new(5);
-        buffer.new(3);
-        ();
-    });
+    offsets := make<Int64>(6usize);
+    offsets.new(0);
+    offsets.new(2);
+    offsets.new(4);
+    offsets.new(6);
+    offsets.new(7);
+    offsets.new(7);
+    neighbors := make<Int64>(7usize);
+    neighbors.new(1);
+    neighbors.new(2);
+    neighbors.new(2);
+    neighbors.new(3);
+    neighbors.new(3);
+    neighbors.new(4);
+    neighbors.new(4);
+    costs := make<Int64>(7usize);
+    costs.new(2);
+    costs.new(5);
+    costs.new(1);
+    costs.new(2);
+    costs.new(1);
+    costs.new(5);
+    costs.new(3);
     (5, offsets, neighbors, costs);
 };
 

@@ -15,7 +15,8 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let expected = match reference.name.text.as_str() {
             "get" | "new" => 2,
-            "put" | "set" => 3 - usize::from(reference.name.text == "set"),
+            "put" => 3,
+            "into" => 4,
             _ => unreachable!("caller recognizes predefined memory operations"),
         };
         if arguments.len() != expected {
@@ -33,41 +34,6 @@ impl Checker {
         }
         let receiver = self.check_expression(&arguments[0], None)?;
         match (&receiver.ty, reference.name.text.as_str()) {
-            (Type::Region(element), "get") => {
-                let element = element.clone();
-                let (receiver, index) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                Ok(memory(
-                    MemoryPrimitive::RegionGet,
-                    vec![receiver, index],
-                    (*element).clone(),
-                    span,
-                ))
-            }
-            (Type::Region(element), "put") => {
-                let element = element.clone();
-                let (receiver, index) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                let (index, value) =
-                    self.check_after(index, &arguments[2], Some(element.as_ref()))?;
-                Ok(memory(
-                    MemoryPrimitive::RegionPut,
-                    vec![receiver, index, value],
-                    Type::Unit,
-                    span,
-                ))
-            }
-            (Type::Region(element), "set") => {
-                let element = element.clone();
-                let packed = Type::Packed(element.clone());
-                let (receiver, value) = self.check_after(receiver, &arguments[1], Some(&packed))?;
-                Ok(memory(
-                    MemoryPrimitive::RegionSet,
-                    vec![receiver, value],
-                    Type::Region(element),
-                    span,
-                ))
-            }
             (Type::Buffer(element), "new") => {
                 let element = element.clone();
                 let (receiver, value) =
@@ -99,6 +65,20 @@ impl Checker {
                 Ok(memory(
                     MemoryPrimitive::BufferPut,
                     vec![receiver, index, value],
+                    Type::Unit,
+                    span,
+                ))
+            }
+            (Type::Buffer(_), "into") => {
+                let (receiver, address) =
+                    self.check_after(receiver, &arguments[1], Some(&Type::Address))?;
+                let (address, offset) =
+                    self.check_after(address, &arguments[2], Some(&Type::USize))?;
+                let (offset, length) =
+                    self.check_after(offset, &arguments[3], Some(&Type::USize))?;
+                Ok(memory(
+                    MemoryPrimitive::BufferIntoAddress,
+                    vec![receiver, address, offset, length],
                     Type::Unit,
                     span,
                 ))

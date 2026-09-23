@@ -1,6 +1,6 @@
 # Relation views example
 
-This example builds one immutable `Packed<PairRow>` carrier and interprets it through two unrelated
+This example builds one managed `Buffer<PairRow>` carrier and interprets it through two unrelated
 logical structures. `hasDirectedEdge` reads each pair as an ordered graph edge. `coverageAt` reads the
 same pair as a half-open interval and counts the intervals containing a coordinate.
 
@@ -18,7 +18,7 @@ This deliberately small example makes the separation observable: row `(3, 5)` is
 from 3 to 5, while the interval view says that it contains 3 and 4 but not 5. No carrier conversion or
 copy is needed to select an interpretation.
 
-Traversal is separated from those interpretations as `_anyPacked`, `_allPacked`, and `_foldPacked`.
+Traversal is separated from those interpretations as `_anyBuffer`, `_allBuffer`, and `_foldBuffer`.
 The graph view supplies an existential predicate, interval validation supplies a universal predicate,
 and coverage supplies an accumulator step. These names expose short-circuit and empty-input policy at
 the call site without making each domain operation manage a cursor.

@@ -33,7 +33,6 @@ fn is_top_level_initializer(
         ExpressionKind::Integer(_)
         | ExpressionKind::Float(_)
         | ExpressionKind::Symbol(_)
-        | ExpressionKind::StorageSize(_)
         | ExpressionKind::Unit => true,
         ExpressionKind::Reference(reference) => {
             matches!(reference.id, FALSE_VALUE | TRUE_VALUE)

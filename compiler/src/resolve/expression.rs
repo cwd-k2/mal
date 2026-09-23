@@ -65,7 +65,6 @@ impl Resolver {
                 type_ref: self.conversion_type_reference(type_name)?,
                 value: Box::new(self.resolve_expression(value)?),
             },
-            ast::Expression::StrideQuery(shape) => Expression::StrideQuery(shape.clone()),
             ast::Expression::If {
                 condition,
                 then_branch,

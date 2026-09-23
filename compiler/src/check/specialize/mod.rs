@@ -265,31 +265,6 @@ impl Specializer {
                 self.expression(callee, substitutions, self_instance)?;
                 self.expression(argument, substitutions, self_instance)?;
             }
-            ExpressionKind::PackedBuild {
-                build,
-                callback,
-                element,
-            } => {
-                *element = substitute_type(element, substitutions);
-                match build {
-                    crate::check::ast::PackedBuild::Make { capacity } => {
-                        self.expression(capacity, substitutions, self_instance)?;
-                    }
-                    crate::check::ast::PackedBuild::Edit { source } => {
-                        self.expression(source, substitutions, self_instance)?;
-                    }
-                }
-                self.expression(callback, substitutions, self_instance)?;
-            }
-            ExpressionKind::RegionView {
-                range,
-                callback,
-                element,
-            } => {
-                *element = substitute_type(element, substitutions);
-                self.expression(range, substitutions, self_instance)?;
-                self.expression(callback, substitutions, self_instance)?;
-            }
             ExpressionKind::SymbolAt { argument } => {
                 self.expression(argument, substitutions, self_instance)?
             }
@@ -322,7 +297,6 @@ impl Specializer {
             ExpressionKind::Binary { .. } => {
                 unreachable!("binary expressions are walked iteratively")
             }
-            ExpressionKind::StorageSize(ty) => *ty = substitute_type(ty, substitutions),
             ExpressionKind::Integer(_)
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)

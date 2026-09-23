@@ -22,6 +22,8 @@ extern systemLseek :: (Int32, Int64, Int32) -> OffsetResult;
 // Closes a descriptor and reports an errno-compatible failure code.
 extern systemClose :: Int32 -> SyscallStatus;
 // Reads at most the requested extent into caller-owned writable storage.
-extern systemRead :: (Int32, Address, ByteSize) -> TransferResult;
+extern systemRead :: (Int32, Address, ByteSize, ByteSize) -> TransferResult;
 // Writes at most the requested extent from caller-owned readable storage.
-extern systemWrite :: (Int32, Address, ByteSize) -> TransferResult;
+extern systemWrite :: (Int32, Address, ByteSize, ByteSize) -> TransferResult;
+extern storeZero :: (Address, ByteSize) -> Unit;
+extern argumentLength :: Address -> USize;

@@ -15,13 +15,6 @@ pub(in crate::backend) enum Statement {
         condition: Expr,
         then: Block,
     },
-    For {
-        initializer: VariableDeclaration,
-        initial_value: Expr,
-        condition: Expr,
-        step: Expr,
-        body: Block,
-    },
     Switch {
         value: Expr,
         cases: Vec<SwitchCase>,
@@ -95,22 +88,6 @@ impl Statement {
 
     pub(in crate::backend) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
-    }
-
-    pub(in crate::backend) fn for_loop(
-        initializer: VariableDeclaration,
-        initial_value: Expr,
-        condition: Expr,
-        step: Expr,
-        body: Block,
-    ) -> Self {
-        Self::For {
-            initializer,
-            initial_value,
-            condition,
-            step,
-            body,
-        }
     }
 }
 

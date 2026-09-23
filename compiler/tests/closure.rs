@@ -152,16 +152,20 @@ fn represents_capture_free_closures_without_environment_fields() {
 #[test]
 fn keeps_buffer_operations_direct_through_closure_conversion() {
     let program = convert_ok(
-        "fill :: Buffer<Int64> -> Unit := (buffer) -> { index := buffer.new(1i64); buffer.put(index, buffer.get(index)); (); };\n\
-         main :: Unit -> Int32 := () -> { first := make<Int64>(0usize, fill); second := make<Int64>(0usize, fill); ((first # 0usize) + (second # 0usize)).i32 - 2i32; };",
+        "main :: Unit -> Int32 := () -> {
+           values := make<Int64>(1usize);
+           index := values.new(41i64);
+           values.put(index, values.get(index) + 1i64);
+           values.get(index).i32 - 42i32;
+         };",
     );
     let buffer_operations = program
         .functions
         .iter()
         .flat_map(|function| &function.body.bindings)
-        .filter(|binding| matches!(binding.operation, Operation::PackedBuilder { .. }))
+        .filter(|binding| matches!(binding.operation, Operation::Buffer { .. }))
         .count();
-    assert_eq!(buffer_operations, 7);
+    assert_eq!(buffer_operations, 5);
 }
 
 #[test]

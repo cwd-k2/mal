@@ -1,7 +1,7 @@
 use crate::anf::ast::ValueId;
 use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{Atom, FunctionId, Parameter, Pattern, TopLevelPattern};
-use crate::core::ast::{BinaryPrimitive, PackedBuilderOperation, UnaryPrimitive};
+use crate::core::ast::{BinaryPrimitive, BufferOperation, UnaryPrimitive};
 use crate::resolve::ast::ExternalOperationId;
 use crate::source::Span;
 
@@ -64,8 +64,8 @@ pub enum Operation {
         primitive: MemoryPrimitive,
         operands: Vec<Atom>,
     },
-    PackedBuilder {
-        operation: PackedBuilderOperation,
+    Buffer {
+        operation: BufferOperation,
         element: Type,
         argument: Atom,
     },

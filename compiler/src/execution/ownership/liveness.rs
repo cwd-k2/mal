@@ -93,7 +93,7 @@ pub(super) fn visit_operation_atoms(operation: &Operation, mut visit: impl FnMut
         | Operation::NumericConversion { operand: atom }
         | Operation::SumInjection { value: atom, .. }
         | Operation::ExternalCall { argument: atom, .. }
-        | Operation::PackedBuilder { argument: atom, .. }
+        | Operation::Buffer { argument: atom, .. }
         | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
             for atom in captures {

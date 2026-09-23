@@ -30,12 +30,6 @@ impl Expr {
                 output.push_str(if *indirect { "->" } else { "." });
                 output.push_str(name);
             }
-            Self::Subscript { value, index } => {
-                value.render_postfix_operand(output);
-                output.push('[');
-                index.render(output);
-                output.push(']');
-            }
             Self::Cast { ty, value } => {
                 write!(output, "({ty})").expect("writing generated C cannot fail");
                 value.render_unary_operand(output);
@@ -100,7 +94,6 @@ impl Expr {
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
-                | Self::Subscript { .. }
                 | Self::SizeofValue(_)
         ) {
             self.render(output);
@@ -119,7 +112,6 @@ impl Expr {
                 | Self::Identifier(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
-                | Self::Subscript { .. }
                 | Self::Cast { .. }
                 | Self::SizeofValue(_)
         ) {

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* The mal writer chunks output to this nonempty process-lifetime buffer. */
 static uint8_t output_buffer[32];
@@ -71,4 +72,8 @@ MAL_DEFINE_writeBytes(call, value) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);
+}
+
+MAL_DEFINE_argumentLength(call, address) {
+    return mal_USize_return(call, strlen((const char *)address));
 }

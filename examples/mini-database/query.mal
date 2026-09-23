@@ -3,7 +3,7 @@ require "./bytes.mal";
 require "./input.mal";
 require "./database.mal";
 
-_put :: (ByteBuffer, File, Packed<UInt8>, USize, USize, USize, USize) -> Unit :=
+_put :: (Database, File, Buffer<UInt8>, USize, USize, USize, USize) -> Unit :=
     (database, file, line, keyStart, keyLength, valueStart, valueLength) -> {
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
 
@@ -17,7 +17,7 @@ _put :: (ByteBuffer, File, Packed<UInt8>, USize, USize, USize, USize) -> Unit :=
         ];
     };
 
-_get :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Unit :=
+_get :: (Database, Buffer<UInt8>, USize, USize) -> Unit :=
     (database, line, keyStart, keyLength) -> {
         result := database.lookupRecord(line, keyStart, keyLength);
 
@@ -31,7 +31,7 @@ _get :: (ByteBuffer, Packed<UInt8>, USize, USize) -> Unit :=
         ];
     };
 
-_delete :: (ByteBuffer, File, Packed<UInt8>, USize, USize) -> Unit :=
+_delete :: (Database, File, Buffer<UInt8>, USize, USize) -> Unit :=
     (database, file, line, keyStart, keyLength) -> {
         if (database.deleteRecord(line, keyStart, keyLength))
         then {
@@ -42,7 +42,7 @@ _delete :: (ByteBuffer, File, Packed<UInt8>, USize, USize) -> Unit :=
     };
 
 // Dispatch one complete line. Each recognized command returns before testing later commands.
-_handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, line) -> [return] => {
+_handleQuery :: (Database, File, Buffer<UInt8>) -> Unit := (database, file, line) -> [return] => {
     length := #line;
 
     when (length >= 4usize && line.rangeEquals(0usize, 4usize, "get ")) {
@@ -83,9 +83,9 @@ _handleQuery :: (ByteBuffer, File, Packed<UInt8>) -> Unit := (database, file, li
 
 // The next Reader is part of the input protocol result, so the interpreter recurs with that explicit
 // state after handling one line and stops on EOF, an empty line, or `quit`.
-runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
-    (reader, file, database, query) -> {
-        result := reader.readLine(query);
+runQueries :: (Reader, File, Database) -> Unit :=
+    (reader, file, database) -> {
+        result := reader.readLine();
         result[
         (_) -> (),
         (state) -> [return] => {
@@ -97,7 +97,7 @@ runQueries :: (Reader, File, ByteBuffer, ByteBuffer) -> Unit :=
             };
 
             database._handleQuery(file, line);
-            return(next.runQueries(file, database, query));
+            return(next.runQueries(file, database));
         }
         ];
     };

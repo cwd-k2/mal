@@ -13,9 +13,8 @@ valid UTF-8も保証しない。
 与えるが、descriptorやallocationの同一性は言語の意味に含まれない。
 
 literalのbytesはprogram imageのstatic storageに置いてよい。連結とexternal bytesのadmissionで得るruntime storageは
-host storageを参照せず、malが所有する。`Packed<UInt8>`からの変換は、そのmal-owned storageのownerとbyte viewを共有する新しい
-`Symbol` valueを返す。host bytesは`Address`と長さでexternal memoryとして受け取り、`pack<UInt8>`によるadmissionと`*`による
-allocation-freeな変換を経てSymbolにする。
+host storageを参照せず、malが所有する。`Buffer<UInt8>`からの変換は変換時点のbytesをimmutable snapshotとして保持する。
+host bytesはC host profileの`from<UInt8>`でBufferへcopyしてから`*`でSymbolにする。
 
 ## literal
 
@@ -51,17 +50,14 @@ storageを共有または再利用してよい。
 
 length、byte access、equalityは既存のbyte sequenceを観測するoperationであり、新しいEngramを構成しない。したがって、
 有効なoperandに対して内部表現だけを理由とするstorage allocationやallocation failureを追加してはならない。
-`*symbol`によるPacked変換と`*packed`によるSymbol変換はownerとviewを共有し、storage allocationやbyte copyを行わない。
+`*symbol`によるBuffer変換と`*buffer`によるSymbol変換はoperandをconsumeしない。実装はcopy-on-writeでstorageを共有してよいが、
+Bufferの変更をSymbolから観測できてはならない。
 `Symbol`自体はextern境界を通らない。
 
-byte accessはimmutableなbyte valueに対する位置指定のobservationである。flatなmal-owned sequenceが必要なら
-`Packed<UInt8>`、反復的な更新、再利用可能なbuffer、storageのpermissionとlifetimeが必要なら`Region<UInt8>`またはexternal
-opaque typeを使う。
+byte accessはimmutableなbyte valueに対する位置指定のobservationである。反復的な更新または再利用可能なsequenceには
+`Buffer<UInt8>`、host resource固有のaccessにはextern contractを使う。
 
 ## mutable bytesとの分離
 
-`Symbol`の内容は変更できない。mutableな外部storageは`Region<UInt8>`またはexternal opaque typeで表す。Addressのbyte範囲を
-`pack<UInt8>`でadmitし、prefix `*`でSymbolへ変換できる。反対方向は`*symbol`でPackedを得てRegionの`set`でstoreする。
-
-反復回数がboundedでない入力をすべて`Symbol`へ変換すれば、実装が回収可能と判断するまでstorageを必要とする。
-stream処理では再利用可能なRegionへ入力し、保持すべきprefixのAddress範囲だけをPackedまたはSymbolとしてadmitする。
+`Symbol`の内容は変更できない。mutableなmal-owned bytesは`Buffer<UInt8>`、host-owned storageはAddressとextern contractで表す。
+C host storageとのcopyは`from<UInt8>`と`buffer.into`だけが行う。

@@ -13,7 +13,7 @@ T ::=
   | ByteSize | USize
   | Symbol
   | Address
-  | Region<T> | Packed<T> | Buffer<T>
+  | Buffer<T>
   | (T, T, ...)
   | []
   | [T, T, ...]
@@ -39,15 +39,13 @@ Symbol literalはnumeric literalと同じく組み込み値を表すnotationで�
 host側の一時byte bufferはSymbolではなく、明示的なadmissionでmal-controlled storageへcopyされた時点でSymbolになる。
 literal、operator、storageの完全な規則は[Symbol](symbols.md)に定める。
 
-mutable byte bufferはSymbolではなく、`Region<UInt8>`または必要に応じてexternal opaque typeで表す。`Packed<UInt8>`は
-mal-ownedなimmutable sequenceであり、Symbolとは別の型である。
+mutable byte sequenceは`Buffer<UInt8>`で表す。`Symbol`との明示的なsnapshot変換は
+[AddressとBuffer](memory.md#symbol-conversion)に定める。
 
-## External memory type
+## AddressとBuffer
 
-`Address`はordinary byte-addressable external storageへのopaque capabilityである。`Region<T>`はAddress、canonical layout、
-USizeを持つ有限location列を運ぶ。referentのownership、permission、lifetimeを持たない。
-`Packed<T>`はmal-ownedなimmutable有限sequence、`Buffer<T>`はそのscopedな構築・編集authorityである。型形成とoperationは[external memory](memory.md)と
-[`Region`と`Packed`](packed.md)に定める。
+`Address`はhost-managed resourceへのopaque capabilityであり、mal codeはreferentを直接観測しない。`Buffer<T>`は
+mal-ownedなmutable有限sequenceへの共有参照である。型形成、operation、C host copy境界は[AddressとBuffer](memory.md)に定める。
 
 ## Unit
 

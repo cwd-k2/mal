@@ -51,8 +51,7 @@ pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -
 }
 
 fn type_contains_value(ty: &Type) -> bool {
-    ty.data_subtypes()
-        .any(|ty| matches!(ty, Type::Symbol | Type::Packed(_)))
+    ty.data_subtypes().any(|ty| matches!(ty, Type::Symbol))
 }
 
 fn atom_contains_value(atom: &Atom) -> bool {
@@ -78,16 +77,14 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
             captures.iter().any(atom_contains_value)
         }
         Operation::SymbolAt { .. } => true,
-        Operation::PackedBuilder { .. } => true,
+        Operation::Buffer { .. } => true,
         Operation::Memory {
             primitive:
-                crate::check::ast::MemoryPrimitive::PackAddress
-                | crate::check::ast::MemoryPrimitive::RegionSet
-                | crate::check::ast::MemoryPrimitive::PackedConcat
-                | crate::check::ast::MemoryPrimitive::Prefix
-                | crate::check::ast::MemoryPrimitive::RemainderView
-                | crate::check::ast::MemoryPrimitive::PackedToSymbol
-                | crate::check::ast::MemoryPrimitive::SymbolToPacked,
+                crate::check::ast::MemoryPrimitive::BufferFromAddress
+                | crate::check::ast::MemoryPrimitive::BufferIntoAddress
+                | crate::check::ast::MemoryPrimitive::ViewLength
+                | crate::check::ast::MemoryPrimitive::BufferToSymbol
+                | crate::check::ast::MemoryPrimitive::SymbolToBuffer,
             ..
         } => true,
         Operation::Memory { operands, .. } => operands.iter().any(atom_contains_value),

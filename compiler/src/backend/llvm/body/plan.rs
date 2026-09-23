@@ -7,7 +7,6 @@ use crate::control::ast::{Program, StateId, Terminator};
 
 use super::Slot;
 use super::types::Types;
-use crate::backend::source_layout::SourceLayouts;
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
     let entry = execution.lowered.entry?;
@@ -24,7 +23,6 @@ pub(super) struct TopLevelConstants {
     values: HashMap<ValueId, Constant>,
     globals: String,
     types: Types,
-    source_layouts: SourceLayouts,
 }
 
 #[derive(Clone)]
@@ -41,16 +39,11 @@ enum ConstantKind {
 }
 
 impl TopLevelConstants {
-    pub(super) fn new(
-        execution: &crate::execution::Program,
-        types: Types,
-        source_layouts: SourceLayouts,
-    ) -> Option<Self> {
+    pub(super) fn new(execution: &crate::execution::Program, types: Types) -> Option<Self> {
         let mut constants = Self {
             values: HashMap::new(),
             globals: String::new(),
             types,
-            source_layouts,
         };
         for binding in &execution.lowered.bindings {
             let mut locals = HashMap::new();
@@ -204,9 +197,6 @@ impl TopLevelConstants {
                 format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
             }
             AtomKind::Float(bits) if atom.ty == Type::Float64 => format!("0x{bits:016X}"),
-            AtomKind::StorageSize(measured) if atom.ty == Type::ByteSize => {
-                self.source_layouts.layout(measured)?.stride.to_string()
-            }
             AtomKind::Symbol(bytes) if bytes.is_empty() => "zeroinitializer".into(),
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);

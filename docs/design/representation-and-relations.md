@@ -3,13 +3,13 @@
 Status: Current design policy
 
 この文書は、再帰的または相互参照を持つdomain structureをmalで表すときの設計方針を定める。個々の型とoperationは
-[型](../spec/types.md)、[external memory](../spec/memory.md)、[`Region`と`Packed`](../spec/packed.md)を正とする。
+[型](../spec/types.md)、[external memory](../spec/memory.md)、[`Buffer`](../spec/memory.md)を正とする。
 carrierをoperationへ適用して解釈する全体の設計軸は[値、解釈、control](value-interpretation-and-control.md)に置く。
 
 ## 有限な表現から構造を得る
 
-malでは、domain structureをrecursive typeとして値の物理構造へ埋め込むことを基本形にしない。有限な`Packed`、`Region`、
-product、sumなどをcarrierとし、その要素間の関係をindex、offset、tag、keyその他の有限値で表す。
+malでは、domain structureをrecursive typeとして値の物理構造へ埋め込むことを基本形にしない。有限な`Buffer`、product、sumなどを
+carrierとし、その要素間の関係をindex、offset、tag、keyその他の有限値で表す。
 
 型は値の表現構造とauthorityを定める。型だけでは、indexがchildであること、offsetがrecordを指すこと、特定の要素がrootであること、
 edgeがacyclicであることまでは保証しない。このようなdomain上の意味は、carrierを解釈するoperationと、そのoperationが要求または保存する
@@ -25,14 +25,14 @@ authorityを与え、operationが関係を与える。
 ## carrier、座標、relation
 
 carrierはrow、column、byte、node recordなどを保持する有限な表現である。index、offset、`Address`は単独でdomain identityにはならず、
-特定のcarrierに対する座標として意味を持つ。同じ`USize`値でも、別の`Packed`を対象にすれば別の要素を指す。
+特定のcarrierに対する座標として意味を持つ。同じ`USize`値でも、別の`Buffer`を対象にすれば別の要素を指す。
 
 carrierのcolumnが保持する値と、column間またはrow間のrelationを区別する。例えばheap-indexedなsegment indexのmaximum columnと
 pending-assignment columnは、共通のnode IDをkeyとして結合されるpayloadであり、edgeやparentを保持するrelation indicatorではない。
 親子relationは`2 * node`と`2 * node + 1`を解釈するoperationが与える。反対にCSRのoffset columnや明示的なparent columnは、別の
 payloadへ到達する座標を保持するrelation indicatorである。隣接した物理配置や同じindexで読めることだけを、stored relationと呼ばない。
 
-treeを`Packed<NodeRow>`で表す場合、`Packed`が保証するのは有限なrow列である。root位置、child fieldの解釈、child bounds、
+treeを`Buffer<NodeRow>`で表す場合、`Buffer`が保証するのは有限なrow列である。root位置、child fieldの解釈、child bounds、
 reachability、acyclicityを加えたときに初めてtreeになる。databaseをbyte regionで表す場合も、record offset、active flag、key relation、
 uniquenessをoperationが定める。
 
@@ -41,7 +41,7 @@ slice、sort、compaction、mergeなどが座標の意味を変える場合、�
 
 ## invariantのauthority
 
-transparent aliasはruntime identityもnominal proofも作らない。`Tree :: Packed<NodeRow>`という名前は表現の役割を説明できるが、その値が
+transparent aliasはruntime identityもnominal proofも作らない。`Tree :: Buffer<NodeRow>`という名前は表現の役割を説明できるが、その値が
 tree invariantを満たすことは証明しない。型で表さない条件は次のいずれかが所有する。
 
 - admission後のvalidatorが、外部または未検査の表現をdomain operationへ渡せるか判定する。
@@ -65,8 +65,8 @@ domain ontologyと同一視しない方針である。
 
 ## authorityとの直交
 
-同じrelationをmal-ownedな`Packed`、scopedな`Region`、external storageへの`Address`のいずれに載せるかは、resource authorityの違いである。
-tree、graph、tableであることとは別に判断する。`Packed`のownerが生きていても、要素中の`Address`が指すreferentのlifetimeは延びない。
+同じrelationをmal-ownedな`Buffer`とexternal storageへの`Address`のどちらに載せるかは、resource authorityの違いである。
+tree、graph、tableであることとは別に判断する。`Buffer`のownerが生きていても、要素中の`Address`が指すreferentのlifetimeは延びない。
 外部storageを読むrelation operationは、構造上のinvariantに加えてhost contractのlifetime、permission、initializationを要求する。
 
 EngramとExternの境界判断は[authority](authority.md)を正とする。domain relationを導入するためだけにexternal ownershipや個別allocatorを

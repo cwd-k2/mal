@@ -41,13 +41,12 @@ _isRejected :: SocketStatus -> Bool := (status) -> {
 
 _socketFailure :: UInt32 -> SocketStatus := (error) -> [complete, failed] => failed(error);
 
-// The receive Region is scoped authority and therefore remains a direct recursive argument while
-// comparison short-circuits on the first unequal byte.
-_equalsSymbol :: (Region<UInt8>, Symbol, USize) -> Bool := (bytes, expected, index) -> [return] => {
+_equalsSymbol :: (Buffer<UInt8>, Symbol, USize) -> Bool := (bytes, expected, index) -> [return] => {
     when (index == #expected) {
         return(true);
     };
-    when (bytes.get(index) != expected # index) {
+    expectedBytes := *expected;
+    when (bytes.get(index) != expectedBytes.get(index)) {
         return(false);
     };
     return(bytes._equalsSymbol(expected, index + 1usize));
@@ -55,17 +54,13 @@ _equalsSymbol :: (Region<UInt8>, Symbol, USize) -> Bool := (bytes, expected, ind
 
 _sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
     (sequence, payload) := packet;
-    packed := *payload;
+    bytes := *payload;
     (memory, capacity) := packetBuffer();
-    if (#packed > capacity)
+    if (#bytes > capacity)
     then _socketFailure(90u32)
     else {
-        // Writable authority exists only while staging this packet into host storage.
-        memory.view<UInt8>(0usize, #packed, (region) -> {
-            region.set(packed);
-            ();
-        });
-        socket.sendPacket(sequence, memory, #packed);
+        bytes.into(memory, 0usize, #bytes);
+        socket.sendPacket(sequence, memory, #bytes);
     };
 };
 
@@ -76,11 +71,10 @@ _receiveExpected :: Socket -> Bool := (socket) -> {
     (packet) -> {
         (sequence, length) := packet;
         expected := "hello from mal";
+        payload := from<UInt8>(memory, 0usize, length);
         sequence == 42u64
             && length == #expected
-            && memory.view<UInt8>(0usize, length, (payload) ->
-            payload._equalsSymbol(expected, 0usize)
-            );
+            && payload._equalsSymbol(expected, 0usize);
     },
     (error) -> {
         writeError(error);

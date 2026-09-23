@@ -4,6 +4,7 @@
 
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -110,15 +111,15 @@ MAL_DEFINE_systemClose(call, descriptor) {
 }
 
 MAL_DEFINE_systemRead(call, request) {
-    if (request.field_2 > SIZE_MAX) {
+    if (request.field_2 > SIZE_MAX || request.field_3 > SIZE_MAX) {
         return mal_TransferResult_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
     long transferred = syscall(
         SYS_read,
         request.field_0,
-        request.field_1,
-        (size_t)request.field_2
+        (uint8_t *)request.field_1 + (size_t)request.field_2,
+        (size_t)request.field_3
     );
     if (transferred < 0) {
         return mal_TransferResult_return_1(call, system_error());
@@ -127,18 +128,30 @@ MAL_DEFINE_systemRead(call, request) {
 }
 
 MAL_DEFINE_systemWrite(call, request) {
-    if (request.field_2 > SIZE_MAX) {
+    if (request.field_2 > SIZE_MAX || request.field_3 > SIZE_MAX) {
         return mal_TransferResult_return_1(call, (uint32_t)EINVAL);
     }
     errno = 0;
     long transferred = syscall(
         SYS_write,
         request.field_0,
-        request.field_1,
-        (size_t)request.field_2
+        (const uint8_t *)request.field_1 + (size_t)request.field_2,
+        (size_t)request.field_3
     );
     if (transferred < 0) {
         return mal_TransferResult_return_1(call, system_error());
     }
     return mal_TransferResult_return_0(call, (uint64_t)transferred);
+}
+
+MAL_DEFINE_storeZero(call, value) {
+    if (value.field_1 > SIZE_MAX) {
+        mal_call_trap(call, "invalid byte offset");
+    }
+    ((uint8_t *)value.field_0)[(size_t)value.field_1] = 0;
+    return mal_Unit_return(call);
+}
+
+MAL_DEFINE_argumentLength(call, address) {
+    return mal_USize_return(call, strlen((const char *)address));
 }

@@ -135,15 +135,15 @@ fn receiver_first_callees_support_function_editor_features() {
 }
 
 #[test]
-fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
-    let text = "build :: Unit -> Packed<Int32> := () -> make<Int32>(1usize, (buffer) -> { buffer.new(1i32); () });\n\
-                revise :: Packed<Int32> -> Packed<Int32> := (source) -> source.edit<Int32>((_) -> ());\n\
-                admit :: Address -> Packed<Int32> := (address) -> address.pack<Int32>(0usize, 1usize);\n";
+fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
+    let text = "build :: Unit -> Buffer<Int32> := () -> make<Int32>(1usize);\n\
+                admit :: Address -> Buffer<Int32> := (address) -> from<Int32>(address, 0usize, 1usize);\n\
+                publish :: (Buffer<Int32>, Address) -> Unit := (values, address) -> values.into(address, 0usize, #values);\n";
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
 
     for (name, offset) in [
-        ("pack", text.find("pack<Int32>").unwrap()),
-        ("edit", text.find("edit<Int32>").unwrap()),
+        ("from", text.find("from<Int32>").unwrap()),
+        ("into", text.find("into(address").unwrap()),
     ] {
         let occurrence = document
             .occurrence_at(offset)
@@ -152,9 +152,7 @@ fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
         assert_eq!(occurrence.kind, SymbolKind::Function);
         assert!(document.hover_at(offset).is_some());
     }
-    for name in [
-        "Region", "Packed", "Buffer", "pack", "make", "edit", "view", "new", "get", "put", "set",
-    ] {
+    for name in ["Buffer", "from", "into", "make", "new", "get", "put"] {
         assert!(
             document
                 .completions()
@@ -170,7 +168,7 @@ fn indexes_packed_intrinsics_and_indexed_types_as_predefined_symbols() {
     assert!(
         make.documentation
             .as_deref()
-            .is_some_and(|documentation| documentation.contains("initial allocation"))
+            .is_some_and(|documentation| documentation.contains("initial capacity"))
     );
 }
 
@@ -371,11 +369,11 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
 }
 
 #[test]
-fn reports_the_type_of_a_region_method() {
-    let text = "read :: Region<Int64> -> Int64 := (region) -> region.get(0usize);";
+fn reports_the_type_of_a_buffer_method() {
+    let text = "read :: Buffer<Int64> -> Int64 := (buffer) -> buffer.get(0usize);";
     let offset = text.rfind("get").unwrap();
     let document = malc::editor::analyze(&source(text)).expect("semantic document");
-    let hover = document.hover_at(offset).expect("region get hover");
+    let hover = document.hover_at(offset).expect("buffer get hover");
 
     assert_eq!(hover.ty, "(Buffer<T>, USize) -> T");
     assert_eq!(hover.occurrence.unwrap().name, "get");
@@ -385,7 +383,7 @@ fn reports_the_type_of_a_region_method() {
             .unwrap()
             .documentation
             .as_deref()
-            .is_some_and(|documentation| documentation.contains("Region<T>"))
+            .is_some_and(|documentation| documentation.contains("Buffer<T>"))
     );
 }
 

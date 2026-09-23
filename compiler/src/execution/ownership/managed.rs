@@ -2,7 +2,7 @@ use crate::check::ast::Type;
 
 pub(crate) fn is_managed(ty: &Type) -> bool {
     ty.data_subtypes()
-        .any(|ty| matches!(ty, Type::Symbol | Type::Packed(_) | Type::Function { .. }))
+        .any(|ty| matches!(ty, Type::Symbol | Type::Buffer(_) | Type::Function { .. }))
 }
 
 #[cfg(test)]

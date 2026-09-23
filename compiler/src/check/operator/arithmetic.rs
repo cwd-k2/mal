@@ -18,15 +18,8 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if expected == Some(&Type::Address) {
-            let left = self.check_before(left, Some(&Type::Address), right.span)?;
-            return self.check_address_offset(operator, left, right, span);
-        }
         if operator.kind == BinaryOperator::Add && expected == Some(&Type::Symbol) {
             return self.check_symbol_concatenation(operator, left, right, span);
-        }
-        if operator.kind == BinaryOperator::Add && matches!(expected, Some(Type::Packed(_))) {
-            return self.check_packed_concatenation(left, right, expected.unwrap(), span);
         }
 
         let expected_numeric =
@@ -38,9 +31,6 @@ impl Checker {
             self.check_numeric_operands(left, right, expected_numeric)?
         } else {
             let left = self.check_before(left, None, right.span)?;
-            if left.ty == Type::Address {
-                return self.check_address_offset(operator, left, right, span);
-            }
             if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
                 return Ok(Expression {
@@ -50,18 +40,6 @@ impl Checker {
                         right: Box::new(right),
                     },
                     ty: Type::Symbol,
-                    span,
-                });
-            }
-            if operator.kind == BinaryOperator::Add && matches!(left.ty, Type::Packed(_)) {
-                let expected = left.ty.clone();
-                let (left, right) = self.check_after(left, right, Some(&expected))?;
-                return Ok(Expression {
-                    kind: ExpressionKind::Memory {
-                        primitive: super::super::ast::MemoryPrimitive::PackedConcat,
-                        operands: vec![left, right],
-                    },
-                    ty: expected,
                     span,
                 });
             }
@@ -107,25 +85,6 @@ impl Checker {
                 right: Box::new(right),
             },
             ty: Type::Symbol,
-            span,
-        })
-    }
-
-    fn check_packed_concatenation(
-        &mut self,
-        left: &Node<resolved::Expression>,
-        right: &Node<resolved::Expression>,
-        expected: &Type,
-        span: Span,
-    ) -> CheckResult<Expression> {
-        let left = self.check_before(left, Some(expected), right.span)?;
-        let (left, right) = self.check_after(left, right, Some(expected))?;
-        Ok(Expression {
-            kind: ExpressionKind::Memory {
-                primitive: super::super::ast::MemoryPrimitive::PackedConcat,
-                operands: vec![left, right],
-            },
-            ty: expected.clone(),
             span,
         })
     }

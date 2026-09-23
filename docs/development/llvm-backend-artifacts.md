@@ -138,8 +138,8 @@ int main(void) {
 }
 ```
 
-`(USize, Address) -> Int32` entryではshimが`argv[1]`以降をpointerとbyte lengthのdescriptor列へ変換し、target data layoutに
-従って構成したargument storageを第二parameterへ渡す。いずれのentry形でも第三parameterは`Int32` resultの格納先である。
+`(USize, Address) -> Int32` entryではshimが`argc - 1`と`argv + 1`をargument storageへ格納してrootへ渡す。
+いずれのentry形でも第三parameterは`Int32` resultの格納先である。
 
 extern callもLLVMからgenerated C bridgeを呼び、bridgeがpublic host valueへの変換とterminal returnを実行する。host implementationは
 `program.mal.h`の`MAL_DEFINE_<name>`だけを使い、LLVM module、bridge signature、runtime carrierを参照しない。

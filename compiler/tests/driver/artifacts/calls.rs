@@ -100,33 +100,26 @@ fn calls_capture_free_first_class_functions_through_llvm() {
 }
 
 #[test]
-fn calls_first_class_wrappers_around_typed_memory_operations() {
-    let directory = NativeFixture::new("driver-llvm-memory-function");
-    let source = directory.join("program.mal");
-    let executable = directory.join("program");
-    directory.write(
+fn calls_first_class_wrappers_around_buffer_operations() {
+    let directory = NativeFixture::new("driver-llvm-buffer-function");
+    let source = directory.write(
         "program.mal",
-        "require \"./host.c\";\n\
-         Reader :: Region<Int64> -> Int64;\n\
-         Writer :: (Region<Int64>, Int64) -> Unit;\n\
-         extern memory :: Unit -> Address;\n\
-         read :: Reader := (region) -> region.get(0usize);\n\
-         write :: Writer := (region, value) -> region.put(0usize, value);\n\
-         readWith :: (Reader, Region<Int64>) -> Int64 := (reader, region) -> reader(region);\n\
-         writeWith :: (Writer, Region<Int64>, Int64) -> Unit := (writer, region, value) -> writer(region, value);\n\
-         main :: Unit -> Int32 := () ->\n\
-           view<Int64>(memory(), 0usize, 1usize, (region) -> {\n\
-             writeWith(write, region, 42i64);\n\
-             (readWith(read, region) - 42i64).i32;\n\
-           });",
+        "Reader :: (Buffer<Int64>, USize) -> Int64;
+         Writer :: (Buffer<Int64>, USize, Int64) -> Unit;
+         read :: Reader := (buffer, index) -> buffer.get(index);
+         write :: Writer := (buffer, index, value) -> buffer.put(index, value);
+         readWith :: (Reader, Buffer<Int64>, USize) -> Int64 :=
+           (reader, buffer, index) -> reader(buffer, index);
+         writeWith :: (Writer, Buffer<Int64>, USize, Int64) -> Unit :=
+           (writer, buffer, index, value) -> writer(buffer, index, value);
+         main :: Unit -> Int32 := () -> {
+           values := make<Int64>(1usize);
+           index := values.new(0i64);
+           writeWith(write, values, index, 42i64);
+           (readWith(read, values, index) - 42i64).i32;
+         };",
     );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         static unsigned char storage[8];\n\
-         MAL_DEFINE_memory(call) { return mal_Address_return(call, storage); }\n",
-    );
-
+    let executable = directory.join("program");
     let unavailable = directory.join("must-not-be-used");
     let output = directory.malc_with_env(
         [
@@ -138,53 +131,6 @@ fn calls_first_class_wrappers_around_typed_memory_operations() {
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(directory.run(executable).status.code(), Some(0));
-}
-
-#[test]
-fn calls_a_memory_target_from_an_indirect_recursive_region_site() {
-    let directory = NativeFixture::new("driver-llvm-region-memory-target");
-    let source = directory.join("program.mal");
-    let executable = directory.join("program");
-    directory.write(
-        "program.mal",
-        "require \"./host.c\";\n\
-         Reader :: Region<Int64> -> Int64;\n\
-         extern memory :: Unit -> Address;\n\
-         read :: Reader := (region) -> region.get(0usize);\n\
-         apply :: (Reader, Region<Int64>) -> Int64 := (reader, region) -> reader(region);\n\
-         recurse :: Region<Int64> -> Int64 := (region) -> apply(recurse, region);\n\
-         main :: Unit -> Int32 := () ->\n\
-           view<Int64>(memory(), 0usize, 1usize, (region) -> {\n\
-             region.put(0usize, 42i64);\n\
-             (apply(read, region) - 42i64).i32;\n\
-           });",
-    );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         static unsigned char storage[8];\n\
-         MAL_DEFINE_memory(call) { return mal_Address_return(call, storage); }\n",
-    );
-
-    let unavailable = directory.join("must-not-be-used");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable.as_os_str(),
-    );
-
     assert!(
         output.status.success(),
         "{}",

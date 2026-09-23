@@ -719,6 +719,7 @@ MalType_ReadResult mal_ext_readFile(MalContext *context, MalType_File argument_0
 MalType_CloseResult mal_ext_closeFile(MalContext *context, MalType_File value);
 void mal_ext_writeBytes(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 void mal_ext_writeError(MalContext *context, MalType_IoError value);
+MalType_USize mal_ext_argumentLength(MalContext *context, MalType_Address value);
 
 /* External definition helpers */
 
@@ -804,6 +805,18 @@ void mal_ext_writeError(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_IoE
 static MalType_Unit mal_detail_writeError( \
     mal_call_t *call, \
     mal_IoError_t value \
+)
+
+#define MAL_HAS_EXTERN_argumentLength 1
+#define MAL_DEFINE_argumentLength(call, value) \
+static MalType_USize mal_detail_argumentLength(mal_call_t *call, mal_Address_t value); \
+MalType_USize mal_ext_argumentLength(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
+    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
+    return mal_detail_argumentLength(&call, value); \
+} \
+static MalType_USize mal_detail_argumentLength( \
+    mal_call_t *call, \
+    mal_Address_t value \
 )
 
 #endif

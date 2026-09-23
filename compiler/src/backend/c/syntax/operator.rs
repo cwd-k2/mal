@@ -2,7 +2,6 @@
 pub(in crate::backend) enum UnaryOperator {
     AddressOf,
     Dereference,
-    PreIncrement,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -11,10 +10,8 @@ pub(in crate::backend) enum BinaryOperator {
     Add,
     Subtract,
     Multiply,
-    Divide,
     Equal,
     NotEqual,
-    Less,
     Greater,
     LogicalAnd,
 }
@@ -24,7 +21,6 @@ impl UnaryOperator {
         match self {
             Self::AddressOf => "&",
             Self::Dereference => "*",
-            Self::PreIncrement => "++",
         }
     }
 }
@@ -36,10 +32,8 @@ impl BinaryOperator {
             Self::Add => "+",
             Self::Subtract => "-",
             Self::Multiply => "*",
-            Self::Divide => "/",
             Self::Equal => "==",
             Self::NotEqual => "!=",
-            Self::Less => "<",
             Self::Greater => ">",
             Self::LogicalAnd => "&&",
         }

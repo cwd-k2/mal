@@ -248,28 +248,9 @@ fn indents_multiline_arguments_from_the_call_line() {
 }
 
 #[test]
-fn indents_nested_blocks_inside_expression_body_continuations() {
-    let formatted = format(
-        "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\nsource.edit<Int32>((buffer) -> {\nbuffer.put(0usize, buffer.get(0usize));\n()\n});",
-    );
-
-    assert_eq!(
-        formatted,
-        concat!(
-            "revise :: Packed<Int32> -> Packed<Int32> := (source) ->\n",
-            "    source.edit<Int32>((buffer) -> {\n",
-            "        buffer.put(0usize, buffer.get(0usize));\n",
-            "        ();\n",
-            "    });\n",
-        )
-    );
-    assert_eq!(format(&formatted), formatted);
-}
-
-#[test]
 fn indents_blocks_from_their_parenthesized_list_position() {
     let formatted = format(
-        "parse := (source) ->\n(\nsource,\nmake<Frame>(0usize, (buffer) -> {\nbuffer.new(value);\n()\n}),\n1u64\n).parse();",
+        "parse := (source) ->\n(\nsource,\n{\nbuffer := make<Frame>(1usize);\nbuffer.new(value);\nbuffer;\n},\n1u64\n).parse();",
     );
 
     assert_eq!(
@@ -278,10 +259,11 @@ fn indents_blocks_from_their_parenthesized_list_position() {
             "parse := (source) ->\n",
             "    (\n",
             "        source,\n",
-            "        make<Frame>(0usize, (buffer) -> {\n",
+            "        {\n",
+            "            buffer := make<Frame>(1usize);\n",
             "            buffer.new(value);\n",
-            "            ();\n",
-            "        }),\n",
+            "            buffer;\n",
+            "        },\n",
             "        1u64\n",
             "    ).parse();\n",
         )

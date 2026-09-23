@@ -1,7 +1,6 @@
-mod builder;
+mod buffer;
 mod dispatch;
 mod product;
-mod region;
 mod storage;
 mod view;
 

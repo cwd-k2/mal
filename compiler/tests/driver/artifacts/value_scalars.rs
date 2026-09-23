@@ -160,35 +160,30 @@ fn preserves_short_circuit_effect_order_through_llvm() {
 }
 
 #[test]
-fn accesses_unaligned_scalar_and_pointer_storage_through_llvm() {
+fn accesses_unaligned_scalar_and_pointer_products_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-memory");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         extern memory :: ByteSize -> Address;\n\
+         Record :: (UInt64, Address, Float32);\n\
+         extern memory :: Unit -> Address;\n\
          main :: Unit -> Int32 := () -> {\n\
-           base := memory(64bytes);\n\
-           _ := view<UInt64>(base, 0usize, 1usize, (region) -> region.put(0usize, 42u64));\n\
-           pointerSlot := base + #u64;\n\
-           _ := view<Address>(pointerSlot, 0usize, 1usize, (region) -> region.put(0usize, base));\n\
-           floatSlot := pointerSlot + #address;\n\
-           _ := view<Float32>(floatSlot, 0usize, 1usize, (region) -> region.put(0usize, 1.5f32));\n\
-           restored := view<Address>(pointerSlot, 0usize, 1usize, (region) -> region.get(0usize));\n\
-           first := view<UInt64>(restored, 0usize, 1usize, (region) -> region.get(0usize));\n\
-           second := view<UInt64>(base, 0usize, 1usize, (region) -> region.get(0usize));\n\
-           float := view<Float32>(floatSlot, 0usize, 1usize, (region) -> region.get(0usize));\n\
-           value := first + second;\n\
-           if (float == 1.5f32) then { value.i32 - 84 } else { 1 };\n\
+           address := memory();\n\
+           records := make<Record>(1usize);\n\
+           records.new((42u64, address, 1.5f32));\n\
+           records.into(address, 0usize, 1usize);\n\
+           (first, restored, float) := from<Record>(address, 0usize, 1usize).get(0usize);\n\
+           (second, _, _) := from<Record>(restored, 0usize, 1usize).get(0usize);\n\
+           if (float == 1.5f32) then { (first + second).i32 - 84 } else { 1 };\n\
          };",
     );
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
          static unsigned char storage[65];\n\
-         MAL_DEFINE_memory(call, size) {\n\
-             (void)size;\n\
+         MAL_DEFINE_memory(call) {\n\
              return mal_Address_return(call, storage + 1);\n\
          }\n",
     );
