@@ -388,3 +388,32 @@ emission中のblockには`alloca`を残さない形へ統一した。
 追加したgeneric loop exampleはbaselineとproductionの両方で100万transitionを実行し、production binaryは128 KiBのstack上限でも
 status 0、通常実行のmaximum RSSは1,440 KiBだった。focused LLVM artifact testはsumだけでなく上記のPacked経路もrecursive fixtureで
 生成し、全temporary `alloca`が最初のback edgeより前のentry blockにあることを検査する。
+
+## 2026-09-23 — Buffer logical operandとallocation alias scope
+
+RegionとPackedを廃止してmanaged `Buffer`へ移行した直後、011のmedianは48.437 ms、056は20.740 msとなり、direct Cの
+6.840 ms、8.960 msに対して7.08倍、2.31倍だった。Callgrind 3.27.1のinstruction referenceは011が
+2,038.73 million、056が670.10 millionで、Cの234.89 million、120.60 millionを大きく上回った。no-LTOの011では
+`mal_runtime_environment_retain`と`release`をそれぞれ約150.12 million回実行していた。
+
+core loweringがBufferのreceiver、index、valueをmanaged productへ詰め、Buffer operationはそのproductをborrowしていた。この
+productはsourceの値ではなく、各accessでBufferをretain/releaseする翻訳上の一時ownerだった。Buffer operationのlogical operandを
+core、ANF、closure、control、execution ownershipまで個別に保持し、それぞれをborrowする形へ修正した。これはoptionalなbackend
+optimizationではなく、sourceにないownershipをstage間で導入しない表現上の修正である。ANF testでreceiver、index、valueの評価順と
+非product表現を、LLVM artifact testで一時retainがないことを、native testでgrowth前後のalias観測を検査する。
+
+同じmaximum-order inputで011は11.541 ms、362.18 million instructions、056は11.834 ms、326.19 million instructionsとなった。
+037のC比は3.82倍から1.31倍、063は2.30倍から0.85倍へ下がった。011は不変なjob rowをBuffer更新前に一度観測するsourceへ直すと
+6.174 ms、237.20 million instructionsとなり、Cの6.77 ms、234.89 millionに揃った。027は一文字ごとの`from<UInt8>`が毎回新しい
+Bufferを割り当てていた。host storageの既知範囲を一度だけadmitする形へ直すと、C比は3.19倍から1.11倍になった。いずれもdataの
+意味をcompilerへ固定せず、sourceが持つ観測境界を明示した変更である。
+
+残る056のelement storeによるactive-data slot loadの再読込には、Buffer object allocationとelement storage allocationが別である
+runtime invariantだけをLLVM alias scopeで表した。slot loadへ`alias.scope`、element accessへ対応する`noalias`を付ける一方、LTOされる
+C runtimeのslot更新は無注釈のままなのでgrowthを跨ぐclobberを保つ。slotへ独自TBAA typeを付ける診断案は、C側がemitterのTBAA treeを
+共有しないためD064と同じ未証明の仮定となり、棄却した。
+
+安全なalias scope版を3 warmup、交互20 roundで測ると、056は10.651 ms、Cは8.750 msで1.22倍、011は6.079 ms、Cは
+6.747 msで0.90倍だった。056のinstruction referenceは267.72 millionまで減ったがCの120.60 millionに対して2.22倍であり、残差は
+別のloop形状として扱う。raw sampleと調査記録はignored scratchの各measurement JSONと
+`performance/buffer-migration.md`に保存した。

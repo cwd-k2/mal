@@ -40,9 +40,6 @@ fn admit_operation<'a>(
         | Operation::Goto { value, .. }
         | Operation::SymbolLength { value }
         | Operation::SymbolAt { argument: value }
-        | Operation::Buffer {
-            argument: value, ..
-        }
         | Operation::ExternalCall {
             argument: value, ..
         }
@@ -54,7 +51,7 @@ fn admit_operation<'a>(
                 admit_atom(capture, maximum)?;
             }
         }
-        Operation::Memory { operands, .. } => {
+        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
             for operand in operands {
                 admit_atom(operand, maximum)?;
             }

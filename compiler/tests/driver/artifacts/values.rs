@@ -12,9 +12,11 @@ fn builds_grows_and_aliases_managed_buffers() {
          main :: Unit -> Int32 := () -> {
            values := make<USize>(1usize);
            alias := values;
-           addRange(values, 0usize, 40usize);
+           values.new(0usize);
+           beforeGrowth := alias.get(0usize);
+           addRange(values, 1usize, 40usize);
            alias.put(0usize, 41usize);
-           if (#values == 40usize && values.get(0usize) == 41usize
+           if (beforeGrowth == 0usize && #values == 40usize && values.get(0usize) == 41usize
                && alias.get(39usize) == 39usize) then 0 else 1;
          };",
     );

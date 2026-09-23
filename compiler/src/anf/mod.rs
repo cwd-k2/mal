@@ -183,16 +183,20 @@ impl Lowerer {
             core::ExpressionKind::Buffer {
                 operation,
                 element,
-                argument,
+                operands,
             } => {
-                let (builder, argument) = self.lower_operand(argument);
+                let mut builder = ExpressionBuilder::default();
+                let operands = operands
+                    .iter()
+                    .map(|operand| builder.append(self, operand))
+                    .collect();
                 builder.finish(
                     self,
                     expression,
                     Operation::Buffer {
                         operation: *operation,
                         element: element.clone(),
-                        argument,
+                        operands,
                     },
                 )
             }

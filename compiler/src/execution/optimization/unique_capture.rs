@@ -132,13 +132,15 @@ fn visit_operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::Atom(atom)
         | Operation::SymbolLength { value: atom }
         | Operation::SymbolAt { argument: atom }
-        | Operation::Buffer { argument: atom, .. }
         | Operation::ExternalCall { argument: atom, .. }
         | Operation::NumericConversion { operand: atom }
         | Operation::SumInjection { value: atom, .. }
         | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
         Operation::MakeClosure { captures, .. }
         | Operation::Memory {
+            operands: captures, ..
+        }
+        | Operation::Buffer {
             operands: captures, ..
         }
         | Operation::Product(captures) => captures.iter().for_each(visit),

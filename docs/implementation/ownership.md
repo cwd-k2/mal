@@ -17,12 +17,16 @@ pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic va
 完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
 storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
 
+Buffer objectとelement storageは別allocationである。LLVMはobject field accessとelement accessの非aliasをscope内で表してよいが、
+growthでactive dataを置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。LLVM emitterだけが持つTBAA treeを
+C runtimeのwriteへ暗黙に適用してはならない。
+
 ## slotとoperation
 
 managed local slotはzero状態で初期化する。owner successorと終了点は
 [`D055`](../history/decisions/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
 LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
-memory primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
+memory primitiveとBuffer primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
 lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionやC host copyはresultとoperandの
 ownerを共有しない。
 

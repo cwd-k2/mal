@@ -241,12 +241,11 @@ fn collect_operation_uses(
             atom(argument, false);
         }
         Operation::SymbolAt { argument }
-        | Operation::Buffer { argument, .. }
         | Operation::ExternalCall { argument, .. }
         | Operation::SumInjection {
             value: argument, ..
         } => atom(argument, false),
-        Operation::Memory { operands, .. } => {
+        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
             for operand in operands {
                 atom(operand, false);
             }

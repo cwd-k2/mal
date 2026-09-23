@@ -20,7 +20,7 @@ impl Lowerer {
                 kind: ExpressionKind::Buffer {
                     operation: BufferOperation::Make,
                     element: element.as_ref().clone(),
-                    argument: Box::new(self.lower_expression(capacity)),
+                    operands: vec![self.lower_expression(capacity)],
                 },
                 ty: expression.ty.clone(),
                 span: expression.span,
@@ -33,55 +33,23 @@ impl Lowerer {
         let checked::Type::Buffer(element) = &buffer.ty else {
             unreachable!("checked Buffer operation has a Buffer receiver")
         };
-        let buffer = self.lower_expression(buffer);
-        let (operation, argument) = match (primitive, rest) {
-            (checked::MemoryPrimitive::BufferNew, [value]) => {
-                let value = self.lower_expression(value);
-                (
-                    BufferOperation::New,
-                    self.product(vec![buffer, value], expression.span),
-                )
-            }
-            (checked::MemoryPrimitive::BufferGet, [index]) => {
-                let index = self.lower_expression(index);
-                (
-                    BufferOperation::Get,
-                    self.product(vec![buffer, index], expression.span),
-                )
-            }
-            (checked::MemoryPrimitive::BufferPut, [index, value]) => {
-                let index = self.lower_expression(index);
-                let value = self.lower_expression(value);
-                let put = self.product(vec![index, value], expression.span);
-                (
-                    BufferOperation::Put,
-                    self.product(vec![buffer, put], expression.span),
-                )
-            }
+        let operation = match (primitive, rest) {
+            (checked::MemoryPrimitive::BufferNew, [_]) => BufferOperation::New,
+            (checked::MemoryPrimitive::BufferGet, [_]) => BufferOperation::Get,
+            (checked::MemoryPrimitive::BufferPut, [_, _]) => BufferOperation::Put,
             _ => unreachable!("checked Buffer operation has valid operands"),
         };
         Expression {
             kind: ExpressionKind::Buffer {
                 operation,
                 element: element.as_ref().clone(),
-                argument: Box::new(argument),
+                operands: operands
+                    .iter()
+                    .map(|operand| self.lower_expression(operand))
+                    .collect(),
             },
             ty: expression.ty.clone(),
             span: expression.span,
-        }
-    }
-
-    fn product(&self, elements: Vec<Expression>, span: crate::source::Span) -> Expression {
-        Expression {
-            ty: checked::Type::Product(
-                elements
-                    .iter()
-                    .map(|element| element.ty.clone())
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-            kind: ExpressionKind::Product(elements),
-            span,
         }
     }
 }

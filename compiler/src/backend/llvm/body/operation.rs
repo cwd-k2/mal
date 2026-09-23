@@ -331,16 +331,22 @@ impl FunctionEmitter<'_> {
             Operation::Buffer {
                 operation,
                 element,
-                argument,
+                operands,
             } => {
-                self.require_binding_borrow(
-                    site,
-                    binding,
-                    BindingOperand::BufferArgument,
-                    argument,
-                )?;
-                let argument = self.atom(argument)?;
-                self.emit_buffer(*operation, element, &argument, result_type?)
+                let operands = operands
+                    .iter()
+                    .enumerate()
+                    .map(|(index, operand)| {
+                        self.require_binding_borrow(
+                            site,
+                            binding,
+                            BindingOperand::BufferOperand(index),
+                            operand,
+                        )?;
+                        self.atom(operand)
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                self.emit_buffer(*operation, element, &operands, result_type?)
                     .map(Some)
             }
             Operation::Product(elements) => {

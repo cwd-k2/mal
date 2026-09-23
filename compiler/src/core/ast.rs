@@ -147,7 +147,7 @@ pub enum ExpressionKind {
     Buffer {
         operation: BufferOperation,
         element: Type,
-        argument: Box<Expression>,
+        operands: Vec<Expression>,
     },
     ExternalCall {
         id: ExternalOperationId,

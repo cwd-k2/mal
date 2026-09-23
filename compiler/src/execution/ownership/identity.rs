@@ -40,7 +40,7 @@ pub(crate) enum BindingOperand {
     SymbolLength,
     SymbolAt,
     MemoryOperand(usize),
-    BufferArgument,
+    BufferOperand(usize),
     ExternalArgument,
     NumericOperand,
     UnaryOperand,

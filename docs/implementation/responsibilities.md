@@ -161,13 +161,13 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
 | `core/expression` | checked expression kindをcore expressionへdispatchし、既に所有moduleが持つcontrol、memory、Buffer loweringへ接続 |
 | `core/lambda` | lambda parameterとbody item列をcore binding、lexical join、closure captureへ変換 |
-| `core/buffer` | Bufferのmake/new/get/putをcore operationへlowering |
+| `core/buffer` | Bufferのmake/new/get/putを、source productを作らない論理operand列を持つcore operationへlowering |
 | `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
 | `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
 | `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
 | `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
 | `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
-| `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveの論理operandとlambda-local join identityを保持 |
+| `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveとBuffer primitiveの論理operand、lambda-local join identityを保持 |
 | `closure` | ordinary functionのcapture schemaを構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
 | `core/bool` | Bool eliminationを明示的な`case`へ変換 |
 | `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製しない |

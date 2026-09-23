@@ -190,9 +190,6 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::Atom(value)
         | Operation::SymbolLength { value }
         | Operation::SymbolAt { argument: value }
-        | Operation::Buffer {
-            argument: value, ..
-        }
         | Operation::ExternalCall {
             argument: value, ..
         }
@@ -202,7 +199,9 @@ fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
             captures.iter().for_each(visit)
         }
-        Operation::Memory { operands, .. } => operands.iter().for_each(visit),
+        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
+            operands.iter().for_each(visit)
+        }
         Operation::PrimitiveBinary { left, right, .. } => {
             visit(left);
             visit(right);

@@ -189,11 +189,14 @@ impl Converter {
             anf::Operation::Buffer {
                 operation,
                 element,
-                argument,
+                operands,
             } => Operation::Buffer {
                 operation: *operation,
                 element: element.clone(),
-                argument: self.convert_atom(argument, environment),
+                operands: operands
+                    .iter()
+                    .map(|operand| self.convert_atom(operand, environment))
+                    .collect(),
             },
             anf::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
                 id: *id,

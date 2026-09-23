@@ -41,9 +41,11 @@ pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &A
             .enumerate()
             .map(|(index, operand)| (BindingOperand::MemoryOperand(index), operand, false))
             .collect(),
-        Operation::Buffer { argument, .. } => {
-            vec![(BindingOperand::BufferArgument, argument, false)]
-        }
+        Operation::Buffer { operands, .. } => operands
+            .iter()
+            .enumerate()
+            .map(|(index, operand)| (BindingOperand::BufferOperand(index), operand, false))
+            .collect(),
         Operation::ExternalCall { argument, .. } => {
             vec![(BindingOperand::ExternalArgument, argument, false)]
         }

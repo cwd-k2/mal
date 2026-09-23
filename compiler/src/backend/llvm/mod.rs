@@ -87,11 +87,16 @@ pub(crate) fn generate(
     } else {
         String::new()
     };
+    // Buffer object fields and element storage are distinct allocations. Runtime slot writes stay
+    // outside this scope so growth still invalidates an active data pointer.
     let buffer_alias_metadata = body.uses_byte_runtime.then_some(
         "!0 = !{!\"Simple C/C++ TBAA\"}\n\
          !1 = !{!\"omnipotent char\", !0, i64 0}\n\
          !2 = !{!\"mal buffer element storage\", !1, i64 0}\n\
-         !3 = !{!2, !2, i64 0}\n",
+         !3 = !{!2, !2, i64 0}\n\
+         !4 = distinct !{!4, !\"mal buffer object allocation\"}\n\
+         !5 = distinct !{!5, !4, !\"mal buffer object metadata\"}\n\
+         !6 = !{!5}\n",
     );
     let byte_declarations = if body.uses_byte_runtime {
         let index = types

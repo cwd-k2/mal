@@ -75,31 +75,34 @@ impl FunctionEmitter<'_> {
         &mut self,
         operation: BufferOperation,
         element: &Type,
-        argument: &EmittedValue,
+        operands: &[EmittedValue],
         result_type: &Type,
     ) -> Option<EmittedValue> {
         let stride = self.source_layouts.layout(element)?.stride;
         let buffer_type = Type::Buffer(element.clone().into());
         match operation {
             BufferOperation::Make => {
-                if argument.ty != Type::USize || *result_type != buffer_type {
+                let [capacity] = operands else {
+                    return None;
+                };
+                if capacity.ty != Type::USize || *result_type != buffer_type {
                     return None;
                 }
                 let buffer = self.register();
                 self.line(format!(
                     "  {buffer} = call ptr @mal_runtime_buffer_make(ptr %mal_context, {0} {stride}, {0} {1})",
-                    self.types.pointer_integer()?, argument.representation
+                    self.types.pointer_integer()?, capacity.representation
                 ));
                 Some(emitted_buffer(buffer, buffer_type))
             }
             BufferOperation::New => {
-                let argument_type =
-                    Type::Product(vec![buffer_type.clone(), element.clone()].into());
-                if argument.ty != argument_type || *result_type != Type::USize {
+                let [buffer, value] = operands else {
+                    return None;
+                };
+                if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
-                let [buffer, value] = self.product_fields(argument, [&buffer_type, element])?;
-                let value_pointer = self.buffer_value_pointer(&value, stride)?;
+                let value_pointer = self.buffer_value_pointer(value, stride)?;
                 let index = self.register();
                 self.line(format!(
                     "  {index} = call {0} @mal_runtime_buffer_new(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
@@ -112,12 +115,12 @@ impl FunctionEmitter<'_> {
                 })
             }
             BufferOperation::Get => {
-                let argument_type = Type::Product(vec![buffer_type.clone(), Type::USize].into());
-                if argument.ty != argument_type || result_type != element {
+                let [buffer, index] = operands else {
+                    return None;
+                };
+                if buffer.ty != buffer_type || index.ty != Type::USize || result_type != element {
                     return None;
                 }
-                let [buffer, index] =
-                    self.product_fields(argument, [&buffer_type, &Type::USize])?;
                 if *element == Type::Unit {
                     return Some(EmittedValue {
                         ty: Type::Unit,
@@ -125,23 +128,25 @@ impl FunctionEmitter<'_> {
                         owned: false,
                     });
                 }
-                let data = self.active_buffer_data(&buffer)?;
-                let pointer = self.buffer_element_pointer(&data, &index, stride)?;
+                let data = self.active_buffer_data(buffer)?;
+                let pointer = self.buffer_element_pointer(&data, index, stride)?;
                 self.emit_aligned_buffer_load_at(&pointer, element)
             }
             BufferOperation::Put => {
-                let put_type = Type::Product(vec![Type::USize, element.clone()].into());
-                let argument_type =
-                    Type::Product(vec![buffer_type.clone(), put_type.clone()].into());
-                if argument.ty != argument_type || *result_type != Type::Unit {
+                let [buffer, index, value] = operands else {
+                    return None;
+                };
+                if buffer.ty != buffer_type
+                    || index.ty != Type::USize
+                    || value.ty != *element
+                    || *result_type != Type::Unit
+                {
                     return None;
                 }
-                let [buffer, put] = self.product_fields(argument, [&buffer_type, &put_type])?;
-                let [index, value] = self.product_fields(&put, [&Type::USize, element])?;
                 if stride != 0 {
-                    let data = self.active_buffer_data(&buffer)?;
-                    let pointer = self.buffer_element_pointer(&data, &index, stride)?;
-                    self.emit_aligned_buffer_store_at(&pointer, &value)?;
+                    let data = self.active_buffer_data(buffer)?;
+                    let pointer = self.buffer_element_pointer(&data, index, stride)?;
+                    self.emit_aligned_buffer_store_at(&pointer, value)?;
                 }
                 Some(EmittedValue {
                     ty: Type::Unit,
@@ -163,7 +168,7 @@ impl FunctionEmitter<'_> {
         ));
         let data = self.register();
         self.line(format!(
-            "  {data} = load ptr, ptr {slot}, align {}",
+            "  {data} = load ptr, ptr {slot}, align {}, !alias.scope !6",
             self.types.pointer_alignment()
         ));
         Some(data)

@@ -67,7 +67,7 @@ pub enum Operation {
     Buffer {
         operation: BufferOperation,
         element: Type,
-        argument: Atom,
+        operands: Vec<Atom>,
     },
     ExternalCall {
         id: ExternalOperationId,

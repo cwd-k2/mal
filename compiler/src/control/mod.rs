@@ -347,11 +347,11 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
         closure::Operation::Buffer {
             operation,
             element,
-            argument,
+            operands,
         } => Operation::Buffer {
             operation: *operation,
             element: element.clone(),
-            argument: argument.clone(),
+            operands: operands.clone(),
         },
         closure::Operation::ExternalCall { id, argument } => Operation::ExternalCall {
             id: *id,
