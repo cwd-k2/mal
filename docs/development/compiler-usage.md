@@ -142,8 +142,8 @@ generated headerとbuild artifactのsource compatibilityまたはbinary compatib
 配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
-`--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`、
-`symbol.c`を保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
+`--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`を保持し、
+Symbolまたは`Buffer`を使うprogramでは`bytes.c`、`bytes_internal.h`、`symbol.c`も保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
 inspection用artifactであり、version間の互換性を保証しない。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。

@@ -28,7 +28,6 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 ## crate構成
 
 crateの境界は、その層だけを必要とする別々の利用者がいるかで引く。外部依存を持つのは`mal-lsp`だけであり、ほかのcrateは標準libraryだけで構成する。
-各crateは`#![forbid(unsafe_code)]`を持つ。
 
 | crate | 所有するstage | 依存 | 利用者 |
 |---|---|---|---|
@@ -51,9 +50,11 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 |---|---|
 | `main` | argument sourceとI/Oの接続、exit statusの配送 |
 | `cli` | command grammar、利用エラー、use caseの選択 |
-| `source` | file bytes、UTF-8 admission、file identity、require graph、byte span、位置計算 |
+| `source` | file bytes、UTF-8 admission、file identity、byte span、位置計算 |
+| `graph`、`requirement` | source graphのfilesystem読み込み（open documentのoverlayを含む）、require pathの相対解決と補完候補、requirementのcycle検出 |
 | `lexer` | 文字列からtokenへのadmissionとlexical error |
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
+| `formatter` | lossless lexerとparserの結果から、commentとliteral spellingを保持したcanonical source textを構成 |
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
@@ -65,7 +66,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation |
 | `analysis`、`pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
-| `driver` | source file、require pathの相対解決とfilesystem候補、temporary path、C compiler process、C build input、および`--optimization`の選択 |
+| `driver` | 生成物のpath、temporary path、C compiler process、C build input、および`--optimization`の選択 |
 | `driver/toolchain` | pinned Clangからhost target tripleとdata layoutを取得し、LLVM/C artifactを同じtargetへcompile |
 | `driver/toolchain/optimization` | semantic correctness optionから独立したbaselineまたはproductionのClang optimization argumentを構成 |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
@@ -95,6 +96,7 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 |---|---|---|
 | `check`、diagnostic | `source -> lexer -> parser -> resolve -> check` | checked programまたはstructured diagnostic |
 | editor semantic query | frontendのresolved programとchecked program `-> editor` | source identityに基づくsemantic index |
+| `mal-fmt` | `source -> lossless lexer -> parser -> formatter` | canonical source textまたはstructured diagnostic |
 | `emit header`、`emit host` | frontend `-> core::ProgramInterface -> backend/c` | checked host interfaceだけから生成したC headerまたはadapter stub |
 | `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
 | `emit atcoder` | `build`と同じ生成入力 `-> pinned Clang/LLD -> assembly carrier` | mal sourceをcommentに保持した単一C++ sourceまたはexternal-boundary error |
@@ -105,7 +107,7 @@ value bindingをlowerせず、このmetadataを直接`backend/c`へ渡す。`bui
 C shimの共通ABI planへ渡す。
 
 `analysis`（`mal-frontend`）と`pipeline`（`mal-backend`）はin-memory source graphから上記stageを構成し、filesystemやprocessを扱わない。
-`driver`はsource graphの配置を解決して`mal-syntax`の読み込みへ渡し、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
+`driver`は`mal-syntax`が読み込んだsource graphを受け取り、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
 ## generics、memory、host境界の変換
@@ -134,11 +136,12 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyでmoduleに分ける。moduleごとの責務は各directoryの
 `README.md`とcodeを正とし、この文書にはmoduleの一覧を置かない。
 
-- [`check`](../../crates/mal-frontend/src/check/README.md)
-- [`execution`](../../crates/mal-backend/src/execution/README.md)
-- [`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)
-- [`backend/c`](../../crates/mal-backend/src/backend/c/README.md)
-- [`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
+- `mal-syntax`: [`parser`](../../crates/mal-syntax/src/parser/README.md)
+- `mal-fmt`: [crate README](../../crates/mal-fmt/README.md)
+- `mal-frontend`: [`resolve`](../../crates/mal-frontend/src/resolve/README.md)、[`check`](../../crates/mal-frontend/src/check/README.md)、[`editor`](../../crates/mal-frontend/src/editor/README.md)
+- `mal-backend`: [`core`から`control`まで](../../crates/mal-backend/src/core/README.md)、[`execution`](../../crates/mal-backend/src/execution/README.md)、[`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)、[`backend/c`](../../crates/mal-backend/src/backend/c/README.md)、[`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
+- `mal-compiler`: [`driver`](../../crates/mal-compiler/src/driver/README.md)
+- `mal-lsp`: [crate README](../../crates/mal-lsp/README.md)
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
 `execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは

@@ -9,29 +9,28 @@ Status: Current non-normative overview
 
 ```text
 source
-  -> lexer
-  -> recursive-descent / Pratt parser
-  -> surface AST
-  -> name resolution
-  -> type checking
-  -> desugaring to typed core
-  -> ANF
-  -> closure conversion
-  -> application control lowering
-  -> execution plan
-  -> LLVM module + C shim/runtime
-  -> pinned Clang
+  -> lexer                               mal-syntax
+  -> recursive-descent / Pratt parser    mal-syntax
+  -> surface AST                         mal-syntax
+  -> name resolution                     mal-frontend
+  -> type checking and specialization    mal-frontend
+  -> desugaring to typed core            mal-backend
+  -> ANF                                 mal-backend
+  -> closure conversion                  mal-backend
+  -> application control lowering        mal-backend
+  -> execution plan                      mal-backend
+  -> LLVM module + C shim/runtime        mal-backend
+  -> pinned Clang                        mal-compiler (driver)
 ```
+
+右列は各stageを所有するcrateである。crateの分け方は[compilerの責務境界](responsibilities.md#crate構成)を正とする。
 
 `malc` は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
 stageごとのownershipは[compilerの責務境界](responsibilities.md)に置く。実装の変更履歴はGitを正とし、
 この文書には現在のpipelineとlowering方針だけを記載する。
 
-実装はRust standard libraryを中心に構成する。外部crateは、標準libraryだけで実装する場合より明確に単純になるものを
-必要に応じて追加し、特定のparser frameworkやcompiler frameworkを前提にしない。
-
-lexer は handwritten、parser は recursive descent と Pratt parsing を組み合わせる。C compiler の起動、temporary file、diagnostic、target 設定は core compiler logic から分離する。
+lexer は handwritten、parser は recursive descent と Pratt parsing を組み合わせる。
 
 Pratt parserが構成する左結合operator列は、resolveとcheckで左spineを反復走査する。core境界では各operatorの中間値を
 source順の`let`列へ変換し、後続stageへsource上のoperator数に比例する左深treeを渡さない。

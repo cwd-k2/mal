@@ -1,9 +1,12 @@
 #![forbid(unsafe_code)]
 
-pub mod anf;
+mod anf;
 mod backend;
-pub mod closure;
-pub mod control;
-pub mod core;
+mod closure;
+mod control;
+mod core;
 mod execution;
 pub mod pipeline;
+
+#[cfg(test)]
+mod tests;

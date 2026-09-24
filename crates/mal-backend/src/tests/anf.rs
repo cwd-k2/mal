@@ -1,7 +1,7 @@
-use mal_backend::anf;
-use mal_backend::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
-use mal_backend::core;
-use mal_backend::core::ast::BinaryPrimitive;
+use crate::anf;
+use crate::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
+use crate::core;
+use crate::core::ast::BinaryPrimitive;
 use mal_frontend::check;
 use mal_frontend::resolve;
 use mal_syntax::parser;

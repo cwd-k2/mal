@@ -53,9 +53,9 @@ side of the `extern` boundary.
 
 ## Repository
 
-The repository is a Cargo workspace under `crates/`: `mal-syntax`, `mal-fmt` (the formatter), `mal-frontend`,
-`mal-backend` (LLVM generation and the C11 runtime), `mal-compiler` (the `malc` command), and `mal-lsp` (the language
-server). It also contains checked examples and VS Code, Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. v0.6 is under
+The repository is a Cargo workspace under `crates/` that provides the `malc` compiler, the `mal-fmt` formatter, and the
+`mal-lsp` language server, together with checked examples and VS Code, Neovim, and Helix support. The crate structure is
+described in [`docs/implementation/responsibilities.md`](docs/implementation/responsibilities.md). Neovim and Helix share a Tree-sitter grammar. v0.6 is under
 development; generated artifacts and host ABI compatibility are not guaranteed across compiler
 versions.
 

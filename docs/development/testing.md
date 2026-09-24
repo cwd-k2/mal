@@ -25,17 +25,20 @@ behaviorの領域ごとにchild moduleへ分ける。source fileと同様、行�
 
 ## Boundary tests
 
-testは対象stageを所有するcrateの`tests/`に置く。複数のcrateを通す検証は、それらすべてに依存する`mal-compiler`の`tests/`に置く。
+公開APIを通すtestは対象stageを所有するcrateの`tests/`、非公開のstageを直接検査するtestはそのcrate内の`#[cfg(test)]` moduleに置く。
+複数のcrateを通す検証は、それらすべてに依存する`mal-compiler`の`tests/`に置く。
 
 | Change | Focused test | Cross-boundary test |
 |---|---|---|
 | source、span、diagnostic | byte位置、UTF-8、rendered diagnostic | CLIからの利用者向けerror |
 | lexer | tokenとlexical error | lexerからparserへ渡す代表的source |
 | parser | accepted ASTとsyntax rejection | parseからname resolutionまで |
+| formatter | canonical layout、idempotence、formatted sourceの型検査 | `mal-fmt` commandの標準出力と`--write`のatomic置換 |
 | resolve、check | name、capture、typeのpositive/negative case | typed coreまでの代表的program |
 | lowering | typed inputに対するevaluation orderと表現 | LLVM artifact生成までの代表的program |
 | LLVM backend、C ABI | emitted LLVM module/headerとABI rule | LLVM module、C shim、C runtimeを実際のClangでcompile/link/execute |
 | driver、CLI | argument、filesystem、process failure、exit status | public `malc` command |
+| language server | 一つのrequestに対するLSP応答 | stdio上のJSON-RPC session |
 
 format boundaryでは実際のconverterを使う。特にLLVM backendはIRらしい文字列を比較するだけで完了とせず、
 warningを有効にしたClangで生成物をcompileする。invalid inputのtestは、後段が失敗することではなく、
@@ -49,9 +52,7 @@ repository全体の完了判定は、rootで一つのcheck scriptを実行する
 nu scripts/dev.nu check
 ```
 
-`--fast`はVS Code packageとNix flakeを省き、RustとTree-sitterだけを検証する。
-
-このscriptはRust workspace、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
+このscriptはRust workspace、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。`--fast`はVS Code packageとNix flakeを省く。Tree-sitterは
 committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
 `node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。Nix flakeは
 editor runtimeをbuildし、NeovimとHelixのparser path、三つのquery、exportされたTree-sitter symbolを検査する。toolchain packageが

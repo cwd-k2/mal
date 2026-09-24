@@ -1,5 +1,5 @@
-use mal_backend::core;
-use mal_backend::core::ast::{
+use crate::core;
+use crate::core::ast::{
     BinaryPrimitive, Expression, ExpressionKind, JoinId, Lambda, Pattern, TopLevelPattern, ValueId,
 };
 use mal_frontend::check;

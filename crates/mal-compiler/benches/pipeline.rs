@@ -2,7 +2,14 @@ use std::fmt::Write;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use mal_syntax::source::{FileId, SourceFile};
+use mal_backend::pipeline::{Optimization, Target, generate};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph};
+
+// A representative 64-bit little-endian target; the benchmark never links the result.
+const TARGET: Target<'static> = Target {
+    triple: "x86_64-unknown-linux-gnu",
+    data_layout: "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
+};
 
 const SAMPLE_COUNT: usize = 7;
 const MINIMUM_SAMPLE_TIME: Duration = Duration::from_millis(100);
@@ -12,14 +19,22 @@ fn main() {
     let tokens = mal_syntax::lexer::lex(&source).expect("benchmark source must lex");
     let parsed = mal_syntax::parser::parse(&source).expect("benchmark source must parse");
     let resolved = mal_frontend::resolve::resolve(&parsed).expect("benchmark source must resolve");
-    let specialized = mal_frontend::check::specialize(
+    mal_frontend::check::specialize(
         mal_frontend::check::check(&resolved)
             .expect("benchmark source must check for specialization"),
     )
     .expect("benchmark source must specialize");
-    let core = mal_backend::core::lower(&specialized);
-    let anf = mal_backend::anf::lower(&core);
-    mal_backend::closure::convert(&anf);
+    let graph = SourceGraph::new(
+        FileId::new(0),
+        vec![SourceFile::new(
+            FileId::new(0),
+            "benchmark.mal",
+            source.text().to_owned(),
+        )],
+        vec![Vec::new()],
+        Vec::new(),
+    );
+    generate(&graph, Optimization::Baseline, TARGET).expect("benchmark source must generate");
     mal_frontend::editor::analyze(&source).expect("benchmark source must support editor analysis");
 
     println!("source_bytes={}", source.text().len());
@@ -35,9 +50,9 @@ fn main() {
     measure("check_specialize", || {
         mal_frontend::check::check(black_box(&resolved)).and_then(mal_frontend::check::specialize)
     });
-    measure("core", || mal_backend::core::lower(black_box(&specialized)));
-    measure("anf", || mal_backend::anf::lower(black_box(&core)));
-    measure("closure", || mal_backend::closure::convert(black_box(&anf)));
+    measure("generate", || {
+        generate(black_box(&graph), Optimization::Baseline, TARGET)
+    });
     measure("pipeline_check", || {
         mal_frontend::analysis::check(black_box(&source))
     });

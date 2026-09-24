@@ -1,8 +1,8 @@
-use mal_backend::anf;
-use mal_backend::closure;
-use mal_backend::control;
-use mal_backend::control::ast::{Function, Operation, State, Terminator};
-use mal_backend::core;
+use crate::anf;
+use crate::closure;
+use crate::control;
+use crate::control::ast::{Function, Operation, State, Terminator};
+use crate::core;
 use mal_frontend::check;
 use mal_frontend::resolve;
 use mal_syntax::parser;

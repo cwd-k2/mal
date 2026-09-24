@@ -158,10 +158,12 @@ semantic hoverはsymbolごとに次を表示する。
   typed expressionはcanonical typeを表示する。
 - literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 - source declarationを持つsymbolでは、宣言元fileからの相対pathと1始まりの行・column。
-- documentation。宣言の直前に空行を挟まず連続する単独行の`//` commentを表示し、各行の`//`直後にある一つのspaceと行末空白を除く。
-  同じ行でcodeの後にあるcommentと、宣言との間に空行があるcommentは対象外とする。predefined type、value、memory intrinsic、
-  Buffer methodはcompilerのpredefined metadataにある英語reference documentationを表示し、signatureに加えてscope、offsetの単位、
-  返り値、主要preconditionを説明する。completion itemにも同じdocumentationを付ける。名前のないexpressionにはdocumentationを付けない。
+- documentation。次の段落の規則で選ぶ。
+
+documentationには、宣言の直前に空行を挟まず連続する単独行の`//` commentを表示し、各行の`//`直後にある一つのspaceと行末空白を除く。
+同じ行でcodeの後にあるcommentと、宣言との間に空行があるcommentは対象外とする。predefined type、value、memory intrinsic、
+Buffer methodはcompilerのpredefined metadataにある英語reference documentationを表示し、signatureに加えてscope、offsetの単位、
+返り値、主要preconditionを説明する。completion itemにも同じdocumentationを付ける。名前のないexpressionにはdocumentationを付けない。
 
 receiver-first applicationのcalleeは通常のfunction referenceとして扱い、hover、definition、references、rename、semantic tokenに
 同じdeclaration identityを使う。
