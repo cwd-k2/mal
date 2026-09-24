@@ -81,7 +81,7 @@ predefined_values!(
     COPY_VALUE = 9 => ("copy", Some("(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit"), "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
 );
 
-pub fn first_source_type_id() -> u32 {
+pub(crate) fn first_source_type_id() -> u32 {
     TYPES
         .iter()
         .map(|entry| entry.id.0)
@@ -89,7 +89,7 @@ pub fn first_source_type_id() -> u32 {
         .map_or(0, |id| id + 1)
 }
 
-pub fn first_source_value_id() -> u32 {
+pub(crate) fn first_source_value_id() -> u32 {
     VALUES
         .iter()
         .map(|entry| entry.id.0)

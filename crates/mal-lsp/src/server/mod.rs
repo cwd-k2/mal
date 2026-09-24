@@ -9,12 +9,12 @@ mod analysis;
 mod requirement;
 mod semantic;
 
-pub struct Outcome {
+pub(crate) struct Outcome {
     pub messages: Vec<Value>,
     pub exit: Option<bool>,
 }
 
-pub struct Server {
+pub(crate) struct Server {
     documents: HashMap<String, Document>,
     next_file_id: u32,
     shutdown: bool,
@@ -96,7 +96,7 @@ struct TextDocumentIdentifier {
 }
 
 impl Server {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             documents: HashMap::new(),
             next_file_id: 0,
@@ -104,7 +104,7 @@ impl Server {
         }
     }
 
-    pub fn handle(&mut self, message: Value) -> Outcome {
+    pub(crate) fn handle(&mut self, message: Value) -> Outcome {
         let method = message.get("method").and_then(Value::as_str);
         let id = message.get("id").cloned();
         let params = message.get("params").cloned().unwrap_or(Value::Null);

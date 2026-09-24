@@ -3,16 +3,16 @@ use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId, ValueId as Sourc
 use mal_syntax::source::Span;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ValueId {
+pub(crate) enum ValueId {
     Source(SourceValueId),
     Temporary(u32),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct JoinId(pub usize);
+pub(crate) struct JoinId(pub usize);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Program {
+pub(crate) struct Program {
     pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
     pub entry: Option<EntryPoint>,
@@ -20,20 +20,20 @@ pub struct Program {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct EntryPoint {
+pub(crate) struct EntryPoint {
     pub binding: ValueId,
     pub parameter: mal_frontend::check::ast::EntryParameter,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProgramInterface {
+pub(crate) struct ProgramInterface {
     pub type_aliases: Vec<TypeAlias>,
     pub external_types: Vec<ExternalType>,
     pub externals: Vec<ExternalOperation>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypeAlias {
+pub(crate) struct TypeAlias {
     pub name: String,
     pub ty: Type,
     pub element_aliases: Vec<Option<String>>,
@@ -41,19 +41,19 @@ pub struct TypeAlias {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ExternalType {
+pub(crate) struct ExternalType {
     pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TopLevelBinding {
+pub(crate) struct TopLevelBinding {
     pub pattern: TopLevelPattern,
     pub value: Expression,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TopLevelPattern {
+pub(crate) enum TopLevelPattern {
     Binding {
         id: ValueId,
         name: String,
@@ -71,7 +71,7 @@ pub enum TopLevelPattern {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ExternalOperation {
+pub(crate) struct ExternalOperation {
     pub id: ExternalOperationId,
     pub name: String,
     pub parameter: Type,
@@ -83,14 +83,14 @@ pub struct ExternalOperation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Binding {
+pub(crate) struct Binding {
     pub pattern: Pattern,
     pub value: Expression,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Pattern {
+pub(crate) enum Pattern {
     Binding {
         id: ValueId,
         ty: Type,
@@ -107,14 +107,14 @@ pub enum Pattern {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Expression {
+pub(crate) struct Expression {
     pub kind: ExpressionKind,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ExpressionKind {
+pub(crate) enum ExpressionKind {
     Reference(ValueId),
     Integer(i128),
     Float(u64),
@@ -183,7 +183,7 @@ pub enum ExpressionKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BufferOperation {
+pub(crate) enum BufferOperation {
     Make,
     New,
     Get,
@@ -193,13 +193,13 @@ pub enum BufferOperation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UnaryPrimitive {
+pub(crate) enum UnaryPrimitive {
     Negate,
     BitwiseNot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BinaryPrimitive {
+pub(crate) enum BinaryPrimitive {
     Multiply,
     Divide,
     Remainder,
@@ -219,7 +219,7 @@ pub enum BinaryPrimitive {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Lambda {
+pub(crate) struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
     pub kind: LambdaKind,
@@ -230,33 +230,33 @@ pub struct Lambda {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum LambdaKind {
+pub(crate) enum LambdaKind {
     Ordinary,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Join {
+pub(crate) struct Join {
     pub parameter: Pattern,
     pub body: Expression,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Capture {
+pub(crate) struct Capture {
     pub source: ValueId,
     pub binding: ValueId,
     pub ty: Type,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Parameter {
+pub(crate) struct Parameter {
     pub binding: Option<ValueId>,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaseArm {
+pub(crate) struct CaseArm {
     pub index: usize,
     pub pattern: Pattern,
     pub value: Expression,

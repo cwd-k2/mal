@@ -2,7 +2,7 @@ use std::io::{self, BufRead, Write};
 
 use serde_json::Value;
 
-pub fn read_message(reader: &mut impl BufRead) -> io::Result<Option<Value>> {
+pub(crate) fn read_message(reader: &mut impl BufRead) -> io::Result<Option<Value>> {
     let mut content_length = None;
     let mut saw_header = false;
     loop {
@@ -44,7 +44,7 @@ pub fn read_message(reader: &mut impl BufRead) -> io::Result<Option<Value>> {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
-pub fn write_message(writer: &mut impl Write, message: &Value) -> io::Result<()> {
+pub(crate) fn write_message(writer: &mut impl Write, message: &Value) -> io::Result<()> {
     let body = serde_json::to_vec(message)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     write!(writer, "Content-Length: {}\r\n\r\n", body.len())?;

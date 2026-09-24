@@ -4,7 +4,7 @@ use mal_syntax::ast::{BinaryOperator, UnaryOperator};
 use mal_syntax::source::Span;
 use std::collections::HashMap;
 
-pub mod ast;
+pub(crate) mod ast;
 mod bool;
 mod buffer;
 mod completion;
@@ -16,7 +16,7 @@ mod pattern;
 mod primitive;
 
 use self::bool::bool_type;
-pub use self::interface::lower_interface;
+pub(crate) use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
@@ -24,7 +24,7 @@ use self::ast::{
     Program, TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
-pub fn lower(program: &checked::MonomorphicProgram) -> Program {
+pub(crate) fn lower(program: &checked::MonomorphicProgram) -> Program {
     Lowerer::new().lower_program(program.program())
 }
 

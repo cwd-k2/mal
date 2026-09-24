@@ -8,12 +8,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
-pub struct NativeFixture {
+pub(crate) struct NativeFixture {
     directory: PathBuf,
 }
 
 impl NativeFixture {
-    pub fn new(suite: &str) -> Self {
+    pub(crate) fn new(suite: &str) -> Self {
         let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
         let directory = std::env::temp_dir().join(format!(
             "mal-{suite}-test-{}-{sequence}",
@@ -23,11 +23,11 @@ impl NativeFixture {
         Self { directory }
     }
 
-    pub fn join(&self, path: impl AsRef<Path>) -> PathBuf {
+    pub(crate) fn join(&self, path: impl AsRef<Path>) -> PathBuf {
         self.directory.join(path)
     }
 
-    pub fn write(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> PathBuf {
+    pub(crate) fn write(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> PathBuf {
         let path = self.join(path);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).expect("create fixture output directory");
@@ -36,14 +36,14 @@ impl NativeFixture {
         path
     }
 
-    pub fn malc(&self, arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
+    pub(crate) fn malc(&self, arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
         Command::new(env!("CARGO_BIN_EXE_malc"))
             .args(arguments)
             .output()
             .expect("run malc")
     }
 
-    pub fn malc_with_env(
+    pub(crate) fn malc_with_env(
         &self,
         arguments: impl IntoIterator<Item = impl AsRef<OsStr>>,
         key: impl AsRef<OsStr>,
@@ -56,7 +56,7 @@ impl NativeFixture {
             .expect("run malc")
     }
 
-    pub fn run(&self, executable: impl AsRef<Path>) -> Output {
+    pub(crate) fn run(&self, executable: impl AsRef<Path>) -> Output {
         Command::new(executable.as_ref())
             .output()
             .expect("run native fixture executable")

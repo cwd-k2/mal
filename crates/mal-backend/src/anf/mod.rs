@@ -1,13 +1,13 @@
 use crate::core::ast as core;
 
-pub mod ast;
+pub(crate) mod ast;
 
 use self::ast::{
     Atom, AtomKind, Binding, Block, Capture, CaseArm, Lambda, Operation, Parameter, Pattern,
     Program, TopLevelBinding, TopLevelPattern, ValueId,
 };
 
-pub fn lower(program: &core::Program) -> Program {
+pub(crate) fn lower(program: &core::Program) -> Program {
     Lowerer::new().lower_program(program)
 }
 

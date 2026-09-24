@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::anf::ast as anf;
 
-pub mod ast;
+pub(crate) mod ast;
 
 use self::ast::{
     Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, FunctionKind,
     Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
-pub fn convert(program: &anf::Program) -> Program {
+pub(crate) fn convert(program: &anf::Program) -> Program {
     Converter::new().convert_program(program)
 }
 

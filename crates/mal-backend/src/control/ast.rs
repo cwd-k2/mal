@@ -6,7 +6,7 @@ use mal_frontend::resolve::ast::ExternalOperationId;
 use mal_syntax::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Program {
+pub(crate) struct Program {
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
     pub states: Vec<State>,
@@ -14,24 +14,24 @@ pub struct Program {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TopLevelBinding {
+pub(crate) struct TopLevelBinding {
     pub pattern: TopLevelPattern,
     pub entry: StateId,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Function {
+pub(crate) struct Function {
     pub id: FunctionId,
     pub parameter: Parameter,
     pub entry: StateId,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct StateId(pub usize);
+pub(crate) struct StateId(pub usize);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct State {
+pub(crate) struct State {
     pub input: Option<Pattern>,
     pub live: Vec<LiveValue>,
     pub needs_environment: bool,
@@ -41,14 +41,14 @@ pub struct State {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Binding {
+pub(crate) struct Binding {
     pub pattern: Pattern,
     pub operation: Operation,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Operation {
+pub(crate) enum Operation {
     Atom(Atom),
     MakeClosure {
         function: FunctionId,
@@ -93,7 +93,7 @@ pub enum Operation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Terminator {
+pub(crate) enum Terminator {
     Return(Atom),
     Goto(StateId),
     Jump {
@@ -123,14 +123,14 @@ pub enum Terminator {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LiveValue {
+pub(crate) struct LiveValue {
     pub id: ValueId,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaseArm {
+pub(crate) struct CaseArm {
     pub index: usize,
     pub target: StateId,
     pub span: Span,

@@ -151,7 +151,8 @@ generated programのoptimizationは既存stageの責務を越えて新しい意�
 ## Code structure
 
 各moduleには一つの安定した責務を持たせる。自然な責務境界がある場合、hand-written code fileは
-200行以下を目安にする。500行を超える前にowned behaviorまたは語彙で分割する。
+200行以下を目安にする。500行を超える前にowned behaviorまたは語彙で分割する。crateの外から使わない項目は`pub(crate)`に
+とどめ、`unreachable_pub` lintが余分な`pub`を検出する。
 
 子moduleを持つmoduleは同名directoryの`mod.rs`をrootとし、ownerと子のsourceを同じdirectory treeへ置く。
 子を持たないmoduleは親directory直下の単一`.rs` fileに置く。integration testのcrate rootなどtoolingが配置を

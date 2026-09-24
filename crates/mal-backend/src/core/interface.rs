@@ -2,7 +2,7 @@ use mal_frontend::check::ast as checked;
 
 use super::ast::{ExternalOperation, ExternalType, ProgramInterface, TypeAlias};
 
-pub fn lower_interface(program: &checked::Program) -> ProgramInterface {
+pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
     let mut interface = ProgramInterface {
         type_aliases: Vec::new(),
         external_types: Vec::new(),

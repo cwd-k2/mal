@@ -7,13 +7,13 @@ use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId};
 use mal_syntax::source::Span;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum ValueId {
+pub(crate) enum ValueId {
     Core(CoreValueId),
     Temporary(u32),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Program {
+pub(crate) struct Program {
     pub interface: ProgramInterface,
     pub bindings: Vec<TopLevelBinding>,
     pub entry: Option<EntryPoint>,
@@ -21,20 +21,20 @@ pub struct Program {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct EntryPoint {
+pub(crate) struct EntryPoint {
     pub binding: ValueId,
     pub parameter: mal_frontend::check::ast::EntryParameter,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TopLevelBinding {
+pub(crate) struct TopLevelBinding {
     pub pattern: TopLevelPattern,
     pub value: Block,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TopLevelPattern {
+pub(crate) enum TopLevelPattern {
     Binding {
         id: ValueId,
         name: String,
@@ -52,21 +52,21 @@ pub enum TopLevelPattern {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Block {
+pub(crate) struct Block {
     pub bindings: Vec<Binding>,
     pub result: Atom,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Binding {
+pub(crate) struct Binding {
     pub pattern: Pattern,
     pub operation: Operation,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Pattern {
+pub(crate) enum Pattern {
     Binding {
         id: ValueId,
         ty: Type,
@@ -83,14 +83,14 @@ pub enum Pattern {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Atom {
+pub(crate) struct Atom {
     pub kind: AtomKind,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AtomKind {
+pub(crate) enum AtomKind {
     Reference(ValueId),
     Integer(i128),
     Float(u64),
@@ -99,7 +99,7 @@ pub enum AtomKind {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Operation {
+pub(crate) enum Operation {
     Atom(Atom),
     Goto {
         target: JoinId,
@@ -160,7 +160,7 @@ pub enum Operation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Lambda {
+pub(crate) struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
     pub kind: LambdaKind,
@@ -171,28 +171,28 @@ pub struct Lambda {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Join {
+pub(crate) struct Join {
     pub parameter: Pattern,
     pub body: Block,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Capture {
+pub(crate) struct Capture {
     pub source: ValueId,
     pub binding: ValueId,
     pub ty: Type,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Parameter {
+pub(crate) struct Parameter {
     pub binding: Option<ValueId>,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaseArm {
+pub(crate) struct CaseArm {
     pub index: usize,
     pub pattern: Pattern,
     pub value: Block,

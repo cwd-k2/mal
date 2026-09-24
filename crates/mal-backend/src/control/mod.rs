@@ -1,6 +1,6 @@
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
-pub mod ast;
+pub(crate) mod ast;
 mod forwarding;
 mod liveness;
 
@@ -10,7 +10,7 @@ use self::ast::{
 pub(crate) use self::liveness::binding_use_counts;
 use self::liveness::local_values;
 
-pub fn lower(program: &closure::Program) -> Program {
+pub(crate) fn lower(program: &closure::Program) -> Program {
     Lowerer::new().lower_program(program)
 }
 

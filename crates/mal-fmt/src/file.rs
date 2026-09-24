@@ -10,7 +10,7 @@ static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
 /// Failure to read, format, or replace a source file. The message is ready to print.
 #[derive(Debug, Eq, PartialEq)]
-pub struct Error(String);
+pub(crate) struct Error(String);
 
 impl Error {
     fn io(action: &str, path: &Path, error: std::io::Error) -> Self {
@@ -27,7 +27,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub fn format_file(path: &Path) -> Result<String, Error> {
+pub(crate) fn format_file(path: &Path) -> Result<String, Error> {
     let source = SourceFile::load(FileId::new(0), path)
         .map_err(|error| Error(format!("mal-fmt: {error}")))?;
     crate::format(&source).map_err(|error| Error(error.render(&source)))
@@ -35,7 +35,7 @@ pub fn format_file(path: &Path) -> Result<String, Error> {
 
 /// Replaces `path` with its canonical form through a temporary file in the same directory,
 /// so a failure leaves the original untouched.
-pub fn write_file(path: &Path) -> Result<(), Error> {
+pub(crate) fn write_file(path: &Path) -> Result<(), Error> {
     let formatted = format_file(path)?;
     let permissions = fs::metadata(path)
         .map_err(|error| Error::io("read source metadata", path, error))?
