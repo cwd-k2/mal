@@ -12,8 +12,8 @@ Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository�
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
-C shim、runtime、generated header、host sourceはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
-subnormal、`FLT_EVAL_METHOD == 0`を要求し、満たさないtargetをcompile-timeに拒否する。
+C shim、runtime、generated header、host sourceはC11を要求する。generated headerは浮動小数点の要件を`_Static_assert`で検査し、
+満たさないtargetをcompile-timeに拒否する（要件は[C host ABI](../spec/c-host-abi.md#host-value-mapping)に定める）。
 他のOS、architecture、C compilerは検証対象外である。
 
 ## Nix flake

@@ -72,6 +72,17 @@ fn emit_header_prints_to_stdout_without_output() {
     let header = String::from_utf8(output.stdout).unwrap();
     assert!(header.contains("#define MAL_DEFINE_print(call, value)"));
     assert!(!directory.join("source/program.mal.h").exists());
+    for requirement in [
+        "FLT_MANT_DIG == 24",
+        "DBL_MANT_DIG == 53",
+        "FLT_HAS_SUBNORM == 1",
+        "FLT_EVAL_METHOD == 0",
+    ] {
+        assert!(
+            header.contains(requirement),
+            "missing assertion for {requirement}"
+        );
+    }
 }
 
 #[test]

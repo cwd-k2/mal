@@ -70,7 +70,9 @@ recoverできないcontract違反には`mal_call_trap(call, message)`を使う�
 
 fixed-width numeric typeは`stdint.h`の対応幅、`Float32`はbinary32 `float`、`Float64`はbinary64 `double`を使う。
 generated headerは`sizeof(size_t) * CHAR_BIT`がtargetのpointer index幅と一致することをcompile-time assertionで検証する。
-floating-point environmentの要件は[D019](../history/decisions/D019.md)に定める。
+また`float`がbinary32、`double`がbinary64であり、両方がsubnormalを保持し、`FLT_EVAL_METHOD`が0であることも検証し、
+満たさないtargetを拒否する。host adapterはround-to-nearest, ties-to-evenの浮動小数点environmentを保持し、flush-to-zeroや
+denormals-are-zeroを有効にしてreturnしてはならない。
 
 `mal_false`と`mal_true`だけがvalidな`mal_Bool_t`である。`mal_Bool_return`はそれ以外をtrapする。
 

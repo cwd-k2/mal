@@ -16,6 +16,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.push(Directive::include_system("stddef.h"));
     output.push(Directive::include_system("stdint.h"));
     output.push(Directive::include_system("limits.h"));
+    output.push(Directive::include_system("float.h"));
     if memory_access {
         output.push(Directive::include_system("string.h"));
     }
@@ -76,6 +77,40 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ),
         "size_t does not match the mal target pointer index width",
     ));
+    let width_of = |ty: &str, bits: u32| {
+        Expr::equal(
+            Expr::multiply(
+                Expr::sizeof_value(Expr::cast(ty, Expr::number("0"))),
+                Expr::identifier("CHAR_BIT"),
+            ),
+            Expr::number(bits.to_string()),
+        )
+    };
+    let macro_equals =
+        |name: &str, value: &str| Expr::equal(Expr::identifier(name), Expr::number(value));
+    for (condition, message) in [
+        (
+            Expr::logical_and(width_of("float", 32), macro_equals("FLT_MANT_DIG", "24")),
+            "float is not IEEE 754 binary32",
+        ),
+        (
+            Expr::logical_and(width_of("double", 64), macro_equals("DBL_MANT_DIG", "53")),
+            "double is not IEEE 754 binary64",
+        ),
+        (
+            Expr::logical_and(
+                macro_equals("FLT_HAS_SUBNORM", "1"),
+                macro_equals("DBL_HAS_SUBNORM", "1"),
+            ),
+            "the target does not preserve subnormal floating-point values",
+        ),
+        (
+            macro_equals("FLT_EVAL_METHOD", "0"),
+            "floating-point expressions are evaluated with extra precision",
+        ),
+    ] {
+        output.push(Declaration::static_assert(condition, message));
+    }
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
         ("MalType_Bool", "mal_Bool_t"),

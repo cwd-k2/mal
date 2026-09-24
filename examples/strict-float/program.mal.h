@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
+#include <float.h>
 
 #define MAL_C_ABI_VERSION 0x000800u
 
@@ -32,6 +33,10 @@ typedef size_t MalType_ByteSize;
 typedef size_t MalType_USize;
 typedef void *MalType_Address;
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
+_Static_assert(((sizeof((float)0) * CHAR_BIT) == 32) && (FLT_MANT_DIG == 24), "float is not IEEE 754 binary32");
+_Static_assert(((sizeof((double)0) * CHAR_BIT) == 64) && (DBL_MANT_DIG == 53), "double is not IEEE 754 binary64");
+_Static_assert((FLT_HAS_SUBNORM == 1) && (DBL_HAS_SUBNORM == 1), "the target does not preserve subnormal floating-point values");
+_Static_assert(FLT_EVAL_METHOD == 0, "floating-point expressions are evaluated with extra precision");
 typedef MalType_Unit mal_Unit_t;
 typedef MalType_Bool mal_Bool_t;
 typedef MalType_Int8 mal_Int8_t;
