@@ -51,4 +51,4 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 ## Completion gate
 
 v0.6実装は、上表のfocused evidence、代表cross-boundary test、既存機能のregression testがすべて通り、
-`nu scripts/check.nu`が成功した時点で完了する。防御的trapの存在をpositive contractとしてassertするtestは作らない。
+`nu scripts/dev.nu check`が成功した時点で完了する。防御的trapの存在をpositive contractとしてassertするtestは作らない。

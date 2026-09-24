@@ -16,7 +16,7 @@ tree-sitter test
 the parser without running the JavaScript grammar generator. The repository flake builds the
 platform-specific parser and queries as `packages.${system}.editor-runtime`. Local editor
 development also creates shared libraries under the ignored `.artifacts/editor-runtime/` directory
-through `scripts/editor-dev.nu`.
+through `scripts/dev.nu`.
 
 The grammar, queries, and generated parser are covered by the repository's MIT license. Headers
 copied from Tree-sitter during generation retain Tree-sitter's MIT terms in

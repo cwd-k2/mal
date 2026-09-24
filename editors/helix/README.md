@@ -5,7 +5,7 @@ The repository-local [`.helix/languages.toml`](../../.helix/languages.toml) regi
 an ignored, repository-local Helix runtime:
 
 ```nu
-nu scripts/editor-dev.nu helix
+nu scripts/dev.nu helix
 ```
 
 Review and trust the workspace when Helix asks before loading `.helix/languages.toml`. Use

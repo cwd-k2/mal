@@ -5,7 +5,7 @@ client, and loads the generated Tree-sitter parser and highlight query. Neovim 0
 required. From the repository root, prepare and launch the pinned editor environment with:
 
 ```nu
-nu scripts/editor-dev.nu neovim
+nu scripts/dev.nu neovim
 ```
 
 Neovim only evaluates project-local configuration after it has been enabled and trusted. The launch

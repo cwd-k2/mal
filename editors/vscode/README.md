@@ -5,7 +5,7 @@ configuration, and starts `mal-lsp` for diagnostics, formatting, and semantic ed
 the repository root, the complete development setup and launch is:
 
 ```nu
-nu scripts/vscode-dev.nu
+nu scripts/dev.nu vscode
 ```
 
 The script enters the pinned Nix environment when necessary, builds the server, installs locked

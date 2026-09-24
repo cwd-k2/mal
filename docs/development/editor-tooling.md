@@ -15,13 +15,13 @@ TextMate grammarはbyte literalをsingle-quoted string scopeの内側にcharacte
 隔離する。receiver-first applicationのcalleeはfunction、`.`はaccessor punctuationとして分類する。
 
 ```nu
-nu scripts/vscode-dev.nu
+nu scripts/dev.nu vscode
 ```
 
 buildとdependency準備だけを確認するときは`--prepare-only`を指定する。
 
 ```nu
-nu scripts/vscode-dev.nu --prepare-only
+nu scripts/dev.nu vscode --prepare-only
 ```
 
 scriptはextension development optionを実際にprobeする。通常のdesktop CLIではExtension Development Hostを起動する。
@@ -30,7 +30,7 @@ repositoryを開く。`code`、`code-insiders`、WSL上のWindows user/system in
 `--code-command`でexecutableを指定する。
 
 ```nu
-nu scripts/vscode-dev.nu --code-command /path/to/code
+nu scripts/dev.nu vscode --code-command /path/to/code
 ```
 
 GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
@@ -99,8 +99,8 @@ rootの`.helix/languages.toml`はHelixのproject-local languageと`mal-lsp`設�
 起動するにはrepository rootで次を実行する。各editorがproject-local設定を読む前に、内容を確認してworkspaceをtrustする。
 
 ```nu
-nu scripts/editor-dev.nu neovim
-nu scripts/editor-dev.nu helix
+nu scripts/dev.nu neovim
+nu scripts/dev.nu helix
 ```
 
 `--prepare-only`を指定するとeditorを起動せず生成と検証まで行う。Helixのlexical highlight、indent、text objectはTree-sitter queryを

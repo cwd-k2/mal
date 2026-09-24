@@ -43,12 +43,13 @@ warningを有効にしたClangで生成物をcompileする。invalid inputのtes
 
 ## Commands
 
-repository全体の完了判定は、rootでpinned environmentから一つのcheck scriptを実行する。
+repository全体の完了判定は、rootで一つのcheck scriptを実行する。pinned environmentの外から起動した場合は、scriptが`nix develop`へ入り直す。
 
 ```nu
-nix develop
-nu scripts/check.nu
+nu scripts/dev.nu check
 ```
+
+`--fast`はVS Code packageとNix flakeを省き、RustとTree-sitterだけを検証する。
 
 このscriptはRust workspace、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
 committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
@@ -81,7 +82,7 @@ tree-sitter parse --quiet ...$sources
 package生成も常に実行する。
 
 ```nu
-nu scripts/vscode-dev.nu --prepare-only
+nu scripts/dev.nu vscode --prepare-only
 cd editors/vscode
 npm test
 npm exec -- vsce package --out /tmp/mal-language-support-test.vsix --allow-missing-repository

@@ -7,58 +7,65 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      malc = pkgs.rustPlatform.buildRustPackage {
+      lib = pkgs.lib;
+      version = lib.removeSuffix "\n" (builtins.readFile ./VERSION);
+
+      # Only what the Rust workspace needs, so editor and documentation edits do not rebuild it.
+      rustSource = lib.fileset.toSource {
+        root = ./.;
+        fileset = lib.fileset.unions [
+          ./Cargo.toml
+          ./Cargo.lock
+          ./VERSION
+          ./LICENSE
+          ./crates
+          ./examples
+        ];
+      };
+
+      # One command-line package of the Cargo workspace.
+      rustPackage = { pname, package, license, nativeBuildInputs ? [ ], nativeCheckInputs ? [ ], postInstall ? "" }:
+        pkgs.rustPlatform.buildRustPackage {
+          inherit pname version nativeBuildInputs nativeCheckInputs;
+          src = rustSource;
+          cargoLock.lockFile = ./Cargo.lock;
+          cargoBuildFlags = [ "--package" package ];
+          cargoTestFlags = [ "--package" package ];
+          postInstall = ''
+            install -Dm644 $src/LICENSE $out/share/licenses/${pname}/LICENSE
+          '' + postInstall;
+          meta = {
+            mainProgram = pname;
+            inherit license;
+          };
+        };
+
+      malc = rustPackage {
         pname = "malc";
-        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        cargoBuildFlags = [ "--package" "mal-compiler" ];
-        cargoTestFlags = [ "--package" "mal-compiler" ];
+        package = "mal-compiler";
+        # The C11 runtime linked into every program is MIT-0.
+        license = with lib.licenses; [ mit mit0 ];
         nativeBuildInputs = [ pkgs.makeWrapper ];
         nativeCheckInputs = [ pkgs.clang pkgs.lld ];
         postInstall = ''
           wrapProgram $out/bin/malc \
-            --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.clang pkgs.lld ]}
-          install -Dm644 $src/LICENSE $out/share/licenses/malc/LICENSE
+            --prefix PATH : ${lib.makeBinPath [ pkgs.clang pkgs.lld ]}
         '';
-        meta = {
-          mainProgram = "malc";
-          license = with pkgs.lib.licenses; [ mit mit0 ];
-        };
       };
-      mal-fmt = pkgs.rustPlatform.buildRustPackage {
+      mal-fmt = rustPackage {
         pname = "mal-fmt";
-        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        cargoBuildFlags = [ "--package" "mal-fmt" ];
-        cargoTestFlags = [ "--package" "mal-fmt" ];
-        postInstall = ''
-          install -Dm644 $src/LICENSE $out/share/licenses/mal-fmt/LICENSE
-        '';
-        meta = {
-          mainProgram = "mal-fmt";
-          license = pkgs.lib.licenses.mit;
-        };
+        package = "mal-fmt";
+        license = lib.licenses.mit;
       };
-      mal-lsp = pkgs.rustPlatform.buildRustPackage {
+      mal-lsp = rustPackage {
         pname = "mal-lsp";
-        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        cargoBuildFlags = [ "--package" "mal-lsp" ];
-        cargoTestFlags = [ "--package" "mal-lsp" ];
-        postInstall = ''
-          install -Dm644 $src/LICENSE $out/share/licenses/mal-lsp/LICENSE
-        '';
-        meta = {
-          mainProgram = "mal-lsp";
-          license = with pkgs.lib.licenses; [ mit mit0 ];
-        };
+        package = "mal-lsp";
+        license = lib.licenses.mit;
       };
+
       editor-runtime = pkgs.stdenv.mkDerivation {
         pname = "mal-editor-runtime";
-        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        inherit version;
         src = ./editors/tree-sitter-mal;
 
         dontConfigure = true;
@@ -84,9 +91,20 @@
 
         meta = {
           description = "Tree-sitter parser and queries for mal editor integrations";
-          license = pkgs.lib.licenses.mit;
+          license = lib.licenses.mit;
         };
       };
+
+      toolchain = pkgs.symlinkJoin {
+        name = "mal-toolchain-${version}";
+        paths = [ malc mal-fmt mal-lsp editor-runtime ];
+        meta = {
+          description = "Compiler, formatter, language server, and editor runtime for mal development";
+          mainProgram = "malc";
+          license = with lib.licenses; [ mit mit0 ];
+        };
+      };
+
       editor-runtime-check = pkgs.runCommand "mal-editor-runtime-check" {
         nativeBuildInputs = [ pkgs.binutils ];
       } ''
@@ -101,15 +119,7 @@
           | grep ' tree_sitter_mal$' >/dev/null
         touch $out
       '';
-      toolchain = pkgs.symlinkJoin {
-        name = "mal-toolchain-${pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION)}";
-        paths = [ malc mal-fmt mal-lsp editor-runtime ];
-        meta = {
-          description = "Compiler, formatter, language server, and editor runtime for mal development";
-          mainProgram = "malc";
-          license = with pkgs.lib.licenses; [ mit mit0 ];
-        };
-      };
+
       toolchain-check = pkgs.runCommand "mal-toolchain-check" { } ''
         test -x ${toolchain}/bin/malc
         test -x ${toolchain}/bin/mal-fmt
@@ -121,9 +131,10 @@
         test -s ${toolchain}/queries/mal/textobjects.scm
         touch $out
       '';
+
       vscode-check = pkgs.buildNpmPackage {
         pname = "mal-language-support-check";
-        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        inherit version;
         src = ./editors/vscode;
         npmDepsHash = "sha256-AimvSkY/IpOuZeQk4Km2PeL/RKSN+2pm9crKJeHheUI=";
         npmRebuildFlags = [ "--ignore-scripts" ];
@@ -141,10 +152,11 @@
           runHook postInstall
         '';
       };
-      malcApp = {
+
+      app = package: description: {
         type = "app";
-        program = "${malc}/bin/malc";
-        meta.description = "mal v0.6 compiler";
+        program = lib.getExe package;
+        meta = { inherit description; };
       };
     in
     {
@@ -154,8 +166,10 @@
       };
 
       apps.${system} = {
-        default = malcApp;
-        malc = malcApp;
+        default = app malc "mal v0.6 compiler";
+        malc = app malc "mal v0.6 compiler";
+        mal-fmt = app mal-fmt "mal v0.6 formatter";
+        mal-lsp = app mal-lsp "mal v0.6 language server";
       };
 
       checks.${system} = {
@@ -174,6 +188,7 @@
           sccache
           nushell
           tree-sitter
+          ripgrep
           helix-unwrapped
           neovim
           clang
@@ -184,6 +199,8 @@
           nodejs
         ];
         RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
+        # rust-analyzer resolves the standard library sources from here.
+        RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
       };
     };
 }
