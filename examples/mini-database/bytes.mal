@@ -33,30 +33,11 @@ findByte :: (Buffer<UInt8>, USize, UInt8) -> USize := (source, start, byte) ->
 
 // Copying uses explicit coordinates so source and destination may be larger carriers.
 copyRange :: (Buffer<UInt8>, USize, Buffer<UInt8>, USize, USize) -> Unit :=
-    (source, sourceStart, destination, destinationStart, length) -> [return] => {
-        when (length == 0usize) {
-            return(());
-        };
-        destination.put(destinationStart, source.get(sourceStart));
-        return(source.copyRange(
-            sourceStart + 1usize,
-            destination,
-            destinationStart + 1usize,
-            length - 1usize
-        ));
-    };
-
-_fillSlice :: (Buffer<UInt8>, USize, USize, Buffer<UInt8>) -> Unit :=
-    (source, start, remaining, result) -> [return] => {
-        when (remaining == 0usize) {
-            return(());
-        };
-        result.new(source.get(start));
-        return(_fillSlice(source, start + 1usize, remaining - 1usize, result));
-    };
+    (source, sourceStart, destination, destinationStart, length) ->
+        destination.copy(destinationStart, source, sourceStart, length);
 
 copySlice :: (Buffer<UInt8>, USize, USize) -> Buffer<UInt8> := (source, start, length) -> {
     result := make<UInt8>(length);
-    _fillSlice(source, start, length, result);
+    result.copy(0usize, source, start, length);
     result;
 };

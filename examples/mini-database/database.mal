@@ -51,17 +51,9 @@ saveDatabase :: (File, Database) -> Unit := (file, (memory, bytes)) -> {
     flushFile(file);
 };
 
-_appendZeros :: (Buffer<UInt8>, USize) -> Unit := (bytes, remaining) -> [return] => {
-    when (remaining == 0usize) {
-        return(());
-    };
-    bytes.new(0u8);
-    return(_appendZeros(bytes, remaining - 1usize));
-};
-
 initializeDatabase :: Address -> Database := (memory) -> {
     bytes := make<UInt8>(_databaseSize);
-    bytes._appendZeros(_databaseSize);
+    bytes.fill(0usize, _databaseSize, 0u8);
     bytes.put(0usize, 'M');
     bytes.put(1usize, 'A');
     bytes.put(2usize, 'L');

@@ -4,15 +4,10 @@ require "./host.c";
 extern transferBuffer :: Unit -> Address;
 extern writeBytes :: (Address, USize) -> Unit;
 
-// The cursor is the complete recursive state. Appending may grow destination without invalidating
-// either Buffer value because aliases refer to the same managed identity.
-append :: (Buffer<UInt8>, Buffer<UInt8>, USize) -> Unit := (destination, source, index) -> [return] => {
-    when (index == #source) {
-        return(());
-    };
-    destination.new(source.get(index));
-    return(destination.append(source, index + 1usize));
-};
+// Appending may grow destination without invalidating either Buffer value because aliases refer to
+// the same managed identity.
+append :: (Buffer<UInt8>, Buffer<UInt8>, USize) -> Unit := (destination, source, index) ->
+    destination.copy(#destination, source, index, #source - index);
 
 appendSymbol :: (Buffer<UInt8>, Symbol) -> Unit := (destination, value) ->
     destination.append(*value, 0usize);

@@ -38,15 +38,8 @@ _allIndexed<A> :: (Buffer<A>, (USize, A) -> Bool) -> Bool := (values, predicate)
         continue(index + 1usize);
     });
 
-// Passing the destination explicitly keeps the mutation visible at every recursive step.
-appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) -> {
-    if (remaining == 0usize)
-    then { () }
-    else {
-        buffer.new(value);
-        buffer.appendRepeated(remaining - 1usize, value);
-    };
-};
+appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) ->
+    buffer.fill(#buffer, remaining, value);
 
 at :: (Int64BufferView, Int64) -> Int64 := ((buffer, offset), index) ->
     buffer.get(offset + index.usize);
