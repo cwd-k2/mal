@@ -9,7 +9,7 @@ use mal_syntax::graph;
 mod build;
 mod toolchain;
 
-pub use build::{BuildOptions, OptimizationMode, build, emit_atcoder};
+pub use build::{OptimizationMode, ToolchainOptions, build, emit_atcoder};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
@@ -20,13 +20,16 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
-pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
+pub fn emit_header(source_path: &Path) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    let header = mal_backend::pipeline::emit_header_graph(&graph)
-        .map_err(|error| Error::diagnostic(error, &graph))?;
-    create_parent(output_path)?;
-    fs::write(output_path, header)
-        .map_err(|error| Error::io("write generated header", output_path, error))
+    mal_backend::pipeline::emit_header_graph(&graph)
+        .map_err(|error| Error::diagnostic(error, &graph))
+}
+
+/// Writes generated text to `path`, creating parent directories first.
+pub fn write_output(path: &Path, action: &str, contents: &str) -> Result<(), Error> {
+    create_parent(path)?;
+    fs::write(path, contents).map_err(|error| Error::io(action, path, error))
 }
 
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {

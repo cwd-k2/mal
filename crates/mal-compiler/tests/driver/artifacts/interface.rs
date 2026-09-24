@@ -22,7 +22,8 @@ fn emit_header_writes_a_standalone_host_interface() {
     );
 
     let output = directory.malc([
-        OsStr::new("emit-header"),
+        OsStr::new("emit"),
+        OsStr::new("header"),
         source.as_os_str(),
         OsStr::new("--output"),
         output_path.as_os_str(),
@@ -53,7 +54,7 @@ fn emit_header_writes_a_standalone_host_interface() {
 }
 
 #[test]
-fn emit_header_defaults_to_the_source_directory() {
+fn emit_header_prints_to_stdout_without_output() {
     let directory = NativeFixture::new("driver-default-header");
     let source = directory.join("source/program.mal");
     directory.write(
@@ -61,15 +62,16 @@ fn emit_header_defaults_to_the_source_directory() {
         "extern print :: (Address, USize) -> Unit;",
     );
 
-    let output = directory.malc([OsStr::new("emit-header"), source.as_os_str()]);
+    let output = directory.malc([OsStr::new("emit"), OsStr::new("header"), source.as_os_str()]);
 
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let header = std::fs::read_to_string(directory.join("source/program.mal.h")).unwrap();
+    let header = String::from_utf8(output.stdout).unwrap();
     assert!(header.contains("#define MAL_DEFINE_print(call, value)"));
+    assert!(!directory.join("source/program.mal.h").exists());
 }
 
 #[test]
@@ -95,13 +97,15 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     );
 
     let header_output = directory.malc([
-        OsStr::new("emit-header"),
+        OsStr::new("emit"),
+        OsStr::new("header"),
         source.as_os_str(),
         OsStr::new("--output"),
         header.as_os_str(),
     ]);
     assert!(header_output.status.success());
-    let default_output = directory.malc([OsStr::new("emit-host"), source.as_os_str()]);
+    let default_output =
+        directory.malc([OsStr::new("emit"), OsStr::new("host"), source.as_os_str()]);
     assert!(default_output.status.success());
     assert!(
         default_output
@@ -110,7 +114,8 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     );
 
     let output = directory.malc([
-        OsStr::new("emit-host"),
+        OsStr::new("emit"),
+        OsStr::new("host"),
         source.as_os_str(),
         OsStr::new("--header"),
         OsStr::new("custom.h"),
@@ -172,7 +177,8 @@ fn checked_in_example_headers_match_the_compiler() {
         let directory = repository.join("examples").join(example);
         let generated = fixture.join(format!("{example}.h"));
         let output = fixture.malc([
-            OsStr::new("emit-header"),
+            OsStr::new("emit"),
+            OsStr::new("header"),
             directory.join("program.mal").as_os_str(),
             OsStr::new("--output"),
             generated.as_os_str(),

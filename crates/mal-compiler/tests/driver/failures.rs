@@ -14,7 +14,8 @@ fn reports_source_and_output_filesystem_failures() {
     directory.write("blocked", "not a directory");
     let generated = directory.join("blocked/program.mal.h");
     let output = directory.malc([
-        OsStr::new("emit-header"),
+        OsStr::new("emit"),
+        OsStr::new("header"),
         source.as_os_str(),
         OsStr::new("--output"),
         generated.as_os_str(),
