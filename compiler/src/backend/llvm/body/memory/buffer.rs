@@ -213,7 +213,7 @@ impl FunctionEmitter<'_> {
         ));
         let data = self.register();
         self.line(format!(
-            "  {data} = load ptr, ptr {slot}, align {}, !alias.scope !6",
+            "  {data} = load ptr, ptr {slot}, align {}, !tbaa !8, !alias.scope !6",
             self.types.pointer_alignment()
         ));
         Some(data)

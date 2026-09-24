@@ -43,9 +43,10 @@ call modeは次の四つである。
 function parameterのcontrol bindingは`execution/parameter`がcall mode共通の`Bind(slot)`または`Discard`へ変換する。backendは
 parameter patternを再解釈せず、このdestinationをtarget固有のowner operationとstorageへ変換する。
 
-`execution/self_tail_parameter`は`DirectSelfTail` siteについて、転送後のargumentとparameter patternのbinding対応、control use、
-ownershipを統合する。全edgeで保持されるmanaged leafと、一回だけ使われるunmanagedな先頭分解から、backendがparameter leafとして
-扱ってよいpatternとentry prefixを構成する。条件を満たさないfunctionはplanへ入れない。target固有の表現は
+`execution/self_tail_parameter`は`DirectSelfTail` siteについて、転送後のargumentとparameter patternのbinding対応およびcontrol useを
+統合する。全edgeで保持されるmanaged leafと、一回だけ使われるunmanagedな先頭分解から、backendがparameter leafとして扱ってよい
+patternとentry prefixを構成する。保持されるmanaged leafはinvocation中のpersistent lenderでもあり、ownership planはそのleafから
+純粋な`Atom`分解で得るaliasをback edge越しにborrowできる。条件を満たさないfunctionはplanへ入れない。target固有の表現は
 [実行backendの責務境界](../design/execution-backend.md#control-storage)が所有する。
 
 ## continuation frame

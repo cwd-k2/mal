@@ -24,6 +24,17 @@ impl SelfTailParameterPlan {
         calls: &ControlCallPlan,
         ownership: &OwnershipPlan,
     ) -> Self {
+        let mut plan = Self::candidates(control, applications, calls);
+        plan.entries
+            .retain(|_, parameter| managed_bindings_are_borrowed(&parameter.pattern, ownership));
+        plan
+    }
+
+    pub(crate) fn candidates(
+        control: &Program,
+        applications: &ApplicationGraph,
+        calls: &ControlCallPlan,
+    ) -> Self {
         let pass_through = ParameterPassThrough::new(control);
         let use_counts = crate::control::binding_use_counts(control);
         let entries = control
@@ -78,7 +89,7 @@ impl SelfTailParameterPlan {
                     }
                     binding_count += 1;
                 }
-                managed_bindings_are_preserved(&pattern, &preserved, ownership).then_some((
+                managed_bindings_are_preserved(&pattern, &preserved).then_some((
                     function.id,
                     SelfTailParameter {
                         pattern,
@@ -107,23 +118,54 @@ impl SelfTailParameterPlan {
     ) -> bool {
         self == &Self::new(control, applications, calls, ownership)
     }
+
+    pub(crate) fn persistent_lenders(
+        &self,
+        borrowing_functions: &HashSet<FunctionId>,
+    ) -> HashSet<crate::anf::ast::ValueId> {
+        self.entries
+            .iter()
+            .filter(|(function, _)| borrowing_functions.contains(function))
+            .map(|(_, parameter)| parameter)
+            .flat_map(|parameter| managed_bindings(&parameter.pattern))
+            .collect()
+    }
+}
+
+fn managed_bindings_are_borrowed(pattern: &Pattern, ownership: &OwnershipPlan) -> bool {
+    match pattern {
+        Pattern::Binding { id, ty } if super::ownership::is_managed(ty) => {
+            ownership.binding_is_borrowed(*id)
+        }
+        Pattern::Product { elements, .. } => elements
+            .iter()
+            .all(|element| managed_bindings_are_borrowed(element, ownership)),
+        Pattern::Wildcard { ty, .. } if super::ownership::is_managed(ty) => false,
+        Pattern::Binding { .. } | Pattern::Wildcard { .. } => true,
+    }
 }
 
 fn managed_bindings_are_preserved(
     pattern: &Pattern,
     preserved: &[HashSet<crate::anf::ast::ValueId>],
-    ownership: &OwnershipPlan,
 ) -> bool {
     match pattern {
         Pattern::Binding { id, ty } if super::ownership::is_managed(ty) => {
-            ownership.binding_is_borrowed(*id)
-                && preserved.iter().all(|bindings| bindings.contains(id))
+            preserved.iter().all(|bindings| bindings.contains(id))
         }
         Pattern::Product { elements, .. } => elements
             .iter()
-            .all(|element| managed_bindings_are_preserved(element, preserved, ownership)),
+            .all(|element| managed_bindings_are_preserved(element, preserved)),
         Pattern::Wildcard { ty, .. } if super::ownership::is_managed(ty) => false,
         Pattern::Binding { .. } | Pattern::Wildcard { .. } => true,
+    }
+}
+
+fn managed_bindings(pattern: &Pattern) -> Vec<crate::anf::ast::ValueId> {
+    match pattern {
+        Pattern::Binding { id, ty } if super::ownership::is_managed(ty) => vec![*id],
+        Pattern::Product { elements, .. } => elements.iter().flat_map(managed_bindings).collect(),
+        Pattern::Binding { .. } | Pattern::Wildcard { .. } => Vec::new(),
     }
 }
 

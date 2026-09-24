@@ -6,7 +6,7 @@ use crate::control::ast::StateId;
 
 use super::{
     ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, OptimizationPlan,
-    ParameterPlan,
+    ParameterPlan, SelfTailParameterPlan,
 };
 
 mod authority;
@@ -97,7 +97,8 @@ impl Plan {
             frames,
         } = inputs;
         let parameter_borrows = ParameterBorrows::new(control, applications, calls, regions);
-        let borrows = BorrowPlan::new(control, &parameter_borrows);
+        let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
+        let borrows = BorrowPlan::new(control, &parameter_borrows, &self_tail_parameters);
         let live_in = borrows.live_in(control);
         let borrowed_bindings = borrows.bindings();
         let mut input_destinations = HashMap::new();

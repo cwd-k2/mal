@@ -191,7 +191,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 | `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
 | `execution/call` | applicationのcall mode |
 | `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
-| `execution/self_tail_parameter` | use、ownership、全direct self-tail edgeを満たすparameter leaf handoffとentry prefix |
+| `execution/self_tail_parameter` | useと全direct self-tail edgeの構造的な同一性を満たすparameter leaf、persistent lender、entry prefix |
 | `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
 | `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
 | `execution/frame/replacement` | 退役frame容量を再利用できるcontrol path |

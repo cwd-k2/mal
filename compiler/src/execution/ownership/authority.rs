@@ -14,6 +14,7 @@ pub(super) fn collect(
     control: &Program,
     parameters: &ParameterBorrows,
     live_in: &[HashSet<ValueId>],
+    persistent_lenders: &HashSet<ValueId>,
 ) -> HashMap<ValueId, HashSet<ValueId>> {
     let mut authorities = parameters
         .bindings
@@ -33,7 +34,7 @@ pub(super) fn collect(
     collect_bounded_arguments(control, parameters, &mut discarded_results);
     trace_pure_construction(control, discarded_results, &mut authorities);
     resolve_aliases(&mut authorities, &mut deferred_aliases);
-    remove_unbounded_aliases(control, &mut authorities);
+    remove_unbounded_aliases(control, persistent_lenders, &mut authorities);
     authorities
 }
 
@@ -222,6 +223,7 @@ fn resolve_aliases(
 
 fn remove_unbounded_aliases(
     control: &Program,
+    persistent_lenders: &HashSet<ValueId>,
     authorities: &mut HashMap<ValueId, HashSet<ValueId>>,
 ) {
     let mut invalid = HashSet::new();
@@ -233,7 +235,9 @@ fn remove_unbounded_aliases(
             .collect::<HashSet<_>>();
         for borrowed in &live {
             if let Some(sources) = authorities.get(borrowed)
-                && !sources.iter().all(|source| live.contains(source))
+                && !sources
+                    .iter()
+                    .all(|source| live.contains(source) || persistent_lenders.contains(source))
             {
                 invalid.insert(*borrowed);
             }

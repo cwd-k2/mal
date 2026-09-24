@@ -19,7 +19,9 @@ storage再利用を判断するSymbol concatだけがownerに対するdataのoff
 
 Buffer objectとelement storageは別allocationである。LLVMはobject field accessとelement accessの非aliasをscope内で表してよいが、
 growthでactive dataを置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。LLVM emitterだけが持つTBAA treeを
-C runtimeのwriteへ暗黙に適用してはならない。
+C runtimeのwriteへ暗黙に適用してはならない。functionのinliningでlocal alias scopeが分離されてもこのallocation境界を失わないよう、
+object fieldとelement storageのaccessは同じemitter-owned TBAA rootの異なる型として表す。runtime callはこのTBAAを持たないため、
+growth後はactive dataを再取得する。
 
 ## slotとoperation
 
@@ -66,6 +68,10 @@ dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを
 entryで`Share`し、owned handoffで`Consume`または`Drop`する。borrowed parameterからclosure capture、return、その他の独立ownerへ
 escapeするuseも`Share`する。edge dropは通常livenessを再計算せずborrow provenanceで閉じたlivenessを使い、aliasが最後に使われる
 edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/D058.md)を正とする。
+
+全direct self-tail edgeが同じmanaged parameter leafを転送する場合、そのleafはinvocation中のpersistent lenderになる。純粋な
+`Atom`分解で得たnested field aliasは、通常のstate livenessからlenderが一時的に消えるpathでもこのauthorityをborrowできる。
+back edgeは同じcarrierを再分解するためのshareとreleaseを作らず、fieldが独立ownerへescapeする場合だけ通常どおり`Share`する。
 
 LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。
 

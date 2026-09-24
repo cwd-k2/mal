@@ -43,7 +43,8 @@ fn emits_managed_shared_buffer_operations() {
     assert!(module.contains("call ptr @mal_runtime_buffer_data_slot"));
     assert!(module.contains("mal buffer element storage"));
     assert!(module.contains("mal buffer object allocation"));
-    assert!(module.contains(", !alias.scope !6"));
+    assert!(module.contains("mal buffer object field"));
+    assert!(module.contains(", !tbaa !8, !alias.scope !6"));
     assert!(module.contains(", !noalias !6"));
 }
 

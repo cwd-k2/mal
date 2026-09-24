@@ -213,3 +213,51 @@ fn runs_managed_direct_self_tail_calls_through_llvm() {
     );
     assert_eq!(directory.run(executable).status.code(), Some(0));
 }
+
+#[test]
+fn keeps_nested_fields_borrowed_from_a_preserved_self_tail_parameter() {
+    let directory = NativeFixture::new("driver-llvm-nested-managed-tail");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    let artifacts = directory.join("artifacts");
+    directory.write(
+        "program.mal",
+        "Pair :: (Buffer<Int32>, Buffer<Int32>);\n\
+         count :: (Pair, Int64) -> Int32 := (pair, remaining) -> {\n\
+           (left, right) := pair;\n\
+           if (remaining == 0i64)\n\
+           then { left.get(0usize) + right.get(0usize) }\n\
+           else { count(pair, remaining - 1i64) };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> {\n\
+           left := make<Int32>(1usize);\n\
+           right := make<Int32>(1usize);\n\
+           left.new(3i32);\n\
+           right.new(4i32);\n\
+           count((left, right), 100000i64) - 7i32;\n\
+         };",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+        OsStr::new("--artifact-dir"),
+        artifacts.as_os_str(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+    let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
+    assert_eq!(
+        module
+            .matches("call ptr @mal_runtime_environment_retain")
+            .count(),
+        0
+    );
+}

@@ -73,6 +73,14 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &control_regions,
         &control_frames,
     ));
+    let self_tail_parameters =
+        SelfTailParameterPlan::new(&control, &applications, &control_calls, &ownership);
+    debug_assert!(self_tail_parameters.is_valid(
+        &control,
+        &applications,
+        &control_calls,
+        &ownership
+    ));
     debug_assert!(ownership.is_valid(OwnershipInputs::new(
         &control,
         &applications,
@@ -82,14 +90,6 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &control_regions,
         &control_frames,
     )));
-    let self_tail_parameters =
-        SelfTailParameterPlan::new(&control, &applications, &control_calls, &ownership);
-    debug_assert!(self_tail_parameters.is_valid(
-        &control,
-        &applications,
-        &control_calls,
-        &ownership
-    ));
     Program {
         lowered,
         control,
