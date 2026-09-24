@@ -11,11 +11,13 @@ mod expression;
 
 const MAX_SYNTAX_NESTING: usize = 64;
 
+/// Lexes and parses one source file into a surface AST.
 pub fn parse(source: &SourceFile) -> Result<Program, Diagnostic> {
     let tokens = lex(source)?;
     parse_tokens(source, &tokens)
 }
 
+/// Parses tokens the caller already lexed from `source`, so the formatter can share one lexing pass.
 pub fn parse_tokens(source: &SourceFile, tokens: &[Token]) -> Result<Program, Diagnostic> {
     let source_end = Span::new(source.id(), source.text().len(), source.text().len());
     if tokens.iter().any(|token| !source.contains(token.span)) {

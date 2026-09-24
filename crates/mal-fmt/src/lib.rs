@@ -17,6 +17,8 @@ use self::token::{BracketLayout, IfStage, Previous};
 pub mod cli;
 mod file;
 
+/// Returns the canonical layout of `source`, keeping comments and literal spelling. Formatting the result again changes
+/// nothing. Malformed source fails with the lexer or parser diagnostic.
 pub fn format(source: &SourceFile) -> Result<String, Diagnostic> {
     let lexed = mal_syntax::lexer::lex_lossless(source)?;
     let program = mal_syntax::parser::parse_tokens(source, &lexed.tokens)?;

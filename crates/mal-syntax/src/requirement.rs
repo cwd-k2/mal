@@ -8,6 +8,8 @@ pub struct RequirementPathCandidate {
     pub is_directory: bool,
 }
 
+/// Resolves a `require` path against the directory of `source_path`, canonicalized when the file exists.
+/// Empty and absolute paths are rejected with `None`.
 pub fn resolve_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
     let path = relative_requirement_path(source_path, requirement)?;
     Some(fs::canonicalize(&path).unwrap_or(path))
@@ -26,6 +28,8 @@ pub fn relative_requirement_path(source_path: &Path, requirement: &str) -> Optio
     )
 }
 
+/// Lists the directories and `.mal` or `.c` files that complete the partially typed `require` path `fragment`.
+/// Directories end with `/`, and the list is sorted by name.
 pub fn requirement_path_candidates(
     source_path: &Path,
     fragment: &str,

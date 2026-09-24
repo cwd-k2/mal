@@ -42,6 +42,8 @@ pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
         })
 }
 
+/// Instantiates the generic bindings reachable from `main` once per concrete type argument list.
+/// Fails when the program has no `main`.
 pub fn specialize(program: Program) -> Result<ast::MonomorphicProgram, Diagnostic> {
     specialize::specialize(program)
 }

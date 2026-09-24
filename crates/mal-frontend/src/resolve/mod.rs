@@ -18,10 +18,12 @@ use self::ast::{
     ExternalOperationId, LambdaId, Program, TypeBinding, ValueBinding, ValueId, ValueOwner,
 };
 
+/// Resolves one parsed file. `require` declarations are not followed; use `resolve_graph` for several files.
 pub fn resolve(program: &mal_syntax::ast::Program) -> Result<Program, Diagnostic> {
     Resolver::new(program.span).resolve_program(program)
 }
 
+/// Resolves the files of `graph`, given in graph order, as one program. Public names flow only along direct requirements.
 pub fn resolve_graph(
     graph: &mal_syntax::source::SourceGraph,
     programs: &[mal_syntax::ast::Program],

@@ -52,6 +52,8 @@ impl Diagnostic {
         self
     }
 
+    /// Renders the message, the source line of the primary label, and notes. A label whose file or span is not in `sources`
+    /// is reported as an invalid span instead of panicking.
     pub fn render(&self, sources: &impl SourceProvider) -> String {
         let mut rendered = format!("{}: {}\n", self.severity.name(), self.message);
         if let Some(label) = &self.primary {

@@ -35,6 +35,8 @@ pub enum OptimizationMode {
     Production,
 }
 
+/// Builds the executable `output_path`, creating its parent directories. Generated files live in a temporary directory that is
+/// removed on return, unless `options.artifact_directory` keeps them.
 pub fn build(
     source_path: &Path,
     output_path: &Path,

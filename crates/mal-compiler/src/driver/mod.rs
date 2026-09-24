@@ -13,6 +13,7 @@ pub use build::{OptimizationMode, ToolchainOptions, build, emit_atcoder};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
+/// Loads the program rooted at `source_path` and type-checks it. Nothing is written.
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
     mal_frontend::analysis::check_graph(&graph)
@@ -20,6 +21,7 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
+/// Returns the C header for the program rooted at `source_path`, which needs no `main`.
 pub fn emit_header(source_path: &Path) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
     mal_backend::pipeline::emit_header_graph(&graph)
@@ -32,6 +34,7 @@ pub fn write_output(path: &Path, action: &str, contents: &str) -> Result<(), Err
     fs::write(path, contents).map_err(|error| Error::io(action, path, error))
 }
 
+/// Returns a host implementation template that includes `header_name`.
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
     mal_backend::pipeline::emit_host_graph(&graph, header_name)
@@ -78,6 +81,7 @@ impl Drop for TemporaryDirectory {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// A failure whose message is ready to print; source diagnostics are already rendered against their files.
 pub struct Error {
     message: String,
 }

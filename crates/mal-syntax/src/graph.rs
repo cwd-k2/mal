@@ -45,6 +45,9 @@ enum State {
     Loaded(FileId),
 }
 
+/// Loads `root` and every `.mal` file it requires, transitively, from disk.
+///
+/// Each canonical path is loaded once. A requirement cycle, an unreadable file, and invalid source are errors.
 pub fn load(root: &Path) -> Result<SourceGraph, LoadError> {
     let root_path = canonicalize_root(root)?;
     let overlays = HashMap::new();
@@ -58,6 +61,8 @@ pub fn load(root: &Path) -> Result<SourceGraph, LoadError> {
     ))
 }
 
+/// Like `load`, but `root_text` replaces the contents of `root` and `overlays` replace other files, so an editor can
+/// analyze unsaved buffers. An overlaid path does not need to exist on disk.
 pub fn load_with_overlays(
     root: &Path,
     root_text: &str,

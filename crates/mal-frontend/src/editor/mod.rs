@@ -69,11 +69,13 @@ pub struct SemanticDocument {
     completions: Vec<Symbol>,
 }
 
+/// Builds the semantic index of one file. Fails with the first diagnostic when the file does not parse, resolve, or check.
 pub fn analyze(source: &SourceFile) -> Result<SemanticDocument, Diagnostic> {
     let analysis = crate::analysis::analyze(source)?;
     Ok(from_analysis_for_file(&analysis, source.id()))
 }
 
+/// Token-level information that needs only lexing, so it stays available while the file does not type-check.
 pub fn analyze_syntax(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic> {
     syntax::analyze(source)
 }
@@ -89,6 +91,8 @@ pub fn from_analysis_for_file(
     index::build(&analysis.resolved, &analysis.checked, Some(file), None)
 }
 
+/// Builds the index of `file` within a multi-file analysis. Only names declared in `file` and in the files it requires
+/// directly are visible.
 pub fn from_graph_analysis(
     graph: &SourceGraph,
     analysis: &crate::analysis::Analysis,

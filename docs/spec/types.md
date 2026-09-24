@@ -64,7 +64,10 @@ done :: Unit := ();
 ```mal
 Point :: (Float64, Float64);
 origin :: Point := (0.0, 0.0);
-(x, y) := origin;
+xOf :: Point -> Float64 := (point) -> {
+    (x, y) := point;
+    x;
+};
 ```
 
 型、値、pattern の位置が対応する。record、field name、method はない。

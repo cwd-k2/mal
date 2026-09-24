@@ -43,8 +43,11 @@ elimination、trapにより正常resultを返さないpathは[result boundaryと
 ```mal
 makeAdder :: Int32 -> (Int32 -> Int32) := (x) -> (y) -> x + y;
 
-addTen := makeAdder(10);
-result := addTen(5);
+main :: Unit -> Int32 := () -> {
+    addTen := makeAdder(10);
+    result := addTen(5);
+    result;
+};
 ```
 
 `result` は `15` となる。`x` の binding は immutable なので、後から別の値へ変化しない。
@@ -55,7 +58,7 @@ environmentに保存する必要はない。external operationは通常のfuncti
 
 ```mal
 outer :: Int32 -> (Unit -> (Unit -> Int32)) := (x) -> {
-    middle := () -> () -> x;
+    middle :: Unit -> (Unit -> Int32) := () -> () -> x;
 
     middle;
 };

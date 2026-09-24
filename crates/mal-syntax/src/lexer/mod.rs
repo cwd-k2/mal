@@ -10,10 +10,12 @@ pub use token::{
     Radix, Token, TokenKind,
 };
 
+/// Lexes `source` into the tokens the parser reads. Comments and whitespace are dropped.
 pub fn lex(source: &SourceFile) -> Result<Vec<Token>, Diagnostic> {
     Lexer::new(source, false).lex().map(|lexed| lexed.tokens)
 }
 
+/// Like `lex`, but also keeps whitespace and comments so the formatter can reproduce them.
 pub fn lex_lossless(source: &SourceFile) -> Result<Lexed, Diagnostic> {
     Lexer::new(source, true).lex()
 }

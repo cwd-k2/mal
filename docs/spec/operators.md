@@ -77,10 +77,14 @@ byte literal は decode 後にちょうど 1 byte でなければならない。
 integer:  + - * / %  == != < <= > >=
 float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
+USize:    + - * / %  == != < <= > >=
+ByteSize: + -        == != < <= > >=
 Bool:     ! && || == !=
-target quantity: ByteSize、USizeに定めたclosed family
 Symbol:   Symbol + Symbol, == !=
 ```
+
+単項`-`は整数とfloatに使え、unsigned整数ではwrapする。`USize`と`ByteSize`はtarget幅のunsigned整数として整数と同じwrapと
+divisorのpreconditionに従い、単項演算、bit演算、shiftを持たない。
 
 数値比較は predefined `Bool` を返す。異なる数値型を暗黙変換しない。
 

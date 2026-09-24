@@ -73,6 +73,10 @@ pub struct SourceFile {
     line_starts: Vec<usize>,
 }
 
+/// The files of one program in load order, with the `.mal` requirements of each file and the `.c` files to link.
+///
+/// A `FileId` is the position of its file in `files`, and `requirements[i]` lists the requirements of file `i` in source
+/// order. `SourceGraph::new` panics when these invariants do not hold.
 #[derive(Debug)]
 pub struct SourceGraph {
     root: FileId,
@@ -88,6 +92,7 @@ pub struct SourceRequirement {
 }
 
 impl SourceGraph {
+    /// Builds a graph from files whose ids equal their positions; `root` must be one of them.
     pub fn new(
         root: FileId,
         files: Vec<SourceFile>,

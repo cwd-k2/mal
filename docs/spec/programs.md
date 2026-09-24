@@ -44,6 +44,7 @@ value binding
 ```mal
 Point :: (Float64, Float64);
 extern printBytes :: (Address, USize) -> Unit;
+extern sqrt :: Float64 -> Float64;
 
 distance :: (Point, Point) -> Float64 :=
     (a, b) -> {
@@ -58,7 +59,8 @@ distance :: (Point, Point) -> Float64 :=
 type alias と extern declaration が導入する名前は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
 
 top-level valueのRHSは、literal、product/sum、numeric conversion、external function、lambda、および
-それらからなる作用のない closed expression に制限する。他のtop-level valueへの参照とfunction applicationは認めない。
+それらからなる作用のない closed expression に制限する。演算は数値の単項`-`と、同じ整数型どうしの`+`、`-`、`*`だけを含む。
+比較、除算、shift、Bool operator、float operator、Symbol operator、`if`は認めない。他のtop-level valueへの参照とfunction applicationも認めない。
 direct blockとdirect result blockもtop-level initializerには認めない。
 `false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある
 nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../history/decisions/D018.md)に記録する。

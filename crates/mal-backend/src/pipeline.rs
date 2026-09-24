@@ -5,21 +5,26 @@ pub use crate::backend::artifact::{LlvmArtifacts, RuntimeSource};
 pub use crate::backend::c::{GENERATED_HEADER_NAME, is_valid_header_name};
 pub use crate::backend::llvm::{Error as BackendError, Target};
 
+/// Generates the public C header from the checked host interface. No `main` is required and value bindings are not lowered.
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
     Ok(crate::backend::c::emit_header(&interface))
 }
 
+/// `emit_header` for a program of several files.
 pub fn emit_header_graph(graph: &SourceGraph) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
     Ok(crate::backend::c::emit_header(&interface))
 }
 
+/// Generates a host implementation template that includes `header_name` and traps in every external operation until it is
+/// implemented.
 pub fn emit_host(source: &SourceFile, header_name: &str) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
     crate::backend::c::emit_host(&interface, header_name)
 }
 
+/// `emit_host` for a program of several files.
 pub fn emit_host_graph(graph: &SourceGraph, header_name: &str) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
     crate::backend::c::emit_host(&interface, header_name)
@@ -59,6 +64,8 @@ pub enum Optimization {
 }
 
 /// Generates the LLVM module, C shim, public header, and runtime sources for a checked program.
+/// The program must declare `main`. `target` names the triple and data layout the module is generated for, and every artifact must
+/// be compiled for that same target.
 pub fn generate(
     graph: &SourceGraph,
     optimization: Optimization,

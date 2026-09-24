@@ -106,6 +106,7 @@ Symbol literalとbyte literalは次の形を持つ。
 
 ```text
 symbolLiteral ::= '"' (rawSymbolCharacter | symbolEscape)* '"'
+rawSymbolCharacter ::= 任意のUnicode scalar valueのうち`"`、`\`、CR、LFを除いたもの
 symbolEscape  ::= "\\" ("\\" | '"' | "n" | "r" | "t" | "0"
                         | "x" HEX_DIGIT HEX_DIGIT)
 byteLiteral ::= "'" byteUnit "'"

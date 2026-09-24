@@ -9,8 +9,11 @@ literalとoperatorは[literalとoperator](operators.md)に定める。
 `:=` は immutable binding を作る。型 annotation は `::` で書く。
 
 ```mal
-x := 10;
-y :: Int32 := x + 20;
+main :: Unit -> Int32 := () -> {
+    x := 10i32;
+    y :: Int32 := x + 20;
+    y;
+};
 ```
 
 再代入はない。内側の scope では同じ名前を shadow できる。binding の scope は、その宣言の直後から現在の block の末尾までである。
@@ -69,9 +72,12 @@ blockは単独のexpressionとして置ける。body itemをsource orderで評�
 bindingはblockの外へ出ず、外側のlocal bindingとresult binderは通常どおり参照できる。
 
 ```mal
-value :: Int32 := {
-    base :: Int32 := 40;
-    base + 2
+answer :: Unit -> Int32 := () -> {
+    value :: Int32 := {
+        base :: Int32 := 40;
+        base + 2
+    };
+    value;
 };
 ```
 
