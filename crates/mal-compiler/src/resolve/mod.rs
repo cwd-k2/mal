@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::diagnostic::Diagnostic;
-use crate::source::Span;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 pub mod ast;
 mod expression;
@@ -18,13 +18,13 @@ use self::ast::{
     ExternalOperationId, LambdaId, Program, TypeBinding, ValueBinding, ValueId, ValueOwner,
 };
 
-pub fn resolve(program: &crate::ast::Program) -> Result<Program, Diagnostic> {
+pub fn resolve(program: &mal_syntax::ast::Program) -> Result<Program, Diagnostic> {
     Resolver::new(program.span).resolve_program(program)
 }
 
 pub fn resolve_graph(
-    graph: &crate::source::SourceGraph,
-    programs: &[crate::ast::Program],
+    graph: &mal_syntax::source::SourceGraph,
+    programs: &[mal_syntax::ast::Program],
 ) -> Result<Program, Diagnostic> {
     files::resolve(graph, programs)
 }
@@ -85,7 +85,10 @@ impl Resolver {
         resolver
     }
 
-    fn resolve_program(mut self, program: &crate::ast::Program) -> Result<Program, Diagnostic> {
+    fn resolve_program(
+        mut self,
+        program: &mal_syntax::ast::Program,
+    ) -> Result<Program, Diagnostic> {
         self.predeclare_unit_names(program)?;
         let mut items = Vec::with_capacity(program.items.len());
         for item in &program.items {
@@ -116,14 +119,14 @@ impl Resolver {
 
     fn resolve_top_item(
         &mut self,
-        item: &crate::ast::Node<crate::ast::TopItem>,
-    ) -> Result<crate::ast::Node<ast::TopItem>, Diagnostic> {
+        item: &mal_syntax::ast::Node<mal_syntax::ast::TopItem>,
+    ) -> Result<mal_syntax::ast::Node<ast::TopItem>, Diagnostic> {
         let kind = match &item.kind {
-            crate::ast::TopItem::TypeAlias { name, value } => ast::TopItem::TypeAlias {
+            mal_syntax::ast::TopItem::TypeAlias { name, value } => ast::TopItem::TypeAlias {
                 binding: self.type_binding(name)?,
                 value: self.resolve_type(value)?,
             },
-            crate::ast::TopItem::GenericTypeAlias {
+            mal_syntax::ast::TopItem::GenericTypeAlias {
                 name,
                 parameters,
                 value,
@@ -137,10 +140,10 @@ impl Resolver {
                     value: resolved?,
                 }
             }
-            crate::ast::TopItem::ExternalType { name } => ast::TopItem::ExternalType {
+            mal_syntax::ast::TopItem::ExternalType { name } => ast::TopItem::ExternalType {
                 binding: self.type_binding(name)?,
             },
-            crate::ast::TopItem::ExternalOperation { name, ty } => {
+            mal_syntax::ast::TopItem::ExternalOperation { name, ty } => {
                 let external = self
                     .externals
                     .get(&name.text)
@@ -152,10 +155,10 @@ impl Resolver {
                     ty: self.resolve_type(ty)?,
                 }
             }
-            crate::ast::TopItem::Binding(binding) => {
+            mal_syntax::ast::TopItem::Binding(binding) => {
                 ast::TopItem::Binding(self.resolve_binding(binding, ValueOwner::TopLevel)?)
             }
-            crate::ast::TopItem::GenericBinding {
+            mal_syntax::ast::TopItem::GenericBinding {
                 name,
                 parameters,
                 annotation,
@@ -165,8 +168,8 @@ impl Resolver {
                 let (parameter_bindings, shadowed) = self.push_type_parameters(parameters)?;
                 let resolved = (|| {
                     let annotation = self.resolve_type(annotation)?;
-                    let value = if let crate::ast::Expression::Lambda(lambda) = &value.kind {
-                        crate::ast::Node::new(
+                    let value = if let mal_syntax::ast::Expression::Lambda(lambda) = &value.kind {
+                        mal_syntax::ast::Node::new(
                             ast::Expression::Lambda(
                                 self.resolve_lambda_with_self(lambda, Some(binding.clone()))?,
                             ),
@@ -187,18 +190,18 @@ impl Resolver {
                 }
             }
         };
-        Ok(crate::ast::Node::new(kind, item.span))
+        Ok(mal_syntax::ast::Node::new(kind, item.span))
     }
 
     fn resolve_type(
         &self,
-        ty: &crate::ast::Node<crate::ast::TypeExpression>,
-    ) -> Result<crate::ast::Node<ast::TypeExpression>, Diagnostic> {
+        ty: &mal_syntax::ast::Node<mal_syntax::ast::TypeExpression>,
+    ) -> Result<mal_syntax::ast::Node<ast::TypeExpression>, Diagnostic> {
         let kind = match &ty.kind {
-            crate::ast::TypeExpression::Named(name) => {
+            mal_syntax::ast::TypeExpression::Named(name) => {
                 ast::TypeExpression::Named(self.type_reference(name)?)
             }
-            crate::ast::TypeExpression::Application {
+            mal_syntax::ast::TypeExpression::Application {
                 constructor,
                 arguments,
             } => ast::TypeExpression::Application {
@@ -208,35 +211,35 @@ impl Resolver {
                     .map(|argument| self.resolve_type(argument))
                     .collect::<Result<_, _>>()?,
             },
-            crate::ast::TypeExpression::Unit => ast::TypeExpression::Unit,
-            crate::ast::TypeExpression::Parenthesized(inner) => {
+            mal_syntax::ast::TypeExpression::Unit => ast::TypeExpression::Unit,
+            mal_syntax::ast::TypeExpression::Parenthesized(inner) => {
                 ast::TypeExpression::Parenthesized(Box::new(self.resolve_type(inner)?))
             }
-            crate::ast::TypeExpression::Product(elements) => ast::TypeExpression::Product(
+            mal_syntax::ast::TypeExpression::Product(elements) => ast::TypeExpression::Product(
                 elements
                     .iter()
                     .map(|element| self.resolve_type(element))
                     .collect::<Result<_, _>>()?,
             ),
-            crate::ast::TypeExpression::Sum(members) => ast::TypeExpression::Sum(
+            mal_syntax::ast::TypeExpression::Sum(members) => ast::TypeExpression::Sum(
                 members
                     .iter()
                     .map(|member| self.resolve_type(member))
                     .collect::<Result<_, _>>()?,
             ),
-            crate::ast::TypeExpression::Function { parameter, result } => {
+            mal_syntax::ast::TypeExpression::Function { parameter, result } => {
                 ast::TypeExpression::Function {
                     parameter: Box::new(self.resolve_type(parameter)?),
                     result: Box::new(self.resolve_type(result)?),
                 }
             }
         };
-        Ok(crate::ast::Node::new(kind, ty.span))
+        Ok(mal_syntax::ast::Node::new(kind, ty.span))
     }
 
     fn push_type_parameters(
         &mut self,
-        parameters: &[crate::ast::Name],
+        parameters: &[mal_syntax::ast::Name],
     ) -> Result<(Vec<TypeBinding>, Vec<Option<TypeBinding>>), Diagnostic> {
         let mut bindings = Vec::with_capacity(parameters.len());
         let mut shadowed = Vec::with_capacity(parameters.len());
@@ -273,7 +276,7 @@ impl Resolver {
 
     fn resolve_binding(
         &mut self,
-        binding: &crate::ast::Binding,
+        binding: &mal_syntax::ast::Binding,
         owner: ValueOwner,
     ) -> Result<ast::Binding, Diagnostic> {
         let annotation = binding
@@ -283,18 +286,18 @@ impl Resolver {
             .transpose()?;
 
         if annotation.is_some()
-            && let crate::ast::Pattern::Name(name) = &binding.pattern.kind
-            && let crate::ast::Expression::Lambda(lambda) = &binding.value.kind
+            && let mal_syntax::ast::Pattern::Name(name) = &binding.pattern.kind
+            && let mal_syntax::ast::Expression::Lambda(lambda) = &binding.value.kind
         {
             let declared = self.declare_value(name, owner)?;
-            let value = crate::ast::Node::new(
+            let value = mal_syntax::ast::Node::new(
                 ast::Expression::Lambda(
                     self.resolve_lambda_with_self(lambda, Some(declared.clone()))?,
                 ),
                 binding.value.span,
             );
             let pattern =
-                crate::ast::Node::new(ast::Pattern::Binding(declared), binding.pattern.span);
+                mal_syntax::ast::Node::new(ast::Pattern::Binding(declared), binding.pattern.span);
             return Ok(ast::Binding {
                 pattern,
                 annotation,

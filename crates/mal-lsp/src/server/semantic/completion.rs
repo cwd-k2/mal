@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use mal_compiler::editor::{SemanticDocument, SymbolKind};
-use mal_compiler::source::{SourceFile, Utf16Position};
+use mal_syntax::source::{SourceFile, Utf16Position};
 use serde_json::{Value, json};
 
 use super::{Position, Server};
@@ -87,7 +87,7 @@ pub(super) fn lexical_function_completions(
                     Some((super::super::uri_to_path(uri)?, document.text.clone()))
                 })
                 .collect::<HashMap<_, _>>();
-            mal_compiler::driver::load_source_graph_with_overlays(&path, &requirements, &overlays).ok()
+            mal_syntax::graph::load_with_overlays(&path, &requirements, &overlays).ok()
         });
         recovered_graph.as_ref()
     };

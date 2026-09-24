@@ -66,7 +66,7 @@ impl Lowerer {
         preceding: &[checked::Expression],
         terminal: Expression,
         result_type: &checked::Type,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let mut body = terminal;
         for value in preceding.iter().rev() {

@@ -4,7 +4,7 @@ use crate::core::ast::{
     BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
 };
 use crate::resolve::ast::{ExternalOperationId, LambdaId};
-use crate::source::Span;
+use mal_syntax::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {

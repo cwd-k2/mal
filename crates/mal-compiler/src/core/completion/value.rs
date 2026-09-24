@@ -1,5 +1,5 @@
-use crate::ast::{BinaryOperator, UnaryOperator};
 use crate::check::ast as checked;
+use mal_syntax::ast::{BinaryOperator, UnaryOperator};
 
 use super::super::Lowerer;
 use super::super::ast::{Binding, Expression, ExpressionKind, Pattern};

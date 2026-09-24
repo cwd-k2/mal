@@ -101,7 +101,7 @@ mod tests {
     use crate::check::ast::Type;
     use crate::closure::ast::Pattern;
     use crate::control::ast::{Operation, StateId, Terminator};
-    use crate::source::{FileId, SourceFile};
+    use mal_syntax::source::{FileId, SourceFile};
 
     #[test]
     fn borrows_a_leaf_while_its_aggregate_owner_covers_the_lifetime() {

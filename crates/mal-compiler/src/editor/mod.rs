@@ -1,8 +1,8 @@
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
+use mal_syntax::diagnostic::Diagnostic;
 use std::collections::HashSet;
 
-use crate::source::{FileId, SourceFile, SourceGraph, Span};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph, Span};
 
 mod documentation;
 mod index;

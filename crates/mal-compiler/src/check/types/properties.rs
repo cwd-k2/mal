@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::TypeId;
-use crate::source::Span;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 use super::{Type, type_name};
 

@@ -199,8 +199,9 @@ fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {
 mod tests {
     use super::*;
     use crate::execution::{ApplicationGraph, ClosureUsePlan, OptimizationPlan, OptimizationSet};
-    use crate::source::{FileId, SourceFile};
-    use crate::{anf, check, closure, control, core, parser, resolve};
+    use crate::{anf, check, closure, control, core, resolve};
+    use mal_syntax::parser;
+    use mal_syntax::source::{FileId, SourceFile};
 
     #[test]
     fn partitions_cycles_without_joining_acyclic_edges() {

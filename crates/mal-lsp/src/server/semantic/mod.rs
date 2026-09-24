@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use mal_compiler::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
-use mal_compiler::source::{SourceFile, Span, Utf16Position};
+use mal_syntax::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

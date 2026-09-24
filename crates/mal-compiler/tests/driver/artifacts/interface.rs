@@ -313,13 +313,16 @@ fn source_graph_overlays_open_mal_buffers() {
     let overlays =
         std::collections::HashMap::from([(dependency.clone(), dependency_text.to_owned())]);
 
-    let graph = mal_compiler::driver::load_source_graph_with_overlays(&source, root_text, &overlays)
+    let graph = mal_syntax::graph::load_with_overlays(&source, root_text, &overlays)
         .expect("load overlaid source graph");
 
     assert_eq!(graph.root_source().text(), root_text);
     assert_eq!(graph.files().len(), 2);
     assert_eq!(
-        graph.source(mal_compiler::source::FileId::new(1)).unwrap().text(),
+        graph
+            .source(mal_syntax::source::FileId::new(1))
+            .unwrap()
+            .text(),
         dependency_text
     );
     mal_compiler::pipeline::check_graph(&graph).expect("check overlaid graph");

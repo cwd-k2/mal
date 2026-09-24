@@ -1,5 +1,5 @@
 use mal_compiler::editor::{OccurrenceRole, SymbolKind};
-use mal_compiler::source::{FileId, SourceFile, SourceGraph, SourceRequirement, Span};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph, SourceRequirement, Span};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(111), "editor-test.mal", text.into())

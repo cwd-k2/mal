@@ -128,8 +128,9 @@ fn binding_reference(atom: &crate::closure::ast::Atom) -> Option<ValueId> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::{FileId, SourceFile};
-    use crate::{anf, check, closure, core, parser, resolve};
+    use crate::{anf, check, closure, core, resolve};
+    use mal_syntax::parser;
+    use mal_syntax::source::{FileId, SourceFile};
 
     fn control(source: &str) -> super::super::ast::Program {
         let source = SourceFile::new(FileId::new(92), "forwarding.mal", source.into());

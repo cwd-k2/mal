@@ -13,7 +13,7 @@ pub fn resolve_requirement_path(source_path: &Path, requirement: &str) -> Option
     Some(fs::canonicalize(&path).unwrap_or(path))
 }
 
-pub(super) fn relative_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
+pub fn relative_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
     let requirement = Path::new(requirement);
     if requirement.as_os_str().is_empty() || requirement.is_absolute() {
         return None;
@@ -77,11 +77,32 @@ mod tests {
     use std::fs;
 
     use super::*;
-    use crate::driver::TemporaryDirectory;
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            let path =
+                std::env::temp_dir().join(format!("mal-requirement-test-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&path);
+            fs::create_dir(&path).expect("create test directory");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     #[test]
     fn lists_only_supported_requirement_paths() {
-        let directory = TemporaryDirectory::new().expect("temporary directory");
+        let directory = TestDirectory::new();
         let source = directory.path().join("program.mal");
         fs::write(directory.path().join("library.mal"), "").expect("write mal source");
         fs::write(directory.path().join("library.c"), "").expect("write C source");

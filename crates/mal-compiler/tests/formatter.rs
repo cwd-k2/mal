@@ -1,4 +1,4 @@
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(107), "format-test.mal", text.into())

@@ -33,7 +33,7 @@ use types::{Types, is_bool};
 pub(super) fn admit_target(
     execution: &crate::execution::Program,
     target: super::TargetLayout,
-) -> Result<(), crate::diagnostic::Diagnostic> {
+) -> Result<(), mal_syntax::diagnostic::Diagnostic> {
     admission::admit(execution, target)
 }
 

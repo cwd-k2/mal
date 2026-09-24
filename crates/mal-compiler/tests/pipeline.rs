@@ -1,4 +1,4 @@
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn checks_in_memory_source_without_an_external_boundary() {
@@ -32,8 +32,8 @@ fn emits_host_stubs_with_a_validated_header_name() {
     let output = mal_compiler::pipeline::emit_host(&source, "custom.h").expect("host output");
     assert!(output.starts_with("#include \"custom.h\"\n"));
 
-    let diagnostic =
-        mal_compiler::pipeline::emit_host(&source, "invalid\"name.h").expect_err("invalid quoted include");
+    let diagnostic = mal_compiler::pipeline::emit_host(&source, "invalid\"name.h")
+        .expect_err("invalid quoted include");
     assert!(
         diagnostic
             .message

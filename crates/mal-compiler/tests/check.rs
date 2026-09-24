@@ -1,8 +1,8 @@
 use mal_compiler::check;
 use mal_compiler::check::ast::{ExpressionKind, TopItem, Type};
-use mal_compiler::parser::parse;
 use mal_compiler::resolve;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser::parse;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(23), "check-test.mal", text.into())
@@ -16,7 +16,7 @@ fn check_ok(text: &str) -> check::ast::Program {
     check::check(&resolved).unwrap_or_else(|error| panic!("{}", error.render(&source)))
 }
 
-fn check_error(text: &str) -> mal_compiler::diagnostic::Diagnostic {
+fn check_error(text: &str) -> mal_syntax::diagnostic::Diagnostic {
     let source = source(text);
     let parsed = parse(&source).unwrap_or_else(|error| panic!("{}", error.render(&source)));
     let resolved =

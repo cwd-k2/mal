@@ -1,5 +1,5 @@
-use crate::lexer::{LexemeKind, lex_lossless};
-use crate::source::{SourceFile, Span};
+use mal_syntax::lexer::{LexemeKind, lex_lossless};
+use mal_syntax::source::{SourceFile, Span};
 
 pub fn declaration_documentation(source: &SourceFile, declaration: Span) -> Option<String> {
     if declaration.file() != source.id() {

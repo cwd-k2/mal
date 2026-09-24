@@ -138,7 +138,7 @@ impl Converter {
     fn convert_operation(
         &mut self,
         operation: &anf::Operation,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Operation {
         match operation {
@@ -369,7 +369,7 @@ impl Converter {
         &mut self,
         id: anf::ValueId,
         ty: crate::check::ast::Type,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Atom {
         Atom {

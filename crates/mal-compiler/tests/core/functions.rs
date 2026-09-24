@@ -51,7 +51,11 @@ fn lowers_multiple_parameters_to_product_destructuring() {
     assert_eq!(
         add.parameter.ty,
         mal_compiler::check::ast::Type::Product(
-            vec![mal_compiler::check::ast::Type::Int32, mal_compiler::check::ast::Type::Int32,].into()
+            vec![
+                mal_compiler::check::ast::Type::Int32,
+                mal_compiler::check::ast::Type::Int32,
+            ]
+            .into()
         )
     );
     let ExpressionKind::Let { binding, .. } = &add.body.kind else {

@@ -1,8 +1,9 @@
 use super::super::direct_function_id;
 use super::super::{ClosureUsePlan, ContinuationGraph, OptimizationSet};
 use super::*;
-use crate::source::{FileId, SourceFile};
-use crate::{anf, check, closure, control, core, parser, resolve};
+use crate::{anf, check, closure, control, core, resolve};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn preserves_direct_edges_without_admitting_recursive_c_call_cycles() {

@@ -3,9 +3,9 @@ use mal_compiler::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
 use mal_compiler::check;
 use mal_compiler::core;
 use mal_compiler::core::ast::BinaryPrimitive;
-use mal_compiler::parser;
 use mal_compiler::resolve;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn lower_ok(text: &str) -> anf::ast::Program {
     let source = SourceFile::new(FileId::new(53), "anf-test.mal", text.into());

@@ -4,9 +4,9 @@ use mal_compiler::closure;
 use mal_compiler::control;
 use mal_compiler::control::ast::{Function, Operation, State, Terminator};
 use mal_compiler::core;
-use mal_compiler::parser;
 use mal_compiler::resolve;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn lower_ok(text: &str) -> control::ast::Program {
     let source = SourceFile::new(FileId::new(68), "control-test.mal", text.into());

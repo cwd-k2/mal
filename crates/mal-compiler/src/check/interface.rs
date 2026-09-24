@@ -1,6 +1,6 @@
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::{Checker, ast::Type};
 

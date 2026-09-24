@@ -1,8 +1,8 @@
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
-use crate::lexer::{IntegerLiteral, IntegerSuffix};
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::lexer::{IntegerLiteral, IntegerSuffix};
+use mal_syntax::source::Span;
 
 use super::ast::{Expression, ExpressionKind, Type};
 use super::types::type_name;

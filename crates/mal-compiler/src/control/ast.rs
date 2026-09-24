@@ -3,7 +3,7 @@ use crate::check::ast::{MemoryPrimitive, Type};
 use crate::closure::ast::{Atom, FunctionId, Parameter, Pattern, TopLevelPattern};
 use crate::core::ast::{BinaryPrimitive, BufferOperation, UnaryPrimitive};
 use crate::resolve::ast::ExternalOperationId;
-use crate::source::Span;
+use mal_syntax::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Program {

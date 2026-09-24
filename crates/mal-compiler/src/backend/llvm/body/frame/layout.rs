@@ -72,7 +72,7 @@ mod tests {
     use crate::check::ast::Type;
     use crate::control::ast::LiveValue;
     use crate::execution::ControlFrame;
-    use crate::source::{FileId, Span};
+    use mal_syntax::source::{FileId, Span};
 
     fn frame(types: Vec<Type>) -> ControlFrame {
         ControlFrame {

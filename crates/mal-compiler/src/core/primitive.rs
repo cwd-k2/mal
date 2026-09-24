@@ -1,4 +1,4 @@
-use crate::ast::BinaryOperator;
+use mal_syntax::ast::BinaryOperator;
 
 use super::ast::BinaryPrimitive;
 

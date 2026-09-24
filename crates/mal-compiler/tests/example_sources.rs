@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 fn example_sources() -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))

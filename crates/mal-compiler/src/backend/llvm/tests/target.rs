@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn reads_supported_pointer_widths_from_target_data_layouts() {

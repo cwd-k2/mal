@@ -53,7 +53,7 @@ impl ParameterPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::{FileId, SourceFile};
+    use mal_syntax::source::{FileId, SourceFile};
 
     #[test]
     fn validates_bound_and_discarded_parameter_destinations() {

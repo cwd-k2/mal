@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
-use crate::diagnostic::Diagnostic;
-use crate::lexer::{DecimalFloatLiteral, FloatSuffix};
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::lexer::{DecimalFloatLiteral, FloatSuffix};
+use mal_syntax::source::Span;
 
 use super::Checker;
 use super::ast::{Expression, ExpressionKind, Type};
@@ -84,7 +84,9 @@ pub(super) fn is_float(ty: &Type) -> bool {
     matches!(ty, Type::Float32 | Type::Float64)
 }
 
-pub(super) fn is_contextual_float(expression: &crate::ast::Node<resolved::Expression>) -> bool {
+pub(super) fn is_contextual_float(
+    expression: &mal_syntax::ast::Node<resolved::Expression>,
+) -> bool {
     match &expression.kind {
         resolved::Expression::Float(literal) => literal.suffix.is_none(),
         resolved::Expression::Parenthesized(inner) => is_contextual_float(inner),

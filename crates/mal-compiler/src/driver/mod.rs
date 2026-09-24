@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
@@ -7,17 +6,13 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::source::{FileId, SourceFile, SourceGraph};
+use mal_syntax::graph;
+use mal_syntax::source::{FileId, SourceFile};
 
 mod build;
-mod graph;
-mod requirement;
 mod toolchain;
 
 pub use build::{BuildOptions, OptimizationMode, build, emit_atcoder};
-pub use requirement::{
-    RequirementPathCandidate, requirement_path_candidates, resolve_requirement_path,
-};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
@@ -26,14 +21,6 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
     crate::pipeline::check_graph(&graph)
         .map(|_| ())
         .map_err(|error| Error::diagnostic(error, &graph))
-}
-
-pub fn load_source_graph_with_overlays(
-    root_path: &Path,
-    root_text: &str,
-    overlays: &HashMap<PathBuf, String>,
-) -> Result<SourceGraph, Error> {
-    graph::load_with_overlays(root_path, root_text, overlays)
 }
 
 pub fn format(source_path: &Path) -> Result<String, Error> {
@@ -164,13 +151,13 @@ impl Error {
         }
     }
 
-    fn source(error: crate::source::SourceLoadError) -> Self {
+    fn source(error: mal_syntax::source::SourceLoadError) -> Self {
         Self::new(format!("malc: {error}"))
     }
 
     fn diagnostic(
-        error: crate::diagnostic::Diagnostic,
-        sources: &impl crate::source::SourceProvider,
+        error: mal_syntax::diagnostic::Diagnostic,
+        sources: &impl mal_syntax::source::SourceProvider,
     ) -> Self {
         Self::new(error.render(sources))
     }
@@ -200,13 +187,22 @@ impl Error {
 
     fn backend(
         error: crate::backend::llvm::Error,
-        sources: &impl crate::source::SourceProvider,
+        sources: &impl mal_syntax::source::SourceProvider,
     ) -> Self {
         match error {
             crate::backend::llvm::Error::Diagnostic(diagnostic) => {
                 Self::diagnostic(diagnostic, sources)
             }
             error => Self::new(format!("malc: LLVM backend failure: {error}")),
+        }
+    }
+}
+
+impl From<graph::LoadError> for Error {
+    fn from(error: graph::LoadError) -> Self {
+        match error {
+            graph::LoadError::Rendered(message) => Self::new(message),
+            graph::LoadError::Failure(message) => Self::new(format!("malc: {message}")),
         }
     }
 }

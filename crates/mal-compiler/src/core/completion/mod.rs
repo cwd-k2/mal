@@ -1,5 +1,5 @@
-use crate::ast::BinaryOperator;
 use crate::check::ast as checked;
+use mal_syntax::ast::BinaryOperator;
 
 use super::Lowerer;
 use super::ast::{Binding, Expression, ExpressionKind, Pattern};
@@ -19,7 +19,7 @@ impl Lowerer {
         &mut self,
         parameter_type: &checked::Type,
         result_type: &checked::Type,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         continuation: &mut Continuation<'_>,
         build: impl FnOnce(&mut Lowerer, &mut Continuation<'_>) -> Expression,
     ) -> Expression {

@@ -11,7 +11,7 @@ impl Lowerer {
         value_type: &checked::Type,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let parameter = self.temporary();
         let argument = self.reference(parameter, value_type.clone(), span);

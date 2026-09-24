@@ -1,4 +1,4 @@
-use crate::lexer::TokenKind;
+use mal_syntax::lexer::TokenKind;
 
 use super::Formatter;
 

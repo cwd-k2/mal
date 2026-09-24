@@ -1,8 +1,8 @@
-use crate::ast::{BinaryOperator, Node, UnaryOperator};
 use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
-use crate::source::Span;
+use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
+use mal_syntax::source::Span;
 use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone, Debug)]

@@ -1,6 +1,6 @@
-use crate::ast::{BodyItem, Expression, ExpressionBlock, Node, Program, TopItem};
-use crate::lexer::{Lexed, TokenKind};
-use crate::source::SourceFile;
+use mal_syntax::ast::{BodyItem, Expression, ExpressionBlock, Node, Program, TopItem};
+use mal_syntax::lexer::{Lexed, TokenKind};
+use mal_syntax::source::SourceFile;
 
 use super::layout::BlockLayout;
 

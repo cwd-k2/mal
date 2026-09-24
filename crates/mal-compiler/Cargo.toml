@@ -18,6 +18,7 @@ name = "pipeline"
 harness = false
 
 [dependencies]
+mal-syntax = { path = "../mal-syntax" }
 
 [lints]
 workspace = true

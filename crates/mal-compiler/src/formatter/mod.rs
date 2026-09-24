@@ -1,7 +1,7 @@
-use crate::ast::Program;
-use crate::diagnostic::Diagnostic;
-use crate::lexer::{Lexed, LexemeKind, TokenKind};
-use crate::source::SourceFile;
+use mal_syntax::ast::Program;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};
+use mal_syntax::source::SourceFile;
 
 mod control;
 mod generic;
@@ -13,8 +13,8 @@ use self::layout::{BlockLayout, top_level_breaks};
 use self::token::{BracketLayout, IfStage, Previous};
 
 pub fn format(source: &SourceFile) -> Result<String, Diagnostic> {
-    let lexed = crate::lexer::lex_lossless(source)?;
-    let program = crate::parser::parse_tokens(source, &lexed.tokens)?;
+    let lexed = mal_syntax::lexer::lex_lossless(source)?;
+    let program = mal_syntax::parser::parse_tokens(source, &lexed.tokens)?;
     Ok(Formatter::new(source, &lexed, &program).finish())
 }
 

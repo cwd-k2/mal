@@ -1,11 +1,11 @@
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{
     self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE,
     FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
     UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
-use crate::source::Span;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 use super::{Checker, ast::Type};
 

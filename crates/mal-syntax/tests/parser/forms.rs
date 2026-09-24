@@ -14,7 +14,7 @@ fn parses_parameters_and_lambda_body_items() {
     };
     assert!(matches!(
         lambda.parameter.as_deref(),
-        Some(mal_compiler::ast::Node {
+        Some(mal_syntax::ast::Node {
             kind: Pattern::Product(elements),
             ..
         }) if elements.len() == 2
@@ -75,7 +75,7 @@ fn parses_result_binders_when_and_empty_forms() {
     assert_eq!(result_binders.len(), 2);
     assert!(matches!(
         body.items[0],
-        BodyItem::Expression(mal_compiler::ast::Node {
+        BodyItem::Expression(mal_syntax::ast::Node {
             kind: Expression::When { .. },
             ..
         })
@@ -130,7 +130,7 @@ fn parses_lambda_patterns_from_parameter_lists() {
     };
     assert!(matches!(
         lambda.parameter.as_deref(),
-        Some(mal_compiler::ast::Node {
+        Some(mal_syntax::ast::Node {
             kind: Pattern::Product(elements),
             ..
         }) if elements.len() == 2

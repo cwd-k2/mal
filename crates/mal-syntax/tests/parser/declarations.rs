@@ -51,7 +51,7 @@ fn parses_the_basic_host_example() {
     assert_eq!(lambda.body.items.len(), 1);
     assert!(matches!(
         lambda.body.items[0],
-        BodyItem::Expression(mal_compiler::ast::Node {
+        BodyItem::Expression(mal_syntax::ast::Node {
             kind: Expression::Call { .. },
             ..
         })

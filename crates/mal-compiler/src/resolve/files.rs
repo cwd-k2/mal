@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::ast;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{self as resolved, TypeBinding, ValueBinding};
-use crate::source::{FileId, SourceGraph, Span};
+use mal_syntax::ast;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::{FileId, SourceGraph, Span};
 
 use super::{ExternalBinding, Resolver};
 

@@ -1,6 +1,6 @@
 use super::*;
 use crate::check::ast::Type;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn keeps_region_parameters_owned_when_the_region_creates_managed_authority() {

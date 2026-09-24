@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mal_compiler::source::{SourceFile, Span, Utf16Position};
+use mal_syntax::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -29,7 +29,7 @@ pub(super) fn completion_candidates(
         .map_or(context.start, |slash| context.start + slash + 1);
     let replacement = Span::new(source.id(), replacement_start, offset);
     Some(
-        mal_compiler::driver::requirement_path_candidates(&source_path, fragment)
+        mal_syntax::requirement::requirement_path_candidates(&source_path, fragment)
             .into_iter()
             .map(|candidate| CompletionCandidate {
                 name: candidate.name,
@@ -65,7 +65,8 @@ impl Server {
             .filter_map(|requirement| {
                 let span = requirement.path_span();
                 let path = std::str::from_utf8(requirement.path()).ok()?;
-                let target = mal_compiler::driver::resolve_requirement_path(&uri_to_path(&uri)?, path)?;
+                let target =
+                    mal_syntax::requirement::resolve_requirement_path(&uri_to_path(&uri)?, path)?;
                 let target_uri = path_to_uri(&target);
                 if !target.is_file() && !self.documents.contains_key(&target_uri) {
                     return None;
@@ -87,7 +88,7 @@ pub(super) fn target_path(uri: &str, source: &SourceFile, offset: usize) -> Opti
         span.start() <= offset && offset < span.end()
     })?;
     let path = std::str::from_utf8(requirement.path()).ok()?;
-    mal_compiler::driver::resolve_requirement_path(&uri_to_path(uri)?, path)
+    mal_syntax::requirement::resolve_requirement_path(&uri_to_path(uri)?, path)
 }
 
 #[derive(Clone, Copy)]

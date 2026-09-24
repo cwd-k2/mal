@@ -1,7 +1,7 @@
-use mal_compiler::lexer::{
+use mal_syntax::lexer::{
     DecimalFloatLiteral, FloatSuffix, IntegerLiteral, IntegerSuffix, Radix, TokenKind, lex,
 };
-use mal_compiler::source::{FileId, SourceFile, Span};
+use mal_syntax::source::{FileId, SourceFile, Span};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(7), "test.mal", text.into())

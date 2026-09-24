@@ -117,7 +117,7 @@ fn collect_local_values(block: &closure::Block, values: &mut Vec<LiveValue>) {
 
 fn collect_pattern_values(
     pattern: &Pattern,
-    span: crate::source::Span,
+    span: mal_syntax::source::Span,
     values: &mut Vec<LiveValue>,
 ) {
     match pattern {

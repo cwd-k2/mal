@@ -1,5 +1,5 @@
 use mal_compiler::editor::SymbolKind;
-use mal_compiler::source::{SourceFile, Span, Utf16Position};
+use mal_syntax::source::{SourceFile, Span, Utf16Position};
 
 pub(super) fn lexical(source: &SourceFile) -> Vec<usize> {
     let Ok(syntax) = mal_compiler::editor::analyze_syntax(source) else {

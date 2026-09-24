@@ -1,6 +1,6 @@
-use crate::ast::{BinaryOperator, UnaryOperator};
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
+use mal_syntax::ast::{BinaryOperator, UnaryOperator};
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::Checker;
 use super::ast::{Expression, ExpressionKind, Type};

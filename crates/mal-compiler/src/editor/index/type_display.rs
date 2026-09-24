@@ -1,5 +1,5 @@
-use crate::ast::Node;
 use crate::resolve::ast::TypeExpression;
+use mal_syntax::ast::Node;
 
 pub(super) fn type_name(ty: &Node<TypeExpression>) -> String {
     match &ty.kind {

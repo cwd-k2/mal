@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 fn generate_module(text: &str) -> String {
     let source = SourceFile::new(FileId::new(91), "llvm-buffer.mal", text.into());

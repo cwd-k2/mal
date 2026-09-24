@@ -4,7 +4,7 @@ use super::Index;
 use crate::editor::{OccurrenceRole, SymbolId};
 
 impl Index {
-    pub(super) fn collect_resolved_top(&mut self, item: &crate::ast::Node<resolved::TopItem>) {
+    pub(super) fn collect_resolved_top(&mut self, item: &mal_syntax::ast::Node<resolved::TopItem>) {
         match &item.kind {
             resolved::TopItem::TypeAlias { binding, value } => {
                 let id = SymbolId::Type(binding.id);
@@ -99,7 +99,7 @@ impl Index {
         }
     }
 
-    fn collect_resolved_type(&mut self, ty: &crate::ast::Node<resolved::TypeExpression>) {
+    fn collect_resolved_type(&mut self, ty: &mal_syntax::ast::Node<resolved::TypeExpression>) {
         match &ty.kind {
             resolved::TypeExpression::Named(reference) => self.add_raw(
                 SymbolId::Type(reference.id),
@@ -140,7 +140,7 @@ impl Index {
         &mut self,
         binding: &resolved::Binding,
         top_level: bool,
-        declaration_span: crate::source::Span,
+        declaration_span: mal_syntax::source::Span,
     ) {
         if let Some(annotation) = &binding.annotation {
             self.collect_resolved_type(annotation);
@@ -152,8 +152,8 @@ impl Index {
 
     fn apply_declared_pattern_type(
         &mut self,
-        pattern: &crate::ast::Node<resolved::Pattern>,
-        ty: &crate::ast::Node<resolved::TypeExpression>,
+        pattern: &mal_syntax::ast::Node<resolved::Pattern>,
+        ty: &mal_syntax::ast::Node<resolved::TypeExpression>,
     ) {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) => {
@@ -175,8 +175,8 @@ impl Index {
 
     fn collect_resolved_expression_with_expected(
         &mut self,
-        expression: &crate::ast::Node<resolved::Expression>,
-        expected: Option<&crate::ast::Node<resolved::TypeExpression>>,
+        expression: &mal_syntax::ast::Node<resolved::Expression>,
+        expected: Option<&mal_syntax::ast::Node<resolved::TypeExpression>>,
     ) {
         match (&expression.kind, expected) {
             (resolved::Expression::Parenthesized(inner), Some(expected)) => {
@@ -230,7 +230,7 @@ impl Index {
     fn collect_resolved_result_binders(
         &mut self,
         result_binders: &[resolved::ValueBinding],
-        result_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
+        result_type: Option<&mal_syntax::ast::Node<resolved::TypeExpression>>,
     ) {
         match result_binders {
             [binding] => {
@@ -269,8 +269,8 @@ impl Index {
     fn collect_resolved_lambda(
         &mut self,
         lambda: &resolved::Lambda,
-        parameter_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
-        result_type: Option<&crate::ast::Node<resolved::TypeExpression>>,
+        parameter_type: Option<&mal_syntax::ast::Node<resolved::TypeExpression>>,
+        result_type: Option<&mal_syntax::ast::Node<resolved::TypeExpression>>,
     ) {
         if let Some(parameter) = &lambda.parameter {
             if let Some(parameter_type) = parameter_type {
@@ -293,9 +293,9 @@ impl Index {
 
     fn collect_resolved_pattern(
         &mut self,
-        pattern: &crate::ast::Node<resolved::Pattern>,
+        pattern: &mal_syntax::ast::Node<resolved::Pattern>,
         top_level: bool,
-        declaration_span: crate::source::Span,
+        declaration_span: mal_syntax::source::Span,
     ) {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) => {
@@ -319,7 +319,10 @@ impl Index {
         }
     }
 
-    fn collect_resolved_expression(&mut self, expression: &crate::ast::Node<resolved::Expression>) {
+    fn collect_resolved_expression(
+        &mut self,
+        expression: &mal_syntax::ast::Node<resolved::Expression>,
+    ) {
         use resolved::Expression;
         match &expression.kind {
             Expression::Reference(reference) => self.add_raw(
@@ -413,7 +416,7 @@ impl Index {
     fn collect_resolved_body(
         &mut self,
         items: &[resolved::BodyItem],
-        result: &crate::ast::Node<resolved::Expression>,
+        result: &mal_syntax::ast::Node<resolved::Expression>,
     ) {
         for item in items {
             match item {

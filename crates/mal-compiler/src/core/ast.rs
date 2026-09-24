@@ -1,6 +1,6 @@
 use crate::check::ast::{MemoryPrimitive, Type};
 use crate::resolve::ast::{ExternalOperationId, LambdaId, ValueId as SourceValueId};
-use crate::source::Span;
+use mal_syntax::source::Span;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ValueId {

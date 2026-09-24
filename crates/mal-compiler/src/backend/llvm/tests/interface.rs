@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn admits_product_external_calls() {

@@ -1,10 +1,10 @@
 use mal_compiler::resolve::ast::{Expression, TopItem};
-use mal_compiler::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
 
 fn make_graph(
     sources: &[(&str, &str)],
     requirements: &[&[(u32, usize)]],
-) -> (SourceGraph, Vec<mal_compiler::ast::Program>) {
+) -> (SourceGraph, Vec<mal_syntax::ast::Program>) {
     let files = sources
         .iter()
         .enumerate()
@@ -14,7 +14,7 @@ fn make_graph(
         .collect::<Vec<_>>();
     let parsed = files
         .iter()
-        .map(|source| mal_compiler::parser::parse(source).unwrap())
+        .map(|source| mal_syntax::parser::parse(source).unwrap())
         .collect::<Vec<_>>();
     let edges = requirements
         .iter()
@@ -124,7 +124,7 @@ fn resolves_deep_requirement_chains_without_host_recursion() {
         .collect::<Vec<_>>();
     let parsed = files
         .iter()
-        .map(|source| mal_compiler::parser::parse(source).unwrap())
+        .map(|source| mal_syntax::parser::parse(source).unwrap())
         .collect::<Vec<_>>();
     let requirements = (0..depth)
         .map(|index| {

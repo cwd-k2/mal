@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn selects_symbol_storage_reuse_only_when_enabled() {

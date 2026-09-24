@@ -1,5 +1,5 @@
-use crate::ast::{BodyItem, Expression, Program, TopItem, TypeExpression};
-use crate::lexer::{Lexed, TokenKind};
+use mal_syntax::ast::{BodyItem, Expression, Program, TopItem, TypeExpression};
+use mal_syntax::lexer::{Lexed, TokenKind};
 
 pub(super) fn delimiters(lexed: &Lexed, program: &Program) -> Vec<bool> {
     let mut marked = vec![false; lexed.tokens.len()];
@@ -64,7 +64,7 @@ impl Marker<'_> {
         self.marked[close] = true;
     }
 
-    fn ty(&mut self, ty: &crate::ast::Node<TypeExpression>) {
+    fn ty(&mut self, ty: &mal_syntax::ast::Node<TypeExpression>) {
         match &ty.kind {
             TypeExpression::Application {
                 constructor,
@@ -89,14 +89,14 @@ impl Marker<'_> {
         }
     }
 
-    fn binding(&mut self, binding: &crate::ast::Binding) {
+    fn binding(&mut self, binding: &mal_syntax::ast::Binding) {
         if let Some(annotation) = &binding.annotation {
             self.ty(annotation);
         }
         self.expression(&binding.value);
     }
 
-    fn expression(&mut self, expression: &crate::ast::Node<Expression>) {
+    fn expression(&mut self, expression: &mal_syntax::ast::Node<Expression>) {
         let mut pending = vec![expression];
         while let Some(expression) = pending.pop() {
             match &expression.kind {
@@ -153,7 +153,7 @@ impl Marker<'_> {
         }
     }
 
-    fn body(&mut self, items: &[BodyItem], result: &crate::ast::Node<Expression>) {
+    fn body(&mut self, items: &[BodyItem], result: &mal_syntax::ast::Node<Expression>) {
         for item in items {
             match item {
                 BodyItem::Binding(binding) => self.binding(&binding.kind),

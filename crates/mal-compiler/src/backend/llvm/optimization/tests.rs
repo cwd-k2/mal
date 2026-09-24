@@ -1,5 +1,5 @@
 use super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn validates_the_exact_symbol_concat_decisions() {

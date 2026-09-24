@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mal_compiler::source::SourceFile;
+use mal_syntax::source::SourceFile;
 use serde_json::{Value, json};
 
 use super::{
@@ -70,7 +70,7 @@ impl Server {
         let Some(path) = uri_to_path(uri) else {
             return document.analyze_single(uri);
         };
-        match mal_compiler::driver::load_source_graph_with_overlays(&path, &document.text, &overlays) {
+        match mal_syntax::graph::load_with_overlays(&path, &document.text, &overlays) {
             Ok(graph) => match mal_compiler::pipeline::analyze_graph(&graph) {
                 Ok(analysis) => {
                     document.analysis = AnalysisState::Ready {
@@ -167,7 +167,11 @@ impl Document {
         }
     }
 
-    pub(super) fn source_for(&self, span: mal_compiler::source::Span, uri: &str) -> Option<SourceFile> {
+    pub(super) fn source_for(
+        &self,
+        span: mal_syntax::source::Span,
+        uri: &str,
+    ) -> Option<SourceFile> {
         if let Some(graph) = self.graph() {
             let source = graph.source(span.file())?;
             return Some(SourceFile::new(
@@ -180,7 +184,7 @@ impl Document {
         source.contains(span).then_some(source)
     }
 
-    pub(super) fn graph(&self) -> Option<&mal_compiler::source::SourceGraph> {
+    pub(super) fn graph(&self) -> Option<&mal_syntax::source::SourceGraph> {
         match &self.analysis {
             AnalysisState::Failed { graph } | AnalysisState::Ready { graph, .. } => graph.as_ref(),
             AnalysisState::Stale => None,
@@ -208,7 +212,7 @@ impl Document {
     }
 }
 
-fn lsp_diagnostic(source: &SourceFile, diagnostic: mal_compiler::diagnostic::Diagnostic) -> Value {
+fn lsp_diagnostic(source: &SourceFile, diagnostic: mal_syntax::diagnostic::Diagnostic) -> Value {
     let (range, label) = diagnostic.primary.map_or_else(
         || (zero_range(), None),
         |label| {
@@ -233,7 +237,10 @@ fn lsp_diagnostic(source: &SourceFile, diagnostic: mal_compiler::diagnostic::Dia
     json!({"range": range, "severity": 1, "source": "malc", "message": message})
 }
 
-fn lsp_diagnostic_at_root(source: &SourceFile, diagnostic: mal_compiler::diagnostic::Diagnostic) -> Value {
+fn lsp_diagnostic_at_root(
+    source: &SourceFile,
+    diagnostic: mal_syntax::diagnostic::Diagnostic,
+) -> Value {
     let mut value = lsp_diagnostic(source, diagnostic);
     value["range"] = zero_range();
     if let Some(message) = value["message"].as_str() {

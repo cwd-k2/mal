@@ -1,5 +1,5 @@
-use mal_compiler::diagnostic::Diagnostic;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn source_file(id: u32, text: String) -> SourceFile {
     SourceFile::new(FileId::new(id), "robustness-test.mal", text)
@@ -18,7 +18,8 @@ fn exercise(id: u32, text: String) {
         Ok(formatted) => {
             let formatted_source = source_file(id, formatted.clone());
             assert_eq!(
-                mal_compiler::formatter::format(&formatted_source).expect("reformat accepted source"),
+                mal_compiler::formatter::format(&formatted_source)
+                    .expect("reformat accepted source"),
                 formatted
             );
         }
@@ -65,4 +66,16 @@ fn source_mutations_preserve_frontend_totality_and_formatter_idempotence() {
             }
         }
     }
+}
+
+#[test]
+fn accepts_ordinary_nesting() {
+    let ordinary = format!(
+        "main :: Unit -> Int32 := () -> {{ {}0i32{}; }};",
+        "(".repeat(32),
+        ")".repeat(32)
+    );
+    let source = source_file(900, ordinary);
+    mal_compiler::pipeline::check(&source).expect("ordinary nesting must check");
+    mal_compiler::formatter::format(&source).expect("ordinary nesting must format");
 }

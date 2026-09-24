@@ -1,6 +1,6 @@
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::ast::{Expression, ExpressionKind, Type};
 use super::float::is_float;
@@ -15,7 +15,7 @@ impl Checker {
         &mut self,
         expression: &Node<resolved::Expression>,
         expected: Option<&Type>,
-        later: crate::source::Span,
+        later: mal_syntax::source::Span,
     ) -> CheckResult<Expression> {
         match self.check_expression(expression, expected) {
             Err(CheckFailure::Abrupt(_)) => Err(Diagnostic::error(
@@ -244,7 +244,7 @@ impl Checker {
                 self.check_when(condition, body, expression.span)?
             }
             resolved::Expression::Unary { operator, operand } => {
-                if matches!(operator.kind, crate::ast::UnaryOperator::Star) {
+                if matches!(operator.kind, mal_syntax::ast::UnaryOperator::Star) {
                     self.check_memory_unary(operator.kind, operand, expression.span)?
                 } else {
                     self.check_unary(operator, operand, expression.span, expected)?
@@ -264,10 +264,10 @@ impl Checker {
 
     fn check_binary_chain(
         &mut self,
-        operator: &Node<crate::ast::BinaryOperator>,
+        operator: &Node<mal_syntax::ast::BinaryOperator>,
         left: &Node<resolved::Expression>,
         right: &Node<resolved::Expression>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let mut outer = Vec::new();
@@ -304,7 +304,7 @@ impl Checker {
         &self,
         actual: &Type,
         expected: &Type,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Result<(), Diagnostic> {
         if actual == expected {
             Ok(())
@@ -317,7 +317,7 @@ impl Checker {
         &self,
         expected: &Type,
         actual: &Type,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Diagnostic {
         Diagnostic::error("type mismatch").with_primary(
             span,

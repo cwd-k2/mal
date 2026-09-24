@@ -3,9 +3,9 @@ use mal_compiler::core;
 use mal_compiler::core::ast::{
     BinaryPrimitive, Expression, ExpressionKind, JoinId, Lambda, Pattern, TopLevelPattern, ValueId,
 };
-use mal_compiler::parser;
 use mal_compiler::resolve;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn lower_ok(text: &str) -> core::ast::Program {
     let source = SourceFile::new(FileId::new(41), "core-test.mal", text.into());

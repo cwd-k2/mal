@@ -1,7 +1,7 @@
-use crate::ast::{Node, UnaryOperator};
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::ast::{Node, UnaryOperator};
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 use super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
 use super::{CheckResult, Checker};

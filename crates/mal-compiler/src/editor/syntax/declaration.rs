@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::lexer::{Token, TokenKind};
+use mal_syntax::lexer::{Token, TokenKind};
 
 pub(super) fn function_declarations(tokens: &[Token]) -> HashSet<usize> {
     let mut declarations = HashSet::new();

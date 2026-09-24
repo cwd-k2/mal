@@ -1,6 +1,6 @@
-use crate::ast::{BinaryOperator, Node};
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::ast::{BinaryOperator, Node};
+use mal_syntax::source::Span;
 
 use super::super::ast::{Completion, Expression, ExpressionBlock, ExpressionKind, Type};
 use super::super::types::bool_type;

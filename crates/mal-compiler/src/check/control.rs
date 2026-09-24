@@ -1,6 +1,6 @@
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::ast::{
     AbruptExpression, AbruptExpressionKind, Completion, Expression, ExpressionBlock,
@@ -13,7 +13,7 @@ impl Checker {
     pub(super) fn check_block(
         &mut self,
         block: &resolved::ExpressionBlock,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let block = self.check_expression_block(block, expected)?;
@@ -38,7 +38,7 @@ impl Checker {
         &mut self,
         bindings: &[resolved::ValueBinding],
         body: &resolved::ExpressionBlock,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let result_type = expected.cloned().ok_or_else(|| {
@@ -93,7 +93,7 @@ impl Checker {
         &self,
         bindings: &[resolved::ValueBinding],
         result: &Type,
-        body_span: crate::source::Span,
+        body_span: mal_syntax::source::Span,
     ) -> CheckResult<Vec<super::ast::ResultBinder>> {
         Ok(match bindings {
             [] => unreachable!("the parser requires a non-empty result binder group"),
@@ -154,7 +154,7 @@ impl Checker {
         &mut self,
         condition: &Node<resolved::Expression>,
         body: &resolved::ExpressionBlock,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> CheckResult<Expression> {
         let bool_type = bool_type();
         let condition = self.check_before(condition, Some(&bool_type), body.span)?;
@@ -187,7 +187,7 @@ impl Checker {
         condition: &Node<resolved::Expression>,
         then_branch: &resolved::ExpressionBlock,
         else_branch: &resolved::ExpressionBlock,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let bool_type = bool_type();

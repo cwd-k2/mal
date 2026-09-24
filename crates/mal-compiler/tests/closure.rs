@@ -3,9 +3,9 @@ use mal_compiler::check;
 use mal_compiler::closure;
 use mal_compiler::closure::ast::{AtomKind, Function, Operation, Reference};
 use mal_compiler::core;
-use mal_compiler::parser;
 use mal_compiler::resolve;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn convert_ok(text: &str) -> closure::ast::Program {
     let source = SourceFile::new(FileId::new(67), "closure-test.mal", text.into());
@@ -242,7 +242,11 @@ fn preserves_captured_products_and_destructuring_patterns() {
     assert_eq!(
         capture_schema(inner)[0].ty,
         mal_compiler::check::ast::Type::Product(
-            vec![mal_compiler::check::ast::Type::Int32, mal_compiler::check::ast::Type::Int32,].into()
+            vec![
+                mal_compiler::check::ast::Type::Int32,
+                mal_compiler::check::ast::Type::Int32,
+            ]
+            .into()
         )
     );
     assert!(matches!(

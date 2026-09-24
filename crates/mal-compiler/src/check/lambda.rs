@@ -1,5 +1,5 @@
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::ast::{Capture, Expression, ExpressionKind, Lambda, LambdaBody, Type};
 use super::types::{function_placeholder, type_name};
@@ -9,7 +9,7 @@ impl Checker {
     pub(super) fn check_lambda(
         &mut self,
         lambda: &resolved::Lambda,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let (expected_parameter, expected_result) = match expected {
@@ -39,7 +39,7 @@ impl Checker {
     pub(super) fn check_lambda_against(
         &mut self,
         lambda: &resolved::Lambda,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
         expected_parameter: Type,
         expected_result: Option<&Type>,
     ) -> CheckResult<Expression> {
@@ -97,7 +97,11 @@ impl Checker {
         })
     }
 
-    fn lambda_parameter_mismatch(&self, expected: &Type, span: crate::source::Span) -> Diagnostic {
+    fn lambda_parameter_mismatch(
+        &self,
+        expected: &Type,
+        span: mal_syntax::source::Span,
+    ) -> Diagnostic {
         Diagnostic::error("lambda parameters do not match the expected function type").with_primary(
             span,
             format!("expected parameter type `{}`", type_name(expected)),

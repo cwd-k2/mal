@@ -1,0 +1,12 @@
+[package]
+name = "mal-syntax"
+version.workspace = true
+edition.workspace = true
+description = "Sources, diagnostics, lexer, AST, and parser for the mal language"
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

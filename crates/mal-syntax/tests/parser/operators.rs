@@ -23,7 +23,7 @@ fn pratt_parser_preserves_precedence_and_left_associativity() {
     assert!(matches!(
         right.kind,
         Expression::Binary {
-            operator: mal_compiler::ast::Node {
+            operator: mal_syntax::ast::Node {
                 kind: BinaryOperator::Multiply,
                 ..
             },
@@ -65,7 +65,7 @@ fn parses_symbol_length_and_byte_access_with_access_precedence() {
     assert!(matches!(
         left.kind,
         Expression::Binary {
-            operator: mal_compiler::ast::Node {
+            operator: mal_syntax::ast::Node {
                 kind: BinaryOperator::SymbolAt,
                 ..
             },
@@ -97,7 +97,7 @@ fn keeps_comparison_and_shift_distinct_from_generic_delimiters() {
     assert!(matches!(
         comparison,
         Expression::Binary {
-            operator: mal_compiler::ast::Node {
+            operator: mal_syntax::ast::Node {
                 kind: BinaryOperator::Less,
                 ..
             },
@@ -109,7 +109,7 @@ fn keeps_comparison_and_shift_distinct_from_generic_delimiters() {
     assert!(matches!(
         shift,
         Expression::Binary {
-            operator: mal_compiler::ast::Node {
+            operator: mal_syntax::ast::Node {
                 kind: BinaryOperator::ShiftRight,
                 ..
             },

@@ -1,6 +1,6 @@
-use crate::ast::{Program, TopItem};
-use crate::lexer::{Lexed, LexemeKind, TokenKind};
-use crate::source::SourceFile;
+use mal_syntax::ast::{Program, TopItem};
+use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};
+use mal_syntax::source::SourceFile;
 
 pub(super) struct BlockLayout {
     pub(super) compact: Vec<bool>,
@@ -109,7 +109,7 @@ struct OpenBlock {
 }
 
 fn starts_when_block(
-    tokens: &[crate::lexer::Token],
+    tokens: &[mal_syntax::lexer::Token],
     matching_parentheses: &[Option<usize>],
     left_brace: usize,
 ) -> bool {
@@ -194,10 +194,10 @@ fn is_function_binding(item: &TopItem) -> bool {
         _ => return false,
     };
     let mut expression = expression;
-    while let crate::ast::Expression::Parenthesized(inner) = expression {
+    while let mal_syntax::ast::Expression::Parenthesized(inner) = expression {
         expression = &inner.kind;
     }
-    matches!(expression, crate::ast::Expression::Lambda(_))
+    matches!(expression, mal_syntax::ast::Expression::Lambda(_))
 }
 
 fn has_blank_line(text: &str) -> bool {

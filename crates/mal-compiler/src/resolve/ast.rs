@@ -1,6 +1,6 @@
-use crate::ast::{BinaryOperator, Name, Node, UnaryOperator};
-use crate::lexer::{DecimalFloatLiteral, IntegerLiteral};
-use crate::source::Span;
+use mal_syntax::ast::{BinaryOperator, Name, Node, UnaryOperator};
+use mal_syntax::lexer::{DecimalFloatLiteral, IntegerLiteral};
+use mal_syntax::source::Span;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct TypeId(pub u32);

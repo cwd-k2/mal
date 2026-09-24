@@ -1,14 +1,14 @@
-use mal_compiler::ast::{
+use mal_syntax::ast::{
     BinaryOperator, BodyItem, Expression, Pattern, TopItem, TypeExpression, UnaryOperator,
 };
-use mal_compiler::parser::parse;
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::parser::parse;
+use mal_syntax::source::{FileId, SourceFile};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(FileId::new(11), "parser-test.mal", text.into())
 }
 
-fn parse_ok(text: &str) -> mal_compiler::ast::Program {
+fn parse_ok(text: &str) -> mal_syntax::ast::Program {
     parse(&source(text)).unwrap_or_else(|error| panic!("{}", error.render(&source(text))))
 }
 
@@ -21,16 +21,7 @@ fn binding_value(text: &str) -> Expression {
 }
 
 #[test]
-fn accepts_ordinary_nesting_and_rejects_excessive_nesting() {
-    let ordinary = format!(
-        "main :: Unit -> Int32 := () -> {{ {}0i32{}; }};",
-        "(".repeat(32),
-        ")".repeat(32)
-    );
-    let ordinary_source = source(&ordinary);
-    mal_compiler::pipeline::check(&ordinary_source).expect("ordinary nesting must check");
-    mal_compiler::formatter::format(&ordinary_source).expect("ordinary nesting must format");
-
+fn rejects_excessive_nesting() {
     let excessive = format!(
         "main :: Unit -> Int32 := () -> {{ {}0i32{}; }};",
         "(".repeat(300),

@@ -1,6 +1,6 @@
-use crate::ast::Node;
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::ast::Node;
+use mal_syntax::source::Span;
 
 use super::ast::{Expression, ExpressionKind, Type};
 use super::{CheckFailure, CheckResult, Checker};
@@ -26,7 +26,7 @@ impl Checker {
             ) {
                 Ok(value) => checked.push(value),
                 Err(CheckFailure::Abrupt(_)) if index + 1 < elements.len() => {
-                    return Err(crate::diagnostic::Diagnostic::error(
+                    return Err(mal_syntax::diagnostic::Diagnostic::error(
                         "unreachable expression after abrupt completion",
                     )
                     .with_primary(

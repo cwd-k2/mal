@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn emits_targeted_llvm_and_a_c_shim_from_one_bridge_plan() {

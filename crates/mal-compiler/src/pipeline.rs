@@ -1,5 +1,5 @@
-use crate::diagnostic::Diagnostic;
-use crate::source::{SourceFile, SourceGraph};
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::{SourceFile, SourceGraph};
 
 pub struct Analysis {
     pub resolved: crate::resolve::ast::Program,
@@ -7,7 +7,7 @@ pub struct Analysis {
 }
 
 pub fn analyze(source: &SourceFile) -> Result<Analysis, Diagnostic> {
-    let parsed = crate::parser::parse(source)?;
+    let parsed = mal_syntax::parser::parse(source)?;
     let resolved = crate::resolve::resolve(&parsed)?;
     let checked = crate::check::check(&resolved)?;
     Ok(Analysis { resolved, checked })
@@ -17,7 +17,7 @@ pub fn analyze_graph(graph: &SourceGraph) -> Result<Analysis, Diagnostic> {
     let parsed = graph
         .files()
         .iter()
-        .map(crate::parser::parse)
+        .map(mal_syntax::parser::parse)
         .collect::<Result<Vec<_>, _>>()?;
     let resolved = crate::resolve::resolve_graph(graph, &parsed)?;
     let checked = crate::check::check(&resolved)?;

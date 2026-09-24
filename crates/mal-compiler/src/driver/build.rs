@@ -4,9 +4,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::source::SourceGraph;
+use mal_syntax::source::SourceGraph;
 
-use super::{Error, TemporaryDirectory, create_parent, graph, toolchain};
+use mal_syntax::graph;
+
+use super::{Error, TemporaryDirectory, create_parent, toolchain};
 
 const C_COMPILER_REQUIRED_OPTIONS: &[&str] = &[
     "-std=c11",

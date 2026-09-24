@@ -225,7 +225,7 @@ impl Lowerer {
         scrutinee: &Atom,
         arms: &[closure::CaseArm],
         destination: Destination,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> StateId {
         let arms = arms
             .iter()
@@ -260,7 +260,7 @@ impl Lowerer {
         otherwise: &closure::Block,
         then: &closure::Block,
         destination: Destination,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> StateId {
         let otherwise = self.lower_block(otherwise, destination);
         let then = self.lower_block(then, destination);
@@ -282,7 +282,7 @@ impl Lowerer {
         &mut self,
         result: &Atom,
         destination: Destination,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> StateId {
         let terminator = match destination {
             Destination::Return => Terminator::Return(result.clone()),
@@ -299,7 +299,7 @@ impl Lowerer {
         input: Option<Pattern>,
         bindings: Vec<Binding>,
         terminator: Terminator,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> StateId {
         let id = StateId(self.states.len());
         self.states.push(State {

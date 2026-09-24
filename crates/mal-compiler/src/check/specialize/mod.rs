@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{LambdaId, ValueBinding, ValueId, ValueReference};
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::ast::*;
 use super::specialization_identity::next_identities;

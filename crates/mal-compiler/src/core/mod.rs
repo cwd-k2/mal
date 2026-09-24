@@ -1,7 +1,7 @@
-use crate::ast::{BinaryOperator, UnaryOperator};
 use crate::check::ast as checked;
 use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
-use crate::source::Span;
+use mal_syntax::ast::{BinaryOperator, UnaryOperator};
+use mal_syntax::source::Span;
 use std::collections::HashMap;
 
 pub mod ast;

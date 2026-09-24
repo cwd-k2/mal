@@ -1,7 +1,8 @@
 use super::*;
 use crate::execution::ClosureUsePlan;
-use crate::source::{FileId, SourceFile};
-use crate::{anf, check, core, parser, resolve};
+use crate::{anf, check, core, resolve};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn validates_the_exact_fused_tail_site_set() {

@@ -2,8 +2,9 @@ use super::*;
 use crate::execution::{
     ApplicationGraph, ClosureUsePlan, ContinuationGraph, OptimizationPlan, OptimizationSet,
 };
-use crate::source::{FileId, SourceFile};
-use crate::{anf, check, closure, control, core, parser, resolve};
+use crate::{anf, check, closure, control, core, resolve};
+use mal_syntax::parser;
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn validates_exact_frame_sites_and_payloads() {

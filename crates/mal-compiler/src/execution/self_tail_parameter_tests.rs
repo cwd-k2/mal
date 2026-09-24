@@ -2,7 +2,7 @@ use super::*;
 use crate::check::ast::Type;
 use crate::control::ast::StateId;
 use crate::execution::ownership::PatternDestination;
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 fn execution(source: &str) -> crate::execution::Program {
     let source = SourceFile::new(

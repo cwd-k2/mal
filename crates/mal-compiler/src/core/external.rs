@@ -1,5 +1,5 @@
 use crate::check::ast as checked;
-use crate::source::Span;
+use mal_syntax::source::Span;
 
 use super::Lowerer;
 use super::ast::{Expression, ExpressionKind, Lambda, Parameter, TopLevelBinding, ValueId};

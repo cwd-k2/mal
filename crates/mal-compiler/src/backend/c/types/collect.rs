@@ -299,7 +299,7 @@ mod tests {
                 parameter_aliases: vec![None, None],
                 result: Type::Unit,
                 result_alias: None,
-                span: crate::source::Span::new(crate::source::FileId::new(0), 0, 0),
+                span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
             }],
         };
         let mut registry = TypeRegistry::default();

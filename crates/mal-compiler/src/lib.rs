@@ -1,23 +1,18 @@
 #![forbid(unsafe_code)]
 
 pub mod anf;
-pub mod ast;
 mod backend;
 pub mod check;
 pub mod cli;
 pub mod closure;
 pub mod control;
 pub mod core;
-pub mod diagnostic;
 pub mod driver;
 pub mod editor;
 mod execution;
 pub mod formatter;
-pub mod lexer;
-pub mod parser;
 pub mod pipeline;
 pub mod resolve;
-pub mod source;
 
 pub const LANGUAGE_NAME: &str = "mal";
 pub const LANGUAGE_VERSION: &str = "0.6";

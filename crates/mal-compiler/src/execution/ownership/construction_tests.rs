@@ -2,7 +2,7 @@ use super::*;
 use crate::check::ast::Type;
 use crate::closure::ast::Pattern;
 use crate::control::ast::{Operation, StateId};
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 fn lower(source: &str) -> crate::execution::Program {
     let source = SourceFile::new(FileId::new(86), "construction-ownership.mal", source.into());

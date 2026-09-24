@@ -1,6 +1,6 @@
-use crate::ast::BinaryOperator;
 use crate::check::ast as checked;
-use crate::source::Span;
+use mal_syntax::ast::BinaryOperator;
+use mal_syntax::source::Span;
 
 use super::Lowerer;
 use super::ast::{Expression, ExpressionKind, ValueId};

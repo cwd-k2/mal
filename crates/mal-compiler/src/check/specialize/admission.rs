@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::ValueId;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::Pattern;
 
@@ -27,7 +27,7 @@ pub(super) fn collect_pattern_bindings(
 
 pub(super) fn admit_specialization(
     count: usize,
-    span: crate::source::Span,
+    span: mal_syntax::source::Span,
 ) -> Result<(), Diagnostic> {
     if count < LIMIT {
         return Ok(());
@@ -43,7 +43,7 @@ pub(super) fn admit_specialization(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::{FileId, Span};
+    use mal_syntax::source::{FileId, Span};
 
     #[test]
     fn admits_the_specialization_limit_and_rejects_the_next_node_at_its_span() {

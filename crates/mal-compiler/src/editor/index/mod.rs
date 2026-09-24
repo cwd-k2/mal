@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::check::ast as checked;
 use crate::resolve::ast as resolved;
-use crate::source::{FileId, Span};
+use mal_syntax::source::{FileId, Span};
 
 use super::{Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, SymbolKind};
 
@@ -25,7 +25,7 @@ struct Index {
     aliases: HashMap<resolved::ValueId, resolved::ValueId>,
     value_types: HashMap<resolved::ValueId, String>,
     type_details: HashMap<resolved::TypeId, String>,
-    type_aliases: HashMap<resolved::TypeId, crate::ast::Node<resolved::TypeExpression>>,
+    type_aliases: HashMap<resolved::TypeId, mal_syntax::ast::Node<resolved::TypeExpression>>,
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     typed_regions: Vec<(Span, String)>,
@@ -176,8 +176,8 @@ impl Index {
 
     fn expanded_type(
         &self,
-        ty: &crate::ast::Node<resolved::TypeExpression>,
-    ) -> crate::ast::Node<resolved::TypeExpression> {
+        ty: &mal_syntax::ast::Node<resolved::TypeExpression>,
+    ) -> mal_syntax::ast::Node<resolved::TypeExpression> {
         let mut expanded = ty.clone();
         let mut seen = HashSet::new();
         loop {
@@ -197,7 +197,7 @@ impl Index {
     fn add_raw(
         &mut self,
         id: SymbolId,
-        name: &crate::ast::Name,
+        name: &mal_syntax::ast::Name,
         role: OccurrenceRole,
         declaration_span: Option<Span>,
     ) {

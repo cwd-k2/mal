@@ -1,5 +1,5 @@
 use crate::core::ast::ProgramInterface;
-use crate::diagnostic::Diagnostic;
+use mal_syntax::diagnostic::Diagnostic;
 
 mod header;
 mod host_signature;

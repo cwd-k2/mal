@@ -1,6 +1,6 @@
-use crate::diagnostic::Diagnostic;
-use crate::lexer::{Token, TokenKind, lex};
-use crate::source::{SourceFile, Span};
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::lexer::{Token, TokenKind, lex};
+use mal_syntax::source::{SourceFile, Span};
 
 use super::SymbolKind;
 
@@ -136,7 +136,7 @@ fn requirements(tokens: &[Token]) -> Vec<SyntaxRequirement> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::FileId;
+    use mal_syntax::source::FileId;
 
     #[test]
     fn indexes_tokens_and_functions_without_parsing_the_program() {

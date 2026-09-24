@@ -188,7 +188,7 @@ impl<'a> HostBodySignature<'a> {
 #[cfg(test)]
 mod tests {
     use crate::resolve::ast::ExternalOperationId;
-    use crate::source::{FileId, Span};
+    use mal_syntax::source::{FileId, Span};
 
     use super::*;
 

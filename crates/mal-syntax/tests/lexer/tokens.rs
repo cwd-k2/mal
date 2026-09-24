@@ -132,10 +132,10 @@ fn skips_ascii_whitespace_and_line_comments() {
 
 #[test]
 fn lossless_lexing_covers_tokens_whitespace_and_comments_in_source_order() {
-    use mal_compiler::lexer::LexemeKind;
+    use mal_syntax::lexer::LexemeKind;
 
     let source = source("  value// note\r\n :: Int32 := 0xffu32;\n");
-    let lexed = mal_compiler::lexer::lex_lossless(&source).unwrap();
+    let lexed = mal_syntax::lexer::lex_lossless(&source).unwrap();
     let mut restored = String::new();
     let mut end = 0;
     for lexeme in &lexed.lexemes {

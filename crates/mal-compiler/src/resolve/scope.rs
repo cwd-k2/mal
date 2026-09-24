@@ -1,5 +1,5 @@
-use crate::ast;
-use crate::diagnostic::Diagnostic;
+use mal_syntax::ast;
+use mal_syntax::diagnostic::Diagnostic;
 
 use super::ast::{
     ExternalOperationId, TypeBinding, TypeId, TypeReference, ValueBinding, ValueId, ValueOwner,

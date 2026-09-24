@@ -1,5 +1,5 @@
-use crate::ast::BinaryOperator;
 use crate::check::ast as checked;
+use mal_syntax::ast::BinaryOperator;
 
 use super::{Continuation, Lowerer};
 use crate::core::ast::{Expression, ExpressionKind, Pattern};
@@ -12,7 +12,7 @@ impl Lowerer {
         value_type: &checked::Type,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let checked::Type::Sum(members) = &scrutinee.ty else {
             unreachable!("checked sum elimination scrutinee")
@@ -65,7 +65,7 @@ impl Lowerer {
         else_branch: &checked::ExpressionBlock,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let mut next = |lowerer: &mut Lowerer, condition: Expression| {
             let otherwise = lowerer.lower_items_with(
@@ -100,7 +100,7 @@ impl Lowerer {
         right: &checked::Expression,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let value_type = checked::Type::Sum(vec![checked::Type::Unit, checked::Type::Unit].into());
         self.lower_with_join(
@@ -121,7 +121,7 @@ impl Lowerer {
         right: &checked::Expression,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
-        span: crate::source::Span,
+        span: mal_syntax::source::Span,
     ) -> Expression {
         let mut next = |lowerer: &mut Lowerer, left: Expression| {
             let constant = lowerer.bool_value(operator == BinaryOperator::LogicalOr, span);

@@ -8,7 +8,7 @@ use super::*;
 use crate::check::ast::Type;
 use crate::closure::ast::Pattern;
 use crate::control::ast::{Operation, StateId, Terminator};
-use crate::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
 fn validates_the_exact_binding_drop_facts() {

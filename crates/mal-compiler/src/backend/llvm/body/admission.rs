@@ -1,7 +1,7 @@
 use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Block, Operation};
-use crate::diagnostic::Diagnostic;
 use crate::execution;
+use mal_syntax::diagnostic::Diagnostic;
 
 use crate::backend::llvm::TargetLayout;
 pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Result<(), Diagnostic> {

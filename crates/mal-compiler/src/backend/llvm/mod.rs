@@ -16,7 +16,7 @@ pub(crate) struct Target<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Error {
-    Diagnostic(crate::diagnostic::Diagnostic),
+    Diagnostic(mal_syntax::diagnostic::Diagnostic),
     InvalidTargetDataLayout,
     InconsistentExecutionPlan(&'static str),
 }

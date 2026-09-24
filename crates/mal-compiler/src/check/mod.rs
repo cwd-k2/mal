@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::Node;
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast::{self as resolved, FALSE_VALUE, TRUE_VALUE, TypeId, ValueId};
-use crate::source::Span;
+use mal_syntax::ast::Node;
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 pub mod ast;
 mod control;
@@ -388,7 +388,7 @@ impl Checker {
     fn check_body_items(
         &mut self,
         items: &[resolved::BodyItem],
-        result_span: crate::source::Span,
+        result_span: mal_syntax::source::Span,
     ) -> CheckResult<Vec<BodyItem>> {
         let mut checked = Vec::with_capacity(items.len());
         for (index, item) in items.iter().enumerate() {

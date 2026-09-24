@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use mal_compiler::source::{FileId, SourceFile, SourceGraph, Span, Utf16Position};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

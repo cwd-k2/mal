@@ -1,7 +1,7 @@
-use crate::ast::{BinaryOperator, Node};
-use crate::diagnostic::Diagnostic;
 use crate::resolve::ast as resolved;
-use crate::source::Span;
+use mal_syntax::ast::{BinaryOperator, Node};
+use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 use super::super::ast::{Expression, ExpressionKind, Type};
 use super::super::float::{is_contextual_float, is_float};

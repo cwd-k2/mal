@@ -273,8 +273,9 @@ pub(super) fn reachable_states(program: &control::Program, entry: StateId) -> Ve
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::{FileId, SourceFile};
-    use crate::{anf, check, core, parser, resolve};
+    use crate::{anf, check, core, resolve};
+    use mal_syntax::parser;
+    use mal_syntax::source::{FileId, SourceFile};
 
     #[test]
     fn validates_exact_sites_and_type_compatible_targets() {

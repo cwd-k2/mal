@@ -2,18 +2,19 @@ use std::fmt::Write;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use mal_compiler::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile};
 
 const SAMPLE_COUNT: usize = 7;
 const MINIMUM_SAMPLE_TIME: Duration = Duration::from_millis(100);
 
 fn main() {
     let source = SourceFile::new(FileId::new(900), "benchmark.mal", large_source());
-    let tokens = mal_compiler::lexer::lex(&source).expect("benchmark source must lex");
-    let parsed = mal_compiler::parser::parse(&source).expect("benchmark source must parse");
+    let tokens = mal_syntax::lexer::lex(&source).expect("benchmark source must lex");
+    let parsed = mal_syntax::parser::parse(&source).expect("benchmark source must parse");
     let resolved = mal_compiler::resolve::resolve(&parsed).expect("benchmark source must resolve");
     let specialized = mal_compiler::check::specialize(
-        mal_compiler::check::check(&resolved).expect("benchmark source must check for specialization"),
+        mal_compiler::check::check(&resolved)
+            .expect("benchmark source must check for specialization"),
     )
     .expect("benchmark source must specialize");
     let core = mal_compiler::core::lower(&specialized);
@@ -22,19 +23,25 @@ fn main() {
     mal_compiler::editor::analyze(&source).expect("benchmark source must support editor analysis");
 
     println!("source_bytes={}", source.text().len());
-    measure("lex", || mal_compiler::lexer::lex(black_box(&source)));
+    measure("lex", || mal_syntax::lexer::lex(black_box(&source)));
     measure("parse_tokens", || {
-        mal_compiler::parser::parse_tokens(black_box(&source), black_box(&tokens))
+        mal_syntax::parser::parse_tokens(black_box(&source), black_box(&tokens))
     });
-    measure("parse", || mal_compiler::parser::parse(black_box(&source)));
-    measure("resolve", || mal_compiler::resolve::resolve(black_box(&parsed)));
+    measure("parse", || mal_syntax::parser::parse(black_box(&source)));
+    measure("resolve", || {
+        mal_compiler::resolve::resolve(black_box(&parsed))
+    });
     measure("check", || mal_compiler::check::check(black_box(&resolved)));
     measure("check_specialize", || {
         mal_compiler::check::check(black_box(&resolved)).and_then(mal_compiler::check::specialize)
     });
-    measure("core", || mal_compiler::core::lower(black_box(&specialized)));
+    measure("core", || {
+        mal_compiler::core::lower(black_box(&specialized))
+    });
     measure("anf", || mal_compiler::anf::lower(black_box(&core)));
-    measure("closure", || mal_compiler::closure::convert(black_box(&anf)));
+    measure("closure", || {
+        mal_compiler::closure::convert(black_box(&anf))
+    });
     measure("pipeline_check", || {
         mal_compiler::pipeline::check(black_box(&source))
     });

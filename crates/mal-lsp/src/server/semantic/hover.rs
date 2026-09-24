@@ -1,5 +1,5 @@
 use mal_compiler::editor::{Occurrence, SymbolKind};
-use mal_compiler::source::{SourceFile, Span};
+use mal_syntax::source::{SourceFile, Span};
 
 pub(super) fn contents(
     source: &SourceFile,

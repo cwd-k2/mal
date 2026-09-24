@@ -4,7 +4,40 @@ use std::path::{Path, PathBuf};
 use crate::diagnostic::Diagnostic;
 use crate::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
 
-use super::Error;
+use std::fmt;
+
+/// Failure to load a source graph from the file system or an overlay.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LoadError {
+    /// A source diagnostic already rendered against the loaded files.
+    Rendered(String),
+    /// A file system or encoding failure reported without source context.
+    Failure(String),
+}
+
+impl LoadError {
+    fn diagnostic(error: Diagnostic, sources: &impl crate::source::SourceProvider) -> Self {
+        Self::Rendered(error.render(sources))
+    }
+
+    fn source(error: crate::source::SourceLoadError) -> Self {
+        Self::Failure(error.to_string())
+    }
+
+    fn io(action: &str, path: &Path, error: std::io::Error) -> Self {
+        Self::Failure(format!("cannot {action} '{}': {error}", path.display()))
+    }
+}
+
+impl fmt::Display for LoadError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rendered(message) | Self::Failure(message) => formatter.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for LoadError {}
 
 #[derive(Clone, Copy)]
 enum State {
@@ -12,7 +45,7 @@ enum State {
     Loaded(FileId),
 }
 
-pub(super) fn load(root: &Path) -> Result<SourceGraph, Error> {
+pub fn load(root: &Path) -> Result<SourceGraph, LoadError> {
     let root_path = canonicalize_root(root)?;
     let overlays = HashMap::new();
     let mut builder = Builder::new(&overlays);
@@ -25,16 +58,16 @@ pub(super) fn load(root: &Path) -> Result<SourceGraph, Error> {
     ))
 }
 
-pub(super) fn load_with_overlays(
+pub fn load_with_overlays(
     root: &Path,
     root_text: &str,
     overlays: &HashMap<PathBuf, String>,
-) -> Result<SourceGraph, Error> {
+) -> Result<SourceGraph, LoadError> {
     let root_path = canonicalize_or_absolute(root)?;
     let mut normalized = overlays
         .iter()
         .map(|(path, text)| Ok((canonicalize_or_absolute(path)?, text.as_str())))
-        .collect::<Result<HashMap<_, _>, Error>>()?;
+        .collect::<Result<HashMap<_, _>, LoadError>>()?;
     normalized.insert(root_path.clone(), root_text);
     let mut builder = Builder::new(&normalized);
     let root = builder.load_mal(&root_path, None)?;
@@ -78,7 +111,7 @@ impl<'a> Builder<'a> {
         &mut self,
         path: &Path,
         requirement_span: Option<crate::source::Span>,
-    ) -> Result<FileId, Error> {
+    ) -> Result<FileId, LoadError> {
         match self.states.get(path).copied() {
             Some(State::Loaded(id)) => return Ok(id),
             Some(State::Loading) => {
@@ -89,7 +122,7 @@ impl<'a> Builder<'a> {
                         path.display()
                     ),
                 );
-                return Err(Error::diagnostic(diagnostic, &self.files));
+                return Err(LoadError::diagnostic(diagnostic, &self.files));
             }
             None => {}
         }
@@ -112,7 +145,7 @@ impl<'a> Builder<'a> {
             let source = &self.files[importer.index() as usize];
             let required_path =
                 requirement_path(source, &required.kind.path, required.kind.path_span)
-                    .map_err(|error| Error::diagnostic(error, &self.files))?;
+                    .map_err(|error| LoadError::diagnostic(error, &self.files))?;
             let kind = match required_path
                 .extension()
                 .and_then(|extension| extension.to_str())
@@ -122,7 +155,7 @@ impl<'a> Builder<'a> {
                 _ => {
                     let diagnostic = Diagnostic::error("invalid requirement path extension")
                         .with_primary(required.kind.path_span, "expected a `.mal` or `.c` path");
-                    return Err(Error::diagnostic(diagnostic, &self.files));
+                    return Err(LoadError::diagnostic(diagnostic, &self.files));
                 }
             };
             match kind {
@@ -132,7 +165,7 @@ impl<'a> Builder<'a> {
                         required.kind.path_span,
                         self.overlays,
                     )
-                    .map_err(|error| Error::diagnostic(error, &self.files))?;
+                    .map_err(|error| LoadError::diagnostic(error, &self.files))?;
                     match self.states.get(&canonical).copied() {
                         Some(State::Loaded(dependency)) => {
                             self.add_mal_requirement(importer, dependency, required.kind.path_span)
@@ -146,7 +179,7 @@ impl<'a> Builder<'a> {
                                         canonical.display()
                                     ),
                                 );
-                            return Err(Error::diagnostic(diagnostic, &self.files));
+                            return Err(LoadError::diagnostic(diagnostic, &self.files));
                         }
                         None => pending.push(
                             self.begin_mal(&canonical, Some((importer, required.kind.path_span)))?,
@@ -156,7 +189,7 @@ impl<'a> Builder<'a> {
                 RequirementKind::C => {
                     let canonical =
                         canonicalize_requirement(&required_path, required.kind.path_span)
-                            .map_err(|error| Error::diagnostic(error, &self.files))?;
+                            .map_err(|error| LoadError::diagnostic(error, &self.files))?;
                     if self.seen_c_sources.insert(canonical.clone()) {
                         self.c_sources.push(canonical);
                     }
@@ -170,14 +203,14 @@ impl<'a> Builder<'a> {
         &mut self,
         path: &Path,
         requested_by: Option<(FileId, crate::source::Span)>,
-    ) -> Result<PendingFile, Error> {
+    ) -> Result<PendingFile, LoadError> {
         let id = FileId::new(self.files.len() as u32);
         let source = self.overlays.get(path).map_or_else(
-            || SourceFile::load(id, path).map_err(Error::source),
+            || SourceFile::load(id, path).map_err(LoadError::source),
             |text| Ok(SourceFile::new(id, path, (*text).to_owned())),
         )?;
         let parsed =
-            crate::parser::parse(&source).map_err(|error| Error::diagnostic(error, &source))?;
+            crate::parser::parse(&source).map_err(|error| LoadError::diagnostic(error, &source))?;
         self.states.insert(path.to_owned(), State::Loading);
         self.files.push(source);
         self.requirements.push(Vec::new());
@@ -214,17 +247,17 @@ enum RequirementKind {
     C,
 }
 
-fn canonicalize_root(path: &Path) -> Result<PathBuf, Error> {
-    std::fs::canonicalize(path).map_err(|error| Error::io("read source", path, error))
+fn canonicalize_root(path: &Path) -> Result<PathBuf, LoadError> {
+    std::fs::canonicalize(path).map_err(|error| LoadError::io("read source", path, error))
 }
 
-fn canonicalize_or_absolute(path: &Path) -> Result<PathBuf, Error> {
+fn canonicalize_or_absolute(path: &Path) -> Result<PathBuf, LoadError> {
     match std::fs::canonicalize(path) {
         Ok(path) => Ok(path),
         Err(_) if path.is_absolute() => Ok(path.to_owned()),
         Err(_) => std::env::current_dir()
             .map(|current| current.join(path))
-            .map_err(|error| Error::io("resolve source path", path, error)),
+            .map_err(|error| LoadError::io("resolve source path", path, error)),
     }
 }
 
