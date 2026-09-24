@@ -4,7 +4,7 @@ local repository_root = assert(
 )
 
 return {
-  cmd = { repository_root .. "/tools/mal-lsp/target/release/mal-lsp" },
+  cmd = { repository_root .. "/target/release/mal-lsp" },
   filetypes = { "mal" },
   root_markers = { ".git" },
 }

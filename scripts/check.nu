@@ -5,23 +5,14 @@ def step [name: string, action: closure] {
     do $action
 }
 
-step "compiler format" {
-    cargo fmt --manifest-path compiler/Cargo.toml --check
+step "Rust format" {
+    cargo fmt --all --check
 }
-step "compiler lint" {
-    cargo clippy --manifest-path compiler/Cargo.toml --all-targets -- -D warnings
+step "Rust lint" {
+    cargo clippy --workspace --all-targets --locked -- -D warnings
 }
-step "compiler tests" {
-    cargo test --manifest-path compiler/Cargo.toml
-}
-step "language server format" {
-    cargo fmt --manifest-path tools/mal-lsp/Cargo.toml --check
-}
-step "language server lint" {
-    cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- -D warnings
-}
-step "language server tests" {
-    cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
+step "Rust tests" {
+    cargo test --workspace --locked
 }
 step "Tree-sitter generation" {
     cd editors/tree-sitter-mal

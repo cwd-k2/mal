@@ -4,8 +4,7 @@
     "nixEnvSelector.flakeShell": "default",
     "remote.autoForwardPorts": false,
     "rust-analyzer.linkedProjects": [
-        "${workspaceFolder}/compiler/Cargo.toml",
-        "${workspaceFolder}/tools/mal-lsp/Cargo.toml"
+        "${workspaceFolder}/Cargo.toml"
     ],
     "rust-analyzer.check.command": "clippy",
     "rust-analyzer.check.allTargets": true,

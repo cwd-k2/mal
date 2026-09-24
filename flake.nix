@@ -11,9 +11,9 @@
         pname = "malc";
         version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
         src = ./.;
-        cargoRoot = "compiler";
-        buildAndTestSubdir = "compiler";
-        cargoLock.lockFile = ./compiler/Cargo.lock;
+        cargoLock.lockFile = ./Cargo.lock;
+        cargoBuildFlags = [ "--package" "mal-compiler" ];
+        cargoTestFlags = [ "--package" "mal-compiler" ];
         nativeBuildInputs = [ pkgs.makeWrapper ];
         nativeCheckInputs = [ pkgs.clang pkgs.lld ];
         postInstall = ''
@@ -30,9 +30,9 @@
         pname = "mal-lsp";
         version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
         src = ./.;
-        cargoRoot = "tools/mal-lsp";
-        buildAndTestSubdir = "tools/mal-lsp";
-        cargoLock.lockFile = ./tools/mal-lsp/Cargo.lock;
+        cargoLock.lockFile = ./Cargo.lock;
+        cargoBuildFlags = [ "--package" "mal-lsp" ];
+        cargoTestFlags = [ "--package" "mal-lsp" ];
         postInstall = ''
           install -Dm644 $src/LICENSE $out/share/licenses/mal-lsp/LICENSE
         '';

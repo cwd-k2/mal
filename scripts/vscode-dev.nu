@@ -26,14 +26,14 @@ def main [
         return
     }
 
-    let server_manifest = ($REPOSITORY_ROOT | path join tools/mal-lsp/Cargo.toml)
+    let server_manifest = ($REPOSITORY_ROOT | path join Cargo.toml)
     let extension_path = ($REPOSITORY_ROOT | path join editors/vscode)
-    let server_path = ($REPOSITORY_ROOT | path join tools/mal-lsp/target/release/mal-lsp)
+    let server_path = ($REPOSITORY_ROOT | path join target/release/mal-lsp)
     let bundled_server = ($extension_path | path join server/mal-lsp)
 
     print "Building mal-lsp..."
     do --capture-errors {
-        ^cargo build --manifest-path $server_manifest --locked --release
+        ^cargo build --manifest-path $server_manifest --package mal-lsp --locked --release
     }
 
     print "Preparing VS Code extension dependencies..."

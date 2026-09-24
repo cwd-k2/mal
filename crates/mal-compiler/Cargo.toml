@@ -1,0 +1,23 @@
+[package]
+name = "mal-compiler"
+version.workspace = true
+edition.workspace = true
+description = "Compiler for the mal language"
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "malc"
+path = "src/main.rs"
+
+[[bench]]
+name = "pipeline"
+harness = false
+
+[dependencies]
+
+[lints]
+workspace = true

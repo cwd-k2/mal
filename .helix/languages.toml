@@ -1,5 +1,5 @@
 [language-server.mal-lsp]
-command = "tools/mal-lsp/target/release/mal-lsp"
+command = "target/release/mal-lsp"
 
 [[language]]
 name = "mal"

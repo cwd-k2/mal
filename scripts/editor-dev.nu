@@ -23,8 +23,8 @@ def main [
         return
     }
 
-    let server_manifest = ($REPOSITORY_ROOT | path join tools/mal-lsp/Cargo.toml)
-    let server_path = ($REPOSITORY_ROOT | path join tools/mal-lsp/target/release/mal-lsp)
+    let server_manifest = ($REPOSITORY_ROOT | path join Cargo.toml)
+    let server_path = ($REPOSITORY_ROOT | path join target/release/mal-lsp)
     let grammar_path = ($REPOSITORY_ROOT | path join editors/tree-sitter-mal)
     let artifact_root = ($REPOSITORY_ROOT | path join .artifacts/editor-runtime)
     let parser_path = ($artifact_root | path join mal.so)
@@ -32,7 +32,7 @@ def main [
     let neovim_runtime = ($artifact_root | path join neovim)
 
     print "Building mal-lsp..."
-    cargo build --manifest-path $server_manifest --locked --release
+    cargo build --manifest-path $server_manifest --package mal-lsp --locked --release
 
     print "Generating and testing tree-sitter-mal..."
     cd $grammar_path
