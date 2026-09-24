@@ -2,7 +2,7 @@
 name = "malc"
 version = "0.6.0-dev"
 edition = "2024"
-description = "Reference compiler for the mal language"
+description = "Compiler for the mal language"
 license = "MIT"
 publish = false
 

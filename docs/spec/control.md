@@ -1,6 +1,6 @@
 # result boundaryとcompletion
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 この文書はlexical result boundary、式のcompletion、`when`、空直和`[]`の規則を定める。
 通常のlambda、application、sum eliminationの規則は[式とbinding](expressions.md)を正とする。
@@ -38,7 +38,7 @@ bodyはすべてのreachable pathで自身または外側のresult binder applic
 `Abrupt`でなければならず、block自身のresult binderを少なくとも一つのreachable pathで適用しなければならない。同じlambda
 invocationに属する外側のresult binderは内側のresult blockを越えて外側blockを完了し、内側blockのresult edgeには合流しない。
 
-この構文はfunction valueを作らない。`[k]`だけなら従来どおりUnitを`k`へ渡すapplicationである。binderを持たない
+この構文はfunction valueを作らない。`[k]`だけならUnitを`k`へ渡すapplicationである。binderを持たない
 `[] => body`は認めない。
 
 ## completion judgment

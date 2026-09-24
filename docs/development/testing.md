@@ -1,4 +1,4 @@
-# Compiler test policy
+# compilerのtest方針
 
 Status: Current development policy
 
@@ -17,7 +17,7 @@ focused testと、影響する境界を代表するtestが通ったときに完�
 8. totality、idempotence、layoutの組合せは、固定入力から生成する有限でdeterministicなcorpusで検査する。
 
 optional optimizationは空集合の`baseline`を通常のcorrectness pathとする。各techniqueは単独のdecision testを持ち、採用済み集合は
-`production` profileとしてbaselineと同じobservable result、effect order、trap、owner終状態、bounded native stackを保つことを
+`production`としてbaselineと同じobservable result、effect order、trap、owner終状態、bounded native stackを保つことを
 representativeなcross-boundary testで確認する。performance固有のresource上限や生成形状を検査するtestだけがproductionを明示する。
 
 大きいintegration test targetは、共通helperとprocess起動回数を管理できるようtarget自体は維持しつつ、検査する

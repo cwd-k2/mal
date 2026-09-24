@@ -1,6 +1,6 @@
 # EngramとExtern
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## authority
 
@@ -62,8 +62,8 @@ admission、observation、capability transferのいずれにも暗黙には分�
 ## lifetime
 
 Engramがいつ回収可能になるかはmalが決める。source programとhostが観測できるのは、到達可能な値の意味が保持され、
-borrowがcall中有効であることだけである。Extern resourceのlifetimeはこの回収に連動しない。reference compilerの
+borrowがcall中有効であることだけである。Extern resourceのlifetimeはこの回収に連動しない。`malc`の
 現在の回収方式は[implementation notes](../implementation/compiler.md)に記録し、言語contractには固定しない。
 
-正確なextern signatureとtrusted範囲は[`extern`](extern.md)、reference C representationは
+正確なextern signatureとtrusted範囲は[`extern`](extern.md)、C representationは
 [C host ABI](c-host-abi.md)、memory operationは[external memory](memory.md)と[`Buffer`](memory.md)に定める。

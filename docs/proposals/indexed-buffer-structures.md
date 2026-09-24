@@ -24,4 +24,4 @@ rowを並べ替えるoperationは、carrier相対の全座標も同時にremap�
 [`relation-views`](../../examples/relation-views/README.md)を参照する。
 
 外部resourceに属するnode、recoverable allocation、個別releaseが必要な構造には`Address`とextern contractを使う。
-その場合、malはAddressのreferentを知らず、`from<T>`と`buffer.into`によるcopy可能な範囲だけをC host profileが提供する。
+その場合、malはAddressのreferentを知らず、`from<T>`と`buffer.into`によるcopy可能な範囲だけをC hostとのcopy primitiveが提供する。

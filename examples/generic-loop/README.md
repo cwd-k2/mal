@@ -35,10 +35,10 @@ because an arbitrary state product is configuration, not a domain object.
 `forEach` can use the same cursor state with a callback returning `Unit`; it is omitted because this
 standalone example deliberately has no host-visible effects.
 
-The recursive call in `loop` has no work pending after it. The reference compiler closes the step
+The recursive call in `loop` has no work pending after it. The `malc` closes the step
 closure and sum continuation into a recursive control region, places activation-local temporaries in
 the region function's entry block, and executes the back edge without growing the native stack with
-the transition count. The example is built and executed in both baseline and production profiles.
+the transition count. The example is built and executed in both `baseline` and `production` optimization modes.
 
 From the repository root in Nushell:
 

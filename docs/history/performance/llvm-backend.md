@@ -4,7 +4,7 @@ Status: Historical record
 
 この文書はLLVM backendとchecked-in C11 runtimeを分離した後のpublic buildについて、LTO採用時の測定と判断を保存する。
 現在の採用条件は[generated program最適化policy](../../development/generated-program-optimization.md)、責務境界は
-[実行backend](../../design/execution-backend.md)を正とする。
+[実行backend](../../implementation/execution-backend.md)を正とする。
 
 ## 2026-09-10 — public buildへのLTO採用
 

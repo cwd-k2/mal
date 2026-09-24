@@ -10,7 +10,7 @@ fn public_cli_reports_help_version_and_usage_status() {
     assert_eq!(help, malc::cli::HELP);
     assert!(output.stderr.is_empty());
     assert!(!help.contains("emit-c"));
-    assert!(help.contains("Optimization profile [default: production]"));
+    assert!(help.contains("Optimization mode [default: production]"));
     assert!(help.contains("Executable output path (required)"));
     assert!(help.contains("Add a Clang argument; may be repeated"));
 

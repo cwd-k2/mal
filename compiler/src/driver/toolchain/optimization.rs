@@ -1,10 +1,10 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::driver) enum OptimizationProfile {
+pub(in crate::driver) enum OptimizationMode {
     Baseline,
     Production,
 }
 
-impl OptimizationProfile {
+impl OptimizationMode {
     pub(in crate::driver) const fn arguments(self) -> &'static [&'static str] {
         match self {
             Self::Baseline => &["-O0", "-Wno-error=#warnings"],
@@ -18,14 +18,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keeps_toolchain_optimization_out_of_the_semantic_profile() {
+    fn keeps_toolchain_optimization_out_of_the_semantic_mode() {
         assert_eq!(
-            OptimizationProfile::Baseline.arguments(),
+            OptimizationMode::Baseline.arguments(),
             ["-O0", "-Wno-error=#warnings"]
         );
-        assert_eq!(
-            OptimizationProfile::Production.arguments(),
-            ["-O2", "-flto"]
-        );
+        assert_eq!(OptimizationMode::Production.arguments(), ["-O2", "-flto"]);
     }
 }

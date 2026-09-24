@@ -2,10 +2,10 @@
 
 Status: Current implementation design
 
-この文書はreference compilerが記述programを実行物へ変換するときのLLVM IR、C runtime、public C interfaceの
+この文書は`malc`が記述programを実行物へ変換するときのLLVM IR、C runtime、public C interfaceの
 責務境界を定める。採択理由は[D041](../history/decisions/D041.md)、現在実装のmodule配置は
-[compilerの責務境界](../implementation/responsibilities.md)、control変換は
-[application control lowering](../development/application-control-lowering.md)、外部根拠は
+[compilerの責務境界](responsibilities.md)、control変換は
+[application control lowering](application-control-lowering.md)、外部根拠は
 [LLVM backend調査](../research/llvm-backend.md)を正とする。
 
 ## 原則
@@ -16,7 +16,7 @@ Status: Current implementation design
 - C runtimeは、programによらないstorageと汎用operationを所有する。
 - C shimとgenerated headerは、hostへ公開するC ABIを所有する。
 
-reference compilerが使用するtarget toolchainはpinned Clang/LLVMに限定し、runtime、shim、host adapterのsource languageはC11とする。
+`malc`が使用するtarget toolchainはpinned Clang/LLVMに限定し、runtime、shim、host adapterのsource languageはC11とする。
 GCCその他のC compilerとのsource compatibility、option compatibility、ABI compatibilityは設計条件にしない。
 
 ```text
@@ -53,15 +53,15 @@ C runtimeを呼ぶ。
 
 public host interfaceは現在のC ABIを維持し、LLVM IRの型、calling convention、frame、closure carrierを公開しない。LLVMはCより
 低水準であり、`ccc`を指定するだけではsource-level C aggregateのtarget ABI loweringをfrontendに代わって構成しない。このため
-reference backendはhost-visible productとsumをLLVM function signatureで直接受け渡さない。Symbolはpublic host interfaceへ出さない。
+LLVM backendはhost-visible productとsumをLLVM function signatureで直接受け渡さない。Symbolはpublic host interfaceへ出さない。
 
 LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、opaque pointer、input pointer、result out-pointerを
 基本とする。fixed-width scalarをsignatureで直接渡す場合や共有record layoutが必要な場合は、一つのbackend ABI planからC
 declarationとLLVM type、parameter attributeを生成し、双方でsignature、field、size、alignmentを再定義しない。bridge symbolは
 public headerへ出さない。
 
-driverのproduction optimization profileはgenerated module、runtime C、C shim、利用者がrequireしたC sourceを同じLTO unitとして
-compile、linkする。baseline profileはLTOを使わない。LTOは
+driverの`--optimization production`はgenerated module、runtime C、C shim、利用者がrequireしたC sourceを同じLTO unitとして
+compile、linkする。`--optimization baseline`はLTOを使わない。LTOは
 `mal_control_reserve_frame`のcapacity fast pathなど、責務境界に置いた小さいhelperのinliningとcross-module optimizationに使う。
 正しさ、ABI一致、stack boundはLTOへ依存させず、LTOを無効にしても同じobservable resultを保つ。
 
@@ -89,7 +89,7 @@ direct self-tail parameter planを有効にしたfunctionでは、admit済みpat
 entry prefixの後へbranchする。backendはuse、binding同一性、ownership、prefix purityを再推論しない。これはLLVMのmem2regとphi形成へ
 loop-carried valueを公開するtarget固有の表現選択である。
 
-LLVM coroutine intrinsicはreference backendに使わない。malは外部resume、suspended coroutine identity、destroy operationを必要とせず、
+LLVM backendはLLVM coroutine intrinsicを使わない。malは外部resume、suspended coroutine identity、destroy operationを必要とせず、
 recursive regionではcoroutine frame allocationのelisionも通常期待できない。既存control IRのframeとresumeを直接lowerする。
 
 ## targetとartifact
@@ -98,5 +98,5 @@ LLVM moduleはdriverが選んだtarget tripleとdata layoutを持ち、同じtar
 bitcodeをtargetおよびLLVM versionから独立した配布形式とは扱わない。永続的なpublic artifactはC headerと最終objectまたは
 executableであり、IR出力を公開する場合は使用toolchainとtargetに結びつくdiagnostic/development artifactとする。
 
-artifactの具体像は[LLVM backend生成物例](../development/llvm-backend-artifacts.md)、採用後の最適化gateは
+artifactの具体像は[LLVM backend生成物例](llvm-backend-artifacts.md)、採用後の最適化gateは
 [generated program最適化policy](../development/generated-program-optimization.md)に置く。

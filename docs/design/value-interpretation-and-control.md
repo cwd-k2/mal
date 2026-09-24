@@ -80,6 +80,26 @@ dynamic continuationはsource valueとして構成、capture、clone、resumeで
 複数の可能性を扱う場合は、進行中のcontinuationを複製せず、候補またはstateを値として構成し、それぞれに新しいapplicationを
 行う。この分担により、再利用可能な記述と、外部作用を含み得る一回の現実の進行を分ける。
 
+## 反復controlとdomain stepを分ける
+
+自己再帰が次の状態を選ぶだけで、各stepの後に未完了の処理を残さない場合、再帰そのものをdomain operationへ
+埋め込む必要はない。変化する値を明示的なstate、一回分の処理をstep、次状態と最終結果の選択を直和として分ければ、
+同じmechanismから`upto`、`times`、`fold`、`any`、program固有のstate machineを定義できる。利用側にはmechanism名の
+`loop`を常に露出させず、走査範囲、empty case、順序、早期終了を表す用途上の名前を選んでよい。
+
+この分離は関数全体をloopへ変える規則ではない。前処理の後でloop expressionから値を得て後続処理へ戻る局所利用も
+できる。採用するのは、終了判定やcursor更新の重複を一箇所へ集め、domain callbackを「現在の要素をどう扱うか」に
+近づけられる場合である。closure、state product、追加の抽象名が直接再帰より多くの知識を要求するだけなら分離しない。
+特にhost resourceのauthorityはoperation contractに明示する。このauthorityを反復callbackから隠す
+抽象化は行わず、domain名を持つ直接再帰で引数とlifetimeを露出させる。
+
+子から戻った後にも処理を行うtree traversal、入力のnesting自体を表す構造再帰、resource cleanupの順序を表す再帰は、
+単純な反復へ置き換えない。明示work stackなど別の表現が必要なら、反復combinatorの導入とは別の設計判断として扱う。
+実行例は[`generic-loop`](../../examples/generic-loop/)、parser state machineは
+[`json-query`](../../examples/json-query/)、処理途中の局所利用は
+[`resizable-buffer`](../../examples/resizable-buffer/)、carrier走査とrelation解釈の分離は
+[`relation-views`](../../examples/relation-views/)に置く。
+
 ## Host境界
 
 external functionもMAL内では通常の再利用可能なfunction valueであり、そのapplicationごとに一回host operationを実行する。

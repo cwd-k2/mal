@@ -24,11 +24,11 @@ pub struct BuildOptions<'a> {
     pub output_path: &'a Path,
     pub artifact_directory: Option<&'a Path>,
     pub clang_arguments: &'a [OsString],
-    pub optimization: OptimizationProfile,
+    pub optimization: OptimizationMode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum OptimizationProfile {
+pub enum OptimizationMode {
     Baseline,
     Production,
 }
@@ -82,16 +82,16 @@ struct GeneratedBuild {
 fn generate_build_inputs(
     source_path: &Path,
     artifact_directory: Option<&Path>,
-    optimization: OptimizationProfile,
+    optimization: OptimizationMode,
 ) -> Result<GeneratedBuild, Error> {
     let graph = graph::load(source_path)?;
     let execution_optimizations = match optimization {
-        OptimizationProfile::Baseline => crate::execution::OptimizationSet::none(),
-        OptimizationProfile::Production => crate::execution::OptimizationSet::production(),
+        OptimizationMode::Baseline => crate::execution::OptimizationSet::none(),
+        OptimizationMode::Production => crate::execution::OptimizationSet::production(),
     };
     let llvm_optimizations = match optimization {
-        OptimizationProfile::Baseline => crate::backend::llvm::OptimizationSet::none(),
-        OptimizationProfile::Production => crate::backend::llvm::OptimizationSet::production(),
+        OptimizationMode::Baseline => crate::backend::llvm::OptimizationSet::none(),
+        OptimizationMode::Production => crate::backend::llvm::OptimizationSet::production(),
     };
     let execution = crate::pipeline::lower_graph_execution(&graph, execution_optimizations)
         .map_err(|error| Error::diagnostic(error, &graph))?;
@@ -148,10 +148,10 @@ fn generate_build_inputs(
     })
 }
 
-fn toolchain_optimization(profile: OptimizationProfile) -> toolchain::OptimizationProfile {
-    match profile {
-        OptimizationProfile::Baseline => toolchain::OptimizationProfile::Baseline,
-        OptimizationProfile::Production => toolchain::OptimizationProfile::Production,
+fn toolchain_optimization(mode: OptimizationMode) -> toolchain::OptimizationMode {
+    match mode {
+        OptimizationMode::Baseline => toolchain::OptimizationMode::Baseline,
+        OptimizationMode::Production => toolchain::OptimizationMode::Production,
     }
 }
 
@@ -161,7 +161,7 @@ fn run_compiler<'a>(
     generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
     required_inputs: impl IntoIterator<Item = &'a PathBuf>,
     additional_arguments: &[OsString],
-    optimization: toolchain::OptimizationProfile,
+    optimization: toolchain::OptimizationMode,
     output_path: &Path,
 ) -> Result<(), Error> {
     let compiler = OsStr::new(toolchain::CLANG);
@@ -193,7 +193,7 @@ fn run_atcoder_assembly_emitter<'a>(
     generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
     required_inputs: impl IntoIterator<Item = &'a PathBuf>,
     additional_arguments: &[OsString],
-    optimization: toolchain::OptimizationProfile,
+    optimization: toolchain::OptimizationMode,
 ) -> Result<String, Error> {
     let compiler = OsStr::new(toolchain::CLANG);
     let output_base = include_directory.join("program-atcoder");
@@ -229,7 +229,7 @@ fn compiler_command<'a>(
     generated_inputs: impl IntoIterator<Item = &'a PathBuf>,
     required_inputs: impl IntoIterator<Item = &'a PathBuf>,
     additional_arguments: &[OsString],
-    optimization: toolchain::OptimizationProfile,
+    optimization: toolchain::OptimizationMode,
 ) -> Command {
     let mut command = Command::new(toolchain::CLANG);
     command

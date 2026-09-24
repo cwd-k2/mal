@@ -5,7 +5,7 @@ use super::Error;
 
 mod optimization;
 
-pub(super) use optimization::OptimizationProfile;
+pub(super) use optimization::OptimizationMode;
 
 pub(super) const CLANG: &str = "clang";
 

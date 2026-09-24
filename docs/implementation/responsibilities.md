@@ -42,9 +42,13 @@ pure functionも、そのfunctionが扱う語彙とpolicyを所有するstageへ
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
+| `backend/llvm` | admitted execution planからLLVM moduleとC shimへの変換 |
+| `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
+| `backend/source_layout` | runtime value layoutと独立に、canonical memoryのstride、alignment、offsetをtarget data layoutから構成 |
+| `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation |
 | `pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
-| `driver` | source file、require pathの相対解決とfilesystem候補、temporary path、C compiler process、C build input、およびbuild optimization profileの選択 |
+| `driver` | source file、require pathの相対解決とfilesystem候補、temporary path、C compiler process、C build input、および`--optimization`の選択 |
 | `driver/toolchain` | pinned Clangからhost target tripleとdata layoutを取得し、LLVM/C artifactを同じtargetへcompile |
 | `driver/toolchain/optimization` | semantic correctness optionから独立したbaselineまたはproductionのClang optimization argumentを構成 |
 | `diagnostic` | stage errorを利用者向け表現としてrenderする共通機構 |
@@ -88,7 +92,7 @@ C shimの共通ABI planへ渡す。
 source graphへadmitし、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
-## v0.6 translation boundary
+## generics、memory、host境界の変換
 
 genericsとexternal memoryも既存stageのadmission責務に従う。
 
@@ -98,7 +102,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
 | check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
 | specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
-| core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete indexed typeとprimitiveだけを扱う |
+| core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | managed Buffer storage、Unitのcount-only表現、Symbol snapshot copyを実装する |
@@ -109,163 +113,16 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に
 判定できる条件は、所有stageがstructured diagnosticとして拒否する。
 
-## 現在のmodule境界
+## module構成
 
-大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyで分割する。
-この表は各moduleが所有する判断またはdataだけを短く示す。手順、個別の拒否条件、性能上の選択は、仕様、所有moduleのcode、
-またはdecision recordを正とし、ここへ列挙しない。説明を短くできない場合は、moduleが複数の判断を所有していないか先に見直す。
+大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyでmoduleに分ける。moduleごとの責務は各directoryの
+`README.md`とcodeを正とし、この文書にはmoduleの一覧を置かない。
 
-### Frontendからcontrolまで
-
-| Module | Owned responsibility |
-|---|---|
-| `parser/expression` | Pratt loop、prefix dispatch、operator precedence |
-| `parser/expression/forms` | product、双方向application、receiver-first application、numeric conversion、zero-continuation application |
-| `parser/expression/lambda` | parameterとlambda bodyの構成 |
-| `parser/expression/control` | `if`、`when`、direct block、direct result blockの構成 |
-| `resolve` | source file内の宣言順序、resolved itemの構成、lambda identity |
-| `resolve/files` | require先のpublic name導入、file-private name、program item順序 |
-| `resolve/scope` | declaration identity、name lookup、scope stack、重複検査 |
-| `resolve/expression` | expression、左結合operator列の反復走査、transitive capture、result authorityの解決とnested lambdaからのcapture拒否 |
-| `check` | program順序、value environment、entry identityとparameter form、result target、body item列の到達可能性、checked itemの構成 |
-| `check/control` | `if`、`when`、direct block、direct result blockの`Value` / `Abrupt` completionとlocal result targetを構成 |
-| `check/expression` | expression kindのdispatch、reference、literal、product、memory formをexpected typeへ照合 |
-| `check/expression/application` | ordinary・receiver-first・continuation application、result transfer、empty eliminationの型とcompletionを構成 |
-| `check/lambda` | expected function型に対するparameterとlambda body completionを検査 |
-| `check/operator` | numeric、logical、Symbol operatorの型規則、左結合列の中間型と評価順を検査 |
-| `check/operator/arithmetic` | numericとSymbol concatenationのoperand選択とresult型を構成 |
-| `check/operator/logical` | Boolのshort-circuit operatorとright operandのabrupt completionを構成 |
-| `check/memory` | Buffer access、Symbol snapshot conversion、C host copy primitiveの型規則を検査し、memory primitiveの論理operandをsource productとは区別して構成 |
-| `check/types` | alias collection、alias dependencyの反復的cycle検査、canonical type expansion |
-| `check/types/properties` | `Representable` requirementと物理表現上限の反復的検査 |
-| `check/types/display` | canonical typeのboundedな診断表示 |
-| `check/interface` | extern transport検査とalias dependencyを反復的に辿るsource-level metadata抽出 |
-| `check/initializer` | top-level closed-value admission |
-| `check/float` | decimal float literalからIEEE 754 binary interchange formatへの正確なrounding |
-| `check/float/big_uint` | 有界化したdecimal coefficientのroundingだけが使うdependency-freeの非負多倍長整数演算 |
-| `check/specialize` | checked entryから到達するbindingを選択し、concrete type argumentごとのmonomorphic instanceを共有 |
-| `check/specialize/admission` | specialization node上限とsource patternからbinding itemへのindex構築 |
-| `formatter/layout` | block compactness、常に展開する`when`のblock body、top-level groupの事前計算 |
-| `formatter/control` | source ASTを反復走査し、block position、RHSにある`if`、control expressionの終了位置を事前分類 |
-| `formatter/token` | 一般tokenのspacing、式内の明示的なline break、statementとtop-level group間の一つの空行の保持 |
-| `formatter/token/control` | `if`とblock delimiterの出力state遷移 |
-| `editor/index` | declaration occurrenceのidentity indexからdocument symbol、completion、file-local viewを構成 |
-| `editor/index/resolved_ast` | source declaration/reference identityと明示されたalias名をresult binderを含めて収集し、左結合列を反復走査 |
-| `editor/index/checked_ast` | checked expressionとresult binderのcanonical typeをsemantic indexへ収集し、左結合列を反復走査 |
-| `editor/syntax` | parseまたは型検査に失敗したcurrent sourceでもtoken分類、top-level function候補、先頭の完全なrequirement declarationのpath content spanとdecode済みvalueを提供するsyntax indexを構成 |
-| `editor/syntax/declaration` | current tokenからtop-level function declarationを保守的に分類 |
-| `driver/requirement` | require pathの相対解決とfilesystem completion候補を構成 |
-| `driver/graph` | `.mal` requirementを反復的にloadしてcycleを検出し、C sourceを重複なく集めてsource graphを構成 |
-| `driver/build` | source graph、optimization profile、artifact directory、generated input、Clang process、AtCoder carrierを一つのbuild use caseへ構成 |
-| `core/interface` | checked programからhost-visible metadataだけを抽出 |
-| `core/external` | checked external operation identityとsignatureを通常のcapture-free lambdaとexternal callへ変換 |
-| `core/expression` | checked expression kindをcore expressionへdispatchし、既に所有moduleが持つcontrol、memory、Buffer loweringへ接続 |
-| `core/lambda` | lambda parameterとbody item列をcore binding、lexical join、closure captureへ変換 |
-| `core/buffer` | Bufferのmake/new/get/put/fill/copyを、source productを作らない論理operand列を持つcore operationへlowering |
-| `core/completion` | body item列を反復的にlowerし、checked completionの`Value` pathとdirect result blockをlexical joinへ接続してresult transfer、`when`、empty eliminationをcore controlへ消去 |
-| `core/completion/abrupt` | local result transfer、empty elimination、全branch abrupt、direct blockのterminal controlを構成 |
-| `core/completion/result_block` | direct result binder identityをlexical join targetへ対応させ、block bodyと後続を接続 |
-| `core/completion/value` | control pathを含むoperator valueをcore primitiveとBool eliminationへ再構成 |
-| `core/completion/presence` | lexical continuationの配布が必要なchecked subtreeを分類 |
-| `anf` | core expressionをatomとoperationのblockへ変換し、memory primitiveとBuffer primitiveの論理operand、lambda-local join identityを保持 |
-| `closure` | ordinary functionのcapture schemaを構成し、checked entry bindingをfunction identityへ写し、同じfunction内のjoin bodyを保持 |
-| `core/bool` | Bool eliminationを明示的な`case`へ変換 |
-| `control` | closure-converted blockとjoin arenaからcallを含まないstate、join target、terminator、resume frameのlive valueを構成し、function environment schemaを複製しない |
-| `control/forwarding` | call結果をaliasとjoinだけでfunction resultへ転送するidentity continuation、および`Unit` atomとjoinだけを通るterminal continuationをtail callへ正規化 |
-| `control/liveness` | stateごとのlocal valueとclosure environmentのbackward liveness、およびcontrol bindingのuse countを構成 |
-
-### Execution plan
-
-| Module | Owned responsibility |
-|---|---|
-| `execution/closure` | closure creatorとaliasを追跡し、静的に既知のapplication targetを構成 |
-| `execution/application` | application siteのcallerとpossible target |
-| `execution/optimization` | execution techniqueのdecision集約 |
-| `execution/optimization/self_tail` | direct self-tail fusion候補 |
-| `execution/optimization/tail_forwarder` | pure tail-forwarder fusion候補 |
-| `execution/optimization/direct_call` | known-target call候補 |
-| `execution/optimization/unique_capture` | 一回限りのentry callbackで移動可能なcapture |
-| `execution/optimization/frame_pass_through` | 全自己再帰edgeが保持するframe parameter field |
-| `execution/pass_through` | parameter patternとargumentの構造的なbinding対応 |
-| `execution/continuation` | possible application graphから選択済みcontinuation elisionを除いたcontinuation edgeを構成 |
-| `execution/region` | residual continuation graphのrecursive SCC partitionとregion内site・target所属を構成 |
-| `execution/call` | applicationのcall mode |
-| `execution/parameter` | function parameterのcontrol bindingをcall mode共通の`Bind`または`Discard` destinationへ変換 |
-| `execution/self_tail_parameter` | useと全direct self-tail edgeの構造的な同一性を満たすparameter leaf、persistent lender、entry prefix |
-| `execution/frame` | region内non-tail suspension siteからtyped frame、live value、およびframeが運ぶenvironment ownerを導出 |
-| `execution/frame/resume` | 同じcontrol machineに属するreturn siteとframeについて、resume可能または到達不能な組合せを導出 |
-| `execution/frame/replacement` | 退役frame容量を再利用できるcontrol path |
-| `execution/ownership` | managed responsibility planとexact validator |
-| `execution/ownership/authority` | managed authority rootとprovenance |
-| `execution/ownership/borrow` | authority dependencyで閉じたmanaged livenessをcontrol state、binding、terminatorへ提供する |
-| `execution/ownership/identity` | control edge、ordinary closure capture、operation operand位置、parameter entry、owner use effectのidentity語彙を宣言 |
-| `execution/ownership/managed` | `Symbol`、`Buffer`、closureとそれらを含むaggregateのmanaged分類を一箇所で構成 |
-| `execution/ownership/liveness` | control successorとoperation operandを走査し、state入口のmanaged binding livenessを構成 |
-| `execution/ownership/destination` | pattern leafを`Initialize`、`Borrow`、`Discard`またはunmanaged destinationへ写す |
-| `execution/ownership/operand` | logical operandのstable use identity |
-| `execution/ownership/use_plan` | managed use effect |
-| `execution/ownership/drop_plan` | binding後とcontrol edge上のdrop |
-| `execution/ownership/parameter` | parameter boundaryのresponsibility |
-
-### Backendとruntime
-
-| Module | Owned responsibility |
-|---|---|
-| `backend/c` | public C headerとhost stubを`ProgramInterface`から構成 |
-| `backend/abi` | LLVM moduleとC shimが共有するinternal pointer/out-pointer bridgeを一つのplanから構成 |
-| `backend/llvm` | admitted execution planのLLVM module |
-| `backend/llvm/host_bridge/plan` | extern parameterとresultについて、LLVM value storageの再帰的layoutとmarshalling traversalをC emissionより先に確定 |
-| `backend/llvm/host_bridge` | marshalling planからpublic C host valueとの変換をtyped C syntaxとして構成 |
-| `backend/llvm/shim` | process argument countとC host pointer列を渡し、internal root bridgeを呼ぶC11 entry pointを構成 |
-| `backend/llvm/body/types` | LLVM内のvalue type、target pointer size、scalar ABI alignment、value ABI alignmentの最大値、structural representationを構成 |
-| `backend/source_layout` | runtime value layoutと独立に、canonical source storageのstride、alignment、product field、sum payload offsetをtarget data layoutから構成 |
-| `backend/llvm/body/admission` | target幅のliteral・layout constantとpointer alignment capabilityをsource span付きでartifact生成前に検査 |
-| `backend/llvm/body/plan` | closure stageが確定したentry function、reachable state、slot、およびcheckerがadmitしたclosed top-level valueのtarget-specific LLVM constant planを構成 |
-| `backend/llvm/body/setup` | program内identityとframe tagのindex、function emitterのadmission、slot収集、prologue、およびfunction全体の出力順を構成 |
-| `backend/llvm/body/operation` | ordinary closureのcapture environmentからLLVM function valueを構成 |
-| `backend/llvm/body/terminator` | control terminatorをbranch、call、return、caseへ変換 |
-| `backend/llvm/body/call_emission` | call境界のLLVM value handoff |
-| `backend/llvm/body/call_emission/environment` | closure environment境界 |
-| `backend/llvm/body/call_emission/parameter` | parameter responsibility handoff |
-| `backend/llvm/body/control_storage` | region-local storage view、capacity fast path、relocation後のrefresh |
-| `backend/llvm/body/control_top` | region-local top accessとnative Mal call境界の共有top同期 |
-| `backend/llvm/body/aggregate` | productとsumのLLVM value構築、case dispatch、payload抽出を構成 |
-| `backend/llvm/body/value` | local slot、product field、function境界にあるmanaged ownerの再帰的なretain、transfer、releaseを構成 |
-| `backend/llvm/body/value/atom` | closure atomをtarget literal、reference load、closure carrierへ変換 |
-| `backend/llvm/body/value/use_effect` | execution ownership useをborrow、retain、source slot失効へ変換 |
-| `backend/llvm/body/value/pattern` | executionのpattern destinationへtyped valueを格納または破棄 |
-| `backend/llvm/body/value/lifetime` | managed typeを再帰走査してretain、release、dead slot cleanupを出力 |
-| `backend/llvm/optimization` | target固有emission decisionの集約 |
-| `backend/llvm/optimization/control_storage` | local control storage viewを使うrecursive function集合 |
-| `backend/llvm/optimization/control_top` | local control topを使うrecursive function集合 |
-| `backend/llvm/optimization/self_tail_parameter` | execution planがadmitしたself-tail parameter leaf emissionの有効化 |
-| `backend/llvm/optimization/symbol_concat` | concat storage再利用候補 |
-| `backend/llvm/body/frame` | value ABI alignmentの最大値とtag metadata alignmentから作る普遍的なframe start rule、退役容量のlayout上の再利用、code-pointer dispatch、owner transferを構成 |
-| `backend/llvm/body/frame/resume` | control topからframeをpopし、tagをdispatchしてfield、result、active environmentをresume activationへ復元 |
-| `backend/llvm/body/scalar` | 整数・浮動小数点型のLLVM幅、alignment、signedness、literal、instruction選択を構成 |
-| `backend/llvm/body/memory` | `Address`、`Buffer`、canonical layout、`Buffer` transferをtarget layoutに従うLLVM memory operationへ変換 |
-| `backend/llvm/body/memory/buffer` | managed Buffer operationとC host copy primitiveのLLVM emission |
-| `backend/llvm/body/memory/dispatch` | admitted memory primitiveを対応するtarget loweringへdispatch |
-| `backend/llvm/body/memory/product` | memory operandに使うtyped product fieldを抽出 |
-| `backend/llvm/body/memory/storage` | canonical scalar・product・sumについて、external storageのunaligned accessとmal-owned storageの保証済みalignmentを区別してload/storeを出力 |
-| `backend/llvm/body/memory/view` | Buffer lengthとSymbol/Buffer snapshot conversionを出力 |
-| `backend/artifact` | LLVM module、C shim、public headerをsuffix推論なしに型で区別 |
-| `backend/runtime` | checked-in C11 runtime sourceをartifact種別とfile名付きで選択し、byte ownerを使わないprogramからbytesとSymbolの入力を除外 |
-| `runtime/c11/core.c` | closure environment carrierのtagからmanaged retain/releaseとscoped no-opをdispatchし、各environmentのallocationとprogram非依存のtrap terminalを実装 |
-| `runtime/c11/control.c` | frameの型やresume targetを解釈せず、control byte storageのcapacity、growth、releaseを実装し、storageとcapacityの取得およびreserveをinternal ABIで提供 |
-| `runtime/c11/bytes.c` | byte ownerとmanaged Bufferのstorage policy |
-| `runtime/c11/bytes_internal.h` | C runtime内のprivate byte owner/view carrierとLLVM static ownerが共有するheader layoutを宣言 |
-| `runtime/c11/symbol.c` | 共通byte owner上の`Symbol` indexing、equality、concatenation policyとdead operand storageの再利用を実装 |
-| `backend/c/syntax` | public header、host stub、generated C shimが実際に使うC declaration、expression、statement、preprocessor構文だけを型付きnodeとして保持しrender |
-| `backend/c/syntax/name`、`backend/c/syntax/literal` | identifier、numeric token、string literalなどC terminalへのadmissionとescaping |
-| `backend/c/syntax/*/render` | 対応する構文nodeのprecedence、indent、line break、token spelling |
-| `backend/c/types::TypeRegistry` | 子representation identityからbottom-upにinternするhost interface全体のstructural identityとC typeへのmapping |
-| `backend/c/types/collect` | `ProgramInterface`からhost-visibleなstructural representationを共有DAGのpostorderで収集する走査 |
-| `backend/c/types::HostTypes` | externから到達できる型とcheckerがcanonical memory accessを認めたaliasから、host-visible typeの集合を構成 |
-| `backend/c/types/host` | HostMappableなaggregateのconstructor、observer、およびchecked projectionの構成 |
-| `backend/c/types/host/declaration` | host adapter内部表現とpublic C headerに必要なhost-visible type declarationを構成 |
-| `backend/c/types/host/memory` | checkerが認めたnamed aliasについて、共有canonical layout planからunaligned-safeなC read/write helperを構成 |
-| `backend/c/header/prefix` | generated headerのinclude guard、portability macro、runtime ABI prefix |
+- [`check`](../../compiler/src/check/README.md)
+- [`execution`](../../compiler/src/execution/README.md)
+- [`backend/llvm`](../../compiler/src/backend/llvm/README.md)
+- [`backend/c`](../../compiler/src/backend/c/README.md)
+- [`runtime/c11`](../../compiler/runtime/c11/README.md)
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
 `execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは

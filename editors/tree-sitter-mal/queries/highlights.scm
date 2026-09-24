@@ -8,7 +8,6 @@
 
 (type_identifier) @type
 (conversion_type) @type.builtin
-(shape_atom) @type.builtin
 (wildcard) @variable.builtin
 (value_identifier) @variable
 

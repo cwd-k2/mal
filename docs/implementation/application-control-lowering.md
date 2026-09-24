@@ -3,8 +3,8 @@
 Status: Current implementation design
 
 この文書はclosure-converted ANFからbackend-independentなapplication control planを導出する規則を管理する。source semanticsは
-[実行意味論](../spec/execution.md)、compiler内の責務は[compilerの責務境界](../implementation/responsibilities.md)、LLVMでの具体化は
-[実行backendの責務境界](../design/execution-backend.md)を正とする。
+[実行意味論](../spec/execution.md)、compiler内の責務は[compilerの責務境界](responsibilities.md)、LLVMでの具体化は
+[実行backendの責務境界](execution-backend.md)を正とする。
 
 ## authority
 
@@ -47,7 +47,7 @@ parameter patternを再解釈せず、このdestinationをtarget固有のowner o
 統合する。全edgeで保持されるmanaged leafと、一回だけ使われるunmanagedな先頭分解から、backendがparameter leafとして扱ってよい
 patternとentry prefixを構成する。保持されるmanaged leafはinvocation中のpersistent lenderでもあり、ownership planはそのleafから
 純粋な`Atom`分解で得るaliasをback edge越しにborrowできる。条件を満たさないfunctionはplanへ入れない。target固有の表現は
-[実行backendの責務境界](../design/execution-backend.md#control-storage)が所有する。
+[実行backendの責務境界](execution-backend.md#control-storage)が所有する。
 
 ## continuation frame
 
@@ -98,7 +98,7 @@ backendが所有する。
 
 managed valueをframeへ保存するときはframeが独立したownership shareを持つ。local cleanup後もcallee argumentとenvironmentがliveである
 順序を保ち、resumeまたはterminal returnで各shareを一度だけreleaseする。詳細は
-[managed value ownership](../implementation/ownership.md)を正とする。
+[managed value ownership](ownership.md)を正とする。
 
 control storageはMal programから到達不能なimplementation storageである。sizeがtarget整数で表現不能な場合とallocation failureは
 言語上のeffectではなくimplementation resource failureとしてprocessを異常終了させる。

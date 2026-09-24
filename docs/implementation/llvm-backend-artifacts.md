@@ -2,8 +2,8 @@
 
 Status: Illustrative
 
-この文書は[実行backendの責務境界](../design/execution-backend.md)を具体的な生成物へ写した例を示す。identifier、helper signature、
-file名はpublic contractではない。現在の責務は[compilerの責務境界](../implementation/responsibilities.md)を正とする。
+この文書は[実行backendの責務境界](execution-backend.md)を具体的な生成物へ写した例を示す。identifier、helper signature、
+file名はpublic contractではない。現在の責務は[compilerの責務境界](responsibilities.md)を正とする。
 
 ## 入力例
 

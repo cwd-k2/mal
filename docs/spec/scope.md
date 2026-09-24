@@ -1,6 +1,6 @@
 # 言語の範囲
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## malが持つもの
 
@@ -17,6 +17,12 @@ Status: Accepted v0.6 profile
 - optional process argument entry
 
 何をもって最小とするかは[最小性の方針](../design/minimality.md)で定める。
+
+## 実行環境
+
+実行環境は`malc`のLLVM backendとC hostだけである。`from<T>`、`buffer.into`、`extern`のC ABI、`Address`と`Buffer`の
+canonical layoutはこの環境のtarget ABIとdata layoutから決まり、他のbackendやhostへの対応規則は仕様に含めない。
+C hostの規則は[C host ABI](c-host-abi.md)、`malc`の対応環境は[`malc`利用contract](../development/compiler-usage.md)が定める。
 
 ## malが持たないもの
 
@@ -47,7 +53,7 @@ field name、implicit constructor、nominal identityはない。
 
 ## Memoryとmutable data
 
-languageはexternal storageのallocation policyを持たない。C host profileではhost contractから受け取った
+languageはexternal storageのallocation policyを持たない。host contractから受け取った
 `Address`、element offset、lengthを`from<T>`へ渡し、独立した`Buffer<T>`へcopyする。alignment、範囲、permission、
 lifetime、allocation failure policyは必要なoperationのcontractが所有する。
 

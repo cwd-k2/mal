@@ -1,4 +1,4 @@
-# reference compiler利用contract
+# `malc`利用contract
 
 Status: Current v0.6 development contract
 
@@ -8,13 +8,13 @@ Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository�
 
 ## 対応環境
 
-v0.6 development profileで検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
+検証し対応する環境は、repositoryの`flake.lock`で固定した`x86_64-linux` development
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
 C shim、runtime、generated header、host sourceはC11を要求する。Floatを使うprogramはさらにbinary32 `float`、binary64 `double`、
 subnormal、`FLT_EVAL_METHOD == 0`を要求し、満たさないtargetをcompile-timeに拒否する。
-他のOS、architecture、C compilerはv0.6 development profileの検証対象外である。
+他のOS、architecture、C compilerは検証対象外である。
 
 ## Nix flake
 
@@ -31,7 +31,7 @@ nix run . -- build source.mal --output program
 ```
 
 別のflakeはこのflakeをinputに置き、`inputs.mal.packages.x86_64-linux.malc`をpackageとして参照できる。`checks.malc`は同じ
-derivationをbuildし、Cargo testを含むpackage検証を`nix flake check`へ接続する。対応systemは上記development profileと同じ
+derivationをbuildし、Cargo testを含むpackage検証を`nix flake check`へ接続する。対応systemは上記の対応環境と同じ
 `x86_64-linux`だけであり、他system向けoutputを暗黙に宣言しない。
 
 ## Command
@@ -50,32 +50,50 @@ malc build source.mal --output program --artifact-dir artifacts
 malc build source.mal --output program --clang-arg '-lm'
 ```
 
-- `check`はsourceを型検査し、成功時には生成物を作らない。
-- `format`はsyntaxを検査し、commentとliteral spellingを保持したcanonical source全体をstdoutへ出す。
-  `-i`を指定した場合はstdoutへ出さず、同じdirectoryのtemporary fileを介して入力fileをatomicに置き換える。
-  syntax errorまたは書き込み失敗では元の入力を保持する。
-- `emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。
-  `--output path`で出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
-- `emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは
-  `program.mal.h`をincludeし、未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。
-  `emit-header --output`で別名のheaderを生成した場合は、`--header name`でstubのquoted include名を合わせる。
-  `emit-header`と同様に`main` bindingは要求しない。
-- `emit-atcoder`はmal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのassemblyをglobal `asm`で
-  運ぶ単一のC++ sourceを生成する。提出内容を読めるよう、rootと推移的にrequireしたmal moduleのsourceを先頭へ
-  行commentとしてそのまま置く。AtCoderでは`C++23 (GCC)`または`C++23 (Clang)`を選び、生成した
-  `Main.cpp`全体を提出する。
-- `build`はLLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
-- `build`は既定で`production` profileを使い、正しさと採用gateを満たしたexecution、LLVM emission、toolchain techniqueをすべて
-  有効化する。`--optimization baseline`はdebugと差分検証のためoptional techniqueを外す。同じoptionは一度だけ指定できる。
-- `build`はroot sourceから推移的にrequireされた`.c` fileをcompileしてlinkする。
-- `build --artifact-dir directory`は、通常temporaryなbackend生成物とruntime入力を指定directoryへ書き、build後も保持する。
-  Clangが失敗した場合も保持する。同じ名前のfileは置き換えるが、directory内の他のfileは変更しない。
-- `build --clang-arg argument`は追加のClang argumentを一つ渡す。必要な数だけ繰り返せる。
-- `emit-atcoder`は`build`と同じ`--output`、`--optimization`、`--artifact-dir`、`--clang-arg`を受け取る。
+### `check`
 
-生成した実行可能fileのcommand-line argumentは、source-level `main`が`(USize, Address) -> Int32`型なら
-実行ファイル名を除いたcountとC hostの`argv + 1`として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確な
-contractは[program specification](../spec/programs.md#entry-point)に定める。
+sourceを型検査する。成功時には生成物を作らない。
+
+### `format`
+
+syntaxを検査し、commentとliteral spellingを保持したcanonical source全体をstdoutへ出す。`-i`を指定した場合はstdoutへ出さず、
+同じdirectoryのtemporary fileを介して入力fileをatomicに置き換える。syntax errorまたは書き込み失敗では元の入力を保持する。
+
+### `emit-header`と`emit-host`
+
+`emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。`--output path`で
+出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
+
+`emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは`program.mal.h`をincludeし、
+未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。`emit-header --output`で別名のheaderを
+生成した場合は、`--header name`でstubのquoted include名を合わせる。`emit-header`と同様に`main` bindingは要求しない。
+
+### `build`
+
+LLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
+root sourceから推移的にrequireされた`.c` fileもcompileしてlinkする。
+
+| Option | 効果 |
+|---|---|
+| `--optimization production` | 既定。正しさと採用gateを満たしたexecution、LLVM emission、toolchain techniqueをすべて有効化する |
+| `--optimization baseline` | debugと差分検証のため、optional techniqueを外す |
+| `--artifact-dir directory` | 通常temporaryな生成物とruntime入力を指定directoryへ書き、build後とClang失敗時も保持する。同名fileは置き換え、他のfileは変更しない |
+| `--clang-arg argument` | 追加のClang argumentを一つ渡す。必要な数だけ繰り返せる |
+
+同じoptionは一度だけ指定できる。ただし`--clang-arg`は繰り返せる。
+
+### `emit-atcoder`
+
+mal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのassemblyをglobal `asm`で運ぶ単一のC++ sourceを生成する。
+提出内容を読めるよう、rootと推移的にrequireしたmal moduleのsourceを先頭へ行commentとしてそのまま置く。AtCoderでは
+`C++23 (GCC)`または`C++23 (Clang)`を選び、生成した`Main.cpp`全体を提出する。`build`と同じ`--output`、`--optimization`、
+`--artifact-dir`、`--clang-arg`を受け取る。
+
+## 実行と出力
+
+生成した実行可能fileのcommand-line argumentは、source-level `main`が`(USize, Address) -> Int32`型なら実行ファイル名を除いた
+countとC hostの`argv + 1`として渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確なcontractは
+[program specification](../spec/programs.md#entry-point)に定める。
 
 親directoryは必要に応じて作成し、同名の出力は置き換える。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の
 既存・生成済みartifactが残る場合がある。
@@ -86,12 +104,12 @@ contractは[program specification](../spec/programs.md#entry-point)に定める�
 requireされたhost C sourceと同じ`clang`でcompile、linkする。extern callはinternal pointer/out-pointer bridgeを通してpublic headerの
 C ABIへ変換する。ambient `CC`は参照せず、compiler自体を差し替えるCLIはない。
 
-明示的な`baseline` profileはoptionalなcompiler techniqueを使わず、Clangへ`-O0`を渡してLTO unitを作らない。Nix toolchainがambientに指定する
+`baseline`はoptionalなcompiler techniqueを使わず、Clangへ`-O0`を渡してLTO unitを作らない。Nix toolchainがambientに指定する
 `_FORTIFY_SOURCE`の`-O0` warningだけは`-Wno-error=#warnings`でerrorから外す。その他のwarningは`-Werror`のままである。
 
-既定の`production` profileは各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
+既定の`production`は各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
 一つのlink-time optimization unitにする。これはprogram固有のLLVM IRとprogram非依存のC mechanismのsource責務を保ったまま、境界上の
-小さいhelper callを最適化する生成物policyである。どちらのprofileも`-fno-fast-math`、`-ffp-contract=off`、`-frounding-math`、
+小さいhelper callを最適化する生成物policyである。`baseline`と`production`のどちらも`-fno-fast-math`、`-ffp-contract=off`、`-frounding-math`、
 `-fexcess-precision=standard`を渡し、言語semanticsをC optimizer固有のundefined behaviorへ依存させない。
 
 追加の`--clang-arg`はgenerated inputとrequireされたC sourceの後、compilerが所有する最後の`-o`より前に、指定順で渡す。

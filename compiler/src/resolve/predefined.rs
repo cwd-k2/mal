@@ -48,7 +48,7 @@ predefined_types!(
     FLOAT64_TYPE = 12 => ("Float64", "Float64", "An IEEE 754 binary64 floating-point number."),
     BYTE_SIZE_TYPE = 13 => ("ByteSize", "ByteSize", "A target-width unsigned quantity measured in bytes for host contracts."),
     U_SIZE_TYPE = 14 => ("USize", "USize", "A target-width unsigned integer used for element counts, indices, capacities, and element offsets."),
-    ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque capability for host-managed storage. Only host-profile copy primitives and extern contracts interpret its referent."),
+    ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque capability for host-managed storage. Only the C host copy primitives and extern contracts interpret its referent."),
     BUFFER_TYPE = 16 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
 );
 

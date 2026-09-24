@@ -14,7 +14,7 @@ mod graph;
 mod requirement;
 mod toolchain;
 
-pub use build::{BuildOptions, OptimizationProfile, build, emit_atcoder};
+pub use build::{BuildOptions, OptimizationMode, build, emit_atcoder};
 pub use requirement::{
     RequirementPathCandidate, requirement_path_candidates, resolve_requirement_path,
 };

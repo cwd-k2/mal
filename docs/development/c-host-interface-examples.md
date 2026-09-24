@@ -1,6 +1,6 @@
 # C host interface例
 
-Status: Current ABI 0x000800 examples for the mal v0.6 development profile
+Status: Current ABI 0x000800 examples for mal v0.6
 
 この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。public headerへ出るのは
 [`HostMappable`](../spec/extern.md#host-mappable-type)な型だけである。すべてのbodyは`mal_call_t`を受け、型付きresult operationを

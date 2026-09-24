@@ -747,10 +747,6 @@
         {
           "type": "primary_expression",
           "named": true
-        },
-        {
-          "type": "shape",
-          "named": true
         }
       ]
     }
@@ -962,30 +958,6 @@
         ]
       }
     }
-  },
-  {
-    "type": "shape",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "shape",
-          "named": true
-        },
-        {
-          "type": "shape_atom",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "shape_atom",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "source_file",
@@ -1342,23 +1314,11 @@
     "named": false
   },
   {
-    "type": "address",
-    "named": false
-  },
-  {
-    "type": "bool",
-    "named": false
-  },
-  {
     "type": "byte_literal",
     "named": true
   },
   {
     "type": "bytes",
-    "named": false
-  },
-  {
-    "type": "bytesize",
     "named": false
   },
   {
@@ -1448,10 +1408,6 @@
   },
   {
     "type": "u8",
-    "named": false
-  },
-  {
-    "type": "unit",
     "named": false
   },
   {

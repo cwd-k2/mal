@@ -1,4 +1,4 @@
-# managed value ownership
+# managed valueのownership
 
 Status: Current v0.6 implementation policy
 
@@ -64,7 +64,7 @@ authorityを保持し、self-tailまたはregion内遷移も外側のinvocation�
 provenanceは記述順で即決せず、parameter、case payload、pure constructionから得たauthorityを収集してから依存関係を解く。
 
 recursive controlがfresh managed valueを作る、managed resultを返す、managed call resultを受け取る、またはregion外targetを含む
-dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを包含できない。そのregionのparameterは従来どおり、native ABI
+dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを包含できない。そのregionのparameterはnative ABI
 entryで`Share`し、owned handoffで`Consume`または`Drop`する。borrowed parameterからclosure capture、return、その他の独立ownerへ
 escapeするuseも`Share`する。edge dropは通常livenessを再計算せずborrow provenanceで閉じたlivenessを使い、aliasが最後に使われる
 edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/D058.md)を正とする。

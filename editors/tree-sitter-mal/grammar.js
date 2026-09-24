@@ -243,24 +243,8 @@ module.exports = grammar({
       'f32', 'f64', 'bytes', 'usize',
     ),
 
-    prefix_expression: $ => choice(
-      prec.right(PREC.PREFIX, seq(choice('-', '!', '~', '*'), $._expression)),
-      prec.right(PREC.PREFIX, seq('#', choice($.shape, $._expression))),
-    ),
-
-    shape: $ => choice(
-      $.shape_atom,
-      seq('(', $.shape, ',', commaSep1($.shape), ')'),
-      seq('[', $.shape, ',', commaSep1($.shape), ']'),
-    ),
-
-    shape_atom: _ => choice(
-      'unit',
-      'i8', 'i16', 'i32', 'i64',
-      'u8', 'u16', 'u32', 'u64',
-      'f32', 'f64',
-      'address', 'bytesize', 'usize', 'bool',
-    ),
+    prefix_expression: $ =>
+      prec.right(PREC.PREFIX, seq(choice('-', '!', '~', '*', '#'), $._expression)),
 
     binary_expression: $ => choice(
       binaryLeft(PREC.LOGICAL_OR, $._expression, '||'),

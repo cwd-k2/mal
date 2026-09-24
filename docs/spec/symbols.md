@@ -1,6 +1,6 @@
 # `Symbol`
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## 値
 
@@ -14,7 +14,7 @@ valid UTF-8も保証しない。
 
 literalのbytesはprogram imageのstatic storageに置いてよい。連結とexternal bytesのadmissionで得るruntime storageは
 host storageを参照せず、malが所有する。`Buffer<UInt8>`からの変換は変換時点のbytesをimmutable snapshotとして保持する。
-host bytesはC host profileの`from<UInt8>`でBufferへcopyしてから`*`でSymbolにする。
+host bytesは`from<UInt8>`でBufferへcopyしてから`*`でSymbolにする。
 
 ## literal
 
@@ -27,7 +27,7 @@ mal sourceはUTF-8であり、raw source characterはUTF-8 bytesとしてliteral
 "\x00\xff"
 ```
 
-受理するescapeのsource spellingは[grammar](grammar.md#文法概要)に定める。`\xNN`はちょうど2桁のhexadecimal digitで
+受理するescapeのsource spellingは[grammar](grammar.md#expression-form)に定める。`\xNN`はちょうど2桁のhexadecimal digitで
 任意の1 byteを表し、その他のescapeは対応する単一byteを表す。
 
 ## operator

@@ -1,19 +1,18 @@
 # C host ABI
 
-Status: Accepted ABI 0x000800 for the mal v0.6 profile
+Status: Accepted ABI 0x000800 for mal v0.6
 
-この文書はmal v0.6のreference compilerが生成するC host interfaceを定める。`0x000800`はC ABI自体の
+この文書はmal v0.6の`malc`が生成するC host interfaceを定める。`0x000800`はC ABI自体の
 versionであり、source languageのversionではない。言語側のextern semanticsは
 [`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
-別backendはsource-level semanticsを保つ限り別のABIを使用できる。
 
 ## Build model
 
-reference compilerはmal sourceからprogram固有headerを生成し、`build`ではLLVM module、C shim、C runtimeを構成する。host implementationはheaderを
+`malc`はmal sourceからprogram固有headerを生成し、`build`ではLLVM module、C shim、C runtimeを構成する。host implementationはheaderを
 includeし、生成artifactと同じtarget ABIでcompileする。`.mal` sourceから推移的にrequireされた`.c` fileは`build`のlink入力に
 なる。build時には今回生成したheaderをC translation unitへ先に読み込み、host sourceの隣にある保存済みheaderが生成物を
 置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、archive、include path、macroなどの
-toolchain argumentはreference compilerの明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
+toolchain argumentは`malc`の明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
 
 generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
 
@@ -142,7 +141,7 @@ allocation failure、target sizeで表現できないlength、不正なBool/tag/
 sum loweringはtag検査前にpayloadを読まない。terminal conversion中にallocation failureが起きる現在のruntimeではtrapが
 processを終了するためrollback frameを設けない。
 
-reference runtimeのcontextとmanaged valueはthread-confinedである。同じcall capabilityへ複数threadから同時にaccessしては
+C runtimeのcontextとmanaged valueはthread-confinedである。同じcall capabilityへ複数threadから同時にaccessしては
 ならない。hostがAddressの範囲を別threadで処理する場合もbody return前にjoinし、operation固有のpermissionを守る。
 
 ## Reserved namesとcompatibility

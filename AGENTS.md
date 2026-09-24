@@ -23,6 +23,8 @@ document one responsibility and link to the document that owns a rule instead of
 - Keep commands, option names, identifiers, language syntax, product names, and other technical terms
   in their conventional form.
 - Do not duplicate facts available from manifests, declarations, or a more authoritative document.
+- Record module-level responsibilities in the `README.md` of the stage directory that owns them, not in a central
+  module list. Stage-level ownership stays in `docs/implementation/responsibilities.md`.
 - Remove stale status, contradictory guidance, and obsolete planning text in the change that makes it
   obsolete. Git records implementation chronology; active documentation describes current truth.
 

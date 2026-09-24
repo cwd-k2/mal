@@ -11,18 +11,8 @@ Status: Current v0.6 development tooling
 `mal-lsp` processのlifecycleを扱う。repository rootから次の一commandでpinned Nix environmentへの移行、
 server build、extension dependencyのinstall、利用可能なVS Code環境に応じた起動またはinstallを行う。
 
-semantic hoverはsymbolに対してmal形式の名前と型、symbol kindを表示する。型alias自身には右辺を一段だけ表示し、
-型注釈を持つ値には注釈内のalias名を保った型を表示する。推論された型と名前を持たないtyped expressionにはcanonical
-typeを使う。literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
-source declarationを持つsymbolでは宣言元fileからの相対pathと1始まりの行・columnも表示する。宣言の直前に空行を挟まず
-連続する単独行の`//` commentはdocumentationとして表示し、各行の`//`直後にある一つのspaceと行末空白を除く。同じ行で
-codeの後にあるcommentと宣言との間に空行があるcommentはdocumentationとして扱わない。predefined type、value、memory intrinsic、
-Buffer methodはcompilerのpredefined metadataにある英語reference documentationを表示する。signatureに加えてscope、offsetの単位、
-返り値、主要preconditionを説明し、completion itemにも同じdocumentationを付ける。名前のないexpressionにはdocumentationを付けない。
-byte literalはsingle-quoted string scopeの内側にcharacter scopeを持ち、literal内のbracketを構文上のbracketから隔離する。
-TextMate grammarはreceiver-first applicationのcalleeをfunction、`.`をaccessor punctuationとして分類する。
-semantic analysisではcalleeを通常のfunction referenceとして扱い、hover、definition、references、rename、
-semantic tokenに同じdeclaration identityを使う。
+TextMate grammarはbyte literalをsingle-quoted string scopeの内側にcharacter scopeを持たせ、literal内のbracketを構文上のbracketから
+隔離する。receiver-first applicationのcalleeはfunction、`.`はaccessor punctuationとして分類する。
 
 ```nu
 nu scripts/vscode-dev.nu
@@ -125,12 +115,7 @@ nu scripts/editor-dev.nu helix
 cargo run --manifest-path tools/mal-lsp/Cargo.toml --locked
 ```
 
-module責務は次のように分ける。
-
-- `server`はJSON-RPC methodのdispatchとopen document lifecycleを所有する。
-- `server/analysis`はsource graph、frontend analysis、semantic indexの状態遷移とdiagnostic変換を所有する。
-- `server/requirement`はrequirement completionとdocument linkを所有する。
-- `server/semantic`はhover、navigation、rename、symbol、completion、semantic tokenのLSP表現を所有する。
+module責務は[`tools/mal-lsp/README.md`](../../tools/mal-lsp/README.md)を正とする。
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに
@@ -163,3 +148,20 @@ requestごとに再解析しない。直前に成功したversionのsemantic ind
 あるため再利用しない。syntax fallbackは型、parameter identity、参照先を推測せず、現在のtokenとtop-level function declarationだけを
 扱う。それ以上のpartial semantic resultには、parser、resolver、checkerがrecovery済み領域と依存関係を明示する別のadmitted表現を
 導入する。
+
+### hover
+
+semantic hoverはsymbolごとに次を表示する。
+
+- mal形式の名前、型、symbol kind。
+- 型aliasは右辺を一段だけ表示する。型注釈を持つ値は注釈内のalias名を保った型を、推論された型と名前を持たない
+  typed expressionはcanonical typeを表示する。
+- literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
+- source declarationを持つsymbolでは、宣言元fileからの相対pathと1始まりの行・column。
+- documentation。宣言の直前に空行を挟まず連続する単独行の`//` commentを表示し、各行の`//`直後にある一つのspaceと行末空白を除く。
+  同じ行でcodeの後にあるcommentと、宣言との間に空行があるcommentは対象外とする。predefined type、value、memory intrinsic、
+  Buffer methodはcompilerのpredefined metadataにある英語reference documentationを表示し、signatureに加えてscope、offsetの単位、
+  返り値、主要preconditionを説明する。completion itemにも同じdocumentationを付ける。名前のないexpressionにはdocumentationを付けない。
+
+receiver-first applicationのcalleeは通常のfunction referenceとして扱い、hover、definition、references、rename、semantic tokenに
+同じdeclaration identityを使う。

@@ -1,4 +1,4 @@
-# Compiler implementation notes
+# compiler実装の概要
 
 Status: Current non-normative overview
 
@@ -23,7 +23,7 @@ source
   -> pinned Clang
 ```
 
-reference compiler は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
+`malc` は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
 stageごとのownershipは[compilerの責務境界](responsibilities.md)に置く。実装の変更履歴はGitを正とし、
 この文書には現在のpipelineとlowering方針だけを記載する。
@@ -146,7 +146,7 @@ extern marshallingのlayout planとsum helperはcanonical type DAGの共有node�
 
 ## 入力の構造上限
 
-reference compilerは再帰的な構文構造を一つのparse中で64 levelまで受理し、それを超える入力をsource span付きdiagnosticで
+`malc`は再帰的な構文構造を一つのparse中で64 levelまで受理し、それを超える入力をsource span付きdiagnosticで
 拒否する。対象は括弧、lambda、control form、prefix operator、右結合function型、nested patternなど、構文木そのものの深さに
 なる構成である。top-level item、block item、argument、aggregate element、左結合operatorのような平坦な列の長さはこの上限へ
 数えず、各stageが反復走査する。
@@ -156,5 +156,5 @@ canonical typeの物理表現は64 nested levelかつ65,536 storage componentま
 productは実値にも二つのstorageが必要なので二回数え、同じsubtypeを二variantに持つsumはactive payloadを共有するため最大値
 だけを数える。超過は型検査がsource span付きdiagnosticとして拒否する。
 
-これらはmalの意味論ではなくreference compilerのresource limitであり、実行時のtrap条件ではない。採択理由は
+これらはmalの意味論ではなく`malc`のresource limitであり、実行時のtrap条件ではない。採択理由は
 [D045](../history/decisions/D045.md)と[D046](../history/decisions/D046.md)に記録する。

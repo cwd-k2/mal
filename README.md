@@ -46,21 +46,16 @@ This program shows the main control forms:
 
 `return` and `throw` are ordinary local names, not statements or keywords.
 
-The v0.6 development profile includes:
-
-- immutable bindings, lexical closures and result blocks, products and sums, fixed-width numeric
-  types, and parametric polymorphism;
-- immutable `Symbol` values, managed shared-mutable `Buffer` values, and opaque host `Address` capabilities;
-- explicit external effects through `extern` operations.
+[`docs/spec/scope.md`](docs/spec/scope.md) lists what mal v0.6 includes and excludes.
 
 Allocation, files, networking, clocks, randomness, and other platform policy remain on the host
 side of the `extern` boundary.
 
 ## Repository
 
-The repository contains the Rust reference compiler (`malc`), an LLVM execution backend with a C11
+The repository contains the Rust compiler (`malc`), an LLVM execution backend with a C11
 runtime and generated host interface, checked examples, a formatter, an LSP server, and VS Code,
-Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. The current profile is under
+Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. v0.6 is under
 development; generated artifacts and host ABI compatibility are not guaranteed across compiler
 versions.
 

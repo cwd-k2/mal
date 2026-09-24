@@ -3,7 +3,7 @@
 Status: Informative
 
 2026-09-10時点。この文書はLLVM IRが所有できる最適化と、frontendに残るstorage、ABI、targetの責務を確認する。
-malで採択した境界は[実行backendの責務境界](../design/execution-backend.md)を正とする。
+malで採択した境界は[実行backendの責務境界](../implementation/execution-backend.md)を正とする。
 
 ## stackとtail call
 

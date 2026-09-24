@@ -1,6 +1,6 @@
 # 字句と文法
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## Sourceとidentifier
 
@@ -89,14 +89,6 @@ continuationSuffix ::= "[" "]"
 conversionSuffix ::= "." ("i8" | "i16" | "i32" | "i64"
                            | "u8" | "u16" | "u32" | "u64"
                            | "f32" | "f64" | "bytes" | "usize")
-shape ::= shapeAtom
-        | "(" shape "," shape ("," shape)* ")"
-        | "[" shape "," shape ("," shape)* "]"
-shapeAtom ::= "unit"
-            | "i8" | "i16" | "i32" | "i64"
-            | "u8" | "u16" | "u32" | "u64"
-            | "f32" | "f64"
-            | "address" | "bytesize" | "usize" | "bool"
 
 product ::= "(" expression "," expression ("," expression)* ")"
 unitApplication ::= "[" expression "]"

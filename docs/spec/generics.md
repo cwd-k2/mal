@@ -1,9 +1,9 @@
 # parametric polymorphism
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 この文書は型parameter、generic aliasとvalue binding、built-in型形成条件、specializationを定める。concrete syntaxは
-[字句と文法](grammar.md)、memory indexed typeは[external memory](memory.md)を正とする。
+[字句と文法](grammar.md)、Bufferの型形成は[AddressとBuffer](memory.md)を正とする。
 
 ## Declarationとapplication
 

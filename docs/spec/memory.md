@@ -1,8 +1,8 @@
 # AddressとBuffer
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
-この文書はhost-managed storageを指す`Address`、mal-owned mutable sequenceである`Buffer<T>`、C host profileのcopy境界を定める。
+この文書はhost-managed storageを指す`Address`、mal-owned mutable sequenceである`Buffer<T>`、C hostとのcopy境界を定める。
 surface syntaxは[字句と文法](grammar.md)、public C representationは[C host ABI](c-host-abi.md)を正とする。
 
 ## Address
@@ -56,14 +56,14 @@ alignmentまで前方へ丸める。
 
 storeはproduct field、sum tag、選択payloadだけを書き、paddingと非選択payloadを変更しなくてよい。loadはそれらを読まない。
 このlayoutは同じartifactと対応adapterの間だけで有効であり、mal runtime representation、public C aggregate carrier、file、
-network、永続storageのformatではない。reference C hostがこのlayoutを読む場合はpublic carrierをcastせず、
+network、永続storageのformatではない。C hostがこのlayoutを読む場合はpublic carrierをcastせず、
 [C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
 
 ## Canonical representationとtarget contract
 
 backendはcanonical memory専用のtarget layout planを作り、runtime valueの内部layoutを再利用しない。default address spaceの
 pointer representation幅、pointer index幅、primitive ABI alignmentをtarget data layoutから別々に取得する。layout、stride、
-offset、allocation sizeをtargetのobject sizeで表現できない型はartifact生成時に拒否する。reference C backendのmappingは
+offset、allocation sizeをtargetのobject sizeで表現できない型はartifact生成時に拒否する。C hostのmappingは
 [C host ABI](c-host-abi.md)に定める。
 
 ## Buffer
@@ -115,7 +115,7 @@ source-levelのaliasingとimmutabilityを変えてはならない。operandはco
 
 ## C host copy boundary
 
-次のpredefined generic operationはC host profileだけが提供する。offsetとlengthは`A`の要素単位であり、byte単位ではない。
+次のpredefined generic operationはC hostとのcopyを行う。offsetとlengthは`A`の要素単位であり、byte単位ではない。
 
 ```text
 from<A>(Address, USize, USize)             -> Buffer<A>
@@ -126,7 +126,7 @@ Buffer<A>.into(Address, USize, USize)      -> Unit
 新しいBufferを返す。`buffer.into(address, offset, length)`はBufferの同じ半開区間をhost storageの先頭へcopyする。
 `into`はBufferを変更またはconsumeしない。receiver-firstでない形は`into(buffer, address, offset, length)`である。
 
-copyにはC host profileのcanonical representationを使う。numeric scalar、Address、ByteSize、USizeの幅とalignmentはtarget ABI、
+copyにはcanonical representationを使う。numeric scalar、Address、ByteSize、USizeの幅とalignmentはtarget ABI、
 productはsource順のfieldとpadding、sumはvariant tagとactive payloadを使う。public C aggregate carrier自体のlayoutとは独立であり、
 同じrepresentationをhost codeが扱う場合はgenerated canonical memory helperを使う。
 

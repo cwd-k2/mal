@@ -79,7 +79,7 @@ memory primitiveは未検査のstorage mechanismとして定められる。live 
 有効性をoperationのpreconditionに置く場合は、同じ層のoperationで一貫してcallerまたはhost contractへ委ね、違反時の特定の結果を保証しない。
 preconditionを満たしたoperationに必要なmal-owned storageのallocation failureなど、callerが事前に成立させられないfailureは
 言語またはbackendの明示した規則で扱う。実装がmemory corruptionを防ぐために追加の検査を行ってtrapしても、その防御を
-implementation detailとして扱う。
+implementation detailとして扱う。採択理由は[D008](../history/decisions/D008.md)を正とする。
 
 external function valueの参照と受け渡しはmal-controlledなEngramの操作であり、それだけでは境界を越えない。
 そのfunction valueのapplicationがhost operationを実行するときに限り、parameterとresultの各leafへadmission、observation、
@@ -96,7 +96,9 @@ mechanismである。次の場合にだけ言語機能の候補とする。
 4. host contractを隠すだけでなく、system全体の調査面積を減らす。
 
 観測不能なstorageの回収方式だけを変える場合は、source semanticsを増やさずimplementationで扱う。external resourceの
-破棄が必要な場合は、暗黙のfinalizerより明示的なhost contractを基本とする。
+破棄が必要な場合は、暗黙のfinalizerより明示的なhost contractを基本とする。`malc`のEngram回収は
+[managed ownership](../implementation/ownership.md)のresponsibility規約に閉じ、Extern resourceのpolicyへ拡張しない。採択理由は
+[D033](../history/decisions/D033.md)と[D055](../history/decisions/D055.md)を正とする。
 
 ## 新しい境界機能への問い
 

@@ -149,7 +149,7 @@ pub(in crate::check) fn ensure_representable(ty: &Type, span: Span) -> Result<()
             Diagnostic::error("type representation is too large").with_primary(
                 span,
                 format!(
-                    "the reference compiler supports at most {MAX_REPRESENTATION_DEPTH} nested levels and {MAX_REPRESENTATION_UNITS} storage components"
+                    "malc supports at most {MAX_REPRESENTATION_DEPTH} nested levels and {MAX_REPRESENTATION_UNITS} storage components"
                 ),
             ),
         );

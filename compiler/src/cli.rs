@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::version_line;
 
-pub const HELP: &str = "malc — reference compiler for mal v0.6
+pub const HELP: &str = "malc — compiler for mal v0.6
 
 Usage:
   malc <command> [options]
@@ -29,13 +29,13 @@ emit-host options:
 
 build options:
   --output <program>                         Executable output path (required)
-  --optimization <baseline|production>       Optimization profile [default: production]
+  --optimization <baseline|production>       Optimization mode [default: production]
   --artifact-dir <directory>                 Keep generated build artifacts here
   --clang-arg <argument>                     Add a Clang argument; may be repeated
 
 emit-atcoder options:
   --output <Main.cpp>                        Submission output path (required)
-  --optimization <baseline|production>       Optimization profile [default: production]
+  --optimization <baseline|production>       Optimization mode [default: production]
   --artifact-dir <directory>                 Keep generated build artifacts here
   --clang-arg <argument>                     Add a Clang argument; may be repeated
 
@@ -238,14 +238,14 @@ fn execute_build(arguments: &[OsString], kind: BuildKind) -> Outcome {
         } else if option == OsStr::new("--clang-arg") {
             clang_arguments.push(value.clone());
         } else if option == OsStr::new("--optimization") {
-            let profile = if value == OsStr::new("baseline") {
-                crate::driver::OptimizationProfile::Baseline
+            let mode = if value == OsStr::new("baseline") {
+                crate::driver::OptimizationMode::Baseline
             } else if value == OsStr::new("production") {
-                crate::driver::OptimizationProfile::Production
+                crate::driver::OptimizationMode::Production
             } else {
                 return usage_error("--optimization must be 'baseline' or 'production'");
             };
-            if optimization.replace(profile).is_some() {
+            if optimization.replace(mode).is_some() {
                 return usage_error("--optimization may only be specified once");
             }
         } else {
@@ -261,7 +261,7 @@ fn execute_build(arguments: &[OsString], kind: BuildKind) -> Outcome {
         return usage_error(&format!("{} requires --output", kind.command()));
     };
     let source = PathBuf::from(source);
-    let optimization = optimization.unwrap_or(crate::driver::OptimizationProfile::Production);
+    let optimization = optimization.unwrap_or(crate::driver::OptimizationMode::Production);
     let result = match kind {
         BuildKind::Executable => crate::driver::build(
             &source,

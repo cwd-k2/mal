@@ -1,6 +1,6 @@
 # プログラム構造
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## program と source file
 
@@ -18,7 +18,7 @@ file種別はpathの末尾にある`.mal`または`.c`で決める。`.mal` requ
 同じcanonical pathへ複数経路から到達しても一つのsource fileとして扱い、`.mal` requirementのcycleはcompile-time
 errorとする。
 
-`.c` requirementは名前を導入せず、reference compilerのC build inputへ推移的に追加する。同じcanonical pathのC sourceは
+`.c` requirementは名前を導入せず、`malc`のC build inputへ推移的に追加する。同じcanonical pathのC sourceは
 一度だけcompileする。`.c` requirementの意味は[C host ABI](c-host-abi.md#build-model)に定める。package名、探索path、remote
 dependency、namespace、一般的なqualified name、require alias、selective importは持たない。
 
@@ -71,7 +71,7 @@ nested lambda は外側lambdaのlocalをlexically captureできる。詳細と�
 main :: Unit -> Int32 := () -> 0;
 ```
 
-backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointはprofile外である。
+backendは`main()`の結果をprocess exit statusへ渡す。library compilationや他のentry pointは対象外である。
 
 command-line argumentを受け取る実行可能programは、代わりに次のentry pointを持てる。
 
@@ -91,14 +91,12 @@ main :: Arguments -> Int32 := (argumentCount, arguments) ->
     };
 ```
 
-productの第一要素は実行ファイル名を除くargument数である。第二要素はhostが提供するargument collection capabilityである。
-そのrepresentationはmal language profileに含めない。reference C hostでは`argv[1]`以降のC pointer列を指し、
-`from<Address>`で必要なpointerをBufferへcopyできる。各C stringのlengthやencoding interpretationはextern contractが提供する。
-argument数が0のときも第二要素はhost contractが定める値であり、要素を読み出してはならない。
+productの第一要素は実行ファイル名を除くargument数である。第二要素はargument collectionを指すcapabilityで、`argv[1]`以降の
+C pointer列を指す。`from<Address>`で必要なpointerをBufferへcopyできる。各C stringのlengthとencodingの解釈はextern contractが
+提供する。argument数が0のときも第二要素はhost contractが定める値であり、要素を読み出してはならない。
 
-argument bytesの終端、encoding、access operationはhost profileが定める。reference C hostでは各Addressが終端NULを持つC stringを
-指すが、`from<UInt8>`へ渡すlengthには終端NULを含める必要はない。pointer列と各byte regionは`main`のreturnまでread-onlyで有効である。
-`count`以上のpointerをcopyしてはならない。
+各Addressは終端NULを持つC stringを指すが、`from<UInt8>`へ渡すlengthには終端NULを含める必要はない。pointer列と各byte regionは
+`main`のreturnまでread-onlyで有効である。`count`以上のpointerをcopyしてはならない。
 
 `Unit -> Int32`と`(USize, Address) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
 [D030](../history/decisions/D030.md)に記録する。

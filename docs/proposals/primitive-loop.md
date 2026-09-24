@@ -4,8 +4,8 @@ Status: Exploratory
 
 この文書は、現在Mal sourceで定義しているcontinue-or-break反復を、通常のfunction valueとして使えるpredefined
 primitive `loop`へ移す案と、その判断に必要な実装・検証順を管理する。現在の言語規則は[`spec/`](../spec/)、反復と
-構造再帰を使い分ける方針は[最小性](../design/minimality.md#反復controlとdomain-stepを分ける)、現行の再帰実行計画は
-[application control lowering](../development/application-control-lowering.md)を正とする。この提案は採択前のため、現在の
+構造再帰を使い分ける方針は[値、解釈、control](../design/value-interpretation-and-control.md#反復controlとdomain-stepを分ける)、現行の再帰実行計画は
+[application control lowering](../implementation/application-control-lowering.md)を正とする。この提案は採択前のため、現在の
 programが`loop`の存在へ依存してはならない。
 
 ## 目的と範囲
@@ -108,6 +108,6 @@ regionとcontrol storageを使わないこと、融合時にclosure、state prod
 - indirect builtin callのwrapperとdirect/fused callが共有するownership authorityをどのplanが所有するか。
 - fusionとcallback inlineのcode size gateをどの測定から決めるか。
 - predefined `loop`導入が、source generic functionとしての実装よりsystem全体のcontractと実装を実際に小さくするか。
-- primitive導入後も自己再帰を現在のまま維持するか、direct self applicationへ狭めるか、禁止を別profileで検討するか。
+- primitive導入後も自己再帰を現在のまま維持するか、direct self applicationへ狭めるか、禁止を別の提案で検討するか。
 
 これらを解決して仕様へ移すまでは、source `_loop`を削除せず、この文書を現在の言語contractとして参照しない。

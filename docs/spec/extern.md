@@ -1,6 +1,6 @@
 # `extern` 境界
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## 目的
 
@@ -83,7 +83,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持はprofile外である。決定理由は[D016](../history/decisions/D016.md)に記録する。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持は対象外である。決定理由は[D016](../history/decisions/D016.md)に記録する。
 
 ## source-level semantics
 
@@ -140,15 +140,15 @@ lifetimeを延長しない。Addressをcopy primitiveへ渡す場合のprecondit
 
 `extern` 宣言を任意の C function declaration と同一視しない。特にproductとsumはtarget ABIによって引数・戻り値の渡し方が異なる。
 
-reference compilerはHostMappableな型だけに一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
+`malc`はHostMappableな型だけに一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
 host APIを呼ぶ。generated wrapperとhost bodyはtrusted computing baseに含まれるが、raw host resourceそのものではない。
 runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
 C header parserやC type systemはmalに導入しない。
 
-reference C ABIのhost valueとterminal return規約は[C host ABI](c-host-abi.md#host-operation)だけが定める。決定理由は
+C ABIのhost valueとterminal return規約は[C host ABI](c-host-abi.md#host-operation)だけが定める。決定理由は
 [D040](../history/decisions/D040.md)に記録する。
 
-reference compilerはprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
+`malc`はprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
 [C host ABI](c-host-abi.md)に定める。
 

@@ -1,6 +1,6 @@
 # 実行意味論
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## 評価戦略
 
@@ -66,7 +66,7 @@ inner lambdaが参照する`x`は、inner closureを構築するmiddle lambdaに
 closure は定義した scope の外へ返したり、他の関数へ渡したりしてよい。function equality は存在せず、program から code と environment を分解・観察することはできない。
 
 言語意味論はenvironmentの物理的な配置や回収方式を規定しない。必要なstorageを確保できなければtrapする。
-reference compilerの現在の方式は[implementation notes](../implementation/compiler.md)に記録する。
+`malc`の現在の方式は[managed value ownership](../implementation/ownership.md)に記録する。
 
 compiler は観測可能な動作を変えない限り、capture 除去、lambda lifting、stack allocation などにより environment allocation を省略してよい。
 
@@ -127,10 +127,10 @@ zero除算、有限値のoverflow、invalid operationはIEEE 754に従ってinfi
 trap は現在の mal program の評価を即座に異常終了する。mal code から捕捉・回復する構文はない。trap までに完了した `extern` の作用は巻き戻さない。
 
 有効なEngramの構成に必要なstorageを確保できない場合と、そのstorage sizeをtargetで表現できない場合はtrapする。
-precondition違反はtrapではなく、特定の実行結果を保証しない。reference implementation固有のresource limitや
+precondition違反はtrapではなく、特定の実行結果を保証しない。`malc`固有のresource limitや
 internal invariant failureはこの言語上のtrap条件に含めない。
 
-reference compilerのC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
+`malc`のC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
 host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
 
 Addressを使うcopyの範囲、permission、initialization、lifetime違反はhost contract違反であり、Buffer accessのindexと

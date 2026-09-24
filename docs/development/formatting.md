@@ -1,4 +1,4 @@
-# source formatting policy
+# source formattingの方針
 
 Status: Current v0.6 policy and implementation
 

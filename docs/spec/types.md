@@ -1,6 +1,6 @@
 # 型
 
-Status: Accepted v0.6 profile
+Status: Accepted v0.6
 
 ## 型の構成
 
@@ -91,7 +91,7 @@ b :: Int32 -> Choice := (value) -> [first, second] => second(value);
 直和値は選択した一項の0-based indexとその項型のpayloadを持つ。source-levelの構築は
 [direct result block](control.md#direct-result-block)のresult binderで行う。
 
-空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は従来どおり各項の値を持つ。
+空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は各項の値を持つ。
 `[]`のeliminationとcompletion規則は[result boundaryとcompletion](control.md#empty)に定める。
 
 n-ary sum と nested sum は異なる型である。

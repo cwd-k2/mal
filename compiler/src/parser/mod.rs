@@ -418,7 +418,7 @@ impl<'a> Parser<'a> {
         if self.nesting == MAX_SYNTAX_NESTING {
             return Err(self.error_here(
                 "syntax nesting limit exceeded",
-                format!("the reference compiler supports at most {MAX_SYNTAX_NESTING} levels"),
+                format!("malc supports at most {MAX_SYNTAX_NESTING} levels"),
             ));
         }
         self.nesting += 1;
