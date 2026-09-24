@@ -38,39 +38,35 @@ derivationをbuildし、Cargo testを含むpackage検証を`nix flake check`へ�
 
 ```nu
 malc check source.mal
-malc format source.mal
-malc format -i source.mal
-malc emit-header source.mal
-malc emit-host source.mal
-malc emit-host source.mal --header custom.h
-malc emit-atcoder source.mal --output Main.cpp
-malc build source.mal --output program
-malc build source.mal --output program --optimization baseline
-malc build source.mal --output program --artifact-dir artifacts
-malc build source.mal --output program --clang-arg '-lm'
+malc build source.mal -o program
+malc build source.mal -o program --optimization baseline
+malc build source.mal -o program --artifact-dir artifacts
+malc build source.mal -o program --clang-arg '-lm'
+malc emit header source.mal -o program.mal.h
+malc emit host source.mal -o host.c
+malc emit host source.mal --header custom.h
+malc emit atcoder source.mal -o Main.cpp
 ```
+
+生成物を出す`emit`は、`-o`（`--output`）がなければstdoutへ出し、あればそのpathへ書く。optionはsourceの前後どちらにも置け、
+各commandは自身のoptionだけを受け取る。formatterは別commandの`mal-fmt`である（[formatting policy](formatting.md)）。
 
 ### `check`
 
 sourceを型検査する。成功時には生成物を作らない。
 
-### `format`
+### `emit header`と`emit host`
 
-syntaxを検査し、commentとliteral spellingを保持したcanonical source全体をstdoutへ出す。`-i`を指定した場合はstdoutへ出さず、
-同じdirectoryのtemporary fileを介して入力fileをatomicに置き換える。syntax errorまたは書き込み失敗では元の入力を保持する。
+`emit header`はhost implementation用のgenerated headerを出す。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
+host sourceが`program.mal.h`をincludeする前提で、`emit header -o program.mal.h`のように保存する。
 
-### `emit-header`と`emit-host`
-
-`emit-header`はhost implementation用のgenerated headerだけをsourceと同じdirectoryの`program.mal.h`へ生成する。`--output path`で
-出力先を変更できる。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
-
-`emit-host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubをstdoutへ出す。stubは`program.mal.h`をincludeし、
-未実装のoperationを`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。`emit-header --output`で別名のheaderを
-生成した場合は、`--header name`でstubのquoted include名を合わせる。`emit-header`と同様に`main` bindingは要求しない。
+`emit host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubを出す。stubは`program.mal.h`をincludeし、未実装のoperationを
+`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。別名のheaderを生成した場合は、`--header name`でstubのquoted include名を
+合わせる。`emit header`と同様に`main` bindingは要求しない。
 
 ### `build`
 
-LLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。
+LLVM module、C shim、C11 runtimeをtemporary directoryに作り、pinned Clangでlinkした実行可能fileだけを指定先へ残す。`-o`は必須である。
 root sourceから推移的にrequireされた`.c` fileもcompileしてlinkする。
 
 | Option | 効果 |
@@ -82,12 +78,12 @@ root sourceから推移的にrequireされた`.c` fileもcompileしてlinkする
 
 同じoptionは一度だけ指定できる。ただし`--clang-arg`は繰り返せる。
 
-### `emit-atcoder`
+### `emit atcoder`
 
-mal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのassemblyをglobal `asm`で運ぶ単一のC++ sourceを生成する。
+mal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのassemblyをglobal `asm`で運ぶ単一のC++ sourceを出す。
 提出内容を読めるよう、rootと推移的にrequireしたmal moduleのsourceを先頭へ行commentとしてそのまま置く。AtCoderでは
-`C++23 (GCC)`または`C++23 (Clang)`を選び、生成した`Main.cpp`全体を提出する。`build`と同じ`--output`、`--optimization`、
-`--artifact-dir`、`--clang-arg`を受け取る。
+`C++23 (GCC)`または`C++23 (Clang)`を選び、生成した`Main.cpp`全体を提出する。`build`と同じ`--optimization`、`--artifact-dir`、
+`--clang-arg`を受け取る。
 
 ## 実行と出力
 
@@ -118,7 +114,7 @@ macro optionを利用できる。これは明示的なexternal build authority�
 lifetime、およびlanguage semanticsを変えるoptionを渡さない責任は呼出し側が持つ。追加argumentはMal sourceのrequire graphや
 別のbuildへ伝播しない。
 
-`emit-atcoder`は同じtargetと入力を`-flto`で一つのassemblyへまとめるため、pinned LLDの`--lto-emit-asm`を使う。
+`emit atcoder`は同じtargetと入力を`-flto`で一つのassemblyへまとめるため、pinned LLDの`--lto-emit-asm`を使う。
 生成するC++ sourceはx86_64 LinuxのC ABIに依存し、別architecture向けのportable sourceではない。libcやlibmのように
 assemblyから未定義symbolとして参照するlibraryは提出先のC++ link環境にも必要である。任意のlocal shared libraryを
 提出fileへ埋め込む機能ではない。
@@ -130,7 +126,7 @@ stderrへ出す。後者ではtoolchainのstderrも保持する。
 
 host C sourceは対象programが生成した`program.mal.h`をincludeし、LLVM moduleとshimと同じtarget ABIでcompileする。対応する
 `.mal` fileからhost C sourceをrequireする。
-新しいadapterは`malc emit-host source.mal | save host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
+新しいadapterは`malc emit host source.mal -o host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
 編集済みの`host.c`に対して再実行してはならない。
 `build`は生成直後のheaderを各C translation unitへpreincludeし、同名の隣接headerが今回の生成物を置き換えないようにする。
 host sourceの明示的な`#include "program.mal.h"`は単独でのeditor supportとcompileのために維持する。
@@ -147,7 +143,7 @@ generated headerとbuild artifactのsource compatibilityまたはbinary compatib
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
 `--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`、
-`symbol.c`を保持する。`emit-atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
+`symbol.c`を保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
 inspection用artifactであり、version間の互換性を保証しない。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。

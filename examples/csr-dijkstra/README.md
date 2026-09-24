@@ -25,7 +25,7 @@ the graph and mutable workspace remain explicit operation parameters and invaria
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/csr-dijkstra/program.mal --output /tmp/mal-csr-dijkstra
+nix develop --command cargo run -p mal-compiler -- build examples/csr-dijkstra/program.mal --output /tmp/mal-csr-dijkstra
 /tmp/mal-csr-dijkstra
 ```
 

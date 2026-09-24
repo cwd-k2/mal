@@ -12,8 +12,8 @@ constant.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/tail-recursion/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/tail-recursion/program.mal --output /tmp/mal-tail-recursion
+nix develop --command cargo run -p mal-compiler -- check examples/tail-recursion/program.mal
+nix develop --command cargo run -p mal-compiler -- build examples/tail-recursion/program.mal --output /tmp/mal-tail-recursion
 /tmp/mal-tail-recursion
 ```
 

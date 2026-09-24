@@ -8,6 +8,6 @@ the generated canonical-memory helper.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/typed-memory/program.mal --output /tmp/mal-typed-memory
+nix develop --command cargo run -p mal-compiler -- build examples/typed-memory/program.mal --output /tmp/mal-typed-memory
 /tmp/mal-typed-memory
 ```

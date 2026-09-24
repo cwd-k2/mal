@@ -26,7 +26,7 @@ changing the logical contracts of validation and evaluation.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/spreadsheet/program.mal --output /tmp/mal-spreadsheet
+nix develop --command cargo run -p mal-compiler -- build examples/spreadsheet/program.mal --output /tmp/mal-spreadsheet
 /tmp/mal-spreadsheet
 ```
 

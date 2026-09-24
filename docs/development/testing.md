@@ -25,6 +25,8 @@ behaviorの領域ごとにchild moduleへ分ける。source fileと同様、行�
 
 ## Boundary tests
 
+testは対象stageを所有するcrateの`tests/`に置く。複数のcrateを通す検証は、それらすべてに依存する`mal-compiler`の`tests/`に置く。
+
 | Change | Focused test | Cross-boundary test |
 |---|---|---|
 | source、span、diagnostic | byte位置、UTF-8、rendered diagnostic | CLIからの利用者向けerror |
@@ -48,32 +50,22 @@ nix develop
 nu scripts/check.nu
 ```
 
-このscriptはcompiler、language server、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
+このscriptはRust workspace、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。Tree-sitterは
 committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
 `node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。Nix flakeは
 editor runtimeをbuildし、NeovimとHelixのparser path、三つのquery、exportされたTree-sitter symbolを検査する。toolchain packageが
-同じcompiler、language server、runtimeを一つのconsumer向けlayoutで公開することも検査する。
+同じcompiler、formatter、language server、runtimeを一つのconsumer向けlayoutで公開することも検査する。
 
-compilerだけを変更中にfocused verificationを行う場合は、`compiler/`から次を実行する。
+Rustだけを変更中にfocused verificationを行う場合は、repository rootで次を実行する。一つのcrateだけを検証するときは`-p <crate>`を付ける。
 
 ```nu
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
 ```
 
-development shellは検証scriptを実行するNushellと`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo projectとtoolchainを使い、
+development shellは検証scriptを実行するNushellと`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo workspaceとtoolchainを使い、
 完了判定では上記の全targetに対するClippyをwarning-freeにする。
-
-rootから実行する場合は`--manifest-path compiler/Cargo.toml`を指定する。
-
-`tools/mal-lsp/`を変更した場合はrepository rootで次も実行する。
-
-```nu
-cargo fmt --manifest-path tools/mal-lsp/Cargo.toml --check
-cargo clippy --manifest-path tools/mal-lsp/Cargo.toml --all-targets --locked -- -D warnings
-cargo test --manifest-path tools/mal-lsp/Cargo.toml --locked
-```
 
 Tree-sitter grammarを変更した場合はrepository rootで次を実行する。
 

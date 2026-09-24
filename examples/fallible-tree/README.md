@@ -26,7 +26,7 @@ convention and ownership transfer must be followed manually.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/fallible-tree/program.mal --output /tmp/mal-fallible-tree
+nix develop --command cargo run -p mal-compiler -- build examples/fallible-tree/program.mal --output /tmp/mal-fallible-tree
 /tmp/mal-fallible-tree
 ```
 

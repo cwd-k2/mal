@@ -43,7 +43,7 @@ the transition count. The example is built and executed in both `baseline` and `
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/generic-loop/program.mal --output /tmp/mal-generic-loop
+nix develop --command cargo run -p mal-compiler -- build examples/generic-loop/program.mal --output /tmp/mal-generic-loop
 /tmp/mal-generic-loop
 ```
 

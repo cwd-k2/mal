@@ -47,7 +47,7 @@ remote port auto-forwardingを無効にする。必要なportはPorts viewから
 手動で準備する場合は次を実行する。
 
 ```nu
-cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked --release
+cargo build -p mal-lsp --locked --release
 cd editors/vscode
 npm install
 ```
@@ -90,7 +90,7 @@ LSP configをconsumer側で登録する。Helixではpackage rootを`HELIX_RUNTI
 `mal`、language server commandを`mal-lsp`とする。editorのuser configuration、workspace trust、root detection、起動directoryに
 依存するlauncherはconsumerが所有し、mal repositoryの絶対pathや`tools/*/target`を参照しない。
 
-C host adapterを編集するprojectは、対応する`.mal` sourceから`malc emit-header`でheaderを生成する。NixのClang wrapperを使う
+C host adapterを編集するprojectは、対応する`.mal` sourceから`malc emit header -o`でheaderを生成する。NixのClang wrapperを使う
 場合、`.clangd`でC11を指定し、clangdへ`--query-driver=/nix/store/*-clang-wrapper-*/bin/clang`を渡す。この設定はTree-sitterや
 mal language serverとは別のC editor integrationである。
 
@@ -115,7 +115,7 @@ nu scripts/editor-dev.nu helix
 cargo run --manifest-path tools/mal-lsp/Cargo.toml --locked
 ```
 
-module責務は[`tools/mal-lsp/README.md`](../../tools/mal-lsp/README.md)を正とする。
+module責務は[`tools/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を正とする。
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに

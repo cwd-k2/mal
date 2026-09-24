@@ -10,8 +10,8 @@ order observable.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-print-and-closure
+nix develop --command cargo run -p mal-compiler -- check examples/print-and-closure/program.mal
+nix develop --command cargo run -p mal-compiler -- build examples/print-and-closure/program.mal --output /tmp/mal-print-and-closure
 /tmp/mal-print-and-closure
 ```
 

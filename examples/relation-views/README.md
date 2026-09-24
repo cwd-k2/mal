@@ -26,7 +26,7 @@ the call site without making each domain operation manage a cursor.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/relation-views/program.mal --output /tmp/mal-relation-views
+nix develop --command cargo run -p mal-compiler -- build examples/relation-views/program.mal --output /tmp/mal-relation-views
 /tmp/mal-relation-views
 ```
 

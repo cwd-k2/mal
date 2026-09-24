@@ -1,5 +1,5 @@
 {
-  description = "mal v0.6 reference compiler and development environment";
+  description = "mal v0.6 toolchain and development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -24,6 +24,21 @@
         meta = {
           mainProgram = "malc";
           license = with pkgs.lib.licenses; [ mit mit0 ];
+        };
+      };
+      mal-fmt = pkgs.rustPlatform.buildRustPackage {
+        pname = "mal-fmt";
+        version = pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION);
+        src = ./.;
+        cargoLock.lockFile = ./Cargo.lock;
+        cargoBuildFlags = [ "--package" "mal-fmt" ];
+        cargoTestFlags = [ "--package" "mal-fmt" ];
+        postInstall = ''
+          install -Dm644 $src/LICENSE $out/share/licenses/mal-fmt/LICENSE
+        '';
+        meta = {
+          mainProgram = "mal-fmt";
+          license = pkgs.lib.licenses.mit;
         };
       };
       mal-lsp = pkgs.rustPlatform.buildRustPackage {
@@ -88,15 +103,16 @@
       '';
       toolchain = pkgs.symlinkJoin {
         name = "mal-toolchain-${pkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./VERSION)}";
-        paths = [ malc mal-lsp editor-runtime ];
+        paths = [ malc mal-fmt mal-lsp editor-runtime ];
         meta = {
-          description = "Compiler, language server, and editor runtime for mal development";
+          description = "Compiler, formatter, language server, and editor runtime for mal development";
           mainProgram = "malc";
           license = with pkgs.lib.licenses; [ mit mit0 ];
         };
       };
       toolchain-check = pkgs.runCommand "mal-toolchain-check" { } ''
         test -x ${toolchain}/bin/malc
+        test -x ${toolchain}/bin/mal-fmt
         test -x ${toolchain}/bin/mal-lsp
         test -s ${toolchain}/parser/mal.so
         test -s ${toolchain}/grammars/mal.so
@@ -128,13 +144,13 @@
       malcApp = {
         type = "app";
         program = "${malc}/bin/malc";
-        meta.description = "mal v0.6 reference compiler";
+        meta.description = "mal v0.6 compiler";
       };
     in
     {
       packages.${system} = {
         default = malc;
-        inherit malc mal-lsp editor-runtime toolchain;
+        inherit malc mal-fmt mal-lsp editor-runtime toolchain;
       };
 
       apps.${system} = {
@@ -143,7 +159,7 @@
       };
 
       checks.${system} = {
-        inherit malc mal-lsp vscode-check;
+        inherit malc mal-fmt mal-lsp vscode-check;
         editor-runtime = editor-runtime-check;
         toolchain = toolchain-check;
       };

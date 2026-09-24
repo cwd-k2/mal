@@ -22,7 +22,7 @@ different authority model.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/buffer-tree/program.mal --output /tmp/mal-buffer-tree
+nix develop --command cargo run -p mal-compiler -- build examples/buffer-tree/program.mal --output /tmp/mal-buffer-tree
 /tmp/mal-buffer-tree
 ```
 

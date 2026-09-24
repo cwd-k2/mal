@@ -53,9 +53,9 @@ side of the `extern` boundary.
 
 ## Repository
 
-The repository contains the Rust compiler (`malc`), an LLVM execution backend with a C11
-runtime and generated host interface, checked examples, a formatter, an LSP server, and VS Code,
-Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. v0.6 is under
+The repository is a Cargo workspace under `crates/`: `mal-syntax`, `mal-fmt` (the formatter), `mal-frontend`,
+`mal-backend` (LLVM generation and the C11 runtime), `mal-compiler` (the `malc` command), and `mal-lsp` (the language
+server). It also contains checked examples and VS Code, Neovim, and Helix support. Neovim and Helix share a Tree-sitter grammar. v0.6 is under
 development; generated artifacts and host ABI compatibility are not guaranteed across compiler
 versions.
 
@@ -66,10 +66,11 @@ The pinned development environment is provided by Nix. From the repository root 
 ```nu
 nix run . -- --help
 nix develop
-cargo test --manifest-path compiler/Cargo.toml
-cargo run --manifest-path compiler/Cargo.toml -- check examples/print-and-closure/program.mal
-cargo run --manifest-path compiler/Cargo.toml -- build examples/print-and-closure/program.mal --output /tmp/mal-example
-cargo run --manifest-path compiler/Cargo.toml -- emit-atcoder examples/print-and-closure/program.mal --output /tmp/Main.cpp
+cargo test --workspace
+cargo run -p mal-compiler -- check examples/print-and-closure/program.mal
+cargo run -p mal-compiler -- build examples/print-and-closure/program.mal -o /tmp/mal-example
+cargo run -p mal-compiler -- emit atcoder examples/print-and-closure/program.mal -o /tmp/Main.cpp
+cargo run -p mal-fmt -- examples/print-and-closure/program.mal
 /tmp/mal-example
 ```
 
@@ -93,8 +94,8 @@ implementation, and development documentation under `docs/` is written in Japane
 ## License
 
 This repository is licensed under the [MIT License](LICENSE), except for the C11 runtime under
-[`compiler/runtime/c11/`](compiler/runtime/c11/), which is licensed under the
-[MIT No Attribution License](compiler/runtime/c11/LICENSE). The runtime is incorporated into
+[`crates/mal-backend/runtime/c11/`](crates/mal-backend/runtime/c11/), which is licensed under the
+[MIT No Attribution License](crates/mal-backend/runtime/c11/LICENSE). The runtime is incorporated into
 programs produced by `malc`; MIT-0 permits distributing those copies without an attribution
 condition. These licenses do not claim rights in source programs merely because they are compiled
 with `malc`.

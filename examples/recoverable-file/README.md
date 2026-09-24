@@ -17,7 +17,7 @@ standard-output failure still trap because this example does not attempt to reco
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/recoverable-file/program.mal --output /tmp/mal-recoverable-file
+nix develop --command cargo run -p mal-compiler -- build examples/recoverable-file/program.mal --output /tmp/mal-recoverable-file
 /tmp/mal-recoverable-file examples/recoverable-file/README.md
 ```
 

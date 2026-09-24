@@ -26,7 +26,7 @@ The implementation is split by responsibility:
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/brainfuck-llvm/program.mal --output /tmp/brainfuck-llvm
+nix develop --command cargo run -p mal-compiler -- build examples/brainfuck-llvm/program.mal --output /tmp/brainfuck-llvm
 /tmp/brainfuck-llvm examples/brainfuck-llvm/hello.bf | save --force /tmp/a.ll
 nix develop --command clang /tmp/a.ll -o /tmp/a
 /tmp/a

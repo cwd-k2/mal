@@ -8,8 +8,8 @@ immutable mal-owned `Symbol`, validates it with Symbol operators, and appends a 
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/symbol-round-trip/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/symbol-round-trip/program.mal --output /tmp/mal-symbol-round-trip
+nix develop --command cargo run -p mal-compiler -- check examples/symbol-round-trip/program.mal
+nix develop --command cargo run -p mal-compiler -- build examples/symbol-round-trip/program.mal --output /tmp/mal-symbol-round-trip
 /tmp/mal-symbol-round-trip
 ```
 

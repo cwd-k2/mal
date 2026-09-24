@@ -11,8 +11,8 @@ still defines which copies may be used and when the referent remains live.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- check examples/opaque-aggregate/program.mal
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/opaque-aggregate/program.mal --output /tmp/mal-opaque-aggregate
+nix develop --command cargo run -p mal-compiler -- check examples/opaque-aggregate/program.mal
+nix develop --command cargo run -p mal-compiler -- build examples/opaque-aggregate/program.mal --output /tmp/mal-opaque-aggregate
 /tmp/mal-opaque-aggregate
 ```
 

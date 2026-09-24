@@ -2,8 +2,18 @@
 
 Status: Current v0.6 policy and implementation
 
-この文書は`malc format`が生成するcanonical layoutを定める。受理するsyntaxは
-[`grammar`](../spec/grammar.md)、command contractは[compiler usage](compiler-usage.md)を正とする。
+この文書は`mal-fmt`が生成するcanonical layoutを定める。受理するsyntaxは[`grammar`](../spec/grammar.md)を正とする。
+
+## command
+
+```nu
+mal-fmt source.mal
+mal-fmt --write source.mal
+```
+
+既定ではcanonical source全体をstdoutへ出す。`--write`（`-w`）を指定した場合はstdoutへ出さず、同じdirectoryのtemporary fileを介して入力fileを
+atomicに置き換える。syntax errorまたは書き込み失敗では元の入力を保持する。終了statusは成功が`0`、sourceまたはfile errorが`1`、
+command grammarのusage errorが`2`である。
 
 ## layout
 

@@ -71,7 +71,7 @@ extern declarationの型検査ではaliasを展開し、parameter/resultの全su
 extern transport制約により拒否する。
 
 checked programからcore境界で、type alias、external type、external operationからなる`ProgramInterface`を抽出する。
-`emit-header`と`emit-host`はvalue bindingをlowerせず、このinterfaceから生成する。C translation unitを作る経路では
+`emit header`と`emit host`はvalue bindingをlowerせず、このinterfaceから生成する。C translation unitを作る経路では
 同じinterfaceをcore programへ載せ、ANFとclosure conversionで意味も表現も変えず共有する。各loweringは実行表現だけを
 変換し、host interfaceを複製または再解釈しない。
 

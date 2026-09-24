@@ -20,6 +20,6 @@ Buffer crosses an extern boundary.
 From the repository root in Nushell:
 
 ```nu
-nix develop --command cargo run --manifest-path compiler/Cargo.toml -- build examples/mini-database/program.mal --output /tmp/mal-mini-database
+nix develop --command cargo run -p mal-compiler -- build examples/mini-database/program.mal --output /tmp/mal-mini-database
 /tmp/mal-mini-database /tmp/example.db
 ```

@@ -47,9 +47,9 @@ comments.
 
 ## Repository workflow
 
-Enter the pinned environment with `nix develop`. Preserve `#![forbid(unsafe_code)]` in compiler crate
-roots. Keep the compiler dependency-free unless a crate makes the implementation materially simpler
-and its cost is justified.
+Enter the pinned environment with `nix develop`. Preserve `#![forbid(unsafe_code)]` in every crate
+root. Keep every crate except `mal-lsp` dependency-free unless a crate makes the implementation
+materially simpler and its cost is justified.
 
 Do not create empty future-facing modules or general frameworks in advance. Preserve source spans
 through stages that can produce user-facing errors.

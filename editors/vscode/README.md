@@ -16,7 +16,7 @@ not support the development-path option, receives an installable VSIX containing
 `--prepare-only` on a GUI-less machine. The equivalent manual setup is:
 
 ```nu
-cargo build --manifest-path tools/mal-lsp/Cargo.toml --locked --release
+cargo build -p mal-lsp --locked --release
 cd editors/vscode
 npm install
 ```

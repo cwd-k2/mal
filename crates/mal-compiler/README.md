@@ -1,28 +1,22 @@
-# malc
+# mal-compiler
 
-Rust reference compiler for mal v0.6.
-
-The compiler implements the pipeline from source loading through LLVM module generation, C11
-shim/runtime compilation, and native linking. It also exposes frontend analysis, formatting, and
-host-interface generation as separate in-memory paths. Host header and adapter generation consume
-the checked `ProgramInterface` without lowering executable value bodies; executable generation
-continues through core, ANF, closure conversion, application control planning, and LLVM lowering.
-
-The implemented language slice includes closures, products, sums, fixed-width integers, strict
-floating point, byte and `Symbol` literals, postfix numeric conversions, explicit generics,
-target-sized quantities, opaque `Address` capabilities, managed shared-mutable `Buffer` values,
-C-host copy primitives, external opaque types, and the aggregate C host
-ABI. See the
-[compiler responsibilities](../docs/implementation/responsibilities.md) and
-[implementation notes](../docs/implementation/compiler.md) for the current structure.
-
-The supported environment, CLI behavior, `CC` contract, linker model, and generated artifact policy are documented in the [`reference compiler usage contract`](../docs/development/compiler-usage.md).
-
-From this directory:
+The `malc` command: argument parsing (`cli`) and the external boundary (`driver`). The driver loads source
+graphs, writes generated files, and runs the pinned Clang and LLD; everything that understands mal itself
+lives in the other crates.
 
 ```nu
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-cargo run -- --version
+malc check program.mal
+malc build program.mal -o program
+malc emit header program.mal -o program.mal.h
+malc emit host program.mal
+malc emit atcoder program.mal -o Main.cpp
+```
+
+`emit` commands print to stdout unless `-o` is given. Supported environments, options, and the artifact
+policy are documented in `docs/development/compiler-usage.md`. Crate boundaries are described in
+`docs/implementation/responsibilities.md`.
+
+```nu
+cargo test -p mal-compiler
+cargo run -p mal-compiler -- --version
 ```
