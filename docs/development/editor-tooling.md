@@ -35,8 +35,8 @@ nu scripts/dev.nu vscode --code-command /path/to/code
 
 GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
 
-repositoryの`.vscode/settings.json`はNix development environmentを選択し、`compiler`と`mal-lsp`の二つの
-Cargo manifestを`rust-analyzer`へ明示する。保存時検査は両projectのall-target Clippyを`--locked`で実行する。
+repositoryの`.vscode/settings.json`はNix development environmentを選択し、root
+のCargo workspaceを`rust-analyzer`へ明示する。保存時検査は全crateのall-target Clippyを`--locked`で実行する。
 同じ設定はclangdにNixのClang wrapperをqueryさせ、`.clangd`はC sourceと生成headerの言語をCと明示して
 backendと同じC11として解析する。
 `.vscode/extensions.json`はこの環境選択、Rust、Cの各extensionを推奨する。設定を初めて受理した後、またはNix store pathが
