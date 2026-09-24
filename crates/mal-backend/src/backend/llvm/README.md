@@ -1,7 +1,7 @@
 # backend/llvm
 
 Lowers the admitted execution plan to an LLVM module and the C shim that connects it to the host. Program-specific
-execution belongs here; program-independent mechanisms live in the C runtime (`compiler/runtime/c11`). The
+execution belongs here; program-independent mechanisms live in the C runtime (`crates/mal-backend/runtime/c11`). The
 responsibility boundary is documented in `docs/implementation/execution-backend.md`.
 
 | Module | Responsibility |

@@ -205,7 +205,7 @@ pub enum EntryParameter {
 pub struct MonomorphicProgram(Program);
 
 impl MonomorphicProgram {
-    pub fn new(program: Program) -> Self {
+    pub(crate) fn new(program: Program) -> Self {
         Self(program)
     }
 

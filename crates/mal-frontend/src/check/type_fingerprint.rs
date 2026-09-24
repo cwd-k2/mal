@@ -10,7 +10,7 @@ pub struct TypeFingerprints {
 }
 
 impl TypeFingerprints {
-    pub fn arguments(&mut self, arguments: &[Type]) -> u64 {
+    pub(crate) fn arguments(&mut self, arguments: &[Type]) -> u64 {
         let mut hasher = DefaultHasher::new();
         arguments.len().hash(&mut hasher);
         for argument in arguments {

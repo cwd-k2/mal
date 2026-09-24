@@ -109,13 +109,13 @@ nu scripts/editor-dev.nu helix
 
 ## language server
 
-`tools/mal-lsp/`はstdioでLSP JSON-RPCを扱う。開発環境では次のcommandで起動できる。
+`crates/mal-lsp/`はstdioでLSP JSON-RPCを扱う。開発環境では次のcommandで起動できる。
 
 ```nu
-cargo run --manifest-path tools/mal-lsp/Cargo.toml --locked
+cargo run -p mal-lsp --locked
 ```
 
-module責務は[`tools/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を正とする。
+module責務は[`crates/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を正とする。
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに
