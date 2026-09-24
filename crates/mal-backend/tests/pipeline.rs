@@ -29,10 +29,10 @@ fn emits_host_stubs_with_a_validated_header_name() {
         "extern print :: (Address, USize) -> Unit;".into(),
     );
 
-    let output = mal_compiler::pipeline::emit_host(&source, "custom.h").expect("host output");
+    let output = mal_backend::pipeline::emit_host(&source, "custom.h").expect("host output");
     assert!(output.starts_with("#include \"custom.h\"\n"));
 
-    let diagnostic = mal_compiler::pipeline::emit_host(&source, "invalid\"name.h")
+    let diagnostic = mal_backend::pipeline::emit_host(&source, "invalid\"name.h")
         .expect_err("invalid quoted include");
     assert!(
         diagnostic

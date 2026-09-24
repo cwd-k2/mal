@@ -8,7 +8,7 @@ mod types;
 
 use self::types::{HostTypes, TypeRegistry};
 
-pub(crate) const GENERATED_HEADER_NAME: &str = "program.mal.h";
+pub const GENERATED_HEADER_NAME: &str = "program.mal.h";
 
 pub(crate) fn emit_header(interface: &ProgramInterface) -> String {
     emit_header_for_target(
@@ -60,6 +60,6 @@ impl RawHostTypes {
     }
 }
 
-pub(crate) fn is_valid_header_name(header_name: &str) -> bool {
+pub fn is_valid_header_name(header_name: &str) -> bool {
     syntax::Directive::is_valid_quoted_include(header_name)
 }

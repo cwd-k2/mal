@@ -9,9 +9,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "mal-backend"
+version = "0.6.0-dev"
+dependencies = [
+ "mal-frontend",
+ "mal-syntax",
+]
+
+[[package]]
 name = "mal-compiler"
 version = "0.6.0-dev"
 dependencies = [
+ "mal-backend",
  "mal-fmt",
  "mal-frontend",
  "mal-syntax",

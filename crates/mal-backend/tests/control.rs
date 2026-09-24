@@ -1,8 +1,8 @@
-use mal_compiler::anf;
-use mal_compiler::closure;
-use mal_compiler::control;
-use mal_compiler::control::ast::{Function, Operation, State, Terminator};
-use mal_compiler::core;
+use mal_backend::anf;
+use mal_backend::closure;
+use mal_backend::control;
+use mal_backend::control::ast::{Function, Operation, State, Terminator};
+use mal_backend::core;
 use mal_frontend::check;
 use mal_frontend::resolve;
 use mal_syntax::parser;

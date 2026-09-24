@@ -22,7 +22,7 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
 
 pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    let header = crate::pipeline::emit_header_graph(&graph)
+    let header = mal_backend::pipeline::emit_header_graph(&graph)
         .map_err(|error| Error::diagnostic(error, &graph))?;
     create_parent(output_path)?;
     fs::write(output_path, header)
@@ -31,7 +31,7 @@ pub fn emit_header(source_path: &Path, output_path: &Path) -> Result<(), Error> 
 
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    crate::pipeline::emit_host_graph(&graph, header_name)
+    mal_backend::pipeline::emit_host_graph(&graph, header_name)
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 
@@ -117,14 +117,17 @@ impl Error {
     }
 
     fn backend(
-        error: crate::backend::llvm::Error,
+        error: mal_backend::pipeline::GenerateError,
         sources: &impl mal_syntax::source::SourceProvider,
     ) -> Self {
         match error {
-            crate::backend::llvm::Error::Diagnostic(diagnostic) => {
-                Self::diagnostic(diagnostic, sources)
+            mal_backend::pipeline::GenerateError::Diagnostic(diagnostic)
+            | mal_backend::pipeline::GenerateError::Backend(
+                mal_backend::pipeline::BackendError::Diagnostic(diagnostic),
+            ) => Self::diagnostic(diagnostic, sources),
+            mal_backend::pipeline::GenerateError::Backend(error) => {
+                Self::new(format!("malc: LLVM backend failure: {error}"))
             }
-            error => Self::new(format!("malc: LLVM backend failure: {error}")),
         }
     }
 }

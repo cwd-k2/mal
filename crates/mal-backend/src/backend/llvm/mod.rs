@@ -9,13 +9,13 @@ mod shim;
 
 pub(crate) use optimization::OptimizationSet;
 
-pub(crate) struct Target<'a> {
-    pub(crate) triple: &'a str,
-    pub(crate) data_layout: &'a str,
+pub struct Target<'a> {
+    pub triple: &'a str,
+    pub data_layout: &'a str,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum Error {
+pub enum Error {
     Diagnostic(mal_syntax::diagnostic::Diagnostic),
     InvalidTargetDataLayout,
     InconsistentExecutionPlan(&'static str),

@@ -87,16 +87,6 @@ fn generate_build_inputs(
     optimization: OptimizationMode,
 ) -> Result<GeneratedBuild, Error> {
     let graph = graph::load(source_path)?;
-    let execution_optimizations = match optimization {
-        OptimizationMode::Baseline => crate::execution::OptimizationSet::none(),
-        OptimizationMode::Production => crate::execution::OptimizationSet::production(),
-    };
-    let llvm_optimizations = match optimization {
-        OptimizationMode::Baseline => crate::backend::llvm::OptimizationSet::none(),
-        OptimizationMode::Production => crate::backend::llvm::OptimizationSet::production(),
-    };
-    let execution = crate::pipeline::lower_graph_execution(&graph, execution_optimizations)
-        .map_err(|error| Error::diagnostic(error, &graph))?;
     let temporary = artifact_directory
         .is_none()
         .then(TemporaryDirectory::new)
@@ -114,18 +104,21 @@ fn generate_build_inputs(
             .to_owned(),
     };
     let target = toolchain::host_target()?;
-    let generated = crate::backend::llvm::generate(
-        &execution,
-        crate::backend::llvm::Target {
+    let generated = mal_backend::pipeline::generate(
+        &graph,
+        match optimization {
+            OptimizationMode::Baseline => mal_backend::pipeline::Optimization::Baseline,
+            OptimizationMode::Production => mal_backend::pipeline::Optimization::Production,
+        },
+        mal_backend::pipeline::Target {
             triple: &target.triple,
             data_layout: &target.data_layout,
         },
-        llvm_optimizations,
     )
     .map_err(|error| Error::backend(error, &graph))?;
     let module_path = build_directory.join("program.ll");
     let shim_path = build_directory.join("program-shim.c");
-    let header_path = build_directory.join(crate::backend::c::GENERATED_HEADER_NAME);
+    let header_path = build_directory.join(mal_backend::pipeline::GENERATED_HEADER_NAME);
     fs::write(&module_path, generated.module)
         .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
     fs::write(&shim_path, generated.shim)

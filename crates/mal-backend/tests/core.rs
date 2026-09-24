@@ -1,5 +1,5 @@
-use mal_compiler::core;
-use mal_compiler::core::ast::{
+use mal_backend::core;
+use mal_backend::core::ast::{
     BinaryPrimitive, Expression, ExpressionKind, JoinId, Lambda, Pattern, TopLevelPattern, ValueId,
 };
 use mal_frontend::check;

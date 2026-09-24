@@ -17,9 +17,9 @@ fn main() {
             .expect("benchmark source must check for specialization"),
     )
     .expect("benchmark source must specialize");
-    let core = mal_compiler::core::lower(&specialized);
-    let anf = mal_compiler::anf::lower(&core);
-    mal_compiler::closure::convert(&anf);
+    let core = mal_backend::core::lower(&specialized);
+    let anf = mal_backend::anf::lower(&core);
+    mal_backend::closure::convert(&anf);
     mal_frontend::editor::analyze(&source).expect("benchmark source must support editor analysis");
 
     println!("source_bytes={}", source.text().len());
@@ -35,13 +35,9 @@ fn main() {
     measure("check_specialize", || {
         mal_frontend::check::check(black_box(&resolved)).and_then(mal_frontend::check::specialize)
     });
-    measure("core", || {
-        mal_compiler::core::lower(black_box(&specialized))
-    });
-    measure("anf", || mal_compiler::anf::lower(black_box(&core)));
-    measure("closure", || {
-        mal_compiler::closure::convert(black_box(&anf))
-    });
+    measure("core", || mal_backend::core::lower(black_box(&specialized)));
+    measure("anf", || mal_backend::anf::lower(black_box(&core)));
+    measure("closure", || mal_backend::closure::convert(black_box(&anf)));
     measure("pipeline_check", || {
         mal_frontend::analysis::check(black_box(&source))
     });

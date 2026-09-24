@@ -1,14 +1,7 @@
 #![forbid(unsafe_code)]
 
-pub mod anf;
-mod backend;
 pub mod cli;
-pub mod closure;
-pub mod control;
-pub mod core;
 pub mod driver;
-mod execution;
-pub mod pipeline;
 
 pub fn version_line() -> String {
     format!(

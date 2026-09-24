@@ -1,7 +1,7 @@
-use mal_compiler::anf;
-use mal_compiler::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
-use mal_compiler::core;
-use mal_compiler::core::ast::BinaryPrimitive;
+use mal_backend::anf;
+use mal_backend::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
+use mal_backend::core;
+use mal_backend::core::ast::BinaryPrimitive;
 use mal_frontend::check;
 use mal_frontend::resolve;
 use mal_syntax::parser;

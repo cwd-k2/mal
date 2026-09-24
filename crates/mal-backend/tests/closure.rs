@@ -1,7 +1,7 @@
-use mal_compiler::anf;
-use mal_compiler::closure;
-use mal_compiler::closure::ast::{AtomKind, Function, Operation, Reference};
-use mal_compiler::core;
+use mal_backend::anf;
+use mal_backend::closure;
+use mal_backend::closure::ast::{AtomKind, Function, Operation, Reference};
+use mal_backend::core;
 use mal_frontend::check;
 use mal_frontend::resolve;
 use mal_syntax::parser;
@@ -251,6 +251,6 @@ fn preserves_captured_products_and_destructuring_patterns() {
     );
     assert!(matches!(
         inner.body.bindings[0].pattern,
-        mal_compiler::closure::ast::Pattern::Product { .. }
+        mal_backend::closure::ast::Pattern::Product { .. }
     ));
 }
