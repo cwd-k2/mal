@@ -71,7 +71,7 @@ impl Server {
             return document.analyze_single(uri);
         };
         match mal_syntax::graph::load_with_overlays(&path, &document.text, &overlays) {
-            Ok(graph) => match mal_compiler::pipeline::analyze_graph(&graph) {
+            Ok(graph) => match mal_frontend::analysis::analyze_graph(&graph) {
                 Ok(analysis) => {
                     document.analysis = AnalysisState::Ready {
                         graph: Some(graph),
@@ -97,7 +97,7 @@ impl Server {
             },
             Err(load_error) => {
                 let source = document.source(uri);
-                let diagnostics = match mal_compiler::pipeline::analyze(&source) {
+                let diagnostics = match mal_frontend::analysis::analyze(&source) {
                     Err(diagnostic) => vec![lsp_diagnostic(&source, diagnostic)],
                     Ok(_) => vec![json!({
                         "range": zero_range(), "severity": 1, "source": "malc",
@@ -131,7 +131,7 @@ impl Document {
         )
     }
 
-    pub(super) fn semantic(&mut self) -> Option<&mal_compiler::editor::SemanticDocument> {
+    pub(super) fn semantic(&mut self) -> Option<&mal_frontend::editor::SemanticDocument> {
         let AnalysisState::Ready {
             graph,
             analysis,
@@ -142,8 +142,8 @@ impl Document {
         };
         if semantic.is_none() {
             *semantic = Some(Box::new(graph.as_ref().map_or_else(
-                || mal_compiler::editor::from_analysis_for_file(analysis, self.id),
-                |graph| mal_compiler::editor::from_graph_analysis(graph, analysis, graph.root()),
+                || mal_frontend::editor::from_analysis_for_file(analysis, self.id),
+                |graph| mal_frontend::editor::from_graph_analysis(graph, analysis, graph.root()),
             )));
         }
         semantic.as_deref()
@@ -151,7 +151,7 @@ impl Document {
 
     fn analyze_single(&mut self, uri: &str) -> Vec<Value> {
         let source = self.source(uri);
-        match mal_compiler::pipeline::analyze(&source) {
+        match mal_frontend::analysis::analyze(&source) {
             Ok(analysis) => {
                 self.analysis = AnalysisState::Ready {
                     graph: None,

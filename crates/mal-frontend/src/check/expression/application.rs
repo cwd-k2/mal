@@ -277,7 +277,7 @@ impl Checker {
         })
     }
 
-    pub(crate) fn check_argument(
+    pub fn check_argument(
         &mut self,
         arguments: &[Node<resolved::Expression>],
         parameter: &Type,

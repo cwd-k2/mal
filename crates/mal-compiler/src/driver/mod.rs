@@ -15,7 +15,7 @@ static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    crate::pipeline::check_graph(&graph)
+    mal_frontend::analysis::check_graph(&graph)
         .map(|_| ())
         .map_err(|error| Error::diagnostic(error, &graph))
 }

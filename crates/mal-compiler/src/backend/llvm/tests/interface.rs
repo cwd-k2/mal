@@ -14,8 +14,8 @@ fn admits_product_external_calls() {
     .enumerate()
     {
         let source = SourceFile::new(FileId::new(76), "product-extern.mal", source.into());
-        let checked = crate::pipeline::check(&source).expect("check product extern fixture");
-        let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+        let checked = mal_frontend::analysis::check(&source).expect("check product extern fixture");
+        let core = crate::core::lower(&mal_frontend::check::specialize(checked).expect("specialize checked program"));
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution = crate::execution::lower(
@@ -37,8 +37,8 @@ fn admits_sum_external_calls_recursively() {
     .enumerate()
     {
         let source = SourceFile::new(FileId::new(77), "sum-extern.mal", source.into());
-        let checked = crate::pipeline::check(&source).expect("check sum extern fixture");
-        let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+        let checked = mal_frontend::analysis::check(&source).expect("check sum extern fixture");
+        let core = crate::core::lower(&mal_frontend::check::specialize(checked).expect("specialize checked program"));
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution = crate::execution::lower(

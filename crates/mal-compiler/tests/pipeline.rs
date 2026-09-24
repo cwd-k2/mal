@@ -8,14 +8,14 @@ fn checks_in_memory_source_without_an_external_boundary() {
         "value :: Int32 := 1;".into(),
     );
 
-    assert!(mal_compiler::pipeline::check(&source).is_ok());
+    assert!(mal_frontend::analysis::check(&source).is_ok());
 }
 
 #[test]
 fn preserves_structured_frontend_diagnostics() {
     let source = SourceFile::new(FileId::new(102), "memory.mal", "value :: Unit := 1;".into());
 
-    let diagnostic = mal_compiler::pipeline::check(&source).expect_err("type mismatch");
+    let diagnostic = mal_frontend::analysis::check(&source).expect_err("type mismatch");
     let primary = diagnostic.primary.expect("primary label");
     assert_eq!(diagnostic.message, "type mismatch");
     assert_eq!(primary.span.file(), source.id());

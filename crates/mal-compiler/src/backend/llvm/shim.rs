@@ -2,7 +2,7 @@ use crate::backend::c::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TypeName,
     VariableDeclaration,
 };
-use crate::check::ast::Type;
+use mal_frontend::check::ast::Type;
 
 use super::body::types::Types;
 

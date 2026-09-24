@@ -2,8 +2,8 @@ use crate::backend::c::syntax::{
     Block, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter,
     Statement, SwitchCase, TranslationUnit, TypeName,
 };
-use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
+use mal_frontend::check::ast::Type;
 
 use super::{HostTypes, TypeRegistry, is_bool};
 

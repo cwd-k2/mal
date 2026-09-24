@@ -1,9 +1,9 @@
 use mal_compiler::anf;
 use mal_compiler::anf::ast::{AtomKind, Block, Lambda, Operation, Pattern};
-use mal_compiler::check;
 use mal_compiler::core;
 use mal_compiler::core::ast::BinaryPrimitive;
-use mal_compiler::resolve;
+use mal_frontend::check;
+use mal_frontend::resolve;
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 

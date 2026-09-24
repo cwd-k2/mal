@@ -1,12 +1,12 @@
-use crate::check::ast as checked;
 use crate::core::ast::{Expression, Pattern};
+use mal_frontend::check::ast as checked;
 
 use super::{Continuation, Lowerer};
 
 impl Lowerer {
     pub(super) fn lower_result_block_with(
         &mut self,
-        source_target: crate::resolve::ast::ValueId,
+        source_target: mal_frontend::resolve::ast::ValueId,
         block: &checked::ExpressionBlock,
         value_type: &checked::Type,
         result_type: &checked::Type,

@@ -98,9 +98,9 @@ impl BorrowPlan {
 #[cfg(test)]
 mod tests {
     use super::super::PatternDestination;
-    use crate::check::ast::Type;
     use crate::closure::ast::Pattern;
     use crate::control::ast::{Operation, StateId, Terminator};
+    use mal_frontend::check::ast::Type;
     use mal_syntax::source::{FileId, SourceFile};
 
     #[test]
@@ -110,9 +110,11 @@ mod tests {
             "borrowed-destructure.mal",
             "keep :: ((Symbol, Symbol), Bool) -> (Symbol, Symbol) := (argument) -> { (pair, condition) := argument; (left, _) := pair; if (condition) then { length := #left; pair } else { pair }; };\nmain :: Unit -> Int32 := () -> { result := keep(((\"a\", \"b\"), true)); 0i32; };".into(),
         );
-        let checked = crate::pipeline::check(&source).expect("check borrowed destructure fixture");
+        let checked =
+            mal_frontend::analysis::check(&source).expect("check borrowed destructure fixture");
         let core = crate::core::lower(
-            &crate::check::specialize(checked).expect("specialize borrowed destructure fixture"),
+            &mal_frontend::check::specialize(checked)
+                .expect("specialize borrowed destructure fixture"),
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
@@ -161,9 +163,11 @@ mod tests {
             "inspect :: ((Symbol, Int64), Bool) -> USize := (argument) -> { (pair, _) := argument; (text, _) := pair; #text; };\nmain :: Unit -> Int32 := () -> { inspect(((\"a\" + \"b\", 0i64), true)).i32; };"
                 .into(),
         );
-        let checked = crate::pipeline::check(&source).expect("check nested destructure fixture");
+        let checked =
+            mal_frontend::analysis::check(&source).expect("check nested destructure fixture");
         let core = crate::core::lower(
-            &crate::check::specialize(checked).expect("specialize nested destructure fixture"),
+            &mal_frontend::check::specialize(checked)
+                .expect("specialize nested destructure fixture"),
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
@@ -200,9 +204,9 @@ mod tests {
             "borrowed-case-payload.mal",
             "Choice :: [Symbol, Symbol];\nkeep :: Choice -> Choice := (choice) -> { choice[(value) -> { length := #value; choice }, (value) -> { length := #value; choice }] };\ncreate :: Symbol -> Choice := (value) -> [first, second] => { first(value) };\nmain :: Unit -> Int32 := () -> { result := keep(create(\"a\" + \"b\")); 0i32; };".into(),
         );
-        let checked = crate::pipeline::check(&source).expect("check borrowed case fixture");
+        let checked = mal_frontend::analysis::check(&source).expect("check borrowed case fixture");
         let core = crate::core::lower(
-            &crate::check::specialize(checked).expect("specialize borrowed case fixture"),
+            &mal_frontend::check::specialize(checked).expect("specialize borrowed case fixture"),
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);

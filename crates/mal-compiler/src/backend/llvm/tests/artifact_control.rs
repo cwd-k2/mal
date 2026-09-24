@@ -21,9 +21,10 @@ fn places_activation_temporaries_in_the_entry_block_before_recursive_back_edges(
          };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check generic loop fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize generic loop"));
+    let checked = mal_frontend::analysis::check(&source).expect("check generic loop fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize generic loop"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -63,9 +64,11 @@ fn borrows_managed_tail_carriers_from_the_outer_call() {
         "walk :: (Symbol, Int32) -> Int32 := (text, remaining) -> { if (remaining == 0i32) then { (#text).i32 } else { walk((text, remaining - 1i32)) }; }; main :: Unit -> Int32 := () -> { walk((\"x\", 4i32)) - 1i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check managed tail carrier fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked =
+        mal_frontend::analysis::check(&source).expect("check managed tail carrier fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -105,8 +108,8 @@ fn admits_direct_self_handoffs_to_wildcard_parameters() {
             "direct-self-wildcard.mal",
             source.into(),
         );
-        let checked = crate::pipeline::check(&source).expect("check wildcard fixture");
-        let core = crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+        let checked = mal_frontend::analysis::check(&source).expect("check wildcard fixture");
+        let core = crate::core::lower(&mal_frontend::check::specialize(checked).expect("specialize checked program"));
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);
         let execution = crate::execution::lower(
@@ -132,9 +135,10 @@ fn admits_recursive_control_without_optional_execution_techniques() {
          };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check baseline fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check baseline fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution = crate::execution::lower(closure, crate::execution::OptimizationSet::none());
@@ -151,9 +155,9 @@ fn shares_duplicate_owner_successors_once_before_canonical_transfer() {
          main :: Unit -> Int32 := () -> { pair := duplicate(); 0i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check ownership fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -192,9 +196,9 @@ fn invalidates_a_consumed_sum_before_releasing_discarded_payload_leaves() {
          };"
         .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check case ownership fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check case ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize case ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize case ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);

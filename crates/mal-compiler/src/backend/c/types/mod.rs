@@ -2,8 +2,8 @@ use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, AggregateKind, Declaration, Parameter, TranslationUnit,
     TypeName,
 };
-use crate::check::ast::{SharedTypeId, Type};
-use crate::resolve::ast::TypeId;
+use mal_frontend::check::ast::{SharedTypeId, Type};
+use mal_frontend::resolve::ast::TypeId;
 
 mod collect;
 mod host;
@@ -256,7 +256,7 @@ pub(super) fn is_bool(ty: &Type) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::resolve::ast::TypeId;
+    use mal_frontend::resolve::ast::TypeId;
 
     use super::*;
 

@@ -1,4 +1,4 @@
-use mal_compiler::editor::{OccurrenceRole, SymbolKind};
+use mal_frontend::editor::{OccurrenceRole, SymbolKind};
 use mal_syntax::source::{FileId, SourceFile, SourceGraph, SourceRequirement, Span};
 
 fn source(text: &str) -> SourceFile {
@@ -9,12 +9,12 @@ fn source(text: &str) -> SourceFile {
 fn associates_only_adjacent_standalone_comments_with_declarations() {
     let text = "// First line\n// Second line  \nextern output :: Int32 -> Unit;\n\n// Detached\n\nvalue :: Int32 := 1; // Trailing\nnext :: Int32 := 2;\n";
     let source = source(text);
-    let document = mal_compiler::editor::analyze(&source).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source).expect("semantic document");
     let documentation = |name: &str| {
         let occurrence = document
             .occurrence_at(text.find(name).unwrap())
             .expect("declaration occurrence");
-        mal_compiler::editor::declaration_documentation(
+        mal_frontend::editor::declaration_documentation(
             &source,
             occurrence.declaration_span.expect("declaration span"),
         )
@@ -31,7 +31,7 @@ fn associates_only_adjacent_standalone_comments_with_declarations() {
 #[test]
 fn preserves_declared_aliases_in_symbol_types() {
     let text = "Count :: Int32;\nvalue :: Count := 1;\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     let value_hover = document.hover_at(text.find("value").unwrap()).unwrap();
     assert_eq!(value_hover.ty, "Count");
@@ -62,7 +62,7 @@ fn preserves_declared_aliases_in_symbol_types() {
 #[test]
 fn expands_only_the_hovered_alias() {
     let text = "Tree :: (Int64, Address, Address);\nForest :: (Tree, Tree);\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     let tree = document.hover_at(text.find("Tree").unwrap()).unwrap();
     assert_eq!(tree.ty, "(Int64, Address, Address)");
@@ -73,7 +73,7 @@ fn expands_only_the_hovered_alias() {
 #[test]
 fn function_and_parameter_hovers_preserve_declared_aliases() {
     let text = "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     let function = document.hover_at(text.find("f ::").unwrap()).unwrap();
     assert_eq!(function.ty, "(Tree, Int64) -> Int64");
@@ -93,7 +93,7 @@ fn function_and_parameter_hovers_preserve_declared_aliases() {
 #[test]
 fn external_function_references_share_the_declaration_identity() {
     let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("output").unwrap();
     let reference_offset = text.rfind("output").unwrap();
     let declaration = document.occurrence_at(declaration_offset).unwrap();
@@ -112,7 +112,7 @@ fn external_function_references_share_the_declaration_identity() {
 fn receiver_first_callees_support_function_editor_features() {
     let text = "add :: (Int32, Int32) -> Int32 := (left, right) -> { left + right };\n\
                 main :: Unit -> Int32 := () -> { 40i32.add(2) };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("add ::").unwrap();
     let reference_offset = text.rfind(".add(").unwrap() + 1;
     let reference = document
@@ -139,7 +139,7 @@ fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
     let text = "build :: Unit -> Buffer<Int32> := () -> make<Int32>(1usize);\n\
                 admit :: Address -> Buffer<Int32> := (address) -> from<Int32>(address, 0usize, 1usize);\n\
                 publish :: (Buffer<Int32>, Address) -> Unit := (values, address) -> values.into(address, 0usize, #values);\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     for (name, offset) in [
         ("from", text.find("from<Int32>").unwrap()),
@@ -178,7 +178,7 @@ fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
 fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
     let text = "closingParen :: UInt8 := ')';";
     let literal = text.find("')'").unwrap();
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let hover = document.hover_at(literal + 1).expect("byte literal hover");
 
     assert_eq!(hover.ty, "UInt8");
@@ -189,7 +189,7 @@ fn byte_literal_hover_preserves_a_closing_parenthesis_as_literal_content() {
 #[test]
 fn numeric_conversion_suffixes_have_value_hover_without_type_navigation() {
     let text = "value :: UInt8 := 1i8.u8;";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let suffix_offset = text.rfind("u8").unwrap();
 
     let hover = document.hover_at(suffix_offset).expect("conversion hover");
@@ -201,7 +201,7 @@ fn numeric_conversion_suffixes_have_value_hover_without_type_navigation() {
 #[test]
 fn sum_result_annotations_navigate_to_the_alias() {
     let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("Choice").unwrap();
     let constructor_offset = text.find("-> Choice").unwrap() + 3;
     let reference = document
@@ -239,7 +239,7 @@ fn sum_result_annotations_navigate_to_the_alias() {
 #[test]
 fn sum_continuation_parameters_keep_declaration_identity() {
     let text = "Choice :: [Unit, Int32];\nread :: Choice -> Int32 := (choice) -> { choice[\n() -> { 0 },\n(payload) -> { payload }\n] };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let declaration_offset = text.find("(payload)").unwrap() + 1;
     let reference_offset = text.rfind("payload").unwrap();
     let declaration = document
@@ -259,7 +259,7 @@ fn sum_continuation_parameters_keep_declaration_identity() {
 #[test]
 fn result_binders_support_hover_definition_references_and_rename() {
     let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled) -> [ok, err] => { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result) -> [return] => { return(result) };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let ok_declaration_offset = text.find("[ok").unwrap() + 1;
     let ok_reference_offset = text.rfind("ok(42)").unwrap();
     let err_declaration_offset = text.find("err]").unwrap();
@@ -308,7 +308,7 @@ fn result_binders_support_hover_definition_references_and_rename() {
 #[test]
 fn symbol_operators_report_their_result_types() {
     let text = "inspect :: Symbol -> USize := (value) -> { #value + (value # 0usize).usize; };";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let length_operator = text.find('#').unwrap();
     let access_operator = text.rfind('#').unwrap();
 
@@ -319,7 +319,7 @@ fn symbol_operators_report_their_result_types() {
 #[test]
 fn definition_references_and_rename_follow_capture_identity() {
     let text = "create :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let parameter_offset = text.find("(x)").unwrap() + 1;
     let inner_reference_offset = text.find("{ x;").unwrap() + 2;
 
@@ -345,7 +345,7 @@ fn definition_references_and_rename_follow_capture_identity() {
 fn resolved_identity_keeps_shadowed_names_separate() {
     let text =
         "first :: Int32 -> Int32 := (x) -> { x; };\nsecond :: Int32 -> Int32 := (x) -> { x; };\n";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let first = document
         .occurrence_at(text.find("(x)").unwrap() + 1)
         .unwrap();
@@ -361,7 +361,7 @@ fn resolved_identity_keeps_shadowed_names_separate() {
 #[test]
 fn predefined_references_have_no_source_definition_or_rename_target() {
     let text = "value :: Bool := false;";
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let offset = text.find("false").unwrap();
     let occurrence = document.occurrence_at(offset).unwrap();
 
@@ -374,7 +374,7 @@ fn predefined_references_have_no_source_definition_or_rename_target() {
 fn reports_the_type_of_a_buffer_method() {
     let text = "read :: Buffer<Int64> -> Int64 := (buffer) -> buffer.get(0usize);";
     let offset = text.rfind("get").unwrap();
-    let document = mal_compiler::editor::analyze(&source(text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let hover = document.hover_at(offset).expect("buffer get hover");
 
     assert_eq!(hover.ty, "(Buffer<T>, USize) -> T");
@@ -408,8 +408,8 @@ fn graph_analysis_keeps_navigation_global_and_document_features_local() {
         ],
         vec![],
     );
-    let analysis = mal_compiler::pipeline::analyze_graph(&graph).expect("graph analysis");
-    let document = mal_compiler::editor::from_graph_analysis(&graph, &analysis, FileId::new(0));
+    let analysis = mal_frontend::analysis::analyze_graph(&graph).expect("graph analysis");
+    let document = mal_frontend::editor::from_graph_analysis(&graph, &analysis, FileId::new(0));
 
     assert_eq!(
         document
@@ -454,7 +454,7 @@ fn indexes_long_left_associative_expressions_without_host_recursion() {
         .join(" + ");
     let text = format!("main :: Unit -> Int32 := () -> {{ {expression}; }};");
 
-    let document = mal_compiler::editor::analyze(&source(&text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(&text)).expect("semantic document");
 
     assert_eq!(
         document.hover_at(text.rfind("0i32").unwrap()).unwrap().ty,
@@ -468,7 +468,7 @@ fn indexes_many_top_level_symbols_from_declarations_once() {
         .map(|index| format!("value{index} :: Int32 := 0i32;\n"))
         .collect::<String>();
 
-    let document = mal_compiler::editor::analyze(&source(&text)).expect("semantic document");
+    let document = mal_frontend::editor::analyze(&source(&text)).expect("semantic document");
 
     assert_eq!(document.document_symbols().len(), 4_096);
 }

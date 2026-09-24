@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::closure::ast::Atom;
-use crate::resolve::ast::ExternalOperationId;
+use mal_frontend::check::ast::Type;
+use mal_frontend::resolve::ast::ExternalOperationId;
 
 use super::{EmittedValue, FunctionEmitter};
 

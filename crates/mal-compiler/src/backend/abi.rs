@@ -35,7 +35,7 @@ impl Function {
         }
     }
 
-    pub(crate) fn external_bridge(id: crate::resolve::ast::ExternalOperationId) -> Self {
+    pub(crate) fn external_bridge(id: mal_frontend::resolve::ast::ExternalOperationId) -> Self {
         let mut function = Self::program_entry();
         function.name = format!("mal_bridge_external_{}", id.0);
         function

@@ -1,4 +1,4 @@
-use mal_compiler::editor::{Occurrence, SymbolKind};
+use mal_frontend::editor::{Occurrence, SymbolKind};
 use mal_syntax::source::{SourceFile, Span};
 
 pub(super) fn contents(

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, StateId};
+use mal_frontend::check::ast::Type;
 
 use super::SymbolConcatMode;
 

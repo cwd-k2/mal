@@ -1,4 +1,4 @@
-use crate::check::ast as checked;
+use mal_frontend::check::ast as checked;
 
 pub(super) fn contains_control(value: &checked::Expression) -> bool {
     let mut pending = vec![Presence::Expression(value)];

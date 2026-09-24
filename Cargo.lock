@@ -13,6 +13,7 @@ name = "mal-compiler"
 version = "0.6.0-dev"
 dependencies = [
  "mal-fmt",
+ "mal-frontend",
  "mal-syntax",
 ]
 
@@ -20,7 +21,14 @@ dependencies = [
 name = "mal-fmt"
 version = "0.6.0-dev"
 dependencies = [
- "mal-compiler",
+ "mal-frontend",
+ "mal-syntax",
+]
+
+[[package]]
+name = "mal-frontend"
+version = "0.6.0-dev"
+dependencies = [
  "mal-syntax",
 ]
 
@@ -28,8 +36,8 @@ dependencies = [
 name = "mal-lsp"
 version = "0.6.0-dev"
 dependencies = [
- "mal-compiler",
  "mal-fmt",
+ "mal-frontend",
  "mal-syntax",
  "serde",
  "serde_json",

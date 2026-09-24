@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
 use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPattern};
 use crate::control::ast::{Program, StateId, Terminator};
+use mal_frontend::check::ast::Type;
 
 use super::Slot;
 use super::types::Types;
@@ -11,8 +11,8 @@ use super::types::Types;
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
     let entry = execution.lowered.entry?;
     let parameter = match entry.parameter {
-        crate::check::ast::EntryParameter::Unit => Type::Unit,
-        crate::check::ast::EntryParameter::ProcessArguments => {
+        mal_frontend::check::ast::EntryParameter::Unit => Type::Unit,
+        mal_frontend::check::ast::EntryParameter::ProcessArguments => {
             Type::Product(vec![Type::USize, Type::Address].into())
         }
     };

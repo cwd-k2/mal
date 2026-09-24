@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::execution::{ControlCallMode, ControlRegionId, ParameterDestination};
+use mal_frontend::check::ast::Type;
 
 mod admission;
 mod aggregate;
@@ -129,8 +129,10 @@ struct FunctionEmitter<'a> {
 struct ProgramIndex<'a> {
     control_functions: HashMap<FunctionId, &'a crate::control::ast::Function>,
     lowered_functions: HashMap<FunctionId, &'a crate::closure::ast::Function>,
-    externals:
-        HashMap<crate::resolve::ast::ExternalOperationId, &'a crate::core::ast::ExternalOperation>,
+    externals: HashMap<
+        mal_frontend::resolve::ast::ExternalOperationId,
+        &'a crate::core::ast::ExternalOperation,
+    >,
 }
 
 impl<'a> ProgramIndex<'a> {

@@ -1,6 +1,7 @@
 use super::*;
 use crate::execution::ClosureUsePlan;
-use crate::{anf, check, core, resolve};
+use crate::{anf, core};
+use mal_frontend::{check, resolve};
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 
@@ -77,9 +78,9 @@ fn selects_only_parameter_fields_preserved_by_every_self_recursive_edge() {
          main :: Unit -> Int32 := () -> { walk(1i32, 2i32) + changed(1i32, 2i32) - 8i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check frame pass-through fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check frame pass-through fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize frame pass-through fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize frame pass-through fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -116,9 +117,9 @@ fn includes_tail_edges_when_selecting_frame_pass_through_fields() {
          main :: Unit -> Int32 := () -> { walk(1i32, 2i32) - 3i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check tail edge fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check tail edge fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize tail edge fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize tail edge fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -150,9 +151,9 @@ fn rejects_a_single_capture_site_repeated_by_a_recursive_caller() {
          };"
         .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check repeated capture fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check repeated capture fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize repeated capture fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize repeated capture fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);

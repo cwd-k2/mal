@@ -183,7 +183,7 @@ fn referenced_binding(operation: &Operation) -> Option<crate::anf::ast::ValueId>
 fn binding_type(
     pattern: &Pattern,
     source: crate::anf::ast::ValueId,
-) -> Option<&crate::check::ast::Type> {
+) -> Option<&mal_frontend::check::ast::Type> {
     match pattern {
         Pattern::Binding { id, ty } if *id == source => Some(ty),
         Pattern::Product { elements, .. } => elements
@@ -210,7 +210,7 @@ fn replace_binding(
     }
 }
 
-fn pattern_type(pattern: &Pattern) -> crate::check::ast::Type {
+fn pattern_type(pattern: &Pattern) -> mal_frontend::check::ast::Type {
     match pattern {
         Pattern::Binding { ty, .. }
         | Pattern::Wildcard { ty, .. }

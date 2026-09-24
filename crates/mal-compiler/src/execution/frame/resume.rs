@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::check::ast::Type;
 use crate::closure::ast::{FunctionId, Pattern};
 use crate::control::ast::{self as control, StateId, Terminator};
+use mal_frontend::check::ast::Type;
 
 use super::ControlFrame;
 use crate::execution::{ControlCallMode, ControlCallPlan, ControlRegionPlan};

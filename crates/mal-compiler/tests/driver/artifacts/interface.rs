@@ -325,7 +325,7 @@ fn source_graph_overlays_open_mal_buffers() {
             .text(),
         dependency_text
     );
-    mal_compiler::pipeline::check_graph(&graph).expect("check overlaid graph");
+    mal_frontend::analysis::check_graph(&graph).expect("check overlaid graph");
 }
 
 #[test]

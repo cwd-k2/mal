@@ -1,4 +1,4 @@
-use crate::check::ast as checked;
+use mal_frontend::check::ast as checked;
 use mal_syntax::ast::BinaryOperator;
 
 use super::{Continuation, Lowerer};

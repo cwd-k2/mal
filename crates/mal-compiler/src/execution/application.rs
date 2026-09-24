@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::check::ast::Type;
-use crate::check::type_fingerprint::TypeFingerprints;
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId, Terminator};
+use mal_frontend::check::ast::Type;
+use mal_frontend::check::type_fingerprint::TypeFingerprints;
 
 use super::{ClosureUsePlan, direct_function_id};
 
@@ -111,7 +111,8 @@ impl ApplicationGraph {
                 let Some((callee, argument, resume)) = application(terminator) else {
                     return false;
                 };
-                let crate::check::ast::Type::Function { parameter, result } = &callee.ty else {
+                let mal_frontend::check::ast::Type::Function { parameter, result } = &callee.ty
+                else {
                     return false;
                 };
                 argument.ty == **parameter
@@ -238,7 +239,7 @@ fn application(
     }
 }
 
-fn pattern_type(pattern: &closure::Pattern) -> &crate::check::ast::Type {
+fn pattern_type(pattern: &closure::Pattern) -> &mal_frontend::check::ast::Type {
     match pattern {
         closure::Pattern::Binding { ty, .. }
         | closure::Pattern::Wildcard { ty, .. }
@@ -273,7 +274,8 @@ pub(super) fn reachable_states(program: &control::Program, entry: StateId) -> Ve
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{anf, check, core, resolve};
+    use crate::{anf, core};
+    use mal_frontend::{check, resolve};
     use mal_syntax::parser;
     use mal_syntax::source::{FileId, SourceFile};
 

@@ -1,9 +1,9 @@
-use mal_compiler::check;
 use mal_compiler::core;
 use mal_compiler::core::ast::{
     BinaryPrimitive, Expression, ExpressionKind, JoinId, Lambda, Pattern, TopLevelPattern, ValueId,
 };
-use mal_compiler::resolve;
+use mal_frontend::check;
+use mal_frontend::resolve;
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 

@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
-use crate::check::ast::Type;
 use crate::closure::ast::{AtomKind, Pattern, Reference};
+use mal_frontend::check::ast::Type;
 
 use super::ast::{Operation, State, StateId, Terminator};
 
@@ -128,7 +128,8 @@ fn binding_reference(atom: &crate::closure::ast::Atom) -> Option<ValueId> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{anf, check, closure, core, resolve};
+    use crate::{anf, closure, core};
+    use mal_frontend::{check, resolve};
     use mal_syntax::parser;
     use mal_syntax::source::{FileId, SourceFile};
 

@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::control::ast::Operation;
 use crate::core::ast::UnaryPrimitive;
+use mal_frontend::check::ast::Type;
 
 use super::scalar::{arithmetic_instruction, scalar_type};
 use super::{EmittedValue, FunctionEmitter};

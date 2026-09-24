@@ -1,8 +1,8 @@
 use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, Declaration, TranslationUnit, TypeName,
 };
-use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
+use mal_frontend::check::ast::Type;
 
 use super::super::{HostTypes, TypeRegistry, is_bool, sum_representation_fields};
 

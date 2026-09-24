@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::check::ast::{SharedTypeId, Type};
+use mal_frontend::check::ast::{SharedTypeId, Type};
 
 use super::scalar::scalar_type;
 use crate::backend::llvm::TargetLayout;

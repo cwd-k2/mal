@@ -56,7 +56,7 @@ impl Server {
             return error(id, -32602, "document is not open");
         };
         let source = document.source(&uri);
-        let Ok(syntax) = mal_compiler::editor::analyze_syntax(&source) else {
+        let Ok(syntax) = mal_frontend::editor::analyze_syntax(&source) else {
             return success(id, json!([]));
         };
         let links = syntax
@@ -82,7 +82,7 @@ impl Server {
 }
 
 pub(super) fn target_path(uri: &str, source: &SourceFile, offset: usize) -> Option<PathBuf> {
-    let syntax = mal_compiler::editor::analyze_syntax(source).ok()?;
+    let syntax = mal_frontend::editor::analyze_syntax(source).ok()?;
     let requirement = syntax.requirements().iter().find(|requirement| {
         let span = requirement.path_span();
         span.start() <= offset && offset < span.end()

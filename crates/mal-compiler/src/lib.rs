@@ -2,16 +2,13 @@
 
 pub mod anf;
 mod backend;
-pub mod check;
 pub mod cli;
 pub mod closure;
 pub mod control;
 pub mod core;
 pub mod driver;
-pub mod editor;
 mod execution;
 pub mod pipeline;
-pub mod resolve;
 
 pub fn version_line() -> String {
     format!(

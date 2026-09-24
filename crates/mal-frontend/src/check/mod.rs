@@ -18,7 +18,7 @@ mod operator;
 mod product;
 mod specialization_identity;
 mod specialize;
-pub(crate) mod type_fingerprint;
+pub mod type_fingerprint;
 mod types;
 
 pub fn type_name(ty: &ast::Type) -> String {
@@ -58,7 +58,7 @@ pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Di
     Ok(ast::MonomorphicProgram::new(program))
 }
 
-pub(crate) fn next_lambda_identity(program: &Program) -> u32 {
+pub fn next_lambda_identity(program: &Program) -> u32 {
     specialization_identity::next_identities(program)
         .expect("an admitted monomorphic program has remaining identity space")
         .lambda

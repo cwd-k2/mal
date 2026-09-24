@@ -2,7 +2,8 @@ use super::*;
 use crate::execution::{
     ApplicationGraph, ClosureUsePlan, ContinuationGraph, OptimizationPlan, OptimizationSet,
 };
-use crate::{anf, check, closure, control, core, resolve};
+use crate::{anf, closure, control, core};
+use mal_frontend::{check, resolve};
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 

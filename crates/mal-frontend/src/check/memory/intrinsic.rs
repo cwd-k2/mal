@@ -7,7 +7,7 @@ use super::super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
 use super::super::{CheckResult, Checker};
 
 impl Checker {
-    pub(crate) fn check_memory_intrinsic(
+    pub fn check_memory_intrinsic(
         &mut self,
         reference: &resolved::ValueReference,
         type_arguments: &[Node<resolved::TypeExpression>],

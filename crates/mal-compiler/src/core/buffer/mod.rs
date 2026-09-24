@@ -1,6 +1,6 @@
 use super::Lowerer;
 use super::ast::{BufferOperation, Expression, ExpressionKind};
-use crate::check::ast as checked;
+use mal_frontend::check::ast as checked;
 
 impl Lowerer {
     pub(super) fn lower_buffer_operation(

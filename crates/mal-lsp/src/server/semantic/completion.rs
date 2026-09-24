@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mal_compiler::editor::{SemanticDocument, SymbolKind};
+use mal_frontend::editor::{SemanticDocument, SymbolKind};
 use mal_syntax::source::{SourceFile, Utf16Position};
 use serde_json::{Value, json};
 
@@ -62,7 +62,7 @@ pub(super) fn lexical_function_completions(
     uri: &str,
     source: &SourceFile,
 ) -> Vec<Value> {
-    let syntax = mal_compiler::editor::analyze_syntax(source).ok();
+    let syntax = mal_frontend::editor::analyze_syntax(source).ok();
     let mut names = syntax
         .as_ref()
         .map(|syntax| syntax.functions().to_vec())
@@ -96,7 +96,7 @@ pub(super) fn lexical_function_completions(
             let Some(source) = graph.source(requirement.target) else {
                 continue;
             };
-            let Ok(syntax) = mal_compiler::editor::analyze_syntax(source) else {
+            let Ok(syntax) = mal_frontend::editor::analyze_syntax(source) else {
                 continue;
             };
             names.extend(

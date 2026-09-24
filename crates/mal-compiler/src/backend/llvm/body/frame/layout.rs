@@ -69,9 +69,9 @@ mod tests {
     use super::*;
     use crate::anf::ast::ValueId;
     use crate::backend::llvm::TargetLayout;
-    use crate::check::ast::Type;
     use crate::control::ast::LiveValue;
     use crate::execution::ControlFrame;
+    use mal_frontend::check::ast::Type;
     use mal_syntax::source::{FileId, Span};
 
     fn frame(types: Vec<Type>) -> ControlFrame {

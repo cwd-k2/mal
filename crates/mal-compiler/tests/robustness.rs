@@ -24,7 +24,7 @@ fn exercise(id: u32, text: String) {
         }
         Err(diagnostic) => assert_valid_diagnostic(&source, &diagnostic),
     }
-    if let Err(diagnostic) = mal_compiler::pipeline::check(&source) {
+    if let Err(diagnostic) = mal_frontend::analysis::check(&source) {
         assert_valid_diagnostic(&source, &diagnostic);
     }
 }
@@ -75,6 +75,6 @@ fn accepts_ordinary_nesting() {
         ")".repeat(32)
     );
     let source = source_file(900, ordinary);
-    mal_compiler::pipeline::check(&source).expect("ordinary nesting must check");
+    mal_frontend::analysis::check(&source).expect("ordinary nesting must check");
     mal_fmt::format(&source).expect("ordinary nesting must format");
 }

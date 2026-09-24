@@ -1,5 +1,5 @@
-use crate::check::ast as checked;
-use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
+use mal_frontend::check::ast as checked;
+use mal_frontend::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
 use mal_syntax::ast::{BinaryOperator, UnaryOperator};
 use mal_syntax::source::Span;
 use std::collections::HashMap;
@@ -32,7 +32,7 @@ struct Lowerer {
     next_temporary: u32,
     next_lambda: u32,
     joins: Vec<ast::Join>,
-    result_targets: HashMap<crate::resolve::ast::ValueId, ast::JoinId>,
+    result_targets: HashMap<mal_frontend::resolve::ast::ValueId, ast::JoinId>,
 }
 
 impl Lowerer {
@@ -46,7 +46,7 @@ impl Lowerer {
     }
 
     fn lower_program(&mut self, program: &checked::Program) -> Program {
-        self.next_lambda = crate::check::next_lambda_identity(program);
+        self.next_lambda = mal_frontend::check::next_lambda_identity(program);
         let mut bindings = program
             .items
             .iter()

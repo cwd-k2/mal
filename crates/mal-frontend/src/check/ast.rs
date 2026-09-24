@@ -127,19 +127,19 @@ impl PartialEq for Type {
 impl Eq for Type {}
 
 impl Type {
-    pub(crate) fn data_subtypes(&self) -> DataSubtypes<'_> {
+    pub fn data_subtypes(&self) -> DataSubtypes<'_> {
         DataSubtypes {
             pending: vec![self],
             visited: HashSet::new(),
         }
     }
 
-    pub(crate) fn shared_id(&self) -> Option<SharedTypeId> {
+    pub fn shared_id(&self) -> Option<SharedTypeId> {
         shared_id(self)
     }
 }
 
-pub(crate) struct DataSubtypes<'a> {
+pub struct DataSubtypes<'a> {
     pending: Vec<&'a Type>,
     visited: HashSet<SharedTypeId>,
 }
@@ -164,7 +164,7 @@ impl<'a> Iterator for DataSubtypes<'a> {
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub(crate) enum SharedTypeId {
+pub enum SharedTypeId {
     Product(*const Type),
     Sum(*const Type),
     Function(*const Type, *const Type),
@@ -205,7 +205,7 @@ pub enum EntryParameter {
 pub struct MonomorphicProgram(Program);
 
 impl MonomorphicProgram {
-    pub(crate) fn new(program: Program) -> Self {
+    pub fn new(program: Program) -> Self {
         Self(program)
     }
 

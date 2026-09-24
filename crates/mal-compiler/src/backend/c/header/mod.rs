@@ -153,8 +153,8 @@ fn wrapper_definition(
     )]);
     let mut arguments = vec![Expr::address_of(Expr::identifier("call"))];
     match &external.parameter {
-        crate::check::ast::Type::Unit => {}
-        crate::check::ast::Type::Product(elements) => {
+        mal_frontend::check::ast::Type::Unit => {}
+        mal_frontend::check::ast::Type::Product(elements) => {
             let raw = Expr::compound_literal(
                 types.c_type(&external.parameter),
                 elements.iter().enumerate().map(|(field, _)| {
@@ -179,7 +179,7 @@ fn wrapper_definition(
         )),
     }
     let call = Expr::named_call(format!("mal_detail_{}", external.name), arguments);
-    if external.result == crate::check::ast::Type::Unit {
+    if external.result == mal_frontend::check::ast::Type::Unit {
         body.push(Statement::expression(call));
     } else {
         body.push(Statement::return_value(call));

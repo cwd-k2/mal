@@ -1,5 +1,5 @@
-use crate::check::ast::Type;
 use crate::core::ast::BufferOperation;
+use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
 

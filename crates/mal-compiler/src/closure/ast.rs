@@ -1,9 +1,9 @@
 use crate::anf::ast::ValueId;
-use crate::check::ast::{MemoryPrimitive, Type};
 use crate::core::ast::{
     BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
 };
-use crate::resolve::ast::{ExternalOperationId, LambdaId};
+use mal_frontend::check::ast::{MemoryPrimitive, Type};
+use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId};
 use mal_syntax::source::Span;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -18,7 +18,7 @@ pub struct Program {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EntryPoint {
     pub function: FunctionId,
-    pub parameter: crate::check::ast::EntryParameter,
+    pub parameter: mal_frontend::check::ast::EntryParameter,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

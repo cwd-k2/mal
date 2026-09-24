@@ -1,7 +1,8 @@
 use super::super::direct_function_id;
 use super::super::{ClosureUsePlan, ContinuationGraph, OptimizationSet};
 use super::*;
-use crate::{anf, check, closure, control, core, resolve};
+use crate::{anf, closure, control, core};
+use mal_frontend::{check, resolve};
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 

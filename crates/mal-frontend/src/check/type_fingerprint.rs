@@ -5,12 +5,12 @@ use std::hash::{Hash, Hasher};
 use super::ast::{SharedTypeId, Type};
 
 #[derive(Default)]
-pub(crate) struct TypeFingerprints {
+pub struct TypeFingerprints {
     cache: HashMap<SharedTypeId, u64>,
 }
 
 impl TypeFingerprints {
-    pub(crate) fn arguments(&mut self, arguments: &[Type]) -> u64 {
+    pub fn arguments(&mut self, arguments: &[Type]) -> u64 {
         let mut hasher = DefaultHasher::new();
         arguments.len().hash(&mut hasher);
         for argument in arguments {
@@ -19,7 +19,7 @@ impl TypeFingerprints {
         hasher.finish()
     }
 
-    pub(crate) fn signature(&mut self, parameter: &Type, result: &Type) -> (u64, u64) {
+    pub fn signature(&mut self, parameter: &Type, result: &Type) -> (u64, u64) {
         (self.ty(parameter), self.ty(result))
     }
 

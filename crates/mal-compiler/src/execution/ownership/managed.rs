@@ -1,4 +1,4 @@
-use crate::check::ast::Type;
+use mal_frontend::check::ast::Type;
 
 pub(crate) fn is_managed(ty: &Type) -> bool {
     ty.data_subtypes()

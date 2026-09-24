@@ -1,6 +1,6 @@
-use mal_compiler::check;
-use mal_compiler::check::ast::{ExpressionKind, TopItem, Type};
-use mal_compiler::resolve;
+use mal_frontend::check;
+use mal_frontend::check::ast::{ExpressionKind, TopItem, Type};
+use mal_frontend::resolve;
 use mal_syntax::parser::parse;
 use mal_syntax::source::{FileId, SourceFile};
 

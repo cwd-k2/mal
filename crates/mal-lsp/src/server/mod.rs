@@ -35,8 +35,8 @@ enum AnalysisState {
     },
     Ready {
         graph: Option<SourceGraph>,
-        analysis: mal_compiler::pipeline::Analysis,
-        semantic: Option<Box<mal_compiler::editor::SemanticDocument>>,
+        analysis: mal_frontend::analysis::Analysis,
+        semantic: Option<Box<mal_frontend::editor::SemanticDocument>>,
     },
 }
 

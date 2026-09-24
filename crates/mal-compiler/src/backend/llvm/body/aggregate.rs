@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{CaseArm, StateId};
+use mal_frontend::check::ast::Type;
 
 use super::types::is_bool;
 use super::{EmittedValue, FunctionEmitter, PreparedValue};

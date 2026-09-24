@@ -9,9 +9,10 @@ fn selects_symbol_storage_reuse_only_when_enabled() {
         "main :: Unit -> Int32 := () -> { prefix := \"a\" + \"b\"; text := prefix + \"c\"; (#text).i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check Symbol concat fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check Symbol concat fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -57,9 +58,9 @@ fn scalarizes_preserved_self_tail_parameter_fields_only_when_enabled() {
          };"
         .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check self-tail fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check self-tail fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize self-tail fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize self-tail fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);

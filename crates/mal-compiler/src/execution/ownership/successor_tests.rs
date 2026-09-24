@@ -1,13 +1,13 @@
 use super::*;
-use crate::check::ast::Type;
 use crate::control::ast::{Operation, StateId};
+use mal_frontend::check::ast::Type;
 use mal_syntax::source::{FileId, SourceFile};
 
 fn lower(source: &str) -> crate::execution::Program {
     let source = SourceFile::new(FileId::new(87), "owner-successors.mal", source.into());
-    let checked = crate::pipeline::check(&source).expect("check owner successor fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check owner successor fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize owner successor fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize owner successor fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);

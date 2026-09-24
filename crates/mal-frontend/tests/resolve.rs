@@ -1,5 +1,5 @@
-use mal_compiler::resolve;
-use mal_compiler::resolve::ast::{
+use mal_frontend::resolve;
+use mal_frontend::resolve::ast::{
     self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE,
     TopItem, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, ValueOwner,
 };

@@ -1,4 +1,4 @@
-use mal_compiler::resolve::ast::{Expression, TopItem};
+use mal_frontend::resolve::ast::{Expression, TopItem};
 use mal_syntax::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
 
 fn make_graph(
@@ -55,7 +55,7 @@ fn resolves_public_names_and_keeps_private_names_per_file() {
         &[&[(1, 0), (2, 1)], &[], &[]],
     );
 
-    let resolved = mal_compiler::resolve::resolve_graph(&graph, &parsed).unwrap();
+    let resolved = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap();
     assert_eq!(resolved.items.len(), 5);
     let TopItem::Binding(binding) = &resolved.items[4].kind else {
         panic!("expected the root binding");
@@ -77,7 +77,7 @@ fn does_not_reexport_imported_names() {
         &[&[(1, 0)], &[(2, 0)], &[]],
     );
 
-    let error = mal_compiler::resolve::resolve_graph(&graph, &parsed).unwrap_err();
+    let error = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap_err();
     assert_eq!(error.message, "unknown value `leaf`");
     assert_eq!(error.primary.unwrap().span.file(), FileId::new(0));
 }
@@ -95,7 +95,7 @@ fn rejects_conflicting_imports_and_dependency_entry_points() {
         ],
         &[&[(1, 0), (2, 1)], &[], &[]],
     );
-    let error = mal_compiler::resolve::resolve_graph(&graph, &parsed).unwrap_err();
+    let error = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap_err();
     assert_eq!(error.message, "duplicate imported top-level value `same`");
 
     let (graph, parsed) = make_graph(
@@ -105,7 +105,7 @@ fn rejects_conflicting_imports_and_dependency_entry_points() {
         ],
         &[&[(1, 0)], &[] as &[(u32, usize)]],
     );
-    let error = mal_compiler::resolve::resolve_graph(&graph, &parsed).unwrap_err();
+    let error = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap_err();
     assert_eq!(error.message, "`main` declared outside the root file");
 }
 
@@ -140,7 +140,7 @@ fn resolves_deep_requirement_chains_without_host_recursion() {
         .collect();
     let graph = SourceGraph::new(FileId::new(0), files, requirements, Vec::new());
 
-    let resolved = mal_compiler::resolve::resolve_graph(&graph, &parsed).unwrap();
+    let resolved = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap();
 
     assert_eq!(resolved.items.len(), depth);
 }

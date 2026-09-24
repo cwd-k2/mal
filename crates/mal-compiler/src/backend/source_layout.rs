@@ -1,4 +1,4 @@
-use crate::check::ast::Type;
+use mal_frontend::check::ast::Type;
 
 use crate::backend::llvm::TargetLayout;
 
@@ -42,7 +42,7 @@ impl SourceLayouts {
     fn layout_cached(
         self,
         ty: &Type,
-        cache: &mut std::collections::HashMap<crate::check::ast::SharedTypeId, Layout>,
+        cache: &mut std::collections::HashMap<mal_frontend::check::ast::SharedTypeId, Layout>,
     ) -> Option<Layout> {
         if let Some(layout) = ty.shared_id().and_then(|id| cache.get(&id)) {
             return Some(*layout);

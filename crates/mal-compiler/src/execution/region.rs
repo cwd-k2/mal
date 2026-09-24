@@ -199,7 +199,8 @@ fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {
 mod tests {
     use super::*;
     use crate::execution::{ApplicationGraph, ClosureUsePlan, OptimizationPlan, OptimizationSet};
-    use crate::{anf, check, closure, control, core, resolve};
+    use crate::{anf, closure, control, core};
+    use mal_frontend::{check, resolve};
     use mal_syntax::parser;
     use mal_syntax::source::{FileId, SourceFile};
 

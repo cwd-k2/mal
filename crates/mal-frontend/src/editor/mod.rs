@@ -70,7 +70,7 @@ pub struct SemanticDocument {
 }
 
 pub fn analyze(source: &SourceFile) -> Result<SemanticDocument, Diagnostic> {
-    let analysis = crate::pipeline::analyze(source)?;
+    let analysis = crate::analysis::analyze(source)?;
     Ok(from_analysis_for_file(&analysis, source.id()))
 }
 
@@ -78,12 +78,12 @@ pub fn analyze_syntax(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
     syntax::analyze(source)
 }
 
-pub fn from_analysis(analysis: &crate::pipeline::Analysis) -> SemanticDocument {
+pub fn from_analysis(analysis: &crate::analysis::Analysis) -> SemanticDocument {
     index::build(&analysis.resolved, &analysis.checked, None, None)
 }
 
 pub fn from_analysis_for_file(
-    analysis: &crate::pipeline::Analysis,
+    analysis: &crate::analysis::Analysis,
     file: FileId,
 ) -> SemanticDocument {
     index::build(&analysis.resolved, &analysis.checked, Some(file), None)
@@ -91,7 +91,7 @@ pub fn from_analysis_for_file(
 
 pub fn from_graph_analysis(
     graph: &SourceGraph,
-    analysis: &crate::pipeline::Analysis,
+    analysis: &crate::analysis::Analysis,
     file: FileId,
 ) -> SemanticDocument {
     let visible = graph

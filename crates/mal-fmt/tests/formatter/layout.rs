@@ -7,8 +7,8 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
     let second = format(&first);
 
     assert_eq!(second, first);
-    assert!(mal_compiler::pipeline::check(&source(input)).is_ok());
-    assert!(mal_compiler::pipeline::check(&source(&first)).is_ok());
+    assert!(mal_frontend::analysis::check(&source(input)).is_ok());
+    assert!(mal_frontend::analysis::check(&source(&first)).is_ok());
 }
 
 #[test]

@@ -11,16 +11,16 @@ fn main() {
     let source = SourceFile::new(FileId::new(900), "benchmark.mal", large_source());
     let tokens = mal_syntax::lexer::lex(&source).expect("benchmark source must lex");
     let parsed = mal_syntax::parser::parse(&source).expect("benchmark source must parse");
-    let resolved = mal_compiler::resolve::resolve(&parsed).expect("benchmark source must resolve");
-    let specialized = mal_compiler::check::specialize(
-        mal_compiler::check::check(&resolved)
+    let resolved = mal_frontend::resolve::resolve(&parsed).expect("benchmark source must resolve");
+    let specialized = mal_frontend::check::specialize(
+        mal_frontend::check::check(&resolved)
             .expect("benchmark source must check for specialization"),
     )
     .expect("benchmark source must specialize");
     let core = mal_compiler::core::lower(&specialized);
     let anf = mal_compiler::anf::lower(&core);
     mal_compiler::closure::convert(&anf);
-    mal_compiler::editor::analyze(&source).expect("benchmark source must support editor analysis");
+    mal_frontend::editor::analyze(&source).expect("benchmark source must support editor analysis");
 
     println!("source_bytes={}", source.text().len());
     measure("lex", || mal_syntax::lexer::lex(black_box(&source)));
@@ -29,11 +29,11 @@ fn main() {
     });
     measure("parse", || mal_syntax::parser::parse(black_box(&source)));
     measure("resolve", || {
-        mal_compiler::resolve::resolve(black_box(&parsed))
+        mal_frontend::resolve::resolve(black_box(&parsed))
     });
-    measure("check", || mal_compiler::check::check(black_box(&resolved)));
+    measure("check", || mal_frontend::check::check(black_box(&resolved)));
     measure("check_specialize", || {
-        mal_compiler::check::check(black_box(&resolved)).and_then(mal_compiler::check::specialize)
+        mal_frontend::check::check(black_box(&resolved)).and_then(mal_frontend::check::specialize)
     });
     measure("core", || {
         mal_compiler::core::lower(black_box(&specialized))
@@ -43,10 +43,10 @@ fn main() {
         mal_compiler::closure::convert(black_box(&anf))
     });
     measure("pipeline_check", || {
-        mal_compiler::pipeline::check(black_box(&source))
+        mal_frontend::analysis::check(black_box(&source))
     });
     measure("editor_analyze", || {
-        mal_compiler::editor::analyze(black_box(&source))
+        mal_frontend::editor::analyze(black_box(&source))
     });
 }
 

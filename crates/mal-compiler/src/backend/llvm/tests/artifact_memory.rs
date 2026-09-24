@@ -3,9 +3,10 @@ use mal_syntax::source::{FileId, SourceFile};
 
 fn generate_module(text: &str) -> String {
     let source = SourceFile::new(FileId::new(91), "llvm-buffer.mal", text.into());
-    let checked = crate::pipeline::check(&source).expect("check Buffer fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize Buffer fixture"));
+    let checked = mal_frontend::analysis::check(&source).expect("check Buffer fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize Buffer fixture"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =

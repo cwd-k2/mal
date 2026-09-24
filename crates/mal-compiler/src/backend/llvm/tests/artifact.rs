@@ -8,9 +8,10 @@ fn emits_targeted_llvm_and_a_c_shim_from_one_bridge_plan() {
         "llvm-constant.mal",
         "main :: Unit -> Int32 := () -> { 7; };".into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check LLVM fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check LLVM fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -55,9 +56,10 @@ fn selects_the_entry_function_from_checked_identity() {
         "llvm-entry-identity.mal",
         "main :: Unit -> Int32 := () -> { 7i32; };".into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check LLVM fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check LLVM fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let mut closure = crate::closure::convert(&anf);
     let crate::closure::ast::TopLevelPattern::Binding { name, .. } =
@@ -91,9 +93,10 @@ fn emits_long_left_associative_expressions_without_host_recursion() {
         "llvm-long-expression.mal",
         format!("main :: Unit -> Int32 := () -> {{ {expression}; }};"),
     );
-    let checked = crate::pipeline::check(&source).expect("check long expression");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check long expression");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -122,9 +125,10 @@ fn emits_long_completion_control_sequences_without_ast_duplication() {
             "when (false) { return(1i32) };".repeat(1_024)
         ),
     );
-    let checked = crate::pipeline::check(&source).expect("check long completion sequence");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check long completion sequence");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -158,9 +162,10 @@ fn emits_shared_extern_sum_helpers_once_per_type() {
          main :: Unit -> Int32 := () -> { 0i32; };",
     );
     let source = SourceFile::new(FileId::new(77), "llvm-shared-extern-sum.mal", declarations);
-    let checked = crate::pipeline::check(&source).expect("check shared extern sum");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check shared extern sum");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =

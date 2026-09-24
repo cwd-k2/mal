@@ -1,4 +1,4 @@
-use crate::check::ast as checked;
+use mal_frontend::check::ast as checked;
 use mal_syntax::source::Span;
 
 use super::Lowerer;
@@ -7,9 +7,9 @@ use super::ast::{Expression, ExpressionKind, Lambda, Parameter, TopLevelBinding,
 impl Lowerer {
     pub(super) fn lower_external_operation(
         &mut self,
-        id: crate::resolve::ast::ExternalOperationId,
-        binding: &crate::resolve::ast::ValueBinding,
-        lambda_id: crate::resolve::ast::LambdaId,
+        id: mal_frontend::resolve::ast::ExternalOperationId,
+        binding: &mal_frontend::resolve::ast::ValueBinding,
+        lambda_id: mal_frontend::resolve::ast::LambdaId,
         parameter: &checked::Type,
         result: &checked::Type,
         span: Span,

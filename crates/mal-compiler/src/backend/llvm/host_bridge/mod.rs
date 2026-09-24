@@ -8,7 +8,7 @@ use crate::backend::c::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
     Statement, SwitchCase, TranslationUnit, TypeName,
 };
-use crate::check::ast::{SharedTypeId, Type};
+use mal_frontend::check::ast::{SharedTypeId, Type};
 
 pub(super) struct Bridge {
     pub(super) llvm_declaration: String,

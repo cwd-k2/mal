@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Block, Operation};
 use crate::execution;
+use mal_frontend::check::ast::Type;
 use mal_syntax::diagnostic::Diagnostic;
 
 use crate::backend::llvm::TargetLayout;
@@ -97,7 +97,7 @@ fn admit_atom(atom: &Atom, maximum: u128) -> Result<(), Diagnostic> {
             atom.span,
             format!(
                 "this `{}` value exceeds the target maximum {maximum}",
-                crate::check::type_name(&atom.ty)
+                mal_frontend::check::type_name(&atom.ty)
             ),
         ),
     )

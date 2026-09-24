@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mal_compiler::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
+use mal_frontend::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
 use mal_syntax::source::{SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -87,7 +87,7 @@ impl Server {
                     return (None, None);
                 };
                 let documentation = definition.declaration_span.and_then(|span| {
-                    mal_compiler::editor::declaration_documentation(&definition_source, span)
+                    mal_frontend::editor::declaration_documentation(&definition_source, span)
                 });
                 let location =
                     definition_source

@@ -1,5 +1,5 @@
-use crate::check::ast::Type;
 use crate::core::ast::ProgramInterface;
+use mal_frontend::check::ast::Type;
 
 use super::{HostTypes, TypeRegistry, is_bool};
 
@@ -292,7 +292,7 @@ mod tests {
             }],
             external_types: Vec::new(),
             externals: vec![crate::core::ast::ExternalOperation {
-                id: crate::resolve::ast::ExternalOperationId(0),
+                id: mal_frontend::resolve::ast::ExternalOperationId(0),
                 name: "inspect".into(),
                 parameter: external.clone(),
                 parameter_alias: Some("Alias".into()),

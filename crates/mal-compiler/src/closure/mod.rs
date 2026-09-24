@@ -368,7 +368,7 @@ impl Converter {
     fn reference_atom(
         &mut self,
         id: anf::ValueId,
-        ty: crate::check::ast::Type,
+        ty: mal_frontend::check::ast::Type,
         span: mal_syntax::source::Span,
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Atom {

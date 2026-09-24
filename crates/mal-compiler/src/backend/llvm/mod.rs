@@ -147,7 +147,7 @@ pub(crate) fn generate(
         (String::new(), "null")
     };
     let (entry_argument, entry_call) = match &body.main_parameter {
-        crate::check::ast::Type::Unit => (
+        mal_frontend::check::ast::Type::Unit => (
             String::new(),
             format!(
                 "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",

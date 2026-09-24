@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
+use mal_frontend::check::ast::Type;
 
 use super::{EmittedValue, FunctionEmitter};
 

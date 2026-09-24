@@ -1,10 +1,10 @@
 use mal_compiler::anf;
-use mal_compiler::check;
 use mal_compiler::closure;
 use mal_compiler::control;
 use mal_compiler::control::ast::{Function, Operation, State, Terminator};
 use mal_compiler::core;
-use mal_compiler::resolve;
+use mal_frontend::check;
+use mal_frontend::resolve;
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 
@@ -214,7 +214,7 @@ fn gives_a_symbol_live_across_a_call_a_typed_resume_field() {
         .expect("identity call should suspend in the semantic control IR");
     assert_eq!(resume.live.len(), 1);
     assert_eq!(resume.live[0].id, parameter);
-    assert_eq!(resume.live[0].ty, mal_compiler::check::ast::Type::Symbol);
+    assert_eq!(resume.live[0].ty, mal_frontend::check::ast::Type::Symbol);
 }
 
 #[test]

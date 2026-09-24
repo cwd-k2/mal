@@ -63,9 +63,9 @@ mod tests {
             "bound :: Int32 -> Int32 := (value) -> { value; }; discarded :: Symbol -> Int32 := (_) -> { 0i32; };"
                 .into(),
         );
-        let checked = crate::pipeline::check(&source).expect("check parameter plan fixture");
+        let checked = mal_frontend::analysis::check(&source).expect("check parameter plan fixture");
         let core = crate::core::lower(
-            &crate::check::admit_monomorphic(checked).expect("specialize checked program"),
+            &mal_frontend::check::admit_monomorphic(checked).expect("specialize checked program"),
         );
         let anf = crate::anf::lower(&core);
         let closure = crate::closure::convert(&anf);

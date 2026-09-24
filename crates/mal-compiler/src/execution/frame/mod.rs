@@ -105,7 +105,7 @@ impl ControlFramePlan {
                 else {
                     return false;
                 };
-                let crate::check::ast::Type::Function { result, .. } = &callee.ty else {
+                let mal_frontend::check::ast::Type::Function { result, .. } = &callee.ty else {
                     return false;
                 };
                 *resume == frame.resume
@@ -144,7 +144,7 @@ impl ControlFramePlan {
     }
 }
 
-fn pattern_type(pattern: &crate::closure::ast::Pattern) -> &crate::check::ast::Type {
+fn pattern_type(pattern: &crate::closure::ast::Pattern) -> &mal_frontend::check::ast::Type {
     match pattern {
         crate::closure::ast::Pattern::Binding { ty, .. }
         | crate::closure::ast::Pattern::Wildcard { ty, .. }

@@ -50,10 +50,10 @@ fn lowers_multiple_parameters_to_product_destructuring() {
     };
     assert_eq!(
         add.parameter.ty,
-        mal_compiler::check::ast::Type::Product(
+        mal_frontend::check::ast::Type::Product(
             vec![
-                mal_compiler::check::ast::Type::Int32,
-                mal_compiler::check::ast::Type::Int32,
+                mal_frontend::check::ast::Type::Int32,
+                mal_frontend::check::ast::Type::Int32,
             ]
             .into()
         )
@@ -78,12 +78,12 @@ fn preserves_the_result_type_of_a_flattened_binary_chain() {
          };",
     );
     let body = top_lambda(&program, "main");
-    assert_eq!(body.ty, mal_compiler::check::ast::Type::Int32);
+    assert_eq!(body.ty, mal_frontend::check::ast::Type::Int32);
     let ExpressionKind::Let { binding, body } = &body.kind else {
         panic!("the inner operation should be evaluated before the outer operation");
     };
-    assert_eq!(binding.value.ty, mal_compiler::check::ast::Type::Int32);
-    assert_eq!(body.ty, mal_compiler::check::ast::Type::Int32);
+    assert_eq!(binding.value.ty, mal_frontend::check::ast::Type::Int32);
+    assert_eq!(body.ty, mal_frontend::check::ast::Type::Int32);
     assert!(matches!(
         body.kind,
         ExpressionKind::PrimitiveBinary {

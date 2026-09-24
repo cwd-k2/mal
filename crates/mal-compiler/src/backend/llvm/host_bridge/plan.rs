@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::check::ast::{SharedTypeId, Type};
+use mal_frontend::check::ast::{SharedTypeId, Type};
 
 use super::body::types::{self, Types};
 

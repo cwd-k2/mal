@@ -1,0 +1,13 @@
+[package]
+name = "mal-frontend"
+version.workspace = true
+edition.workspace = true
+description = "Name resolution, type checking, and editor analysis for the mal language"
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mal-syntax = { path = "../mal-syntax" }
+
+[lints]
+workspace = true

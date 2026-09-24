@@ -1,5 +1,5 @@
-use crate::check::ast::Type;
 use crate::core::ast::BinaryPrimitive;
+use mal_frontend::check::ast::Type;
 
 #[derive(Clone, Copy)]
 pub(super) struct ScalarType {

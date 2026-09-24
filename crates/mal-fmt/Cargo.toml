@@ -17,7 +17,7 @@ path = "src/main.rs"
 mal-syntax = { path = "../mal-syntax" }
 
 [dev-dependencies]
-mal-compiler = { path = "../mal-compiler" }
+mal-frontend = { path = "../mal-frontend" }
 
 [lints]
 workspace = true

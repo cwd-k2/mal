@@ -1,5 +1,5 @@
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
+use mal_frontend::check::ast::Type;
 
 use super::super::scalar::{integer_literal, scalar_type};
 use super::super::{EmittedValue, FunctionEmitter};

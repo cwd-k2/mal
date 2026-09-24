@@ -354,11 +354,11 @@ fn validates_an_explicit_entry_point_signature() {
     let unit = check_ok("main :: Unit -> Int32 := () -> 0i32;");
     assert_eq!(
         unit.entry.expect("checked entry point").parameter,
-        mal_compiler::check::ast::EntryParameter::Unit
+        mal_frontend::check::ast::EntryParameter::Unit
     );
     let arguments = check_ok("main :: (USize, Address) -> Int32 := (_, _) -> { 0i32; };");
     assert_eq!(
         arguments.entry.expect("checked entry point").parameter,
-        mal_compiler::check::ast::EntryParameter::ProcessArguments
+        mal_frontend::check::ast::EntryParameter::ProcessArguments
     );
 }

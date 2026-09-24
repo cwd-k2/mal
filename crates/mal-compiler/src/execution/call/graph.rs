@@ -58,7 +58,7 @@ pub(in crate::execution) fn is_acyclic(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resolve::ast::LambdaId;
+    use mal_frontend::resolve::ast::LambdaId;
 
     fn function(index: u32) -> FunctionId {
         FunctionId::Lambda(LambdaId(index))

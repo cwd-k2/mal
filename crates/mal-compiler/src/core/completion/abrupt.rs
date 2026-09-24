@@ -1,5 +1,5 @@
-use crate::check::ast as checked;
 use crate::core::ast::{Binding, Expression, ExpressionKind, Pattern};
+use mal_frontend::check::ast as checked;
 
 use super::Lowerer;
 

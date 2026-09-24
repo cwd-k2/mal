@@ -1,4 +1,4 @@
-use crate::check::ast::Type;
+use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
 

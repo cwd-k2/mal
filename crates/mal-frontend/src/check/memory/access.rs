@@ -7,7 +7,7 @@ use super::super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
 use super::super::{CheckResult, Checker};
 
 impl Checker {
-    pub(crate) fn check_memory_operation(
+    pub fn check_memory_operation(
         &mut self,
         reference: &resolved::ValueReference,
         arguments: &[Node<resolved::Expression>],

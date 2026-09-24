@@ -1,5 +1,5 @@
-use crate::check::ast::Type;
 use crate::core::ast::ExternalOperation;
+use mal_frontend::check::ast::Type;
 
 use super::{
     TypeRegistry,
@@ -187,7 +187,7 @@ impl<'a> HostBodySignature<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::resolve::ast::ExternalOperationId;
+    use mal_frontend::resolve::ast::ExternalOperationId;
     use mal_syntax::source::{FileId, Span};
 
     use super::*;

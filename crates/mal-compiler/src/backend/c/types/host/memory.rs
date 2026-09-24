@@ -3,8 +3,8 @@ use crate::backend::c::syntax::{
     TypeName,
 };
 use crate::backend::source_layout::SourceLayouts;
-use crate::check::ast::Type;
 use crate::core::ast::TypeAlias;
+use mal_frontend::check::ast::Type;
 
 use super::super::{HostTypes, TypeRegistry, is_bool};
 use super::append_function;

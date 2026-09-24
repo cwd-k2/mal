@@ -1,37 +1,6 @@
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::{SourceFile, SourceGraph};
 
-pub struct Analysis {
-    pub resolved: crate::resolve::ast::Program,
-    pub checked: crate::check::ast::Program,
-}
-
-pub fn analyze(source: &SourceFile) -> Result<Analysis, Diagnostic> {
-    let parsed = mal_syntax::parser::parse(source)?;
-    let resolved = crate::resolve::resolve(&parsed)?;
-    let checked = crate::check::check(&resolved)?;
-    Ok(Analysis { resolved, checked })
-}
-
-pub fn analyze_graph(graph: &SourceGraph) -> Result<Analysis, Diagnostic> {
-    let parsed = graph
-        .files()
-        .iter()
-        .map(mal_syntax::parser::parse)
-        .collect::<Result<Vec<_>, _>>()?;
-    let resolved = crate::resolve::resolve_graph(graph, &parsed)?;
-    let checked = crate::check::check(&resolved)?;
-    Ok(Analysis { resolved, checked })
-}
-
-pub fn check(source: &SourceFile) -> Result<crate::check::ast::Program, Diagnostic> {
-    analyze(source).map(|analysis| analysis.checked)
-}
-
-pub fn check_graph(graph: &SourceGraph) -> Result<crate::check::ast::Program, Diagnostic> {
-    analyze_graph(graph).map(|analysis| analysis.checked)
-}
-
 pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
     let interface = lower_interface(source)?;
     Ok(crate::backend::c::emit_header(&interface))
@@ -53,14 +22,14 @@ pub fn emit_host_graph(graph: &SourceGraph, header_name: &str) -> Result<String,
 }
 
 fn lower_interface(source: &SourceFile) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {
-    let checked = check(source)?;
+    let checked = mal_frontend::analysis::check(source)?;
     Ok(crate::core::lower_interface(&checked))
 }
 
 fn lower_graph_interface(
     graph: &SourceGraph,
 ) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {
-    let checked = check_graph(graph)?;
+    let checked = mal_frontend::analysis::check_graph(graph)?;
     Ok(crate::core::lower_interface(&checked))
 }
 
@@ -68,8 +37,8 @@ pub(crate) fn lower_graph_execution(
     graph: &SourceGraph,
     optimizations: crate::execution::OptimizationSet,
 ) -> Result<crate::execution::Program, Diagnostic> {
-    let checked = check_graph(graph)?;
-    let specialized = crate::check::specialize(checked)?;
+    let checked = mal_frontend::analysis::check_graph(graph)?;
+    let specialized = mal_frontend::check::specialize(checked)?;
     let core = crate::core::lower(&specialized);
     let anf = crate::anf::lower(&core);
     Ok(crate::execution::lower(

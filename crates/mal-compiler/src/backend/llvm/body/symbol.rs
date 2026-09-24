@@ -1,6 +1,6 @@
-use crate::check::ast::Type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, Terminator};
+use mal_frontend::check::ast::Type;
 
 use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
 
@@ -80,11 +80,11 @@ fn operation_uses_runtime(operation: &Operation) -> bool {
         Operation::Buffer { .. } => true,
         Operation::Memory {
             primitive:
-                crate::check::ast::MemoryPrimitive::BufferFromAddress
-                | crate::check::ast::MemoryPrimitive::BufferIntoAddress
-                | crate::check::ast::MemoryPrimitive::ViewLength
-                | crate::check::ast::MemoryPrimitive::BufferToSymbol
-                | crate::check::ast::MemoryPrimitive::SymbolToBuffer,
+                mal_frontend::check::ast::MemoryPrimitive::BufferFromAddress
+                | mal_frontend::check::ast::MemoryPrimitive::BufferIntoAddress
+                | mal_frontend::check::ast::MemoryPrimitive::ViewLength
+                | mal_frontend::check::ast::MemoryPrimitive::BufferToSymbol
+                | mal_frontend::check::ast::MemoryPrimitive::SymbolToBuffer,
             ..
         } => true,
         Operation::Memory { operands, .. } => operands.iter().any(atom_contains_value),

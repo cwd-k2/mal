@@ -51,9 +51,10 @@ fn uses_the_target_size_type_for_control_storage_offsets() {
          main :: Unit -> Int32 := () -> { sum(4i32); };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check 32-bit control fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check 32-bit control fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -105,9 +106,10 @@ fn aligns_heterogeneous_frames_and_reserves_when_replacement_is_too_small() {
          main :: Unit -> Int32 := () -> { walk(2i32, 1.0f64).i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check aligned frame fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check aligned frame fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -148,9 +150,10 @@ fn separates_pointer_representation_and_index_widths() {
          main :: Unit -> Int32 := () -> scale(3usize, 8bytes).usize.i32;"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check index-width fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check index-width fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -180,9 +183,10 @@ fn rejects_target_sized_literals_with_a_source_diagnostic() {
         "llvm-target-literal.mal",
         "main :: Unit -> Int32 := () -> 4294967296usize.i32;".into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check target literal fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check target literal fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =
@@ -217,9 +221,10 @@ fn lowers_symbol_length_to_usize_on_a_32_bit_target() {
         "llvm-symbol-length-32.mal",
         "main :: Unit -> Int32 := () -> (#\"abc\").i32;".into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check Symbol length fixture");
-    let core =
-        crate::core::lower(&crate::check::specialize(checked).expect("specialize checked program"));
+    let checked = mal_frontend::analysis::check(&source).expect("check Symbol length fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
     let execution =

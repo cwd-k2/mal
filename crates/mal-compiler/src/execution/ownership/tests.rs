@@ -5,9 +5,9 @@ use super::destination::plan_borrowed_pattern;
 use super::liveness::binding_id;
 use super::use_plan::jump_value_effect;
 use super::*;
-use crate::check::ast::Type;
 use crate::closure::ast::Pattern;
 use crate::control::ast::{Operation, StateId, Terminator};
+use mal_frontend::check::ast::Type;
 use mal_syntax::source::{FileId, SourceFile};
 
 #[test]
@@ -18,9 +18,9 @@ fn validates_the_exact_binding_drop_facts() {
         "main :: Unit -> Int32 := () -> { value := \"a\" + \"b\"; length := #value; length.i32; };"
             .into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check ownership fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -68,9 +68,10 @@ fn shares_duplicate_owner_successors_before_consuming_the_source() {
             "duplicate :: Unit -> (Symbol, Symbol) := () -> { value := \"a\" + \"b\"; (value, value); };\nmain :: Unit -> Int32 := () -> { pair := duplicate(); 0i32; };"
                 .into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check duplicate ownership fixture");
+    let checked =
+        mal_frontend::analysis::check(&source).expect("check duplicate ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize duplicate ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize duplicate ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -115,9 +116,9 @@ fn drops_an_unused_managed_binding_immediately() {
         "execution-ownership-unused-result.mal",
         "main :: Unit -> Int32 := () -> { unused := \"a\" + \"b\"; 0i32; };".into(),
     );
-    let checked = crate::pipeline::check(&source).expect("check unused result fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check unused result fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize unused result fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize unused result fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -174,9 +175,10 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
             "execution-ownership-parameters.mal",
             "keep :: Symbol -> Symbol := (value) -> { value; };\nignore :: Symbol -> Int32 := (value) -> { 0i32; };\ndiscard :: Symbol -> Int32 := (_) -> { 0i32; };\nmain :: Unit -> Int32 := () -> { discard(keep(\"x\")) + ignore(\"y\"); };".into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check parameter ownership fixture");
+    let checked =
+        mal_frontend::analysis::check(&source).expect("check parameter ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize parameter ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize parameter ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -249,9 +251,9 @@ fn drops_branch_local_only_on_the_path_that_does_not_need_it() {
             "execution-ownership-branch-edge.mal",
             "lengthOnOnePath :: Symbol -> USize := (value) -> { owned := value + \"x\"; if (#owned == 0usize) then { #owned } else { 0usize }; };\nmain :: Unit -> Int32 := () -> { lengthOnOnePath(\"x\").i32; };".into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check branch edge fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check branch edge fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize branch edge fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize branch edge fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -319,9 +321,9 @@ fn consumes_a_case_payload_when_the_sum_owner_ends_at_the_arm() {
             "execution-ownership-case-payload.mal",
             "Choice :: [Symbol, Symbol];\nselect :: Symbol -> Symbol := (value) -> { owned := value + \"x\"; choice :: Choice := [first, second] => { first(owned) }; choice[(payload) -> { payload }, (payload) -> { payload }] };\nmain :: Unit -> Int32 := () -> { (#select(\"y\")).i32; };".into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check case payload fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check case payload fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize case payload fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize case payload fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -352,9 +354,9 @@ fn borrows_a_final_observation_before_dropping_its_source() {
             "observe :: Unit -> USize := () -> { value := \"a\" + \"b\"; #value; };\nmain :: Unit -> Int32 := () -> { observe().i32; };"
                 .into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check observation fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check observation fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize observation fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize observation fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
@@ -389,9 +391,9 @@ fn shares_a_frame_field_before_consuming_the_same_next_argument() {
             "extern choose :: Unit -> Bool;\nwalk :: Symbol -> Symbol := (value) -> {\n  if (choose()) then { value } else {\n    child := walk(value);\n    if (#value == 0usize) then { child } else { child };\n  };\n};\nmain :: Unit -> Int32 := () -> { result := walk(\"x\"); (#result).i32; };"
                 .into(),
         );
-    let checked = crate::pipeline::check(&source).expect("check frame ownership fixture");
+    let checked = mal_frontend::analysis::check(&source).expect("check frame ownership fixture");
     let core = crate::core::lower(
-        &crate::check::specialize(checked).expect("specialize frame ownership fixture"),
+        &mal_frontend::check::specialize(checked).expect("specialize frame ownership fixture"),
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);

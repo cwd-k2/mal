@@ -1,4 +1,4 @@
-use crate::check::ast::{MemoryPrimitive, Type};
+use mal_frontend::check::ast::{MemoryPrimitive, Type};
 
 use super::super::{EmittedValue, FunctionEmitter};
 

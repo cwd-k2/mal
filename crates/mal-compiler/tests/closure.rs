@@ -1,9 +1,9 @@
 use mal_compiler::anf;
-use mal_compiler::check;
 use mal_compiler::closure;
 use mal_compiler::closure::ast::{AtomKind, Function, Operation, Reference};
 use mal_compiler::core;
-use mal_compiler::resolve;
+use mal_frontend::check;
+use mal_frontend::resolve;
 use mal_syntax::parser;
 use mal_syntax::source::{FileId, SourceFile};
 
@@ -241,10 +241,10 @@ fn preserves_captured_products_and_destructuring_patterns() {
     let inner = function(&program, *inner_id);
     assert_eq!(
         capture_schema(inner)[0].ty,
-        mal_compiler::check::ast::Type::Product(
+        mal_frontend::check::ast::Type::Product(
             vec![
-                mal_compiler::check::ast::Type::Int32,
-                mal_compiler::check::ast::Type::Int32,
+                mal_frontend::check::ast::Type::Int32,
+                mal_frontend::check::ast::Type::Int32,
             ]
             .into()
         )
