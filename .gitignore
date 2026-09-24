@@ -1,4 +1,4 @@
-/target/
+target/
 /editors/vscode/node_modules/
 /editors/vscode/server/mal-lsp
 /.scratch/
