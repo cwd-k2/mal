@@ -1,0 +1,133 @@
+### wrap_i8 | run:1
+main :: Unit -> Int32 := () -> if (127i8 + 1i8 == -127i8 - 1i8) then 1 else 0;
+### wrap_u8_add | run:1
+main :: Unit -> Int32 := () -> if (255u8 + 1u8 == 0u8) then 1 else 0;
+### wrap_u8_mul | run:1
+main :: Unit -> Int32 := () -> if (200u8 * 2u8 == 144u8) then 1 else 0;
+### wrap_u32_sub | run:1
+main :: Unit -> Int32 := () -> if (0u32 - 1u32 == 4294967295u32) then 1 else 0;
+### conv_narrow | run:1
+main :: Unit -> Int32 := () -> if ((300i32).u8 == 44u8) then 1 else 0;
+### conv_neg_to_unsigned | run:1
+main :: Unit -> Int32 := () -> if ((-1i32).u32 == 4294967295u32) then 1 else 0;
+### conv_sign_extend | run:1
+main :: Unit -> Int32 := () -> if ((-1i8).i32 == -1i32) then 1 else 0;
+### conv_float_trunc_pos | run:1
+main :: Unit -> Int32 := () -> if ((2.9f64).i32 == 2i32) then 1 else 0;
+### conv_float_trunc_neg | run:1
+main :: Unit -> Int32 := () -> if ((-2.9f64).i32 == -2i32) then 1 else 0;
+### conv_int_to_float | run:1
+main :: Unit -> Int32 := () -> if ((3i32).f64 == 3.0f64) then 1 else 0;
+### conv_f64_f32_round | run:1
+main :: Unit -> Int32 := () -> if ((16777217.0f64).f32 == 16777216.0f32) then 1 else 0;
+### float_zero_eq | run:1
+main :: Unit -> Int32 := () -> if (0.0f64 == -0.0f64) then 1 else 0;
+### float_nan_eq | run:1
+main :: Unit -> Int32 := () -> { n := 0.0f64 / 0.0f64; if (n == n) then 0 else 1; };
+### float_nan_ne | run:1
+main :: Unit -> Int32 := () -> { n := 0.0f64 / 0.0f64; if (n != n) then 1 else 0; };
+### float_nan_lt | run:1
+main :: Unit -> Int32 := () -> { n := 0.0f64 / 0.0f64; if (n < 1.0f64) then 0 else if (n >= 1.0f64) then 0 else 1; };
+### float_inf | run:1
+main :: Unit -> Int32 := () -> if (1.0f64 / 0.0f64 > 1.0e308f64) then 1 else 0;
+### float_no_fma_fp32 | run:1
+main :: Unit -> Int32 := () -> { a := 16777216.0f32; b := a + 1.0f32; if (b == a) then 1 else 0; };
+### shl | run:1
+main :: Unit -> Int32 := () -> if (1u8 << 3u8 == 8u8) then 1 else 0;
+### shr_arith | run:1
+main :: Unit -> Int32 := () -> if (-8i32 >> 1i32 == -4i32) then 1 else 0;
+### shr_logical | run:1
+main :: Unit -> Int32 := () -> if (128u8 >> 7u8 == 1u8) then 1 else 0;
+### shl_wraps_bits | run:1
+main :: Unit -> Int32 := () -> if (255u8 << 4u8 == 240u8) then 1 else 0;
+### bitnot | run:1
+main :: Unit -> Int32 := () -> if (~5u8 == 250u8) then 1 else 0;
+### bit_ops | run:1
+main :: Unit -> Int32 := () -> if ((6u8 & 3u8) == 2u8 && (6u8 | 1u8) == 7u8 && (6u8 ^ 3u8) == 5u8) then 1 else 0;
+### rem_sign | run:1
+main :: Unit -> Int32 := () -> if (-7i32 % 3i32 == -1i32) then 1 else 0;
+### div_trunc | run:1
+main :: Unit -> Int32 := () -> if (-7i32 / 2i32 == -3i32) then 1 else 0;
+### bool_not | run:1
+main :: Unit -> Int32 := () -> if (!false) then 1 else 0;
+### symbol_len | run:3
+main :: Unit -> Int32 := () -> (#"abc").i32;
+### symbol_utf8_len | run:3
+main :: Unit -> Int32 := () -> (#"あ").i32;
+### symbol_escape_len | run:2
+main :: Unit -> Int32 := () -> (#"\x00\xff").i32;
+### symbol_index | run:98
+main :: Unit -> Int32 := () -> ("abc" # 1usize).i32;
+### symbol_concat | run:5
+main :: Unit -> Int32 := () -> (#("ab" + "cde")).i32;
+### symbol_concat_empty_identity | run:1
+main :: Unit -> Int32 := () -> if ("" + "x" == "x" && "x" + "" == "x") then 1 else 0;
+### symbol_eq_bytes | run:1
+main :: Unit -> Int32 := () -> if ("ab" + "c" == "abc") then 1 else 0;
+### symbol_snapshot_from_buffer | run:1
+main :: Unit -> Int32 := () -> { b := *"abc"; s := *b; b.put(0usize, 'z'); if (s == "abc") then 1 else 0; };
+### buffer_from_symbol_independent | run:1
+main :: Unit -> Int32 := () -> { s := "abc"; b := *s; b.put(0usize, 'z'); if (s == "abc" && b.get(0usize) == 'z') then 1 else 0; };
+### buffer_basic | run:5
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); i := b.new(5); b.get(i); };
+### buffer_len | run:3
+main :: Unit -> Int32 := () -> { b := make<Int32>(1usize); _ := b.new(1); _ := b.new(2); _ := b.new(3); (#b).i32; };
+### buffer_capacity_not_count | run:0
+main :: Unit -> Int32 := () -> { b := make<Int32>(10usize); (#b).i32; };
+### buffer_new_index | run:2
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); _ := b.new(9); _ := b.new(9); i := b.new(9); i.i32; };
+### buffer_alias_shared | run:7
+main :: Unit -> Int32 := () -> { a := make<Int32>(0usize); i := a.new(1); b := a; b.put(i, 7); a.get(i); };
+### buffer_grow_beyond_capacity | run:100
+main :: Unit -> Int32 := () -> { b := make<Int32>(1usize); i := 0usize; _ := b.new(0); _ := b.new(0); _ := b.new(0); _ := b.new(100); b.get(3usize); };
+### buffer_fill_extends | run:3
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); b.fill(0usize, 3usize, 7); (#b).i32; };
+### buffer_fill_values | run:7
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); b.fill(0usize, 3usize, 7); b.get(2usize); };
+### buffer_fill_overwrite_keeps_count | run:5
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); b.fill(0usize, 5usize, 1); b.fill(1usize, 2usize, 9); (#b).i32; };
+### buffer_copy_basic | run:1
+main :: Unit -> Int32 := () -> { s := make<Int32>(0usize); s.fill(0usize, 3usize, 4); d := make<Int32>(0usize); d.copy(0usize, s, 0usize, 3usize); if (d.get(2usize) == 4 && (#d) == 3usize) then 1 else 0; };
+### buffer_copy_overlap_forward | run:1
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); _ := b.new(1); _ := b.new(2); _ := b.new(3); _ := b.new(4); b.copy(1usize, b, 0usize, 3usize); if (b.get(1usize) == 1 && b.get(2usize) == 2 && b.get(3usize) == 3) then 1 else 0; };
+### buffer_copy_overlap_backward | run:1
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); _ := b.new(1); _ := b.new(2); _ := b.new(3); _ := b.new(4); b.copy(0usize, b, 1usize, 3usize); if (b.get(0usize) == 2 && b.get(1usize) == 3 && b.get(2usize) == 4) then 1 else 0; };
+### buffer_copy_extends | run:5
+main :: Unit -> Int32 := () -> { s := make<Int32>(0usize); s.fill(0usize, 3usize, 4); d := make<Int32>(0usize); _ := d.new(0); _ := d.new(0); d.copy(1usize, s, 0usize, 3usize); (#d).i32 + 1; };
+### buffer_receiverless | run:1
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); i := new(b, 5); put(b, i, 6); fill(b, 1usize, 1usize, 8); if (get(b, i) == 6 && get(b, 1usize) == 8) then 1 else 0; };
+### buffer_unit_count | run:3
+main :: Unit -> Int32 := () -> { b := make<Unit>(0usize); _ := b.new(()); _ := b.new(()); _ := b.new(()); (#b).i32; };
+### buffer_product_sum | run:1
+main :: Unit -> Int32 := () -> { b := make<(Int32, UInt8)>(0usize); i := b.new((5, 6u8)); (x, y) := b.get(i); if (x == 5 && y == 6u8) then 1 else 0; };
+### order_left_to_right | run:1
+log :: (Buffer<Int32>, Int32) -> Int32 := (b, tag) -> { _ := b.new(tag); tag; };
+f3 :: (Int32, Int32, Int32) -> Int32 := (a, b, c) -> a;
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := f3(log(l, 1), log(l, 2), log(l, 3)); if (l.get(0usize) == 1 && l.get(1usize) == 2 && l.get(2usize) == 3) then 1 else 0; };
+### order_operands | run:1
+log :: (Buffer<Int32>, Int32) -> Int32 := (b, tag) -> { _ := b.new(tag); tag; };
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := log(l, 1) + log(l, 2) * log(l, 3); if (l.get(0usize) == 1 && l.get(1usize) == 2 && l.get(2usize) == 3) then 1 else 0; };
+### short_circuit_and | run:1
+mark :: (Buffer<Int32>) -> Bool := (b) -> { _ := b.new(1); true; };
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := false && mark(l); if ((#l) == 0usize) then 1 else 0; };
+### short_circuit_or | run:1
+mark :: (Buffer<Int32>) -> Bool := (b) -> { _ := b.new(1); true; };
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := true || mark(l); if ((#l) == 0usize) then 1 else 0; };
+### closure_captures_buffer_alias | run:9
+main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); i := b.new(1); f :: Unit -> Unit := () -> b.put(i, 9); f(); b.get(i); };
+### deep_recursion_tail | run:0
+loop :: Int64 -> Int32 := (n) -> if (n == 0) then 0 else loop(n - 1);
+main :: Unit -> Int32 := () -> loop(100000000i64);
+### deep_recursion_nontail | run:0
+sum :: Int64 -> Int64 := (n) -> if (n == 0) then 0 else 1 + sum(n - 1);
+main :: Unit -> Int32 := () -> if (sum(10000000i64) == 10000000i64) then 0 else 1;
+### order_callee_after_args | run:1
+log :: (Buffer<Int32>, Int32) -> Int32 := (b, tag) -> { _ := b.new(tag); tag; };
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); g :: Unit -> (Int32 -> Int32) := () -> { _ := l.new(10); (x) -> x; }; _ := g()(log(l, 2)); if (l.get(0usize) == 2 && l.get(1usize) == 10) then 1 else 0; };
+### sum_elim_lazy | run:1
+mark :: (Buffer<Int32>) -> Int32 := (b) -> { _ := b.new(1); 0; };
+main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := if (true) then 5i32 else mark(l); if ((#l) == 0usize) then 1 else 0; };
+### closure_captures_value | run:1
+main :: Unit -> Int32 := () -> { x := 1i32; f :: Unit -> Int32 := () -> x; y := { x := 2i32; x; }; if (f() == 1 && y == 2) then 1 else 0; };
+### make_huge_traps | trap
+main :: Unit -> Int32 := () -> { b := make<UInt64>(18446744073709551615usize); (#b).i32; };

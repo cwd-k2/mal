@@ -1,0 +1,125 @@
+### generic_identity_ok | run:5
+identity<A> :: A -> A := (v) -> v;
+main :: Unit -> Int32 := () -> identity<Int32>(5);
+### generic_missing_targs | err:
+identity<A> :: A -> A := (v) -> v;
+main :: Unit -> Int32 := () -> identity(5i32);
+### generic_ops_on_param | err:
+double<A> :: A -> A := (v) -> v + v;
+### generic_first_class_ok | ok
+identity<A> :: A -> A := (v) -> v;
+main :: Unit -> Int32 := () -> { f := identity<Int32>; f(1); };
+### generic_value_without_targs | err:
+identity<A> :: A -> A := (v) -> v;
+main :: Unit -> Int32 := () -> { f := identity; 0; };
+### generic_extern | err:
+extern id<A> :: A -> A;
+### generic_polyrec | err:
+f<A> :: A -> Int32 := (v) -> f<(A, A)>((v, v));
+### generic_same_recursion_ok | ok
+f<A> :: (A, Int32) -> Int32 := (v, n) -> if (n == 0) then 0 else f<A>(v, n - 1);
+### generic_alias_ok | ok
+Pair<A> :: (A, A);
+p :: Pair<Int32> := (1, 2);
+### generic_alias_recursive | err:
+L<A> :: (A, L<A>);
+### generic_arity_mismatch | err:
+Pair<A> :: (A, A);
+p :: Pair<Int32, Int32> := (1, 2);
+### generic_requirement_buffer_symbol | err:
+f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
+g :: Unit -> Buffer<Symbol> := () -> f<Symbol>("x");
+### generic_buffer_param_ok | ok
+first<A> :: Buffer<A> -> A := (b) -> b.get(0usize);
+### generic_dup_param | err:
+f<A, A> :: A -> A := (v) -> v;
+### generic_uses_op_via_arg_ok | ok
+add<A> :: ((A, A) -> A, A, A) -> A := (op, a, b) -> op(a, b);
+### buffer_of_symbol | err:
+B :: Buffer<Symbol>;
+### buffer_of_buffer | err:
+B :: Buffer<Buffer<Int32>>;
+### buffer_of_fn | err:
+B :: Buffer<Int32 -> Int32>;
+### buffer_of_opaque | err:
+extern Mem;
+B :: Buffer<Mem>;
+### buffer_of_empty_sum | err:
+B :: Buffer<[]>;
+### buffer_of_unit_ok | ok
+B :: Buffer<Unit>;
+### buffer_of_product_sum_ok | ok
+B :: Buffer<(Int32, [Unit, Address], USize)>;
+### buffer_two_args | err:
+B :: Buffer<Int32, Int32>;
+### buffer_no_arg | err:
+B :: Buffer;
+### extern_symbol_param | err:
+extern f :: Symbol -> Unit;
+### extern_buffer_param | err:
+extern f :: Buffer<UInt8> -> Unit;
+### extern_fn_param | err:
+extern f :: (Int32 -> Int32) -> Unit;
+### extern_fn_in_sum | err:
+extern f :: [Unit, Int32 -> Int32] -> Unit;
+### extern_fn_result | err:
+extern f :: Unit -> (Int32 -> Int32);
+### extern_nested_symbol | err:
+extern f :: (Int32, Symbol) -> Unit;
+### extern_alias_symbol | err:
+S :: Symbol;
+extern f :: S -> Unit;
+### extern_bytes_ok | ok
+extern print :: (Address, USize) -> Unit;
+### extern_sum_addr_ok | ok
+extern choose :: [Int32, Address] -> Int32;
+### extern_opaque_ok | ok
+extern File;
+extern open :: Unit -> File;
+extern close :: File -> Unit;
+### extern_empty_ok | ok
+extern e :: [] -> Unit;
+### extern_bool_ok | ok
+extern b :: Bool -> Bool;
+### extern_first_class | run:0
+extern nothing :: Unit -> Int32;
+main :: Unit -> Int32 := () -> { g := nothing; 0; };
+### extern_dup | err:
+extern f :: Unit -> Unit;
+extern f :: Unit -> Unit;
+### precedence_relational_chain | err:
+x :: Bool := 1 < 2 < 3;
+### precedence_equality_chain | err:
+x :: Bool := 1 == 1 == 1;
+### precedence_bitand_equality | err:
+x :: Int32 := 3 & 1 == 1;
+### precedence_mul_add | run:7
+main :: Unit -> Int32 := () -> 1i32 + 2i32 * 3i32;
+### precedence_shift_add | run:8
+main :: Unit -> Int32 := () -> 1i32 << 2i32 + 1i32;
+### precedence_prefix_neg | run:1
+main :: Unit -> Int32 := () -> if (-2i32 + 3i32 == 1i32) then 1 else 0;
+### symbol_lt | err:
+x :: Bool := "a" < "b";
+### symbol_times | err:
+x :: Symbol := "a" * "b";
+### usize_bytes_mix | err:
+x :: USize := 1usize + 1bytes;
+### usize_ok | ok
+x :: USize := 1usize + 2usize;
+### usize_from_int_implicit | err:
+x :: USize := 1i32;
+### conv_unknown_suffix | err:
+x :: Int32 := 1i32.i128;
+### conv_type_callee | err:
+x :: Int32 := Int32(1i64);
+### bitnot_float | err:
+x :: Float64 := ~1.0f64;
+### float_mod | err:
+x :: Float64 := 5.0f64 % 2.0f64;
+### bool_arith | err:
+x :: Bool := true + true;
+### mixed_width_add | err:
+x :: Int32 := 1i32 + 1i64;
+### float_lit_overflow | err:
+x :: Float32 := 1e39f32;

@@ -1,0 +1,167 @@
+### onesum | err:
+X :: [Int32];
+### emptysum_ok | ok
+Never :: [];
+f :: Never -> Int32 := (n) -> n[];
+### recursive_alias | err:
+A :: (A, Int32);
+### redefine_bool | err:
+Bool :: Int32;
+### redefine_true | err:
+true :: Bool := false;
+### no_int_type | err:
+x :: Int := 1;
+### no_byte_type | err:
+x :: Byte := 1;
+### no_char_type | err:
+x :: Char := 1;
+### no_implicit_numeric | err:
+main :: Unit -> Int32 := () -> { x :: Int64 := 1i32; 0; };
+### one_tuple_type | ok
+T :: (Int32);
+x :: T := 1;
+### one_tuple_type_is_paren | ok
+T :: (Int32);
+f :: T -> Int32 := (v) -> v;
+### float_dot5 | err:
+x :: Float64 := .5;
+### float_1dot | err:
+x :: Float64 := 1.;
+### float_sep | ok
+x :: Float64 := 1_000.25f64;
+### float_exp | ok
+x :: Float64 := 1.5e3;
+### int_sep_double | err:
+x :: Int32 := 1__0;
+### int_sep_trail | err:
+x :: Int32 := 10_;
+### hex_lit | ok
+x :: Int32 := 0xff;
+### bin_lit | ok
+x :: Int32 := 0b1010_1010;
+### default_int64 | err:
+main :: Unit -> Int32 := () -> { x := 1; y :: Int32 := x; 0; };
+### default_float64 | err:
+main :: Unit -> Int32 := () -> { x := 1.5; y :: Float32 := x; 0; };
+### suffix_u8_range | err:
+x :: UInt8 := 256u8;
+### byte_lit_ok | run:65
+main :: Unit -> Int32 := () -> 'A'.i32;
+### byte_lit_hex | run:255
+main :: Unit -> Int32 := () -> '\xff'.i32;
+### byte_lit_two | err:
+x :: UInt8 := 'ab';
+### byte_lit_nonascii | err:
+x :: UInt8 := 'あ';
+### byte_lit_empty | err:
+x :: UInt8 := '';
+### block_comment | err:
+/* c */ x :: Int32 := 1;
+### trailing_comma_tuple | err:
+x :: (Int32, Int32) := (1, 2,);
+### keyword_ident_if | err:
+if :: Int32 := 1;
+### keyword_ident_extern_param | err:
+f :: Int32 -> Int32 := (extern) -> extern;
+### lowercase_type | err:
+foo :: Int32;
+### uppercase_value | err:
+Foo :: Int32 := 1;
+### unicode_ident | err:
+héllo :: Int32 := 1;
+### wildcard_binding | ok
+main :: Unit -> Int32 := () -> { _ := 1; 0; };
+### dup_pattern | err:
+main :: Unit -> Int32 := () -> { (a, a) := (1, 2); 0; };
+### lambda_needs_type | err:
+main :: Unit -> Int32 := () -> { f := (x) -> x; 0; };
+### binding_scope | err:
+main :: Unit -> Int32 := () -> { y := x; x := 1; 0; };
+### annotated_product_pattern | ok
+main :: Unit -> Int32 := () -> { (a, b) :: (Int32, Int32) := (1, 2); a + b; };
+### loop_not_keyword | ok
+loop :: Int32 := 1;
+case :: Int32 := 1;
+let :: Int32 := 1;
+### unit_application_forms | run:5
+f :: Unit -> Int32 := () -> 5;
+main :: Unit -> Int32 := () -> [f];
+### unit_app_expr_form | run:5
+f :: Unit -> Int32 := () -> 5;
+main :: Unit -> Int32 := () -> ()[f];
+### call_chain | run:9
+mk :: Unit -> (Int32 -> Int32) := () -> (x) -> x + 4;
+main :: Unit -> Int32 := () -> mk()(5i32);
+### ufcs_generic | run:3
+id<A> :: (A, Int32) -> A := (a, n) -> a;
+main :: Unit -> Int32 := () -> 3i32.id<Int32>(0);
+### ufcs_chain | run:7
+add :: (Int32, Int32) -> Int32 := (a, b) -> a + b;
+main :: Unit -> Int32 := () -> 1i32.add(2i32).add(4i32);
+### conversion_chain | run:44
+main :: Unit -> Int32 := () -> (300i32).u8.i32;
+### shift_generic_disambiguation | ok
+Pair<A> :: (A, A);
+f :: Pair<Pair<Int32>> -> Int32 := (p) -> 1 >> 0;
+### lambda_multi_param | run:3
+add :: (Int32, Int32) -> Int32 := (a, b) -> a + b;
+main :: Unit -> Int32 := () -> add(1, 2);
+### lambda_wildcard_param | run:1
+f :: (Int32, Int32) -> Int32 := (_, b) -> b;
+main :: Unit -> Int32 := () -> f(0, 1);
+### lambda_nested_pattern | run:2
+f :: ((Int32, Int32), Int32) -> Int32 := ((a, b), c) -> b;
+main :: Unit -> Int32 := () -> f((1, 2), 3);
+### lambda_param_annotation_none | err:
+f :: Int32 -> Int32 := (x :: Int32) -> x;
+### lambda_return_annotation_none | err:
+f :: Int32 -> Int32 := (x) -> Int32 x;
+### function_type_right_assoc | ok
+F :: Int32 -> Int32 -> Int32;
+### sum_arrow_domain | ok
+G :: [Int32, Int32] -> Int32;
+### bare_blocks_nest | run:3
+main :: Unit -> Int32 := () -> { { { 3i32 } } };
+### let_stmt_unknown | err:
+main :: Unit -> Int32 := () -> { let x := 1; x; };
+### return_stmt_unknown | err:
+main :: Unit -> Int32 := () -> { return 1; };
+### tab_and_cr_whitespace | ok
+x :: Int32	:=	1;
+### line_comment_end_of_file | ok
+x :: Int32 := 1; // trailing
+### utf8_in_symbol | run:6
+main :: Unit -> Int32 := () -> (#"あい").i32;
+### symbol_escape_unknown | err:
+x :: Symbol := "\q";
+### symbol_escape_short_hex | err:
+x :: Symbol := "\x4";
+### byte_escape_ok | run:10
+main :: Unit -> Int32 := () -> '\n'.i32;
+### byte_escape_nul | run:0
+main :: Unit -> Int32 := () -> '\0'.i32;
+### byte_quote_escape | run:39
+main :: Unit -> Int32 := () -> '\''.i32;
+### byte_raw_quote | err:
+x :: UInt8 := ''';
+### byte_raw_backslash | err:
+x :: UInt8 := '\';
+### private_underscore_type_param | ok
+_Local :: Int32;
+### single_underscore_type | err:
+_ :: Int32;
+### type_ident_digits | ok
+A1b2 :: Int32;
+### value_ident_upper_inside | ok
+aBcD9 :: Int32 := 1;
+### type_underscore_inside | err:
+A_b :: Int32;
+### fn_returning_fn_expected | run:6
+mk :: Int32 -> Int32 -> Int32 := (a) -> (b) -> a + b;
+main :: Unit -> Int32 := () -> mk(1)(5);
+### lambda_in_arg | run:7
+ap :: (Int32, Int32 -> Int32) -> Int32 := (x, f) -> f(x);
+main :: Unit -> Int32 := () -> ap(3, (y) -> y + 4);
+### lambda_arg_needs_expected_ok | run:7
+ap :: (Int32, Int32 -> Int32) -> Int32 := (x, f) -> f(x);
+main :: Unit -> Int32 := () -> ap(3i32, (y) -> y + 4i32);

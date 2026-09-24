@@ -1,0 +1,89 @@
+### usize_wrap_sub | run:1
+main :: Unit -> Int32 := () -> if (0usize - 1usize == 18446744073709551615usize) then 1 else 0;
+### bytesize_wrap_sub | run:1
+main :: Unit -> Int32 := () -> if (0bytes - 1bytes == 18446744073709551615bytes) then 1 else 0;
+### usize_mul_wrap | run:1
+main :: Unit -> Int32 := () -> if (4294967296usize * 4294967296usize == 0usize) then 1 else 0;
+### usize_index_hash_precedence | run:98
+main :: Unit -> Int32 := () -> ("abc" # 1usize).i32;
+### index_plus_precedence | run:99
+main :: Unit -> Int32 := () -> ("abc" # 1usize + 1u8).i32;
+### index_chain_nonassoc | err:
+x :: UInt8 := "abc" # 0usize # 0usize;
+### prefix_len_plus | err:
+x :: Symbol := #"a" + "b";
+### neg_unsigned_wrap | run:1
+main :: Unit -> Int32 := () -> if (-1u8 == 255u8) then 1 else 0;
+### toplevel_neg | ok
+x :: Int32 := -1;
+### toplevel_usize_add | ok
+x :: USize := 1usize + 2usize;
+### top_float_add | err:invalid top-level
+x :: Float64 := 1.0 + 2.0;
+### top_float_neg | ok
+x :: Float64 := -1.5;
+### top_bytes_add | ok
+x :: ByteSize := 1bytes + 2bytes;
+### top_usize_mul | ok
+x :: USize := 2usize * 3usize;
+### top_shift | err:invalid top-level
+x :: Int32 := 1 << 2;
+### top_div | err:invalid top-level
+x :: Int32 := 4 / 2;
+### top_bitnot | err:invalid top-level
+x :: UInt8 := ~1u8;
+### top_mixed_conv_add | ok
+x :: Int64 := 1i32.i64 + 2i64;
+### top_nested_product_ops | ok
+x :: (Int32, (Int32, Int32)) := (1 + 2, (3 * 4, -5));
+### usize_arithmetic_ok | ok
+f :: (USize, USize) -> USize := (a, b) -> a + b - a * b / (b + a) % a;
+### usize_comparison_ok | ok
+f :: (USize, USize) -> Bool := (a, b) -> a <= b;
+### usize_bitwise_rejected | err:
+f :: (USize, USize) -> USize := (a, b) -> a & b;
+### usize_shift_rejected | err:
+f :: (USize, USize) -> USize := (a, b) -> a << b;
+### usize_unary_minus_rejected | err:
+f :: USize -> USize := (a) -> -a;
+### bytesize_add_sub_ok | ok
+f :: (ByteSize, ByteSize) -> ByteSize := (a, b) -> a + b - a;
+### bytesize_comparison_ok | ok
+f :: (ByteSize, ByteSize) -> Bool := (a, b) -> a < b;
+### bytesize_multiply_rejected | err:
+f :: (ByteSize, ByteSize) -> ByteSize := (a, b) -> a * b;
+### bytesize_divide_rejected | err:
+f :: (ByteSize, ByteSize) -> ByteSize := (a, b) -> a / b;
+### bool_bitand_rejected | err:
+f :: (Bool, Bool) -> Bool := (a, b) -> a & b;
+### float_remainder_rejected | err:
+f :: (Float64, Float64) -> Float64 := (a, b) -> a % b;
+### float_bitwise_rejected | err:
+f :: (Float64, Float64) -> Float64 := (a, b) -> a & b;
+### float_unary_minus_ok | ok
+f :: Float64 -> Float64 := (a) -> -a;
+### unsigned_unary_minus_ok | ok
+f :: UInt8 -> UInt8 := (a) -> -a;
+### bool_not_only_on_bool | err:
+f :: Int32 -> Int32 := (a) -> !a;
+### symbol_ordering_rejected | err:
+f :: (Symbol, Symbol) -> Bool := (a, b) -> a <= b;
+### unit_operators_rejected | err:
+f :: (Unit, Unit) -> Bool := (a, b) -> a == b;
+### toplevel_comparison_rejected | err:invalid top-level
+x :: Bool := 1 < 2;
+### toplevel_symbol_operator_rejected | err:invalid top-level
+x :: Bool := "a" == "b";
+### toplevel_if_rejected | err:invalid top-level
+x :: Int32 := if (true) then 1 else 2;
+### toplevel_bool_operator_rejected | err:invalid top-level
+x :: Bool := true && false;
+### symbol_literal_raw_newline_rejected | err:
+x :: Symbol := "a
+b";
+### symbol_literal_raw_tab_ok | ok
+x :: Symbol := "a	b";
+### symbol_literal_escapes_ok | ok
+x :: Symbol := "\\ \" \n \r \t \0 \x41";
+### symbol_literal_single_quote_escape_rejected | err:
+x :: Symbol := "\'";

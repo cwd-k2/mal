@@ -48,6 +48,12 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [C host ABI](../spec/c-host-abi.md) | ABI `0x000800`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
 | [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Addressと長さで借りたexternal bytesのadmissionとobservation |
 
+## Specification cases
+
+[`spec/`](../spec/)の言語規則のうち短いprogramで観測できるものは、`crates/mal-compiler/tests/spec/`のcaseで検査する。
+各caseは、受理、特定の診断による拒否、実行結果のexit code、trapのいずれかを期待する。canonical memory layoutはhost adapterがbyte列を
+照合する。新しい言語規則にはcaseを一つ以上加える。
+
 ## Completion gate
 
 v0.6実装は、上表のfocused evidence、代表cross-boundary test、既存機能のregression testがすべて通り、
