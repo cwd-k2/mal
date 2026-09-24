@@ -38,6 +38,8 @@ _allIndexed<A> :: (Buffer<A>, (USize, A) -> Bool) -> Bool := (values, predicate)
         continue(index + 1usize);
     });
 
+// The offset (the buffer's own current count) is what makes this an append rather than an
+// overwrite; fill itself carries no such meaning.
 appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) ->
     buffer.fill(#buffer, remaining, value);
 
@@ -132,6 +134,19 @@ shortestDistance :: (WeightedCsr, Int64, Int64) -> Int64 := (graph, source, targ
     workspace.get(target.usize);
 };
 
+// A neighbor coordinate at or beyond nodeCount is a well-typed Int64 in a well-shaped
+// WeightedCsr; only validWeightedCsr distinguishes it from an admissible graph.
+buildInvalidGraph :: Unit -> WeightedCsr := () -> {
+    offsets := make<Int64>(2usize);
+    offsets.new(0);
+    offsets.new(1);
+    neighbors := make<Int64>(1usize);
+    neighbors.new(1);
+    costs := make<Int64>(1usize);
+    costs.new(1);
+    (1, offsets, neighbors, costs);
+};
+
 buildGraph :: Unit -> WeightedCsr := () -> {
     offsets := make<Int64>(6usize);
     offsets.new(0);
@@ -161,7 +176,8 @@ buildGraph :: Unit -> WeightedCsr := () -> {
 
 main :: Unit -> Int32 := () -> {
     graph := buildGraph();
-    if (graph.validWeightedCsr() && graph.shortestDistance(0, 4) == 7)
+    invalidRejected := !buildInvalidGraph().validWeightedCsr();
+    if (graph.validWeightedCsr() && graph.shortestDistance(0, 4) == 7 && invalidRejected)
     then 0
     else 1;
 };

@@ -19,6 +19,14 @@ buildSheet :: Unit -> SheetImage := () -> {
     (2usize, 3usize, cells);
 };
 
+// A formula row that references itself or a later row is a well-typed CellRow in a well-shaped
+// CellRows; only validSheet distinguishes it from an admissible dependency graph.
+buildCyclicSheet :: Unit -> SheetImage := () -> {
+    cells := make<CellRow>(1usize);
+    cells.new((1u8, 0i64, 0usize, 0usize));
+    (1usize, 1usize, cells);
+};
+
 // Admission follows physical row order so an earlier coordinate is proof of an acyclic dependency.
 _validCellRows :: (CellRows, USize) -> Bool := (cells, index) -> [return] => {
     when (index == #cells) {
@@ -84,7 +92,9 @@ main :: Unit -> Int32 := () -> {
         && updated.evaluateCell(0usize, 2usize) == 15i64
         && updated.evaluateCell(1usize, 2usize) == 40i64;
 
-    if (valid && initial && recalculated)
+    invalidRejected := !buildCyclicSheet().validSheet();
+
+    if (valid && initial && recalculated && invalidRejected)
     then 0
     else 1;
 };

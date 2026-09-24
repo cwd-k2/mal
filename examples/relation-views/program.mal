@@ -58,8 +58,19 @@ buildRows :: Unit -> PairRows := () -> {
     buffer;
 };
 
+// A row with start > end is a well-typed PairRow in a well-shaped PairRows; only validIntervals
+// distinguishes it from an admissible interval. hasDirectedEdge would still accept it as an edge.
+buildInvalidIntervalRows :: Unit -> PairRows := () -> {
+    buffer := make<PairRow>(1usize);
+    buffer.new((5usize, 2usize));
+    buffer;
+};
+
 // The following operations give the same carrier three meanings. Their callbacks describe only
 // one row; the named traversal combinators own cursor movement, termination, and empty input.
+// Each relation also fixes its own invariant: any coordinate pair is a directed edge, so
+// hasDirectedEdge requires nothing beyond PairRow's shape, but only some pairs are half-open
+// intervals, so validIntervals exists to tell those apart from ones that merely look like one.
 hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
     rows._anyBuffer<PairRow>((row) -> {
         (rowSource, rowTarget) := row;
@@ -88,7 +99,9 @@ main :: Unit -> Int32 := () -> {
     intervals := rows.validIntervals()
         && rows.coverageAt(2usize) == 2usize
         && rows.coverageAt(3usize) == 2usize
-        && rows.coverageAt(5usize) == 0usize;
+        && rows.coverageAt(5usize) == 0usize
+        && !buildInvalidIntervalRows().validIntervals()
+        && buildInvalidIntervalRows().hasDirectedEdge(5usize, 2usize);
     if (directed && intervals)
     then 0
     else 1;
