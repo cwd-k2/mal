@@ -42,6 +42,7 @@
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、素案の[index構造](proposals/indexed-buffer-structures.md)と[更新例](proposals/indexed-buffer-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `loop`を検討する | [first-class primitive `loop`の導入計画](proposals/primitive-loop.md) | [反復とdomain step](design/value-interpretation-and-control.md#反復controlとdomain-stepを分ける)、[application control lowering](implementation/application-control-lowering.md) |
+| primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
 | C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |

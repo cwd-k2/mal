@@ -123,3 +123,9 @@ x :: Bool := true + true;
 x :: Int32 := 1i32 + 1i64;
 ### float_lit_overflow | err:
 x :: Float32 := 1e39f32;
+### extern_empty_result_diverges | ok
+extern fail :: Unit -> [];
+f :: Unit -> Int32 := () -> fail()[];
+### extern_empty_result_code_after_unreachable | err:
+extern fail :: Unit -> [];
+f :: Unit -> Int32 := () -> [r] => { fail()[]; r(1); };
