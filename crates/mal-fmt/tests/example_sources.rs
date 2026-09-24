@@ -36,11 +36,11 @@ fn source(path: &Path) -> SourceFile {
 fn every_example_source_is_canonical_and_idempotent() {
     for path in example_sources() {
         let source = source(&path);
-        let formatted = mal_compiler::formatter::format(&source).expect("formatted example");
+        let formatted = mal_fmt::format(&source).expect("formatted example");
         assert_eq!(formatted, source.text(), "{}", path.display());
         let formatted_source = SourceFile::new(FileId::new(0), path, formatted.clone());
         assert_eq!(
-            mal_compiler::formatter::format(&formatted_source).expect("reformatted example"),
+            mal_fmt::format(&formatted_source).expect("reformatted example"),
             formatted
         );
     }

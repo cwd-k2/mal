@@ -10,18 +10,14 @@ pub mod core;
 pub mod driver;
 pub mod editor;
 mod execution;
-pub mod formatter;
 pub mod pipeline;
 pub mod resolve;
-
-pub const LANGUAGE_NAME: &str = "mal";
-pub const LANGUAGE_VERSION: &str = "0.6";
 
 pub fn version_line() -> String {
     format!(
         "malc {} (language v{})",
         env!("CARGO_PKG_VERSION"),
-        LANGUAGE_VERSION
+        mal_syntax::LANGUAGE_VERSION
     )
 }
 
@@ -31,7 +27,7 @@ mod tests {
 
     #[test]
     fn version_targets_v06() {
-        assert_eq!(LANGUAGE_VERSION, "0.6");
+        assert_eq!(mal_syntax::LANGUAGE_VERSION, "0.6");
         assert!(version_line().contains("language v0.6"));
         assert_eq!(
             env!("CARGO_PKG_VERSION"),

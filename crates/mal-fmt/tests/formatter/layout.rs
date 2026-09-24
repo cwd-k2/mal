@@ -328,8 +328,7 @@ fn omits_compact_result_semicolons_and_terminates_expanded_results() {
 
 #[test]
 fn rejects_malformed_source() {
-    let diagnostic =
-        mal_compiler::formatter::format(&source("value := ;")).expect_err("syntax error");
+    let diagnostic = mal_fmt::format(&source("value := ;")).expect_err("syntax error");
 
     assert_eq!(diagnostic.message, "expected an expression");
     assert!(diagnostic.primary.is_some());

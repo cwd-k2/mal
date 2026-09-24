@@ -5,7 +5,7 @@ fn source(text: &str) -> SourceFile {
 }
 
 fn format(text: &str) -> String {
-    mal_compiler::formatter::format(&source(text)).expect("formatted source")
+    mal_fmt::format(&source(text)).expect("formatted source")
 }
 
 #[test]

@@ -1,13 +1,13 @@
 use super::Previous;
-use crate::formatter::Formatter;
+use crate::Formatter;
 
 #[derive(Clone, Copy)]
-pub(in crate::formatter) struct IfLayout {
+pub(crate) struct IfLayout {
     continuation: bool,
     inline: bool,
 }
 
-pub(in crate::formatter) enum IfStage {
+pub(crate) enum IfStage {
     Condition(IfLayout),
     ThenKeyword(IfLayout),
     ThenBranch(usize, IfLayout),

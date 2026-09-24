@@ -20,5 +20,8 @@ harness = false
 [dependencies]
 mal-syntax = { path = "../mal-syntax" }
 
+[dev-dependencies]
+mal-fmt = { path = "../mal-fmt" }
+
 [lints]
 workspace = true

@@ -14,12 +14,11 @@ fn assert_valid_diagnostic(source: &SourceFile, diagnostic: &Diagnostic) {
 
 fn exercise(id: u32, text: String) {
     let source = source_file(id, text);
-    match mal_compiler::formatter::format(&source) {
+    match mal_fmt::format(&source) {
         Ok(formatted) => {
             let formatted_source = source_file(id, formatted.clone());
             assert_eq!(
-                mal_compiler::formatter::format(&formatted_source)
-                    .expect("reformat accepted source"),
+                mal_fmt::format(&formatted_source).expect("reformat accepted source"),
                 formatted
             );
         }
@@ -77,5 +76,5 @@ fn accepts_ordinary_nesting() {
     );
     let source = source_file(900, ordinary);
     mal_compiler::pipeline::check(&source).expect("ordinary nesting must check");
-    mal_compiler::formatter::format(&source).expect("ordinary nesting must format");
+    mal_fmt::format(&source).expect("ordinary nesting must format");
 }

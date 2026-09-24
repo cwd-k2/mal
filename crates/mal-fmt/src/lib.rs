@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use mal_syntax::ast::Program;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};
@@ -11,6 +13,9 @@ mod token;
 use self::control::ControlLayout;
 use self::layout::{BlockLayout, top_level_breaks};
 use self::token::{BracketLayout, IfStage, Previous};
+
+pub mod cli;
+mod file;
 
 pub fn format(source: &SourceFile) -> Result<String, Diagnostic> {
     let lexed = mal_syntax::lexer::lex_lossless(source)?;

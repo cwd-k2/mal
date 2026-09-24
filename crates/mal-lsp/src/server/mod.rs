@@ -232,7 +232,7 @@ impl Server {
             return error(id, -32602, "document is not open");
         };
         let source = document.source(&params.text_document.uri);
-        let Ok(formatted) = mal_compiler::formatter::format(&source) else {
+        let Ok(formatted) = mal_fmt::format(&source) else {
             return success(id, Value::Null);
         };
         if formatted == document.text {
