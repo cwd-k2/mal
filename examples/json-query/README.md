@@ -15,6 +15,9 @@ a child value completes. The stack pairs reusable Buffer storage with a logical 
 reuses one slot, replacement uses `put`, and pop decrements the logical count. Nesting is limited only
 by the target-sized count and available memory.
 
+Whitespace, digit, escape, and string scans reuse the same loop with smaller cursor states. Their
+input `Bytes` values are the complete changing state, while token rules remain in the step callbacks.
+
 The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
 give input positions their token meaning and frame values their control-state meaning. Recursive JSON
 topology therefore exists in the transition relation followed by `_parse`, not in a recursive value

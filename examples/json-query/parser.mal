@@ -48,16 +48,16 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
         || (byte >= 'a' && byte <= 'f')
         || (byte >= 'A' && byte <= 'F');
 
-_skipWhitespace :: Bytes -> Bytes := (source) -> [return] => {
-    when (source.byteCount() == 0usize) {
-        return(source);
-    };
-    byte := source.byteAt(0usize);
-    when (byte._isWhitespace()) {
-        return((source.dropBytes(1usize))._skipWhitespace());
-    };
-    return(source);
-};
+_skipWhitespace :: Bytes -> Bytes := (source) ->
+    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break(remaining);
+        };
+        byte := remaining.byteAt(0usize);
+        if (byte._isWhitespace())
+        then continue(remaining.dropBytes(1usize))
+        else break(remaining);
+    });
 
 _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) -> {
     (count, maximumDepth) := stats;
@@ -105,69 +105,74 @@ _consumeLiteral :: (Bytes, Symbol) -> ScanProgress := (source, expected) -> {
     else (source, "invalid JSON literal");
 };
 
-_hasHexDigits :: (Bytes, USize) -> Bool := (source, remaining) -> [return] => {
-    when (remaining == 0usize) {
-        return(true);
-    };
-    when (source.byteCount() == 0usize) {
-        return(false);
-    };
-    byte := source.byteAt(0usize);
-    when (!byte._isHexDigit()) {
-        return(false);
-    };
-    return((source.dropBytes(1usize))._hasHexDigits(remaining - 1usize));
-};
+_hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
+    _loop<(Bytes, USize), Bool>(
+        (source, count),
+        (remaining, count) -> [continue, break] => {
+            when (count == 0usize) {
+                break(true);
+            };
+            when (remaining.byteCount() == 0usize) {
+                break(false);
+            };
+            byte := remaining.byteAt(0usize);
+            when (!byte._isHexDigit()) {
+                break(false);
+            };
+            continue((remaining.dropBytes(1usize), count - 1usize));
+        });
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
-_scanString :: Bytes -> ScanProgress := (source) -> [return] => {
-    when (source.byteCount() == 0usize) {
-        return((source, "unterminated JSON string"));
-    };
-    byte := source.byteAt(0usize);
-    when (byte == '"') {
-        return((source.dropBytes(1usize), ""));
-    };
-    when (byte < 0x20u8) {
-        return((source, "control byte in JSON string"));
-    };
-    when (byte != '\\') {
-        return((source.dropBytes(1usize))._scanString());
-    };
+_scanString :: Bytes -> ScanProgress := (source) ->
+    _loop<Bytes, ScanProgress>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break((remaining, "unterminated JSON string"));
+        };
+        byte := remaining.byteAt(0usize);
+        when (byte == '"') {
+            break((remaining.dropBytes(1usize), ""));
+        };
+        when (byte < 0x20u8) {
+            break((remaining, "control byte in JSON string"));
+        };
+        when (byte != '\\') {
+            continue(remaining.dropBytes(1usize));
+        };
 
-    afterSlash := source.dropBytes(1usize);
-    when (afterSlash.byteCount() == 0usize) {
-        return((source, "unterminated JSON escape"));
-    };
-    escaped := afterSlash.byteAt(0usize);
-    simple := escaped == '"'
-        || escaped == '\\'
-        || escaped == '/'
-        || escaped == 'b'
-        || escaped == 'f'
-        || escaped == 'n'
-        || escaped == 'r'
-        || escaped == 't';
-    when (simple) {
-        return((afterSlash.dropBytes(1usize))._scanString());
-    };
-    afterU := afterSlash.dropBytes(1usize);
-    when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
-        return((afterU.dropBytes(4usize))._scanString());
-    };
-    return((source, "invalid JSON escape"));
-};
+        afterSlash := remaining.dropBytes(1usize);
+        when (afterSlash.byteCount() == 0usize) {
+            break((remaining, "unterminated JSON escape"));
+        };
+        escaped := afterSlash.byteAt(0usize);
+        simple := escaped == '"'
+            || escaped == '\\'
+            || escaped == '/'
+            || escaped == 'b'
+            || escaped == 'f'
+            || escaped == 'n'
+            || escaped == 'r'
+            || escaped == 't';
+        when (simple) {
+            continue(afterSlash.dropBytes(1usize));
+        };
+        afterU := afterSlash.dropBytes(1usize);
+        when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
+            continue(afterU.dropBytes(4usize));
+        };
+        break((remaining, "invalid JSON escape"));
+    });
 
-_scanDigits :: Bytes -> Bytes := (source) -> [return] => {
-    when (source.byteCount() == 0usize) {
-        return(source);
-    };
-    byte := source.byteAt(0usize);
-    when (!byte._isDigit()) {
-        return(source);
-    };
-    return((source.dropBytes(1usize))._scanDigits());
-};
+_scanDigits :: Bytes -> Bytes := (source) ->
+    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break(remaining);
+        };
+        byte := remaining.byteAt(0usize);
+        when (!byte._isDigit()) {
+            break(remaining);
+        };
+        continue(remaining.dropBytes(1usize));
+    });
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.

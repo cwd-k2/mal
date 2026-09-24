@@ -286,7 +286,11 @@ impl<'a> FunctionEmitter<'a> {
         {
             let parameter = EmittedValue {
                 ty: self.function.parameter.ty.clone(),
-                representation: "%mal_parameter".into(),
+                representation: if self.function.parameter.ty == Type::Unit {
+                    "0".into()
+                } else {
+                    "%mal_parameter".into()
+                },
                 owned: false,
             };
             self.emit_parameter_handoff(

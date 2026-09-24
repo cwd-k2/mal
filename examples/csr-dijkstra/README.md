@@ -18,9 +18,9 @@ only data-structure concern. A binary heap could replace that selection policy, 
 relation would be another algorithmic interpretation of indices rather than a property of CSR.
 
 The graph columns share `_allIndexed` for validation because only a coordinate and ordinary row value
-cross that abstraction. The mutable workspace is passed explicitly through named recursion so each
-algorithm step makes its read/write subject visible. Buffer could be captured by a closure, but doing
-so would hide the state transition that this example is intended to teach.
+cross that abstraction. Selection, edge relaxation, and the outer Dijkstra rounds use the same
+continue-or-break loop as validation. Their loop states contain only changing cursors and candidates;
+the graph and mutable workspace remain explicit operation parameters and invariant callback captures.
 
 From the repository root in Nushell:
 

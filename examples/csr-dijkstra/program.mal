@@ -68,59 +68,65 @@ validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
         && costs._allIndexed<Int64>((_, cost) -> cost >= 0);
 };
 
-// The workspace is explicit state: both logical columns alias one managed Buffer.
+// The changing search candidate is loop state; the workspace and node bound stay invariant across
+// the scan, and both logical workspace columns alias one managed Buffer.
 selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
-    (workspace, node, nodeCount, closest, closestDistance) -> [return] => {
-        when (node == nodeCount) {
-            return(closest);
-        };
-        (distances, visited) := workspace;
-        distance := distances.at(node);
-        better := visited.at(node) == 0 && distance < closestDistance;
-        return(workspace.selectClosest(
-            node + 1,
-            nodeCount,
-            if (better) then { node } else { closest },
-            if (better) then { distance } else { closestDistance }
-        ));
-    };
+    (workspace, node, nodeCount, closest, closestDistance) ->
+        _loop<(Int64, Int64, Int64), Int64>(
+            (node, closest, closestDistance),
+            (current, candidate, candidateDistance) -> [continue, break] => {
+                when (current == nodeCount) {
+                    break(candidate);
+                };
+                (distances, visited) := workspace;
+                distance := distances.at(current);
+                better := visited.at(current) == 0 && distance < candidateDistance;
+                continue((
+                    current + 1,
+                    if (better) then { current } else { candidate },
+                    if (better) then { distance } else { candidateDistance }
+                ));
+            });
 
-// Edge relaxation passes the writable workspace directly so the state transition stays visible.
+// Edge relaxation carries the current and terminal edge coordinates as its complete range state;
+// the graph, writable workspace, and source distance stay invariant across transitions.
 relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
-    (graph, workspace, sourceDistance, edge, end) -> [return] => {
-        when (edge == end) {
-            return(());
-        };
-        (_, _, neighbors, costs) := graph;
-        (distances, _) := workspace;
-        neighbor := neighbors.get(edge.usize);
-        candidate := sourceDistance + costs.get(edge.usize);
-        when (candidate < distances.at(neighbor)) {
-            distances.assign(neighbor, candidate);
-        };
-        return(graph.relaxEdgeRange(workspace, sourceDistance, edge + 1, end));
-    };
+    (graph, workspace, sourceDistance, edge, end) ->
+        _loop<(Int64, Int64), Unit>((edge, end), (current, terminal) -> [continue, break] => {
+            when (current == terminal) {
+                break(());
+            };
+            (_, _, neighbors, costs) := graph;
+            (distances, _) := workspace;
+            neighbor := neighbors.get(current.usize);
+            candidate := sourceDistance + costs.get(current.usize);
+            when (candidate < distances.at(neighbor)) {
+                distances.assign(neighbor, candidate);
+            };
+            continue((current + 1, terminal));
+        });
 
 runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
-    (graph, workspace, remaining) -> [return] => {
-        when (remaining == 0) {
-            return(());
-        };
-        (nodeCount, offsets, _, _) := graph;
-        (distances, visited) := workspace;
-        closest := workspace.selectClosest(0, nodeCount, -1, infinity);
-        when (closest < 0) {
-            return(());
-        };
-        visited.assign(closest, 1);
-        graph.relaxEdgeRange(
-            workspace,
-            distances.at(closest),
-            offsets.get(closest.usize),
-            offsets.get((closest + 1).usize)
-        );
-        return(graph.runDijkstraRounds(workspace, remaining - 1));
-    };
+    (graph, workspace, remaining) ->
+        _loop<Int64, Unit>(remaining, (remaining) -> [continue, break] => {
+            when (remaining == 0) {
+                break(());
+            };
+            (nodeCount, offsets, _, _) := graph;
+            (distances, visited) := workspace;
+            closest := workspace.selectClosest(0, nodeCount, -1, infinity);
+            when (closest < 0) {
+                break(());
+            };
+            visited.assign(closest, 1);
+            graph.relaxEdgeRange(
+                workspace,
+                distances.at(closest),
+                offsets.get(closest.usize),
+                offsets.get((closest + 1).usize)
+            );
+            continue(remaining - 1);
+        });
 
 shortestDistance :: (WeightedCsr, Int64, Int64) -> Int64 := (graph, source, target) -> {
     (nodeCount, _, _, _) := graph;

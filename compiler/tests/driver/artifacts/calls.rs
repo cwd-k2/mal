@@ -32,6 +32,45 @@ fn runs_receiver_first_calls_through_llvm() {
 }
 
 #[test]
+fn binds_unit_parameters_omitted_from_the_internal_abi() {
+    let directory = NativeFixture::new("driver-llvm-bound-unit-parameter");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "loop<A, B> :: (A, A -> [A, B]) -> B :=\n\
+           (state, step) -> step(state)[\n\
+             (next) -> loop<A, B>(next, step),\n\
+             (result) -> result\n\
+           ];\n\
+         run :: Int32 -> Unit := (initial) ->\n\
+           loop<Int32, Unit>(initial, (value) -> [continue, break] => {\n\
+             if (value == 0) then break(()) else continue(value - 1);\n\
+           });\n\
+         main :: Unit -> Int32 := () -> { run(100000); 0; };",
+    );
+
+    let unavailable = directory.join("must-not-be-used");
+    let output = directory.malc_with_env(
+        [
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+        ],
+        OsStr::new("CC"),
+        unavailable.as_os_str(),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn builds_scalar_control_and_tail_calls_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-control");
     let source = directory.join("program.mal");
