@@ -29,6 +29,8 @@ fn emits_managed_shared_buffer_operations() {
            values := make<Int64>(1usize);
            alias := values;
            index := values.new(41i64);
+           values.fill(1usize, 2usize, 40i64);
+           alias.copy(0usize, values, 1usize, 2usize);
            alias.put(index, alias.get(index) + 1i64);
            alias.get(0usize).i32 - 42i32;
          };",
@@ -36,6 +38,8 @@ fn emits_managed_shared_buffer_operations() {
 
     assert!(module.contains("call ptr @mal_runtime_buffer_make"));
     assert!(module.contains("call i64 @mal_runtime_buffer_new"));
+    assert!(module.contains("call void @mal_runtime_buffer_fill"));
+    assert!(module.contains("call void @mal_runtime_buffer_copy"));
     assert!(module.contains("call ptr @mal_runtime_buffer_data_slot"));
     assert!(module.contains("mal buffer element storage"));
     assert!(module.contains("mal buffer object allocation"));
@@ -49,6 +53,8 @@ fn borrows_buffer_operands_without_temporary_owner_traffic() {
         "main :: Unit -> Int32 := () -> {
            values := make<Int64>(1usize);
            index := values.new(41i64);
+           values.fill(1usize, 2usize, 41i64);
+           values.copy(0usize, values, 1usize, 2usize);
            values.put(index, values.get(index) + 1i64);
            values.get(index).i32 - 42i32;
          };",

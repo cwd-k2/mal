@@ -77,6 +77,8 @@ predefined_values!(
     MAKE_VALUE = 5 => ("make", Some("USize -> Buffer<T>"), "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
     FROM_VALUE = 6 => ("from", Some("(Address, USize, USize) -> Buffer<T>"), "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
     INTO_VALUE = 7 => ("into", Some("(Buffer<T>, Address, USize, USize) -> Unit"), "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
+    FILL_VALUE = 8 => ("fill", Some("(Buffer<T>, USize, USize, T) -> Unit"), "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
+    COPY_VALUE = 9 => ("copy", Some("(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit"), "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
 );
 
 pub fn first_source_type_id() -> u32 {

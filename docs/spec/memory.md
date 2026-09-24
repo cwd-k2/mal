@@ -78,14 +78,26 @@ make<A>(USize)                     -> Buffer<A>
 Buffer<A>.new(A)                   -> USize
 Buffer<A>.get(USize)               -> A
 Buffer<A>.put(USize, A)            -> Unit
+Buffer<A>.fill(USize, USize, A)    -> Unit
+Buffer<A>.copy(USize, Buffer<A>, USize, USize) -> Unit
 ```
 
 `make<A>(capacity)`はcount 0のBufferを返す。capacityは初期allocationの要求であり、論理countではない。後続の`new`はcapacityを
 超えてgrowthできる。`new`は末尾へ追加し、その安定した0-based indexを返す。`get`と`put`は現在のindexを読み書きする。
 receiver-firstでない`new(buffer, value)`、`get(buffer, index)`、`put(buffer, index, value)`も同じpredefined operationである。
 
-operationのoperandはsource順に一度だけ評価する。count、capacity、stride、allocation byte数をtargetで表現できない場合と
-allocationに失敗した場合はtrapする。stride 0でもcount overflowはtrapする。
+`buffer.fill(offset, length, value)`は半開区間`[offset, offset + length)`の全要素へ`value`を代入する。
+`buffer.copy(destinationOffset, source, sourceOffset, length)`は`source`の半開区間
+`[sourceOffset, sourceOffset + length)`をreceiverの`[destinationOffset, destinationOffset + length)`へ代入する。
+どちらも既存要素を上書きし、destination rangeが現在の末尾を越える場合はcountをrange末尾まで延ばす。開始offsetは現在の
+count以下でなければならず、未初期化の穴は作らない。長さ0のrangeもこのoffset条件に従う。`copy`でsourceとdestinationが
+同じBufferを指しrangeが重なる場合、operation開始時点のsource rangeをcopyした結果になる。
+
+receiver-firstでない形は`fill(buffer, offset, length, value)`と
+`copy(destination, destinationOffset, source, sourceOffset, length)`である。
+
+operationのoperandはsource順に一度だけ評価する。count、capacity、range末尾、stride、allocation byte数をtargetで表現できない場合と
+allocationに失敗した場合はtrapする。stride 0でもcountとrange末尾のoverflowはtrapする。
 
 Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argumentに置ける。Buffer elementだけは
 `Representable`に閉じるため、Buffer storageから別のmanaged ownerへのedgeは生じない。
@@ -126,6 +138,8 @@ stride 0の型はstorageをdereferenceせず、logical countだけをcopyする�
 | Operation | Precondition |
 |---|---|
 | `buffer.get(index)`、`buffer.put(index, value)` | `index < #buffer` |
+| `buffer.fill(offset, length, value)` | `offset <= #buffer` |
+| `destination.copy(destinationOffset, source, sourceOffset, length)` | `destinationOffset <= #destination`かつ`sourceOffset + length <= #source` |
 | `from<A>(address, offset, length)` | 対象rangeが同じlive storage内にあり、readable、初期化済みで、各要素がvalid canonical representationを持つ |
 | `buffer.into(address, offset, length)` | `offset + length <= #buffer`で、destinationが`length`要素分writableである |
 

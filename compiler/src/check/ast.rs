@@ -390,6 +390,8 @@ pub enum MemoryPrimitive {
     BufferNew,
     BufferGet,
     BufferPut,
+    BufferFill,
+    BufferCopy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

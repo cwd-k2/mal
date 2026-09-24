@@ -205,6 +205,8 @@ impl Checker {
                 crate::resolve::NEW_VALUE
                     | crate::resolve::GET_VALUE
                     | crate::resolve::PUT_VALUE
+                    | crate::resolve::FILL_VALUE
+                    | crate::resolve::COPY_VALUE
                     | crate::resolve::INTO_VALUE
             )
         {

@@ -22,7 +22,9 @@ impl FunctionEmitter<'_> {
             MemoryPrimitive::BufferMake
             | MemoryPrimitive::BufferNew
             | MemoryPrimitive::BufferGet
-            | MemoryPrimitive::BufferPut => None,
+            | MemoryPrimitive::BufferPut
+            | MemoryPrimitive::BufferFill
+            | MemoryPrimitive::BufferCopy => None,
         }
     }
 }

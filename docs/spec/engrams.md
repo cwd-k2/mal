@@ -28,7 +28,7 @@ Engramへ包んでもresource ownershipは移らない。
 | observation | EngramからExtern | call中にborrowするか外部storageへcopyし、malのidentityとlifetimeを渡さない |
 | capability transfer | 双方向 | `Address`またはexternal opaque valueを運び、referentのauthorityをExternに残す |
 
-`from<T>`はadmission、`buffer.into`はobservationである。Bufferの`get`と`put`はmal-owned value内の通常の操作である。extern resultとparameterは
+`from<T>`はadmission、`buffer.into`はobservationである。Bufferの`new`、`get`、`put`、`fill`、`copy`はmal-owned value内の通常の操作である。extern resultとparameterは
 HostMappableなEngram leafのadmissionまたはobservationと、Addressやexternal opaque valueのcapability transferだけを行う。
 `Symbol`と`Buffer`はextern signatureへ現れない。
 
@@ -36,8 +36,9 @@ backend adapterはraw host operationとmal valueの間に立つtrusted boundary 
 admission helperを呼ぶことは、ExternがEngramを生成することではない。adapterはmalへ構築を依頼し、完成した値を運ぶだけで、
 contextやEngramのlifetime authorityを取得しない。
 
-Addressのextern parameter/resultとAddressを含むBuffer get/putはcapability transferである。Address admissionは任意のbytesを
-有効なcapabilityに変換せず、hostまたはBuffer putが書いた有効なpointer representationだけを復元できる。
+Addressのextern parameter/resultはcapability transferである。Addressを含むBufferのnew/get/put/fill/copyはreferentのauthorityを
+移さず、copyableなcapability valueだけをBufferへ格納またはBufferから取得する。Address admissionは任意のbytesを
+有効なcapabilityに変換せず、hostが提供したかBuffer operationが有効なAddress値から格納したpointer representationだけを復元できる。
 external opaque valueもhostが有効性を支配し、malはhandle bitsからresourceを生成しない。
 
 external opaque valueを外部storageへ保存し、後で復元する必要がある場合、hostはその型に固有の`extern`

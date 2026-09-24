@@ -64,7 +64,7 @@ fn serves_buffer_intrinsics_as_functions_and_indexed_type_completions() {
                 .as_str()
                 .is_some_and(|documentation| documentation.contains("C-host storage"))
     }));
-    for name in ["make", "from", "into", "new", "get", "put"] {
+    for name in ["make", "from", "into", "new", "get", "put", "fill", "copy"] {
         assert!(
             items
                 .iter()

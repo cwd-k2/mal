@@ -51,6 +51,8 @@ impl Lowerer {
                         | checked::MemoryPrimitive::BufferNew
                         | checked::MemoryPrimitive::BufferGet
                         | checked::MemoryPrimitive::BufferPut
+                        | checked::MemoryPrimitive::BufferFill
+                        | checked::MemoryPrimitive::BufferCopy
                 ) {
                     return self.lower_buffer_operation(*primitive, operands, expression);
                 }

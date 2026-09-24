@@ -123,22 +123,25 @@ impl<'a> FunctionEmitter<'a> {
                     )
                 })
         });
-        let buffer_new_storage = states
-            .iter()
-            .flat_map(|state| &execution.control.states[state.0].bindings)
-            .filter_map(|binding| match &binding.operation {
-                Operation::Buffer {
-                    operation: crate::core::ast::BufferOperation::New,
-                    element,
-                    ..
-                } => source_layouts.layout(element),
-                _ => None,
-            })
-            .filter(|layout| layout.stride != 0)
-            .fold(None, |storage, layout| {
-                let (size, alignment) = storage.unwrap_or((0usize, 1usize));
-                Some((size.max(layout.stride), alignment.max(layout.alignment)))
-            });
+        let buffer_value_storage =
+            states
+                .iter()
+                .flat_map(|state| &execution.control.states[state.0].bindings)
+                .filter_map(|binding| match &binding.operation {
+                    Operation::Buffer {
+                        operation:
+                            crate::core::ast::BufferOperation::New
+                            | crate::core::ast::BufferOperation::Fill,
+                        element,
+                        ..
+                    } => source_layouts.layout(element),
+                    _ => None,
+                })
+                .filter(|layout| layout.stride != 0)
+                .fold(None, |storage, layout| {
+                    let (size, alignment) = storage.unwrap_or((0usize, 1usize));
+                    Some((size.max(layout.stride), alignment.max(layout.alignment)))
+                });
         let mut external_storage = None;
         for id in external_ids {
             let external = *index.externals.get(&id)?;
@@ -164,7 +167,7 @@ impl<'a> FunctionEmitter<'a> {
             local_control_storage,
             local_control_top,
             external_storage,
-            buffer_new_storage,
+            buffer_value_storage,
             needs_symbol_result_slot,
             types,
             source_layouts,
@@ -272,9 +275,9 @@ impl<'a> FunctionEmitter<'a> {
                 symbol.llvm, symbol.alignment
             ));
         }
-        if let Some((size, alignment)) = self.buffer_new_storage {
+        if let Some((size, alignment)) = self.buffer_value_storage {
             self.line(format!(
-                "  %mal_buffer_new_value = alloca [{size} x i8], align {alignment}"
+                "  %mal_buffer_value = alloca [{size} x i8], align {alignment}"
             ));
         }
         let parameter_destination = self.execution.parameters.destination(self.function.id)?;

@@ -29,7 +29,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、function、opaque、indexed type | representable aggregateのstore/load round-trip |
 | [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
-| [Buffer access](../spec/memory.md#buffer) | make/new/get/put、empty、growth、Unit、product/sum、alias越しのread-your-writes | managed lifetimeを含むcompiled artifact |
+| [Buffer access](../spec/memory.md#buffer) | make/new/get/put/fill/copy、empty、growth、Unit、product/sum、aliasとoverlap越しのread-your-writes | managed lifetimeを含むcompiled artifact |
 | [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、rangeとhost lifetime contract | C host copy artifact |
 | [target contract](../spec/memory.md#canonical-representationとtarget-contract) | pointer representation幅とindex幅の分離、unrepresentable layout、canonical alignment | reference targetとsynthetic data layout fixtures |
 

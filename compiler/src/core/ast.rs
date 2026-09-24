@@ -188,6 +188,8 @@ pub enum BufferOperation {
     New,
     Get,
     Put,
+    Fill,
+    Copy,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

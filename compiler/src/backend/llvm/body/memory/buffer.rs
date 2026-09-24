@@ -122,11 +122,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 if *element == Type::Unit {
-                    return Some(EmittedValue {
-                        ty: Type::Unit,
-                        representation: "0".into(),
-                        owned: false,
-                    });
+                    return Some(emitted_unit());
                 }
                 let data = self.active_buffer_data(buffer)?;
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
@@ -148,11 +144,60 @@ impl FunctionEmitter<'_> {
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
                     self.emit_aligned_buffer_store_at(&pointer, value)?;
                 }
-                Some(EmittedValue {
-                    ty: Type::Unit,
-                    representation: "0".into(),
-                    owned: false,
-                })
+                Some(emitted_unit())
+            }
+            BufferOperation::Fill => {
+                let [buffer, offset, length, value] = operands else {
+                    return None;
+                };
+                if buffer.ty != buffer_type
+                    || offset.ty != Type::USize
+                    || length.ty != Type::USize
+                    || value.ty != *element
+                    || *result_type != Type::Unit
+                {
+                    return None;
+                }
+                let value_pointer = self.buffer_value_pointer(value, stride)?;
+                let index = self.types.pointer_integer()?;
+                self.line(format!(
+                    "  call void @mal_runtime_buffer_fill(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
+                    buffer = buffer.representation,
+                    offset = offset.representation,
+                    length = length.representation,
+                ));
+                Some(emitted_unit())
+            }
+            BufferOperation::Copy => {
+                let [
+                    destination,
+                    destination_offset,
+                    source,
+                    source_offset,
+                    length,
+                ] = operands
+                else {
+                    return None;
+                };
+                if destination.ty != buffer_type
+                    || destination_offset.ty != Type::USize
+                    || source.ty != buffer_type
+                    || source_offset.ty != Type::USize
+                    || length.ty != Type::USize
+                    || *result_type != Type::Unit
+                {
+                    return None;
+                }
+                let index = self.types.pointer_integer()?;
+                self.line(format!(
+                    "  call void @mal_runtime_buffer_copy(ptr %mal_context, ptr {destination}, {index} {destination_offset}, ptr {source}, {index} {source_offset}, {index} {length}, {index} {stride})",
+                    destination = destination.representation,
+                    destination_offset = destination_offset.representation,
+                    source = source.representation,
+                    source_offset = source_offset.representation,
+                    length = length.representation,
+                ));
+                Some(emitted_unit())
             }
         }
     }
@@ -178,7 +223,7 @@ impl FunctionEmitter<'_> {
         if stride == 0 {
             return Some("null".into());
         }
-        let storage = "%mal_buffer_new_value";
+        let storage = "%mal_buffer_value";
         let layout = self.source_layouts.layout(&value.ty)?;
         self.line(format!(
             "  store [{stride} x i8] zeroinitializer, ptr {storage}, align {}",
@@ -217,5 +262,13 @@ fn emitted_buffer(representation: String, ty: Type) -> EmittedValue {
         ty,
         representation,
         owned: true,
+    }
+}
+
+fn emitted_unit() -> EmittedValue {
+    EmittedValue {
+        ty: Type::Unit,
+        representation: "0".into(),
+        owned: false,
     }
 }

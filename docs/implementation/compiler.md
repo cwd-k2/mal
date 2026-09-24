@@ -119,7 +119,7 @@ argument-aware entryではC shimが`argc - 1`と`argv + 1`をLLVM rootの`(USize
 
 function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
 immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
-`Buffer<A>`はmanaged runtime objectへの一語のreferenceとしてlowerし、`new`・`get`・`put`はclosure applicationにせず
+`Buffer<A>`はmanaged runtime objectへの一語のreferenceとしてlowerし、`new`・`get`・`put`・`fill`・`copy`はclosure applicationにせず
 typed memory operationとしてcore以降へ渡す。control IRはfunction environment schemaを複製しない。backendは
 operationとelement型を直接使い、function environmentの形からBuffer operationを推測しない。
 

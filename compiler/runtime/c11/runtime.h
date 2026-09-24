@@ -99,6 +99,23 @@ size_t mal_runtime_buffer_new(
     const void *value,
     size_t stride
 );
+void mal_runtime_buffer_fill(
+    MalContext *context,
+    void *buffer,
+    size_t offset,
+    size_t count,
+    const void *value,
+    size_t stride
+);
+void mal_runtime_buffer_copy(
+    MalContext *context,
+    void *destination,
+    size_t destination_offset,
+    const void *source,
+    size_t source_offset,
+    size_t count,
+    size_t stride
+);
 void *const *mal_runtime_buffer_data_slot(const void *buffer);
 size_t mal_runtime_buffer_count(const void *buffer);
 void *mal_runtime_buffer_from(

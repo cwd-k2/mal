@@ -37,6 +37,8 @@ impl Lowerer {
             (checked::MemoryPrimitive::BufferNew, [_]) => BufferOperation::New,
             (checked::MemoryPrimitive::BufferGet, [_]) => BufferOperation::Get,
             (checked::MemoryPrimitive::BufferPut, [_, _]) => BufferOperation::Put,
+            (checked::MemoryPrimitive::BufferFill, [_, _, _]) => BufferOperation::Fill,
+            (checked::MemoryPrimitive::BufferCopy, [_, _, _, _]) => BufferOperation::Copy,
             _ => unreachable!("checked Buffer operation has valid operands"),
         };
         Expression {

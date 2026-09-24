@@ -69,6 +69,72 @@ fn preserves_symbol_snapshots_and_zero_stride_buffers() {
 }
 
 #[test]
+fn fills_and_copies_buffer_ranges_with_snapshot_overlap() {
+    let directory = NativeFixture::new("driver-buffer-ranges");
+    let source = directory.write(
+        "program.mal",
+        "main :: Unit -> Int32 := () -> {
+           values := make<UInt8>(8usize);
+           values.fill(0usize, 4usize, 1u8);
+           alias := values;
+           alias.fill(1usize, 4usize, 2u8);
+           source := make<UInt8>(4usize);
+           source.new(10u8);
+           source.new(20u8);
+           source.new(30u8);
+           source.new(40u8);
+           values.copy(1usize, source, 1usize, 3usize);
+           copied := values.get(0usize) == 1u8 && values.get(1usize) == 20u8
+             && values.get(2usize) == 30u8 && values.get(3usize) == 40u8
+             && values.get(4usize) == 2u8;
+           // Both overlap directions observe the source range before the copy begins.
+           values.copy(2usize, values, 0usize, 3usize);
+           forward := values.get(2usize) == 1u8 && values.get(3usize) == 20u8
+             && values.get(4usize) == 30u8;
+           values.copy(0usize, values, 2usize, 3usize);
+           reverse := values.get(0usize) == 1u8 && values.get(1usize) == 20u8
+             && values.get(2usize) == 30u8;
+           values.copy(5usize, values, 0usize, 5usize);
+           units := make<Unit>(0usize);
+           units.fill(0usize, 7usize, ());
+           unitCopy := make<Unit>(0usize);
+           unitCopy.copy(0usize, units, 2usize, 4usize);
+           zeros := make<UInt8>(16usize);
+           zeros.fill(0usize, 16usize, 0u8);
+           zeros.fill(16usize, 0usize, 9u8);
+           zeroGrowth := make<UInt8>(1usize);
+           zeroGrowth.new(9u8);
+           zeroGrowth.fill(0usize, 64usize, 0u8);
+           pairs := make<(UInt8, UInt32)>(0usize);
+           pairs.fill(0usize, 3usize, (7u8, 42u32));
+           pairCopies := make<(UInt8, UInt32)>(0usize);
+           pairCopies.copy(0usize, pairs, 1usize, 2usize);
+           pairCopies.copy(2usize, pairs, 3usize, 0usize);
+           (first, second) := pairCopies.get(1usize);
+           if (copied && forward && reverse && #values == 10usize
+               && values.get(9usize) == 30u8 && #units == 7usize
+               && #unitCopy == 4usize && zeros.get(15usize) == 0u8
+               && #zeroGrowth == 64usize && zeroGrowth.get(0usize) == 0u8
+               && zeroGrowth.get(63usize) == 0u8
+               && #pairCopies == 2usize && first == 7u8 && second == 42u32) then 0 else 1;
+         };",
+    );
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn transfers_between_c_host_storage_and_buffers() {
     let directory = NativeFixture::new("driver-buffer-host-copy");
     let source = directory.write(

@@ -16,7 +16,8 @@ impl Checker {
         let expected = match reference.name.text.as_str() {
             "get" | "new" => 2,
             "put" => 3,
-            "into" => 4,
+            "into" | "fill" => 4,
+            "copy" => 5,
             _ => unreachable!("caller recognizes predefined memory operations"),
         };
         if arguments.len() != expected {
@@ -65,6 +66,39 @@ impl Checker {
                 Ok(memory(
                     MemoryPrimitive::BufferPut,
                     vec![receiver, index, value],
+                    Type::Unit,
+                    span,
+                ))
+            }
+            (Type::Buffer(element), "fill") => {
+                let element = element.clone();
+                let (receiver, offset) =
+                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
+                let (offset, length) =
+                    self.check_after(offset, &arguments[2], Some(&Type::USize))?;
+                let (length, value) =
+                    self.check_after(length, &arguments[3], Some(element.as_ref()))?;
+                Ok(memory(
+                    MemoryPrimitive::BufferFill,
+                    vec![receiver, offset, length, value],
+                    Type::Unit,
+                    span,
+                ))
+            }
+            (Type::Buffer(element), "copy") => {
+                let element = element.clone();
+                let source_type = Type::Buffer(element.clone());
+                let (receiver, destination_offset) =
+                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
+                let (destination_offset, source) =
+                    self.check_after(destination_offset, &arguments[2], Some(&source_type))?;
+                let (source, source_offset) =
+                    self.check_after(source, &arguments[3], Some(&Type::USize))?;
+                let (source_offset, length) =
+                    self.check_after(source_offset, &arguments[4], Some(&Type::USize))?;
+                Ok(memory(
+                    MemoryPrimitive::BufferCopy,
+                    vec![receiver, destination_offset, source, source_offset, length],
                     Type::Unit,
                     span,
                 ))

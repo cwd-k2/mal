@@ -172,6 +172,65 @@ fn keeps_buffer_operands_separate_and_in_source_order() {
 }
 
 #[test]
+fn evaluates_buffer_range_operands_once_in_source_order() {
+    let program = lower_ok(
+        "destination :: Unit -> Buffer<Int64> := () -> make<Int64>(0usize);\n\
+         extern destinationOffset :: Unit -> USize;\n\
+         source :: Unit -> Buffer<Int64> := () -> make<Int64>(0usize);\n\
+         extern sourceOffset :: Unit -> USize;\n\
+         extern length :: Unit -> USize;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           destination().copy(destinationOffset(), source(), sourceOffset(), length());\n\
+           0;\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, "main").body.bindings;
+    assert_eq!(bindings.len(), 7);
+    for binding in &bindings[..5] {
+        assert!(matches!(binding.operation, Operation::Call { .. }));
+    }
+    let Operation::Buffer { operands, .. } = &bindings[5].operation else {
+        panic!("expected Buffer copy after its five operands");
+    };
+    assert_eq!(operands.len(), 5);
+    for (operand, binding) in operands.iter().zip(&bindings[..5]) {
+        assert!(matches!(
+            operand.kind,
+            AtomKind::Reference(id) if id == binding_id(binding)
+        ));
+    }
+}
+
+#[test]
+fn evaluates_buffer_fill_value_once_in_source_order() {
+    let program = lower_ok(
+        "buffer :: Unit -> Buffer<Int64> := () -> make<Int64>(0usize);\n\
+         extern offset :: Unit -> USize;\n\
+         extern length :: Unit -> USize;\n\
+         extern value :: Unit -> Int64;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           buffer().fill(offset(), length(), value());\n\
+           0;\n\
+         };",
+    );
+    let bindings = &top_lambda(&program, "main").body.bindings;
+    assert_eq!(bindings.len(), 6);
+    for binding in &bindings[..4] {
+        assert!(matches!(binding.operation, Operation::Call { .. }));
+    }
+    let Operation::Buffer { operands, .. } = &bindings[4].operation else {
+        panic!("expected Buffer fill after its four operands");
+    };
+    assert_eq!(operands.len(), 4);
+    for (operand, binding) in operands.iter().zip(&bindings[..4]) {
+        assert!(matches!(
+            operand.kind,
+            AtomKind::Reference(id) if id == binding_id(binding)
+        ));
+    }
+}
+
+#[test]
 fn keeps_case_arm_effects_inside_the_selected_arm() {
     let program = lower_ok(
         "extern mark :: Unit -> Int32;\n\

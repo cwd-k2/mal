@@ -292,6 +292,7 @@ typedef struct {
     unsigned char *data;
     size_t count;
     size_t stride;
+    // Bytes between the logical end and this boundary retain their calloc zero.
     size_t zeroed_until;
 } MalBuffer;
 
@@ -422,6 +423,136 @@ size_t mal_runtime_buffer_new(
     }
     ++buffer->count;
     return index;
+}
+
+void mal_runtime_buffer_fill(
+    MalContext *context,
+    void *opaque_buffer,
+    size_t offset,
+    size_t count,
+    const void *value,
+    size_t stride
+) {
+    MalBuffer *buffer = opaque_buffer;
+    size_t old_count = buffer->count;
+    if (offset > old_count) {
+        mal_trap(context, "buffer fill offset out of bounds");
+    }
+    if (count > SIZE_MAX - offset) {
+        mal_trap(context, "buffer fill range overflow");
+    }
+    size_t end = offset + count;
+    size_t new_count = old_count > end ? old_count : end;
+    if (count == 0) {
+        return;
+    }
+    if (stride == 0) {
+        buffer->count = new_count;
+        return;
+    }
+
+    size_t required = mal_buffer_bytes(context, new_count, stride);
+    MalBytesFlat *flat = (MalBytesFlat *)buffer->owner;
+    if (flat == NULL || required > flat->capacity) {
+        flat = mal_buffer_grow_unique(context, flat, required);
+    } else {
+        flat->header.length = (uint64_t)required;
+    }
+    buffer->owner = &flat->header;
+    buffer->data = flat->bytes;
+    buffer->count = new_count;
+
+    size_t start_byte = offset * stride;
+    size_t byte_count = count * stride;
+    const unsigned char *value_bytes = value;
+    int value_is_zero = 1;
+    for (size_t byte = 0; byte < stride; ++byte) {
+        if (value_bytes[byte] != 0) {
+            value_is_zero = 0;
+            break;
+        }
+    }
+    if (value_is_zero) {
+        size_t existing_end = old_count < end ? old_count : end;
+        size_t existing_count = existing_end - offset;
+        if (existing_count != 0) {
+            memset(flat->bytes + start_byte, 0, existing_count * stride);
+        }
+        size_t existing_bytes = existing_count * stride;
+        size_t unwritten_start = start_byte + existing_bytes;
+        size_t range_end = start_byte + byte_count;
+        if (range_end > buffer->zeroed_until) {
+            size_t zero_start = unwritten_start > buffer->zeroed_until
+                ? unwritten_start
+                : buffer->zeroed_until;
+            if (zero_start < range_end) {
+                memset(flat->bytes + zero_start, 0, range_end - zero_start);
+            }
+        }
+        return;
+    }
+    if (stride == 1) {
+        memset(flat->bytes + start_byte, value_bytes[0], count);
+        return;
+    }
+    unsigned char *destination = flat->bytes + start_byte;
+    memcpy(destination, value, stride);
+    size_t initialized = stride;
+    while (initialized < byte_count) {
+        size_t remaining = byte_count - initialized;
+        size_t chunk = initialized < remaining ? initialized : remaining;
+        memcpy(destination + initialized, destination, chunk);
+        initialized += chunk;
+    }
+}
+
+void mal_runtime_buffer_copy(
+    MalContext *context,
+    void *opaque_destination,
+    size_t destination_offset,
+    const void *opaque_source,
+    size_t source_offset,
+    size_t count,
+    size_t stride
+) {
+    MalBuffer *destination = opaque_destination;
+    const MalBuffer *source = opaque_source;
+    if (destination_offset > destination->count) {
+        mal_trap(context, "buffer copy destination offset out of bounds");
+    }
+    if (source_offset > source->count || count > source->count - source_offset) {
+        mal_trap(context, "buffer copy source range out of bounds");
+    }
+    if (count > SIZE_MAX - destination_offset) {
+        mal_trap(context, "buffer copy destination range overflow");
+    }
+    size_t destination_end = destination_offset + count;
+    size_t new_count = destination->count > destination_end
+        ? destination->count
+        : destination_end;
+    if (count == 0) {
+        return;
+    }
+    if (stride == 0) {
+        destination->count = new_count;
+        return;
+    }
+
+    size_t required = mal_buffer_bytes(context, new_count, stride);
+    MalBytesFlat *flat = (MalBytesFlat *)destination->owner;
+    if (flat == NULL || required > flat->capacity) {
+        flat = mal_buffer_grow_unique(context, flat, required);
+    } else {
+        flat->header.length = (uint64_t)required;
+    }
+    destination->owner = &flat->header;
+    destination->data = flat->bytes;
+    destination->count = new_count;
+    memmove(
+        destination->data + destination_offset * stride,
+        source->data + source_offset * stride,
+        count * stride
+    );
 }
 
 __attribute__((always_inline))

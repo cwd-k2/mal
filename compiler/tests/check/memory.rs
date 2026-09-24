@@ -8,6 +8,10 @@ fn checks_managed_buffer_construction_aliasing_and_access() {
            alias := values;
            index := values.new(10i32);
            alias.put(index, alias.get(index) + 1i32);
+           values.fill(1usize, 3usize, 12i32);
+           alias.copy(0usize, values, 1usize, 2usize);
+           fill(values, 2usize, 1usize, 13i32);
+           copy(alias, 1usize, values, 0usize, 2usize);
            values;
          };",
     );
@@ -16,7 +20,7 @@ fn checks_managed_buffer_construction_aliasing_and_access() {
 #[test]
 fn checks_c_host_copy_primitives_and_symbol_snapshots() {
     check_ok(
-        "copy :: (Address, USize) -> Symbol := (address, count) -> {
+        "snapshot :: (Address, USize) -> Symbol := (address, count) -> {
            bytes := from<UInt8>(address, 0usize, count);
            bytes.into(address, 0usize, count);
            *bytes;
@@ -31,6 +35,8 @@ fn rejects_invalid_buffer_operations_without_preserving_retired_syntax() {
         "bad := make<Symbol>(0usize);",
         "bad := make<Int32>(1i32);",
         "bad :: Buffer<Int32> -> Unit := (values) -> values.put(0usize, 1u32);",
+        "bad :: Buffer<Int32> -> Unit := (values) -> values.fill(0usize, 1bytes, 1i32);",
+        "bad :: (Buffer<Int32>, Buffer<UInt32>) -> Unit := (target, source) -> target.copy(0usize, source, 0usize, 1usize);",
         "bad :: Buffer<Int32> -> Int32 := (values) -> values.get(0bytes);",
         "bad :: Buffer<Int32> -> Unit := (values) -> values.into(0usize, 0usize, 1usize);",
         "bad :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);",

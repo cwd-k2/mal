@@ -112,6 +112,8 @@ pub(crate) fn generate(
              declare void @mal_runtime_bytes_write(ptr, ptr, {index}, {index})\n\
              declare ptr @mal_runtime_buffer_make(ptr, {index}, {index})\n\
              declare {index} @mal_runtime_buffer_new(ptr, ptr, ptr, {index})\n\
+             declare void @mal_runtime_buffer_fill(ptr, ptr, {index}, {index}, ptr, {index})\n\
+             declare void @mal_runtime_buffer_copy(ptr, ptr, {index}, ptr, {index}, {index}, {index})\n\
              declare ptr @mal_runtime_buffer_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
              declare {index} @mal_runtime_buffer_count(ptr) nofree nounwind willreturn memory(argmem: read)\n\
              declare ptr @mal_runtime_buffer_from(ptr, ptr, {index}, {index}, {index})\n\

@@ -112,7 +112,7 @@ struct FunctionEmitter<'a> {
     local_control_storage: bool,
     local_control_top: bool,
     external_storage: Option<(usize, usize)>,
-    buffer_new_storage: Option<(usize, usize)>,
+    buffer_value_storage: Option<(usize, usize)>,
     needs_symbol_result_slot: bool,
     types: Types,
     source_layouts: crate::backend::source_layout::SourceLayouts,
