@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+use std::fmt;
 
 use crate::diagnostic::Diagnostic;
 use crate::source::{FileId, SourceFile, SourceGraph, SourceRequirement};
-
-use std::fmt;
 
 /// Failure to load a source graph from the file system or an overlay.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -49,16 +49,7 @@ enum State {
 ///
 /// Each canonical path is loaded once. A requirement cycle, an unreadable file, and invalid source are errors.
 pub fn load(root: &Path) -> Result<SourceGraph, LoadError> {
-    let root_path = canonicalize_root(root)?;
-    let overlays = HashMap::new();
-    let mut builder = Builder::new(&overlays);
-    let root = builder.load_mal(&root_path, None)?;
-    Ok(SourceGraph::new(
-        root,
-        builder.files,
-        builder.requirements,
-        builder.c_sources,
-    ))
+    build(&canonicalize_root(root)?, &HashMap::new())
 }
 
 /// Like `load`, but `root_text` replaces the contents of `root` and `overlays` replace other files, so an editor can
@@ -74,8 +65,12 @@ pub fn load_with_overlays(
         .map(|(path, text)| Ok((canonicalize_or_absolute(path)?, text.as_str())))
         .collect::<Result<HashMap<_, _>, LoadError>>()?;
     normalized.insert(root_path.clone(), root_text);
-    let mut builder = Builder::new(&normalized);
-    let root = builder.load_mal(&root_path, None)?;
+    build(&root_path, &normalized)
+}
+
+fn build(root: &Path, overlays: &HashMap<PathBuf, &str>) -> Result<SourceGraph, LoadError> {
+    let mut builder = Builder::new(overlays);
+    let root = builder.load_graph(root)?;
     Ok(SourceGraph::new(
         root,
         builder.files,
@@ -112,26 +107,8 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn load_mal(
-        &mut self,
-        path: &Path,
-        requirement_span: Option<crate::source::Span>,
-    ) -> Result<FileId, LoadError> {
-        match self.states.get(path).copied() {
-            Some(State::Loaded(id)) => return Ok(id),
-            Some(State::Loading) => {
-                let diagnostic = Diagnostic::error("cyclic `.mal` requirement").with_primary(
-                    requirement_span.expect("only a dependency can form a cycle"),
-                    format!(
-                        "this reaches `{}` while it is still loading",
-                        path.display()
-                    ),
-                );
-                return Err(LoadError::diagnostic(diagnostic, &self.files));
-            }
-            None => {}
-        }
-
+    /// Loads `path` and its requirements depth first with an explicit stack, so a deep chain does not recurse.
+    fn load_graph(&mut self, path: &Path) -> Result<FileId, LoadError> {
         let root = self.begin_mal(path, None)?;
         let root_id = root.id;
         let mut pending = vec![root];
@@ -259,9 +236,9 @@ fn canonicalize_root(path: &Path) -> Result<PathBuf, LoadError> {
 fn canonicalize_or_absolute(path: &Path) -> Result<PathBuf, LoadError> {
     match std::fs::canonicalize(path) {
         Ok(path) => Ok(path),
-        Err(_) if path.is_absolute() => Ok(path.to_owned()),
+        Err(_) if path.is_absolute() => Ok(lexically_normal(path)),
         Err(_) => std::env::current_dir()
-            .map(|current| current.join(path))
+            .map(|current| lexically_normal(&current.join(path)))
             .map_err(|error| LoadError::io("resolve source path", path, error)),
     }
 }
@@ -297,9 +274,33 @@ fn canonicalize_mal_requirement(
 ) -> Result<PathBuf, Diagnostic> {
     match std::fs::canonicalize(path) {
         Ok(path) => Ok(path),
-        Err(_) if overlays.contains_key(path) => Ok(path.to_owned()),
-        Err(_) => canonicalize_requirement(path, span),
+        Err(_) => {
+            let normal = lexically_normal(path);
+            if overlays.contains_key(&normal) {
+                Ok(normal)
+            } else {
+                canonicalize_requirement(path, span)
+            }
+        }
     }
+}
+
+/// Removes `.` and resolves `..` without the file system, for overlaid files that need not exist on disk. The two
+/// spellings of an overlay, the editor path and a requirement path, then name one file.
+fn lexically_normal(path: &Path) -> PathBuf {
+    let mut normal = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir
+                if matches!(normal.components().next_back(), Some(Component::Normal(_))) =>
+            {
+                normal.pop();
+            }
+            _ => normal.push(component),
+        }
+    }
+    normal
 }
 
 #[cfg(test)]
@@ -326,5 +327,19 @@ mod tests {
         let graph = load_with_overlays(&root, &overlays[&root], &overlays).unwrap();
 
         assert_eq!(graph.files().len(), depth);
+    }
+
+    #[test]
+    fn finds_an_overlay_that_is_not_on_disk_through_a_parent_directory_requirement() {
+        let directory = Path::new("/tmp/malc-overlay-parent/program");
+        let root = directory.join("main.mal");
+        let library = Path::new("/tmp/malc-overlay-parent/library.mal");
+        let overlays = HashMap::from([(library.to_owned(), "value := 0;".to_owned())]);
+
+        let graph =
+            load_with_overlays(&root, "require \"../library.mal\"; main := 0;", &overlays).unwrap();
+
+        assert_eq!(graph.files().len(), 2);
+        assert_eq!(graph.files()[1].path(), library);
     }
 }
