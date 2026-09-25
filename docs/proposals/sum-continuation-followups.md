@@ -6,30 +6,6 @@ Status: Exploratory
 不都合のうち、まだ対応していないものを管理する。example全体を早期脱出の形へ書き換えた後に、この順で対応する。
 現在の言語規則は[`spec/`](../spec/)を正とする。
 
-## managed値がjoinを通ると解放される（既存のbug）
-
-`Abrupt`のpathを持つ`if`やsum eliminationの`Value` pathで得たmanaged値（`Buffer`、`Symbol`など）をjoinで受けてから関数へ渡すと、
-値が渡される前に解放される。この文書の変更より前のcommit `61f09fc6`でも再現し、valgrindが`Invalid read`を報告する。
-
-```mal
-len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
-main :: Unit -> Int32 := () -> [return] => {
-    buffer := if (true) then make<UInt8>(4usize) else return(99i32);
-    return(len(buffer))
-};
-```
-
-生成したLLVMでは、`buffer_make`の結果をjoinの値として次のstateへ渡す直前に、同じpointerを`environment_release`している。
-joinへの受け渡しでresponsibilityが移らず、生成元のtemporaryが解放される。`baseline`でも再現するため、optional techniqueではなく
-[managed value ownership](../implementation/ownership.md)の計画（`execution/ownership`）を調べる。平坦な早期脱出はこの形を頻繁に作るので、
-修正するまでは次の箇所を元の入れ子のまま残している。
-
-- `brainfuck-llvm/program.mal`の`main`（`Buffer`と`Symbol`がjoinを通る）
-- `mini-database`の`_readLineAt`と`runQueries`（`Buffer`を含む値がjoinを通る）
-
-修正後にこれらを平坦にし、`valgrind`で解放後のアクセスがないことを確かめる。exampleのhostテストは出力しか見ないため、この種のbugを
-検出できない。
-
 ## forwardがtail callにならない
 
 result binder名を並べた`f(x)[complete, failed]`は、`f`の結果を`case`で除去してからresult joinへ移るため、`return(f(x))`のようにcallの

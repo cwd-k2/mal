@@ -29,24 +29,20 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
     pathAddress := argumentAddresses.get(0usize);
     path := *from<UInt8>(pathAddress, 0usize, argumentLength(pathAddress));
     read := readSource(path);
-    return(read[
-        (source) -> {
-            result := compile(source);
-            status :: Int32 := result[
-                (message) -> {
-                    writeStderr(message);
-                    1;
-                },
-                (output) -> {
-                    written := writeStdout(output);
-                    _finishOutput(written);
-                }
-            ];
-            status;
-        },
+    source := read[
+        (source) -> source,
         (error) -> {
             writeStderr("cannot read source, errno " + error.u64.decimal() + "\n");
-            1;
+            return(1);
         }
-    ]);
+    ];
+    output := compile(source)[
+        (message) -> {
+            writeStderr(message);
+            return(1);
+        },
+        (output) -> output
+    ];
+    written := writeStdout(output);
+    return(_finishOutput(written));
 };

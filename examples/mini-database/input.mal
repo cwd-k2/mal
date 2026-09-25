@@ -22,30 +22,31 @@ _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     read(((file, memory, capacity, nextBytes, 1usize), nextBytes.get(0usize)));
 };
 
-_readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> {
-    result := reader._readByte();
-    result[
-    (next) -> if (#line == 0usize)
-        then [eof, ready] => eof(next)
-        else [eof, ready] => ready((next, line)),
-    (read) -> [return] => {
-        (next, byte) := read;
-        // A completed line excludes LF and an optional preceding CR.
-        when (byte == '\n') {
-            lineLength := #line;
-            when (lineLength > 0usize && line.get(lineLength - 1usize) == '\r') {
-                return([eof, ready] => ready((next, line.copySlice(0usize, lineLength - 1usize))));
+_readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> [eof, ready] => {
+    read := reader._readByte()[
+        (next) -> {
+            when (#line == 0usize) {
+                eof(next);
             };
-            return([eof, ready] => ready((next, line)));
-        };
-        when (#line == 256usize) {
-            fail("query line exceeds its buffer");
-            return([eof, ready] => ready((next, line)));
-        };
-        line.new(byte);
-        return(next._readLineAt(line));
-    }
+            ready((next, line));
+        },
+        (read) -> read
     ];
+    (next, byte) := read;
+    // A completed line excludes LF and an optional preceding CR.
+    when (byte == '\n') {
+        lineLength := #line;
+        when (lineLength > 0usize && line.get(lineLength - 1usize) == '\r') {
+            ready((next, line.copySlice(0usize, lineLength - 1usize)));
+        };
+        ready((next, line));
+    };
+    when (#line == 256usize) {
+        fail("query line exceeds its buffer");
+        ready((next, line));
+    };
+    line.new(byte);
+    next._readLineAt(line)[eof, ready];
 };
 
 readLine :: Reader -> LineRead := (reader) -> reader._readLineAt(make<UInt8>(257usize));
