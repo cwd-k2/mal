@@ -332,7 +332,8 @@ fn nested_uses_of_one_combinator_instance_use_no_control_frames() {
 }
 
 #[test]
-fn a_self_recursive_function_with_an_unmanaged_parameter_has_a_native_and_a_frames_version() {
+fn self_recursive_functions_have_a_native_and_a_frames_version_only_when_the_technique_is_enabled()
+{
     let source = SourceFile::new(
         FileId::new(102),
         "hybrid-recursion.mal",
@@ -361,17 +362,40 @@ fn a_self_recursive_function_with_an_unmanaged_parameter_has_a_native_and_a_fram
     .expect("hybrid recursion is supported")
     .module;
 
-    let frames = |prefix: &str| {
+    let frames = |module: &str, prefix: &str| {
         module
             .lines()
             .filter(|line| line.contains("_frames(") && line.trim_start().starts_with(prefix))
             .count()
     };
     assert_eq!(
-        frames("define"),
-        1,
-        "only the function with an unmanaged parameter has a frames version"
+        frames(&module, "define"),
+        2,
+        "`fib` and `weigh` each have a frames version, whatever their parameter type"
     );
-    assert_eq!(frames("%"), 1, "its native version continues there once");
+    assert_eq!(
+        frames(&module, "%"),
+        2,
+        "each native version continues there once"
+    );
     assert!(module.contains("call i8 @mal_native_stack_is_deep"));
+
+    let baseline = crate::execution::lower(
+        crate::closure::convert(&anf),
+        crate::execution::OptimizationSet::none(),
+    );
+    let baseline_module = generate(
+        &baseline,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::none(),
+    )
+    .expect("baseline hybrid recursion is supported")
+    .module;
+    assert!(
+        !baseline_module.contains("_frames("),
+        "baseline runs recursion on frames only"
+    );
 }

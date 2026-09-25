@@ -19,7 +19,10 @@ impl FunctionEmitter<'_> {
         self.mode == EmissionMode::Standard
             && self.common_region.is_none()
             && !self.frame_sites.is_empty()
-            && !crate::execution::ownership::is_managed(&self.function.parameter.ty)
+            && self
+                .execution
+                .native_recursion
+                .has_native_version(self.function.id)
     }
 
     /// Turns a standard emitter into the frames version, which is emitted under another name.
@@ -55,10 +58,28 @@ impl FunctionEmitter<'_> {
         )?;
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
+        // The callee's entry keeps its own reference to a managed argument, so a reference this call site takes for the
+        // ownership plan's handoff (a share or a move) is released once the call returns.
+        let mut handed_over = None;
         let arguments = if self.function.parameter.ty == Type::Unit {
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
-            let argument = self.atom(argument)?;
+            let argument = if crate::execution::ownership::is_managed(&argument.ty) {
+                let effect = self.ownership.terminator_use(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::CallArgument,
+                )?;
+                if effect == crate::execution::ownership::UseEffect::Borrow {
+                    self.atom(argument)?
+                } else {
+                    let prepared = self.prepare_atom_for_use(argument, effect)?;
+                    self.commit_consumes(&prepared)?;
+                    handed_over = Some(prepared.value.clone());
+                    prepared.value
+                }
+            } else {
+                self.atom(argument)?
+            };
             let argument_type = self.types.value(&argument.ty)?;
             format!(
                 "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
@@ -72,6 +93,9 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {register} = call {result_llvm} @{name}({arguments})"
         ));
+        if let Some(value) = handed_over {
+            self.release_value(&value.ty, &value.representation)?;
+        }
         let result = EmittedValue {
             owned: crate::execution::ownership::is_managed(&result_type),
             ty: result_type,
@@ -103,8 +127,12 @@ impl FunctionEmitter<'_> {
         ));
         let deep = self.register();
         self.line(format!("  {deep} = icmp ne i8 {flag}, 0"));
+        let expected = self.register();
         self.line(format!(
-            "  br i1 {deep}, label %mal_deep_entry, label %mal_native_entry"
+            "  {expected} = call i1 @llvm.expect.i1(i1 {deep}, i1 false)"
+        ));
+        self.line(format!(
+            "  br i1 {expected}, label %mal_deep_entry, label %mal_native_entry"
         ));
         self.line("mal_deep_entry:");
         let continued = self.register();

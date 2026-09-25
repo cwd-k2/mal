@@ -7,6 +7,7 @@ mod continuation;
 mod derived;
 mod environment_alias;
 mod frame;
+mod native_recursion;
 mod optimization;
 pub(crate) mod ownership;
 mod parameter;
@@ -20,6 +21,7 @@ pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use environment_alias::EnvironmentAliasPlan;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
+pub(crate) use native_recursion::NativeRecursionPlan;
 pub(crate) use optimization::{OptimizationPlan, OptimizationSet, Technique};
 pub(crate) use ownership::{Inputs as OwnershipInputs, Plan as OwnershipPlan};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
@@ -34,6 +36,7 @@ pub(crate) struct Program {
     pub(crate) control_calls: ControlCallPlan,
     pub(crate) control_regions: ControlRegionPlan,
     pub(crate) control_frames: ControlFramePlan,
+    pub(crate) native_recursion: NativeRecursionPlan,
     pub(crate) ownership: OwnershipPlan,
     pub(crate) self_tail_parameters: SelfTailParameterPlan,
 }
@@ -72,6 +75,23 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &control_calls,
         &optimizations
     ));
+    let native_recursion = NativeRecursionPlan::new(
+        &control,
+        &control_regions,
+        &control_calls,
+        &control_frames,
+        enabled,
+    );
+    debug_assert!(
+        native_recursion
+            == NativeRecursionPlan::new(
+                &control,
+                &control_regions,
+                &control_calls,
+                &control_frames,
+                enabled
+            )
+    );
     let ownership = OwnershipPlan::new(OwnershipInputs::new(
         &control,
         &applications,
@@ -106,6 +126,7 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         control_calls,
         control_regions,
         control_frames,
+        native_recursion,
         ownership,
         self_tail_parameters,
     }

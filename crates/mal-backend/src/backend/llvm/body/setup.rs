@@ -208,8 +208,14 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             ""
         };
+        // The native version must stay small on its hot path, so the frames version is never inlined into it.
+        let attributes = if self.mode == EmissionMode::Frames {
+            " noinline"
+        } else {
+            ""
+        };
         self.line(format!(
-            "define internal {} @{}{suffix}({parameter}) {{",
+            "define internal {} @{}{suffix}({parameter}){attributes} {{",
             result.llvm,
             function_name(self.function.id)?
         ));
@@ -294,6 +300,10 @@ impl<'a> FunctionEmitter<'a> {
                 "  %mal_buffer_value = alloca [{size} x i8], align {alignment}"
             ));
         }
+        let entry_alloca_offset = self.output.len();
+        if self.mode == EmissionMode::Native {
+            self.emit_native_entry_guard()?;
+        }
         let parameter_destination = self.execution.parameters.destination(self.function.id)?;
         if matches!(parameter_destination, ParameterDestination::Bind(_))
             || crate::execution::ownership::is_managed(&self.function.parameter.ty)
@@ -309,10 +319,6 @@ impl<'a> FunctionEmitter<'a> {
                 owned: entry == crate::execution::ownership::ParameterEntry::OwnedAbi,
             };
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
-        }
-        let entry_alloca_offset = self.output.len();
-        if self.mode == EmissionMode::Native {
-            self.emit_native_entry_guard()?;
         }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 

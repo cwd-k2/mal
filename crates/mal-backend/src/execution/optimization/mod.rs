@@ -14,6 +14,7 @@ mod unique_capture;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
     CallPattern,
+    NativeRecursion,
     DirectCall,
     SelfTail,
     TailForwarder,
@@ -32,6 +33,7 @@ impl OptimizationSet {
     pub(crate) const fn production() -> Self {
         Self::none()
             .with(Technique::CallPattern)
+            .with(Technique::NativeRecursion)
             .with(Technique::DirectCall)
             .with(Technique::SelfTail)
             .with(Technique::TailForwarder)
