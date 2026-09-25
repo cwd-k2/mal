@@ -20,7 +20,7 @@ extern writeBytes :: OutputBuffer -> Unit;
 _writeBuffer :: (Address, USize, Buffer<UInt8>, USize) -> Unit :=
     (memory, capacity, bytes, offset) -> [return] => {
         when (offset == #bytes) {
-            return(());
+            return();
         };
 
         remainingLength := #bytes - offset;

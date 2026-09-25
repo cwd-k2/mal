@@ -84,12 +84,12 @@ _handleQuery :: (Database, File, Buffer<UInt8>) -> Unit := (database, file, line
 // The next Reader is part of the input protocol result, so the interpreter recurs with that explicit
 // state after handling one line and stops on EOF, an empty line, or `quit`.
 runQueries :: (Reader, File, Database) -> Unit := (reader, file, database) -> [return] => {
-    state := reader.readLine()[(_) -> return(()), (state) -> state];
+    state := reader.readLine()[(_) -> return(), (state) -> state];
     (next, line) := state;
     length := #line;
 
     when (length == 0usize || line.rangeEquals(0usize, length, "quit")) {
-        return(());
+        return();
     };
 
     database._handleQuery(file, line);

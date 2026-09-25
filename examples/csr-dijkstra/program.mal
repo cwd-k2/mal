@@ -94,7 +94,7 @@ relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit 
     (graph, workspace, sourceDistance, edge, end) ->
         _loop<(Int64, Int64), Unit>((edge, end), (current, terminal) -> [continue, break] => {
             when (current == terminal) {
-                break(());
+                break();
             };
             (_, _, neighbors, costs) := graph;
             (distances, _) := workspace;
@@ -110,13 +110,13 @@ runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
     (graph, workspace, remaining) ->
         _loop<Int64, Unit>(remaining, (remaining) -> [continue, break] => {
             when (remaining == 0) {
-                break(());
+                break();
             };
             (nodeCount, offsets, _, _) := graph;
             (distances, visited) := workspace;
             closest := workspace.selectClosest(0, nodeCount, -1, infinity);
             when (closest < 0) {
-                break(());
+                break();
             };
             visited.assign(closest, 1);
             graph.relaxEdgeRange(

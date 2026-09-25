@@ -33,12 +33,12 @@ readDatabaseFile :: (File, Address, USize, USize) -> USize :=
 _writeBytesFully :: (File, Address, USize, USize) -> Unit :=
     (file, memory, length, written) -> [return] => {
         when (written == length) {
-            return(());
+            return();
         };
         transferred := writeFile(file, memory, written, length - written);
         when (transferred == 0usize) {
             fail("file write made no progress");
-            return(());
+            return();
         };
         return(_writeBytesFully(file, memory, length, written + transferred));
     };

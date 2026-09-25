@@ -48,7 +48,7 @@ extern failNow :: Unit -> Unit;
 _writeBuffer :: (ReadableBytes -> Unit, Address, USize, Buffer<UInt8>, USize) -> Unit :=
     (write, memory, capacity, bytes, offset) -> [return] => {
         when (offset == #bytes) {
-            return(());
+            return();
         };
 
         remainingLength := #bytes - offset;
