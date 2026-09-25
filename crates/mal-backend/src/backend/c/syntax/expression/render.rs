@@ -1,9 +1,9 @@
 use std::fmt;
 
-use super::expression::Expr;
+use super::Expr;
 
 impl Expr {
-    pub(super) fn render(&self, output: &mut String) {
+    pub(in crate::backend::c::syntax) fn render(&self, output: &mut String) {
         use std::fmt::Write as _;
 
         match self {

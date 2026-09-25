@@ -87,5 +87,4 @@ impl From<FunctionDefinition> for UnitItem {
 }
 
 #[cfg(test)]
-#[path = "translation_unit_tests.rs"]
 mod tests;

@@ -1,8 +1,5 @@
 mod declaration;
 mod expression;
-mod expression_render;
-#[cfg(test)]
-mod expression_tests;
 mod literal;
 mod name;
 mod operator;

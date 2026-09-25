@@ -1,4 +1,4 @@
-use super::expression::{Expr, Initializer};
+use super::{Expr, Initializer};
 
 #[test]
 fn renders_composed_expressions() {

@@ -1,3 +1,7 @@
+mod render;
+#[cfg(test)]
+mod tests;
+
 use super::{BinaryOperator, Identifier, NumericLiteral, StringLiteral, TypeName, UnaryOperator};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
