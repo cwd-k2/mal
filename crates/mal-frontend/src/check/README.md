@@ -17,4 +17,4 @@ with a `Value` or `Abrupt` completion for every expression.
 | `interface` | extern transport checks and extraction of host-visible metadata |
 | `initializer` | admission of closed top-level values |
 | `float` | exact rounding of decimal float literals to IEEE 754 binary formats |
-| `specialize` | selection of bindings reachable from the entry and sharing of monomorphic instances per concrete type argument |
+| `specialize` | selection of bindings reachable from the entry, sharing of monomorphic instances per concrete type argument, and a fresh identity for every binder in each instance so that later stages can key facts by `ValueId` program-wide |

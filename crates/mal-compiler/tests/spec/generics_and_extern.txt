@@ -148,3 +148,29 @@ f :: Unit -> Int32 := () -> fail()[];
 ### extern_empty_result_code_after_unreachable | err:
 extern fail :: Unit -> [];
 f :: Unit -> Int32 := () -> [r] => { fail()[]; r(1); };
+### nested_instances_of_one_generic_keep_their_own_ownership | run:0
+loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+upto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial, step) ->
+    loop<(UInt64, A), A>((start, initial), (index, value) -> [continue, break] => {
+        when (index > end) {
+            break(value);
+        };
+        next := step(value, index);
+        when (index == end) {
+            break(next);
+        };
+        continue(index + 1u64, next);
+    });
+main :: Unit -> Int32 := () -> {
+    0u64.upto<Unit>(1u64, (), (_, i) ->
+        0u64.upto<Unit>(1u64, (), (_, j) -> {
+            total := 0u64.upto<UInt64>(1u64, 0u64, (acc, k) -> acc + i + j + k);
+            ();
+        })
+    );
+    0;
+};

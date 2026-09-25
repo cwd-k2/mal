@@ -10,6 +10,7 @@ use super::type_fingerprint::TypeFingerprints;
 use super::types::substitute_type;
 
 mod admission;
+mod instance_identity;
 
 use admission::{admit_specialization, collect_pattern_bindings};
 
@@ -55,6 +56,8 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         pending: Vec::new(),
         next_value: identities.value,
         next_lambda: identities.lambda,
+        value_renames: HashMap::new(),
+        lambda_renames: HashMap::new(),
     };
     specializer.request_binding(entry.binding)?;
     let mut cursor = 0;
@@ -73,6 +76,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             .zip(arguments)
             .collect::<HashMap<_, _>>();
         let mut value = definition.value;
+        specializer.begin_instance_identities();
         specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
         let ty = substitute_type(&definition.ty, &substitutions);
         specializer.specializations.push(Node::new(
@@ -114,9 +118,20 @@ struct Specializer {
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
     next_value: u32,
     next_lambda: u32,
+    value_renames: HashMap<ValueId, ValueId>,
+    lambda_renames: HashMap<LambdaId, LambdaId>,
 }
 
 impl Specializer {
+    fn fresh_value(&mut self, span: mal_syntax::source::Span) -> Result<ValueId, Diagnostic> {
+        let id = ValueId(self.next_value);
+        self.next_value = self.next_value.checked_add(1).ok_or_else(|| {
+            Diagnostic::error("compiler identity space exhausted")
+                .with_primary(span, "cannot allocate an identity for a specialized binder")
+        })?;
+        Ok(id)
+    }
+
     fn request_binding(&mut self, id: ValueId) -> Result<(), Diagnostic> {
         let Some(&index) = self.binding_items.get(&id) else {
             return Ok(());
@@ -159,17 +174,13 @@ impl Specializer {
             .definitions
             .get(&reference.id)
             .expect("checked generic reference has a definition");
+        let name = definition.binding.name.clone();
+        let owner = definition.binding.owner;
         let binding = ValueBinding {
-            id: ValueId(self.next_value),
-            name: definition.binding.name.clone(),
-            owner: definition.binding.owner,
+            id: self.fresh_value(reference.name.span)?,
+            name,
+            owner,
         };
-        self.next_value = self.next_value.checked_add(1).ok_or_else(|| {
-            Diagnostic::error("compiler identity space exhausted").with_primary(
-                reference.name.span,
-                "cannot allocate a specialization identity",
-            )
-        })?;
         let entry = (reference.id, arguments.to_vec(), binding.clone());
         let index = self.instances.len();
         self.instances.push(entry.clone());
@@ -210,6 +221,10 @@ impl Specializer {
                     && reference.id == generic
                 {
                     reference.id = specialized;
+                } else if self_instance.is_some()
+                    && let Some(renamed) = self.renamed_reference(reference.id)
+                {
+                    reference.id = renamed;
                 } else {
                     self.request_binding(reference.id)?;
                 }
@@ -227,10 +242,16 @@ impl Specializer {
             }
             ExpressionKind::Block(block) => self.block(block, substitutions, self_instance)?,
             ExpressionKind::ResultBlock {
+                target,
                 result_binders,
                 body,
-                ..
             } => {
+                if self_instance.is_some() {
+                    *target = self.rename_value(*target, expression.span)?;
+                    for binder in result_binders.iter_mut() {
+                        self.rename_binding(&mut binder.binding)?;
+                    }
+                }
                 for binder in result_binders {
                     binder.parameter_type = substitute_type(&binder.parameter_type, substitutions);
                 }
@@ -238,7 +259,9 @@ impl Specializer {
             }
             ExpressionKind::Lambda(lambda) => {
                 if self_instance.is_some() {
+                    let generic = lambda.id;
                     lambda.id = LambdaId(self.next_lambda);
+                    self.rename_lambda(generic, lambda.id);
                     self.next_lambda = self.next_lambda.checked_add(1).ok_or_else(|| {
                         Diagnostic::error("compiler identity space exhausted").with_primary(
                             expression.span,
@@ -248,16 +271,31 @@ impl Specializer {
                 }
                 lambda.parameter_type = substitute_type(&lambda.parameter_type, substitutions);
                 lambda.result_type = substitute_type(&lambda.result_type, substitutions);
+                if self_instance.is_some() {
+                    for capture in &mut lambda.captures {
+                        if let Some(renamed) = self.renamed_reference(capture.source.id) {
+                            capture.source.id = renamed;
+                        }
+                        self.rename_binding(&mut capture.binding)?;
+                    }
+                    if let Some(parameter) = &mut lambda.parameter {
+                        self.rename_pattern(parameter)?;
+                    }
+                }
                 if let Some(parameter) = &mut lambda.parameter {
                     pattern(parameter, substitutions);
                 }
                 for capture in &mut lambda.captures {
                     capture.ty = substitute_type(&capture.ty, substitutions);
                 }
-                if let Some((generic, specialized)) = self_instance
-                    && lambda.self_binding == Some(generic)
-                {
-                    lambda.self_binding = Some(specialized);
+                if let Some((generic, specialized)) = self_instance {
+                    if lambda.self_binding == Some(generic) {
+                        lambda.self_binding = Some(specialized);
+                    } else if let Some(binding) = &mut lambda.self_binding
+                        && let Some(renamed) = self.renamed_reference(*binding)
+                    {
+                        *binding = renamed;
+                    }
                 }
                 self.body(&mut lambda.body, substitutions, self_instance)?;
             }
@@ -336,6 +374,9 @@ impl Specializer {
         for item in &mut block.items {
             match item {
                 BodyItem::Binding(binding) => {
+                    if self_instance.is_some() {
+                        self.rename_pattern(&mut binding.pattern)?;
+                    }
                     pattern(&mut binding.pattern, substitutions);
                     self.expression(&mut binding.value, substitutions, self_instance)?;
                 }
@@ -389,11 +430,19 @@ impl Specializer {
             SumContinuation::Branch(branch) => {
                 branch.parameter_type = substitute_type(&branch.parameter_type, substitutions);
                 if let Some(parameter) = &mut branch.parameter {
+                    if self_instance.is_some() {
+                        self.rename_pattern(parameter)?;
+                    }
                     pattern(parameter, substitutions);
                 }
                 self.block(&mut branch.body, substitutions, self_instance)
             }
             SumContinuation::Transfer(transfer) => {
+                if self_instance.is_some()
+                    && let Some(renamed) = self.renamed_reference(transfer.target)
+                {
+                    transfer.target = renamed;
+                }
                 transfer.payload_type = substitute_type(&transfer.payload_type, substitutions);
                 transfer.result_type = substitute_type(&transfer.result_type, substitutions);
                 Ok(())
@@ -411,8 +460,15 @@ impl Specializer {
             self.expression(value, substitutions, self_instance)?;
         }
         match &mut abrupt.kind {
-            AbruptExpressionKind::ResultTransfer { value, .. }
-            | AbruptExpressionKind::EmptyElimination { scrutinee: value } => {
+            AbruptExpressionKind::ResultTransfer { target, value, .. } => {
+                if self_instance.is_some()
+                    && let Some(renamed) = self.renamed_reference(*target)
+                {
+                    *target = renamed;
+                }
+                self.expression(value, substitutions, self_instance)?
+            }
+            AbruptExpressionKind::EmptyElimination { scrutinee: value } => {
                 self.expression(value, substitutions, self_instance)?
             }
             AbruptExpressionKind::If {

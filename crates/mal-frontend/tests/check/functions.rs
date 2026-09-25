@@ -405,3 +405,48 @@ fn permits_same_key_recursion_and_rejects_polymorphic_recursion() {
     );
     assert_eq!(error.message, "polymorphic recursion is not supported");
 }
+
+#[test]
+fn gives_each_generic_instance_binders_no_other_instance_shares() {
+    let program = check_ok(
+        "twice<A> :: (A, A -> [A, A]) -> A := (state, step) -> step(state)[\
+           (next) -> next, (done) -> done];\n\
+         main :: Unit -> Int32 := () -> {\n\
+           number := twice<Int32>(1i32, (value) -> [again, stop] => { stop(value) });\n\
+           byte := twice<UInt8>(2u8, (value) -> [again, stop] => { stop(value) });\n\
+           number + byte.i32;\n\
+         };",
+    );
+    let specialized = check::specialize(program).expect("specialize both instances");
+    let program = specialized.program();
+    let parameters = program
+        .items
+        .iter()
+        .filter_map(|item| {
+            let TopItem::Binding(binding) = &item.kind else {
+                return None;
+            };
+            let ExpressionKind::Lambda(lambda) = &binding.value.kind else {
+                return None;
+            };
+            let check::ast::Pattern::Product { elements, .. } = lambda.parameter.as_deref()? else {
+                return None;
+            };
+            (elements.len() == 2).then(|| {
+                elements
+                    .iter()
+                    .map(|element| match element {
+                        check::ast::Pattern::Binding { binding, .. } => binding.id,
+                        _ => panic!("expected binding parameter"),
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(parameters.len(), 2, "one instance per type argument");
+    assert!(
+        parameters[0].iter().all(|id| !parameters[1].contains(id)),
+        "instances must not share parameter binder identities"
+    );
+}
