@@ -50,21 +50,23 @@ impl Checker {
             );
         };
         let element = self.expand_type(argument)?;
-        if !super::super::types::satisfies_representable_requirement(
-            &element,
-            &self.active_requirements,
-        ) {
-            return Err(Diagnostic::error(
-                "memory intrinsic requires a Representable element type",
-            )
-            .with_primary(
-                argument.span,
-                format!(
-                    "`{}` has no available C-host memory representation",
-                    super::super::types::type_name(&element)
-                ),
-            )
-            .into());
+        if reference.id == crate::resolve::MAKE_VALUE {
+            if !super::super::types::satisfies_storable_requirement(
+                &element,
+                &self.active_requirements,
+            ) {
+                return Err(Diagnostic::error("make requires a storable element type")
+                    .with_primary(
+                        argument.span,
+                        format!(
+                            "`{}` is not known to be an immutable value that a Buffer can hold",
+                            super::super::types::type_name(&element)
+                        ),
+                    )
+                    .into());
+            }
+        } else {
+            super::ensure_copyable_element(&element, argument.span)?;
         }
         Ok(element)
     }

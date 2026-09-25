@@ -1,0 +1,170 @@
+### aggregate_elements_survive_growth_and_churn | run:0
+Tagged :: (Symbol, USize);
+
+word :: (USize, Symbol) -> Symbol := (n, acc) ->
+    if (n == 0usize) then acc else word(n - 1usize, acc + "x");
+
+grow :: (Buffer<Tagged>, USize) -> Unit := (items, remaining) ->
+    if (remaining == 0usize) then ()
+    else {
+        length := remaining % 37usize;
+        items.new((word(length, ""), length));
+        grow(items, remaining - 1usize);
+    };
+
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+churn :: (Buffer<Tagged>, USize, USize, USize) -> Unit := (items, seed, remaining, size) ->
+    if (remaining == 0usize) then ()
+    else {
+        s1 := next(seed);
+        s2 := next(s1);
+        s3 := next(s2);
+        s4 := next(s3);
+        operation := (s1 / 65536usize) % 3usize;
+        first := (s2 / 65536usize) % size;
+        second := (s3 / 65536usize) % size;
+        length := (s4 / 65536usize) % 37usize;
+        room := size - (if (first > second) then first else second);
+        span := if (length > room) then room else length;
+        if (operation == 0usize) then items.put(first, (word(length, ""), length))
+        else if (operation == 1usize) then items.fill(first, span, (word(length, ""), length))
+        else items.copy(first, items, second, span);
+        churn(items, s4, remaining - 1usize, size);
+    };
+
+broken :: (Buffer<Tagged>, USize, USize) -> USize := (items, index, count) ->
+    if (index == #items) then count
+    else {
+        (label, tag) := items.get(index);
+        broken(items, index + 1usize, if (#label == tag) then count else count + 1usize);
+    };
+
+main :: Unit -> Int32 := () -> {
+    items := make<Tagged>(1usize);
+    grow(items, 20000usize);
+    churn(items, 7usize, 100000usize, #items);
+    if (#items == 20000usize && broken(items, 0usize, 0usize) == 0usize) then 0 else 1
+};
+### padded_and_sum_elements_survive_overlapping_copies | run:0
+Wide :: (UInt8, Symbol, UInt16, Symbol, Bool, Int64);
+Mixed :: [Symbol, (Symbol, UInt8), Unit];
+
+wide :: USize -> Wide := (n) -> (n.u8, "w" + "ide", n.u16, "n" + "ext", n % 2usize == 0usize, n.i64);
+mixed :: USize -> Mixed := (n) ->
+    if (n % 3usize == 0usize) then [a, b, c] => a("s" + "ym")
+    else if (n % 3usize == 1usize) then [a, b, c] => b(("p" + "air", n.u8))
+    else [a, b, c] => c(());
+
+populate :: (Buffer<Wide>, Buffer<Mixed>, USize) -> Unit := (wides, mixeds, n) ->
+    if (n == 0usize) then ()
+    else {
+        wides.new(wide(n));
+        mixeds.new(mixed(n));
+        populate(wides, mixeds, n - 1usize);
+    };
+
+checkWide :: (Buffer<Wide>, USize, USize) -> USize := (items, index, bad) ->
+    if (index == #items) then bad
+    else {
+        (small, first, medium, second, flag, big) := items.get(index);
+        ok := first == "wide" && second == "next" && small.i64 == big % 256i64 && medium.i64 == big % 65536i64;
+        checkWide(items, index + 1usize, if (ok) then bad else bad + 1usize);
+    };
+
+main :: Unit -> Int32 := () -> {
+    wides := make<Wide>(0usize);
+    mixeds := make<Mixed>(0usize);
+    populate(wides, mixeds, 3000usize);
+    wides.copy(10usize, wides, 0usize, 2000usize);
+    wides.copy(0usize, wides, 5usize, 2900usize);
+    wides.fill(100usize, 500usize, wide(7usize));
+    mixeds.copy(1usize, mixeds, 0usize, 2999usize);
+    mixeds.fill(0usize, 3000usize, mixed(9usize));
+    if (checkWide(wides, 0usize, 0usize) == 0usize && #mixeds == 3000usize) then 0 else 1
+};
+### elements_outlive_their_buffers_across_deep_recursion | run:0
+word :: (USize, Symbol) -> Symbol := (n, acc) ->
+    if (n == 0usize) then acc else word(n - 1usize, acc + "x");
+
+single :: USize -> Symbol := (n) -> {
+    holder := make<Symbol>(1usize);
+    holder.new(word(n, ""));
+    holder.put(0usize, holder.get(0usize) + "!");
+    holder.get(0usize)
+};
+
+collect :: (Buffer<Symbol>, USize) -> Unit := (out, n) ->
+    if (n == 0usize) then ()
+    else {
+        out.new(single(n % 50usize));
+        collect(out, n - 1usize);
+    };
+
+total :: (Buffer<Symbol>, USize) -> USize := (items, index) ->
+    if (index == #items) then 0usize else #(items.get(index)) + total(items, index + 1usize);
+
+share :: (Buffer<Symbol>, Buffer<Symbol>, USize) -> Unit := (left, right, n) ->
+    if (n == 0usize) then ()
+    else {
+        shared := left.get(n % #left);
+        right.new(shared);
+        left.put(n % #left, shared + "?");
+        share(left, right, n - 1usize);
+    };
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    collect(items, 30000usize);
+    expected := 30000usize / 50usize * 1225usize + 30000usize;
+    left := make<Symbol>(0usize);
+    right := make<Symbol>(0usize);
+    left.new("a"); left.new("bb"); left.new("ccc");
+    share(left, right, 5000usize);
+    if (total(items, 0usize) == expected && #right == 5000usize) then 0 else 1
+};
+### managed_copy_fill_and_put_match_the_canonical_buffer | run:0
+word :: (USize, Symbol) -> Symbol := (n, acc) ->
+    if (n == 0usize) then acc else word(n - 1usize, acc + "x");
+
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+init :: (Buffer<Symbol>, Buffer<USize>, USize) -> Unit := (items, model, remaining) ->
+    if (remaining == 0usize) then ()
+    else {
+        length := remaining % 41usize;
+        items.new(word(length, ""));
+        model.new(length);
+        init(items, model, remaining - 1usize);
+    };
+
+run :: (Buffer<Symbol>, Buffer<USize>, USize, USize, USize) -> Unit := (items, model, seed, remaining, size) ->
+    if (remaining == 0usize) then ()
+    else {
+        s1 := next(seed);
+        s2 := next(s1);
+        s3 := next(s2);
+        s4 := next(s3);
+        operation := (s1 / 65536usize) % 4usize;
+        first := (s2 / 65536usize) % size;
+        second := (s3 / 65536usize) % size;
+        length := (s4 / 65536usize) % 41usize;
+        room := size - (if (first > second) then first else second);
+        span := if (length > room) then room else length;
+        if (operation == 0usize) then { items.put(first, word(length, "")); model.put(first, length); }
+        else if (operation == 1usize) then { items.fill(first, span, word(length, "")); model.fill(first, span, length); }
+        else { items.copy(first, items, second, span); model.copy(first, model, second, span); };
+        run(items, model, s4, remaining - 1usize, size);
+    };
+
+mismatches :: (Buffer<Symbol>, Buffer<USize>, USize, USize) -> USize := (items, model, index, count) ->
+    if (index == #items) then count
+    else mismatches(items, model, index + 1usize, if (#(items.get(index)) == model.get(index)) then count else count + 1usize);
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    model := make<USize>(0usize);
+    init(items, model, 5000usize);
+    run(items, model, 99usize, 200000usize, 5000usize);
+    if (mismatches(items, model, 0usize, 0usize) == 0usize) then 0 else 1
+};

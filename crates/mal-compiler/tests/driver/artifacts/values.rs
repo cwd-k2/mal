@@ -209,3 +209,51 @@ fn transfers_zero_stride_units_from_a_one_past_address() {
     );
     assert_eq!(directory.run(executable).status.code(), Some(0));
 }
+
+#[test]
+fn stores_symbols_and_symbol_aggregates_in_buffers() {
+    let directory = NativeFixture::new("driver-buffer-symbols");
+    let source = directory.write(
+        "program.mal",
+        "Entry :: (Symbol, Int32);
+         Maybe :: [Unit, Symbol];
+         main :: Unit -> Int32 := () -> {
+           names := make<Symbol>(1usize);
+           alias := names;
+           names.new(\"ab\" + \"cd\");
+           names.new(\"efg\");
+           names.fill(2usize, 3usize, \"x\" + \"yz\");
+           alias.put(0usize, \"long\" + \"er\");
+           names.copy(1usize, names, 0usize, 4usize);
+           names.put(1usize, names.get(1usize) + \"!\");
+           held := names.get(1usize);
+           names.put(1usize, \"gone\");
+           entries := make<Entry>(0usize);
+           entries.new((\"pair\" + \"ed\", 7i32));
+           entries.fill(1usize, 2usize, (\"q\" + \"q\", 1i32));
+           (label, number) := entries.get(1usize);
+           some :: Maybe := [none, some] => some(\"opt\" + \"ion\");
+           nothing :: Maybe := [none, some] => none();
+           options := make<Maybe>(0usize);
+           options.new(some);
+           options.new(nothing);
+           options.fill(0usize, 2usize, some);
+           if (held == \"longer!\" && names.get(1usize) == \"gone\" && names.get(0usize) == \"longer\"
+               && names.get(2usize) == \"efg\" && names.get(4usize) == \"xyz\" && #names == 5usize
+               && label == \"qq\" && number == 1i32 && #options == 2usize) then 0 else 1;
+         };",
+    );
+    let executable = directory.join("program");
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}

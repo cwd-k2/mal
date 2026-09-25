@@ -11,8 +11,9 @@ lifetime authorityはmalに属する。domain上の意味は値だけから決�
 
 Externはmalの外部にあるstate、storage、resource、作用の領域である。`Address`はexternal storageへのcapabilityであり、
 external opaque valueはhost resourceへのcopyable handleである。どちらもcopyしてもreferentのlifetimeを延長しない。
-close、free、permission、alias、failureは個々のhost contractが定める。`Buffer`のidentityとstorageはmalに属するが、
-elementとして保持した`Address`やexternal opaque valueのreferent authorityまでは取得しない。
+close、free、permission、alias、failureは個々のhost contractが定める。`Buffer`のidentityとstorageはmalに属し、
+elementとして保持した`Symbol`のlifetimeも[Buffer](memory.md#storable)が保つが、elementとして保持した`Address`や
+external opaque valueのreferent authorityまでは取得しない。
 
 EngramとExternはsource-level typeを二分する分類ではなく、意味とlifetimeのauthorityを分類する。Addressを含むproductや
 closureの構造はmalが持つEngramだが、AddressのreferentはExternに残る。external opaque valueについても同じであり、

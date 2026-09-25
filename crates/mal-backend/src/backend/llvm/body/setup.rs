@@ -134,13 +134,19 @@ impl<'a> FunctionEmitter<'a> {
                             | crate::core::ast::BufferOperation::Fill,
                         element,
                         ..
-                    } => source_layouts.layout(element),
+                    } => source_layouts
+                        .layout(element)
+                        .map(|layout| (layout.stride, layout.alignment))
+                        .or_else(|| {
+                            let value = types.value(element)?;
+                            Some((value.size, value.alignment))
+                        }),
                     _ => None,
                 })
-                .filter(|layout| layout.stride != 0)
-                .fold(None, |storage, layout| {
+                .filter(|(size, _)| *size != 0)
+                .fold(None, |storage, (element_size, element_alignment)| {
                     let (size, alignment) = storage.unwrap_or((0usize, 1usize));
-                    Some((size.max(layout.stride), alignment.max(layout.alignment)))
+                    Some((size.max(element_size), alignment.max(element_alignment)))
                 });
         let mut external_storage = None;
         for id in external_ids {

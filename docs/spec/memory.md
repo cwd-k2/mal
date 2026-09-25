@@ -16,9 +16,31 @@ mal codeは`Address`をdereference、変更、比較、加減算、integer変換
 `ByteSize`はhost contractがbyte量に使うtarget幅のunsigned量、`USize`は有限collectionの要素数、index、capacityに使う
 target幅のunsigned量である。両者は別のsource typeで、literal suffixは`bytes`と`usize`である。
 
+## Storable
+
+Buffer elementはmal-ownedなimmutable値だけである。compilerは閉じた`Storable(A)` judgmentを持つ。
+
+```text
+Storable(Unit)
+Storable(numeric scalar)
+Storable(Address)
+Storable(ByteSize)
+Storable(USize)
+Storable(Symbol)
+Storable((A...))       if all Storable(A)
+Storable([A...])       if the sum has at least two variants and all Storable(A)
+```
+
+function、external opaque type、`Buffer<A>`、empty sumはstorableでない。transparent aliasは展開後に判定する。
+`Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
+
+storableな要素は`Buffer`とfunctionを含まないので、Buffer storageから別のBufferやclosureへのedgeは生じず、要素の
+aliasが後の変更を観測することもない。`Symbol`はimmutableなbytesであり、Bufferは格納した`Symbol`をBufferが到達不能に
+なるか要素が上書きされるまで保持する。
+
 ## Representable
 
-compilerは閉じた`Representable(A)` judgmentを持つ。
+compilerは閉じた`Representable(A)` judgmentを持つ。これは`Storable(A)`のうち`Symbol`を含まない型である。
 
 ```text
 Representable(Unit)
@@ -31,10 +53,9 @@ Representable([A...])       if the sum has at least two variants and all Represe
 ```
 
 `Symbol`、function、external opaque type、`Buffer<A>`、empty sumはrepresentableでない。transparent aliasは展開後に判定する。
-`Buffer<A>`は`Representable(A)`の場合だけwell-formedである。
 
-RepresentableはC host copy boundaryでcanonical representationを持ち、Buffer storageへ値を格納できることを表す。
-Address referentが実際にそのrepresentationを持つことや、access可能であることは証明しない。
+RepresentableはC host copy boundaryでcanonical representationを持つことを表し、`from<A>`、`buffer.into`、canonical memory
+helperの要素はRepresentableに限る。Address referentが実際にそのrepresentationを持つことや、access可能であることは証明しない。
 
 ## Canonical layout
 
@@ -99,8 +120,9 @@ receiver-firstでない形は`fill(buffer, offset, length, value)`と
 operationのoperandはsource順に一度だけ評価する。count、capacity、range末尾、stride、allocation byte数をtargetで表現できない場合と
 allocationに失敗した場合はtrapする。stride 0でもcountとrange末尾のoverflowはtrapする。
 
-Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argumentに置ける。Buffer elementだけは
-`Representable`に閉じるため、Buffer storageから別のmanaged ownerへのedgeは生じない。
+Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argumentに置ける。Buffer elementは
+[Storable](#storable)に限る。`get`は格納された値を返し、`put`、`fill`、`copy`が上書きした要素は以後Bufferから到達できない。
+canonical layoutを持たないstorableな要素のBuffer storageは実装が決め、mal codeからもC hostからも観測できない。
 
 ## Symbol conversion
 

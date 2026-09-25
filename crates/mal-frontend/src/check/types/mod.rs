@@ -14,8 +14,8 @@ mod properties;
 
 pub(super) use display::type_name;
 pub(super) use properties::{
-    ensure_memory_representable, ensure_representable, is_memory_representable,
-    representable_requirements, satisfies_representable_requirement,
+    ensure_buffer_storable, ensure_representable, is_memory_representable,
+    satisfies_representable_requirement, satisfies_storable_requirement, storable_requirements,
 };
 
 #[derive(Clone)]
@@ -212,7 +212,7 @@ impl Checker {
                     }
                     if constructor.id == BUFFER_TYPE {
                         let element = arguments.into_iter().next().unwrap();
-                        ensure_memory_representable(&element, constructor.name.span)?;
+                        ensure_buffer_storable(&element, constructor.name.span)?;
                         values.push(Type::Buffer(element.into()));
                     } else {
                         if !self.expanding.insert(constructor.id) {

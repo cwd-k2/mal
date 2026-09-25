@@ -20,14 +20,15 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
 | [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、arity mismatch、explicit application、first-classな単相value、generic extern rejection | required fileを跨ぐgeneric application |
-| [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`、alias展開、requirement不足、既知の非representable型 | 型parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
+| [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`、alias展開、requirement不足、既知の非storable型 | 型parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
 
 ## Memory layoutとaccess
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、function、opaque、`Buffer<A>` | representable aggregateのstore/load round-trip |
+| [Storable](../spec/memory.md#storable) | 全base、`Symbol`、nested product/sum、empty sum、function、opaque、`Buffer<A>`、それらを含むaggregate | `Buffer<Symbol>`とSymbolを含むaggregateの`new`・`get`・`put`・`fill`・`copy`を、成長、上書き、重なるcopy、深い再帰の負荷を含めてAddressSanitizerで実行 |
+| [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、`Symbol`、function、opaque、`Buffer<A>` | representable aggregateのstore/load round-trip、`Symbol`要素と型parameter要素への`from`・`into`の拒否 |
 | [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
 | [Buffer access](../spec/memory.md#buffer) | make/new/get/put/fill/copy、empty、growth、Unit、product/sum、aliasとoverlap越しのread-your-writes、read-after-new、generic receiver application | managed lifetimeを含むcompiled artifact、Bufferをhelper・closure・再帰frameへ渡すnative fixture |
 | [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、rangeとhost lifetime contract | C host copy artifact |

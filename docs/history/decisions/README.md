@@ -13,13 +13,13 @@ Status: Historical records
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
 | application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md)、[D072](D072.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md) |
-| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md)、[D058](D058.md) |
+| managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md)、[D058](D058.md)、[D075](D075.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |
 | literalとscalar operation | [D011](D011.md)、[D013](D013.md)、[D020](D020.md)、[D021](D021.md)、[D025](D025.md)、[D035](D035.md) |
 | externとopaque value | [D012](D012.md)、[D015](D015.md)、[D016](D016.md)、[D039](D039.md)、[D040](D040.md)、[D053](D053.md)、[D054](D054.md)、[D074](D074.md) |
 | top-level initialization | [D018](D018.md) |
 | source file requirement | [D032](D032.md) |
-| genericsとexternal memory | [D052](D052.md) |
+| genericsとexternal memory | [D052](D052.md)、[D075](D075.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md)、[D074](D074.md) |
 | 実行環境 | [D041](D041.md)、[D070](D070.md)、[D071](D071.md)、[D073](D073.md) |
 

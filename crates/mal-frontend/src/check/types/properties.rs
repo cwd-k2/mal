@@ -9,26 +9,24 @@ use super::{Type, type_name};
 const MAX_REPRESENTATION_UNITS: usize = 65_536;
 const MAX_REPRESENTATION_DEPTH: usize = 64;
 
-pub(in crate::check) fn ensure_memory_representable(
-    ty: &Type,
-    span: Span,
-) -> Result<(), Diagnostic> {
-    if is_memory_representable(ty) {
+pub(in crate::check) fn ensure_buffer_storable(ty: &Type, span: Span) -> Result<(), Diagnostic> {
+    let Some(offending) = first_unstorable_type(ty) else {
         return Ok(());
-    }
-    let offending = first_nonrepresentable_type(ty).unwrap_or(ty);
+    };
     Err(
-        Diagnostic::error("memory element type is not representable").with_primary(
+        Diagnostic::error("buffer element type is not storable").with_primary(
             span,
             format!(
-                "`{}` has no canonical memory representation",
+                "`{}` is not an immutable value that a Buffer can hold",
                 type_name(offending)
             ),
         ),
     )
 }
 
-fn first_nonrepresentable_type(ty: &Type) -> Option<&Type> {
+/// A Buffer element is an immutable value: it holds no `Buffer`, function, or external opaque value, so element
+/// storage forms no ownership cycle and no alias observes a later mutation.
+fn first_unstorable_type(ty: &Type) -> Option<&Type> {
     let mut pending = vec![ty];
     let mut visited = HashSet::new();
     while let Some(ty) = pending.pop() {
@@ -39,11 +37,9 @@ fn first_nonrepresentable_type(ty: &Type) -> Option<&Type> {
             Type::Product(elements) | Type::Sum(elements) if !elements.is_empty() => {
                 pending.extend(elements.iter().rev());
             }
-            Type::Symbol
-            | Type::External { .. }
-            | Type::Function { .. }
-            | Type::Buffer(_)
-            | Type::Sum(_) => return Some(ty),
+            Type::External { .. } | Type::Function { .. } | Type::Buffer(_) | Type::Sum(_) => {
+                return Some(ty);
+            }
             _ => {}
         }
     }
@@ -85,7 +81,7 @@ pub(in crate::check) fn is_memory_representable(ty: &Type) -> bool {
     true
 }
 
-pub(in crate::check) fn representable_requirements(ty: &Type) -> HashSet<TypeId> {
+pub(in crate::check) fn storable_requirements(ty: &Type) -> HashSet<TypeId> {
     let mut requirements = HashSet::new();
     let mut pending = vec![(ty, false)];
     while let Some((ty, required)) = pending.pop() {
@@ -109,10 +105,22 @@ pub(in crate::check) fn representable_requirements(ty: &Type) -> HashSet<TypeId>
     requirements
 }
 
-pub(in crate::check) fn satisfies_representable_requirement(
+/// Whether `ty` is known to be a valid Buffer element, given the type parameters that the enclosing signature
+/// already requires to be storable.
+pub(in crate::check) fn satisfies_storable_requirement(
     ty: &Type,
     available: &HashSet<TypeId>,
 ) -> bool {
+    satisfies_requirement(ty, available, true)
+}
+
+/// Whether `ty` has a canonical memory representation for C host copy. A type parameter never does, because
+/// generic code cannot derive the layout of an opaque type.
+pub(in crate::check) fn satisfies_representable_requirement(ty: &Type) -> bool {
+    satisfies_requirement(ty, &HashSet::new(), false)
+}
+
+fn satisfies_requirement(ty: &Type, available: &HashSet<TypeId>, symbols: bool) -> bool {
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         match ty {
@@ -137,6 +145,7 @@ pub(in crate::check) fn satisfies_representable_requirement(
             | Type::Address
             | Type::ByteSize
             | Type::USize => {}
+            Type::Symbol if symbols => {}
             _ => return false,
         }
     }

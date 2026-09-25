@@ -294,6 +294,10 @@ typedef struct {
     size_t stride;
     // Bytes between the logical end and this boundary retain their calloc zero.
     size_t zeroed_until;
+    // Set only for elements that own managed values. Every stored element holds one reference, taken by `retain`
+    // when the element is written and dropped by `release` when it is overwritten or the buffer dies.
+    void (*retain)(MalContext *, void *element);
+    void (*release)(void *element);
 } MalBuffer;
 
 static MalBuffer *mal_buffer_allocate(
@@ -303,6 +307,11 @@ static MalBuffer *mal_buffer_allocate(
 
 static void mal_buffer_destroy(void *opaque_buffer) {
     MalBuffer *buffer = opaque_buffer;
+    if (buffer->release != NULL) {
+        for (size_t index = 0; index < buffer->count; ++index) {
+            buffer->release(buffer->data + index * buffer->stride);
+        }
+    }
     mal_bytes_release(buffer->owner);
 }
 
@@ -320,6 +329,8 @@ static MalBuffer *mal_buffer_allocate(
     buffer->count = 0;
     buffer->stride = stride;
     buffer->zeroed_until = 0;
+    buffer->retain = NULL;
+    buffer->release = NULL;
     return buffer;
 }
 
@@ -355,6 +366,19 @@ void *mal_runtime_buffer_make(
     return buffer;
 }
 
+
+void *mal_runtime_buffer_make_managed(
+    MalContext *context,
+    size_t stride,
+    size_t capacity,
+    void (*retain)(MalContext *, void *),
+    void (*release)(void *)
+) {
+    MalBuffer *buffer = mal_runtime_buffer_make(context, stride, capacity);
+    buffer->retain = retain;
+    buffer->release = release;
+    return buffer;
+}
 
 __attribute__((noinline))
 static MalBytesFlat *mal_buffer_grow_unique(
@@ -418,11 +442,34 @@ size_t mal_runtime_buffer_new(
         }
         buffer->owner = &flat->header;
         buffer->data = flat->bytes;
+        if (buffer->retain != NULL) {
+            buffer->retain(context, flat->bytes + length);
+        }
     } else if (buffer->count == SIZE_MAX) {
         mal_trap(context, "buffer count overflow");
     }
     ++buffer->count;
     return index;
+}
+
+// Writes `value` over `[offset, end)`, which lies within the storage. Elements below `old_count` held a reference that
+// the write drops.
+static void mal_buffer_fill_managed(
+    MalContext *context,
+    MalBuffer *buffer,
+    size_t offset,
+    size_t end,
+    size_t old_count,
+    const void *value
+) {
+    for (size_t index = offset; index < end; ++index) {
+        unsigned char *element = buffer->data + index * buffer->stride;
+        if (index < old_count) {
+            buffer->release(element);
+        }
+        memcpy(element, value, buffer->stride);
+        buffer->retain(context, element);
+    }
 }
 
 void mal_runtime_buffer_fill(
@@ -461,6 +508,11 @@ void mal_runtime_buffer_fill(
     buffer->owner = &flat->header;
     buffer->data = flat->bytes;
     buffer->count = new_count;
+
+    if (buffer->release != NULL) {
+        mal_buffer_fill_managed(context, buffer, offset, end, old_count, value);
+        return;
+    }
 
     size_t start_byte = offset * stride;
     size_t byte_count = count * stride;
@@ -506,6 +558,30 @@ void mal_runtime_buffer_fill(
     }
 }
 
+// Accounts for the references of a copy that the caller then performs bytewise. Every source reference is taken before
+// any destination one is dropped: the ranges may overlap, so a dropped element can also be a source.
+static void mal_buffer_reference_copy(
+    MalContext *context,
+    MalBuffer *destination,
+    size_t destination_offset,
+    const MalBuffer *source,
+    size_t source_offset,
+    size_t count,
+    size_t old_count
+) {
+    size_t stride = destination->stride;
+    for (size_t index = 0; index < count; ++index) {
+        destination->retain(
+            context,
+            (void *)(source->data + (source_offset + index) * stride)
+        );
+    }
+    size_t destination_end = destination_offset + count;
+    for (size_t index = destination_offset; index < destination_end && index < old_count; ++index) {
+        destination->release(destination->data + index * stride);
+    }
+}
+
 void mal_runtime_buffer_copy(
     MalContext *context,
     void *opaque_destination,
@@ -527,6 +603,7 @@ void mal_runtime_buffer_copy(
         mal_trap(context, "buffer copy destination range overflow");
     }
     size_t destination_end = destination_offset + count;
+    size_t old_count = destination->count;
     size_t new_count = destination->count > destination_end
         ? destination->count
         : destination_end;
@@ -548,6 +625,17 @@ void mal_runtime_buffer_copy(
     destination->owner = &flat->header;
     destination->data = flat->bytes;
     destination->count = new_count;
+    if (destination->release != NULL) {
+        mal_buffer_reference_copy(
+            context,
+            destination,
+            destination_offset,
+            source,
+            source_offset,
+            count,
+            old_count
+        );
+    }
     memmove(
         destination->data + destination_offset * stride,
         source->data + source_offset * stride,

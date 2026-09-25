@@ -118,6 +118,15 @@ void *mal_runtime_buffer_make(
     size_t stride,
     size_t capacity
 );
+/* Like `make`, for elements that own managed values. `retain` and `release` act on one stored element in place: the
+ * buffer takes a reference for every element it writes and drops it when the element is overwritten or the buffer dies. */
+void *mal_runtime_buffer_make_managed(
+    MalContext *context,
+    size_t stride,
+    size_t capacity,
+    void (*retain)(MalContext *, void *element),
+    void (*release)(void *element)
+);
 size_t mal_runtime_buffer_new(
     MalContext *context,
     void *buffer,

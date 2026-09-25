@@ -118,12 +118,13 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 |---|---|
 | lexer/parser | generic parameter/argument、postfix chain、共有tokenをsource-oriented ASTへ構成する。型やnameから構文を選ばない |
 | resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
-| check | canonical generic type、arity、`Requirements(T)`、`Representable`、`HostMappable`、memory operatorの型を検査する |
+| check | canonical generic type、arity、`Requirements(T)`、`Storable`、`Representable`、`HostMappable`、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
 | specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
-| runtime | managed Buffer storage、Unitのcount-only表現、Symbol snapshot copyを実装する |
+| LLVM Buffer element | 要素のstorage layoutを選び、`Symbol`を含む要素にはretainとreleaseのcallbackを生成してruntimeへ渡し、`get`と`put`のreference操作を出力する |
+| runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
 | process shim | `argv + 1`から作ったargument Bufferを`Buffer<(Address, USize)>` rootへ渡す |
 

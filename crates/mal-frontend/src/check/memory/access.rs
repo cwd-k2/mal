@@ -103,7 +103,8 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(_), "into") => {
+            (Type::Buffer(element), "into") => {
+                super::ensure_copyable_element(element, receiver.span)?;
                 let (receiver, address) =
                     self.check_after(receiver, &arguments[1], Some(&Type::Address))?;
                 let (address, offset) =

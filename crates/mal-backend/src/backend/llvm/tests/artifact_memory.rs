@@ -106,3 +106,40 @@ fn emits_c_host_buffer_copy_primitives() {
     assert!(module.contains("call ptr @mal_runtime_buffer_from"));
     assert!(module.contains("call void @mal_runtime_buffer_into"));
 }
+
+#[test]
+fn stores_symbol_elements_as_runtime_values_with_retain_and_release_callbacks() {
+    let module = generate_module(
+        "main :: Unit -> Int32 := () -> {
+           names := make<Symbol>(1usize);
+           names.new(\"ab\");
+           names.put(0usize, names.get(0usize));
+           (#names).i32 - 1i32;
+         };",
+    );
+
+    assert!(module.contains(
+        "call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, i64 24, i64 1, ptr @mal_buffer_retain_0, ptr @mal_buffer_release_0)"
+    ));
+    assert!(
+        module.contains(
+            "define internal void @mal_buffer_retain_0(ptr %mal_context, ptr %mal_element)"
+        )
+    );
+    assert!(module.contains("define internal void @mal_buffer_release_0(ptr %mal_element)"));
+    assert!(!module.contains("call ptr @mal_runtime_buffer_make("));
+}
+
+#[test]
+fn keeps_canonical_storage_for_elements_without_managed_values() {
+    let module = generate_module(
+        "main :: Unit -> Int32 := () -> {
+           values := make<Int64>(1usize);
+           values.new(1i64);
+           values.get(0usize).i32 - 1i32;
+         };",
+    );
+
+    assert!(module.contains("call ptr @mal_runtime_buffer_make("));
+    assert!(!module.contains("mal_buffer_retain_"));
+}

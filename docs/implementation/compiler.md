@@ -132,6 +132,7 @@ LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)
 
 `Address`はLLVMの`ptr`、`Buffer`はmanaged runtime objectへのpointerへlowerする。C host copy primitiveは
 canonical representationをruntime objectとhost storageの間でcopyし、Buffer element accessはruntimeが保証するalignmentを使う。
+`Symbol`を含む要素はcanonical layoutを持たないので、runtime valueのlayoutで格納し、C host copyの対象にしない。
 host storageの範囲、permission、initialization、lifetimeはtyped IRへ補わず、
 source-levelの[`memory` contract](../spec/memory.md)として保持する。
 

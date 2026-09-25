@@ -3,6 +3,55 @@ use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
 
+/// How a Buffer keeps one element. An element with a canonical memory representation is stored in it, so that `from`
+/// and `into` can copy the storage. An element that owns a `Symbol` has none and is stored as its runtime value; the
+/// runtime then retains and releases stored elements through the callbacks of [`ManagedBufferElements`].
+#[derive(Clone, Copy)]
+pub(in crate::backend::llvm::body) enum ElementStorage {
+    Canonical { stride: usize },
+    Managed { stride: usize, alignment: usize },
+}
+
+impl ElementStorage {
+    fn stride(self) -> usize {
+        match self {
+            Self::Canonical { stride } | Self::Managed { stride, .. } => stride,
+        }
+    }
+}
+
+/// The element types of the program's Buffers that own managed values. Each has one retain and one release callback,
+/// numbered by position.
+pub(in crate::backend::llvm::body) struct ManagedBufferElements(Vec<Type>);
+
+impl ManagedBufferElements {
+    pub(in crate::backend::llvm::body) fn collect(execution: &crate::execution::Program) -> Self {
+        let mut elements: Vec<Type> = Vec::new();
+        for binding in execution
+            .control
+            .states
+            .iter()
+            .flat_map(|state| &state.bindings)
+        {
+            if let crate::control::ast::Operation::Buffer {
+                operation: BufferOperation::Make,
+                element,
+                ..
+            } = &binding.operation
+                && crate::execution::ownership::is_managed(element)
+                && !elements.contains(element)
+            {
+                elements.push(element.clone());
+            }
+        }
+        Self(elements)
+    }
+
+    fn number(&self, element: &Type) -> Option<usize> {
+        self.0.iter().position(|candidate| candidate == element)
+    }
+}
+
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_buffer_from_address(
         &mut self,
@@ -78,7 +127,8 @@ impl FunctionEmitter<'_> {
         operands: &[EmittedValue],
         result_type: &Type,
     ) -> Option<EmittedValue> {
-        let stride = self.source_layouts.layout(element)?.stride;
+        let storage = self.buffer_element_storage(element)?;
+        let stride = storage.stride();
         let buffer_type = Type::Buffer(element.clone().into());
         match operation {
             BufferOperation::Make => {
@@ -89,10 +139,18 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let buffer = self.register();
-                self.line(format!(
-                    "  {buffer} = call ptr @mal_runtime_buffer_make(ptr %mal_context, {0} {stride}, {0} {1})",
-                    self.types.pointer_integer()?, capacity.representation
-                ));
+                if let ElementStorage::Managed { .. } = storage {
+                    let number = self.index.managed_buffer_elements.number(element)?;
+                    self.line(format!(
+                        "  {buffer} = call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, {0} {stride}, {0} {1}, ptr @mal_buffer_retain_{number}, ptr @mal_buffer_release_{number})",
+                        self.types.pointer_integer()?, capacity.representation
+                    ));
+                } else {
+                    self.line(format!(
+                        "  {buffer} = call ptr @mal_runtime_buffer_make(ptr %mal_context, {0} {stride}, {0} {1})",
+                        self.types.pointer_integer()?, capacity.representation
+                    ));
+                }
                 Some(emitted_buffer(buffer, buffer_type))
             }
             BufferOperation::New => {
@@ -102,7 +160,7 @@ impl FunctionEmitter<'_> {
                 if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
-                let value_pointer = self.buffer_value_pointer(value, stride)?;
+                let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
                 self.line(format!(
                     "  {index} = call {0} @mal_runtime_buffer_new(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
@@ -126,7 +184,14 @@ impl FunctionEmitter<'_> {
                 }
                 let data = self.active_buffer_data(buffer)?;
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                self.emit_aligned_buffer_load_at(&pointer, element)
+                match storage {
+                    ElementStorage::Managed { alignment, .. } => {
+                        self.emit_managed_element_get(&pointer, element, alignment)
+                    }
+                    ElementStorage::Canonical { .. } => {
+                        self.emit_aligned_buffer_load_at(&pointer, element)
+                    }
+                }
             }
             BufferOperation::Put => {
                 let [buffer, index, value] = operands else {
@@ -142,7 +207,14 @@ impl FunctionEmitter<'_> {
                 if stride != 0 {
                     let data = self.active_buffer_data(buffer)?;
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                    self.emit_aligned_buffer_store_at(&pointer, value)?;
+                    match storage {
+                        ElementStorage::Managed { alignment, .. } => {
+                            self.emit_managed_element_put(&pointer, value, alignment)?;
+                        }
+                        ElementStorage::Canonical { .. } => {
+                            self.emit_aligned_buffer_store_at(&pointer, value)?;
+                        }
+                    }
                 }
                 Some(emitted_unit())
             }
@@ -158,7 +230,7 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let value_pointer = self.buffer_value_pointer(value, stride)?;
+                let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.types.pointer_integer()?;
                 self.line(format!(
                     "  call void @mal_runtime_buffer_fill(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
@@ -219,18 +291,145 @@ impl FunctionEmitter<'_> {
         Some(data)
     }
 
-    fn buffer_value_pointer(&mut self, value: &EmittedValue, stride: usize) -> Option<String> {
-        if stride == 0 {
+    pub(in crate::backend::llvm::body) fn buffer_element_storage(
+        &self,
+        element: &Type,
+    ) -> Option<ElementStorage> {
+        if let Some(layout) = self.source_layouts.layout(element) {
+            return Some(ElementStorage::Canonical {
+                stride: layout.stride,
+            });
+        }
+        if !crate::execution::ownership::is_managed(element) {
+            return None;
+        }
+        let value = self.types.value(element)?;
+        Some(ElementStorage::Managed {
+            stride: value.size,
+            alignment: value.alignment,
+        })
+    }
+
+    fn buffer_value_pointer(
+        &mut self,
+        value: &EmittedValue,
+        element_storage: ElementStorage,
+    ) -> Option<String> {
+        if element_storage.stride() == 0 {
             return Some("null".into());
         }
         let storage = "%mal_buffer_value";
-        let layout = self.source_layouts.layout(&value.ty)?;
-        self.line(format!(
-            "  store [{stride} x i8] zeroinitializer, ptr {storage}, align {}",
-            layout.alignment
-        ));
-        self.emit_aligned_source_store_at(storage, value)?;
+        match element_storage {
+            ElementStorage::Canonical { stride } => {
+                let layout = self.source_layouts.layout(&value.ty)?;
+                self.line(format!(
+                    "  store [{stride} x i8] zeroinitializer, ptr {storage}, align {}",
+                    layout.alignment
+                ));
+                self.emit_aligned_source_store_at(storage, value)?;
+            }
+            ElementStorage::Managed { alignment, .. } => {
+                let value_type = self.types.value(&value.ty)?;
+                self.line(format!(
+                    "  store {} {}, ptr {storage}, align {alignment}",
+                    value_type.llvm, value.representation
+                ));
+            }
+        }
         Some(storage.into())
+    }
+
+    /// The buffer keeps its own reference to the element, and a later `put` can drop it while the result is live, so
+    /// the result takes a reference of its own.
+    fn emit_managed_element_get(
+        &mut self,
+        pointer: &str,
+        element: &Type,
+        alignment: usize,
+    ) -> Option<EmittedValue> {
+        let value_type = self.types.value(element)?;
+        let loaded = self.register();
+        self.line(format!(
+            "  {loaded} = load {}, ptr {pointer}, align {alignment}",
+            value_type.llvm
+        ));
+        self.retain_value(element, &loaded)?;
+        Some(EmittedValue {
+            ty: element.clone(),
+            representation: loaded,
+            owned: true,
+        })
+    }
+
+    /// The stored value operand keeps its own reference through the call, so the old element may be the same value
+    /// without being freed; the new reference is still taken first so the buffer never holds an element without one.
+    fn emit_managed_element_put(
+        &mut self,
+        pointer: &str,
+        value: &EmittedValue,
+        alignment: usize,
+    ) -> Option<()> {
+        let value_type = self.types.value(&value.ty)?;
+        self.retain_value(&value.ty, &value.representation)?;
+        let previous = self.register();
+        self.line(format!(
+            "  {previous} = load {}, ptr {pointer}, align {alignment}",
+            value_type.llvm
+        ));
+        self.release_value(&value.ty, &previous)?;
+        self.line(format!(
+            "  store {} {}, ptr {pointer}, align {alignment}",
+            value_type.llvm, value.representation
+        ));
+        Some(())
+    }
+
+    /// Defines the callbacks that let the runtime retain and release one stored element of each managed element type.
+    pub(in crate::backend::llvm::body) fn emit_managed_buffer_element_callbacks(
+        &mut self,
+    ) -> Option<String> {
+        let index = self.index;
+        for (number, element) in index.managed_buffer_elements.0.iter().enumerate() {
+            self.emit_managed_element_callback(number, element, true)?;
+            self.emit_managed_element_callback(number, element, false)?;
+        }
+        Some(std::mem::take(&mut self.output))
+    }
+
+    fn emit_managed_element_callback(
+        &mut self,
+        number: usize,
+        element: &Type,
+        retain: bool,
+    ) -> Option<()> {
+        let value_type = self.types.value(element)?;
+        if retain {
+            self.line(format!(
+                "define internal void @mal_buffer_retain_{number}(ptr %mal_context, ptr %mal_element) {{"
+            ));
+        } else {
+            self.line(format!(
+                "define internal void @mal_buffer_release_{number}(ptr %mal_element) {{"
+            ));
+        }
+        self.line("entry:");
+        let allocas = self.output.len();
+        let value = self.register();
+        self.line(format!(
+            "  {value} = load {}, ptr %mal_element, align {}",
+            value_type.llvm, value_type.alignment
+        ));
+        if retain {
+            self.retain_value(element, &value)?;
+        } else {
+            self.release_value(element, &value)?;
+        }
+        self.line("  ret void");
+        self.line("}");
+        let entry_allocas = std::mem::take(&mut self.entry_allocas);
+        self.output.insert_str(allocas, &entry_allocas);
+        self.line("");
+        Some(())
     }
 
     fn buffer_element_pointer(

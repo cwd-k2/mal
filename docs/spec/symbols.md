@@ -60,4 +60,6 @@ byte accessはimmutableなbyte valueに対する位置指定のobservationであ
 ## mutable bytesとの分離
 
 `Symbol`の内容は変更できない。mutableなmal-owned bytesは`Buffer<UInt8>`、host-owned storageはAddressとextern contractで表す。
+`Symbol`は`Int64`などと同じくBufferの要素になれるので、Symbolの列は`Buffer<Symbol>`で表し、要素の入れ替えは
+Symbolの内容を変更しない。
 C host storageとのcopyは`from<UInt8>`と`buffer.into`だけが行う。

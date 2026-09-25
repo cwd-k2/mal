@@ -26,17 +26,36 @@ L<A> :: (A, L<A>);
 ### generic_arity_mismatch | err:
 Pair<A> :: (A, A);
 p :: Pair<Int32, Int32> := (1, 2);
-### generic_requirement_buffer_symbol | err:
+### generic_requirement_buffer_function | err:
+f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
+g :: Unit -> Unit := () -> { b := f<Int32 -> Int32>((x) -> x); () };
+### generic_requirement_buffer_symbol_ok | ok
 f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
 g :: Unit -> Buffer<Symbol> := () -> f<Symbol>("x");
+### generic_from_parameter_element | err:Representable
+read<A> :: Address -> Buffer<A> := (address) -> from<A>(address, 0usize, 1usize);
+### into_symbol_element | err:Representable
+write :: (Buffer<Symbol>, Address) -> Unit := (names, address) -> names.into(address, 0usize, 1usize);
+### generic_into_parameter_element | err:Representable
+write<A> :: (Buffer<A>, Address) -> Unit := (values, address) -> values.into(address, 0usize, 1usize);
+### into_symbol_aggregate_element | err:Representable
+write :: (Buffer<(Int32, Symbol)>, Address) -> Unit := (values, address) -> values.into(address, 0usize, 1usize);
+### from_symbol_element | err:Representable
+read :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);
 ### generic_buffer_param_ok | ok
 first<A> :: Buffer<A> -> A := (b) -> b.get(0usize);
 ### generic_dup_param | err:
 f<A, A> :: A -> A := (v) -> v;
 ### generic_uses_op_via_arg_ok | ok
 add<A> :: ((A, A) -> A, A, A) -> A := (op, a, b) -> op(a, b);
-### buffer_of_symbol | err:
+### buffer_of_symbol_ok | ok
 B :: Buffer<Symbol>;
+### buffer_of_symbol_aggregates_ok | ok
+B :: Buffer<(Symbol, Int32, [Unit, Symbol])>;
+### buffer_of_buffer_in_product | err:
+B :: Buffer<(Int32, Buffer<Int32>)>;
+### buffer_of_fn_in_sum | err:
+B :: Buffer<[Unit, Int32 -> Int32]>;
 ### buffer_of_buffer | err:
 B :: Buffer<Buffer<Int32>>;
 ### buffer_of_fn | err:

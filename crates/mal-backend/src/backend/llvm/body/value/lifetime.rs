@@ -55,7 +55,11 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    fn retain_value(&mut self, ty: &Type, value: &str) -> Option<String> {
+    pub(in crate::backend::llvm::body) fn retain_value(
+        &mut self,
+        ty: &Type,
+        value: &str,
+    ) -> Option<String> {
         match ty {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;

@@ -23,6 +23,7 @@ mod terminator;
 pub(super) mod types;
 mod value;
 
+use memory::ManagedBufferElements;
 use plan::{
     TopLevelConstants, collect_pattern_slot, insert_slot, main_function, pattern_value_type,
     reachable_states,
@@ -68,7 +69,16 @@ pub(super) fn generate(
     let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
     debug_assert!(optimizations.is_valid(execution, enabled));
     let mut globals = top_levels.globals().to_string();
-    let mut definitions = String::new();
+    let mut definitions = FunctionEmitter::new(
+        execution,
+        &index,
+        main,
+        target,
+        &top_levels,
+        &execution.ownership,
+        &optimizations,
+    )?
+    .emit_managed_buffer_element_callbacks()?;
     let mut uses_control = false;
     for function in &execution.control.functions {
         let emitter = FunctionEmitter::new(
@@ -133,6 +143,7 @@ struct ProgramIndex<'a> {
         mal_frontend::resolve::ast::ExternalOperationId,
         &'a crate::core::ast::ExternalOperation,
     >,
+    managed_buffer_elements: ManagedBufferElements,
 }
 
 impl<'a> ProgramIndex<'a> {
@@ -163,6 +174,7 @@ impl<'a> ProgramIndex<'a> {
             control_functions,
             lowered_functions,
             externals,
+            managed_buffer_elements: ManagedBufferElements::collect(execution),
         })
     }
 }

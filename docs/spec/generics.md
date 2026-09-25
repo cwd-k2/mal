@@ -46,27 +46,29 @@ double<A> :: A -> A := (value) -> value + value; // error
 ## Requirements
 
 `Requirements(T)`はalias展開後の型`T`が要求するbuilt-in judgmentの有限集合である。product、sum、functionは要素のrequirementを
-再帰的に合併する。`Buffer<A>`は`Representable(A)`を加え、type argument内のrequirementも加える。
+再帰的に合併する。`Buffer<A>`は`Storable(A)`を加え、type argument内のrequirementも加える。
 
-compilerは`Representable(T)`をclosedな定義で正規化する。representableなconcrete base caseは消去し、productとsumは各要素へ
-分解し、opaqueな型parameterだけをatomとして残す。既知の非representable型はdeclarationで拒否する。
-`Buffer<(A, UInt64)>`から得るrequirementは`Representable(A)`である。
+compilerは`Storable(T)`をclosedな定義で正規化する。storableなconcrete base caseは消去し、productとsumは各要素へ
+分解し、opaqueな型parameterだけをatomとして残す。既知の非storable型はdeclarationで拒否する。
+`Buffer<(A, UInt64)>`から得るrequirementは`Storable(A)`である。
 
 generic aliasはdefinitionのresult type、generic value bindingは明示signatureからrequirementを集める。本体内だけに現れ、signatureから
 導けないrequirementを型parameterへ要求するoperationはerrorである。型applicationはconcrete argumentを代入し、aliasを展開した後に
 全requirementを検査する。generic本体内のapplicationでは、代入後のrequirementがcaller bindingのrequirementから導けることを検査する。
 満たさないapplicationはspecialization前のcompile-time errorである。
 
-generic codeは裸のAddressと`A`からC host representationを導けない。callerがconcrete type argumentで`from`をspecializeすると、
-copy primitiveがstatic representationを選ぶ。
+`from<A>`と`buffer.into`は`Representable(A)`を要求する。opaqueな型parameterはrepresentableと仮定できないので、generic本体は
+型parameterの要素にこれらを使えない。callerがconcrete type argumentで`from`をspecializeすると、copy primitiveがstatic
+representationを選ぶ。
 
 ```mal
 readFirst<A> :: Buffer<A> -> A := (buffer) -> buffer.get(0usize);
 writeFirst<A> :: (Buffer<A>, A) -> Unit := (buffer, value) -> buffer.put(0usize, value);
 ```
 
-`Buffer<A>`は通常のgeneric argument、parameter、resultとして使える。`Representable(A)`はelement storageとC host copy representationの
-存在だけを示し、Address referentのextent、permission、initialization、lifetime、valid representationを証明しない。
+`Buffer<A>`は通常のgeneric argument、parameter、resultとして使える。`Storable(A)`はBufferが要素を保持できることだけを示す。
+`Representable(A)`はC host copy representationの存在だけを示し、Address referentのextent、permission、initialization、
+lifetime、valid representationを証明しない。
 
 ## Specialization
 

@@ -257,7 +257,7 @@ impl Checker {
         let previous_generic = self.active_generic.take();
         let result = (|| {
             let ty = self.expand_type(annotation)?;
-            let requirements = types::representable_requirements(&ty);
+            let requirements = types::storable_requirements(&ty);
             self.active_requirements = requirements.clone();
             self.active_generic = Some((
                 binding.id,

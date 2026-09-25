@@ -56,3 +56,48 @@ main :: Unit -> Int32 := () -> {
     grid.wr(sums, 0usize);
     0;
 };
+
+### buffer_of_symbols_new_put_fill_copy | run:28
+Entry :: (Symbol, Int32);
+Maybe :: [Unit, Symbol];
+total :: (Buffer<Symbol>, USize, USize) -> USize := (names, index, sum) ->
+    if (index == #names) then sum else total(names, index + 1usize, sum + #(names.get(index)));
+main :: Unit -> Int32 := () -> {
+    names := make<Symbol>(1usize);
+    names.new("ab" + "cd");
+    names.new("efg");
+    names.fill(2usize, 3usize, "xy" + "z");
+    alias := names;
+    alias.put(0usize, "longer" + " text");
+    names.copy(1usize, names, 0usize, 4usize);
+    names.put(1usize, names.get(1usize) + "!");
+    names.put(2usize, names.get(2usize));
+    names.copy(0usize, names, 1usize, 3usize);
+    entries := make<Entry>(0usize);
+    entries.new(("pair" + "ed", 7i32));
+    entries.fill(1usize, 2usize, ("q" + "q", 1i32));
+    entries.fill(0usize, 3usize, ("r" + "r", 2i32));
+    (label, number) := entries.get(0usize);
+    some :: Maybe := [none, some] => some("opt" + "ion");
+    nothing :: Maybe := [none, some] => none();
+    options := make<Maybe>(0usize);
+    options.new(some);
+    options.new(nothing);
+    options.fill(0usize, 2usize, some);
+    (total(names, 0usize, 0usize) + #label).i32 + number
+};
+### buffer_element_outlives_its_overwrite | run:0
+main :: Unit -> Int32 := () -> {
+    names := make<Symbol>(1usize);
+    names.new("kept" + " alive");
+    held := names.get(0usize);
+    names.put(0usize, "replaced");
+    if (held == "kept alive" && names.get(0usize) == "replaced") then 0 else 1
+};
+### buffer_of_symbols_dies_with_last_alias | run:0
+append :: Buffer<Symbol> -> Unit := (names) -> { names.new("a" + "b"); names.fill(1usize, 4usize, "c" + "d"); };
+main :: Unit -> Int32 := () -> {
+    names := make<Symbol>(0usize);
+    append(names);
+    if (#names == 5usize) then 0 else 1
+};

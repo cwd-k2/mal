@@ -137,15 +137,21 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
 }
 
 #[test]
-fn forms_indexed_memory_types_only_for_representable_elements() {
-    let error = check_error("Callback :: Int32 -> Int32; value :: Buffer<Callback> := 0;");
-    assert_eq!(error.message, "memory element type is not representable");
-
-    let error = check_error("value :: Buffer<[]> := 0;");
-    assert_eq!(error.message, "memory element type is not representable");
-
-    let error = check_error("value :: Buffer<Buffer<UInt8>> := 0;");
-    assert_eq!(error.message, "memory element type is not representable");
+fn forms_buffer_types_only_for_storable_elements() {
+    for source in [
+        "Callback :: Int32 -> Int32; value :: Buffer<Callback> := 0;",
+        "value :: Buffer<[]> := 0;",
+        "value :: Buffer<Buffer<UInt8>> := 0;",
+        "extern Handle; value :: Buffer<Handle> := 0;",
+        "value :: Buffer<(Int32, Buffer<UInt8>)> := 0;",
+        "value :: Buffer<[Unit, Unit -> Unit]> := 0;",
+    ] {
+        assert_eq!(
+            check_error(source).message,
+            "buffer element type is not storable",
+            "source: {source}"
+        );
+    }
 }
 
 #[test]
@@ -366,5 +372,35 @@ fn validates_an_explicit_entry_point_signature() {
     assert_eq!(
         arguments.entry.expect("checked entry point").parameter,
         mal_frontend::check::ast::EntryParameter::ProcessArguments
+    );
+}
+
+#[test]
+fn forms_buffers_of_symbols_and_aggregates_of_symbols() {
+    check_ok("build :: Unit -> Buffer<Symbol> := () -> make<Symbol>(0usize);");
+    check_ok(
+        "Entry :: (Symbol, Int32); build :: Unit -> Buffer<Entry> := () -> make<Entry>(0usize);",
+    );
+    check_ok(
+        "Maybe :: [Unit, Symbol]; build :: Unit -> Buffer<Maybe> := () -> make<Maybe>(0usize);",
+    );
+}
+
+#[test]
+fn keeps_c_host_copy_limited_to_representable_elements() {
+    let error = check_error(
+        "read :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);",
+    );
+    assert_eq!(
+        error.message,
+        "memory intrinsic requires a Representable element type"
+    );
+
+    let error = check_error(
+        "read<A> :: Address -> Buffer<A> := (address) -> from<A>(address, 0usize, 1usize);",
+    );
+    assert_eq!(
+        error.message,
+        "memory intrinsic requires a Representable element type"
     );
 }

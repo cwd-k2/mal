@@ -170,6 +170,16 @@ fn managed_values_are_released_exactly_once() {
     );
 }
 
+/// Buffers of Symbol-owning elements under growth, churn, overlapping copies, and deep recursion. The last case checks the
+/// managed `copy`, `fill`, and `put` against the same operations on a Buffer of plain lengths.
+#[test]
+fn buffer_element_ownership_under_load() {
+    run_all_with(
+        include_str!("spec/buffer_stress.txt"),
+        &["-fsanitize=address", "-g"],
+    );
+}
+
 #[test]
 fn operator_and_literal_rules() {
     run_all(include_str!("spec/operators.txt"));

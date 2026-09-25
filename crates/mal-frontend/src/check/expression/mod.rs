@@ -109,17 +109,17 @@ impl Checker {
                         .iter()
                         .position(|parameter| parameter.id == *required)
                         .expect("requirements refer to declared parameters");
-                    if !super::types::satisfies_representable_requirement(
+                    if !super::types::satisfies_storable_requirement(
                         &arguments[index],
                         &self.active_requirements,
                     ) {
                         return Err(Diagnostic::error(
-                            "generic application lacks a Representable requirement",
+                            "generic application lacks a Storable requirement",
                         )
                         .with_primary(
                             reference.name.span,
                             format!(
-                                "type argument `{}` is not known to be representable",
+                                "type argument `{}` is not known to be storable",
                                 type_name(&arguments[index])
                             ),
                         )

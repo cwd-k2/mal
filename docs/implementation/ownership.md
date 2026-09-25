@@ -23,6 +23,16 @@ C runtimeのwriteへ暗黙に適用してはならない。functionのinlining�
 object fieldとelement storageのaccessは同じemitter-owned TBAA rootの異なる型として表す。runtime callはこのTBAAを持たないため、
 growth後はactive dataを再取得する。
 
+## Bufferのelement
+
+canonical layoutを持つ要素はそのlayoutで、`Symbol`を含む要素はruntime valueのlayoutでBuffer storageに置く。後者のBufferは
+`make`の時点で、その要素型のretainとreleaseを行うprogram固有のcallbackをruntimeへ渡す。runtimeはBufferが書く要素ごとに
+一つのreferenceを取り、要素が上書きされるかBufferが破棄されるときに手放す。`new`、`fill`、`copy`はruntimeが
+callbackを呼び、`copy`はsourceのreferenceを全て取ってからdestinationのreferenceを手放すので、範囲が重なっても要素は先に解放されない。
+`get`は取り出した値をretainしたownedなresultとして返す。Bufferは共有mutableであり、後続の`put`が要素を手放し得るため、
+borrowとして返さない。`put`は新しい値をretainしてから旧要素をreleaseする。Buffer operandはこれまでどおり全てBorrowであり、
+格納する値のretainはBuffer operationが行う。
+
 ## slotとoperation
 
 managed local slotはzero状態で初期化する。owner successorと終了点は
