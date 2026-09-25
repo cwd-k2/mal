@@ -65,3 +65,16 @@ fn rejects_malformed_symbol_literals_at_the_lexer_boundary() {
         );
     }
 }
+
+#[test]
+fn ends_a_malformed_literal_span_before_the_line_terminator() {
+    for text in ["\"open\r\nnext", "'\\q\r\nnext", "\"open\nnext"] {
+        let error = lex(&source(text)).expect_err("literal should be rejected");
+        let end = error.primary.expect("primary label").span.end();
+        assert_eq!(
+            end,
+            text.find(['\r', '\n']).expect("line end"),
+            "input: {text:?}"
+        );
+    }
+}

@@ -30,11 +30,15 @@ pub(super) fn decode(
     Ok((value, offset + 1))
 }
 
-/// The end of a malformed literal: the byte after the next `quote` or before the line ends, starting at `offset`.
+/// The end of a malformed literal: the byte after the next `quote`, or the end of the line, starting at `offset`. The
+/// line terminator stays outside, so the span never ends between the two bytes of a CRLF.
 pub(super) fn recover(bytes: &[u8], mut offset: usize, quote: u8) -> usize {
     while let Some(&byte) = bytes.get(offset) {
+        if matches!(byte, b'\n' | b'\r') {
+            break;
+        }
         offset += 1;
-        if byte == quote || matches!(byte, b'\n' | b'\r') {
+        if byte == quote {
             break;
         }
     }
