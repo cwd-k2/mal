@@ -10,7 +10,7 @@ LineRead :: [Reader, LineState];
 _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     (file, memory, capacity, bytes, position) := reader;
     when (position < #bytes) {
-        read(((file, memory, capacity, bytes, position + 1usize), bytes.get(position)));
+        read((file, memory, capacity, bytes, position + 1usize), bytes.get(position));
     };
     transferred := readFile(file, memory, 0usize, capacity);
     // Snapshot the initialized prefix before the host transfer area is reused.
@@ -19,7 +19,7 @@ _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     when (transferred == 0usize) {
         eof(next);
     };
-    read(((file, memory, capacity, nextBytes, 1usize), nextBytes.get(0usize)));
+    read((file, memory, capacity, nextBytes, 1usize), nextBytes.get(0usize));
 };
 
 _readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> [eof, ready] => {
@@ -28,7 +28,7 @@ _readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> [eof, re
             when (#line == 0usize) {
                 eof(next);
             };
-            ready((next, line));
+            ready(next, line);
         },
         (read) -> read
     ];
@@ -37,13 +37,13 @@ _readLineAt :: (Reader, Buffer<UInt8>) -> LineRead := (reader, line) -> [eof, re
     when (byte == '\n') {
         lineLength := #line;
         when (lineLength > 0usize && line.get(lineLength - 1usize) == '\r') {
-            ready((next, line.copySlice(0usize, lineLength - 1usize)));
+            ready(next, line.copySlice(0usize, lineLength - 1usize));
         };
-        ready((next, line));
+        ready(next, line);
     };
     when (#line == 256usize) {
         fail("query line exceeds its buffer");
-        ready((next, line));
+        ready(next, line);
     };
     line.new(byte);
     next._readLineAt(line)[eof, ready];

@@ -19,7 +19,7 @@ upto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial, s
             break(next);
         };
 
-        continue((index + 1u64, next));
+        continue(index + 1u64, next);
     });
 
 downto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial, step) ->
@@ -33,7 +33,7 @@ downto<A> :: (UInt64, UInt64, A, (A, UInt64) -> A) -> A := (start, end, initial,
             break(next);
         };
 
-        continue((index - 1u64, next));
+        continue(index - 1u64, next);
     });
 
 // A count describes the number of transformations rather than an inclusive endpoint. In
@@ -44,7 +44,7 @@ times<A> :: (USize, A, A -> A) -> A := (count, initial, step) ->
             break(value);
         };
 
-        continue((index + 1usize, step(value)));
+        continue(index + 1usize, step(value));
     });
 
 // Search keeps its cursor as the loop state and can return before visiting the remaining range.
@@ -71,7 +71,7 @@ foldBuffer<A, B> :: (Buffer<A>, B, (B, A) -> B) -> B := (values, initial, step) 
             break(result);
         };
 
-        continue((index + 1usize, step(result, values.get(index))));
+        continue(index + 1usize, step(result, values.get(index)));
     });
 
 // Here the starting value is a natural subject, so receiver-first application reads as a range.

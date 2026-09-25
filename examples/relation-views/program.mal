@@ -47,7 +47,7 @@ _foldBuffer<A, B> :: (Buffer<A>, B, (B, A) -> B) -> B := (values, initial, combi
             break(result);
         };
 
-        continue((index + 1usize, combine(result, values.get(index))));
+        continue(index + 1usize, combine(result, values.get(index)));
     });
 
 buildRows :: Unit -> PairRows := () -> {

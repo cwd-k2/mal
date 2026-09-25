@@ -119,21 +119,21 @@ _hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
             when (!byte._isHexDigit()) {
                 break(false);
             };
-            continue((remaining.dropBytes(1usize), count - 1usize));
+            continue(remaining.dropBytes(1usize), count - 1usize);
         });
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
 _scanString :: Bytes -> ScanProgress := (source) ->
     _loop<Bytes, ScanProgress>(source, (remaining) -> [continue, break] => {
         when (remaining.byteCount() == 0usize) {
-            break((remaining, "unterminated JSON string"));
+            break(remaining, "unterminated JSON string");
         };
         byte := remaining.byteAt(0usize);
         when (byte == '"') {
-            break((remaining.dropBytes(1usize), ""));
+            break(remaining.dropBytes(1usize), "");
         };
         when (byte < 0x20u8) {
-            break((remaining, "control byte in JSON string"));
+            break(remaining, "control byte in JSON string");
         };
         when (byte != '\\') {
             continue(remaining.dropBytes(1usize));
@@ -141,7 +141,7 @@ _scanString :: Bytes -> ScanProgress := (source) ->
 
         afterSlash := remaining.dropBytes(1usize);
         when (afterSlash.byteCount() == 0usize) {
-            break((remaining, "unterminated JSON escape"));
+            break(remaining, "unterminated JSON escape");
         };
         escaped := afterSlash.byteAt(0usize);
         simple := escaped == '"'
@@ -159,7 +159,7 @@ _scanString :: Bytes -> ScanProgress := (source) ->
         when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
             continue(afterU.dropBytes(4usize));
         };
-        break((remaining, "invalid JSON escape"));
+        break(remaining, "invalid JSON escape");
     });
 
 _scanDigits :: Bytes -> Bytes := (source) ->
@@ -182,7 +182,7 @@ _scanNumber :: Bytes -> ScanProgress := (source) -> [return] => {
         then source.dropBytes(1usize)
         else source;
     when (unsigned.byteCount() == 0usize) {
-        return((source, "incomplete JSON number"));
+        return(source, "incomplete JSON number");
     };
 
     first := unsigned.byteAt(0usize);
@@ -190,7 +190,7 @@ _scanNumber :: Bytes -> ScanProgress := (source) -> [return] => {
         then unsigned.dropBytes(1usize)
         else {
             when (!first._isNonzeroDigit()) {
-                return((source, "invalid JSON number"));
+                return(source, "invalid JSON number");
             };
             (unsigned.dropBytes(1usize))._scanDigits();
         };
@@ -202,11 +202,11 @@ _scanNumber :: Bytes -> ScanProgress := (source) -> [return] => {
             then {
                 fraction := integerEnd.dropBytes(1usize);
                 when (fraction.byteCount() == 0usize) {
-                    return((source, "invalid JSON fraction"));
+                    return(source, "invalid JSON fraction");
                 };
                 digit := fraction.byteAt(0usize);
                 when (!digit._isDigit()) {
-                    return((source, "invalid JSON fraction"));
+                    return(source, "invalid JSON fraction");
                 };
                 (fraction.dropBytes(1usize))._scanDigits();
             }
@@ -221,25 +221,25 @@ _scanNumber :: Bytes -> ScanProgress := (source) -> [return] => {
             then {
                 exponent := afterFraction.dropBytes(1usize);
                 when (exponent.byteCount() == 0usize) {
-                    return((source, "incomplete JSON exponent"));
+                    return(source, "incomplete JSON exponent");
                 };
                 firstExponent := exponent.byteAt(0usize);
                 digits := if (firstExponent == '+' || firstExponent == '-')
                     then exponent.dropBytes(1usize)
                     else exponent;
                 when (digits.byteCount() == 0usize) {
-                    return((source, "invalid JSON exponent"));
+                    return(source, "invalid JSON exponent");
                 };
                 digit := digits.byteAt(0usize);
                 when (!digit._isDigit()) {
-                    return((source, "invalid JSON exponent"));
+                    return(source, "invalid JSON exponent");
                 };
                 (digits.dropBytes(1usize))._scanDigits();
             }
             else afterFraction;
         }
         else afterFraction;
-    return((afterExponent, ""));
+    return(afterExponent, "");
 };
 
 // This single loop-driven dispatcher executes the state at the top of the buffer frame stack.
@@ -265,19 +265,19 @@ _parse :: ParserState -> ParseResult := (initial) ->
         // accidental values and distinguishing the first element from later elements.
         when (frame == _arrayNext) {
             when (byte == ']') {
-                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
+                continue(source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats);
             };
             when (byte == ',') {
-                continue((source.dropBytes(1usize), frames._replaceFrame(_arrayValue), frameDepth, stats));
+                continue(source.dropBytes(1usize), frames._replaceFrame(_arrayValue), frameDepth, stats);
             };
             break(_parseFailure("expected comma or closing bracket"));
         };
         when (frame == _objectNext) {
             when (byte == '}') {
-                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
+                continue(source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats);
             };
             when (byte == ',') {
-                continue((source.dropBytes(1usize), frames._replaceFrame(_objectKey), frameDepth, stats));
+                continue(source.dropBytes(1usize), frames._replaceFrame(_objectKey), frameDepth, stats);
             };
             break(_parseFailure("expected comma or closing brace"));
         };
@@ -285,11 +285,11 @@ _parse :: ParserState -> ParseResult := (initial) ->
             when (byte != ':') {
                 break(_parseFailure("expected colon after object key"));
             };
-            continue((source.dropBytes(1usize), frames._replaceFrame(_objectValue), frameDepth, stats));
+            continue(source.dropBytes(1usize), frames._replaceFrame(_objectValue), frameDepth, stats);
         };
         when (frame == _objectFirst || frame == _objectKey) {
             when (frame == _objectFirst && byte == '}') {
-                continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
+                continue(source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats);
             };
             when (byte != '"') {
                 break(_parseFailure("expected JSON object key"));
@@ -298,10 +298,10 @@ _parse :: ParserState -> ParseResult := (initial) ->
             when (#keyError != 0usize) {
                 break(_parseFailure(keyError));
             };
-            continue((afterKey, frames._replaceFrame(_objectColon), frameDepth, stats));
+            continue(afterKey, frames._replaceFrame(_objectColon), frameDepth, stats);
         };
         when (frame == _arrayFirst && byte == ']') {
-            continue((source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats));
+            continue(source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats);
         };
 
         nextFrames := frames._completeValue();
@@ -311,19 +311,19 @@ _parse :: ParserState -> ParseResult := (initial) ->
             childFrame := if (byte == '[')
                 then _arrayFirst
                 else _objectFirst;
-            continue((
+            continue(
                 source.dropBytes(1usize),
                 nextFrames._pushFrame(childFrame),
                 frameDepth + 1u64,
                 nextStats
-            ));
+            );
         };
         when (byte == '"') {
             (afterString, stringError) := (source.dropBytes(1usize))._scanString();
             when (#stringError != 0usize) {
                 break(_parseFailure(stringError));
             };
-            continue((afterString, nextFrames, frameDepth, nextStats));
+            continue(afterString, nextFrames, frameDepth, nextStats);
         };
         when (byte == 't' || byte == 'f' || byte == 'n') {
             literal := if (byte == 't')
@@ -337,14 +337,14 @@ _parse :: ParserState -> ParseResult := (initial) ->
             when (#literalError != 0usize) {
                 break(_parseFailure(literalError));
             };
-            continue((afterLiteral, nextFrames, frameDepth, nextStats));
+            continue(afterLiteral, nextFrames, frameDepth, nextStats);
         };
         when (byte == '-' || byte._isDigit()) {
             (afterNumber, numberError) := source._scanNumber();
             when (#numberError != 0usize) {
                 break(_parseFailure(numberError));
             };
-            continue((afterNumber, nextFrames, frameDepth, nextStats));
+            continue(afterNumber, nextFrames, frameDepth, nextStats);
         };
         break(_parseFailure("expected JSON value"));
     });

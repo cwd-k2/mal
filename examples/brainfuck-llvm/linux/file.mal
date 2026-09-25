@@ -25,20 +25,20 @@ _readInto :: (Int32, MappingBuffer) -> MappingResult :=
         (memory, capacity, length) := buffer;
         when (length == capacity) {
             when (capacity == (-1u64).bytes) {
-                failure((buffer, _fileTooLarge));
+                failure(buffer, _fileTooLarge);
             };
             nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64.bytes)
                 then (-1u64).bytes
                 else capacity + capacity;
             nextMemory := resizeMapping(memory, capacity, nextCapacity)[
                 (nextMemory) -> nextMemory,
-                (error) -> failure((buffer, error))
+                (error) -> failure(buffer, error)
             ];
             _readInto(descriptor, (nextMemory, nextCapacity, length))[success, failure];
         };
         count := systemRead(descriptor, memory, length, capacity - length)[
             (count) -> count,
-            (error) -> failure((buffer, error))
+            (error) -> failure(buffer, error)
         ];
         when (count == 0bytes) {
             success(buffer);

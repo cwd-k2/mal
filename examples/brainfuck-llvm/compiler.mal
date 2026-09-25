@@ -67,13 +67,13 @@ _compileUntil :: (Buffer<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResu
         when (index == #source) {
             if (nested)
             then return(_stepFailure("unmatched '['\n"))
-            else return(_stepSuccess((index, nextLoop, output)));
+            else return(_stepSuccess(index, nextLoop, output));
         };
 
         byte := source.get(index);
         when (byte == ']') {
             if (nested)
-            then return(_stepSuccess((index + 1usize, nextLoop, output)))
+            then return(_stepSuccess(index + 1usize, nextLoop, output))
             else return(_stepFailure("unmatched ']'\n"));
         };
 

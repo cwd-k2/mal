@@ -56,7 +56,7 @@ _writeBuffer :: (ReadableBytes -> Unit, Address, USize, Buffer<UInt8>, USize) ->
             then remainingLength
             else capacity;
         bytes.into(memory, offset, transferred);
-        write((memory, transferred));
+        write(memory, transferred);
         return(_writeBuffer(write, memory, capacity, bytes, offset + transferred));
     };
 

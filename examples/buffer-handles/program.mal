@@ -19,7 +19,7 @@ len<A> :: View<A> -> USize := (source) -> {
 // The index becomes a Cell here and is not used again.
 at<A> :: (View<A>, USize) -> [Unit, Cell<A>] := (source, index) -> [none, some] => {
     (buffer, offset, length, writable) := source;
-    when (index < length) some((buffer, offset + index, writable));
+    when (index < length) some(buffer, offset + index, writable);
     none();
 };
 

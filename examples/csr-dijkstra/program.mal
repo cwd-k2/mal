@@ -81,11 +81,11 @@ selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
                 (distances, visited) := workspace;
                 distance := distances.at(current);
                 better := visited.at(current) == 0 && distance < candidateDistance;
-                continue((
+                continue(
                     current + 1,
                     if (better) then { current } else { candidate },
                     if (better) then { distance } else { candidateDistance }
-                ));
+                );
             });
 
 // Edge relaxation carries the current and terminal edge coordinates as its complete range state;
@@ -103,7 +103,7 @@ relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit 
             when (candidate < distances.at(neighbor)) {
                 distances.assign(neighbor, candidate);
             };
-            continue((current + 1, terminal));
+            continue(current + 1, terminal);
         });
 
 runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
