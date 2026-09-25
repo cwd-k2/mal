@@ -106,16 +106,11 @@ impl FunctionEmitter<'_> {
                 &prepared_fields,
             )
         } else {
-            let effect = self
-                .ownership
-                .terminator_use(
-                    site,
-                    crate::execution::ownership::TerminatorOperand::CallArgument,
-                )
-                .or_else(|| {
-                    (!crate::execution::ownership::is_managed(&argument.ty))
-                        .then_some(crate::execution::ownership::UseEffect::Borrow)
-                })?;
+            let effect = self.ownership.terminator_operand_use(
+                site,
+                crate::execution::ownership::TerminatorOperand::CallArgument,
+                argument,
+            )?;
             let argument = self.prepare_atom_for_use(argument, effect)?;
             if argument.value.ty != self.function.parameter.ty {
                 return None;
@@ -159,24 +154,19 @@ impl FunctionEmitter<'_> {
         preserve_environment: bool,
         pending: &[super::PreparedValue],
     ) -> Option<()> {
-        let callee_effect = self
-            .ownership
-            .terminator_use(
-                site,
-                match &self.control.states[site.0].terminator {
-                    crate::control::ast::Terminator::Call { .. } => {
-                        crate::execution::ownership::TerminatorOperand::CallCallee
-                    }
-                    crate::control::ast::Terminator::TailCall { .. } => {
-                        crate::execution::ownership::TerminatorOperand::TailCallee
-                    }
-                    _ => return None,
-                },
-            )
-            .or_else(|| {
-                (!crate::execution::ownership::is_managed(&callee.ty))
-                    .then_some(crate::execution::ownership::UseEffect::Borrow)
-            })?;
+        let callee_effect = self.ownership.terminator_operand_use(
+            site,
+            match &self.control.states[site.0].terminator {
+                crate::control::ast::Terminator::Call { .. } => {
+                    crate::execution::ownership::TerminatorOperand::CallCallee
+                }
+                crate::control::ast::Terminator::TailCall { .. } => {
+                    crate::execution::ownership::TerminatorOperand::TailCallee
+                }
+                _ => return None,
+            },
+            callee,
+        )?;
         let callee = self.prepare_atom_for_use(callee, callee_effect)?;
         let Type::Function { parameter, result } = &callee.value.ty else {
             return None;
@@ -210,13 +200,9 @@ impl FunctionEmitter<'_> {
             }
             _ => return None,
         };
-        let argument_effect = self
-            .ownership
-            .terminator_use(site, argument_operand)
-            .or_else(|| {
-                (!crate::execution::ownership::is_managed(&argument.ty))
-                    .then_some(crate::execution::ownership::UseEffect::Borrow)
-            })?;
+        let argument_effect =
+            self.ownership
+                .terminator_operand_use(site, argument_operand, argument)?;
         let argument = self.prepare_atom_for_use(argument, argument_effect)?;
         if argument.value.ty != *parameter {
             return None;

@@ -294,6 +294,30 @@ impl Plan {
             .copied()
     }
 
+    /// How binding `binding` at `state` uses its operand `atom`. A value without managed parts carries no
+    /// responsibility, so it is borrowed whether or not the plan records it.
+    pub(crate) fn binding_operand_use(
+        &self,
+        state: StateId,
+        binding: usize,
+        operand: BindingOperand,
+        atom: &crate::closure::ast::Atom,
+    ) -> Option<UseEffect> {
+        self.binding_use(state, binding, operand)
+            .or_else(|| (!is_managed(&atom.ty)).then_some(UseEffect::Borrow))
+    }
+
+    /// How the terminator of `state` uses its operand `atom`, with unmanaged values borrowed as above.
+    pub(crate) fn terminator_operand_use(
+        &self,
+        state: StateId,
+        operand: TerminatorOperand,
+        atom: &crate::closure::ast::Atom,
+    ) -> Option<UseEffect> {
+        self.terminator_use(state, operand)
+            .or_else(|| (!is_managed(&atom.ty)).then_some(UseEffect::Borrow))
+    }
+
     pub(crate) fn terminator_use(
         &self,
         state: StateId,

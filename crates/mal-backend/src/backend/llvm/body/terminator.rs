@@ -42,13 +42,11 @@ impl FunctionEmitter<'_> {
     fn emit_terminator(&mut self, site: StateId, terminator: &Terminator) -> Option<()> {
         match terminator {
             Terminator::Return(value) => {
-                let effect = self
-                    .ownership
-                    .terminator_use(site, crate::execution::ownership::TerminatorOperand::Return)
-                    .or_else(|| {
-                        (!crate::execution::ownership::is_managed(&value.ty))
-                            .then_some(crate::execution::ownership::UseEffect::Borrow)
-                    })?;
+                let effect = self.ownership.terminator_operand_use(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::Return,
+                    value,
+                )?;
                 let value = self.prepare_atom_for_use(value, effect)?;
                 let result_type = self.current_result_type()?;
                 if value.value.ty != result_type {
@@ -63,16 +61,11 @@ impl FunctionEmitter<'_> {
                 self.line(format!("  br label %mal_state_{}", target.0));
             }
             Terminator::Jump { target, value } => {
-                let effect = self
-                    .ownership
-                    .terminator_use(
-                        site,
-                        crate::execution::ownership::TerminatorOperand::JumpValue,
-                    )
-                    .or_else(|| {
-                        (!crate::execution::ownership::is_managed(&value.ty))
-                            .then_some(crate::execution::ownership::UseEffect::Borrow)
-                    })?;
+                let effect = self.ownership.terminator_operand_use(
+                    site,
+                    crate::execution::ownership::TerminatorOperand::JumpValue,
+                    value,
+                )?;
                 let value = self.prepare_atom_for_use(value, effect)?;
                 self.commit_consumes(&value)?;
                 self.store_input_pattern(*target, Some(&value.value))?;
@@ -225,16 +218,11 @@ impl FunctionEmitter<'_> {
                             .control_calls
                             .forwarded_self_argument(site)
                             .unwrap_or(argument);
-                        let effect = self
-                            .ownership
-                            .terminator_use(
-                                site,
-                                crate::execution::ownership::TerminatorOperand::TailArgument,
-                            )
-                            .or_else(|| {
-                                (!crate::execution::ownership::is_managed(&argument.ty))
-                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
-                            })?;
+                        let effect = self.ownership.terminator_operand_use(
+                            site,
+                            crate::execution::ownership::TerminatorOperand::TailArgument,
+                            argument,
+                        )?;
                         let value = self.prepare_atom_for_use(argument, effect)?;
                         let function = self.current_function()?.clone();
                         if function.parameter.ty != value.value.ty {

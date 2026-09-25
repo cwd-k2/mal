@@ -19,12 +19,12 @@ impl FunctionEmitter<'_> {
             Operation::Atom(atom) => self
                 .prepare_atom_for_use(
                     atom,
-                    self.ownership
-                        .binding_use(site, binding, BindingOperand::Atom)
-                        .or_else(|| {
-                            (!crate::execution::ownership::is_managed(&atom.ty))
-                                .then_some(crate::execution::ownership::UseEffect::Borrow)
-                        })?,
+                    self.ownership.binding_operand_use(
+                        site,
+                        binding,
+                        BindingOperand::Atom,
+                        atom,
+                    )?,
                 )
                 .and_then(|prepared| {
                     self.commit_consumes(&prepared)?;
@@ -63,12 +63,12 @@ impl FunctionEmitter<'_> {
                         .iter()
                         .enumerate()
                         .map(|(index, atom)| {
-                            self.ownership
-                                .binding_use(site, binding, BindingOperand::Capture(index))
-                                .or_else(|| {
-                                    (!crate::execution::ownership::is_managed(&atom.ty))
-                                        .then_some(crate::execution::ownership::UseEffect::Borrow)
-                                })
+                            self.ownership.binding_operand_use(
+                                site,
+                                binding,
+                                BindingOperand::Capture(index),
+                                atom,
+                            )
                         })
                         .collect::<Option<Vec<_>>>()?;
                     let environment_value =
@@ -309,12 +309,12 @@ impl FunctionEmitter<'_> {
                     .iter()
                     .enumerate()
                     .map(|(index, operand)| {
-                        self.ownership
-                            .binding_use(site, binding, BindingOperand::MemoryOperand(index))
-                            .or_else(|| {
-                                (!crate::execution::ownership::is_managed(&operand.ty))
-                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
-                            })
+                        self.ownership.binding_operand_use(
+                            site,
+                            binding,
+                            BindingOperand::MemoryOperand(index),
+                            operand,
+                        )
                     })
                     .collect::<Option<Vec<_>>>()?;
                 let prepared = if let [operand] = operands.as_slice() {
@@ -354,12 +354,12 @@ impl FunctionEmitter<'_> {
                     .iter()
                     .enumerate()
                     .map(|(index, atom)| {
-                        self.ownership
-                            .binding_use(site, binding, BindingOperand::ProductElement(index))
-                            .or_else(|| {
-                                (!crate::execution::ownership::is_managed(&atom.ty))
-                                    .then_some(crate::execution::ownership::UseEffect::Borrow)
-                            })
+                        self.ownership.binding_operand_use(
+                            site,
+                            binding,
+                            BindingOperand::ProductElement(index),
+                            atom,
+                        )
                     })
                     .collect::<Option<Vec<_>>>()?;
                 let prepared = self.emit_product(elements, result_type?, &effects)?;
@@ -367,13 +367,12 @@ impl FunctionEmitter<'_> {
                 Some(Some(prepared.value))
             }
             Operation::SumInjection { index, value } => {
-                let effect = self
-                    .ownership
-                    .binding_use(site, binding, BindingOperand::SumValue)
-                    .or_else(|| {
-                        (!crate::execution::ownership::is_managed(&value.ty))
-                            .then_some(crate::execution::ownership::UseEffect::Borrow)
-                    })?;
+                let effect = self.ownership.binding_operand_use(
+                    site,
+                    binding,
+                    BindingOperand::SumValue,
+                    value,
+                )?;
                 let prepared = self.emit_sum(*index, value, result_type?, effect)?;
                 self.commit_consumes(&prepared)?;
                 Some(Some(prepared.value))
