@@ -33,10 +33,7 @@ _reportStatus :: SocketStatus -> Bool := (status) -> {
 };
 
 _isRejected :: SocketStatus -> Bool := (status) -> {
-    status[
-    () -> false,
-    (_) -> true
-    ];
+    status[() -> false, (_) -> true];
 };
 
 _socketFailure :: UInt32 -> SocketStatus := (error) -> [complete, failed] => failed(error);

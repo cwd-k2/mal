@@ -59,10 +59,7 @@ write<A> :: (Cell<A>, A) -> Bool := (cell, value) -> {
 };
 
 poke<A> :: (View<A>, USize, A) -> Bool := (source, index, value) ->
-    at<A>(source, index)[
-        () -> false,
-        (cell) -> write<A>(cell, value)
-    ];
+    at<A>(source, index)[() -> false, (cell) -> write<A>(cell, value)];
 
 // Sequential traversal without an index.
 sumFrom :: (View<Int32>, Int32) -> Int32 := (source, total) ->
@@ -80,10 +77,7 @@ sumHalves :: View<Int32> -> Int32 := (source) -> {
     if (count == 0usize)
     then 0i32
     else if (count == 1usize)
-        then at<Int32>(source, 0usize)[
-            () -> 0i32,
-            (cell) -> read<Int32>(cell)
-        ]
+        then at<Int32>(source, 0usize)[() -> 0i32, (cell) -> read<Int32>(cell)]
         else split<Int32>(source, count / 2usize)[
             () -> 0i32,
             (halves) -> {

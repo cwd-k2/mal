@@ -17,8 +17,5 @@ validateResize :: (Allocation, USize) -> Int32 := (sized) -> {
 main :: Unit -> Int32 := () -> {
     allocation := allocate(40usize);
     resized := allocation.resize(2usize);
-    resized[
-    () -> 1,
-    (result) -> result.validateResize()
-    ];
+    resized[() -> 1, (result) -> result.validateResize()];
 };

@@ -35,35 +35,21 @@ Arguments :: (USize, Address);
 
 bufferSize :: USize := 4096usize;
 
-_completed :: Unit -> CopyResult := () -> [complete, failed] => complete();
-
 // A tail step owns one read result: EOF completes, bytes make observable progress, and an error exits
 // through CopyResult before copyPath performs the common close-and-release cleanup.
-copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> {
+copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> [complete, failed] => {
     (memory, capacity, _) := buffer;
-    result := file.readFile((memory, capacity));
-    result[
-    (length) -> [return] => {
-        when (length == 0usize) {
-            return(_completed());
-        };
-        writeBytes(memory, length);
-        return(file.copyContents((memory, capacity, length)));
-    },
-    (error) -> [complete, failed] => failed(error)
-    ];
+    length := file.readFile((memory, capacity))[(length) -> length, (error) -> failed(error)];
+    when (length == 0usize) {
+        complete();
+    };
+    writeBytes(memory, length);
+    file.copyContents((memory, capacity, length))[complete, failed];
 };
 
-finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> {
-    copied[
-    () -> {
-        closed[
-        () -> [complete, failed] => complete(),
-        (error) -> [complete, failed] => failed(error)
-        ];
-    },
-    (error) -> [complete, failed] => failed(error)
-    ];
+// A copy error is preserved over a later close error.
+finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> [complete, failed] => {
+    copied[() -> closed[complete, failed], failed];
 };
 
 copyPath :: (Address, USize) -> CopyResult := (path) -> {

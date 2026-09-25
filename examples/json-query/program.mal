@@ -18,10 +18,7 @@ _runQuery :: Query -> Int32 := (query) -> {
     _reportParseError,
     (stats) -> {
         // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
-        renderer := query[
-            renderCount,
-            renderDepth
-        ];
+        renderer := query[renderCount, renderDepth];
         writeStdout(stats[renderer] + "\n");
         0;
     }
