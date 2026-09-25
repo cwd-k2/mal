@@ -201,6 +201,15 @@ pub enum EntryParameter {
     ProcessArguments,
 }
 
+impl EntryParameter {
+    /// The `main` parameter type: a buffer holding an `(address, length)` per process argument.
+    pub fn process_arguments_type() -> Type {
+        Type::Buffer(Arc::new(Type::Product(
+            vec![Type::Address, Type::USize].into(),
+        )))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonomorphicProgram(Program);
 

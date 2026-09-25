@@ -125,7 +125,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | runtime | managed Buffer storage、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
-| process shim | `argc - 1`と`argv + 1`を`(USize, Address)` rootへ渡す |
+| process shim | `argv + 1`から作ったargument Bufferを`Buffer<(Address, USize)>` rootへ渡す |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
 避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に

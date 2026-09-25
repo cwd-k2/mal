@@ -20,9 +20,9 @@ generated headerと対応するbuild artifactは一組であり、異なるcompi
 #define MAL_C_ABI_VERSION 0x000800u
 ```
 
-`main :: Unit -> Int32`は`main(void)`へ、`main :: (USize, Address) -> Int32`は`main(int, char **)`へlowerする。
-後者ではshimが実行ファイル名を除いたcountと`argv + 1`をそのまま渡す。pointer列とargument bytesは`main`のreturnまで
-read-onlyで有効であり、各C stringの長さと解釈はhost contractが提供する。
+`main :: Unit -> Int32`は`main(void)`へ、`main :: Buffer<(Address, USize)> -> Int32`は`main(int, char **)`へlowerする。
+後者ではshimが`argv + 1`の各C stringの先頭addressと終端NULを除くbyte lengthを持つBufferを渡す。
+argument bytesは`main`のreturnまで read-onlyで有効であり、その解釈はhost contractが提供する。
 
 ## Host operation
 

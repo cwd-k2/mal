@@ -189,7 +189,6 @@ typedef struct mal_detail_repr_sum_3 mal_repr_sum_3_t;
 typedef struct mal_detail_repr_product_4 mal_repr_product_4_t;
 typedef struct mal_detail_repr_sum_5 mal_repr_sum_5_t;
 typedef struct mal_detail_repr_sum_6 mal_repr_sum_6_t;
-typedef struct mal_detail_repr_product_7 mal_repr_product_7_t;
 typedef mal_repr_product_0_t mal_ByteBuffer_t;
 typedef mal_repr_product_2_t mal_WritableBytes_t;
 typedef mal_UInt32_t mal_IoError_t;
@@ -198,7 +197,6 @@ typedef mal_repr_sum_3_t mal_OpenResult_t;
 typedef mal_repr_sum_5_t mal_ReadResult_t;
 typedef mal_repr_sum_6_t mal_CloseResult_t;
 typedef mal_repr_sum_6_t mal_CopyResult_t;
-typedef mal_repr_product_7_t mal_Arguments_t;
 
 struct mal_detail_repr_product_0 {
     mal_Address_t field_0;
@@ -243,11 +241,6 @@ struct mal_detail_repr_sum_6 {
         mal_Unit_t variant_0;
         mal_UInt32_t variant_1;
     } payload;
-};
-
-struct mal_detail_repr_product_7 {
-    mal_USize_t field_0;
-    mal_Address_t field_1;
 };
 
 /* Type helpers */
@@ -633,18 +626,6 @@ static inline void mal_detail_memory_write_6(mal_call_t *call MAL_DETAIL_MAYBE_U
     }
 }
 
-static inline mal_repr_product_7_t mal_detail_memory_read_7(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_7_t value;
-    value.field_0 = mal_detail_memory_read_USize(call, source + 0);
-    value.field_1 = mal_detail_memory_read_Address(call, source + 8);
-    return value;
-}
-
-static inline void mal_detail_memory_write_7(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_7_t value) {
-    mal_detail_memory_write_USize(call, destination + 0, value.field_0);
-    mal_detail_memory_write_Address(call, destination + 8, value.field_1);
-}
-
 static inline mal_ByteBuffer_t mal_ByteBuffer_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
     return mal_detail_memory_read_0(call, (const uint8_t *)address + (index * 24));
@@ -705,16 +686,6 @@ static inline void mal_CopyResult_write(mal_call_t *call, mal_Address_t address,
     mal_detail_memory_write_6(call, (uint8_t *)address + (index * 8), value);
 }
 
-static inline mal_Arguments_t mal_Arguments_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_7(call, (const uint8_t *)address + (index * 16));
-}
-
-static inline void mal_Arguments_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Arguments_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_7(call, (uint8_t *)address + (index * 16), value);
-}
-
 /* External operations */
 
 MalType_OwnedBuffer mal_ext_allocateBuffer(MalContext *context, MalType_USize value);
@@ -724,7 +695,6 @@ MalType_ReadResult mal_ext_readFile(MalContext *context, MalType_File argument_0
 MalType_CloseResult mal_ext_closeFile(MalContext *context, MalType_File value);
 void mal_ext_writeBytes(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 void mal_ext_writeError(MalContext *context, MalType_IoError value);
-MalType_USize mal_ext_argumentLength(MalContext *context, MalType_Address value);
 
 /* External definition helpers */
 
@@ -810,18 +780,6 @@ void mal_ext_writeError(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_IoE
 static MalType_Unit mal_detail_writeError( \
     mal_call_t *call, \
     mal_IoError_t value \
-)
-
-#define MAL_HAS_EXTERN_argumentLength 1
-#define MAL_DEFINE_argumentLength(call, value) \
-static MalType_USize mal_detail_argumentLength(mal_call_t *call, mal_Address_t value); \
-MalType_USize mal_ext_argumentLength(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_argumentLength(&call, value); \
-} \
-static MalType_USize mal_detail_argumentLength( \
-    mal_call_t *call, \
-    mal_Address_t value \
 )
 
 #endif

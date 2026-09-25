@@ -43,7 +43,6 @@ extern writeStdout :: ReadableBytes -> Unit;
 extern writeStderr :: ReadableBytes -> Unit;
 // Terminates after an error message has been emitted.
 extern failNow :: Unit -> Unit;
-extern argumentLength :: Address -> USize;
 
 // Each tail step lends one bounded chunk to the selected sink and carries only the remaining bytes.
 _writeBuffer :: (ReadableBytes -> Unit, Address, USize, Buffer<UInt8>, USize) -> Unit :=
@@ -72,6 +71,3 @@ fail :: Symbol -> Unit := (value) -> {
     _writeBuffer(writeStderr, memory, capacity, *"\n", 0usize);
     failNow();
 };
-
-// Arguments fields: 0 argument count, 1 first external descriptor address.
-Arguments :: (USize, Address);

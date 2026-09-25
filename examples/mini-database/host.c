@@ -128,9 +128,6 @@ MAL_DEFINE_writeFile(call, value) {
     return mal_USize_return(call, written);
 }
 
-MAL_DEFINE_argumentLength(call, address) {
-    return mal_USize_return(call, strlen((const char *)address));
-}
 
 MAL_DEFINE_rewindFile(call, file) {
     if (fseek(file_handle(file), 0, SEEK_SET) != 0) {

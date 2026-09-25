@@ -2,13 +2,12 @@ require "./host.mal";
 require "./application.mal";
 
 // The runtime excludes the executable name, so exactly one descriptor is the database path.
-main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
-    when (argumentCount != 1usize) {
+main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> [return] => {
+    when (#arguments != 1usize) {
         writeSymbol("usage: mal-mini-database DATABASE\n");
         return(2);
     };
 
-    addresses := from<Address>(arguments, 0usize, 1usize);
-    pathAddress := addresses.get(0usize);
-    return(executeDatabase(pathAddress, argumentLength(pathAddress)));
+    (pathAddress, pathLength) := arguments.get(0usize);
+    return(executeDatabase(pathAddress, pathLength));
 };

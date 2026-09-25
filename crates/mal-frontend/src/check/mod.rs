@@ -490,23 +490,23 @@ fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic>
     let Type::Function { parameter, result } = ty else {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
         ));
     };
     let parameter = if **parameter == Type::Unit {
         ast::EntryParameter::Unit
-    } else if **parameter == Type::Product(vec![Type::USize, Type::Address].into()) {
+    } else if **parameter == ast::EntryParameter::process_arguments_type() {
         ast::EntryParameter::ProcessArguments
     } else {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
         ));
     };
     if **result != Type::Int32 {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `(USize, Address) -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
         ));
     }
     Ok(Some(ast::EntryPoint {

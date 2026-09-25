@@ -78,27 +78,21 @@ backendは`main()`の結果をprocess exit statusへ渡す。library compilation
 command-line argumentを受け取る実行可能programは、代わりに次のentry pointを持てる。
 
 ```mal
-Arguments :: (USize, Address);
-extern argumentLength :: Address -> USize;
-
-main :: Arguments -> Int32 := (argumentCount, arguments) ->
-    if (argumentCount == 0usize)
+main :: Buffer<(Address, USize)> -> Int32 := (arguments) ->
+    if (#arguments == 0usize)
     then 0
     else {
-        pointers := from<Address>(arguments, 0usize, argumentCount);
-        firstAddress := pointers.get(0usize);
-        // An operation-specific extern contract supplies the byte length.
-        first :: Symbol := *from<UInt8>(firstAddress, 0usize, argumentLength(firstAddress));
+        (firstAddress, firstLength) := arguments.get(0usize);
+        first :: Symbol := *from<UInt8>(firstAddress, 0usize, firstLength);
         0;
     };
 ```
 
-productの第一要素は実行ファイル名を除くargument数である。第二要素はargument collectionを指すcapabilityで、`argv[1]`以降の
-C pointer列を指す。`from<Address>`で必要なpointerをBufferへcopyできる。各C stringのlengthとencodingの解釈はextern contractが
-提供する。argument数が0のときも第二要素はhost contractが定める値であり、要素を読み出してはならない。
+parameterは`argv[1]`以降の各argumentを表す`(Address, USize)`のBufferで、実行ファイル名を含まない。
+Addressは終端NULを持つC stringの先頭、USizeは終端NULを除くbyte lengthである。Bufferのcountはargument数に等しく、encodingの
+解釈はhost contractが提供する。
 
-各Addressは終端NULを持つC stringを指すが、`from<UInt8>`へ渡すlengthには終端NULを含める必要はない。pointer列と各byte regionは
-`main`のreturnまでread-onlyで有効である。`count`以上のpointerをcopyしてはならない。
+各byte regionは`main`のreturnまでread-onlyで有効であり、Bufferはmal-ownedなので通常のBufferとして変更できる。
 
-`Unit -> Int32`と`(USize, Address) -> Int32`以外の`main`型はcompile-time errorである。設計理由は
+`Unit -> Int32`と`Buffer<(Address, USize)> -> Int32`以外の`main`型はcompile-time errorである。設計理由は
 [D030](../history/decisions/D030.md)に記録する。

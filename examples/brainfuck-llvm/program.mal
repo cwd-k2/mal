@@ -3,9 +3,6 @@ require "./linux/file.mal";
 require "./linux/output.mal";
 require "./linux/syscall.mal";
 
-// Arguments fields: 0 user argument count, 1 first host-owned argument descriptor.
-Arguments :: (USize, Address);
-
 // Preserve a failed output status after the diagnostic attempt; diagnostics do not replace the
 // operation that determines the process result.
 _finishOutput :: SyscallStatus -> Int32 := (written) -> {
@@ -18,16 +15,14 @@ _finishOutput :: SyscallStatus -> Int32 := (written) -> {
     ];
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
-    when (argumentCount != 1usize) {
+main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> [return] => {
+    when (#arguments != 1usize) {
         writeStderr("usage: brainfuck-llvm SOURCE.bf\n");
         return(2);
     };
 
-    // Admit the one required descriptor before interpreting its bytes as an immutable path.
-    argumentAddresses := from<Address>(arguments, 0usize, 1usize);
-    pathAddress := argumentAddresses.get(0usize);
-    path := *from<UInt8>(pathAddress, 0usize, argumentLength(pathAddress));
+    (pathAddress, pathLength) := arguments.get(0usize);
+    path := *from<UInt8>(pathAddress, 0usize, pathLength);
     read := readSource(path);
     source := read[
         (source) -> source,

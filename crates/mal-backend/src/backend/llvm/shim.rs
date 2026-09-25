@@ -41,11 +41,13 @@ fn unit_main(entry: &str) -> FunctionDefinition {
 }
 
 fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<FunctionDefinition> {
-    let fields = types.product_fields(parameter)?;
-    let count_offset = fields.first()?.offset;
-    let pointer_offset = fields.get(1)?.offset;
+    let Type::Buffer(element) = parameter else {
+        return None;
+    };
+    let element_fields = types.product_fields(element)?;
+    let length_offset = element_fields.get(1)?.offset;
+    let stride = types.value(element)?.size;
     let value = types.value(parameter)?;
-    let count = identifier("argument_count");
 
     let body = Block::new([
         variable("MalContext", "context", Some(zero_initializer())),
@@ -63,24 +65,24 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 .aligned(number(value.alignment)),
             Some(zero_initializer()),
         ),
-        variable("size_t", "count_usize", Some(count)),
         variable(
             TypeName::named("void").pointer(),
             "arguments",
-            Some(Expr::add(identifier("mal_argv"), number(1))),
+            Some(Expr::named_call(
+                "mal_runtime_buffer_from_strings",
+                [
+                    Expr::address_of(identifier("context")),
+                    Expr::add(identifier("mal_argv"), number(1)),
+                    identifier("argument_count"),
+                    number(stride),
+                    number(length_offset),
+                ],
+            )),
         ),
         call(
             "memcpy",
             [
-                Expr::add(identifier("argument"), number(count_offset)),
-                Expr::address_of(identifier("count_usize")),
-                Expr::sizeof_value(identifier("count_usize")),
-            ],
-        ),
-        call(
-            "memcpy",
-            [
-                Expr::add(identifier("argument"), number(pointer_offset)),
+                identifier("argument"),
                 Expr::address_of(identifier("arguments")),
                 Expr::sizeof_value(identifier("arguments")),
             ],

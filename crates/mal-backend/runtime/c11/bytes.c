@@ -592,6 +592,28 @@ void *mal_runtime_buffer_from(
     return buffer;
 }
 
+void *mal_runtime_buffer_from_strings(
+    MalContext *context,
+    char *const *strings,
+    size_t count,
+    size_t stride,
+    size_t length_offset
+) {
+    MalBuffer *buffer = mal_runtime_buffer_make(context, stride, count);
+    if (count == 0) {
+        return buffer;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        unsigned char *element = (unsigned char *)buffer->data + index * stride;
+        size_t length = strlen(strings[index]);
+        memcpy(element, &strings[index], sizeof strings[index]);
+        memcpy(element + length_offset, &length, sizeof length);
+    }
+    ((MalBytesFlat *)buffer->owner)->header.length = (uint64_t)(count * stride);
+    buffer->count = count;
+    return buffer;
+}
+
 void mal_runtime_buffer_into(
     MalContext *context,
     const void *opaque_buffer,

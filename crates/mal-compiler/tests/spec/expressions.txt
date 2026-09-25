@@ -108,7 +108,7 @@ f :: Int32 -> Int32 := ((n) -> f(n));
 ### main_wrong_type | err:
 main :: Unit -> Int64 := () -> 0;
 ### main_args_ok | ok
-main :: (USize, Address) -> Int32 := (n, a) -> 0;
+main :: Buffer<(Address, USize)> -> Int32 := (a) -> 0;
 ### main_missing_ok_lib | ok
 f :: Int32 -> Int32 := (x) -> x;
 ### closure_capture | run:15

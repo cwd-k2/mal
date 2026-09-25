@@ -398,12 +398,11 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "Arguments :: (USize, Address);\n\
-         main :: Arguments -> Int32 := (count, arguments) -> {\n\
-           addresses := from<Address>(arguments, 0usize, count);\n\
-           first := *from<UInt8>(addresses.get(0usize), 0usize, 5usize);\n\
-           second := from<UInt8>(addresses.get(1usize), 0usize, 0usize);\n\
-           if (count == 2usize && first == \"alpha\" && #second == 0usize)\n\
+        "main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> {\n\
+           (firstAddress, firstLength) := arguments.get(0usize);\n\
+           (_, secondLength) := arguments.get(1usize);\n\
+           first := *from<UInt8>(firstAddress, 0usize, firstLength);\n\
+           if (#arguments == 2usize && first == \"alpha\" && secondLength == 0usize)\n\
            then 0\n\
            else 1;\n\
          };",
@@ -434,26 +433,15 @@ fn passes_process_arguments_through_the_llvm_entry_bridge() {
 }
 
 #[test]
-fn passes_a_non_null_empty_process_argument_pointer() {
+fn passes_an_empty_argument_buffer_without_process_arguments() {
     let directory = NativeFixture::new("driver-llvm-empty-arguments");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
-        "require \"./host.c\";\n\
-         extern pointerIsNonNull :: Address -> Bool;\n\
-         main :: (USize, Address) -> Int32 := (count, arguments) -> {\n\
-           if (count == 0usize) then {\n\
-             if (pointerIsNonNull(arguments)) then { 0 } else { 1 };\n\
-           } else { 2 };\n\
+        "main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> {\n\
+           if (#arguments == 0usize) then { 0 } else { 2 };\n\
          };",
-    );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         MAL_DEFINE_pointerIsNonNull(call, value) {\n\
-           return mal_Bool_return(call, value != NULL ? mal_true : mal_false);\n\
-         }\n",
     );
 
     let output = directory.malc([

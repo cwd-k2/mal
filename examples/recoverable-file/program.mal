@@ -28,10 +28,6 @@ extern readFile :: (File, WritableBytes) -> ReadResult;
 extern closeFile :: File -> CloseResult;
 extern writeBytes :: (Address, USize) -> Unit;
 extern writeError :: IoError -> Unit;
-extern argumentLength :: Address -> USize;
-
-// Arguments fields: 0 argument count, 1 first external descriptor address.
-Arguments :: (USize, Address);
 
 bufferSize :: USize := 4096usize;
 
@@ -68,15 +64,14 @@ copyPath :: (Address, USize) -> CopyResult := (path) -> {
     outcome;
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments) -> [return] => {
-    when (argumentCount != 1usize) {
+main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> [return] => {
+    when (#arguments != 1usize) {
         writeError(22u32);
         return(2);
     };
 
-    descriptors := from<Address>(arguments, 0usize, argumentCount);
-    pathAddress := descriptors.get(0usize);
-    result := copyPath(pathAddress, argumentLength(pathAddress));
+    (pathAddress, pathLength) := arguments.get(0usize);
+    result := copyPath(pathAddress, pathLength);
     status :: Int32 := result[
         () -> 0,
         (error) -> {

@@ -153,6 +153,15 @@ void *mal_runtime_buffer_from(
     size_t count,
     size_t stride
 );
+/* Builds a buffer of `(address, length)` elements from NUL-terminated strings. The address is the first field of an element
+ * of `stride` bytes and the length, without the terminator, lies at `length_offset`. */
+void *mal_runtime_buffer_from_strings(
+    MalContext *context,
+    char *const *strings,
+    size_t count,
+    size_t stride,
+    size_t length_offset
+);
 void mal_runtime_buffer_into(
     MalContext *context,
     const void *buffer,

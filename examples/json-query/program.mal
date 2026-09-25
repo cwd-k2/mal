@@ -25,16 +25,15 @@ _runQuery :: Query -> Int32 := (query) -> {
     ];
 };
 
-main :: Arguments -> Int32 := (argumentCount, arguments) -> {
-    if (argumentCount != 1usize)
+main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> {
+    if (#arguments != 1usize)
     then {
         writeStdout("{\"ok\":false,\"error\":\"usage: mal-json-query count|depth\"}\n");
         2;
     }
     else {
-        argumentAddresses := from<Address>(arguments, 0usize, 1usize);
-        argumentAddress := argumentAddresses.get(0usize);
-        queryBytes := from<UInt8>(argumentAddress, 0usize, argumentLength(argumentAddress));
+        (argumentAddress, argumentLength) := arguments.get(0usize);
+        queryBytes := from<UInt8>(argumentAddress, 0usize, argumentLength);
         query := (queryBytes, 0usize).parseQuery();
         query[
             (message) -> {

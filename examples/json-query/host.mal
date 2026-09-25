@@ -1,8 +1,6 @@
 require "./host.c";
 require "./bytes.mal";
 
-// Arguments fields: 0 argument count, 1 first external descriptor address.
-Arguments :: (USize, Address);
 extern InputAllocation;
 // StdinBytes fields: 0 allocation authority, 1 readable memory, 2 initialized byte length.
 StdinBytes :: (InputAllocation, Address, USize);
@@ -17,7 +15,6 @@ extern releaseInput :: InputAllocation -> Unit;
 extern outputBuffer :: Unit -> OutputBuffer;
 // Writes an initialized prefix of the staging buffer to standard output.
 extern writeBytes :: OutputBuffer -> Unit;
-extern argumentLength :: Address -> USize;
 
 // Each tail step publishes one bounded chunk before carrying the untouched suffix forward.
 _writeBuffer :: (Address, USize, Buffer<UInt8>, USize) -> Unit :=

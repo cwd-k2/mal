@@ -26,4 +26,3 @@ extern systemRead :: (Int32, Address, ByteSize, ByteSize) -> TransferResult;
 // Writes at most the requested extent from caller-owned readable storage.
 extern systemWrite :: (Int32, Address, ByteSize, ByteSize) -> TransferResult;
 extern storeZero :: (Address, ByteSize) -> Unit;
-extern argumentLength :: Address -> USize;

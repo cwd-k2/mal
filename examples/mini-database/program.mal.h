@@ -235,7 +235,6 @@ MalType_OutputBuffer mal_ext_outputBuffer(MalContext *context);
 void mal_ext_writeStdout(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 void mal_ext_writeStderr(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
 void mal_ext_failNow(MalContext *context);
-MalType_USize mal_ext_argumentLength(MalContext *context, MalType_Address value);
 
 /* External definition helpers */
 
@@ -401,18 +400,6 @@ void mal_ext_failNow(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
 } \
 static MalType_Unit mal_detail_failNow( \
     mal_call_t *call \
-)
-
-#define MAL_HAS_EXTERN_argumentLength 1
-#define MAL_DEFINE_argumentLength(call, value) \
-static MalType_USize mal_detail_argumentLength(mal_call_t *call, mal_Address_t value); \
-MalType_USize mal_ext_argumentLength(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_argumentLength(&call, value); \
-} \
-static MalType_USize mal_detail_argumentLength( \
-    mal_call_t *call, \
-    mal_Address_t value \
 )
 
 #endif

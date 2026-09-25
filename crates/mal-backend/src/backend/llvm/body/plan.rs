@@ -13,7 +13,7 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
     let parameter = match entry.parameter {
         mal_frontend::check::ast::EntryParameter::Unit => Type::Unit,
         mal_frontend::check::ast::EntryParameter::ProcessArguments => {
-            Type::Product(vec![Type::USize, Type::Address].into())
+            mal_frontend::check::ast::EntryParameter::process_arguments_type()
         }
     };
     Some((entry.function, parameter))

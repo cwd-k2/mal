@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <float.h>
-#include <string.h>
 
 #define MAL_C_ABI_VERSION 0x000800u
 
@@ -239,7 +238,6 @@ typedef struct mal_detail_repr_product_8 mal_repr_product_8_t;
 typedef struct mal_detail_repr_sum_9 mal_repr_sum_9_t;
 typedef struct mal_detail_repr_product_10 mal_repr_product_10_t;
 typedef struct mal_detail_repr_sum_11 mal_repr_sum_11_t;
-typedef struct mal_detail_repr_product_12 mal_repr_product_12_t;
 typedef mal_repr_sum_0_t mal_OptionalAddress_t;
 typedef mal_repr_product_1_t mal_MapRequest_t;
 typedef mal_repr_product_3_t mal_ResizeRequest_t;
@@ -248,7 +246,6 @@ typedef mal_repr_sum_7_t mal_FileDescriptorResult_t;
 typedef mal_repr_sum_9_t mal_OffsetResult_t;
 typedef mal_repr_sum_11_t mal_TransferResult_t;
 typedef mal_repr_sum_5_t mal_SyscallStatus_t;
-typedef mal_repr_product_12_t mal_Arguments_t;
 
 struct mal_detail_repr_sum_0 {
     uint32_t tag;
@@ -337,11 +334,6 @@ struct mal_detail_repr_sum_11 {
         mal_ByteSize_t variant_0;
         mal_UInt32_t variant_1;
     } payload;
-};
-
-struct mal_detail_repr_product_12 {
-    mal_USize_t field_0;
-    mal_Address_t field_1;
 };
 
 /* Type helpers */
@@ -762,51 +754,6 @@ static inline MalType_SyscallStatus mal_SyscallStatus_return_1(mal_call_t *call,
     return mal_detail_to_raw_5(call, (mal_SyscallStatus_t){ .tag = mal_SyscallStatus_tag_1, .payload.variant_1 = value });
 }
 
-/* Canonical memory access */
-
-static inline mal_Address_t mal_detail_memory_read_Address(mal_call_t *call, const uint8_t *source) {
-    mal_Address_t value;
-    memcpy(&value, source, sizeof(value));
-    return mal_Address_return(call, value);
-}
-
-static inline void mal_detail_memory_write_Address(mal_call_t *call, uint8_t *destination, mal_Address_t value) {
-    mal_Address_return(call, value);
-    memcpy(destination, &value, sizeof(value));
-}
-
-static inline mal_USize_t mal_detail_memory_read_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
-    mal_USize_t value;
-    memcpy(&value, source, sizeof(value));
-    return value;
-}
-
-static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_USize_t value) {
-    memcpy(destination, &value, sizeof(value));
-}
-
-static inline mal_repr_product_12_t mal_detail_memory_read_12(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_12_t value;
-    value.field_0 = mal_detail_memory_read_USize(call, source + 0);
-    value.field_1 = mal_detail_memory_read_Address(call, source + 8);
-    return value;
-}
-
-static inline void mal_detail_memory_write_12(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_12_t value) {
-    mal_detail_memory_write_USize(call, destination + 0, value.field_0);
-    mal_detail_memory_write_Address(call, destination + 8, value.field_1);
-}
-
-static inline mal_Arguments_t mal_Arguments_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_12(call, (const uint8_t *)address + (index * 16));
-}
-
-static inline void mal_Arguments_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_Arguments_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_12(call, (uint8_t *)address + (index * 16), value);
-}
-
 /* External operations */
 
 MalType_AddressResult mal_ext_systemMmap(MalContext *context, MalType_OptionalAddress argument_0, MalType_ByteSize argument_1, MalType_Int32 argument_2, MalType_Int32 argument_3, MalType_Int32 argument_4, MalType_UInt64 argument_5);
@@ -818,7 +765,6 @@ MalType_SyscallStatus mal_ext_systemClose(MalContext *context, MalType_Int32 val
 MalType_TransferResult mal_ext_systemRead(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_ByteSize argument_2, MalType_ByteSize argument_3);
 MalType_TransferResult mal_ext_systemWrite(MalContext *context, MalType_Int32 argument_0, MalType_Address argument_1, MalType_ByteSize argument_2, MalType_ByteSize argument_3);
 void mal_ext_storeZero(MalContext *context, MalType_Address argument_0, MalType_ByteSize argument_1);
-MalType_USize mal_ext_argumentLength(MalContext *context, MalType_Address value);
 
 /* External definition helpers */
 
@@ -928,18 +874,6 @@ void mal_ext_storeZero(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Addr
 static MalType_Unit mal_detail_storeZero( \
     mal_call_t *call, \
     mal_repr_product_4_t value \
-)
-
-#define MAL_HAS_EXTERN_argumentLength 1
-#define MAL_DEFINE_argumentLength(call, value) \
-static MalType_USize mal_detail_argumentLength(mal_call_t *call, mal_Address_t value); \
-MalType_USize mal_ext_argumentLength(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address value) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_argumentLength(&call, value); \
-} \
-static MalType_USize mal_detail_argumentLength( \
-    mal_call_t *call, \
-    mal_Address_t value \
 )
 
 #endif
