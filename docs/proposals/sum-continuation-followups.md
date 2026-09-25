@@ -14,9 +14,25 @@ Status: Exploratory
 
 ## formatter
 
-block直下の複数行のcontinuation listは、continuationと閉じ`]`を値と同じindentに置く。名前だけのlist
-（`[\ncreated,\nfailed\n]`）では、どこまでが式か読み取りにくい。sourceで一行なら一行のまま保つので通常は現れないが、
-改行したlistでの見え方を見直す。
+複数行の複数continuation listは、binding右辺では各continuationを一段深くindentするが、文として単独で書くとcontinuationと閉じ`]`を
+値と同じindentに置く（`if`の`then`と`else`を`if`と同じindentに置く規則に合わせている）。後者では`(n) -> {`が新しい文の先頭に見え、
+どこまでが式か読み取りにくい。
+
+```mal
+    v := r[
+        (n) -> n,
+        () -> k(0i32)
+    ];
+    r[
+    (n) -> {
+        k(n + v);
+    },
+    () -> k(0i32)
+    ];
+```
+
+不具合ではなく[formatting policy](../development/formatting.md)の規則どおりである。文の位置でも一段深くindentする案を、既存のexampleとtestの
+書き換えを含めて検討する。
 
 ## editor
 
