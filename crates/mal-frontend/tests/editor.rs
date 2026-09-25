@@ -529,3 +529,43 @@ fn a_choice_where_every_side_continues_has_no_exit() {
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     assert_eq!(document.exits().count(), 0);
 }
+
+fn exit_texts(text: &str) -> Vec<String> {
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    document
+        .exits()
+        .map(|span| text[span.start()..span.end()].to_owned())
+        .collect()
+}
+
+#[test]
+fn a_unit_that_leaves_the_block_is_marked_once_at_its_end() {
+    let prelude = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n";
+    // The body of a `when` ends in a choice on result binders: the body is marked, not the choice inside it.
+    assert_eq!(
+        exit_texts(&format!(
+            "{prelude}  when (true) {{\n    r[ok, fail]\n  }};\n  r[ok, fail]\n}};\n"
+        )),
+        ["{\n    r[ok, fail]\n  }", "r[ok, fail]"]
+    );
+    // A leaving continuation ends where its inner choice ends, so only the continuation is marked.
+    assert_eq!(
+        exit_texts(&format!(
+            "{prelude}  x := r[(n) -> n, () -> r[ok, fail]];\n  ok(x)\n}};\n"
+        )),
+        ["() -> r[ok, fail]"]
+    );
+    // Every side leaves: the whole choice is marked, not each side.
+    assert_eq!(
+        exit_texts(&format!(
+            "{prelude}  if (true) then r[ok, fail] else r[ok, fail]\n}};\n"
+        )),
+        ["if (true) then r[ok, fail] else r[ok, fail]"]
+    );
+}
+
+#[test]
+fn an_exit_inside_a_branch_that_continues_is_kept() {
+    let text = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n  x := r[(n) -> {\n    when (n == 0i32) { fail() };\n    n\n  }, () -> fail()];\n  ok(x)\n};\n";
+    assert_eq!(exit_texts(text), ["{ fail() }", "() -> fail()"]);
+}

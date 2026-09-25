@@ -143,12 +143,7 @@ impl Index {
             file,
             occurrences,
             typed_regions: self.typed_regions,
-            exits: {
-                let mut exits = self.exits;
-                exits.sort_by_key(|span| (span.file().index(), span.start(), span.end()));
-                exits.dedup();
-                exits
-            },
+            exits: outermost_exits(self.exits),
             document_symbols,
             completions,
         }
@@ -230,4 +225,33 @@ fn symbol_for(occurrence: &Occurrence) -> Symbol {
         documentation: occurrence.documentation.clone(),
         span: Some(occurrence.span),
     }
+}
+
+/// Keeps only the outermost units that end a path.
+///
+/// A unit that leaves the block already says that every path through it leaves, so a unit nested inside it, such as the
+/// branch of a choice on result binders inside a leaving continuation, adds no distinction and would only repeat the
+/// hint at the same or an adjacent position. Each remaining span is marked once, at its end.
+fn outermost_exits(mut exits: Vec<Span>) -> Vec<Span> {
+    // An enclosing span sorts before every span it contains, so one sweep with the furthest end kept so far finds them.
+    exits.sort_by_key(|span| {
+        (
+            span.file().index(),
+            span.start(),
+            std::cmp::Reverse(span.end()),
+        )
+    });
+    exits.dedup();
+    let mut furthest: Option<(u32, usize)> = None;
+    exits.retain(|span| {
+        let file = span.file().index();
+        match furthest {
+            Some((covering_file, end)) if covering_file == file && span.end() <= end => false,
+            _ => {
+                furthest = Some((file, span.end()));
+                true
+            }
+        }
+    });
+    exits
 }

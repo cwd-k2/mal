@@ -153,7 +153,14 @@ requestごとに再解析しない。直前に成功したversionのsemantic ind
 
 現在のpathがenclosing blockを抜ける位置を、その分岐の末尾に`leaves the block`として示す。対象は、`if`の分岐、`when`のbody、
 直和除去のcontinuationのうち、別の分岐が続く選択でblockを抜ける側と、すべての分岐が抜ける場合の選択全体である。値を返す側には
-何も付けない。要求されたrangeに末尾が入るものだけを返し、semantic analysisに失敗しているversionでは空の結果を返す。
+何も付けない。
+
+示す単位は、pathが終わる最も外側の構文単位であり、それぞれを末尾に一度だけ示す。すべてのpathが抜ける単位は、その内側の分岐が
+どちらへ進むかにかかわらず抜けるので、その内側の単位には区別が生じない。したがって`when`のbodyが結果binderへの選択で終わる場合は
+bodyだけを、抜けるcontinuationの本体が選択で終わる場合はcontinuationだけを示し、内側の選択には付けない。続く分岐の内側にある
+`when`のように、外側の単位が抜けない位置にあるものは、それぞれ示す。
+
+要求されたrangeに末尾が入るものだけを返し、semantic analysisに失敗しているversionでは空の結果を返す。
 
 ### hover
 
