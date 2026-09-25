@@ -159,3 +159,12 @@ fn names_the_binder_and_position_when_a_payload_does_not_fit() {
         "{rendered}"
     );
 }
+
+#[test]
+fn rejects_a_lambda_that_never_completes_where_no_function_type_is_expected() {
+    let error = check_error(
+        "never :: Unit -> [] := () -> never()[];\n\
+         main :: Unit -> Int32 := () -> { 5i32[(x) -> never()[]]; 0i32; };",
+    );
+    assert_eq!(error.message, "lambda result type cannot be inferred");
+}

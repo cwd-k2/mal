@@ -68,11 +68,17 @@ impl Checker {
         let declared_result = expected_result.cloned();
         let items = self.check_body_items(&lambda.body.items, lambda.body.result.span)?;
         let result = self.check_completion(&lambda.body.result, declared_result.as_ref())?;
-        let result_type = match &result {
-            super::ast::Completion::Value(value) => value.ty.clone(),
-            super::ast::Completion::Abrupt(_) => declared_result
-                .clone()
-                .expect("abrupt lambda body has a declared result"),
+        let result_type = match (&result, &declared_result) {
+            (super::ast::Completion::Value(value), _) => value.ty.clone(),
+            (super::ast::Completion::Abrupt(_), Some(declared)) => declared.clone(),
+            (super::ast::Completion::Abrupt(_), None) => {
+                return Err(Diagnostic::error("lambda result type cannot be inferred")
+                    .with_primary(
+                        span,
+                        "this body never completes, so only an expected function type gives its result",
+                    )
+                    .into());
+            }
         };
         let ty = Type::Function {
             parameter: expected_parameter.clone().into(),
