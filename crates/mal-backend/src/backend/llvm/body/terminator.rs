@@ -192,6 +192,9 @@ impl FunctionEmitter<'_> {
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
                     self.line(format!("  br label %mal_state_{}", resume.0));
                 }
+                ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
+                    self.emit_native_self_call(site, callee, argument)?;
+                }
                 ControlCallMode::Dispatch
                     if self.execution.control_frames.frame(site).is_some() =>
                 {

@@ -158,6 +158,7 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
         Some(Self {
+            mode: EmissionMode::Standard,
             execution,
             index,
             control: &execution.control,
@@ -189,7 +190,9 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     pub(super) fn emit(mut self) -> Option<EmittedFunction> {
-        self.emit_environment_destructor()?;
+        if self.mode != EmissionMode::Frames {
+            self.emit_environment_destructor()?;
+        }
         let parameter = if self.function.parameter.ty == Type::Unit {
             "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
         } else {
@@ -200,8 +203,13 @@ impl<'a> FunctionEmitter<'a> {
             )
         };
         let result = self.types.value(&self.result_type)?;
+        let suffix = if self.mode == EmissionMode::Frames {
+            "_frames"
+        } else {
+            ""
+        };
         self.line(format!(
-            "define internal {} @{}({parameter}) {{",
+            "define internal {} @{}{suffix}({parameter}) {{",
             result.llvm,
             function_name(self.function.id)?
         ));
@@ -303,6 +311,9 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }
         let entry_alloca_offset = self.output.len();
+        if self.mode == EmissionMode::Native {
+            self.emit_native_entry_guard()?;
+        }
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));
 
         for site in self.states.clone() {

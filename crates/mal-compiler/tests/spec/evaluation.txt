@@ -131,3 +131,8 @@ main :: Unit -> Int32 := () -> { l := make<Int32>(0usize); _ := if (true) then 5
 main :: Unit -> Int32 := () -> { x := 1i32; f :: Unit -> Int32 := () -> x; y := { x := 2i32; x; }; if (f() == 1 && y == 2) then 1 else 0; };
 ### make_huge_traps | trap
 main :: Unit -> Int32 := () -> { b := make<UInt64>(18446744073709551615usize); (#b).i32; };
+### deep_self_recursion_continues_past_the_native_stack_budget | run:0
+walk :: Int64 -> Int64 := (n) -> {
+    if (n == 0i64) then { 0i64 } else { walk(n - 1i64) + 1i64; };
+};
+main :: Unit -> Int32 := () -> { if (walk(5_000_000i64) == 5_000_000i64) then 0 else 1; };

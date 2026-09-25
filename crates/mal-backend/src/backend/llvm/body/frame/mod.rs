@@ -5,6 +5,7 @@ use mal_frontend::check::ast::Type;
 use super::{EmittedValue, FunctionEmitter};
 
 mod layout;
+mod native;
 mod resume;
 
 use layout::FrameLayout;

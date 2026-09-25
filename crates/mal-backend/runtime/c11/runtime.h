@@ -15,6 +15,8 @@ typedef struct {
 
 typedef struct MalContext {
     MalControlArena control;
+    /* The lowest stack address a native recursive call may reach before it continues in the control arena. */
+    uintptr_t native_stack_limit;
 } MalContext;
 
 /* A window onto bytes kept alive by `owner`. A NULL owner or an immortal static owner needs no reference counting. */
@@ -54,6 +56,10 @@ void *mal_control_reserve_frame(
 );
 void *mal_control_storage(MalContext *context);
 size_t mal_control_capacity(MalContext *context);
+/* Records the native stack budget of a program run, measured from the process entry. */
+void mal_native_stack_begin(MalContext *context);
+/* Whether the native stack is used up, so a recursive call must push a frame instead of nesting a native call. */
+uint8_t mal_native_stack_is_deep(MalContext *context);
 
 /* Byte owners: reference-counted, immutable once shared. Static owners emitted for literals are immortal. */
 const uint8_t *mal_runtime_bytes_data(const void *owner);

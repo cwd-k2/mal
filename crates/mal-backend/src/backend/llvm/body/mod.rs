@@ -91,6 +91,27 @@ pub(super) fn generate(
             &optimizations,
         )?;
         uses_control |= !emitter.frame_sites.is_empty();
+        if emitter.has_native_version() {
+            let native = FunctionEmitter::new(
+                execution,
+                &index,
+                function.id,
+                target,
+                &top_levels,
+                &execution.ownership,
+                &optimizations,
+            )?
+            .into_native_version();
+            // Both versions declare the same globals and environment destructor; the native version owns them.
+            let emitted = native.emit()?;
+            globals.push_str(&emitted.globals);
+            definitions.push_str(&emitted.definition);
+            definitions.push('\n');
+            let frames = emitter.into_frames_version().emit()?;
+            definitions.push_str(&frames.definition);
+            definitions.push('\n');
+            continue;
+        }
         let emitted = emitter.emit()?;
         globals.push_str(&emitted.globals);
         definitions.push_str(&emitted.definition);
@@ -106,7 +127,18 @@ pub(super) fn generate(
     })
 }
 
+/// Which of a function's emitted bodies an emitter produces.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum EmissionMode {
+    Standard,
+    /// The version that keeps suspended callers in the control arena; emitted as `<name>_frames`.
+    Frames,
+    /// The version that nests native calls while the native stack has room.
+    Native,
+}
+
 struct FunctionEmitter<'a> {
+    mode: EmissionMode,
     execution: &'a crate::execution::Program,
     index: &'a ProgramIndex<'a>,
     control: &'a Program,

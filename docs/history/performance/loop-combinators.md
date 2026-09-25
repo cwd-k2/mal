@@ -54,3 +54,7 @@ Bufferをcaptureして走査するcaseは直接再帰と一致するため、実
 workloadと測定scriptはignoredな`.scratch/loop-perf/`に置いた。repository rootの`nix develop`内で、
 `nu .scratch/loop-perf/tools/measure.nu --label <name>`が全variantを測定し、`memcheck-examples.nu`と`memcheck-spec.nu`が全exampleと
 spec corpusをValgrind Memcheckで実行する。
+
+## 非tail再帰のハイブリッド実行
+
+C版の`fib(40)`は175 ms、frame方式のmalは591 msだった。C prototypeで深さの判定を比べると、stack pointerの比較は負荷が測れず、メモリ上のcounterは2.65倍、深さを引数で運ぶ方法は13%遅かった。native版を入口のstack pointer比較付きで出し、予算を使い切ったらframe版へ渡す形にすると、`fib(40)`は245 msになった。call siteごとに分岐する形（366 ms）は、native activationがcontrol arenaの記録を毎回更新し、二つの再帰呼び出しの合流が最適化器の再帰除去を妨げたため採らなかった。50M段の再帰は、OSのstackを128 KiBに絞っても392 MBで完走し、frame方式のメモリ効率が保たれる。typical90の79問は出力が全て一致し、時間比のmedianは1.002だった。

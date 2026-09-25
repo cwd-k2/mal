@@ -79,7 +79,7 @@ pub(crate) fn generate(
         .join("\n\n");
     let control_declarations = if body.uses_control {
         format!(
-            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\n\n",
+            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\ndeclare void @mal_native_stack_begin(ptr)\ndeclare i8 @mal_native_stack_is_deep(ptr) nofree nounwind willreturn memory(argmem: read)\n\n",
             types
                 .pointer_integer()
                 .ok_or(Error::InconsistentExecutionPlan("control ABI construction"))?
@@ -137,7 +137,7 @@ pub(crate) fn generate(
     let (control_entry, control_top) = if body.uses_control {
         (
             format!(
-                "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n",
+                "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n  call void @mal_native_stack_begin(ptr %mal_context)\n",
                 types
                     .pointer_integer()
                     .ok_or(Error::InconsistentExecutionPlan(

@@ -330,3 +330,48 @@ fn nested_uses_of_one_combinator_instance_use_no_control_frames() {
         "each use of the instance gets a function of its own"
     );
 }
+
+#[test]
+fn a_self_recursive_function_with_an_unmanaged_parameter_has_a_native_and_a_frames_version() {
+    let source = SourceFile::new(
+        FileId::new(102),
+        "hybrid-recursion.mal",
+        "fib :: Int64 -> Int64 := (n) -> { if (n < 2i64) then { n } else { fib(n - 1i64) + fib(n - 2i64); }; };\n\
+         weigh :: Symbol -> Int64 := (s) -> { if (#s > 3usize) then { 0i64 } else { weigh(s + \"x\") + 1i64; }; };\n\
+         main :: Unit -> Int32 := () -> { (fib(10i64) + weigh(\"a\")).i32; };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check hybrid recursion");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize hybrid recursion"),
+    );
+    let anf = crate::anf::lower(&core);
+    let execution = crate::execution::lower(
+        crate::closure::convert(&anf),
+        crate::execution::OptimizationSet::production(),
+    );
+    let module = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("hybrid recursion is supported")
+    .module;
+
+    let frames = |prefix: &str| {
+        module
+            .lines()
+            .filter(|line| line.contains("_frames(") && line.trim_start().starts_with(prefix))
+            .count()
+    };
+    assert_eq!(
+        frames("define"),
+        1,
+        "only the function with an unmanaged parameter has a frames version"
+    );
+    assert_eq!(frames("%"), 1, "its native version continues there once");
+    assert!(module.contains("call i8 @mal_native_stack_is_deep"));
+}
