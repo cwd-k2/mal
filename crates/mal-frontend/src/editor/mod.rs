@@ -62,12 +62,20 @@ pub struct Hover<'a> {
     pub occurrence: Option<&'a Occurrence>,
 }
 
+/// A unit where control leaves the enclosing result block, and the result binders it transfers to. `targets` is empty
+/// when the unit never returns normally without naming a binder, as after an empty elimination.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Exit {
+    pub span: Span,
+    pub targets: Vec<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SemanticDocument {
     file: Option<FileId>,
     occurrences: Vec<Occurrence>,
     typed_regions: Vec<(Span, String)>,
-    exits: Vec<Span>,
+    exits: Vec<Exit>,
     document_symbols: Vec<Symbol>,
     completions: Vec<Symbol>,
 }
@@ -126,13 +134,11 @@ impl SemanticDocument {
             .filter(|occurrence| self.in_document(occurrence.span))
     }
 
-    /// Where control leaves the enclosing block: the branches and continuations that leave when another one
-    /// continues, or a whole choice when every one of them leaves. Positions to annotate are the span ends.
-    pub fn exits(&self) -> impl Iterator<Item = Span> + '_ {
-        self.exits
-            .iter()
-            .copied()
-            .filter(|span| self.in_document(*span))
+    /// Where control leaves its result block, and to which binders: the branches and continuations that leave when
+    /// another one continues, or a whole choice when every one of them leaves. Only the outermost unit is reported, and
+    /// the positions to annotate are the span ends.
+    pub fn exits(&self) -> impl Iterator<Item = &Exit> + '_ {
+        self.exits.iter().filter(|exit| self.in_document(exit.span))
     }
 
     pub fn occurrence_at(&self, byte_offset: usize) -> Option<&Occurrence> {

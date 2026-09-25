@@ -205,7 +205,7 @@ impl IdentityBounds {
                     self.expression(value);
                 }
                 match &abrupt.kind {
-                    AbruptExpressionKind::ResultTransfer { target, value } => {
+                    AbruptExpressionKind::ResultTransfer { target, value, .. } => {
                         self.value(*target);
                         self.expression(value);
                     }

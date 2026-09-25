@@ -13,6 +13,7 @@ impl Lowerer {
             checked::AbruptExpressionKind::ResultTransfer {
                 target: source_target,
                 value,
+                ..
             } => {
                 let target = *self
                     .result_targets

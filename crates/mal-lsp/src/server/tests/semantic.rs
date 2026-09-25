@@ -277,7 +277,7 @@ fn inlay_hints_mark_where_control_leaves_the_block() {
     let outcome = request(&mut server, 30, 0, text.len());
     let hints = outcome.messages[0]["result"].as_array().unwrap();
     assert_eq!(hints.len(), 1);
-    assert_eq!(hints[0]["label"], "leaves the block");
+    assert_eq!(hints[0]["label"], "→ fail");
     assert_eq!(
         hints[0]["position"],
         text_position(text, text.find("fail()").unwrap() + "fail()".len())

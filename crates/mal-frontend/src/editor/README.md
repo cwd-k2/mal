@@ -8,7 +8,7 @@ Builds what editor queries need from the current text and, when analysis succeed
 | `syntax/declaration` | conservative classification of top-level function declarations from tokens |
 | `index` | declaration identity index behind document symbols, completion, and file-local views |
 | `index/resolved_ast` | declaration and reference identities, explicit alias names, and result binders |
-| `index/checked_ast` | canonical types of checked expressions and result binders, and where control leaves the enclosing block |
+| `index/checked_ast` | canonical types of checked expressions and result binders, and where control leaves its result block and to which binders |
 | `index/aliases` | alias names written in declarations, so hover keeps them |
 | `index/predefined` | type details of predefined values from the resolver's predefined table |
 | `index/type_display` | display names of source type expressions |

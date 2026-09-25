@@ -151,9 +151,14 @@ requestごとに再解析しない。直前に成功したversionのsemantic ind
 
 ### inlay hint
 
-現在のpathがenclosing blockを抜ける位置を、その分岐の末尾に`leaves the block`として示す。対象は、`if`の分岐、`when`のbody、
+現在のpathがresult blockを抜ける位置を、その分岐の末尾に`→ return`のように、移り先のresult binder名で示す。対象は、`if`の分岐、`when`のbody、
 直和除去のcontinuationのうち、別の分岐が続く選択でblockを抜ける側と、すべての分岐が抜ける場合の選択全体である。値を返す側には
 何も付けない。
+
+「block」は、binderを宣言したdirect result blockである。binderを適用したpathはそのblockを完了し、外側のbinderを適用すれば内側の
+result blockを越えて外側を完了するので、移り先の名前がその区別になる。binderはlambdaの境界を越えて参照できないため、関数名は
+区別の役に立たない。移り先が複数あれば`→ ok, fail`のように並べ、空直和の除去だけで終わり、どのbinderにも移らない単位は
+`never returns`と示す。
 
 示す単位は、pathが終わる最も外側の構文単位であり、それぞれを末尾に一度だけ示す。すべてのpathが抜ける単位は、その内側の分岐が
 どちらへ進むかにかかわらず抜けるので、その内側の単位には区別が生じない。したがって`when`のbodyが結果binderへの選択で終わる場合は

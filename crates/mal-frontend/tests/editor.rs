@@ -514,7 +514,7 @@ fn exits_mark_the_choices_that_leave_the_block() {
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let exits = document
         .exits()
-        .map(|span| &text[span.start()..span.end()])
+        .map(|exit| &text[exit.span.start()..exit.span.end()])
         .collect::<Vec<_>>();
 
     assert_eq!(
@@ -534,8 +534,56 @@ fn exit_texts(text: &str) -> Vec<String> {
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     document
         .exits()
-        .map(|span| text[span.start()..span.end()].to_owned())
+        .map(|exit| text[exit.span.start()..exit.span.end()].to_owned())
         .collect()
+}
+
+fn exit_targets(text: &str) -> Vec<(String, Vec<String>)> {
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    document
+        .exits()
+        .map(|exit| {
+            (
+                text[exit.span.start()..exit.span.end()].to_owned(),
+                exit.targets.clone(),
+            )
+        })
+        .collect()
+}
+
+fn names(names: &[&str]) -> Vec<String> {
+    names.iter().map(|name| (*name).to_owned()).collect()
+}
+
+#[test]
+fn exits_name_the_result_binders_they_transfer_to() {
+    let prelude = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n";
+    assert_eq!(
+        exit_targets(&format!(
+            "{prelude}  v := r[(n) -> n, () -> fail()];\n  when (v == 0i32) {{ ok(0i32) }};\n  r[ok, fail]\n}};\n"
+        )),
+        [
+            ("() -> fail()".to_owned(), names(&["fail"])),
+            ("{ ok(0i32) }".to_owned(), names(&["ok"])),
+            ("r[ok, fail]".to_owned(), names(&["ok", "fail"])),
+        ]
+    );
+}
+
+#[test]
+fn an_exit_names_the_outer_result_block_it_crosses_to() {
+    // The inner result block has its own binder; leaving to `outer` crosses it, so the name tells the two apart.
+    let text = "f :: Int32 -> Int32 := (v) -> [outer] => {\n  x :: Int32 := [inner] => {\n    when (v == 0i32) { outer(1i32) };\n    inner(2i32)\n  };\n  outer(x)\n};\n";
+    assert_eq!(
+        exit_targets(text),
+        [("{ outer(1i32) }".to_owned(), names(&["outer"]))]
+    );
+}
+
+#[test]
+fn a_side_that_never_returns_names_no_binder() {
+    let text = "Res :: [Int32, []];\nf :: Res -> Int32 := (r) -> [return] => {\n  x := r[(n) -> n, (e) -> e[]];\n  return(x)\n};\n";
+    assert_eq!(exit_targets(text), [("(e) -> e[]".to_owned(), Vec::new())]);
 }
 
 #[test]

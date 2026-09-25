@@ -4,7 +4,7 @@ use crate::check::ast as checked;
 use crate::resolve::ast as resolved;
 use mal_syntax::source::{FileId, Span};
 
-use super::{Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, SymbolKind};
+use super::{Exit, Occurrence, OccurrenceRole, SemanticDocument, Symbol, SymbolId, SymbolKind};
 
 mod aliases;
 mod checked_ast;
@@ -29,8 +29,10 @@ struct Index {
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     result_binders: HashSet<resolved::ValueId>,
+    /// Binder names by result block and position in its binder group.
+    result_binder_names: HashMap<(resolved::ValueId, Option<usize>), String>,
     typed_regions: Vec<(Span, String)>,
-    exits: Vec<Span>,
+    exits: Vec<Exit>,
     raw_occurrences: Vec<RawOccurrence>,
     top_level: Vec<SymbolId>,
 }
@@ -53,6 +55,7 @@ impl Index {
             functions: predefined::functions(),
             parameters: HashSet::new(),
             result_binders: HashSet::new(),
+            result_binder_names: HashMap::new(),
             typed_regions: Vec::new(),
             exits: Vec::new(),
             raw_occurrences: Vec::new(),
@@ -231,27 +234,41 @@ fn symbol_for(occurrence: &Occurrence) -> Symbol {
 ///
 /// A unit that leaves the block already says that every path through it leaves, so a unit nested inside it, such as the
 /// branch of a choice on result binders inside a leaving continuation, adds no distinction and would only repeat the
-/// hint at the same or an adjacent position. Each remaining span is marked once, at its end.
-fn outermost_exits(mut exits: Vec<Span>) -> Vec<Span> {
+/// hint at the same or an adjacent position. Each remaining span is marked once, at its end, with every binder that
+/// the reported units transfer to.
+fn outermost_exits(mut exits: Vec<Exit>) -> Vec<Exit> {
     // An enclosing span sorts before every span it contains, so one sweep with the furthest end kept so far finds them.
-    exits.sort_by_key(|span| {
+    exits.sort_by_key(|exit| {
         (
-            span.file().index(),
-            span.start(),
-            std::cmp::Reverse(span.end()),
+            exit.span.file().index(),
+            exit.span.start(),
+            std::cmp::Reverse(exit.span.end()),
         )
     });
-    exits.dedup();
-    let mut furthest: Option<(u32, usize)> = None;
-    exits.retain(|span| {
-        let file = span.file().index();
-        match furthest {
-            Some((covering_file, end)) if covering_file == file && span.end() <= end => false,
-            _ => {
-                furthest = Some((file, span.end()));
-                true
-            }
+    // Units nest or are disjoint, so the last kept span is the only one that can enclose the next.
+    let mut kept: Vec<Exit> = Vec::new();
+    for exit in exits {
+        match kept.last_mut() {
+            Some(last) if last.span == exit.span => merge_targets(&mut last.targets, exit.targets),
+            Some(last)
+                if last.span.file() == exit.span.file() && exit.span.end() <= last.span.end() => {}
+            _ => kept.push(exit),
         }
-    });
-    exits
+    }
+    kept
+}
+
+pub(super) fn merge_targets(targets: &mut Vec<String>, more: Vec<String>) {
+    for name in more {
+        if !targets.contains(&name) {
+            targets.push(name);
+        }
+    }
+}
+
+/// One side of a choice, for deciding whether the choice marks it or is marked as a whole.
+struct Choice {
+    span: Span,
+    leaves: bool,
+    targets: Vec<String>,
 }

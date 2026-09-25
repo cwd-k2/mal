@@ -1,6 +1,9 @@
 use crate::check::ast as checked;
+use crate::resolve::ast as resolved;
+use mal_syntax::source::Span;
 
-use super::Index;
+use super::{Choice, Index, merge_targets};
+use crate::editor::Exit;
 
 impl Index {
     pub(super) fn collect_checked_top(&mut self, item: &checked::TopItem) {
@@ -83,14 +86,18 @@ impl Index {
                 self.collect_checked_body(&block.items, &block.result);
             }
             ExpressionKind::ResultBlock {
+                target,
                 result_binders,
                 body,
-                ..
             } => {
                 for binder in result_binders {
                     let id = self.canonical_value(binder.binding.id);
                     let parameter_type = crate::check::type_name(&binder.parameter_type);
                     self.result_binders.insert(id);
+                    self.result_binder_names.insert(
+                        (self.canonical_value(*target), binder.variant),
+                        binder.binding.name.text.clone(),
+                    );
                     self.value_types.insert(id, parameter_type.clone());
                     self.typed_regions
                         .push((binder.binding.name.span, parameter_type));
@@ -125,12 +132,19 @@ impl Index {
                 let choices = continuations
                     .iter()
                     .map(|continuation| match continuation {
-                        checked::SumContinuation::Function(function) => (function.span, false),
-                        checked::SumContinuation::Branch(branch) => (
-                            branch.span,
-                            matches!(branch.body.result.as_ref(), checked::Completion::Abrupt(_)),
-                        ),
-                        checked::SumContinuation::Transfer(transfer) => (transfer.span, true),
+                        checked::SumContinuation::Function(function) => Choice {
+                            span: function.span,
+                            leaves: false,
+                            targets: Vec::new(),
+                        },
+                        checked::SumContinuation::Branch(branch) => {
+                            self.choice(branch.span, branch.body.result.as_ref())
+                        }
+                        checked::SumContinuation::Transfer(transfer) => Choice {
+                            span: transfer.span,
+                            leaves: true,
+                            targets: self.transfer_names(transfer.target, transfer.variant),
+                        },
                     })
                     .collect::<Vec<_>>();
                 self.note_exits(&choices, expression.span);
@@ -173,25 +187,94 @@ impl Index {
         }
     }
 
+    /// One side of a choice: whether every path through it leaves the block, and to which binders.
+    fn choice(&self, span: Span, completion: &checked::Completion) -> Choice {
+        Choice {
+            span,
+            leaves: matches!(completion, checked::Completion::Abrupt(_)),
+            targets: self.completion_targets(completion),
+        }
+    }
+
+    fn transfer_names(&self, target: resolved::ValueId, variant: Option<usize>) -> Vec<String> {
+        self.result_binder_names
+            .get(&(self.canonical_value(target), variant))
+            .cloned()
+            .into_iter()
+            .collect()
+    }
+
+    /// The result binders a path may transfer to, in source order. An empty elimination names none.
+    fn completion_targets(&self, completion: &checked::Completion) -> Vec<String> {
+        match completion {
+            checked::Completion::Value(_) => Vec::new(),
+            checked::Completion::Abrupt(abrupt) => self.abrupt_targets(abrupt),
+        }
+    }
+
+    fn abrupt_targets(&self, abrupt: &checked::AbruptExpression) -> Vec<String> {
+        let mut targets = Vec::new();
+        match &abrupt.kind {
+            checked::AbruptExpressionKind::ResultTransfer {
+                target, variant, ..
+            } => {
+                merge_targets(&mut targets, self.transfer_names(*target, *variant));
+            }
+            checked::AbruptExpressionKind::EmptyElimination { .. } => {}
+            checked::AbruptExpressionKind::If {
+                then_branch,
+                else_branch,
+                ..
+            } => {
+                merge_targets(&mut targets, self.completion_targets(&then_branch.result));
+                merge_targets(&mut targets, self.completion_targets(&else_branch.result));
+            }
+            checked::AbruptExpressionKind::SumElimination { continuations, .. } => {
+                for continuation in continuations {
+                    let names = match continuation {
+                        checked::SumContinuation::Function(_) => Vec::new(),
+                        checked::SumContinuation::Branch(branch) => {
+                            self.completion_targets(&branch.body.result)
+                        }
+                        checked::SumContinuation::Transfer(transfer) => {
+                            self.transfer_names(transfer.target, transfer.variant)
+                        }
+                    };
+                    merge_targets(&mut targets, names);
+                }
+            }
+            checked::AbruptExpressionKind::Block(block) => {
+                merge_targets(&mut targets, self.completion_targets(&block.result));
+            }
+        }
+        targets
+    }
+
     /// Records where a choice leaves the block. When some choices continue, the leaving ones are marked;
     /// when all of them leave, the whole choice is.
-    fn note_exits(
-        &mut self,
-        choices: &[(mal_syntax::source::Span, bool)],
-        whole: mal_syntax::source::Span,
-    ) {
-        let leaving = choices.iter().filter(|(_, leaves)| *leaves).count();
+    fn note_exits(&mut self, choices: &[Choice], whole: Span) {
+        let leaving = choices.iter().filter(|choice| choice.leaves).count();
         if leaving == 0 {
             return;
         }
         if leaving == choices.len() {
-            self.exits.push(whole);
+            let mut targets = Vec::new();
+            for choice in choices {
+                merge_targets(&mut targets, choice.targets.clone());
+            }
+            self.exits.push(Exit {
+                span: whole,
+                targets,
+            });
         } else {
             self.exits.extend(
                 choices
                     .iter()
-                    .filter(|(_, leaves)| *leaves)
-                    .map(|(span, _)| *span),
+                    .filter(|choice| choice.leaves)
+                    .map(|choice| Exit {
+                        span: choice.span,
+                        targets: choice.targets.clone(),
+                    }),
             );
         }
     }
@@ -200,20 +283,13 @@ impl Index {
         &mut self,
         then_branch: &checked::ExpressionBlock,
         else_branch: &checked::ExpressionBlock,
-        whole: mal_syntax::source::Span,
+        whole: Span,
     ) {
-        let leaves = |branch: &checked::ExpressionBlock| {
-            matches!(branch.result.as_ref(), checked::Completion::Abrupt(_))
-        };
+        let then_choice = self.choice(then_branch.span, then_branch.result.as_ref());
+        let mut else_choice = self.choice(else_branch.span, else_branch.result.as_ref());
         // `when` has no written else branch; its synthetic one spans the whole expression.
-        let choices = [
-            (then_branch.span, leaves(then_branch)),
-            (
-                else_branch.span,
-                leaves(else_branch) && else_branch.span != whole,
-            ),
-        ];
-        self.note_exits(&choices, whole);
+        else_choice.leaves &= else_branch.span != whole;
+        self.note_exits(&[then_choice, else_choice], whole);
     }
 
     fn collect_checked_continuation(&mut self, continuation: &checked::SumContinuation) {
@@ -281,7 +357,10 @@ impl Index {
                         self.collect_checked_expression(condition);
                         self.collect_checked_body(&then_branch.items, &then_branch.result);
                         self.collect_checked_body(&else_branch.items, &else_branch.result);
-                        self.exits.push(abrupt.span);
+                        self.exits.push(Exit {
+                            span: abrupt.span,
+                            targets: self.abrupt_targets(abrupt),
+                        });
                     }
                     checked::AbruptExpressionKind::SumElimination {
                         scrutinee,
@@ -291,7 +370,10 @@ impl Index {
                         for continuation in continuations {
                             self.collect_checked_continuation(continuation);
                         }
-                        self.exits.push(abrupt.span);
+                        self.exits.push(Exit {
+                            span: abrupt.span,
+                            targets: self.abrupt_targets(abrupt),
+                        });
                     }
                     checked::AbruptExpressionKind::Block(block) => {
                         self.collect_checked_body(&block.items, &block.result);

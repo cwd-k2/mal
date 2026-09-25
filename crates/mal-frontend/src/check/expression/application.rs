@@ -81,6 +81,7 @@ impl Checker {
                 preceding: Vec::new(),
                 kind: AbruptExpressionKind::ResultTransfer {
                     target: target.boundary,
+                    variant: target.variant,
                     value: Box::new(value),
                 },
                 span,
@@ -210,6 +211,7 @@ impl Checker {
                 preceding: Vec::new(),
                 kind: AbruptExpressionKind::ResultTransfer {
                     target: target.boundary,
+                    variant: target.variant,
                     value: Box::new(value),
                 },
                 span,

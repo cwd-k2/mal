@@ -312,6 +312,8 @@ impl AbruptExpression {
 pub enum AbruptExpressionKind {
     ResultTransfer {
         target: ValueId,
+        /// The binder of the group that was applied, when the target is one binder of a group.
+        variant: Option<usize>,
         value: Box<Expression>,
     },
     EmptyElimination {
