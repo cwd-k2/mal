@@ -7,9 +7,9 @@ pub(super) struct ControlReservation {
 }
 
 impl FunctionEmitter<'_> {
-    pub(super) fn refresh_control_storage(&mut self) -> Option<()> {
+    pub(super) fn refresh_control_storage(&mut self) {
         if !self.local_control_storage {
-            return Some(());
+            return;
         }
         let storage = self.register();
         self.line(format!(
@@ -28,10 +28,9 @@ impl FunctionEmitter<'_> {
             "  store {index_type} {capacity}, ptr %mal_local_control_capacity, align {}",
             self.types.index_alignment()
         ));
-        Some(())
     }
 
-    pub(super) fn current_control_storage(&mut self) -> Option<String> {
+    pub(super) fn current_control_storage(&mut self) -> String {
         let storage = self.register();
         if self.local_control_storage {
             self.line(format!(
@@ -43,7 +42,7 @@ impl FunctionEmitter<'_> {
                 "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
             ));
         }
-        Some(storage)
+        storage
     }
 
     pub(super) fn reserve_control_frame(
@@ -63,7 +62,7 @@ impl FunctionEmitter<'_> {
             "  {next_top} = add {index_type} {top}, {frame_size}"
         ));
         if replacement {
-            let storage = self.current_control_storage()?;
+            let storage = self.current_control_storage();
             return Some(ControlReservation {
                 top,
                 next_top,
@@ -82,7 +81,7 @@ impl FunctionEmitter<'_> {
             });
         }
 
-        let cached_storage = self.current_control_storage()?;
+        let cached_storage = self.current_control_storage();
         let capacity = self.register();
         self.line(format!(
             "  {capacity} = load {index_type}, ptr %mal_local_control_capacity, align {}",

@@ -30,7 +30,7 @@ impl FunctionEmitter<'_> {
             let product_type = self.types.value(element)?;
             let mut product = "poison".to_string();
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
-                let field_pointer = self.source_pointer_offset(pointer, field.offset)?;
+                let field_pointer = self.source_pointer_offset(pointer, field.offset);
                 let field_value = self.emit_source_load_at_with_alignment(
                     &field_pointer,
                     field_type,
@@ -90,7 +90,7 @@ impl FunctionEmitter<'_> {
             let stem = stem.trim_start_matches('%').to_string();
             let runtime = self.types.value(element)?;
             let storage = self.entry_alloca(&runtime.llvm, runtime.alignment);
-            let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset)?;
+            let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset);
             let cases = variants
                 .iter()
                 .enumerate()
@@ -200,7 +200,7 @@ impl FunctionEmitter<'_> {
                     "  {field_value} = extractvalue {} {}, {index}",
                     runtime.llvm, value.representation
                 ));
-                let field_pointer = self.source_pointer_offset(pointer, field.offset)?;
+                let field_pointer = self.source_pointer_offset(pointer, field.offset);
                 self.emit_source_store_at_with_alignment(
                     &field_pointer,
                     &EmittedValue {
@@ -255,7 +255,7 @@ impl FunctionEmitter<'_> {
             ));
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
-            let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset)?;
+            let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset);
             let cases = variants
                 .iter()
                 .enumerate()
@@ -316,15 +316,15 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    fn source_pointer_offset(&mut self, pointer: &str, offset: usize) -> Option<String> {
+    fn source_pointer_offset(&mut self, pointer: &str, offset: usize) -> String {
         if offset == 0 {
-            return Some(pointer.to_string());
+            return pointer.to_string();
         }
         let field = self.register();
         self.line(format!(
             "  {field} = getelementptr i8, ptr {pointer}, {} {offset}",
             self.types.index_integer()
         ));
-        Some(field)
+        field
     }
 }

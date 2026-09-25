@@ -293,7 +293,7 @@ impl FunctionEmitter<'_> {
                 .optimizations
                 .site_may_relocate_control_storage(&self.execution.applications, site)
             {
-                self.refresh_control_storage()?;
+                self.refresh_control_storage();
             }
             if argument.owned {
                 self.release_value(&argument.ty, &argument.representation)?;

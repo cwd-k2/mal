@@ -38,7 +38,7 @@ impl FunctionEmitter<'_> {
         if *result_type != Type::Symbol || buffer.ty != Type::Buffer(Type::UInt8.into()) {
             return None;
         }
-        let data = self.active_buffer_data(buffer)?;
+        let data = self.active_buffer_data(buffer);
         let count = self.register();
         self.line(format!(
             "  {count} = call {} @mal_runtime_buffer_count(ptr {})",
@@ -88,16 +88,14 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let runtime = self.types.value(&value.ty)?;
-        let mut fields = Vec::with_capacity(3);
-        for index in 0..3 {
+        let [owner, data, count] = std::array::from_fn(|index| {
             let field = self.register();
             self.line(format!(
                 "  {field} = extractvalue {} {}, {index}",
                 runtime.llvm, value.representation
             ));
-            fields.push(field);
-        }
-        let [owner, data, count]: [String; 3] = fields.try_into().ok()?;
+            field
+        });
         Some(ByteViewFields { owner, data, count })
     }
 

@@ -52,7 +52,7 @@ impl FunctionEmitter<'_> {
             function_name(target.id)
         ));
         if self.optimizations.localizes_control_storage(target.id) {
-            self.refresh_control_storage()?;
+            self.refresh_control_storage();
         }
         Some(EmittedValue {
             ty: result_type,
@@ -123,7 +123,7 @@ impl FunctionEmitter<'_> {
             .optimizations
             .site_may_relocate_control_storage(&self.execution.applications, site)
         {
-            self.refresh_control_storage()?;
+            self.refresh_control_storage();
         }
         Some(EmittedValue {
             ty: (**result).clone(),

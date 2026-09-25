@@ -15,19 +15,19 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let product_type = self.types.value(&product.ty)?;
-        let mut fields = Vec::with_capacity(N);
-        for (index, ty) in elements.iter().enumerate() {
+        let fields = std::array::from_fn(|index| {
+            let ty = &elements[index];
             let field = self.register();
             self.line(format!(
                 "  {field} = extractvalue {} {}, {index}",
                 product_type.llvm, product.representation
             ));
-            fields.push(EmittedValue {
+            EmittedValue {
                 ty: ty.clone(),
                 representation: field,
                 owned: false,
-            });
-        }
-        fields.try_into().ok()
+            }
+        });
+        Some(fields)
     }
 }

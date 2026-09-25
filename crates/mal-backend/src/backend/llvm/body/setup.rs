@@ -248,7 +248,7 @@ impl<'a> FunctionEmitter<'a> {
                     self.types.index_integer(),
                     self.types.index_alignment()
                 ));
-                self.refresh_control_storage()?;
+                self.refresh_control_storage();
             }
         }
         let mut slots = self.slots.values().cloned().collect::<Vec<_>>();

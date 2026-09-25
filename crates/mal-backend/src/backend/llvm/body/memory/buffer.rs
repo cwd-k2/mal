@@ -192,7 +192,7 @@ impl FunctionEmitter<'_> {
                 if *element == Type::Unit {
                     return Some(emitted_unit());
                 }
-                let data = self.active_buffer_data(buffer)?;
+                let data = self.active_buffer_data(buffer);
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
                 match storage {
                     ElementStorage::Managed { alignment, .. } => {
@@ -215,7 +215,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 if stride != 0 {
-                    let data = self.active_buffer_data(buffer)?;
+                    let data = self.active_buffer_data(buffer);
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
                     match storage {
                         ElementStorage::Managed { alignment, .. } => {
@@ -289,7 +289,7 @@ impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn active_buffer_data(
         &mut self,
         buffer: &EmittedValue,
-    ) -> Option<String> {
+    ) -> String {
         let slot = self.register();
         self.line(format!(
             "  {slot} = call ptr @mal_runtime_buffer_data_slot(ptr {})",
@@ -300,7 +300,7 @@ impl FunctionEmitter<'_> {
             "  {data} = load ptr, ptr {slot}, align {}, !tbaa !8, !alias.scope !6",
             self.types.pointer_alignment()
         ));
-        Some(data)
+        data
     }
 
     pub(in crate::backend::llvm::body) fn buffer_element_storage(
