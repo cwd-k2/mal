@@ -1,6 +1,7 @@
 use crate::diagnostic::Diagnostic;
 use crate::source::{SourceFile, Span};
 
+mod escape;
 mod number;
 mod symbol;
 mod token;
@@ -122,50 +123,32 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_byte(&mut self, start: usize) -> Result<(), Diagnostic> {
-        self.offset += 1;
-        let value = match self.peek() {
-            Some(b'\\') => {
-                self.offset += 1;
-                match self.peek() {
-                    Some(b'\\') => b'\\',
-                    Some(b'\'') => b'\'',
-                    Some(b'n') => b'\n',
-                    Some(b'r') => b'\r',
-                    Some(b't') => b'\t',
-                    Some(b'0') => b'\0',
-                    Some(b'x') => {
-                        self.offset += 1;
-                        let Some(high) = self.peek().and_then(hex_value) else {
-                            return Err(self.invalid_byte(start, "expected two hexadecimal digits"));
-                        };
-                        self.offset += 1;
-                        let Some(low) = self.peek().and_then(hex_value) else {
-                            return Err(self.invalid_byte(start, "expected two hexadecimal digits"));
-                        };
-                        high * 16 + low
-                    }
-                    _ => return Err(self.invalid_byte(start, "unknown byte escape")),
-                }
+        let (value, end) = match self.bytes.get(start + 1).copied() {
+            Some(b'\\') => escape::decode(self.bytes, start + 1, b'\'')
+                .map_err(|(offset, label)| self.invalid_byte(start, offset, label))?,
+            Some(byte @ 0x20..=0x7e) if !matches!(byte, b'\'' | b'\\') => (byte, start + 2),
+            _ => {
+                return Err(self.invalid_byte(
+                    start,
+                    start + 1,
+                    "expected one printable ASCII byte",
+                ));
             }
-            Some(byte @ 0x20..=0x7e) if !matches!(byte, b'\'' | b'\\') => byte,
-            _ => return Err(self.invalid_byte(start, "expected one printable ASCII byte")),
         };
-        self.offset += 1;
-        if self.peek() != Some(b'\'') {
-            return Err(self.invalid_byte(start, "byte literal must contain exactly one byte"));
+        if self.bytes.get(end) != Some(&b'\'') {
+            return Err(self.invalid_byte(
+                start,
+                end,
+                "byte literal must contain exactly one byte",
+            ));
         }
-        self.offset += 1;
+        self.offset = end + 1;
         self.push(TokenKind::Byte(value), start);
         Ok(())
     }
 
-    fn invalid_byte(&mut self, start: usize, label: &str) -> Diagnostic {
-        while let Some(byte) = self.peek() {
-            self.offset += 1;
-            if byte == b'\'' || matches!(byte, b'\n' | b'\r') {
-                break;
-            }
-        }
+    fn invalid_byte(&mut self, start: usize, offset: usize, label: &str) -> Diagnostic {
+        self.offset = escape::recover(self.bytes, offset, b'\'');
         self.error(start, self.offset, "invalid byte literal", label)
     }
 
@@ -329,14 +312,5 @@ impl<'a> Lexer<'a> {
 
     fn span(&self, start: usize, end: usize) -> Span {
         Span::new(self.source.id(), start, end)
-    }
-}
-
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
     }
 }
