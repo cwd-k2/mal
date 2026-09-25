@@ -83,7 +83,7 @@ impl Index {
             }
             ExpressionKind::Parenthesized(inner) => self.collect_checked_expression(inner),
             ExpressionKind::Block(block) => {
-                self.collect_checked_body(&block.items, &block.result);
+                self.collect_checked_body(&block.items, &block.result, false);
             }
             ExpressionKind::ResultBlock {
                 target,
@@ -102,7 +102,7 @@ impl Index {
                     self.typed_regions
                         .push((binder.binding.name.span, parameter_type));
                 }
-                self.collect_checked_body(&body.items, &body.result);
+                self.collect_checked_body(&body.items, &body.result, false);
             }
             ExpressionKind::Lambda(lambda) => {
                 for capture in &lambda.captures {
@@ -115,7 +115,7 @@ impl Index {
                     self.collect_checked_pattern(parameter);
                     self.mark_parameter_bindings(parameter);
                 }
-                self.collect_checked_body(&lambda.body.items, &lambda.body.result);
+                self.collect_checked_body(&lambda.body.items, &lambda.body.result, false);
             }
             ExpressionKind::Call { callee, argument } => {
                 self.collect_checked_expression(callee);
@@ -126,9 +126,6 @@ impl Index {
                 continuations,
             } => {
                 self.collect_checked_expression(scrutinee);
-                for continuation in continuations {
-                    self.collect_checked_continuation(continuation);
-                }
                 let choices = continuations
                     .iter()
                     .map(|continuation| match continuation {
@@ -147,7 +144,10 @@ impl Index {
                         },
                     })
                     .collect::<Vec<_>>();
-                self.note_exits(&choices, expression.span);
+                let reported = self.note_exits(&choices, expression.span);
+                for (continuation, tail_reported) in continuations.iter().zip(reported) {
+                    self.collect_checked_continuation(continuation, tail_reported);
+                }
             }
             ExpressionKind::SymbolLength { value }
             | ExpressionKind::NumericConversion { value }
@@ -164,9 +164,10 @@ impl Index {
                 else_branch,
             } => {
                 self.collect_checked_expression(condition);
-                self.collect_checked_body(&then_branch.items, &then_branch.result);
-                self.collect_checked_body(&else_branch.items, &else_branch.result);
-                self.note_branch_exits(then_branch, else_branch, expression.span);
+                let [then_reported, else_reported] =
+                    self.note_branch_exits(then_branch, else_branch, expression.span);
+                self.collect_checked_body(&then_branch.items, &then_branch.result, then_reported);
+                self.collect_checked_body(&else_branch.items, &else_branch.result, else_reported);
             }
             ExpressionKind::Unary { operand, .. } => self.collect_checked_expression(operand),
             ExpressionKind::Binary { left, right, .. } => {
@@ -250,12 +251,12 @@ impl Index {
         targets
     }
 
-    /// Records where a choice leaves the block. When some choices continue, the leaving ones are marked;
-    /// when all of them leave, the whole choice is.
-    fn note_exits(&mut self, choices: &[Choice], whole: Span) {
+    /// Records where a choice leaves the block. When some choices continue, the leaving ones are marked; when all of
+    /// them leave, the whole choice is. Returns, for each side, whether a mark already covers where that side ends.
+    fn note_exits(&mut self, choices: &[Choice], whole: Span) -> Vec<bool> {
         let leaving = choices.iter().filter(|choice| choice.leaves).count();
         if leaving == 0 {
-            return;
+            return vec![false; choices.len()];
         }
         if leaving == choices.len() {
             let mut targets = Vec::new();
@@ -277,6 +278,7 @@ impl Index {
                     }),
             );
         }
+        choices.iter().map(|choice| choice.leaves).collect()
     }
 
     fn note_branch_exits(
@@ -284,15 +286,20 @@ impl Index {
         then_branch: &checked::ExpressionBlock,
         else_branch: &checked::ExpressionBlock,
         whole: Span,
-    ) {
+    ) -> [bool; 2] {
         let then_choice = self.choice(then_branch.span, then_branch.result.as_ref());
         let mut else_choice = self.choice(else_branch.span, else_branch.result.as_ref());
         // `when` has no written else branch; its synthetic one spans the whole expression.
         else_choice.leaves &= else_branch.span != whole;
-        self.note_exits(&[then_choice, else_choice], whole);
+        let reported = self.note_exits(&[then_choice, else_choice], whole);
+        [reported[0], reported[1]]
     }
 
-    fn collect_checked_continuation(&mut self, continuation: &checked::SumContinuation) {
+    fn collect_checked_continuation(
+        &mut self,
+        continuation: &checked::SumContinuation,
+        tail_reported: bool,
+    ) {
         match continuation {
             checked::SumContinuation::Function(expression) => {
                 self.collect_checked_expression(expression);
@@ -302,7 +309,7 @@ impl Index {
                     self.collect_checked_pattern(parameter);
                     self.mark_parameter_bindings(parameter);
                 }
-                self.collect_checked_body(&branch.body.items, &branch.body.result);
+                self.collect_checked_body(&branch.body.items, &branch.body.result, tail_reported);
             }
             checked::SumContinuation::Transfer(_) => {}
         }
@@ -323,7 +330,15 @@ impl Index {
         }
     }
 
-    fn collect_checked_body(&mut self, items: &[checked::BodyItem], result: &checked::Completion) {
+    /// `tail_reported` is whether a hint already marks the unit whose end this body's completion is. The statements
+    /// before the completion start fresh paths: an exit among them is a place where control may leave early, which
+    /// stays visible however the unit ends.
+    fn collect_checked_body(
+        &mut self,
+        items: &[checked::BodyItem],
+        result: &checked::Completion,
+        tail_reported: bool,
+    ) {
         for item in items {
             match item {
                 checked::BodyItem::Binding(binding) => self.collect_checked_binding(binding),
@@ -332,10 +347,24 @@ impl Index {
                 }
             }
         }
-        self.collect_checked_completion(result);
+        self.collect_checked_completion(result, tail_reported);
     }
 
-    fn collect_checked_completion(&mut self, completion: &checked::Completion) {
+    /// A choice that ends its block on every side is marked, unless it is the end of a unit that is already marked.
+    fn note_abrupt_exit(&mut self, abrupt: &checked::AbruptExpression, tail_reported: bool) {
+        if !tail_reported {
+            self.exits.push(Exit {
+                span: abrupt.span,
+                targets: self.abrupt_targets(abrupt),
+            });
+        }
+    }
+
+    fn collect_checked_completion(
+        &mut self,
+        completion: &checked::Completion,
+        tail_reported: bool,
+    ) {
         match completion {
             checked::Completion::Value(expression) => self.collect_checked_expression(expression),
             checked::Completion::Abrupt(abrupt) => {
@@ -355,28 +384,23 @@ impl Index {
                         else_branch,
                     } => {
                         self.collect_checked_expression(condition);
-                        self.collect_checked_body(&then_branch.items, &then_branch.result);
-                        self.collect_checked_body(&else_branch.items, &else_branch.result);
-                        self.exits.push(Exit {
-                            span: abrupt.span,
-                            targets: self.abrupt_targets(abrupt),
-                        });
+                        self.note_abrupt_exit(abrupt, tail_reported);
+                        // Every side leaves, so each ends in the unit this choice marks or that marks it.
+                        self.collect_checked_body(&then_branch.items, &then_branch.result, true);
+                        self.collect_checked_body(&else_branch.items, &else_branch.result, true);
                     }
                     checked::AbruptExpressionKind::SumElimination {
                         scrutinee,
                         continuations,
                     } => {
                         self.collect_checked_expression(scrutinee);
+                        self.note_abrupt_exit(abrupt, tail_reported);
                         for continuation in continuations {
-                            self.collect_checked_continuation(continuation);
+                            self.collect_checked_continuation(continuation, true);
                         }
-                        self.exits.push(Exit {
-                            span: abrupt.span,
-                            targets: self.abrupt_targets(abrupt),
-                        });
                     }
                     checked::AbruptExpressionKind::Block(block) => {
-                        self.collect_checked_body(&block.items, &block.result);
+                        self.collect_checked_body(&block.items, &block.result, tail_reported);
                     }
                 }
             }

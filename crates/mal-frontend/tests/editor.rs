@@ -617,3 +617,45 @@ fn an_exit_inside_a_branch_that_continues_is_kept() {
     let text = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n  x := r[(n) -> {\n    when (n == 0i32) { fail() };\n    n\n  }, () -> fail()];\n  ok(x)\n};\n";
     assert_eq!(exit_texts(text), ["{ fail() }", "() -> fail()"]);
 }
+
+#[test]
+fn an_early_exit_inside_a_leaving_unit_stays_visible() {
+    let prelude = "Res :: [Int32, Unit];\nf :: Res -> Res := (r) -> [ok, fail] => {\n";
+    // A `when` inside the body of a `when`: the outer body always leaves at its end, the inner one only sometimes.
+    assert_eq!(
+        exit_targets(&format!(
+            "{prelude}  when (true) {{\n    when (false) {{ fail() }};\n    ok(1i32)\n  }};\n  r[ok, fail]\n}};\n"
+        )),
+        [
+            (
+                "{\n    when (false) { fail() };\n    ok(1i32)\n  }".to_owned(),
+                names(&["ok"])
+            ),
+            ("{ fail() }".to_owned(), names(&["fail"])),
+            ("r[ok, fail]".to_owned(), names(&["ok", "fail"])),
+        ]
+    );
+    // A leaving continuation of a choice that also has a continuing one keeps its own early exit.
+    assert_eq!(
+        exit_targets(&format!(
+            "{prelude}  v := r[(n) -> n, () -> {{ when (true) {{ ok(0i32) }}; fail() }}];\n  ok(v)\n}};\n"
+        )),
+        [
+            (
+                "() -> { when (true) { ok(0i32) }; fail() }".to_owned(),
+                names(&["fail"])
+            ),
+            ("{ ok(0i32) }".to_owned(), names(&["ok"])),
+        ]
+    );
+}
+
+#[test]
+fn an_early_exit_inside_a_choice_on_result_binders_stays_visible() {
+    let text = "Res :: [Int32, Unit];\nf :: Res -> Res := (r) -> [ok, fail] => {\n  r[(n) -> {\n    when (n == 0i32) { fail() };\n    ok(n)\n  }, () -> fail()]\n};\n";
+    let exits = exit_targets(text);
+    assert_eq!(exits.len(), 2, "{exits:?}");
+    assert!(exits[0].0.starts_with("r[(n) ->"), "{exits:?}");
+    assert_eq!(exits[0].1, names(&["ok", "fail"]));
+    assert_eq!(exits[1], ("{ fail() }".to_owned(), names(&["fail"])));
+}

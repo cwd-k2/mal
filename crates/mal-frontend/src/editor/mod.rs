@@ -135,8 +135,9 @@ impl SemanticDocument {
     }
 
     /// Where control leaves its result block, and to which binders: the branches and continuations that leave when
-    /// another one continues, or a whole choice when every one of them leaves. Only the outermost unit is reported, and
-    /// the positions to annotate are the span ends.
+    /// another one continues, or a whole choice when every one of them leaves. A choice that only ends an already marked
+    /// unit is not repeated, while an exit among the statements of a marked unit is, since control may leave there early.
+    /// The positions to annotate are the span ends.
     pub fn exits(&self) -> impl Iterator<Item = &Exit> + '_ {
         self.exits.iter().filter(|exit| self.in_document(exit.span))
     }

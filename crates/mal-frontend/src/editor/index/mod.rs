@@ -146,7 +146,7 @@ impl Index {
             file,
             occurrences,
             typed_regions: self.typed_regions,
-            exits: outermost_exits(self.exits),
+            exits: merged_exits(self.exits),
             document_symbols,
             completions,
         }
@@ -230,14 +230,11 @@ fn symbol_for(occurrence: &Occurrence) -> Symbol {
     }
 }
 
-/// Keeps only the outermost units that end a path.
+/// Orders the exits by position and merges the ones that mark the same span.
 ///
-/// A unit that leaves the block already says that every path through it leaves, so a unit nested inside it, such as the
-/// branch of a choice on result binders inside a leaving continuation, adds no distinction and would only repeat the
-/// hint at the same or an adjacent position. Each remaining span is marked once, at its end, with every binder that
-/// the reported units transfer to.
-fn outermost_exits(mut exits: Vec<Exit>) -> Vec<Exit> {
-    // An enclosing span sorts before every span it contains, so one sweep with the furthest end kept so far finds them.
+/// Nested spans are kept: an exit among the statements of a leaving unit is a place where control may leave early. The
+/// collection already leaves out the one hint that would repeat its parent, the choice that ends a marked unit.
+fn merged_exits(mut exits: Vec<Exit>) -> Vec<Exit> {
     exits.sort_by_key(|exit| {
         (
             exit.span.file().index(),
@@ -245,17 +242,14 @@ fn outermost_exits(mut exits: Vec<Exit>) -> Vec<Exit> {
             std::cmp::Reverse(exit.span.end()),
         )
     });
-    // Units nest or are disjoint, so the last kept span is the only one that can enclose the next.
-    let mut kept: Vec<Exit> = Vec::new();
+    let mut merged: Vec<Exit> = Vec::new();
     for exit in exits {
-        match kept.last_mut() {
+        match merged.last_mut() {
             Some(last) if last.span == exit.span => merge_targets(&mut last.targets, exit.targets),
-            Some(last)
-                if last.span.file() == exit.span.file() && exit.span.end() <= last.span.end() => {}
-            _ => kept.push(exit),
+            _ => merged.push(exit),
         }
     }
-    kept
+    merged
 }
 
 pub(super) fn merge_targets(targets: &mut Vec<String>, more: Vec<String>) {
