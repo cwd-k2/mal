@@ -119,7 +119,7 @@ printValue :: Int32 -> Unit := (x) -> {
 
 admission、observation、capability transferと各leafのlifetime authorityは
 [Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
-carrier、borrow、terminal return、連続表現の準備は[C host ABI](c-host-abi.md)が定める。
+carrier、borrow、terminal returnは[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
 mal側は返されたcountを`from<UInt8>`のlengthとしてBufferへcopyし、必要ならSymbol snapshotへ変換する。

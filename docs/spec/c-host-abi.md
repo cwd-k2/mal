@@ -103,8 +103,8 @@ public headerはHostMappableなbuiltin carrierとhelper、extern signatureから
 aggregateの型名、内部carrier、ownership helperを宣言しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
-指定範囲をcall中だけborrowし、書き込みではmalが用意した範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
-call後に保持せず、mal-owned valueのidentity、owner、連続表現を観測しない。長さ、permission、初期化、partial transferの
+指定範囲をcall中だけborrowし、書き込みではhostが所有する範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
+call後に保持しない。長さ、permission、初期化、partial transferの
 postconditionは[AddressとBuffer](memory.md)とoperation固有のcontractを正とする。
 
 ## Canonical memory access
