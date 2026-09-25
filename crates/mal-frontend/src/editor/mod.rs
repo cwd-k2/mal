@@ -67,6 +67,7 @@ pub struct SemanticDocument {
     file: Option<FileId>,
     occurrences: Vec<Occurrence>,
     typed_regions: Vec<(Span, String)>,
+    exits: Vec<Span>,
     document_symbols: Vec<Symbol>,
     completions: Vec<Symbol>,
 }
@@ -123,6 +124,15 @@ impl SemanticDocument {
         self.occurrences
             .iter()
             .filter(|occurrence| self.in_document(occurrence.span))
+    }
+
+    /// Where control leaves the enclosing block: the branches and continuations that leave when another one
+    /// continues, or a whole choice when every one of them leaves. Positions to annotate are the span ends.
+    pub fn exits(&self) -> impl Iterator<Item = Span> + '_ {
+        self.exits
+            .iter()
+            .copied()
+            .filter(|span| self.in_document(*span))
     }
 
     pub fn occurrence_at(&self, byte_offset: usize) -> Option<&Occurrence> {

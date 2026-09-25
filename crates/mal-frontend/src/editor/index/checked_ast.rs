@@ -122,6 +122,18 @@ impl Index {
                 for continuation in continuations {
                     self.collect_checked_continuation(continuation);
                 }
+                let choices = continuations
+                    .iter()
+                    .map(|continuation| match continuation {
+                        checked::SumContinuation::Function(function) => (function.span, false),
+                        checked::SumContinuation::Branch(branch) => (
+                            branch.span,
+                            matches!(branch.body.result.as_ref(), checked::Completion::Abrupt(_)),
+                        ),
+                        checked::SumContinuation::Transfer(transfer) => (transfer.span, true),
+                    })
+                    .collect::<Vec<_>>();
+                self.note_exits(&choices, expression.span);
             }
             ExpressionKind::SymbolLength { value }
             | ExpressionKind::NumericConversion { value }
@@ -140,6 +152,7 @@ impl Index {
                 self.collect_checked_expression(condition);
                 self.collect_checked_body(&then_branch.items, &then_branch.result);
                 self.collect_checked_body(&else_branch.items, &else_branch.result);
+                self.note_branch_exits(then_branch, else_branch, expression.span);
             }
             ExpressionKind::Unary { operand, .. } => self.collect_checked_expression(operand),
             ExpressionKind::Binary { left, right, .. } => {
@@ -158,6 +171,49 @@ impl Index {
             | ExpressionKind::Symbol(_)
             | ExpressionKind::Unit => {}
         }
+    }
+
+    /// Records where a choice leaves the block. When some choices continue, the leaving ones are marked;
+    /// when all of them leave, the whole choice is.
+    fn note_exits(
+        &mut self,
+        choices: &[(mal_syntax::source::Span, bool)],
+        whole: mal_syntax::source::Span,
+    ) {
+        let leaving = choices.iter().filter(|(_, leaves)| *leaves).count();
+        if leaving == 0 {
+            return;
+        }
+        if leaving == choices.len() {
+            self.exits.push(whole);
+        } else {
+            self.exits.extend(
+                choices
+                    .iter()
+                    .filter(|(_, leaves)| *leaves)
+                    .map(|(span, _)| *span),
+            );
+        }
+    }
+
+    fn note_branch_exits(
+        &mut self,
+        then_branch: &checked::ExpressionBlock,
+        else_branch: &checked::ExpressionBlock,
+        whole: mal_syntax::source::Span,
+    ) {
+        let leaves = |branch: &checked::ExpressionBlock| {
+            matches!(branch.result.as_ref(), checked::Completion::Abrupt(_))
+        };
+        // `when` has no written else branch; its synthetic one spans the whole expression.
+        let choices = [
+            (then_branch.span, leaves(then_branch)),
+            (
+                else_branch.span,
+                leaves(else_branch) && else_branch.span != whole,
+            ),
+        ];
+        self.note_exits(&choices, whole);
     }
 
     fn collect_checked_continuation(&mut self, continuation: &checked::SumContinuation) {
@@ -225,6 +281,7 @@ impl Index {
                         self.collect_checked_expression(condition);
                         self.collect_checked_body(&then_branch.items, &then_branch.result);
                         self.collect_checked_body(&else_branch.items, &else_branch.result);
+                        self.exits.push(abrupt.span);
                     }
                     checked::AbruptExpressionKind::SumElimination {
                         scrutinee,
@@ -234,6 +291,7 @@ impl Index {
                         for continuation in continuations {
                             self.collect_checked_continuation(continuation);
                         }
+                        self.exits.push(abrupt.span);
                     }
                     checked::AbruptExpressionKind::Block(block) => {
                         self.collect_checked_body(&block.items, &block.result);

@@ -118,7 +118,7 @@ cargo run -p mal-lsp --locked
 module責務は[`crates/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を正とする。
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
-document symbol、completion、semantic tokenを提供する。semantic requestはsource全体がparse、resolve、checkに
+document symbol、completion、semantic token、inlay hintを提供する。semantic requestはsource全体がparse、resolve、checkに
 成功したときに利用できる。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
 `.mal` file境界を跨ぐ。document symbolとsemantic tokenはrequest対象fileだけを返し、completionはそのfile自身の名前と
 直接requireしたfileの公開名を返す。
@@ -148,6 +148,12 @@ requestごとに再解析しない。直前に成功したversionのsemantic ind
 あるため再利用しない。syntax fallbackは型、parameter identity、参照先を推測せず、現在のtokenとtop-level function declarationだけを
 扱う。それ以上のpartial semantic resultには、parser、resolver、checkerがrecovery済み領域と依存関係を明示する別のadmitted表現を
 導入する。
+
+### inlay hint
+
+現在のpathがenclosing blockを抜ける位置を、その分岐の末尾に`leaves the block`として示す。対象は、`if`の分岐、`when`のbody、
+直和除去のcontinuationのうち、別の分岐が続く選択でblockを抜ける側と、すべての分岐が抜ける場合の選択全体である。値を返す側には
+何も付けない。要求されたrangeに末尾が入るものだけを返し、semantic analysisに失敗しているversionでは空の結果を返す。
 
 ### hover
 

@@ -258,3 +258,39 @@ fn hover_on_a_result_binder_says_that_applying_it_leaves_the_block() {
         "{value}"
     );
 }
+
+#[test]
+fn inlay_hints_mark_where_control_leaves_the_block() {
+    let text = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n  v := r[(n) -> n, () -> fail()];\n  ok(v)\n};\n";
+    let uri = "file:///exits.mal";
+    let mut server = open_document(uri, text);
+    let request = |server: &mut Server, id: u64, start: usize, end: usize| {
+        server.handle(json!({
+            "jsonrpc": "2.0", "id": id, "method": "textDocument/inlayHint",
+            "params": {
+                "textDocument": {"uri": uri},
+                "range": {"start": text_position(text, start), "end": text_position(text, end)}
+            }
+        }))
+    };
+
+    let outcome = request(&mut server, 30, 0, text.len());
+    let hints = outcome.messages[0]["result"].as_array().unwrap();
+    assert_eq!(hints.len(), 1);
+    assert_eq!(hints[0]["label"], "leaves the block");
+    assert_eq!(
+        hints[0]["position"],
+        text_position(text, text.find("fail()").unwrap() + "fail()".len())
+    );
+
+    let before = request(&mut server, 31, 0, text.find("v :=").unwrap());
+    assert_eq!(before.messages[0]["result"], json!([]));
+
+    let capabilities = server.handle(json!({
+        "jsonrpc": "2.0", "id": 32, "method": "initialize", "params": {}
+    }));
+    assert_eq!(
+        capabilities.messages[0]["result"]["capabilities"]["inlayHintProvider"],
+        true
+    );
+}

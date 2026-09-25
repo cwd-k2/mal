@@ -11,6 +11,7 @@ use super::{
 
 mod completion;
 mod hover;
+mod inlay;
 mod tokens;
 
 #[derive(Clone, Copy, Deserialize)]
@@ -270,6 +271,10 @@ impl Server {
                 self, &uri, &source
             )),
         )
+    }
+
+    pub(super) fn inlay_hints(&mut self, id: Value, params: Value) -> Value {
+        inlay::hints(self, id, params)
     }
 
     pub(super) fn semantic_tokens(&mut self, id: Value, params: Value) -> Value {

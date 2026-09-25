@@ -507,3 +507,25 @@ fn indexes_many_top_level_symbols_from_declarations_once() {
 
     assert_eq!(document.document_symbols().len(), 4_096);
 }
+
+#[test]
+fn exits_mark_the_choices_that_leave_the_block() {
+    let text = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n  v := r[(n) -> n, () -> fail()];\n  when (v == 0i32) { ok(0i32) };\n  w := if (v == 1i32) then 5i32 else ok(1i32);\n  r[ok, fail]\n};\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let exits = document
+        .exits()
+        .map(|span| &text[span.start()..span.end()])
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        exits,
+        ["() -> fail()", "{ ok(0i32) }", "ok(1i32)", "r[ok, fail]"]
+    );
+}
+
+#[test]
+fn a_choice_where_every_side_continues_has_no_exit() {
+    let text = "pick :: Bool -> Int32 := (c) -> { if (c) then 1i32 else 2i32; };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    assert_eq!(document.exits().count(), 0);
+}

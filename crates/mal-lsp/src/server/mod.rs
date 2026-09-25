@@ -120,6 +120,7 @@ impl Server {
                         "textDocumentSync": 1,
                         "documentFormattingProvider": true,
                         "hoverProvider": true,
+                        "inlayHintProvider": true,
                         "definitionProvider": true,
                         "documentLinkProvider": {},
                         "referencesProvider": true,
@@ -164,6 +165,9 @@ impl Server {
             }
             (Some("textDocument/completion"), Some(id)) => {
                 messages.push(self.completion(id, params));
+            }
+            (Some("textDocument/inlayHint"), Some(id)) => {
+                messages.push(self.inlay_hints(id, params));
             }
             (Some("textDocument/semanticTokens/full"), Some(id)) => {
                 messages.push(self.semantic_tokens(id, params));

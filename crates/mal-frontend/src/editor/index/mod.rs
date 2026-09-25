@@ -30,6 +30,7 @@ struct Index {
     parameters: HashSet<resolved::ValueId>,
     result_binders: HashSet<resolved::ValueId>,
     typed_regions: Vec<(Span, String)>,
+    exits: Vec<Span>,
     raw_occurrences: Vec<RawOccurrence>,
     top_level: Vec<SymbolId>,
 }
@@ -53,6 +54,7 @@ impl Index {
             parameters: HashSet::new(),
             result_binders: HashSet::new(),
             typed_regions: Vec::new(),
+            exits: Vec::new(),
             raw_occurrences: Vec::new(),
             top_level: Vec::new(),
         };
@@ -141,6 +143,12 @@ impl Index {
             file,
             occurrences,
             typed_regions: self.typed_regions,
+            exits: {
+                let mut exits = self.exits;
+                exits.sort_by_key(|span| (span.file().index(), span.start(), span.end()));
+                exits.dedup();
+                exits
+            },
             document_symbols,
             completions,
         }

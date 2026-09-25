@@ -8,5 +8,5 @@ answers come from the same analysis as `malc check`. Behavior is described in `d
 | `server` | JSON-RPC method dispatch and the open-document lifecycle |
 | `server/analysis` | source graph, frontend analysis, semantic index state transitions, and diagnostic conversion |
 | `server/requirement` | `require` path completion and document links |
-| `server/semantic` | LSP representations of hover, navigation, rename, symbols, completion, and semantic tokens |
+| `server/semantic` | LSP representations of hover, navigation, rename, symbols, completion, semantic tokens, and inlay hints |
 | `protocol` | LSP message types |
