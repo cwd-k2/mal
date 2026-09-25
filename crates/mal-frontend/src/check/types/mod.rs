@@ -19,12 +19,6 @@ pub(super) use properties::{
 };
 
 #[derive(Clone)]
-pub(super) struct AliasDefinition {
-    pub(super) binding: resolved::TypeBinding,
-    pub(super) value: Node<resolved::TypeExpression>,
-}
-
-#[derive(Clone)]
 pub(super) struct GenericAliasDefinition {
     pub(super) parameters: Vec<resolved::TypeBinding>,
     pub(super) value: Node<resolved::TypeExpression>,
@@ -61,13 +55,7 @@ impl Checker {
         for item in &program.items {
             match &item.kind {
                 resolved::TopItem::TypeAlias { binding, value } => {
-                    self.aliases.insert(
-                        binding.id,
-                        AliasDefinition {
-                            binding: binding.clone(),
-                            value: value.clone(),
-                        },
-                    );
+                    self.aliases.insert(binding.id, value.clone());
                 }
                 resolved::TopItem::GenericTypeAlias {
                     binding,
@@ -182,15 +170,12 @@ impl Checker {
                             return Err(Diagnostic::error("recursive type alias")
                                 .with_primary(use_span, "this reference forms an alias cycle"));
                         }
-                        let definition = self
+                        let value = self
                             .aliases
                             .get(&id)
                             .expect("resolved type IDs must have a definition");
                         pending.push(Expansion::Alias(id));
-                        pending.push(Expansion::Expression(
-                            definition.value.clone(),
-                            substitutions,
-                        ));
+                        pending.push(Expansion::Expression(value.clone(), substitutions));
                     }
                 }
                 Expansion::Application(constructor, arity) => {

@@ -27,7 +27,7 @@ pub fn type_name(ty: &ast::Type) -> String {
 
 use self::ast::{AbruptExpression, Binding, BodyItem, Completion, Pattern, Program, TopItem, Type};
 use self::interface::ExternalSignature;
-use self::types::{AliasDefinition, GenericAliasDefinition};
+use self::types::GenericAliasDefinition;
 
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
     Checker::new()
@@ -80,7 +80,7 @@ impl From<Diagnostic> for CheckFailure {
 type CheckResult<T> = Result<T, CheckFailure>;
 
 struct Checker {
-    aliases: HashMap<TypeId, AliasDefinition>,
+    aliases: HashMap<TypeId, Node<resolved::TypeExpression>>,
     generic_aliases: HashMap<TypeId, GenericAliasDefinition>,
     type_substitutions: std::sync::Arc<HashMap<TypeId, Type>>,
     active_requirements: HashSet<TypeId>,
@@ -136,11 +136,18 @@ impl Checker {
 
     fn check_program(mut self, program: &resolved::Program) -> CheckResult<Program> {
         self.collect_aliases(program);
-        for definition in self.aliases.values().cloned().collect::<Vec<_>>() {
-            self.expand_type_id(definition.binding.id, definition.binding.name.span)?;
-        }
-        for definition in self.generic_aliases.values().cloned().collect::<Vec<_>>() {
-            self.validate_generic_alias(&definition)?;
+        // Source order keeps the reported error the same from run to run when several aliases are invalid.
+        for item in &program.items {
+            match &item.kind {
+                resolved::TopItem::TypeAlias { binding, .. } => {
+                    self.expand_type_id(binding.id, binding.name.span)?;
+                }
+                resolved::TopItem::GenericTypeAlias { binding, .. } => {
+                    let definition = self.generic_aliases[&binding.id].clone();
+                    self.validate_generic_alias(&definition)?;
+                }
+                _ => {}
+            }
         }
         self.collect_external_signatures(program)?;
 

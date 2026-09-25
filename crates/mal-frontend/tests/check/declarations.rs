@@ -277,6 +277,19 @@ fn rejects_recursive_aliases_even_when_unused() {
 }
 
 #[test]
+fn reports_the_first_invalid_alias_in_source_order() {
+    let text = "Pair :: (Int32, Pair); Loop :: [Loop, Int32]; Other :: (Other, Int32);";
+    for _ in 0..8 {
+        let error = check_error(text);
+        assert_eq!(error.message, "recursive type alias");
+        assert_eq!(
+            error.primary.expect("alias cycle location").span.start(),
+            text.find("Pair)").expect("first cycle reference"),
+        );
+    }
+}
+
+#[test]
 fn checks_nominal_external_opaque_types() {
     let program = check_ok(
         "extern Mem;\n\

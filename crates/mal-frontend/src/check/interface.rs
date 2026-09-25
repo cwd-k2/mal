@@ -85,7 +85,7 @@ impl Checker {
                 }
                 resolved::TypeExpression::Parenthesized(inner) => current = inner,
                 resolved::TypeExpression::Named(reference) => {
-                    current = &self.aliases.get(&reference.id)?.value;
+                    current = self.aliases.get(&reference.id)?;
                 }
                 _ => return None,
             }
@@ -171,7 +171,7 @@ impl Checker {
                         return elements;
                     }
                     aliases.push(reference.id);
-                    current = &self.aliases.get(&reference.id)?.value;
+                    current = self.aliases.get(&reference.id)?;
                 }
                 _ => {
                     for id in aliases {
