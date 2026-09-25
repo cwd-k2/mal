@@ -42,6 +42,29 @@ use parameter::{ParameterBorrows, collect_parameter_effects};
 pub(crate) use parameter::{ParameterEffect, ParameterEntry};
 use use_plan::{UseInputs, collect_use_effects, exclude_consumed_sources};
 
+/// The position of every binding in control order, to release values in a deterministic order.
+fn binding_order(control: &crate::control::ast::Program) -> HashMap<ValueId, usize> {
+    let mut order = Vec::new();
+    for function in &control.functions {
+        if let Some(binding) = function.parameter.binding {
+            order.push(binding);
+        }
+    }
+    for state in &control.states {
+        if let Some(input) = &state.input {
+            liveness::collect_pattern_binding_order(input, &mut order);
+        }
+        for binding in &state.bindings {
+            liveness::collect_pattern_binding_order(&binding.pattern, &mut order);
+        }
+    }
+    order
+        .into_iter()
+        .enumerate()
+        .map(|(position, id)| (id, position))
+        .collect()
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     input_destinations: HashMap<StateId, PatternDestination>,
@@ -116,6 +139,7 @@ impl Plan {
             }
         }
 
+        let binding_order = binding_order(control);
         let mut binding_destinations = HashMap::new();
         let mut drops_after_binding = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
@@ -132,8 +156,20 @@ impl Plan {
                         used.push(id);
                     }
                 });
+                // A borrowed operand keeps its lenders alive, so when its last use ends here the lenders end
+                // here too and must be released with the operand.
+                let mut lenders = HashSet::new();
+                visit_operation_atoms(&binding.operation, |atom| {
+                    borrows.insert(atom, &mut lenders)
+                });
+                let mut lenders = lenders
+                    .into_iter()
+                    .filter(|id| !used.contains(id))
+                    .collect::<Vec<_>>();
+                lenders.sort_by_key(|id| binding_order.get(id));
                 let drops = used
                     .into_iter()
+                    .chain(lenders)
                     .filter(|id| !live.contains(id))
                     .collect::<Vec<_>>();
                 if !drops.is_empty() {

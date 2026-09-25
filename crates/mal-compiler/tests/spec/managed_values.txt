@@ -31,3 +31,28 @@ main :: Unit -> Int32 := () -> { s := if (true) then "ab" + "cd" else "x"; (#s).
 ### join_of_a_product_holding_a_buffer | run:4
 len :: (Buffer<UInt8>, Int32) -> Int32 := ((b, n)) -> (#b).i32 + n - n;
 main :: Unit -> Int32 := () -> { p := if (true) then (*"abcd", 1i32) else (*"xy", 2i32); len(p) };
+### product_holding_a_buffer_passed_to_two_recursive_calls | run:0
+Grid :: (Int64, Buffer<Int64>);
+acc :: (Buffer<Int64>, Grid, USize) -> Unit := (buffer, grid, index) -> {
+    (width, cells) := grid;
+    if (index == 3usize)
+    then { () }
+    else {
+        buffer.put(0usize, buffer.get(0usize) + cells.get(index));
+        buffer.acc(grid, index + 1usize);
+    };
+};
+wr :: (Grid, Buffer<Int64>, USize) -> Unit := (grid, sums, index) -> {
+    (width, cells) := grid;
+    if (index == 3usize) then { () } else { grid.wr(sums, index + 1usize); };
+};
+main :: Unit -> Int32 := () -> {
+    cells := make<Int64>(3usize);
+    cells.new(1); cells.new(2); cells.new(3);
+    sums := make<Int64>(2usize);
+    sums.fill(0usize, 2usize, 0);
+    grid :: Grid := (1, cells);
+    sums.acc(grid, 0usize);
+    grid.wr(sums, 0usize);
+    0;
+};

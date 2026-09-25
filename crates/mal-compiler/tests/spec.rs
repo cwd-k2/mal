@@ -161,11 +161,11 @@ fn sum_continuation_branch_rules() {
     run_all(include_str!("spec/sum_continuations.txt"));
 }
 
-/// AddressSanitizer turns a managed value released too early, or twice, into a failed run.
+/// AddressSanitizer turns a managed value released too early, twice, or never into a failed run.
 #[test]
-fn managed_values_stay_owned_across_joins() {
+fn managed_values_are_released_exactly_once() {
     run_all_with(
-        include_str!("spec/joins.txt"),
+        include_str!("spec/managed_values.txt"),
         &["-fsanitize=address", "-g"],
     );
 }
