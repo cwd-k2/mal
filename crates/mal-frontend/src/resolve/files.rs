@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::resolve::ast::{self as resolved, TypeBinding, ValueBinding};
 use mal_syntax::ast;
 use mal_syntax::diagnostic::Diagnostic;
@@ -8,10 +6,11 @@ use mal_syntax::source::{FileId, SourceGraph, Span};
 use super::{ExternalBinding, Resolver};
 
 #[derive(Clone, Default)]
+/// The public names of a file in source order, so that an import conflict always reports the first one.
 struct Exports {
-    types: HashMap<String, TypeBinding>,
-    externals: HashMap<String, ExternalBinding>,
-    values: HashMap<String, ValueBinding>,
+    types: Vec<TypeBinding>,
+    externals: Vec<ExternalBinding>,
+    values: Vec<ValueBinding>,
 }
 
 pub(super) fn resolve(
@@ -102,7 +101,8 @@ impl FileResolver<'_> {
     }
 
     fn import(&mut self, exports: &Exports, span: Span) -> Result<(), Diagnostic> {
-        for (name, binding) in &exports.types {
+        for binding in &exports.types {
+            let name = &binding.name.text;
             if self
                 .resolver
                 .types
@@ -112,7 +112,8 @@ impl FileResolver<'_> {
                 return Err(import_conflict(span, "type", name));
             }
         }
-        for (name, binding) in &exports.externals {
+        for binding in &exports.externals {
+            let name = &binding.binding.name.text;
             if self.resolver.externals.contains_key(name)
                 || self.resolver.value_scopes[0].contains_key(name)
             {
@@ -123,7 +124,8 @@ impl FileResolver<'_> {
                 .insert(name.clone(), binding.clone());
             self.resolver.value_scopes[0].insert(name.clone(), binding.binding.clone());
         }
-        for (name, binding) in &exports.values {
+        for binding in &exports.values {
+            let name = &binding.name.text;
             if self.resolver.externals.contains_key(name)
                 || self.resolver.value_scopes[0].contains_key(name)
             {
@@ -142,9 +144,7 @@ fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
         | resolved::TopItem::ExternalType { binding }
             if is_public(&binding.name.text) =>
         {
-            exports
-                .types
-                .insert(binding.name.text.clone(), binding.clone());
+            exports.types.push(binding.clone());
         }
         resolved::TopItem::ExternalOperation {
             id,
@@ -152,20 +152,15 @@ fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
             lambda_id,
             ..
         } if is_public(&binding.name.text) => {
-            exports.externals.insert(
-                binding.name.text.clone(),
-                ExternalBinding {
-                    id: *id,
-                    binding: binding.clone(),
-                    lambda_id: *lambda_id,
-                },
-            );
+            exports.externals.push(ExternalBinding {
+                id: *id,
+                binding: binding.clone(),
+                lambda_id: *lambda_id,
+            });
         }
         resolved::TopItem::Binding(binding) => collect_pattern_exports(exports, &binding.pattern),
         resolved::TopItem::GenericBinding { binding, .. } if is_public(&binding.name.text) => {
-            exports
-                .values
-                .insert(binding.name.text.clone(), binding.clone());
+            exports.values.push(binding.clone());
         }
         _ => {}
     }
@@ -176,9 +171,7 @@ fn collect_pattern_exports(exports: &mut Exports, pattern: &ast::Node<resolved::
     while let Some(pattern) = pending.pop() {
         match &pattern.kind {
             resolved::Pattern::Binding(binding) if is_public(&binding.name.text) => {
-                exports
-                    .values
-                    .insert(binding.name.text.clone(), binding.clone());
+                exports.values.push(binding.clone());
             }
             resolved::Pattern::Product(elements) => pending.extend(elements.iter().rev()),
             _ => {}
