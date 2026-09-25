@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId, Terminator};
-use mal_frontend::check::ast::Type;
-use mal_frontend::check::type_fingerprint::TypeFingerprints;
 
+use super::closure_flow::ClosureFlow;
+use super::compatible_targets::CompatibleTargets;
 use super::{ClosureUsePlan, direct_function_id};
 
 pub(crate) struct ApplicationGraph {
@@ -26,14 +26,16 @@ impl ApplicationGraph {
         closure_uses: &ClosureUsePlan,
     ) -> Self {
         let mut sites = HashMap::new();
-        let mut compatible_targets = CompatibleTargets::new(closure);
+        let mut compatible = CompatibleTargets::new(closure);
+        let flow = ClosureFlow::new(closure, control, &mut compatible);
+        let mut targets = TargetIndex { compatible, flow };
         for binding in &control.bindings {
             collect_sites(
                 control,
                 closure_uses,
                 binding.entry,
                 None,
-                &mut compatible_targets,
+                &mut targets,
                 &mut sites,
             );
         }
@@ -43,7 +45,7 @@ impl ApplicationGraph {
                 closure_uses,
                 function.entry,
                 Some(function.id),
-                &mut compatible_targets,
+                &mut targets,
                 &mut sites,
             );
         }
@@ -141,7 +143,7 @@ fn collect_sites(
     closure_uses: &ClosureUsePlan,
     entry: StateId,
     caller: Option<FunctionId>,
-    compatible_targets: &mut CompatibleTargets,
+    targets: &mut TargetIndex,
     sites: &mut HashMap<StateId, ApplicationSite>,
 ) {
     for site in reachable_states(control, entry) {
@@ -151,7 +153,7 @@ fn collect_sites(
         let direct_target = direct_function_id(closure_uses, callee);
         let targets = direct_target
             .map(|target| vec![target])
-            .unwrap_or_else(|| compatible_targets.for_callee(callee));
+            .unwrap_or_else(|| targets.for_site(site, callee));
         let previous = sites.insert(
             site,
             ApplicationSite {
@@ -164,57 +166,29 @@ fn collect_sites(
     }
 }
 
-struct CompatibleTargets {
-    groups: HashMap<(u64, u64), Vec<TargetGroup>>,
-    fingerprints: TypeFingerprints,
+/// The targets of an indirect application: the functions of the callee's type that the closure flow reaches it with,
+/// or every function of that type when the flow reaches none.
+struct TargetIndex {
+    compatible: CompatibleTargets,
+    flow: ClosureFlow,
 }
 
-struct TargetGroup {
-    parameter: Type,
-    result: Type,
-    targets: Vec<FunctionId>,
-}
-
-impl CompatibleTargets {
-    fn new(program: &closure::Program) -> Self {
-        let mut index = Self {
-            groups: HashMap::new(),
-            fingerprints: TypeFingerprints::default(),
+impl TargetIndex {
+    fn for_site(&mut self, site: StateId, callee: &closure::Atom) -> Vec<FunctionId> {
+        let compatible = self.compatible.for_callee(callee);
+        let Some(reached) = self.flow.callee(site) else {
+            return compatible;
         };
-        for function in &program.functions {
-            let parameter = &function.parameter.ty;
-            let result = &function.body.result.ty;
-            let fingerprint = index.fingerprints.signature(parameter, result);
-            let groups = index.groups.entry(fingerprint).or_default();
-            if let Some(group) = groups
-                .iter_mut()
-                .find(|group| group.parameter == *parameter && group.result == *result)
-            {
-                group.targets.push(function.id);
-            } else {
-                groups.push(TargetGroup {
-                    parameter: parameter.clone(),
-                    result: result.clone(),
-                    targets: vec![function.id],
-                });
-            }
+        let narrowed = compatible
+            .iter()
+            .copied()
+            .filter(|target| reached.contains(target))
+            .collect::<Vec<_>>();
+        if narrowed.is_empty() {
+            compatible
+        } else {
+            narrowed
         }
-        index
-    }
-
-    fn for_callee(&mut self, callee: &closure::Atom) -> Vec<FunctionId> {
-        let Type::Function { parameter, result } = &callee.ty else {
-            return Vec::new();
-        };
-        let fingerprint = self.fingerprints.signature(parameter, result);
-        self.groups
-            .get(&fingerprint)
-            .and_then(|groups| {
-                groups
-                    .iter()
-                    .find(|group| group.parameter == **parameter && group.result == **result)
-            })
-            .map_or_else(Vec::new, |group| group.targets.clone())
     }
 }
 
@@ -318,7 +292,7 @@ mod tests {
         let source = SourceFile::new(
             FileId::new(83),
             "application-structural-targets.mal",
-            "Left :: (Int32, Unit); Right :: (Int32, Unit); left :: Left -> Left := (value) -> { value; }; right :: Right -> Right := (value) -> { value; }; apply :: ((Left -> Left), Right) -> Right := (function, value) -> { function(value); }; main :: Unit -> Int32 := () -> { (result, _) := apply(right, (0i32, ())); result; };"
+            "Left :: (Int32, Unit); Right :: (Int32, Unit); left :: Left -> Left := (value) -> { value; }; right :: Right -> Right := (value) -> { value; }; apply :: ((Left -> Left), Right) -> Right := (function, value) -> { function(value); }; main :: Unit -> Int32 := () -> { (first, _) := apply(right, (0i32, ())); (second, _) := apply(left, (0i32, ())); first + second; };"
                 .into(),
         );
         let parsed = parser::parse(&source).expect("parse structural target fixture");

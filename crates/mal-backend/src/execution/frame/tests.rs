@@ -74,29 +74,18 @@ fn distinguishes_resumable_and_unreachable_heterogeneous_frame_pairs() {
     let source = SourceFile::new(
         FileId::new(83),
         "heterogeneous-frame-resume.mal",
-        "Answer :: Int32;\n\
-         Continuation :: Int32 -> Answer;\n\
-         Computation :: Continuation -> Answer;\n\
-         Next :: Int32 -> Computation;\n\
-         Mapper :: Int32 -> Int32;\n\
-         pure :: Int32 -> Computation := (value) -> {\n\
-           (continuation) -> { value[continuation] };\n\
-         };\n\
-         bind :: (Computation, Next) -> Computation := (computation, next) -> {\n\
-           (continuation) -> {\n\
-             resume :: Continuation := (value) -> { continuation[value[next]]; };\n\
-             resume[computation];\n\
+        "count :: Int32 -> Int32 := (n) -> {\n\
+           if (n == 0i32) then { 0i32 } else {\n\
+             probe :: Int32 -> Bool := (m) -> {\n\
+               if (m == 0i32) then { true } else { seen := count(m - 1i32); seen > 0i32; };\n\
+             };\n\
+             flag := probe(n);\n\
+             rest := count(n - 1i32);\n\
+             if (flag) then { rest + 1i32 } else { rest };\n\
            };\n\
          };\n\
-         map :: (Computation, Mapper) -> Computation := (computation, mapper) -> {\n\
-           next :: Next := (value) -> { value[mapper][pure]; };\n\
-           (computation, next)[bind];\n\
-         };\n\
-         main :: Unit -> Int32 := () -> {\n\
-           mapped := (10[pure], (value) -> { value * 2 })[map];\n\
-           (value) -> { value - 20 }[mapped];\n\
-         };"
-        .into(),
+         main :: Unit -> Int32 := () -> { count(3i32); };"
+            .into(),
     );
     let parsed = parser::parse(&source).expect("parse heterogeneous frame fixture");
     let resolved = resolve::resolve(&parsed).expect("resolve heterogeneous frame fixture");

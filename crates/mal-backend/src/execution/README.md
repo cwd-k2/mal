@@ -8,6 +8,8 @@ responsibilities. The derivation order and its rules are documented in
 | Module | Responsibility |
 |---|---|
 | `closure` | closure creators, aliases, and statically known application targets |
+| `closure_flow` | functions that can reach the callee of each application site, through bindings, aggregates, captures, parameters, results, and buffers |
+| `compatible_targets` | functions grouped by parameter and result type, the bound for a callee that no flow fact narrows |
 | `application` | possible application graph: caller and possible targets per application site |
 | `optimization/*` | one module per technique (`self_tail`, `tail_forwarder`, `direct_call`, `unique_capture`, `frame_pass_through`); each owns a single applicability rule and yields decisions only |
 | `pass_through` | structural correspondence between a parameter pattern and its argument |

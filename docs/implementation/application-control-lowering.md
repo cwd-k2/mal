@@ -17,6 +17,7 @@ livenessは一回のbackward dataflow passで確定し、applicationによる再
 
 ```text
 control IR + closure use
+  -> closure flow
   -> possible application graph
   -> optional execution optimization decision
   -> residual continuation graph
@@ -26,7 +27,7 @@ control IR + closure use
   -> suspension frame + return/frame relation
 ```
 
-possible application graphは各applicationのcaller、known target、および型互換な有限のinternal function target集合を所有する。
+closure flowはclosure生成から始まり、binding、product、sum、capture、parameter、result、Bufferの要素を経て各applicationのcalleeへ届き得るfunctionの集合を求める。context insensitiveかつfield insensitiveであり、function値を作る操作はすべて規則を持つ。possible application graphは各applicationのcaller、known target、およびcalleeの型に適合し、かつclosure flowが届かせるinternal function target集合を所有する。flowがどのfunctionも届かせないcalleeは到達不能なapplicationとして、型互換なfunction全体をtargetにする。
 `execution/optimization`はpossible application graphを変更せず、構文からtarget identityを追跡できるsiteまたは型互換target集合が
 一要素のsiteに対するdirect call、direct self-tail fusion、pureなknown tail forwarder fusionのdecisionだけを構成する。空のoptimization setはdecisionを一つも作らず、すべてのadmitted programをgenericな
 dispatchとrecursive regionで実行できるbaselineである。tail fusionはcallerのcontinuationをそのまま渡すedgeだけを除き、possible
