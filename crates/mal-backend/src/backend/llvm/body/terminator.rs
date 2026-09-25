@@ -31,7 +31,7 @@ impl FunctionEmitter<'_> {
                 .as_ref()
                 .is_some_and(|parameter| parameter.binding_count == binding_index + 1)
             {
-                let label = self_tail_entry_label(self.current_function)?;
+                let label = self_tail_entry_label(self.current_function);
                 self.line(format!("  br label %{label}"));
                 self.line(format!("{label}:"));
             }
@@ -249,7 +249,7 @@ impl FunctionEmitter<'_> {
                             crate::execution::ownership::ControlPath::Single,
                         )?;
                         let target = if self_tail_parameter.is_some() {
-                            self_tail_entry_label(function.id)?
+                            self_tail_entry_label(function.id)
                         } else {
                             format!("mal_state_{}", function.entry.0)
                         };

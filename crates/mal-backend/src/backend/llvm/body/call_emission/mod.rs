@@ -49,7 +49,7 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {register} = {tail}call {} @{}({arguments})",
             result_value_type.llvm,
-            function_name(target.id)?
+            function_name(target.id)
         ));
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage()?;

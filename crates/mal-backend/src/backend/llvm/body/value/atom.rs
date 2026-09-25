@@ -35,7 +35,7 @@ impl FunctionEmitter<'_> {
                 }
                 let name = format!(
                     "mal_symbol_literal_{}_{}",
-                    super::super::function_number(self.function.id)?,
+                    super::super::function_number(self.function.id),
                     atom.id.0
                 );
                 self.globals
@@ -56,7 +56,7 @@ impl FunctionEmitter<'_> {
                 self.line(format!(
                     "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
                     value_type.llvm,
-                    super::super::function_name(*function)?
+                    super::super::function_name(*function)
                 ));
                 let environment = self.active_environment();
                 let closure = self.register();

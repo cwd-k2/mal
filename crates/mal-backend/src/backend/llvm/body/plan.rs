@@ -80,7 +80,7 @@ impl TopLevelConstants {
                 ty: result_type.clone(),
                 kind: ConstantKind::Value(format!(
                     "{{ ptr @{}, ptr null }}",
-                    super::function_name(*function)?
+                    super::function_name(*function)
                 )),
             },
             Operation::NumericConversion { operand } => {

@@ -40,7 +40,7 @@ impl FunctionEmitter<'_> {
                 self.line(format!(
                     "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
                     closure_type.llvm,
-                    super::function_name(*function)?
+                    super::function_name(*function)
                 ));
                 let target = *self.index.lowered_functions.get(function)?;
                 let crate::closure::ast::FunctionKind::Ordinary {
@@ -79,7 +79,7 @@ impl FunctionEmitter<'_> {
                         "  {environment} = call ptr @mal_runtime_environment_allocate(ptr %mal_context, {} {}, ptr @mal_destroy_environment_{})",
                         self.types.pointer_integer()?,
                         environment_layout.size,
-                        super::function_number(*function)?
+                        super::function_number(*function)
                     ));
                     self.line(format!(
                         "  store {} {}, ptr {environment}, align {}",

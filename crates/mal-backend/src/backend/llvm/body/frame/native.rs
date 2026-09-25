@@ -88,7 +88,7 @@ impl FunctionEmitter<'_> {
         };
         let result_type = self.current_result_type()?;
         let result_llvm = self.types.value(&result_type)?.llvm;
-        let name = super::super::function_name(self.function.id)?;
+        let name = super::super::function_name(self.function.id);
         let register = self.register();
         self.line(format!(
             "  {register} = call {result_llvm} @{name}({arguments})"
@@ -120,7 +120,7 @@ impl FunctionEmitter<'_> {
             )
         };
         let result_llvm = self.types.value(&self.result_type)?.llvm;
-        let name = super::super::function_name(self.function.id)?;
+        let name = super::super::function_name(self.function.id);
         let flag = self.register();
         self.line(format!(
             "  {flag} = call i8 @mal_native_stack_is_deep(ptr %mal_context)"

@@ -16,7 +16,7 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&environment_type)?;
         self.line(format!(
             "define internal void @mal_destroy_environment_{}(ptr %mal_environment) {{",
-            function_number(self.function.id)?
+            function_number(self.function.id)
         ));
         self.line("entry:");
         let environment = self.register();

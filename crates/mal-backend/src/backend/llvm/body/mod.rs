@@ -23,6 +23,7 @@ mod terminator;
 pub(super) mod types;
 mod value;
 
+use super::function_name;
 use memory::ManagedBufferElements;
 use plan::{TopLevelConstants, collect_pattern_slot, insert_slot, main_function};
 use scalar::{comparison_predicate, scalar_type};
@@ -243,19 +244,14 @@ struct EmittedFunction {
 
 /// Names a function in an internal error by its LLVM symbol.
 fn describe(id: FunctionId) -> String {
-    function_name(id).unwrap_or_else(|| format!("{id:?}"))
+    function_name(id)
 }
 
-fn function_name(id: FunctionId) -> Option<String> {
+fn function_number(id: FunctionId) -> u32 {
     let FunctionId::Lambda(id) = id;
-    Some(format!("mal_function_{}", id.0))
+    id.0
 }
 
-fn function_number(id: FunctionId) -> Option<u32> {
-    let FunctionId::Lambda(id) = id;
-    Some(id.0)
-}
-
-fn self_tail_entry_label(id: FunctionId) -> Option<String> {
-    Some(format!("mal_self_tail_entry_{}", function_number(id)?))
+fn self_tail_entry_label(id: FunctionId) -> String {
+    format!("mal_self_tail_entry_{}", function_number(id))
 }

@@ -217,7 +217,7 @@ impl<'a> FunctionEmitter<'a> {
         self.line(format!(
             "define internal {} @{}{suffix}({parameter}){attributes} {{",
             result.llvm,
-            function_name(self.function.id)?
+            function_name(self.function.id)
         ));
         self.line("entry:");
         if !self.frame_sites.is_empty() {

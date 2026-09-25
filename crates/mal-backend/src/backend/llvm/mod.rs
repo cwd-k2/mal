@@ -160,9 +160,7 @@ pub(crate) fn generate(
             String::new(),
             format!(
                 "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",
-                function_name(body.main).ok_or(Error::InconsistentExecutionPlan(
-                    "entry function selection".into()
-                ))?,
+                function_name(body.main),
             ),
         ),
         ty => {
@@ -176,9 +174,7 @@ pub(crate) fn generate(
                 ),
                 format!(
                     "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",
-                    function_name(body.main).ok_or(Error::InconsistentExecutionPlan(
-                        "entry function selection".into()
-                    ))?,
+                    function_name(body.main),
                     value.llvm
                 ),
             )
@@ -237,9 +233,9 @@ pub(crate) fn generate(
     })
 }
 
-fn function_name(id: crate::closure::ast::FunctionId) -> Option<String> {
+fn function_name(id: crate::closure::ast::FunctionId) -> String {
     let crate::closure::ast::FunctionId::Lambda(id) = id;
-    Some(format!("mal_function_{}", id.0))
+    format!("mal_function_{}", id.0)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

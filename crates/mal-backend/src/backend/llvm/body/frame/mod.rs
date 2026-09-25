@@ -257,7 +257,7 @@ impl FunctionEmitter<'_> {
             let matched = self.register();
             self.line(format!(
                 "  {matched} = icmp eq ptr {code}, @{}",
-                super::function_name(*target)?
+                super::function_name(*target)
             ));
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
             self.line(format!(
