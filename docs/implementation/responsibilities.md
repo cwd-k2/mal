@@ -126,7 +126,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | LLVM Buffer element | 要素のstorage layoutを選び、`Symbol`を含む要素にはretainとreleaseのcallbackを生成してruntimeへ渡し、`get`と`put`のreference操作を出力する |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
-| process shim | `argv + 1`から作ったargument Bufferを`Buffer<(Address, USize)>` rootへ渡す |
+| process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
 避ける検査を置く場合もsource-level trapとして公開しない。target capability、型形成、host mappingのようにartifact生成前に

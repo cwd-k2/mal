@@ -114,7 +114,7 @@ Buffer mutationをSymbolから観測させない。比較とbyte accessはalloca
 allocation failureはmal trapへ写像する。
 
 extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
-argument-aware entryではC shimが`argv + 1`の各C stringから作った`(Address, USize)`のBufferをLLVM rootの`Buffer<(Address, USize)>`へ渡す。
+argument-aware entryではC shimが`argv + 1`の各C stringをcopyして作った`Symbol`のBufferをLLVM rootの`Buffer<Symbol>`へ渡す。
 
 function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
 immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。

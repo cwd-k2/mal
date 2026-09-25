@@ -44,8 +44,18 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let Type::Buffer(element) = parameter else {
         return None;
     };
-    let element_fields = types.product_fields(element)?;
-    let length_offset = element_fields.get(1)?.offset;
+    if **element != Type::Symbol {
+        return None;
+    }
+    // A Symbol view is an owner, a data address, and a byte count, laid out like `(Address, Address, USize)`. The
+    // runtime callbacks read the owner as the first field.
+    let view = Type::Product(vec![Type::Address, Type::Address, Type::USize].into());
+    let view_fields = types.product_fields(&view)?;
+    if view_fields.first()?.offset != 0 {
+        return None;
+    }
+    let data_offset = view_fields.get(1)?.offset;
+    let length_offset = view_fields.get(2)?.offset;
     let stride = types.value(element)?.size;
     let value = types.value(parameter)?;
 
@@ -69,12 +79,13 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             TypeName::named("void").pointer(),
             "arguments",
             Some(Expr::named_call(
-                "mal_runtime_buffer_from_strings",
+                "mal_runtime_buffer_from_arguments",
                 [
                     Expr::address_of(identifier("context")),
                     Expr::add(identifier("mal_argv"), number(1)),
                     identifier("argument_count"),
                     number(stride),
+                    number(data_offset),
                     number(length_offset),
                 ],
             )),
@@ -96,6 +107,8 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 Expr::address_of(identifier("result")),
             ],
         ),
+        // The entry only borrows its argument, so the shim drops the buffer and the Symbols it owns.
+        call("mal_runtime_environment_release", [identifier("arguments")]),
         call(
             "mal_control_destroy",
             [Expr::address_of(identifier("context"))],

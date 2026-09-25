@@ -78,21 +78,18 @@ backendは`main()`の結果をprocess exit statusへ渡す。library compilation
 command-line argumentを受け取る実行可能programは、代わりに次のentry pointを持てる。
 
 ```mal
-main :: Buffer<(Address, USize)> -> Int32 := (arguments) ->
+main :: Buffer<Symbol> -> Int32 := (arguments) ->
     if (#arguments == 0usize)
     then 0
-    else {
-        (firstAddress, firstLength) := arguments.get(0usize);
-        first :: Symbol := *from<UInt8>(firstAddress, 0usize, firstLength);
-        0;
-    };
+    else if (arguments.get(0usize) == "--help")
+    then 1
+    else 2;
 ```
 
-parameterは`argv[1]`以降の各argumentを表す`(Address, USize)`のBufferで、実行ファイル名を含まない。
-Addressは終端NULを持つC stringの先頭、USizeは終端NULを除くbyte lengthである。Bufferのcountはargument数に等しく、encodingの
-解釈はhost contractが提供する。
+parameterは`argv[1]`以降の各argumentを表す`Symbol`のBufferで、実行ファイル名を含まない。各`Symbol`は終端NULを除くargumentの
+bytesを持ち、起動時にmalへcopyされる。Bufferのcountはargument数に等しく、encodingの解釈はhost contractが提供する。
+argumentはmal-ownedな値であり、`main`のreturnまでという有効期間はない。argumentをhostへ渡すときは、他のSymbolと同じく
+[C host copy](memory.md#c-host-copy-boundary)でhost storageへ書く。
 
-各byte regionは`main`のreturnまでread-onlyで有効であり、Bufferはmal-ownedなので通常のBufferとして変更できる。
-
-`Unit -> Int32`と`Buffer<(Address, USize)> -> Int32`以外の`main`型はcompile-time errorである。設計理由は
-[D030](../history/decisions/D030.md)に記録する。
+`Unit -> Int32`と`Buffer<Symbol> -> Int32`以外の`main`型はcompile-time errorである。設計理由は
+[D030](../history/decisions/D030.md)と[D076](../history/decisions/D076.md)に記録する。

@@ -21,7 +21,7 @@ Status: Historical records
 | source file requirement | [D032](D032.md) |
 | genericsとexternal memory | [D052](D052.md)、[D075](D075.md) |
 | EngramとExternのauthority | [D031](D031.md)、[D033](D033.md)、[D035](D035.md)、[D040](D040.md)、[D052](D052.md)、[D053](D053.md)、[D054](D054.md)、[D074](D074.md) |
-| 実行環境 | [D041](D041.md)、[D070](D070.md)、[D071](D071.md)、[D073](D073.md) |
+| 実行環境 | [D041](D041.md)、[D070](D070.md)、[D071](D071.md)、[D076](D076.md) |
 
 一部だけがrefine、supersedeされたdecisionも、残る部分は現行判断である。後継と適用範囲は各decisionのStatus行を参照する。
 Statusが`Superseded`のdecisionは上の表に含めない。

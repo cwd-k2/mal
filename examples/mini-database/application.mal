@@ -4,10 +4,10 @@ require "./query.mal";
 
 _inputCapacity :: USize := 4096usize;
 
-executeDatabase :: (Address, USize) -> Int32 := (path) -> {
+executeDatabase :: Symbol -> Int32 := (path) -> {
     // The allocator owns only reusable host transfer areas; database values remain managed Buffers.
     allocator := createAllocator();
-    file := openReadWriteCreate(path);
+    file := openReadWriteCreate(allocator.readableBytes(path));
     input := standardInput();
 
     (databaseMemory, databaseCapacity) := allocator.allocateBuffer(databaseReadCapacity);

@@ -490,7 +490,7 @@ fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic>
     let Type::Function { parameter, result } = ty else {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
         ));
     };
     let parameter = if **parameter == Type::Unit {
@@ -500,13 +500,13 @@ fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic>
     } else {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
         ));
     };
     if **result != Type::Int32 {
         return Err(Diagnostic::error("invalid entry point type").with_primary(
             name.name.span,
-            "expected `Unit -> Int32` or `Buffer<(Address, USize)> -> Int32`",
+            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
         ));
     }
     Ok(Some(ast::EntryPoint {

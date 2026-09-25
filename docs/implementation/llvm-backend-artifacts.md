@@ -138,7 +138,7 @@ int main(void) {
 }
 ```
 
-`Buffer<(Address, USize)> -> Int32` entryではshimが、runtimeが`argv + 1`の各C stringのaddressと`strlen`から作ったBufferをargument storageへ格納してrootへ渡す。
+`Buffer<Symbol> -> Int32` entryではshimが、runtimeが`argv + 1`の各C stringを`strlen`の長さでcopyして作ったSymbolのBufferをargument storageへ格納してrootへ渡し、rootのreturn後にそのBufferを解放する。
 いずれのentry形でも第三parameterは`Int32` resultの格納先である。
 
 extern callもLLVMからgenerated C bridgeを呼び、bridgeがpublic host valueへの変換とterminal returnを実行する。host implementationは

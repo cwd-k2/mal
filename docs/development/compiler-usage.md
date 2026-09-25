@@ -87,8 +87,8 @@ mal module、C host、C shim、runtimeをx86_64 assemblyへまとめ、そのass
 
 ## 実行と出力
 
-生成した実行可能fileのcommand-line argumentは、source-level `main`が`Buffer<(Address, USize)> -> Int32`型なら実行ファイル名を除いた
-各argumentのaddressとbyte lengthを持つBufferとして渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確なcontractは
+生成した実行可能fileのcommand-line argumentは、source-level `main`が`Buffer<Symbol> -> Int32`型なら実行ファイル名を除いた
+各argumentのbytesを持つSymbolのBufferとして渡される。`Unit -> Int32`型の`main`はargumentを受け取らない。entry pointの正確なcontractは
 [program specification](../spec/programs.md#entry-point)に定める。
 
 親directoryは必要に応じて作成し、同名の出力は置き換える。出力の更新はatomicではなく、filesystemまたはprocess failureの後に一部の

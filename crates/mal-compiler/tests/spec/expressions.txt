@@ -108,6 +108,8 @@ f :: Int32 -> Int32 := ((n) -> f(n));
 ### main_wrong_type | err:
 main :: Unit -> Int64 := () -> 0;
 ### main_args_ok | ok
+main :: Buffer<Symbol> -> Int32 := (a) -> 0;
+### main_args_former_form | err:invalid entry point type
 main :: Buffer<(Address, USize)> -> Int32 := (a) -> 0;
 ### main_missing_ok_lib | ok
 f :: Int32 -> Int32 := (x) -> x;

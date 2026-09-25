@@ -15,15 +15,13 @@ _finishOutput :: SyscallStatus -> Int32 := (written) -> {
     ];
 };
 
-main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> [return] => {
+main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
     when (#arguments != 1usize) {
         writeStderr("usage: brainfuck-llvm SOURCE.bf\n");
         return(2);
     };
 
-    (pathAddress, pathLength) := arguments.get(0usize);
-    path := *from<UInt8>(pathAddress, 0usize, pathLength);
-    read := readSource(path);
+    read := readSource(arguments.get(0usize));
     source := read[
         (source) -> source,
         (error) -> {

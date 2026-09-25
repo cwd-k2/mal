@@ -187,13 +187,15 @@ void *mal_runtime_buffer_from(
     size_t count,
     size_t stride
 );
-/* Builds a buffer of `(address, length)` elements from NUL-terminated strings. The address is the first field of an element
- * of `stride` bytes and the length, without the terminator, lies at `length_offset`. */
-void *mal_runtime_buffer_from_strings(
+/* Builds a buffer of `Symbol` elements from NUL-terminated strings, copying each one. An element of `stride` bytes holds its
+ * owner first, then the data address at `data_offset` and the byte count, without the terminator, at `length_offset`. The
+ * buffer owns one reference per element. */
+void *mal_runtime_buffer_from_arguments(
     MalContext *context,
     char *const *strings,
     size_t count,
     size_t stride,
+    size_t data_offset,
     size_t length_offset
 );
 void mal_runtime_buffer_into(

@@ -21,6 +21,16 @@ extern allocateBuffer :: (Allocator, USize) -> AllocatedBytes;
 // Releases the allocator and every buffer allocated through it.
 extern destroyAllocator :: Allocator -> Unit;
 
+// Copies a Symbol into allocator-owned memory so that one host call can read it. The host reads the byte range, so no
+// terminator is written; the memory stays valid until the allocator is destroyed.
+readableBytes :: (Allocator, Symbol) -> ReadableBytes := (allocator, text) -> {
+    bytes := *text;
+    length := #bytes;
+    (memory, _) := allocator.allocateBuffer(if (length == 0usize) then 1usize else length);
+    bytes.into(memory, 0usize, length);
+    (memory, length);
+};
+
 // Opens an existing database for update or creates it; failures terminate through the host boundary.
 extern openReadWriteCreate :: ReadableBytes -> File;
 // Returns the process-owned standard-input handle, which must not be closed by this program.

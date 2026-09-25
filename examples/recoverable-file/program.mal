@@ -48,10 +48,21 @@ finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> [co
     copied[() -> closed[complete, failed], failed];
 };
 
-copyPath :: (Address, USize) -> CopyResult := (path) -> {
+// The host reads the path as a byte range during the open call only, so the copy is released right after it.
+openPath :: Symbol -> OpenResult := (path) -> {
+    bytes := *path;
+    length := #bytes;
+    (allocation, (memory, _, _)) := allocateBuffer(if (length == 0usize) then 1usize else length);
+    bytes.into(memory, 0usize, length);
+    opened := openReadOnly((memory, length));
+    allocation.releaseBuffer();
+    opened;
+};
+
+copyPath :: Symbol -> CopyResult := (path) -> {
     owned := allocateBuffer(bufferSize);
     (allocation, buffer) := owned;
-    opened := openReadOnly(path);
+    opened := openPath(path);
     outcome := opened[
         (file) -> {
             copied := file.copyContents(buffer);
@@ -64,14 +75,13 @@ copyPath :: (Address, USize) -> CopyResult := (path) -> {
     outcome;
 };
 
-main :: Buffer<(Address, USize)> -> Int32 := (arguments) -> [return] => {
+main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
     when (#arguments != 1usize) {
         writeError(22u32);
         return(2);
     };
 
-    (pathAddress, pathLength) := arguments.get(0usize);
-    result := copyPath(pathAddress, pathLength);
+    result := copyPath(arguments.get(0usize));
     status :: Int32 := result[
         () -> 0,
         (error) -> {

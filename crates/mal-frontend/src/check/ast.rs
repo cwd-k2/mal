@@ -202,11 +202,9 @@ pub enum EntryParameter {
 }
 
 impl EntryParameter {
-    /// The `main` parameter type: a buffer holding an `(address, length)` per process argument.
+    /// The `main` parameter type: a buffer holding one `Symbol` per process argument.
     pub fn process_arguments_type() -> Type {
-        Type::Buffer(Arc::new(Type::Product(
-            vec![Type::Address, Type::USize].into(),
-        )))
+        Type::Buffer(Arc::new(Type::Symbol))
     }
 }
 

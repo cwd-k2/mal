@@ -784,26 +784,47 @@ void *mal_runtime_buffer_from(
     return buffer;
 }
 
-void *mal_runtime_buffer_from_strings(
+// A Symbol element starts with its owner, which is all the callbacks below need.
+static void mal_symbol_element_retain(MalContext *context, void *element) {
+    mal_bytes_retain(context, *(MalBytes **)element);
+}
+
+static void mal_symbol_element_release(void *element) {
+    mal_bytes_release(*(MalBytes **)element);
+}
+
+void *mal_runtime_buffer_from_arguments(
     MalContext *context,
     char *const *strings,
     size_t count,
     size_t stride,
+    size_t data_offset,
     size_t length_offset
 ) {
-    MalBuffer *buffer = mal_runtime_buffer_make(context, stride, count);
+    MalManagedBuffer *managed = mal_runtime_buffer_make_managed(
+        context,
+        stride,
+        count,
+        mal_symbol_element_retain,
+        mal_symbol_element_release
+    );
+    MalBuffer *buffer = &managed->buffer;
     if (count == 0) {
-        return buffer;
+        return managed;
     }
     for (size_t index = 0; index < count; ++index) {
-        unsigned char *element = (unsigned char *)buffer->data + index * stride;
+        unsigned char *element = buffer->data + index * stride;
         size_t length = strlen(strings[index]);
-        memcpy(element, &strings[index], sizeof strings[index]);
+        MalBytes *owner = mal_runtime_bytes_read(context, strings[index], length);
+        const unsigned char *data = mal_bytes_data(owner);
+        memset(element, 0, stride);
+        memcpy(element, &owner, sizeof owner);
+        memcpy(element + data_offset, &data, sizeof data);
         memcpy(element + length_offset, &length, sizeof length);
+        buffer->count = index + 1;
     }
     ((MalBytesFlat *)buffer->owner)->header.length = (uint64_t)(count * stride);
-    buffer->count = count;
-    return buffer;
+    return managed;
 }
 
 void mal_runtime_buffer_into(
