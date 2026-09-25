@@ -11,3 +11,4 @@ Status: Historical records
 - [C host ABI](c-host-abi.md)
 - [managed Engram](managed-engrams.md)
 - [reference compiler compile-time](compiler.md)
+- [loop combinator](loop-combinators.md)
