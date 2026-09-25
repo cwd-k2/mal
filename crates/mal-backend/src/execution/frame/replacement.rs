@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::control::ast::{Program, StateId, Terminator};
+use crate::control::ast::{Program, StateId};
 
 use super::ControlFrame;
 
@@ -56,7 +56,7 @@ impl Plan {
                 continue;
             }
             let current = availability[site.0];
-            for successor in successors(&program.states[site.0].terminator) {
+            for successor in program.states[site.0].terminator.successors() {
                 merge(&mut availability, &mut pending, successor, current);
             }
         }
@@ -94,18 +94,6 @@ fn merge(
     if merged != availability[site.0] {
         availability[site.0] = merged;
         pending.push_back(site);
-    }
-}
-
-fn successors(terminator: &Terminator) -> Vec<StateId> {
-    match terminator {
-        Terminator::Goto(target) | Terminator::Jump { target, .. } => vec![*target],
-        Terminator::Call { resume, .. } => vec![*resume],
-        Terminator::Case { arms, .. } => arms.iter().map(|arm| arm.target).collect(),
-        Terminator::PrimitiveBranch {
-            otherwise, then, ..
-        } => vec![*otherwise, *then],
-        Terminator::Return(_) | Terminator::TailCall { .. } => Vec::new(),
     }
 }
 

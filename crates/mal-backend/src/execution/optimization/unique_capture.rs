@@ -122,53 +122,7 @@ fn is_recursive(function: FunctionId, applications: &ApplicationGraph) -> bool {
 
 fn visit_state_atoms(state: &crate::control::ast::State, mut visit: impl FnMut(&Atom)) {
     for binding in &state.bindings {
-        visit_operation_atoms(&binding.operation, &mut visit);
+        binding.operation.for_each_atom(&mut visit);
     }
-    visit_terminator_atoms(&state.terminator, visit);
-}
-
-fn visit_operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        }
-        | Operation::Product(captures) => captures.iter().for_each(visit),
-        Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-fn visit_terminator_atoms(terminator: &Terminator, mut visit: impl FnMut(&Atom)) {
-    match terminator {
-        Terminator::Return(atom)
-        | Terminator::Jump { value: atom, .. }
-        | Terminator::Case {
-            scrutinee: atom, ..
-        } => visit(atom),
-        Terminator::Call {
-            callee, argument, ..
-        }
-        | Terminator::TailCall { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Terminator::PrimitiveBranch { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-        Terminator::Goto(_) => {}
-    }
+    state.terminator.for_each_atom(visit);
 }

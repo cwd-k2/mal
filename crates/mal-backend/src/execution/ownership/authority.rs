@@ -6,7 +6,6 @@ use crate::control::ast::{Operation, Program, StateId, Terminator};
 
 use super::liveness::{
     collect_pattern_binding_order, managed_binding_id, remove_pattern_bindings, terminator_live,
-    visit_operation_atoms,
 };
 use super::parameter::ParameterBorrows;
 use crate::execution::EnvironmentAliasPlan;
@@ -77,7 +76,7 @@ fn collect_aliases(
                 }
             }
             remove_pattern_bindings(&binding.pattern, &mut live);
-            visit_operation_atoms(&binding.operation, |atom| {
+            binding.operation.for_each_atom(|atom| {
                 if let Some(binding) = managed_binding_id(atom) {
                     live.insert(binding);
                 }
@@ -125,7 +124,7 @@ fn baseline_body_live(
     let mut live = terminator_live(&state.terminator, live_in);
     for binding in state.bindings.iter().rev() {
         remove_pattern_bindings(&binding.pattern, &mut live);
-        visit_operation_atoms(&binding.operation, |atom| {
+        binding.operation.for_each_atom(|atom| {
             if let Some(binding) = managed_binding_id(atom) {
                 live.insert(binding);
             }

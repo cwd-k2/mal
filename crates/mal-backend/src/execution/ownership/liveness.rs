@@ -2,27 +2,9 @@ use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
-use crate::control::ast::{Operation, StateId, Terminator};
+use crate::control::ast::Terminator;
 
 use super::managed::is_managed;
-
-pub(super) fn successors(terminator: &Terminator) -> impl Iterator<Item = StateId> + '_ {
-    let mut states = [None; 2];
-    match terminator {
-        Terminator::Goto(target) | Terminator::Jump { target, .. } => states[0] = Some(*target),
-        Terminator::Call { resume, .. } => states[0] = Some(*resume),
-        Terminator::PrimitiveBranch {
-            otherwise, then, ..
-        } => states = [Some(*otherwise), Some(*then)],
-        Terminator::Case { .. } | Terminator::Return(_) | Terminator::TailCall { .. } => {}
-    }
-    let fixed = states.into_iter().flatten();
-    let arms = match terminator {
-        Terminator::Case { arms, .. } => Some(arms.iter().map(|arm| arm.target)),
-        _ => None,
-    };
-    fixed.chain(arms.into_iter().flatten())
-}
 
 pub(super) fn binding_id(atom: &Atom) -> Option<ValueId> {
     match atom.kind {
@@ -60,78 +42,11 @@ pub(super) fn terminator_live(
     live_in: &[HashSet<ValueId>],
 ) -> HashSet<ValueId> {
     let mut live = HashSet::new();
-    visit_terminator_successors(terminator, |successor| {
+    for successor in terminator.successors() {
         live.extend(live_in[successor.0].iter().copied());
-    });
-    visit_terminator_atoms(terminator, |atom| insert_managed_binding(atom, &mut live));
+    }
+    terminator.for_each_atom(|atom| insert_managed_binding(atom, &mut live));
     live
-}
-
-fn visit_terminator_successors(terminator: &Terminator, mut visit: impl FnMut(StateId)) {
-    match terminator {
-        Terminator::Goto(target) | Terminator::Jump { target, .. } => visit(*target),
-        Terminator::Call { resume, .. } => visit(*resume),
-        Terminator::Case { arms, .. } => {
-            for arm in arms {
-                visit(arm.target);
-            }
-        }
-        Terminator::PrimitiveBranch {
-            otherwise, then, ..
-        } => {
-            visit(*otherwise);
-            visit(*then);
-        }
-        Terminator::Return(_) | Terminator::TailCall { .. } => {}
-    }
-}
-
-pub(super) fn visit_operation_atoms(operation: &Operation, mut visit: impl FnMut(&Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::SymbolLength { value: atom }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
-            for atom in captures {
-                visit(atom);
-            }
-        }
-        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
-            for operand in operands {
-                visit(operand);
-            }
-        }
-        Operation::SymbolAt { argument } => visit(argument),
-        Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-fn visit_terminator_atoms(terminator: &Terminator, mut visit: impl FnMut(&Atom)) {
-    match terminator {
-        Terminator::Return(atom)
-        | Terminator::Jump { value: atom, .. }
-        | Terminator::Case {
-            scrutinee: atom, ..
-        } => visit(atom),
-        Terminator::Call {
-            callee, argument, ..
-        }
-        | Terminator::TailCall { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Terminator::PrimitiveBranch { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-        Terminator::Goto(_) => {}
-    }
 }
 
 pub(super) fn collect_pattern_binding_order(pattern: &Pattern, bindings: &mut Vec<ValueId>) {

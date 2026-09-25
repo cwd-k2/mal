@@ -4,19 +4,19 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
 use super::Lowerer;
-use super::ast::{LiveValue, Operation, State, StateId, Terminator};
+use super::ast::{LiveValue, State};
 
 pub(crate) fn binding_use_counts(program: &super::ast::Program) -> HashMap<ValueId, usize> {
     let mut uses = HashMap::new();
     for state in &program.states {
         for binding in &state.bindings {
-            visit_operation(&binding.operation, &mut |atom| {
-                count_binding_use(atom, &mut uses)
-            });
+            binding
+                .operation
+                .for_each_atom(|atom| count_binding_use(atom, &mut uses));
         }
-        visit_terminator(&state.terminator, &mut |atom| {
-            count_binding_use(atom, &mut uses)
-        });
+        state
+            .terminator
+            .for_each_atom(|atom| count_binding_use(atom, &mut uses));
     }
     uses
 }
@@ -41,7 +41,7 @@ impl Lowerer {
             let state = &self.states[index];
             let (mut next, definitions, uses_environment) = state_facts(state);
             let mut next_environment = uses_environment;
-            for successor in successors(&state.terminator) {
+            for successor in state.terminator.successors() {
                 debug_assert!(
                     (start..index).contains(&successor.0),
                     "control successors are emitted before their predecessors"
@@ -143,14 +143,14 @@ fn state_facts(state: &State) -> (HashSet<ValueId>, HashSet<ValueId>, bool) {
         collect_pattern_definitions(input, &mut definitions);
     }
     for binding in &state.bindings {
-        visit_operation(&binding.operation, &mut |atom| {
+        binding.operation.for_each_atom(|atom| {
             collect_atom_uses(atom, &definitions, &mut uses, &mut environment)
         });
         collect_pattern_definitions(&binding.pattern, &mut definitions);
     }
-    visit_terminator(&state.terminator, &mut |atom| {
-        collect_atom_uses(atom, &definitions, &mut uses, &mut environment)
-    });
+    state
+        .terminator
+        .for_each_atom(|atom| collect_atom_uses(atom, &definitions, &mut uses, &mut environment));
     (uses, definitions, environment)
 }
 
@@ -182,60 +182,5 @@ fn collect_atom_uses(
             *environment = true;
         }
         _ => {}
-    }
-}
-
-fn visit_operation(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
-    match operation {
-        Operation::Atom(value)
-        | Operation::SymbolLength { value }
-        | Operation::SymbolAt { argument: value }
-        | Operation::ExternalCall {
-            argument: value, ..
-        }
-        | Operation::NumericConversion { operand: value }
-        | Operation::PrimitiveUnary { operand: value, .. }
-        | Operation::SumInjection { value, .. } => visit(value),
-        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
-            captures.iter().for_each(visit)
-        }
-        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
-            operands.iter().for_each(visit)
-        }
-        Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-fn visit_terminator(terminator: &Terminator, visit: &mut impl FnMut(&Atom)) {
-    match terminator {
-        Terminator::Return(value) | Terminator::Jump { value, .. } => visit(value),
-        Terminator::Goto(_) => {}
-        Terminator::Call {
-            callee, argument, ..
-        }
-        | Terminator::TailCall { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Terminator::Case { scrutinee, .. } => visit(scrutinee),
-        Terminator::PrimitiveBranch { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-fn successors(terminator: &Terminator) -> Vec<StateId> {
-    match terminator {
-        Terminator::Return(_) | Terminator::TailCall { .. } => Vec::new(),
-        Terminator::Goto(target) | Terminator::Jump { target, .. } => vec![*target],
-        Terminator::Call { resume, .. } => vec![*resume],
-        Terminator::Case { arms, .. } => arms.iter().map(|arm| arm.target).collect(),
-        Terminator::PrimitiveBranch {
-            otherwise, then, ..
-        } => vec![*otherwise, *then],
     }
 }

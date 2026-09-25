@@ -137,3 +137,75 @@ pub(crate) struct CaseArm {
     pub target: StateId,
     pub span: Span,
 }
+
+impl Operation {
+    /// Visits every atom the operation reads, in operand order.
+    pub(crate) fn for_each_atom(&self, mut visit: impl FnMut(&Atom)) {
+        match self {
+            Self::Atom(atom)
+            | Self::SymbolLength { value: atom }
+            | Self::SymbolAt { argument: atom }
+            | Self::ExternalCall { argument: atom, .. }
+            | Self::NumericConversion { operand: atom }
+            | Self::SumInjection { value: atom, .. }
+            | Self::PrimitiveUnary { operand: atom, .. } => visit(atom),
+            Self::MakeClosure {
+                captures: atoms, ..
+            }
+            | Self::Product(atoms)
+            | Self::Memory {
+                operands: atoms, ..
+            }
+            | Self::Buffer {
+                operands: atoms, ..
+            } => atoms.iter().for_each(visit),
+            Self::PrimitiveBinary { left, right, .. } => {
+                visit(left);
+                visit(right);
+            }
+        }
+    }
+}
+
+impl Terminator {
+    /// Visits every atom the terminator reads, in operand order.
+    pub(crate) fn for_each_atom(&self, mut visit: impl FnMut(&Atom)) {
+        match self {
+            Self::Return(atom)
+            | Self::Jump { value: atom, .. }
+            | Self::Case {
+                scrutinee: atom, ..
+            } => visit(atom),
+            Self::Call {
+                callee, argument, ..
+            }
+            | Self::TailCall { callee, argument } => {
+                visit(callee);
+                visit(argument);
+            }
+            Self::PrimitiveBranch { left, right, .. } => {
+                visit(left);
+                visit(right);
+            }
+            Self::Goto(_) => {}
+        }
+    }
+
+    /// The states control may continue at within the same function. A call continues at its resume state;
+    /// a return and a tail call leave the function.
+    pub(crate) fn successors(&self) -> impl Iterator<Item = StateId> + '_ {
+        let (fixed, arms): ([Option<StateId>; 2], &[CaseArm]) = match self {
+            Self::Goto(target) | Self::Jump { target, .. } => ([Some(*target), None], &[]),
+            Self::Call { resume, .. } => ([Some(*resume), None], &[]),
+            Self::PrimitiveBranch {
+                otherwise, then, ..
+            } => ([Some(*otherwise), Some(*then)], &[]),
+            Self::Case { arms, .. } => ([None, None], arms),
+            Self::Return(_) | Self::TailCall { .. } => ([None, None], &[]),
+        };
+        fixed
+            .into_iter()
+            .flatten()
+            .chain(arms.iter().map(|arm| arm.target))
+    }
+}

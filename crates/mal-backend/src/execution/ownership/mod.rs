@@ -39,7 +39,7 @@ use drop_plan::collect_edge_drops;
 pub(crate) use identity::{
     BindingOperand, ControlPath, EdgeId, TerminatorOperand, UseEffect, UseId, UseLocation,
 };
-use liveness::{managed_binding_id, remove_pattern_bindings, visit_operation_atoms};
+use liveness::{managed_binding_id, remove_pattern_bindings};
 pub(crate) use managed::is_managed;
 use parameter::{ParameterBorrows, collect_parameter_effects};
 pub(crate) use parameter::{ParameterEffect, ParameterEntry};
@@ -171,7 +171,9 @@ impl Plan {
             let mut live = borrows.terminator_live(&state.terminator, &live_in);
             for binding in state.bindings.iter().rev() {
                 remove_pattern_bindings(&binding.pattern, &mut live);
-                visit_operation_atoms(&binding.operation, |atom| borrows.insert(atom, &mut live));
+                binding
+                    .operation
+                    .for_each_atom(|atom| borrows.insert(atom, &mut live));
             }
             if let Some(input) = &state.input {
                 input_destinations.insert(
@@ -191,7 +193,7 @@ impl Plan {
                     plan_borrowed_pattern(&binding.pattern, &live, &borrowed_bindings);
                 binding_destinations.insert((StateId(state_index), binding_index), destination);
                 let mut used = Vec::new();
-                visit_operation_atoms(&binding.operation, |atom| {
+                binding.operation.for_each_atom(|atom| {
                     if let Some(id) = managed_binding_id(atom)
                         && !used.contains(&id)
                     {
@@ -201,9 +203,9 @@ impl Plan {
                 // A borrowed operand keeps its lenders alive, so when its last use ends here the lenders end
                 // here too and must be released with the operand.
                 let mut lenders = HashSet::new();
-                visit_operation_atoms(&binding.operation, |atom| {
-                    borrows.insert(atom, &mut lenders)
-                });
+                binding
+                    .operation
+                    .for_each_atom(|atom| borrows.insert(atom, &mut lenders));
                 let mut lenders = lenders
                     .into_iter()
                     .filter(|id| !used.contains(id))
@@ -218,7 +220,9 @@ impl Plan {
                     drops_after_binding.insert((StateId(state_index), binding_index), drops);
                 }
                 remove_pattern_bindings(&binding.pattern, &mut live);
-                visit_operation_atoms(&binding.operation, |atom| borrows.insert(atom, &mut live));
+                binding
+                    .operation
+                    .for_each_atom(|atom| borrows.insert(atom, &mut live));
             }
         }
         let uses = collect_use_effects(UseInputs {

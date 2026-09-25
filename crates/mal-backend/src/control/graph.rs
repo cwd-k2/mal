@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::ast::{Program, StateId, Terminator};
+use super::ast::{Program, StateId};
 
 /// The states reachable from `entry` through the terminators of the control graph, in discovery order.
 pub(crate) fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId> {
@@ -12,15 +12,7 @@ pub(crate) fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId
             continue;
         }
         states.push(id);
-        match &program.states[id.0].terminator {
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => pending.extend(arms.iter().map(|arm| arm.target)),
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-        }
+        pending.extend(program.states[id.0].terminator.successors());
     }
     states
 }

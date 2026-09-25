@@ -4,9 +4,7 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::{Program, Terminator};
 
-use super::liveness::{
-    managed_binding_id, remove_pattern_bindings, successors, terminator_live, visit_operation_atoms,
-};
+use super::liveness::{managed_binding_id, remove_pattern_bindings, terminator_live};
 use super::parameter::ParameterBorrows;
 use crate::execution::{EnvironmentAliasPlan, SelfTailParameterPlan};
 
@@ -41,7 +39,12 @@ impl BorrowPlan {
     pub(super) fn live_in(&self, control: &Program) -> Vec<HashSet<ValueId>> {
         let mut live_in = vec![HashSet::new(); control.states.len()];
         for (index, state) in control.states.iter().enumerate() {
-            debug_assert!(successors(&state.terminator).all(|successor| successor.0 < index));
+            debug_assert!(
+                state
+                    .terminator
+                    .successors()
+                    .all(|successor| successor.0 < index)
+            );
             let mut live = self.body_live(state, &live_in);
             if let Some(input) = &state.input {
                 remove_pattern_bindings(input, &mut live);
@@ -59,7 +62,9 @@ impl BorrowPlan {
         let mut live = self.terminator_live(&state.terminator, live_in);
         for binding in state.bindings.iter().rev() {
             remove_pattern_bindings(&binding.pattern, &mut live);
-            visit_operation_atoms(&binding.operation, |atom| self.insert(atom, &mut live));
+            binding
+                .operation
+                .for_each_atom(|atom| self.insert(atom, &mut live));
         }
         live
     }
