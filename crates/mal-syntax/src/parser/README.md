@@ -6,6 +6,7 @@ syntax from types or names.
 | Module | Responsibility |
 |---|---|
 | `mod` | top-level items, declarations, and type syntax |
+| `generic` | generic parameter and argument lists, and the `>>` token that closes two directly nested lists |
 | `expression` | Pratt loop, prefix dispatch, and operator precedence |
 | `expression/forms` | products, both application directions, receiver-first application, numeric conversion, and zero-continuation application |
 | `expression/lambda` | parameters and lambda bodies |

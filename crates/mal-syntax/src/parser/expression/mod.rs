@@ -86,11 +86,7 @@ impl Parser<'_> {
         if self.at(&TokenKind::ValueIdentifier) {
             let name = self.parse_name(&TokenKind::ValueIdentifier, "a value name")?;
             if self.at(&TokenKind::Less) {
-                let checkpoint = (
-                    self.position,
-                    self.pending_generic_closers,
-                    self.generic_close_span,
-                );
+                let checkpoint = (self.position, self.generic);
                 if let Ok(arguments) = self.parse_type_arguments() {
                     let end = self.previous_generic_close_span().end();
                     let start = name.span.start();
@@ -99,11 +95,7 @@ impl Parser<'_> {
                         self.span(start, end),
                     ));
                 }
-                (
-                    self.position,
-                    self.pending_generic_closers,
-                    self.generic_close_span,
-                ) = checkpoint;
+                (self.position, self.generic) = checkpoint;
             }
             let span = name.span;
             return Ok(Node::new(Expression::Name(name), span));

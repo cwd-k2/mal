@@ -8,6 +8,9 @@ use crate::lexer::{Token, TokenKind, lex};
 use crate::source::{SourceFile, Span};
 
 mod expression;
+mod generic;
+
+use generic::GenericLists;
 
 const MAX_SYNTAX_NESTING: usize = 64;
 
@@ -39,8 +42,7 @@ struct Parser<'a> {
     tokens: &'a [Token],
     position: usize,
     nesting: usize,
-    pending_generic_closers: usize,
-    generic_close_span: Option<Span>,
+    generic: GenericLists,
 }
 
 impl<'a> Parser<'a> {
@@ -50,8 +52,7 @@ impl<'a> Parser<'a> {
             tokens,
             position: 0,
             nesting: 0,
-            pending_generic_closers: 0,
-            generic_close_span: None,
+            generic: GenericLists::default(),
         }
     }
 
@@ -154,7 +155,7 @@ impl<'a> Parser<'a> {
 
     fn parse_type_inner(&mut self) -> Result<Node<TypeExpression>, Diagnostic> {
         let parameter = self.parse_atomic_type()?;
-        if self.pending_generic_closers == 0 && self.take(&TokenKind::Arrow).is_some() {
+        if !self.generic.close_pending() && self.take(&TokenKind::Arrow).is_some() {
             let start = parameter.span.start();
             let result = self.parse_type()?;
             let span = self.span(start, result.span.end());
@@ -233,55 +234,6 @@ impl<'a> Parser<'a> {
             ));
         }
         Err(self.expected("a type"))
-    }
-
-    fn parse_type_parameters(&mut self) -> Result<Vec<Name>, Diagnostic> {
-        if !self.at(&TokenKind::Less) {
-            return Ok(Vec::new());
-        }
-        self.parse_required_type_parameters()
-    }
-
-    fn parse_required_type_parameters(&mut self) -> Result<Vec<Name>, Diagnostic> {
-        self.expect(&TokenKind::Less, "`<`")?;
-        let mut parameters = vec![self.parse_name(&TokenKind::TypeIdentifier, "a type parameter")?];
-        while self.take(&TokenKind::Comma).is_some() {
-            parameters.push(self.parse_name(&TokenKind::TypeIdentifier, "a type parameter")?);
-        }
-        self.expect_generic_close()?;
-        Ok(parameters)
-    }
-
-    fn parse_type_arguments(&mut self) -> Result<Vec<Node<TypeExpression>>, Diagnostic> {
-        self.expect(&TokenKind::Less, "`<`")?;
-        let mut arguments = vec![self.parse_type()?];
-        while self.pending_generic_closers == 0 && self.take(&TokenKind::Comma).is_some() {
-            arguments.push(self.parse_type()?);
-        }
-        self.expect_generic_close()?;
-        Ok(arguments)
-    }
-
-    fn expect_generic_close(&mut self) -> Result<(), Diagnostic> {
-        if self.pending_generic_closers > 0 {
-            self.pending_generic_closers -= 1;
-            return Ok(());
-        }
-        if self.at(&TokenKind::Greater) {
-            self.generic_close_span = Some(self.advance().span);
-            return Ok(());
-        }
-        if self.at(&TokenKind::ShiftRight) {
-            self.generic_close_span = Some(self.advance().span);
-            self.pending_generic_closers = 1;
-            return Ok(());
-        }
-        Err(self.expected("`>` after type arguments"))
-    }
-
-    fn previous_generic_close_span(&self) -> Span {
-        self.generic_close_span
-            .expect("a generic close was just parsed")
     }
 
     fn parse_binding(&mut self) -> Result<Binding, Diagnostic> {

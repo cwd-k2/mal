@@ -52,7 +52,7 @@ impl Marker<'_> {
         };
         let Some(close) = self.lexed.tokens[open + 1..]
             .iter()
-            .take_while(|token| token.span.end() <= end)
+            .take_while(|token| token.span.start() < end)
             .enumerate()
             .filter(|(_, token)| matches!(token.kind, TokenKind::Greater | TokenKind::ShiftRight))
             .map(|(offset, _)| open + 1 + offset)

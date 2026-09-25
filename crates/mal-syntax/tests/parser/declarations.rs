@@ -132,3 +132,25 @@ fn parses_generic_aliases_bindings_and_nested_indexed_types() {
     };
     assert!(matches!(parameter.kind, TypeExpression::Application { .. }));
 }
+
+#[test]
+fn splits_a_shift_token_only_between_directly_nested_generic_lists() {
+    let program = parse_ok("Nested :: Buffer<Buffer<Int32>>;");
+    let TopItem::TypeAlias { value, .. } = &program.items[0].kind else {
+        panic!("expected a type alias");
+    };
+    let TypeExpression::Application { arguments, .. } = &value.kind else {
+        panic!("expected a type application");
+    };
+    let text = "Nested :: Buffer<Buffer<Int32>>;";
+    assert_eq!(value.span.end(), text.len() - 1);
+    assert_eq!(arguments[0].span.end(), text.len() - 2);
+
+    for text in [
+        "Pair :: Buffer<(Int32, Buffer<Int32>>);",
+        "value := identity<Int32>>(input);",
+        "value :: Buffer<Int32> := identity<Int32>>(input);",
+    ] {
+        parse(&source(text)).expect_err(text);
+    }
+}
