@@ -32,7 +32,7 @@ impl FunctionEmitter<'_> {
             })
             .is_some_and(|retired| layout.size <= retired.size);
         let reservation = self.reserve_control_frame(layout.size, replacement)?;
-        let index_type = self.types.pointer_integer()?;
+        let index_type = self.types.index_integer();
         let frame_pointer = self.register();
         self.line(format!(
             "  {frame_pointer} = getelementptr i8, ptr {}, {index_type} {}",

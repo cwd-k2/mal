@@ -116,19 +116,19 @@ impl Types {
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: self.pointer_integer()?,
+                llvm: self.index_integer(),
                 alignment: self.index_alignment(),
                 size: self.target.index_size,
             },
         ])
     }
 
-    pub(in crate::backend::llvm) fn pointer_integer(&self) -> Option<String> {
-        Some(format!("i{}", self.target.index_size.checked_mul(8)?))
+    pub(in crate::backend::llvm) fn index_integer(&self) -> String {
+        format!("i{}", self.target.index_size * 8)
     }
 
-    pub(in crate::backend::llvm) fn pointer_representation_integer(&self) -> Option<String> {
-        Some(format!("i{}", self.target.pointer_size.checked_mul(8)?))
+    pub(in crate::backend::llvm) fn pointer_representation_integer(&self) -> String {
+        format!("i{}", self.target.pointer_size * 8)
     }
 
     pub(in crate::backend::llvm) fn pointer_size(&self) -> usize {

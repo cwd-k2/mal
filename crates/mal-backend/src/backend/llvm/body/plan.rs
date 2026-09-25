@@ -202,7 +202,7 @@ impl TopLevelConstants {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
                     .push_str(&super::symbol::literal_definition(&name, bytes));
-                let index = self.types.pointer_integer()?;
+                let index = self.types.index_integer();
                 format!(
                     "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} 24), {index} {} }}",
                     bytes.len()

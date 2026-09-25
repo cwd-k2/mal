@@ -13,7 +13,7 @@ impl FunctionEmitter<'_> {
         if !self.local_control_top {
             return Some(());
         }
-        let index_type = self.types.pointer_integer()?;
+        let index_type = self.types.index_integer();
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr %mal_local_control_top, align {}",

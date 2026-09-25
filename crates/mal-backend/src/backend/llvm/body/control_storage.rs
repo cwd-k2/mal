@@ -19,7 +19,7 @@ impl FunctionEmitter<'_> {
             "  store ptr {storage}, ptr %mal_local_control_storage, align {}",
             self.types.pointer_alignment()
         ));
-        let index_type = self.types.pointer_integer()?;
+        let index_type = self.types.index_integer();
         let capacity = self.register();
         self.line(format!(
             "  {capacity} = call {index_type} @mal_control_capacity(ptr %mal_context)"
@@ -51,7 +51,7 @@ impl FunctionEmitter<'_> {
         frame_size: usize,
         replacement: bool,
     ) -> Option<ControlReservation> {
-        let index_type = self.types.pointer_integer()?;
+        let index_type = self.types.index_integer();
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr {}, align {}",

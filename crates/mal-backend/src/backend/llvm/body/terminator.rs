@@ -99,7 +99,7 @@ impl FunctionEmitter<'_> {
                     let left = self.byte_view_fields(&left)?;
                     let right = self.byte_view_fields(&right)?;
                     let equality = self.register();
-                    let index_type = self.types.pointer_integer()?;
+                    let index_type = self.types.index_integer();
                     self.line(format!(
                         "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, {index_type} {}, ptr {}, {index_type} {})",
                         left.data,

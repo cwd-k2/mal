@@ -78,7 +78,7 @@ impl FunctionEmitter<'_> {
             self.product_fields(argument, [&Type::Address, &Type::USize, &Type::USize])?;
         let stride = self.source_layouts.layout(element)?.stride;
         let representation = self.register();
-        let index = self.types.pointer_integer()?;
+        let index = self.types.index_integer();
         self.line(format!(
             "  {representation} = call ptr @mal_runtime_buffer_from(ptr %mal_context, ptr {address}, {index} {offset}, {index} {length}, {index} {stride})",
             address = address.representation,
@@ -114,7 +114,7 @@ impl FunctionEmitter<'_> {
             [buffer_type, address_type, offset_type, length_type],
         )?;
         let stride = self.source_layouts.layout(element)?.stride;
-        let index = self.types.pointer_integer()?;
+        let index = self.types.index_integer();
         self.line(format!(
             "  call void @mal_runtime_buffer_into(ptr %mal_context, ptr {buffer}, ptr {address}, {index} {offset}, {index} {length}, {index} {stride})",
             buffer = buffer.representation,
@@ -152,12 +152,12 @@ impl FunctionEmitter<'_> {
                     let number = self.index.managed_buffer_elements.number(element)?;
                     self.line(format!(
                         "  {buffer} = call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, {0} {stride}, {0} {1}, ptr @mal_buffer_retain_{number}, ptr @mal_buffer_release_{number})",
-                        self.types.pointer_integer()?, capacity.representation
+                        self.types.index_integer(), capacity.representation
                     ));
                 } else {
                     self.line(format!(
                         "  {buffer} = call ptr @mal_runtime_buffer_make(ptr %mal_context, {0} {stride}, {0} {1})",
-                        self.types.pointer_integer()?, capacity.representation
+                        self.types.index_integer(), capacity.representation
                     ));
                 }
                 Some(emitted_buffer(buffer, buffer_type))
@@ -174,7 +174,7 @@ impl FunctionEmitter<'_> {
                 let function = storage.runtime("new");
                 self.line(format!(
                     "  {index} = call {0} @{function}(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
-                    self.types.pointer_integer()?, buffer.representation
+                    self.types.index_integer(), buffer.representation
                 ));
                 Some(EmittedValue {
                     ty: Type::USize,
@@ -241,7 +241,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
-                let index = self.types.pointer_integer()?;
+                let index = self.types.index_integer();
                 let function = storage.runtime("fill");
                 self.line(format!(
                     "  call void @{function}(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
@@ -271,7 +271,7 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let index = self.types.pointer_integer()?;
+                let index = self.types.index_integer();
                 let function = storage.runtime("copy");
                 self.line(format!(
                     "  call void @{function}(ptr %mal_context, ptr {destination}, {index} {destination_offset}, ptr {source}, {index} {source_offset}, {index} {length}, {index} {stride})",
@@ -456,13 +456,13 @@ impl FunctionEmitter<'_> {
         let offset = self.register();
         self.line(format!(
             "  {offset} = mul {} {}, {stride}",
-            self.types.pointer_integer()?,
+            self.types.index_integer(),
             index.representation
         ));
         let pointer = self.register();
         self.line(format!(
             "  {pointer} = getelementptr i8, ptr {data}, {} {offset}",
-            self.types.pointer_integer()?
+            self.types.index_integer()
         ));
         Some(pointer)
     }

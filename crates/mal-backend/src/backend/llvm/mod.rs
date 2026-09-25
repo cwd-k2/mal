@@ -83,11 +83,7 @@ pub(crate) fn generate(
     let control_declarations = if body.uses_control {
         format!(
             "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\ndeclare void @mal_native_stack_begin(ptr)\ndeclare i8 @mal_native_stack_is_deep(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare i1 @llvm.expect.i1(i1, i1)\n\n",
-            types
-                .pointer_integer()
-                .ok_or(Error::InconsistentExecutionPlan(
-                    "control ABI construction".into()
-                ))?
+            types.index_integer()
         )
     } else {
         String::new()
@@ -107,11 +103,7 @@ pub(crate) fn generate(
          !8 = !{!7, !7, i64 0}\n",
     );
     let byte_declarations = if body.uses_byte_runtime {
-        let index = types
-            .pointer_integer()
-            .ok_or(Error::InconsistentExecutionPlan(
-                "byte runtime ABI construction".into(),
-            ))?;
+        let index = types.index_integer();
         format!(
             "declare ptr @mal_runtime_bytes_data(ptr) nofree nounwind willreturn memory(argmem: read)\n\
              declare ptr @mal_runtime_bytes_read(ptr, ptr, {index})\n\
@@ -143,11 +135,7 @@ pub(crate) fn generate(
         (
             format!(
                 "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n  call void @mal_native_stack_begin(ptr %mal_context)\n",
-                types
-                    .pointer_integer()
-                    .ok_or(Error::InconsistentExecutionPlan(
-                        "control entry construction".into()
-                    ))?,
+                types.index_integer(),
                 types.index_alignment()
             ),
             "%mal_control_top",
@@ -184,23 +172,11 @@ pub(crate) fn generate(
         "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare i8 @mal_runtime_environment_is_unique(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
         target.data_layout,
         target.triple,
-        types
-            .pointer_integer()
-            .ok_or(Error::InconsistentExecutionPlan(
-                "runtime ABI construction".into()
-            ))?,
+        types.index_integer(),
         types.pointer_size() * 8,
-        types
-            .pointer_representation_integer()
-            .ok_or(Error::InconsistentExecutionPlan(
-                "ptrmask ABI construction".into()
-            ))?,
+        types.pointer_representation_integer(),
         layout.index_size * 8,
-        types
-            .pointer_integer()
-            .ok_or(Error::InconsistentExecutionPlan(
-                "memcpy ABI construction".into()
-            ))?,
+        types.index_integer(),
         control_declarations,
         byte_declarations,
         external_declarations,

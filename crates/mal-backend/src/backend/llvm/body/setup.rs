@@ -223,18 +223,18 @@ impl<'a> FunctionEmitter<'a> {
         if !self.frame_sites.is_empty() {
             self.line(format!(
                 "  %mal_control_base = load {}, ptr %mal_control_top, align {}",
-                self.types.pointer_integer()?,
+                self.types.index_integer(),
                 self.types.index_alignment()
             ));
             if self.local_control_top {
                 self.line(format!(
                     "  %mal_local_control_top = alloca {}, align {}",
-                    self.types.pointer_integer()?,
+                    self.types.index_integer(),
                     self.types.index_alignment()
                 ));
                 self.line(format!(
                     "  store {} %mal_control_base, ptr %mal_local_control_top, align {}",
-                    self.types.pointer_integer()?,
+                    self.types.index_integer(),
                     self.types.index_alignment()
                 ));
             }
@@ -245,7 +245,7 @@ impl<'a> FunctionEmitter<'a> {
                 ));
                 self.line(format!(
                     "  %mal_local_control_capacity = alloca {}, align {}",
-                    self.types.pointer_integer()?,
+                    self.types.index_integer(),
                     self.types.index_alignment()
                 ));
                 self.refresh_control_storage()?;

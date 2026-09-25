@@ -75,7 +75,7 @@ impl FunctionEmitter<'_> {
                     let environment = self.register();
                     self.line(format!(
                         "  {environment} = call ptr @mal_runtime_environment_allocate(ptr %mal_context, {} {}, ptr @mal_destroy_environment_{})",
-                        self.types.pointer_integer()?,
+                        self.types.index_integer(),
                         environment_layout.size,
                         super::function_number(*function)
                     ));
@@ -149,7 +149,7 @@ impl FunctionEmitter<'_> {
                             let negated = self.register();
                             self.line(format!(
                                 "  {negated} = sub {} 0, {}",
-                                self.types.pointer_integer()?,
+                                self.types.index_integer(),
                                 right.representation
                             ));
                             negated
@@ -160,7 +160,7 @@ impl FunctionEmitter<'_> {
                     self.line(format!(
                         "  {register} = getelementptr i8, ptr {}, {} {offset}",
                         left.representation,
-                        self.types.pointer_integer()?
+                        self.types.index_integer()
                     ));
                     return Some(Some(EmittedValue {
                         ty: Type::Address,
@@ -182,7 +182,7 @@ impl FunctionEmitter<'_> {
                         let left = self.byte_view_fields(&left)?;
                         let right = self.byte_view_fields(&right)?;
                         let equality = self.register();
-                        let index_type = self.types.pointer_integer()?;
+                        let index_type = self.types.index_integer();
                         self.line(format!(
                             "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, {index_type} {}, ptr {}, {index_type} {})",
                             left.data,

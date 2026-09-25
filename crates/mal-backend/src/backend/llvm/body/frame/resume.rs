@@ -27,7 +27,7 @@ impl FunctionEmitter<'_> {
             ));
             return Some(());
         }
-        let index_type = self.types.pointer_integer()?;
+        let index_type = self.types.index_integer();
         let top = self.register();
         self.line(format!(
             "  {top} = load {index_type}, ptr {}, align {}",

@@ -323,7 +323,7 @@ impl FunctionEmitter<'_> {
         let field = self.register();
         self.line(format!(
             "  {field} = getelementptr i8, ptr {pointer}, {} {offset}",
-            self.types.pointer_integer()?
+            self.types.index_integer()
         ));
         Some(field)
     }

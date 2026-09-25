@@ -131,7 +131,7 @@ impl FunctionEmitter<'_> {
         let result = self.register();
         self.line(format!(
             "  {result} = call i8 @mal_runtime_symbol_at(ptr {data}, {} {})",
-            self.types.pointer_integer()?,
+            self.types.index_integer(),
             index.representation
         ));
         Some(EmittedValue {
@@ -188,7 +188,7 @@ impl FunctionEmitter<'_> {
         };
         self.line(format!(
             "  call void @{operation}(ptr %mal_context, ptr {result_storage}, ptr {left_owner}, ptr {left_data}, {0} {left_length}, ptr {right_owner}, ptr {right_data}, {0} {right_length})",
-            self.types.pointer_integer()?
+            self.types.index_integer()
         ));
         let result = self.register();
         self.line(format!(
