@@ -47,21 +47,7 @@ use use_plan::{UseInputs, collect_use_effects, exclude_consumed_sources};
 
 /// The position of every binding in control order, to release values in a deterministic order.
 fn binding_order(control: &crate::control::ast::Program) -> HashMap<ValueId, usize> {
-    let mut order = Vec::new();
-    for function in &control.functions {
-        if let Some(binding) = function.parameter.binding {
-            order.push(binding);
-        }
-    }
-    for state in &control.states {
-        if let Some(input) = &state.input {
-            liveness::collect_pattern_binding_order(input, &mut order);
-        }
-        for binding in &state.bindings {
-            liveness::collect_pattern_binding_order(&binding.pattern, &mut order);
-        }
-    }
-    order
+    liveness::local_binding_order(control)
         .into_iter()
         .enumerate()
         .map(|(position, id)| (id, position))
