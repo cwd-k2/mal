@@ -13,6 +13,9 @@ tail callへ正規化してから、stateごとのbackward livenessと`needs_env
 call結果のidentityによらず、`Unit`のatom bindingとjoinだけを通って`Unit`を返すcontinuationも同じ正規形にする。
 function内のcontrol graphは再帰edgeを含まず、lowererはsuccessorをpredecessorより先に構成する。この順序により
 livenessは一回のbackward dataflow passで確定し、applicationによる再帰は後続のexecution planだけが扱う。
+livenessが追うのはfunctionとinitializerが束縛するlocal valueだけであり、top-level bindingとpredefined bindingはliveにならない。
+`control`は各functionとtop-level initializerについてentryから到達するstateを発見順に記録する。tail callへの正規化で到達しなくなった
+resume stateはどのfunctionにも属さず、後段はcontrol graphを辿り直さずこの記録を読む。
 `execution`はこの表現とclosure-use情報から次を一方向に導出する。
 
 ```text
