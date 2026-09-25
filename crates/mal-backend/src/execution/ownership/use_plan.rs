@@ -10,7 +10,7 @@ use super::super::{
 use super::borrow::BorrowPlan;
 use super::destination::PatternDestination;
 use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
-use super::liveness::{binding_id, insert_pattern_bindings};
+use super::liveness::insert_pattern_bindings;
 use super::managed::is_managed;
 use super::operand::{binding_operands, terminator_argument, terminator_operands};
 use super::parameter::ParameterBorrows;
@@ -91,10 +91,10 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                     UseEffect::Borrow
                 } else if optimizations.takes_unique_capture(atom.id) {
                     UseEffect::Consume
-                } else if let Some(id) = binding_id(atom) {
+                } else if let Some(id) = atom.binding() {
                     let has_later_same_source = operands[operand_index + 1..]
                         .iter()
-                        .any(|(_, later, _)| binding_id(later) == Some(id));
+                        .any(|(_, later, _)| later.binding() == Some(id));
                     if local_bindings.contains(&id) && dead.contains(&id) && !has_later_same_source
                     {
                         UseEffect::Consume
@@ -189,7 +189,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                         state: site,
                         location: UseLocation::Terminator(*operand),
                     },
-                    binding_id(atom)
+                    atom.binding()
                         .filter(|id| local_bindings.contains(id))
                         .filter(|id| {
                             dies_at_terminator(
@@ -228,13 +228,15 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                     .copied()
                     .unwrap_or(effect);
                 if operand == TerminatorOperand::Return
-                    && binding_id(atom).is_some_and(|id| local_bindings.contains(&id))
+                    && atom
+                        .binding()
+                        .is_some_and(|id| local_bindings.contains(&id))
                 {
                     effect = UseEffect::Consume;
                 }
                 if operand == TerminatorOperand::JumpValue
                     && effect != UseEffect::Borrow
-                    && binding_id(atom).is_some_and(|id| {
+                    && atom.binding().is_some_and(|id| {
                         local_bindings.contains(&id)
                             && match &state.terminator {
                                 Terminator::Jump { target, .. } => !live_in[target.0].contains(&id),
@@ -263,7 +265,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                         .get(&arm.target)
                         .is_some_and(PatternDestination::has_owner_successor)
                 {
-                    let effect = if binding_id(scrutinee).is_some_and(|id| {
+                    let effect = if scrutinee.binding().is_some_and(|id| {
                         local_bindings.contains(&id) && !live_in[arm.target.0].contains(&id)
                     }) {
                         UseEffect::Consume
@@ -302,7 +304,7 @@ pub(super) fn exclude_consumed_sources(
                             operand,
                         },
                     }) == Some(&UseEffect::Consume))
-                    .then(|| binding_id(atom))
+                    .then(|| atom.binding())
                     .flatten()
                 })
                 .collect::<HashSet<_>>();

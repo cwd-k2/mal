@@ -6,7 +6,7 @@ use crate::control::ast::{StateId, Terminator};
 use super::super::{ControlCallMode, ControlCallPlan, ControlFramePlan};
 use super::borrow::BorrowPlan;
 use super::identity::{ControlPath, EdgeId, UseEffect, UseId, UseLocation};
-use super::liveness::{binding_id, collect_pattern_binding_order};
+use super::liveness::collect_pattern_binding_order;
 use super::operand::{terminator_argument, terminator_operands};
 
 pub(super) fn collect_edge_drops(
@@ -51,7 +51,7 @@ pub(super) fn collect_edge_drops(
                     state: site,
                     location: UseLocation::Terminator(operand),
                 }) == Some(&UseEffect::Consume))
-                .then(|| binding_id(atom))
+                .then(|| atom.binding())
                 .flatten()
             })
             .collect::<HashSet<_>>();
@@ -74,7 +74,7 @@ pub(super) fn collect_edge_drops(
                     state: site,
                     location: UseLocation::CasePayload(arm),
                 }) == Some(&UseEffect::Consume)
-                && let Some(id) = binding_id(scrutinee)
+                && let Some(id) = scrutinee.binding()
             {
                 consumed.insert(id);
             }

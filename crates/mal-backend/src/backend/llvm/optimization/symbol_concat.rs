@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::anf::ast::ValueId;
-use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{Operation, StateId};
 use mal_frontend::check::ast::Type;
 
@@ -27,8 +25,8 @@ pub(super) fn plan(
                 continue;
             }
             let dead = ownership.drops_after_binding(site, binding_index);
-            let left_id = binding_id(left);
-            let right_id = binding_id(right);
+            let left_id = left.binding();
+            let right_id = right.binding();
             let mode = if left_id.is_some_and(|id| dead.contains(&id)) && left_id != right_id {
                 Some(SymbolConcatMode::ConsumeLeft)
             } else if right_id.is_some_and(|id| dead.contains(&id)) && left_id != right_id {
@@ -42,11 +40,4 @@ pub(super) fn plan(
         }
     }
     decisions
-}
-
-fn binding_id(atom: &Atom) -> Option<ValueId> {
-    match atom.kind {
-        AtomKind::Reference(Reference::Binding(id)) => Some(id),
-        _ => None,
-    }
 }

@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use super::super::ParameterDestination;
 use super::destination::plan_borrowed_pattern;
-use super::liveness::binding_id;
 use super::use_plan::jump_value_effect;
 use super::*;
 use crate::closure::ast::Pattern;
@@ -89,7 +88,7 @@ fn shares_duplicate_owner_successors_before_consuming_the_source() {
                     .iter()
                     .enumerate()
                     .find_map(|(binding_index, binding)| {
-                        matches!(&binding.operation, Operation::Product(elements) if elements.len() == 2 && binding_id(&elements[0]) == binding_id(&elements[1]))
+                        matches!(&binding.operation, Operation::Product(elements) if elements.len() == 2 && elements[0].binding() == elements[1].binding())
                             .then_some((StateId(state_index), binding_index))
                     })
             })
@@ -105,7 +104,7 @@ fn shares_duplicate_owner_successors_before_consuming_the_source() {
     let Operation::Product(elements) = &control.states[site.0].bindings[binding].operation else {
         unreachable!();
     };
-    let source = binding_id(&elements[0]).expect("local duplicate source");
+    let source = elements[0].binding().expect("local duplicate source");
     assert!(!plan.drops_after_binding(site, binding).contains(&source));
 }
 
@@ -158,7 +157,7 @@ fn drops_an_unused_managed_binding_immediately() {
             .binding_use(site, binding, BindingOperand::Atom),
         Some(UseEffect::Borrow)
     );
-    if let Some(source) = binding_id(atom) {
+    if let Some(source) = atom.binding() {
         assert!(
             execution
                 .ownership
@@ -423,7 +422,7 @@ fn shares_a_frame_field_before_consuming_the_same_next_argument() {
             let Terminator::Call { argument, .. } = &state.terminator else {
                 return None;
             };
-            let argument_id = binding_id(argument)?;
+            let argument_id = argument.binding()?;
             frame
                 .fields
                 .iter()

@@ -1,17 +1,10 @@
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
+use crate::closure::ast::{Atom, Pattern};
 use crate::control::ast::Terminator;
 
 use super::managed::is_managed;
-
-pub(super) fn binding_id(atom: &Atom) -> Option<ValueId> {
-    match atom.kind {
-        AtomKind::Reference(Reference::Binding(id)) => Some(id),
-        _ => None,
-    }
-}
 
 pub(super) fn insert_managed_binding(atom: &Atom, live: &mut HashSet<ValueId>) {
     if let Some(id) = managed_binding_id(atom) {
@@ -20,7 +13,7 @@ pub(super) fn insert_managed_binding(atom: &Atom, live: &mut HashSet<ValueId>) {
 }
 
 pub(super) fn managed_binding_id(atom: &Atom) -> Option<ValueId> {
-    is_managed(&atom.ty).then(|| binding_id(atom)).flatten()
+    is_managed(&atom.ty).then(|| atom.binding()).flatten()
 }
 
 pub(super) fn remove_pattern_bindings(pattern: &Pattern, live: &mut HashSet<ValueId>) {

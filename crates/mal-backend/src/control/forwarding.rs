@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{AtomKind, Pattern, Reference};
+use crate::closure::ast::Pattern;
 use mal_frontend::check::ast::Type;
 
 use super::ast::{Operation, State, StateId, Terminator};
@@ -48,18 +48,18 @@ fn returns_input(states: &[State], start: StateId) -> bool {
             let Operation::Atom(atom) = &binding.operation else {
                 return false;
             };
-            if binding_reference(atom) != Some(value) {
+            if atom.binding() != Some(value) {
                 return false;
             }
             value = next;
         }
         match &current.terminator {
-            Terminator::Return(result) => return binding_reference(result) == Some(value),
+            Terminator::Return(result) => return result.binding() == Some(value),
             Terminator::Goto(target) if states[target.0].input.is_none() => state = *target,
             Terminator::Jump {
                 target,
                 value: argument,
-            } if binding_reference(argument) == Some(value) => {
+            } if argument.binding() == Some(value) => {
                 let Some(input) = binding_id(states[target.0].input.as_ref()) else {
                     return false;
                 };
@@ -118,16 +118,10 @@ fn binding_id(pattern: Option<&Pattern>) -> Option<ValueId> {
     }
 }
 
-fn binding_reference(atom: &crate::closure::ast::Atom) -> Option<ValueId> {
-    match atom.kind {
-        AtomKind::Reference(Reference::Binding(id)) => Some(id),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::closure::ast::{AtomKind, Reference};
     use crate::{anf, closure, core};
     use mal_frontend::{check, resolve};
     use mal_syntax::parser;

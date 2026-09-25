@@ -153,6 +153,16 @@ pub(crate) enum AtomKind {
     Unit,
 }
 
+impl Atom {
+    /// The local binding the atom reads, if it reads one.
+    pub(crate) fn binding(&self) -> Option<ValueId> {
+        match self.kind {
+            AtomKind::Reference(Reference::Binding(id)) => Some(id),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Reference {
     Binding(ValueId),
