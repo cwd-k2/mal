@@ -25,6 +25,10 @@ dependency、namespace、一般的なqualified name、require alias、selective 
 直接requireした複数fileのpublic名同士、または導入したpublic名と宣言元fileのtop-level名が同じnamespaceで重複すれば
 compile-time errorである。private名はfile identityごとに区別し、別fileの同名private declarationとは衝突しない。
 
+`Bool`、`Buffer`などのpredefined型と、`false`、`true`、`new`、`get`などのpredefined valueの名前は、各fileのtop-levelで
+型、binding、extern declarationとして再宣言してはならない。local scopeでは通常のshadowing規則によりpredefined valueを
+shadowできる。
+
 top-levelのtype identifierまたはvalue identifierは、先頭が`_`ならそのfileだけから参照できるprivate名、それ以外なら
 require元へ導入できるpublic名である。このvisibilityはmal source間のname lookupだけに作用し、必要なextern declarationや
 host-visible typeをgenerated headerから除去しない。private型の値は、名前を参照できないfileでもpublic operationの引数や

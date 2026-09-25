@@ -108,15 +108,28 @@ fn continuation_parameter_and_block_bindings_share_a_local_scope() {
 }
 
 #[test]
-fn rejects_unknown_names_and_reserved_top_level_redefinitions() {
+fn rejects_unknown_names_and_top_level_redeclarations_of_predefined_names() {
     let cases = [
         ("value :: Missing := 0;", "unknown type `Missing`"),
         (
             "main := () -> { missing(); (); };",
             "unknown value `missing`",
         ),
-        ("Bool :: Int32;", "duplicate type `Bool`"),
-        ("false := 0;", "duplicate value `false`"),
+        ("Bool :: Int32;", "cannot redeclare predefined type `Bool`"),
+        (
+            "Buffer :: Int32;",
+            "cannot redeclare predefined type `Buffer`",
+        ),
+        ("false := 0;", "cannot redeclare predefined value `false`"),
+        (
+            "get :: Int32 -> Int32 := (value) -> value;",
+            "cannot redeclare predefined value `get`",
+        ),
+        ("fill := 0;", "cannot redeclare predefined value `fill`"),
+        (
+            "extern new :: Unit -> Unit;",
+            "cannot redeclare predefined value `new`",
+        ),
         (
             "extern run :: Unit -> Unit; run := 0;",
             "duplicate value `run`",

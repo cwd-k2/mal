@@ -39,14 +39,14 @@ fn constructs_sum_values_through_result_binders() {
 fn checks_sum_elimination_arity_and_result_types() {
     check_ok(
         "Maybe :: [Unit, Int32];\n\
-         get :: Maybe -> Int32 := (value) -> {\n\
+         pick :: Maybe -> Int32 := (value) -> {\n\
            value[\n\
              () -> { 0 },\n\
              (x) -> { y := x; y }];\n\
          };",
     );
 
-    let prefix = "Maybe :: [Unit, Int32]; get :: Maybe -> Int32 := (value) -> { ";
+    let prefix = "Maybe :: [Unit, Int32]; pick :: Maybe -> Int32 := (value) -> { ";
     assert_eq!(
         check_error(&format!(
             "{prefix}value[() -> {{ 0 }}, (x) -> {{ x }}, (_) -> {{ 1 }}]; }};"

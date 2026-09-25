@@ -16,8 +16,14 @@ impl Resolver {
                 ast::TopItem::TypeAlias { name, .. }
                 | ast::TopItem::GenericTypeAlias { name, .. }
                 | ast::TopItem::ExternalType { name } => {
-                    if self.types.contains_key(&name.text) {
-                        return Err(self.duplicate(name, "type"));
+                    if let Some(existing) = self.types.get(&name.text) {
+                        return Err(
+                            if existing.id.0 < super::predefined::first_source_type_id() {
+                                self.predefined_redeclaration(name, "type")
+                            } else {
+                                self.duplicate(name, "type")
+                            },
+                        );
                     }
                     let binding = TypeBinding {
                         id: TypeId(self.next_type),
@@ -27,6 +33,12 @@ impl Resolver {
                     self.types.insert(name.text.clone(), binding);
                 }
                 ast::TopItem::ExternalOperation { name, .. } => {
+                    if self.value_scopes[0]
+                        .get(&name.text)
+                        .is_some_and(|binding| binding.owner == ValueOwner::Predefined)
+                    {
+                        return Err(self.predefined_redeclaration(name, "value"));
+                    }
                     if self.externals.contains_key(&name.text)
                         || self.value_scopes[0].contains_key(&name.text)
                     {
@@ -78,10 +90,10 @@ impl Resolver {
             .last()
             .expect("value scope")
             .get(&name.text);
-        let shadows_buffer_operation = owner == ValueOwner::TopLevel
-            && matches!(name.text.as_str(), "new" | "get" | "put")
-            && existing.is_some_and(|binding| binding.owner == ValueOwner::Predefined);
-        if (existing.is_some() && !shadows_buffer_operation)
+        if existing.is_some_and(|binding| binding.owner == ValueOwner::Predefined) {
+            return Err(self.predefined_redeclaration(name, "value"));
+        }
+        if existing.is_some()
             || (owner == ValueOwner::TopLevel && self.externals.contains_key(&name.text))
         {
             return Err(self.duplicate(name, "value"));
@@ -116,41 +128,14 @@ impl Resolver {
     }
 
     pub(super) fn type_reference(&self, name: &ast::Name) -> Result<TypeReference, Diagnostic> {
-        let id = self
+        let binding = self
             .types
             .get(&name.text)
-            .map(|binding| binding.id)
-            .or(match name.text.as_str() {
-                "Buffer" => Some(super::predefined::BUFFER_TYPE),
-                _ => None,
-            })
             .ok_or_else(|| self.unknown(name, "type"))?;
         Ok(TypeReference {
-            id,
+            id: binding.id,
             name: name.clone(),
         })
-    }
-
-    pub(super) fn type_constructor_reference(
-        &self,
-        name: &ast::Name,
-    ) -> Result<TypeReference, Diagnostic> {
-        let builtin = match name.text.as_str() {
-            "Buffer" => Some(super::predefined::BUFFER_TYPE),
-            _ => None,
-        };
-        if let Some(binding) = self.types.get(&name.text) {
-            return Ok(TypeReference {
-                id: binding.id,
-                name: name.clone(),
-            });
-        }
-        builtin
-            .map(|id| TypeReference {
-                id,
-                name: name.clone(),
-            })
-            .ok_or_else(|| self.unknown(name, "type"))
     }
 
     pub(super) fn lookup_value(&self, text: &str) -> Option<ValueBinding> {
@@ -195,6 +180,17 @@ impl Resolver {
             text: text.into(),
             span: self.synthetic_span,
         }
+    }
+
+    fn predefined_redeclaration(&self, name: &ast::Name, category: &str) -> Diagnostic {
+        Diagnostic::error(format!(
+            "cannot redeclare predefined {category} `{}`",
+            name.text
+        ))
+        .with_primary(
+            name.span,
+            "predefined names cannot be declared at the top level",
+        )
     }
 
     fn duplicate(&self, name: &ast::Name, category: &str) -> Diagnostic {

@@ -124,8 +124,8 @@ declarationとして含まれない。外側の`[lambda]`はlambdaへのUnit app
 `[cont0, cont1] => [cont1]`も同じ`true`値を作る。direct result blockの配置は[direct result block](control.md#direct-result-block)と
 [top-level initializer](programs.md#top-level-item)の規則に従う。
 
-各source fileのtop-levelで`Bool`、`false`、`true`を再定義してはならない。local scopeでは通常のshadowing規則により
-`false`と`true`をshadowできる。
+`Bool`、`false`、`true`は他のpredefined名と同じく[top-levelで再宣言できない](programs.md#program-と-source-file)。local scopeでは
+通常のshadowing規則により`false`と`true`をshadowできる。
 
 `false` と `true` は keyword や専用 literal ではなく、型付きの immutable value である。
 
