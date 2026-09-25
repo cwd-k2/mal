@@ -11,7 +11,7 @@ Desugars a specialized checked program into the core language: explicit evaluati
 | `lambda` | lambda parameters and body items as core bindings, lexical joins, and closure captures |
 | `buffer` | `Buffer` `make`, `new`, `get`, `put`, `fill`, and `copy` as core operations with logical operands rather than source products |
 | `bool` | `Bool` elimination as an explicit `case` |
-| `elimination` | sum elimination continuations as pattern-binding `case` arms, and result binder names as jumps to the result join |
+| `elimination` | sum elimination continuations as pattern-binding `case` arms, result binder names as jumps to the result join, and an elimination that sends every variant to the same position of one result as a plain jump of the scrutinee, which keeps a forwarded call a tail call |
 | `completion` | lowers body items iteratively and connects `Value` paths and direct result blocks to lexical joins |
 | `completion/abrupt` | result transfer, empty elimination, all-abrupt branches, and terminal control of direct blocks |
 | `completion/result_block` | maps direct result binders to join targets and connects block body and continuation |

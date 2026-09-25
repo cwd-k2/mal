@@ -244,3 +244,26 @@ fn propagates_tail_position_through_primitive_branches() {
             .any(|state| matches!(state.terminator, Terminator::Call { .. }))
     );
 }
+
+#[test]
+fn makes_a_result_binder_forward_of_a_call_a_tail_transition() {
+    let program = lower_ok(
+        "Res :: [Unit, UInt32];\n\
+         down :: UInt64 -> Res := (n) -> [complete, failed] => {\n\
+           when (n == 0u64) { complete() };\n\
+           down(n - 1u64)[complete, failed]\n\
+         };",
+    );
+    let down = top_level_function(&program, "down");
+    let states = reachable_states(&program, down);
+    assert!(
+        states
+            .iter()
+            .any(|state| matches!(state.terminator, Terminator::TailCall { .. }))
+    );
+    assert!(
+        !states
+            .iter()
+            .any(|state| matches!(state.terminator, Terminator::Call { .. }))
+    );
+}

@@ -106,6 +106,31 @@ impl Lowerer {
     }
 }
 
+impl Lowerer {
+    /// When every variant of the scrutinee is sent to the same result binder group at the same position,
+    /// the elimination only rebuilds the value it inspected, so it is the value itself sent to that
+    /// result. Returns the join to jump to, which keeps a call in the scrutinee a tail call.
+    pub(super) fn identity_forward_target(
+        &self,
+        scrutinee_type: &checked::Type,
+        continuations: &[checked::SumContinuation],
+    ) -> Option<ast::JoinId> {
+        let mut target = None;
+        for (index, continuation) in continuations.iter().enumerate() {
+            let checked::SumContinuation::Transfer(transfer) = continuation else {
+                return None;
+            };
+            if transfer.variant != Some(index)
+                || transfer.result_type != *scrutinee_type
+                || *target.get_or_insert(transfer.target) != transfer.target
+            {
+                return None;
+            }
+        }
+        self.result_targets.get(&target?).copied()
+    }
+}
+
 pub(super) fn sum_continuation_span(continuation: &checked::SumContinuation) -> Span {
     match continuation {
         checked::SumContinuation::Function(function) => function.span,

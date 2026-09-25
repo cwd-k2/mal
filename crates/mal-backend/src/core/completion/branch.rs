@@ -18,7 +18,18 @@ impl Lowerer {
         let checked::Type::Sum(members) = &scrutinee.ty else {
             unreachable!("checked sum elimination scrutinee")
         };
+        let forward = self.identity_forward_target(&scrutinee.ty, continuations);
         let mut scrutinee_next = |lowerer: &mut Lowerer, scrutinee: Expression| {
+            if let Some(target) = forward {
+                return Expression {
+                    kind: ExpressionKind::Goto {
+                        target,
+                        value: Box::new(scrutinee),
+                    },
+                    ty: result_type.clone(),
+                    span,
+                };
+            }
             let mut arms = Vec::with_capacity(continuations.len());
             for (index, (member, item)) in members.iter().zip(continuations).enumerate() {
                 let payload_id = lowerer.temporary();
