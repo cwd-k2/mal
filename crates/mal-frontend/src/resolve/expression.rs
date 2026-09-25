@@ -150,12 +150,11 @@ impl Resolver {
     ) -> Result<Lambda, Diagnostic> {
         let id = self.allocate_lambda();
         let outer_lambda = self.current_lambda;
-        let outer_recursive_lambda = self.recursive_lambda;
         self.current_lambda = Some(id);
-        self.recursive_lambda = self_binding.as_ref().map(|binding| (id, binding.id));
         self.push_scope();
         self.lambda_frames.push(super::LambdaFrame {
             id,
+            self_binding: self_binding.as_ref().map(|binding| binding.id),
             captures: Vec::new(),
             captured_sources: std::collections::HashMap::new(),
         });
@@ -185,7 +184,6 @@ impl Resolver {
         self.lambda_frames.pop().expect("active lambda frame");
         self.pop_scope();
         self.current_lambda = outer_lambda;
-        self.recursive_lambda = outer_recursive_lambda;
         result
     }
 
@@ -284,7 +282,6 @@ impl Resolver {
         }
         if let ValueOwner::Lambda(owner) = binding.owner
             && Some(owner) != self.current_lambda
-            && self.recursive_lambda != self.current_lambda.map(|lambda| (lambda, binding.id))
         {
             let owner_index = self
                 .lambda_frames
@@ -292,7 +289,9 @@ impl Resolver {
                 .position(|frame| frame.id == owner)
                 .expect("an in-scope lambda-owned value has an active owner");
             for frame_index in owner_index + 1..self.lambda_frames.len() {
-                binding = self.capture_in_frame(frame_index, binding, name);
+                if self.lambda_frames[frame_index].self_binding != Some(binding.id) {
+                    binding = self.capture_in_frame(frame_index, binding, name);
+                }
             }
         }
         Ok(ValueReference {

@@ -213,6 +213,10 @@ f :: (Int32, Int32) -> Int32 := (a, b) -> a + b;
 main :: Unit -> Int32 := () -> f((1i32, 2i32));
 ### local_self_recursion | run:0
 main :: Unit -> Int32 := () -> { f :: Int32 -> Int32 := (n) -> if (n == 0) then 0 else f(n - 1); f(3i32); };
+### local_self_recursion_through_a_nested_lambda | run:0
+main :: Unit -> Int32 := () -> { base := 1i32; count :: Int32 -> Int32 := (n) -> if (n == 0i32) then base else { step :: Int32 -> Int32 := (m) -> count(m); step(n - 1i32); }; count(5i32) - 1i32; };
+### local_self_recursion_escapes_in_a_nested_closure | run:3
+main :: Unit -> Int32 := () -> { name := "abc"; count :: Int32 -> (Unit -> Int32) := (n) -> if (n == 0i32) then () -> (#name).i32 else { again :: Unit -> Int32 := () -> count(n - 1i32)(); again; }; count(4i32)(); };
 ### local_self_recursion_needs_annotation | err:
 main :: Unit -> Int32 := () -> { f := (n) -> f(n); 0; };
 ### alias_forward_reference | ok

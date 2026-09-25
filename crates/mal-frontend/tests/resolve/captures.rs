@@ -98,6 +98,38 @@ fn resolves_annotated_direct_lambda_self_references() {
 }
 
 #[test]
+fn a_lambda_nested_in_a_recursive_lambda_captures_its_self_binding() {
+    let program = resolve_ok(
+        "main := () -> {\n\
+           count :: Int64 -> Int64 := (n) -> { again :: Int64 -> Int64 := (m) -> { count(m); }; again(n); };\n\
+           0i32;\n\
+         };",
+    );
+    let resolved::Expression::Lambda(main) = &top_binding(&program.items[0]).value.kind else {
+        panic!("expected main lambda");
+    };
+    let resolved::BodyItem::Binding(count) = &main.body.items[0] else {
+        panic!("expected the recursive binding");
+    };
+    let resolved::Pattern::Binding(count_binding) = &count.kind.pattern.kind else {
+        panic!("expected a name pattern");
+    };
+    let resolved::Expression::Lambda(count_lambda) = &count.kind.value.kind else {
+        panic!("expected the recursive lambda");
+    };
+    let resolved::BodyItem::Binding(again) = &count_lambda.body.items[0] else {
+        panic!("expected the nested binding");
+    };
+    let resolved::Expression::Lambda(again_lambda) = &again.kind.value.kind else {
+        panic!("expected the nested lambda");
+    };
+
+    assert!(count_lambda.captures.is_empty());
+    assert_eq!(again_lambda.captures.len(), 1);
+    assert_eq!(again_lambda.captures[0].source.id, count_binding.id);
+}
+
+#[test]
 fn rejects_self_reference_outside_the_annotated_direct_lambda_exception() {
     let cases = [
         ("value := () -> { value(); };", "value"),
