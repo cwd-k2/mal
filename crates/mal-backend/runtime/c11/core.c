@@ -49,10 +49,13 @@ void *mal_runtime_environment_retain(MalContext *context, void *environment) {
         return environment;
     }
     MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    if (header->references == SIZE_MAX) {
-        mal_trap(context, "closure reference count overflow");
-    }
+    /* A live environment is referenced at least once, and every reference occupies an addressable slot, so the
+     * count cannot reach SIZE_MAX. Stating both facts lets the optimizer cancel a retain against a later release
+     * instead of keeping the trap and the zero test of the release. */
+    __builtin_assume(header->references >= 1);
+    __builtin_assume(header->references < SIZE_MAX);
     ++header->references;
+    (void)context;
     return environment;
 }
 
