@@ -1,6 +1,6 @@
-// Closure conversion keeps the patterns of ANF, which carry nothing that the conversion changes.
-pub(crate) use crate::anf::ast::Pattern;
+// Closure conversion keeps the patterns and parameters of ANF, which carry nothing that the conversion changes.
 use crate::anf::ast::ValueId;
+pub(crate) use crate::anf::ast::{Parameter, Pattern, TopLevelPattern};
 use crate::core::ast::{
     BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
 };
@@ -56,24 +56,6 @@ impl TopLevelBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum TopLevelPattern {
-    Binding {
-        id: ValueId,
-        name: String,
-        ty: Type,
-    },
-    Wildcard {
-        ty: Type,
-        span: Span,
-    },
-    Product {
-        elements: Vec<TopLevelPattern>,
-        ty: Type,
-        span: Span,
-    },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Function {
     pub id: FunctionId,
     pub kind: FunctionKind,
@@ -110,13 +92,6 @@ pub(crate) enum FunctionId {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CaptureField {
     pub ty: Type,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct Parameter {
-    pub binding: Option<ValueId>,
-    pub ty: Type,
-    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

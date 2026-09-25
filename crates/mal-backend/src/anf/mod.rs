@@ -38,25 +38,7 @@ impl Lowerer {
 
     fn lower_top_level_binding(&mut self, binding: &core::TopLevelBinding) -> TopLevelBinding {
         TopLevelBinding {
-            pattern: match &binding.pattern {
-                core::TopLevelPattern::Binding { id, name, ty } => TopLevelPattern::Binding {
-                    id: self.core_id(*id),
-                    name: name.clone(),
-                    ty: ty.clone(),
-                },
-                core::TopLevelPattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
-                    ty: ty.clone(),
-                    span: *span,
-                },
-                core::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
-                    elements: elements
-                        .iter()
-                        .map(|element| self.lower_top_level_pattern(element))
-                        .collect(),
-                    ty: ty.clone(),
-                    span: *span,
-                },
-            },
+            pattern: self.lower_top_level_pattern(&binding.pattern),
             value: self.lower_expression(&binding.value),
             span: binding.span,
         }

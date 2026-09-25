@@ -6,7 +6,7 @@ pub(crate) mod ast;
 
 use self::ast::{
     Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, FunctionKind,
-    Operation, Parameter, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Operation, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub(crate) fn convert(program: &anf::Program) -> Program {
@@ -61,49 +61,9 @@ impl Converter {
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> TopLevelBinding {
         TopLevelBinding {
-            pattern: match &binding.pattern {
-                anf::TopLevelPattern::Binding { id, name, ty } => TopLevelPattern::Binding {
-                    id: *id,
-                    name: name.clone(),
-                    ty: ty.clone(),
-                },
-                anf::TopLevelPattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
-                    ty: ty.clone(),
-                    span: *span,
-                },
-                anf::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
-                    elements: elements
-                        .iter()
-                        .map(|element| self.convert_top_level_pattern(element))
-                        .collect(),
-                    ty: ty.clone(),
-                    span: *span,
-                },
-            },
+            pattern: binding.pattern.clone(),
             value: self.convert_block(&binding.value, environment),
             span: binding.span,
-        }
-    }
-
-    fn convert_top_level_pattern(&self, pattern: &anf::TopLevelPattern) -> TopLevelPattern {
-        match pattern {
-            anf::TopLevelPattern::Binding { id, name, ty } => TopLevelPattern::Binding {
-                id: *id,
-                name: name.clone(),
-                ty: ty.clone(),
-            },
-            anf::TopLevelPattern::Wildcard { ty, span } => TopLevelPattern::Wildcard {
-                ty: ty.clone(),
-                span: *span,
-            },
-            anf::TopLevelPattern::Product { elements, ty, span } => TopLevelPattern::Product {
-                elements: elements
-                    .iter()
-                    .map(|element| self.convert_top_level_pattern(element))
-                    .collect(),
-                ty: ty.clone(),
-                span: *span,
-            },
         }
     }
 
@@ -287,11 +247,7 @@ impl Converter {
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
             kind: Self::function_kind(lambda),
-            parameter: Parameter {
-                binding: lambda.parameter.binding,
-                ty: lambda.parameter.ty.clone(),
-                span: lambda.parameter.span,
-            },
+            parameter: lambda.parameter.clone(),
             body,
             joins,
         });
