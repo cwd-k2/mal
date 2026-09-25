@@ -14,12 +14,12 @@ pub(super) fn solve(
     closure: &closure::Program,
     control: &control::Program,
     compatible: &mut CompatibleTargets,
-) -> HashMap<StateId, Functions> {
+) -> (HashMap<StateId, Functions>, HashMap<StateId, Functions>) {
     let mut analysis = Analysis::new(closure, control, compatible);
     while std::mem::take(&mut analysis.changed) {
         analysis.pass();
     }
-    analysis.callees()
+    (analysis.callees(), analysis.arguments())
 }
 
 pub(super) struct Analysis<'a> {
@@ -93,6 +93,25 @@ impl<'a> Analysis<'a> {
                 let site = StateId(index);
                 let reached = self.reached_targets(site)?;
                 (!reached.is_empty()).then_some((site, reached))
+            })
+            .collect()
+    }
+
+    /// The functions that can be in the argument of each application site; a site is omitted when none can.
+    fn arguments(&self) -> HashMap<StateId, Functions> {
+        self.control
+            .states
+            .iter()
+            .enumerate()
+            .filter_map(|(index, state)| {
+                let owner = self.owners[index]?;
+                let (Terminator::Call { argument, .. } | Terminator::TailCall { argument, .. }) =
+                    &state.terminator
+                else {
+                    return None;
+                };
+                let reaching = self.atom(owner, argument);
+                (!reaching.is_empty()).then_some((StateId(index), reaching))
             })
             .collect()
     }

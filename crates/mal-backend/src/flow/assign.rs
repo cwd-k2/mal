@@ -70,7 +70,8 @@ impl Analysis<'_> {
     }
 }
 
-fn holds_function(ty: &Type) -> bool {
+/// Whether a value of `ty` can contain a function value.
+pub(crate) fn holds_function(ty: &Type) -> bool {
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         match ty {

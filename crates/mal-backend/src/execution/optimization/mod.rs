@@ -13,6 +13,7 @@ mod unique_capture;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Technique {
+    CallPattern,
     DirectCall,
     SelfTail,
     TailForwarder,
@@ -30,6 +31,7 @@ impl OptimizationSet {
 
     pub(crate) const fn production() -> Self {
         Self::none()
+            .with(Technique::CallPattern)
             .with(Technique::DirectCall)
             .with(Technique::SelfTail)
             .with(Technique::TailForwarder)
@@ -41,7 +43,7 @@ impl OptimizationSet {
         Self(self.0 | (1 << technique as u8))
     }
 
-    const fn contains(self, technique: Technique) -> bool {
+    pub(crate) const fn contains(self, technique: Technique) -> bool {
         self.0 & (1 << technique as u8) != 0
     }
 }

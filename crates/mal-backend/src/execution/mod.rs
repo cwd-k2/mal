@@ -19,7 +19,7 @@ pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use environment_alias::EnvironmentAliasPlan;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
-pub(crate) use optimization::{OptimizationPlan, OptimizationSet};
+pub(crate) use optimization::{OptimizationPlan, OptimizationSet, Technique};
 pub(crate) use ownership::{Inputs as OwnershipInputs, Plan as OwnershipPlan};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
@@ -38,6 +38,11 @@ pub(crate) struct Program {
 }
 
 pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
+    let lowered = if enabled.contains(Technique::CallPattern) {
+        crate::call_pattern::specialize(lowered)
+    } else {
+        lowered
+    };
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));
     let control = crate::control::lower(&lowered);

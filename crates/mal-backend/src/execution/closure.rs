@@ -105,28 +105,8 @@ impl ClosureUsePlan {
 }
 
 fn top_level_candidate(binding: &closure::TopLevelBinding) -> Option<DirectClosure> {
-    let closure::TopLevelPattern::Binding { id: creator, .. } = binding.pattern else {
-        return None;
-    };
-    let AtomKind::Reference(closure::Reference::Binding(result)) = binding.value.result.kind else {
-        return None;
-    };
-    binding.value.bindings.iter().find_map(|binding| {
-        let Pattern::Binding { id, .. } = binding.pattern else {
-            return None;
-        };
-        match &binding.operation {
-            Operation::MakeClosure { function, captures }
-                if id == result && captures.is_empty() =>
-            {
-                Some(DirectClosure {
-                    creator,
-                    function: *function,
-                })
-            }
-            _ => None,
-        }
-    })
+    let (creator, function) = binding.known_function()?;
+    Some(DirectClosure { creator, function })
 }
 
 fn collect_candidates(block: &Block, candidates: &mut HashMap<ValueId, DirectClosure>) {

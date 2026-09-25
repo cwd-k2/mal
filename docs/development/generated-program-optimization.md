@@ -20,6 +20,8 @@ Status: Current policy
 `backend/llvm/optimization`はadmitted execution planを変更しないtarget固有のemission decisionを所有する。driverは各stageへ有効な
 technique集合を明示的に渡す。後段はtechnique identityではなく、所有stageが検証したplanだけを読む。
 
+`call_pattern`は例外的にprogramを書き換えるtechniqueであり、`execution/optimization`のdecisionでは表せないため独自のstageに置く。書き換え後のprogramは、binderとatomの識別子が一意である不変条件をdebug buildで検査する。
+
 空のtechnique集合は全admitted programを実行できるbaselineである。production集合は採用済みtechniqueの明示的な合成であり、別の
 意味論や別のbackend contractを持たない。新しいtechniqueが既存plan型または無関係なstageの変更を要求する場合は、optimization追加ではなく
 authority境界の変更として先に検討する。

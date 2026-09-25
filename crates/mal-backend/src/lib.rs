@@ -2,6 +2,7 @@
 
 mod anf;
 mod backend;
+mod call_pattern;
 mod closure;
 mod control;
 mod core;

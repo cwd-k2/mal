@@ -28,6 +28,31 @@ pub(crate) struct TopLevelBinding {
     pub span: Span,
 }
 
+impl TopLevelBinding {
+    /// The capture-free function this binding names: its value creates one closure and returns it.
+    pub(crate) fn known_function(&self) -> Option<(ValueId, FunctionId)> {
+        let TopLevelPattern::Binding { id: creator, .. } = self.pattern else {
+            return None;
+        };
+        let AtomKind::Reference(Reference::Binding(result)) = self.value.result.kind else {
+            return None;
+        };
+        self.value.bindings.iter().find_map(|binding| {
+            let Pattern::Binding { id, .. } = binding.pattern else {
+                return None;
+            };
+            match &binding.operation {
+                Operation::MakeClosure { function, captures }
+                    if id == result && captures.is_empty() =>
+                {
+                    Some((creator, *function))
+                }
+                _ => None,
+            }
+        })
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum TopLevelPattern {
     Binding {

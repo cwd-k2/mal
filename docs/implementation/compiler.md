@@ -17,6 +17,7 @@ source
   -> desugaring to typed core            mal-backend
   -> ANF                                 mal-backend
   -> closure conversion                  mal-backend
+  -> call-pattern specialization         mal-backend (production only)
   -> application control lowering        mal-backend
   -> execution plan                      mal-backend
   -> LLVM module + C shim/runtime        mal-backend
