@@ -113,6 +113,34 @@ impl<'a> Inputs<'a> {
     }
 }
 
+/// The control program as the ownership plan reads it: a tail call fused into a self transition passes the forwarded
+/// argument, not the product that carried it to the forwarder, so liveness and use effects see the value the
+/// transition hands over.
+fn fused_arguments<'a>(
+    control: &'a crate::control::ast::Program,
+    calls: &ControlCallPlan,
+) -> std::borrow::Cow<'a, crate::control::ast::Program> {
+    let forwarded = (0..control.states.len())
+        .filter_map(|index| {
+            calls
+                .forwarded_self_argument(StateId(index))
+                .map(|atom| (index, atom.clone()))
+        })
+        .collect::<Vec<_>>();
+    if forwarded.is_empty() {
+        return std::borrow::Cow::Borrowed(control);
+    }
+    let mut program = control.clone();
+    for (index, atom) in forwarded {
+        if let crate::control::ast::Terminator::TailCall { argument, .. } =
+            &mut program.states[index].terminator
+        {
+            *argument = atom;
+        }
+    }
+    std::borrow::Cow::Owned(program)
+}
+
 impl Plan {
     pub(crate) fn new(inputs: Inputs<'_>) -> Self {
         let Inputs {
@@ -124,6 +152,8 @@ impl Plan {
             regions,
             frames,
         } = inputs;
+        let effective = fused_arguments(control, calls);
+        let control = &*effective;
         let parameter_borrows =
             ParameterBorrows::new(control, applications, calls, regions, frames);
         let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);

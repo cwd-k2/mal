@@ -117,3 +117,10 @@ main :: Unit -> Int32 := () -> {
     };
     if (sum(4u64) == 60u64) then 0 else 1;
 };
+### forwarded_managed_argument_reaches_the_self_transition | run:1
+call :: ((Symbol -> Symbol), Symbol) -> Symbol := (function, value) -> { function(value); };
+main :: Unit -> Int32 := () -> {
+    step :: Symbol -> Symbol := (s) -> { if (#s > 20usize) then { s } else { call(step, s + "ab") } };
+    r := step("a");
+    if (#r > 0usize) then 1 else 0;
+};
