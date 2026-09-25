@@ -1,0 +1,480 @@
+### insertion_sort_moves_elements_through_get_and_put | run:0
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+fillBytes :: (Buffer<UInt8>, USize, USize) -> USize := (out, seed, count) ->
+    if (count == 0usize) then seed
+    else {
+        state := next(seed);
+        out.new(97u8 + ((state / 65536usize) % 4usize).u8);
+        fillBytes(out, state, count - 1usize);
+    };
+
+randomSymbol :: (USize, USize) -> (Symbol, USize) := (seed, length) -> {
+    bytes := make<UInt8>(length);
+    state := fillBytes(bytes, seed, length);
+    (*bytes, state)
+};
+
+populate :: (Buffer<Symbol>, USize, USize) -> Unit := (items, seed, remaining) ->
+    if (remaining == 0usize) then ()
+    else {
+        state := next(seed);
+        (text, after) := randomSymbol(state, (state / 65536usize) % 9usize);
+        items.new(text);
+        populate(items, after, remaining - 1usize);
+    };
+
+compareFrom :: (Symbol, Symbol, USize) -> Bool := (left, right, index) ->
+    if (index == #left) then #left < #right
+    else if (index == #right) then false
+    else if (left # index == right # index) then compareFrom(left, right, index + 1usize)
+    else left # index < right # index;
+
+less :: (Symbol, Symbol) -> Bool := (left, right) -> compareFrom(left, right, 0usize);
+
+insert :: (Buffer<Symbol>, USize, Symbol) -> Unit := (items, position, value) ->
+    if (position == 0usize) then items.put(0usize, value)
+    else {
+        previous := items.get(position - 1usize);
+        if (less(value, previous))
+        then { items.put(position, previous); insert(items, position - 1usize, value); }
+        else items.put(position, value);
+    };
+
+sort :: (Buffer<Symbol>, USize) -> Unit := (items, index) ->
+    if (index >= #items) then ()
+    else { insert(items, index, items.get(index)); sort(items, index + 1usize); };
+
+ordered :: (Buffer<Symbol>, USize) -> Bool := (items, index) ->
+    if (index + 1usize >= #items) then true
+    else if (less(items.get(index + 1usize), items.get(index))) then false
+    else ordered(items, index + 1usize);
+
+lengths :: (Buffer<Symbol>, USize, USize) -> USize := (items, index, sum) ->
+    if (index == #items) then sum else lengths(items, index + 1usize, sum + #(items.get(index)));
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    populate(items, 5usize, 1500usize);
+    before := lengths(items, 0usize, 0usize);
+    sort(items, 1usize);
+    if (ordered(items, 0usize) && lengths(items, 0usize, 0usize) == before && #items == 1500usize) then 0 else 1
+};
+### merge_sort_copies_ranges_between_buffers | run:0
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+fillBytes :: (Buffer<UInt8>, USize, USize) -> USize := (out, seed, count) ->
+    if (count == 0usize) then seed
+    else {
+        state := next(seed);
+        out.new(97u8 + ((state / 65536usize) % 4usize).u8);
+        fillBytes(out, state, count - 1usize);
+    };
+
+populate :: (Buffer<Symbol>, USize, USize) -> Unit := (items, seed, remaining) ->
+    if (remaining == 0usize) then ()
+    else {
+        state := next(seed);
+        bytes := make<UInt8>(8usize);
+        after := fillBytes(bytes, state, (state / 65536usize) % 9usize);
+        items.new(*bytes);
+        populate(items, after, remaining - 1usize);
+    };
+
+compareFrom :: (Symbol, Symbol, USize) -> Bool := (left, right, index) ->
+    if (index == #left) then #left < #right
+    else if (index == #right) then false
+    else if (left # index == right # index) then compareFrom(left, right, index + 1usize)
+    else left # index < right # index;
+
+merge :: (Buffer<Symbol>, Buffer<Symbol>, USize, USize, USize, USize, USize) -> Unit :=
+    (target, source, out, left, leftEnd, right, rightEnd) ->
+    if (left == leftEnd && right == rightEnd) then ()
+    else if (left == leftEnd) then {
+        target.put(out, source.get(right));
+        merge(target, source, out + 1usize, left, leftEnd, right + 1usize, rightEnd);
+    }
+    else if (right == rightEnd) then {
+        target.put(out, source.get(left));
+        merge(target, source, out + 1usize, left + 1usize, leftEnd, right, rightEnd);
+    }
+    else if (compareFrom(source.get(right), source.get(left), 0usize)) then {
+        target.put(out, source.get(right));
+        merge(target, source, out + 1usize, left, leftEnd, right + 1usize, rightEnd);
+    }
+    else {
+        target.put(out, source.get(left));
+        merge(target, source, out + 1usize, left + 1usize, leftEnd, right, rightEnd);
+    };
+
+sortRange :: (Buffer<Symbol>, Buffer<Symbol>, USize, USize) -> Unit := (items, scratch, start, end) ->
+    if (end - start < 2usize) then ()
+    else {
+        middle := start + (end - start) / 2usize;
+        sortRange(items, scratch, start, middle);
+        sortRange(items, scratch, middle, end);
+        merge(scratch, items, start, start, middle, middle, end);
+        items.copy(start, scratch, start, end - start);
+    };
+
+ordered :: (Buffer<Symbol>, USize) -> Bool := (items, index) ->
+    if (index + 1usize >= #items) then true
+    else if (compareFrom(items.get(index + 1usize), items.get(index), 0usize)) then false
+    else ordered(items, index + 1usize);
+
+lengths :: (Buffer<Symbol>, USize, USize) -> USize := (items, index, sum) ->
+    if (index == #items) then sum else lengths(items, index + 1usize, sum + #(items.get(index)));
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    populate(items, 11usize, 30000usize);
+    scratch := make<Symbol>(0usize);
+    scratch.fill(0usize, 30000usize, "");
+    before := lengths(items, 0usize, 0usize);
+    sortRange(items, scratch, 0usize, #items);
+    if (ordered(items, 0usize) && lengths(items, 0usize, 0usize) == before && #items == 30000usize) then 0 else 1
+};
+### hash_table_rehashes_into_replacement_buffers | run:0
+Slot :: [Unit, (Symbol, USize)];
+
+vacant :: Unit -> Slot := () -> [none, some] => none();
+occupied :: (Symbol, USize) -> Slot := (entry) -> [none, some] => some(entry);
+
+digits :: (USize, Buffer<UInt8>) -> Unit := (n, out) ->
+    if (n < 10usize) then { out.new(48u8 + n.u8); (); }
+    else { digits(n / 10usize, out); out.new(48u8 + (n % 10usize).u8); (); };
+
+key :: USize -> Symbol := (n) -> { bytes := make<UInt8>(4usize); digits(n, bytes); *bytes };
+
+hashFrom :: (Symbol, USize, USize) -> USize := (text, index, state) ->
+    if (index == #text) then state else hashFrom(text, index + 1usize, state * 31usize + (text # index).usize);
+
+place :: (Buffer<Slot>, Symbol, USize, USize) -> USize := (table, name, value, position) ->
+    table.get(position)[
+        () -> { table.put(position, occupied((name, value))); 1usize },
+        (entry) -> {
+            (existing, old) := entry;
+            if (existing == name)
+            then { table.put(position, occupied((name, value))); 0usize }
+            else place(table, name, value, (position + 1usize) % #table);
+        }
+    ];
+
+emptyTable :: USize -> Buffer<Slot> := (capacity) -> {
+    table := make<Slot>(capacity);
+    table.fill(0usize, capacity, vacant(()));
+    table
+};
+
+move :: (Buffer<Slot>, Buffer<Slot>, USize) -> Unit := (old, fresh, index) ->
+    if (index == #old) then ()
+    else {
+        old.get(index)[
+            () -> (),
+            (entry) -> { (name, value) := entry; _ := place(fresh, name, value, hashFrom(name, 0usize, 7usize) % #fresh); (); }
+        ];
+        move(old, fresh, index + 1usize);
+    };
+
+insert :: (Buffer<Slot>, USize, Symbol, USize) -> (Buffer<Slot>, USize) := (table, count, name, value) -> {
+    grown := if (count * 2usize >= #table) then { fresh := emptyTable(#table * 2usize); move(table, fresh, 0usize); fresh } else table;
+    added := place(grown, name, value, hashFrom(name, 0usize, 7usize) % #grown);
+    (grown, count + added)
+};
+
+find :: (Buffer<Slot>, Symbol, USize, USize) -> USize := (table, name, position, missing) ->
+    table.get(position)[
+        () -> missing,
+        (entry) -> {
+            (existing, value) := entry;
+            if (existing == name) then value else find(table, name, (position + 1usize) % #table, missing);
+        }
+    ];
+
+load :: (Buffer<Slot>, USize, USize, USize, USize) -> (Buffer<Slot>, USize) := (table, count, index, end, scale) ->
+    if (index == end) then (table, count)
+    else {
+        (next, added) := insert(table, count, key(index), index * scale);
+        load(next, added, index + 1usize, end, scale);
+    };
+
+wrong :: (Buffer<Slot>, USize, USize, USize, USize) -> USize := (table, index, end, scale, bad) ->
+    if (index == end) then bad
+    else wrong(table, index + 1usize, end, scale,
+        if (find(table, key(index), hashFrom(key(index), 0usize, 7usize) % #table, 999999999usize) == index * scale) then bad else bad + 1usize);
+
+absent :: (Buffer<Slot>, USize, USize, USize) -> USize := (table, index, end, bad) ->
+    if (index == end) then bad
+    else absent(table, index + 1usize, end,
+        if (find(table, key(index), hashFrom(key(index), 0usize, 7usize) % #table, 999999999usize) == 999999999usize) then bad else bad + 1usize);
+
+main :: Unit -> Int32 := () -> {
+    (table, count) := load(emptyTable(4usize), 0usize, 0usize, 4000usize, 3usize);
+    (updated, recount) := load(table, count, 0usize, 4000usize, 5usize);
+    if (count == 4000usize && recount == 4000usize && wrong(updated, 0usize, 4000usize, 5usize, 0usize) == 0usize
+        && absent(updated, 4000usize, 4500usize, 0usize) == 0usize) then 0 else 1
+};
+### closures_capture_elements_and_buffers | run:0
+capture :: (Buffer<Symbol>, USize) -> (Unit -> Symbol) := (items, index) -> {
+    held := items.get(index);
+    () -> held
+};
+
+appender :: (Buffer<Symbol>, Symbol) -> (Symbol -> Unit) := (out, suffix) -> (text) -> {
+    out.new(text + suffix); ();
+};
+
+each :: (Buffer<Symbol>, Symbol -> Unit, USize, USize) -> Unit := (items, action, index, end) ->
+    if (index == end) then ()
+    else { action(items.get(index)); each(items, action, index + 1usize, end); };
+
+fold :: (Buffer<Symbol>, Symbol, (Symbol, Symbol) -> Symbol, USize) -> Symbol := (items, seed, combine, index) ->
+    if (index == #items) then seed
+    else fold(items, combine(seed, items.get(index)), combine, index + 1usize);
+
+longer :: (Symbol, Symbol) -> Symbol := (left, right) -> if (#right > #left) then right else left;
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    items.new("one"); items.new("three"); items.new("fifteen chars!!");
+    getter := capture(items, 1usize);
+    items.put(1usize, "replaced");
+    out := make<Symbol>(0usize);
+    each(items, appender(out, "!"), 0usize, #items);
+    more := make<Symbol>(0usize);
+    each(out, appender(more, "?"), 0usize, #out);
+    each(out, appender(out, "#"), 0usize, #out);
+    joined := fold(items, "", (accumulator, text) -> accumulator + text, 0usize);
+    winner := fold(items, "", longer, 0usize);
+    if (getter() == "three" && #out == 6usize && out.get(3usize) == "one!#" && more.get(0usize) == "one!?"
+        && #joined == 3usize + 8usize + 15usize && winner == "fifteen chars!!") then 0 else 1
+};
+### tokenizer_holds_symbols_in_sums_with_early_returns | run:0
+Token :: [Symbol, (Symbol, USize), Unit];
+
+slice :: (Symbol, USize, USize, Buffer<UInt8>) -> Symbol := (text, start, end, scratch) ->
+    if (start == end) then *scratch
+    else { scratch.new(text # start); slice(text, start + 1usize, end, scratch); };
+
+wordToken :: Symbol -> Token := (word) -> [w, p, e] => w(word);
+pairToken :: (Symbol, USize) -> Token := (pair) -> [w, p, e] => p(pair);
+endToken :: Unit -> Token := () -> [w, p, e] => e(());
+
+split :: (Symbol, USize, USize, Buffer<Token>, USize) -> Unit := (text, start, index, out, line) ->
+    if (index == #text) then {
+        field := slice(text, start, index, make<UInt8>(0usize));
+        out.new(wordToken(field));
+        out.new(endToken(()));
+        ();
+    }
+    else if (text # index == 44u8) then {
+        field := slice(text, start, index, make<UInt8>(0usize));
+        out.new(wordToken(field));
+        out.new(pairToken((field, line)));
+        split(text, index + 1usize, index + 1usize, out, line + 1usize);
+    }
+    else split(text, start, index + 1usize, out, line);
+
+measure :: Token -> USize := (token) ->
+    token[(word) -> #word, (pair) -> { (label, line) := pair; #label + line; }, () -> 0usize];
+
+firstPair :: (Buffer<Token>, USize) -> Symbol := (tokens, index) -> [return] => {
+    if (index == #tokens) then return("none") else ();
+    tokens.get(index)[(word) -> (), (pair) -> { (label, line) := pair; return(label); }, () -> ()];
+    return(firstPair(tokens, index + 1usize))
+};
+
+total :: (Buffer<Token>, USize, USize) -> USize := (tokens, index, sum) ->
+    if (index == #tokens) then sum else total(tokens, index + 1usize, sum + measure(tokens.get(index)));
+
+repeat :: (Symbol, Buffer<Token>, USize) -> Unit := (text, out, times) ->
+    if (times == 0usize) then ()
+    else { split(text, 0usize, 0usize, out, 0usize); repeat(text, out, times - 1usize); };
+
+main :: Unit -> Int32 := () -> {
+    tokens := make<Token>(0usize);
+    repeat("alpha,beta,gamma,delta", tokens, 2000usize);
+    single := make<Token>(0usize);
+    split("solo", 0usize, 0usize, single, 0usize);
+    lengthTotal := 2000usize * 36usize;
+    if (#tokens == 2000usize * 8usize && firstPair(tokens, 0usize) == "alpha" && firstPair(single, 0usize) == "none"
+        && total(tokens, 0usize, 0usize) == lengthTotal) then 0 else 1
+};
+### ring_queue_with_many_tail_parameters | run:0
+Item :: (Symbol, USize);
+
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+word :: (USize, Symbol) -> Symbol := (n, acc) ->
+    if (n == 0usize) then acc else word(n - 1usize, acc + "q");
+
+step :: (Buffer<Item>, USize, USize, USize, USize, USize, USize, USize) -> USize :=
+    (queue, head, size, pushed, popped, seed, remaining, bad) ->
+    if (remaining == 0usize) then bad + (if (size == pushed - popped) then 0usize else 1usize)
+    else {
+        state := next(seed);
+        wantPush := (state / 65536usize) % 3usize != 0usize;
+        if (wantPush && size < #queue) then {
+            queue.put((head + size) % #queue, (word(pushed % 17usize, ""), pushed));
+            step(queue, head, size + 1usize, pushed + 1usize, popped, state, remaining - 1usize, bad);
+        }
+        else if (size > 0usize) then {
+            (label, tag) := queue.get(head);
+            ok := tag == popped && #label == tag % 17usize;
+            step(queue, (head + 1usize) % #queue, size - 1usize, pushed, popped + 1usize, state, remaining - 1usize,
+                if (ok) then bad else bad + 1usize);
+        }
+        else step(queue, head, size, pushed, popped, state, remaining - 1usize, bad);
+    };
+
+main :: Unit -> Int32 := () -> {
+    queue := make<Item>(64usize);
+    queue.fill(0usize, 64usize, ("", 0usize));
+    if (step(queue, 0usize, 0usize, 0usize, 0usize, 3usize, 300000usize, 0usize) == 0usize) then 0 else 1
+};
+### binary_tree_rows_share_symbols_with_the_output | run:0
+Row :: (Symbol, USize, USize);
+
+next :: USize -> USize := (state) -> state * 1103515245usize + 12345usize;
+
+fillBytes :: (Buffer<UInt8>, USize, USize) -> USize := (out, seed, count) ->
+    if (count == 0usize) then seed
+    else {
+        state := next(seed);
+        out.new(97u8 + ((state / 65536usize) % 6usize).u8);
+        fillBytes(out, state, count - 1usize);
+    };
+
+compareFrom :: (Symbol, Symbol, USize) -> Bool := (left, right, index) ->
+    if (index == #left) then #left < #right
+    else if (index == #right) then false
+    else if (left # index == right # index) then compareFrom(left, right, index + 1usize)
+    else left # index < right # index;
+
+insertAt :: (Buffer<Row>, USize, Symbol) -> Unit := (rows, node, name) -> {
+    (label, left, right) := rows.get(node);
+    if (compareFrom(name, label, 0usize)) then {
+        if (left == 0usize) then { rows.put(node, (label, #rows, right)); rows.new((name, 0usize, 0usize)); () }
+        else insertAt(rows, left, name);
+    } else {
+        if (right == 0usize) then { rows.put(node, (label, left, #rows)); rows.new((name, 0usize, 0usize)); () }
+        else insertAt(rows, right, name);
+    };
+};
+
+populate :: (Buffer<Row>, USize, USize) -> Unit := (rows, seed, remaining) ->
+    if (remaining == 0usize) then ()
+    else {
+        state := next(seed);
+        bytes := make<UInt8>(6usize);
+        after := fillBytes(bytes, state, 1usize + (state / 65536usize) % 6usize);
+        insertAt(rows, 1usize, *bytes);
+        populate(rows, after, remaining - 1usize);
+    };
+
+walk :: (Buffer<Row>, USize, Buffer<Symbol>) -> Unit := (rows, node, out) ->
+    if (node == 0usize) then ()
+    else {
+        (label, left, right) := rows.get(node);
+        walk(rows, left, out);
+        out.new(label);
+        walk(rows, right, out);
+    };
+
+ordered :: (Buffer<Symbol>, USize) -> Bool := (items, index) ->
+    if (index + 1usize >= #items) then true
+    else if (compareFrom(items.get(index + 1usize), items.get(index), 0usize)) then false
+    else ordered(items, index + 1usize);
+
+main :: Unit -> Int32 := () -> {
+    rows := make<Row>(0usize);
+    rows.new(("", 0usize, 0usize));
+    rows.new(("m", 0usize, 0usize));
+    populate(rows, 17usize, 4000usize);
+    sorted := make<Symbol>(0usize);
+    walk(rows, 1usize, sorted);
+    if (#rows == 4002usize && #sorted == 4001usize && ordered(sorted, 0usize)) then 0 else 1
+};
+### stored_prefixes_survive_concatenation_of_the_accumulator | run:0
+prefixes :: (Buffer<Symbol>, Symbol, USize) -> Symbol := (items, accumulator, remaining) ->
+    if (remaining == 0usize) then accumulator
+    else {
+        items.new(accumulator);
+        prefixes(items, accumulator + "x", remaining - 1usize);
+    };
+
+suffixes :: (Buffer<Symbol>, Symbol, USize) -> Symbol := (items, accumulator, remaining) ->
+    if (remaining == 0usize) then accumulator
+    else {
+        items.new(accumulator);
+        suffixes(items, "y" + accumulator, remaining - 1usize);
+    };
+
+allX :: (Symbol, USize) -> Bool := (text, index) ->
+    if (index == #text) then true else if (text # index == 120u8) then allX(text, index + 1usize) else false;
+
+allY :: (Symbol, USize) -> Bool := (text, index) ->
+    if (index == #text) then true else if (text # index == 121u8) then allY(text, index + 1usize) else false;
+
+intact :: (Buffer<Symbol>, Buffer<Symbol>, USize, USize) -> USize := (left, right, index, bad) ->
+    if (index == #left) then bad
+    else {
+        first := left.get(index);
+        second := right.get(index);
+        ok := #first == index && #second == index && allX(first, 0usize) && allY(second, 0usize);
+        intact(left, right, index + 1usize, if (ok) then bad else bad + 1usize);
+    };
+
+main :: Unit -> Int32 := () -> {
+    left := make<Symbol>(0usize);
+    right := make<Symbol>(0usize);
+    finalLeft := prefixes(left, "", 3000usize);
+    finalRight := suffixes(right, "", 3000usize);
+    if (#left == 3000usize && #finalLeft == 3000usize && #finalRight == 3000usize
+        && intact(left, right, 0usize, 0usize) == 0usize) then 0 else 1
+};
+### ownership_moves_through_tuples_sums_joins_and_frames | run:0
+Shape :: [Symbol, (Symbol, Symbol)];
+
+rotate :: ((Symbol, Symbol, Symbol)) -> (Symbol, Symbol, Symbol) := ((a, b, c)) -> (b, c + "+", a);
+pick :: (Bool, Symbol, Symbol) -> Symbol := (flag, left, right) -> if (flag) then left else right;
+wrap :: Symbol -> Shape := (text) -> [single, pair] => single(text);
+pairUp :: (Symbol, Symbol) -> Shape := (both) -> [single, pair] => pair(both);
+unwrap :: Shape -> Symbol := (shape) -> shape[(text) -> text, (both) -> { (left, right) := both; left + right; }];
+
+churn :: (Buffer<Symbol>, (Symbol, Symbol, Symbol), USize) -> (Symbol, Symbol, Symbol) := (items, trio, remaining) ->
+    if (remaining == 0usize) then trio
+    else {
+        (a, b, c) := rotate(trio);
+        items.new(pick(remaining % 2usize == 0usize, a, b));
+        if (remaining % 5usize == 0usize) then items.put(remaining % #items, unwrap(pairUp((a, c)))) else ();
+        if (remaining % 7usize == 0usize) then { shape := wrap(items.get(0usize)); items.put(1usize, unwrap(shape)); } else ();
+        churn(items, (a, b, c), remaining - 1usize);
+    };
+
+depth :: (Buffer<Symbol>, USize) -> USize := (items, n) ->
+    if (n == 0usize) then #items
+    else {
+        held := items.get(n % #items);
+        below := depth(items, n - 1usize);
+        items.new(held);
+        below + 1usize;
+    };
+
+clean :: (Symbol, USize) -> Bool := (text, index) ->
+    if (index == #text) then #text > 0usize
+    else if (text # index == 43u8 || (text # index >= 97u8 && text # index <= 99u8)) then clean(text, index + 1usize)
+    else false;
+
+allClean :: (Buffer<Symbol>, USize, USize) -> USize := (items, index, bad) ->
+    if (index == #items) then bad else allClean(items, index + 1usize, if (clean(items.get(index), 0usize)) then bad else bad + 1usize);
+
+main :: Unit -> Int32 := () -> {
+    items := make<Symbol>(0usize);
+    items.new("a");
+    items.new("b");
+    (x, y, z) := churn(items, ("a", "b", "c"), 3000usize);
+    total := depth(items, 500usize);
+    if (#items == 2usize + 3000usize + 500usize && total == #items - 500usize + 500usize && allClean(items, 0usize, 0usize) == 0usize
+        && #x > 0usize && #y > 0usize && #z > 0usize) then 0 else 1
+};

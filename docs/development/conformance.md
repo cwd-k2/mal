@@ -27,7 +27,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [Storable](../spec/memory.md#storable) | 全base、`Symbol`、nested product/sum、empty sum、function、opaque、`Buffer<A>`、それらを含むaggregate | `Buffer<Symbol>`とSymbolを含むaggregateの`new`・`get`・`put`・`fill`・`copy`を、成長、上書き、重なるcopy、深い再帰の負荷を含めてAddressSanitizerで実行 |
+| [Storable](../spec/memory.md#storable) | 全base、`Symbol`、nested product/sum、empty sum、function、opaque、`Buffer<A>`、それらを含むaggregate | `Buffer<Symbol>`とSymbolを含むaggregateの`new`・`get`・`put`・`fill`・`copy`を、成長、上書き、重なるcopy、深い再帰の負荷を含めてAddressSanitizerで実行し、ソート、hash table、queue、木、closure、sum、early returnの各programをbaselineとproductionの両方で同じ検査にかける |
 | [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、`Symbol`、function、opaque、`Buffer<A>` | representable aggregateのstore/load round-trip、`Symbol`要素と型parameter要素への`from`・`into`の拒否 |
 | [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
 | [Buffer access](../spec/memory.md#buffer) | make/new/get/put/fill/copy、empty、growth、Unit、product/sum、aliasとoverlap越しのread-your-writes、read-after-new、generic receiver application | managed lifetimeを含むcompiled artifact、Bufferをhelper・closure・再帰frameへ渡すnative fixture |

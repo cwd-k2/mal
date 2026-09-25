@@ -71,7 +71,7 @@ fn check(case: &Case) -> Result<(), String> {
     }
 }
 
-fn execute(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
+fn execute(case: &Case, clang_arguments: &[&str], malc_arguments: &[&str]) -> Result<(), String> {
     let fixture = NativeFixture::new("spec");
     let source = fixture.write("program.mal", &case.source);
     let executable = fixture.join("program");
@@ -85,6 +85,7 @@ fn execute(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
         arguments.push(std::ffi::OsStr::new("--clang-arg"));
         arguments.push(std::ffi::OsStr::new(argument));
     }
+    arguments.extend(malc_arguments.iter().map(std::ffi::OsStr::new));
     let built = fixture.malc(arguments);
     if !built.status.success() {
         return Err(format!(
@@ -103,10 +104,10 @@ fn execute(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
     }
 }
 
-fn run_case(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
+fn run_case(case: &Case, clang_arguments: &[&str], malc_arguments: &[&str]) -> Result<(), String> {
     match case.expectation {
         Expectation::Accepted | Expectation::Rejected(_) => check(case),
-        Expectation::Exit(_) | Expectation::Trap => execute(case, clang_arguments),
+        Expectation::Exit(_) | Expectation::Trap => execute(case, clang_arguments, malc_arguments),
     }
 }
 
@@ -117,6 +118,11 @@ fn run_all(text: &str) {
 
 /// Like `run_all`, passing `clang_arguments` to every native build.
 fn run_all_with(text: &str, clang_arguments: &[&str]) {
+    run_all_configured(text, clang_arguments, &[]);
+}
+
+/// Like `run_all_with`, also passing `malc_arguments` to every `malc build`.
+fn run_all_configured(text: &str, clang_arguments: &[&str], malc_arguments: &[&str]) {
     let cases = cases(text);
     let threads = std::thread::available_parallelism()
         .map_or(1, usize::from)
@@ -130,7 +136,7 @@ fn run_all_with(text: &str, clang_arguments: &[&str]) {
                     chunk
                         .iter()
                         .filter_map(|case| {
-                            run_case(case, clang_arguments)
+                            run_case(case, clang_arguments, malc_arguments)
                                 .err()
                                 .map(|reason| format!("{}: {reason}", case.name))
                         })
@@ -178,6 +184,19 @@ fn buffer_element_ownership_under_load() {
         include_str!("spec/buffer_stress.txt"),
         &["-fsanitize=address", "-g"],
     );
+}
+
+/// The same ownership-heavy programs, sorting, hashing, queueing, tree building, closures, and early returns, run under
+/// AddressSanitizer at every optimization level, since each level plans owner transfers differently.
+#[test]
+fn buffer_element_ownership_across_program_shapes() {
+    for optimization in ["baseline", "production"] {
+        run_all_configured(
+            include_str!("spec/buffer_shapes.txt"),
+            &["-fsanitize=address", "-g"],
+            &["--optimization", optimization],
+        );
+    }
 }
 
 #[test]
