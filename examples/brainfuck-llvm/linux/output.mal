@@ -29,8 +29,8 @@ _writeAll :: (Int32, Address, ByteSize, ByteSize) -> SyscallStatus :=
 _finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, length, written) -> {
     unmapped := systemMunmap(memory, length);
     written[
-    () -> unmapped,
-    (error) -> _statusFailure(error)
+        () -> unmapped,
+        (error) -> _statusFailure(error)
     ];
 };
 

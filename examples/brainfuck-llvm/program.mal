@@ -10,11 +10,11 @@ Arguments :: (USize, Address);
 // operation that determines the process result.
 _finishOutput :: SyscallStatus -> Int32 := (written) -> {
     written[
-    () -> 0,
-    (error) -> {
-        writeStderr("cannot write output, errno " + error.u64.decimal() + "\n");
-        1;
-    }
+        () -> 0,
+        (error) -> {
+            writeStderr("cannot write output, errno " + error.u64.decimal() + "\n");
+            1;
+        }
     ];
 };
 

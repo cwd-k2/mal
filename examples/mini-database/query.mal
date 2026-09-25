@@ -8,12 +8,12 @@ _put :: (Database, File, Buffer<UInt8>, USize, USize, USize, USize) -> Unit :=
         result := database.putRecord(line, keyStart, keyLength, valueStart, valueLength);
 
         result[
-        () -> {
-            file.saveDatabase(database);
-            writeSymbol("OK\n");
-        },
-        () -> writeSymbol("ERROR key<=16 value<=40\n"),
-        () -> writeSymbol("ERROR database full\n")
+            () -> {
+                file.saveDatabase(database);
+                writeSymbol("OK\n");
+            },
+            () -> writeSymbol("ERROR key<=16 value<=40\n"),
+            () -> writeSymbol("ERROR database full\n")
         ];
     };
 
@@ -22,12 +22,12 @@ _get :: (Database, Buffer<UInt8>, USize, USize) -> Unit :=
         result := database.lookupRecord(line, keyStart, keyLength);
 
         result[
-        () -> writeSymbol("NOT FOUND\n"),
-        (value) -> {
-            writeSymbol("VALUE ");
-            writeSymbol(*value);
-            writeSymbol("\n");
-        }
+            () -> writeSymbol("NOT FOUND\n"),
+            (value) -> {
+                writeSymbol("VALUE ");
+                writeSymbol(*value);
+                writeSymbol("\n");
+            }
         ];
     };
 

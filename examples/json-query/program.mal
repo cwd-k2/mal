@@ -15,13 +15,13 @@ _runQuery :: Query -> Int32 := (query) -> {
     parsed := source.parseDocument();
     // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
     parsed[
-    _reportParseError,
-    (stats) -> {
-        // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
-        renderer := query[renderCount, renderDepth];
-        writeStdout(stats[renderer] + "\n");
-        0;
-    }
+        _reportParseError,
+        (stats) -> {
+            // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
+            renderer := query[renderCount, renderDepth];
+            writeStdout(stats[renderer] + "\n");
+            0;
+        }
     ];
 };
 
@@ -37,11 +37,11 @@ main :: Arguments -> Int32 := (argumentCount, arguments) -> {
         queryBytes := from<UInt8>(argumentAddress, 0usize, argumentLength(argumentAddress));
         query := (queryBytes, 0usize).parseQuery();
         query[
-        (message) -> {
-            writeStdout(message.renderError() + "\n");
-            2;
-        },
-        _runQuery
+            (message) -> {
+                writeStdout(message.renderError() + "\n");
+                2;
+            },
+            _runQuery
         ];
     };
 };

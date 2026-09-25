@@ -60,11 +60,11 @@ _finishRead :: (Int32, MappingResult) -> ReadResult :=
         ];
         (memory, capacity, length) := buffer;
         closed[
-        () -> (),
-        (error) -> {
-            systemMunmap(memory, capacity);
-            failure(error);
-        }
+            () -> (),
+            (error) -> {
+                systemMunmap(memory, capacity);
+                failure(error);
+            }
         ];
         source := from<UInt8>(memory, 0usize, length.usize);
         systemMunmap(memory, capacity)[() -> success(source), failure];
@@ -87,8 +87,8 @@ _readSnapshot :: (Int32, UInt64) -> ReadResult :=
 _rewindAndRead :: (Int32, UInt64) -> ReadResult :=
     (descriptor, sizeHint) -> [success, failure] => {
         systemLseek(descriptor, 0i64, _seekStart)[
-        (_) -> (),
-        (error) -> _closeWithError(descriptor, error)[success, failure]
+            (_) -> (),
+            (error) -> _closeWithError(descriptor, error)[success, failure]
         ];
         _readSnapshot(descriptor, sizeHint)[success, failure];
     };
@@ -107,8 +107,8 @@ _openPath :: (Address, ByteSize) -> ReadResult :=
         unmapped := systemMunmap(path, pathMappingLength);
         descriptor := opened[(descriptor) -> descriptor, failure];
         unmapped[
-        () -> (),
-        (error) -> _closeWithError(descriptor, error)[success, failure]
+            () -> (),
+            (error) -> _closeWithError(descriptor, error)[success, failure]
         ];
         _readDescriptor(descriptor)[success, failure];
     };

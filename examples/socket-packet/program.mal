@@ -24,11 +24,11 @@ extern writeError :: UInt32 -> Unit;
 
 _reportStatus :: SocketStatus -> Bool := (status) -> {
     status[
-    () -> true,
-    (error) -> {
-        writeError(error);
-        false;
-    }
+        () -> true,
+        (error) -> {
+            writeError(error);
+            false;
+        }
     ];
 };
 
