@@ -164,6 +164,7 @@ fn trace_pure_construction(
     }
     let mut pending = discarded.into_iter().collect::<Vec<_>>();
     let mut visited = HashSet::new();
+    let mut join_inputs = Vec::new();
     while let Some(discarded) = pending.pop() {
         if !visited.insert(discarded) {
             continue;
@@ -198,8 +199,25 @@ fn trace_pure_construction(
             })
             .collect::<Vec<_>>();
         if !sources.is_empty() {
-            authorities.insert(discarded, HashSet::new());
+            join_inputs.push((discarded, sources.clone()));
             pending.extend(sources);
+        }
+    }
+    // A join input can borrow only when every value that jumps to it is itself borrowed, so its lenders
+    // already outlive the jump. If any source is an owner that ends with its predecessor, the input owns
+    // the value instead and each jump hands the responsibility over.
+    for _ in 0..join_inputs.len() {
+        for (input, sources) in &join_inputs {
+            if sources
+                .iter()
+                .all(|source| authorities.contains_key(source))
+            {
+                let lenders = sources
+                    .iter()
+                    .flat_map(|source| authorities[source].iter().copied())
+                    .collect::<HashSet<_>>();
+                authorities.insert(*input, lenders);
+            }
         }
     }
 }

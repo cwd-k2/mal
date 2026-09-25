@@ -41,6 +41,9 @@ aliasが生きたproduct、sum、closure environment、returnなどのowner succ
 持たずdiscardされる純粋なproductとsumは、`Atom`とlocal `Jump`によるadministrative handoffを越えて構成要素をborrowする。
 closure生成はenvironment allocationと独立lifetimeを持つため、このpure aggregate規則の対象にしない。詳細は
 [`D057`](../history/decisions/D057.md)を正とする。
+joinの入力は、そこへjumpするすべての値がそれ自身もborrowである場合にだけborrowできる。ownerが一つでもあれば、そのownerは
+predecessorとともに終了するため、入力がownerとなり各jumpがresponsibilityを`Consume`で渡す。borrowのlenderを空集合として
+入力をborrowにしてはならない。
 control bindingはactivation内で一つのresponsibilityだけを初期化する。self-tailで同じcarrierを再利用する場合も、旧responsibilityは
 引数への`Consume`またはedgeの`Drop`でentryへ戻る前に終了する。したがってpattern destinationはvacant carrierへの`Initialize`であり、
 backendは格納時に旧値の存在を推測してreleaseしない。

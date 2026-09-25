@@ -86,3 +86,37 @@ fn shares_a_borrowed_leaf_only_when_a_closure_environment_escapes() {
         Some(UseEffect::Share)
     );
 }
+
+#[test]
+fn owns_a_join_input_when_a_jumping_value_is_an_owner() {
+    let execution = lower(
+        "len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;\nmain :: Unit -> Int32 := () -> { b := if (true) then make<UInt8>(4usize) else make<UInt8>(2usize); len(b) };",
+    );
+    let jumps = execution
+        .control
+        .states
+        .iter()
+        .enumerate()
+        .filter_map(|(index, state)| match &state.terminator {
+            crate::control::ast::Terminator::Jump { target, value }
+                if value.ty == Type::Buffer(Box::new(Type::UInt8).into()) =>
+            {
+                Some((StateId(index), *target))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(jumps.len(), 2);
+    for (site, target) in jumps {
+        assert!(matches!(
+            execution.ownership.input_destination(target),
+            Some(PatternDestination::Initialize(_))
+        ));
+        assert_eq!(
+            execution
+                .ownership
+                .terminator_use(site, TerminatorOperand::JumpValue),
+            Some(UseEffect::Consume)
+        );
+    }
+}

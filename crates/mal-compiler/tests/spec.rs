@@ -71,16 +71,21 @@ fn check(case: &Case) -> Result<(), String> {
     }
 }
 
-fn execute(case: &Case) -> Result<(), String> {
+fn execute(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
     let fixture = NativeFixture::new("spec");
     let source = fixture.write("program.mal", &case.source);
     let executable = fixture.join("program");
-    let built = fixture.malc([
+    let mut arguments = vec![
         std::ffi::OsStr::new("build"),
         source.as_os_str(),
         std::ffi::OsStr::new("-o"),
         executable.as_os_str(),
-    ]);
+    ];
+    for argument in clang_arguments {
+        arguments.push(std::ffi::OsStr::new("--clang-arg"));
+        arguments.push(std::ffi::OsStr::new(argument));
+    }
+    let built = fixture.malc(arguments);
     if !built.status.success() {
         return Err(format!(
             "build failed: {}",
@@ -98,15 +103,20 @@ fn execute(case: &Case) -> Result<(), String> {
     }
 }
 
-fn run_case(case: &Case) -> Result<(), String> {
+fn run_case(case: &Case, clang_arguments: &[&str]) -> Result<(), String> {
     match case.expectation {
         Expectation::Accepted | Expectation::Rejected(_) => check(case),
-        Expectation::Exit(_) | Expectation::Trap => execute(case),
+        Expectation::Exit(_) | Expectation::Trap => execute(case, clang_arguments),
     }
 }
 
 /// Runs the cases on several threads; building and running native programs dominates the time.
 fn run_all(text: &str) {
+    run_all_with(text, &[]);
+}
+
+/// Like `run_all`, passing `clang_arguments` to every native build.
+fn run_all_with(text: &str, clang_arguments: &[&str]) {
     let cases = cases(text);
     let threads = std::thread::available_parallelism()
         .map_or(1, usize::from)
@@ -120,7 +130,7 @@ fn run_all(text: &str) {
                     chunk
                         .iter()
                         .filter_map(|case| {
-                            run_case(case)
+                            run_case(case, clang_arguments)
                                 .err()
                                 .map(|reason| format!("{}: {reason}", case.name))
                         })
@@ -149,6 +159,15 @@ fn expression_control_and_program_structure_rules() {
 #[test]
 fn sum_continuation_branch_rules() {
     run_all(include_str!("spec/sum_continuations.txt"));
+}
+
+/// AddressSanitizer turns a managed value released too early, or twice, into a failed run.
+#[test]
+fn managed_values_stay_owned_across_joins() {
+    run_all_with(
+        include_str!("spec/joins.txt"),
+        &["-fsanitize=address", "-g"],
+    );
 }
 
 #[test]

@@ -1,0 +1,33 @@
+### join_of_owners_then_a_call | run:4
+len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
+main :: Unit -> Int32 := () -> { b := if (true) then *"abcd" else *"xy"; len(b) };
+### join_of_owners_on_the_other_branch | run:2
+len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
+main :: Unit -> Int32 := () -> { b := if (false) then *"abcd" else *"xy"; len(b) };
+### join_with_an_early_exit | run:4
+len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
+main :: Unit -> Int32 := () -> [return] => {
+    b := if (true) then *"abcd" else return(99i32);
+    return(len(b))
+};
+### join_of_a_branch_payload | run:4
+Res :: [Buffer<UInt8>, UInt32];
+len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
+mk :: Bool -> Res := (ok) -> [success, failure] => { if (ok) then success(*"abcd") else failure(7u32) };
+main :: Unit -> Int32 := () -> [return] => {
+    b := mk(true)[(b) -> b, (e) -> return(99i32)];
+    return(len(b))
+};
+### join_of_a_branch_payload_failing | run:99
+Res :: [Buffer<UInt8>, UInt32];
+len :: Buffer<UInt8> -> Int32 := (b) -> (#b).i32;
+mk :: Bool -> Res := (ok) -> [success, failure] => { if (ok) then success(*"abcd") else failure(7u32) };
+main :: Unit -> Int32 := () -> [return] => {
+    b := mk(false)[(b) -> b, (e) -> return(99i32)];
+    return(len(b))
+};
+### join_of_a_symbol_from_concatenation | run:4
+main :: Unit -> Int32 := () -> { s := if (true) then "ab" + "cd" else "x"; (#s).i32 };
+### join_of_a_product_holding_a_buffer | run:4
+len :: (Buffer<UInt8>, Int32) -> Int32 := ((b, n)) -> (#b).i32 + n - n;
+main :: Unit -> Int32 := () -> { p := if (true) then (*"abcd", 1i32) else (*"xy", 2i32); len(p) };
