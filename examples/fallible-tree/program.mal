@@ -22,15 +22,13 @@ writeNode :: (NodeAddress, NodeRecord) -> Unit := (node, record) -> {
 readNode :: NodeAddress -> NodeRecord := (node) ->
     from<NodeRecord>(node, 0usize, 1usize).get(0usize);
 
-createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> {
-    allocated := allocator.allocateNode();
-    allocated[
-    (node) -> [created, failed] => {
-        node.writeNode((value, 0u8, node, node));
-        created(node);
-    },
-    () -> [created, failed] => failed()
+createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> [created, failed] => {
+    node := allocator.allocateNode()[
+        (allocated) -> allocated,
+        () -> failed()
     ];
+    node.writeNode((value, 0u8, node, node));
+    created(node);
 };
 
 sumSubtree :: NodeAddress -> Int32 := (node) -> [return] => {
@@ -56,52 +54,52 @@ releaseSubtree :: (NodeAddress, Allocator) -> Unit := (node, allocator) -> [retu
 };
 
 createOwnedBranch :: (Allocator, Int32, NodeAddress, NodeAddress) -> NodeBuildResult :=
-    (allocator, value, left, right) -> {
-        allocated := allocator.allocateNode();
-        allocated[
-        (node) -> [created, failed] => {
-            node.writeNode((value, 1u8, left, right));
-            created(node);
-        },
-        () -> [created, failed] => {
-            left.releaseSubtree(allocator);
-            right.releaseSubtree(allocator);
-            failed();
-        }
+    (allocator, value, left, right) -> [created, failed] => {
+        node := allocator.allocateNode()[
+            (allocated) -> allocated,
+            () -> {
+                left.releaseSubtree(allocator);
+                right.releaseSubtree(allocator);
+                failed();
+            }
         ];
+        node.writeNode((value, 1u8, left, right));
+        created(node);
     };
 
-buildLeftSubtree :: Allocator -> NodeBuildResult := (allocator) -> {
-    first := allocator.createLeaf(3);
-    first[
-    (left) -> {
-        second := allocator.createLeaf(4);
-        second[
-        (right) -> allocator.createOwnedBranch(2, left, right),
-        () -> [created, failed] => {
+buildLeftSubtree :: Allocator -> NodeBuildResult := (allocator) -> [created, failed] => {
+    left := allocator.createLeaf(3)[
+        (node) -> node,
+        () -> failed()
+    ];
+    right := allocator.createLeaf(4)[
+        (node) -> node,
+        () -> {
             left.releaseSubtree(allocator);
             failed();
         }
-        ];
-    },
-    () -> [created, failed] => failed()
+    ];
+    allocator.createOwnedBranch(2, left, right)[
+    created,
+    failed
     ];
 };
 
-buildTree :: Allocator -> NodeBuildResult := (allocator) -> {
-    leftResult := allocator.buildLeftSubtree();
-    leftResult[
-    (left) -> {
-        rightResult := allocator.createLeaf(5);
-        rightResult[
-        (right) -> allocator.createOwnedBranch(1, left, right),
-        () -> [created, failed] => {
+buildTree :: Allocator -> NodeBuildResult := (allocator) -> [created, failed] => {
+    left := allocator.buildLeftSubtree()[
+        (node) -> node,
+        () -> failed()
+    ];
+    right := allocator.createLeaf(5)[
+        (node) -> node,
+        () -> {
             left.releaseSubtree(allocator);
             failed();
         }
-        ];
-    },
-    () -> [created, failed] => failed()
+    ];
+    allocator.createOwnedBranch(1, left, right)[
+    created,
+    failed
     ];
 };
 

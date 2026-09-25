@@ -76,31 +76,7 @@ impl Lowerer {
                 let checked::Type::Sum(members) = &scrutinee.ty else {
                     unreachable!("sum elimination has a sum scrutinee");
                 };
-                let arms = continuations
-                    .iter()
-                    .zip(members.iter())
-                    .enumerate()
-                    .map(|(index, (continuation, member))| {
-                        let payload_id = self.temporary();
-                        let payload = self.reference(payload_id, member.clone(), continuation.span);
-                        CaseArm {
-                            index,
-                            pattern: Pattern::Binding {
-                                id: payload_id,
-                                ty: member.clone(),
-                            },
-                            value: Expression {
-                                kind: ExpressionKind::Call {
-                                    callee: Box::new(self.lower_expression(continuation)),
-                                    argument: Box::new(payload),
-                                },
-                                ty: expression.ty.clone(),
-                                span: continuation.span,
-                            },
-                            span: continuation.span,
-                        }
-                    })
-                    .collect();
+                let arms = self.lower_sum_arms(members, continuations, &expression.ty);
                 ExpressionKind::Case {
                     scrutinee: Box::new(self.lower_expression(scrutinee)),
                     arms,

@@ -4,6 +4,7 @@ use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
 pub mod ast;
+mod continuation;
 mod expression;
 mod files;
 mod predefined;

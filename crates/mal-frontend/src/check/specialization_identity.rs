@@ -65,6 +65,19 @@ impl IdentityBounds {
         }
     }
 
+    fn continuation(&mut self, continuation: &SumContinuation) {
+        match continuation {
+            SumContinuation::Function(expression) => self.expression(expression),
+            SumContinuation::Branch(branch) => {
+                if let Some(parameter) = &branch.parameter {
+                    self.pattern(parameter);
+                }
+                self.block(&branch.body);
+            }
+            SumContinuation::Transfer(transfer) => self.value(transfer.target),
+        }
+    }
+
     fn binding_value(&mut self, binding: &Binding) {
         self.pattern(&binding.pattern);
         self.expression(&binding.value);
@@ -130,7 +143,7 @@ impl IdentityBounds {
             } => {
                 self.expression(scrutinee);
                 for continuation in continuations {
-                    self.expression(continuation);
+                    self.continuation(continuation);
                 }
             }
             ExpressionKind::If {
@@ -207,6 +220,15 @@ impl IdentityBounds {
                         self.expression(condition);
                         self.block(then_branch);
                         self.block(else_branch);
+                    }
+                    AbruptExpressionKind::SumElimination {
+                        scrutinee,
+                        continuations,
+                    } => {
+                        self.expression(scrutinee);
+                        for continuation in continuations {
+                            self.continuation(continuation);
+                        }
                     }
                     AbruptExpressionKind::Block(block) => self.block(block),
                 }

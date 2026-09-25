@@ -56,10 +56,7 @@ impl Resolver {
                 continuations,
             } => Expression::ContinuationApplication {
                 value: Box::new(self.resolve_expression(value)?),
-                continuations: continuations
-                    .iter()
-                    .map(|continuation| self.resolve_expression(continuation))
-                    .collect::<Result<_, _>>()?,
+                continuations: self.resolve_continuations(continuations)?,
             },
             ast::Expression::Conversion { type_name, value } => Expression::Conversion {
                 type_ref: self.conversion_type_reference(type_name)?,
@@ -256,7 +253,7 @@ impl Resolver {
         result
     }
 
-    fn resolve_expression_block_contents(
+    pub(super) fn resolve_expression_block_contents(
         &mut self,
         block: &ast::ExpressionBlock,
     ) -> Result<ExpressionBlock, Diagnostic> {

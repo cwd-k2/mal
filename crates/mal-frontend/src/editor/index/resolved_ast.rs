@@ -376,7 +376,17 @@ impl Index {
             } => {
                 self.collect_resolved_expression(value);
                 for continuation in continuations {
-                    self.collect_resolved_expression(continuation);
+                    match continuation {
+                        resolved::Continuation::Function(expression) => {
+                            self.collect_resolved_expression(expression);
+                        }
+                        resolved::Continuation::Branch(branch) => {
+                            if let Some(parameter) = &branch.parameter {
+                                self.collect_resolved_pattern(parameter, false, parameter.span);
+                            }
+                            self.collect_resolved_body(&branch.body.items, &branch.body.result);
+                        }
+                    }
                 }
             }
             Expression::Conversion { value, .. } => self.collect_resolved_expression(value),

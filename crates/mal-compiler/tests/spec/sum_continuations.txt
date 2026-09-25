@@ -1,0 +1,90 @@
+### branch_early_exit_selects_the_value_arm | run:42
+Res :: [Int32, Unit];
+pick :: Res -> Res := (r) -> [ok, fail] => {
+    v := r[(n) -> n, () -> fail()];
+    ok(v + 1i32)
+};
+mk :: Bool -> Res := (c) -> [ok, no] => { when (c) ok(41i32); no() };
+main :: Unit -> Int32 := () -> pick(mk(true))[(n) -> n, () -> 99i32];
+### branch_early_exit_leaves_through_the_binder | run:99
+Res :: [Int32, Unit];
+pick :: Res -> Res := (r) -> [ok, fail] => {
+    v := r[(n) -> n, () -> fail()];
+    ok(v + 1i32)
+};
+mk :: Bool -> Res := (c) -> [ok, no] => { when (c) ok(41i32); no() };
+main :: Unit -> Int32 := () -> pick(mk(false))[(n) -> n, () -> 99i32];
+### branch_binder_names_forward_the_payload | run:5
+Res :: [Int32, Unit];
+forward :: Res -> Res := (r) -> [ok, fail] => r[ok, fail];
+main :: Unit -> Int32 := () -> forward([a, b] => a(5i32))[(n) -> n, () -> 99i32];
+### branch_reads_outer_locals_and_shadows_them | run:19
+f :: [Int32, Unit] -> Int32 := (r) -> {
+    n := 10i32;
+    r[(n) -> n + 4i32, () -> n] + n;
+};
+main :: Unit -> Int32 := () -> f([a, b] => a(5i32));
+### branch_destructures_product_payloads | run:7
+P :: [(Int32, Int32), Unit];
+f :: P -> Int32 := (p) -> p[(a, b) -> a + b, () -> 0i32];
+main :: Unit -> Int32 := () -> f([a, b] => a((3i32, 4i32)));
+### branch_early_exit_with_a_managed_payload | run:5
+S :: [Symbol, Unit];
+len :: S -> Int32 := (s) -> [k] => {
+    text := s[(t) -> t, () -> k(0i32)];
+    k((#text).i32)
+};
+main :: Unit -> Int32 := () -> len([a, b] => a("hello"));
+### branch_all_abrupt_ends_the_lambda | ok
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => r[(n) -> ok(n), () -> fail()];
+### branch_parenthesized_lambda | ok
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    v := r[((n) -> n), () -> fail()];
+    ok(v)
+};
+### branch_mixes_function_values_and_branches | run:8
+double :: Int32 -> Int32 := (n) -> n + n;
+f :: [Int32, Unit] -> Int32 := (r) -> r[double, () -> 0i32];
+main :: Unit -> Int32 := () -> f([a, b] => a(4i32));
+### branch_nested_lambda_cannot_capture_binder | err:result binder cannot be captured
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    _ := r[(n) -> () -> ok(n), () -> () -> fail()];
+    fail()
+};
+### branch_bound_function_cannot_capture_binder | err:result binder cannot be captured
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    h := (n) -> ok(n);
+    v := r[h, () -> fail()];
+    ok(v)
+};
+### branch_binder_is_not_a_value | err:result binder is not a value
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    g := ok;
+    fail()
+};
+### branch_parameter_is_local_to_its_branch | err:unknown
+f :: [Int32, Int32] -> Int32 := (r) -> r[(n) -> n, () -> n];
+### branch_value_types_must_agree | err:type
+f :: [Int32, Unit] -> Int32 := (r) -> r[(n) -> n, () -> true];
+### branch_binder_type_must_match_the_position | err:type
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => r[fail, ok];
+### branch_parameter_must_match_the_payload | err:lambda parameters do not match
+f :: [Int32, Unit] -> Int32 := (r) -> r[(n) -> n, (u) -> 0i32];
+### branch_all_abrupt_is_not_a_value | err:binding initializer must produce a value
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    v := r[ok, fail];
+    v
+};
+### branch_code_after_all_abrupt_is_unreachable | err:unreachable
+Res :: [Int32, Unit];
+f :: Res -> Res := (r) -> [ok, fail] => {
+    r[ok, fail];
+    fail()
+};

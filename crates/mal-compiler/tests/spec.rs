@@ -147,6 +147,11 @@ fn expression_control_and_program_structure_rules() {
 }
 
 #[test]
+fn sum_continuation_branch_rules() {
+    run_all(include_str!("spec/sum_continuations.txt"));
+}
+
+#[test]
 fn operator_and_literal_rules() {
     run_all(include_str!("spec/operators.txt"));
 }

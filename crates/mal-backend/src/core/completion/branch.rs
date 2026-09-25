@@ -3,12 +3,13 @@ use mal_syntax::ast::BinaryOperator;
 
 use super::{Continuation, Lowerer};
 use crate::core::ast::{Expression, ExpressionKind, Pattern};
+use crate::core::elimination::sum_continuation_span;
 
 impl Lowerer {
     pub(super) fn lower_sum_elimination_body(
         &mut self,
         scrutinee: &checked::Expression,
-        continuations: &[checked::Expression],
+        continuations: &[checked::SumContinuation],
         value_type: &checked::Type,
         result_type: &checked::Type,
         continuation: &mut Continuation<'_>,
@@ -19,30 +20,47 @@ impl Lowerer {
         };
         let mut scrutinee_next = |lowerer: &mut Lowerer, scrutinee: Expression| {
             let mut arms = Vec::with_capacity(continuations.len());
-            for (index, (member, branch)) in members.iter().zip(continuations).enumerate() {
+            for (index, (member, item)) in members.iter().zip(continuations).enumerate() {
                 let payload_id = lowerer.temporary();
-                let payload = lowerer.reference(payload_id, member.clone(), branch.span);
-                let mut branch_next = |lowerer: &mut Lowerer, callee: Expression| {
-                    continuation(
-                        lowerer,
-                        Expression {
-                            kind: ExpressionKind::Call {
-                                callee: Box::new(callee),
-                                argument: Box::new(payload.clone()),
-                            },
-                            ty: value_type.clone(),
-                            span: branch.span,
-                        },
-                    )
+                let item_span = sum_continuation_span(item);
+                let value = match item {
+                    checked::SumContinuation::Function(function) => {
+                        let payload = lowerer.reference(payload_id, member.clone(), item_span);
+                        let mut function_next = |lowerer: &mut Lowerer, callee: Expression| {
+                            continuation(
+                                lowerer,
+                                Expression {
+                                    kind: ExpressionKind::Call {
+                                        callee: Box::new(callee),
+                                        argument: Box::new(payload.clone()),
+                                    },
+                                    ty: value_type.clone(),
+                                    span: item_span,
+                                },
+                            )
+                        };
+                        lowerer.lower_value_with(function, result_type, &mut function_next)
+                    }
+                    checked::SumContinuation::Branch(branch) => {
+                        let body = lowerer.lower_items_with(
+                            &branch.body.items,
+                            &branch.body.result,
+                            result_type,
+                            continuation,
+                        );
+                        lowerer.bind_branch_payload(branch, payload_id, body)
+                    }
+                    checked::SumContinuation::Transfer(transfer) => {
+                        lowerer.lower_sum_transfer(transfer, payload_id, result_type)
+                    }
                 };
-                let branch = lowerer.lower_value_with(branch, result_type, &mut branch_next);
                 arms.push(crate::core::ast::CaseArm {
                     index,
                     pattern: Pattern::Binding {
                         id: payload_id,
                         ty: member.clone(),
                     },
-                    value: branch,
+                    value,
                     span,
                 });
             }

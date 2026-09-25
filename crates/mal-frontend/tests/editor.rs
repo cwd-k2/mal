@@ -257,6 +257,41 @@ fn sum_continuation_parameters_keep_declaration_identity() {
 }
 
 #[test]
+fn sum_continuation_branches_navigate_to_the_enclosing_binders_and_locals() {
+    let text = "Res :: [Int32, Unit];\npick :: (Res, Int32) -> Res := (r, base) -> [ok, fail] => {\n  v := r[(n) -> n + base, () -> fail()];\n  ok(v)\n};\nforward :: Res -> Res := (r) -> [ok, fail] => r[ok, fail];\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    let fail_declaration = document
+        .occurrence_at(text.find("fail]").unwrap())
+        .expect("binder declaration");
+    let fail_in_branch = document
+        .occurrence_at(text.find("fail()").unwrap())
+        .expect("binder used inside a branch");
+    assert_eq!(fail_in_branch.id, fail_declaration.id);
+    assert_eq!(document.references(fail_declaration.id, true).len(), 2);
+
+    let base = document
+        .occurrence_at(text.find("base)").unwrap())
+        .expect("outer parameter");
+    assert_eq!(document.references(base.id, true).len(), 2);
+    assert_eq!(
+        document
+            .hover_at(text.find("n + base").unwrap())
+            .unwrap()
+            .ty,
+        "Int32"
+    );
+
+    let forwarded = document
+        .occurrence_at(text.find("r[ok, fail]").unwrap() + 2)
+        .expect("binder named as a continuation");
+    let forwarded_declaration = document
+        .occurrence_at(text.rfind("[ok, fail] =>").unwrap() + 1)
+        .expect("forwarded binder declaration");
+    assert_eq!(forwarded.id, forwarded_declaration.id);
+}
+
+#[test]
 fn result_binders_support_hover_definition_references_and_rename() {
     let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled) -> [ok, err] => { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result) -> [return] => { return(result) };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");

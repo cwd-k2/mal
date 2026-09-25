@@ -53,6 +53,17 @@ impl Lowerer {
                 &mut |_: &mut Lowerer, value| value,
                 abrupt.span,
             ),
+            checked::AbruptExpressionKind::SumElimination {
+                scrutinee,
+                continuations,
+            } => self.lower_sum_elimination_body(
+                scrutinee,
+                continuations,
+                result_type,
+                result_type,
+                &mut |_: &mut Lowerer, value| value,
+                abrupt.span,
+            ),
             checked::AbruptExpressionKind::Block(block) => {
                 let mut identity = |_: &mut Lowerer, value: Expression| value;
                 self.lower_items_with(&block.items, &block.result, result_type, &mut identity)

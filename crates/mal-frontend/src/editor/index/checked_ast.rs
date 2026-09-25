@@ -120,7 +120,7 @@ impl Index {
             } => {
                 self.collect_checked_expression(scrutinee);
                 for continuation in continuations {
-                    self.collect_checked_expression(continuation);
+                    self.collect_checked_continuation(continuation);
                 }
             }
             ExpressionKind::SymbolLength { value }
@@ -157,6 +157,22 @@ impl Index {
             | ExpressionKind::Float(_)
             | ExpressionKind::Symbol(_)
             | ExpressionKind::Unit => {}
+        }
+    }
+
+    fn collect_checked_continuation(&mut self, continuation: &checked::SumContinuation) {
+        match continuation {
+            checked::SumContinuation::Function(expression) => {
+                self.collect_checked_expression(expression);
+            }
+            checked::SumContinuation::Branch(branch) => {
+                if let Some(parameter) = &branch.parameter {
+                    self.collect_checked_pattern(parameter);
+                    self.mark_parameter_bindings(parameter);
+                }
+                self.collect_checked_body(&branch.body.items, &branch.body.result);
+            }
+            checked::SumContinuation::Transfer(_) => {}
         }
     }
 
@@ -209,6 +225,15 @@ impl Index {
                         self.collect_checked_expression(condition);
                         self.collect_checked_body(&then_branch.items, &then_branch.result);
                         self.collect_checked_body(&else_branch.items, &else_branch.result);
+                    }
+                    checked::AbruptExpressionKind::SumElimination {
+                        scrutinee,
+                        continuations,
+                    } => {
+                        self.collect_checked_expression(scrutinee);
+                        for continuation in continuations {
+                            self.collect_checked_continuation(continuation);
+                        }
                     }
                     checked::AbruptExpressionKind::Block(block) => {
                         self.collect_checked_body(&block.items, &block.result);

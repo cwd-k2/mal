@@ -49,7 +49,14 @@ impl Index {
             } => {
                 self.collect_aliases_expression(&value.kind);
                 for continuation in continuations {
-                    self.collect_aliases_expression(&continuation.kind);
+                    match continuation {
+                        resolved::Continuation::Function(expression) => {
+                            self.collect_aliases_expression(&expression.kind);
+                        }
+                        resolved::Continuation::Branch(branch) => {
+                            self.collect_aliases_body(&branch.body.items, &branch.body.result.kind);
+                        }
+                    }
                 }
             }
             Expression::Conversion { value, .. } => {

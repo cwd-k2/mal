@@ -9,6 +9,7 @@ use super::types::type_name;
 use super::{CheckFailure, CheckResult, Checker};
 
 mod application;
+mod elimination;
 
 impl Checker {
     pub(super) fn check_before(

@@ -315,7 +315,41 @@ pub enum AbruptExpressionKind {
         then_branch: ExpressionBlock,
         else_branch: ExpressionBlock,
     },
+    /// A sum elimination whose every continuation is `Abrupt`.
+    SumElimination {
+        scrutinee: Box<Expression>,
+        continuations: Vec<SumContinuation>,
+    },
     Block(ExpressionBlock),
+}
+
+/// One continuation of a sum elimination.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SumContinuation {
+    /// A function value applied to the payload.
+    Function(Expression),
+    /// A lambda literal that belongs to the enclosing invocation. It binds the payload and runs in place.
+    Branch(SumBranch),
+    /// A result binder name that receives the payload.
+    Transfer(SumTransfer),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SumBranch {
+    pub parameter: Option<Box<Pattern>>,
+    pub parameter_type: Type,
+    pub body: ExpressionBlock,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SumTransfer {
+    pub target: ValueId,
+    /// The sum variant the payload selects when the target is one binder of a group.
+    pub variant: Option<usize>,
+    pub payload_type: Type,
+    pub result_type: Type,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -357,7 +391,7 @@ pub enum ExpressionKind {
     },
     SumElimination {
         scrutinee: Box<Expression>,
-        continuations: Vec<Expression>,
+        continuations: Vec<SumContinuation>,
     },
     SumInjection {
         index: usize,

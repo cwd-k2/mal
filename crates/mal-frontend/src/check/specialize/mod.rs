@@ -279,7 +279,7 @@ impl Specializer {
             } => {
                 self.expression(scrutinee, substitutions, self_instance)?;
                 for continuation in continuations {
-                    self.expression(continuation, substitutions, self_instance)?;
+                    self.continuation(continuation, substitutions, self_instance)?;
                 }
             }
             ExpressionKind::If {
@@ -376,6 +376,31 @@ impl Specializer {
         Ok(())
     }
 
+    fn continuation(
+        &mut self,
+        continuation: &mut SumContinuation,
+        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        self_instance: Option<(ValueId, ValueId)>,
+    ) -> Result<(), Diagnostic> {
+        match continuation {
+            SumContinuation::Function(expression) => {
+                self.expression(expression, substitutions, self_instance)
+            }
+            SumContinuation::Branch(branch) => {
+                branch.parameter_type = substitute_type(&branch.parameter_type, substitutions);
+                if let Some(parameter) = &mut branch.parameter {
+                    pattern(parameter, substitutions);
+                }
+                self.block(&mut branch.body, substitutions, self_instance)
+            }
+            SumContinuation::Transfer(transfer) => {
+                transfer.payload_type = substitute_type(&transfer.payload_type, substitutions);
+                transfer.result_type = substitute_type(&transfer.result_type, substitutions);
+                Ok(())
+            }
+        }
+    }
+
     fn abrupt(
         &mut self,
         abrupt: &mut AbruptExpression,
@@ -398,6 +423,15 @@ impl Specializer {
                 self.expression(condition, substitutions, self_instance)?;
                 self.block(then_branch, substitutions, self_instance)?;
                 self.block(else_branch, substitutions, self_instance)?;
+            }
+            AbruptExpressionKind::SumElimination {
+                scrutinee,
+                continuations,
+            } => {
+                self.expression(scrutinee, substitutions, self_instance)?;
+                for continuation in continuations {
+                    self.continuation(continuation, substitutions, self_instance)?;
+                }
             }
             AbruptExpressionKind::Block(block) => {
                 self.block(block, substitutions, self_instance)?

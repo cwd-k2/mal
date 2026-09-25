@@ -145,7 +145,7 @@ pub enum Expression {
     },
     ContinuationApplication {
         value: Box<Node<Expression>>,
-        continuations: Vec<Node<Expression>>,
+        continuations: Vec<Continuation>,
     },
     Conversion {
         type_ref: TypeReference,
@@ -178,6 +178,23 @@ pub struct Lambda {
     pub captures: Vec<Capture>,
     pub parameter: Option<Box<Node<Pattern>>>,
     pub body: LambdaBody,
+}
+
+/// One continuation of a continuation application.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Continuation {
+    /// A function value applied to the payload, or a result binder name.
+    Function(Node<Expression>),
+    /// A lambda literal placed as a sum elimination continuation. It never becomes a function value:
+    /// its body belongs to the enclosing lambda invocation.
+    Branch(Branch),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Branch {
+    pub parameter: Option<Box<Node<Pattern>>>,
+    pub body: ExpressionBlock,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

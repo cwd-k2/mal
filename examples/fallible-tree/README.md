@@ -13,6 +13,8 @@ operations establish this layout and relation as a host-backed protocol.
 The mal program treats constructor arguments as logically owned. `createOwnedBranch` either transfers
 both children into a new parent or recursively destroys both after allocation failure. Higher
 construction layers likewise destroy every completed subtree before propagating the error result.
+Each layer leaves through its result binder from the failing sum continuation, so the cleanup sits
+next to the failure it handles.
 `NodeBuildResult` reports either a root coordinate or allocation failure; the alias itself does not
 certify the complete reachable structure. Traversal copies one `NodeRecord` at a time with
 `from<NodeRecord>`. Child `Address` values remain ordinary capability fields; copying them does not

@@ -11,32 +11,56 @@ impl Checker {
     pub(super) fn check_continuation_application(
         &mut self,
         value: &Node<resolved::Expression>,
-        continuations: &[Node<resolved::Expression>],
+        continuations: &[resolved::Continuation],
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if continuations.is_empty() {
-            let value = self.check_expression(value, None)?;
-            if !matches!(&value.ty, Type::Sum(members) if members.is_empty()) {
-                return Err(
-                    Diagnostic::error("zero continuations require an `[]` value")
-                        .with_primary(
-                            value.span,
-                            format!("this has type `{}`", type_name(&value.ty)),
-                        )
-                        .into(),
-                );
-            }
-            return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
-                preceding: Vec::new(),
-                kind: AbruptExpressionKind::EmptyElimination {
-                    scrutinee: Box::new(value),
-                },
+        match continuations {
+            [] => self.check_empty_elimination(value),
+            [continuation] => self.check_single_continuation(
+                value,
+                function_continuation(continuation),
                 span,
-            })));
+                expected,
+            ),
+            _ => self.check_sum_elimination(value, continuations, span, expected),
         }
-        if let [continuation] = continuations
-            && let resolved::Expression::Reference(reference) = &continuation.kind
+    }
+
+    fn check_empty_elimination(
+        &mut self,
+        value: &Node<resolved::Expression>,
+    ) -> CheckResult<Expression> {
+        let value = self.check_expression(value, None)?;
+        if !matches!(&value.ty, Type::Sum(members) if members.is_empty()) {
+            return Err(
+                Diagnostic::error("zero continuations require an `[]` value")
+                    .with_primary(
+                        value.span,
+                        format!("this has type `{}`", type_name(&value.ty)),
+                    )
+                    .into(),
+            );
+        }
+        let span = value.span;
+        Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
+            preceding: Vec::new(),
+            kind: AbruptExpressionKind::EmptyElimination {
+                scrutinee: Box::new(value),
+            },
+            span,
+        })))
+    }
+
+    /// A single continuation is an ordinary application, whatever the value's type.
+    fn check_single_continuation(
+        &mut self,
+        value: &Node<resolved::Expression>,
+        continuation: &Node<resolved::Expression>,
+        span: Span,
+        expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        if let resolved::Expression::Reference(reference) = &continuation.kind
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_expression(value, Some(&target.parameter))?;
@@ -62,95 +86,48 @@ impl Checker {
                 span,
             })));
         }
-        if continuations.len() == 1
-            && !matches!(continuations[0].kind, resolved::Expression::Lambda(_))
-        {
-            let continuation = self.check_expression(&continuations[0], None)?;
-            let Type::Function { parameter, result } = &continuation.ty else {
+        if !matches!(continuation.kind, resolved::Expression::Lambda(_)) {
+            let checked = self.check_expression(continuation, None)?;
+            let Type::Function { parameter, result } = &checked.ty else {
                 return Err(Diagnostic::error("continuation must be a function")
                     .with_primary(
-                        continuation.span,
-                        format!("this has type `{}`", type_name(&continuation.ty)),
+                        checked.span,
+                        format!("this has type `{}`", type_name(&checked.ty)),
                     )
                     .into());
             };
             if let Some(expected) = expected {
-                self.require_type(result, expected, continuation.span)?;
+                self.require_type(result, expected, checked.span)?;
             }
             let result = result.as_ref().clone();
-            let value = self.check_before(value, Some(parameter), continuations[0].span)?;
+            let value = self.check_before(value, Some(parameter), continuation.span)?;
             return Ok(Expression {
                 kind: ExpressionKind::Call {
-                    callee: Box::new(continuation),
+                    callee: Box::new(checked),
                     argument: Box::new(value),
                 },
                 ty: result,
                 span,
             });
         }
-        let value = self.check_before(value, None, continuations[0].span)?;
-        if continuations.len() == 1 {
-            let continuation = self.check_continuation(&continuations[0], &value.ty, expected)?;
-            let Type::Function { result, .. } = &continuation.ty else {
-                unreachable!("checked continuation has a function type");
-            };
-            let result = result.as_ref().clone();
-            return Ok(Expression {
-                kind: ExpressionKind::Call {
-                    callee: Box::new(continuation),
-                    argument: Box::new(value),
-                },
-                ty: result,
-                span,
-            });
-        }
-        let Type::Sum(members) = &value.ty else {
-            return Err(
-                Diagnostic::error("multiple continuations require a sum value")
-                    .with_primary(
-                        value.span,
-                        format!("this has type `{}`", type_name(&value.ty)),
-                    )
-                    .into(),
-            );
+        let value = self.check_before(value, None, continuation.span)?;
+        let checked = self.check_continuation(continuation, &value.ty, expected)?;
+        let Type::Function { result, .. } = &checked.ty else {
+            unreachable!("checked continuation has a function type");
         };
-        let members = members.clone();
-        if continuations.len() != members.len() {
-            return Err(
-                Diagnostic::error("sum continuation count does not match its type")
-                    .with_primary(
-                        span,
-                        format!(
-                            "expected {} continuations, found {}",
-                            members.len(),
-                            continuations.len()
-                        ),
-                    )
-                    .into(),
-            );
-        }
-        let mut result_type = expected.cloned();
-        let mut checked = Vec::with_capacity(continuations.len());
-        for (continuation, member) in continuations.iter().zip(members.iter()) {
-            let continuation =
-                self.check_continuation(continuation, member, result_type.as_ref())?;
-            let Type::Function { result, .. } = &continuation.ty else {
-                unreachable!("checked continuation has a function type");
-            };
-            result_type.get_or_insert_with(|| result.as_ref().clone());
-            checked.push(continuation);
-        }
+        let result = result.as_ref().clone();
         Ok(Expression {
-            kind: ExpressionKind::SumElimination {
-                scrutinee: Box::new(value),
-                continuations: checked,
+            kind: ExpressionKind::Call {
+                callee: Box::new(checked),
+                argument: Box::new(value),
             },
-            ty: result_type.expect("a sum has at least two continuations"),
+            ty: result,
             span,
         })
     }
 
-    fn check_continuation(
+    /// Checks a function-valued continuation against the payload type it will receive.
+    pub(super) fn check_continuation(
         &mut self,
         continuation: &Node<resolved::Expression>,
         parameter: &Type,
@@ -315,5 +292,13 @@ impl Checker {
             [argument] => self.check_expression(argument, None),
             _ => self.check_product(arguments, span, None),
         }
+    }
+}
+
+/// Continuations with fewer than two entries are never branches, so the resolver only produces functions.
+fn function_continuation(continuation: &resolved::Continuation) -> &Node<resolved::Expression> {
+    match continuation {
+        resolved::Continuation::Function(expression) => expression,
+        resolved::Continuation::Branch(_) => unreachable!("only a sum elimination has branches"),
     }
 }

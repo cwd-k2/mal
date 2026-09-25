@@ -38,6 +38,8 @@ fn completion_value(completion: &check::ast::Completion) -> &check::ast::Express
     value
 }
 
+#[path = "check/continuations.rs"]
+mod continuations;
 #[path = "check/control.rs"]
 mod control;
 #[path = "check/declarations.rs"]

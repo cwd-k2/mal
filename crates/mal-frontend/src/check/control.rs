@@ -230,7 +230,7 @@ impl Checker {
         }
     }
 
-    fn check_expression_block(
+    pub(super) fn check_expression_block(
         &mut self,
         block: &resolved::ExpressionBlock,
         expected: Option<&Type>,

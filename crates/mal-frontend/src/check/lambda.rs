@@ -97,7 +97,7 @@ impl Checker {
         })
     }
 
-    fn lambda_parameter_mismatch(
+    pub(super) fn lambda_parameter_mismatch(
         &self,
         expected: &Type,
         span: mal_syntax::source::Span,

@@ -48,7 +48,17 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     scrutinee,
                     continuations,
                 } => {
-                    pending.extend(continuations.iter().rev().map(Presence::Expression));
+                    for continuation in continuations.iter().rev() {
+                        match continuation {
+                            checked::SumContinuation::Function(function) => {
+                                pending.push(Presence::Expression(function));
+                            }
+                            checked::SumContinuation::Branch(branch) => {
+                                pending.push(Presence::Block(&branch.body));
+                            }
+                            checked::SumContinuation::Transfer(_) => return true,
+                        }
+                    }
                     pending.push(Presence::Expression(scrutinee));
                 }
                 checked::ExpressionKind::Lambda(_)

@@ -8,6 +8,7 @@ pub(crate) mod ast;
 mod bool;
 mod buffer;
 mod completion;
+mod elimination;
 mod expression;
 mod external;
 mod interface;
