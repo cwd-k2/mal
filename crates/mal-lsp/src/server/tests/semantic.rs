@@ -53,6 +53,17 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
             .len(),
         2
     );
+
+    for invalid in ["", "two words", "Renamed", "if", " renamed", "renamed;"] {
+        let rejected = server.handle(json!({
+            "jsonrpc": "2.0", "id": 14, "method": "textDocument/rename",
+            "params": {"textDocument": {"uri": uri}, "position": position, "newName": invalid}
+        }));
+        assert_eq!(
+            rejected.messages[0]["error"]["code"], -32602,
+            "new name {invalid:?}"
+        );
+    }
 }
 
 #[test]

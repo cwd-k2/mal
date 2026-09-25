@@ -122,6 +122,8 @@ document symbol、completion、semantic token、inlay hintを提供する。sema
 成功したときに利用できる。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
 `.mal` file境界を跨ぐ。document symbolとsemantic tokenはrequest対象fileだけを返し、completionはそのfile自身の名前と
 直接requireしたfileの公開名を返す。
+renameは新しい名前が元と同じ種類（valueまたはtype）の一つのidentifierとしてlexできる場合だけ編集を返し、keyword、空白を含む名前、
+種類を変える名前はJSON-RPC errorで拒否する。
 
 `.`はcompletion triggerである。`receiver.`と`receiver.partialName`ではcurrent sourceのsyntax indexと直接requireしたfileから
 lexical function候補を返す。receiverの型による候補探索や絞り込みは行わない。

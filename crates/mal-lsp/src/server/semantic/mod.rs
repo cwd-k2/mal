@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use mal_frontend::editor::{OccurrenceRole, SemanticDocument, SymbolKind};
-use mal_syntax::source::{SourceFile, Span, Utf16Position};
+use mal_syntax::lexer::TokenKind;
+use mal_syntax::source::{FileId, SourceFile, Span, Utf16Position};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -186,9 +187,19 @@ impl Server {
                     return error(id, -32602, "invalid position or document is not open");
                 }
             };
-        let Some(spans) = semantic.rename_spans(offset) else {
+        let (Some(spans), Some(occurrence)) = (
+            semantic.rename_spans(offset),
+            semantic.occurrence_at(offset),
+        ) else {
             return success(id, Value::Null);
         };
+        if !renames_to_same_kind(&occurrence.name, &request.new_name) {
+            return error(
+                id,
+                -32602,
+                "the new name must be one identifier of the same kind as the old one",
+            );
+        }
         let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
         for span in spans {
             let Some((uri, range)) = self.span_location(&request.text_document.uri, span) else {
@@ -436,4 +447,27 @@ fn symbol_kind(kind: SymbolKind) -> usize {
         SymbolKind::Function => 12,
         SymbolKind::Value | SymbolKind::Parameter | SymbolKind::ResultBinder => 13,
     }
+}
+
+/// Whether `new_name` lexes as a single identifier of the same kind as `old_name`, so that the edit keeps the program
+/// parseable: a value name stays a value name, a type name a type name, and neither becomes a keyword.
+fn renames_to_same_kind(old_name: &str, new_name: &str) -> bool {
+    let kind = |text: &str| {
+        let source = SourceFile::new(FileId::new(0), "rename", text.to_owned());
+        match mal_syntax::lexer::lex(&source).ok()?.as_slice() {
+            [identifier, eof]
+                if eof.kind == TokenKind::Eof
+                    && identifier.span.start() == 0
+                    && identifier.span.end() == text.len()
+                    && matches!(
+                        identifier.kind,
+                        TokenKind::ValueIdentifier | TokenKind::TypeIdentifier
+                    ) =>
+            {
+                Some(identifier.kind.clone())
+            }
+            _ => None,
+        }
+    };
+    kind(new_name).is_some_and(|new| kind(old_name) == Some(new))
 }
