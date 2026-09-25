@@ -18,7 +18,8 @@ pub struct Target<'a> {
 pub enum Error {
     Diagnostic(mal_syntax::diagnostic::Diagnostic),
     InvalidTargetDataLayout,
-    InconsistentExecutionPlan(&'static str),
+    /// An internal invariant failed while emitting the named part of the program; a compiler defect, not a source error.
+    InconsistentExecutionPlan(String),
 }
 
 impl fmt::Display for Error {
@@ -31,7 +32,7 @@ impl fmt::Display for Error {
             Self::InconsistentExecutionPlan(phase) => {
                 write!(
                     formatter,
-                    "admitted execution plan is inconsistent during {phase}"
+                    "internal compiler error: the execution plan is inconsistent during {phase}"
                 )
             }
         }
@@ -50,11 +51,12 @@ pub(crate) fn generate(
 ) -> Result<LlvmArtifacts, Error> {
     let layout = target_layout(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
     body::admit_target(program, layout).map_err(Error::Diagnostic)?;
-    let body = body::generate(program, layout, optimizations)
-        .ok_or(Error::InconsistentExecutionPlan("LLVM body emission"))?;
+    let body =
+        body::generate(program, layout, optimizations).map_err(Error::InconsistentExecutionPlan)?;
     let runtime = crate::backend::runtime::for_program(body.uses_byte_runtime);
-    let types = body::types::Types::for_target(layout)
-        .ok_or(Error::InconsistentExecutionPlan("target type construction"))?;
+    let types = body::types::Types::for_target(layout).ok_or(Error::InconsistentExecutionPlan(
+        "target type construction".into(),
+    ))?;
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
@@ -63,8 +65,9 @@ pub(crate) fn generate(
         .externals
         .iter()
         .map(|external| {
-            host_bridge::generate(external, layout, &raw_types)
-                .ok_or(Error::InconsistentExecutionPlan("extern bridge emission"))
+            host_bridge::generate(external, layout, &raw_types).ok_or(
+                Error::InconsistentExecutionPlan("extern bridge emission".into()),
+            )
         })
         .collect::<Result<Vec<_>, _>>()?;
     let external_declarations = external_bridges
@@ -82,7 +85,9 @@ pub(crate) fn generate(
             "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\ndeclare void @mal_native_stack_begin(ptr)\ndeclare i8 @mal_native_stack_is_deep(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare i1 @llvm.expect.i1(i1, i1)\n\n",
             types
                 .pointer_integer()
-                .ok_or(Error::InconsistentExecutionPlan("control ABI construction"))?
+                .ok_or(Error::InconsistentExecutionPlan(
+                    "control ABI construction".into()
+                ))?
         )
     } else {
         String::new()
@@ -105,7 +110,7 @@ pub(crate) fn generate(
         let index = types
             .pointer_integer()
             .ok_or(Error::InconsistentExecutionPlan(
-                "byte runtime ABI construction",
+                "byte runtime ABI construction".into(),
             ))?;
         format!(
             "declare ptr @mal_runtime_bytes_data(ptr) nofree nounwind willreturn memory(argmem: read)\n\
@@ -141,7 +146,7 @@ pub(crate) fn generate(
                 types
                     .pointer_integer()
                     .ok_or(Error::InconsistentExecutionPlan(
-                        "control entry construction"
+                        "control entry construction".into()
                     ))?,
                 types.index_alignment()
             ),
@@ -155,14 +160,15 @@ pub(crate) fn generate(
             String::new(),
             format!(
                 "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",
-                function_name(body.main)
-                    .ok_or(Error::InconsistentExecutionPlan("entry function selection"))?,
+                function_name(body.main).ok_or(Error::InconsistentExecutionPlan(
+                    "entry function selection".into()
+                ))?,
             ),
         ),
         ty => {
-            let value = types
-                .value(ty)
-                .ok_or(Error::InconsistentExecutionPlan("entry argument layout"))?;
+            let value = types.value(ty).ok_or(Error::InconsistentExecutionPlan(
+                "entry argument layout".into(),
+            ))?;
             (
                 format!(
                     "  %mal_entry_argument = load {}, ptr %mal_argument, align {}\n",
@@ -170,8 +176,9 @@ pub(crate) fn generate(
                 ),
                 format!(
                     "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",
-                    function_name(body.main)
-                        .ok_or(Error::InconsistentExecutionPlan("entry function selection"))?,
+                    function_name(body.main).ok_or(Error::InconsistentExecutionPlan(
+                        "entry function selection".into()
+                    ))?,
                     value.llvm
                 ),
             )
@@ -183,15 +190,21 @@ pub(crate) fn generate(
         target.triple,
         types
             .pointer_integer()
-            .ok_or(Error::InconsistentExecutionPlan("runtime ABI construction"))?,
+            .ok_or(Error::InconsistentExecutionPlan(
+                "runtime ABI construction".into()
+            ))?,
         types.pointer_size() * 8,
         types
             .pointer_representation_integer()
-            .ok_or(Error::InconsistentExecutionPlan("ptrmask ABI construction"))?,
+            .ok_or(Error::InconsistentExecutionPlan(
+                "ptrmask ABI construction".into()
+            ))?,
         layout.index_size * 8,
         types
             .pointer_integer()
-            .ok_or(Error::InconsistentExecutionPlan("memcpy ABI construction"))?,
+            .ok_or(Error::InconsistentExecutionPlan(
+                "memcpy ABI construction".into()
+            ))?,
         control_declarations,
         byte_declarations,
         external_declarations,
@@ -204,7 +217,9 @@ pub(crate) fn generate(
         entry_call,
     );
     let main = shim::entry_main(&body.main_parameter, types, entry.name())
-        .ok_or(Error::InconsistentExecutionPlan("process entry emission"))?
+        .ok_or(Error::InconsistentExecutionPlan(
+            "process entry emission".into(),
+        ))?
         .render();
     let entry_declaration =
         crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();

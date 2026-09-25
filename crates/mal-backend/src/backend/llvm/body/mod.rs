@@ -51,18 +51,20 @@ pub(super) fn supports(execution: &crate::execution::Program) -> bool {
         super::TargetLayout::natural(8, 8).expect("test target layout"),
         super::optimization::OptimizationSet::production(),
     )
-    .is_some()
+    .is_ok()
 }
 
 pub(super) fn generate(
     execution: &crate::execution::Program,
     target: super::TargetLayout,
     enabled: super::optimization::OptimizationSet,
-) -> Option<Output> {
-    let (main, main_parameter) = main_function(execution)?;
-    let types = Types::for_program(target, &execution.lowered.functions)?;
-    let top_levels = TopLevelConstants::new(execution, types.clone())?;
-    let index = ProgramIndex::new(execution)?;
+) -> Result<Output, String> {
+    let (main, main_parameter) = main_function(execution).ok_or("entry function selection")?;
+    let types = Types::for_program(target, &execution.lowered.functions)
+        .ok_or("value type construction")?;
+    let top_levels = TopLevelConstants::new(execution, types.clone())
+        .ok_or("top-level constant construction")?;
+    let index = ProgramIndex::new(execution).ok_or("program index construction")?;
     let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
     debug_assert!(optimizations.is_valid(execution, enabled));
     let mut globals = top_levels.globals().to_string();
@@ -74,10 +76,13 @@ pub(super) fn generate(
         &top_levels,
         &execution.ownership,
         &optimizations,
-    )?
-    .emit_managed_buffer_element_callbacks()?;
+    )
+    .and_then(|mut emitter| emitter.emit_managed_buffer_element_callbacks())
+    .ok_or("Buffer element callback emission")?;
     let mut uses_control = false;
     for function in &execution.control.functions {
+        let failed =
+            |version: &str| format!("emission of the {version} of {}", describe(function.id));
         let emitter = FunctionEmitter::new(
             execution,
             &index,
@@ -86,7 +91,8 @@ pub(super) fn generate(
             &top_levels,
             &execution.ownership,
             &optimizations,
-        )?;
+        )
+        .ok_or_else(|| failed("setup"))?;
         uses_control |= !emitter.frame_sites.is_empty();
         if emitter.has_native_version() {
             let native = FunctionEmitter::new(
@@ -97,24 +103,28 @@ pub(super) fn generate(
                 &top_levels,
                 &execution.ownership,
                 &optimizations,
-            )?
+            )
+            .ok_or_else(|| failed("setup"))?
             .into_native_version();
             // Both versions declare the same globals and environment destructor; the native version owns them.
-            let emitted = native.emit()?;
+            let emitted = native.emit().ok_or_else(|| failed("native version"))?;
             globals.push_str(&emitted.globals);
             definitions.push_str(&emitted.definition);
             definitions.push('\n');
-            let frames = emitter.into_frames_version().emit()?;
+            let frames = emitter
+                .into_frames_version()
+                .emit()
+                .ok_or_else(|| failed("frames version"))?;
             definitions.push_str(&frames.definition);
             definitions.push('\n');
             continue;
         }
-        let emitted = emitter.emit()?;
+        let emitted = emitter.emit().ok_or_else(|| failed("body"))?;
         globals.push_str(&emitted.globals);
         definitions.push_str(&emitted.definition);
         definitions.push('\n');
     }
-    Some(Output {
+    Ok(Output {
         globals,
         definitions,
         main,
@@ -229,6 +239,11 @@ struct PreparedValue {
 struct EmittedFunction {
     globals: String,
     definition: String,
+}
+
+/// Names a function in an internal error by its LLVM symbol.
+fn describe(id: FunctionId) -> String {
+    function_name(id).unwrap_or_else(|| format!("{id:?}"))
 }
 
 fn function_name(id: FunctionId) -> Option<String> {
