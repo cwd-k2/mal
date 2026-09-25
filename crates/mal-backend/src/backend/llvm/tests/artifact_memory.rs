@@ -131,6 +131,37 @@ fn stores_symbol_elements_as_runtime_values_with_retain_and_release_callbacks() 
 }
 
 #[test]
+fn accounts_for_element_references_only_in_managed_buffer_operations() {
+    let managed = generate_module(
+        "main :: Unit -> Int32 := () -> {
+           names := make<Symbol>(2usize);
+           names.new(\"ab\");
+           names.fill(0usize, 1usize, \"cd\");
+           names.copy(0usize, names, 0usize, 1usize);
+           (#names).i32 - 1i32;
+         };",
+    );
+    assert!(managed.contains("call i64 @mal_runtime_buffer_new_managed("));
+    assert!(managed.contains("call void @mal_runtime_buffer_fill_managed("));
+    assert!(managed.contains("call void @mal_runtime_buffer_copy_managed("));
+    assert!(!managed.contains("call i64 @mal_runtime_buffer_new("));
+    assert!(!managed.contains("call void @mal_runtime_buffer_fill("));
+    assert!(!managed.contains("call void @mal_runtime_buffer_copy("));
+
+    let canonical = generate_module(
+        "main :: Unit -> Int32 := () -> {
+           values := make<Int64>(2usize);
+           values.new(1i64);
+           values.fill(0usize, 1usize, 2i64);
+           values.copy(0usize, values, 0usize, 1usize);
+           (#values).i32 - 1i32;
+         };",
+    );
+    assert!(canonical.contains("call i64 @mal_runtime_buffer_new("));
+    assert!(!canonical.contains("_managed(ptr %mal_context"));
+}
+
+#[test]
 fn keeps_canonical_storage_for_elements_without_managed_values() {
     let module = generate_module(
         "main :: Unit -> Int32 := () -> {

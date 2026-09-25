@@ -18,6 +18,15 @@ impl ElementStorage {
             Self::Canonical { stride } | Self::Managed { stride, .. } => stride,
         }
     }
+
+    /// The runtime function for `operation`. A buffer with managed elements must go through the variant that accounts
+    /// for the references its elements own; the plain function stays free of that cost.
+    fn runtime(self, operation: &str) -> String {
+        match self {
+            Self::Canonical { .. } => format!("mal_runtime_buffer_{operation}"),
+            Self::Managed { .. } => format!("mal_runtime_buffer_{operation}_managed"),
+        }
+    }
 }
 
 /// The element types of the program's Buffers that own managed values. Each has one retain and one release callback,
@@ -162,8 +171,9 @@ impl FunctionEmitter<'_> {
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
+                let function = storage.runtime("new");
                 self.line(format!(
-                    "  {index} = call {0} @mal_runtime_buffer_new(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
+                    "  {index} = call {0} @{function}(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
                     self.types.pointer_integer()?, buffer.representation
                 ));
                 Some(EmittedValue {
@@ -232,8 +242,9 @@ impl FunctionEmitter<'_> {
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.types.pointer_integer()?;
+                let function = storage.runtime("fill");
                 self.line(format!(
-                    "  call void @mal_runtime_buffer_fill(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
+                    "  call void @{function}(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
                     buffer = buffer.representation,
                     offset = offset.representation,
                     length = length.representation,
@@ -261,8 +272,9 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let index = self.types.pointer_integer()?;
+                let function = storage.runtime("copy");
                 self.line(format!(
-                    "  call void @mal_runtime_buffer_copy(ptr %mal_context, ptr {destination}, {index} {destination_offset}, ptr {source}, {index} {source_offset}, {index} {length}, {index} {stride})",
+                    "  call void @{function}(ptr %mal_context, ptr {destination}, {index} {destination_offset}, ptr {source}, {index} {source_offset}, {index} {length}, {index} {stride})",
                     destination = destination.representation,
                     destination_offset = destination_offset.representation,
                     source = source.representation,
