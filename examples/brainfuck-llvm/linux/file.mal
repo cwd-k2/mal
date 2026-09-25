@@ -13,136 +13,115 @@ _seekEnd :: Int32 := 2i32;
 _invalidArgument :: UInt32 := 22u32;
 _fileTooLarge :: UInt32 := 27u32;
 
-_readFailure :: UInt32 -> ReadResult := (error) -> [success, failure] => failure(error);
-
-_readSuccess :: Buffer<UInt8> -> ReadResult := (source) -> [success, failure] => success(source);
-
-_bufferFailure :: MappingFailure -> MappingResult := (failureValue) -> [success, failure] =>
-    failure(failureValue);
-
-_bufferSuccess :: MappingBuffer -> MappingResult := (buffer) -> [success, failure] => success(buffer);
-
-_closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> {
+_closeWithError :: (Int32, UInt32) -> ReadResult := (descriptor, error) -> [success, failure] => {
     systemClose(descriptor);
-    _readFailure(error);
+    failure(error);
 };
 
 // Each tail step either grows the owned mapping or advances its initialized prefix. Failure carries
 // the current mapping so the common finishing path can still release it.
-_readInto :: (Int32, MappingBuffer) -> MappingResult := (descriptor, buffer) -> [return] => {
-    (memory, capacity, length) := buffer;
-    when (length == capacity) {
-        when (capacity == (-1u64).bytes) {
-            return(_bufferFailure((buffer, _fileTooLarge)));
+_readInto :: (Int32, MappingBuffer) -> MappingResult :=
+    (descriptor, buffer) -> [success, failure] => {
+        (memory, capacity, length) := buffer;
+        when (length == capacity) {
+            when (capacity == (-1u64).bytes) {
+                failure((buffer, _fileTooLarge));
+            };
+            nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64.bytes)
+                then (-1u64).bytes
+                else capacity + capacity;
+            nextMemory := resizeMapping(memory, capacity, nextCapacity)[
+                (nextMemory) -> nextMemory,
+                (error) -> failure((buffer, error))
+            ];
+            _readInto(descriptor, (nextMemory, nextCapacity, length))[success, failure];
         };
-        nextCapacity := if (capacity > 0x7fff_ffff_ffff_ffffu64.bytes)
-            then (-1u64).bytes
-            else capacity + capacity;
-        resized := resizeMapping(memory, capacity, nextCapacity);
-        return(resized[
-            (nextMemory) -> _readInto(descriptor, (nextMemory, nextCapacity, length)),
-            (error) -> _bufferFailure((buffer, error))
-        ]);
+        count := systemRead(descriptor, memory, length, capacity - length)[
+            (count) -> count,
+            (error) -> failure((buffer, error))
+        ];
+        when (count == 0bytes) {
+            success(buffer);
+        };
+        _readInto(descriptor, (memory, capacity, length + count))[success, failure];
     };
-    transferred := systemRead(descriptor, memory, length, capacity - length);
-    return(transferred[
-        (count) -> {
-            if (count == 0bytes)
-            then _bufferSuccess(buffer)
-            else _readInto(descriptor, (memory, capacity, length + count));
-        },
-        (error) -> _bufferFailure((buffer, error))
-    ]);
-};
 
-_finishRead :: (Int32, MappingResult) -> ReadResult := (descriptor, result) -> {
-    closed := systemClose(descriptor);
-    result[
-    (buffer) -> {
+_finishRead :: (Int32, MappingResult) -> ReadResult :=
+    (descriptor, result) -> [success, failure] => {
+        closed := systemClose(descriptor);
+        buffer := result[
+            (buffer) -> buffer,
+            (failureValue) -> {
+                (buffer, error) := failureValue;
+                (memory, capacity, _) := buffer;
+                systemMunmap(memory, capacity);
+                failure(error);
+            }
+        ];
         (memory, capacity, length) := buffer;
         closed[
-        () -> {
-            source := from<UInt8>(memory, 0usize, length.usize);
-            released := systemMunmap(memory, capacity);
-            released[
-            () -> _readSuccess(source),
-            (error) -> _readFailure(error)
-            ];
-        },
+        () -> (),
         (error) -> {
             systemMunmap(memory, capacity);
-            _readFailure(error);
+            failure(error);
         }
         ];
-    },
-    (failureValue) -> {
-        (buffer, error) := failureValue;
-        (memory, capacity, _) := buffer;
-        systemMunmap(memory, capacity);
-        _readFailure(error);
-    }
-    ];
-};
-
-_readSnapshot :: (Int32, UInt64) -> ReadResult := (descriptor, sizeHint) -> [return] => {
-    when (sizeHint == 0xffff_ffff_ffff_ffffu64) {
-        return(_closeWithError(descriptor, _fileTooLarge));
+        source := from<UInt8>(memory, 0usize, length.usize);
+        systemMunmap(memory, capacity)[() -> success(source), failure];
     };
-    capacity := (sizeHint + 1u64).bytes;
-    mapped := mapAnonymousReadWrite(capacity);
-    return(mapped[
-        (memory) -> {
-            result := _readInto(descriptor, (memory, capacity, 0bytes));
-            _finishRead(descriptor, result);
-        },
-        (error) -> _closeWithError(descriptor, error)
-    ]);
-};
 
-_rewindAndRead :: (Int32, UInt64) -> ReadResult := (descriptor, sizeHint) -> {
-    reset := systemLseek(descriptor, 0i64, _seekStart);
-    reset[
-    (_) -> _readSnapshot(descriptor, sizeHint),
-    (error) -> _closeWithError(descriptor, error)
-    ];
-};
-
-_readDescriptor :: Int32 -> ReadResult := (descriptor) -> {
-    sized := systemLseek(descriptor, 0i64, _seekEnd);
-    sized[
-    (sizeHint) -> _rewindAndRead(descriptor, sizeHint),
-    (error) -> _closeWithError(descriptor, error)
-    ];
-};
-
-_openPath :: (Address, ByteSize) -> ReadResult := (path, pathMappingLength) -> {
-    opened := systemOpenat(_atCurrentWorkingDirectory, path, 0i32, 0u32);
-    unmapped := systemMunmap(path, pathMappingLength);
-    opened[
-    (descriptor) -> {
-        unmapped[
-        () -> _readDescriptor(descriptor),
-        (error) -> _closeWithError(descriptor, error)
+_readSnapshot :: (Int32, UInt64) -> ReadResult :=
+    (descriptor, sizeHint) -> [success, failure] => {
+        when (sizeHint == 0xffff_ffff_ffff_ffffu64) {
+            _closeWithError(descriptor, _fileTooLarge)[success, failure];
+        };
+        capacity := (sizeHint + 1u64).bytes;
+        memory := mapAnonymousReadWrite(capacity)[
+            (memory) -> memory,
+            (error) -> _closeWithError(descriptor, error)[success, failure]
         ];
-    },
-    (error) -> _readFailure(error)
+        result := _readInto(descriptor, (memory, capacity, 0bytes));
+        _finishRead(descriptor, result)[success, failure];
+    };
+
+_rewindAndRead :: (Int32, UInt64) -> ReadResult :=
+    (descriptor, sizeHint) -> [success, failure] => {
+        systemLseek(descriptor, 0i64, _seekStart)[
+        (_) -> (),
+        (error) -> _closeWithError(descriptor, error)[success, failure]
+        ];
+        _readSnapshot(descriptor, sizeHint)[success, failure];
+    };
+
+_readDescriptor :: Int32 -> ReadResult := (descriptor) -> [success, failure] => {
+    sizeHint := systemLseek(descriptor, 0i64, _seekEnd)[
+        (sizeHint) -> sizeHint,
+        (error) -> _closeWithError(descriptor, error)[success, failure]
     ];
+    _rewindAndRead(descriptor, sizeHint)[success, failure];
 };
 
-readSource :: Symbol -> ReadResult := (path) -> [return] => {
+_openPath :: (Address, ByteSize) -> ReadResult :=
+    (path, pathMappingLength) -> [success, failure] => {
+        opened := systemOpenat(_atCurrentWorkingDirectory, path, 0i32, 0u32);
+        unmapped := systemMunmap(path, pathMappingLength);
+        descriptor := opened[(descriptor) -> descriptor, failure];
+        unmapped[
+        () -> (),
+        (error) -> _closeWithError(descriptor, error)[success, failure]
+        ];
+        _readDescriptor(descriptor)[success, failure];
+    };
+
+readSource :: Symbol -> ReadResult := (path) -> [success, failure] => {
     bytes := *path;
     length := #bytes;
     when (length == (-1u64).usize) {
-        return(_readFailure(_invalidArgument));
+        failure(_invalidArgument);
     };
     mappingLength := length.bytes + 1bytes;
-    mapped := mapAnonymousReadWrite(mappingLength);
-    return(mapped[
-        (memory) -> {
-            bytes.into(memory, 0usize, length);
-            storeZero(memory, length.bytes);
-            _openPath(memory, mappingLength);
-        },
-        (error) -> _readFailure(error)
-    ]);
+    memory := mapAnonymousReadWrite(mappingLength)[(memory) -> memory, failure];
+    bytes.into(memory, 0usize, length);
+    storeZero(memory, length.bytes);
+    _openPath(memory, mappingLength)[success, failure];
 };

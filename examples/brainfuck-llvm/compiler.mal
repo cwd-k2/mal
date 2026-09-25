@@ -86,19 +86,15 @@ _compileUntil :: (Buffer<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResu
                 true,
                 output + identity._loopHeader()
             );
-            return(body[
-                (message) -> _stepFailure(message),
-                (state) -> {
-                    (afterBody, afterLoop, bodyOutput) := state;
-                    _compileUntil(
-                        source,
-                        afterBody,
-                        afterLoop,
-                        nested,
-                        bodyOutput + identity._loopFooter()
-                    );
-                }
-            ]);
+            state := body[(message) -> return(_stepFailure(message)), (state) -> state];
+            (afterBody, afterLoop, bodyOutput) := state;
+            return(_compileUntil(
+                source,
+                afterBody,
+                afterLoop,
+                nested,
+                bodyOutput + identity._loopFooter()
+            ));
         };
 
         instruction := byte._simpleInstruction();
@@ -178,13 +174,9 @@ _preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
     + "define i32 @main() {\n"
     + "entry:\n";
 
-compile :: Buffer<UInt8> -> CompileResult := (source) -> {
+compile :: Buffer<UInt8> -> CompileResult := (source) -> [return] => {
     compiled := _compileUntil(source, 0usize, 0u64, false, _preamble());
-    compiled[
-    (message) -> _compileFailure(message),
-    (state) -> {
-        (_, _, output) := state;
-        _compileSuccess(output + "  ret i32 0\n}\n");
-    }
-    ];
+    state := compiled[(message) -> return(_compileFailure(message)), (state) -> state];
+    (_, _, output) := state;
+    return(_compileSuccess(output + "  ret i32 0\n}\n"));
 };

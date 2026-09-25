@@ -61,23 +61,23 @@ _sendPacket :: (Socket, Packet) -> SocketStatus := (socket, packet) -> {
     };
 };
 
-_receiveExpected :: Socket -> Bool := (socket) -> {
+_receiveExpected :: Socket -> Bool := (socket) -> [return] => {
     (memory, capacity) := packetBuffer();
-    result := socket.receivePacket(memory, capacity);
-    result[
-    (packet) -> {
-        (sequence, length) := packet;
-        expected := "hello from mal";
-        payload := from<UInt8>(memory, 0usize, length);
-        sequence == 42u64
-            && length == #expected
-            && payload._equalsSymbol(expected, 0usize);
-    },
-    (error) -> {
-        writeError(error);
-        false;
-    }
+    packet := socket.receivePacket(memory, capacity)[
+        (packet) -> packet,
+        (error) -> {
+            writeError(error);
+            return(false);
+        }
     ];
+    (sequence, length) := packet;
+    expected := "hello from mal";
+    payload := from<UInt8>(memory, 0usize, length);
+    return(
+        sequence == 42u64
+        && length == #expected
+        && payload._equalsSymbol(expected, 0usize)
+    );
 };
 
 main :: Unit -> Int32 := () -> {

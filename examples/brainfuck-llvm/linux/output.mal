@@ -16,15 +16,14 @@ _writeAll :: (Int32, Address, ByteSize, ByteSize) -> SyscallStatus :=
         when (remaining == 0bytes) {
             return(_statusSuccess());
         };
-        transferred := systemWrite(descriptor, memory, offset, remaining);
-        return(transferred[
-            (length) -> {
-                if (length == 0bytes)
-                then _statusFailure(_inputOutputError)
-                else _writeAll(descriptor, memory, offset + length, remaining - length);
-            },
-            (error) -> _statusFailure(error)
-        ]);
+        length := systemWrite(descriptor, memory, offset, remaining)[
+            (length) -> length,
+            (error) -> return(_statusFailure(error))
+        ];
+        when (length == 0bytes) {
+            return(_statusFailure(_inputOutputError));
+        };
+        return(_writeAll(descriptor, memory, offset + length, remaining - length));
     };
 
 _finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, length, written) -> {
@@ -35,23 +34,20 @@ _finishWrite :: (Address, ByteSize, SyscallStatus) -> SyscallStatus := (memory, 
     ];
 };
 
-writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> {
+writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> [return] => {
     bytes := *value;
     length := #bytes;
-    extent := length.bytes;
-    if (length == 0usize)
-    then _statusSuccess()
-    else {
-        mapped := mapAnonymousReadWrite(extent);
-        mapped[
-        (memory) -> {
-            bytes.into(memory, 0usize, length);
-            written := _writeAll(descriptor, memory, 0bytes, extent);
-            _finishWrite(memory, extent, written);
-        },
-        (error) -> _statusFailure(error)
-        ];
+    when (length == 0usize) {
+        return(_statusSuccess());
     };
+    extent := length.bytes;
+    memory := mapAnonymousReadWrite(extent)[
+        (memory) -> memory,
+        (error) -> return(_statusFailure(error))
+    ];
+    bytes.into(memory, 0usize, length);
+    written := _writeAll(descriptor, memory, 0bytes, extent);
+    return(_finishWrite(memory, extent, written));
 };
 
 writeStdout :: Symbol -> SyscallStatus := (value) -> writeDescriptor(_standardOutput, value);
