@@ -6,7 +6,9 @@ use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
 pub mod ast;
+mod binding;
 mod control;
+mod entry;
 mod expression;
 mod float;
 mod initializer;
@@ -25,7 +27,7 @@ pub fn type_name(ty: &ast::Type) -> String {
     types::type_name(ty)
 }
 
-use self::ast::{AbruptExpression, Binding, BodyItem, Completion, Pattern, Program, TopItem, Type};
+use self::ast::{AbruptExpression, Completion, Program, TopItem, Type};
 use self::interface::ExternalSignature;
 use self::types::GenericAliasDefinition;
 
@@ -216,7 +218,7 @@ impl Checker {
                 resolved::TopItem::Binding(binding) => {
                     let checked = self.check_binding(binding, item.span)?;
                     self.check_top_level_initializer(&checked.value)?;
-                    if let Some(candidate) = entry_point(&checked)? {
+                    if let Some(candidate) = entry::entry_point(&checked)? {
                         entry = Some(candidate);
                     }
                     TopItem::Binding(Box::new(checked))
@@ -279,7 +281,7 @@ impl Checker {
                     requirements,
                 },
             );
-            let checked_value = self.check_value_expression(value, Some(&ty))?;
+            let checked_value = self.check_expression(value, Some(&ty))?;
             self.check_top_level_initializer(&checked_value)?;
             Ok(ast::GenericBinding {
                 binding: binding.clone(),
@@ -293,142 +295,6 @@ impl Checker {
         self.active_requirements = previous_requirements;
         self.active_generic = previous_generic;
         result
-    }
-
-    fn check_binding(&mut self, binding: &resolved::Binding, span: Span) -> CheckResult<Binding> {
-        let annotation = binding
-            .annotation
-            .as_ref()
-            .map(|ty| self.expand_type(ty))
-            .transpose()?;
-        if let (
-            Some(annotation),
-            resolved::Pattern::Binding(pattern_binding),
-            resolved::Expression::Lambda(lambda),
-        ) = (&annotation, &binding.pattern.kind, &binding.value.kind)
-            && lambda.self_binding == Some(pattern_binding.id)
-        {
-            self.values.insert(pattern_binding.id, annotation.clone());
-        }
-        let value = match self.check_value_expression(&binding.value, annotation.as_ref()) {
-            Ok(value) => value,
-            Err(CheckFailure::Abrupt(abrupt)) => {
-                return Err(
-                    Diagnostic::error("binding initializer must produce a value")
-                        .with_primary(abrupt.span, abrupt_reason(&abrupt.kind))
-                        .with_note(
-                            "a binding needs a value: let one branch or continuation produce it, \
-                             for example `(n) -> n`, or write this as a statement",
-                        )
-                        .into(),
-                );
-            }
-            Err(error) => return Err(error),
-        };
-        let pattern = self.check_pattern(&binding.pattern, &value.ty)?;
-        Ok(Binding {
-            pattern,
-            annotation,
-            value,
-            span,
-        })
-    }
-
-    fn check_pattern(
-        &mut self,
-        pattern: &Node<resolved::Pattern>,
-        ty: &Type,
-    ) -> CheckResult<Pattern> {
-        match &pattern.kind {
-            resolved::Pattern::Binding(binding) => {
-                self.values.insert(binding.id, ty.clone());
-                Ok(Pattern::Binding {
-                    binding: binding.clone(),
-                    ty: ty.clone(),
-                })
-            }
-            resolved::Pattern::Wildcard => Ok(Pattern::Wildcard {
-                ty: ty.clone(),
-                span: pattern.span,
-            }),
-            resolved::Pattern::Product(elements) => {
-                let Type::Product(element_types) = ty else {
-                    return Err(
-                        Diagnostic::error("product pattern requires a product value")
-                            .with_primary(
-                                pattern.span,
-                                format!("this value has type `{}`", types::type_name(ty)),
-                            )
-                            .into(),
-                    );
-                };
-                if elements.len() != element_types.len() {
-                    return Err(Diagnostic::error("product pattern has the wrong arity")
-                        .with_primary(
-                            pattern.span,
-                            format!(
-                                "expected {} elements, found {}",
-                                element_types.len(),
-                                elements.len()
-                            ),
-                        )
-                        .into());
-                }
-                Ok(Pattern::Product {
-                    elements: elements
-                        .iter()
-                        .zip(element_types.iter())
-                        .map(|(element, ty)| self.check_pattern(element, ty))
-                        .collect::<Result<_, _>>()?,
-                    ty: ty.clone(),
-                    span: pattern.span,
-                })
-            }
-        }
-    }
-
-    fn check_body_item(&mut self, item: &resolved::BodyItem) -> CheckResult<BodyItem> {
-        match item {
-            resolved::BodyItem::Binding(binding) => Ok(BodyItem::Binding(
-                self.check_binding(&binding.kind, binding.span)?,
-            )),
-            resolved::BodyItem::Expression(expression) => Ok(BodyItem::Expression(
-                self.check_value_expression(expression, None)?,
-            )),
-        }
-    }
-
-    fn check_body_items(
-        &mut self,
-        items: &[resolved::BodyItem],
-        result_span: mal_syntax::source::Span,
-    ) -> CheckResult<Vec<BodyItem>> {
-        let mut checked = Vec::with_capacity(items.len());
-        for (index, item) in items.iter().enumerate() {
-            match self.check_body_item(item) {
-                Ok(item) => checked.push(item),
-                Err(CheckFailure::Abrupt(abrupt)) => {
-                    let unreachable_span = items
-                        .get(index + 1)
-                        .map(|item| match item {
-                            resolved::BodyItem::Binding(binding) => binding.span,
-                            resolved::BodyItem::Expression(expression) => expression.span,
-                        })
-                        .unwrap_or(result_span);
-                    return Err(Diagnostic::error("unreachable code after abrupt completion")
-                        .with_primary(
-                            unreachable_span,
-                            format!(
-                                "this expression cannot be reached after control leaves at byte {}",
-                                abrupt.span.start()
-                            ),
-                        )
-                        .into());
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(checked)
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
@@ -456,68 +322,4 @@ impl Checker {
             Err(CheckFailure::Diagnostic(diagnostic)) => Err(diagnostic),
         }
     }
-
-    fn check_value_expression(
-        &mut self,
-        expression: &Node<resolved::Expression>,
-        expected: Option<&Type>,
-    ) -> CheckResult<self::ast::Expression> {
-        self.check_expression(expression, expected)
-    }
-}
-
-/// Why an expression that never produces a value cannot initialize a binding.
-fn abrupt_reason(kind: &ast::AbruptExpressionKind) -> &'static str {
-    match kind {
-        ast::AbruptExpressionKind::ResultTransfer { .. } => {
-            "applying a result binder leaves the block, so this never produces a value"
-        }
-        ast::AbruptExpressionKind::EmptyElimination { .. } => {
-            "an empty sum has no value, so this never produces one"
-        }
-        ast::AbruptExpressionKind::If { .. } => {
-            "both branches leave the block, so this never produces a value"
-        }
-        ast::AbruptExpressionKind::SumElimination { .. } => {
-            "every continuation leaves the block, so this never produces a value"
-        }
-        ast::AbruptExpressionKind::Block(_) => {
-            "this block never completes normally, so it produces no value"
-        }
-    }
-}
-
-fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic> {
-    let Pattern::Binding { binding: name, ty } = &binding.pattern else {
-        return Ok(None);
-    };
-    if name.name.text != "main" {
-        return Ok(None);
-    }
-    let Type::Function { parameter, result } = ty else {
-        return Err(Diagnostic::error("invalid entry point type").with_primary(
-            name.name.span,
-            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
-        ));
-    };
-    let parameter = if **parameter == Type::Unit {
-        ast::EntryParameter::Unit
-    } else if **parameter == ast::EntryParameter::process_arguments_type() {
-        ast::EntryParameter::ProcessArguments
-    } else {
-        return Err(Diagnostic::error("invalid entry point type").with_primary(
-            name.name.span,
-            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
-        ));
-    };
-    if **result != Type::Int32 {
-        return Err(Diagnostic::error("invalid entry point type").with_primary(
-            name.name.span,
-            "expected `Unit -> Int32` or `Buffer<Symbol> -> Int32`",
-        ));
-    }
-    Ok(Some(ast::EntryPoint {
-        binding: name.id,
-        parameter,
-    }))
 }
