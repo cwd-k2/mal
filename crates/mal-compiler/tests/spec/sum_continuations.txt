@@ -71,7 +71,7 @@ f :: Res -> Res := (r) -> [ok, fail] => {
 f :: [Int32, Int32] -> Int32 := (r) -> r[(n) -> n, () -> n];
 ### branch_value_types_must_agree | err:type
 f :: [Int32, Unit] -> Int32 := (r) -> r[(n) -> n, () -> true];
-### branch_binder_type_must_match_the_position | err:type
+### branch_binder_type_must_match_the_position | err:result binder does not accept this payload
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => r[fail, ok];
 ### branch_parameter_must_match_the_payload | err:lambda parameters do not match

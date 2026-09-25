@@ -48,10 +48,12 @@ impl Checker {
         }
         let mut value_type: Option<Type> = None;
         let mut checked = Vec::with_capacity(continuations.len());
-        for (continuation, member) in continuations.iter().zip(members.iter()) {
+        for (position, (continuation, member)) in
+            continuations.iter().zip(members.iter()).enumerate()
+        {
             let hint = value_type.as_ref().or(expected);
             let (continuation, completion) =
-                self.check_sum_continuation(continuation, member, hint)?;
+                self.check_sum_continuation(continuation, position, member, hint)?;
             if let Some(ty) = completion {
                 match &value_type {
                     Some(existing) => {
@@ -86,6 +88,7 @@ impl Checker {
     fn check_sum_continuation(
         &mut self,
         continuation: &resolved::Continuation,
+        position: usize,
         payload: &Type,
         hint: Option<&Type>,
     ) -> CheckResult<(SumContinuation, Option<Type>)> {
@@ -96,7 +99,7 @@ impl Checker {
             }
             resolved::Continuation::Function(expression) => {
                 if let Some(transfer) =
-                    self.check_result_binder_continuation(expression, payload)?
+                    self.check_result_binder_continuation(expression, payload, position)?
                 {
                     return Ok((SumContinuation::Transfer(transfer), None));
                 }
@@ -147,6 +150,7 @@ impl Checker {
         &mut self,
         continuation: &Node<resolved::Expression>,
         payload: &Type,
+        position: usize,
     ) -> CheckResult<Option<SumTransfer>> {
         let mut current = continuation;
         while let resolved::Expression::Parenthesized(inner) = &current.kind {
@@ -158,7 +162,24 @@ impl Checker {
         let Some(target) = self.result_targets.get(&reference.id).cloned() else {
             return Ok(None);
         };
-        self.require_type(payload, &target.parameter, current.span)?;
+        if payload != &target.parameter {
+            return Err(Diagnostic::error("result binder does not accept this payload")
+                .with_primary(
+                    current.span,
+                    format!(
+                        "`{}` takes `{}`, but this continuation receives `{}`",
+                        reference.name.text,
+                        type_name(&target.parameter),
+                        type_name(payload)
+                    ),
+                )
+                .with_note(format!(
+                    "continuation {position} of the sum carries `{}`; name a result binder of that type, \
+                     or write a lambda that converts the payload",
+                    type_name(payload)
+                ))
+                .into());
+        }
         self.used_result_targets.insert(target.boundary);
         Ok(Some(SumTransfer {
             target: target.boundary,

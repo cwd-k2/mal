@@ -308,7 +308,11 @@ impl Checker {
             Err(CheckFailure::Abrupt(abrupt)) => {
                 return Err(
                     Diagnostic::error("binding initializer must produce a value")
-                        .with_primary(abrupt.span, "this initializer completes abruptly")
+                        .with_primary(abrupt.span, abrupt_reason(&abrupt.kind))
+                        .with_note(
+                            "a binding needs a value: let one branch or continuation produce it, \
+                             for example `(n) -> n`, or write this as a statement",
+                        )
                         .into(),
                 );
             }
@@ -452,6 +456,27 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<self::ast::Expression> {
         self.check_expression(expression, expected)
+    }
+}
+
+/// Why an expression that never produces a value cannot initialize a binding.
+fn abrupt_reason(kind: &ast::AbruptExpressionKind) -> &'static str {
+    match kind {
+        ast::AbruptExpressionKind::ResultTransfer { .. } => {
+            "applying a result binder leaves the block, so this never produces a value"
+        }
+        ast::AbruptExpressionKind::EmptyElimination { .. } => {
+            "an empty sum has no value, so this never produces one"
+        }
+        ast::AbruptExpressionKind::If { .. } => {
+            "both branches leave the block, so this never produces a value"
+        }
+        ast::AbruptExpressionKind::SumElimination { .. } => {
+            "every continuation leaves the block, so this never produces a value"
+        }
+        ast::AbruptExpressionKind::Block(_) => {
+            "this block never completes normally, so it produces no value"
+        }
     }
 }
 

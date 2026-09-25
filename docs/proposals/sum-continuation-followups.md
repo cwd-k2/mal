@@ -6,12 +6,6 @@ Status: Exploratory
 不都合のうち、まだ対応していないものを管理する。example全体を早期脱出の形へ書き換えた後に、この順で対応する。
 現在の言語規則は[`spec/`](../spec/)を正とする。
 
-## 診断
-
-- 全continuationが`Abrupt`の直和除去を束縛のinitializerに置くと`binding initializer must produce a value`と出る。原因が
-  「すべてのcontinuationが抜ける」ことだと読み取りにくい。
-- binder名のcontinuationの型不一致は一般の`type mismatch`で、どの位置のpayloadとbinderが合わないかを示さない。
-
 ## editor
 
 `Value`か`Abrupt`かをeditorは利用者に示さない。早期脱出がcontinuationの位置に現れると、どのbranchが現在のpathを打ち切るかが

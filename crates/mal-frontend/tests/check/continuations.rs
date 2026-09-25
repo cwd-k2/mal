@@ -99,7 +99,10 @@ fn binds_product_payloads_and_ignores_payloads_with_a_wildcard() {
 fn rejects_continuation_type_and_shape_errors() {
     let cases = [
         ("v := s[(n) -> n, () -> true]; ok(v)", "type mismatch"),
-        ("v := s[fail, ok]; v", "type mismatch"),
+        (
+            "v := s[fail, ok]; v",
+            "result binder does not accept this payload",
+        ),
         (
             "v := s[(n) -> n, (x) -> 0]; ok(v)",
             "lambda parameters do not match",
@@ -122,4 +125,37 @@ fn rejects_continuation_type_and_shape_errors() {
             "input: {body}"
         );
     }
+}
+
+#[test]
+fn explains_why_an_abrupt_elimination_cannot_initialize_a_binding() {
+    let error = check_error(&format!(
+        "{RESULT}pick :: (Res, Int32) -> Res := (s, base) -> [ok, fail] => {{ v := s[ok, fail]; v }};"
+    ));
+    assert_eq!(error.message, "binding initializer must produce a value");
+    let rendered = format!("{error:?}");
+    assert!(
+        rendered.contains("every continuation leaves the block"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("let one branch or continuation produce it"),
+        "{rendered}"
+    );
+}
+
+#[test]
+fn names_the_binder_and_position_when_a_payload_does_not_fit() {
+    let error = check_error(&format!(
+        "{RESULT}pick :: (Res, Int32) -> Res := (s, base) -> [ok, fail] => s[fail, ok];"
+    ));
+    let rendered = format!("{error:?}");
+    assert!(
+        rendered.contains("`fail` takes `Unit`, but this continuation receives `Int32`"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("continuation 0 of the sum carries `Int32`"),
+        "{rendered}"
+    );
 }
