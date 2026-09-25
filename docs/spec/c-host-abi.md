@@ -28,6 +28,8 @@ argumentのbytesはhostのstorageに依存せず、その解釈はhost contract�
 
 各external operationには`MAL_HAS_EXTERN_<name>`と`MAL_DEFINE_<name>`を生成する。host implementationは
 `MAL_DEFINE_<name>`だけでbodyを定義し、compiler-facing wrapperを直接定義しない。
+programが宣言したexternal operationは、applicationするかどうかにかかわらずすべてhost implementationが定義する。定義のない
+operationを含むprogramのlinkは保証しない。未実装のoperationは`emit host`のstubのようにtrapするbodyで定義する。
 
 ```mal
 Counter :: UInt64;

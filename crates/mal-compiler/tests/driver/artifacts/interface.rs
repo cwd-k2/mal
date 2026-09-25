@@ -254,6 +254,42 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
 }
 
 #[test]
+fn applies_an_external_operation_passed_as_a_value_in_every_mode() {
+    let directory = NativeFixture::new("driver-first-class-extern");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern adjust :: Int32 -> Int32;\n\
+         apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> { operation(value); };\n\
+         main :: Unit -> Int32 := () -> { chosen := adjust; apply(chosen, 40) - 42; };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_adjust(call, value) { return mal_Int32_return(call, value + 2); }\n",
+    );
+
+    for profile in ["baseline", "production"] {
+        let executable = directory.join(profile);
+        let output = directory.malc([
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(profile),
+        ]);
+        assert!(
+            output.status.success(),
+            "{profile}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(directory.run(executable).status.success(), "{profile}");
+    }
+}
+
+#[test]
 fn builds_public_functions_from_required_files_with_private_helpers() {
     let directory = NativeFixture::new("driver-required-mal");
     let source = directory.write(

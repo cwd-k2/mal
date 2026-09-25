@@ -100,7 +100,7 @@ extern close :: File -> Unit;
 extern e :: [] -> Unit;
 ### extern_bool_ok | ok
 extern b :: Bool -> Bool;
-### extern_first_class | run:0
+### extern_first_class | ok
 extern nothing :: Unit -> Int32;
 main :: Unit -> Int32 := () -> { g := nothing; 0; };
 ### extern_dup | err:
