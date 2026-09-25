@@ -8,10 +8,11 @@
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{Atom, AtomKind, Pattern, Reference};
-use crate::control::ast::{Operation, Program, StateId, Terminator};
+use crate::closure::ast::{AtomKind, Reference};
+use crate::control::ast::{Operation, Program, StateId};
 
 use super::OptimizationPlan;
+use super::derived::{close, managed_leaves};
 use super::ownership::is_managed;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -35,7 +36,8 @@ impl EnvironmentAliasPlan {
             }
         }
         let mut tied = roots.clone();
-        while derive(program, &mut tied) {}
+        let states = (0..program.states.len()).map(StateId).collect::<Vec<_>>();
+        close(program, &states, &mut tied);
         Self { roots, tied }
     }
 
@@ -47,60 +49,5 @@ impl EnvironmentAliasPlan {
     /// Whether the value may share its lifetime with the environment, conservatively for derived values.
     pub(crate) fn is_tied(&self, binding: ValueId) -> bool {
         self.tied.contains(&binding)
-    }
-}
-
-/// Adds to `tied` every value a state derives from a tied one; reports whether anything was added.
-fn derive(program: &Program, tied: &mut HashSet<ValueId>) -> bool {
-    let before = tied.len();
-    for state in &program.states {
-        for binding in &state.bindings {
-            let derived = match &binding.operation {
-                Operation::Atom(atom) | Operation::SumInjection { value: atom, .. } => {
-                    is_tied(atom, tied)
-                }
-                Operation::Product(atoms) => atoms.iter().any(|atom| is_tied(atom, tied)),
-                _ => false,
-            };
-            if derived {
-                managed_leaves(&binding.pattern, tied);
-            }
-        }
-        match &state.terminator {
-            Terminator::Jump { target, value } if is_tied(value, tied) => {
-                tie_input(program, *target, tied);
-            }
-            Terminator::Case { scrutinee, arms } if is_tied(scrutinee, tied) => {
-                for arm in arms {
-                    tie_input(program, arm.target, tied);
-                }
-            }
-            _ => {}
-        }
-    }
-    tied.len() != before
-}
-
-fn tie_input(program: &Program, target: StateId, tied: &mut HashSet<ValueId>) {
-    if let Some(input) = &program.states[target.0].input {
-        managed_leaves(input, tied);
-    }
-}
-
-fn is_tied(atom: &Atom, tied: &HashSet<ValueId>) -> bool {
-    matches!(atom.kind, AtomKind::Reference(Reference::Binding(id)) if tied.contains(&id))
-}
-
-fn managed_leaves(pattern: &Pattern, leaves: &mut HashSet<ValueId>) {
-    match pattern {
-        Pattern::Binding { id, ty } if is_managed(ty) => {
-            leaves.insert(*id);
-        }
-        Pattern::Product { elements, .. } => {
-            for element in elements {
-                managed_leaves(element, leaves);
-            }
-        }
-        Pattern::Binding { .. } | Pattern::Wildcard { .. } => {}
     }
 }

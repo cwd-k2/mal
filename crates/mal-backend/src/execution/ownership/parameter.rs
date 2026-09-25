@@ -5,14 +5,19 @@ use crate::closure::ast::FunctionId;
 use crate::control::ast::{Operation, Program, StateId, Terminator};
 
 use super::super::{
-    ApplicationGraph, ControlCallMode, ControlCallPlan, ControlRegionPlan, ParameterDestination,
-    ParameterPlan,
+    ApplicationGraph, ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan,
+    ParameterDestination, ParameterPlan,
 };
+use super::convention::OwnedConvention;
 use super::managed::is_managed;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum ParameterEntry {
+    /// The native entry of a function whose caller keeps the argument.
     BorrowedAbi,
+    /// The native entry of a function whose caller hands the argument over.
+    OwnedAbi,
+    /// A transition inside a region or a self-tail edge.
     OwnedHandoff,
 }
 
@@ -28,6 +33,7 @@ pub(super) struct ParameterBorrows {
     pub(super) functions: HashSet<FunctionId>,
     pub(super) bindings: HashSet<ValueId>,
     pub(super) call_sites: HashSet<StateId>,
+    pub(super) owned: OwnedConvention,
 }
 
 impl ParameterBorrows {
@@ -36,6 +42,7 @@ impl ParameterBorrows {
         applications: &ApplicationGraph,
         calls: &ControlCallPlan,
         regions: &ControlRegionPlan,
+        frames: &ControlFramePlan,
     ) -> Self {
         let mut functions = control
             .functions
@@ -68,6 +75,8 @@ impl ParameterBorrows {
                 functions.extend(regions.functions(region));
             }
         }
+        let owned = OwnedConvention::new(control, applications, calls, regions, frames);
+        functions.retain(|function| !owned.functions.contains(function));
         let bindings = control
             .functions
             .iter()
@@ -97,6 +106,7 @@ impl ParameterBorrows {
             functions,
             bindings,
             call_sites,
+            owned,
         }
     }
 }
@@ -151,6 +161,20 @@ pub(super) fn collect_parameter_effects(
         if !is_managed(&function.parameter.ty) {
             continue;
         }
+        if borrows.owned.functions.contains(&function.id) {
+            let effect = match parameters.destination(function.id) {
+                Some(ParameterDestination::Bind(binding))
+                    if control.states[function.entry.0]
+                        .live
+                        .iter()
+                        .any(|value| value.id == binding) =>
+                {
+                    ParameterEffect::ConsumeInto(binding)
+                }
+                _ => ParameterEffect::Drop,
+            };
+            effects.insert((function.id, ParameterEntry::OwnedAbi), effect);
+        }
         match parameters
             .destination(function.id)
             .expect("every control function has a parameter destination")
@@ -190,6 +214,9 @@ pub(super) fn collect_parameter_effects(
                 );
             }
             ParameterDestination::Bind(_) | ParameterDestination::Discard => {}
+        }
+        if borrows.owned.functions.contains(&function.id) {
+            effects.remove(&(function.id, ParameterEntry::BorrowedAbi));
         }
     }
     effects

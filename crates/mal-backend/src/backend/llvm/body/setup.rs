@@ -290,6 +290,7 @@ impl<'a> FunctionEmitter<'a> {
         if matches!(parameter_destination, ParameterDestination::Bind(_))
             || crate::execution::ownership::is_managed(&self.function.parameter.ty)
         {
+            let entry = self.ownership.native_entry(self.function.id);
             let parameter = EmittedValue {
                 ty: self.function.parameter.ty.clone(),
                 representation: if self.function.parameter.ty == Type::Unit {
@@ -297,13 +298,9 @@ impl<'a> FunctionEmitter<'a> {
                 } else {
                     "%mal_parameter".into()
                 },
-                owned: false,
+                owned: entry == crate::execution::ownership::ParameterEntry::OwnedAbi,
             };
-            self.emit_parameter_handoff(
-                self.function.id,
-                &parameter,
-                crate::execution::ownership::ParameterEntry::BorrowedAbi,
-            )?;
+            self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }
         let entry_alloca_offset = self.output.len();
         self.line(format!("  br label %mal_state_{}", self.function.entry.0));

@@ -25,13 +25,12 @@ impl FunctionEmitter<'_> {
             )
         };
         self.require_terminator_borrow(site, callee_operand, callee)?;
-        self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
         let arguments = if target.parameter.ty == Type::Unit {
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
-            let argument = self.atom(argument)?;
+            let argument = self.call_argument(site, argument_operand, argument)?;
             if argument.ty != target.parameter.ty {
                 return None;
             }
@@ -81,7 +80,6 @@ impl FunctionEmitter<'_> {
             )
         };
         self.require_terminator_borrow(site, callee_operand, callee)?;
-        self.require_terminator_borrow(site, argument_operand, argument)?;
         let callee = self.atom(callee)?;
         let Type::Function { parameter, result } = &callee.ty else {
             return None;
@@ -103,7 +101,7 @@ impl FunctionEmitter<'_> {
             }
             format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
-            let argument = self.atom(argument)?;
+            let argument = self.call_argument(site, argument_operand, argument)?;
             if argument.ty != **parameter {
                 return None;
             }
@@ -132,6 +130,28 @@ impl FunctionEmitter<'_> {
             representation: register,
             owned: crate::execution::ownership::is_managed(result),
         })
+    }
+
+    /// The argument of a native call: borrowed, or handed to the callee when the call site passes it owned.
+    fn call_argument(
+        &mut self,
+        site: StateId,
+        operand: crate::execution::ownership::TerminatorOperand,
+        argument: &Atom,
+    ) -> Option<EmittedValue> {
+        if !self.ownership.passes_owned_argument(site)
+            || !crate::execution::ownership::is_managed(&argument.ty)
+        {
+            self.require_terminator_borrow(site, operand, argument)?;
+            return self.atom(argument);
+        }
+        let effect = self.ownership.terminator_use(site, operand)?;
+        if effect == crate::execution::ownership::UseEffect::Borrow {
+            return None;
+        }
+        let prepared = self.prepare_atom_for_use(argument, effect)?;
+        self.commit_consumes(&prepared)?;
+        Some(prepared.value)
     }
 
     pub(super) fn current_function(&self) -> Option<&crate::control::ast::Function> {

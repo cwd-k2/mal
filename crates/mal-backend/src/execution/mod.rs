@@ -4,6 +4,7 @@ mod application;
 mod call;
 mod closure;
 mod continuation;
+mod derived;
 mod environment_alias;
 mod frame;
 mod optimization;

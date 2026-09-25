@@ -44,12 +44,14 @@ impl FunctionEmitter<'_> {
                     return Some(());
                 }
                 (
-                    crate::execution::ownership::ParameterEntry::OwnedHandoff,
+                    crate::execution::ownership::ParameterEntry::OwnedHandoff
+                    | crate::execution::ownership::ParameterEntry::OwnedAbi,
                     Some(crate::execution::ownership::ParameterEffect::ConsumeInto(binding)),
                     _,
                 ) if value.owned => return self.store_parameter_binding(binding, value),
                 (
-                    crate::execution::ownership::ParameterEntry::OwnedHandoff,
+                    crate::execution::ownership::ParameterEntry::OwnedHandoff
+                    | crate::execution::ownership::ParameterEntry::OwnedAbi,
                     Some(crate::execution::ownership::ParameterEffect::Drop),
                     _,
                 ) if value.owned => {

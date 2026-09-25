@@ -11,6 +11,7 @@ use super::{
 
 mod authority;
 mod borrow;
+mod convention;
 mod destination;
 mod drop_plan;
 mod identity;
@@ -76,6 +77,8 @@ pub(crate) struct Plan {
     uses: HashMap<UseId, UseEffect>,
     parameters: HashMap<(FunctionId, ParameterEntry), ParameterEffect>,
     borrowed_bindings: HashSet<ValueId>,
+    owned_functions: HashSet<FunctionId>,
+    owned_sites: HashSet<StateId>,
 }
 
 pub(crate) struct Inputs<'a> {
@@ -121,7 +124,8 @@ impl Plan {
             regions,
             frames,
         } = inputs;
-        let parameter_borrows = ParameterBorrows::new(control, applications, calls, regions);
+        let parameter_borrows =
+            ParameterBorrows::new(control, applications, calls, regions, frames);
         let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
         let environment_aliases = EnvironmentAliasPlan::new(control, optimizations);
         let borrows = BorrowPlan::new(
@@ -199,6 +203,7 @@ impl Plan {
             drop_candidates: &drops_after_binding,
             borrowed_bindings: &borrowed_bindings,
             parameter_borrows: &parameter_borrows,
+            borrows: &borrows,
         });
         exclude_consumed_sources(control, &uses, &mut drops_after_binding);
         for drops in drops_after_binding.values_mut() {
@@ -222,6 +227,8 @@ impl Plan {
             uses,
             parameters,
             borrowed_bindings,
+            owned_functions: parameter_borrows.owned.functions,
+            owned_sites: parameter_borrows.owned.sites,
         }
     }
 
@@ -287,6 +294,20 @@ impl Plan {
                 location: UseLocation::FrameField(field),
             })
             .copied()
+    }
+
+    /// How the native entry of `function` receives its managed argument.
+    pub(crate) fn native_entry(&self, function: FunctionId) -> ParameterEntry {
+        if self.owned_functions.contains(&function) {
+            ParameterEntry::OwnedAbi
+        } else {
+            ParameterEntry::BorrowedAbi
+        }
+    }
+
+    /// Whether the native call at `site` hands its managed argument to the callee.
+    pub(crate) fn passes_owned_argument(&self, site: StateId) -> bool {
+        self.owned_sites.contains(&site)
     }
 
     pub(crate) fn binding_is_borrowed(&self, binding: ValueId) -> bool {

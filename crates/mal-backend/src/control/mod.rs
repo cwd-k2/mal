@@ -80,6 +80,7 @@ impl Lowerer {
         Program {
             bindings,
             functions,
+            entry: program.entry.map(|entry| entry.function),
             states: self.states,
             span: program.span,
         }

@@ -201,16 +201,24 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
                     .iter()
                     .any(|value| value.id == binding) =>
             {
-                let borrowed = execution.control.states[function.entry.0].input.is_none();
+                let owned =
+                    execution.ownership.native_entry(function.id) == ParameterEntry::OwnedAbi;
+                let borrowed = execution.control.states[function.entry.0].input.is_none() && !owned;
                 assert_eq!(
                     execution
                         .ownership
                         .parameter_effect(function.id, ParameterEntry::BorrowedAbi),
-                    Some(if borrowed {
+                    (!owned).then_some(if borrowed {
                         ParameterEffect::BorrowInto(binding)
                     } else {
                         ParameterEffect::ShareInto(binding)
                     })
+                );
+                assert_eq!(
+                    execution
+                        .ownership
+                        .parameter_effect(function.id, ParameterEntry::OwnedAbi),
+                    owned.then_some(ParameterEffect::ConsumeInto(binding))
                 );
                 assert_eq!(
                     execution
@@ -224,6 +232,8 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
                 );
             }
             ParameterDestination::Bind(_) | ParameterDestination::Discard => {
+                let owned =
+                    execution.ownership.native_entry(function.id) == ParameterEntry::OwnedAbi;
                 assert_eq!(
                     execution
                         .ownership
@@ -233,10 +243,14 @@ fn distinguishes_borrowed_and_owned_parameter_entries() {
                 assert_eq!(
                     execution
                         .ownership
+                        .parameter_effect(function.id, ParameterEntry::OwnedAbi),
+                    owned.then_some(ParameterEffect::Drop)
+                );
+                assert_eq!(
+                    execution
+                        .ownership
                         .parameter_effect(function.id, ParameterEntry::OwnedHandoff),
-                    execution.control.states[function.entry.0]
-                        .input
-                        .is_some()
+                    (execution.control.states[function.entry.0].input.is_some() || owned)
                         .then_some(ParameterEffect::Drop)
                 );
             }

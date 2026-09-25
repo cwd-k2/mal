@@ -18,6 +18,7 @@ responsibilities. The derivation order and its rules are documented in
 | `parameter` | `Bind` or `Discard` destination for each function parameter |
 | `self_tail_parameter` | parameter leaves, persistent lenders, and entry prefixes admitted for direct self-tail edges |
 | `frame`, `frame/resume`, `frame/replacement` | typed suspension frames, return/frame pairing, and retired frame capacity that can be reused |
+| `derived` | managed values that may share their lifetime with a root value, shared by `environment_alias` and the owned-argument convention |
 | `ownership/*` | managed responsibility plan and its exact validator: authority, borrow, liveness, destination, use and drop plans |
 
 Every materialized plan can rebuild its expected content from its authority and is checked by an exact

@@ -7,6 +7,7 @@ use mal_frontend::check::ast::Type;
 use super::super::{
     ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan, OptimizationPlan,
 };
+use super::borrow::BorrowPlan;
 use super::destination::PatternDestination;
 use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
 use super::liveness::{binding_id, insert_pattern_bindings};
@@ -34,6 +35,7 @@ pub(super) struct UseInputs<'a> {
     pub(super) drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
     pub(super) borrowed_bindings: &'a HashSet<ValueId>,
     pub(super) parameter_borrows: &'a ParameterBorrows,
+    pub(super) borrows: &'a BorrowPlan,
 }
 
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
@@ -49,6 +51,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
         drop_candidates,
         borrowed_bindings,
         parameter_borrows,
+        borrows,
     } = inputs;
     let mut uses = HashMap::new();
     let mut local_bindings = HashSet::new();
@@ -142,6 +145,7 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
             );
         let argument_is_successor = !parameter_borrows.call_sites.contains(&site)
             && (frame.is_some()
+                || parameter_borrows.owned.sites.contains(&site)
                 || matches!(
                     mode,
                     Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
@@ -185,7 +189,17 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
                         state: site,
                         location: UseLocation::Terminator(*operand),
                     },
-                    binding_id(atom).filter(|id| local_bindings.contains(id)),
+                    binding_id(atom)
+                        .filter(|id| local_bindings.contains(id))
+                        .filter(|id| {
+                            dies_at_terminator(
+                                &state.terminator,
+                                frame.is_some(),
+                                live_in,
+                                borrows,
+                                *id,
+                            )
+                        }),
                 ));
             }
         }
@@ -298,4 +312,29 @@ pub(super) fn exclude_consumed_sources(
         }
     }
     drops.retain(|_, values| !values.is_empty());
+}
+
+/// Whether a value handed to a terminator has no use after it, so the terminator may take it over. A call that
+/// suspends the caller keeps its live values in the frame, so its operands are consumed regardless; a native call
+/// resumes the caller in place. The callee operand keeps running while the callee owns the argument, so an
+/// argument that is, or lends to, the callee is shared instead.
+fn dies_at_terminator(
+    terminator: &Terminator,
+    has_frame: bool,
+    live_in: &[HashSet<ValueId>],
+    borrows: &BorrowPlan,
+    id: ValueId,
+) -> bool {
+    let runs_callee = |callee: &crate::closure::ast::Atom| {
+        let mut needed = HashSet::new();
+        borrows.insert(callee, &mut needed);
+        needed.contains(&id)
+    };
+    match terminator {
+        Terminator::Call { callee, resume, .. } if !has_frame => {
+            !live_in[resume.0].contains(&id) && !runs_callee(callee)
+        }
+        Terminator::TailCall { callee, .. } => !runs_callee(callee),
+        _ => true,
+    }
 }

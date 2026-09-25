@@ -9,6 +9,8 @@ use mal_syntax::source::Span;
 pub(crate) struct Program {
     pub bindings: Vec<TopLevelBinding>,
     pub functions: Vec<Function>,
+    /// The function the process entry point calls, which no application site targets by its own convention.
+    pub entry: Option<FunctionId>,
     pub states: Vec<State>,
     pub span: Span,
 }

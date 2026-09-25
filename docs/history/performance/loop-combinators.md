@@ -37,7 +37,9 @@ Status: Historical record
 
 retainの桁あふれtrapを外し、count >= 1を`assume`で伝えると、Buffer stateは2628Mから1027Mになり、要素ごとのRC操作が内側のループから消えた。残る差はvectorizeされないことで、trapとreleaseの分岐が最適化の途中までループ内に残るためである。LTO後のIRをもう一度最適化すると377Mになり、直接再帰と一致した。typical90の79問は出力が全て一致し、新旧の時間比のmedianは0.996だった。
 
-Buffer stateでは、callbackがborrowedなparameterから結果へ値を渡す時の`retain`と、呼び出し側が渡した値を捨てる時の`release`が反復ごとに対になる。
+calleeが保持する引数をcallerがownedで渡す規則（`ownership/convention`）を入れると、Buffer stateは1027Mから377Mになり、直接再帰の376Mと一致した。
+
+以下は規則を入れる前の分析である。Buffer stateでは、callbackがborrowedなparameterから結果へ値を渡す時の`retain`と、呼び出し側が渡した値を捨てる時の`release`が反復ごとに対になる。
 除去にはcalleeが宣言するowned parameter conventionが必要で、closureのdispatchが複数のtargetを持つ限り一つのcall siteが二つのconventionを満たせない。
 Bufferをcaptureして走査するcaseは直接再帰と一致するため、実装せず、conventionの設計を要する課題として残した。
 
