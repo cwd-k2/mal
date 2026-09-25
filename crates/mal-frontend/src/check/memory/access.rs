@@ -1,4 +1,5 @@
 use crate::resolve::ast as resolved;
+use crate::resolve::{COPY_VALUE, FILL_VALUE, GET_VALUE, INTO_VALUE, NEW_VALUE, PUT_VALUE};
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
@@ -13,11 +14,11 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: Span,
     ) -> CheckResult<Expression> {
-        let expected = match reference.name.text.as_str() {
-            "get" | "new" => 2,
-            "put" => 3,
-            "into" | "fill" => 4,
-            "copy" => 5,
+        let expected = match reference.id {
+            NEW_VALUE | GET_VALUE => 2,
+            PUT_VALUE => 3,
+            INTO_VALUE | FILL_VALUE => 4,
+            COPY_VALUE => 5,
             _ => unreachable!("caller recognizes predefined memory operations"),
         };
         if arguments.len() != expected {
@@ -34,8 +35,8 @@ impl Checker {
             );
         }
         let receiver = self.check_expression(&arguments[0], None)?;
-        match (&receiver.ty, reference.name.text.as_str()) {
-            (Type::Buffer(element), "new") => {
+        match (&receiver.ty, reference.id) {
+            (Type::Buffer(element), NEW_VALUE) => {
                 let element = element.clone();
                 let (receiver, value) =
                     self.check_after(receiver, &arguments[1], Some(element.as_ref()))?;
@@ -46,7 +47,7 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(element), "get") => {
+            (Type::Buffer(element), GET_VALUE) => {
                 let element = element.clone();
                 let (receiver, index) =
                     self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
@@ -57,7 +58,7 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(element), "put") => {
+            (Type::Buffer(element), PUT_VALUE) => {
                 let element = element.clone();
                 let (receiver, index) =
                     self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
@@ -70,7 +71,7 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(element), "fill") => {
+            (Type::Buffer(element), FILL_VALUE) => {
                 let element = element.clone();
                 let (receiver, offset) =
                     self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
@@ -85,7 +86,7 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(element), "copy") => {
+            (Type::Buffer(element), COPY_VALUE) => {
                 let element = element.clone();
                 let source_type = Type::Buffer(element.clone());
                 let (receiver, destination_offset) =
@@ -103,7 +104,7 @@ impl Checker {
                     span,
                 ))
             }
-            (Type::Buffer(element), "into") => {
+            (Type::Buffer(element), INTO_VALUE) => {
                 super::ensure_copyable_element(element, receiver.span)?;
                 let (receiver, address) =
                     self.check_after(receiver, &arguments[1], Some(&Type::Address))?;

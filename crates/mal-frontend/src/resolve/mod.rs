@@ -63,11 +63,6 @@ struct Resolver {
 
 impl Resolver {
     fn new(program_span: Span) -> Self {
-        let synthetic_span = Span::new(
-            program_span.file(),
-            program_span.start(),
-            program_span.start(),
-        );
         let mut resolver = Self {
             types: HashMap::new(),
             externals: HashMap::new(),
@@ -78,14 +73,9 @@ impl Resolver {
             next_value: predefined::first_source_value_id(),
             next_external: 0,
             next_lambda: 0,
-            synthetic_span,
+            synthetic_span: program_span,
         };
-        for entry in PREDEFINED_TYPES {
-            resolver.add_predefined_type(entry.name, entry.id);
-        }
-        for entry in PREDEFINED_VALUES {
-            resolver.add_predefined_value(entry.name, entry.id);
-        }
+        resolver.begin_file(program_span);
         resolver
     }
 
@@ -104,6 +94,7 @@ impl Resolver {
         })
     }
 
+    /// Clears the file-local scopes and brings the predefined names back, keeping identity counters program-wide.
     fn begin_file(&mut self, span: Span) {
         self.types.clear();
         self.externals.clear();
