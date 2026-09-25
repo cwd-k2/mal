@@ -301,7 +301,7 @@ fn result_binders_support_hover_definition_references_and_rename() {
     let err_reference_offset = text.rfind("err(\"").unwrap();
 
     let ok = document.occurrence_at(ok_declaration_offset).unwrap();
-    assert_eq!(ok.kind, SymbolKind::Parameter);
+    assert_eq!(ok.kind, SymbolKind::ResultBinder);
     assert_eq!(ok.role, OccurrenceRole::Declaration);
     assert_eq!(
         document.hover_at(ok_declaration_offset).unwrap().ty,
@@ -316,7 +316,7 @@ fn result_binders_support_hover_definition_references_and_rename() {
     assert_eq!(document.rename_spans(ok_reference_offset).unwrap().len(), 2);
 
     let err = document.occurrence_at(err_declaration_offset).unwrap();
-    assert_eq!(err.kind, SymbolKind::Parameter);
+    assert_eq!(err.kind, SymbolKind::ResultBinder);
     assert_eq!(
         document.hover_at(err_reference_offset).unwrap().ty,
         "Symbol"
@@ -329,7 +329,7 @@ fn result_binders_support_hover_definition_references_and_rename() {
     let return_declaration_offset = text.find("[return]").unwrap() + 1;
     let return_reference_offset = text.rfind("return(result)").unwrap();
     let result_binder = document.occurrence_at(return_declaration_offset).unwrap();
-    assert_eq!(result_binder.kind, SymbolKind::Parameter);
+    assert_eq!(result_binder.kind, SymbolKind::ResultBinder);
     assert_eq!(
         document.hover_at(return_reference_offset).unwrap().ty,
         "Result"

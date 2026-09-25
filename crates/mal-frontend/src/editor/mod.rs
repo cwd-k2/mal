@@ -23,6 +23,8 @@ pub enum SymbolKind {
     Value,
     Function,
     Parameter,
+    /// A name introduced by a direct result block; applying it leaves that block.
+    ResultBinder,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

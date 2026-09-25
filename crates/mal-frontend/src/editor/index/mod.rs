@@ -28,6 +28,7 @@ struct Index {
     type_aliases: HashMap<resolved::TypeId, mal_syntax::ast::Node<resolved::TypeExpression>>,
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
+    result_binders: HashSet<resolved::ValueId>,
     typed_regions: Vec<(Span, String)>,
     raw_occurrences: Vec<RawOccurrence>,
     top_level: Vec<SymbolId>,
@@ -50,6 +51,7 @@ impl Index {
             type_aliases: HashMap::new(),
             functions: predefined::functions(),
             parameters: HashSet::new(),
+            result_binders: HashSet::new(),
             typed_regions: Vec::new(),
             raw_occurrences: Vec::new(),
             top_level: Vec::new(),
@@ -161,6 +163,7 @@ impl Index {
     fn kind(&self, id: SymbolId) -> SymbolKind {
         match id {
             SymbolId::Type(_) => SymbolKind::Type,
+            SymbolId::Value(id) if self.result_binders.contains(&id) => SymbolKind::ResultBinder,
             SymbolId::Value(id) if self.parameters.contains(&id) => SymbolKind::Parameter,
             SymbolId::Value(id) if self.functions.contains(&id) => SymbolKind::Function,
             SymbolId::Value(_) => SymbolKind::Value,

@@ -157,6 +157,8 @@ semantic hoverはsymbolごとに次を表示する。
 - 型aliasは右辺を一段だけ表示する。型注釈を持つ値は注釈内のalias名を保った型を、推論された型と名前を持たない
   typed expressionはcanonical typeを表示する。
 - literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
+- direct result blockが導入するbinderは`result binder`として表示し、適用するとenclosing blockを抜け、その位置へ制御が戻らないことを
+  補足する。semantic tokenとcompletionではparameterと同じ分類を使う。
 - source declarationを持つsymbolでは、宣言元fileからの相対pathと1始まりの行・column。
 - documentation。次の段落の規則で選ぶ。
 

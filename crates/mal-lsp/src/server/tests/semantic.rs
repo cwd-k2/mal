@@ -234,3 +234,27 @@ fn serves_hover_and_definition_for_an_alias_in_an_indexed_type() {
         text_position(text, declaration)
     );
 }
+
+#[test]
+fn hover_on_a_result_binder_says_that_applying_it_leaves_the_block() {
+    let text = "Res :: [Int32, Unit];\npick :: Res -> Res := (r) -> [ok, fail] => {\n  v := r[(n) -> n, () -> fail()];\n  ok(v)\n};\n";
+    let uri = "file:///binder.mal";
+    let mut server = open_document(uri, text);
+    let application = text.find("fail()").unwrap();
+
+    let hover = request_at(
+        &mut server,
+        20,
+        "textDocument/hover",
+        uri,
+        text,
+        application,
+    );
+    let value = hover["result"]["contents"]["value"].as_str().unwrap();
+    assert!(value.contains("fail :: Unit"), "{value}");
+    assert!(value.contains("result binder"), "{value}");
+    assert!(
+        value.contains("Applying it leaves the enclosing block"),
+        "{value}"
+    );
+}

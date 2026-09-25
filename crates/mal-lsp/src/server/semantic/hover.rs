@@ -19,6 +19,7 @@ pub(super) fn contents(
             SymbolKind::Type => "type",
             SymbolKind::Function => "function",
             SymbolKind::Parameter => "parameter",
+            SymbolKind::ResultBinder => "result binder",
             SymbolKind::Value => "value",
         };
         (declaration, Some(label))
@@ -29,6 +30,12 @@ pub(super) fn contents(
     let mut contents = format!("```mal\n{declaration}\n```");
     if let Some(label) = label {
         append_section(&mut contents, label);
+    }
+    if occurrence.is_some_and(|occurrence| occurrence.kind == SymbolKind::ResultBinder) {
+        append_section(
+            &mut contents,
+            "Applying it leaves the enclosing block; control does not return to the application.",
+        );
     }
     if let Some(documentation) = documentation {
         append_section(&mut contents, documentation);

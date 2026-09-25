@@ -90,7 +90,7 @@ impl Index {
                 for binder in result_binders {
                     let id = self.canonical_value(binder.binding.id);
                     let parameter_type = crate::check::type_name(&binder.parameter_type);
-                    self.parameters.insert(id);
+                    self.result_binders.insert(id);
                     self.value_types.insert(id, parameter_type.clone());
                     self.typed_regions
                         .push((binder.binding.name.span, parameter_type));

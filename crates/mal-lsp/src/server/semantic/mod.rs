@@ -429,6 +429,6 @@ fn symbol_kind(kind: SymbolKind) -> usize {
     match kind {
         SymbolKind::Type => 5,
         SymbolKind::Function => 12,
-        SymbolKind::Value | SymbolKind::Parameter => 13,
+        SymbolKind::Value | SymbolKind::Parameter | SymbolKind::ResultBinder => 13,
     }
 }

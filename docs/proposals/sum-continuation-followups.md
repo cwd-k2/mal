@@ -8,9 +8,9 @@ Status: Exploratory
 
 ## editor
 
-`Value`か`Abrupt`かをeditorは利用者に示さない。早期脱出がcontinuationの位置に現れると、どのbranchが現在のpathを打ち切るかが
-sourceから読みにくい。`Abrupt`のbranchのhoverと、後続がunreachableである理由の表示を、
-[editor tooling](../development/editor-tooling.md)の設計判断として検討する。
+result binderのhoverは、適用するとblockを抜けることを示す。一方、`Value`か`Abrupt`かをexpression単位でeditorが示す機能はまだない。
+continuationやbranchの位置に早期脱出が現れると、どのbranchが現在のpathを打ち切るかがsourceから読みにくい。`Abrupt`のbranchのhoverと、
+後続がunreachableである理由の表示を、[editor tooling](../development/editor-tooling.md)の設計判断として検討する。
 
 ## 検証
 

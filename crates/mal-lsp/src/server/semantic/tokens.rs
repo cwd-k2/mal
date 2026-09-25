@@ -56,7 +56,7 @@ fn semantic_token_kind(kind: SymbolKind) -> usize {
     match kind {
         SymbolKind::Type => 0,
         SymbolKind::Value => 1,
-        SymbolKind::Parameter => 2,
+        SymbolKind::Parameter | SymbolKind::ResultBinder => 2,
         SymbolKind::Function => 3,
     }
 }

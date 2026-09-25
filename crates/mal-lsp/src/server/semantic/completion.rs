@@ -143,7 +143,7 @@ fn completion_kind(kind: SymbolKind) -> usize {
     match kind {
         SymbolKind::Type => 7,
         SymbolKind::Function => 3,
-        SymbolKind::Value | SymbolKind::Parameter => 6,
+        SymbolKind::Value | SymbolKind::Parameter | SymbolKind::ResultBinder => 6,
     }
 }
 
