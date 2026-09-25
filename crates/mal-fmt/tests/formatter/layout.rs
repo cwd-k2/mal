@@ -14,7 +14,7 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 #[test]
 fn aligns_multiline_sum_continuations_with_the_value() {
     let formatted =
-        format("pick::[Int32,UInt8]->Int32:=(value) -> {value[(x) -> {x},(x) -> {x.i32}];};");
+        format("pick::[Int32,UInt8]->Int32:=(value) -> {value[\n(x) -> {x},(x) -> {x.i32}];};");
 
     assert!(formatted.contains(concat!(
         "    value[\n",
@@ -26,9 +26,40 @@ fn aligns_multiline_sum_continuations_with_the_value() {
 }
 
 #[test]
+fn keeps_sum_continuations_inline_when_the_source_does() {
+    let formatted =
+        format("pick::[Int32,UInt8]->Int32:=(value) -> {value[(x) -> {x},(x) -> {x.i32}];};");
+
+    assert!(formatted.contains("    value[(x) -> { x }, (x) -> { x.i32 }];\n"));
+    assert_eq!(format(&formatted), formatted);
+
+    let binding = format("f:=(v) -> {r:=v[(x) -> x,()->0];r;};");
+    assert!(binding.contains("    r := v[(x) -> x, () -> 0];\n"));
+    assert_eq!(format(&binding), binding);
+}
+
+#[test]
+fn expands_inline_sum_continuations_whose_blocks_need_several_lines() {
+    let formatted = format("f:=(v) -> {v[(x) -> {y:=x;y},(x) -> {x}];};");
+
+    assert!(formatted.contains("    v[\n"));
+    assert!(formatted.contains("    (x) -> {\n"));
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn keeps_a_sum_continuation_broken_when_the_source_breaks_it() {
+    let source = "f:=(v) -> {v[(x) -> x,\n()->0];};";
+    let formatted = format(source);
+
+    assert!(formatted.contains("    v[\n    (x) -> x,\n    () -> 0\n    ];\n"));
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn indents_control_branches_used_as_binding_rhs() {
     let formatted = format(
-        "choose:=(condition, value) -> {selected:=if(condition)then{1}else{2};result:=value[(x) -> {x},(x) -> {x}];selected+result;};",
+        "choose:=(condition, value) -> {selected:=if(condition)then{1}else{2};result:=value[\n(x) -> {x},(x) -> {x}];selected+result;};",
     );
 
     assert!(formatted.contains(concat!(

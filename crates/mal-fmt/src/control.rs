@@ -100,12 +100,21 @@ impl ControlLayout {
                     value,
                     continuations,
                 } => {
-                    if continuations.len() >= 2 {
+                    if continuations.len() >= 2
+                        && let Some(bracket) = sum_bracket(lexed, expression, value)
+                        && !is_inline_sum_continuation(
+                            source,
+                            lexed,
+                            blocks,
+                            bracket,
+                            expression.span.end(),
+                        )
+                    {
                         self.mark_sum_continuation(
                             lexed,
                             expression,
-                            value,
                             continuations,
+                            bracket,
                             position,
                         );
                     }
@@ -164,25 +173,15 @@ impl ControlLayout {
         }
     }
 
+    /// Puts each continuation of a sum elimination on its own line.
     fn mark_sum_continuation(
         &mut self,
         lexed: &Lexed,
         expression: &Node<Expression>,
-        value: &Node<Expression>,
         continuations: &[Node<Expression>],
+        bracket: usize,
         position: ExpressionPosition,
     ) {
-        let start = lexed
-            .tokens
-            .partition_point(|token| token.span.start() < value.span.end());
-        let Some(offset) = lexed.tokens[start..]
-            .iter()
-            .take_while(|token| token.span.end() <= expression.span.end())
-            .position(|token| matches!(token.kind, TokenKind::LeftBracket))
-        else {
-            return;
-        };
-        let bracket = start + offset;
         self.sum_continuations[bracket] = Some(matches!(position, ExpressionPosition::Block));
         for continuation in continuations {
             if let Ok(index) = lexed
@@ -269,6 +268,43 @@ fn compact_branch(
             .location(branch.span.start())
             .zip(source.location(branch.span.end()))
             .is_some_and(|(start, end)| start.line == end.line)
+}
+
+/// The token index of the `[` that opens the continuation list after `value`.
+fn sum_bracket(
+    lexed: &Lexed,
+    expression: &Node<Expression>,
+    value: &Node<Expression>,
+) -> Option<usize> {
+    let start = lexed
+        .tokens
+        .partition_point(|token| token.span.start() < value.span.end());
+    lexed.tokens[start..]
+        .iter()
+        .take_while(|token| token.span.end() <= expression.span.end())
+        .position(|token| matches!(token.kind, TokenKind::LeftBracket))
+        .map(|offset| start + offset)
+}
+
+/// The source keeps the whole bracketed list on one line and none of its blocks needs to expand.
+fn is_inline_sum_continuation(
+    source: &SourceFile,
+    lexed: &Lexed,
+    blocks: &BlockLayout,
+    bracket: usize,
+    end: usize,
+) -> bool {
+    source
+        .location(lexed.tokens[bracket].span.start())
+        .zip(source.location(end))
+        .is_some_and(|(start, end)| start.line == end.line)
+        && lexed.tokens[bracket..]
+            .iter()
+            .take_while(|token| token.span.end() <= end)
+            .enumerate()
+            .all(|(offset, token)| {
+                !matches!(token.kind, TokenKind::LeftBrace) || blocks.is_compact(bracket + offset)
+            })
 }
 
 fn is_inline_if(
