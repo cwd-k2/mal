@@ -11,7 +11,7 @@ Status: Historical records
 | compiler | [D002](D002.md)、[D041](D041.md)、[D045](D045.md)、[D046](D046.md)、[D047](D047.md)、[D065](D065.md)、[D066](D066.md)、[D067](D067.md)、[D069](D069.md) |
 | editor tooling | [D044](D044.md) |
 | closure | [D003](D003.md)、[D007](D007.md)、[D038](D038.md) |
-| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md) |
+| application、sum、Bool、`if` | [D004](D004.md)、[D005](D005.md)、[D043](D043.md)、[D049](D049.md)、[D051](D051.md)、[D072](D072.md) |
 | minimalism | [D008](D008.md)、[D033](D033.md)、[D055](D055.md)、[D057](D057.md) |
 | managed ownership | [D033](D033.md)、[D035](D035.md)、[D041](D041.md)、[D055](D055.md)、[D057](D057.md)、[D058](D058.md) |
 | Float | [D009](D009.md)、[D019](D019.md) |

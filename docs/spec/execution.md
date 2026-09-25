@@ -155,3 +155,4 @@ e ::= variable | literal | lambda | application
 定義ではなく、表面機能を追加するときの意味論上の基準である。
 direct result block、`when`、`Abrupt`もcore境界でlambda result、lambda-local join、sum injection・elimination、
 branchへ消去する。
+直和除去のcontinuationとして直接置いたlambda literalも、payloadを束縛するpattern付きcaseの分岐へ消去する。

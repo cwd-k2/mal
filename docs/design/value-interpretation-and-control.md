@@ -100,6 +100,38 @@ dynamic continuationはsource valueとして構成、capture、clone、resumeで
 [`resizable-buffer`](../../examples/resizable-buffer/)、carrier走査とrelation解釈の分離は
 [`relation-views`](../../examples/relation-views/)に置く。
 
+## lambdaの中断とredex
+
+lambdaは評価の中断（suspension）を導入する。bodyはapplicationまで実行されず、複数回applicationされ得て、定義したblockの
+完了後にも残り得る。result binderをnested lambdaから参照できないのは、この中断がbinderの生存範囲（block invocationの実行中）
+を越え得るからである。禁止の根拠はlambdaの構文ではなく、値としてのlambdaが持つ中断にある。
+
+lambda literalをその場で一度だけapplicationする形は中断を残さない。strictなmalではこれはbeta redexであり、bodyは囲むlambdaと
+同じinvocationに属する。
+
+```text
+x := e; rest        =   (x -> rest)(e)   =   e[(x) -> rest]          （let）
+s[(p0) -> b0, ...]  =   case s of inl p0 => b0 | ...               （case）
+```
+
+[core calculus](../spec/execution.md#core-calculus)は`:=`をlambda applicationへ消去できると定める。beta簡約はpatternの束縛変数へ
+実引数を置換するだけで、束縛名の選択は意味に影響しない。redexのlambda literalはclosure値を作らず、bindingや引数、結果、captureへ
+渡らないため、programから観測できない。したがって動的意味は変わらず、受理される範囲だけがlambda値と異なる。
+
+CPSの見方では、通常関数`A -> B`は`∀R. A -> (B -> R) -> R`に対応し、result binderはそのinvocationのreturn continuation `k`の
+lambda-localな名前である。lambda値は新しい`k`を導入するが、`let`、`case`、`if`は`k`を継承するadministrative redexなので、
+binderは`k`を継承する文脈すべてで見える。binderは囲むblockのjoin pointへのjumpとして働くsecond-classなcontinuation targetで、
+そのinvocationのtail contextなら`let`のbodyや`case`の分岐からも行える。行えないのは中断されたlambda値のbodyからだけである。
+この規則はescapeの実際の有無で受理を変えるescape analysisではなく、redexにclosure値が作られないという分類で決まる。
+
+成功側の残り`rest`をcontinuationの本体へ入れる入れ子は手書きのCPSにあたり、`rest`を外へ出す平坦な形は直接形とabortである。
+失敗側が`Abrupt`（現在のevaluation contextを捨てる）であるため、`E[s[(n) -> n, () -> k(u)]] = s[(n) -> E[n], () -> k(u)]`が
+成り立つ。二つの形は同じlexical join（[D047](../history/decisions/D047.md)）を作り、`rest`はどちらでも一度だけ生成される。
+
+現在この原則が適用されるのは、`:=`とblock、`if`と`when`、[直和除去のcontinuation](../spec/expressions.md#直和の除去)である。
+単一continuationの`x[(n) -> body]`とcallee位置のlambda literalは、同じredexだが未適用であり、
+[提案](../proposals/immediate-lambda-redex.md)が扱う。
+
 ## Host境界
 
 external functionもMAL内では通常の再利用可能なfunction valueであり、そのapplicationごとに一回host operationを実行する。

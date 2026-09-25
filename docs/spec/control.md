@@ -26,7 +26,10 @@ choose :: Bool -> [Int32, Symbol] :=
 binder数はalias展開後の項数と完全に一致しなければならず、省略、追加、部分指定は認めない。一つのbinderは期待result型全体を
 parameterとして受ける。binderはblock-local scopeを持ち、group内の名前重複はcompile-time errorである。外側のvalue nameは
 通常どおりshadowできる。binderはcallee位置でのapplicationにだけ使え、値としてbinding、argument、aggregate、result、capture
-できない。nested lambdaから外側のbinderを参照することは、closureの実際のescapeにかかわらずcompile-time errorである。
+できない。ただし[直和の除去](expressions.md#直和の除去)のcontinuationとして直接置いたbinder名は、payloadを適用する
+applicationとして扱う。値としてのlambdaのbodyから外側のbinderを参照することは、closureの実際のescapeにかかわらず
+compile-time errorである。直和除去のcontinuationとして直接置いたlambda literalは値を作らず、囲むinvocationに属する
+branchなので、この対象ではない。
 
 通常のapplicationと同じく、`result(value)`と`value[result]`は同じbinder applicationである。Unit payloadでは
 `result()`、`()[result]`、`[result]`が同じ意味になる。複数binderの位置`i`を適用するとindex `i`のsum valueを構築する。
@@ -61,6 +64,9 @@ binding initializerは`Value(T)`でなければならない。block途中の式�
 compile-time errorになる。product要素、operator operand、argument、callee、continuationなどstrictに値を要求する位置で
 `Abrupt`になれば囲む式も`Abrupt`になり、評価順で先にある式の作用は保持し、後にあるsubexpressionはunreachableとして拒否する。
 短絡演算とsum eliminationでは選択されないbranchをunreachableとはしない。
+
+sum eliminationのcontinuationがbranchのとき（[直和の除去](expressions.md#直和の除去)）、各branchのcompletionを`if`と同じ`join`で
+畳み込む。少なくとも一つが`Value(T)`なら全体は`Value(T)`、すべてが`Abrupt`なら全体が`Abrupt`である。
 
 ## when
 
