@@ -25,6 +25,7 @@ nominal proof.
 | `socket-packet` | packet framing across sockets and a bounded transfer area |
 | `recoverable-file` | explicit external I/O failure and cleanup paths |
 | `resizable-buffer` | automatic Buffer growth and mutation observed through aliases |
+| `buffer-handles` | Cell and View handles over a Buffer, with a runtime read-only flag |
 | `generic-loop` | iteration derived from a continue-or-break sum result |
 | `tail-recursion` | bounded-stack recursive control |
 | `print-and-closure` | ordered external effects and captured values |

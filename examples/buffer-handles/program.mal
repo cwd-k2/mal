@@ -1,0 +1,113 @@
+// Handles are plain products over a Buffer, so lifetime authority stays in the Buffer. The Bool
+// field is a runtime write permission, because transparent aliases cannot make a distinct type.
+Cell<A> :: (Buffer<A>, USize, Bool);
+View<A> :: (Buffer<A>, USize, USize, Bool);
+
+// A view covers the elements present now. The count of a Buffer never shrinks, so it stays valid.
+view<A> :: Buffer<A> -> View<A> := (buffer) -> (buffer, 0usize, #buffer, true);
+
+freeze<A> :: View<A> -> View<A> := (source) -> {
+    (buffer, offset, length, _) := source;
+    (buffer, offset, length, false);
+};
+
+len<A> :: View<A> -> USize := (source) -> {
+    (_, _, length, _) := source;
+    length;
+};
+
+// The index becomes a Cell here and is not used again.
+at<A> :: (View<A>, USize) -> [Unit, Cell<A>] := (source, index) -> [none, some] => {
+    (buffer, offset, length, writable) := source;
+    when (index < length) some((buffer, offset + index, writable));
+    none();
+};
+
+// Both halves are disjoint by construction.
+split<A> :: (View<A>, USize) -> [Unit, (View<A>, View<A>)] := (source, at) -> [none, some] => {
+    (buffer, offset, length, writable) := source;
+    when (at <= length) some(
+        (buffer, offset, at, writable),
+        (buffer, offset + at, length - at, writable)
+    );
+    none();
+};
+
+uncons<A> :: View<A> -> [Unit, (Cell<A>, View<A>)] := (source) -> [none, some] => {
+    (buffer, offset, length, writable) := source;
+    when (length > 0usize) some(
+        (buffer, offset, writable),
+        (buffer, offset + 1usize, length - 1usize, writable)
+    );
+    none();
+};
+
+read<A> :: Cell<A> -> A := (cell) -> {
+    (buffer, index, _) := cell;
+    buffer.get(index);
+};
+
+// Returns whether the write happened.
+write<A> :: (Cell<A>, A) -> Bool := (cell, value) -> {
+    (buffer, index, writable) := cell;
+    if (writable)
+    then {
+        buffer.put(index, value);
+        true;
+    }
+    else false;
+};
+
+poke<A> :: (View<A>, USize, A) -> Bool := (source, index, value) ->
+    at<A>(source, index)[
+        () -> false,
+        (cell) -> write<A>(cell, value)
+    ];
+
+// Sequential traversal without an index.
+sumFrom :: (View<Int32>, Int32) -> Int32 := (source, total) ->
+    uncons<Int32>(source)[
+        () -> total,
+        (step) -> {
+            (cell, rest) := step;
+            sumFrom(rest, total + read<Int32>(cell));
+        }
+    ];
+
+// Divide and conquer over disjoint halves.
+sumHalves :: View<Int32> -> Int32 := (source) -> {
+    count := len<Int32>(source);
+    if (count == 0usize)
+    then 0i32
+    else if (count == 1usize)
+        then at<Int32>(source, 0usize)[
+            () -> 0i32,
+            (cell) -> read<Int32>(cell)
+        ]
+        else split<Int32>(source, count / 2usize)[
+            () -> 0i32,
+            (halves) -> {
+                (left, right) := halves;
+                sumHalves(left) + sumHalves(right);
+            }
+        ];
+};
+
+main :: Unit -> Int32 := () -> {
+    xs := make<Int32>(4usize);
+    xs.new(1i32);
+    xs.new(2i32);
+    xs.new(3i32);
+    xs.new(4i32);
+
+    writable := view<Int32>(xs);
+    readonly := freeze<Int32>(writable);
+
+    poke<Int32>(writable, 0usize, 10i32);
+    denied := poke<Int32>(readonly, 1usize, 99i32);
+
+    // A rejected write leaves the Buffer unchanged, so both traversals see [10, 2, 3, 4].
+    if (denied)
+    then 0i32 - 1i32
+    else sumFrom(readonly, 0i32) + sumHalves(writable);
+};
