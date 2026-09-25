@@ -21,6 +21,8 @@ Status: Current policy
 technique集合を明示的に渡す。後段はtechnique identityではなく、所有stageが検証したplanだけを読む。
 
 `call_pattern`は例外的にprogramを書き換えるtechniqueであり、`execution/optimization`のdecisionでは表せないため独自のstageに置く。書き換え後のprogramは、binderとatomの識別子が一意である不変条件をdebug buildで検査する。
+`execution/native_recursion`も例外であり、recursive region、call mode、frameのplanから決まるため、それらの入力となる`OptimizationPlan`には
+置けない。これらのplanの後に独自のplanとして構成し、同じ入力から再構成した結果との一致をdebug buildで検査する。
 
 空のtechnique集合は全admitted programを実行できるbaselineである。production集合は採用済みtechniqueの明示的な合成であり、別の
 意味論や別のbackend contractを持たない。新しいtechniqueが既存plan型または無関係なstageの変更を要求する場合は、optimization追加ではなく
