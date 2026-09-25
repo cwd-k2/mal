@@ -4,7 +4,15 @@ use super::ast::{self, Binding, Pattern, Type};
 
 pub(super) fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, Diagnostic> {
     let Pattern::Binding { binding: name, ty } = &binding.pattern else {
-        return Ok(None);
+        return match product_bound_main(&binding.pattern) {
+            Some(name) => Err(
+                Diagnostic::error("invalid entry point binding").with_primary(
+                    name.name.span,
+                    "bind `main` by its own name, not in a product",
+                ),
+            ),
+            None => Ok(None),
+        };
     };
     if name.name.text != "main" {
         return Ok(None);
@@ -35,4 +43,18 @@ pub(super) fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, 
         binding: name.id,
         parameter,
     }))
+}
+
+fn product_bound_main(pattern: &Pattern) -> Option<&crate::resolve::ast::ValueBinding> {
+    let mut pending = vec![pattern];
+    while let Some(pattern) = pending.pop() {
+        match pattern {
+            Pattern::Binding { binding, .. } if binding.name.text == "main" => {
+                return Some(binding);
+            }
+            Pattern::Product { elements, .. } => pending.extend(elements.iter().rev()),
+            Pattern::Binding { .. } | Pattern::Wildcard { .. } => {}
+        }
+    }
+    None
 }
