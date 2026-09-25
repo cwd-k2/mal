@@ -16,8 +16,8 @@ Status: Historical record
 |:---|:---|---:|---:|
 | dijkstra | `examples/csr-dijkstra`の`_loop`利用を8000 nodeへ拡大。managedなtupleをcaptureし、loopを入れ子にする | 546 / 3272 | 549 |
 | matmul, separate combinators | 同じsignatureのcombinatorを別名で三段に重ねた200×200 | 44 / 1777 | 99 |
-| matmul, shared combinator | 同じ`upto<UInt64>`を三段に重ねた200×200 | 44 / 1061 | 1061 |
-| shared combinator | 一つの`upto<UInt64>`を三種のcallbackで使う | 632 / 1500 | 1500 |
+| matmul, shared combinator | 同じ`upto<UInt64>`を三段に重ねた200×200 | 44 / 1061 | 99 |
+| shared combinator | 一つの`upto<UInt64>`を三種のcallbackで使う | 632 / 1500 | 504 |
 | buffer state | Bufferをloop stateに載せて200万要素を走査 | 376 / 2628 | 2628 |
 | buffer capture | Bufferをcaptureして走査 | 376 / 377 | 377 |
 
@@ -29,8 +29,11 @@ Status: Historical record
 - **captureの読み取りがreferenceを取る。** dijkstraの差は、retain/releaseをno-opにした診断用buildで546Mへ一致した（差はすべてreference count操作）。
   captureから読んだmanaged valueは、activeなenvironmentが保持するためlenderなしのaliasとしてborrowする。frameはそのようなaliasがliveならenvironmentを運び、
   tail callはenvironmentを手放した後に走るためaliasを渡さない。
-- **同じgeneric instanceを複数のclosureで共有する。** flowはcontext insensitiveなので、`step`に三つのcallbackが届く`upto<UInt64>`は入れ子でもcycleのまま残る。
-  LTO後のIRをもう一度`-O2`に通すと1500Mが527Mになるため、inlineの余地は残るが、2周目の最適化はcompile timeを増やすだけで採用しなかった。
+- **同じfunctionを複数のclosureで共有する。** flowはcontext insensitiveなので、`step`に三つのcallbackが届く`upto<UInt64>`は入れ子でもcycleのまま残り、
+  callbackもinlineされなかった。LTO後のIRをもう一度`-O2`に通すと1500Mが527Mになったが、2周目の最適化はcompile timeを増やすだけで採用しなかった。
+  代わりに、closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製する`call_pattern` stageを追加した（production集合のみ）。
+  複製したfunctionは自分のcallbackだけを呼ぶため、cycleとregionが消え、callbackがinlineされた。example corpusのtext sizeは変わらないか小さくなった
+  （`csr-dijkstra` 7692→6796 bytes、`json-query` 25218→23250 bytes）。複製数はfunction数の4倍に64を足した数までである。
 
 Buffer stateでは、callbackがborrowedなparameterから結果へ値を渡す時の`retain`と、呼び出し側が渡した値を捨てる時の`release`が反復ごとに対になる。
 除去にはcalleeが宣言するowned parameter conventionが必要で、closureのdispatchが複数のtargetを持つ限り一つのcall siteが二つのconventionを満たせない。
