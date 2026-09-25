@@ -5,8 +5,8 @@ use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
 use super::{
-    ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, OptimizationPlan,
-    ParameterPlan, SelfTailParameterPlan,
+    ApplicationGraph, ControlCallPlan, ControlFramePlan, ControlRegionPlan, EnvironmentAliasPlan,
+    OptimizationPlan, ParameterPlan, SelfTailParameterPlan,
 };
 
 mod authority;
@@ -22,6 +22,8 @@ mod use_plan;
 
 #[cfg(test)]
 mod construction_tests;
+#[cfg(test)]
+mod environment_tests;
 #[cfg(test)]
 mod parameter_tests;
 #[cfg(test)]
@@ -121,7 +123,13 @@ impl Plan {
         } = inputs;
         let parameter_borrows = ParameterBorrows::new(control, applications, calls, regions);
         let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
-        let borrows = BorrowPlan::new(control, &parameter_borrows, &self_tail_parameters);
+        let environment_aliases = EnvironmentAliasPlan::new(control, optimizations);
+        let borrows = BorrowPlan::new(
+            control,
+            &parameter_borrows,
+            &self_tail_parameters,
+            &environment_aliases,
+        );
         let live_in = borrows.live_in(control);
         let borrowed_bindings = borrows.bindings();
         let mut input_destinations = HashMap::new();

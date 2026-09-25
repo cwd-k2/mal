@@ -101,3 +101,19 @@ main :: Unit -> Int32 := () -> {
     append(names);
     if (#names == 5usize) then 0 else 1
 };
+### captured_aggregate_read_survives_a_recursive_call | run:0
+call :: ((UInt64 -> UInt64), UInt64) -> UInt64 := (function, value) -> { function(value); };
+main :: Unit -> Int32 := () -> {
+    data := make<UInt64>(2usize);
+    data.new(5u64);
+    data.new(7u64);
+    pair := (data, 3u64);
+    sum :: UInt64 -> UInt64 := (n) -> {
+        (values, scale) := pair;
+        if (n == 0u64) then { 0u64 } else {
+            rest := call(sum, n - 1u64);
+            rest + values.get(0usize) * scale;
+        };
+    };
+    if (sum(4u64) == 60u64) then 0 else 1;
+};

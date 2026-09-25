@@ -8,7 +8,7 @@ use super::liveness::{
     managed_binding_id, remove_pattern_bindings, successors, terminator_live, visit_operation_atoms,
 };
 use super::parameter::ParameterBorrows;
-use crate::execution::SelfTailParameterPlan;
+use crate::execution::{EnvironmentAliasPlan, SelfTailParameterPlan};
 
 #[derive(Default)]
 pub(super) struct BorrowPlan {
@@ -20,6 +20,7 @@ impl BorrowPlan {
         control: &Program,
         parameters: &ParameterBorrows,
         self_tail_parameters: &SelfTailParameterPlan,
+        environment: &EnvironmentAliasPlan,
     ) -> Self {
         let initial = Self::default();
         let live_in = initial.live_in(control);
@@ -28,6 +29,7 @@ impl BorrowPlan {
             parameters,
             &live_in,
             &self_tail_parameters.persistent_lenders(&parameters.functions),
+            environment,
         );
         Self { authorities }
     }

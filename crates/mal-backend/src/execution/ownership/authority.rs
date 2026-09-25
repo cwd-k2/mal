@@ -9,12 +9,14 @@ use super::liveness::{
     visit_operation_atoms,
 };
 use super::parameter::ParameterBorrows;
+use crate::execution::EnvironmentAliasPlan;
 
 pub(super) fn collect(
     control: &Program,
     parameters: &ParameterBorrows,
     live_in: &[HashSet<ValueId>],
     persistent_lenders: &HashSet<ValueId>,
+    environment: &EnvironmentAliasPlan,
 ) -> HashMap<ValueId, HashSet<ValueId>> {
     let mut authorities = parameters
         .bindings
@@ -29,11 +31,13 @@ pub(super) fn collect(
         &mut authorities,
         &mut deferred_aliases,
         &mut discarded_results,
+        environment,
     );
     collect_case_payloads(control, live_in, &mut authorities);
     collect_bounded_arguments(control, parameters, &mut discarded_results);
     trace_pure_construction(control, discarded_results, &mut authorities);
     resolve_aliases(&mut authorities, &mut deferred_aliases);
+    remove_environment_aliases_used_by_tail_calls(control, environment, &mut authorities);
     remove_unbounded_aliases(control, persistent_lenders, &mut authorities);
     authorities
 }
@@ -44,10 +48,12 @@ fn collect_aliases(
     authorities: &mut HashMap<ValueId, HashSet<ValueId>>,
     deferred: &mut HashMap<ValueId, Vec<ValueId>>,
     discarded: &mut HashSet<ValueId>,
+    environment: &EnvironmentAliasPlan,
 ) {
     for state in &control.states {
         let mut live = terminator_live(&state.terminator, live_in);
         for binding in state.bindings.iter().rev() {
+            borrow_capture_reads(binding, &live, environment, authorities);
             if let Operation::Atom(atom) = &binding.operation
                 && let Some(source) = managed_binding_id(atom)
             {
@@ -262,4 +268,50 @@ fn remove_unbounded_aliases(
         }
     }
     authorities.retain(|borrowed, _| !invalid.contains(borrowed));
+}
+
+/// A managed value read from a capture is held by the active environment, which outlives the activation's
+/// suspensions (the frame keeps it while a derived value is live), so the read borrows without a lender.
+fn borrow_capture_reads(
+    binding: &crate::control::ast::Binding,
+    live: &HashSet<ValueId>,
+    environment: &EnvironmentAliasPlan,
+    authorities: &mut HashMap<ValueId, HashSet<ValueId>>,
+) {
+    let Operation::Atom(atom) = &binding.operation else {
+        return;
+    };
+    if !matches!(
+        atom.kind,
+        crate::closure::ast::AtomKind::Reference(crate::closure::ast::Reference::Capture(_))
+    ) {
+        return;
+    }
+    let mut leaves = Vec::new();
+    collect_pattern_binding_order(&binding.pattern, &mut leaves);
+    for leaf in leaves {
+        if live.contains(&leaf) && environment.is_root(leaf) {
+            authorities.insert(leaf, HashSet::new());
+        }
+    }
+}
+
+/// A tail call hands its operands to code that runs after the activation's environment is released, so a value
+/// tied to that environment must be an owner there.
+fn remove_environment_aliases_used_by_tail_calls(
+    control: &Program,
+    environment: &EnvironmentAliasPlan,
+    authorities: &mut HashMap<ValueId, HashSet<ValueId>>,
+) {
+    for state in &control.states {
+        if let Terminator::TailCall { callee, argument } = &state.terminator {
+            for atom in [callee, argument] {
+                if let Some(binding) = managed_binding_id(atom)
+                    && environment.is_tied(binding)
+                {
+                    authorities.remove(&binding);
+                }
+            }
+        }
+    }
 }

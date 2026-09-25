@@ -30,6 +30,7 @@ impl ControlFramePlan {
         calls: &ControlCallPlan,
         optimizations: &super::OptimizationPlan,
     ) -> Self {
+        let environment_aliases = super::EnvironmentAliasPlan::new(program, optimizations);
         let mut frames = HashMap::new();
         for (index, state) in program.states.iter().enumerate() {
             let site = StateId(index);
@@ -49,7 +50,11 @@ impl ControlFramePlan {
                         .frame_pass_through(site)
                         .cloned()
                         .unwrap_or_default(),
-                    carries_environment: resume_state.needs_environment
+                    carries_environment: (resume_state.needs_environment
+                        || resume_state
+                            .live
+                            .iter()
+                            .any(|value| environment_aliases.is_tied(value.id)))
                         && calls.requires_common_control(region),
                 },
             );
@@ -82,6 +87,7 @@ impl ControlFramePlan {
         calls: &ControlCallPlan,
         optimizations: &super::OptimizationPlan,
     ) -> bool {
+        let environment_aliases = super::EnvironmentAliasPlan::new(program, optimizations);
         let expected_sites = program
             .states
             .iter()
@@ -136,7 +142,11 @@ impl ControlFramePlan {
                         .iter()
                         .all(|id| frame.fields.iter().any(|field| field.id == *id))
                     && frame.carries_environment
-                        == (program.states[frame.resume.0].needs_environment
+                        == ((program.states[frame.resume.0].needs_environment
+                            || program.states[frame.resume.0]
+                                .live
+                                .iter()
+                                .any(|value| environment_aliases.is_tied(value.id)))
                             && regions
                                 .site_region(*site)
                                 .is_some_and(|region| calls.requires_common_control(region)))

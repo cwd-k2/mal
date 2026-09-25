@@ -99,6 +99,8 @@ releaseし、environment storageを解放する。
 
 capture-free closureはnull environmentを使う。self closureは実行中のactive environmentをborrowし、escapeする保存先でretainする。
 
+captureから読んだmanaged valueはactive environmentがactivationの間保持しているため、独自のreferenceを取らず、lenderを持たないaliasとしてborrowする。`execution/environment_alias`が、captureを直接読むbindingと、そこから派生し得る値をenvironmentに結ばれた値として一箇所で決める。その値がresume時にliveなframeはenvironment ownerを運ぶ。tail callはenvironmentを手放した後に走るため、operandがenvironmentに結ばれた値ならその値はownerとなり、参照を取る。unique captureが消費するcaptureはこの対象に含めない。
+
 ## control frame
 
 recursive regionのnon-tail callではresume live-inのmanaged fieldと次activationのargumentを、ownership planの`Share`または`Consume`に従って

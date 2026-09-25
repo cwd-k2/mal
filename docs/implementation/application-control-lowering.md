@@ -53,7 +53,7 @@ patternとentry prefixを構成する。保持されるmanaged leafはinvocation
 ## continuation frame
 
 同じregion内のnon-tail callだけがcallerをsuspendする。frameはresume state、resume時に必要なlive value、および共通regionで必要な
-active closure environment ownerを保持する。semantic field集合はresume stateのlive-inと一致し、backendがclosure IR suffixを再走査して
+active closure environment ownerを保持する。environment ownerが必要なのは、resume以降にenvironmentを使う場合と、environmentに結ばれた値（[ownership](ownership.md#closure-environment)）がliveな場合である。semantic field集合はresume stateのlive-inと一致し、backendがclosure IR suffixを再走査して
 増減してはならない。全自己再帰edgeが同じparameter bindingを保持するというexecution decisionがあり、そのfieldがownership上borrowの
 場合だけ、LLVMのphysical layoutはfieldをslotに常駐させてframeへのstoreとresume loadを省ける。top-level valueはconstant planから再取得
 できるためframeへ保存しない。`execution/frame/resume`は同じcontrol
