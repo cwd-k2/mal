@@ -67,6 +67,8 @@ fn injected_bool(expression: &Expression) -> bool {
 
 #[path = "core/boolean.rs"]
 mod boolean;
+#[path = "core/buffer.rs"]
+mod buffer;
 #[path = "core/elimination.rs"]
 mod elimination;
 #[path = "core/functions.rs"]

@@ -45,24 +45,11 @@ impl Lowerer {
                 primitive,
                 operands,
             } => {
-                if matches!(
-                    primitive,
-                    checked::MemoryPrimitive::BufferMake
-                        | checked::MemoryPrimitive::BufferNew
-                        | checked::MemoryPrimitive::BufferGet
-                        | checked::MemoryPrimitive::BufferPut
-                        | checked::MemoryPrimitive::BufferFill
-                        | checked::MemoryPrimitive::BufferCopy
-                ) {
-                    return self.lower_buffer_operation(*primitive, operands, expression);
-                }
-                ExpressionKind::Memory {
-                    primitive: *primitive,
-                    operands: operands
-                        .iter()
-                        .map(|operand| self.lower_expression(operand))
-                        .collect(),
-                }
+                let operands = operands
+                    .iter()
+                    .map(|operand| self.lower_expression(operand))
+                    .collect();
+                buffer::memory_kind(*primitive, operands, &expression.ty)
             }
             checked::ExpressionKind::NumericConversion { value } => {
                 ExpressionKind::NumericConversion {

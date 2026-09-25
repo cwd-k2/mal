@@ -1,57 +1,43 @@
-use super::Lowerer;
 use super::ast::{BufferOperation, Expression, ExpressionKind};
 use mal_frontend::check::ast as checked;
 
-impl Lowerer {
-    pub(super) fn lower_buffer_operation(
-        &mut self,
-        primitive: checked::MemoryPrimitive,
-        operands: &[checked::Expression],
-        expression: &checked::Expression,
-    ) -> Expression {
-        if primitive == checked::MemoryPrimitive::BufferMake {
-            let [capacity] = operands else {
-                unreachable!("checked make has one capacity operand")
-            };
-            let checked::Type::Buffer(element) = &expression.ty else {
-                unreachable!("checked make returns Buffer")
-            };
-            return Expression {
-                kind: ExpressionKind::Buffer {
-                    operation: BufferOperation::Make,
-                    element: element.as_ref().clone(),
-                    operands: vec![self.lower_expression(capacity)],
-                },
-                ty: expression.ty.clone(),
-                span: expression.span,
+/// The core form of a checked memory primitive over operands that are already lowered. `Buffer` operations keep their
+/// logical operands and element type; the other primitives keep their operands as they are. Every lowering path that
+/// rebuilds a memory expression goes through this function, so no path can leave a `Buffer` primitive in the generic form.
+pub(super) fn memory_kind(
+    primitive: checked::MemoryPrimitive,
+    operands: Vec<Expression>,
+    result_type: &checked::Type,
+) -> ExpressionKind {
+    let operation = match primitive {
+        checked::MemoryPrimitive::BufferMake => BufferOperation::Make,
+        checked::MemoryPrimitive::BufferNew => BufferOperation::New,
+        checked::MemoryPrimitive::BufferGet => BufferOperation::Get,
+        checked::MemoryPrimitive::BufferPut => BufferOperation::Put,
+        checked::MemoryPrimitive::BufferFill => BufferOperation::Fill,
+        checked::MemoryPrimitive::BufferCopy => BufferOperation::Copy,
+        _ => {
+            return ExpressionKind::Memory {
+                primitive,
+                operands,
             };
         }
-
-        let [buffer, rest @ ..] = operands else {
-            unreachable!("checked Buffer operation has a receiver")
-        };
-        let checked::Type::Buffer(element) = &buffer.ty else {
-            unreachable!("checked Buffer operation has a Buffer receiver")
-        };
-        let operation = match (primitive, rest) {
-            (checked::MemoryPrimitive::BufferNew, [_]) => BufferOperation::New,
-            (checked::MemoryPrimitive::BufferGet, [_]) => BufferOperation::Get,
-            (checked::MemoryPrimitive::BufferPut, [_, _]) => BufferOperation::Put,
-            (checked::MemoryPrimitive::BufferFill, [_, _, _]) => BufferOperation::Fill,
-            (checked::MemoryPrimitive::BufferCopy, [_, _, _, _]) => BufferOperation::Copy,
-            _ => unreachable!("checked Buffer operation has valid operands"),
-        };
-        Expression {
-            kind: ExpressionKind::Buffer {
-                operation,
-                element: element.as_ref().clone(),
-                operands: operands
-                    .iter()
-                    .map(|operand| self.lower_expression(operand))
-                    .collect(),
-            },
-            ty: expression.ty.clone(),
-            span: expression.span,
-        }
+    };
+    // `make` returns the Buffer; every other operation takes it as the first operand.
+    let buffer_type = if operation == BufferOperation::Make {
+        result_type
+    } else {
+        &operands
+            .first()
+            .expect("checked Buffer operation has a receiver")
+            .ty
+    };
+    let checked::Type::Buffer(element) = buffer_type else {
+        unreachable!("checked Buffer operation has a Buffer type")
+    };
+    ExpressionKind::Buffer {
+        operation,
+        element: element.as_ref().clone(),
+        operands,
     }
 }

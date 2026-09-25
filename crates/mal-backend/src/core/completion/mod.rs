@@ -357,10 +357,7 @@ impl Lowerer {
                 operands,
                 result_type,
                 continuation,
-                |operands| ExpressionKind::Memory {
-                    primitive: *primitive,
-                    operands,
-                },
+                |operands| super::buffer::memory_kind(*primitive, operands, &value.ty),
                 value,
             ),
             _ => unreachable!("control-free values are lowered by the direct path"),

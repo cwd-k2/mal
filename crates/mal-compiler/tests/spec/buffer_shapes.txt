@@ -478,3 +478,35 @@ main :: Unit -> Int32 := () -> {
     if (#items == 2usize + 3000usize + 500usize && total == #items - 500usize + 500usize && allClean(items, 0usize, 0usize) == 0usize
         && #x > 0usize && #y > 0usize && #z > 0usize) then 0 else 1
 };
+### buffer_operations_with_operands_that_contain_control | run:0
+Maybe :: [Unit, Symbol];
+
+isText :: (Maybe, Symbol) -> Bool := (option, expected) -> option[() -> false, (text) -> text == expected];
+
+main :: Unit -> Int32 := () -> {
+    options := make<Maybe>([size] => size(2usize));
+    options.new([none, some] => some("a" + "b"));
+    options.new([none, some] => none());
+    options.put([index] => index(1usize), [none, some] => some("c" + "d"));
+    ok := isText(options.get([index] => index(0usize)), "ab") && isText(options.get(1usize), "cd");
+    options.fill(0usize, [length] => length(2usize), [none, some] => some("e" + "f"));
+    names := make<Symbol>(0usize);
+    names.new(if (ok) then "x" + "y" else "z");
+    names.new("k");
+    names.copy(0usize, names, [start] => start(1usize), [length] => length(1usize));
+    if (ok && isText(options.get(0usize), "ef") && isText(options.get(1usize), "ef")
+        && names.get(0usize) == "k" && names.get(1usize) == "k" && #names == 2usize) then 0 else 1
+};
+### canonical_buffer_operations_with_operands_that_contain_control | run:0
+Maybe :: [Unit, Int32];
+
+value :: Maybe -> Int32 := (option) -> option[() -> 0i32, (number) -> number];
+
+main :: Unit -> Int32 := () -> {
+    options := make<Maybe>(0usize);
+    options.new([none, some] => some(3i32));
+    options.new([none, some] => none());
+    options.put([index] => index(1usize), [none, some] => some(4i32));
+    options.fill(0usize, 2usize, [none, some] => some(value(options.get([index] => index(1usize))) + 1i32));
+    if (value(options.get(0usize)) == 5i32 && value(options.get(1usize)) == 5i32) then 0 else 1
+};
