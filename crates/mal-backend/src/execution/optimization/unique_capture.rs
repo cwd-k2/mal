@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{self as closure, Atom, AtomId, AtomKind, FunctionId, Reference};
-use crate::control::ast::{Operation, Program, Terminator};
+use crate::control::ast::{Operation, Program, StateId, Terminator};
 
 use super::super::ApplicationGraph;
 
@@ -10,17 +10,26 @@ pub(super) fn plan(
     program: &Program,
     applications: &ApplicationGraph,
 ) -> HashSet<AtomId> {
+    let recursive = recursive_functions(program, applications);
+    let final_entry = lowered
+        .entry
+        .map(|entry| entry.function)
+        .filter(|entry| is_final_entry(*entry, &recursive, applications));
+    let invocations = invocation_sites(applications);
     program
         .functions
         .iter()
         .filter(|function| {
-            !is_recursive(function.id, applications)
-                && has_one_final_entry_invocation(
-                    function.id,
-                    lowered.entry.map(|entry| entry.function),
-                    program,
-                    applications,
-                )
+            !recursive.contains(&function.id)
+                && final_entry.is_some_and(|entry| {
+                    has_one_final_entry_invocation(
+                        function.id,
+                        entry,
+                        program,
+                        applications,
+                        &invocations,
+                    )
+                })
         })
         .flat_map(|function| {
             let mut capture_uses = HashMap::<usize, usize>::new();
@@ -50,38 +59,45 @@ pub(super) fn plan(
         .collect()
 }
 
-fn has_one_final_entry_invocation(
-    function: FunctionId,
-    entry: Option<FunctionId>,
-    program: &Program,
+/// The entry runs once when nothing applies it and it cannot reach itself.
+fn is_final_entry(
+    entry: FunctionId,
+    recursive: &HashSet<FunctionId>,
     applications: &ApplicationGraph,
 ) -> bool {
-    let Some(entry) = entry else {
-        return false;
-    };
-    if is_recursive(entry, applications)
-        || applications.sites().any(|(site, _)| {
+    !recursive.contains(&entry)
+        && !applications.sites().any(|(site, _)| {
             applications
                 .targets(site)
                 .is_some_and(|targets| targets.contains(&entry))
         })
-    {
-        return false;
+}
+
+/// The application sites that may invoke each function.
+fn invocation_sites(applications: &ApplicationGraph) -> HashMap<FunctionId, Vec<StateId>> {
+    let mut invocations = HashMap::<FunctionId, Vec<StateId>>::new();
+    for (site, _) in applications.sites() {
+        for target in applications.targets(site).into_iter().flatten() {
+            let sites = invocations.entry(*target).or_default();
+            if sites.last() != Some(&site) {
+                sites.push(site);
+            }
+        }
     }
-    let mut sites = applications
-        .sites()
-        .filter(|(site, _)| {
-            applications
-                .targets(*site)
-                .is_some_and(|targets| targets.contains(&function))
-        })
-        .map(|(site, _)| site);
-    let Some(site) = sites.next() else {
+    invocations
+}
+
+fn has_one_final_entry_invocation(
+    function: FunctionId,
+    entry: FunctionId,
+    program: &Program,
+    applications: &ApplicationGraph,
+    invocations: &HashMap<FunctionId, Vec<StateId>>,
+) -> bool {
+    let Some([site]) = invocations.get(&function).map(Vec::as_slice) else {
         return false;
     };
-    if sites.next().is_some() {
-        return false;
-    }
+    let site = *site;
     if applications.caller(site) != Some(entry) {
         return false;
     }
@@ -102,21 +118,34 @@ fn has_one_final_entry_invocation(
     }
 }
 
-fn is_recursive(function: FunctionId, applications: &ApplicationGraph) -> bool {
-    let mut pending = vec![function];
-    let mut seen = HashSet::new();
-    while let Some(caller) = pending.pop() {
-        if !seen.insert(caller) {
-            continue;
-        }
-        for (_, targets) in applications.sites_from(caller) {
-            if targets.contains(&function) {
-                return true;
+/// The functions that can reach themselves through the possible targets of their application sites.
+fn recursive_functions(program: &Program, applications: &ApplicationGraph) -> HashSet<FunctionId> {
+    let indices = program
+        .functions
+        .iter()
+        .enumerate()
+        .map(|(index, function)| (function.id, index))
+        .collect::<HashMap<_, _>>();
+    let mut graph = vec![Vec::new(); program.functions.len()];
+    let mut recursive = HashSet::new();
+    for (index, function) in program.functions.iter().enumerate() {
+        for (_, targets) in applications.sites_from(function.id) {
+            for target in targets {
+                if *target == function.id {
+                    recursive.insert(function.id);
+                }
+                if let Some(target) = indices.get(target) {
+                    graph[index].push(*target);
+                }
             }
-            pending.extend(targets.iter().copied());
         }
     }
-    false
+    for component in super::super::region::strongly_connected_components(&graph) {
+        if component.len() > 1 {
+            recursive.extend(component.iter().map(|index| program.functions[*index].id));
+        }
+    }
+    recursive
 }
 
 fn visit_state_atoms(state: &crate::control::ast::State, mut visit: impl FnMut(&Atom)) {

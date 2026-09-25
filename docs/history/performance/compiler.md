@@ -176,3 +176,8 @@ callgrindでは三つの二乗が`malc`側の時間の大半を占めていた�
 いずれもexamples、probe program、Typical 90の79問、`.scratch/loop-perf`のworkloadとreproについて、両modeで生成した
 LLVM moduleとC shimが変更前とbyte単位で一致した。残る伸びはClang、`unique_capture`の入口判定、call-pattern specializationの
 反復loweringにある。
+
+同じ日に、`c<i> :: Int32 -> Int32 := (x) -> c<i-1>(x) + 1i32`をlocal closureとして`n`個連ねたsourceでも測った。
+`execution/optimization/unique_capture`がfunctionごとにapplication graphをDFSして再帰を判定し、functionごとに全
+application siteを走査していた。再帰functionはSCCで一度に求め、各functionを呼ぶsiteも一度だけ索引する。`malc`側の時間は
+`n = 4,000`で約2.3 sから0.1 s未満になり、残りはClangである。生成物は上と同じcorpusでbyte単位で一致した。

@@ -138,7 +138,7 @@ impl ControlRegionPlan {
     }
 }
 
-fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {
+pub(super) fn strongly_connected_components(graph: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let mut finished = vec![false; graph.len()];
     let mut order = Vec::with_capacity(graph.len());
     for root in 0..graph.len() {
