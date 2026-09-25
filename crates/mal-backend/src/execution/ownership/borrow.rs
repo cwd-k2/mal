@@ -4,7 +4,9 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Atom;
 use crate::control::ast::{Program, Terminator};
 
-use super::liveness::{managed_binding_id, remove_pattern_bindings, terminator_live};
+use super::liveness::{
+    local_bindings, managed_binding_id, remove_pattern_bindings, terminator_live,
+};
 use super::parameter::ParameterBorrows;
 use crate::execution::{EnvironmentAliasPlan, SelfTailParameterPlan};
 
@@ -37,6 +39,9 @@ impl BorrowPlan {
     }
 
     pub(super) fn live_in(&self, control: &Program) -> Vec<HashSet<ValueId>> {
+        // Only values the program binds can be live; a top-level value referenced later would otherwise stay live
+        // in every earlier state.
+        let locals = local_bindings(control);
         let mut live_in = vec![HashSet::new(); control.states.len()];
         for (index, state) in control.states.iter().enumerate() {
             debug_assert!(
@@ -49,6 +54,7 @@ impl BorrowPlan {
             if let Some(input) = &state.input {
                 remove_pattern_bindings(input, &mut live);
             }
+            live.retain(|binding| locals.contains(binding));
             live_in[index] = live;
         }
         live_in

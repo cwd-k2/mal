@@ -6,7 +6,7 @@ use crate::control::ast::{StateId, Terminator};
 use super::super::{ControlCallMode, ControlCallPlan, ControlFramePlan};
 use super::borrow::BorrowPlan;
 use super::identity::{ControlPath, EdgeId, UseEffect, UseId, UseLocation};
-use super::liveness::collect_pattern_binding_order;
+use super::liveness::local_binding_order;
 use super::operand::{terminator_argument, terminator_operands};
 
 pub(super) fn collect_edge_drops(
@@ -18,25 +18,15 @@ pub(super) fn collect_edge_drops(
     uses: &HashMap<UseId, UseEffect>,
     borrowed_bindings: &HashSet<ValueId>,
 ) -> HashMap<EdgeId, Vec<ValueId>> {
-    let mut local_order = Vec::new();
-    for function in &control.functions {
-        if let Some(binding) = function.parameter.binding {
-            local_order.push(binding);
+    let local_order = local_binding_order(control);
+    // Drops follow program order, so an edge that drops several values releases them in the same order everywhere.
+    let mut order = HashMap::new();
+    for binding in local_order {
+        if !borrowed_bindings.contains(&binding) {
+            let position = order.len();
+            order.entry(binding).or_insert(position);
         }
     }
-    for state in &control.states {
-        if let Some(input) = &state.input {
-            collect_pattern_binding_order(input, &mut local_order);
-        }
-        for binding in &state.bindings {
-            collect_pattern_binding_order(&binding.pattern, &mut local_order);
-        }
-    }
-    let local_bindings = local_order
-        .iter()
-        .copied()
-        .filter(|binding| !borrowed_bindings.contains(binding))
-        .collect::<HashSet<_>>();
     let mut result = HashMap::new();
     for (state_index, state) in control.states.iter().enumerate() {
         let site = StateId(state_index);
@@ -79,16 +69,15 @@ pub(super) fn collect_edge_drops(
                 consumed.insert(id);
             }
             let survivors = successor.map(|target| &live_in[target.0]);
-            let drops = local_order
+            let mut drops = live
                 .iter()
-                .copied()
-                .filter(|id| {
-                    local_bindings.contains(id)
-                        && live.contains(id)
-                        && !consumed.contains(id)
-                        && survivors.is_none_or(|values| !values.contains(id))
+                .filter_map(|id| order.get(id).map(|position| (*position, *id)))
+                .filter(|(_, id)| {
+                    !consumed.contains(id) && survivors.is_none_or(|values| !values.contains(id))
                 })
                 .collect::<Vec<_>>();
+            drops.sort_unstable_by_key(|(position, _)| *position);
+            let drops = drops.into_iter().map(|(_, id)| id).collect::<Vec<_>>();
             if !drops.is_empty() {
                 result.insert(EdgeId { state: site, path }, drops);
             }

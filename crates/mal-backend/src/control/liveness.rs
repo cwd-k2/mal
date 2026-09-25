@@ -40,6 +40,9 @@ impl Lowerer {
         for index in start..end {
             let state = &self.states[index];
             let (mut next, definitions, uses_environment) = state_facts(state);
+            // Top-level and predefined bindings are never live values; carrying them would make every state hold
+            // every later reference to them.
+            next.retain(|id| local_values.contains_key(id));
             let mut next_environment = uses_environment;
             for successor in state.terminator.successors() {
                 debug_assert!(
@@ -62,7 +65,7 @@ impl Lowerer {
             let state_live = &live_in[index - start];
             let mut live = state_live
                 .iter()
-                .filter_map(|id| local_values.get(id).copied())
+                .map(|id| local_values[id])
                 .collect::<Vec<_>>();
             live.sort_unstable_by_key(|(rank, _)| *rank);
             self.states[index].live = live.into_iter().map(|(_, value)| value.clone()).collect();

@@ -8,12 +8,12 @@ Status: Historical measurement record
 
 ## 測定方法
 
-`compiler/benches/pipeline.rs`は250個のtype alias、500個の定数、251個のfunctionを持つ45,904 byteのsourceを
-memory上で生成する。parse、resolve、check、各lowering、C emissionを独立して測定し、frontend全体とsemantic queryも
-測定する。各項目は100 ms以上の反復を7 sample行い、`ns/iter`の中央値と最小・最大を表示する。
+`crates/mal-compiler/benches/pipeline.rs`は250個のtype alias、500個の定数、251個のfunctionを持つsourceを
+memory上で生成する。lex、parse、resolve、check、specialization、baselineのLLVM artifact生成を独立して測定し、frontend全体と
+editor analysisも測定する。各項目は100 ms以上の反復を7 sample行い、`ns/iter`の中央値と最小・最大を表示する。
 
 ```nu
-cargo bench --manifest-path compiler/Cargo.toml --bench pipeline
+cargo bench -p mal-compiler --bench pipeline
 ```
 
 絶対時間をCIの合否条件にしない。同じoptimized binary、同じworkload、同じmachineで変更前後を比較し、結果と
@@ -152,3 +152,27 @@ item列を逆順のloopでcore `let`列へ構築した。4,096個のstatementの
 末尾から反復的に畳み、joinはcore、ANF、closureでは平坦なvectorとして所有し、control stageで既存のinput付きstateへ変換する。
 4,096個の`when`列をcoreからcontrolまで、1,024個をLLVM emissionまで処理する回帰テストを置いた。branchごとの後続clone、
 synthetic closure allocation、sourceに比例するhost stackのいずれも必要としない。判断は[D047](../decisions/D047.md)に記録する。
+
+## 2026-09-25 execution planの規模に対する二乗
+
+環境はx86_64 NixOS development environment、Rust 1.97.1、pinned Clang 21.1.8。`n`個のtop-level function
+`f<i> :: Int32 -> Int32`を宣言し、`main`が全functionを順に呼んで和を取るsourceを生成し、`malc build`（production）の
+wall-clockを測った。Clangだけの時間は`--artifact-dir`の生成物を同じ引数でcompileして別に測った。
+
+| `n` | 変更前 | 変更後 | 変更前のClang分 |
+|---:|---:|---:|---:|
+| 1,000 | 1,045 ms | 359 ms | — |
+| 2,000 | 3,481 ms | 736 ms | 302 ms |
+
+callgrindでは三つの二乗が`malc`側の時間の大半を占めていた。
+
+- `execution/ownership/drop_plan`はedgeごとにprogram全体のlocal binding列を走査していた。edgeで生きている値だけを候補にし、
+  program順の位置で並べる。
+- `control/liveness`は後で参照するtop-level bindingもliveとして全先行stateへ伝播し、最後にlocalだけへ絞っていた。
+  伝播の時点でlocalに限る。
+- `execution/ownership`のborrow planも、managedなtop-level function値を同じように伝播していた。programが束縛する値だけを
+  liveとして残す。
+
+いずれもexamples、probe program、Typical 90の79問、`.scratch/loop-perf`のworkloadとreproについて、両modeで生成した
+LLVM moduleとC shimが変更前とbyte単位で一致した。残る伸びはClang、`unique_capture`の入口判定、call-pattern specializationの
+反復loweringにある。
