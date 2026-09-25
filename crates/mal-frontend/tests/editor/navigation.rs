@@ -1,0 +1,311 @@
+use super::*;
+
+#[test]
+fn sum_result_annotations_navigate_to_the_alias() {
+    let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("Choice").unwrap();
+    let constructor_offset = text.find("-> Choice").unwrap() + 3;
+    let reference = document
+        .occurrence_at(constructor_offset)
+        .expect("result type reference");
+
+    assert_eq!(reference.kind, SymbolKind::Type);
+    assert_eq!(reference.role, OccurrenceRole::Reference);
+    assert_eq!(
+        document.definition(reference.id).unwrap().span.start(),
+        declaration_offset
+    );
+    assert_eq!(document.references(reference.id, true).len(), 3);
+    assert_eq!(document.rename_spans(constructor_offset).unwrap().len(), 3);
+    assert_eq!(
+        document.hover_at(constructor_offset).unwrap().ty,
+        "[Unit, Payload]"
+    );
+    assert_eq!(
+        document
+            .hover_at(text.find("create ::").unwrap())
+            .unwrap()
+            .ty,
+        "Payload -> Choice"
+    );
+    assert_eq!(
+        document
+            .hover_at(text.rfind("create(1)").unwrap() + "create".len())
+            .unwrap()
+            .ty,
+        "[Unit, Int32]"
+    );
+}
+
+#[test]
+fn sum_continuation_parameters_keep_declaration_identity() {
+    let text = "Choice :: [Unit, Int32];\nread :: Choice -> Int32 := (choice) -> { choice[\n() -> { 0 },\n(payload) -> { payload }\n] };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("(payload)").unwrap() + 1;
+    let reference_offset = text.rfind("payload").unwrap();
+    let declaration = document
+        .occurrence_at(declaration_offset)
+        .expect("continuation parameter");
+    let reference = document
+        .occurrence_at(reference_offset)
+        .expect("continuation parameter reference");
+
+    assert_eq!(declaration.kind, SymbolKind::Parameter);
+    assert_eq!(declaration.role, OccurrenceRole::Declaration);
+    assert_eq!(reference.id, declaration.id);
+    assert_eq!(document.references(declaration.id, true).len(), 2);
+    assert_eq!(document.rename_spans(reference_offset).unwrap().len(), 2);
+}
+
+#[test]
+fn sum_continuation_branches_navigate_to_the_enclosing_binders_and_locals() {
+    let text = "Res :: [Int32, Unit];\npick :: (Res, Int32) -> Res := (r, base) -> [ok, fail] => {\n  v := r[(n) -> n + base, () -> fail()];\n  ok(v)\n};\nforward :: Res -> Res := (r) -> [ok, fail] => r[ok, fail];\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    let fail_declaration = document
+        .occurrence_at(text.find("fail]").unwrap())
+        .expect("binder declaration");
+    let fail_in_branch = document
+        .occurrence_at(text.find("fail()").unwrap())
+        .expect("binder used inside a branch");
+    assert_eq!(fail_in_branch.id, fail_declaration.id);
+    assert_eq!(document.references(fail_declaration.id, true).len(), 2);
+
+    let base = document
+        .occurrence_at(text.find("base)").unwrap())
+        .expect("outer parameter");
+    assert_eq!(document.references(base.id, true).len(), 2);
+    assert_eq!(
+        document
+            .hover_at(text.find("n + base").unwrap())
+            .unwrap()
+            .ty,
+        "Int32"
+    );
+
+    let forwarded = document
+        .occurrence_at(text.find("r[ok, fail]").unwrap() + 2)
+        .expect("binder named as a continuation");
+    let forwarded_declaration = document
+        .occurrence_at(text.rfind("[ok, fail] =>").unwrap() + 1)
+        .expect("forwarded binder declaration");
+    assert_eq!(forwarded.id, forwarded_declaration.id);
+}
+
+#[test]
+fn result_binders_support_hover_definition_references_and_rename() {
+    let text = "Payload :: Int32;\nResult :: [Payload, Symbol];\ncompute :: Bool -> Result := (enabled) -> [ok, err] => { when (enabled) { ok(42) }; err(\"disabled\") };\nfinish :: Result -> Result := (result) -> [return] => { return(result) };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let ok_declaration_offset = text.find("[ok").unwrap() + 1;
+    let ok_reference_offset = text.rfind("ok(42)").unwrap();
+    let err_declaration_offset = text.find("err]").unwrap();
+    let err_reference_offset = text.rfind("err(\"").unwrap();
+
+    let ok = document.occurrence_at(ok_declaration_offset).unwrap();
+    assert_eq!(ok.kind, SymbolKind::ResultBinder);
+    assert_eq!(ok.role, OccurrenceRole::Declaration);
+    assert_eq!(
+        document.hover_at(ok_declaration_offset).unwrap().ty,
+        "Payload"
+    );
+    assert_eq!(
+        document.occurrence_at(ok_reference_offset).unwrap().id,
+        ok.id
+    );
+    assert_eq!(document.definition(ok.id).unwrap().span, ok.span);
+    assert_eq!(document.references(ok.id, true).len(), 2);
+    assert_eq!(document.rename_spans(ok_reference_offset).unwrap().len(), 2);
+
+    let err = document.occurrence_at(err_declaration_offset).unwrap();
+    assert_eq!(err.kind, SymbolKind::ResultBinder);
+    assert_eq!(
+        document.hover_at(err_reference_offset).unwrap().ty,
+        "Symbol"
+    );
+    assert_eq!(
+        document.occurrence_at(err_reference_offset).unwrap().id,
+        err.id
+    );
+
+    let return_declaration_offset = text.find("[return]").unwrap() + 1;
+    let return_reference_offset = text.rfind("return(result)").unwrap();
+    let result_binder = document.occurrence_at(return_declaration_offset).unwrap();
+    assert_eq!(result_binder.kind, SymbolKind::ResultBinder);
+    assert_eq!(
+        document.hover_at(return_reference_offset).unwrap().ty,
+        "Result"
+    );
+    assert_eq!(
+        document.occurrence_at(return_reference_offset).unwrap().id,
+        result_binder.id
+    );
+}
+
+#[test]
+fn symbol_operators_report_their_result_types() {
+    let text = "inspect :: Symbol -> USize := (value) -> { #value + (value # 0usize).usize; };";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let length_operator = text.find('#').unwrap();
+    let access_operator = text.rfind('#').unwrap();
+
+    assert_eq!(document.hover_at(length_operator).unwrap().ty, "USize");
+    assert_eq!(document.hover_at(access_operator).unwrap().ty, "UInt8");
+}
+
+#[test]
+fn definition_references_and_rename_follow_capture_identity() {
+    let text = "create :: Int32 -> Int32 := (x) -> {\n  inner :: Unit -> Int32 := () -> { x; };\n  inner();\n};\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let parameter_offset = text.find("(x)").unwrap() + 1;
+    let inner_reference_offset = text.find("{ x;").unwrap() + 2;
+
+    let parameter = document.occurrence_at(parameter_offset).unwrap();
+    assert_eq!(parameter.kind, SymbolKind::Parameter);
+    assert_eq!(parameter.role, OccurrenceRole::Declaration);
+    assert_eq!(
+        document.occurrence_at(inner_reference_offset).unwrap().id,
+        parameter.id
+    );
+    assert_eq!(
+        document.definition(parameter.id).unwrap().span,
+        parameter.span
+    );
+    assert_eq!(document.references(parameter.id, true).len(), 2);
+    assert_eq!(
+        document.rename_spans(inner_reference_offset).unwrap().len(),
+        2
+    );
+}
+
+#[test]
+fn resolved_identity_keeps_shadowed_names_separate() {
+    let text =
+        "first :: Int32 -> Int32 := (x) -> { x; };\nsecond :: Int32 -> Int32 := (x) -> { x; };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let first = document
+        .occurrence_at(text.find("(x)").unwrap() + 1)
+        .unwrap();
+    let second = document
+        .occurrence_at(text.rfind("(x)").unwrap() + 1)
+        .unwrap();
+
+    assert_ne!(first.id, second.id);
+    assert_eq!(document.references(first.id, true).len(), 2);
+    assert_eq!(document.references(second.id, true).len(), 2);
+}
+
+#[test]
+fn predefined_references_have_no_source_definition_or_rename_target() {
+    let text = "value :: Bool := false;";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let offset = text.find("false").unwrap();
+    let occurrence = document.occurrence_at(offset).unwrap();
+
+    assert_eq!(occurrence.role, OccurrenceRole::Reference);
+    assert!(document.definition(occurrence.id).is_none());
+    assert!(document.rename_spans(offset).is_none());
+}
+
+#[test]
+fn reports_the_type_of_a_buffer_method() {
+    let text = "read :: Buffer<Int64> -> Int64 := (buffer) -> buffer.get(0usize);";
+    let offset = text.rfind("get").unwrap();
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let hover = document.hover_at(offset).expect("buffer get hover");
+
+    assert_eq!(hover.ty, "(Buffer<T>, USize) -> T");
+    assert_eq!(hover.occurrence.unwrap().name, "get");
+    assert!(
+        hover
+            .occurrence
+            .unwrap()
+            .documentation
+            .as_deref()
+            .is_some_and(|documentation| documentation.contains("Buffer<T>"))
+    );
+}
+
+#[test]
+fn graph_analysis_keeps_navigation_global_and_document_features_local() {
+    let root_text =
+        "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> { publicValue; };\n";
+    let library_text = "publicValue :: Int32 := 42;\n_privateValue :: Int32 := 7;\n";
+    let root = SourceFile::new(FileId::new(0), "root.mal", root_text.into());
+    let library = SourceFile::new(FileId::new(1), "library.mal", library_text.into());
+    let graph = SourceGraph::new(
+        FileId::new(0),
+        vec![root, library],
+        vec![
+            vec![SourceRequirement {
+                target: FileId::new(1),
+                span: Span::new(FileId::new(0), 0, 22),
+            }],
+            vec![],
+        ],
+        vec![],
+    );
+    let analysis = mal_frontend::analysis::analyze_graph(&graph).expect("graph analysis");
+    let document = mal_frontend::editor::from_graph_analysis(&graph, &analysis, FileId::new(0));
+
+    assert_eq!(
+        document
+            .document_symbols()
+            .iter()
+            .map(|symbol| symbol.name.as_str())
+            .collect::<Vec<_>>(),
+        ["answer"]
+    );
+    assert!(
+        document
+            .completions()
+            .iter()
+            .any(|symbol| symbol.name == "publicValue")
+    );
+    assert!(
+        !document
+            .completions()
+            .iter()
+            .any(|symbol| symbol.name == "_privateValue")
+    );
+
+    let reference = document
+        .occurrence_at(root_text.rfind("publicValue").unwrap())
+        .expect("root reference");
+    let definition = document
+        .definition(reference.id)
+        .expect("library definition");
+    assert_eq!(definition.span.file(), FileId::new(1));
+    assert_eq!(document.references(reference.id, true).len(), 2);
+    assert!(
+        document
+            .document_occurrences()
+            .all(|occurrence| occurrence.span.file() == FileId::new(0))
+    );
+}
+
+#[test]
+fn indexes_long_left_associative_expressions_without_host_recursion() {
+    let expression = std::iter::repeat_n("0i32", 4_096)
+        .collect::<Vec<_>>()
+        .join(" + ");
+    let text = format!("main :: Unit -> Int32 := () -> {{ {expression}; }};");
+
+    let document = mal_frontend::editor::analyze(&source(&text)).expect("semantic document");
+
+    assert_eq!(
+        document.hover_at(text.rfind("0i32").unwrap()).unwrap().ty,
+        "Int32"
+    );
+}
+
+#[test]
+fn indexes_many_top_level_symbols_from_declarations_once() {
+    let text = (0..4_096)
+        .map(|index| format!("value{index} :: Int32 := 0i32;\n"))
+        .collect::<String>();
+
+    let document = mal_frontend::editor::analyze(&source(&text)).expect("semantic document");
+
+    assert_eq!(document.document_symbols().len(), 4_096);
+}
