@@ -127,16 +127,12 @@ impl Lexer<'_> {
         let mut digit_count = 0;
 
         while let Some(byte) = self.peek() {
-            if is_digit_for_radix(byte, radix) {
+            if self.digit_at(self.offset, radix) {
                 previous_was_digit = true;
                 digit_count += 1;
                 self.offset += 1;
             } else if byte == b'_' {
-                if !previous_was_digit
-                    || !self
-                        .peek_next()
-                        .is_some_and(|next| is_digit_for_radix(next, radix))
-                {
+                if !previous_was_digit || !self.digit_at(self.offset + 1, radix) {
                     self.consume_number_like();
                     return Err(self.invalid_separator(start));
                 }
@@ -224,12 +220,19 @@ impl Lexer<'_> {
     fn consume_number_like(&mut self) {
         self.consume_identifier_like();
     }
-}
 
-fn is_digit_for_radix(byte: u8, radix: Radix) -> bool {
-    match radix {
-        Radix::Binary => matches!(byte, b'0' | b'1'),
-        Radix::Decimal => byte.is_ascii_digit(),
-        Radix::Hexadecimal => byte.is_ascii_hexdigit(),
+    /// Whether the byte at `offset` continues a digit sequence. The `b` of a `bytes` suffix is also a hexadecimal
+    /// digit, so a hexadecimal sequence ends where `bytes` starts; no digit sequence contains `y`.
+    fn digit_at(&self, offset: usize, radix: Radix) -> bool {
+        let Some(&byte) = self.bytes.get(offset) else {
+            return false;
+        };
+        match radix {
+            Radix::Binary => matches!(byte, b'0' | b'1'),
+            Radix::Decimal => byte.is_ascii_digit(),
+            Radix::Hexadecimal => {
+                byte.is_ascii_hexdigit() && !self.bytes[offset..].starts_with(b"bytes")
+            }
+        }
     }
 }

@@ -50,7 +50,7 @@ fn lexes_integer_radices_separators_and_all_fixed_width_suffixes() {
 #[test]
 fn lexes_target_quantity_suffixes_in_every_integer_radix() {
     assert_eq!(
-        kinds("0bytes 64bytes 0x10usize 0b100bytes"),
+        kinds("0bytes 64bytes 0x10usize 0b100bytes 0x1Bbytes"),
         vec![
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Decimal,
@@ -70,6 +70,11 @@ fn lexes_target_quantity_suffixes_in_every_integer_radix() {
             TokenKind::Integer(IntegerLiteral {
                 radix: Radix::Binary,
                 digits: "100".into(),
+                suffix: Some(IntegerSuffix::ByteSize),
+            }),
+            TokenKind::Integer(IntegerLiteral {
+                radix: Radix::Hexadecimal,
+                digits: "1B".into(),
                 suffix: Some(IntegerSuffix::ByteSize),
             }),
             TokenKind::Eof,
@@ -155,7 +160,7 @@ fn rejects_malformed_decimal_float_literals() {
 
 #[test]
 fn rejects_bad_numeric_separators_with_the_literal_span() {
-    for text in ["1_", "1__0", "0x_ff", "0b1_"] {
+    for text in ["1_", "1__0", "0x_ff", "0b1_", "0x1_bytes"] {
         let error = lex(&source(text)).expect_err("separator should be rejected");
         assert_eq!(error.message, "invalid numeric separator", "input: {text}");
         assert_eq!(
