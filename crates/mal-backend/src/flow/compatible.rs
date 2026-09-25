@@ -6,7 +6,7 @@ use mal_frontend::check::type_fingerprint::TypeFingerprints;
 
 /// The functions whose parameter and result types equal those of a callee. It bounds the targets of an
 /// application that no flow fact narrows.
-pub(super) struct CompatibleTargets {
+pub(crate) struct CompatibleTargets {
     groups: HashMap<(u64, u64), Vec<TargetGroup>>,
     fingerprints: TypeFingerprints,
 }
@@ -18,7 +18,7 @@ struct TargetGroup {
 }
 
 impl CompatibleTargets {
-    pub(super) fn new(program: &closure::Program) -> Self {
+    pub(crate) fn new(program: &closure::Program) -> Self {
         let mut index = Self {
             groups: HashMap::new(),
             fingerprints: TypeFingerprints::default(),
@@ -44,7 +44,7 @@ impl CompatibleTargets {
         index
     }
 
-    pub(super) fn for_callee(&mut self, callee: &closure::Atom) -> Vec<FunctionId> {
+    pub(crate) fn for_callee(&mut self, callee: &closure::Atom) -> Vec<FunctionId> {
         let Type::Function { parameter, result } = &callee.ty else {
             return Vec::new();
         };

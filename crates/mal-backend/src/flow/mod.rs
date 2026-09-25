@@ -10,10 +10,11 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId};
 
-use super::compatible_targets::CompatibleTargets;
+pub(crate) use self::compatible::CompatibleTargets;
 
 mod analysis;
 mod assign;
+mod compatible;
 mod owner;
 mod transfer;
 

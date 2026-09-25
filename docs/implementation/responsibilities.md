@@ -58,6 +58,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | canonical typeとtyped AST、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
+| `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
 | `backend/llvm` | admitted execution planからLLVM moduleとC shimへの変換 |
@@ -140,7 +141,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 - `mal-syntax`: [`parser`](../../crates/mal-syntax/src/parser/README.md)
 - `mal-fmt`: [crate README](../../crates/mal-fmt/README.md)
 - `mal-frontend`: [`resolve`](../../crates/mal-frontend/src/resolve/README.md)、[`check`](../../crates/mal-frontend/src/check/README.md)、[`editor`](../../crates/mal-frontend/src/editor/README.md)
-- `mal-backend`: [`core`から`control`まで](../../crates/mal-backend/src/core/README.md)、[`execution`](../../crates/mal-backend/src/execution/README.md)、[`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)、[`backend/c`](../../crates/mal-backend/src/backend/c/README.md)、[`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
+- `mal-backend`: [`core`から`control`まで](../../crates/mal-backend/src/core/README.md)、[`flow`](../../crates/mal-backend/src/flow/README.md)、[`execution`](../../crates/mal-backend/src/execution/README.md)、[`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)、[`backend/c`](../../crates/mal-backend/src/backend/c/README.md)、[`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
 - `mal-compiler`: [`driver`](../../crates/mal-compiler/src/driver/README.md)
 - `mal-lsp`: [crate README](../../crates/mal-lsp/README.md)
 

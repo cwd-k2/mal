@@ -5,7 +5,7 @@ use crate::closure::ast::{self as closure, Atom, AtomKind, FunctionId, Reference
 use crate::control::ast::{self as control, StateId, Terminator};
 use mal_frontend::check::ast::Type;
 
-use super::super::compatible_targets::CompatibleTargets;
+use super::compatible::CompatibleTargets;
 use super::owner::{Owner, state_owners};
 
 pub(super) type Functions = HashSet<FunctionId>;

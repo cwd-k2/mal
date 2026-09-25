@@ -2,11 +2,13 @@ use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
 pub(crate) mod ast;
 mod forwarding;
+mod graph;
 mod liveness;
 
 use self::ast::{
     Binding, CaseArm, Function, Operation, Program, State, StateId, Terminator, TopLevelBinding,
 };
+pub(crate) use self::graph::reachable_states;
 pub(crate) use self::liveness::binding_use_counts;
 use self::liveness::local_values;
 

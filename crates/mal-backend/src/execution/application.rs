@@ -1,11 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::closure::ast::{self as closure, FunctionId};
 use crate::control::ast::{self as control, StateId, Terminator};
 
-use super::closure_flow::ClosureFlow;
-use super::compatible_targets::CompatibleTargets;
 use super::{ClosureUsePlan, direct_function_id};
+use crate::flow::{ClosureFlow, CompatibleTargets};
+
+pub(super) use crate::control::reachable_states;
 
 pub(crate) struct ApplicationGraph {
     sites: HashMap<StateId, ApplicationSite>,
@@ -219,30 +220,6 @@ fn pattern_type(pattern: &closure::Pattern) -> &mal_frontend::check::ast::Type {
         | closure::Pattern::Wildcard { ty, .. }
         | closure::Pattern::Product { ty, .. } => ty,
     }
-}
-
-pub(super) fn reachable_states(program: &control::Program, entry: StateId) -> Vec<StateId> {
-    let mut pending = vec![entry];
-    let mut seen = HashSet::new();
-    let mut states = Vec::new();
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        states.push(id);
-        match &program.states[id.0].terminator {
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => {
-                pending.extend(arms.iter().map(|arm| arm.target));
-            }
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-        }
-    }
-    states
 }
 
 #[cfg(test)]

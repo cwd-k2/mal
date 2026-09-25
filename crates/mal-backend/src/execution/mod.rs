@@ -3,8 +3,6 @@ use crate::closure::ast::{self as closure_ast, FunctionId};
 mod application;
 mod call;
 mod closure;
-mod closure_flow;
-mod compatible_targets;
 mod continuation;
 mod environment_alias;
 mod frame;

@@ -1,6 +1,6 @@
 use mal_syntax::source::{FileId, SourceFile};
 
-use super::super::{OptimizationSet, lower};
+use crate::execution::{OptimizationSet, lower};
 
 /// The number of targets of each application whose callee is not a statically known function, in site order.
 fn indirect_target_counts(text: &str) -> Vec<usize> {

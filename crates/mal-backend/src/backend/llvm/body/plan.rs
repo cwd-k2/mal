@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPattern};
-use crate::control::ast::{Program, StateId, Terminator};
+
 use mal_frontend::check::ast::Type;
 
 use super::Slot;
@@ -371,28 +371,6 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         ty: result_type.clone(),
         kind: ConstantKind::Value(representation),
     })
-}
-
-pub(super) fn reachable_states(program: &Program, entry: StateId) -> Vec<StateId> {
-    let mut pending = vec![entry];
-    let mut seen = HashSet::new();
-    let mut states = Vec::new();
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        states.push(id);
-        match &program.states[id.0].terminator {
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => pending.extend(arms.iter().map(|arm| arm.target)),
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-        }
-    }
-    states
 }
 
 pub(super) fn collect_pattern_slot(

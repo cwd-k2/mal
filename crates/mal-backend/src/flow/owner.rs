@@ -1,7 +1,7 @@
 use crate::closure::ast::FunctionId;
 use crate::control::ast::{Program, StateId};
 
-use super::super::application::reachable_states;
+use crate::control::reachable_states;
 
 /// The code a control state belongs to: a function body or a top-level binding's initializer.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
