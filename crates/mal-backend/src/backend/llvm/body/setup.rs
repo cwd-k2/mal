@@ -29,12 +29,12 @@ impl<'a> FunctionEmitter<'a> {
         let function_states = functions
             .iter()
             .map(|function| {
-                let entry = index
+                let states = &index
                     .control_functions
                     .get(function)
-                    .expect("control region function has an entry")
-                    .entry;
-                (*function, reachable_states(&execution.control, entry))
+                    .expect("control region function has control states")
+                    .states;
+                (*function, states.clone())
             })
             .collect::<Vec<_>>();
         let states = function_states

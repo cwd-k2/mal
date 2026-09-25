@@ -15,7 +15,6 @@ use std::collections::{HashMap, HashSet};
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{FunctionId, Pattern};
 use crate::control::ast::{Operation, Program, StateId, Terminator};
-use crate::control::reachable_states;
 
 use super::super::derived::{close, derived_from, managed_leaves};
 use super::super::{
@@ -153,7 +152,7 @@ fn kept_parameters(control: &Program, applications: &ApplicationGraph) -> HashSe
             if !is_managed(&function.parameter.ty) {
                 return None;
             }
-            let states = reachable_states(control, function.entry);
+            let states = &function.states;
             let mut derived = HashSet::new();
             managed_leaves(
                 &Pattern::Binding {
@@ -162,7 +161,7 @@ fn kept_parameters(control: &Program, applications: &ApplicationGraph) -> HashSe
                 },
                 &mut derived,
             );
-            close(control, &states, &mut derived);
+            close(control, states, &mut derived);
             Some((function.id, states, derived))
         })
         .collect::<Vec<_>>();

@@ -23,9 +23,8 @@ pub(super) fn plan(
                 )
         })
         .flat_map(|function| {
-            let states = super::super::application::reachable_states(program, function.entry);
             let mut capture_uses = HashMap::<usize, usize>::new();
-            for site in &states {
+            for site in &function.states {
                 visit_state_atoms(&program.states[site.0], |atom| {
                     if let AtomKind::Reference(Reference::Capture(index)) = atom.kind {
                         *capture_uses.entry(index).or_default() += 1;

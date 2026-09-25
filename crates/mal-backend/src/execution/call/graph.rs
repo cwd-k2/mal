@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::FunctionId;
 use crate::control::ast::{self as control, StateId};
 
-use super::{ControlCallMode, reachable_states};
+use super::ControlCallMode;
 
 pub(in crate::execution) fn direct_graph(
     program: &control::Program,
@@ -11,7 +11,7 @@ pub(in crate::execution) fn direct_graph(
 ) -> HashMap<FunctionId, Vec<FunctionId>> {
     let mut graph: HashMap<FunctionId, Vec<FunctionId>> = HashMap::new();
     for function in &program.functions {
-        for site in reachable_states(program, function.entry) {
+        for &site in &function.states {
             if let Some(ControlCallMode::Direct(callee)) = modes.get(&site) {
                 graph.entry(function.id).or_default().push(*callee);
             }

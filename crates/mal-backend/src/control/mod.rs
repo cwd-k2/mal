@@ -8,7 +8,7 @@ mod liveness;
 use self::ast::{
     Binding, CaseArm, Function, Operation, Program, State, StateId, Terminator, TopLevelBinding,
 };
-pub(crate) use self::graph::reachable_states;
+use self::graph::reachable_states;
 pub(crate) use self::liveness::binding_use_counts;
 use self::liveness::local_values;
 
@@ -49,6 +49,7 @@ impl Lowerer {
                 TopLevelBinding {
                     pattern: binding.pattern.clone(),
                     entry,
+                    states: Vec::new(),
                     span: binding.span,
                 }
             })
@@ -74,16 +75,26 @@ impl Lowerer {
                     id: function.id,
                     parameter: function.parameter.clone(),
                     entry,
+                    states: Vec::new(),
                 }
             })
             .collect();
-        Program {
+        let mut lowered = Program {
             bindings,
             functions,
             entry: program.entry.map(|entry| entry.function),
             states: self.states,
             span: program.span,
+        };
+        for index in 0..lowered.bindings.len() {
+            lowered.bindings[index].states =
+                reachable_states(&lowered, lowered.bindings[index].entry);
         }
+        for index in 0..lowered.functions.len() {
+            lowered.functions[index].states =
+                reachable_states(&lowered, lowered.functions[index].entry);
+        }
+        lowered
     }
 
     fn lower_block(&mut self, block: &closure::Block, destination: Destination) -> StateId {

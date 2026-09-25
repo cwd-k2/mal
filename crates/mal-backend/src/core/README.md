@@ -26,6 +26,6 @@ Later stages in this crate:
 |---|---|
 | `anf` | blocks of atoms and operations, keeping logical operands of memory and `Buffer` primitives and lambda-local join identities |
 | `closure` | capture schemas of ordinary functions, entry function identity, and join bodies within a function |
-| `control` | states, join targets, terminators, and live values of resume frames, without calls and without duplicating function environment schemas |
+| `control` | states, join targets, terminators, and live values of resume frames, without calls and without duplicating function environment schemas; each function and initializer records the states it reaches, which later stages read instead of walking the graph |
 | `control/forwarding` | normalizes identity and terminal `Unit` continuations to tail calls |
 | `control/liveness` | backward liveness of local values and closure environments, and use counts of control bindings |

@@ -49,28 +49,11 @@ fn top_level_function<'a>(program: &'a control::ast::Program, name: &str) -> &'a
 }
 
 fn reachable_states<'a>(program: &'a control::ast::Program, function: &Function) -> Vec<&'a State> {
-    let mut pending = vec![function.entry];
-    let mut seen = std::collections::HashSet::new();
-    let mut states = Vec::new();
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        let state = &program.states[id.0];
-        match &state.terminator {
-            Terminator::Goto(target) | Terminator::Jump { target, .. } => pending.push(*target),
-            Terminator::Call { resume, .. } => pending.push(*resume),
-            Terminator::Case { arms, .. } => {
-                pending.extend(arms.iter().map(|arm| arm.target));
-            }
-            Terminator::PrimitiveBranch {
-                otherwise, then, ..
-            } => pending.extend([*otherwise, *then]),
-            Terminator::Return(_) | Terminator::TailCall { .. } => {}
-        }
-        states.push(state);
-    }
-    states
+    function
+        .states
+        .iter()
+        .map(|state| &program.states[state.0])
+        .collect()
 }
 
 #[test]

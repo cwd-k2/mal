@@ -9,8 +9,6 @@ mod graph;
 
 use graph::{direct_graph, is_acyclic};
 
-pub(super) use super::application::reachable_states;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ControlCallMode {
     Direct(FunctionId),
@@ -54,15 +52,15 @@ impl ControlCallPlan {
             &direct_graph,
             control.functions.iter().map(|function| function.id)
         ));
-        let function_entries = control
+        let function_states = control
             .functions
             .iter()
-            .map(|function| (function.id, function.entry))
+            .map(|function| (function.id, function.states.as_slice()))
             .collect::<HashMap<_, _>>();
         let common_regions = regions
             .ids()
             .filter(|region| {
-                region_requires_common_control(control, &function_entries, regions, &modes, *region)
+                region_requires_common_control(control, &function_states, regions, &modes, *region)
             })
             .collect();
         let forwarded_self_arguments = optimizations.forwarded_self_arguments().clone();
@@ -101,16 +99,16 @@ impl ControlCallPlan {
 
 fn region_requires_common_control(
     program: &control::Program,
-    function_entries: &HashMap<FunctionId, StateId>,
+    function_states: &HashMap<FunctionId, &[StateId]>,
     regions: &ControlRegionPlan,
     modes: &HashMap<StateId, ControlCallMode>,
     region: ControlRegionId,
 ) -> bool {
     regions.functions(region).iter().any(|function| {
-        let entry = *function_entries
+        let states = function_states
             .get(function)
-            .expect("region function has a control entry");
-        reachable_states(program, entry).into_iter().any(|site| {
+            .expect("region function has control states");
+        states.iter().copied().any(|site| {
             regions.site_region(site) == Some(region)
                 && match modes.get(&site) {
                     Some(ControlCallMode::Dispatch) => true,

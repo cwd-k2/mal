@@ -1,8 +1,6 @@
 use crate::closure::ast::FunctionId;
 use crate::control::ast::{Program, StateId};
 
-use crate::control::reachable_states;
-
 /// The code a control state belongs to: a function body or a top-level binding's initializer.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(super) enum Owner {
@@ -15,17 +13,17 @@ pub(super) fn state_owners(control: &Program) -> Vec<Option<Owner>> {
     let entries = control
         .functions
         .iter()
-        .map(|function| (function.entry, Owner::Function(function.id)))
+        .map(|function| (&function.states, Owner::Function(function.id)))
         .chain(
             control
                 .bindings
                 .iter()
                 .enumerate()
-                .map(|(index, binding)| (binding.entry, Owner::Binding(index))),
+                .map(|(index, binding)| (&binding.states, Owner::Binding(index))),
         );
-    for (entry, owner) in entries {
-        for StateId(state) in reachable_states(control, entry) {
-            owners[state] = Some(owner);
+    for (states, owner) in entries {
+        for StateId(state) in states {
+            owners[*state] = Some(owner);
         }
     }
     owners

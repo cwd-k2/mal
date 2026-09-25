@@ -28,11 +28,7 @@ impl Plan {
         let state_functions = program
             .functions
             .iter()
-            .flat_map(|function| {
-                crate::execution::application::reachable_states(program, function.entry)
-                    .into_iter()
-                    .map(|site| (site, function.id))
-            })
+            .flat_map(|function| function.states.iter().map(|site| (*site, function.id)))
             .collect::<HashMap<_, _>>();
         let mut pairs = HashSet::new();
         let mut compatible = HashSet::new();

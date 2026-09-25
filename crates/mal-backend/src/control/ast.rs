@@ -19,6 +19,8 @@ pub(crate) struct Program {
 pub(crate) struct TopLevelBinding {
     pub pattern: TopLevelPattern,
     pub entry: StateId,
+    /// The states of the initializer: those reachable from `entry`, in discovery order with `entry` first.
+    pub states: Vec<StateId>,
     pub span: Span,
 }
 
@@ -27,6 +29,9 @@ pub(crate) struct Function {
     pub id: FunctionId,
     pub parameter: Parameter,
     pub entry: StateId,
+    /// The states of the body: those reachable from `entry`, in discovery order with `entry` first. A call rewritten
+    /// into a tail call leaves its former resume state unreachable, so it belongs to no function.
+    pub states: Vec<StateId>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

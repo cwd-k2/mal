@@ -52,9 +52,10 @@ fn preserves_direct_edges_without_admitting_recursive_c_call_cycles() {
         .iter()
         .find(|function| function.id == top_level_function_id(&closure, "recursive"))
         .expect("recursive function");
-    let recursive_modes = reachable_states(&control, recursive.entry)
-        .into_iter()
-        .filter_map(|site| plan.mode(site))
+    let recursive_modes = recursive
+        .states
+        .iter()
+        .filter_map(|site| plan.mode(*site))
         .collect::<Vec<_>>();
     assert!(recursive_modes.contains(&ControlCallMode::DirectRegion(recursive.id)));
     assert!(recursive_modes.contains(&ControlCallMode::Direct(helper)));
@@ -69,9 +70,9 @@ fn preserves_direct_edges_without_admitting_recursive_c_call_cycles() {
         .find(|function| function.id == top_level_function_id(&closure, "tail"))
         .expect("tail-recursive function");
     assert!(
-        reachable_states(&control, tail.entry)
-            .into_iter()
-            .filter_map(|site| plan.mode(site))
+        tail.states
+            .iter()
+            .filter_map(|site| plan.mode(*site))
             .any(|mode| mode == ControlCallMode::DirectSelfTail)
     );
 

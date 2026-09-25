@@ -50,9 +50,10 @@ impl ParameterBorrows {
             .filter(|function| {
                 regions.function_region(function.id).is_none()
                     && control.states[function.entry.0].input.is_none()
-                    && (!super::super::call::reachable_states(control, function.entry)
-                        .into_iter()
-                        .any(|site| calls.mode(site) == Some(ControlCallMode::DirectSelfTail))
+                    && (!function
+                        .states
+                        .iter()
+                        .any(|site| calls.mode(*site) == Some(ControlCallMode::DirectSelfTail))
                         || parameter_is_bounded(control, function.id))
             })
             .map(|function| function.id)
@@ -117,30 +118,28 @@ fn parameter_is_bounded(control: &Program, function: FunctionId) -> bool {
         .iter()
         .find(|candidate| candidate.id == function)
         .expect("control function");
-    super::super::call::reachable_states(control, function.entry)
-        .into_iter()
-        .all(|site| {
-            let state = &control.states[site.0];
-            let bindings_are_bounded = state.bindings.iter().all(|binding| {
-                !is_managed(binding.pattern.ty())
-                    || matches!(
-                        binding.operation,
-                        Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
-                    )
-            });
-            let result_is_bounded = !matches!(
-                &state.terminator,
-                Terminator::Return(value) if is_managed(&value.ty)
-            );
-            let call_result_is_bounded = match &state.terminator {
-                Terminator::Call { resume, .. } => control.states[resume.0]
-                    .input
-                    .as_ref()
-                    .is_none_or(|pattern| !is_managed(pattern.ty())),
-                _ => true,
-            };
-            bindings_are_bounded && result_is_bounded && call_result_is_bounded
-        })
+    function.states.iter().all(|&site| {
+        let state = &control.states[site.0];
+        let bindings_are_bounded = state.bindings.iter().all(|binding| {
+            !is_managed(binding.pattern.ty())
+                || matches!(
+                    binding.operation,
+                    Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
+                )
+        });
+        let result_is_bounded = !matches!(
+            &state.terminator,
+            Terminator::Return(value) if is_managed(&value.ty)
+        );
+        let call_result_is_bounded = match &state.terminator {
+            Terminator::Call { resume, .. } => control.states[resume.0]
+                .input
+                .as_ref()
+                .is_none_or(|pattern| !is_managed(pattern.ty())),
+            _ => true,
+        };
+        bindings_are_bounded && result_is_bounded && call_result_is_bounded
+    })
 }
 
 pub(super) fn collect_parameter_effects(

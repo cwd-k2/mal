@@ -6,8 +6,6 @@ use crate::control::ast::{self as control, StateId, Terminator};
 use super::{ClosureUsePlan, direct_function_id};
 use crate::flow::{ClosureFlow, CompatibleTargets};
 
-pub(super) use crate::control::reachable_states;
-
 pub(crate) struct ApplicationGraph {
     sites: HashMap<StateId, ApplicationSite>,
     callers: HashMap<FunctionId, Vec<StateId>>,
@@ -34,7 +32,7 @@ impl ApplicationGraph {
             collect_sites(
                 control,
                 closure_uses,
-                binding.entry,
+                &binding.states,
                 None,
                 &mut targets,
                 &mut sites,
@@ -44,7 +42,7 @@ impl ApplicationGraph {
             collect_sites(
                 control,
                 closure_uses,
-                function.entry,
+                &function.states,
                 Some(function.id),
                 &mut targets,
                 &mut sites,
@@ -142,12 +140,12 @@ impl ApplicationGraph {
 fn collect_sites(
     control: &control::Program,
     closure_uses: &ClosureUsePlan,
-    entry: StateId,
+    states: &[StateId],
     caller: Option<FunctionId>,
     targets: &mut TargetIndex,
     sites: &mut HashMap<StateId, ApplicationSite>,
 ) {
-    for site in reachable_states(control, entry) {
+    for &site in states {
         let Some(callee) = application_callee(&control.states[site.0].terminator) else {
             continue;
         };

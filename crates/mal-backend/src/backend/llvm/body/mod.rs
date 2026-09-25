@@ -23,7 +23,6 @@ mod terminator;
 pub(super) mod types;
 mod value;
 
-use crate::control::reachable_states;
 use memory::ManagedBufferElements;
 use plan::{TopLevelConstants, collect_pattern_slot, insert_slot, main_function};
 use scalar::{comparison_predicate, scalar_type};
