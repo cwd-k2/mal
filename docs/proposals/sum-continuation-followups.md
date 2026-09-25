@@ -12,28 +12,6 @@ Status: Exploratory
   「すべてのcontinuationが抜ける」ことだと読み取りにくい。
 - binder名のcontinuationの型不一致は一般の`type mismatch`で、どの位置のpayloadとbinderが合わないかを示さない。
 
-## formatter
-
-複数行の複数continuation listは、binding右辺では各continuationを一段深くindentするが、文として単独で書くとcontinuationと閉じ`]`を
-値と同じindentに置く（`if`の`then`と`else`を`if`と同じindentに置く規則に合わせている）。後者では`(n) -> {`が新しい文の先頭に見え、
-どこまでが式か読み取りにくい。
-
-```mal
-    v := r[
-        (n) -> n,
-        () -> k(0i32)
-    ];
-    r[
-    (n) -> {
-        k(n + v);
-    },
-    () -> k(0i32)
-    ];
-```
-
-不具合ではなく[formatting policy](../development/formatting.md)の規則どおりである。文の位置でも一段深くindentする案を、既存のexampleとtestの
-書き換えを含めて検討する。
-
 ## editor
 
 `Value`か`Abrupt`かをeditorは利用者に示さない。早期脱出がcontinuationの位置に現れると、どのbranchが現在のpathを打ち切るかが

@@ -12,14 +12,14 @@ fn formatting_is_idempotent_and_preserves_checked_behavior() {
 }
 
 #[test]
-fn aligns_multiline_sum_continuations_with_the_value() {
+fn indents_multiline_sum_continuations_under_the_value() {
     let formatted =
         format("pick::[Int32,UInt8]->Int32:=(value) -> {value[\n(x) -> {x},(x) -> {x.i32}];};");
 
     assert!(formatted.contains(concat!(
         "    value[\n",
-        "    (x) -> { x },\n",
-        "    (x) -> { x.i32 }\n",
+        "        (x) -> { x },\n",
+        "        (x) -> { x.i32 }\n",
         "    ];\n",
     )));
     assert_eq!(format(&formatted), formatted);
@@ -43,7 +43,7 @@ fn expands_inline_sum_continuations_whose_blocks_need_several_lines() {
     let formatted = format("f:=(v) -> {v[(x) -> {y:=x;y},(x) -> {x}];};");
 
     assert!(formatted.contains("    v[\n"));
-    assert!(formatted.contains("    (x) -> {\n"));
+    assert!(formatted.contains("        (x) -> {\n"));
     assert_eq!(format(&formatted), formatted);
 }
 
@@ -52,7 +52,7 @@ fn keeps_a_sum_continuation_broken_when_the_source_breaks_it() {
     let source = "f:=(v) -> {v[(x) -> x,\n()->0];};";
     let formatted = format(source);
 
-    assert!(formatted.contains("    v[\n    (x) -> x,\n    () -> 0\n    ];\n"));
+    assert!(formatted.contains("    v[\n        (x) -> x,\n        () -> 0\n    ];\n"));
     assert_eq!(format(&formatted), formatted);
 }
 

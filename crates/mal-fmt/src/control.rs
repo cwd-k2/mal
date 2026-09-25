@@ -8,7 +8,7 @@ pub(super) struct ControlLayout {
     aligned: Vec<bool>,
     inline: Vec<bool>,
     completed_before: Vec<usize>,
-    sum_continuations: Vec<Option<bool>>,
+    sum_continuations: Vec<bool>,
     sum_break_before: Vec<bool>,
 }
 
@@ -23,7 +23,7 @@ impl ControlLayout {
             aligned: vec![false; lexed.tokens.len()],
             inline: vec![false; lexed.tokens.len()],
             completed_before: vec![0; lexed.tokens.len()],
-            sum_continuations: vec![None; lexed.tokens.len()],
+            sum_continuations: vec![false; lexed.tokens.len()],
             sum_break_before: vec![false; lexed.tokens.len()],
         };
         for item in &program.items {
@@ -56,7 +56,7 @@ impl ControlLayout {
         self.completed_before[token_index]
     }
 
-    pub(super) fn sum_continuation_alignment(&self, token_index: usize) -> Option<bool> {
+    pub(super) fn is_sum_continuation(&self, token_index: usize) -> bool {
         self.sum_continuations[token_index]
     }
 
@@ -110,13 +110,7 @@ impl ControlLayout {
                             expression.span.end(),
                         )
                     {
-                        self.mark_sum_continuation(
-                            lexed,
-                            expression,
-                            continuations,
-                            bracket,
-                            position,
-                        );
+                        self.mark_sum_continuation(lexed, expression, continuations, bracket);
                     }
                     pending.extend(
                         continuations
@@ -180,9 +174,8 @@ impl ControlLayout {
         expression: &Node<Expression>,
         continuations: &[Node<Expression>],
         bracket: usize,
-        position: ExpressionPosition,
     ) {
-        self.sum_continuations[bracket] = Some(matches!(position, ExpressionPosition::Block));
+        self.sum_continuations[bracket] = true;
         for continuation in continuations {
             if let Ok(index) = lexed
                 .tokens

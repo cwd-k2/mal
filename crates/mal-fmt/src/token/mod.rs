@@ -9,7 +9,6 @@ pub(super) use self::control::IfStage;
 pub(super) struct BracketLayout {
     multiline: bool,
     indent_delta: usize,
-    align_sum_continuations: Option<bool>,
     parenthesis_depth: usize,
 }
 
@@ -121,13 +120,12 @@ impl Formatter<'_> {
             }
             TokenKind::LeftBracket => {
                 self.write(text);
-                let alignment = self.controls.sum_continuation_alignment(token_index);
-                let indent_delta = alignment.map_or(0, |aligned| usize::from(!aligned));
+                let sum_continuations = self.controls.is_sum_continuation(token_index);
+                let indent_delta = usize::from(sum_continuations);
                 self.indent += indent_delta;
                 self.brackets.push(BracketLayout {
-                    multiline: alignment.is_some(),
+                    multiline: sum_continuations,
                     indent_delta,
-                    align_sum_continuations: alignment,
                     parenthesis_depth: self.parenthesis_indents.len(),
                 });
                 self.previous = Previous::LeftBracket;
@@ -282,7 +280,7 @@ impl Formatter<'_> {
                 && !layout.multiline
             {
                 layout.multiline = true;
-                layout.indent_delta = usize::from(layout.align_sum_continuations != Some(true));
+                layout.indent_delta = 1;
                 self.indent += layout.indent_delta;
             }
             self.newline();

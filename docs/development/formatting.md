@@ -30,9 +30,9 @@ command grammarのusage errorが`2`である。
   残さない。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を`if`と同じindentに置き、bindingや
   lambda bodyなどのRHSにある`if`では一段深いcontinuation indentに置く。
 - 複数continuationのapplicationは、`[`から閉じ`]`までがsourceで一行にあり、含まれるblockがすべて一行のまま置けるなら
-  一行のまま整形する。sourceで改行した場合と、blockが複数行に展開される場合はvalueの後で改行する。block直下のexpressionとして
-  行頭から始まる場合はcontinuationと閉じ`]`をvalueと同じindentに置き、bindingなどのRHSにある場合はcontinuationだけを一段深くし、
-  閉じ`]`をbindingと同じindentへ戻す。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。
+  一行のまま整形する。sourceで改行した場合と、blockが複数行に展開される場合はvalueの後で改行する。
+  改行した場合は各continuationをvalueの行より一段深くindentし、閉じ`]`をvalueの行と同じindentへ戻す。block直下の文でも
+  bindingなどのRHSでも同じである。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。
 - sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingは
   前後のitemと1空行で分け、連続するそれ以外のbindingへformatterだけを理由とする空行を追加しない。
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
