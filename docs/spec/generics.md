@@ -16,6 +16,10 @@ identity<A> :: A -> A := (value) -> value;
 same :: Int32 -> Int32 := (value) -> identity<Int32>(value);
 ```
 
+型argumentの推論はない。`Buffer<A>`のpredefined operation（`new`、`get`、`put`、`fill`、`copy`、`into`、`#`）は
+generic bindingではなく、`Buffer<A>`のreceiverまたはargumentから`A`を決めるcompiler定義のoperationなので型argumentを書かない。
+`make<A>`と`from<A>`は`A`がresultにしか現れないため明示する。[AddressとBuffer](memory.md#buffer)に各operationの型を定める。
+
 型parameterは通常のsource typeを表す。user-defined kind、bound、constraintはない。generic aliasはtransparentであり、型argumentを
 代入して展開したcanonical typeと同じ型になる。recursive generic aliasは拒否する。
 
