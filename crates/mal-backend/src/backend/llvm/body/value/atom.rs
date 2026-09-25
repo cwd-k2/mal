@@ -123,7 +123,7 @@ impl FunctionEmitter<'_> {
         ty: &Type,
     ) -> Option<String> {
         let function = *self.index.lowered_functions.get(&self.current_function)?;
-        let captures = function.kind.captures()?;
+        let captures = &function.captures;
         let field = captures.get(index)?;
         if field.ty != *ty {
             return None;

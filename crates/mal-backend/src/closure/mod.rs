@@ -5,8 +5,8 @@ use crate::anf::ast as anf;
 pub(crate) mod ast;
 
 use self::ast::{
-    Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, FunctionKind,
-    Operation, Pattern, Program, Reference, TopLevelBinding, TopLevelPattern,
+    Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, Operation, Pattern,
+    Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
 pub(crate) fn convert(program: &anf::Program) -> Program {
@@ -219,7 +219,7 @@ impl Converter {
         {
             debug_assert_eq!(existing.parameter.ty, lambda.parameter.ty);
             debug_assert_eq!(existing.body.result.ty, lambda.body.result.ty);
-            debug_assert_eq!(existing.kind, Self::function_kind(lambda));
+            debug_assert_eq!(existing.captures, Self::capture_schema(lambda));
             return;
         }
         let mut environment = lambda
@@ -246,25 +246,21 @@ impl Converter {
             .collect();
         self.functions.push(Function {
             id: FunctionId::Lambda(lambda.id),
-            kind: Self::function_kind(lambda),
+            captures: Self::capture_schema(lambda),
             parameter: lambda.parameter.clone(),
             body,
             joins,
         });
     }
 
-    fn function_kind(lambda: &anf::Lambda) -> FunctionKind {
-        match lambda.kind {
-            crate::core::ast::LambdaKind::Ordinary => FunctionKind::Ordinary {
-                captures: lambda
-                    .captures
-                    .iter()
-                    .map(|capture| CaptureField {
-                        ty: capture.ty.clone(),
-                    })
-                    .collect(),
-            },
-        }
+    fn capture_schema(lambda: &anf::Lambda) -> Vec<CaptureField> {
+        lambda
+            .captures
+            .iter()
+            .map(|capture| CaptureField {
+                ty: capture.ty.clone(),
+            })
+            .collect()
     }
 
     fn convert_case_arm(

@@ -222,16 +222,10 @@ pub(crate) enum BinaryPrimitive {
 pub(crate) struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
-    pub kind: LambdaKind,
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Box<Expression>,
     pub joins: Vec<Join>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum LambdaKind {
-    Ordinary,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

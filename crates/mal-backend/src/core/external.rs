@@ -37,7 +37,6 @@ impl Lowerer {
                 kind: ExpressionKind::Lambda(Lambda {
                     id: lambda_id,
                     self_binding: None,
-                    kind: super::ast::LambdaKind::Ordinary,
                     captures: Vec::new(),
                     parameter: Parameter {
                         binding: parameter_binding,

@@ -21,8 +21,8 @@ pub(crate) use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 
 use self::ast::{
-    Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, LambdaKind, Parameter, Pattern,
-    Program, TopLevelBinding, UnaryPrimitive, ValueId,
+    Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, Parameter, Pattern, Program,
+    TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
 pub(crate) fn lower(program: &checked::MonomorphicProgram) -> Program {

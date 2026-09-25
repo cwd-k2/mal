@@ -1,5 +1,5 @@
 use crate::core::ast::{
-    BinaryPrimitive, BufferOperation, JoinId, LambdaKind, ProgramInterface, UnaryPrimitive,
+    BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
     ValueId as CoreValueId,
 };
 use mal_frontend::check::ast::{MemoryPrimitive, Type};
@@ -171,7 +171,6 @@ pub(crate) enum Operation {
 pub(crate) struct Lambda {
     pub id: LambdaId,
     pub self_binding: Option<ValueId>,
-    pub kind: LambdaKind,
     pub captures: Vec<Capture>,
     pub parameter: Parameter,
     pub body: Block,

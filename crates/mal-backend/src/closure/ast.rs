@@ -58,23 +58,10 @@ impl TopLevelBinding {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Function {
     pub id: FunctionId,
-    pub kind: FunctionKind,
+    pub captures: Vec<CaptureField>,
     pub parameter: Parameter,
     pub body: Block,
     pub joins: Vec<Join>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum FunctionKind {
-    Ordinary { captures: Vec<CaptureField> },
-}
-
-impl FunctionKind {
-    pub(crate) fn captures(&self) -> Option<&[CaptureField]> {
-        match self {
-            Self::Ordinary { captures } => Some(captures),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

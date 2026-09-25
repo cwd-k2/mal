@@ -43,9 +43,7 @@ impl FunctionEmitter<'_> {
                     super::function_name(*function)
                 ));
                 let target = *self.index.lowered_functions.get(function)?;
-                let crate::closure::ast::FunctionKind::Ordinary {
-                    captures: environment,
-                } = &target.kind;
+                let environment = &target.captures;
                 if captures.len() != environment.len()
                     || captures
                         .iter()

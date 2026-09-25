@@ -5,9 +5,7 @@ use super::super::{EmittedValue, FunctionEmitter, function_number};
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_environment_destructor(&mut self) -> Option<()> {
         let lowered = *self.index.lowered_functions.get(&self.current_function)?;
-        let Some(captures) = lowered.kind.captures() else {
-            return Some(());
-        };
+        let captures = &lowered.captures;
         if captures.is_empty() {
             return Some(());
         }

@@ -32,7 +32,6 @@ impl Lowerer {
         Lambda {
             id: lambda.id,
             self_binding: lambda.self_binding.map(ValueId::Source),
-            kind: LambdaKind::Ordinary,
             captures: lambda
                 .captures
                 .iter()

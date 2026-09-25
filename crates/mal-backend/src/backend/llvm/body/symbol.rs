@@ -30,11 +30,11 @@ pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -
             type_contains_value(&external.parameter) || type_contains_value(&external.result)
         })
         || execution.lowered.functions.iter().any(|function| {
-            function.kind.captures().is_some_and(|captures| {
-                captures
-                    .iter()
-                    .any(|capture| type_contains_value(&capture.ty))
-            }) || type_contains_value(&function.parameter.ty)
+            function
+                .captures
+                .iter()
+                .any(|capture| type_contains_value(&capture.ty))
+                || type_contains_value(&function.parameter.ty)
         })
         || execution.control.states.iter().any(|state| {
             state

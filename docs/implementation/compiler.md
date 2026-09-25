@@ -117,7 +117,7 @@ allocation failureはmal trapへ写像する。
 extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
 argument-aware entryではC shimが`argv + 1`の各C stringをcopyして作った`Symbol`のBufferをLLVM rootの`Buffer<Symbol>`へ渡す。
 
-function valueはcode pointerとenvironment pointerの組へlowerする。closure conversionではordinary function kindだけが
+function valueはcode pointerとenvironment pointerの組へlowerする。closure conversion後の各functionは
 immutable capture schemaを所有し、capture-free lambdaも同じmal function typeの共通calling conventionから呼べる表現を保つ。
 `Buffer<A>`はmanaged runtime objectへの一語のreferenceとしてlowerし、`new`・`get`・`put`・`fill`・`copy`はclosure applicationにせず
 typed memory operationとしてcore以降へ渡す。control IRはfunction environment schemaを複製しない。backendは

@@ -35,10 +35,7 @@ fn function(program: &closure::ast::Program, id: closure::ast::FunctionId) -> &F
 }
 
 fn capture_schema(function: &Function) -> &[closure::ast::CaptureField] {
-    function
-        .kind
-        .captures()
-        .expect("ordinary function should own a capture schema")
+    &function.captures
 }
 
 #[test]
