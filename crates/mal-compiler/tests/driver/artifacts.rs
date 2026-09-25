@@ -1,5 +1,16 @@
 use super::*;
 
+/// The runtime sources that only a program using Symbol or Buffer links.
+const BYTE_RUNTIME: [&str; 7] = [
+    "bytes.c",
+    "bytes_internal.h",
+    "buffer.c",
+    "buffer_range.c",
+    "buffer_host.c",
+    "buffer_internal.h",
+    "symbol.c",
+];
+
 #[path = "artifacts/aggregate_ownership.rs"]
 mod aggregate_ownership;
 #[path = "artifacts/calls.rs"]

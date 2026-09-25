@@ -2,8 +2,6 @@
 
 #include <string.h>
 
-_Noreturn void mal_trap(MalContext *context, const char *message);
-
 static void mal_symbol_set(
     MalBytesView *result,
     MalBytes *owner,

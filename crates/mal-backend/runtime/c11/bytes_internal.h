@@ -41,6 +41,22 @@ _Static_assert(
     "flat byte storage must preserve canonical alignment"
 );
 
+// Allocation shared by byte owners and Buffer storage. Both trap on size overflow and allocation failure.
+size_t mal_bytes_capacity(size_t required);
+MalBytesFlat *mal_bytes_flat_allocate(
+    MalContext *context,
+    size_t length,
+    size_t capacity,
+    size_t start,
+    const char *allocation_failure
+);
+// Like `mal_bytes_flat_allocate` with `start` 0, and every byte of the storage zero.
+MalBytesFlat *mal_bytes_flat_allocate_zeroed(
+    MalContext *context,
+    size_t length,
+    size_t capacity,
+    const char *allocation_failure
+);
 MalBytes *mal_bytes_flat_copy(
     MalContext *context,
     const void *source,
