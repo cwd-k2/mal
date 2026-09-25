@@ -15,7 +15,7 @@ impl FunctionEmitter<'_> {
                 site,
                 binding_index,
                 &binding.operation,
-                pattern_value_type(&binding.pattern),
+                Some(binding.pattern.ty()),
                 self.optimizations.symbol_concat_mode(site, binding_index),
             )?;
             self.store_binding_pattern(site, binding_index, &binding.pattern, value.as_ref())?;

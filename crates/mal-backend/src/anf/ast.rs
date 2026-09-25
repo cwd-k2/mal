@@ -82,6 +82,14 @@ pub(crate) enum Pattern {
     },
 }
 
+impl Pattern {
+    pub(crate) fn ty(&self) -> &Type {
+        match self {
+            Self::Binding { ty, .. } | Self::Wildcard { ty, .. } | Self::Product { ty, .. } => ty,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Atom {
     pub kind: AtomKind,

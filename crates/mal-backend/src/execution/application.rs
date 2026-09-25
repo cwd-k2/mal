@@ -123,7 +123,7 @@ impl ApplicationGraph {
                         Some(resume) => control.states[resume.0]
                             .input
                             .as_ref()
-                            .is_some_and(|input| pattern_type(input) == result.as_ref()),
+                            .is_some_and(|input| input.ty() == result.as_ref()),
                         None => site_plan
                             .caller
                             .and_then(|caller| functions.get(&caller))
@@ -211,14 +211,6 @@ fn application(
         } => Some((callee, argument, Some(*resume))),
         Terminator::TailCall { callee, argument } => Some((callee, argument, None)),
         _ => None,
-    }
-}
-
-fn pattern_type(pattern: &closure::Pattern) -> &mal_frontend::check::ast::Type {
-    match pattern {
-        closure::Pattern::Binding { ty, .. }
-        | closure::Pattern::Wildcard { ty, .. }
-        | closure::Pattern::Product { ty, .. } => ty,
     }
 }
 

@@ -122,7 +122,7 @@ fn parameter_is_bounded(control: &Program, function: FunctionId) -> bool {
         .all(|site| {
             let state = &control.states[site.0];
             let bindings_are_bounded = state.bindings.iter().all(|binding| {
-                !pattern_is_managed(&binding.pattern)
+                !is_managed(binding.pattern.ty())
                     || matches!(
                         binding.operation,
                         Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
@@ -136,19 +136,11 @@ fn parameter_is_bounded(control: &Program, function: FunctionId) -> bool {
                 Terminator::Call { resume, .. } => control.states[resume.0]
                     .input
                     .as_ref()
-                    .is_none_or(|pattern| !pattern_is_managed(pattern)),
+                    .is_none_or(|pattern| !is_managed(pattern.ty())),
                 _ => true,
             };
             bindings_are_bounded && result_is_bounded && call_result_is_bounded
         })
-}
-
-fn pattern_is_managed(pattern: &crate::closure::ast::Pattern) -> bool {
-    match pattern {
-        crate::closure::ast::Pattern::Binding { ty, .. }
-        | crate::closure::ast::Pattern::Product { ty, .. }
-        | crate::closure::ast::Pattern::Wildcard { ty, .. } => is_managed(ty),
-    }
 }
 
 pub(super) fn collect_parameter_effects(

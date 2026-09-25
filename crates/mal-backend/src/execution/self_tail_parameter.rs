@@ -123,12 +123,15 @@ impl SelfTailParameterPlan {
         &self,
         borrowing_functions: &HashSet<FunctionId>,
     ) -> HashSet<crate::anf::ast::ValueId> {
-        self.entries
+        let mut lenders = HashSet::new();
+        for (_, parameter) in self
+            .entries
             .iter()
             .filter(|(function, _)| borrowing_functions.contains(function))
-            .map(|(_, parameter)| parameter)
-            .flat_map(|parameter| managed_bindings(&parameter.pattern))
-            .collect()
+        {
+            super::derived::managed_leaves(&parameter.pattern, &mut lenders);
+        }
+        lenders
     }
 }
 
@@ -158,14 +161,6 @@ fn managed_bindings_are_preserved(
             .all(|element| managed_bindings_are_preserved(element, preserved)),
         Pattern::Wildcard { ty, .. } if super::ownership::is_managed(ty) => false,
         Pattern::Binding { .. } | Pattern::Wildcard { .. } => true,
-    }
-}
-
-fn managed_bindings(pattern: &Pattern) -> Vec<crate::anf::ast::ValueId> {
-    match pattern {
-        Pattern::Binding { id, ty } if super::ownership::is_managed(ty) => vec![*id],
-        Pattern::Product { elements, .. } => elements.iter().flat_map(managed_bindings).collect(),
-        Pattern::Binding { .. } | Pattern::Wildcard { .. } => Vec::new(),
     }
 }
 
@@ -199,7 +194,7 @@ fn replace_binding(
     replacement: &Pattern,
 ) -> bool {
     match pattern {
-        Pattern::Binding { id, ty } if *id == source && *ty == pattern_type(replacement) => {
+        Pattern::Binding { id, ty } if *id == source && ty == replacement.ty() => {
             *pattern = replacement.clone();
             true
         }
@@ -207,14 +202,6 @@ fn replace_binding(
             .iter_mut()
             .any(|element| replace_binding(element, source, replacement)),
         Pattern::Binding { .. } | Pattern::Wildcard { .. } => false,
-    }
-}
-
-fn pattern_type(pattern: &Pattern) -> mal_frontend::check::ast::Type {
-    match pattern {
-        Pattern::Binding { ty, .. }
-        | Pattern::Wildcard { ty, .. }
-        | Pattern::Product { ty, .. } => ty.clone(),
     }
 }
 

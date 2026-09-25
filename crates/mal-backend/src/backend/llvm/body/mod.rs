@@ -25,9 +25,7 @@ mod value;
 
 use crate::control::reachable_states;
 use memory::ManagedBufferElements;
-use plan::{
-    TopLevelConstants, collect_pattern_slot, insert_slot, main_function, pattern_value_type,
-};
+use plan::{TopLevelConstants, collect_pattern_slot, insert_slot, main_function};
 use scalar::{comparison_predicate, scalar_type};
 use types::{Types, is_bool};
 

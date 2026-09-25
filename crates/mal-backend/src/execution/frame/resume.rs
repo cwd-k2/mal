@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::closure::ast::{FunctionId, Pattern};
+use crate::closure::ast::FunctionId;
 use crate::control::ast::{self as control, StateId, Terminator};
 use mal_frontend::check::ast::Type;
 
@@ -49,7 +49,7 @@ impl Plan {
                 let Some(input) = program.states[frame.resume.0].input.as_ref() else {
                     continue;
                 };
-                if result == pattern_type(input) {
+                if result == input.ty() {
                     compatible.insert((exit, *site));
                 }
             }
@@ -132,13 +132,5 @@ fn continuation_result_type<'a>(
             Some(result)
         }
         _ => None,
-    }
-}
-
-fn pattern_type(pattern: &Pattern) -> &Type {
-    match pattern {
-        Pattern::Binding { ty, .. }
-        | Pattern::Wildcard { ty, .. }
-        | Pattern::Product { ty, .. } => ty,
     }
 }

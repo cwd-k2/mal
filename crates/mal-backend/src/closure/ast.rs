@@ -1,3 +1,5 @@
+// Closure conversion keeps the patterns of ANF, which carry nothing that the conversion changes.
+pub(crate) use crate::anf::ast::Pattern;
 use crate::anf::ast::ValueId;
 use crate::core::ast::{
     BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
@@ -129,23 +131,6 @@ pub(crate) struct Binding {
     pub pattern: Pattern,
     pub operation: Operation,
     pub span: Span,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum Pattern {
-    Binding {
-        id: ValueId,
-        ty: Type,
-    },
-    Wildcard {
-        ty: Type,
-        span: Span,
-    },
-    Product {
-        elements: Vec<Pattern>,
-        ty: Type,
-        span: Span,
-    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

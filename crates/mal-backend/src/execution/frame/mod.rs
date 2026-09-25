@@ -125,7 +125,7 @@ impl ControlFramePlan {
                     && program.states[frame.resume.0]
                         .input
                         .as_ref()
-                        .is_some_and(|input| pattern_type(input) == result.as_ref())
+                        .is_some_and(|input| input.ty() == result.as_ref())
                     && frame.fields.len() == program.states[frame.resume.0].live.len()
                     && frame
                         .fields
@@ -151,14 +151,6 @@ impl ControlFramePlan {
                                 .site_region(*site)
                                 .is_some_and(|region| calls.requires_common_control(region)))
             })
-    }
-}
-
-fn pattern_type(pattern: &crate::closure::ast::Pattern) -> &mal_frontend::check::ast::Type {
-    match pattern {
-        crate::closure::ast::Pattern::Binding { ty, .. }
-        | crate::closure::ast::Pattern::Wildcard { ty, .. }
-        | crate::closure::ast::Pattern::Product { ty, .. } => ty,
     }
 }
 

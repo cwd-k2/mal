@@ -37,13 +37,16 @@ pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -
             }) || type_contains_value(&function.parameter.ty)
         })
         || execution.control.states.iter().any(|state| {
-            state.input.as_ref().is_some_and(pattern_contains_value)
+            state
+                .input
+                .as_ref()
+                .is_some_and(|input| type_contains_value(input.ty()))
                 || state
                     .live
                     .iter()
                     .any(|value| type_contains_value(&value.ty))
                 || state.bindings.iter().any(|binding| {
-                    pattern_contains_value(&binding.pattern)
+                    type_contains_value(binding.pattern.ty())
                         || operation_uses_runtime(&binding.operation)
                 })
                 || terminator_uses_runtime(&state.terminator)
@@ -56,14 +59,6 @@ fn type_contains_value(ty: &Type) -> bool {
 
 fn atom_contains_value(atom: &Atom) -> bool {
     type_contains_value(&atom.ty)
-}
-
-fn pattern_contains_value(pattern: &crate::closure::ast::Pattern) -> bool {
-    match pattern {
-        crate::closure::ast::Pattern::Binding { ty, .. }
-        | crate::closure::ast::Pattern::Wildcard { ty, .. }
-        | crate::closure::ast::Pattern::Product { ty, .. } => type_contains_value(ty),
-    }
 }
 
 fn operation_uses_runtime(operation: &Operation) -> bool {

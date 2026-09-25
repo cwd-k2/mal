@@ -129,7 +129,7 @@ impl Converter {
         environment: &HashMap<anf::ValueId, Reference>,
     ) -> Binding {
         Binding {
-            pattern: self.convert_pattern(&binding.pattern),
+            pattern: binding.pattern.clone(),
             operation: self.convert_operation(&binding.operation, binding.span, environment),
             span: binding.span,
         }
@@ -279,7 +279,7 @@ impl Converter {
             .joins
             .iter()
             .map(|join| ast::Join {
-                parameter: self.convert_pattern(&join.parameter),
+                parameter: join.parameter.clone(),
                 body: self.convert_block(&join.body, &environment),
                 span: join.span,
             })
@@ -318,30 +318,9 @@ impl Converter {
     ) -> ast::CaseArm {
         ast::CaseArm {
             index: arm.index,
-            pattern: self.convert_pattern(&arm.pattern),
+            pattern: arm.pattern.clone(),
             value: self.convert_block(&arm.value, environment),
             span: arm.span,
-        }
-    }
-
-    fn convert_pattern(&self, pattern: &anf::Pattern) -> Pattern {
-        match pattern {
-            anf::Pattern::Binding { id, ty } => Pattern::Binding {
-                id: *id,
-                ty: ty.clone(),
-            },
-            anf::Pattern::Wildcard { ty, span } => Pattern::Wildcard {
-                ty: ty.clone(),
-                span: *span,
-            },
-            anf::Pattern::Product { elements, ty, span } => Pattern::Product {
-                elements: elements
-                    .iter()
-                    .map(|element| self.convert_pattern(element))
-                    .collect(),
-                ty: ty.clone(),
-                span: *span,
-            },
         }
     }
 

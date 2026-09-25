@@ -48,7 +48,7 @@ impl TopLevelConstants {
         for binding in &execution.lowered.bindings {
             let mut locals = HashMap::new();
             for local in &binding.value.bindings {
-                let ty = pattern_type(&local.pattern);
+                let ty = local.pattern.ty();
                 let value = constants.operation(&local.operation, ty, &locals)?;
                 constants.bind_local_pattern(&local.pattern, value, &mut locals)?;
             }
@@ -232,20 +232,12 @@ impl TopLevelConstants {
     }
 }
 
-fn pattern_type(pattern: &Pattern) -> &Type {
-    match pattern {
-        Pattern::Binding { ty, .. }
-        | Pattern::Wildcard { ty, .. }
-        | Pattern::Product { ty, .. } => ty,
-    }
-}
-
 fn bind_pattern(
     pattern: &Pattern,
     value: Constant,
     values: &mut HashMap<ValueId, Constant>,
 ) -> Option<()> {
-    if *pattern_type(pattern) != value.ty {
+    if *pattern.ty() != value.ty {
         return None;
     }
     match pattern {
@@ -402,13 +394,5 @@ pub(super) fn insert_slot(slots: &mut HashMap<ValueId, Slot>, id: ValueId, ty: T
                 ty,
             },
         );
-    }
-}
-
-pub(super) fn pattern_value_type(pattern: &Pattern) -> Option<&Type> {
-    match pattern {
-        Pattern::Binding { ty, .. }
-        | Pattern::Wildcard { ty, .. }
-        | Pattern::Product { ty, .. } => Some(ty),
     }
 }
