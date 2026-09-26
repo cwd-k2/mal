@@ -44,9 +44,54 @@ fn emits_targeted_llvm_and_a_c_shim_from_one_bridge_plan() {
             .contains("target triple = \"x86_64-unknown-linux-gnu\"")
     );
     assert!(artifacts.module.contains("ret i32 7"));
+    assert!(
+        !artifacts
+            .module
+            .contains("declare ptr @mal_runtime_bytes_data")
+    );
+    assert!(
+        !artifacts
+            .runtime
+            .iter()
+            .any(|source| source.name == "bytes.c")
+    );
     assert!(artifacts.shim.contains(
         "void mal_program_entry(void *mal_context, const void *mal_argument, void *mal_result);"
     ));
+}
+
+#[test]
+fn includes_byte_runtime_when_only_the_process_entry_shim_uses_it() {
+    let source = SourceFile::new(
+        FileId::new(105),
+        "llvm-ignored-arguments.mal",
+        "main :: Buffer<Symbol> -> Int32 := (_) -> { 0i32; };".into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check argument fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let execution = crate::execution::lower(
+        crate::closure::convert(&crate::anf::lower(&core)),
+        crate::execution::OptimizationSet::production(),
+    );
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("ignored process arguments are supported");
+
+    assert!(artifacts.shim.contains("mal_runtime_buffer_from_arguments"));
+    assert!(
+        artifacts
+            .runtime
+            .iter()
+            .any(|source| source.name == "bytes.c")
+    );
 }
 
 #[test]

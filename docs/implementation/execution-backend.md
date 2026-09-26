@@ -102,6 +102,9 @@ backendは生成中のLLVM artifactを論理moduleとして構成し、target pr
 rendererへ渡す。control storageとbyte runtimeの宣言groupは、それを使うbodyだけがmoduleへ追加する。LLVM IRにはsource-levelの
 `include`を設けず、必要なgroupの選択をbackendが所有する。
 
+byte runtime依存はexecution planを別途走査して推測せず、構築済みfunctionが参照するruntime symbolから導出する。generated C shimは
+自身が生成したprocess argument変換の依存を別に報告し、同梱するruntime sourceはLLVM moduleとshimの依存の和から選ぶ。
+
 現行driverは論理moduleを一つの`program.ll`へrenderする。複数の`.ll`へ物理分割するとinternal linkage、module間最適化、target
 propertyの一致を別途管理する必要があるため、code organizationだけを理由には分割しない。compile時間または再利用性に測定可能な
 利点が生じた場合は、同じ論理moduleのpartitionとし、baselineでもobservable behaviorとstack boundを維持する。

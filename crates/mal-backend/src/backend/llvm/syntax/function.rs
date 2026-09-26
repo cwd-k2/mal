@@ -91,6 +91,10 @@ impl FunctionDefinition {
     pub(super) fn name(&self) -> &str {
         self.signature.name()
     }
+
+    pub(in crate::backend::llvm) fn uses_byte_runtime(&self) -> bool {
+        self.blocks.iter().any(BasicBlock::uses_byte_runtime)
+    }
 }
 
 pub(in crate::backend::llvm) struct FunctionBuilder {
@@ -213,6 +217,26 @@ impl BasicBlock {
             output.push('\n');
         }
     }
+
+    fn uses_byte_runtime(&self) -> bool {
+        self.instructions
+            .iter()
+            .any(|instruction| is_byte_runtime_reference(&instruction.0))
+            || self
+                .terminator
+                .as_ref()
+                .is_some_and(|terminator| is_byte_runtime_reference(terminator.text()))
+    }
+}
+
+fn is_byte_runtime_reference(text: &str) -> bool {
+    [
+        "@mal_runtime_bytes_",
+        "@mal_runtime_buffer_",
+        "@mal_runtime_symbol_",
+    ]
+    .iter()
+    .any(|prefix| text.contains(prefix))
 }
 
 fn is_valid_name(name: &str) -> bool {
@@ -352,5 +376,29 @@ mod tests {
 
         assert!(!function.entry_instruction("ret void"));
         assert!(!function.entry_instruction("call void @work()\nret void"));
+    }
+
+    #[test]
+    fn derives_byte_runtime_requirements_from_emitted_instructions() {
+        let signature = || FunctionSignature::new("void", "example", std::iter::empty::<&str>());
+        let plain = FunctionDefinition::new(
+            signature(),
+            vec![BasicBlock::new("entry", ["call void @work()", "ret void"]).unwrap()],
+        )
+        .unwrap();
+        let bytes = FunctionDefinition::new(
+            signature(),
+            vec![
+                BasicBlock::new(
+                    "entry",
+                    ["call void @mal_runtime_bytes_release(ptr null)", "ret void"],
+                )
+                .unwrap(),
+            ],
+        )
+        .unwrap();
+
+        assert!(!plain.uses_byte_runtime());
+        assert!(bytes.uses_byte_runtime());
     }
 }

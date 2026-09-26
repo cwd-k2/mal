@@ -19,7 +19,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/setup` | identity and frame-tag indexing, function emitter admission, prologue, and output order |
 | `body/terminator` | control terminators as branches, calls, returns, and case dispatch |
 | `body/operation`, `body/bridge` | control operations, dispatched to the modules below, and external operation calls through the C bridge |
-| `body/symbol` | Symbol literals, length, byte access, and concatenation, and whether a program needs the byte runtime |
+| `body/symbol` | Symbol literals, length, byte access, and concatenation |
 | `body/call_emission` | value, environment, and parameter-responsibility handoff at call boundaries |
 | `body/control_storage`, `body/control_top` | region-local storage view and top access, synchronized at native Mal call boundaries |
 | `body/frame` | frame layout, resume dispatch, and owner transfer |
@@ -29,6 +29,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |
 
-`module` builds one logical LLVM module from feature groups. It adds control and byte-runtime declarations only when the emitted
-body uses them. The renderer currently writes that logical module to the single `program.ll` artifact; physical partitioning into
-several `.ll` inputs is a delivery choice and does not change feature selection or body lowering.
+`module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted
+function structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
+selection uses the union of both artifacts. The renderer currently writes the logical module to the single `program.ll` artifact;
+physical partitioning into several `.ll` inputs is a delivery choice and does not change feature selection or body lowering.

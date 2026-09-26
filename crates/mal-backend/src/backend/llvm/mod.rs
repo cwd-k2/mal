@@ -57,7 +57,6 @@ pub(crate) fn generate(
     body::admit_target(program, layout).map_err(Error::Diagnostic)?;
     let body =
         body::generate(program, layout, optimizations).map_err(Error::InconsistentExecutionPlan)?;
-    let runtime = crate::backend::runtime::for_program(body.uses_byte_runtime);
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
@@ -84,11 +83,12 @@ pub(crate) fn generate(
         Error::InconsistentExecutionPlan("entry argument layout".into()),
     )?;
     let types = body::types::Types::for_target(layout);
-    let main = shim::entry_main(&body.main_parameter, types, entry.name())
-        .ok_or(Error::InconsistentExecutionPlan(
-            "process entry emission".into(),
-        ))?
-        .render();
+    let main = shim::entry_main(&body.main_parameter, types, entry.name()).ok_or(
+        Error::InconsistentExecutionPlan("process entry emission".into()),
+    )?;
+    let runtime =
+        crate::backend::runtime::for_program(body.uses_byte_runtime || main.uses_byte_runtime);
+    let main = main.definition.render();
     let entry_declaration =
         crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();
     let shim = format!(

@@ -1,5 +1,4 @@
 use crate::closure::ast::{Atom, AtomKind, Reference};
-use crate::control::ast::{Operation, Terminator};
 use mal_frontend::check::ast::Type;
 
 use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
@@ -34,96 +33,6 @@ pub(super) fn literal_definition(
             bytes.len()
         ),
     )
-}
-
-pub(super) fn program_uses_byte_runtime(execution: &crate::execution::Program) -> bool {
-    execution
-        .lowered
-        .interface
-        .externals
-        .iter()
-        .any(|external| {
-            type_contains_value(&external.parameter) || type_contains_value(&external.result)
-        })
-        || execution.lowered.functions.iter().any(|function| {
-            function
-                .captures
-                .iter()
-                .any(|capture| type_contains_value(&capture.ty))
-                || type_contains_value(&function.parameter.ty)
-        })
-        || execution.control.states.iter().any(|state| {
-            state
-                .input
-                .as_ref()
-                .is_some_and(|input| type_contains_value(input.ty()))
-                || state
-                    .live
-                    .iter()
-                    .any(|value| type_contains_value(&value.ty))
-                || state.bindings.iter().any(|binding| {
-                    type_contains_value(binding.pattern.ty())
-                        || operation_uses_runtime(&binding.operation)
-                })
-                || terminator_uses_runtime(&state.terminator)
-        })
-}
-
-fn type_contains_value(ty: &Type) -> bool {
-    ty.data_subtypes().any(|ty| matches!(ty, Type::Symbol))
-}
-
-fn atom_contains_value(atom: &Atom) -> bool {
-    type_contains_value(&atom.ty)
-}
-
-fn operation_uses_runtime(operation: &Operation) -> bool {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::SymbolLength { value: atom }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::ExternalCall { argument: atom, .. } => atom_contains_value(atom),
-        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
-            captures.iter().any(atom_contains_value)
-        }
-        Operation::SymbolAt { .. } => true,
-        Operation::Buffer { .. } => true,
-        Operation::Memory {
-            primitive:
-                mal_frontend::check::ast::MemoryPrimitive::BufferFromAddress
-                | mal_frontend::check::ast::MemoryPrimitive::BufferIntoAddress
-                | mal_frontend::check::ast::MemoryPrimitive::ViewLength
-                | mal_frontend::check::ast::MemoryPrimitive::BufferToSymbol
-                | mal_frontend::check::ast::MemoryPrimitive::SymbolToBuffer,
-            ..
-        } => true,
-        Operation::Memory { operands, .. } => operands.iter().any(atom_contains_value),
-        Operation::PrimitiveUnary { operand, .. } => atom_contains_value(operand),
-        Operation::PrimitiveBinary { left, right, .. } => {
-            atom_contains_value(left) || atom_contains_value(right)
-        }
-    }
-}
-
-fn terminator_uses_runtime(terminator: &Terminator) -> bool {
-    match terminator {
-        Terminator::Return(atom)
-        | Terminator::Case {
-            scrutinee: atom, ..
-        } => atom_contains_value(atom),
-        Terminator::Goto(_) => false,
-        Terminator::Jump { value, .. } => atom_contains_value(value),
-        Terminator::Call {
-            callee, argument, ..
-        }
-        | Terminator::TailCall { callee, argument } => {
-            atom_contains_value(callee) || atom_contains_value(argument)
-        }
-        Terminator::PrimitiveBranch { left, right, .. } => {
-            atom_contains_value(left) || atom_contains_value(right)
-        }
-    }
 }
 
 impl FunctionEmitter<'_> {

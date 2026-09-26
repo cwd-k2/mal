@@ -6,15 +6,22 @@ use mal_frontend::check::ast::Type;
 
 use super::body::types::Types;
 
-pub(super) fn entry_main(
-    parameter: &Type,
-    types: Types,
-    entry: &str,
-) -> Option<FunctionDefinition> {
+pub(super) struct Output {
+    pub(super) definition: FunctionDefinition,
+    pub(super) uses_byte_runtime: bool,
+}
+
+pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<Output> {
     if *parameter == Type::Unit {
-        return Some(unit_main(entry));
+        return Some(Output {
+            definition: unit_main(entry),
+            uses_byte_runtime: false,
+        });
     }
-    argument_main(parameter, types, entry)
+    Some(Output {
+        definition: argument_main(parameter, types, entry)?,
+        uses_byte_runtime: true,
+    })
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {

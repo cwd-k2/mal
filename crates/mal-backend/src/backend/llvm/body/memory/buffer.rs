@@ -399,13 +399,16 @@ impl FunctionEmitter<'_> {
     /// Defines the callbacks that let the runtime retain and release one stored element of each managed element type.
     pub(in crate::backend::llvm::body) fn emit_managed_buffer_element_callbacks(
         &mut self,
-    ) -> Option<Vec<crate::backend::llvm::syntax::FunctionDefinition>> {
+    ) -> Option<super::super::EmittedFunction> {
         let index = self.index;
         for (number, element) in index.managed_buffer_elements.0.iter().enumerate() {
             self.emit_managed_element_callback(number, element, true)?;
             self.emit_managed_element_callback(number, element, false)?;
         }
-        (!self.emission_failed).then(|| std::mem::take(&mut self.definitions))
+        (!self.emission_failed).then(|| super::super::EmittedFunction {
+            globals: std::mem::take(&mut self.globals),
+            definitions: std::mem::take(&mut self.definitions),
+        })
     }
 
     fn emit_managed_element_callback(

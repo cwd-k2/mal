@@ -68,7 +68,7 @@ pub(super) fn generate(
     let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
     debug_assert!(optimizations.is_valid(execution, enabled));
     let mut globals = top_levels.globals().to_vec();
-    let mut definitions = FunctionEmitter::new(
+    let callbacks = FunctionEmitter::new(
         execution,
         &index,
         main,
@@ -79,6 +79,7 @@ pub(super) fn generate(
     )
     .and_then(|mut emitter| emitter.emit_managed_buffer_element_callbacks())
     .ok_or("Buffer element callback emission")?;
+    let mut definitions = callbacks.definitions;
     let mut uses_control = false;
     for function in &execution.control.functions {
         let failed =
@@ -121,13 +122,16 @@ pub(super) fn generate(
         globals.extend(emitted.globals);
         definitions.extend(emitted.definitions);
     }
+    let uses_byte_runtime = definitions
+        .iter()
+        .any(super::syntax::FunctionDefinition::uses_byte_runtime);
     Ok(Output {
         globals,
         definitions,
         main,
         main_parameter,
         uses_control,
-        uses_byte_runtime: symbol::program_uses_byte_runtime(execution),
+        uses_byte_runtime,
     })
 }
 
