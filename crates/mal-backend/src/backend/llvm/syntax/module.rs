@@ -101,10 +101,7 @@ mod tests {
         module.declare(FunctionDeclaration::new("void @always()"));
         module.define(FunctionDefinition::new(
             "void @entry()",
-            vec![BasicBlock::new(
-                "entry",
-                ["call void @always()", "ret void"],
-            )],
+            vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
         ));
 
         assert_eq!(

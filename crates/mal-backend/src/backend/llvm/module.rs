@@ -162,7 +162,7 @@ fn entry_definition(body: &body::Output, types: &body::types::Types) -> Option<F
     ]);
     Some(FunctionDefinition::new(
         AbiFunction::program_entry().llvm_signature(),
-        vec![BasicBlock::new("entry", instructions)],
+        vec![BasicBlock::new("entry", instructions)?],
     ))
 }
 
