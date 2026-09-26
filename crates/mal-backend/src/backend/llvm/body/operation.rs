@@ -37,11 +37,14 @@ impl FunctionEmitter<'_> {
                 };
                 let closure_type = self.types.value(&result_type)?;
                 let with_code = self.register();
-                self.line(format!(
-                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                    closure_type.llvm,
-                    super::function_name(*function)
-                ));
+                self.insert_value(
+                    with_code.clone(),
+                    closure_type.llvm.clone(),
+                    "zeroinitializer",
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    format!("@{}", super::function_name(*function)),
+                    [0],
+                );
                 let target = *self.index.lowered_functions.get(function)?;
                 let environment = &target.captures;
                 if captures.len() != environment.len()
@@ -105,10 +108,14 @@ impl FunctionEmitter<'_> {
                     );
                     self.commit_consumes(&environment_value)?;
                     let closure = self.register();
-                    self.line(format!(
-                        "  {closure} = insertvalue {} {}, ptr {environment}, 1",
-                        closure_type.llvm, with_code
-                    ));
+                    self.insert_value(
+                        closure.clone(),
+                        closure_type.llvm,
+                        with_code,
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        environment,
+                        [1],
+                    );
                     closure
                 };
                 Some(Some(EmittedValue {
@@ -122,19 +129,35 @@ impl FunctionEmitter<'_> {
                 let operand = self.atom(operand)?;
                 let scalar = scalar_type(&operand.ty, self.types.index_size())?;
                 let register = self.register();
-                let instruction = match operator {
+                match operator {
                     UnaryPrimitive::Negate if scalar.floating => {
-                        format!("fneg {} {}", scalar.llvm, operand.representation)
+                        self.unary(
+                            register.clone(),
+                            crate::backend::llvm::syntax::UnaryOperator::FNeg,
+                            scalar.llvm_type(),
+                            operand.representation,
+                        );
                     }
                     UnaryPrimitive::Negate => {
-                        format!("sub {} 0, {}", scalar.llvm, operand.representation)
+                        self.binary(
+                            register.clone(),
+                            crate::backend::llvm::syntax::BinaryOperator::Sub,
+                            scalar.llvm_type(),
+                            "0",
+                            operand.representation,
+                        );
                     }
                     UnaryPrimitive::BitwiseNot if !scalar.floating => {
-                        format!("xor {} {}, -1", scalar.llvm, operand.representation)
+                        self.binary(
+                            register.clone(),
+                            crate::backend::llvm::syntax::BinaryOperator::Xor,
+                            scalar.llvm_type(),
+                            operand.representation,
+                            "-1",
+                        );
                     }
                     UnaryPrimitive::BitwiseNot => return None,
-                };
-                self.line(format!("  {register} = {instruction}"));
+                }
                 Some(Some(EmittedValue {
                     ty: operand.ty,
                     representation: register,
@@ -165,21 +188,25 @@ impl FunctionEmitter<'_> {
                         crate::core::ast::BinaryPrimitive::Add => right.representation,
                         crate::core::ast::BinaryPrimitive::Subtract => {
                             let negated = self.register();
-                            self.line(format!(
-                                "  {negated} = sub {} 0, {}",
-                                self.types.index_integer(),
-                                right.representation
-                            ));
+                            self.binary(
+                                negated.clone(),
+                                crate::backend::llvm::syntax::BinaryOperator::Sub,
+                                self.types.index_llvm_type(),
+                                "0",
+                                right.representation,
+                            );
                             negated
                         }
                         _ => return None,
                     };
                     let register = self.register();
-                    self.line(format!(
-                        "  {register} = getelementptr i8, ptr {}, {} {offset}",
+                    self.get_element_ptr(
+                        register.clone(),
+                        false,
+                        crate::backend::llvm::syntax::Type::integer(8_u16),
                         left.representation,
-                        self.types.index_integer()
-                    ));
+                        [(self.types.index_llvm_type(), offset)],
+                    );
                     return Some(Some(EmittedValue {
                         ty: Type::Address,
                         representation: register,
@@ -213,30 +240,52 @@ impl FunctionEmitter<'_> {
                             ],
                         );
                         let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => "ne",
-                            crate::core::ast::BinaryPrimitive::NotEqual => "eq",
+                            crate::core::ast::BinaryPrimitive::Equal => {
+                                crate::backend::llvm::syntax::ComparisonPredicate::Ne
+                            }
+                            crate::core::ast::BinaryPrimitive::NotEqual => {
+                                crate::backend::llvm::syntax::ComparisonPredicate::Eq
+                            }
                             _ => return None,
                         };
-                        self.line(format!("  {register} = icmp {predicate} i8 {equality}, 0"));
+                        self.compare(
+                            register.clone(),
+                            crate::backend::llvm::syntax::ComparisonKind::Integer,
+                            predicate,
+                            crate::backend::llvm::syntax::Type::integer(8_u16),
+                            equality,
+                            "0",
+                        );
                     } else if super::types::is_bool(&left.ty) {
                         let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => "eq",
-                            crate::core::ast::BinaryPrimitive::NotEqual => "ne",
+                            crate::core::ast::BinaryPrimitive::Equal => {
+                                crate::backend::llvm::syntax::ComparisonPredicate::Eq
+                            }
+                            crate::core::ast::BinaryPrimitive::NotEqual => {
+                                crate::backend::llvm::syntax::ComparisonPredicate::Ne
+                            }
                             _ => return None,
                         };
-                        self.line(format!(
-                            "  {register} = icmp {predicate} i1 {}, {}",
-                            left.representation, right.representation
-                        ));
+                        self.compare(
+                            register.clone(),
+                            crate::backend::llvm::syntax::ComparisonKind::Integer,
+                            predicate,
+                            crate::backend::llvm::syntax::Type::integer(1_u16),
+                            left.representation,
+                            right.representation,
+                        );
                     } else {
                         let scalar = scalar_type(&left.ty, self.types.index_size())?;
-                        let predicate =
+                        let (kind, predicate) =
                             super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
-                        let instruction = if scalar.floating { "fcmp" } else { "icmp" };
-                        self.line(format!(
-                            "  {register} = {instruction} {predicate} {} {}, {}",
-                            scalar.llvm, left.representation, right.representation
-                        ));
+                        self.compare(
+                            register.clone(),
+                            kind,
+                            predicate,
+                            scalar.llvm_type(),
+                            left.representation,
+                            right.representation,
+                        );
                     }
                     return Some(Some(EmittedValue {
                         ty: result_type?.clone(),
@@ -247,10 +296,13 @@ impl FunctionEmitter<'_> {
                 let scalar = scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
-                self.line(format!(
-                    "  {register} = {instruction} {} {}, {}",
-                    scalar.llvm, left.representation, right.representation
-                ));
+                self.binary(
+                    register.clone(),
+                    instruction,
+                    scalar.llvm_type(),
+                    left.representation,
+                    right.representation,
+                );
                 Some(Some(EmittedValue {
                     ty: result_type.cloned().unwrap_or(left.ty),
                     representation: register,
@@ -277,26 +329,37 @@ impl FunctionEmitter<'_> {
                 }
                 let instruction = if source.floating && target.floating {
                     if source.bits > target.bits {
-                        "fptrunc"
+                        crate::backend::llvm::syntax::CastOperator::FPTrunc
                     } else {
-                        "fpext"
+                        crate::backend::llvm::syntax::CastOperator::FPExt
                     }
                 } else if source.floating {
-                    if target.signed { "fptosi" } else { "fptoui" }
+                    if target.signed {
+                        crate::backend::llvm::syntax::CastOperator::FPToSI
+                    } else {
+                        crate::backend::llvm::syntax::CastOperator::FPToUI
+                    }
                 } else if target.floating {
-                    if source.signed { "sitofp" } else { "uitofp" }
+                    if source.signed {
+                        crate::backend::llvm::syntax::CastOperator::SIToFP
+                    } else {
+                        crate::backend::llvm::syntax::CastOperator::UIToFP
+                    }
                 } else if source.bits > target.bits {
-                    "trunc"
+                    crate::backend::llvm::syntax::CastOperator::Trunc
                 } else if source.signed {
-                    "sext"
+                    crate::backend::llvm::syntax::CastOperator::SExt
                 } else {
-                    "zext"
+                    crate::backend::llvm::syntax::CastOperator::ZExt
                 };
                 let register = self.register();
-                self.line(format!(
-                    "  {register} = {instruction} {} {} to {}",
-                    source.llvm, operand.representation, target.llvm
-                ));
+                self.cast(
+                    register.clone(),
+                    instruction,
+                    source.llvm_type(),
+                    operand.representation,
+                    target.llvm_type(),
+                );
                 Some(Some(EmittedValue {
                     ty: result_type,
                     representation: register,

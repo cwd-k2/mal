@@ -124,10 +124,12 @@ impl FunctionEmitter<'_> {
         let runtime = self.types.value(&value.ty)?;
         let [owner, data, count] = std::array::from_fn(|index| {
             let field = self.register();
-            self.line(format!(
-                "  {field} = extractvalue {} {}, {index}",
-                runtime.llvm, value.representation
-            ));
+            self.extract_value(
+                field.clone(),
+                runtime.llvm.clone(),
+                value.representation.clone(),
+                [index],
+            );
             field
         });
         Some(ByteViewFields { owner, data, count })
@@ -146,21 +148,32 @@ impl FunctionEmitter<'_> {
         }
         let runtime = self.types.value(ty)?;
         let with_owner = self.register();
-        self.line(format!(
-            "  {with_owner} = insertvalue {} poison, ptr {owner}, 0",
-            runtime.llvm
-        ));
+        self.insert_value(
+            with_owner.clone(),
+            runtime.llvm.clone(),
+            "poison",
+            crate::backend::llvm::syntax::Type::Pointer,
+            owner,
+            [0],
+        );
         let with_data = self.register();
-        self.line(format!(
-            "  {with_data} = insertvalue {} {with_owner}, ptr {data}, 1",
-            runtime.llvm
-        ));
+        self.insert_value(
+            with_data.clone(),
+            runtime.llvm.clone(),
+            with_owner,
+            crate::backend::llvm::syntax::Type::Pointer,
+            data,
+            [1],
+        );
         let result = self.register();
-        self.line(format!(
-            "  {result} = insertvalue {} {with_data}, {} {count}, 2",
+        self.insert_value(
+            result.clone(),
             runtime.llvm,
-            self.types.index_integer()
-        ));
+            with_data,
+            self.types.index_llvm_type(),
+            count,
+            [2],
+        );
         Some(EmittedValue {
             ty: ty.clone(),
             representation: result,

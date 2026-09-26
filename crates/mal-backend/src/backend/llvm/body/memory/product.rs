@@ -18,10 +18,12 @@ impl FunctionEmitter<'_> {
         let fields = std::array::from_fn(|index| {
             let ty = &elements[index];
             let field = self.register();
-            self.line(format!(
-                "  {field} = extractvalue {} {}, {index}",
-                product_type.llvm, product.representation
-            ));
+            self.extract_value(
+                field.clone(),
+                product_type.llvm.clone(),
+                product.representation.clone(),
+                [index],
+            );
             EmittedValue {
                 ty: ty.clone(),
                 representation: field,

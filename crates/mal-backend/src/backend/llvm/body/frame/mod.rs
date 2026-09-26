@@ -48,12 +48,14 @@ impl FunctionEmitter<'_> {
             })
             .is_some_and(|retired| layout.size <= retired.size);
         let reservation = self.reserve_control_frame(layout.size, replacement)?;
-        let index_type = self.types.index_integer();
         let frame_pointer = self.register();
-        self.line(format!(
-            "  {frame_pointer} = getelementptr i8, ptr {}, {index_type} {}",
-            reservation.storage, reservation.top
-        ));
+        self.get_element_ptr(
+            frame_pointer.clone(),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            reservation.storage,
+            [(self.types.index_llvm_type(), reservation.top.clone())],
+        );
         if tagged {
             let tag = self.frame_tags.get(&site)?;
             self.store(
@@ -82,10 +84,16 @@ impl FunctionEmitter<'_> {
         for layout in &layout.fields {
             let value = prepared_fields.get(layout.index)?;
             let pointer = self.register();
-            self.line(format!(
-                "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-                layout.offset
-            ));
+            self.get_element_ptr(
+                pointer.clone(),
+                false,
+                crate::backend::llvm::syntax::Type::integer(8_u16),
+                frame_pointer.as_str(),
+                [(
+                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    layout.offset.to_string(),
+                )],
+            );
             self.store(
                 layout.value_type.llvm.clone(),
                 value.value.representation.as_str(),
@@ -97,9 +105,16 @@ impl FunctionEmitter<'_> {
         if let Some(offset) = layout.environment {
             let environment = self.active_environment();
             let pointer = self.register();
-            self.line(format!(
-                "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
-            ));
+            self.get_element_ptr(
+                pointer.clone(),
+                false,
+                crate::backend::llvm::syntax::Type::integer(8_u16),
+                frame_pointer.as_str(),
+                [(
+                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    offset.to_string(),
+                )],
+            );
             self.store(
                 crate::backend::llvm::syntax::Type::Pointer,
                 environment,
@@ -110,9 +125,16 @@ impl FunctionEmitter<'_> {
         }
         if let Some(offset) = layout.footer {
             let footer = self.register();
-            self.line(format!(
-                "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
-            ));
+            self.get_element_ptr(
+                footer.clone(),
+                false,
+                crate::backend::llvm::syntax::Type::integer(8_u16),
+                frame_pointer,
+                [(
+                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    offset.to_string(),
+                )],
+            );
             self.store(
                 self.types.index_llvm_type(),
                 reservation.top.as_str(),
@@ -204,10 +226,12 @@ impl FunctionEmitter<'_> {
         let code = if direct_target.is_none() {
             let closure_type = self.types.value(&callee.value.ty)?;
             let code = self.register();
-            self.line(format!(
-                "  {code} = extractvalue {} {}, 0",
-                closure_type.llvm, callee.value.representation
-            ));
+            self.extract_value(
+                code.clone(),
+                closure_type.llvm,
+                callee.value.representation.clone(),
+                [0],
+            );
             Some(code)
         } else {
             None
@@ -284,10 +308,14 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         for (index, target) in targets.iter().enumerate() {
             let matched = self.register();
-            self.line(format!(
-                "  {matched} = icmp eq ptr {code}, @{}",
-                super::function_name(*target)
-            ));
+            self.compare(
+                matched.clone(),
+                crate::backend::llvm::syntax::ComparisonKind::Integer,
+                crate::backend::llvm::syntax::ComparisonPredicate::Eq,
+                crate::backend::llvm::syntax::Type::Pointer,
+                code,
+                format!("@{}", super::function_name(*target)),
+            );
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
             self.conditional_branch(
                 matched,

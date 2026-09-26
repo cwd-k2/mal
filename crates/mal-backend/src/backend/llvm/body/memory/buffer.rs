@@ -593,16 +593,21 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let offset = self.register();
-        self.line(format!(
-            "  {offset} = mul {} {}, {stride}",
-            self.types.index_integer(),
-            index.representation
-        ));
+        self.binary(
+            offset.clone(),
+            crate::backend::llvm::syntax::BinaryOperator::Mul,
+            self.types.index_llvm_type(),
+            index.representation.clone(),
+            stride.to_string(),
+        );
         let pointer = self.register();
-        self.line(format!(
-            "  {pointer} = getelementptr i8, ptr {data}, {} {offset}",
-            self.types.index_integer()
-        ));
+        self.get_element_ptr(
+            pointer.clone(),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            data,
+            [(self.types.index_llvm_type(), offset)],
+        );
         Some(pointer)
     }
 }

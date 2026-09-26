@@ -79,7 +79,6 @@ impl FunctionEmitter<'_> {
         frame_size: usize,
         replacement: bool,
     ) -> Option<ControlReservation> {
-        let index_type = self.types.index_integer();
         let top = self.register();
         self.load(
             top.clone(),
@@ -89,9 +88,13 @@ impl FunctionEmitter<'_> {
             [],
         );
         let next_top = self.register();
-        self.line(format!(
-            "  {next_top} = add {index_type} {top}, {frame_size}"
-        ));
+        self.binary(
+            next_top.clone(),
+            crate::backend::llvm::syntax::BinaryOperator::Add,
+            self.types.index_llvm_type(),
+            top.clone(),
+            frame_size.to_string(),
+        );
         if replacement {
             let storage = self.current_control_storage();
             return Some(ControlReservation {
@@ -141,17 +144,31 @@ impl FunctionEmitter<'_> {
             8 => u64::MAX.checked_sub(frame_size)?,
             _ => unreachable!("target layout admits only supported index widths"),
         };
-        self.line(format!(
-            "  {no_overflow} = icmp ule {index_type} {top}, {maximum_top}"
-        ));
+        self.compare(
+            no_overflow.clone(),
+            crate::backend::llvm::syntax::ComparisonKind::Integer,
+            crate::backend::llvm::syntax::ComparisonPredicate::Ule,
+            self.types.index_llvm_type(),
+            top.clone(),
+            maximum_top.to_string(),
+        );
         let within_capacity = self.register();
-        self.line(format!(
-            "  {within_capacity} = icmp ule {index_type} {next_top}, {capacity}"
-        ));
+        self.compare(
+            within_capacity.clone(),
+            crate::backend::llvm::syntax::ComparisonKind::Integer,
+            crate::backend::llvm::syntax::ComparisonPredicate::Ule,
+            self.types.index_llvm_type(),
+            next_top.clone(),
+            capacity,
+        );
         let fast = self.register();
-        self.line(format!(
-            "  {fast} = and i1 {no_overflow}, {within_capacity}"
-        ));
+        self.binary(
+            fast.clone(),
+            crate::backend::llvm::syntax::BinaryOperator::And,
+            crate::backend::llvm::syntax::Type::integer(1_u16),
+            no_overflow,
+            within_capacity,
+        );
         let label = self.label_id();
         self.conditional_branch(
             fast,
@@ -204,9 +221,14 @@ impl FunctionEmitter<'_> {
         self.branch(format!("mal_control_ready_{label}"));
         self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();
-        self.line(format!(
-            "  {storage} = phi ptr [{cached_storage}, %mal_control_fast_{label}], [{grown}, %mal_control_slow_{label}]"
-        ));
+        self.phi(
+            storage.clone(),
+            crate::backend::llvm::syntax::Type::Pointer,
+            [
+                (cached_storage, format!("mal_control_fast_{label}")),
+                (grown, format!("mal_control_slow_{label}")),
+            ],
+        );
         Some(ControlReservation {
             top,
             next_top,

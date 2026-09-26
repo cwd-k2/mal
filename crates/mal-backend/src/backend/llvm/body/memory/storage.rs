@@ -45,10 +45,14 @@ impl FunctionEmitter<'_> {
                 )?;
                 let llvm_type = self.types.value(field_type)?;
                 let inserted = self.register();
-                self.line(format!(
-                    "  {inserted} = insertvalue {} {product}, {} {}, {index}",
-                    product_type.llvm, llvm_type.llvm, field_value.representation
-                ));
+                self.insert_value(
+                    inserted.clone(),
+                    product_type.llvm.clone(),
+                    product,
+                    llvm_type.llvm,
+                    field_value.representation,
+                    [index],
+                );
                 product = inserted;
             }
             return Some(EmittedValue {
@@ -74,7 +78,13 @@ impl FunctionEmitter<'_> {
             );
             if super::super::types::is_bool(element) {
                 let value = self.register();
-                self.line(format!("  {value} = trunc i8 {source_tag} to i1"));
+                self.cast(
+                    value.clone(),
+                    crate::backend::llvm::syntax::CastOperator::Trunc,
+                    LlvmType::integer(8_u16),
+                    source_tag,
+                    LlvmType::integer(1_u16),
+                );
                 return Some(EmittedValue {
                     ty: element.clone(),
                     representation: value,
@@ -85,14 +95,23 @@ impl FunctionEmitter<'_> {
                 source_tag
             } else if layout.tag_bits < 32 {
                 let extended = self.register();
-                self.line(format!(
-                    "  {extended} = zext i{} {source_tag} to i32",
-                    layout.tag_bits
-                ));
+                self.cast(
+                    extended.clone(),
+                    crate::backend::llvm::syntax::CastOperator::ZExt,
+                    LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                    source_tag,
+                    LlvmType::integer(32_u16),
+                );
                 extended
             } else {
                 let narrowed = self.register();
-                self.line(format!("  {narrowed} = trunc i64 {source_tag} to i32"));
+                self.cast(
+                    narrowed.clone(),
+                    crate::backend::llvm::syntax::CastOperator::Trunc,
+                    LlvmType::integer(64_u16),
+                    source_tag,
+                    LlvmType::integer(32_u16),
+                );
                 narrowed
             };
             let stem = self.register();
@@ -214,10 +233,12 @@ impl FunctionEmitter<'_> {
             let runtime = self.types.value(&value.ty)?;
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
                 let field_value = self.register();
-                self.line(format!(
-                    "  {field_value} = extractvalue {} {}, {index}",
-                    runtime.llvm, value.representation
-                ));
+                self.extract_value(
+                    field_value.clone(),
+                    runtime.llvm.clone(),
+                    value.representation.clone(),
+                    [index],
+                );
                 let field_pointer = self.source_pointer_offset(pointer, field.offset);
                 self.emit_source_store_at_with_alignment(
                     &field_pointer,
@@ -236,10 +257,16 @@ impl FunctionEmitter<'_> {
             let layout = self.source_layouts.sum(&value.ty)?;
             if super::super::types::is_bool(&value.ty) {
                 let tag = self.register();
-                self.line(format!("  {tag} = zext i1 {} to i8", value.representation));
+                self.cast(
+                    tag.clone(),
+                    crate::backend::llvm::syntax::CastOperator::ZExt,
+                    LlvmType::integer(1_u16),
+                    value.representation.clone(),
+                    LlvmType::integer(8_u16),
+                );
                 self.store(
                     LlvmType::integer(8_u16),
-                    tag,
+                    &tag,
                     pointer,
                     1,
                     metadata.iter().copied(),
@@ -248,22 +275,28 @@ impl FunctionEmitter<'_> {
             }
             let runtime = self.types.value(&value.ty)?;
             let tag = self.register();
-            self.line(format!(
-                "  {tag} = extractvalue {} {}, 0",
-                runtime.llvm, value.representation
-            ));
+            self.extract_value(tag.clone(), runtime.llvm, value.representation.clone(), [0]);
             let source_tag = if layout.tag_bits == 32 {
                 tag.clone()
             } else if layout.tag_bits < 32 {
                 let narrowed = self.register();
-                self.line(format!(
-                    "  {narrowed} = trunc i32 {tag} to i{}",
-                    layout.tag_bits
-                ));
+                self.cast(
+                    narrowed.clone(),
+                    crate::backend::llvm::syntax::CastOperator::Trunc,
+                    LlvmType::integer(32_u16),
+                    &tag,
+                    LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                );
                 narrowed
             } else {
                 let extended = self.register();
-                self.line(format!("  {extended} = zext i32 {tag} to i64"));
+                self.cast(
+                    extended.clone(),
+                    crate::backend::llvm::syntax::CastOperator::ZExt,
+                    LlvmType::integer(32_u16),
+                    &tag,
+                    LlvmType::integer(64_u16),
+                );
                 extended
             };
             let alignment = if aligned {
@@ -350,10 +383,13 @@ impl FunctionEmitter<'_> {
             return pointer.to_string();
         }
         let field = self.register();
-        self.line(format!(
-            "  {field} = getelementptr i8, ptr {pointer}, {} {offset}",
-            self.types.index_integer()
-        ));
+        self.get_element_ptr(
+            field.clone(),
+            false,
+            LlvmType::integer(8_u16),
+            pointer,
+            [(self.types.index_llvm_type(), offset.to_string())],
+        );
         field
     }
 }

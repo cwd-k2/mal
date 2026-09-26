@@ -112,30 +112,52 @@ impl FunctionEmitter<'_> {
                         ],
                     );
                     let predicate = match operator {
-                        crate::core::ast::BinaryPrimitive::Equal => "ne",
-                        crate::core::ast::BinaryPrimitive::NotEqual => "eq",
+                        crate::core::ast::BinaryPrimitive::Equal => {
+                            crate::backend::llvm::syntax::ComparisonPredicate::Ne
+                        }
+                        crate::core::ast::BinaryPrimitive::NotEqual => {
+                            crate::backend::llvm::syntax::ComparisonPredicate::Eq
+                        }
                         _ => return None,
                     };
-                    self.line(format!("  {condition} = icmp {predicate} i8 {equality}, 0"));
+                    self.compare(
+                        condition.clone(),
+                        crate::backend::llvm::syntax::ComparisonKind::Integer,
+                        predicate,
+                        crate::backend::llvm::syntax::Type::integer(8_u16),
+                        equality,
+                        "0",
+                    );
                 } else if is_bool(&left.ty) {
                     let predicate = match operator {
-                        crate::core::ast::BinaryPrimitive::Equal => "eq",
-                        crate::core::ast::BinaryPrimitive::NotEqual => "ne",
+                        crate::core::ast::BinaryPrimitive::Equal => {
+                            crate::backend::llvm::syntax::ComparisonPredicate::Eq
+                        }
+                        crate::core::ast::BinaryPrimitive::NotEqual => {
+                            crate::backend::llvm::syntax::ComparisonPredicate::Ne
+                        }
                         _ => return None,
                     };
-                    self.line(format!(
-                        "  {condition} = icmp {predicate} i1 {}, {}",
-                        left.representation, right.representation
-                    ));
+                    self.compare(
+                        condition.clone(),
+                        crate::backend::llvm::syntax::ComparisonKind::Integer,
+                        predicate,
+                        crate::backend::llvm::syntax::Type::integer(1_u16),
+                        left.representation,
+                        right.representation,
+                    );
                 } else {
                     let predicate = comparison_predicate(*operator)?;
                     let scalar = scalar_type(&left.ty, self.types.index_size())?;
-                    let predicate = predicate.for_scalar(scalar);
-                    let instruction = if scalar.floating { "fcmp" } else { "icmp" };
-                    self.line(format!(
-                        "  {condition} = {instruction} {predicate} {} {}, {}",
-                        scalar.llvm, left.representation, right.representation
-                    ));
+                    let (kind, predicate) = predicate.for_scalar(scalar);
+                    self.compare(
+                        condition.clone(),
+                        kind,
+                        predicate,
+                        scalar.llvm_type(),
+                        left.representation,
+                        right.representation,
+                    );
                 }
                 let then_drops = !self
                     .ownership

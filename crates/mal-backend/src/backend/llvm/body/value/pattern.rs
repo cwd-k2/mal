@@ -37,10 +37,12 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    self.line(format!(
-                        "  {register} = extractvalue {} {}, {index}",
-                        aggregate_type.llvm, value.representation
-                    ));
+                    self.extract_value(
+                        register.clone(),
+                        aggregate_type.llvm.clone(),
+                        value.representation.clone(),
+                        [index],
+                    );
                     self.store_self_tail_pattern(
                         element,
                         &EmittedValue {
@@ -188,10 +190,12 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    self.line(format!(
-                        "  {register} = extractvalue {} {}, {index}",
-                        aggregate_type.llvm, value.representation
-                    ));
+                    self.extract_value(
+                        register.clone(),
+                        aggregate_type.llvm.clone(),
+                        value.representation.clone(),
+                        [index],
+                    );
                     self.store_pattern_to_destination(
                         element,
                         Some(&EmittedValue {

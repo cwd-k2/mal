@@ -94,15 +94,19 @@ impl FunctionEmitter<'_> {
         };
         let closure_type = self.types.value(&callee.ty)?;
         let code = self.register();
-        self.line(format!(
-            "  {code} = extractvalue {} {}, 0",
-            closure_type.llvm, callee.representation
-        ));
+        self.extract_value(
+            code.clone(),
+            closure_type.llvm.clone(),
+            callee.representation.clone(),
+            [0],
+        );
         let environment = self.register();
-        self.line(format!(
-            "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, callee.representation
-        ));
+        self.extract_value(
+            environment.clone(),
+            closure_type.llvm,
+            callee.representation,
+            [1],
+        );
         let mut arguments = vec![
             (super::super::syntax::Type::Pointer, "%mal_context".into()),
             (
@@ -219,24 +223,6 @@ impl FunctionEmitter<'_> {
         id
     }
 
-    pub(super) fn line(&mut self, line: impl AsRef<str>) {
-        let line = line.as_ref();
-        let Some(function) = self.current_definition.as_mut() else {
-            self.emission_failed = true;
-            return;
-        };
-        if let Some(label) = line
-            .strip_suffix(':')
-            .filter(|label| !label.starts_with(' '))
-        {
-            self.emission_failed |= !function.start_block(label);
-        } else if let Some(instruction) = line.strip_prefix("  ") {
-            self.emission_failed |= !function.instruction(instruction);
-        } else {
-            self.emission_failed = true;
-        }
-    }
-
     pub(super) fn block(&mut self, label: impl Into<String>) {
         let Some(function) = self.current_definition.as_mut() else {
             self.emission_failed = true;
@@ -342,6 +328,121 @@ impl FunctionEmitter<'_> {
             callee,
             arguments,
         ));
+    }
+
+    pub(super) fn unary(
+        &mut self,
+        result: impl Into<String>,
+        operator: super::super::syntax::UnaryOperator,
+        ty: super::super::syntax::Type,
+        value: impl Into<String>,
+    ) {
+        let operand = super::super::syntax::TypedValue::new(ty, value);
+        self.structured_instruction(operand.and_then(|operand| {
+            super::super::syntax::Instruction::unary(result, operator, operand)
+        }));
+    }
+
+    pub(super) fn binary(
+        &mut self,
+        result: impl Into<String>,
+        operator: super::super::syntax::BinaryOperator,
+        ty: super::super::syntax::Type,
+        left: impl Into<String>,
+        right: impl Into<String>,
+    ) {
+        self.structured_instruction(super::super::syntax::Instruction::binary(
+            result, operator, ty, left, right,
+        ));
+    }
+
+    pub(super) fn compare(
+        &mut self,
+        result: impl Into<String>,
+        kind: super::super::syntax::ComparisonKind,
+        predicate: super::super::syntax::ComparisonPredicate,
+        ty: super::super::syntax::Type,
+        left: impl Into<String>,
+        right: impl Into<String>,
+    ) {
+        self.structured_instruction(super::super::syntax::Instruction::compare(
+            result, kind, predicate, ty, left, right,
+        ));
+    }
+
+    pub(super) fn cast(
+        &mut self,
+        result: impl Into<String>,
+        operator: super::super::syntax::CastOperator,
+        source_type: super::super::syntax::Type,
+        source: impl Into<String>,
+        target: super::super::syntax::Type,
+    ) {
+        let operand = super::super::syntax::TypedValue::new(source_type, source);
+        self.structured_instruction(operand.and_then(|operand| {
+            super::super::syntax::Instruction::cast(result, operator, operand, target)
+        }));
+    }
+
+    pub(super) fn get_element_ptr(
+        &mut self,
+        result: impl Into<String>,
+        inbounds: bool,
+        element_type: super::super::syntax::Type,
+        pointer: impl Into<String>,
+        indices: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
+    ) {
+        let indices = indices
+            .into_iter()
+            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>();
+        self.structured_instruction(indices.and_then(|indices| {
+            super::super::syntax::Instruction::get_element_ptr(
+                result,
+                inbounds,
+                element_type,
+                pointer,
+                indices,
+            )
+        }));
+    }
+
+    pub(super) fn extract_value(
+        &mut self,
+        result: impl Into<String>,
+        aggregate_type: super::super::syntax::Type,
+        aggregate: impl Into<String>,
+        indices: impl IntoIterator<Item = usize>,
+    ) {
+        let aggregate = super::super::syntax::TypedValue::new(aggregate_type, aggregate);
+        self.structured_instruction(aggregate.and_then(|aggregate| {
+            super::super::syntax::Instruction::extract_value(result, aggregate, indices)
+        }));
+    }
+
+    pub(super) fn insert_value(
+        &mut self,
+        result: impl Into<String>,
+        aggregate_type: super::super::syntax::Type,
+        aggregate: impl Into<String>,
+        element_type: super::super::syntax::Type,
+        element: impl Into<String>,
+        indices: impl IntoIterator<Item = usize>,
+    ) {
+        let aggregate = super::super::syntax::TypedValue::new(aggregate_type, aggregate);
+        let element = super::super::syntax::TypedValue::new(element_type, element);
+        self.structured_instruction(aggregate.zip(element).and_then(|(aggregate, element)| {
+            super::super::syntax::Instruction::insert_value(result, aggregate, element, indices)
+        }));
+    }
+
+    pub(super) fn phi(
+        &mut self,
+        result: impl Into<String>,
+        ty: super::super::syntax::Type,
+        incoming: impl IntoIterator<Item = (String, String)>,
+    ) {
+        self.structured_instruction(super::super::syntax::Instruction::phi(result, ty, incoming));
     }
 
     pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {

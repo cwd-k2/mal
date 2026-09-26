@@ -146,7 +146,14 @@ impl FunctionEmitter<'_> {
             )],
         );
         let deep = self.register();
-        self.line(format!("  {deep} = icmp ne i8 {flag}, 0"));
+        self.compare(
+            deep.clone(),
+            crate::backend::llvm::syntax::ComparisonKind::Integer,
+            crate::backend::llvm::syntax::ComparisonPredicate::Ne,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            flag,
+            "0",
+        );
         let expected = self.register();
         self.direct_call(
             Some(expected.clone()),

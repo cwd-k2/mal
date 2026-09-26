@@ -35,10 +35,14 @@ impl FunctionEmitter<'_> {
             consumed_slots.extend(element.consumed_slots);
             let element_type = self.types.value(expected)?;
             let register = self.register();
-            self.line(format!(
-                "  {register} = insertvalue {} {aggregate}, {} {}, {index}",
-                aggregate_type.llvm, element_type.llvm, element.value.representation
-            ));
+            self.insert_value(
+                register.clone(),
+                aggregate_type.llvm.clone(),
+                aggregate,
+                element_type.llvm,
+                element.value.representation,
+                [index],
+            );
             aggregate = register;
         }
         Some(PreparedValue {
@@ -104,10 +108,14 @@ impl FunctionEmitter<'_> {
         let sum_type = self.types.value(result_type)?;
         let member_type = self.types.value(member)?;
         let tag = self.register();
-        self.line(format!(
-            "  {tag} = insertvalue {} zeroinitializer, i32 {index}, 0",
-            sum_type.llvm
-        ));
+        self.insert_value(
+            tag.clone(),
+            sum_type.llvm.clone(),
+            "zeroinitializer",
+            crate::backend::llvm::syntax::Type::integer(32_u16),
+            index.to_string(),
+            [0],
+        );
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
         self.store(
             sum_type.llvm.clone(),
@@ -117,10 +125,22 @@ impl FunctionEmitter<'_> {
             [],
         );
         let payload = self.register();
-        self.line(format!(
-            "  {payload} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
-            sum_type.llvm
-        ));
+        self.get_element_ptr(
+            payload.clone(),
+            true,
+            sum_type.llvm.clone(),
+            storage.clone(),
+            [
+                (
+                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    "0".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    "1".into(),
+                ),
+            ],
+        );
         self.store(member_type.llvm, value.representation, payload, 1, []);
         let result = self.register();
         self.load(
@@ -154,10 +174,12 @@ impl FunctionEmitter<'_> {
             scrutinee.representation.clone()
         } else {
             let tag = self.register();
-            self.line(format!(
-                "  {tag} = extractvalue {} {}, 0",
-                sum_type.llvm, scrutinee.representation
-            ));
+            self.extract_value(
+                tag.clone(),
+                sum_type.llvm.clone(),
+                scrutinee.representation.clone(),
+                [0],
+            );
             tag
         };
         let tag_type = if is_bool(&scrutinee.ty) { "i1" } else { "i32" };
@@ -258,10 +280,22 @@ impl FunctionEmitter<'_> {
             [],
         );
         let pointer = self.register();
-        self.line(format!(
-            "  {pointer} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
-            sum_type.llvm
-        ));
+        self.get_element_ptr(
+            pointer.clone(),
+            true,
+            sum_type.llvm,
+            storage,
+            [
+                (
+                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    "0".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    "1".into(),
+                ),
+            ],
+        );
         let payload = self.register();
         self.load(payload.clone(), member_type.llvm, pointer, 1, []);
         Some(payload)

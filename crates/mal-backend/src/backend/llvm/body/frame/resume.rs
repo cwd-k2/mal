@@ -28,7 +28,6 @@ impl FunctionEmitter<'_> {
             self.return_value(result_type.llvm, result.representation.as_str());
             return Some(());
         }
-        let index_type = self.types.index_integer();
         let top = self.register();
         self.load(
             top.clone(),
@@ -38,9 +37,14 @@ impl FunctionEmitter<'_> {
             [],
         );
         let finished = self.register();
-        self.line(format!(
-            "  {finished} = icmp eq {index_type} {top}, %mal_control_base"
-        ));
+        self.compare(
+            finished.clone(),
+            crate::backend::llvm::syntax::ComparisonKind::Integer,
+            crate::backend::llvm::syntax::ComparisonPredicate::Eq,
+            self.types.index_llvm_type(),
+            top.clone(),
+            "%mal_control_base",
+        );
         self.conditional_branch(
             finished,
             format!("mal_return_done_{}", site.0),
@@ -71,10 +75,13 @@ impl FunctionEmitter<'_> {
             let pass_through = self.physical_frame_pass_through(&frame);
             let layout = FrameLayout::new(&frame, self.types.clone(), false, &pass_through)?;
             let previous_top = self.register();
-            self.line(format!(
-                "  {previous_top} = sub {index_type} {top}, {}",
-                layout.size
-            ));
+            self.binary(
+                previous_top.clone(),
+                crate::backend::llvm::syntax::BinaryOperator::Sub,
+                self.types.index_llvm_type(),
+                top.clone(),
+                layout.size.to_string(),
+            );
             self.store(
                 self.types.index_llvm_type(),
                 previous_top.as_str(),
@@ -83,9 +90,13 @@ impl FunctionEmitter<'_> {
                 [],
             );
             let frame_pointer = self.register();
-            self.line(format!(
-                "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
-            ));
+            self.get_element_ptr(
+                frame_pointer.clone(),
+                false,
+                crate::backend::llvm::syntax::Type::integer(8_u16),
+                storage,
+                [(self.types.index_llvm_type(), previous_top)],
+            );
             if self.common_region.is_some() {
                 let active = self.active_environment();
                 self.direct_call(
@@ -100,14 +111,21 @@ impl FunctionEmitter<'_> {
             return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
         }
         let footer_offset = self.register();
-        self.line(format!(
-            "  {footer_offset} = sub {index_type} {top}, {}",
-            self.types.index_size()
-        ));
+        self.binary(
+            footer_offset.clone(),
+            crate::backend::llvm::syntax::BinaryOperator::Sub,
+            self.types.index_llvm_type(),
+            top,
+            self.types.index_size().to_string(),
+        );
         let footer = self.register();
-        self.line(format!(
-            "  {footer} = getelementptr i8, ptr {storage}, {index_type} {footer_offset}"
-        ));
+        self.get_element_ptr(
+            footer.clone(),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            storage.clone(),
+            [(self.types.index_llvm_type(), footer_offset)],
+        );
         let previous_top = self.register();
         self.load(
             previous_top.clone(),
@@ -124,9 +142,13 @@ impl FunctionEmitter<'_> {
             [],
         );
         let frame_pointer = self.register();
-        self.line(format!(
-            "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
-        ));
+        self.get_element_ptr(
+            frame_pointer.clone(),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            storage,
+            [(self.types.index_llvm_type(), previous_top)],
+        );
         if self.common_region.is_some() {
             let active = self.active_environment();
             self.direct_call(
@@ -182,10 +204,7 @@ impl FunctionEmitter<'_> {
         let frame = self.execution.control_frames.frame(frame_site)?.clone();
         let pass_through = self.physical_frame_pass_through(&frame);
         let layout = FrameLayout::new(&frame, self.types.clone(), tagged, &pass_through)?;
-        self.line(format!(
-            "mal_frame_{}_from_{}:",
-            frame_site.0, return_site.0
-        ));
+        self.block(format!("mal_frame_{}_from_{}", frame_site.0, return_site.0));
         match self
             .execution
             .control_frames
@@ -200,10 +219,16 @@ impl FunctionEmitter<'_> {
         for layout in &layout.fields {
             let field = frame.fields.get(layout.index)?;
             let pointer = self.register();
-            self.line(format!(
-                "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
-                layout.offset
-            ));
+            self.get_element_ptr(
+                pointer.clone(),
+                false,
+                crate::backend::llvm::syntax::Type::integer(8_u16),
+                frame_pointer,
+                [(
+                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    layout.offset.to_string(),
+                )],
+            );
             let value = self.register();
             self.load(
                 value.clone(),
@@ -224,9 +249,16 @@ impl FunctionEmitter<'_> {
         if self.common_region.is_some() {
             let environment = if let Some(offset) = layout.environment {
                 let pointer = self.register();
-                self.line(format!(
-                    "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
-                ));
+                self.get_element_ptr(
+                    pointer.clone(),
+                    false,
+                    crate::backend::llvm::syntax::Type::integer(8_u16),
+                    frame_pointer,
+                    [(
+                        crate::backend::llvm::syntax::Type::integer(64_u16),
+                        offset.to_string(),
+                    )],
+                );
                 let environment = self.register();
                 self.load(
                     environment.clone(),

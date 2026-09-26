@@ -45,10 +45,12 @@ impl FunctionEmitter<'_> {
     ) -> Option<String> {
         let closure_type = self.types.value(&closure.ty)?;
         let environment = self.register();
-        self.line(format!(
-            "  {environment} = extractvalue {} {}, 1",
-            closure_type.llvm, closure.representation
-        ));
+        self.extract_value(
+            environment.clone(),
+            closure_type.llvm,
+            closure.representation.clone(),
+            [1],
+        );
         Some(environment)
     }
 

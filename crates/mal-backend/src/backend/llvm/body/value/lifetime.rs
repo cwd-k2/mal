@@ -70,10 +70,7 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                self.line(format!(
-                    "  {owner} = extractvalue {} {value}, 0",
-                    value_type.llvm
-                ));
+                self.extract_value(owner.clone(), value_type.llvm, value, [0]);
                 self.direct_call(
                     None,
                     false,
@@ -92,10 +89,7 @@ impl FunctionEmitter<'_> {
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                self.line(format!(
-                    "  {environment} = extractvalue {} {value}, 1",
-                    value_type.llvm
-                ));
+                self.extract_value(environment.clone(), value_type.llvm, value, [1]);
                 self.direct_call(
                     None,
                     false,
@@ -134,10 +128,7 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    self.line(format!(
-                        "  {field} = extractvalue {} {value}, {index}",
-                        aggregate_type.llvm
-                    ));
+                    self.extract_value(field.clone(), aggregate_type.llvm.clone(), value, [index]);
                     self.retain_value(element, &field)?;
                 }
                 Some(value.into())
@@ -160,10 +151,7 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                self.line(format!(
-                    "  {owner} = extractvalue {} {value}, 0",
-                    value_type.llvm
-                ));
+                self.extract_value(owner.clone(), value_type.llvm, value, [0]);
                 self.direct_call(
                     None,
                     false,
@@ -175,10 +163,7 @@ impl FunctionEmitter<'_> {
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                self.line(format!(
-                    "  {environment} = extractvalue {} {value}, 1",
-                    value_type.llvm
-                ));
+                self.extract_value(environment.clone(), value_type.llvm, value, [1]);
                 self.direct_call(
                     None,
                     false,
@@ -201,10 +186,7 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    self.line(format!(
-                        "  {field} = extractvalue {} {value}, {index}",
-                        aggregate_type.llvm
-                    ));
+                    self.extract_value(field.clone(), aggregate_type.llvm.clone(), value, [index]);
                     self.release_value(element, &field)?;
                 }
             }
@@ -226,10 +208,7 @@ impl FunctionEmitter<'_> {
         let id = self.label_id();
         let operation = if retain { "retain" } else { "release" };
         let tag = self.register();
-        self.line(format!(
-            "  {tag} = extractvalue {} {value}, 0",
-            sum_type.llvm
-        ));
+        self.extract_value(tag.clone(), sum_type.llvm, value, [0]);
         let cases = members
             .iter()
             .enumerate()

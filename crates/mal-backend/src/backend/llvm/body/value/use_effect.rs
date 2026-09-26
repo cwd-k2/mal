@@ -112,7 +112,13 @@ impl FunctionEmitter<'_> {
             [(crate::backend::llvm::syntax::Type::Pointer, environment)],
         );
         let condition = self.register();
-        self.line(format!("  {condition} = trunc i8 {unique} to i1"));
+        self.cast(
+            condition.clone(),
+            crate::backend::llvm::syntax::CastOperator::Trunc,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            unique,
+            crate::backend::llvm::syntax::Type::integer(1_u16),
+        );
         let label = self.label_id();
         self.conditional_branch(
             condition,

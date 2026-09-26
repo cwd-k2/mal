@@ -9,6 +9,20 @@ pub(super) struct ScalarType {
     pub(super) floating: bool,
 }
 
+impl ScalarType {
+    pub(super) fn llvm_type(self) -> crate::backend::llvm::syntax::Type {
+        if self.floating {
+            if self.bits == 32 {
+                crate::backend::llvm::syntax::Type::Float
+            } else {
+                crate::backend::llvm::syntax::Type::Double
+            }
+        } else {
+            crate::backend::llvm::syntax::Type::integer(u16::from(self.bits))
+        }
+    }
+}
+
 pub(super) fn scalar_type(ty: &Type, pointer_size: usize) -> Option<ScalarType> {
     let (llvm, bits, signed, floating) = match ty {
         Type::Int8 => ("i8", 8, true, false),
@@ -64,60 +78,72 @@ pub(super) fn integer_literal(ty: &Type, value: i128, pointer_size: usize) -> Op
 pub(super) fn arithmetic_instruction(
     operator: BinaryPrimitive,
     scalar: ScalarType,
-) -> Option<&'static str> {
+) -> Option<crate::backend::llvm::syntax::BinaryOperator> {
+    use crate::backend::llvm::syntax::BinaryOperator as Operator;
+
     if scalar.floating {
         return match operator {
-            BinaryPrimitive::Multiply => Some("fmul"),
-            BinaryPrimitive::Divide => Some("fdiv"),
-            BinaryPrimitive::Add => Some("fadd"),
-            BinaryPrimitive::Subtract => Some("fsub"),
+            BinaryPrimitive::Multiply => Some(Operator::FMul),
+            BinaryPrimitive::Divide => Some(Operator::FDiv),
+            BinaryPrimitive::Add => Some(Operator::FAdd),
+            BinaryPrimitive::Subtract => Some(Operator::FSub),
             _ => None,
         };
     }
     match operator {
-        BinaryPrimitive::Multiply => Some("mul"),
-        BinaryPrimitive::Divide if scalar.signed => Some("sdiv"),
-        BinaryPrimitive::Divide => Some("udiv"),
-        BinaryPrimitive::Remainder if scalar.signed => Some("srem"),
-        BinaryPrimitive::Remainder => Some("urem"),
-        BinaryPrimitive::Add => Some("add"),
-        BinaryPrimitive::Subtract => Some("sub"),
-        BinaryPrimitive::ShiftLeft => Some("shl"),
-        BinaryPrimitive::ShiftRight if scalar.signed => Some("ashr"),
-        BinaryPrimitive::ShiftRight => Some("lshr"),
-        BinaryPrimitive::BitwiseAnd => Some("and"),
-        BinaryPrimitive::BitwiseXor => Some("xor"),
-        BinaryPrimitive::BitwiseOr => Some("or"),
+        BinaryPrimitive::Multiply => Some(Operator::Mul),
+        BinaryPrimitive::Divide if scalar.signed => Some(Operator::SDiv),
+        BinaryPrimitive::Divide => Some(Operator::UDiv),
+        BinaryPrimitive::Remainder if scalar.signed => Some(Operator::SRem),
+        BinaryPrimitive::Remainder => Some(Operator::URem),
+        BinaryPrimitive::Add => Some(Operator::Add),
+        BinaryPrimitive::Subtract => Some(Operator::Sub),
+        BinaryPrimitive::ShiftLeft => Some(Operator::Shl),
+        BinaryPrimitive::ShiftRight if scalar.signed => Some(Operator::AShr),
+        BinaryPrimitive::ShiftRight => Some(Operator::LShr),
+        BinaryPrimitive::BitwiseAnd => Some(Operator::And),
+        BinaryPrimitive::BitwiseXor => Some(Operator::Xor),
+        BinaryPrimitive::BitwiseOr => Some(Operator::Or),
         _ => None,
     }
 }
 
 pub(super) struct ComparisonPredicate {
-    signed: &'static str,
-    unsigned: &'static str,
-    floating: &'static str,
+    signed: crate::backend::llvm::syntax::ComparisonPredicate,
+    unsigned: crate::backend::llvm::syntax::ComparisonPredicate,
+    floating: crate::backend::llvm::syntax::ComparisonPredicate,
 }
 
 impl ComparisonPredicate {
-    pub(super) fn for_scalar(&self, scalar: ScalarType) -> &'static str {
+    pub(super) fn for_scalar(
+        &self,
+        scalar: ScalarType,
+    ) -> (
+        crate::backend::llvm::syntax::ComparisonKind,
+        crate::backend::llvm::syntax::ComparisonPredicate,
+    ) {
+        use crate::backend::llvm::syntax::ComparisonKind;
+
         if scalar.floating {
-            self.floating
+            (ComparisonKind::Floating, self.floating)
         } else if scalar.signed {
-            self.signed
+            (ComparisonKind::Integer, self.signed)
         } else {
-            self.unsigned
+            (ComparisonKind::Integer, self.unsigned)
         }
     }
 }
 
 pub(super) fn comparison_predicate(operator: BinaryPrimitive) -> Option<ComparisonPredicate> {
+    use crate::backend::llvm::syntax::ComparisonPredicate as Predicate;
+
     let (signed, unsigned, floating) = match operator {
-        BinaryPrimitive::Less => ("slt", "ult", "olt"),
-        BinaryPrimitive::LessEqual => ("sle", "ule", "ole"),
-        BinaryPrimitive::Greater => ("sgt", "ugt", "ogt"),
-        BinaryPrimitive::GreaterEqual => ("sge", "uge", "oge"),
-        BinaryPrimitive::Equal => ("eq", "eq", "oeq"),
-        BinaryPrimitive::NotEqual => ("ne", "ne", "une"),
+        BinaryPrimitive::Less => (Predicate::Slt, Predicate::Ult, Predicate::Olt),
+        BinaryPrimitive::LessEqual => (Predicate::Sle, Predicate::Ule, Predicate::Ole),
+        BinaryPrimitive::Greater => (Predicate::Sgt, Predicate::Ugt, Predicate::Ogt),
+        BinaryPrimitive::GreaterEqual => (Predicate::Sge, Predicate::Uge, Predicate::Oge),
+        BinaryPrimitive::Equal => (Predicate::Eq, Predicate::Eq, Predicate::Oeq),
+        BinaryPrimitive::NotEqual => (Predicate::Ne, Predicate::Ne, Predicate::Une),
         _ => return None,
     };
     Some(ComparisonPredicate {

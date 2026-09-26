@@ -41,10 +41,16 @@ impl FunctionEmitter<'_> {
                 self.globals
                     .push(super::super::symbol::literal_definition(&name, bytes)?);
                 let data = self.register();
-                self.line(format!(
-                    "  {data} = getelementptr i8, ptr @{name}, i64 {}",
-                    super::super::symbol::STATIC_OWNER_DATA_OFFSET
-                ));
+                self.get_element_ptr(
+                    data.clone(),
+                    false,
+                    crate::backend::llvm::syntax::Type::integer(8_u16),
+                    format!("@{name}"),
+                    [(
+                        crate::backend::llvm::syntax::Type::integer(64_u16),
+                        super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string(),
+                    )],
+                );
                 self.make_byte_view(
                     &Type::Symbol,
                     &format!("@{name}"),
@@ -56,17 +62,24 @@ impl FunctionEmitter<'_> {
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
                 let value_type = self.types.value(&atom.ty)?;
                 let with_code = self.register();
-                self.line(format!(
-                    "  {with_code} = insertvalue {} zeroinitializer, ptr @{}, 0",
-                    value_type.llvm,
-                    super::super::function_name(*function)
-                ));
+                self.insert_value(
+                    with_code.clone(),
+                    value_type.llvm.clone(),
+                    "zeroinitializer",
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    format!("@{}", super::super::function_name(*function)),
+                    [0],
+                );
                 let environment = self.active_environment();
                 let closure = self.register();
-                self.line(format!(
-                    "  {closure} = insertvalue {} {with_code}, ptr {environment}, 1",
+                self.insert_value(
+                    closure.clone(),
                     value_type.llvm,
-                ));
+                    with_code,
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    environment,
+                    [1],
+                );
                 Some(EmittedValue {
                     ty: atom.ty.clone(),
                     representation: closure,
@@ -143,9 +156,16 @@ impl FunctionEmitter<'_> {
         let offset = fields.get(index)?.offset;
         let environment = self.active_environment();
         let pointer = self.register();
-        self.line(format!(
-            "  {pointer} = getelementptr i8, ptr {environment}, i64 {offset}"
-        ));
+        self.get_element_ptr(
+            pointer.clone(),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            environment,
+            [(
+                crate::backend::llvm::syntax::Type::integer(64_u16),
+                offset.to_string(),
+            )],
+        );
         Some(pointer)
     }
 
@@ -173,10 +193,14 @@ impl FunctionEmitter<'_> {
                 }
                 let element_type = self.types.value(expected)?;
                 let register = self.register();
-                self.line(format!(
-                    "  {register} = insertvalue {} {aggregate}, {} {}, {index}",
-                    aggregate_type.llvm, element_type.llvm, element.representation
-                ));
+                self.insert_value(
+                    register.clone(),
+                    aggregate_type.llvm.clone(),
+                    aggregate,
+                    element_type.llvm,
+                    element.representation,
+                    [index],
+                );
                 aggregate = register;
             }
             return Some(EmittedValue {

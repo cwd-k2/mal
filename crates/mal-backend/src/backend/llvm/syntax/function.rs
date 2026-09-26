@@ -142,13 +142,6 @@ impl FunctionBuilder {
         true
     }
 
-    pub(in crate::backend::llvm) fn instruction(&mut self, instruction: impl Into<String>) -> bool {
-        let Some(block) = self.blocks.last_mut() else {
-            return false;
-        };
-        block.push_instruction(instruction.into())
-    }
-
     pub(in crate::backend::llvm) fn structured_instruction(
         &mut self,
         instruction: Instruction,
@@ -164,19 +157,6 @@ impl FunctionBuilder {
             return false;
         };
         block.terminate(terminator)
-    }
-
-    #[cfg(test)]
-    pub(in crate::backend::llvm) fn entry_instruction(
-        &mut self,
-        instruction: impl Into<String>,
-    ) -> bool {
-        let instruction = instruction.into();
-        let Some(instruction) = Instruction::raw(instruction) else {
-            return false;
-        };
-        self.entry_prefix.push(instruction);
-        true
     }
 
     pub(in crate::backend::llvm) fn structured_entry_instruction(
@@ -212,14 +192,14 @@ impl BasicBlock {
     #[cfg(test)]
     pub(in crate::backend::llvm) fn new(
         label: impl Into<String>,
-        instructions: impl IntoIterator<Item = impl Into<String>>,
+        instructions: impl IntoIterator<Item = Instruction>,
         terminator: Terminator,
     ) -> Option<Self> {
         let label = label.into();
         is_valid_name(&label).then_some(())?;
         let mut block = Self::empty(label);
         for instruction in instructions {
-            block.push_instruction(instruction.into()).then_some(())?;
+            block.push(instruction).then_some(())?;
         }
         block.terminate(terminator).then_some(block)
     }
@@ -230,16 +210,6 @@ impl BasicBlock {
             instructions: Vec::new(),
             terminator: None,
         }
-    }
-
-    fn push_instruction(&mut self, instruction: String) -> bool {
-        if self.terminator.is_some() {
-            return false;
-        }
-        let Some(instruction) = Instruction::raw(instruction) else {
-            return false;
-        };
-        self.push(instruction)
     }
 
     fn push(&mut self, instruction: Instruction) -> bool {
@@ -459,7 +429,18 @@ mod tests {
             std::iter::empty::<&str>(),
         ));
         assert!(function.start_block("entry"));
-        assert!(function.instruction("call void @work()"));
+        assert!(
+            function.structured_instruction(
+                Instruction::call(
+                    None::<String>,
+                    false,
+                    Type::Void,
+                    super::super::Callee::direct("work").unwrap(),
+                    [],
+                )
+                .unwrap()
+            )
+        );
         assert!(function.finish().is_none());
     }
 
@@ -468,7 +449,7 @@ mod tests {
         assert!(
             BasicBlock::new(
                 "0invalid",
-                std::iter::empty::<&str>(),
+                std::iter::empty::<Instruction>(),
                 Terminator::return_void(),
             )
             .is_none()
@@ -485,7 +466,7 @@ mod tests {
 
         let entry = BasicBlock::new(
             "entry",
-            std::iter::empty::<&str>(),
+            std::iter::empty::<Instruction>(),
             Terminator::return_void(),
         )
         .unwrap();
@@ -496,19 +477,6 @@ mod tests {
             )
             .is_none()
         );
-    }
-
-    #[test]
-    fn rejects_invalid_entry_prefix_instructions() {
-        let mut function = FunctionBuilder::new(FunctionSignature::new(
-            "void",
-            "invalid_prefix",
-            std::iter::empty::<&str>(),
-        ));
-        assert!(function.start_block("entry"));
-        assert!(function.terminate(Terminator::return_void()));
-
-        assert!(!function.entry_instruction("call void @work()\nret void"));
     }
 
     #[test]
@@ -548,7 +516,7 @@ mod tests {
         let block = || {
             BasicBlock::new(
                 "entry",
-                std::iter::empty::<&str>(),
+                std::iter::empty::<Instruction>(),
                 Terminator::return_void(),
             )
             .unwrap()
