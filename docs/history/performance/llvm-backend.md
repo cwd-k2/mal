@@ -417,3 +417,63 @@ C runtimeのslot更新は無注釈のままなのでgrowthを跨ぐclobberを保
 6.747 msで0.90倍だった。056のinstruction referenceは267.72 millionまで減ったがCの120.60 millionに対して2.22倍であり、残差は
 別のloop形状として扱う。raw sampleと調査記録はignored scratchの各measurement JSONと
 `performance/buffer-migration.md`に保存した。
+
+## 2026-09-26 — 現行corpusのdirect Cとの差の再分類
+
+native再帰のpersistent borrowとparameter scalarizationを入れた現行compilerで、Typical90のmaximum-order corpusを再生成した。
+066を除く78問はすべてdirect Cとstdoutが一致した。2 warmup、交互3回の診断走査では全78問のMal / C比のmedianが1.039倍、
+双方5 ms以上の52問が1.048倍だった。短い測定で比率が上位だった5問は、同じbinaryを2 warmup、交互10回で再測定した。
+
+| 問題 | Mal | direct C | Mal / C |
+|:---|---:|---:|---:|
+| 021 | 19.907 ms | 15.031 ms | 1.324x |
+| 039 | 10.141 ms | 8.303 ms | 1.221x |
+| 003 | 10.629 ms | 8.518 ms | 1.248x |
+| 043 | 272.561 ms | 221.479 ms | 1.231x |
+| 068 | 17.434 ms | 13.793 ms | 1.264x |
+
+この5問をCallgrind 3.27.1で調べると、043以外は計算本体より入力形式の差が大きかった。Mal corpusの共通hostは全整数を
+`scanf("%" SCNd64)`で`Int64`へ読み、direct Cは各問題で範囲が足りる値を`scanf("%d")`で`int`へ読む。次表の入力差は双方の
+`__isoc99_scanf` inclusive instruction差であり、最後の列はprogram全体のinstruction差に占める割合である。
+
+| 問題 | Mal instructions | C instructions | `scanf`差 | 全差に占める割合 |
+|:---|---:|---:|---:|---:|
+| 021 | 358.02 M | 311.10 M | 38.80 M | 82.7% |
+| 039 | 177.23 M | 155.42 M | 19.40 M | 89.0% |
+| 003 | 184.03 M | 156.22 M | 20.70 M | 74.4% |
+| 068 | 383.28 M | 315.48 M | 57.90 M | 85.4% |
+
+次点の062、026、017、010、028でも、program全体のinstruction差に占める同じ`scanf`差はそれぞれ88%、77%、59%、54%、94%だった。
+これはLLVMが生成したrecursion、Buffer helper、ownership操作の差ではなく、比較するsourceとhost ABIが選んだ整数幅の差である。
+整数入力を含むcorpus比をcompiler単独のoverheadとして扱わない。
+
+同じ整数幅の差はworking setにも現れた。Mal sourceはindex、parent、tagなども一つの`Buffer<Int64>`へ置き、C sourceは多くを
+`int`またはbyte arrayへ分ける。5回測定したmaximum RSSとminor faultのmedianは次の通りだった。
+
+| 問題 | Mal RSS | C RSS | Mal / C | Mal / C minor faults |
+|:---|---:|---:|---:|---:|
+| 021 | 14,276 KiB | 6,768 KiB | 2.11x | 3,407 / 1,481 |
+| 039 | 8,772 KiB | 5,700 KiB | 1.54x | 2,042 / 1,067 |
+| 003 | 6,256 KiB | 4,672 KiB | 1.34x | 1,647 / 869 |
+| 043 | 81,736 KiB | 80,836 KiB | 1.01x | 20,080 / 19,834 |
+| 068 | 4,164 KiB | 2,628 KiB | 1.58x | 770 / 378 |
+
+021、039、003の最終binaryには別の`mal_function_*`が残らず、sourceのBuffer view helperとtail recursionはLTO後の`main`へ統合されていた。
+したがってこれらの残差を関数呼出し一般には帰属させない。型に応じた32-bit storageと入力を自然に選べるsource/API、および同じdata layoutでの
+比較を先に整える必要がある。
+
+043は別で、入力が6整数だけなので2,474.73 M対1,422.98 M instructionsの差はheap本体にある。最終assemblyではheap pushが
+`mal_function_14`として残り、4,992,769回呼ばれた。Bufferのlogical countが過去最大heap sizeへ達した2,992,773回は、2個の`Int64`を
+`fill`してcountを伸ばす。`mal_runtime_buffer_count`は17.96 M、`mal_runtime_buffer_fill`は287.31 M instructionsを使い、push worker全体は
+1,251.98 M instructionsだった。direct Cは最大capacityを一度`malloc`し、同じheap loopから未初期化slotへ直接書く。Malで最大領域を
+先に`fill`する旧variantは不要なpageまで初期化して遅くなったため、解はbounds checkの除去ではなく、capacity reservationと初期化済み範囲を
+区別するconstruction authorityである。
+
+再帰固有の残差は別記録に分離する。080は現行Mal 90.38 M対C 77.79 M instructionsで、conditional branch差約2.10 Mがactivationごとの
+stack guardに一致する。一方068のnative hybridとframe-onlyは16.21 ms対16.43 msで、同問題のC差の主因ではなかった。032には
+Malがbestを再帰resultで返しCがmutable cellへ保存するsource差がある。詳細と採らなかったnative/frame選択policyは
+[loop combinatorのperformance測定履歴](loop-combinators.md)を参照する。
+
+以上から、現行corpusのC差は一つのbackend overheadではなく、入力・整数storage幅、Buffer construction authority、再帰guard、
+source algorithm/state表現に分かれる。優先順位は、多数の上位caseへ共通する入力とdata widthを公平化し、次に043のconstruction境界を
+一般化し、その後に同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。

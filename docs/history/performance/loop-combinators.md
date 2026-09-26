@@ -119,3 +119,33 @@ function全体がrootへinlineされ、arenaとextern bridgeを跨ぐloop最適�
 self call siteが一つのlinear functionを常にframe-onlyにするpolicyも試したが、79問の短い比較で032が42.76から55.38 msへ29.5%
 悪化した。深いlinear fixtureは改善しても、site数だけでは実行depthとresume workを表せないため採らなかった。native chunkから
 continuationをmaterializeして一度unwindしない限り、浅いnativeの利点と深いframe loopのroot-level最適化を一つの実行で同時には得られない。
+
+## 2026-09-26 — 再帰調査後に残る境界
+
+parameter scalarization後の現行compilerと、同じsource、`-O2 -flto`から`NativeRecursion`だけを外したcompilerをmaximum inputで
+2 warmup、交互10回測定した。結果は次の通りである。wall-clockの絶対値は同時実行負荷で動くため、同じ行の相対比較だけを使う。
+
+| 問題 | native hybrid | frame-only | frame / native |
+|:---|---:|---:|---:|
+| 068 | 16.21 ms | 16.43 ms | 1.01x |
+| 032 | 44.35 ms | 55.19 ms | 1.24x |
+| 029 | 115.12 ms | 148.93 ms | 1.29x |
+| 077 | 6.27 ms | 6.07 ms | 0.97x |
+| 080 | 3.79 ms | 5.38 ms | 1.42x |
+
+したがって、残る課題を「frame方式が一律に遅い」または「native方式が一律に遅い」とは扱わない。032、029、080ではnative activationを
+使う利益が明確で、068では選択自体の影響がほぼなく、短い077ではnoiseを越える差を確認できない。
+
+080では現行Malが90.38 million instructions、4.232 million conditional branches、direct Cが77.79 million instructions、
+2.134 million conditional branchesだった。conditional branchの差は約2.10 millionで、再帰activationごとのstack guardと一致する。
+guardを外した診断版でCと同程度のbranch数になることは既に確認したが、bounded native stackの正しさを失うため採れない。残るnative側の
+中心課題は、machine frameの実byte数を無視した固定回数ではなく、安全なstack authorityを保ったままguardをまとめる境界である。
+
+frame側では、深いlinear fixtureのようにrootへinlineされたloopが有利な場合と、032のようにresume後の仕事を持つ探索でnativeが有利な場合を
+実行depthやself call site数だけから判別できない。chunk化するなら、native segment内のlive localとreturn continuationをexplicit frameへ
+materializeしてからmachine stackを一度unwindする必要がある。これは既存frameの局所的な高速化ではなく、新しいcontinuation変換として
+設計する。実workloadでframe trafficが支配的になるまでは導入しない。
+
+coverage上、現行のpersistent borrowとnative parameter scalarizationはdirect self edgeを対象とする。mutual recursionやindirectな
+recursive regionは従来のexplicit frameに残るが、今回のcorpusではそれがCとの差を支配する例は観測していない。また032はMalがbestを
+再帰resultで返し、Cがmutable cellへ保存するというsource上の差も持つため、残差全体をstack実装だけへ帰属させない。
