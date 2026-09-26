@@ -21,6 +21,7 @@ macro_rules! llvm_values_item {
 
 macro_rules! llvm_values {
     ($($value:tt),* $(,)?) => {{
+        #[allow(clippy::redundant_closure_call)]
         (|| {
             let mut values = Vec::new();
             $(

@@ -14,6 +14,143 @@ macro_rules! c_type {
     };
 }
 
+macro_rules! c_variable {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    ($name:tt : $kind:ident($($ty:tt)*)) => {
+        $crate::backend::c::syntax::VariableDeclaration::new(
+            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
+            $name,
+        )
+    };
+    ($name:tt : { $($ty:tt)* }) => {
+        $crate::backend::c::syntax::VariableDeclaration::new({ $($ty)* }, $name)
+    };
+    (array $name:tt : $kind:ident($($ty:tt)*); size $size:tt) => {
+        $crate::backend::c::syntax::VariableDeclaration::array(
+            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
+            $name,
+            $crate::backend::c::syntax::c_expr_child!($size),
+        )
+    };
+    (array $name:tt : { $($ty:tt)* }; size $size:tt) => {
+        $crate::backend::c::syntax::VariableDeclaration::array(
+            { $($ty)* },
+            $name,
+            $crate::backend::c::syntax::c_expr_child!($size),
+        )
+    };
+}
+
+macro_rules! c_aggregate_field {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    ($name:tt : $kind:ident($($ty:tt)*)) => {
+        $crate::backend::c::syntax::AggregateField::variable(
+            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
+            $name,
+        )
+    };
+    ($name:tt : { $($ty:tt)* }) => {
+        $crate::backend::c::syntax::AggregateField::variable({ $($ty)* }, $name)
+    };
+    (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*)) => {
+        $crate::backend::c::syntax::AggregateField::function_pointer(
+            $crate::backend::c::syntax::c_type!($kind($($result)*)),
+            $name,
+            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+        )
+    };
+    (fn $name:tt($($parameter:tt)*) -> { $($result:tt)* }) => {
+        $crate::backend::c::syntax::AggregateField::function_pointer(
+            { $($result)* },
+            $name,
+            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+        )
+    };
+    (struct $name:tt; [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateField::aggregate(
+            $crate::backend::c::syntax::AggregateKind::Struct,
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+            $name,
+        )
+    };
+    (union $name:tt; [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateField::aggregate(
+            $crate::backend::c::syntax::AggregateKind::Union,
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+            $name,
+        )
+    };
+}
+
+macro_rules! c_aggregate_fields {
+    ($($field:tt),* $(,)?) => {{
+        #[allow(unused_mut, clippy::vec_init_then_push)]
+        let mut fields = Vec::from([]);
+        $(
+            $crate::backend::c::syntax::c_aggregate_fields_item!(fields; $field);
+        )*
+        fields
+    }};
+}
+
+macro_rules! c_aggregate_fields_item {
+    ($fields:ident; {{ $($rust:tt)* }}) => {
+        $fields.extend({ $($rust)* })
+    };
+    ($fields:ident; { $($rust:tt)* }) => {
+        $fields.push({ $($rust)* })
+    };
+    ($fields:ident; $field:tt) => {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field! $field)
+    };
+}
+
+macro_rules! c_aggregate {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    (struct $tag:tt; [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateDefinition::structure(
+            $tag,
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+        )
+    };
+    (typedef struct $tag:tt => $alias:tt; [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
+            Some($tag.to_string()),
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+            $alias,
+        )
+    };
+    (typedef struct => $alias:tt; [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
+            None,
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+            $alias,
+        )
+    };
+}
+
+macro_rules! c_declaration {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    (fn { $($signature:tt)* }) => {
+        $crate::backend::c::syntax::Declaration::function({ $($signature)* })
+    };
+    (type $alias:tt = $kind:ident($($source:tt)*)) => {
+        $crate::backend::c::syntax::Declaration::type_alias(
+            $crate::backend::c::syntax::c_type!($kind($($source)*)),
+            $alias,
+        )
+    };
+    (type $alias:tt = { $($source:tt)* }) => {
+        $crate::backend::c::syntax::Declaration::type_alias({ $($source)* }, $alias)
+    };
+    (static_assert $condition:tt => $message:expr) => {
+        $crate::backend::c::syntax::Declaration::static_assert(
+            $crate::backend::c::syntax::c_expr_child!($condition),
+            $message,
+        )
+    };
+}
+
 macro_rules! c_parameter_attributes {
     ($parameter:ident;) => {};
     ($parameter:ident; maybe_unused $(, $rest:ident)*) => {
@@ -155,6 +292,7 @@ macro_rules! c_signature {
 }
 
 pub(in crate::backend) use {
+    c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_item, c_declaration,
     c_parameter, c_parameter_attributes, c_parameters, c_parameters_items, c_signature,
-    c_signature_from_parts, c_type,
+    c_signature_from_parts, c_type, c_variable,
 };

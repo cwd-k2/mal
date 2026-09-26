@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use crate::backend::llvm::syntax::{
-    BinaryOperator, FunctionBuilder, FunctionSignature, Type, TypedValue,
+    BinaryOperator, FunctionBuilder, FunctionSignature, Module, Type, TypedValue,
 };
 
 #[test]
@@ -26,6 +26,37 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
             "entry:\n",
             "  ret i32 0\n",
             "}"
+        )
+    );
+}
+
+#[test]
+fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
+    let extra = [super::llvm_metadata_operand!(node 0)];
+    let mut module = Module::new("test-target", "e-p:64:64");
+    module.declare(super::llvm_declaration!(fn "observe"(
+        _: ptr,
+        _: int(8) [immarg],
+    ) -> void; attributes [nounwind]));
+    module.add_global(super::llvm_global!(byte_owner "message"; bytes { b"ok" }; align 1).unwrap());
+    module.add_metadata([
+        super::llvm_metadata!(0 => [(text "root")]),
+        super::llvm_metadata!(distinct 1 => [
+            (integer int(64) => 0),
+            {{ extra }},
+        ]),
+    ]);
+
+    assert_eq!(
+        module.render().unwrap(),
+        concat!(
+            "target datalayout = \"e-p:64:64\"\n",
+            "target triple = \"test-target\"\n\n",
+            "declare void @observe(ptr, i8 immarg) nounwind\n\n",
+            "@message = private constant { i64, i64, i8, [7 x i8], [2 x i8] } ",
+            "{ i64 -1, i64 2, i8 0, [7 x i8] zeroinitializer, [2 x i8] c\"ok\" }, align 1\n\n",
+            "!0 = !{!\"root\"}\n",
+            "!1 = distinct !{i64 0, !0}\n",
         )
     );
 }

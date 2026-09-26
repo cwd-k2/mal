@@ -1,4 +1,4 @@
-use super::{Expr, FunctionSignature, Identifier, MacroInvocation, VariableDeclaration};
+use super::{Expr, FunctionSignature, MacroInvocation, VariableDeclaration};
 
 mod render;
 
@@ -57,14 +57,6 @@ impl Statement {
             declaration,
             initializer,
         }
-    }
-
-    pub(in crate::backend) fn variable(
-        ty: impl Into<super::TypeName>,
-        name: impl Into<Identifier>,
-        initializer: Option<Expr>,
-    ) -> Self {
-        Self::variable_declaration(VariableDeclaration::new(ty, name), initializer)
     }
 
     pub(in crate::backend) fn return_value(value: Expr) -> Self {

@@ -1,7 +1,7 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, Attribute, Comment, Declaration, Directive,
-    FunctionSignature, FunctionSpecifier, Parameter, PreprocessorExpr, TranslationUnit, TypeName,
-    c_expr, c_function, c_signature,
+    Attribute, Comment, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
+    PreprocessorExpr, TranslationUnit, TypeName, c_aggregate, c_declaration, c_expr, c_function,
+    c_signature,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -37,15 +37,10 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.blank_line();
     output.push(Comment::new("Runtime API"));
     output.blank_line();
-    output.push(Declaration::type_alias(
-        TypeName::structure("MalContext"),
-        "MalContext",
-    ));
-    output.push(AggregateDefinition::typedef_structure(
-        None,
-        [AggregateField::variable("uint8_t", "unused")],
-        "MalType_Unit",
-    ));
+    output.push(c_declaration!(type "MalContext" = struct("MalContext")));
+    output.push(c_aggregate!(typedef struct => "MalType_Unit"; [
+        ("unused": named("uint8_t")),
+    ]));
     for (source, alias) in [
         ("uint8_t", "MalType_Bool"),
         ("int8_t", "MalType_Int8"),
@@ -129,14 +124,9 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     ] {
         output.push(Declaration::type_alias(source, alias));
     }
-    output.push(AggregateDefinition::typedef_structure(
-        None,
-        [AggregateField::variable(
-            TypeName::named("MalContext").pointer(),
-            "mal_detail_context",
-        )],
-        "mal_call_t",
-    ));
+    output.push(c_aggregate!(typedef struct => "mal_call_t"; [
+        ("mal_detail_context": ptr(named("MalContext"))),
+    ]));
     output.blank_line();
     output.push(Directive::define_expr(
         "mal_false",

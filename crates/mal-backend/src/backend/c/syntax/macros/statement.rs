@@ -53,12 +53,14 @@ macro_rules! c_statement {
         ))
     };
     (var ($ty:expr) ($name:expr)) => {
-        $crate::backend::c::syntax::Statement::variable($ty, $name, None)
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            $crate::backend::c::syntax::c_variable!($name : { $ty }),
+            None,
+        )
     };
     (var ($ty:expr) ($name:expr) = $value:tt) => {
-        $crate::backend::c::syntax::Statement::variable(
-            $ty,
-            $name,
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            $crate::backend::c::syntax::c_variable!($name : { $ty }),
             Some($crate::backend::c::syntax::c_expr_child!($value)),
         )
     };

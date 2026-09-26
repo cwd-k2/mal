@@ -1,6 +1,8 @@
 use std::cell::Cell;
 
-use crate::backend::c::syntax::{Expr, FunctionSignature, Initializer, SwitchCase};
+use crate::backend::c::syntax::{
+    Expr, FunctionSignature, Initializer, SwitchCase, TranslationUnit,
+};
 
 #[test]
 fn composes_types_parameters_and_signatures_with_template_interpolation() {
@@ -15,6 +17,36 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     assert_eq!(
         signature.render(),
         "static inline uint32_t convert(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t value)"
+    );
+}
+
+#[test]
+fn composes_declarations_and_nested_aggregate_fields() {
+    let trailing = [super::c_aggregate_field!("next" : ptr(struct("Node")))];
+    let mut unit = TranslationUnit::default();
+    unit.push(super::c_declaration!(type "Word" = named("uint32_t")));
+    unit.push(super::c_aggregate!(typedef struct "Node" => "Node"; [
+        ("value": named("Word")),
+        (union "payload"; [
+            ("integer": named("int")),
+            ("address": ptr(named("void"))),
+        ]),
+        {{ trailing }},
+    ]));
+
+    assert_eq!(
+        unit.render(),
+        concat!(
+            "typedef uint32_t Word;\n",
+            "typedef struct Node {\n",
+            "    Word value;\n",
+            "    union {\n",
+            "        int integer;\n",
+            "        void *address;\n",
+            "    } payload;\n",
+            "    struct Node *next;\n",
+            "} Node;\n",
+        )
     );
 }
 

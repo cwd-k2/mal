@@ -1,5 +1,7 @@
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::{FunctionDeclaration, Module, Parameter, Type};
+use crate::backend::llvm::syntax::{
+    FunctionDeclaration, Module, Parameter, Type, llvm_declaration,
+};
 
 mod byte;
 mod control;
@@ -22,7 +24,13 @@ fn declaration(
     name: impl Into<String>,
     parameters: impl IntoIterator<Item = Type>,
 ) -> FunctionDeclaration {
-    FunctionDeclaration::new(result, name, parameters.into_iter().map(Parameter::unnamed))
+    let parameters = parameters
+        .into_iter()
+        .map(Parameter::unnamed)
+        .collect::<Vec<_>>();
+    llvm_declaration!(fn { name.into() }(
+        {{ parameters }},
+    ) -> { result }; attributes [])
 }
 
 fn add_declaration(

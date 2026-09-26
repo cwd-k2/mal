@@ -41,6 +41,7 @@ macro_rules! llvm_typed_constants_item {
 
 macro_rules! llvm_typed_constants {
     ($($constant:tt),* $(,)?) => {{
+        #[allow(clippy::redundant_closure_call)]
         (|| {
             let mut constants = Vec::new();
             $(

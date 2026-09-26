@@ -17,10 +17,9 @@ pub(super) fn literal_definition(
     name: &str,
     bytes: &[u8],
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
-    crate::backend::llvm::syntax::GlobalDefinition::byte_owner(
-        name,
-        bytes.to_vec(),
-        STATIC_OWNER_ALIGNMENT,
+    crate::backend::llvm::syntax::llvm_global!(byte_owner name;
+        bytes { bytes.to_vec() };
+        align STATIC_OWNER_ALIGNMENT
     )
 }
 

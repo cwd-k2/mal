@@ -1,6 +1,7 @@
 mod constant;
 mod declaration;
 mod instruction;
+mod module;
 mod terminator;
 mod value;
 
@@ -14,6 +15,10 @@ pub(in crate::backend::llvm) use declaration::{
     llvm_signature_build, llvm_type, llvm_types, llvm_types_items,
 };
 pub(in crate::backend::llvm) use instruction::llvm_instruction;
+pub(in crate::backend::llvm) use module::{
+    llvm_declaration, llvm_declaration_build, llvm_global, llvm_metadata, llvm_metadata_operand,
+    llvm_metadata_operands, llvm_metadata_operands_item,
+};
 pub(in crate::backend::llvm) use terminator::{
     llvm_switch_cases, llvm_switch_cases_item, llvm_terminator,
 };

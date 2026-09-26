@@ -1,83 +1,37 @@
-use crate::backend::llvm::syntax::{MetadataDefinition, MetadataOperand, Type};
+use crate::backend::llvm::syntax::{MetadataDefinition, llvm_metadata};
 
 pub(super) fn buffer_alias() -> Vec<MetadataDefinition> {
-    use MetadataOperand::{Integer, Node, Text};
-
     // Buffer object fields and element storage are distinct allocations. Their TBAA types preserve
     // that boundary across inlining. Runtime slot writes do not carry this metadata, so growth still
     // invalidates an active data pointer.
     vec![
-        MetadataDefinition::new(0, false, [Text("Simple C/C++ TBAA".into())]),
-        MetadataDefinition::new(
-            1,
-            false,
-            [
-                Text("omnipotent char".into()),
-                Node(0),
-                Integer {
-                    ty: Type::integer(64_u16),
-                    value: 0,
-                },
-            ],
-        ),
-        MetadataDefinition::new(
-            2,
-            false,
-            [
-                Text("mal buffer element storage".into()),
-                Node(1),
-                Integer {
-                    ty: Type::integer(64_u16),
-                    value: 0,
-                },
-            ],
-        ),
-        MetadataDefinition::new(
-            3,
-            false,
-            [
-                Node(2),
-                Node(2),
-                Integer {
-                    ty: Type::integer(64_u16),
-                    value: 0,
-                },
-            ],
-        ),
-        MetadataDefinition::new(
-            4,
-            true,
-            [Node(4), Text("mal buffer object allocation".into())],
-        ),
-        MetadataDefinition::new(
-            5,
-            true,
-            [Node(5), Node(4), Text("mal buffer object metadata".into())],
-        ),
-        MetadataDefinition::new(6, false, [Node(5)]),
-        MetadataDefinition::new(
-            7,
-            false,
-            [
-                Text("mal buffer object field".into()),
-                Node(1),
-                Integer {
-                    ty: Type::integer(64_u16),
-                    value: 0,
-                },
-            ],
-        ),
-        MetadataDefinition::new(
-            8,
-            false,
-            [
-                Node(7),
-                Node(7),
-                Integer {
-                    ty: Type::integer(64_u16),
-                    value: 0,
-                },
-            ],
-        ),
+        llvm_metadata!(0 => [(text "Simple C/C++ TBAA")]),
+        llvm_metadata!(1 => [
+            (text "omnipotent char"),
+            (node 0),
+            (integer int(64) => 0),
+        ]),
+        llvm_metadata!(2 => [
+            (text "mal buffer element storage"),
+            (node 1),
+            (integer int(64) => 0),
+        ]),
+        llvm_metadata!(3 => [(node 2), (node 2), (integer int(64) => 0)]),
+        llvm_metadata!(distinct 4 => [
+            (node 4),
+            (text "mal buffer object allocation"),
+        ]),
+        llvm_metadata!(distinct 5 => [
+            (node 5),
+            (node 4),
+            (text "mal buffer object metadata"),
+        ]),
+        llvm_metadata!(6 => [(node 5)]),
+        llvm_metadata!(7 => [
+            (text "mal buffer object field"),
+            (node 1),
+            (integer int(64) => 0),
+        ]),
+        llvm_metadata!(8 => [(node 7), (node 7), (integer int(64) => 0)]),
     ]
 }
