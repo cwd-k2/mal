@@ -1,42 +1,57 @@
-use super::{declaration, strings};
+use super::declaration;
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::Module;
+use crate::backend::llvm::syntax::{
+    FunctionAttribute, FunctionDeclaration, Module, Parameter, ParameterAttribute, Type,
+};
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
-    let index = types.index_integer();
+    let index = types.index_llvm_type();
     module.declare(declaration(
-        "ptr",
+        Type::Pointer,
         "mal_runtime_environment_allocate",
-        ["ptr".into(), index.clone(), "ptr".into()],
+        [Type::Pointer, index.clone(), Type::Pointer],
     ));
     module.declare(declaration(
-        "ptr",
+        Type::Pointer,
         "mal_runtime_environment_retain",
-        strings(["ptr", "ptr"]),
+        [Type::Pointer, Type::Pointer],
     ));
     module.declare(declaration(
-        "void",
+        Type::Void,
         "mal_runtime_environment_release",
-        strings(["ptr"]),
+        [Type::Pointer],
     ));
     module.declare(
-        declaration("i8", "mal_runtime_environment_is_unique", strings(["ptr"])).with_attributes(
-            strings(["nofree", "nounwind", "willreturn", "memory(argmem: read)"]),
-        ),
+        declaration(
+            Type::integer(8_u16),
+            "mal_runtime_environment_is_unique",
+            [Type::Pointer],
+        )
+        .with_attributes([
+            FunctionAttribute::NoFree,
+            FunctionAttribute::NoUnwind,
+            FunctionAttribute::WillReturn,
+            FunctionAttribute::MemoryArgMemRead,
+        ]),
     );
     module.declare(declaration(
-        "ptr",
+        Type::Pointer,
         "llvm.invariant.start.p0",
-        strings(["i64", "ptr"]),
+        [Type::integer(64_u16), Type::Pointer],
     ));
     module.declare(declaration(
-        "ptr",
+        Type::Pointer,
         format!("llvm.ptrmask.p0.i{}", types.pointer_size() * 8),
-        ["ptr".into(), types.pointer_representation_integer()],
+        [Type::Pointer, types.pointer_representation_llvm_type()],
     ));
-    module.declare(declaration(
-        "void",
+    module.declare(FunctionDeclaration::new(
+        Type::Void,
         format!("llvm.memcpy.p0.p0.i{}", types.index_size() * 8),
-        ["ptr".into(), "ptr".into(), index, "i1 immarg".into()],
+        [
+            Parameter::unnamed(Type::Pointer),
+            Parameter::unnamed(Type::Pointer),
+            Parameter::unnamed(index),
+            Parameter::unnamed(Type::integer(1_u16)).with_attribute(ParameterAttribute::ImmArg),
+        ],
     ));
 }

@@ -1,28 +1,41 @@
-use super::{declaration, strings};
+use super::declaration;
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::Module;
+use crate::backend::llvm::syntax::{FunctionAttribute, Module, Type};
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
-    let index = types.index_integer();
+    let index = types.index_llvm_type();
     module.declare(declaration(
-        "ptr",
+        Type::Pointer,
         "mal_control_reserve_frame",
-        ["ptr".into(), index.clone(), index.clone()],
+        [Type::Pointer, index.clone(), index.clone()],
     ));
-    module.declare(declaration("ptr", "mal_control_storage", strings(["ptr"])));
-    module.declare(declaration(index, "mal_control_capacity", strings(["ptr"])));
     module.declare(declaration(
-        "void",
+        Type::Pointer,
+        "mal_control_storage",
+        [Type::Pointer],
+    ));
+    module.declare(declaration(index, "mal_control_capacity", [Type::Pointer]));
+    module.declare(declaration(
+        Type::Void,
         "mal_native_stack_begin",
-        strings(["ptr"]),
+        [Type::Pointer],
     ));
     module.declare(
-        declaration("i8", "mal_native_stack_is_deep", strings(["ptr"])).with_attributes(strings([
-            "nofree",
-            "nounwind",
-            "willreturn",
-            "memory(argmem: read)",
-        ])),
+        declaration(
+            Type::integer(8_u16),
+            "mal_native_stack_is_deep",
+            [Type::Pointer],
+        )
+        .with_attributes([
+            FunctionAttribute::NoFree,
+            FunctionAttribute::NoUnwind,
+            FunctionAttribute::WillReturn,
+            FunctionAttribute::MemoryArgMemRead,
+        ]),
     );
-    module.declare(declaration("i1", "llvm.expect.i1", strings(["i1", "i1"])));
+    module.declare(declaration(
+        Type::integer(1_u16),
+        "llvm.expect.i1",
+        [Type::integer(1_u16), Type::integer(1_u16)],
+    ));
 }

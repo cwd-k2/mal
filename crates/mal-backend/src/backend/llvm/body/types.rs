@@ -148,8 +148,10 @@ impl Types {
         )
     }
 
-    pub(in crate::backend::llvm) fn pointer_representation_integer(&self) -> String {
-        format!("i{}", self.target.pointer_size * 8)
+    pub(in crate::backend::llvm) fn pointer_representation_llvm_type(&self) -> LlvmType {
+        LlvmType::integer(
+            u16::try_from(self.target.pointer_size * 8).expect("supported pointer width fits u16"),
+        )
     }
 
     pub(in crate::backend::llvm) fn pointer_size(&self) -> usize {

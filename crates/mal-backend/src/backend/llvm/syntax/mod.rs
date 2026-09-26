@@ -5,8 +5,10 @@ mod ty;
 
 #[cfg(test)]
 pub(super) use function::BasicBlock;
-pub(in crate::backend) use function::FunctionSignature;
-pub(super) use function::{FunctionBuilder, FunctionDefinition, Terminator};
+pub(super) use function::{
+    FunctionAttribute, FunctionBuilder, FunctionDefinition, Linkage, ParameterAttribute, Terminator,
+};
+pub(in crate::backend) use function::{FunctionSignature, Parameter};
 pub(super) use instruction::MetadataAttachment;
 pub(super) use instruction::{
     BinaryOperator, CastOperator, ComparisonKind, ComparisonPredicate, UnaryOperator,

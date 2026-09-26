@@ -553,18 +553,32 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
             crate::backend::llvm::syntax::FunctionSignature::new(
-                "void",
+                crate::backend::llvm::syntax::Type::Void,
                 format!("mal_buffer_retain_{number}"),
-                ["ptr %mal_context", "ptr %mal_element"],
+                [
+                    crate::backend::llvm::syntax::Parameter::named(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "%mal_context",
+                    ),
+                    crate::backend::llvm::syntax::Parameter::named(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "%mal_element",
+                    ),
+                ],
             )
         } else {
             crate::backend::llvm::syntax::FunctionSignature::new(
-                "void",
+                crate::backend::llvm::syntax::Type::Void,
                 format!("mal_buffer_release_{number}"),
-                ["ptr %mal_element"],
+                [crate::backend::llvm::syntax::Parameter::named(
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_element",
+                )],
             )
         };
-        self.begin_function(signature.with_linkage("internal"));
+        self.begin_function(
+            signature.with_linkage(crate::backend::llvm::syntax::Linkage::Internal),
+        );
         self.block("entry");
         let value = self.register();
         self.load(

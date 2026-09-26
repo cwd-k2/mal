@@ -1,5 +1,5 @@
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::{FunctionDeclaration, Module};
+use crate::backend::llvm::syntax::{FunctionDeclaration, Module, Parameter, Type};
 
 mod byte;
 mod control;
@@ -18,22 +18,18 @@ pub(super) fn add_environment(module: &mut Module<'_>, types: &body::types::Type
 }
 
 fn declaration(
-    result: impl Into<String>,
+    result: Type,
     name: impl Into<String>,
-    parameters: impl IntoIterator<Item = String>,
+    parameters: impl IntoIterator<Item = Type>,
 ) -> FunctionDeclaration {
-    FunctionDeclaration::new(result, name, parameters)
+    FunctionDeclaration::new(result, name, parameters.into_iter().map(Parameter::unnamed))
 }
 
 fn add_declaration(
     module: &mut Module<'_>,
-    result: impl Into<String>,
+    result: Type,
     name: impl Into<String>,
-    parameters: impl IntoIterator<Item = String>,
+    parameters: impl IntoIterator<Item = Type>,
 ) {
     module.declare(declaration(result, name, parameters));
-}
-
-fn strings<const N: usize>(values: [&str; N]) -> Vec<String> {
-    values.into_iter().map(Into::into).collect()
 }

@@ -1,142 +1,124 @@
-use super::{add_declaration, declaration, strings};
+use super::{add_declaration, declaration};
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::Module;
+use crate::backend::llvm::syntax::{FunctionAttribute, Module, Type};
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
-    let index = types.index_integer();
+    let index = types.index_llvm_type();
+    let read_only = [
+        FunctionAttribute::NoFree,
+        FunctionAttribute::NoUnwind,
+        FunctionAttribute::WillReturn,
+        FunctionAttribute::MemoryArgMemRead,
+    ];
     module.declare(
-        declaration("ptr", "mal_runtime_bytes_data", strings(["ptr"])).with_attributes(strings([
-            "nofree",
-            "nounwind",
-            "willreturn",
-            "memory(argmem: read)",
-        ])),
+        declaration(Type::Pointer, "mal_runtime_bytes_data", [Type::Pointer])
+            .with_attributes(read_only),
     );
     add_declaration(
         module,
-        "ptr",
+        Type::Pointer,
         "mal_runtime_bytes_read",
-        vec!["ptr".into(), "ptr".into(), index.clone()],
+        [Type::Pointer, Type::Pointer, index.clone()],
     );
     add_declaration(
         module,
-        "ptr",
+        Type::Pointer,
         "mal_runtime_bytes_retain",
-        strings(["ptr", "ptr"]),
+        [Type::Pointer, Type::Pointer],
     );
     add_declaration(
         module,
-        "void",
+        Type::Void,
         "mal_runtime_bytes_release",
-        strings(["ptr"]),
+        [Type::Pointer],
     );
     add_declaration(
         module,
-        "void",
+        Type::Void,
         "mal_runtime_bytes_write",
-        vec!["ptr".into(), "ptr".into(), index.clone(), index.clone()],
+        [Type::Pointer, Type::Pointer, index.clone(), index.clone()],
     );
     add_declaration(
         module,
-        "ptr",
+        Type::Pointer,
         "mal_runtime_buffer_make",
-        vec!["ptr".into(), index.clone(), index.clone()],
+        [Type::Pointer, index.clone(), index.clone()],
     );
     add_declaration(
         module,
-        "ptr",
+        Type::Pointer,
         "mal_runtime_buffer_make_managed",
-        vec![
-            "ptr".into(),
+        [
+            Type::Pointer,
             index.clone(),
             index.clone(),
-            "ptr".into(),
-            "ptr".into(),
+            Type::Pointer,
+            Type::Pointer,
         ],
     );
-    add_declaration(
-        module,
-        index.clone(),
-        "mal_runtime_buffer_new_managed",
-        vec!["ptr".into(), "ptr".into(), "ptr".into(), index.clone()],
-    );
-    add_declaration(
-        module,
-        "void",
-        "mal_runtime_buffer_fill_managed",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
+    for name in ["mal_runtime_buffer_new_managed", "mal_runtime_buffer_new"] {
+        add_declaration(
+            module,
             index.clone(),
-            index.clone(),
-            "ptr".into(),
-            index.clone(),
-        ],
-    );
-    add_declaration(
-        module,
-        "void",
-        "mal_runtime_buffer_copy_managed",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
-            index.clone(),
-            "ptr".into(),
-            index.clone(),
-            index.clone(),
-            index.clone(),
-        ],
-    );
-    add_declaration(
-        module,
-        index.clone(),
-        "mal_runtime_buffer_new",
-        vec!["ptr".into(), "ptr".into(), "ptr".into(), index.clone()],
-    );
-    add_declaration(
-        module,
-        "void",
-        "mal_runtime_buffer_fill",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
-            index.clone(),
-            index.clone(),
-            "ptr".into(),
-            index.clone(),
-        ],
-    );
-    add_declaration(
-        module,
-        "void",
-        "mal_runtime_buffer_copy",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
-            index.clone(),
-            "ptr".into(),
-            index.clone(),
-            index.clone(),
-            index.clone(),
-        ],
+            name,
+            [Type::Pointer, Type::Pointer, Type::Pointer, index.clone()],
+        );
+    }
+    for name in ["mal_runtime_buffer_fill_managed", "mal_runtime_buffer_fill"] {
+        add_declaration(
+            module,
+            Type::Void,
+            name,
+            [
+                Type::Pointer,
+                Type::Pointer,
+                index.clone(),
+                index.clone(),
+                Type::Pointer,
+                index.clone(),
+            ],
+        );
+    }
+    for name in ["mal_runtime_buffer_copy_managed", "mal_runtime_buffer_copy"] {
+        add_declaration(
+            module,
+            Type::Void,
+            name,
+            [
+                Type::Pointer,
+                Type::Pointer,
+                index.clone(),
+                Type::Pointer,
+                index.clone(),
+                index.clone(),
+                index.clone(),
+            ],
+        );
+    }
+    module.declare(
+        declaration(
+            Type::Pointer,
+            "mal_runtime_buffer_data_slot",
+            [Type::Pointer],
+        )
+        .with_attributes([
+            FunctionAttribute::NoFree,
+            FunctionAttribute::NoUnwind,
+            FunctionAttribute::WillReturn,
+            FunctionAttribute::MemoryNone,
+        ]),
     );
     module.declare(
-        declaration("ptr", "mal_runtime_buffer_data_slot", strings(["ptr"])).with_attributes(
-            strings(["nofree", "nounwind", "willreturn", "memory(none)"]),
-        ),
-    );
-    module.declare(
-        declaration(index.clone(), "mal_runtime_buffer_count", strings(["ptr"])).with_attributes(
-            strings(["nofree", "nounwind", "willreturn", "memory(argmem: read)"]),
-        ),
+        declaration(index.clone(), "mal_runtime_buffer_count", [Type::Pointer])
+            .with_attributes(read_only),
     );
     add_declaration(
         module,
-        "ptr",
+        Type::Pointer,
         "mal_runtime_buffer_from",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
+        [
+            Type::Pointer,
+            Type::Pointer,
             index.clone(),
             index.clone(),
             index.clone(),
@@ -144,12 +126,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     );
     add_declaration(
         module,
-        "void",
+        Type::Void,
         "mal_runtime_buffer_into",
-        vec![
-            "ptr".into(),
-            "ptr".into(),
-            "ptr".into(),
+        [
+            Type::Pointer,
+            Type::Pointer,
+            Type::Pointer,
             index.clone(),
             index.clone(),
             index.clone(),
@@ -157,9 +139,9 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     );
     add_declaration(
         module,
-        "i8",
+        Type::integer(8_u16),
         "mal_runtime_symbol_at",
-        vec!["ptr".into(), index.clone()],
+        [Type::Pointer, index.clone()],
     );
     for name in [
         "mal_runtime_symbol_concatenate",
@@ -168,24 +150,24 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     ] {
         add_declaration(
             module,
-            "void",
+            Type::Void,
             name,
-            vec![
-                "ptr".into(),
-                "ptr".into(),
-                "ptr".into(),
-                "ptr".into(),
+            [
+                Type::Pointer,
+                Type::Pointer,
+                Type::Pointer,
+                Type::Pointer,
                 index.clone(),
-                "ptr".into(),
-                "ptr".into(),
+                Type::Pointer,
+                Type::Pointer,
                 index.clone(),
             ],
         );
     }
     add_declaration(
         module,
-        "i8",
+        Type::integer(8_u16),
         "mal_runtime_symbol_equal",
-        vec!["ptr".into(), index, "ptr".into(), types.index_integer()],
+        [Type::Pointer, index.clone(), Type::Pointer, index],
     );
 }

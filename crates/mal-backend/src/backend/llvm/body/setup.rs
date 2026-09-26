@@ -196,17 +196,35 @@ impl<'a> FunctionEmitter<'a> {
         }
         let parameters = if self.function.parameter.ty == Type::Unit {
             vec![
-                "ptr %mal_context".to_string(),
-                "ptr %mal_control_top".to_string(),
-                "ptr %mal_environment".to_string(),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_context",
+                ),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_control_top",
+                ),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_environment",
+                ),
             ]
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
             vec![
-                "ptr %mal_context".to_string(),
-                "ptr %mal_control_top".to_string(),
-                "ptr %mal_environment".to_string(),
-                format!("{} %mal_parameter", parameter.llvm),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_context",
+                ),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_control_top",
+                ),
+                super::super::syntax::Parameter::named(
+                    super::super::syntax::Type::Pointer,
+                    "%mal_environment",
+                ),
+                super::super::syntax::Parameter::named(parameter.llvm, "%mal_parameter"),
             ]
         };
         let result = self.types.value(&self.result_type)?;
@@ -217,7 +235,7 @@ impl<'a> FunctionEmitter<'a> {
         };
         // The native version must stay small on its hot path, so the frames version is never inlined into it.
         let attributes = if self.mode == EmissionMode::Frames {
-            vec!["noinline"]
+            vec![super::super::syntax::FunctionAttribute::NoInline]
         } else {
             Vec::new()
         };
@@ -227,7 +245,7 @@ impl<'a> FunctionEmitter<'a> {
                 format!("{}{suffix}", function_name(self.function.id)),
                 parameters,
             )
-            .with_linkage("internal")
+            .with_linkage(super::super::syntax::Linkage::Internal)
             .with_attributes(attributes),
         );
         self.block("entry");

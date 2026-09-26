@@ -14,14 +14,17 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&environment_type)?;
         self.begin_function(
             crate::backend::llvm::syntax::FunctionSignature::new(
-                "void",
+                crate::backend::llvm::syntax::Type::Void,
                 format!(
                     "mal_destroy_environment_{}",
                     function_number(self.function.id)
                 ),
-                ["ptr %mal_environment"],
+                [crate::backend::llvm::syntax::Parameter::named(
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_environment",
+                )],
             )
-            .with_linkage("internal"),
+            .with_linkage(crate::backend::llvm::syntax::Linkage::Internal),
         );
         self.block("entry");
         let environment = self.register();

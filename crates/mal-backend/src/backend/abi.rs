@@ -84,11 +84,14 @@ impl Function {
         &self,
     ) -> crate::backend::llvm::syntax::FunctionSignature {
         crate::backend::llvm::syntax::FunctionSignature::new(
-            "void",
+            crate::backend::llvm::syntax::Type::Void,
             self.name.clone(),
-            self.parameters
-                .iter()
-                .map(|parameter| format!("ptr %mal_{}", parameter.name)),
+            self.parameters.iter().map(|parameter| {
+                crate::backend::llvm::syntax::Parameter::named(
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    format!("%mal_{}", parameter.name),
+                )
+            }),
         )
     }
 
@@ -96,9 +99,13 @@ impl Function {
         &self,
     ) -> crate::backend::llvm::syntax::FunctionDeclaration {
         crate::backend::llvm::syntax::FunctionDeclaration::new(
-            "void",
+            crate::backend::llvm::syntax::Type::Void,
             self.name.clone(),
-            self.parameters.iter().map(|_| "ptr"),
+            self.parameters.iter().map(|_| {
+                crate::backend::llvm::syntax::Parameter::unnamed(
+                    crate::backend::llvm::syntax::Type::Pointer,
+                )
+            }),
         )
     }
 }

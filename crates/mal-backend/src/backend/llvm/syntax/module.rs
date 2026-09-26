@@ -1,34 +1,34 @@
-use super::FunctionDefinition;
-use super::function::{is_single_line, is_valid_name};
+use super::function::is_valid_name;
+use super::{FunctionAttribute, FunctionDefinition, Parameter, Type};
 use std::collections::HashSet;
 
 #[derive(Clone)]
 pub(in crate::backend) struct FunctionDeclaration {
-    result: String,
+    result: Type,
     name: String,
-    parameters: Vec<String>,
-    attributes: Vec<String>,
+    parameters: Vec<Parameter>,
+    attributes: Vec<FunctionAttribute>,
 }
 
 impl FunctionDeclaration {
     pub(in crate::backend) fn new(
-        result: impl Into<String>,
+        result: Type,
         name: impl Into<String>,
-        parameters: impl IntoIterator<Item = impl Into<String>>,
+        parameters: impl IntoIterator<Item = Parameter>,
     ) -> Self {
         Self {
-            result: result.into(),
+            result,
             name: name.into(),
-            parameters: parameters.into_iter().map(Into::into).collect(),
+            parameters: parameters.into_iter().collect(),
             attributes: Vec::new(),
         }
     }
 
-    pub(in crate::backend) fn with_attributes(
+    pub(in crate::backend::llvm) fn with_attributes(
         mut self,
-        attributes: impl IntoIterator<Item = impl Into<String>>,
+        attributes: impl IntoIterator<Item = FunctionAttribute>,
     ) -> Self {
-        self.attributes = attributes.into_iter().map(Into::into).collect();
+        self.attributes = attributes.into_iter().collect();
         self
     }
 
@@ -36,13 +36,24 @@ impl FunctionDeclaration {
         let attributes = if self.attributes.is_empty() {
             String::new()
         } else {
-            format!(" {}", self.attributes.join(" "))
+            format!(
+                " {}",
+                self.attributes
+                    .iter()
+                    .map(|attribute| attribute.render())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
         };
         format!(
             "declare {} @{}({}){attributes}",
             self.result,
             self.name,
-            self.parameters.join(", ")
+            self.parameters
+                .iter()
+                .map(Parameter::render)
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 
@@ -51,16 +62,7 @@ impl FunctionDeclaration {
     }
 
     fn is_valid(&self) -> bool {
-        is_single_line(&self.result)
-            && is_valid_name(&self.name)
-            && self
-                .parameters
-                .iter()
-                .all(|parameter| is_single_line(parameter))
-            && self
-                .attributes
-                .iter()
-                .all(|attribute| is_single_line(attribute))
+        is_valid_name(&self.name) && self.parameters.iter().all(Parameter::is_valid)
     }
 }
 
@@ -199,13 +201,13 @@ mod tests {
     fn renders_only_the_declarations_added_to_a_module() {
         let mut module = Module::new("test-target", "e-p:64:64");
         module.declare(FunctionDeclaration::new(
-            "void",
+            Type::Void,
             "always",
-            std::iter::empty::<&str>(),
+            std::iter::empty::<Parameter>(),
         ));
         module.define(
             FunctionDefinition::new(
-                FunctionSignature::new("void", "entry", std::iter::empty::<&str>()),
+                FunctionSignature::new(Type::Void, "entry", std::iter::empty::<Parameter>()),
                 vec![
                     BasicBlock::new(
                         "entry",
@@ -245,14 +247,14 @@ mod tests {
     fn rejects_duplicate_module_symbols() {
         let mut module = Module::new("test-target", "e-p:64:64");
         module.declare(FunctionDeclaration::new(
-            "void",
+            Type::Void,
             "duplicate",
-            std::iter::empty::<&str>(),
+            std::iter::empty::<Parameter>(),
         ));
         module.declare(FunctionDeclaration::new(
-            "void",
+            Type::Void,
             "duplicate",
-            std::iter::empty::<&str>(),
+            std::iter::empty::<Parameter>(),
         ));
 
         assert!(module.render().is_none());
@@ -262,9 +264,9 @@ mod tests {
     fn rejects_invalid_declaration_fragments() {
         let mut module = Module::new("test-target", "e-p:64:64");
         module.declare(FunctionDeclaration::new(
-            "void",
+            Type::Void,
             "0invalid",
-            std::iter::empty::<&str>(),
+            std::iter::empty::<Parameter>(),
         ));
 
         assert!(module.render().is_none());
