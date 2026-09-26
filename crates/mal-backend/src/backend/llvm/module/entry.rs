@@ -91,5 +91,7 @@ fn direct_call(
     callee: impl Into<String>,
     arguments: impl IntoIterator<Item = (Type, String)>,
 ) -> Option<Instruction> {
-    llvm_instruction!(call result, false, result_type, direct callee, arguments)
+    llvm_instruction!(
+        call result, false, result_type, direct callee; [(typed_extend arguments)]
+    )
 }

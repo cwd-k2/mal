@@ -56,9 +56,9 @@ macro_rules! llvm_instruction {
             $ty, $value, $pointer, $alignment, $metadata,
         )
     };
-    (call $result:expr, $tail:expr, $result_type:expr, direct $callee:expr, $arguments:expr) => {{
+    (call $result:expr, $tail:expr, $result_type:expr, direct $callee:expr; [$($argument:tt),* $(,)?]) => {{
         $crate::backend::llvm::syntax::Callee::direct($callee).and_then(|callee| {
-            $crate::backend::llvm::syntax::llvm_values!((typed_extend $arguments)).and_then(
+            $crate::backend::llvm::syntax::llvm_values!($($argument),*).and_then(
                 |arguments| {
                     $crate::backend::llvm::syntax::Instruction::call(
                         $result,
@@ -71,9 +71,14 @@ macro_rules! llvm_instruction {
             )
         })
     }};
-    (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr, $arguments:expr) => {{
+    (call $result:expr, $tail:expr, $result_type:expr, direct $callee:expr, $arguments:expr) => {
+        $crate::backend::llvm::syntax::llvm_instruction!(
+            call $result, $tail, $result_type, direct $callee; [(typed_extend $arguments)]
+        )
+    };
+    (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr; [$($argument:tt),* $(,)?]) => {{
         $crate::backend::llvm::syntax::Callee::indirect($callee).and_then(|callee| {
-            $crate::backend::llvm::syntax::llvm_values!((typed_extend $arguments)).and_then(
+            $crate::backend::llvm::syntax::llvm_values!($($argument),*).and_then(
                 |arguments| {
                     $crate::backend::llvm::syntax::Instruction::call(
                         $result,
@@ -86,6 +91,11 @@ macro_rules! llvm_instruction {
             )
         })
     }};
+    (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr, $arguments:expr) => {
+        $crate::backend::llvm::syntax::llvm_instruction!(
+            call $result, $tail, $result_type, indirect $callee; [(typed_extend $arguments)]
+        )
+    };
     (typed $constructor:ident($($leading:expr),*); $ty:expr => $value:expr $(, $trailing:expr)* $(,)? ) => {{
         $crate::backend::llvm::syntax::llvm_value!(typed $ty => $value).and_then(|value| {
             $crate::backend::llvm::syntax::Instruction::$constructor(
@@ -103,8 +113,8 @@ macro_rules! llvm_instruction {
             $result, $kind, $predicate, $ty, $left, $right,
         )
     };
-    (get_element_ptr $result:expr, $inbounds:expr, $element_type:expr, $pointer:expr, $indices:expr $(,)?) => {{
-        $crate::backend::llvm::syntax::llvm_values!((typed_extend $indices)).and_then(|indices| {
+    (get_element_ptr $result:expr, $inbounds:expr, $element_type:expr, $pointer:expr; [$($index:tt),* $(,)?]) => {{
+        $crate::backend::llvm::syntax::llvm_values!($($index),*).and_then(|indices| {
             $crate::backend::llvm::syntax::Instruction::get_element_ptr(
                 $result,
                 $inbounds,
@@ -114,6 +124,11 @@ macro_rules! llvm_instruction {
             )
         })
     }};
+    (get_element_ptr $result:expr, $inbounds:expr, $element_type:expr, $pointer:expr, $indices:expr $(,)?) => {
+        $crate::backend::llvm::syntax::llvm_instruction!(
+            get_element_ptr $result, $inbounds, $element_type, $pointer; [(typed_extend $indices)]
+        )
+    };
     (insert_value $result:expr; $aggregate_type:expr => $aggregate:expr, $element_type:expr => $element:expr, $indices:expr $(,)?) => {{
         let aggregate =
             $crate::backend::llvm::syntax::llvm_value!(typed $aggregate_type => $aggregate);
@@ -136,7 +151,7 @@ pub(in crate::backend::llvm) use {llvm_value, llvm_values, llvm_values_item};
 mod tests {
     use std::cell::Cell;
 
-    use crate::backend::llvm::syntax::{Callee, Instruction, Type, TypedValue};
+    use crate::backend::llvm::syntax::{Type, TypedValue};
 
     #[test]
     fn composes_static_embedded_and_runtime_typed_values_in_order() {
@@ -145,28 +160,29 @@ mod tests {
             evaluations.set(evaluations.get() + 1);
             TypedValue::new(Type::Pointer, "%dynamic").unwrap()
         };
+        let pair_evaluations = Cell::new(0);
+        let pairs = || {
+            pair_evaluations.set(pair_evaluations.get() + 1);
+            [(Type::integer(16_u16), "2")]
+        };
         let trailing = [TypedValue::new(Type::integer(8_u16), "7").unwrap()];
-        let arguments = super::llvm_values!(
-            (typed Type::integer(32_u16) => "1"),
-            (rust dynamic()),
-            (extend trailing),
-        )
-        .unwrap();
-        let instruction = Instruction::call(
-            Some("%result"),
-            false,
-            Type::integer(32_u16),
-            Callee::direct("work").unwrap(),
-            arguments,
+        let instruction = super::llvm_instruction!(
+            call Some("%result"), false, Type::integer(32_u16), direct "work"; [
+                (typed Type::integer(32_u16) => "1"),
+                (rust dynamic()),
+                (typed_extend pairs()),
+                (extend trailing),
+            ]
         )
         .unwrap();
         let mut rendered = String::new();
         instruction.render_into(&mut rendered);
 
         assert_eq!(evaluations.get(), 1);
+        assert_eq!(pair_evaluations.get(), 1);
         assert_eq!(
             rendered,
-            "%result = call i32 @work(i32 1, ptr %dynamic, i8 7)"
+            "%result = call i32 @work(i32 1, ptr %dynamic, i16 2, i8 7)"
         );
     }
 }

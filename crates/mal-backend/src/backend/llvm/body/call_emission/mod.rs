@@ -280,7 +280,7 @@ impl FunctionEmitter<'_> {
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
         self.structured_instruction(super::super::syntax::llvm_instruction!(
-            call result, tail, result_type, direct callee, arguments
+            call result, tail, result_type, direct callee; [(typed_extend arguments)]
         ));
     }
 
@@ -293,7 +293,7 @@ impl FunctionEmitter<'_> {
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
         self.structured_instruction(super::super::syntax::llvm_instruction!(
-            call result, tail, result_type, indirect callee, arguments
+            call result, tail, result_type, indirect callee; [(typed_extend arguments)]
         ));
     }
 
@@ -357,8 +357,8 @@ impl FunctionEmitter<'_> {
         pointer: impl Into<String>,
         indices: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(get_element_ptr
-            result, inbounds, element_type, pointer, indices
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            get_element_ptr result, inbounds, element_type, pointer; [(typed_extend indices)]
         ));
     }
 
